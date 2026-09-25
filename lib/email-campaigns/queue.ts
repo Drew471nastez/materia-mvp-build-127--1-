@@ -320,6 +320,10 @@ export async function resolveAudience(db: Db, creatorId: string, type: AudienceT
   for (const r of rows) {
     const email = normalizeAddress(r.email)
     const status = (r.status || "subscribed").toLowerCase()
+    /* A buyer who never asked for news (lib/contacts/checkout-contact) is a
+       contact, not a subscriber: never sent a campaign, and not counted as
+       somebody the send left out. */
+    if (status === "customer") continue
     if (!email || SUPPRESSED.has(status) || status !== "subscribed" || r.is_active === false || seen.has(email)) {
       excluded++
       continue

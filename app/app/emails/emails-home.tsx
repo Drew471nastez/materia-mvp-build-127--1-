@@ -36,7 +36,7 @@ import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/respo
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { NOT_RECORDED, sourceView } from "@/lib/contacts/contact-source"
 import { TRIGGERS, isTriggerType, normalizeSteps, stepSummary } from "@/lib/automations/flow-model"
-import { ContactDetail, contactReady, prefetchContact } from "./contact-detail"
+import { ContactDetail, contactReady, contactStatusLabel, prefetchContact } from "./contact-detail"
 import type { RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
 import { ShimmerBlock, ShimmerRows, ShimmerSwap } from "@/components/ui/shimmer"
@@ -342,11 +342,15 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
     const fromSites = on.filter((s) => surface(s) === "website").length
     const fromStorelib = on.filter((s) => ["profile", "product", "onepage"].includes(surface(s))).length
     const fromCheckout = on.filter((s) => surface(s) === "checkout").length
+    /* Buyers who never asked for news: the ones kept as contacts, and the
+       ones who bought before contacts were kept (checkoutBuyersCount). */
+    const customers = p.subscribers.filter((s) => s.status === "customer").length + p.checkoutBuyersCount
     return [
-      { label: "Subscribers", help: "Everyone who gets your emails: people who signed up, and buyers.", value: n(on.length + p.checkoutBuyersCount) },
+      { label: "Subscribers", help: "People on your list. Your emails go to them.", value: n(on.length) },
       { label: "From your website", help: "People who signed up on a website you built with Storelib.", value: n(fromSites) },
       { label: "From Storelib", help: "People who signed up on your Storelib profile, a product page or your OnePage.", value: n(fromStorelib) },
       { label: "At checkout", help: "Buyers who asked to hear from you when they paid.", value: n(fromCheckout) },
+      { label: "Customers", help: "Buyers who did not ask for news. They get emails about what they bought, never one you send to your list.", value: n(customers) },
       { label: "Unsubscribed", help: "People who asked to stop getting your emails. They are never sent another.", value: n(p.subscribers.filter((s) => s.status === "unsubscribed").length) },
     ]
   }
@@ -453,10 +457,16 @@ function SendBadge({ status }: { status?: string }) {
 }
 
 function SubscriberStatus({ s }: { s: SubscriberRow }) {
-  if (s.status === "subscribed" && s.unsubscribed_at) return <StatusBadge tone="attention">Resubscribed</StatusBadge>
-  if (s.status === "subscribed") return <StatusBadge tone="success">Subscribed</StatusBadge>
-  return <StatusBadge tone="neutral">Unsubscribed</StatusBadge>
+  const label = contactStatusLabel(s)
+  return <StatusBadge tone={label === "Resubscribed" ? "attention" : label === "Subscribed" ? "success" : "neutral"}>{label}</StatusBadge>
 }
+
+/** The Status filter's groups: a customer is its own, bounced and spam go with the ones who left. */
+const STATUS_GROUPS: Array<{ value: string; label: string; match: (status: string) => boolean }> = [
+  { value: "subscribed", label: "Subscribed", match: (s) => s === "subscribed" },
+  { value: "customer", label: "Customers", match: (s) => s === "customer" },
+  { value: "unsubscribed", label: "Unsubscribed", match: (s) => s !== "subscribed" && s !== "customer" },
+]
 
 /** A filter as a chip in the table's toolbar, the way Orders draws its own. */
 function FilterChip({
@@ -518,6 +528,7 @@ function SubscribersTable(props: EmailsHomeProps) {
   const [searching, setSearching] = React.useState(props.search !== "")
   const [page, setPage] = React.useState(1)
   const [source, setSource] = React.useState("")
+  const [status, setStatus] = React.useState("")
   const [open, setOpen] = React.useState<SubscriberRow | null>(null)
   const press = usePress()
   /*
@@ -560,14 +571,24 @@ function SubscribersTable(props: EmailsHomeProps) {
       props.subscribers.filter(
         (s) =>
           (!q || s.email.toLowerCase().includes(q) || (s.name ?? "").toLowerCase().includes(q)) &&
-          (!source || views.get(s.id)?.key === source),
+          (!source || views.get(s.id)?.key === source) &&
+          (!status || !!STATUS_GROUPS.find((g) => g.value === status)?.match(s.status)),
       ),
-    [props.subscribers, q, source, views],
+    [props.subscribers, q, source, status, views],
   )
-  React.useEffect(() => setPage(1), [q, source])
+  React.useEffect(() => setPage(1), [q, source, status])
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
   const shown = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const sourceName = source ? sources.find((o) => o.value === source)?.label ?? null : null
+  const statuses = React.useMemo(
+    () =>
+      STATUS_GROUPS.map((g) => {
+        const n = props.subscribers.filter((s) => g.match(s.status)).length
+        return { value: g.value, label: g.label, hint: `${n.toLocaleString("en-US")} ${n === 1 ? "contact" : "contacts"}` }
+      }),
+    [props.subscribers],
+  )
+  const statusName = status ? STATUS_GROUPS.find((g) => g.value === status)?.label ?? null : null
 
   return (
     <>
@@ -606,7 +627,10 @@ function SubscribersTable(props: EmailsHomeProps) {
           <>
             <div className="orders-strip flex min-w-0 flex-1 items-center gap-2 overflow-x-auto px-1">
               {props.subscribers.length > 0 ? (
-                <FilterChip label="Source" value={sourceName} options={[{ value: "", label: "Any source" }, ...sources]} selected={source} onSelect={setSource} />
+                <>
+                  <FilterChip label="Status" value={statusName} options={[{ value: "", label: "Any status" }, ...statuses]} selected={status} onSelect={setStatus} />
+                  <FilterChip label="Source" value={sourceName} options={[{ value: "", label: "Any source" }, ...sources]} selected={source} onSelect={setSource} />
+                </>
               ) : null}
             </div>
             <button type="button" aria-label="Search subscribers" className={iconButton} onClick={() => setSearching(true)}>
@@ -621,7 +645,7 @@ function SubscribersTable(props: EmailsHomeProps) {
 
       <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
         {props.loading ? null : rows.length === 0 ? (
-          q || source ? (
+          q || source || status ? (
             <Empty title="No subscribers match" body="Try another email or name, or another source." />
           ) : (
             <Empty title="No subscribers yet" body="People who sign up on your website, your Storelib profile or your OnePage show up here, and so do buyers who ask to hear from you." />
@@ -635,7 +659,7 @@ function SubscribersTable(props: EmailsHomeProps) {
                   <th className={th}>Name</th>
                   <th className={th}>Source</th>
                   <th className={th}>Status</th>
-                  <th className={th}>Subscribed</th>
+                  <th className={th}>Added</th>
                   <th className={cn(th, "w-12")} aria-label="Actions" />
                 </tr>
               </thead>

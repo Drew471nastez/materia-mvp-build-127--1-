@@ -25,6 +25,7 @@ import { join } from "node:path"
 import {
   APP_URL,
   automationEmail,
+  brandOfIdentity,
   escapeHtml,
   personalize,
   personalizeText,
@@ -79,6 +80,23 @@ async function main() {
   check("and in the headers every inbox provider reads",
     mail.headers?.["List-Unsubscribe"] === `<${APP_URL}/api/email/unsubscribe?token=tok-1>` && mail.headers?.["List-Unsubscribe-Post"] === "List-Unsubscribe=One-Click")
   check("the footer says why they are getting it", /You are getting this because you joined Astrid's list/.test(mail.html))
+  const bought = automationEmail({ body: "<p>Thanks</p>", fromName: "Astrid", unsubscribeToken: "tok-2", because: "customer" })
+  check("a buyer who never joined the list is told they bought, never that they joined",
+    /You are getting this because you bought from Astrid\./.test(bought.html) && !/joined/.test(bought.html) && /because you bought from Astrid\./.test(bought.text ?? "") && !/joined/.test(bought.text ?? ""))
+  check("and still has the way out, in the footer and the headers", bought.html.includes(unsubscribeUrlFor("tok-2")) && bought.headers?.["List-Unsubscribe-Post"] === "List-Unsubscribe=One-Click")
+  const noToken = automationEmail({ body: "<p>Thanks</p>", fromName: "Astrid", unsubscribeToken: null, because: "customer" })
+  check("a buyer with no token is told the same, with no link", /because you bought from Astrid\./.test(noToken.html) && !/unsubscribe\?token/.test(noToken.html))
+  const branded = brandOfIdentity({ fromName: "Astrid", storeUrl: "https://storelib.com/astrid", brand: { name: "Astrid Studio", logoUrl: "http://insecure.example/logo.png", accentColor: "#0F766E" } })
+  check("the engine's brand is the layout's: its name, its colour, an https store link, no http logo",
+    branded.name === "Astrid Studio" && branded.accent === "#0f766e" && branded.storeUrl === "https://storelib.com/astrid" && branded.logoUrl === null && branded.address === null, branded)
+  check("with no brand the sender's name stands in", brandOfIdentity({ fromName: "Astrid", storeUrl: "https://storelib.com/astrid" }).name === "Astrid")
+  {
+    const run = readFileSync(join(process.cwd(), "lib/automations/run.ts"), "utf8")
+    const compose = run.slice(run.indexOf("compose({"), run.indexOf("async send("))
+    check("the mailer draws the engine's filled step as it is, in the engine's brand, with why they get it",
+      !/personalize/.test(compose) && /body: trackLinks\(step\.config\.body, token\)/.test(compose) && /brand: brandOfIdentity\(identity\)/.test(compose) && /because: standing\.status \?\? null/.test(compose))
+    check("and adds the postal address when it sends", /const address = await addressFor\(pending\.creatorId\)/.test(run) && /brand: \{ \.\.\.pending\.parts\.brand, address \}/.test(run))
+  }
   const none = automationEmail({ body: "<p>Hi</p>", fromName: "Astrid", unsubscribeToken: null })
   check("with no token there is no link and no header, rather than a broken one",
     !/unsubscribe\?token/.test(none.html) && none.headers === undefined && !/Unsubscribe:/.test(none.text ?? ""))

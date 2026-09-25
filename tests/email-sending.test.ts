@@ -508,6 +508,16 @@ console.log("\nWhat stops a send before it starts")
   const foreign = await resolveAudience(db, CREATOR, "segment", "seg-other")
   check("another creator's segment reaches nobody", foreign.recipients.length === 0)
 }
+{
+  resetSchemaCache()
+  const db = new FakeDb({ modern: true })
+  seed(db, { subscribers: [{ email: "fan@example.com" }, { email: "buyer@example.com", status: "customer" }, { email: "left@example.com", status: "unsubscribed" }] })
+  const aud = await resolveAudience(db, CREATOR, "all")
+  check("a buyer who never asked for news (a customer) gets no campaign, and is not counted as left out", aud.recipients.map((r) => r.email).join() === "fan@example.com" && aud.excluded === 1, aud)
+  db.tables.email_segments.push({ id: "seg-2", creator_id: CREATOR, filters: { subscriber_ids: ["s-0", "s-1"] } })
+  const seg = await resolveAudience(db, CREATOR, "segment", "seg-2")
+  check("not even when a segment names them", seg.recipients.map((r) => r.email).join() === "fan@example.com", seg)
+}
 
 console.log("\nThe routes are wired to the pipeline")
 {

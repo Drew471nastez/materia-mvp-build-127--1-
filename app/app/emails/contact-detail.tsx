@@ -113,6 +113,15 @@ export function contactReady(email: string): Promise<void> {
   ])
 }
 
+/** Where a contact stands, in a word: the words the list's badge and Status filter use too. */
+export function contactStatusLabel(s: Pick<SubscriberRow, "status" | "unsubscribed_at">): string {
+  if (s.status === "subscribed") return s.unsubscribed_at ? "Resubscribed" : "Subscribed"
+  if (s.status === "customer") return "Customer"
+  if (s.status === "bounced") return "Bounced"
+  if (s.status === "complained") return "Marked as spam"
+  return "Unsubscribed"
+}
+
 function day(iso?: string | null): string {
   if (!iso) return ""
   const d = new Date(iso)
@@ -207,8 +216,7 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
     }
   }, [contact.email])
 
-  const status =
-    contact.status === "subscribed" ? (contact.unsubscribed_at ? "Resubscribed" : "Subscribed") : contact.status === "unsubscribed" ? "Unsubscribed" : contact.status
+  const status = contactStatusLabel(contact)
 
   return (
     <div data-contact-body="" className="px-5 pb-6 pt-3">
@@ -220,7 +228,7 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
         <dd>
           <StatusBadge tone={contact.status === "subscribed" ? "success" : "neutral"}>{status}</StatusBadge>
         </dd>
-        <dt className="text-[#6b7280]">Joined</dt>
+        <dt className="text-[#6b7280]">{contact.status === "customer" ? "Added" : "Joined"}</dt>
         <dd className="text-[#1a1a2e]">{day(contact.subscribed_at) || "Not recorded"}</dd>
         <dt className="text-[#6b7280]">Source</dt>
         <dd className="min-w-0">

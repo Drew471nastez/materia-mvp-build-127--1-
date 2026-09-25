@@ -17,7 +17,7 @@
  * they cannot drift apart again.
  */
 
-import { DEFAULT_BRAND, brandName, themeOf, type Brand } from "@/lib/email-campaigns/brand"
+import { DEFAULT_BRAND, brandName, hexColor, httpsUrl, themeOf, type Brand } from "@/lib/email-campaigns/brand"
 import { richToEmail } from "@/lib/email-campaigns/rich"
 import { buildEmail, emailText } from "@/lib/email-campaigns/template"
 
@@ -117,6 +117,25 @@ export function oneClickUrlFor(token: string): string {
 }
 
 /**
+ * The automation engine's reading of the creator's look (its Identity, read
+ * in lib/automations/supabase-store.ts), in the layout's terms. The postal
+ * address is not part of it; the mailer adds it when it sends.
+ */
+export function brandOfIdentity(identity: {
+  fromName: string
+  storeUrl: string
+  brand?: { name: string; logoUrl: string | null; accentColor: string }
+}): Brand {
+  return {
+    name: brandName(identity.brand?.name, identity.fromName),
+    logoUrl: httpsUrl(identity.brand?.logoUrl ?? null),
+    storeUrl: httpsUrl(identity.storeUrl),
+    accent: hexColor(identity.brand?.accentColor) ?? DEFAULT_BRAND.accent,
+    address: null,
+  }
+}
+
+/**
  * The finished email, in the one layout every email a creator sends is drawn
  * in (lib/email-campaigns/template.ts): the creator's body written again as
  * email HTML (lib/email-campaigns/rich.ts), their brand when the caller has
@@ -127,6 +146,10 @@ export function oneClickUrlFor(token: string): string {
  * sending paths (lib/email.tsx before the engine's SQL, the cron's legacy
  * queue) have to hand; the engine (lib/automations/run.ts) passes the whole
  * brand.
+ *
+ * WHY THEY GET IT. Somebody who joined the list is told so; a buyer who
+ * never asked for news (a "customer" contact) is told they bought from the
+ * creator, never that they joined a list they did not join.
  */
 export function automationEmail(input: {
   body: string
@@ -137,11 +160,13 @@ export function automationEmail(input: {
   brand?: Brand
   avatarUrl?: string | null
   openPixelUrl?: string | null
+  /** Why they are on the creator's contacts: joined the list, or bought. */
+  because?: "subscribed" | "customer" | null
 }): { html: string; text: string; headers?: Record<string, string> } {
   const brand: Brand = input.brand ?? { ...DEFAULT_BRAND, name: brandName(input.fromName) }
   const url = input.unsubscribeToken ? unsubscribeUrlFor(input.unsubscribeToken) : null
   const bodyHtml = richToEmail(input.body, themeOf(brand))
-  const reason = url ? null : `Sent by ${brand.name}.`
+  const reason = input.because === "customer" ? `You are getting this because you bought from ${brand.name}.` : url ? null : `Sent by ${brand.name}.`
   const html = buildEmail({
     subject: input.subject ?? brand.name,
     previewText: input.previewText ?? null,

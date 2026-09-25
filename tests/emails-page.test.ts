@@ -126,5 +126,19 @@ console.log("\nA contact, opened from its row")
   check("a failed read is not kept", /if \(!error\) runsKept\.set\(key/.test(detail))
 }
 
+console.log("\nCustomers: buyers who did not ask for news")
+{
+  const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+  const homeCode = code("app/app/emails/emails-home.tsx")
+  const contact = code("app/app/emails/contact-detail.tsx")
+  check("a customer is shown as a Customer, in the list and on the contact, never as Unsubscribed",
+    /if \(s\.status === "customer"\) return "Customer"/.test(contact) && /const label = contactStatusLabel\(s\)/.test(homeCode) && /const status = contactStatusLabel\(contact\)/.test(contact))
+  check("Subscribers counts the list alone, and Customers the buyers who did not ask",
+    /\{ label: "Subscribers", [^}]*value: n\(on\.length\) \}/.test(homeCode) && /s\.status === "customer"\)\.length \+ p\.checkoutBuyersCount/.test(homeCode) && /\{ label: "Customers", /.test(homeCode))
+  check("and a Status filter finds them", /<FilterChip label="Status" value=\{statusName\}/.test(homeCode) && /\{ value: "customer", label: "Customers", match: \(s\) => s === "customer" \}/.test(homeCode))
+  const queue = code("lib/email-campaigns/queue.ts")
+  check("a campaign never goes to one, and does not count them as left out", /if \(status === "customer"\) continue/.test(queue))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

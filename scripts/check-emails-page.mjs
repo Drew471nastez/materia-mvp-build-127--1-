@@ -30,7 +30,8 @@
  *   - the subscribers' table: fifty 48px rows to a page, a long address cut
  *     and not wrapped, the first column pinned on a phone, the page never
  *     scrolling sideways, a row's actions a sheet on a phone and a dropdown
- *     on a computer;
+ *     on a computer; a buyer who did not ask for news is a Customer, and the
+ *     Status filter finds them;
  *   - a contact opens on the shared sheet on a phone with everything in it
  *     laid out on its first frame, rising once and going down once, and in
  *     the side panel on a computer, also already filled (its runs are read
@@ -76,7 +77,7 @@ const subscribers = Array.from({ length: 73 }, (_, i) => ({
   email: i === 3 ? "a-very-long-address-that-goes-on@studio-with-a-long-domain-name.com" : "person" + i + "@example.com",
   name: i % 3 === 0 ? "" : "Person " + i,
   source: i % 2 ? "onepage" : "store_builder",
-  status: i % 9 === 0 ? "unsubscribed" : "subscribed",
+  status: i % 9 === 0 ? "unsubscribed" : i % 10 === 7 ? "customer" : "subscribed",
   subscribed_at: new Date(Date.parse("2026-09-01") - i * 86400000).toISOString(),
   unsubscribed_at: i % 13 === 0 ? "2026-08-01T00:00:00Z" : null,
 }))
@@ -488,6 +489,16 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
     expect((await p.$$eval(`${S} button`, (b) => b.map((x) => x.textContent.trim()))).includes("Next"), "and a Next page")
     const long = await p.$eval(`${S} tbody tr:nth-child(4) td span`, (el) => ({ cut: el.scrollWidth > el.clientWidth, h: Math.round(el.closest("td").getBoundingClientRect().height), ell: getComputedStyle(el).textOverflow }))
     expect(long.cut && long.h === 48 && long.ell === "ellipsis", "a long address is cut, not wrapped", long)
+    const customerRow = await p.$eval(`${S} tbody tr:nth-child(8)`, (r) => r.textContent)
+    expect(/Customer/.test(customerRow) && !/Unsubscribed/.test(customerRow), "a buyer who did not ask for news shows as a Customer", customerRow.slice(0, 60))
+    await p.evaluate(() => [...document.querySelectorAll("section[aria-label=Subscribers] button")].find((b) => b.textContent.trim() === "Status").click())
+    await sleep(300)
+    await p.evaluate(() => [...document.querySelectorAll("[role=menu] *")].find((el) => el.childElementCount === 0 && el.textContent.trim() === "Customers").click())
+    await sleep(200)
+    const onlyCustomers = await p.$$eval(`${S} tbody tr`, (r) => r.map((x) => /Customer/.test(x.textContent)))
+    expect(onlyCustomers.length === 6 && onlyCustomers.every(Boolean), "the Status filter shows the customers alone", onlyCustomers.length)
+    await p.click(`${S} button[aria-label="Clear Status"]`)
+    await sleep(200)
     const sideways = () => p.evaluate(() => { const l = document.querySelector(".orders-list"); return l.scrollWidth - l.clientWidth })
     expect((await sideways()) === 0, "the page never scrolls sideways", await sideways())
     if (phone) {

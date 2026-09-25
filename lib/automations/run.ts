@@ -19,7 +19,7 @@ import { randomUUID } from "node:crypto"
 import { after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { buildFromHeader, sendEmail } from "@/lib/mail"
-import { APP_URL, automationEmail, personalize, personalizeText } from "@/lib/email-automation"
+import { APP_URL, automationEmail, brandOfIdentity } from "@/lib/email-automation"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { mailgunDomain } from "@/lib/mailgun"
 import { maskEmail } from "@/lib/privacy/mask-email"
@@ -38,37 +38,47 @@ import { trackLinks } from "./tracking"
  * Message-Id made from its send row's token, so the id is unique and the
  * same one if the provider is ever asked twice.
  *
- * The brand is read when the email is sent, so a new logo or colour is in
- * the next email. `compose` is synchronous in the engine's contract, so it
- * draws the email with the name alone and notes what it drew; `send`, which
- * may wait, reads the brand (once per creator per run) and draws the same
- * email again in it. If the two ever stop meeting (the engine sends
- * something compose did not draw), the name-only email is what goes, which
- * is still the whole layout.
+ * The step arrives filled (engine prepareEmail: every field in, the
+ * buttons in the creator's colour) and is drawn as it is. The store's name,
+ * logo and colour are the engine's own reading of them (identity.brand), so
+ * the layout and the buttons prepareEmail coloured agree. The footer says
+ * why the reader gets it: they joined the list, or they bought.
+ *
+ * The postal address for the footer is read when the email is sent, so a
+ * new one is in the next email. `compose` is synchronous in the engine's
+ * contract, so it draws the email without it and notes what it drew; `send`,
+ * which may wait, reads it (once per creator per run) and draws the same
+ * email again with it. If the two ever stop meeting (the engine sends
+ * something compose did not draw), the email without the address is what
+ * goes, which is still the whole layout.
  */
 export function mailerFor(db: ReturnType<typeof createAdminClient>): Mailer {
   type Parts = Parameters<typeof automationEmail>[0]
   const drawn = new Map<string, { creatorId: string; parts: Parts }>()
-  const brands = new Map<string, Promise<Awaited<ReturnType<typeof loadBrand>> | null>>()
-  const brandFor = (creatorId: string) => {
-    let b = brands.get(creatorId)
-    if (!b) {
-      b = loadBrand(db, creatorId).catch(() => null)
-      brands.set(creatorId, b)
+  const addresses = new Map<string, Promise<string | null>>()
+  const addressFor = (creatorId: string) => {
+    let a = addresses.get(creatorId)
+    if (!a) {
+      a = loadBrand(db, creatorId).then(
+        (b) => b.address,
+        () => null,
+      )
+      addresses.set(creatorId, a)
     }
-    return b
+    return a
   }
   return {
     compose({ step, run, identity, standing, token }) {
-      const values = { name: run.name ?? undefined, product: run.context.product_title }
-      const withStore = (s: string) => s.replace(/\{\{\s*store_url\s*\}\}/gi, identity.storeUrl)
-      const subject = personalizeText(withStore(step.config.subject), values).replace(/[\r\n]+/g, " ").slice(0, 300)
+      /* Already filled by the engine (prepareEmail); a subject is one line. */
+      const subject = step.config.subject.replace(/[\r\n]+/g, " ").slice(0, 300)
       const parts: Parts = {
         subject,
-        previewText: step.config.preview_text ? personalizeText(withStore(step.config.preview_text), values) : null,
-        body: trackLinks(personalize(withStore(step.config.body), values), token),
+        previewText: step.config.preview_text ? step.config.preview_text.replace(/[\r\n]+/g, " ") : null,
+        body: trackLinks(step.config.body, token),
         fromName: identity.fromName,
+        brand: brandOfIdentity(identity),
         unsubscribeToken: standing.unsubscribeToken,
+        because: standing.status ?? null,
         /* The same address openPixel (./tracking) writes, as the layout's own pixel. */
         openPixelUrl: `${APP_URL}/api/automations/t/o?k=${encodeURIComponent(token)}`,
       }
@@ -82,11 +92,11 @@ export function mailerFor(db: ReturnType<typeof createAdminClient>): Mailer {
       const pending = drawn.get(mail.html)
       if (pending) {
         drawn.delete(mail.html)
-        const brand = await brandFor(pending.creatorId)
-        if (brand) {
-          const branded = automationEmail({ ...pending.parts, brand, avatarUrl: brand.avatarUrl })
-          html = branded.html
-          text = branded.text
+        const address = await addressFor(pending.creatorId)
+        if (address && pending.parts.brand) {
+          const addressed = automationEmail({ ...pending.parts, brand: { ...pending.parts.brand, address } })
+          html = addressed.html
+          text = addressed.text
         }
       }
       return sendEmail({
