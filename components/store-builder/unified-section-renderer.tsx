@@ -29,6 +29,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { applyManualOrder, pickFeatured } from "@/lib/store-builder/featured-order"
 import { cn } from "@/lib/utils"
+import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { ProductGallery } from "@/components/product/product-gallery"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
@@ -3539,7 +3540,7 @@ export function UnifiedProductPage({
 
   // Determine if this is a dark/colorful theme based on preset
   const isColorfulTheme = ["royal", "ocean", "sunset", "forest", "rose"].includes(themePreset)
-  const isDarkTheme = ["astrid", "midnight"].includes(themePreset) || (settings.colors?.backgroundColor && (
+  const isDarkTheme = isDarkScheme(themePreset) || (settings.colors?.backgroundColor && (
     settings.colors.backgroundColor.startsWith("#0") ||
     settings.colors.backgroundColor.startsWith("#1") ||
     settings.colors.backgroundColor.startsWith("#2")

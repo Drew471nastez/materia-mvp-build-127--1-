@@ -16,16 +16,18 @@
  * everything on the real page; the accent is at the front because it is what
  * a visitor's eye lands on.
  *
- * EIGHT, AND THEY HAVE TO BE EIGHT DIFFERENT ANSWERS. The engine ships more
+ * NINE, AND THEY HAVE TO BE NINE DIFFERENT ANSWERS. The engine ships more
  * and three were the same decision twice: `air` is white with dark accents
  * and so is `blacks`, `bubble` is purple where `pink` is pink, `fusion` is a
  * second near-black beside `astrid`. What is offered is blue, monochrome,
- * warm gold, green, navy, terracotta, pink and dark. The others still exist
+ * warm gold, green, navy, terracotta, pink, dark, and graphite: a lifted
+ * charcoal with a steel accent, the second dark one, possible since "dark"
+ * is decided by a scheme's colours (lib/store-builder/scheme-tone). The others still exist
  * and a page already on one keeps it: this is what is OFFERED, not what is
  * supported. The list lives in lib/store-builder/scheme-preview, because
  * the server prepares each one's paint for the instant preview.
  *
- * A GRID, NOT A WRAPPING ROW. Eight pills of different widths wrapped into
+ * A GRID, NOT A WRAPPING ROW. Pills of different widths wrapped into
  * ragged lines; equal cells line up, two to a row on a phone and three in
  * the drawer.
  */
