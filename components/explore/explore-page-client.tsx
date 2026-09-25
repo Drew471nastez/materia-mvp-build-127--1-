@@ -15,6 +15,8 @@ import { Chevron, type BrowseGroup } from "./category-browser"
 import { useLocale } from "@/components/locale-provider"
 import { EMPTY_INTERESTS, FOR_YOU_ID, buildPillRow, interestScore, type Interests } from "@/lib/explore/interests"
 import { hasCategoryPage, showAllLabel as showAllProductsLabel } from "@/lib/explore/category-pages"
+import { normalizeCategoryToId as normalizeCategory } from "@/lib/marketplace/categories"
+import { matchesSubcategory, subcategoryTerms } from "@/lib/explore/subcategory-match"
 
 // Categories with icons and subcategories - Extended list
 const CATEGORIES = [
@@ -195,94 +197,13 @@ const CATEGORIES = [
   },
 ] as const
 
-// Map from DB category display values to our code category IDs
-// Products in the DB may have values like "Digital Art", "Other", "Productivity" etc.
-// This normalizes them to our URL-safe IDs like "design", "other", "productivity"
-const DB_CATEGORY_TO_ID: Record<string, string> = {
-  // Exact ID matches (after SQL migration has been run)
-  "productivity": "productivity",
-  "design": "design",
-  "development": "development",
-  "marketing": "marketing",
-  "business": "business",
-  "ai": "ai",
-  "social-media": "social-media",
-  "photography": "photography",
-  "video": "video",
-  "audio-music": "audio-music",
-  "education": "education",
-  "ecommerce": "ecommerce",
-  "freebies": "freebies",
-  "other": "other",
-  // Common display-name variants from the DB
-  "digital art": "design",
-  "graphic design": "design",
-  "graphics": "design",
-  "ui/ux": "design",
-  "ui ux": "design",
-  "ui/ux design": "design",
-  "web design": "design",
-  "illustration": "design",
-  "branding": "design",
-  "typography": "design",
-  "web development": "development",
-  "software": "development",
-  "software development": "development",
-  "coding": "development",
-  "programming": "development",
-  "web templates": "development",
-  "social media": "social-media",
-  "social": "social-media",
-  "audio & music": "audio-music",
-  "audio": "audio-music",
-  "music": "audio-music",
-  "sound": "audio-music",
-  "e-commerce": "ecommerce",
-  "online store": "ecommerce",
-  "photo": "photography",
-  "photos": "photography",
-  "photo editing": "photography",
-  "lightroom": "photography",
-  "presets": "photography",
-  "lightroom presets": "photography",
-  "video editing": "video",
-  "motion graphics": "video",
-  "animation": "video",
-  "artificial intelligence": "ai",
-  "machine learning": "ai",
-  "prompts": "ai",
-  "ai prompts": "ai",
-  "chatgpt": "ai",
-  "gpt": "ai",
-  "templates": "productivity",
-  "notion": "productivity",
-  "notion templates": "productivity",
-  "planners": "productivity",
-  "planner": "productivity",
-  "spreadsheets": "business",
-  "spreadsheet": "business",
-  "presentations": "business",
-  "presentation": "business",
-  "finance": "business",
-  "courses": "education",
-  "online courses": "education",
-  "ebooks": "education",
-  "ebook": "education",
-  "e-book": "education",
-  "tutorials": "education",
-  "tutorial": "education",
-  "free": "freebies",
-  "freebie": "freebies",
-  "digital marketing": "marketing",
-  "seo": "marketing",
-  "email marketing": "marketing",
-}
-
-// Normalize a DB category value to our code category ID
+/* A DB category value as a category id, by the shared rule
+   (lib/marketplace/categories), which the category pages use too, so a pill
+   here and its "Show All" page list the same products. The copy of the table
+   that lived here did not know the product editor's own names ("UI Kits",
+   "Notion Dashboards"), so those products were in no category at all. */
 function normalizeCategoryToId(dbCategory: string): string {
-  const lower = (dbCategory || "").toLowerCase().trim()
-  if (!lower) return ""
-  return DB_CATEGORY_TO_ID[lower] || lower
+  return normalizeCategory(dbCategory)
 }
 
 // Filter types for Recommended section
@@ -576,19 +497,15 @@ export function ExplorePageClient({
       })
     }
 
-    // Filter by selected subcategory from modal
+    /* A subcategory is found in the fields this page loads: the product's
+       category, title and description (lib/explore/subcategory-match). It
+       read `subcategory` and `tags`, which the route never selects, and
+       looked for the slug itself in the text, so most subcategories came
+       back empty. The category page uses the same rule. */
     if (selectedSubcategoryId) {
-      products = products.filter(p => {
-        const productSub = (p.subcategory || "").toLowerCase()
-        const productTags = p.tags?.map((t: string) => t.toLowerCase()) || []
-        const productTitle = (p.title || "").toLowerCase()
-        const productDesc = (p.description || "").toLowerCase()
-
-        return productSub.includes(selectedSubcategoryId) ||
-               productTags.some((tag: string) => tag.includes(selectedSubcategoryId)) ||
-               productTitle.includes(selectedSubcategoryId) ||
-               productDesc.includes(selectedSubcategoryId)
-      })
+      const subDef = CATEGORIES.flatMap((c) => c.subcategories as readonly { id: string; label: string }[]).find((x) => x.id === selectedSubcategoryId)
+      const terms = subcategoryTerms(selectedSubcategoryId, subDef?.label ?? selectedSubcategoryId)
+      products = products.filter((p) => matchesSubcategory(p, terms))
     }
 
     // Filter by local search
