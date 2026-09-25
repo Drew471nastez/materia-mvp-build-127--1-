@@ -97,15 +97,19 @@ function main() {
   const contact = read("components/website-builder/sections/renderers/ContactFormSection.tsx")
   check("the contact form offers an unticked box",
     /<input type="checkbox" name="subscribe" value="yes"/.test(contact) && !/defaultChecked/.test(contact))
+  /* The contact form sends its message to the contact route now
+     (lib/site-contact), which subscribes the sender only on this flag. */
   check("and adds the sender only when it was ticked",
-    /data\.get\("subscribe"\) === "yes"/.test(contact) && /placement: "contact"/.test(contact),
+    /consent: offerOptIn && data\.get\("subscribe"\) === "yes"/.test(contact) && /sendContactMessage\(/.test(contact),
     "a contact message is not consent to a mailing list")
 
   console.log("\nOne client, one endpoint, a consent line that says where")
 
   const route = read("app/api/website-builder/subscribe/route.ts")
-  check("every placement goes through the same client",
-    [footer, contact, host].every((src) => /subscribeToCreator\(/.test(src)))
+  check("every sign up placement goes through the same client",
+    [footer, host].every((src) => /subscribeToCreator\(/.test(src)))
+  check("and every contact form through the contact client",
+    [contact, host].every((src) => /sendContactMessage\(/.test(src)))
   check("the consent line names where on the page they said yes",
     /footer: "Subscribed via the sign-up box in the footer/.test(route)
       && /contact: "Ticked \\"Keep me updated\\" on the contact form/.test(route))

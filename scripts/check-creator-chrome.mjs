@@ -190,6 +190,12 @@ try {
      "--virtual-time-budget=8000", "--dump-dom", `file://${file}`],
     { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] },
   )
+  /* SHOTS=dir keeps a picture of every scheme, stacked, for a person to look at. */
+  if (process.env.SHOTS) {
+    execFileSync(CHROMIUM, ["--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--window-size=1200,9000",
+      "--virtual-time-budget=8000", `--screenshot=${join(process.env.SHOTS, "creator-chrome-schemes.png")}`, `file://${file}`],
+      { stdio: "ignore" })
+  }
   const match = dom.match(/<pre id="out">([\s\S]*?)<\/pre>/)
   if (!match) fail("Nothing reported. The probe did not run.")
   const rows = JSON.parse(match[1].replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"))
@@ -200,7 +206,7 @@ try {
     if (!ok) broken++
   }
 
-  if (rows.length !== 5) fail(`Expected five schemes, measured ${rows.length}.`)
+  if (rows.length !== 8) fail(`Expected the eight offered schemes, measured ${rows.length}.`)
 
   for (const row of rows) {
     console.log(`\n${row.scheme}  page ${row.page}`)

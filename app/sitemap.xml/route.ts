@@ -1,4 +1,4 @@
-import { sitemapIndex } from "@/lib/seo/sitemaps"
+import { SitemapReadFailed, sitemapIndex, sitemapUnavailable } from "@/lib/seo/sitemaps"
 import { sitemapIndexXml } from "@/lib/seo/indexing"
 
 export const dynamic = "force-dynamic"
@@ -11,14 +11,20 @@ export const runtime = "nodejs"
  *
  * Held at the edge for an hour. A page published a minute ago reaches the
  * engines that take IndexNow at once (lib/seo/indexnow.ts), and Google on
- * its next read of this.
+ * its next read of this. A count that failed is a 503: an index that named
+ * only the first file of each kind would hide every page after it.
  */
 export async function GET() {
-  const xml = sitemapIndexXml(await sitemapIndex())
-  return new Response(xml, {
-    headers: {
-      "Content-Type": "application/xml; charset=utf-8",
-      "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-    },
-  })
+  try {
+    const xml = sitemapIndexXml(await sitemapIndex())
+    return new Response(xml, {
+      headers: {
+        "Content-Type": "application/xml; charset=utf-8",
+        "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+      },
+    })
+  } catch (e) {
+    if (e instanceof SitemapReadFailed) return sitemapUnavailable()
+    throw e
+  }
 }

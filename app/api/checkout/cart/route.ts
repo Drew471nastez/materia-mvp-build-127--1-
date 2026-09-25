@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
 import { getMainDomain } from "@/lib/url-helpers"
-import { resolveCustomDomain } from "@/lib/domains"
+import { siteHostsFor } from "@/lib/checkout/site-hosts"
 import { packItems, type PackedItem } from "@/lib/checkout/cart-items"
 import { MAX_LINES, MAX_QUANTITY } from "@/lib/website-builder/cart"
 import { ORIGIN_METADATA_KEY, cleanHost, cleanOrigin, encodeOrigin } from "@/lib/orders/order-source"
@@ -50,8 +50,11 @@ interface IncomingItem {
  * Where to send a buyer who backs out. The site is on a subdomain or on the
  * creator's own domain, so it cannot be derived from the platform's config,
  * and taking the Origin header at face value would make this an open
- * redirect. It is accepted only when it names the platform, a subdomain of
- * it, or a custom domain belonging to THIS creator.
+ * redirect. It is accepted only when it names the platform itself, or one of
+ * THIS creator's own website addresses: their subdomains and their verified
+ * domains (lib/checkout/site-hosts.ts, the same list the single-product
+ * checkout returns to). Any storelib.com subdomain used to pass, which is
+ * every other creator's site too.
  */
 async function safeReturnOrigin(origin: string | null, creatorId: string): Promise<string | null> {
   if (!origin) return null
@@ -62,12 +65,13 @@ async function safeReturnOrigin(origin: string | null, creatorId: string): Promi
     return null
   }
   if (url.protocol !== "https:" && url.hostname !== "localhost") return null
+  if (url.username || url.password) return null
 
   const main = getMainDomain()
-  if (url.hostname === main || url.hostname.endsWith(`.${main}`)) return url.origin
+  if (url.hostname === main) return url.origin
 
-  const owner = await resolveCustomDomain(url.hostname)
-  if (owner && owner.creatorId === creatorId) return url.origin
+  const own = await siteHostsFor(creatorId)
+  if (own.includes(url.hostname.toLowerCase())) return url.origin
 
   return null
 }
@@ -251,8 +255,13 @@ export async function POST(request: Request) {
         transfer_data: { destination: creator.stripe_account_id },
       },
       /* Fulfilment happens on the platform, whichever host the shop is on:
-         the session cookie, the admin client and the receipt all live there. */
-      success_url: `${platformOrigin}/api/checkout/cart/complete?session_id={CHECKOUT_SESSION_ID}`,
+         the session cookie, the admin client and the receipt all live there.
+         Then the buyer goes back to the website's home page, which the
+         completion checks again against this creator's own sites; a basket
+         from anywhere else ends on the receipt, as it always did. */
+      success_url: `${platformOrigin}/api/checkout/cart/complete?session_id={CHECKOUT_SESSION_ID}${
+        siteOrigin !== platformOrigin ? `&return=${encodeURIComponent(`${siteOrigin}/`)}` : ""
+      }`,
       cancel_url: `${siteOrigin}${returnPath}`,
       metadata: {
         cart: "1",

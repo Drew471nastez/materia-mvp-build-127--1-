@@ -140,7 +140,10 @@ function main() {
 
     check("a sub-page says which page it is in the tab", /pageKey === "home" \? siteTitle : `\$\{pageTitleFromKey\(pageKey\)\} \| \$\{brand\}`/.test(renderer))
     check("a preview link works on a sub-page too", /previewPage\(username, wantedToken, pageKey\)/.test(renderer))
-    check("and a preview of a page that does not exist is still a 404", /if \(!pageData && pageKey !== "home"\) notFound\(\)/.test(renderer))
+    check("and a preview of a page that does not exist is still a 404", /if \(!pageData && pageKey !== "home" && pageKey !== "contact"\) notFound\(\)/.test(renderer))
+    /* Contact is the one exception: every website has one, generated until
+       the creator makes their own (lib/website-builder/account-pages). */
+    check("and a contact page nobody made previews as the generated one", /pageKey === "contact" \? contactSections\(/.test(renderer))
     check("the sections a visitor gets are cleaned", /sanitizeSections\(/.test(renderer))
     check("and the page knows whose site it is on", /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId \}\}/.test(renderer))
   }
@@ -154,7 +157,9 @@ function main() {
     /* Six now: the shop and the search page are pages every site has, built
        on read until a creator arranges them, and reserved so nobody can also
        make a page by either name. */
-    check("and the six are the six", BUILT_IN_PAGE_KEYS.size === 6 && ["home", "product", "about", "contact", "products", "search"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
+    /* Nine now: the visitor's account, its sign in page and the wishlist are
+       pages every website has too (lib/website-builder/account-pages). */
+    check("and the nine are the nine", BUILT_IN_PAGE_KEYS.size === 9 && ["home", "product", "about", "contact", "products", "search", "account", "login", "wishlist"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
 
     check("delete calls the server", /handleDeletePage/.test(editor) && /method: "DELETE"/.test(editor))
     check("it leaves the page it is deleting first", /if \(currentPage === key\) await handlePageChange\("home"\)/.test(editor))
@@ -377,17 +382,23 @@ function main() {
       The rule this file exists for applies: the control is allowed only
       while the thing behind it is there.
     */
+    /*
+      THE ACCOUNT IS A PAGE OF THE WEBSITE NOW. Signing in still happens on
+      the platform, where the session is; the visitor comes back with the
+      website's own session (app/api/site-account). So the icon goes to the
+      website's /account, and the rule here holds: that page exists.
+    */
     check(
-      "account goes to the route that can answer, not to a guess",
-      /platformUrl\("\/account\/continue"\)/.test(code) && existsSync("app/account/continue/route.ts"),
+      "account goes to the website's own account page, which exists",
+      /const ACCOUNT_PATH = "\/account"/.test(code) && /href=\{ACCOUNT_PATH\}/.test(code) && existsSync("app/(site)/w/[username]/account/page.tsx"),
     )
     check(
       "a visitor with no account can make one from the site",
-      /platformUrl\("\/signup"\)/.test(code) && /Create account/.test(header),
+      /SITE_ROUTES\.account_register_url/.test(code) && /Create account/.test(header) && existsSync("app/api/site-account/start/route.ts"),
     )
     check(
-      "and where to come back to is read at the click, not rendered in",
-      /url\.searchParams\.set\("next", window\.location\.href\)/.test(code),
+      "and where to come back to is this request's own host, never one the page names",
+      /const host = hostOf\(request\)/.test(read("app/api/site-account/start/route.ts")) && /returnPathOf\(url\.searchParams\.get\("return"\)\)/.test(read("app/api/site-account/start/route.ts")),
       "the same markup is served on a subdomain, a custom domain and /w/<name>",
     )
     check(
@@ -416,13 +427,13 @@ function main() {
         /searchSections/.test(read("app/(site)/w/[username]/search/page.tsx")),
     )
     check(
-      "wishlist is a link to the platform page that exists",
-      /href=\{`https:\/\/\$\{getMainDomain\(\)\}\/wishlist`\}/.test(code),
+      "wishlist is a link to the website's own Wishlist page, which exists",
+      /const WISHLIST_PATH = "\/wishlist"/.test(code) && /href=\{WISHLIST_PATH\}/.test(code) && existsSync("app/(site)/w/[username]/wishlist/page.tsx"),
     )
     check("no icon in the header is a button that only prevents its own default", !/onClick=\{e => e\.preventDefault\(\)\}/.test(code))
     check(
-      "and every account control goes to the platform, where the session is",
-      /platformUrl\("\/account\/continue"\)/.test(code) && /platformUrl\("\/signup"\)/.test(code),
+      "and every account control goes to a page or route of the website, none to a guess on the platform",
+      !/account\/continue/.test(code) && !/getMainDomain\(\)\}\/wishlist/.test(code) && /onEditorNavigate\(ACCOUNT_PATH, true\)/.test(code),
     )
     check("with no invented count beside any of them", !/leading-none flex items-center justify-center">\s*0\s*</.test(code))
 

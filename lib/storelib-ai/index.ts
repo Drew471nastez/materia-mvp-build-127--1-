@@ -47,9 +47,18 @@ export { INTEGRATION_CONTRACT, checkSectionIntegration } from "./integration"
  */
 export const SECTION_CONTRACT = `BEFORE YOU CALL A SECTION FINISHED, it must: compile; declare every name its template reads; take the site's colour scheme rather than hardcoded colours; inherit the theme's type and buttons; be laid out for a phone on purpose and not by shrinking; have no sideways scroll; work when the section is on the page twice, which means no fixed id="…" in the markup and no query outside the script's own root; keep its CSS to itself; use real elements for anything interactive, with alt text on images; and stop animating for anyone who has asked for reduced motion. Those are checked after you write, and you will be shown what failed.`
 
-/** The page assistant: tools, a page, and a creator having a conversation. */
+/**
+ * The page assistant: tools, a page, and a creator having a conversation.
+ *
+ * The BRIEF design rules (what outranks what, the machine-made habits, what
+ * good looks like), not the whole set: the shared rulebook that follows it
+ * in the same prompt (lib/agent-rules, builderAgentRules) carries matching
+ * the site's system and phones, and the section-schema advice is a skill the
+ * request loads when it is about settings. The same rule twice in one prompt
+ * is paid for on every request and read as two rules.
+ */
 export function pageAgentRules(): string {
-  return [INTENT_RULES, FOLLOW_UP_RULES, SOURCE_EDITING_RULES, DESIGN_RULES].join("\n\n")
+  return [INTENT_RULES, FOLLOW_UP_RULES, SOURCE_EDITING_RULES, DESIGN_RULES_BRIEF].join("\n\n")
 }
 
 /**

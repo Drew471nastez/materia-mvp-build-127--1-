@@ -94,9 +94,11 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
 
   /* A buyer who never asked for news is a customer contact
-     (lib/contacts/checkout-contact). Signing up here is that yes: they join
-     the list and get the welcome, like anybody new. */
-  const customer = existing?.status === "customer"
+     (lib/contacts/checkout-contact), and somebody who wrote through a contact
+     form without ticking the box is a contact who wrote (lib/site-contact).
+     Signing up here is that yes: they join the list and get the welcome,
+     like anybody new. */
+  const customer = existing?.status === "customer" || existing?.status === "wrote"
 
   // Already on the list: say the same thing as a fresh subscribe. The answer
   // must not differ, or it becomes a way to ask whether an address is known.
@@ -104,7 +106,7 @@ export async function POST(req: NextRequest) {
 
   const now = new Date().toISOString()
   const { error } = customer
-    ? await db.from("subscribers").update({ status: "subscribed", is_active: true, subscribed_at: now, consent_text: consentFor(body.placement), consent_timestamp: now }).eq("id", existing!.id).eq("status", "customer")
+    ? await db.from("subscribers").update({ status: "subscribed", is_active: true, subscribed_at: now, consent_text: consentFor(body.placement), consent_timestamp: now }).eq("id", existing!.id).eq("status", existing!.status)
     : await db.from("subscribers").insert({
       email,
       name: name || null,

@@ -135,6 +135,11 @@ export function planContact(existing: ExistingContact | null, input: CheckoutCon
   if (asks && status !== "subscribed") {
     return { kind: "update", patch: { status: "subscribed", is_active: true, subscribed_at: nowIso, consent_text: CONSENT_TEXT[input.basis], consent_timestamp: nowIso } }
   }
+  /* Somebody who only wrote through a contact form (lib/site-contact) and has
+     now bought is a customer: their order's emails are theirs to get. */
+  if (status === "wrote" && input.bought) {
+    return { kind: "update", patch: { status: "customer", is_active: true, consent_text: CONSENT_TEXT.none } }
+  }
   return { kind: "none", why: "nothing new" }
 }
 
@@ -194,6 +199,7 @@ export async function recordCheckoutContact(db: Db, input: CheckoutContactInput)
         return "failed"
       }
       if (input.source) await recordContactSource(db, input.creatorId, email, input.source)
+      if (plan.patch.status === "customer") return "customer"
       return row!.status === "unsubscribed" || row!.is_active === false ? "resubscribed" : "subscribed"
     }
     return "unchanged"

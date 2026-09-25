@@ -4,13 +4,38 @@ Changes to the Storelib Builder Framework: the section format, the template lang
 
 ## Versions
 
-Four things carry a version, and they move independently so that one changing does not force the others.
+Five things carry a version, and they move independently so that one changing does not force the others.
 
 @[versions]
 
 A file written for a newer version is **refused, not misread**: a schema declaring `"schema_version": 2` against an engine that reads 1 is rejected with both numbers named. A file written for an older version is always read, and keys the engine does not recognise survive every read and write.
 
 Every change since 1.0 has been additive. Nothing a section could do on 11 September 2026 has stopped working since, which is why every version above is still 1.
+
+## 25 September 2026
+
+**Added**
+
+- [Themes](/developers/themes): what a theme holds, the website library, every theme setting key, colour schemes and typography, and the package format with `theme.json`, `manifest.json` and `templates/*.json`.
+- [Pages and page settings](/developers/pages), [Sharing themes](/developers/sharing-themes), [Publishing and checks](/developers/publishing), [Dynamic values](/developers/dynamic-values) and [Data model](/developers/data-model).
+- The hub is grouped the way it is used: Get started, Themes, Sections, Data and logic, Tools and AI, and Reference. Every page keeps its address.
+- Four objects every section can read: `shop`, `routes`, `customer` and `wishlist`. See [What a template can read](/developers/sections#what-a-template-can-read).
+- Contact forms: `data-storelib-form="contact"` sends a message to the creator, keeps it in Emails, and adds the sender to Subscribers only when they tick the box. See [Contact forms](/developers/javascript#contact-forms).
+- Saving products: `data-storelib-wishlist` on a button saves a product to the visitor's Wishlist. See [Saving products](/developers/javascript#saving-products).
+- Every website has an account page, a sign in page, a Wishlist and a contact page, drawn by the `main_account`, `main_login`, `main_wishlist` and `contact` sections.
+
+**Fixed in these pages**
+
+- `migrations` and `allowed_templates` are described as they ship: validated and kept, and not applied or used yet.
+- An unknown filter is not refused by the compiler. It prints the value unchanged.
+- There is no `layout/theme.storelib`. A theme has no stylesheet for the whole site that you can write.
+- An export names its page files by page key, `templates/home.json` and `templates/about.json`, and takes the theme settings from the draft and the pages as last published.
+- Media settings hold public URLs on a site. `asset://` references exist only inside a theme package.
+- The importer holds blocks to the ceiling of 50. `limit` and `max_blocks` are held by the builder's buttons, and `max_blocks` by the agent page tools.
+- A page picker and a product picker store the address they link to.
+- A section's script receives the settings stored on the instance, without schema defaults.
+- A product's `tag` is always empty today.
+- A page stores its preset's values and everything the creator sets, not only what differs from the defaults.
 
 ## 24 September 2026
 
@@ -90,6 +115,6 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 - Blocks, presets, `max_blocks` and per-type `limit`.
 - Responsive settings, resolved as `{ desktop, tablet, mobile }`.
 - Colour schemes and text styles as theme tokens, with per-section overrides.
-- `migrations` for renaming a setting without losing content.
+- `migrations`, a list of setting renames a section can declare. It is validated and kept; nothing applies it yet (25 September 2026).
 - Themes export to and import from a single `.storelib-theme` file, checked as a whole, with every file hashed.
 - An accessibility baseline: on every built-in colour scheme, body text meets a contrast of 4.5 to 1 against its background and headings meet 3 to 1.

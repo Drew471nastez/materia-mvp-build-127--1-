@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import { headers } from "next/headers"
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
@@ -968,6 +968,12 @@ export async function POST(request: Request) {
 
         console.log("[Connect] Updated creator:", creator.id, "status:", onboardingStatus)
 
+        /* Payouts or card payments off, or Stripe asking for details by a
+           deadline: the creator's notifications, from the account as Stripe
+           sent it, after the answer (lib/notifications/events.ts). */
+        const accountCreatorId = creator.id as string
+        after(async () => (await import("@/lib/notifications/events")).noteStripeAccount(accountCreatorId, account as any))
+
         // Email triggers (non-blocking)
         try {
           const userId = (creator as any).user_id
@@ -1139,6 +1145,10 @@ export async function POST(request: Request) {
       console.error("[Webhook] Failed to upsert payout:", err)
     }
 
+    /* A failed payout, or the one that fixes it: the creator's notifications, after the answer. */
+    const payoutCreatorId = creator.id as string
+    after(async () => (await import("@/lib/notifications/events")).notePayout(payoutCreatorId))
+
     // ── Ledger: update balance buckets for payout status changes ─────────
     try {
       const { data: ledger } = await supabaseAdmin
@@ -1298,6 +1308,10 @@ export async function POST(request: Request) {
         console.warn("[Webhook] Dispute: no creator for account", connectedAccountId)
         return NextResponse.json({ received: true })
       }
+
+      /* A dispute opened or closed: the creator's notifications, after the ledger below is written and the answer sent. */
+      const disputeCreatorId = creator.id as string
+      after(async () => (await import("@/lib/notifications/events")).noteDispute(disputeCreatorId))
 
       const disputeAmountCents = dispute.amount
       // Stripe charges a $15 dispute fee for US accounts (1500 cents)

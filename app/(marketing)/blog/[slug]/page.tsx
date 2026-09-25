@@ -7,6 +7,7 @@ import BlogPostTracker from "./_tracker"
 import ShareButtons from "./_share-buttons"
 import ReadingProgress from "./_reading-progress"
 import CtaBanner from "./_cta-banner"
+import { jsonLdScript } from "@/lib/seo/json-ld"
 
 export const dynamic = "force-dynamic"
 
@@ -285,8 +286,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   return (
     <div className="min-h-screen bg-white">
       <ReadingProgress />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbLd) }} />
       {post.id && <BlogPostTracker postId={post.id} />}
 
       {/* Article container */}

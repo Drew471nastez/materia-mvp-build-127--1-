@@ -66,7 +66,8 @@ const read = (p) =>
       }
     }
     const list = [...document.querySelectorAll("[data-notifications-list]")].find(vis)
-    const items = list ? [...list.querySelectorAll("[data-notification-item]")] : []
+    /* The rows are kept between views; a view shows some of them (the others are `hidden`). */
+    const items = list ? [...list.querySelectorAll("[data-notification-item]:not([hidden])")] : []
     const badge = document.querySelector("[data-bell] [data-notification-badge]")
     return {
       headerH: header ? Math.round(header.getBoundingClientRect().height) : 0,
@@ -75,9 +76,9 @@ const read = (p) =>
       mark: button("[data-notifications-mark-all]"),
       items: items.length,
       unread: items.filter((i) => i.hasAttribute("data-unread")).length,
-      empty: list?.querySelector("[data-notifications-empty] p")?.textContent.trim() ?? null,
+      empty: list?.querySelector("[data-notifications-empty]:not([hidden]) p")?.textContent.trim() ?? null,
       emptyLook: (() => {
-        const e = list?.querySelector("[data-notifications-empty]")
+        const e = list?.querySelector("[data-notifications-empty]:not([hidden])")
         if (!e) return null
         const icon = e.querySelector("svg").getBoundingClientRect()
         const text = e.querySelector("p")
@@ -207,7 +208,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
         const t0 = performance.now()
         const tick = () => {
           const m = /inset\(0px ([\d.]+)px 0px ([\d.]+)px/.exec(getComputedStyle(pill).clipPath)
-          const view = document.querySelector("[data-notifications-list] > [data-notifications-view], [data-notifications-list] > [data-notifications-empty]")
+          const view = document.querySelector("[data-notifications-list] > [data-notifications-view]:not([hidden]), [data-notifications-list] > [data-notifications-empty]:not([hidden])")
           window.__tabFrames.push({ t: performance.now() - t0, right: m ? +m[1] : null, left: m ? +m[2] : null, view: view?.getAttribute("data-notifications-view") ?? null, fade: view ? +getComputedStyle(view).opacity : null, body: body ? Math.round(body.getBoundingClientRect().height) : null })
           if (performance.now() - t0 < 450) requestAnimationFrame(tick)
         }
@@ -268,9 +269,9 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
     expect(r.items === 0 && r.empty === "No unread notifications", '"No unread notifications" with the filter on', { items: r.items, empty: r.empty })
     /* "Smaller and less AI": a 20px bell in the muted grey, one line of
        14px text, nothing else. */
-    const look = r.emptyLook
-    expect(look && look.icon === "20x20" && look.iconColor === "rgb(156, 163, 175)" && look.parts === 2 && look.lines === 1
-      && look.textSize === "14px" && look.textColor === "rgb(107, 114, 128)", "  a 20px muted bell and one 14px line, nothing more", look)
+    const empty = r.emptyLook
+    expect(empty && empty.icon === "20x20" && empty.iconColor === "rgb(156, 163, 175)" && empty.parts === 2 && empty.lines === 1
+      && empty.textSize === "14px" && empty.textColor === "rgb(107, 114, 128)", "  a 20px muted bell and one 14px line, nothing more", empty)
     await p.screenshot({ path: join(shots, `${label}-notifications-empty.png`) })
     expect(r.mark?.disabled === true, "Mark all as read is disabled while it works", r.mark?.disabled)
     await sleep(600)

@@ -264,7 +264,9 @@ await feel.evaluate(() => {
   window.__taps = []
   window.addEventListener("touchstart", (e) => window.__taps.push(e.timeStamp), { capture: true, passive: true })
   const tick = (t) => {
-    const el = document.querySelector("[data-sheet-panel]")
+    /* The account sheet is kept once built (BottomSheet keepMounted): at rest
+       it has no data-app-sheet and counts as gone, as a removed one did. */
+    const el = document.querySelector("[data-app-sheet] [data-sheet-panel]")
     window.__frames.push(el ? { t, y: new DOMMatrixReadOnly(getComputedStyle(el).transform).m42, h: el.offsetHeight } : { t, y: null, h: 0 })
     requestAnimationFrame(tick)
   }

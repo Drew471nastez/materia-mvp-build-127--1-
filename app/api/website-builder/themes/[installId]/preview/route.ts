@@ -18,7 +18,10 @@
  */
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { newPreviewToken } from "@/lib/website-builder/preview-link"
+import { newPreviewToken, previewBase } from "@/lib/website-builder/preview-link"
+import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
+import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
+import { getCanonicalSiteUrl, getMainDomain } from "@/lib/url-helpers"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -40,7 +43,21 @@ async function owned(installId: string) {
     .maybeSingle()
   if (error && /preview_token/.test(error.message)) return { error: MIGRATION, status: 503 as const, supabase: null }
   if (!install) return { error: "Theme not found", status: 404 as const, supabase: null }
-  return { error: null, status: 200 as const, supabase, install: install as { id: string; preview_token: string | null } }
+  return { error: null, status: 200 as const, supabase, install: install as { id: string; preview_token: string | null }, userId: user.id }
+}
+
+/**
+ * The panel asks once when it opens and once per press, so LIMITS.siteAction
+ * covers it many times over. Shared by all three methods: a loop of make and
+ * remove is still a loop.
+ */
+function limit(userId: string) {
+  return rateLimit({
+    bucket: "site-preview-link",
+    subjects: [`user:${userId}`],
+    windows: LIMITS.siteAction,
+    message: "Too many preview link requests. Wait a minute and try again.",
+  })
 }
 
 /**
@@ -54,10 +71,13 @@ const MIGRATION = "Preview links need RUN_THEME_PREVIEW_LINK.sql to be run once.
  * Where the link points. The storefront resolves a creator by username, so
  * the caller supplies the site's own address and this only adds the token:
  * building the host here would mean knowing about custom domains, which is
- * somebody else's job and changes more often than this does.
+ * somebody else's job and changes more often than this does. The address is
+ * kept only when it is one of ours (previewBase in lib/website-builder/
+ * preview-link.ts); a link carrying a real token never points elsewhere.
  */
-function withToken(base: unknown, token: string): string | null {
-  if (typeof base !== "string" || !base) return null
+function withToken(req: NextRequest, sent: unknown, token: string): string | null {
+  if (typeof sent !== "string" || !sent) return null
+  const base = previewBase(sent, { requestOrigin: req.nextUrl.origin, mainDomain: getMainDomain(), canonical: getCanonicalSiteUrl() })
   /**
    * A PATH, NOT A QUERY. The token used to be `?preview=<token>` on the
    * site's own URL, which forced the public route to read a query string —
@@ -73,27 +93,33 @@ function withToken(base: unknown, token: string): string | null {
   return query ? `${path}?${query}` : path
 }
 
-async function baseOf(req: NextRequest): Promise<unknown> {
-  return (await req.json().catch(() => ({})))?.base
-}
 
 export async function GET(req: NextRequest, { params }: Params) {
   const { installId } = await params
   const o = await owned(installId)
   if (o.error || !o.supabase) return NextResponse.json({ error: o.error }, { status: o.status })
+  const limited = await limit(o.userId)
+  if (limited) return limited
   const token = o.install.preview_token
   const base = req.nextUrl.searchParams.get("base")
-  return NextResponse.json({ token, url: token ? withToken(base, token) : null })
+  return NextResponse.json({ token, url: token ? withToken(req, base, token) : null })
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
   const { installId } = await params
   const o = await owned(installId)
   if (o.error || !o.supabase) return NextResponse.json({ error: o.error }, { status: o.status })
+  const limited = await limit(o.userId)
+  if (limited) return limited
+
+  /* `{ base }` and nothing more, so a small cap: lib/website-builder/request-body.ts. */
+  const read = await readEditorBody(req, BODY_LIMITS.small)
+  if (read.ok === false) return read.response
+  const sent = read.invalid ? undefined : (read.json as { base?: unknown } | null)?.base
 
   const existing = o.install.preview_token
   if (existing) {
-    return NextResponse.json({ token: existing, url: withToken(await baseOf(req), existing), created: false })
+    return NextResponse.json({ token: existing, url: withToken(req, sent, existing), created: false })
   }
 
   const token = newPreviewToken()
@@ -101,13 +127,15 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (error) {
     return NextResponse.json({ error: /preview_token/.test(error.message) ? MIGRATION : error.message }, { status: 503 })
   }
-  return NextResponse.json({ token, url: withToken(await baseOf(req), token), created: true })
+  return NextResponse.json({ token, url: withToken(req, sent, token), created: true })
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const { installId } = await params
   const o = await owned(installId)
   if (o.error || !o.supabase) return NextResponse.json({ error: o.error }, { status: o.status })
+  const limited = await limit(o.userId)
+  if (limited) return limited
   const { error } = await o.supabase.from("store_theme_installs").update({ preview_token: null }).eq("id", installId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

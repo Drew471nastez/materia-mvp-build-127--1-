@@ -4,13 +4,14 @@ import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import CheckoutPageClient from "./checkout-client"
 import { getProductUrl } from "@/lib/url-helpers"
+import { checkoutReturns } from "@/lib/checkout/site-hosts"
 
 interface CheckoutPageProps {
-  searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string }>
+  searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; return?: string; cancel?: string; site?: string }>
 }
 
 async function CheckoutContent({ searchParams }: CheckoutPageProps) {
-  const { productId, variantId, customPrice } = await searchParams
+  const { productId, variantId, customPrice, return: returnTo, cancel, site } = await searchParams
 
   if (!productId) {
     redirect("/explore")
@@ -43,6 +44,12 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   }
 
   const creatorUsername = creatorProfile?.username || creator?.slug || ""
+
+  /* Back to the creator's own website after paying, and for Back, when the
+     link asked and the address is one of THIS creator's sites. Checked here,
+     on the server; anything else is dropped and checkout ends on the receipt
+     as it always did (lib/checkout/return-url.ts). */
+  const returns = await checkoutReturns({ creatorId: product.creator_id, success: returnTo, cancel, site })
 
   // Fetch variant if specified (with PWYW fields)
   let selectedVariant: {
@@ -170,6 +177,8 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       }}
       userEmail={user?.email || null}
       isLoggedIn={!!user}
+      returnTo={returns.success}
+      backTo={returns.cancel}
       selectedVariant={selectedVariant ? {
         id: selectedVariant.id,
         name: selectedVariant.name,

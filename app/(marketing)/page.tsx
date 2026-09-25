@@ -3,6 +3,7 @@ import { Hero } from "@/components/marketing/hero"
 import { BentoGrid } from "@/components/marketing/bento-grid"
 import { StatsBar } from "@/components/marketing/stats-bar"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { jsonLdScript } from "@/lib/seo/json-ld"
 
 // Below-the-fold sections — dynamically imported to reduce initial JS bundle.
 // Hero + BentoGrid + StatsBar load eagerly (above the fold).
@@ -23,7 +24,7 @@ export default function StorelibLanding() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: jsonLdScript({
             "@context": "https://schema.org",
             "@type": "Organization",
             "name": "Storelib",
@@ -37,7 +38,7 @@ export default function StorelibLanding() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: jsonLdScript({
             "@context": "https://schema.org",
             "@type": "WebSite",
             "name": "Storelib",

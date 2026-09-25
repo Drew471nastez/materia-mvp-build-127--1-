@@ -43,6 +43,7 @@ import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorIdByHandle } from "@/lib/website-builder/site-address-data"
+import { isBanned } from "@/lib/seo/bans"
 import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
 import { shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
@@ -110,12 +111,22 @@ export type SiteLookup =
 interface NameMatch {
   creatorId: string
   displayName: string
+  /** The creator's slug, which a site's default title names. Optional: an entry cached before it was added has none. */
+  slug?: string | null
 }
 
 /**
  * A name to a creator: profile username first, then creator slug. Both are
  * lowercased on the way in, because both are stored lowercased and a visitor
  * types whatever they like.
+ *
+ * A BANNED CREATOR IS NO CREATOR HERE. A ban unpublished their products and
+ * closed their storefront, and their website went on answering, indexed and
+ * in the sitemap. The creator rows are read whole (`*`) so the ban is seen
+ * where the column exists and nothing fails where it does not
+ * (lib/seo/bans.ts), and a banned creator's name answers as no site at all,
+ * which every route on the site turns into a 404. Lifting the ban brings it
+ * back within the minute this is held for.
  */
 async function lookUpName(name: string): Promise<NameMatch | null> {
   const admin = createAdminClient()
@@ -130,24 +141,26 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
   if (profile) {
     const { data: creator } = await admin
       .from("creators")
-      .select("id, slug, display_name")
+      .select("*")
       .eq("user_id", (profile as { id: string }).id)
       .maybeSingle()
     if (creator) {
+      if (isBanned(creator as { banned_at?: string | null })) return null
       const p = profile as { display_name?: string | null; username?: string | null }
-      const c = creator as { id: string; display_name?: string | null }
-      return { creatorId: c.id, displayName: c.display_name || p.display_name || p.username || name }
+      const c = creator as { id: string; slug?: string | null; display_name?: string | null }
+      return { creatorId: c.id, displayName: c.display_name || p.display_name || p.username || name, slug: c.slug ?? null }
     }
   }
 
   const { data: bySlug } = await admin
     .from("creators")
-    .select("id, slug, display_name")
+    .select("*")
     .eq("slug", lower)
     .maybeSingle()
   if (bySlug) {
+    if (isBanned(bySlug as { banned_at?: string | null })) return null
     const c = bySlug as { id: string; slug?: string | null; display_name?: string | null }
-    return { creatorId: c.id, displayName: c.display_name || c.slug || name }
+    return { creatorId: c.id, displayName: c.display_name || c.slug || name, slug: c.slug ?? null }
   }
 
   /*
@@ -159,10 +172,11 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
   */
   const byHandle = await creatorIdByHandle(lower, admin)
   if (byHandle) {
-    const { data: creator } = await admin.from("creators").select("id, slug, display_name").eq("id", byHandle).maybeSingle()
+    const { data: creator } = await admin.from("creators").select("*").eq("id", byHandle).maybeSingle()
     if (creator) {
+      if (isBanned(creator as { banned_at?: string | null })) return null
       const c = creator as { id: string; slug?: string | null; display_name?: string | null }
-      return { creatorId: c.id, displayName: c.display_name || c.slug || name }
+      return { creatorId: c.id, displayName: c.display_name || c.slug || name, slug: c.slug ?? null }
     }
   }
   return null
@@ -330,7 +344,11 @@ export async function publishedSiteByName(name: string, pageKey = "home"): Promi
   // "index" for the front page, `page.<key>` for the rest: the name a
   // section reads as `page.template` and writes `allowed_templates` against.
   const template = templateForPage(pageKey)
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products)
+  /* `shop.name` falls back to the creator's public name when the store has
+     none set: lib/storelib-theme/globals.ts. Nothing per visitor here. */
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, {
+    shop: { name: site.displayName },
+  })
   return { kind: "site", site: { ...site, sections, prerendered } }
 }
 
@@ -398,6 +416,20 @@ async function resolveSite(name: string): Promise<ShopLookup> {
   )()
 
   return { kind: "site", site: found.site, products }
+}
+
+/**
+ * The same cached catalogue, for a route that already knows whose it is: the
+ * product page, so a product list placed on it draws the shop there too.
+ * Same key and tag as above, so the two share one entry and one purge.
+ */
+export async function cachedShopProducts(creatorId: string): Promise<ProductCard[]> {
+  if (!creatorId) return []
+  return unstable_cache(
+    () => shopProducts(createAdminClient() as never, creatorId),
+    ["shop-products", creatorId],
+    { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL },
+  )()
 }
 
 /**

@@ -7,9 +7,10 @@
  * had no sitemap of its own. Held here: what the site's own files say, what
  * the sitemap lists, and that the proxy and the pages are wired to them.
  */
-import { readFileSync } from "node:fs"
+import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import {
+  heroImage,
   imagesOnPage,
   jsonLdScript,
   listedPageKeys,
@@ -18,10 +19,12 @@ import {
   productUrl,
   robotsTxt,
   siteIsIndexable,
+  siteSameAs,
   sitemapXml,
   websiteJsonLd,
 } from "@/lib/website-builder/site-seo"
-import type { SectionInstance } from "@/lib/website-builder/types"
+import { themeMetadata } from "@/lib/website-builder/theme-metadata"
+import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 let passed = 0
 let failed = 0
@@ -33,11 +36,33 @@ function check(name: string, ok: boolean, detail = "") {
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const O = "https://astrid.storelib.com"
 
+/**
+ * Whether a robots.txt lets a crawler fetch a path, read the way Google reads
+ * it: every rule is a prefix, `*` is anything, a trailing `$` ends the match,
+ * the longest matching rule wins and Allow wins a tie.
+ */
+function crawlable(robots: string, path: string): boolean {
+  let best: { allow: boolean; length: number } | null = null
+  for (const line of robots.split("\n")) {
+    const m = /^(Allow|Disallow):\s*(\S*)$/.exec(line)
+    if (!m || !m[2]) continue
+    const pattern = new RegExp(`^${m[2].replace(/[.+?^{}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}`)
+    if (!pattern.test(path)) continue
+    const rule = { allow: m[1] === "Allow", length: m[2].length }
+    if (!best || rule.length > best.length || (rule.length === best.length && rule.allow)) best = rule
+  }
+  return best ? best.allow : true
+}
+
 console.log("\nrobots.txt")
 {
   const open = robotsTxt(O, true)
   check("an indexable site lets crawlers in and names its own sitemap", /^User-agent: \*\nAllow: \//.test(open) && open.includes(`Sitemap: ${O}/sitemap.xml`))
-  check("it keeps previews, the basket and search results out", ["/preview/", "/cart", "/search"].every((p) => open.includes(`Disallow: ${p}`)))
+  check("it keeps previews, the basket and search results out",
+    ["/preview/abc", "/cart", "/cart?item=1", "/search", "/search?q=presets", "/api/subscribe"].every((p) => !crawlable(open, p)), open)
+  check("and not a creator's own page that starts the same way",
+    ["/", "/cartoons", "/cart-guide", "/search-tips", "/searchlight", "/previews", "/about", "/products/cart"].every((p) => crawlable(open, p)), open)
+  check("the rules are anchored ones, not bare prefixes", !/^Disallow: \/(cart|search)$/m.test(open) && /^Disallow: \/cart\$$/m.test(open) && /^Disallow: \/search\$$/m.test(open))
   const hidden = robotsTxt(O, false)
   check("a hidden site still lets crawlers read each page's noindex, and names no sitemap", !hidden.includes("Sitemap:") && !/Disallow: \/\n/.test(hidden) && hidden.includes("Allow: /"))
   check("hidden means the switch in SEO & Social, stored either way", !siteIsIndexable({ seo_robots: false }) && !siteIsIndexable({ seo_robots: "noindex, nofollow" }) && siteIsIndexable({}) && siteIsIndexable({ seo_robots: true }))
@@ -74,22 +99,68 @@ console.log("\nStructured data")
   const product = productJsonLd({ url: `${O}/products/p`, name: "Presets", description: "Twelve presets", images: ["https://cdn.example.com/p.png"], priceCents: 2400, inStock: true, seller: "Astrid Studio" }) as { offers?: { price: string; priceCurrency: string } }
   check("a product carries its price, so a result can show it", product.offers?.price === "24.00" && product.offers?.priceCurrency === "USD")
   check("a description cannot end the script it is printed in", !jsonLdScript({ d: "</script><script>alert(1)" }).includes("</script>"))
+  const named = { name: "Mara </script><img src=x onerror=alert(1)>", sameAs: ["https://x.com/mara"] }
+  check("and what a search engine reads back is exactly what was given", JSON.stringify(JSON.parse(jsonLdScript(named))) === JSON.stringify(named))
+
+  /*
+    EVERY PAGE THAT PRINTS JSON-LD PRINTS IT THROUGH jsonLdScript. The creator
+    page and the product page put a display name and a product title into
+    JSON.stringify and straight into the script element, so a name containing
+    `</script>` ended it. Walked rather than listed, so a page added later is
+    held to the same rule without anybody remembering to add it here.
+  */
+  const walk = (dir: string): string[] =>
+    readdirSync(join(process.cwd(), dir)).flatMap((f) => {
+      const p = `${dir}/${f}`
+      if (f === "node_modules" || f.startsWith(".")) return []
+      return statSync(join(process.cwd(), p)).isDirectory() ? walk(p) : /\.tsx?$/.test(f) ? [p] : []
+    })
+  const emitters = [...walk("app"), ...walk("components")].filter((p) => read(p).includes("application/ld+json"))
+  const bare = emitters.filter((p) => /__html:\s*JSON\.stringify/.test(read(p)) || !/jsonLdScript\(|__html: structured/.test(read(p)))
+  check("every page that prints JSON-LD escapes it with the one helper", emitters.length >= 10 && bare.length === 0, bare.join(", "))
 }
 
 console.log("\nWired")
 {
   const proxy = read("proxy.ts")
   check("a subdomain's robots.txt and sitemap.xml go to its website", /const seoFile = pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"/.test(proxy) && /const isWebsite = \(!looksLikeFile \|\| seoFile\) && !\(await hasLiveAiSite\(subdomain\)\)/.test(proxy))
-  check("and a connected domain's do too, before the reserved-path rule sends them to Storelib's", /isCustomDomain &&\s*\n\s*(?:domainPurpose === "website" &&\s*\n\s*)?\(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\)/.test(proxy) && proxy.indexOf("seoUrl.pathname = `/w/${username}${pathname}`") < proxy.indexOf("if (username && !isReservedPath(pathname))"))
+  check("and a connected domain's do too, before the reserved-path rule sends them to Storelib's", /isCustomDomain &&\s*\n\s*(?:domainPurpose === "website" &&\s*\n\s*)?\(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\)/.test(proxy) && proxy.indexOf("seoUrl.pathname = `/w/${username}${pathname}`") < proxy.search(/if \(username && \(?!isReservedPath\(pathname\)/))
   check("both routes exist", /robotsTxt\(seo\.origin, seo\.indexable\)/.test(read("app/(site)/w/[username]/robots.txt/route.ts")) && /sitemapXml\(seo\.entries\)/.test(read("app/(site)/w/[username]/sitemap.xml/route.ts")))
   const render = read("app/(site)/w/[username]/render-site.tsx")
-  check("every page names its canonical address on the site's own domain", /alternates: \{ canonical: url \}/.test(render) && /themeMetadata\(settings, \{ title: rawTitle, description, url \}\)/.test(render))
+  check("every page names its canonical address on the site's own domain", /alternates: \{ canonical: url \}/.test(render) && /themeMetadata\(settings, \{ title: rawTitle, description, url, image: shareImage \}\)/.test(render))
   check("the home page carries the website's structured data", /pageKey === "home" \? await homeStructuredData\(site, username\)/.test(render))
   const product = read("app/(site)/w/[username]/products/[slug]/page.tsx")
   check("a product page names its canonical address, respects a hidden site, and carries its structured data",
-    /productMetadata\(slug, \{ url: productUrl\(origin, slug\), brand, indexable: siteIsIndexable\(settings\) \}\)/.test(product) && /application\/ld\+json/.test(product))
+    /productMetadata\(slug, \{ url: productUrl\(origin, slug\), brand, indexable: builtSiteIndexable\(settings, username\) \}\)/.test(product) && /application\/ld\+json/.test(product))
   /* The website's own primary domain, read through lib/custom-domains/store.ts, once it is live. */
   check("the canonical is the connected domain when there is one", /primaryHostFor\(creatorId, "website"\)/.test(read("lib/website-builder/site-seo-data.ts")) && /r\.status === "active"/.test(read("lib/custom-domains/store.ts")))
+}
+
+console.log("\nA website shared or searched for is its creator's, with a picture")
+{
+  const card = (settings: Record<string, unknown>, image?: string) =>
+    themeMetadata(settings as ThemeSettingsValues, { title: "t", description: "d", image }).openGraph as { images?: { url: string }[] }
+  check("a share image the creator chose wins", card({ seo_og_image: "https://cdn.example.com/og.png" }, "https://cdn.example.com/logo.png").images?.[0]?.url === "https://cdn.example.com/og.png")
+  check("without one, the page's fallback is used rather than no picture", card({}, "https://cdn.example.com/logo.png").images?.[0]?.url === "https://cdn.example.com/logo.png" && !card({}).images)
+  const page: SectionInstance[] = [
+    { id: "h0", type: "hero", name: "Hero", hidden: true, settings: { bg_image: "https://cdn.example.com/hidden.jpg" } },
+    { id: "t", type: "text", name: "Text", settings: { image: "https://cdn.example.com/text.jpg" } },
+    { id: "h1", type: "hero_split", name: "Hero", settings: { heading: "Presets", image: "https://cdn.example.com/mark.svg", bg: "https://cdn.example.com/hero.webp" } },
+  ]
+  check("the fallback picture is the first hero's, shown and not an SVG", heroImage(page) === "https://cdn.example.com/hero.webp" && heroImage([page[1]]) === undefined)
+  const same = siteSameAs({ social_instagram: "https://instagram.com/astrid", social_twitter: "astrid", social_youtube: "javascript:alert(1)", social_github: "https://github.com/astrid", brand_name: "https://not-a-social.example" })
+  check("its owner's profiles elsewhere come from Social links, full addresses only, in the panel's order",
+    JSON.stringify(same) === JSON.stringify(["https://instagram.com/astrid", "https://github.com/astrid"]), JSON.stringify(same))
+  const ld = websiteJsonLd({ origin: O, name: "Astrid", sameAs: same }) as { "@graph": { "@type": string; sameAs?: string[] }[] }
+  check("and they are on the website's owner in its structured data", ld["@graph"][1]["@type"] === "Organization" && ld["@graph"][1].sameAs?.length === 2)
+  const render = read("app/(site)/w/[username]/render-site.tsx")
+  check("the share card falls back to the logo, then the hero, then the creator's avatar, and only without its own",
+    /const shareImage = hasShareImage\s*\? undefined\s*: logo \|\| heroImage\(found\.site\.pages\.home \?\? found\.site\.sections\) \|\| \(await creatorAvatar\(creator\.creatorId\)\) \|\| undefined/.test(render))
+  check("the home page's structured data carries the site's sameAs", /sameAs: siteSameAs\(t\)/.test(render))
+  const layout = read("app/(site)/layout.tsx")
+  check("no page of a website inherits Storelib as its keywords, author, creator, publisher or generator",
+    /export const metadata: Metadata = \{\s*keywords: null,\s*authors: null,\s*creator: null,\s*publisher: null,\s*generator: null,\s*\}/.test(layout) &&
+      ["keywords", "authors", "creator", "publisher", "generator"].every((k) => new RegExp(`\\b${k}: `).test(read("app/layout.tsx"))))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

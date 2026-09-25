@@ -89,6 +89,29 @@ export const CONTROL_PANEL_NOTES: Partial<Record<ControlType, string>> = {
   divider: "A line across the panel. Holds no value.",
 }
 
+/**
+ * WHERE THE REGISTRY'S OWN SENTENCE IS NOT WHAT SHIPS. The registry describes
+ * a page picker as holding a page "by key" and a product picker a product
+ * "by id"; the builder's panel stores the address it links to, which is what
+ * a template then prints (app/website-builder/editor/[installId]/page.tsx,
+ * the page_picker and product_picker branch of FieldEditor). The colour
+ * scheme's sentence points at an internal document. The hub says what the
+ * builder does; tests/developer-hub.test.ts keeps these keys to real types.
+ */
+export const CONTROL_DESCRIPTIONS: Partial<Record<ControlType, string>> = {
+  color_scheme:
+    "One of the theme's colour schemes, by key: the built-in `white`, `light`, `dark`, `black` and `highlight` (Light, Soft, Dark, Brand and Accent in the builder) or one the creator added.",
+  page_picker:
+    "One of the site's pages. The builder stores the page's address, such as `/about`, `/products` or `/` for home, so print it through the `url` filter.",
+  product_picker:
+    "One of the creator's products. The builder stores the product page's address, `/products/<slug>`, so print it through the `url` filter.",
+}
+
+/** What a control is, in a sentence: the registry's words, unless the builder does otherwise. */
+export function controlDescription(t: ControlType): string {
+  return CONTROL_DESCRIPTIONS[t] ?? CONTROLS[t].description
+}
+
 function exampleValue(ex: Record<string, unknown>): Specimen["value"] {
   const d = ex.default
   return typeof d === "string" || typeof d === "number" || typeof d === "boolean" ? d : null
@@ -122,7 +145,7 @@ export function controlSpecimens(): Specimen[] {
       min: typeof ex.min === "number" ? ex.min : undefined,
       max: typeof ex.max === "number" ? ex.max : undefined,
       unit: typeof ex.unit === "string" ? ex.unit : undefined,
-      does: `${c.description} ${CONTROL_PANEL_NOTES[t] ?? ""}`.trim(),
+      does: `${controlDescription(t)} ${CONTROL_PANEL_NOTES[t] ?? ""}`.trim(),
     }
   })
 }

@@ -17,6 +17,8 @@ export interface PushPayload {
 function pageFor(data: Record<string, string> | undefined): string {
   if (data?.type === "sale" && data.orderId) return `/app/orders?order=${encodeURIComponent(data.orderId)}`
   if (data?.type === "payout_available") return "/app/payouts"
+  /* A notification from lib/notifications: its own page, always inside /app. */
+  if (data?.type === "notification" && typeof data.url === "string" && /^\/app(?:[/?#]|$)/.test(data.url) && !data.url.includes("//")) return data.url
   return "/app"
 }
 
@@ -37,7 +39,7 @@ async function sendToBrowser(token: string, payload: PushPayload): Promise<"sent
   try {
     await webpush.sendNotification(
       subscription,
-      JSON.stringify({ title: payload.title, body: payload.body, url: pageFor(payload.data), tag: payload.data?.orderId ?? payload.data?.type }),
+      JSON.stringify({ title: payload.title, body: payload.body, url: pageFor(payload.data), tag: payload.data?.orderId ?? payload.data?.kind ?? payload.data?.type }),
       { vapidDetails: keys, TTL: 60 * 60 * 24 },
     )
     return "sent"
@@ -79,7 +81,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
   if (goneKept.length > 0) await forgetOnAccount(supabase, userId, goneKept).catch(() => undefined)
 
   if (!tokens || tokens.length === 0) {
-    if (kept.length === 0) console.log(`[push] No tokens for user ${userId}`)
+    if (kept.length === 0) console.log("[push] No devices or browsers to send to")
     return
   }
 

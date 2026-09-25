@@ -242,8 +242,12 @@ function main() {
   const css = read("app/globals.css")
   check("the button says the period and nothing else: no calendar icon",
     !/CalendarDays|CalendarRange/.test(picker) && /<span className="tabular-nums">\{valueLabel\(value\)\}<\/span>/.test(picker))
+  /* On a phone the page hears about the choice once the sheet has left (onClosed), as the website builder's sheets
+     tell their page about a release once they have arrived: the page's redraw was in the frames of the slide down. */
   check("a preset applies at once and closes; the page catches up behind the close",
-    /const pick = \(v: RangeValue\) => \{\s*setOpen\(false\)\s*React\.startTransition\(\(\) => onChange\(v\)\)/.test(picker)
+    /const pick = \(v: RangeValue\) => \{\s*setOpen\(false\)\s*if \(phone && !inline\) \{\s*pendingPick\.current = v\s*return\s*\}\s*React\.startTransition\(\(\) => onChange\(v\)\)/.test(picker)
+      && /const onSheetClosed = React\.useCallback\(\(\) => \{\s*setRestart\(\(n\) => n \+ 1\)\s*flushPick\(\)/.test(picker)
+      && /if \(v\) React\.startTransition\(\(\) => onChangeRef\.current\(v\)\)/.test(picker)
       && /const preset = \(id: PresetId\) => onPick\(/.test(picker))
   check("Custom range is the last row, and a second step with Back and Apply",
     JSON.stringify(PRESET_MENU[PRESET_MENU.length - 1]) === JSON.stringify([{ kind: "custom" }])
@@ -258,10 +262,16 @@ function main() {
     /@keyframes drp-in-next \{\s*from \{ opacity: 0; transform: translate3d/.test(css)
       && /\.drp-frame \{\s*transition:\s*width 240ms cubic-bezier\(0\.32, 0\.72, 0, 1\),\s*height 240ms cubic-bezier\(0\.32, 0\.72, 0, 1\);/.test(css)
       && /const ro = new ResizeObserver\(fit\)/.test(picker) && /export const STEP_MS = 240/.test(picker))
+  /* Kept steps are out of sight (visibility), which also takes them out of the accessibility tree; no aria-hidden
+     that changes, which is named under a :has() in the app's CSS (scripts/check-app-sheets-frames.mjs). */
   check("the step that is leaving is inert while it goes",
-    /inert=\{!on\}/.test(picker) && /aria-hidden=\{on \? undefined : true\}/.test(picker))
+    /inert=\{!on\}/.test(picker) && /style=\{!on && !going \? \(compact \? STEP_AWAY_FULL : STEP_AWAY\) : undefined\}/.test(picker)
+      && /const STEP_AWAY: React\.CSSProperties = \{ visibility: "hidden", contentVisibility: "hidden"/.test(picker) && /\{kept\.map\(\(k\) => \{/.test(picker))
+  /* The phone's sheet is kept (keepMounted) and goes back to the list once it is out of sight (restart), rather than
+     a new panel built on the tap that opens it. The popover and the inline picker still get a new one each time. */
   check("the sheet keeps its panel while it closes, and a new one opens each time",
-    /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title="Date range">\s*\{panel\}/.test(picker)
+    /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title="Date range" keepMounted=\{onScreen\} onClosed=\{onSheetClosed\}>\s*<PickerPanel value=\{value\} today=\{today\} firstDay=\{firstDay\} compact onPick=\{pick\} restart=\{restart\} ahead=\{CUSTOM_AHEAD\} \/>/.test(picker)
+      && /if \(restart !== lastRestart\) \{\s*setLastRestart\(restart\)\s*setStep\("list"\)/.test(picker)
       && !/\{open && panel\(/.test(picker) && /<PickerPanel key=\{session\}/.test(picker))
   check("days can be walked with the arrow keys", /ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7/.test(picker))
   check("and the rows of the list with up and down", /const step = \{ ArrowDown: 1, ArrowUp: -1 \}\[e\.key\]/.test(picker))
@@ -269,9 +279,13 @@ function main() {
     /while \(cells\.length < 42\) cells\.push\(null\)/.test(picker) && /gridTemplateRows: `repeat\(6, \$\{cell\}px\)`/.test(picker))
   check("a day is a 44px square on a phone",
     /const cell = compact \? 44 : 36/.test(picker) && /compact \? "h-11 w-11 text-\[16px\]"/.test(picker))
+  /* The grid is kept and the slide is played on it (Web Animations), rather than a new grid per month with a CSS
+     animation: a new grid was 42 days out of the page and 42 in on every tap (scripts/check-app-sheets-frames.mjs). */
   check("the month arrows are raised keys, and the months slide in from the side they were asked for",
-    /const monthNav =/.test(picker) && /drp-month-next/.test(picker) && /drp-month-back/.test(picker)
-      && /@keyframes drp-month-next/.test(css) && /prefers-reduced-motion: reduce\) \{\s*\.drp-frame \{ transition: none; \}\s*\.drp-in-next/.test(css))
+    /const monthNav =/.test(picker) && /const from = `translate3d\(\$\{dir === 1 \? 14 : -14\}px, 0, 0\)`/.test(picker)
+      && /el\.animate\(\[\{ opacity: 0\.35, transform: from \}, \{ opacity: 1, transform: "none" \}\], \{ duration: 220, easing: MONTH_EASE \}\)/.test(picker)
+      && /\(prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(picker) && !/key=\{`\$\{mo\.y\}-\$\{mo\.m\}`\}/.test(picker)
+      && /prefers-reduced-motion: reduce\) \{\s*\.drp-frame \{ transition: none; \}\s*\.drp-in-next/.test(css))
   check("a sideways swipe across the days turns the month on a phone", /Math\.abs\(dx\) < 44 \|\| Math\.abs\(dx\) < Math\.abs\(dy\) \* 1\.5/.test(picker))
   {
     /* Over the pill, but the pill stays: it steps under the lowest overlay
@@ -279,9 +293,14 @@ function main() {
        painted over it and it disappeared. It is never hidden or faded for a
        sheet, and while one is open the scrim, not the pill, takes the tap. */
     check("every sheet on a phone goes over the nav pill, and the pill stays visible under it",
-      /html:has\(\[data-app-sheet\]\) \[data-app-nav-pill\],\s*\n\s*html:has\(\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\]\)\) \[data-app-nav-pill\],\s*\n\s*body\[data-scroll-locked\] \[data-app-nav-pill\] \{\s*\n\s*z-index: 39;/.test(css)
-        /* What can take a tap is named, not `*`: a bare `*` restyled the whole document on every open and close. */
-        && /html:has\(\[data-app-sheet="open"\]\) \[data-app-nav-pill\] :is\(a, button, \.pointer-events-auto\),[\s\S]{0,300}pointer-events: none !important;/.test(css)
+      /* The shared sheet says it is up on <html> (data-app-sheet-up), and the rule for other dialogs leaves its root out:
+         a :has() on the root that changes its answer restyled the whole document (scripts/check-app-sheets-frames.mjs). */
+      /html\[data-app-sheet-up\] \[data-app-nav-pill\],\s*\n\s*html:has\(\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\], \[data-sheet-root\]\)\) \[data-app-nav-pill\],\s*\n\s*body\[data-scroll-locked\] \[data-app-nav-pill\] \{\s*\n\s*z-index: 39;/.test(css)
+        /* What can take a tap is named, not `*`: a bare `*` restyled the whole document on every open and close,
+           and `a, button` every link and button in it (scripts/check-app-sheets-frames.mjs), so it is the pill's
+           `pointer-events-auto` parts alone, which the links and buttons inside them inherit from. */
+        && /html\[data-app-sheet-up="open"\] \[data-app-nav-pill\] \.pointer-events-auto,[\s\S]{0,300}pointer-events: none !important;/.test(css)
+        && !/\[data-app-nav-pill\] :is\(a, button/.test(css)
         && !/data-app-sheet[^{]*\[data-app-nav-pill\][^{]*\{[^}]*(opacity: 0|visibility: hidden|display: none|z-index: 0;)/.test(css))
     /* The pill used to step down to layer 0 while a sheet was open, which
        hid it behind the page before the sheet arrived and brought it back
@@ -305,7 +324,7 @@ function main() {
     const shared = ["app/app/payouts/payouts-client.tsx", "components/app/settings-form-new.tsx", "components/app/billing/billing-page-client.tsx", "components/app/notifications-modal.tsx", "components/app/mobile-account-menu.tsx", "components/app/share/share-storelib.tsx"]
     check("and the sheets pages draw for themselves say when they are open",
       sheets.every(([f, n]) => (read(f).match(/data-app-sheet="open"/g) ?? []).length === n)
-        && /data-app-sheet=\{isOpen \? "open" : "closing"\}/.test(read("components/ui/bottom-sheet.tsx"))
+        && /data-app-sheet=\{atRest \? undefined : isOpen \? "open" : "closing"\}/.test(read("components/ui/bottom-sheet.tsx"))
         && /role="dialog"\s*aria-modal="true"/.test(read("components/ui/bottom-sheet.tsx"))
         && shared.every((f) => /<BottomSheet\b/.test(read(f)) && !/translateY\(100%\)|translate3d\(0, ?100%, ?0\)/.test(read(f)))
         && /<ShareStorelib\b/.test(read("components/app/dashboard-client.tsx"))

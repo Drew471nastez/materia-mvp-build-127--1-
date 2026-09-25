@@ -109,8 +109,34 @@ async function main() {
      * A template prints whatever it is handed. What it is handed is this,
      * and nothing else: no description, no cost, no buyer.
      */
+    /**
+     * The card is the product data API now (content/developers/selling.md):
+     * exactly the fields documented there, every one of them something the
+     * product's own page already shows a visitor. Still nothing private.
+     */
     const keys = Object.keys(c.settings).sort()
-    check("a card carries only what a card draws", JSON.stringify(keys) === JSON.stringify(["compare_price", "image", "price", "tag", "title", "url"]), keys.join(", "))
+    const API = ["available", "checkout_url", "compare_price", "currency", "free", "image", "images", "kind", "pay_what_you_want", "price", "slug", "tag", "title", "url", "variants"]
+    check("a card carries exactly the documented product fields", JSON.stringify(keys) === JSON.stringify(API), keys.join(", "))
+    check("and nothing private: no description, cost, files, buyer or creator", !keys.some((k) => /description|cost|file|buyer|creator|email|order/.test(k)))
+    const selling = read("content/developers/selling.md")
+    check("every field is in the docs a section author reads", API.every((k) => selling.includes(`block.settings.${k}`)), API.filter((k) => !selling.includes(`block.settings.${k}`)).join(", "))
+    check("the buy link is Storelib checkout for the product, as a website order", c.settings.checkout_url === "/checkout?productId=p1&src=website", c.settings.checkout_url)
+    const withOptions = toCard(ROW, [
+      { id: "v2", product_id: "p1", name: "Pro", price_cents: 9900, position: 1 },
+      { id: "v1", product_id: "p1", name: "Basic", price_cents: 4800, position: 0 },
+      { id: "vx", product_id: "other", name: "Not this one", price_cents: 100, position: 0 },
+    ])
+    check("its options are its own, in order, each with its own buy link",
+      withOptions.settings.variants.map((v) => v.name).join(",") === "Basic,Pro" &&
+        withOptions.settings.variants[1].checkout_url === "/checkout?productId=p1&variantId=v2&src=website" &&
+        withOptions.settings.variants[1].price === "$99.00")
+    const pwyw = toCard({ ...ROW, price_cents: 0, pay_what_you_want: true, pwyw_min_price_cents: 500 })
+    check("pay what you want shows its minimum, not free", pwyw.settings.price === "$5.00" && pwyw.settings.pay_what_you_want && !pwyw.settings.free)
+    const soldOut = toCard({ ...ROW, inventory_count: 0 })
+    check("a product that cannot be bought has no buy link", soldOut.settings.available === false && soldOut.settings.checkout_url === "")
+    const gallery = toCard({ ...ROW, gallery_urls: ["https://x/2.jpg", "https://x/1.jpg", "javascript:alert(1)", "//evil.test/x.jpg"] })
+    check("its pictures are the main one first, each once, and only addresses a page can load",
+      JSON.stringify(gallery.settings.images) === JSON.stringify(["https://x/1.jpg", "https://x/2.jpg"]), JSON.stringify(gallery.settings.images))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -195,7 +221,7 @@ async function main() {
 
     check("the canvas is given products", /products=\{shopCards\}/.test(editor) && /products\?: RenderContext\["products"\]/.test(live))
     check("and builds them with the same function the site uses", /toCard\(\{/.test(editor) && /shopProducts\(/.test(site))
-    check("the published page passes them into the render", /renderWithSources\(site\.sources, sections, site\.themeSettings, template, products\)/.test(site))
+    check("the published page passes them into the render", /renderWithSources\(site\.sources, sections, site\.themeSettings, template, products[,)]/.test(site))
 
     /**
      * The shop is the part that actually moves. A price is edited from the

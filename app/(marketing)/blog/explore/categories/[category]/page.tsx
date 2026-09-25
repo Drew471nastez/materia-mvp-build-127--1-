@@ -8,6 +8,7 @@ import {
   slugToCategory,
 } from "@/lib/blog-categories"
 import BlogListing, { type BlogPost } from "../../../_blog-listing"
+import { jsonLdScript } from "@/lib/seo/json-ld"
 
 export const dynamic = "force-dynamic"
 
@@ -82,7 +83,7 @@ export default async function CategoryPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: jsonLdScript({
             "@context": "https://schema.org",
             "@type": "CollectionPage",
             name: `${category} — Storelib Blog`,

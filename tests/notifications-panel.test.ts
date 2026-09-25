@@ -34,6 +34,7 @@ import {
   writeIds,
   writeUnreadOnly,
 } from "@/lib/notifications/unread-state"
+import { inTabOf, panelHref, panelOrder, staysOnOpen, toneOf } from "@/lib/notifications/panel"
 
 let passed = 0
 let failed = 0
@@ -136,6 +137,44 @@ console.log("\nThe shared store")
   off()
 }
 
+console.log("\nWhat the rules engine writes: first, filed, marked, and covering a to-do")
+{
+  const t = (h: number) => new Date(Date.UTC(2026, 8, 25, 12) - h * 3_600_000)
+  const items = [
+    { id: "review", type: "new_review", category: null, createdAt: t(1) },
+    { id: "coupon", type: "opportunity", category: "opportunity" as const, priority: 35, createdAt: t(0) },
+    { id: "payout", type: "critical", category: "critical" as const, priority: 95, createdAt: t(2) },
+    { id: "stripe", type: "critical", category: "critical" as const, priority: 100, createdAt: t(40) },
+    { id: "file", type: "problem", category: "problem" as const, priority: 75, createdAt: t(5) },
+    { id: "onepage-setup", type: "opportunity", category: "next_step" as const, createdAt: new Date(0) },
+    { id: "sale10", type: "milestone", category: "milestone" as const, priority: 65, createdAt: t(0.5) },
+  ]
+  const order = panelOrder(items).map((n) => n.id).join()
+  check("critical first by priority, then the problem, the next step, then the rest newest first", order === "stripe,payout,file,onepage-setup,coupon,sale10,review", order)
+  const tab = (id: "updates" | "opportunities" | "messages") => panelOrder(items).filter((n) => inTabOf(n, id)).map((n) => n.id).join()
+  check("Updates: what happened on the account", tab("updates") === "stripe,payout,file,sale10,review", tab("updates"))
+  check("Opportunities: what to do next", tab("opportunities") === "onepage-setup,coupon", tab("opportunities"))
+  check("Messages: messages only", tab("messages") === "" && inTabOf({ type: "message", category: null }, "messages"))
+  check("rows from before categories are filed by their type as before", inTabOf({ type: "update", category: null }, "updates") && inTabOf({ type: "opportunity", category: null }, "opportunities") && inTabOf({ type: "action", category: null }, "opportunities"))
+  check("critical is red, a problem amber, the rest untoned", toneOf({ category: "critical" }) === "critical" && toneOf({ category: "problem" }) === "problem" && toneOf({ category: "milestone" }) === null && toneOf({ category: null }) === null)
+  check("a tap keeps critical rows, problems and digests (read, until fixed); anything else is put away", staysOnOpen({ category: "critical" }) && staysOnOpen({ category: "problem" }) && staysOnOpen({ category: "opportunity", kind: "opportunity_digest" }) && !staysOnOpen({ category: "milestone" }) && !staysOnOpen({ category: null }))
+  check("links stay on this site", panelHref("/app/payouts") === "/app/payouts" && panelHref("/p/x#testimonials") === "/p/x#testimonials" && panelHref("https://evil.example") === undefined && panelHref("//evil.example") === undefined && panelHref(null) === undefined)
+  check("a to-do the server covers is not counted on the bell", unreadCount({ dbUnread: 1, dismissed: [], read: [], covered: ["payment-setup"] }, both) === 2 && unreadCount({ dbUnread: 1, dismissed: [], read: [] }, both) === 3)
+
+  const panel = readCode("components/app/notifications-modal.tsx")
+  check("the panel orders and files through those rules", /panelOrder\(\[/.test(panel) && /inTab = notifications\.filter\(\(n\) => inTabOf\(n, activeTab\)\)/.test(panel))
+  check("a covered to-do steps aside in the list too", /!covered\.includes\("payment-setup"\)/.test(panel) && /setCovered\(data\.covered\)/.test(panel))
+  check("critical: a 6px dot and the word in red, no red ground", /mr-1\.5 h-1\.5 w-1\.5 shrink-0 rounded-full", tone === "critical" \? "bg-\[#d92d20\]" : "bg-\[#dc6803\]"/.test(panel) && /tone === "critical" && "font-medium text-\[#b42318\]"/.test(panel) && !/bg-red-|bg-\[#fe[ef]|bg-\[#fd/.test(panel.slice(panel.indexOf("function NotificationItem("), panel.indexOf("export function NotificationBadge"))))
+  check("a tap on a row that stays marks it read instead of putting it away", /if \(notification\.isFromDb && staysOnOpen\(notification\)\) \{\s*[\s\S]{0,200}void handleMarkRead\(notification\)/.test(panel))
+  check("a digest draws its lines as links", /data-notification-digest=""/.test(panel) && /notification\.items\.map/.test(panel))
+
+  const route = readCode("app/api/notifications/route.ts")
+  check("the route pins what needs the creator first, and drops what resolved", /\.in\("category", ATTENTION\)/.test(route) && /const ATTENTION = \["critical", "problem", "next_step"\]/.test(route) && /\.is\("resolved_at", null\)/.test(route))
+  check("before the engine's SQL it reads exactly what it always read", /if \(recent\.error && missingColumns\(recent\.error\)\)/.test(route) && /recentQuery\(LEGACY_COLUMNS, false\)/.test(route))
+  check("the bell's count answers covered too", /return NextResponse\.json\(\{ unreadCount, covered \}/.test(route))
+  check("no database error text leaves the route or reaches its logs", !/console\.error\([^)]*, (error|notifError|legacy\.error|recent\.error)\)/.test(route))
+}
+
 console.log("\nThe server marks them all read in one statement, for this user only")
 {
   const route = readCode("app/api/notifications/route.ts")
@@ -175,9 +214,15 @@ console.log("\nThe panel")
   check("the chosen tab is a dark copy of the row cut to its pill, and a switch moves the cut, so each word turns white as the pill reaches it",
     /pill\.style\.clipPath = `inset\(0px \$\{right\}px 0px \$\{left\}px round 999px\)`/.test(panel) && /const TAB_MOVE = "clip-path 300ms cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(panel)
       && /data-tab-pill=""[\s\S]{0,200}bg-\[#1a1a2e\]/.test(panel) && !/selected \? "text-white"/.test(panel))
-  check("one resize observer for the row's life, so a switch is never placed again without its move", /placeRef\.current\(false\)/.test(panel) && /ro\.observe\(row\)\s*return \(\) => ro\.disconnect\(\)\s*\}, \[\]\)/.test(panel))
+  check("one resize observer for the row's life, so a switch is never placed again without its move", /placeRef\.current\(false\)/.test(panel) && /ro\.observe\(row\)[\s\S]{0,500}?return \(\) => \{\s*live = false\s*ro\.disconnect\(\)\s*\}\s*\}, \[\]\)/.test(panel) && (panel.match(/new ResizeObserver/g) ?? []).length === 1)
+  /* The pill cut into "All" when the typeface landed between the first placing and the observer's first report. */
+  check("and placed again, unanimated, once the typeface is in", /document\.fonts\?\.ready\.then\(\(\) => live && placeRef\.current\(false\)\)/.test(panel))
+  /* The rows are kept and a view shows some of them (`hidden`), so a switch builds nothing on the tap
+     (scripts/check-app-sheets-frames.mjs); the view still fades in, on the compositor, and never on reduced motion. */
   check("the new view's rows fade in from the top, and a computer's panel keeps its height until it closes",
-    (panel.match(/key=\{activeTab\}[^>]*animate-in fade-in-0 duration-200 motion-reduce:animate-none/g) ?? []).length === 2 && /if \(listRef\.current\) listRef\.current\.scrollTop = 0/.test(panel)
+    /hidden=\{!shownIds\.has\(notification\.id\)\}/.test(panel) && !/key=\{activeTab\}/.test(panel)
+      && /el\?\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: 200/.test(panel) && /prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(panel)
+      && /if \(listRef\.current\) listRef\.current\.scrollTop = 0/.test(panel)
       && /body\.style\.minHeight = `\$\{Math\.max\(body\.offsetHeight, parseFloat\(body\.style\.minHeight\) \|\| 0\)\}px`/.test(panel))
   check("no glass or gradient on the panel", !/backdrop-blur|bg-gradient/.test(panel))
   const banned = /\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i

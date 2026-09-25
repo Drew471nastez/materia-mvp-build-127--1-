@@ -45,6 +45,15 @@ export const RESERVED_PAGE_KEYS: ReadonlySet<string> = new Set([
   "purchase",
   "receipt",
   "access",
+  /**
+   * The account pages every website has (lib/website-builder/account-pages):
+   * /account and /account/login for a visitor's own account, and /wishlist
+   * for what they saved. A page a creator made under one of these names
+   * would sit behind the real one and could never be reached.
+   */
+  "account",
+  "login",
+  "wishlist",
 ])
 
 /**
@@ -54,6 +63,11 @@ export const RESERVED_PAGE_KEYS: ReadonlySet<string> = new Set([
  * characters.
  */
 const PAGE_KEY = /^[a-z0-9](?:[a-z0-9-]{0,62})$/
+
+/** Whether a key has that shape, exactly as given. Reserved names are the caller's question. */
+export function isPageKey(key: string): boolean {
+  return PAGE_KEY.test(key)
+}
 
 /**
  * The path segment a visitor typed, as a page key, or null when it is not
@@ -95,6 +109,8 @@ export function pageTitleFromKey(key: string): string {
   if (policy) return policy.title
   /* "products" is the shop; nobody calls it Products in a menu. */
   if (key === "products") return "Shop"
+  /* The sign in page's key is one word; its name is two. */
+  if (key === "login") return "Sign in"
 
   const words = key.replace(/-/g, " ").trim()
   return words.charAt(0).toUpperCase() + words.slice(1)
@@ -105,8 +121,24 @@ export function pageTitleFromKey(key: string): string {
  * results are generated from the home page's chrome plus one section each,
  * and become stored pages the moment a creator edits them; they stay
  * reserved above so nobody can also make a page BY that name.
+ *
+ * So are the visitor's account, its sign in page, the wishlist and the
+ * contact page (lib/website-builder/account-pages). Contact is the one a
+ * creator could always make by hand, which is why it is not reserved: a
+ * stored contact page is served as it is, and a site without one gets the
+ * generated page instead of a 404.
  */
-export const GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set(["products", "search"])
+export const GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set(["products", "search", "account", "login", "wishlist", "contact"])
 
 /** The pages the theme ships with. Everything else is one a person made. */
-export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product", "about", "contact", "products", "search"])
+export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product", "about", "contact", "products", "search", "account", "login", "wishlist"])
+
+/**
+ * Where a page is served, when that is not `/<key>`: the sign in page is
+ * under the account, the way every shop has it.
+ */
+export function pagePath(key: string): string {
+  if (key === "home") return "/"
+  if (key === "login") return "/account/login"
+  return `/${key}`
+}

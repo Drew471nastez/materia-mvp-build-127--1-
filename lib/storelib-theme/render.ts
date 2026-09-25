@@ -16,8 +16,10 @@ import { resolveSectionColors, styleAttr } from "./color-schemes"
 import { resolveInstance, themeTokens } from "./resolve"
 import { sectionTypography } from "./typography"
 import { cssForInstance } from "./storelib/css"
+import { guardSectionMarkup, guardStyleText } from "./storelib/raw-html"
 import { renderTemplate, stripDocumentMarkup, type CompiledTemplate } from "./storelib/template"
 import type { CompiledSection, RenderContext, SectionInstanceData } from "./types"
+import { SITE_ROUTES, shopObject, type StorefrontGlobals } from "./globals"
 
 export interface RenderInput {
   compiled: CompiledSection
@@ -35,6 +37,11 @@ export interface RenderInput {
    * did not supply any, and a section that asks for them draws none.
    */
   products?: RenderContext["products"]
+  /**
+   * What the page knows about the store and, on a page drawn for one visitor,
+   * about them. Absent means `shop` from the theme alone, and no customer.
+   */
+  globals?: StorefrontGlobals
 }
 
 export interface Rendered {
@@ -68,10 +75,16 @@ export function renderSection(input: RenderInput): Rendered {
     products: input.products ?? [],
     section: { id, type: compiled.type },
     assets,
+    shop: shopObject(input.theme, input.globals?.shop) as unknown as Record<string, unknown>,
+    routes: SITE_ROUTES,
+    customer: input.globals?.customer ?? null,
+    wishlist: (input.globals?.wishlist ?? null) as unknown as Record<string, unknown> | null,
   }
   /* No tag here acts on the whole document, whatever the file or a richtext
-     setting held: storelib/template.ts, DOCUMENT_MARKUP. */
-  const inner = stripDocumentMarkup(renderTemplate(compiled.template as CompiledTemplate, ctx))
+     setting held: storelib/template.ts, DOCUMENT_MARKUP. And nothing drawn
+     runs anything, however the template spelled it: storelib/raw-html.ts,
+     guardSectionMarkup. */
+  const inner = guardSectionMarkup(stripDocumentMarkup(renderTemplate(compiled.template as CompiledTemplate, ctx)))
   const typo = sectionTypography(settings)
   const attrs = [
     `data-section-id="${escapeAttr(id)}"`,
@@ -86,10 +99,13 @@ export function renderSection(input: RenderInput): Rendered {
   const html = `<div ${attrs.join(" ")}>${inner}</div>`
   return {
     html,
+    /* It is written into a <style> element, which a `</style` would end early. */
     css: compiled.css
-      ? cssForInstance(
-          compiled.cssTemplate ? renderTemplate(compiled.cssTemplate as CompiledTemplate, ctx, { mode: "css" }) : compiled.css,
-          id,
+      ? guardStyleText(
+          cssForInstance(
+            compiled.cssTemplate ? renderTemplate(compiled.cssTemplate as CompiledTemplate, ctx, { mode: "css" }) : compiled.css,
+            id,
+          ),
         )
       : "",
     script: compiled.script,

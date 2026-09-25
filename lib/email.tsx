@@ -17,6 +17,7 @@ import { normalizeSteps as normalizeFlowSteps, waitMs as flowWaitMs } from "@/li
 import type { ContactSource } from "@/lib/contacts/contact-source"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { ignoreError } from "@/lib/supabase/ignore-error"
+import { ownerAddress } from "@/lib/businesses/email-alias"
 
 // MUST be a real mailbox on your verified domain in Amazon SES
 const FROM_EMAIL = EMAIL_FROM
@@ -331,10 +332,12 @@ export async function resolveCreatorIdentity(
       else if (creator?.slug?.trim()) fromName = creator.slug.trim()
     }
 
+    /* A second business's address is the owner's with a tag (lib/businesses/email-alias):
+       the seller's mail and a buyer's reply go to the owner's real inbox. */
     const result = {
       fromName: safeName(fromName) || PLATFORM_BRAND_NAME,
-      replyTo: normalizeEmail(replyTo) || DEFAULT_SUPPORT,
-      sellerEmail: normalizeEmail(sellerEmail) || DEFAULT_SUPPORT,
+      replyTo: normalizeEmail(ownerAddress(replyTo) ?? "") || DEFAULT_SUPPORT,
+      sellerEmail: normalizeEmail(ownerAddress(sellerEmail) ?? "") || DEFAULT_SUPPORT,
     }
 
     console.log("[email] Resolved creator identity:", {
