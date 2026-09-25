@@ -511,7 +511,7 @@ section("Save compiles, errors carry lines, the canvas finds out")
 
   check("the code editor shows the compiler's errors with their lines", /res\.status === 422 && Array\.isArray\(d\.errors\)/.test(codePage) && /data-compile-errors=""/.test(codePage) && /goToLine\(err\.line\)/.test(codePage))
   check("and marks the line in the gutter", /hasError=\{errorLines\.has\(i \+ 1\)\}/.test(codePage) && /data-error-line=/.test(codePage))
-  check("a broken file is not saved and says so", /did not compile — not saved/.test(codePage))
+  check("a broken file is not saved and says so", /did not compile\. Not saved\./.test(codePage) && !/did not compile —/.test(codePage))
   check("the code editor tells the canvas when a file changed", (codePage.match(/announceFileChange\(/g) ?? []).length >= 5 && /type: "storelib:file-saved"/.test(codePage))
   check("the editor listens and reloads the saved sources", /data\?\.type === "storelib:file-saved"\) void loadStorelibSources\(\)/.test(editor) && /files\?sources=1/.test(editor))
   // The sidebar reads the library, which is the theme's sections and this
@@ -1073,7 +1073,7 @@ section("The code editor on a phone")
 
   check("the whole list copies, with the file it is about", /const copyErrors = async \(\) => \{/.test(code) && /selectedFile\?\.path \?\? ""/.test(code))
   check("and says so when it has", /\{copiedErrors \? "Copied" : "Copy all"\}/.test(code))
-  check("a clipboard that refuses is reported, not swallowed", /The clipboard refused that/.test(code))
+  check("a clipboard that refuses is reported, not swallowed", /toast\.error\("Could not copy"\)/.test(code))
 
   check("Solve with AI sends the file and the errors", /sections\/code\/fix/.test(code) && /source: fileContent/.test(code) && /errors: compileErrors\.map/.test(code))
   check("it has a loading state and cannot be pressed twice", /\{solving \? "Solving" : "Solve with AI"\}/.test(code) && /if \(solving \|\| !selectedFile\) return/.test(code) && /disabled=\{solving/.test(code))
@@ -1105,7 +1105,7 @@ section("The code editor on a phone")
   )
   check(
     "and nothing is written to the account: the fix lands in the editor to be read",
-    !/saveDraft|recordVersion/.test(route) && /setFileContent\(d\.source\)/.test(code) && /Read it, then save/.test(code),
+    !/saveDraft|recordVersion/.test(route) && /setFileContent\(d\.source\)/.test(code) && /Fixed\. Check it, then save\./.test(code),
   )
 }
 
