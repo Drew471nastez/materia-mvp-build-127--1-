@@ -15,10 +15,10 @@
  *   says which one you are on
  *
  *   a category with subcategories opens into a level of its own, with a back
- *   row on top. The two levels CROSS: the old one fades as it drifts a
- *   little left, the new one fades in as it settles from a little right, and
- *   back reverses it. Each level is its own scroller, so coming back puts
- *   you where you were in the list
+ *   row on top. The new level is PUSHED in the way a phone's own lists do it:
+ *   it slides in from the right edge while the list under it moves a quarter
+ *   of the way left and dims a little, and back reverses it. Each level is
+ *   its own scroller, so coming back puts you where you were in the list
  *
  *   an optional search on top, which finds a category or a subcategory by
  *   name and chooses it on Enter
@@ -40,28 +40,48 @@ export type BrowseItem = { id: string; label: string }
 export type BrowseGroup = { id: string; label: string; items: readonly BrowseItem[] }
 
 /**
- * THE CROSS, NOT A SLIDE. The levels used to slide the whole width: the new
- * one came in from the right with a shadow along its edge while the old one
- * slid a third of the way out and dimmed. "Too laggy", and the shadow read
- * as a bar coming in. A full width move is a long way for the eye to follow
- * on a list this simple, and the blurred edge was re-rastered on every frame
- * of it.
+ * ===========================================================================
+ *  A PUSH, THE STANDARD ONE
+ * ===========================================================================
+ * "More standard, smooth and clean. Going back and going in is laggy. Not so
+ * much animation, but not abrupt either." It was first a full width slide
+ * with a blurred shadow along the new level's edge ("the shadow read as a
+ * bar coming in"), then a cross of two small moves and two fades on
+ * different timings, which read as two animations and still stuttered.
  *
- * Now each level moves a few pixels and fades: the one leaving goes quickly,
- * the one arriving follows a moment later and settles on the sheet's own
- * curve, so the two are barely on screen together. Transform and opacity
- * only, nothing laid out and nothing re-rastered.
+ * Now it is the one a phone's own list does, and nothing else: the level
+ * opening slides in from the right edge (100% to 0), the list under it moves
+ * a quarter of the way left (0 to -25%) and dims a little under a veil, all
+ * three on one curve over BROWSE_SLIDE_MS; back plays it in reverse. No
+ * shadow, no fade of either list.
+ *
+ * WHAT MADE IT LAG, AND WHAT DOES NOT ANY MORE. The new level's rows were
+ * rendered on the same frame the move began, and each list became a layer
+ * of its own only once it started moving, so the first frames waited on
+ * React, on painting a list, and on a layer being made. Now:
+ *
+ *   both lists are layers from the start (`will-change: transform`), so a
+ *   move never waits for one to be made;
+ *
+ *   the level about to open is drawn before it moves: on the press (pointer
+ *   down) its rows are rendered off the right edge, where nobody sees them,
+ *   and the tap that follows only changes two transforms and an opacity. A
+ *   keyboard, which has no press first, draws it and starts the move a frame
+ *   later;
+ *
+ *   during the move nothing renders: the rows are the same elements
+ *   throughout, and going back keeps the level's rows until they are out of
+ *   sight (and after, so going in again is as quick).
+ *
+ * Transform and opacity only, on the compositor. Under reduced motion it is
+ * instant.
  */
 export const BROWSE_SLIDE_MS = 280
-/** The level arriving fades in over this, a moment after the one leaving starts to go. */
-const FADE_IN_MS = 220
-const FADE_DELAY_MS = 50
-/** The level leaving is gone before the one arriving is half in. */
-const FADE_OUT_MS = 140
-const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-/** How far each level travels: the one opening comes from the right, the one it covers drifts left. */
-const SHIFT_IN = "24px"
-const SHIFT_OUT = "-16px"
+export const BROWSE_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+/** How far the list under a new level moves left... */
+export const BROWSE_PARALLAX = "-25%"
+/** ...and how dark the veil over it gets. */
+export const BROWSE_DIM = 0.06
 
 function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -177,13 +197,17 @@ export function CategoryBrowser({
   const query = controlledQuery ?? ownQuery
   const setQuery = onQueryChange ?? setOwnQuery
   /* Which level is showing, and which group the second level holds. The
-     second is kept after going back so it still has rows while it slides out. */
+     second keeps its rows after going back, so they are there while it slides
+     out, and there already if the same group is opened again. */
   const [open, setOpen] = useState<string | null>(null)
   const [held, setHeld] = useState<string | null>(null)
+  /* The second level is out of sight and still: nothing of it is drawn. */
+  const [subOut, setSubOut] = useState(true)
   const rootRef = useRef<HTMLDivElement>(null)
   const subRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const lastOpened = useRef<string | null>(null)
+  const startFrame = useRef(0)
   const listId = useId()
 
   const found = useMemo(() => (query.trim() ? findInGroups(groups, query) : null), [groups, query])
@@ -194,14 +218,36 @@ export function CategoryBrowser({
   useEffect(() => {
     if (found) setOpen(null)
   }, [found])
+  useEffect(() => () => cancelAnimationFrame(startFrame.current), [])
+
+  /* On the press, before the tap: the level's rows drawn off the right edge, so the tap only moves it. */
+  const prepare = useCallback((id: string) => {
+    if (open !== null) return
+    setHeld(id)
+    setSubOut(false)
+  }, [open])
 
   const drillIn = useCallback((id: string) => {
     lastOpened.current = id
-    setHeld(id)
-    setOpen(id)
+    cancelAnimationFrame(startFrame.current)
     if (subRef.current) subRef.current.scrollTop = 0
+    if (held === id && !subOut) {
+      setOpen(id)
+      return
+    }
+    /* Not drawn yet (a keyboard): draw it where nobody sees it, and move it a frame later. */
+    setHeld(id)
+    setSubOut(false)
+    startFrame.current = requestAnimationFrame(() => {
+      startFrame.current = requestAnimationFrame(() => setOpen(id))
+    })
+  }, [held, subOut])
+  const back = useCallback(() => {
+    cancelAnimationFrame(startFrame.current)
+    setOpen(null)
+    /* Nothing moves under reduced motion, so no move ends to say it is out. */
+    if (reducedMotion()) setSubOut(true)
   }, [])
-  const back = useCallback(() => setOpen(null), [])
 
   /* Focus follows the level for a keyboard: in, to the back row; out, to the row that was opened. */
   const keyboardRef = useRef(false)
@@ -253,6 +299,7 @@ export function CategoryBrowser({
         data-browse-group={g.id}
         aria-current={on && !opens ? "true" : undefined}
         aria-haspopup={opens ? "true" : undefined}
+        onPointerDown={opens ? () => prepare(g.id) : undefined}
         onClick={(e) => {
           if (opens) {
             keyboardRef.current = e.detail === 0
@@ -351,8 +398,9 @@ export function CategoryBrowser({
   ) : null
 
   const still = reducedMotion()
-  const arrive = still ? "none" : `transform ${BROWSE_SLIDE_MS}ms ${EASE}, opacity ${FADE_IN_MS}ms ${EASE} ${FADE_DELAY_MS}ms`
-  const leave = still ? "none" : `transform ${BROWSE_SLIDE_MS}ms ${EASE}, opacity ${FADE_OUT_MS}ms ${EASE}`
+  /* One move, one curve, for both lists and the veil. */
+  const move = still ? "none" : `transform ${BROWSE_SLIDE_MS}ms ${BROWSE_EASE}`
+  const veil = still ? "none" : `opacity ${BROWSE_SLIDE_MS}ms ${BROWSE_EASE}`
   const pane = "absolute inset-0 overflow-y-auto overscroll-contain bg-white"
 
   return (
@@ -383,14 +431,21 @@ export function CategoryBrowser({
           onKeyDown={onKeys(() => rootRef.current)}
           className={pane}
           style={{
-            transform: inSub ? `translate3d(${SHIFT_OUT}, 0, 0)` : "translate3d(0, 0, 0)",
-            opacity: inSub ? 0 : 1,
-            transition: inSub ? leave : arrive,
+            transform: inSub ? `translate3d(${BROWSE_PARALLAX}, 0, 0)` : "translate3d(0, 0, 0)",
+            transition: move,
+            willChange: "transform",
             touchAction: "pan-y",
           }}
         >
           {rootBody}
         </div>
+        {/* The veil that dims the list under a new level: over it, under the level. */}
+        <div
+          aria-hidden
+          data-browse-veil=""
+          className="pointer-events-none absolute inset-0 bg-[#0f172a]"
+          style={{ opacity: inSub ? BROWSE_DIM : 0, transition: veil, willChange: "opacity" }}
+        />
         <div
           ref={subRef}
           data-browse-level="sub"
@@ -398,16 +453,16 @@ export function CategoryBrowser({
           aria-hidden={!inSub || undefined}
           onKeyDown={onKeys(() => subRef.current)}
           onTransitionEnd={(e) => {
-            /* Out of sight, out of the tree's work: nothing to paint behind the list. */
-            if (e.target === e.currentTarget && e.propertyName === "transform" && !inSub) setHeld(null)
+            /* Out of sight and still: not drawn, but its rows kept, for going in again. */
+            if (e.target === e.currentTarget && e.propertyName === "transform" && !inSub) setSubOut(true)
           }}
           className={pane}
           style={{
-            transform: inSub ? "translate3d(0, 0, 0)" : `translate3d(${SHIFT_IN}, 0, 0)`,
-            opacity: inSub ? 1 : 0,
-            transition: inSub ? arrive : leave,
+            transform: inSub ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)",
+            transition: move,
+            willChange: "transform",
             touchAction: "pan-y",
-            visibility: heldGroup ? "visible" : "hidden",
+            visibility: heldGroup && (inSub || !subOut) ? "visible" : "hidden",
           }}
         >
           {subBody}

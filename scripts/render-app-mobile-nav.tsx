@@ -92,7 +92,7 @@ function Shell() {
         }
         onClose={() => setOpen(false)}
         upgradeTitle="Upgrade to Pro"
-        upgradeSubtitle="More products, no Storelib badge"
+        upgradeSubtitle="Unlock more benefits"
       />
       {/* The shell mounts it behind the same gate; tests/app-mobile-nav
           checks that it still does. */}

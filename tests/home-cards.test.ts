@@ -46,7 +46,8 @@ function main() {
   check("and the quick actions are all still there", ["/app/products/new", "/app/onepage", "/app/analytics", "/app/settings?tab=domains"].every((h) => quick.includes(`href: "${h}"`)))
 
   console.log("\nGetting started (the rules are lib/home/progress, held by tests/home-progress)")
-  check("eight steps", /SETUP_ORDER: readonly SetupStepId\[\] = \["signup", "guide", "product", "payments", "store", "sale", "pro", "domain"\]/.test(progress))
+  /* Changed on purpose: "Remove the Upgrade to Pro in Getting started." */
+  check("seven steps, Upgrade to Pro not among them", /SETUP_ORDER: readonly SetupStepId\[\] = \["signup", "guide", "product", "payments", "store", "sale", "domain"\]/.test(progress) && !/label: "Upgrade to Pro"/.test(progress))
   check("signing up is always done", /signup: \{ id: "signup", label: "Sign up", done: true/.test(progress))
   check("Home works them out from the account's facts", /homeProgress\(facts\)/.test(dash) && /<HomeCards progress=\{progress\}/.test(dash))
   check("the website builder is a page in the shell, as the sidebar opens it now", /href: "\/app\/website-builder"/.test(progress) && !/hardNavigation/.test(cards) && !/<a\s+href/.test(cards))
@@ -58,7 +59,7 @@ function main() {
   check("a step that ticks slides to its place rather than jumping", /row\.animate\(\[\{ transform: `translateY\(\$\{before - top\}px\)` \}/.test(cards))
   check("no sub-steps", !/substep/i.test(cards))
   check("PayPal, Visa and Stripe at its foot", ["paypal", "visa", "stripe"].every((t) => cards.includes(`data-pay-tile="${t}"`)))
-  check("once all eight are done, the same card shows the challenges", /progress\.phase === "challenges"/.test(cards) && /progress\.challenges : progress\.steps/.test(cards) && /"Challenges" : "Getting started"/.test(cards))
+  check("once all seven are done, the same card shows the challenges", /progress\.phase === "challenges"/.test(cards) && /progress\.challenges : progress\.steps/.test(cards) && /"Challenges" : "Getting started"/.test(cards))
 
   console.log("\nevery press on Home moves like the sidebar")
   check("each step that is a page is an AppLink", /<AppLink href=\{href\} className=\{row\}/.test(cards))
@@ -84,9 +85,11 @@ function main() {
   check("each check is one light grey circle, the same size on every line", /data-plan-check="" className="home-plan-check mt-px flex h-\[18px\] w-\[18px\]/.test(cards) && /text-\[#6b7280\]/.test(cards.slice(cards.indexOf("data-plan-check"))))
   const checkCss = homeCss.slice(homeCss.indexOf(".home-plan-check {"), homeCss.indexOf("}", homeCss.indexOf(".home-plan-check {")))
   check("  #f1f2f4, a 1px #e3e5e8 ring and a lit top edge", /background: #f1f2f4/.test(checkCss) && /0 0 0 1px #e3e5e8/.test(checkCss) && /inset 0 1px 0 rgba\(255, 255, 255/.test(checkCss))
-  const sky = homeCss.slice(homeCss.indexOf(".home-plan-sky {"), homeCss.indexOf(".home-plan-check {"))
-  check("the band is a violet gradient carrying a halftone of dots in two sizes, masked to fade", /linear-gradient\(100deg/.test(sky) && (sky.match(/radial-gradient\(circle/g) ?? []).length === 2 && /mask-image: linear-gradient\(90deg, transparent/.test(sky))
-  check("  drawn by the browser, no image and no noise filter", !/url\(/.test(sky) && !/feTurbulence/.test(sky))
+  /* Changed on purpose: "no dots, no pattern, no gradient; something cleaner, simple, a subtle colour." */
+  const band = homeCss.slice(homeCss.indexOf(".home-plan-head {"), homeCss.indexOf(".home-plan-check {"))
+  check("the band is one flat light violet with a hairline under it", /\.home-plan-head \{\s*background: #f7f5ff;\s*box-shadow: inset 0 -1px 0 #ece8fb;\s*\}/.test(band), band.slice(0, 120))
+  check("  no gradient, no dots, no mask, no image", !/gradient|mask|url\(|radial/.test(band) && !/home-plan-dots|home-plan-sky/.test(homeCss) && !/home-plan-dots|home-plan-sky/.test(cards))
+  check("  the same 46px, the plan's name in deep violet on it", /home-plan-head flex h-\[46px\] shrink-0 items-center rounded-t-\[19px\] px-5/.test(cards) && /id="your-plan-title" className="text-\[13\.5px\] font-semibold text-\[#4c1d95\]"/.test(cards))
 
   console.log("\nhover, on a mouse only, never on transform, and played on a phone")
   check("no hover:shadow class, which a tap strips on a touch screen", ![...cards.matchAll(/(?:className=|const CARD = )[{`"]+([^`"]*)/g)].some((m) => /hover:shadow/.test(m[1])))
@@ -143,19 +146,28 @@ function main() {
   check("the text stops where the globe's atmosphere begins: one set of numbers places both", /padding: 18px calc\(var\(--gx\) \+ var\(--g\) \* 0\.452 \+ var\(--gap\)\)/.test(banner) && /right: calc\(var\(--gx\) - var\(--g\) \/ 2\);/.test(banner))
 
   console.log("\nUpgrade to Pro")
-  /* "Too gradient, too depthish, that thunder purple thing": the same card and copy, quieter. */
-  check("the sidebar card has the bolt", /<UpgradeBolt size=\{28\} \/>/.test(desktop))
-  check("and so does the phone menu", /<UpgradeBolt size=\{30\} \/>/.test(phone))
+  /* Changed on purpose: "make it how it was before... the bolt is white on a purple circle, how it was before, but more depth." */
+  check("the sidebar card has the bolt, 28px", /<UpgradeBolt size=\{28\} \/>/.test(desktop))
+  check("and so does the phone menu, at its old 32px", /<UpgradeBolt size=\{32\} \/>/.test(phone))
   const cardClass = (src: string) => /data-upgrade-card=""[\s\S]*?className="([^"]*)"/.exec(src)?.[1] ?? ""
-  check("both on a quiet surface with a hairline and no shadow",
-    /border-\[#ececef\] bg-\[#fafafa\]/.test(cardClass(desktop)) && /border-\[#ececef\] bg-white/.test(cardClass(phone))
-      && !/shadow/.test(cardClass(desktop)) && !/shadow/.test(cardClass(phone)), JSON.stringify({ desktop: cardClass(desktop), phone: cardClass(phone) }))
+  check("the rail's card is the one from before 09-25: light violet, a violet hairline, 12px corners",
+    /rounded-\[12px\] border border-violet-100\/60 bg-gradient-to-r from-violet-50\/80 to-purple-50\/80/.test(cardClass(desktop)) && !/shadow/.test(cardClass(desktop)), cardClass(desktop))
+  check("  13px title, 11px line", /<p className="truncate text-\[13px\] font-semibold text-neutral-900">\{upgradeTitle\}<\/p>/.test(desktop) && /<p className="truncate text-\[11px\] text-neutral-600">\{upgradeSubtitle\}<\/p>/.test(desktop))
+  check("the phone menu's is its own from before: white, a violet hairline, 16px corners",
+    /rounded-\[16px\] border border-violet-100\/70 bg-white/.test(cardClass(phone)) && !/shadow/.test(cardClass(phone)), cardClass(phone))
+  check("both are a named group, so the bolt answers the card's hover without .group", /^group\/upgrade /.test(cardClass(desktop)) && /^group\/upgrade /.test(cardClass(phone)))
   const bolt = read("components/app/upgrade-bolt.tsx").replace(/\/\*[\s\S]*?\*\//g, "")
-  check("the bolt is a purple button with little depth: one flat violet, a white glyph, a hairline of light, no gradient, no glow", /backgroundColor: UPGRADE_FILL/.test(bolt) && /fill=\{UPGRADE_INK\}/.test(bolt)
-    && /UPGRADE_INK = "#ffffff"/.test(bolt) && !/gradient|drop-shadow|0 4px 10px/.test(bolt))
-  check("the card goes to the plans page the way the rows go to theirs",
-    /onClick=\{\(\) => onNavigate\?\.\(UPGRADE_HREF\)\}/.test(desktop) && /onPrefetch\?\.\(UPGRADE_HREF\)/.test(desktop)
-      && /onNavigate\?\.\(UPGRADE_HREF\)/.test(phone) && /prefetchAppPage\(router, UPGRADE_HREF\)/.test(phone))
+  check("the bolt is white on solid #8b5cf6", /bg-\[#8b5cf6\]/.test(bolt) && /UPGRADE_FILL = "#8b5cf6"/.test(bolt) && /fill=\{UPGRADE_INK\}/.test(bolt) && /UPGRADE_INK = "#ffffff"/.test(bolt))
+  check("  with depth: light on top, a hairline ring, a darker foot, a soft shadow",
+    /shadow-\[inset_0_1px_0_rgba\(255,255,255,0\.3\),inset_0_0_0_1px_rgba\(76,29,149,0\.16\),inset_0_-1px_0_rgba\(76,29,149,0\.3\),0_1px_2px_rgba\(76,29,149,0\.28\),0_2px_6px_-1px_rgba\(76,29,149,0\.2\)\]/.test(bolt))
+  check("  a touch deeper under the card's hover", /group-hover\/upgrade:bg-\[#7c4fe6\]/.test(bolt) && /group-hover\/upgrade:shadow-\[/.test(bolt))
+  check("  and no gradient or glow", !/gradient|drop-shadow|0 4px 10px/.test(bolt))
+  check("the words are the ones from before: Unlock more benefits, in every language as they were",
+    /"nav\.unlockBenefits": "Unlock more benefits"/.test(read("lib/i18n/translations.ts")) && /"nav\.unlockBenefits": "Unlock more benefits"/.test(read("lib/i18n/dict/dashboard.ts"))
+      && !/Lower fees, your own domain/.test(read("lib/i18n/translations.ts") + read("lib/i18n/dict/dashboard.ts")))
+  check("the card goes to the plans page the way the rows go to theirs, on a press this tab follows",
+    /onClick=\{\(e\) => \{ if \(isPlainClick\(e\.nativeEvent\)\) onNavigate\?\.\(UPGRADE_HREF\) \}\}/.test(desktop) && /onPrefetch\?\.\(UPGRADE_HREF\)/.test(desktop)
+      && /if \(isPlainClick\(e\.nativeEvent\)\) onNavigate\?\.\(UPGRADE_HREF\)/.test(phone) && /prefetchAppPage\(router, UPGRADE_HREF\)/.test(phone))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

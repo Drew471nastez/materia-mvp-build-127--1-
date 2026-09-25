@@ -59,9 +59,15 @@ function main() {
   check("a panel on a computer", /PopoverPrimitive\.Content/.test(picker) && /data-category-panel/.test(picker))
   check("the shared sheet on a phone, at a fixed height", /<BottomSheet\b[\s\S]*?\bfill\b[\s\S]*?height="min\(78dvh, 680px\)"/.test(picker))
   check("the list draws its own marks and imports no icon set", !/lucide-react/.test(browser))
-  check("the levels move by transform and opacity only", /`transform \$\{BROWSE_SLIDE_MS\}ms \$\{EASE\}, opacity \$\{FADE_IN_MS\}ms \$\{EASE\} \$\{FADE_DELAY_MS\}ms`/.test(browser) && /`transform \$\{BROWSE_SLIDE_MS\}ms \$\{EASE\}, opacity \$\{FADE_OUT_MS\}ms \$\{EASE\}`/.test(browser) && !/transition:\s*`(?:width|height|left|top)/.test(browser))
-  /* The level crosses a few pixels and fades; the full width slide with a shadow along its edge was the "bar coming in". */
-  check("a level crosses, it does not slide the width under a shadow", !/boxShadow/.test(browser) && !/translate3d\(100%/.test(browser) && /opacity: inSub \? 0 : 1/.test(browser))
+  /* Changed on purpose: "more standard, smooth and clean... not laggy". The cross of two moves and two fades is a push now. */
+  check("the levels move by transform, and the veil by opacity, on one curve and one duration", /const move = still \? "none" : `transform \$\{BROWSE_SLIDE_MS\}ms \$\{BROWSE_EASE\}`/.test(browser) && /const veil = still \? "none" : `opacity \$\{BROWSE_SLIDE_MS\}ms \$\{BROWSE_EASE\}`/.test(browser)
+    && /BROWSE_SLIDE_MS = 280/.test(browser) && /BROWSE_EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(browser) && !/transition:\s*`(?:width|height|left|top)/.test(browser))
+  check("a level is pushed in from the right edge, over the list", /transform: inSub \? "translate3d\(0, 0, 0\)" : "translate3d\(100%, 0, 0\)"/.test(browser))
+  check("  the list under it moves a quarter left and dims under a veil", /transform: inSub \? `translate3d\(\$\{BROWSE_PARALLAX\}, 0, 0\)` : "translate3d\(0, 0, 0\)"/.test(browser) && /BROWSE_PARALLAX = "-25%"/.test(browser) && /opacity: inSub \? BROWSE_DIM : 0/.test(browser) && /BROWSE_DIM = 0\.06/.test(browser))
+  check("  neither list fades, and no shadow rides the edge", !/boxShadow/.test(browser) && !/opacity: inSub \? 0 : 1/.test(browser) && !/opacity: inSub \? 1 : 0/.test(browser))
+  check("  both lists are layers from the start", (browser.match(/willChange: "transform"/g) ?? []).length === 2)
+  check("  the level's rows are drawn on the press, before the tap moves it", /onPointerDown=\{opens \? \(\) => prepare\(g\.id\) : undefined\}/.test(browser) && /if \(held === id && !subOut\) \{\s*setOpen\(id\)/.test(browser))
+  check("  and kept after going back, so nothing renders during a move", !/setHeld\(null\)/.test(browser) && /setSubOut\(true\)/.test(browser))
   check("each level scrolls itself, so back returns to where you were", (browser.match(/data-browse-level=/g) || []).length === 2 && /absolute inset-0 overflow-y-auto/.test(browser))
   check("the level out of sight takes no focus", /inert=\{inSub \|\| undefined\}/.test(browser) && /inert=\{!inSub \|\| undefined\}/.test(browser))
   check("a category held by More is named on it", /moreHolds \?/.test(page))
