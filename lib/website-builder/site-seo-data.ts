@@ -184,3 +184,44 @@ export async function siteSeo(name: string): Promise<SiteSeo> {
     entries,
   }
 }
+
+/**
+ * THE ADDRESSES A WEBSITE HAD, once it has been taken down. Unpublishing
+ * changes the install's status and leaves its published sections on their
+ * rows, so the install unpublished most recently still says which pages were
+ * live, and the products it listed are the creator's published ones. What
+ * lib/seo/announce.ts tells search engines to look at again when there is no
+ * published site left for siteSeo to read. The front page at least, whatever
+ * else could not be read.
+ */
+export async function formerSiteAddresses(creatorId: string, name: string): Promise<string[]> {
+  const origin = await siteOrigin(creatorId, name)
+  const urls = [pageUrl(origin, "home")]
+  try {
+    const admin = createAdminClient()
+    const { data: install } = await admin
+      .from("store_theme_installs")
+      .select("id, store_theme_settings ( settings )")
+      .eq("creator_id", creatorId)
+      .eq("status", "unpublished")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const row = install as { id: string; store_theme_settings?: unknown } | null
+    if (!row) return urls
+    const settingsRow = (Array.isArray(row.store_theme_settings) ? row.store_theme_settings[0] : row.store_theme_settings) as
+      | { settings?: Record<string, unknown> | null }
+      | null
+      | undefined
+    const { data: pages } = await admin.from("store_theme_pages").select("page_key, sections").eq("install_id", row.id)
+    const live = ((pages ?? []) as { page_key: string; sections: unknown }[]).filter((p) => Array.isArray(p.sections) && p.sections.length > 0)
+    const hidden = hiddenPages(settingsRow?.settings ?? {})
+    for (const key of listedPageKeys(live.map((p) => p.page_key)).filter((k) => !hidden.has(k))) urls.push(pageUrl(origin, key))
+    const products = await listedProducts(creatorId)
+    if (products.length > 0) urls.push(pageUrl(origin, "products"))
+    for (const p of products) urls.push(productUrl(origin, p.slug))
+  } catch {
+    /* The front page is still worth telling. */
+  }
+  return [...new Set(urls)]
+}

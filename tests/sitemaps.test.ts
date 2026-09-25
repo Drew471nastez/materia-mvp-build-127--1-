@@ -239,6 +239,34 @@ section("IndexNow: off without a key, never in the way of a save, one notice per
       /if \(finalProductId\) announceChange\(\{ product: finalProductId \}\)/.test(code("app/app/products/new/product-editor.tsx")) &&
       /if \(!statusError\) announceChange\(\{ product: product\.id \}\)/.test(code("components/app/product-edit-form.tsx")) &&
       /announceChange\(\{ profile: true \}\)/.test(code("components/app/settings-form-new.tsx")))
+
+  /* Every other thing a creator publishes, and the one that answered nothing. */
+  check("a OnePage is announced when it is published, after the answer",
+    /after\(\(\) => announce\(\(\) => onePageAddresses\(owner\)\)\)/.test(code("app/api/onepage/publish/route.ts")) &&
+      code("app/api/onepage/publish/route.ts").indexOf("after(() => announce(") > code("app/api/onepage/publish/route.ts").indexOf("if (publishError)"))
+  const builder = code("app/api/store-builder/route.ts")
+  check("so is the creator page when its builder publishes, and a product whose own page does",
+    /after\(\(\) => announce\(\(\) => productAddresses\(announcedProduct, announcedCreator\)\)\)/.test(builder) &&
+      /if \(pageType === "shop"\) \{\s*const announcedCreator = creator\.id\s*after\(\(\) => announce\(\(\) => profileAddresses\(announcedCreator\)\)\)/.test(builder))
+  const profileRoute = code("app/api/creator-profile/route.ts")
+  check("and an edit made from the creator page itself, once it is saved",
+    /const announceProfile = \(\) => after\(\(\) => announce\(\(\) => profileAddresses\(announcedCreator\)\)\)/.test(profileRoute) &&
+      (profileRoute.match(/announceProfile\(\)/g) ?? []).length === 2 && profileRoute.lastIndexOf("announceProfile()") > profileRoute.indexOf('"[creator-profile] config update failed"'))
+  const aiSite = code("app/api/sites/[siteId]/publish/route.ts")
+  check("an AI site when it goes live and when it is taken down",
+    /after\(\(\) => announce\(\(\) => aiSiteAddresses\(site\.creatorId, published\)\)\)/.test(aiSite) &&
+      /if \(was\) after\(\(\) => announce\(\(\) => aiSiteAddresses\(site\.creatorId, publishedUrl\(was\)\)\)\)/.test(aiSite) &&
+      aiSite.indexOf("aiSiteAddresses(site.creatorId, published)") > aiSite.indexOf("if (!result.ok)"))
+  const products = code("app/app/products/products-client.tsx")
+  check("a deleted product by the slug it had, only once the delete went through, and only if it was live",
+    /if \(productToDelete\.status === "published" && productToDelete\.slug\) announceChange\(\{ removedProduct: productToDelete\.slug \}\)/.test(products) &&
+      products.indexOf("announceChange({ removedProduct") > products.indexOf('throw new Error("Nothing was deleted")'))
+  check("which the server believes only for a real slug no product of theirs still has",
+    /typeof body\?\.removedProduct === "string" && SLUG\.test\(body\.removedProduct\)/.test(api) && /removedProductAddresses\(slug, creatorId\)/.test(api) &&
+      /if \(still \|\| !notSpam\(handle\)\) return \[\]/.test(announce))
+  check("a website taken down announces the pages it had, not nothing",
+    /if \(!site\) return formerSiteAddresses\(creatorId, handle\)/.test(announce) && !/if \(!site\) return \[\]/.test(announce) &&
+      /\.eq\("status", "unpublished"\)\s*\.order\("updated_at", \{ ascending: false \}\)/.test(code("lib/website-builder/site-seo-data.ts")))
 }
 
 /**
