@@ -1073,7 +1073,9 @@ section("The conversation survives a refresh")
      * Replaying them would apply the same edits a second time to a page that
      * already has them. The transcript is a record, not a script.
      */
-    /open\.activity = activityFromOps\(Array\.isArray\(message\.ops\) \? message\.ops : \[\]\)/.test(panel) && !/onOp\(message/.test(panel),
+    /const counted = activityFromOps\(Array\.isArray\(message\.ops\) \? message\.ops : \[\]\)/.test(panel) &&
+      /open\.activity = question \? \{ \.\.\.counted, question \} : counted/.test(panel) &&
+      !/onOp\(message/.test(panel),
   )
 }
 
