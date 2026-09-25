@@ -73,7 +73,8 @@ function scrollers(): Scrollers | null {
 
 /** Is anything fixed to the window showing inside this box? */
 function holdsVisibleFixed(root: HTMLElement) {
-  for (const el of Array.from(root.querySelectorAll<HTMLElement>(".fixed, [style*='fixed']"))) {
+  /* The box itself too: what lands can be a fixed bar sitting straight inside a page's scroller. */
+  for (const el of [root, ...Array.from(root.querySelectorAll<HTMLElement>(".fixed, [style*='fixed']"))]) {
     const cs = getComputedStyle(el)
     if (cs.position !== "fixed" || cs.visibility === "hidden" || cs.display === "none" || Number(cs.opacity) === 0) continue
     const r = el.getBoundingClientRect()

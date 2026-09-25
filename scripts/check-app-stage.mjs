@@ -154,7 +154,11 @@ for (const [label, viewport] of [
       const bar = document.querySelector("[data-app-nav-progress]")
       const fixed = document.querySelector("[data-fixed-bar]")
       const s = scroller()
-      const opacity = p ? Number(getComputedStyle(p).opacity) : null
+      /* What lands: the page, or for a page that scrolls in a box of its own,
+         what is in that box. The box and its scrollbar stand still
+         (components/app/app-stage.tsx ownScrollers). */
+      const lands = p && /(auto|scroll)/.test(getComputedStyle(p).overflowY) && p.firstElementChild ? p.firstElementChild : p
+      const opacity = lands ? Number(getComputedStyle(lands).opacity) : null
       const slowOpacity = slow ? Number(getComputedStyle(slow).opacity) : 0
       window.__rec.push({
         t,
@@ -163,7 +167,7 @@ for (const [label, viewport] of [
         /* What of the page the eye gets: its own opacity, under whatever the
            spinner's surface (the page's own colour) lets through. */
         seen: opacity == null ? null : opacity * (1 - slowOpacity),
-        dy: p && s ? Math.round((p.getBoundingClientRect().top - s.getBoundingClientRect().top) * 10) / 10 : null,
+        dy: lands && s ? Math.round((lands.getBoundingClientRect().top + (lands === p ? 0 : p.scrollTop) - s.getBoundingClientRect().top) * 10) / 10 : null,
         inner: p ? p.scrollTop : null,
         outline: !!outline,
         search: location.search,
@@ -550,7 +554,10 @@ for (const [label, viewport] of [
   }
   if (!backFirst || Math.abs(backFirst.inner - 900) > 1) problems.push(`${at} back landed at scroll ${backFirst?.inner}, it was 900`)
   if (backSpinner) problems.push(`${at} back showed the spinner`)
-  if (!fixedLanding || fixedLanding.rise !== 0) problems.push(`${at} a page with a fixed bar rose ${fixedLanding?.rise}px: the bar travelled with it`)
+  /* The bar is what must not travel (fixedTops, below). Where it sits straight
+     in a page that scrolls in a box of its own, what lands is that box's
+     content, which rises beside the bar while the bar only fades. */
+  if (!fixedLanding) problems.push(`${at} the page with a fixed bar never landed`)
   if (fixedTops.length > 1) problems.push(`${at} the fixed bar moved during the landing: ${fixedTops.join(", ")}`)
   if (sameBar || sameSpinner) problems.push(`${at} pressing the page already showing drew the bar for ${sameBar} frames and the spinner for ${sameSpinner}`)
   if (!twiceSpinner.frames) problems.push(`${at} two slow clicks in a row never showed the spinner`)

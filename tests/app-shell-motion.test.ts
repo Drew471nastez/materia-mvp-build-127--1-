@@ -10,7 +10,7 @@
  *   scripts/check-settings-tabs.mjs    the tab bar and the new tab hold still through every switch
  *   scripts/check-upgrade-page.mjs     the plans page covers the shell; Back goes back
  *   scripts/check-page-layer.mjs       the editor over the shell on a phone, in it from md, its bar under the header
- *   scripts/check-scrollbar-stable.mjs the column and the scrollbar gutter never move while pages swap (1440, 1920)
+ *   scripts/check-scrollbar-stable.mjs the page's box and the scrollbar track never move or come and go while the real pages swap (1280, 1440, 1920)
  *   scripts/check-app-avatar.mjs       no initials before a photo; one fade; none on the way back
  *
  * What is held here is the logic those rest on (the navigation record, the
@@ -384,28 +384,48 @@ section("Pages drawn over the whole shell")
   check("both headers and the rail say they are the shell's chrome", (sidebar.match(/data-shell-chrome=""/g) || []).length >= 3)
 }
 
-section("One scrollbar column on a computer")
+section("One scrollbar track on a computer, always there, never moving")
 {
-  /* Measured every frame, at 1440 and 1920 with classic scrollbars, by scripts/check-scrollbar-stable.mjs. */
+  /* Measured every frame, at 1280, 1440 and 1920 with classic scrollbars, on
+     the real Products, Orders, Emails, Home and the rest, by
+     scripts/check-scrollbar-stable.mjs. "The Products page doesn't have a
+     scroll bar, but when I switch to the Orders page it has one." */
   const css = read("app/globals.css")
-  const block = /@media \(min-width: 768px\) \{\s*html\.app-layout:not\(\.capacitor\) \.app-content-scroll \{\s*scrollbar-gutter: stable;[\s\S]*?\n\}/.exec(css)?.[0] ?? ""
-  check("the shell's scroller keeps its scrollbar column, in the same slim bar as the pages' own",
-    /html\.app-layout:not\(\.capacitor\) \.app-content-scroll \{\s*scrollbar-gutter: stable;\s*scrollbar-width: thin;/.test(block)
-      && /\.page-scroll \{\s*scrollbar-width: thin;/.test(css))
-  check("a page that scrolls itself keeps the column in its own box, and the shell's scroller then does not scroll and keeps none",
-    /\.app-content-scroll:has\(> \.page-scroll, > \.dashboard-scroll-container, > \.sales-scroll-container, > \.orders-stage, > \[data-page-layer\]\) \{\s*overflow-y: hidden;\s*scrollbar-gutter: auto;/.test(block)
-      && /\.app-content-scroll > \.page-scroll,/.test(block) && /\.app-content-scroll > \.orders-stage > \.orders-pane,/.test(block)
-      && /\[data-page-layer-scroll\] > \.page-scroll \{\s*scrollbar-gutter: stable;/.test(block))
-  check("while the landing rises, the shell's scroller cannot scroll", /\.app-content-scroll\[data-app-landing\] \{\s*overflow-y: hidden;/.test(block))
+  const block = /\/\* ── One scrollbar track, always there[\s\S]*?@media \(min-width: 768px\) \{[\s\S]*?\n\}/.exec(css)?.[0] ?? ""
+  const SCROLLERS = [
+    "html.app-layout:not(.capacitor) .app-content-scroll",
+    "html.app-layout:not(.capacitor) .app-content-scroll > .page-scroll",
+    "html.app-layout:not(.capacitor) .app-content-scroll > .dashboard-scroll-container",
+    "html.app-layout:not(.capacitor) .app-content-scroll > .sales-scroll-container",
+    "html.app-layout:not(.capacitor) .app-content-scroll > .orders-stage > .orders-pane",
+    "html.app-layout:not(.capacitor) .app-content-scroll [data-page-layer-scroll] > .page-scroll",
+  ]
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  check("every box that scrolls a page paints its track whether or not there is anything to scroll, in one look: the shell's, a page's own, each pane of Orders and Emails, the editor's",
+    new RegExp(`${SCROLLERS.map(esc).join(",\\s*")} \\{\\s*overflow-y: scroll;\\s*scrollbar-gutter: stable;\\s*scrollbar-width: thin;\\s*scrollbar-color: rgba\\(156, 163, 175, 0\\.5\\) #f8f9fa;`).test(block))
+  check("and the same width where only the older ::-webkit-scrollbar is read, so no two of them differ",
+    new RegExp(`${SCROLLERS.map((s) => esc(`${s}::-webkit-scrollbar`)).join(",\\s*")} \\{\\s*display: block;\\s*width: 8px;`).test(block))
+  check("a page that scrolls itself is the one track: the shell's scroller then does not scroll and keeps no column",
+    /\.app-content-scroll:has\(> \.page-scroll, > \.dashboard-scroll-container, > \.sales-scroll-container, > \.orders-stage, > \[data-page-layer\]\) \{\s*overflow-y: hidden;\s*scrollbar-gutter: auto;/.test(block))
+  check("while a page that fitted rises, its thumb is drawn clear and its track stays (never overflow: hidden, which takes the track away)",
+    /html\.app-layout:not\(\.capacitor\) \[data-app-landing\] \{\s*scrollbar-color: transparent #f8f9fa !important;/.test(block)
+      && !/\[data-app-landing\] \{\s*overflow/.test(css))
   check("none of it below 768px or in the native apps, where scrollbars float and take no room",
-    !/@media \(max-width: 767px\) \{\s*html\.app-layout \.app-content-scroll \{\s*scrollbar-gutter/.test(css)
-      && (block.match(/html\.app-layout:not\(\.capacitor\) \.app-content-scroll/g) ?? []).length === 8 && !/html\.app-layout \.app-content-scroll/.test(block))
+    !/@media \(max-width: 767px\) \{\s*html\.app-layout \.app-content-scroll \{\s*(scrollbar-gutter|overflow-y: scroll)/.test(css)
+      && !/html\.app-layout \.app-content-scroll/.test(block) && !/html\.app-layout\.capacitor/.test(block))
   const stage = code("components/app/app-stage.tsx")
-  check("the stage reads whether the page fitted before the rise starts, and holds the scroller only then, letting go when the rise is over or soon after",
-    /const fitted = outer\.scrollHeight <= outer\.clientHeight\s+const moving/.test(stage)
-      && /holdStill\(outer, fitted && moving\.length > 0, moving\)/.test(stage)
-      && /outer\.setAttribute\("data-app-landing", ""\)/.test(stage)
+  check("the landing moves what is in a scroller, never the scroller: a page's own box, each pane, the editor's pane stand still with their bars",
+    /function ownScrollers\(child: HTMLElement\): HTMLElement\[\]/.test(stage)
+      && /querySelectorAll<HTMLElement>\(":scope > \.orders-pane, :scope > \[data-page-layer-scroll\] > \.page-scroll"\)/.test(stage)
+      && /movers\.push\(\.\.\.\(Array\.from\(box\.children\) as HTMLElement\[\]\)\)/.test(stage)
+      && /const a = el\.animate\(\[from, to\]/.test(stage) && !/child\.animate\(/.test(stage))
+  check("it reads whether each scroller fitted before the rise starts, marks only those, and lets go when the rise is over or soon after",
+    /scrollers\.set\(box, fits\(box\)\)/.test(stage) && /scrollers\.set\(outer, fits\(outer\)\)/.test(stage)
+      && /holdStill\(moving\.length \? \[\.\.\.scrollers\]\.filter\(\(\[, fitted\]\) => fitted\)\.map\(\(\[el\]\) => el\) : \[\], moving\)/.test(stage)
+      && /el\.setAttribute\("data-app-landing", ""\)/.test(stage)
       && /a\.finished\.catch\(\(\) => undefined\)/.test(stage) && /window\.setTimeout\(release, NAV_ENTER_MS \+ 120\)/.test(stage))
+  check("the billing tab, drawn inside Settings, is not a scroller of its own: no second, empty track down its side",
+    /className=\{embedded \? "overflow-x-clip bg-\[#fafafa\]" : "h-full overflow-y-scroll/.test(code("components/app/billing/billing-page-client.tsx")))
 }
 
 section("The way back")
@@ -480,8 +500,8 @@ section("Navigation")
       && /const from: Keyframe = \{ \.\.\.\(fade \? \{ opacity: 0 \} : \{\}\), \.\.\.\(rise \? \{ translate: `0 \$\{NAV_ENTER_RISE_PX\}px` \} : \{\}\) \}/.test(stage)
       && /const to: Keyframe = \{ \.\.\.\(fade \? \{ opacity: 1 \} : \{\}\), \.\.\.\(rise \? \{ translate: "0 0" \} : \{\}\) \}/.test(stage)
       /* No fill: nothing is left on the page's boxes when the landing ends. */
-      && /child\.animate\(\[from, to\], \{ duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE \}\)/.test(stage))
-  check("a page with something fixed showing gets the fade without the rise", /const rise = !holdsVisibleFixed\(child\)/.test(stage))
+      && /el\.animate\(\[from, to\], \{ duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE \}\)/.test(stage))
+  check("a page with something fixed showing gets the fade without the rise", /const rise = !holdsVisibleFixed\(el\)/.test(stage))
   check("reduced motion means no landing at all", /if \(reducedMotion\(\)\) return/.test(stage))
   check("the scroll is set in the same frame, and a back puts it where it was",
     /const saved = traversal \? recalledScroll\(key\) : null/.test(stage) && /s\.outer\.scrollTop = saved\?\.outer \?\? 0/.test(stage))

@@ -40,6 +40,8 @@
  *   node scripts/check-scrollbar-stable.mjs
  *   AUDIT=1 node scripts/check-scrollbar-stable.mjs   (the table: every page,
  *     short and long, at 1280, 1440 and 1920: what scrolls it, its gutter, its box)
+ *   WIDTHS=1440 ...         one width only
+ *   STAGE=<file> ...        measure another copy of components/app/app-stage.tsx
  *   STYLESHEET=<file> ...   measure another copy of app/globals.css (an older
  *     commit's) over this checkout's components
  */
@@ -155,8 +157,9 @@ try {
     `--alias:@/lib/supabase/admin=${join(dir, "admin.js")}`,
     `--alias:@/lib/auth/request-scope=${join(dir, "request-scope.js")}`,
     `--alias:server-only=${join(dir, "admin.js")}`,
+    ...(process.env.STAGE ? [`--alias:@/components/app/app-stage=${process.env.STAGE}`] : []),
     `--alias:@=${root}`, "--loader:.jsx=jsx", "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
-    { stdio: ["ignore", "ignore", "inherit"] })
+    { stdio: ["ignore", "ignore", "inherit"], env: { ...process.env, NODE_PATH: join(root, "node_modules") } })
 } catch { rmSync(dir, { recursive: true, force: true }); fail("the probe did not bundle") }
 const stylesheet = process.env.STYLESHEET || null
 const html = `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
@@ -175,7 +178,7 @@ const VIEWPORTS = [
   ["1280", { width: 1280, height: 800, deviceScaleFactor: 1 }],
   ["1440", { width: 1440, height: 900, deviceScaleFactor: 1 }],
   ["1920", { width: 1920, height: 1080, deviceScaleFactor: 1 }],
-]
+].filter(([label]) => !process.env.WIDTHS || process.env.WIDTHS.split(",").includes(label))
 
 /*
  * ONE READING. Everything that scrolls a page: the shell's scroller and any
@@ -384,7 +387,7 @@ for (const [label, viewport] of VIEWPORTS) {
   await step("open an order", `document.querySelector(".orders-list tr[data-order-id]")?.click()`, 0, 600)
   await back("back from the order")
   await go("/app/emails")
-  await step("to the Published tab", `[...document.querySelectorAll("button, a")].find((b) => /^Published/.test(b.textContent.trim()))?.click()`, 0, 700)
+  await step("to the Sent tab", `[...document.querySelectorAll("button")].find((b) => /^Sent/.test(b.textContent.trim()))?.click()`, 0, 700)
   await step("open an email", `document.querySelector(".orders-list tr[data-campaign-row]")?.click()`, 0, 800)
   await back("back from the email")
 
