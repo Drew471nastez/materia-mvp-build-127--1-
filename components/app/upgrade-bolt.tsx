@@ -4,30 +4,35 @@
  * ===========================================================================
  * The round icon at the right of the Upgrade to Pro card, in the desktop
  * sidebar (sidebar-desktop-nav) and the phone menu (sidebar-mobile-nav),
- * drawn once so the two cannot drift. A violet ball lit from above: lighter
- * at the top, deeper at the foot, a highlight along its upper edge and a
- * soft violet shadow under it, with the bolt in white.
+ * drawn once so the two cannot drift.
+ *
+ * "That purple thing has too much depth and draws too much attention. More
+ * subtle, keep it how it is, but it's too gradient, too depthish." It was a
+ * violet ball lit from above: a radial gradient, a highlight, an inner
+ * shadow, a violet glow under it and a white bolt with its own shadow, the
+ * loudest thing in the rail. Now it is a flat circle of soft violet tint with
+ * a hairline of the same violet, and the bolt in violet on it. No gradient,
+ * no shadow, nothing lit: the violet says Pro, and the card around it is the
+ * same quiet surface as the rest of the sidebar.
  */
-export function UpgradeBolt({ size = 32 }: { size?: number }) {
+export const UPGRADE_TINT = "#f3f0ff"
+export const UPGRADE_INK = "#7c3aed"
+
+export function UpgradeBolt({ size = 28 }: { size?: number }) {
+  const glyph = Math.round(size * 0.5)
   return (
     <span
       aria-hidden="true"
-      className="relative flex shrink-0 items-center justify-center rounded-full"
+      data-upgrade-bolt=""
+      className="flex shrink-0 items-center justify-center rounded-full"
       style={{
         width: size,
         height: size,
-        background: "radial-gradient(120% 90% at 30% 12%, #b59dfc 0%, #8b5cf6 42%, #6427e6 78%, #5419cf 100%)",
-        boxShadow:
-          "inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -2px 3px rgba(46,16,101,0.35), 0 0 0 1px rgba(91,33,182,0.35), 0 4px 10px -3px rgba(109,40,217,0.55), 0 1px 2px rgba(46,16,101,0.25)",
+        backgroundColor: UPGRADE_TINT,
+        boxShadow: "inset 0 0 0 1px rgba(124,58,237,0.14)",
       }}
     >
-      <svg
-        width={Math.round(size * 0.52)}
-        height={Math.round(size * 0.52)}
-        viewBox="0 0 24 24"
-        fill="#fff"
-        style={{ filter: "drop-shadow(0 1px 1px rgba(46,16,101,0.45))" }}
-      >
+      <svg width={glyph} height={glyph} viewBox="0 0 24 24" fill={UPGRADE_INK}>
         <path d="M13.6 1.9 4.7 13.4a.75.75 0 0 0 .6 1.2h5.4l-1.1 7.3c-.1.7.8 1.1 1.3.5l8.9-11.5a.75.75 0 0 0-.6-1.2h-5.4l1.1-7.3c.1-.7-.8-1.1-1.3-.5z" />
       </svg>
     </span>
