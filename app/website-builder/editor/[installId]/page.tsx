@@ -5308,7 +5308,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             flash of grey before it.
           */}
           {sectionsLoading || loading ? (
-            <div data-sheet-scroll aria-busy="true" className="skeleton-deferred flex-1 overflow-y-auto wb-slim-scroll p-3 space-y-2">
+            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll skeleton-deferred p-3 space-y-2" aria-busy="true">
               {[1, 2, 3, 4, 5].map(i => (
                 <div key={i} className="h-12 rounded-lg bg-[#f3f4f6]" />
               ))}
