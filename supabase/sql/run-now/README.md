@@ -47,6 +47,7 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `23_browser_push_and_time_zone.sql` | Browser notifications save (push_tokens takes platform `web`), and the account's time zone column. | 4 | 887 |
 | `24_theme_chat_conversations.sql` | Ask Storelib conversations: new chat and history. Each message is filed under a conversation on its own website; only its creator can read them. | 15 | 2,794 |
 | `25_analytics_speed.sql` | Analytics that load quickly: indexes in the order the reports read, and the counting done in the database, run by the server only. The page works without it. Can take a minute on a large events table. | 13 | 9,648 |
+| `XX_notification_rules.sql` | Notifications that decide for themselves: the columns a rule writes on its row, one row per creator and dedupe key, and the leased claim the hourly run takes creators with. Server only. Until it runs the engine does nothing and the panel reads as before. | 31 | 5,139 |
 | `90_storage_policies_needs_owner.sql` | LAST, ON ITS OWN. Replaces the storage.objects policies. Needs the owner of storage.objects; see README if it says "must be owner". | 2 | 3,896 |
 | `91_storage_policies_to_remove.sql` | Read only. For the dashboard route: the storage policies to delete. | 2 | 1,242 |
 | `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 7,756 |
