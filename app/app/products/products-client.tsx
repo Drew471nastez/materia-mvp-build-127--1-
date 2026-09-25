@@ -1,7 +1,7 @@
 "use client"
 
 import { announceChange } from "@/lib/seo/announce-client"
-import { forwardRef, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
+import { forwardRef, memo, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
 import { ArrowUpDown, Check, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Eye, Search, X } from "lucide-react"
 import { getProductUrl } from "@/lib/url-helpers"
@@ -686,17 +686,6 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     warmEditor(router, `/app/products/${id}`)
   }
   const resting = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const hover = (id: string) => ({
-    onMouseEnter: () => {
-      if (resting.current) clearTimeout(resting.current)
-      resting.current = setTimeout(() => warm(id), WARM_REST_MS)
-    },
-    onMouseLeave: () => {
-      if (resting.current) clearTimeout(resting.current)
-    },
-    onPointerDown: () => warm(id),
-    onFocus: () => warm(id),
-  })
   /* New product the same way: its page is the empty editor, read on the server. */
   const warmNew = () => {
     if (warmed.current.has("new")) return
@@ -753,13 +742,15 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     }
   }, [])
 
-  const statusOf = (product: Product): Status =>
-    isArchived(product) ? "archived" : product.status === "published" ? "live" : "draft"
-  const statusLabel: Record<Status, string> = {
-    live: t("products.active"),
-    draft: t("products.draft"),
-    archived: t("products.archived"),
-  }
+  const statusLabel = useMemo<Record<Status, string>>(
+    () => ({ live: t("products.active"), draft: t("products.draft"), archived: t("products.archived") }),
+    [t],
+  )
+  /* What a row's menu says, once per language, so a row is not drawn again for it. */
+  const rowLabels = useMemo<RowLabels>(
+    () => ({ view: t("common.view"), share: t("products.share"), restore: t("products.restore"), archive: t("products.archive"), duplicate: t("products.duplicate") }),
+    [t],
+  )
 
   /*
     PREVIEW. The product's own page, the address View in its menu opens, in
@@ -769,7 +760,6 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     in a toast on a phone. In the app the page opens in the phone's browser
     through openExternal, as the editor's View does. Never the row's press.
   */
-  const previewable = (product: Product) => statusOf(product) === "live"
   const openPreview = (url: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
     e.stopPropagation()
     if (isNativeApp()) {
@@ -783,13 +773,38 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     if (!window.matchMedia("(hover: hover)").matches) showNotification("Publish to preview")
   }
 
-  const actionsFor = (product: Product) => [
-    { label: t("common.view"), href: getProductUrl(creatorUsername, product.slug), target: "_blank" as const },
-    { label: t("products.share"), onClick: () => handleShare(product) },
-    { label: isArchived(product) ? t("products.restore") : t("products.archive"), onClick: () => handleArchive(product), separatorBefore: true },
-    { label: t("products.duplicate"), onClick: () => handleDuplicate(product) },
-    { label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: () => handleDeleteClick(product) },
-  ]
+  /*
+    A ROW IS DRAWN ONCE. Each row (PhoneRow, TableRow, below) is memoised on
+    its product, whether it is hidden, and the words it shows, and reaches
+    everything it does through `rowApi`, which this page keeps current and a
+    row reads only at the moment of a press. So a sort, a new view, a search
+    or a new page renders this component and moves the rows it already has;
+    it does not draw fifty rows twice, each with its menu, again. Measured on
+    a CPU slowed four times (scripts/check-products-sheets.mjs): picking an
+    order in the phone's Sort sheet was 225ms of rendering once the sheet had
+    gone.
+  */
+  const rowApi = useRef<RowApi | null>(null)
+  useLayoutEffect(() => {
+    rowApi.current = {
+      rest: (id) => {
+        if (resting.current) clearTimeout(resting.current)
+        resting.current = setTimeout(() => warm(id), WARM_REST_MS)
+      },
+      leave: () => {
+        if (resting.current) clearTimeout(resting.current)
+      },
+      warm,
+      open: openFromLink,
+      openRow: (id) => openEditor(router, `/app/products/${id}`),
+      openPreview,
+      previewOff,
+      share: handleShare,
+      archive: handleArchive,
+      duplicate: handleDuplicate,
+      remove: handleDeleteClick,
+    }
+  })
 
   const emptyTitle = searchQuery
     ? "No products match"
@@ -812,36 +827,6 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     icon: <Check className={o.value === sort ? "opacity-100" : "opacity-0"} />,
     onClick: () => sortBy(o.value),
   }))
-
-  /**
-   * A row's Preview: a link to the product's page in a new tab, or, for a
-   * product that has no public page, the same eye drawn off. The name
-   * "Preview" (or why it is off) on a pointer in the table; a phone has no
-   * pointer to rest, so there it is only the button's label.
-   */
-  const previewButton = (product: Product, look: string, tip: boolean) => {
-    const on = previewable(product)
-    const url = getProductUrl(creatorUsername, product.slug)
-    const eye = <Eye className="h-4 w-4" strokeWidth={1.9} aria-hidden />
-    const button = on ? (
-      <a href={url} target="_blank" rel="noopener noreferrer" data-preview="" aria-label={`Preview ${product.title}`} onClick={openPreview(url)} className={look}>
-        {eye}
-      </a>
-    ) : (
-      <button type="button" data-preview="" aria-disabled="true" aria-label={`Preview ${product.title}`} onClick={previewOff} className={look}>
-        {eye}
-      </button>
-    )
-    if (!tip) return button
-    return (
-      <Tooltip delayDuration={400}>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
-        <TooltipContent side="top" sideOffset={6} className={TOOLTIP}>
-          {on ? "Preview" : "Publish to preview"}
-        </TooltipContent>
-      </Tooltip>
-    )
-  }
 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
@@ -1090,50 +1075,17 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               */}
               <ul aria-label="Products" data-list="" className="md:hidden" hidden={pageProducts.length === 0}>
                 {drawn.map((product) => {
-                  const status = statusOf(product)
+                  const status = productStatus(product)
                   return (
-                    <li
+                    <PhoneRow
                       key={product.id}
-                      data-row={product.id}
+                      product={product}
                       hidden={!shownIds.has(product.id)}
-                      className="relative flex h-16 items-center gap-3 px-3 has-[a[data-row-link]:active]:bg-[#eef0f2] [li:not([hidden])~&]:before:absolute [li:not([hidden])~&]:before:left-[74px] [li:not([hidden])~&]:before:right-0 [li:not([hidden])~&]:before:top-0 [li:not([hidden])~&]:before:h-px [li:not([hidden])~&]:before:bg-[#eceef1]"
-                    >
-                      <Link
-                        href={`/app/products/${product.id}`}
-                        aria-label={product.title}
-                        data-row-link=""
-                        onTouchStart={() => warm(product.id)}
-                        onClick={openFromLink(`/app/products/${product.id}`)}
-                        {...hover(product.id)}
-                        className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]"
-                      />
-                      <Thumb src={product.thumbnail_url} title={product.title} size="phone" />
-                      <span className="pointer-events-none min-w-0 flex-1">
-                        <span data-name="" className="block truncate text-[14px] font-medium leading-[18px] tracking-[-0.01em] text-[#1a1a2e]">{product.title}</span>
-                        <span data-meta="" className="mt-1 block h-4 truncate text-[12px] leading-4 text-[#6b7280]">
-                          {view === "all" && status !== "live" ? (
-                            <>
-                              <StatusMark status={status} label={statusLabel[status]} />
-                              <Sep />
-                            </>
-                          ) : null}
-                          <span data-price="" className="tabular-nums">{priceOf(product.price_cents)}</span>
-                          {product.sales_count ? (
-                            <>
-                              <Sep />
-                              <span className="tabular-nums">{product.sales_count.toLocaleString("en-US")} sold</span>
-                            </>
-                          ) : null}
-                        </span>
-                      </span>
-                      {previewButton(product, EYE_PHONE, false)}
-                      <ResponsiveActionMenu
-                        title={product.title}
-                        align="end"
-                        trigger={<RowMenuButton label={`Actions for ${product.title}`} className={ROW_MENU_PHONE} />}
-                        items={actionsFor(product)}
-                      />
-                    </li>
+                      mark={view === "all" && status !== "live" ? statusLabel[status] : null}
+                      username={creatorUsername}
+                      labels={rowLabels}
+                      api={rowApi}
+                    />
                   )
                 })}
               </ul>
@@ -1163,55 +1115,17 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                   </tr>
                 </thead>
                 <tbody>
-                  {drawn.map((product) => {
-                    const status = statusOf(product)
-                    return (
-                      <tr
-                        key={product.id}
-                        data-row={product.id}
-                        hidden={!shownIds.has(product.id)}
-                        className="group h-14 cursor-pointer lg:h-[62px] xl:h-[70px] [tr:not([hidden])~&>td]:border-t [tr:not([hidden])~&>td]:border-[#f1f2f4]"
-                        {...hover(product.id)}
-                        onClick={(e) => {
-                          /* Not a press inside the row's own controls, nor one that bubbled up from its menu's portal. */
-                          const target = e.target as HTMLElement
-                          if (!e.currentTarget.contains(target) || target.closest("a,button,input,label")) return
-                          openEditor(router, `/app/products/${product.id}`)
-                        }}
-                      >
-                        <td className="bg-white pl-4 pr-3 group-hover:bg-[#fafafb] lg:pl-[18px] lg:pr-[13px] xl:pl-[22px]">
-                          <div className="flex min-w-0 items-center gap-3 lg:gap-[13px]">
-                            <Thumb src={product.thumbnail_url} title={product.title} size="table" />
-                            <Link
-                              href={`/app/products/${product.id}`}
-                              onClick={openFromLink(`/app/products/${product.id}`)}
-                              className="min-w-0 truncate text-[13px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline lg:text-[14.5px] xl:text-[15.5px]"
-                            >
-                              {product.title}
-                            </Link>
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap bg-white px-3 group-hover:bg-[#fafafb] lg:px-[13px]">
-                          <StatusMark status={status} label={statusLabel[status]} strong={status === "live"} />
-                        </td>
-                        <td className="hidden whitespace-nowrap bg-white px-3 text-right tabular-nums text-[#4b5563] group-hover:bg-[#fafafb] lg:table-cell lg:px-[13px]">
-                          {product.sales_count ? product.sales_count.toLocaleString("en-US") : <span className="text-[#b6bac1]">0</span>}
-                        </td>
-                        <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:px-[13px]">{priceOf(product.price_cents)}</td>
-                        <td className="bg-white pr-3 group-hover:bg-[#fafafb] lg:pr-[13px] xl:pr-[18px]">
-                          <div data-row-actions="" className="flex items-center justify-end gap-2 lg:gap-[9px]">
-                            {previewButton(product, EYE_TABLE, true)}
-                            <ResponsiveActionMenu
-                              title={product.title}
-                              align="end"
-                              trigger={<RowMenuButton label={`Actions for ${product.title}`} className={ROW_MENU_TABLE} />}
-                              items={actionsFor(product)}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
+                  {drawn.map((product) => (
+                    <TableRow
+                      key={product.id}
+                      product={product}
+                      hidden={!shownIds.has(product.id)}
+                      statusText={statusLabel[productStatus(product)]}
+                      username={creatorUsername}
+                      labels={rowLabels}
+                      api={rowApi}
+                    />
+                  ))}
                 </tbody>
               </table>
             </>
@@ -1326,6 +1240,225 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
 }
 
 type Status = "live" | "draft" | "archived"
+
+function productStatus(product: Product): Status {
+  return isArchived(product) ? "archived" : product.status === "published" ? "live" : "draft"
+}
+
+/** What the rows call on, read at the moment of a press: the page keeps it current (rowApi). */
+interface RowApi {
+  /** A pointer rests on a row for WARM_REST_MS, or has left it. */
+  rest: (id: string) => void
+  leave: () => void
+  /** The editor of this product, fetched ahead. */
+  warm: (id: string) => void
+  open: (href: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => void
+  openRow: (id: string) => void
+  openPreview: (url: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => void
+  previewOff: (e: ReactMouseEvent<HTMLButtonElement>) => void
+  share: (product: Product) => void
+  archive: (product: Product) => void
+  duplicate: (product: Product) => void
+  remove: (product: Product) => void
+}
+type RowApiRef = { readonly current: RowApi | null }
+interface RowLabels {
+  view: string
+  share: string
+  restore: string
+  archive: string
+  duplicate: string
+}
+
+/** A row's menu, made once per product: View, Share, Archive or Restore, Duplicate, and Delete last. */
+function useRowActions(product: Product, username: string, labels: RowLabels, api: RowApiRef) {
+  return useMemo(
+    () => [
+      { label: labels.view, href: getProductUrl(username, product.slug), target: "_blank" as const },
+      { label: labels.share, onClick: () => api.current?.share(product) },
+      { label: isArchived(product) ? labels.restore : labels.archive, onClick: () => api.current?.archive(product), separatorBefore: true },
+      { label: labels.duplicate, onClick: () => api.current?.duplicate(product) },
+      { label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: () => api.current?.remove(product) },
+    ],
+    [product, username, labels, api],
+  )
+}
+
+/**
+ * A row's Preview: a link to the product's page in a new tab, or, for a
+ * product that has no public page, the same eye drawn off. The name
+ * "Preview" (or why it is off) on a pointer in the table; a phone has no
+ * pointer to rest, so there it is only the button's label.
+ */
+function Preview({ product, username, look, tip, api }: { product: Product; username: string; look: string; tip: boolean; api: RowApiRef }) {
+  const on = productStatus(product) === "live"
+  const url = getProductUrl(username, product.slug)
+  const eye = <Eye className="h-4 w-4" strokeWidth={1.9} aria-hidden />
+  const button = on ? (
+    <a href={url} target="_blank" rel="noopener noreferrer" data-preview="" aria-label={`Preview ${product.title}`} onClick={(e) => api.current?.openPreview(url)(e)} className={look}>
+      {eye}
+    </a>
+  ) : (
+    <button type="button" data-preview="" aria-disabled="true" aria-label={`Preview ${product.title}`} onClick={(e) => api.current?.previewOff(e)} className={look}>
+      {eye}
+    </button>
+  )
+  if (!tip) return button
+  return (
+    <Tooltip delayDuration={400}>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent side="top" sideOffset={6} className={TOOLTIP}>
+        {on ? "Preview" : "Publish to preview"}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+/**
+ * A PHONE'S ROW (see the list's note in ProductsClient). `mark` is the
+ * status word, only for a row that is not on sale, in All.
+ *
+ * `content-visibility: auto`: a row off the screen is not styled, laid out
+ * or painted until it scrolls near. Fifty rows are one screen's twelve and
+ * thirty eight nobody is looking at, and a change that restyles the page (a
+ * sheet opening, whose `html:has()` rules make the browser look at every
+ * link again) or lays it out (a new order) paid for all fifty. The row is
+ * 64px whatever is in it, so skipping its contents moves nothing.
+ */
+const PhoneRow = memo(function PhoneRow({
+  product,
+  hidden,
+  mark,
+  username,
+  labels,
+  api,
+}: {
+  product: Product
+  hidden: boolean
+  mark: string | null
+  username: string
+  labels: RowLabels
+  api: RowApiRef
+}) {
+  const status = productStatus(product)
+  const href = `/app/products/${product.id}`
+  const items = useRowActions(product, username, labels, api)
+  return (
+    <li
+      data-row={product.id}
+      hidden={hidden}
+      className="relative flex h-16 items-center gap-3 px-3 [content-visibility:auto] has-[a[data-row-link]:active]:bg-[#eef0f2] [li:not([hidden])~&]:before:absolute [li:not([hidden])~&]:before:left-[74px] [li:not([hidden])~&]:before:right-0 [li:not([hidden])~&]:before:top-0 [li:not([hidden])~&]:before:h-px [li:not([hidden])~&]:before:bg-[#eceef1]"
+    >
+      <Link
+        href={href}
+        aria-label={product.title}
+        data-row-link=""
+        onTouchStart={() => api.current?.warm(product.id)}
+        onClick={(e) => api.current?.open(href)(e)}
+        onMouseEnter={() => api.current?.rest(product.id)}
+        onMouseLeave={() => api.current?.leave()}
+        onPointerDown={() => api.current?.warm(product.id)}
+        onFocus={() => api.current?.warm(product.id)}
+        className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]"
+      />
+      <Thumb src={product.thumbnail_url} title={product.title} size="phone" />
+      <span className="pointer-events-none min-w-0 flex-1">
+        <span data-name="" className="block truncate text-[14px] font-medium leading-[18px] tracking-[-0.01em] text-[#1a1a2e]">{product.title}</span>
+        <span data-meta="" className="mt-1 block h-4 truncate text-[12px] leading-4 text-[#6b7280]">
+          {mark ? (
+            <>
+              <StatusMark status={status} label={mark} />
+              <Sep />
+            </>
+          ) : null}
+          <span data-price="" className="tabular-nums">{priceOf(product.price_cents)}</span>
+          {product.sales_count ? (
+            <>
+              <Sep />
+              <span className="tabular-nums">{product.sales_count.toLocaleString("en-US")} sold</span>
+            </>
+          ) : null}
+        </span>
+      </span>
+      <Preview product={product} username={username} look={EYE_PHONE} tip={false} api={api} />
+      <ResponsiveActionMenu
+        title={product.title}
+        align="end"
+        trigger={<RowMenuButton label={`Actions for ${product.title}`} className={ROW_MENU_PHONE} />}
+        items={items}
+      />
+    </li>
+  )
+})
+
+/** A COMPUTER'S ROW (see the table's note in ProductsClient). The whole row opens the product. */
+const TableRow = memo(function TableRow({
+  product,
+  hidden,
+  statusText,
+  username,
+  labels,
+  api,
+}: {
+  product: Product
+  hidden: boolean
+  statusText: string
+  username: string
+  labels: RowLabels
+  api: RowApiRef
+}) {
+  const status = productStatus(product)
+  const href = `/app/products/${product.id}`
+  const items = useRowActions(product, username, labels, api)
+  return (
+    <tr
+      data-row={product.id}
+      hidden={hidden}
+      className="group h-14 cursor-pointer lg:h-[62px] xl:h-[70px] [tr:not([hidden])~&>td]:border-t [tr:not([hidden])~&>td]:border-[#f1f2f4]"
+      onMouseEnter={() => api.current?.rest(product.id)}
+      onMouseLeave={() => api.current?.leave()}
+      onPointerDown={() => api.current?.warm(product.id)}
+      onFocus={() => api.current?.warm(product.id)}
+      onClick={(e) => {
+        /* Not a press inside the row's own controls, nor one that bubbled up from its menu's portal. */
+        const target = e.target as HTMLElement
+        if (!e.currentTarget.contains(target) || target.closest("a,button,input,label")) return
+        api.current?.openRow(product.id)
+      }}
+    >
+      <td className="bg-white pl-4 pr-3 group-hover:bg-[#fafafb] lg:pl-[18px] lg:pr-[13px] xl:pl-[22px]">
+        <div className="flex min-w-0 items-center gap-3 lg:gap-[13px]">
+          <Thumb src={product.thumbnail_url} title={product.title} size="table" />
+          <Link
+            href={href}
+            onClick={(e) => api.current?.open(href)(e)}
+            className="min-w-0 truncate text-[13px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline lg:text-[14.5px] xl:text-[15.5px]"
+          >
+            {product.title}
+          </Link>
+        </div>
+      </td>
+      <td className="whitespace-nowrap bg-white px-3 group-hover:bg-[#fafafb] lg:px-[13px]">
+        <StatusMark status={status} label={statusText} strong={status === "live"} />
+      </td>
+      <td className="hidden whitespace-nowrap bg-white px-3 text-right tabular-nums text-[#4b5563] group-hover:bg-[#fafafb] lg:table-cell lg:px-[13px]">
+        {product.sales_count ? product.sales_count.toLocaleString("en-US") : <span className="text-[#b6bac1]">0</span>}
+      </td>
+      <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:px-[13px]">{priceOf(product.price_cents)}</td>
+      <td className="bg-white pr-3 group-hover:bg-[#fafafb] lg:pr-[13px] xl:pr-[18px]">
+        <div data-row-actions="" className="flex items-center justify-end gap-2 lg:gap-[9px]">
+          <Preview product={product} username={username} look={EYE_TABLE} tip api={api} />
+          <ResponsiveActionMenu
+            title={product.title}
+            align="end"
+            trigger={<RowMenuButton label={`Actions for ${product.title}`} className={ROW_MENU_TABLE} />}
+            items={items}
+          />
+        </div>
+      </td>
+    </tr>
+  )
+})
 
 /** A free product says Free rather than $0.00, on the list and in the table. */
 function priceOf(cents: number) {
