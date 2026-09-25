@@ -79,7 +79,6 @@ import { useToast } from "@/hooks/use-toast"
 import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
-import { ShimmerBlock } from "@/components/ui/shimmer"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { spansToRead } from "@/lib/analytics/buckets"
@@ -837,6 +836,32 @@ const AnnouncementBar = memo(function AnnouncementBar({
   )
 })
 
+/**
+ * THE LIVE PILL WAITS AS ITSELF.
+ * It used to hold a grey shimmer bar where the number goes until the first
+ * count came back, a skeleton for two characters. Now the pill is drawn
+ * whole from the first frame: a grey dot, "live", and a "0" held
+ * invisible so the pill already has its width. When the count lands the
+ * number fades in on opacity and the dot turns green if anyone is there.
+ * Nothing moves.
+ */
+function LivePill({ count, label, className, textClassName }: { count: number | null; label: string; className: string; textClassName: string }) {
+  const active = (count ?? 0) > 0
+  return (
+    <div className={`flex items-center gap-1.5 bg-[#f3f4f6] ${className}`} aria-busy={count == null}>
+      <span
+        aria-hidden
+        className={`w-2 h-2 shrink-0 rounded-full ${
+          active ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]" : "bg-gray-400"
+        }`}
+      />
+      <span className={`${textClassName} font-medium ${active ? "text-emerald-600" : "text-gray-500"}`}>
+        <span className={`tabular-nums transition-opacity duration-300 ease-out ${count == null ? "opacity-0" : "opacity-100"}`}>{count ?? 0}</span> {label}
+      </span>
+    </div>
+  )
+}
+
 export function DashboardClient({
   creatorId,
   displayName,
@@ -1526,41 +1551,13 @@ export function DashboardClient({
             {/* The date picker every page in /app shares. */}
             <DateRangePicker value={period} onChange={setPeriod} today={dashToday} align="end" className="h-[38px] rounded-xl px-3.5" />
             {/* Live Indicator Pill - Desktop */}
-            <div className="flex items-center gap-1.5 px-3 py-2 bg-[#f3f4f6] rounded-lg">
-              <div
-                className={`w-2 h-2 rounded-full ${
-                  (liveVisitors ?? 0) > 0
-                    ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
-                    : "bg-gray-400"
-                }`}
-                style={{
-                  animation: (liveVisitors ?? 0) > 0 ? "pulse-glow 2s ease-in-out infinite" : "none",
-                }}
-              />
-              <span className={`text-[13px] font-medium ${(liveVisitors ?? 0) > 0 ? "text-emerald-600" : "text-gray-500"}`}>
-                {liveVisitors == null ? <ShimmerBlock className="shimmer-wait inline-block h-[0.8em] w-[3.6em] rounded-full align-[-0.05em]" /> : `${liveVisitors} ${t("dashboard.liveVisitors")}`}
-              </span>
-            </div>
+            <LivePill count={liveVisitors} label={t("dashboard.liveVisitors")} className="px-3 py-2 rounded-lg" textClassName="text-[13px]" />
           </div>
 
           {/* Mobile: Live Indicator + Timeframe Button */}
           <div className="md:hidden flex items-center gap-2">
             {/* Live Indicator Pill - Mobile */}
-            <div className="flex items-center gap-1.5 px-2.5 py-2 bg-[#f3f4f6] rounded-xl h-[38px]">
-              <div
-                className={`w-2 h-2 rounded-full ${
-                  (liveVisitors ?? 0) > 0
-                    ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
-                    : "bg-gray-400"
-                }`}
-                style={{
-                  animation: (liveVisitors ?? 0) > 0 ? "pulse-glow 2s ease-in-out infinite" : "none",
-                }}
-              />
-              <span className={`text-[12px] font-medium ${(liveVisitors ?? 0) > 0 ? "text-emerald-600" : "text-gray-500"}`}>
-                {liveVisitors == null ? <ShimmerBlock className="shimmer-wait inline-block h-[0.8em] w-[3.6em] rounded-full align-[-0.05em]" /> : `${liveVisitors} ${t("dashboard.liveVisitors")}`}
-              </span>
-            </div>
+            <LivePill count={liveVisitors} label={t("dashboard.liveVisitors")} className="px-2.5 py-2 rounded-xl h-[38px]" textClassName="text-[12px]" />
             <DateRangePicker value={period} onChange={setPeriod} today={dashToday} align="end" className="h-[38px] rounded-xl px-3" />
           </div>
         </div>

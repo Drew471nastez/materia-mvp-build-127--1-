@@ -141,6 +141,11 @@ console.log("\nHome: the page reads it this way")
     /spansToRead\(span, previous\)/.test(dash) && /\.lt\("created_at", iso\(s\.end\)\)/.test(dash) && !/\.lte\("created_at"/.test(dash))
   check("all time views are counted by the database, not the first thousand rows",
     /\.select\("id", \{ count: "exact", head: true \}\)\s*\.eq\("creator_id", creatorId\)\s*\.eq\("event_type", "view"\)/.test(dash))
+  /* "The live pill shows a skeleton block while it loads." It waits as
+     itself now: dot, a held "0" and "live", the number fading in. */
+  check("the live pill waits as itself, its number fading in on opacity, with no shimmer bar in it",
+    !/ShimmerBlock/.test(dash) && (dash.match(/<LivePill count=\{liveVisitors\}/g) ?? []).length === 2
+      && /count == null \? "opacity-0" : "opacity-100"/.test(dash) && /\{count \?\? 0\}<\/span> \{label\}/.test(dash))
   const home = code("app/app/page.tsx")
   check("the page hands over what a basket and a refund need, and counts its first sale the same way",
     /stripe_session_id, refund_amount_cents, products!inner\(creator_id\)/.test(home) && /const \{ totalOrders \} = homeTotals\(allOrders\)/.test(home))
