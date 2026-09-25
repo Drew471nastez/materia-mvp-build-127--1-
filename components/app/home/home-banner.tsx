@@ -10,9 +10,9 @@
  * globe."
  *
  * WHAT IT SAYS is lib/home/announcements.ts: rules on the creator's real
- * state (Getting started's steps, the orders Home holds, the plan, and two
- * counts read here once the page is idle), most important first, at most
- * five. Only this store's things: connect payouts, a first sale, what Pro
+ * state (the facts Getting started reads, lib/home/progress, the orders
+ * Home holds and the plan), most important first, at most five, with the
+ * step the card names next leading. Only this store's things: connect payouts, a first sale, what Pro
  * would really have saved.
  *
  * THE SLIDESHOW. Six seconds a slide, the time drawn in the slide's own
@@ -36,105 +36,35 @@
  * blurred shapes as static gradients, a sheen and a grain, a hairline and a
  * shadow for depth. Painted once; nothing in it moves or blurs live.
  *
- * Buttons go where the sidebar's rows go and the same way: a Link, fetched
- * ahead under the pointer (prefetchAppPage), the press recorded for the
- * shell's loading state (startNavigationLoading).
+ * Buttons go where the sidebar's rows go and the same way
+ * (components/app/app-link).
  */
-import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react"
-import { createClient } from "@/lib/supabase/client"
-import { prefetchAppPage } from "@/lib/ui/app-navigation"
-import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
-import { announcementsFor, salesSummary, stepsDone, type Announcement, type StepLike } from "@/lib/home/announcements"
+import { AppLink } from "@/components/app/app-link"
+import { announcementsFor, fromFacts, salesSummary, type Announcement } from "@/lib/home/announcements"
+import type { ProgressFacts } from "@/lib/home/progress"
 import type { OrderRow } from "@/lib/orders/order-view"
 import { BannerGlobe } from "./globe"
 
 /** How long a slide stays, in ms. */
 export const SLIDE_MS = 6000
 
-type Counts = { subscribers: number | null; automations: number | null }
-
-/* ─── The data ─────────────────────────────────────────────────────────── */
-
-/**
- * The two counts the rules need that Home does not already hold, read as
- * the banner mounts and only when a rule could use them: subscribers once a
- * website is live, active automations once there is a sale. Two head
- * requests, no rows, counted by the database under the creator's own row
- * level security. They decide which slides there are, so they are not left
- * for an idle moment: the first slide shows for six seconds, and they are
- * back long before it ends. A failed read stays null and its rule stays
- * quiet.
- */
-function useCounts(creatorId: string, wantSubscribers: boolean, wantAutomations: boolean): Counts {
-  const [counts, setCounts] = useState<Counts>({ subscribers: null, automations: null })
-  useEffect(() => {
-    if (!creatorId || (!wantSubscribers && !wantAutomations)) return
-    let cancelled = false
-    const read = async () => {
-      try {
-        const supabase = createClient()
-        const [subs, flows] = await Promise.all([
-          wantSubscribers
-            ? supabase.from("subscribers").select("id", { count: "exact", head: true }).eq("creator_id", creatorId)
-            : null,
-          wantAutomations
-            ? supabase.from("email_flows").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).eq("status", "active")
-            : null,
-        ])
-        if (cancelled) return
-        const countOf = (r: { count: number | null; error: unknown } | null) => (r && !r.error && typeof r.count === "number" ? r.count : null)
-        setCounts({ subscribers: countOf(subs), automations: countOf(flows) })
-      } catch {
-        /* unread: the rules that need these stay quiet */
-      }
-    }
-    void read()
-    return () => {
-      cancelled = true
-    }
-  }, [creatorId, wantSubscribers, wantAutomations])
-  return counts
-}
-
 export interface HomeBannerProps {
-  /** Getting started's steps, as Home works them out (components/app/home/home-cards StartStep). Read only. */
-  steps: readonly StepLike[]
+  /** What the account has done, as Getting started reads it (lib/home/progress). Read only. */
+  facts: ProgressFacts
   planId: string
   /** The orders Home holds, kept live. */
   orders: readonly unknown[]
-  creatorId: string
+  /** Opens Home's share sheet, when there is an address to hand out. */
+  onShare?: () => void
 }
 
-export const HomeBanner = memo(function HomeBanner({ steps, planId, orders, creatorId }: HomeBannerProps) {
+export const HomeBanner = memo(function HomeBanner({ facts, planId, orders, onShare }: HomeBannerProps) {
   /* One clock for the page view: the same on the server and in the browser to the second, so the words agree. */
   const [now] = useState(() => Date.now())
-  const done = useMemo(() => stepsDone(steps), [steps])
   const sales = useMemo(() => salesSummary(orders as OrderRow[], now), [orders, now])
-  const counts = useCounts(creatorId, done.websitePublished, sales.count > 0 || done.hasSale)
-  const share = steps.find((s) => s.id === "sale")?.onSelect
-
-  const list = useMemo(
-    () =>
-      announcementsFor(
-        {
-          plan: planId,
-          hasProduct: done.hasProduct,
-          hasPayouts: done.hasPayouts,
-          websitePublished: done.websitePublished,
-          hasDomain: done.hasDomain,
-          sales,
-          subscribers: counts.subscribers,
-          activeAutomations: counts.automations,
-          canShare: !!share,
-        },
-        now,
-      ),
-    [planId, done, sales, counts, share, now],
-  )
-
-  return <BannerView list={list} onShare={share} />
+  const list = useMemo(() => announcementsFor(fromFacts(facts, sales, planId, !!onShare), now), [facts, sales, planId, onShare, now])
+  return <BannerView list={list} onShare={onShare} />
 })
 
 /* ─── The view ─────────────────────────────────────────────────────────── */
@@ -146,7 +76,6 @@ const TOUCH = 4
 const HIDDEN = 8
 
 function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => void }) {
-  const router = useRouter()
   const count = list.length
   const [currentId, setCurrentId] = useState(list[0]?.id)
   const [leavingId, setLeavingId] = useState<string | null>(null)
@@ -263,10 +192,6 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
     tab?.focus()
   }
 
-  const warm = (href: string) => {
-    if (href.startsWith("/app/")) prefetchAppPage(router, href)
-  }
-
   return (
     <section
       ref={rootRef}
@@ -328,16 +253,9 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
                         {a.cta}
                       </button>
                     ) : (
-                      <Link
-                        href={a.href}
-                        className="home-banner-cta"
-                        onClick={() => startNavigationLoading(a.href)}
-                        onMouseEnter={() => warm(a.href)}
-                        onFocus={() => warm(a.href)}
-                        onPointerDown={(e) => e.pointerType !== "mouse" && warm(a.href)}
-                      >
+                      <AppLink href={a.href} className="home-banner-cta">
                         {a.cta}
-                      </Link>
+                      </AppLink>
                     )}
                   </div>
                 </div>

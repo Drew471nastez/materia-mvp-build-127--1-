@@ -4,16 +4,16 @@
  * ===========================================================================
  * lib/home/announcements.ts decides what the banner beside the globe says,
  * from the store's own state. Each rule here is run against fixture states
- * the way Home builds them: Getting started's steps, the orders it holds,
- * the plan, and the two counts the banner reads (subscribers, active
- * automations). scripts/check-home-banner.mjs checks the same states in a
+ * the way Home builds them: the facts Getting started reads
+ * (lib/home/progress), the orders it holds and the plan. scripts/check-home-banner.mjs checks the same states in a
  * browser; this checks the rules themselves, edge by edge.
  */
 import {
   COUNT_MILESTONES, MAX_ANNOUNCEMENTS, MONEY_MILESTONES, REAL_SAVING_CENTS, RULES,
-  ago, announcementsFor, isPaidPlan, money, ordinal, proSaving, salesSummary, stepsDone,
+  ago, announcementsFor, fromFacts, isPaidPlan, money, ordinal, proSaving, salesSummary, stepsDone,
   type HomeProgress,
 } from "../lib/home/announcements"
+import { NO_FACTS, homeProgress, nextSetupStep, type ProgressFacts } from "../lib/home/progress"
 import type { OrderRow } from "../lib/orders/order-view"
 
 let passed = 0
@@ -87,7 +87,7 @@ function main() {
   const firstSale = state({ ...SETUP, orders: [order(1, 2900)] })
   check("the first sale this week comes first after anything critical",
     same(ids(firstSale), ["first-sale", "automations", "newsletter", "domain-pro"]), ids(firstSale))
-  check("it names the money and when", find(firstSale, "first-sale")?.line.startsWith("$29, a day ago."), find(firstSale, "first-sale")?.line)
+  check("it names the money and when", find(firstSale, "first-sale")?.line.startsWith("$29, a day ago.") === true, find(firstSale, "first-sale")?.line)
   check("and goes to that order's page", find(firstSale, "first-sale")?.href === `/app/orders/o${seq}`, find(firstSale, "first-sale")?.href)
   check("a first sale more than a week old is not news",
     !ids(state({ ...SETUP, orders: [order(8, 2900)] })).includes("first-sale"))
@@ -155,6 +155,28 @@ function main() {
   ])
   check("reads the module's own step ids", done.hasProduct && done.hasPayouts && !done.websitePublished && !done.hasDomain && done.hasSale, done)
   check("and the older names", stepsDone([{ id: "website", done: true }, { id: "payouts", done: true }]).websitePublished && stepsDone([{ id: "payouts", done: true }]).hasPayouts)
+
+  console.log("\nfrom the facts Getting started reads (lib/home/progress)")
+  const facts = (f: Partial<ProgressFacts> = {}): ProgressFacts => ({ ...NO_FACTS, guideOpened: true, ...f })
+  const none = salesSummary([], NOW)
+  const readyFacts = facts({ products: 2, paymentsReady: true, websiteLive: true, domainConnected: false, subscribers: 12, automationsOn: 1 })
+  const mapped = fromFacts(readyFacts, none, "free", true)
+  const card = stepsDone(homeProgress(readyFacts).steps)
+  check("a step is done here exactly when the card ticks it",
+    mapped.hasProduct === card.hasProduct && mapped.hasPayouts === card.hasPayouts && mapped.websitePublished === card.websitePublished && mapped.hasDomain === card.hasDomain && mapped.hasProduct && mapped.hasPayouts && mapped.websitePublished && !mapped.hasDomain, mapped)
+  check("the counts are the facts' own", mapped.subscribers === 12 && mapped.activeAutomations === 1)
+  check("the next step is the card's", mapped.nextStep === nextSetupStep(readyFacts)?.id && mapped.nextStep === "sale", mapped.nextStep)
+  check("Stripe connected with charges and payouts: payouts is not asked for", !ids(fromFacts(readyFacts, none, "free", true)).includes("payouts"))
+  /* A product and no payments: the card says "Set up payments" next, so the banner does too. */
+  const noPay = fromFacts(facts({ products: 1 }), none, "free", true)
+  check("no payments: the card's next step leads", noPay.nextStep === "payments" && ids(noPay)[0] === "payouts", ids(noPay))
+  /* Nothing yet: the card says "Add your first product", ahead of Stripe's usual first place. */
+  const fresh = fromFacts(facts(), none, "free", true)
+  check("nothing yet: the first product leads, as on the card", fresh.nextStep === "product" && same(ids(fresh).slice(0, 2), ["first-product", "payouts"]), ids(fresh))
+  check("the guide unopened leads nothing: the usual order", ids(fromFacts(facts({ guideOpened: false }), none, "free", true))[0] === "payouts")
+  const siteNext = fromFacts(facts({ products: 1, paymentsReady: true }), none, "free", true)
+  check("no website: the website leads, share after it", siteNext.nextStep === "store" && same(ids(siteNext).slice(0, 2), ["website", "share"]), ids(siteNext))
+  check("every step done: nothing leads", fromFacts(facts({ products: 1, paymentsReady: true, websiteLive: true, domainConnected: true, pro: true, sales: 1 }), none, "growth", true).nextStep === null)
 
   console.log("\nthe words")
   check("money: whole dollars bare, cents when there are some, none from $1,000", money(2900) === "$29" && money(2950) === "$29.50" && money(99999) === "$999.99" && money(123456) === "$1,235" && money(100000) === "$1,000")

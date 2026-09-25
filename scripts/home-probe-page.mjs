@@ -65,18 +65,11 @@ export default function Image({ src, alt, width, height, priority, fill, sizes, 
 }
 `)
   writeFileSync(join(dir, "supabase.js"), `
-const qs = new URLSearchParams(location.search)
-/* The address wins; otherwise what the fixture set for its state (window.__probeCounts); otherwise none. */
-const countOf = (table, param) => {
-  if (qs.get(param) != null) return Number(qs.get(param))
-  const fixture = window.__probeCounts || {}
-  return table in fixture ? fixture[table] : 0
-}
-window.__reads = []
-function query(table) {
-  const answer = () => ({ data: [], error: null, count: table === "subscribers" ? countOf(table, "subs") : table === "email_flows" ? countOf(table, "flows") : 0 })
+/* Every read answers nothing: the account's facts are handed to the page (scripts/render-home-banner.tsx). */
+function query() {
+  const answer = () => ({ data: [], error: null, count: 0 })
   const q = new Proxy(function () {}, {
-    get: (_, k) => (k === "then" ? (resolve, reject) => { window.__reads.push(table); return Promise.resolve(answer()).then(resolve, reject) } : q),
+    get: (_, k) => (k === "then" ? (resolve, reject) => Promise.resolve(answer()).then(resolve, reject) : q),
     apply: () => q,
   })
   return q

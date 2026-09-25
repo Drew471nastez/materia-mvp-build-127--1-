@@ -25,11 +25,15 @@
  *     5  pro-offer       Free, and nothing above applies
  *     1  all-set         Pro, and nothing above applies
  *
- * The state is read, never ticked by hand: Getting started's steps
- * (components/app/home/home-cards, worked out in dashboard-client), the
- * orders Home already holds, the plan, and two counts the banner reads
- * itself (subscribers, active automations). A count that could not be read
- * is null, and the rule that needs it stays quiet rather than guess.
+ * The state is read, never ticked by hand, from the facts Getting started
+ * reads (lib/home/progress: homeProgress for the steps, nextSetupStep for
+ * the one the card names next, the subscriber and automation counts), and
+ * the orders Home already holds, kept live. fromFacts turns those into the
+ * state below. A count that could not be read is null, and the rule that
+ * needs it stays quiet rather than guess.
+ *
+ * The step Getting started names next leads, whatever its priority, so the
+ * banner and the card never point at two different first things.
  *
  * Pure and client safe, so tests/home-announcements.test.ts runs every rule
  * against fixture states without a browser.
@@ -38,6 +42,7 @@ import { groupOrders, isSale, type OrderRow } from "../orders/order-view"
 import { moneyOf } from "../analytics/reports"
 import { computeApplicationFee } from "../billing/fee-calculator"
 import { PRO_PRICE_CENTS } from "../billing/plans"
+import { homeProgress, nextSetupStep, type ProgressFacts } from "./progress"
 
 export type AnnouncementId =
   | "payouts"
@@ -100,6 +105,8 @@ export interface HomeProgress {
   activeAutomations: number | null
   /** The share sheet can be opened (there is an address to hand out). */
   canShare: boolean
+  /** The Getting started step the card names next (lib/home/progress nextSetupStep), if any. */
+  nextStep?: string | null
 }
 
 const HOUR = 3_600_000
@@ -417,7 +424,18 @@ export function announcementsFor(p: HomeProgress, now: number, limit = MAX_ANNOU
     const rule = FALLBACK_FREE.applies(p, now) ? FALLBACK_FREE : FALLBACK_PAID
     out.push({ id: rule.id, priority: rule.priority, ...rule.write(p, now) })
   }
-  return out.sort((a, b) => b.priority - a.priority).slice(0, Math.max(1, limit))
+  const lead = p.nextStep ? LEADS[p.nextStep] ?? [] : []
+  const rank = (a: Announcement) => (lead.includes(a.id) ? 1000 : 0) + a.priority
+  return out.sort((a, b) => rank(b) - rank(a)).slice(0, Math.max(1, limit))
+}
+
+/** The announcements that say a Getting started step, by the step's id (lib/home/progress SetupStepId). */
+const LEADS: Record<string, readonly AnnouncementId[]> = {
+  product: ["first-product"],
+  payments: ["payouts"],
+  store: ["website"],
+  sale: ["share"],
+  domain: ["domain", "domain-pro"],
 }
 
 /* ─── From Getting started ─────────────────────────────────────────────── */
@@ -443,5 +461,26 @@ export function stepsDone(steps: readonly StepLike[]) {
     websitePublished: done("store", "website"),
     hasDomain: done("domain"),
     hasSale: done("sale"),
+  }
+}
+
+/**
+ * The banner's state from the facts Getting started reads (lib/home/progress)
+ * and the sales worked out from the orders Home holds. The steps come from
+ * homeProgress, so a step counts as done here exactly when the card ticks it.
+ */
+export function fromFacts(facts: ProgressFacts, sales: SalesSummary, plan: string, canShare: boolean): HomeProgress {
+  const done = stepsDone(homeProgress(facts).steps)
+  return {
+    plan,
+    hasProduct: done.hasProduct,
+    hasPayouts: done.hasPayouts,
+    websitePublished: done.websitePublished,
+    hasDomain: done.hasDomain,
+    sales,
+    subscribers: facts.subscribers,
+    activeAutomations: facts.automationsOn,
+    canShare,
+    nextStep: nextSetupStep(facts)?.id ?? null,
   }
 }

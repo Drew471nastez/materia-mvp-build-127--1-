@@ -11,13 +11,15 @@
  *   ?state=quiet      Free, everything done, nothing new
  *   ?state=pro        Pro, everything done, a domain, automations, subscribers
  *
- * `&subs=N` and `&flows=N` are what the database answers for subscribers and
- * active automations (the Supabase stub in the probes reads them).
+ * The account's facts are handed in as the server would read them
+ * (lib/home/progress-server readProgressFacts); `&subs=N` and `&flows=N`
+ * set the subscribers and the automations switched on.
  */
 import { createRoot } from "react-dom/client"
 import { Component, createElement, type ReactNode } from "react"
 import { DashboardClient } from "@/components/app/dashboard-client"
 import { LanguageProvider } from "@/lib/i18n/context"
+import { NO_FACTS, type ProgressFacts } from "@/lib/home/progress"
 
 class Boundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -60,9 +62,20 @@ const FIXTURES: Record<string, Fixture> = {
   pro: { product: true, payouts: true, site: true, domain: true, plan: "growth", sales: Array.from({ length: 30 }, (_, i) => 2 + i * 3), price: 3900 },
 }
 const f = FIXTURES[state] ?? FIXTURES.selling
-/* What the database answers for the two counts the banner reads (scripts/home-probe-page.mjs); `&subs=` and `&flows=` override. */
-;(window as unknown as { __probeCounts?: Record<string, number> }).__probeCounts =
-  state === "pro" || state === "quiet" ? { subscribers: 180, email_flows: 2 } : { subscribers: 0, email_flows: 0 }
+const busy = state === "pro" || state === "quiet"
+const facts: ProgressFacts = {
+  ...NO_FACTS,
+  products: f.product ? 2 : 0,
+  publishedProducts: f.product ? 2 : 0,
+  paymentsReady: f.payouts,
+  websiteLive: f.site,
+  domainConnected: f.domain,
+  creatorPageDomain: f.domain,
+  guideOpened: state !== "new",
+  pro: f.plan === "growth",
+  subscribers: Number(params.get("subs") ?? (busy ? 180 : 0)),
+  automationsOn: Number(params.get("flows") ?? (busy ? 2 : 0)),
+}
 
 const orders = f.sales.map((days, i) => ({
   id: `order-${i}`,
@@ -88,6 +101,7 @@ createRoot(document.getElementById("app")!).render(
     ],
     productIds: f.product ? ["product-0", "product-1"] : [],
     initialOrders: orders,
+    initialProgress: facts,
     creatorHandle: "andrewrullz",
     connectedDomain: f.domain ? "andrewrullz.com" : null,
     websiteDomain: f.domain ? "andrewrullz.com" : null,

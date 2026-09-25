@@ -7,7 +7,7 @@
  *   CARDS     Getting started, the guide and Your Plan under the banner,
  *             three across from 1280 at one height, two across with the
  *             guide below them under that, one under another on a phone; no Store setup list; the page never scrolls
- *             sideways. Getting started says "N of 6", the next step is
+ *             sideways. Getting started says "N of 8", the next step is
  *             first with the arrow, and Sign up is last and crossed out.
  *   PLAN      the plan by name (Free, or Pro for `growth`), Free's own lines
  *             from lib/billing/plans, and the button Upgrade to Pro (Manage
@@ -68,12 +68,25 @@ try {
     `--alias:@=${root}`, "--loader:.jsx=jsx", "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
     { stdio: ["ignore", "ignore", "inherit"] })
 } catch { rmSync(dir, { recursive: true, force: true }); fail("the probe did not bundle") }
+let fontDir = null
 const html = `<!doctype html><html class="light app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
-  `<style>${interFaces(root)}</style><style>${await appCss(root)}</style><style>html,body{margin:0;height:100%;font-family:Inter,system-ui,sans-serif}#app{height:100%}</style>` +
+  /* Inter over this server, not file://, which a page served over http may not load. */
+  `<style>${interFaces(root).replace(/url\(file:\/\/([^)]*\/static\/media)\/([^)]+)\)/g, (_, dir, file) => { fontDir = dir; return `url(/__font/${file})` })}</style><style>${await appCss(root)}</style><style>html,body{margin:0;height:100%;font-family:Inter,system-ui,sans-serif}#app{height:100%}</style>` +
   `</head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}}</script><script>${readFileSync(join(dir, "probe.js"), "utf8")}</script></body></html>`
 rmSync(dir, { recursive: true, force: true })
 
 const server = createServer((req, res) => {
+  if (req.url.startsWith("/__font/") && fontDir) {
+    try {
+      const font = readFileSync(join(fontDir, req.url.slice("/__font/".length)))
+      res.writeHead(200, { "content-type": "font/woff2" })
+      res.end(font)
+    } catch {
+      res.writeHead(404)
+      res.end()
+    }
+    return
+  }
   if (req.url.startsWith("/api/")) {
     res.writeHead(200, { "content-type": "application/json" })
     res.end("{}")
@@ -164,12 +177,13 @@ try {
         planLines: [...plan.querySelectorAll("li")].map((li) => li.textContent.trim()),
         planButton: plan.querySelector("a").textContent.trim(),
         planHref: plan.querySelector("a").getAttribute("href"),
-        storeSetup: !!document.getElementById("store-setup-section"),
+        /* The old list is gone; its id now marks the three cards, where the sidebar's Setup ring scrolls to. */
+        storeSetup: !document.getElementById("store-setup-section")?.contains(gs),
         sideways: Math.max(document.documentElement.scrollWidth, scroller ? scroller.scrollWidth : 0) - window.innerWidth,
         guideThumb: guide.querySelector(".home-guide-thumb").textContent.replace(/\s+/g, " ").trim(),
       }
     })
-    expect(!m.storeSetup, "the Store setup list is gone")
+    expect(!m.storeSetup, "the Store setup list is gone, and its id lands on Getting started")
     expect(m.sideways <= 0, "nothing scrolls sideways", m.sideways)
     const hover = await page.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches)
     expect(hover === !viewport.isMobile, viewport.isMobile ? "a touch screen" : "a mouse")
@@ -185,7 +199,7 @@ try {
     }
     expect(m.gs.top > m.banner.bottom, "under the banner", JSON.stringify([m.banner.bottom, m.gs.top]))
     const done = m.rows.filter((r) => r.struck).length
-    expect(m.count === `${done} of 6` && m.rows.length === 6, `"${m.count}", six steps`, JSON.stringify(m.rows))
+    expect(m.count === `${done} of 8` && m.rows.length === 8, `"${m.count}", eight steps (lib/home/progress)`, JSON.stringify(m.rows))
     const firstDone = m.rows.findIndex((r) => r.struck)
     expect(firstDone > 0 && m.rows.slice(firstDone).every((r) => r.struck) && m.rows[firstDone].text.startsWith("Sign up"), "what is done drops below what is left, crossed out, Sign up first of it", JSON.stringify(m.rows))
     expect(m.rows[0].arrow && m.rows.filter((r) => r.arrow).length === 1, "the next step first, and only it has the arrow", JSON.stringify(m.rows))
@@ -225,8 +239,13 @@ try {
 
     if (!viewport.isMobile) {
       /* Hover: deeper shadow, the tiles move, and they come back. */
-      const tiles = () => page.evaluate(() => [...document.querySelectorAll("[data-pay-tile]")].map((t) => { const b = t.getBoundingClientRect(); return [Math.round(b.x), Math.round(b.y)] }))
-      const shadow = () => page.evaluate(() => getComputedStyle(document.getElementById("getting-started")).boxShadow)
+      /* Against the card, not the window: the hover screenshot below scrolls the card into view. */
+      const tiles = () => page.evaluate(() => {
+        const card = document.getElementById("getting-started").getBoundingClientRect()
+        return [...document.querySelectorAll("[data-pay-tile]")].map((t) => { const b = t.getBoundingClientRect(); return [Math.round(b.x - card.x), Math.round(b.y - card.y)] })
+      })
+      /* The deeper shadow is a layer of its own that fades in (globals.css HOME CARDS), so a hover paints nothing. */
+      const shadow = () => page.evaluate(() => getComputedStyle(document.getElementById("getting-started"), "::before").opacity)
       const rest = await tiles()
       const restShadow = await shadow()
       const box = m.gs

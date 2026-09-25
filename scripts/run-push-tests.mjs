@@ -231,6 +231,7 @@ const SUITES = [
   "tests/coupon-checkout.test.ts",
   "tests/home-cards.test.ts",
   "tests/home-announcements.test.ts",
+  "tests/home-progress.test.ts",
   "tests/creator-badges.test.ts",
   "tests/sql-run-four.test.ts",
   "tests/buy-extras.test.ts",
