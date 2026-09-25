@@ -43,11 +43,12 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `19_variant_policies.sql` | Product variants read policies split so a visitor skips the creator check. Same access, faster product page. | 18 | 3,349 |
 | `20_saved_cards_bounces_and_exec_sql.sql` | Saved cards land, the bounce list reads, `exec_sql` is closed to the public key, and search ranks without a general SQL runner. | 7 | 5,893 |
 | `21_email_sending.sql` | Email campaigns: the send pipeline statuses and audience types, send bookkeeping, one row per address sent, and private reads. | 41 | 4,560 |
+| `22_custom_domain_purposes.sql` | Connected domains: website or creator page, one primary of each, the records Vercel recommended, and written by the server only. | 15 | 1,846 |
 | `90_storage_policies_needs_owner.sql` | LAST, ON ITS OWN. Replaces the storage.objects policies. Needs the owner of storage.objects; see README if it says "must be owner". | 2 | 3,896 |
 | `91_storage_policies_to_remove.sql` | Read only. For the dashboard route: the storage policies to delete. | 2 | 1,242 |
 | `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 6,734 |
 
-Parts `01` to `21` all run as the editor's normal role. `90` is the one
+Parts `01` to `22` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
 Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:
