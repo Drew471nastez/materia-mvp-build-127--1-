@@ -113,6 +113,11 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "track-event/route.ts": "records an anonymous event",
   "blog/track/route.ts": "records a blog page view",
   "public/vitals/route.ts": "a published site's speed numbers from its visitors, for a published site only, validated, capped per site a day and limited per address",
+  "website-builder/contact/route.ts": "a visitor writing to a creator from a contact form on their website; a trap field, a timing check and the rate limiter per visitor, address and store, and it tells the caller nothing about the list",
+
+  // A creator's website, signing a visitor in with a credential of its own (lib/site-accounts).
+  "site-account/exchange/route.ts": "the signed code is the credential: made by storelib.com for one person, one host and one browser's state, two minutes, and claimed once in Postgres",
+  "site-account/wishlist/route.ts": "the website's own signed session cookie is the credential, for one host and one creator; without it the answer is signedIn false and nothing is read",
 
   // Reads of things that are already public.
   "reviews/stats/route.ts": "the rating shown on a public product page",

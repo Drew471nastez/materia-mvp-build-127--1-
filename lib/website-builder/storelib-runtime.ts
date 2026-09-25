@@ -27,6 +27,7 @@
 import { COMPILE_CACHE_LIMIT, compileSection, createLru } from "@/lib/storelib-theme/storelib/compile"
 import { renderSection } from "@/lib/storelib-theme/render"
 import type { CompiledSection, RenderContext, SectionInstanceData, ThemeError } from "@/lib/storelib-theme/types"
+import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import type { SectionInstance, ThemeSettingsValues } from "./types"
 
@@ -121,6 +122,12 @@ export function renderStorelibSection(
    * products draws none — which is what the export and a thumbnail want.
    */
   products?: RenderContext["products"],
+  /**
+   * The store and, on a page drawn for one visitor, the visitor: `shop`,
+   * `customer`, `wishlist` (lib/storelib-theme/globals.ts). Absent is the
+   * theme's own `shop` and nobody signed in.
+   */
+  globals?: StorefrontGlobals,
 ): StorelibRendered {
   const c = compiledSection(section.type, overrides)
   if (c.ok === false) return c
@@ -131,6 +138,7 @@ export function renderStorelibSection(
     theme: theme as unknown as Record<string, unknown>,
     page: withPageProduct(page, products),
     products,
+    globals,
   })
   return {
     ok: true,

@@ -2,6 +2,7 @@ import { isStorelibSection, renderStorelibSection } from "@/lib/website-builder/
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import type { ProductCard } from "@/lib/website-builder/shop-products"
+import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 
 /**
  * ===========================================================================
@@ -52,6 +53,8 @@ export async function prerenderStorelibSections(
    * `products`). See lib/website-builder/shop-products.ts.
    */
   pageExtras?: Record<string, unknown>,
+  /** The store and the visitor, for the sections that read them: lib/storelib-theme/globals.ts. */
+  globals?: StorefrontGlobals,
 ): Promise<Record<string, RenderedSection>> {
   const prerendered: Record<string, RenderedSection> = {}
   /**
@@ -69,7 +72,7 @@ export async function prerenderStorelibSections(
    * edited one.
    */
   const sources = await sectionSources(db, installId)
-  return renderWithSources(sources, sections, theme, template, products, pageExtras)
+  return renderWithSources(sources, sections, theme, template, products, pageExtras, globals)
 }
 
 /**
@@ -123,11 +126,16 @@ export function renderWithSources(
    * read on its own.
    */
   pageExtras?: Record<string, unknown>,
+  /**
+   * The store (`shop`) and, on a page drawn for one visitor, who they are
+   * (`customer`) and what they saved (`wishlist`). lib/storelib-theme/globals.
+   */
+  globals?: StorefrontGlobals,
 ): Record<string, RenderedSection> {
   const prerendered: Record<string, RenderedSection> = {}
   for (const section of sections) {
     if (!isStorelibSection(section.type, sources)) continue
-    const out = renderStorelibSection(section, theme, { ...pageExtras, template }, sources, products)
+    const out = renderStorelibSection(section, theme, { ...pageExtras, template }, sources, products, globals)
     if (out.ok) {
       prerendered[section.id] = { html: out.html, css: out.css, script: out.script, capabilities: out.capabilities }
     }

@@ -94,19 +94,75 @@ function readRuns(email: string): Promise<RunLite[]> {
   return request
 }
 
+/**
+ * ===========================================================================
+ *  WHAT THEY WROTE, FROM A WEBSITE'S CONTACT FORM
+ * ===========================================================================
+ * Each message sent through a contact form on one of the creator's websites
+ * is emailed to them and kept (lib/site-contact), and this is where it is
+ * kept: on the page of the person who wrote it, newest first, with a way to
+ * reply. Read through the creator's own session; row level security keeps
+ * it to their messages. Before the contact form SQL has run there are none,
+ * and the card is simply not there.
+ */
+interface MessageLite {
+  id: string
+  subject: string | null
+  message: string
+  site: string | null
+  page: string | null
+  created_at: string
+}
+
+const messagesKept = new Map<string, { at: number; list: MessageLite[] }>()
+const messagesAsked = new Map<string, Promise<MessageLite[]>>()
+
+function keptMessages(email: string): MessageLite[] | null {
+  const hit = messagesKept.get(keyOf(email))
+  return hit && Date.now() - hit.at < FRESH_MS ? hit.list : null
+}
+
+function readMessages(email: string): Promise<MessageLite[]> {
+  const key = keyOf(email)
+  const kept = keptMessages(email)
+  if (kept) return Promise.resolve(kept)
+  const asked = messagesAsked.get(key)
+  if (asked) return asked
+  const request = (async () => {
+    try {
+      const { data, error } = await createClient()
+        .from("site_contact_messages")
+        .select("id, subject, message, site, page, created_at")
+        .eq("email", key)
+        .order("created_at", { ascending: false })
+        .limit(20)
+      const list = error ? [] : ((data ?? []) as MessageLite[])
+      if (!error) messagesKept.set(key, { at: Date.now(), list })
+      return list
+    } catch {
+      return []
+    } finally {
+      messagesAsked.delete(key)
+    }
+  })()
+  messagesAsked.set(key, request)
+  return request
+}
+
 /** A finger on a contact's row: ask for what its sheet will show. */
 export function prefetchContact(email: string) {
   void readRuns(email)
+  void readMessages(email)
 }
 
 /**
- * Resolves when the contact's runs are here, or after OPEN_WAIT_MS, whichever
- * is first. The row's pressed colour covers the wait.
+ * Resolves when the contact's runs and messages are here, or after
+ * OPEN_WAIT_MS, whichever is first. The row's pressed colour covers the wait.
  */
 export function contactReady(email: string): Promise<void> {
-  if (keptRuns(email)) return Promise.resolve()
+  if (keptRuns(email) && keptMessages(email)) return Promise.resolve()
   return Promise.race([
-    readRuns(email).then(() => undefined),
+    Promise.all([readRuns(email), readMessages(email)]).then(() => undefined),
     new Promise<void>((resolve) => window.setTimeout(resolve, OPEN_WAIT_MS)),
   ])
 }
@@ -115,6 +171,8 @@ export function contactReady(email: string): Promise<void> {
 export function contactStatusLabel(s: Pick<SubscriberRow, "status" | "unsubscribed_at">): string {
   if (s.status === "subscribed") return s.unsubscribed_at ? "Resubscribed" : "Subscribed"
   if (s.status === "customer") return "Customer"
+  /* Wrote through a website's contact form and did not ask for news. */
+  if (s.status === "wrote") return "Wrote to you"
   if (s.status === "bounced") return "Bounced"
   if (s.status === "complained") return "Marked as spam"
   return "Unsubscribed"
@@ -199,7 +257,7 @@ export function ContactPage({
           <>
             {contact.name ? contact.email : null}
             {contact.name && joined ? " · " : null}
-            {joined ? `${contact.status === "customer" ? "Added" : "Joined"} ${joined}` : null}
+            {joined ? `${contact.status === "customer" ? "Added" : contact.status === "wrote" ? "First wrote" : "Joined"} ${joined}` : null}
           </>
         }
       />
@@ -214,12 +272,16 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
   const source = sourceView(contact.source_detail, contact.source)
   /* What the tap already read, so the sheet rises with it in place. */
   const [runs, setRuns] = React.useState<RunLite[] | null>(() => keptRuns(contact.email))
+  const [messages, setMessages] = React.useState<MessageLite[] | null>(() => keptMessages(contact.email))
 
   React.useEffect(() => {
     /* Kept runs come back as the same list, which draws nothing again. */
     let alive = true
     readRuns(contact.email).then((list) => {
       if (alive) setRuns(list)
+    })
+    readMessages(contact.email).then((list) => {
+      if (alive) setMessages(list)
     })
     return () => {
       alive = false
@@ -230,7 +292,32 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
 
   return (
     <div data-contact-body="" className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
-      <section className={cn(card, "min-w-0 px-4 pb-3 pt-3.5 lg:col-start-1 lg:row-start-1")}>
+      {messages && messages.length > 0 ? (
+        <section className={cn(card, "min-w-0 px-4 pb-3 pt-3.5 lg:col-start-1")} data-contact-messages="">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-[14px] font-semibold text-[#1a1a2e]">Messages</h2>
+            <a
+              href={`mailto:${encodeURIComponent(contact.email)}${messages[0].subject ? `?subject=${encodeURIComponent(`Re: ${messages[0].subject}`)}` : ""}`}
+              className="text-[13px] font-medium text-[#1a1a2e] underline-offset-4 hover:underline"
+            >
+              Reply
+            </a>
+          </div>
+          <ul className="-mx-4 mt-2 divide-y divide-[#f1f2f4] border-t border-[#f1f2f4]">
+            {messages.map((m) => (
+              <li key={m.id} className="px-4 py-3">
+                <p className="text-[12px] text-[#6b7280]">
+                  {day(m.created_at)}
+                  {m.site ? ` · ${m.site}${m.page && m.page !== "home" ? `/${m.page}` : ""}` : ""}
+                </p>
+                {m.subject ? <p className="mt-1 break-words text-[14px] font-medium text-[#1a1a2e]">{m.subject}</p> : null}
+                <p className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-6 text-[#374151]">{m.message}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      <section className={cn(card, "min-w-0 px-4 pb-3 pt-3.5 lg:col-start-1", messages && messages.length > 0 ? "" : "lg:row-start-1")}>
         <h2 className="text-[14px] font-semibold text-[#1a1a2e]">Automations</h2>
         {runs === null ? (
           <div className="mt-3 space-y-2" aria-busy="true">
@@ -277,7 +364,7 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
           <dd>
             <StatusBadge tone={contact.status === "subscribed" ? "success" : "neutral"}>{status}</StatusBadge>
           </dd>
-          <dt className="text-[#6b7280]">{contact.status === "customer" ? "Added" : "Joined"}</dt>
+          <dt className="text-[#6b7280]">{contact.status === "customer" ? "Added" : contact.status === "wrote" ? "First wrote" : "Joined"}</dt>
           <dd className="text-[#1a1a2e]">{day(contact.subscribed_at) || "Not recorded"}</dd>
           <dt className="text-[#6b7280]">Source</dt>
           <dd className="min-w-0">
