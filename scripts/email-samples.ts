@@ -1,12 +1,14 @@
 /**
- * Two finished emails, written to files for scripts/check-email-html.mjs to
+ * Finished emails, written to files for scripts/check-email-html.mjs to
  * open in Chromium: a campaign exactly as the send builds it
  * (lib/email-campaigns/queue.ts messageFor, with a reader, tracking and the
- * one-click headers), and an automated email exactly as the engine's mailer
- * builds it (lib/email-automation automationEmail with the brand, as
- * lib/automations/run.ts calls it). The brand is a creator's with a logo, an
- * accent, and an address; a second campaign has a pale accent and no logo,
- * to see the contrast fallback.
+ * one-click headers), and an automated email through the same steps a real
+ * one takes: the engine fills the step (lib/automations/engine.ts
+ * prepareEmail), and the mailer (lib/automations/run.ts mailerFor) tracks
+ * its links and draws it in the engine's brand with the postal address.
+ * The brand is a creator's with a logo, an accent, and an address; a second
+ * campaign has a pale accent and no logo, to see the contrast fallback, and
+ * a second automation goes to a buyer who never joined the list.
  *
  *   OUT_DIR=<dir> node <bundle of this file>
  */
@@ -16,9 +18,14 @@ import { messageFor, type Frame } from "@/lib/email-campaigns/queue"
 import { newBlock, renderBlocks, storeBlocks, type Block } from "@/lib/email-campaigns/blocks"
 import { readStoredBody } from "@/lib/email-campaigns/stored"
 import { themeOf, type Brand } from "@/lib/email-campaigns/brand"
-import { automationEmail } from "@/lib/email-automation"
+import { automationEmail, brandOfIdentity } from "@/lib/email-automation"
+import { prepareEmail, type Identity, type RunRow } from "@/lib/automations/engine"
+import { textOn } from "@/lib/automations/merge-fields"
+import { trackLinks as trackAutomationLinks } from "@/lib/automations/tracking"
+import type { EmailStep } from "@/lib/automations/flow-model"
 
 process.env.EMAIL_LINK_SECRET = process.env.EMAIL_LINK_SECRET || "sample-signing-key-for-the-probe"
+process.env.AUTOMATION_LINK_SECRET = process.env.AUTOMATION_LINK_SECRET || "sample-automation-key-for-the-probe"
 const out = process.env.OUT_DIR || join(process.cwd(), ".email-html-probe")
 mkdirSync(out, { recursive: true })
 
@@ -75,20 +82,36 @@ function campaign(file: string, b: Brand) {
 campaign("campaign", brand)
 campaign("campaign-pale", { ...brand, name: "Sunny Paper Co", logoUrl: null, accent: "#fde047", address: null })
 
-/* An automation's body as the shared editor writes it (app/app/emails/flow/body-editor.tsx), button included. */
+/* An automation's body as the shared editor writes it (app/app/emails/flow/body-editor.tsx), button and fields included. */
 const automationBody =
-  "<p>Hi Maya,</p><p>Thank you for buying the <strong>Autumn preset pack</strong>. Your download link is in your receipt, and here is the fastest way to start:</p><ol><li>Open Lightroom and import the presets</li><li>Try <em>Harbour Warm</em> on a photo taken near sunset</li></ol><p><a href=\"https://storelib.com/anapop/guide\" style=\"display:inline-block;padding:10px 18px;border-radius:8px;background-color:#1a1a2e;color:#ffffff;text-decoration:none;font-weight:600;\">Read the quick guide</a></p><p>Reply to this email if anything does not work.</p><p>Ana</p>"
-const auto = automationEmail({
-  subject: "Getting started with the autumn presets",
-  previewText: "Two steps and you are editing",
-  body: automationBody,
-  fromName: brand.name,
-  unsubscribeToken: "55555555-5555-4555-8555-555555555555",
-  brand,
-  avatarUrl: "https://cdn.example.com/avatar.png",
-  openPixelUrl: "https://storelib.com/api/automations/t/o?k=66666666-6666-4666-8666-666666666666",
+  "<p>Hi {{first_name}},</p><p>Thank you for buying the <strong>{{product_name}}</strong>. Your download link is in your receipt, and here is the fastest way to start:</p><ol><li>Open Lightroom and import the presets</li><li>Try <em>Harbour Warm</em> on a photo taken near sunset</li></ol><p><a href=\"https://storelib.com/anapop/guide\" style=\"display:inline-block;padding:10px 18px;border-radius:8px;background-color:#1a1a2e;color:#ffffff;text-decoration:none;font-weight:600;\">Read the quick guide</a></p><p>Reply to this email if anything does not work.</p><p>{{store_name}}</p>"
+
+/** One automated email through the engine's and the mailer's own steps. */
+function automation(file: string, identity: Identity, address: string | null, status: "subscribed" | "customer") {
+  const step = { id: "e1", type: "email", config: { subject: "Getting started, {{first_name}}", preview_text: "Two steps and you are editing", body: automationBody } } as EmailStep
+  const run = { name: "Maya Lee", context: { product_title: "Autumn preset pack" } } as Pick<RunRow, "name" | "context">
+  const ready = prepareEmail(step, run, identity, { productUrl: null, orderUrl: null, checkoutUrl: null })
+  const token = "66666666-6666-4666-8666-666666666666"
+  const mail = automationEmail({
+    subject: ready.step.config.subject,
+    previewText: ready.step.config.preview_text ?? null,
+    body: trackAutomationLinks(ready.step.config.body, token),
+    fromName: identity.fromName,
+    brand: { ...brandOfIdentity(identity), address },
+    unsubscribeToken: "55555555-5555-4555-8555-555555555555",
+    because: status,
+    openPixelUrl: `https://storelib.com/api/automations/t/o?k=${token}`,
+  })
+  writeFileSync(join(out, `${file}.html`), mail.html)
+  writeFileSync(join(out, `${file}.txt`), mail.text)
+  writeFileSync(join(out, `${file}.headers.json`), JSON.stringify(mail.headers ?? {}, null, 2))
+}
+const identity = (name: string, logoUrl: string | null, accent: string): Identity => ({
+  fromName: "Ana Pop",
+  replyTo: "hello@anapop.studio",
+  storeUrl: "https://storelib.com/anapop",
+  brand: { name, logoUrl, accentColor: accent, onAccent: textOn(accent) },
 })
-writeFileSync(join(out, "automation.html"), auto.html)
-writeFileSync(join(out, "automation.txt"), auto.text)
-writeFileSync(join(out, "automation.headers.json"), JSON.stringify(auto.headers ?? {}, null, 2))
+automation("automation", identity(brand.name, brand.logoUrl, brand.accent), brand.address, "subscribed")
+automation("automation-customer", identity("Sunny Paper Co", null, "#fde047"), null, "customer")
 console.log(`wrote ${out}`)

@@ -88,7 +88,7 @@ async function main() {
   check("a buyer with no token is told the same, with no link", /because you bought from Astrid\./.test(noToken.html) && !/unsubscribe\?token/.test(noToken.html))
   const branded = brandOfIdentity({ fromName: "Astrid", storeUrl: "https://storelib.com/astrid", brand: { name: "Astrid Studio", logoUrl: "http://insecure.example/logo.png", accentColor: "#0F766E" } })
   check("the engine's brand is the layout's: its name, its colour, an https store link, no http logo",
-    branded.name === "Astrid Studio" && branded.accent === "#0f766e" && branded.storeUrl === "https://storelib.com/astrid" && branded.logoUrl === null && branded.address === null, branded)
+    branded.name === "Astrid Studio" && branded.accent === "#0f766e" && branded.storeUrl === "https://storelib.com/astrid" && branded.logoUrl === null && branded.address === null, JSON.stringify(branded))
   check("with no brand the sender's name stands in", brandOfIdentity({ fromName: "Astrid", storeUrl: "https://storelib.com/astrid" }).name === "Astrid")
   {
     const run = readFileSync(join(process.cwd(), "lib/automations/run.ts"), "utf8")

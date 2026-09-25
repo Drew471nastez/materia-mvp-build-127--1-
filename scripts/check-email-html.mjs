@@ -24,7 +24,7 @@
  *   node scripts/check-email-html.mjs
  */
 import { execFileSync } from "node:child_process"
-import { existsSync, mkdirSync, readFileSync, rmSync, readdirSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, rmSync, readdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
 
@@ -72,9 +72,11 @@ function png(w, h, rgb) {
 
 try {
   globalThis.__zlib = await import("node:zlib")
+  /* server-only is a guard against a client bundle; this bundle runs in node. */
+  writeFileSync(join(work, "server-only.js"), "")
   execFileSync(
     "npx",
-    ["esbuild", "scripts/email-samples.ts", "--bundle", "--platform=node", "--format=esm", "--alias:@=.", "--alias:server-only=/tmp/claude-0/empty.js", `--outfile=${join(work, "samples.mjs")}`, "--log-level=error",
+    ["esbuild", "scripts/email-samples.ts", "--bundle", "--platform=node", "--format=esm", "--alias:@=.", `--alias:server-only=${join(work, "server-only.js")}`, `--outfile=${join(work, "samples.mjs")}`, "--log-level=error",
       "--banner:js=import { createRequire as __cr } from 'module'; const require = __cr(import.meta.url);"],
     { cwd: root, stdio: "inherit" },
   )
@@ -88,7 +90,7 @@ try {
   }
   const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
 
-  for (const file of ["campaign", "campaign-pale", "automation"]) {
+  for (const file of ["campaign", "campaign-pale", "automation", "automation-customer"]) {
     console.log(`\n${file}.html`)
     const html = readFileSync(join(out, `${file}.html`), "utf8")
     const headers = JSON.parse(readFileSync(join(out, `${file}.headers.json`), "utf8"))
@@ -99,7 +101,12 @@ try {
     const imgs = [...html.matchAll(/<img\b[^>]*>/g)].map((m) => m[0])
     expect(imgs.every((i) => /\salt="/.test(i) && /\ssrc="https:\/\//.test(i)), "every picture is https with alt text", imgs.length)
     expect(/List-Unsubscribe/.test(JSON.stringify(headers)) && headers["List-Unsubscribe-Post"] === "List-Unsubscribe=One-Click", "one-click unsubscribe headers", headers["List-Unsubscribe"])
-    if (file !== "automation") expect(/^<c.+@.+>$/.test(headers.messageId ?? ""), "a Message-Id fixed to the recipient row", headers.messageId)
+    if (file.startsWith("campaign")) expect(/^<c.+@.+>$/.test(headers.messageId ?? ""), "a Message-Id fixed to the recipient row", headers.messageId)
+    if (file.startsWith("automation")) {
+      expect(!/\{\{/.test(html) && /Hi Maya,/.test(html), "every field filled by the engine, none left in braces")
+      expect(hrefs.filter((h) => /storelib\.com\/anapop\/guide/.test(h)).length === 0 && hrefs.some((h) => /\/api\/automations\/t\/c\?/.test(h)), "its links go through the automation click route")
+    }
+    if (file === "automation-customer") expect(/because you bought from Sunny Paper Co\./.test(html) && /because you bought from Sunny Paper Co\./.test(text) && !/joined/.test(html + text), "a buyer who never joined is told they bought, never that they joined")
     expect(/Unsubscribe: https:\/\//.test(text) && text.length > 200 && !/<[a-z]/i.test(text), "a plain text part with the way out", text.length)
 
     for (const width of [390, 600]) {
