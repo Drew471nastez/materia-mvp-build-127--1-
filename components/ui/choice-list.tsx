@@ -1,0 +1,439 @@
+"use client"
+
+/**
+ * ===========================================================================
+ *  PICK ONE FROM A LONG LIST: LANGUAGE, TIME ZONE
+ * ===========================================================================
+ * "The select language pop up is not updated to the latest UI of Storelib
+ * and Polaris. Update it, and a mobile bottom sheet as well. And the time
+ * zone as well, make it cleaner."
+ *
+ * One list, drawn in two places:
+ *
+ *   A COMPUTER   a popover under the field, 360px, a search field at the top
+ *                and rows under it: the name, a quieter line under it, and a
+ *                check on the one chosen. Polaris' Autocomplete, in the /app
+ *                palette. The account menu, which has no field to hang from,
+ *                opens the same list as a small dialog.
+ *   A PHONE      the shared sheet (components/ui/bottom-sheet): the grabber,
+ *                no X, the search pinned at the top, 48px rows.
+ *
+ * Search ignores case and accents, and every word typed has to match
+ * somewhere in the row (its name, its line, its aside, or its keywords), so
+ * "new york", "utc-5" and "eastern" all find New York.
+ */
+import * as React from "react"
+import { Check, ChevronDown, Search, X } from "lucide-react"
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { cn } from "@/lib/utils"
+import { matches, type Choice } from "@/lib/ui/choice-match"
+
+export type { Choice }
+
+/** True below 640px, where panels become sheets, as everywhere else in /app. */
+export function usePhoneWidth(): boolean {
+  const [phone, setPhone] = React.useState(false)
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)")
+    const on = () => setPhone(mq.matches)
+    on()
+    mq.addEventListener("change", on)
+    return () => mq.removeEventListener("change", on)
+  }, [])
+  return phone
+}
+
+export { matches }
+
+function moveFocus(e: React.KeyboardEvent<HTMLElement>) {
+  const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0
+  if (!step) return
+  const rows = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("[data-choice]"))
+  if (!rows.length) return
+  e.preventDefault()
+  const at = rows.indexOf(document.activeElement as HTMLButtonElement)
+  if (at === 0 && step === -1) {
+    e.currentTarget.closest("[data-choice-list]")?.querySelector<HTMLInputElement>("[data-choice-search]")?.focus()
+    return
+  }
+  rows[at < 0 ? 0 : Math.min(rows.length - 1, Math.max(0, at + step))].focus()
+}
+
+function Row({ choice, checked, compact, onPick }: { choice: Choice; checked: boolean; compact: boolean; onPick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={checked}
+      data-choice={choice.value}
+      data-checked={checked || undefined}
+      onClick={onPick}
+      className={cn(
+        "flex w-full cursor-pointer items-center gap-3 rounded-lg text-left outline-none transition-colors duration-100 focus-visible:bg-[#f1f1f4]",
+        compact ? "min-h-[48px] px-3 py-1.5 active:bg-[#f1f1f4]" : "min-h-[40px] px-2.5 py-1.5 hover:bg-[#f4f4f6] active:bg-[#ececef]",
+      )}
+    >
+      <span className="min-w-0 flex-1">
+        <span className={cn("block truncate text-[#1a1a2e]", compact ? "text-[15px]" : "text-[13px]", checked && "font-semibold")}>{choice.label}</span>
+        {choice.detail ? (
+          <span className={cn("block truncate text-[#6b7280]", compact ? "text-[13px]" : "text-[12px]")}>{choice.detail}</span>
+        ) : null}
+      </span>
+      {choice.aside ? (
+        <span className={cn("shrink-0 tabular-nums text-[#6b7280]", compact ? "text-[13px]" : "text-[12px]")}>{choice.aside}</span>
+      ) : null}
+      <span className="flex w-4 shrink-0 justify-center" aria-hidden>
+        {checked ? <Check className="h-4 w-4 text-[#1a1a2e]" strokeWidth={2.25} /> : null}
+      </span>
+    </button>
+  )
+}
+
+/**
+ * The search and the rows. `lead` is drawn above the rows while nothing is
+ * typed ("Use my current time zone").
+ */
+export function ChoiceList({
+  choices,
+  value,
+  onPick,
+  compact,
+  label,
+  placeholder,
+  lead,
+  autoFocus = false,
+  searchInHeader = false,
+}: {
+  choices: Choice[]
+  value: string | null
+  onPick: (value: string) => void
+  compact: boolean
+  /** What the list is, for assistive technology ("Language"). */
+  label: string
+  placeholder: string
+  lead?: (compact: boolean) => React.ReactNode
+  autoFocus?: boolean
+  /** On a phone the search is drawn by the sheet's header instead (ChoiceSearch). */
+  searchInHeader?: boolean
+}) {
+  const [query, setQuery] = React.useState("")
+  return (
+    <ChoiceListBody
+      choices={choices}
+      value={value}
+      onPick={onPick}
+      compact={compact}
+      label={label}
+      lead={lead}
+      query={query}
+      search={searchInHeader ? null : <ChoiceSearch value={query} onChange={setQuery} placeholder={placeholder} label={label} compact={compact} autoFocus={autoFocus} />}
+    />
+  )
+}
+
+export function ChoiceSearch({
+  value,
+  onChange,
+  placeholder,
+  label,
+  compact,
+  autoFocus = false,
+}: {
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+  label: string
+  compact: boolean
+  autoFocus?: boolean
+}) {
+  return (
+    <div className={cn("relative", compact ? "px-4 pb-2" : "px-1.5 pb-1.5 pt-1.5")}>
+      <Search className={cn("pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]", compact ? "left-7 -mt-1" : "left-4 mt-0")} aria-hidden />
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") {
+            e.preventDefault()
+            const root = e.currentTarget.closest("[data-choice-list]") ?? e.currentTarget.closest("[data-sheet-panel]")
+            root?.querySelector<HTMLElement>("[data-choice]")?.focus()
+          }
+        }}
+        placeholder={placeholder}
+        aria-label={`Search ${label.toLowerCase()}`}
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        autoFocus={autoFocus}
+        data-choice-search=""
+        className={cn(
+          "w-full min-w-0 rounded-lg border border-[#d5d7dd] bg-white pl-9 pr-3 text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.10)] [&::-webkit-search-cancel-button]:hidden",
+          /* 16px on a phone: anything smaller and iOS zooms the page to type. */
+          compact ? "h-11 text-[16px]" : "h-9 text-[13px]",
+        )}
+      />
+    </div>
+  )
+}
+
+function ChoiceListBody({
+  choices,
+  value,
+  onPick,
+  compact,
+  label,
+  lead,
+  query,
+  search,
+}: {
+  choices: Choice[]
+  value: string | null
+  onPick: (value: string) => void
+  compact: boolean
+  label: string
+  lead?: (compact: boolean) => React.ReactNode
+  query: string
+  search: React.ReactNode
+}) {
+  const shown = React.useMemo(() => (query.trim() ? choices.filter((c) => matches(c, query)) : choices), [choices, query])
+  return (
+    <div data-choice-list="" onKeyDown={moveFocus}>
+      {search}
+      <div
+        role="listbox"
+        aria-label={label}
+        className={cn(compact ? "px-2 pb-3" : "max-h-[320px] overflow-y-auto overscroll-contain px-1.5 pb-1.5")}
+      >
+        {!query.trim() && lead ? lead(compact) : null}
+        {shown.map((c) => (
+          <Row key={c.value} choice={c} checked={c.value === value} compact={compact} onPick={() => onPick(c.value)} />
+        ))}
+        {shown.length === 0 ? (
+          <p className={cn("px-3 py-3 text-[#6b7280]", compact ? "text-[15px]" : "text-[13px]")}>Nothing matches “{query.trim()}”</p>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+/** A row above the list that is an action rather than a choice. */
+export function ChoiceAction({ compact, onClick, children, aside }: { compact: boolean; onClick: () => void; children: React.ReactNode; aside?: string }) {
+  return (
+    <>
+      <button
+        type="button"
+        data-choice="__action"
+        onClick={onClick}
+        className={cn(
+          "flex w-full cursor-pointer items-center gap-3 rounded-lg text-left font-medium text-[#1a1a2e] outline-none transition-colors duration-100 focus-visible:bg-[#f1f1f4]",
+          compact ? "min-h-[48px] px-3 text-[15px] active:bg-[#f1f1f4]" : "min-h-[36px] px-2.5 text-[13px] hover:bg-[#f4f4f6]",
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate">{children}</span>
+        {aside ? <span className={cn("shrink-0 font-normal tabular-nums text-[#6b7280]", compact ? "text-[13px]" : "text-[12px]")}>{aside}</span> : null}
+        <span className="w-4 shrink-0" aria-hidden />
+      </button>
+      <div aria-hidden className={cn("h-px bg-[#eef0f2]", compact ? "mx-3 my-1" : "mx-2 my-1")} />
+    </>
+  )
+}
+
+/**
+ * The list in the shared phone sheet: the grabber, a title, the search
+ * pinned under it, the rows scrolling beneath. No X: the scrim, a pull down
+ * and Escape close it.
+ */
+export function ChoiceSheet({
+  open,
+  onClose,
+  title,
+  choices,
+  value,
+  onPick,
+  placeholder,
+  lead,
+}: {
+  open: boolean
+  onClose: () => void
+  title: string
+  choices: Choice[]
+  value: string | null
+  onPick: (value: string) => void
+  placeholder: string
+  lead?: (compact: boolean) => React.ReactNode
+}) {
+  const [query, setQuery] = React.useState("")
+  const [prevOpen, setPrevOpen] = React.useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
+    if (open) setQuery("")
+  }
+  return (
+    <BottomSheet
+      isOpen={open}
+      onClose={onClose}
+      label={title}
+      aboveKeyboard
+      height="min(80dvh, 640px)"
+      scrollKey={query}
+      header={
+        <div data-choice-sheet-header="">
+          <p className="px-5 pb-2 pt-2 text-[16px] font-semibold text-[#1a1a2e]">{title}</p>
+          <ChoiceSearch value={query} onChange={setQuery} placeholder={placeholder} label={title} compact />
+        </div>
+      }
+    >
+      <div data-choice-sheet="">
+        <ChoiceListBody choices={choices} value={value} onPick={onPick} compact label={title} lead={lead} query={query} search={null} />
+      </div>
+    </BottomSheet>
+  )
+}
+
+/**
+ * A Settings field that opens the list: the choice's name on the left, its
+ * aside on the right, a chevron. A popover under it on a computer, the sheet
+ * on a phone.
+ */
+export function ChoicePicker({
+  title,
+  choices,
+  value,
+  onChange,
+  placeholder,
+  lead,
+  fieldLabel,
+  fieldAside,
+  name,
+}: {
+  title: string
+  choices: Choice[] | (() => Choice[])
+  value: string | null
+  onChange: (value: string) => void
+  placeholder: string
+  lead?: (compact: boolean, pick: (value: string) => void) => React.ReactNode
+  fieldLabel: string
+  fieldAside?: string
+  /** data-choice-field, for the probes. */
+  name: string
+}) {
+  const [open, setOpen] = React.useState(false)
+  const phone = usePhoneWidth()
+  const list = React.useMemo(() => (open ? (typeof choices === "function" ? choices() : choices) : []), [open, choices])
+  const pick = (v: string) => {
+    setOpen(false)
+    onChange(v)
+  }
+  const leadFor = lead ? (compact: boolean) => lead(compact, pick) : undefined
+  const trigger = (
+    <button
+      type="button"
+      data-choice-field={name}
+      data-state={open ? "open" : "closed"}
+      aria-haspopup={phone ? "dialog" : "listbox"}
+      aria-expanded={open}
+      onClick={phone ? () => setOpen(true) : undefined}
+      className="flex h-11 w-full min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-[#e5e7eb] bg-white px-3 text-left text-[14px] text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.04)] outline-none transition-[background-color,box-shadow,border-color] duration-100 hover:bg-[#fafafb] data-[state=open]:border-[#1a1a2e] data-[state=open]:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] focus-visible:border-[#1a1a2e] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.10)]"
+    >
+      <span className="min-w-0 flex-1 truncate">{fieldLabel}</span>
+      {fieldAside ? <span className="shrink-0 tabular-nums text-[13px] text-[#6b7280]">{fieldAside}</span> : null}
+      <ChevronDown className={cn("h-4 w-4 shrink-0 text-[#6b7280] transition-transform duration-150", open && "rotate-180")} aria-hidden />
+    </button>
+  )
+
+  if (phone) {
+    return (
+      <>
+        {trigger}
+        <ChoiceSheet open={open} onClose={() => setOpen(false)} title={title} choices={list} value={value} onPick={pick} placeholder={placeholder} lead={leadFor} />
+      </>
+    )
+  }
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        collisionPadding={12}
+        data-choice-popover={name}
+        className="w-[var(--radix-popover-trigger-width)] min-w-[300px] max-w-[min(420px,calc(100vw-24px))] overflow-hidden rounded-xl border border-[#e3e4e8] bg-white p-0 text-[#1a1a2e] shadow-[0_12px_40px_-8px_rgba(17,24,39,0.22),0_2px_6px_rgba(17,24,39,0.06)]"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          const root = e.currentTarget as HTMLElement | null
+          root?.querySelector<HTMLElement>("[data-choice-search]")?.focus({ preventScroll: true })
+          /* The chosen one in view under the search, not the top of a long list. */
+          root?.querySelector<HTMLElement>("[data-choice][data-checked]")?.scrollIntoView({ block: "center" })
+        }}
+      >
+        <ChoiceList choices={list} value={value} onPick={pick} compact={false} label={title} placeholder={placeholder} lead={leadFor} />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/**
+ * The list where there is no field to hang it from (the account menu's
+ * Language): a small dialog on a computer, 400px, the title and a close
+ * button over the search, and the sheet on a phone.
+ */
+export function ChoiceDialog({
+  open,
+  onOpenChange,
+  title,
+  choices,
+  value,
+  onPick,
+  placeholder,
+  name,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  choices: Choice[]
+  value: string | null
+  onPick: (value: string) => void
+  placeholder: string
+  /** data-choice-dialog, for the probes. */
+  name: string
+}) {
+  const phone = usePhoneWidth()
+  const pick = (v: string) => {
+    onOpenChange(false)
+    onPick(v)
+  }
+  if (phone) {
+    return <ChoiceSheet open={open} onClose={() => onOpenChange(false)} title={title} choices={choices} value={value} onPick={pick} placeholder={placeholder} />
+  }
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        showCloseButton={false}
+        data-choice-dialog={name}
+        aria-describedby={undefined}
+        className="w-[calc(100vw-32px)] max-w-[400px] gap-0 overflow-hidden rounded-xl border border-[#e3e4e8] bg-white p-0 text-[#1a1a2e] shadow-[0_24px_60px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)] sm:max-w-[400px]"
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          const root = e.currentTarget as HTMLElement | null
+          root?.querySelector<HTMLElement>("[data-choice-search]")?.focus({ preventScroll: true })
+        }}
+      >
+        <div className="flex h-12 items-center justify-between border-b border-[#eef0f2] pl-4 pr-2">
+          <DialogTitle className="text-[15px] font-semibold text-[#1a1a2e]">{title}</DialogTitle>
+          <DialogClose
+            aria-label="Close"
+            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors hover:bg-[#f4f4f6] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </DialogClose>
+        </div>
+        <div className="pt-1">
+          <ChoiceList choices={choices} value={value} onPick={pick} compact={false} label={title} placeholder={placeholder} />
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

@@ -9,6 +9,7 @@
  */
 
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "./mail"
+import { creatorTimeZone, formatForCreator } from "@/lib/account/time-zone"
 import type { MailAttachment } from "./mailgun"
 import { automationEmail, personalize, personalizeText, standingOf } from "@/lib/email-automation"
 import { enrollInFlows } from "@/lib/automations/run"
@@ -602,6 +603,8 @@ function sellerEmailHtml(params: {
   ordersLink: string
   footerBrand: string
   variantName?: string | null
+  /** The creator's own zone (lib/account/time-zone), or null for UTC, said as such. */
+  timeZone?: string | null
 }) {
   /* Every value a buyer or seller typed is escaped: a name, a title or an
      address carrying markup must print as text in this email, not as a link. */
@@ -618,18 +621,8 @@ function sellerEmailHtml(params: {
   const formatUSD = (cents: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
 
-  const dateStr = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })
-
-  const timeStr = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  })
+  /* In the creator's own time zone, with its name, not the server's clock. */
+  const { date: dateStr, time: timeStr } = formatForCreator(new Date(), params.timeZone ?? null)
 
   return `<!DOCTYPE html>
 <html>
@@ -920,7 +913,9 @@ export async function sendSellerNotificationEmail(
     return { success: false, error, logId: logId || undefined }
   }
 
-  const identity = creatorId ? await resolveCreatorIdentity(admin, creatorId) : null
+  const [identity, creatorZone] = creatorId
+    ? await Promise.all([resolveCreatorIdentity(admin, creatorId), creatorTimeZone(admin, creatorId)])
+    : [null, null]
   const replyTo = identity?.replyTo || DEFAULT_SUPPORT
 
   // Use resolved seller email if provided email is fallback
@@ -959,6 +954,7 @@ export async function sendSellerNotificationEmail(
             ordersLink,
             footerBrand: PLATFORM_BRAND_NAME,
             variantName,
+            timeZone: creatorZone,
           }),
           text: sellerEmailText({
             productTitle,
@@ -3131,15 +3127,9 @@ export async function sendFirstSaleEmail(params: {
     return
   }
 
-  const saleTimeFormatted = new Date(params.saleTime).toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  })
+  /* The creator's own time zone (Settings, General), named, rather than the server's. */
+  const saleAt = formatForCreator(params.saleTime, await creatorTimeZone(params.admin, params.creatorId))
+  const saleTimeFormatted = `${saleAt.date} at ${saleAt.time}`
 
   try {
     await withRetry(

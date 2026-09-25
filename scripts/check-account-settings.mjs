@@ -17,6 +17,20 @@
  *              a computer), the two
  *              sign out buttons ending on the same edge.
  *   EMAIL      the change sheet asks for a code from each address.
+ *   PROFILE    the username field before the name field.
+ *   PHOTO      Remove saves through /api/account/avatar and the header's
+ *              avatar (the shell's store, as the sidebar reads it) shows the
+ *              initials at once, with no reload.
+ *   TOOLTIP    the Support Email note is on the body, fully inside the
+ *              screen, its whole sentence showing, at 390 (a tap) and 1280.
+ *   PICKERS    Language and Time zone: the shared sheet at 390 (search at
+ *              the top, 48px rows, no X), a popover under the field at 1280;
+ *              search narrows them; a zone picked is saved to the account.
+ *   TABS       no Stores tab, and ?tab=stores opens General.
+ *   PUSH       "Notifications on this browser" with the browser's push
+ *              stubbed: granted and saved, denied, no Push API, Safari on an
+ *              iPhone, a server error, the push service refusing: each shows
+ *              its own words.
  *
  *   node scripts/check-account-settings.mjs
  *   SHOTS=/some/dir node scripts/check-account-settings.mjs
@@ -25,6 +39,7 @@ import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import { createECDH } from "node:crypto"
 import puppeteer from "puppeteer-core"
 import { appCss } from "./probe-css.mjs"
 
@@ -66,6 +81,14 @@ rmSync(dir, { recursive: true, force: true })
 /** What the server was asked, and whether the newsletter save should fail. */
 let patches = []
 let failNewsletter = false
+let avatarPosts = []
+let zonePosts = []
+let pushPosts = []
+let pushServerFails = false
+/* A real P-256 public key, base64url, as /api/push/web gives one. */
+const PUSH_KEY = createECDH("prime256v1").generateKeys().toString("base64url")
+/* A 2x2 opaque PNG, the profile's photo. */
+const PHOTO = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4z8DAwMDAxMDAwMAAAB0ABQHsA8QAAAAASUVORK5CYII=", "base64")
 const server = createServer((req, res) => {
   if (req.url.startsWith("/api/")) {
     let raw = ""
@@ -83,8 +106,29 @@ const server = createServer((req, res) => {
       } else if (req.url.startsWith("/api/auth/change-email")) {
         body = { success: true, double: true, currentEmail: "maker@example.com", newEmail: "new@example.com" }
       } else if (req.url.startsWith("/api/domains")) body = { domains: [] }
+      else if (req.url.startsWith("/api/account/avatar")) {
+        avatarPosts.push(JSON.parse(raw || "{}"))
+        body = { ok: true, url: null }
+      } else if (req.url.startsWith("/api/account/time-zone")) {
+        const parsed = JSON.parse(raw || "{}")
+        zonePosts.push(parsed)
+        body = { ok: true, timeZone: parsed.timeZone }
+      } else if (req.url.startsWith("/api/push/web")) {
+        if (req.method === "POST") {
+          pushPosts.push(JSON.parse(raw || "{}"))
+          if (pushServerFails) {
+            status = 500
+            body = { error: "Storelib could not save this browser. Try again in a moment.", code: "server" }
+          } else body = { ok: true }
+        } else body = { publicKey: PUSH_KEY, saved: true }
+      }
       setTimeout(() => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(body)) }, 250)
     })
+    return
+  }
+  if (req.url.startsWith("/photo.png")) {
+    res.writeHead(200, { "content-type": "image/png", "cache-control": "no-store" })
+    res.end(PHOTO)
     return
   }
   res.writeHead(200, { "content-type": "text/html" })
@@ -266,7 +310,7 @@ try {
     {
       const page = await browser.newPage()
       await page.setViewport(viewport)
-      await page.goto(`${base}/app/settings?tab=general`)
+      await page.goto(`${base}/app/settings?tab=general&photo=none`)
       await page.waitForSelector("[data-settings-panel]")
       await wait(400)
       console.log(`\nEmail change, ${label}px`)
@@ -291,6 +335,291 @@ try {
       expect(v.inputs.every((x) => x.h >= 44) && new Set(v.inputs.map((x) => `${x.w}/${x.left}`)).size === 1, "both fields 44px tall, one width, one edge", JSON.stringify(v.inputs))
       expect(/new@example\.com/.test(v.text) && /maker@example\.com/.test(v.text), "each field names its address")
       if (SHOTS) await page.screenshot({ path: join(SHOTS, `settings-email-change-${label}.png`), fullPage: false })
+      await page.close()
+    }
+
+    /* ── Profile order, photo, tooltip, stores ─────────────────────────── */
+    {
+      const page = await browser.newPage()
+      await page.setViewport(viewport)
+      const errors = []
+      page.on("pageerror", (e) => errors.push(String(e)))
+      avatarPosts = []
+      await page.goto(`${base}/app/settings?tab=general`)
+      await page.waitForSelector("[data-settings-panel=general]")
+      await wait(700)
+      console.log(`\nGeneral: profile, photo, tooltip, tabs, ${label}px`)
+      const order = await page.evaluate(() => {
+        const r = (sel) => document.querySelector(sel).getBoundingClientRect()
+        const u = r("#username"), n = r("#firstName")
+        return { u: [Math.round(u.left), Math.round(u.top)], n: [Math.round(n.left), Math.round(n.top)] }
+      })
+      const usernameFirst = label === "1280" ? order.u[1] === order.n[1] && order.u[0] < order.n[0] : order.u[1] < order.n[1]
+      expect(usernameFirst, `the username field comes before the name (${label === "1280" ? "left of it" : "above it"})`, JSON.stringify(order))
+
+      const tabs = await page.evaluate(() => [...document.querySelectorAll("[data-settings-tabs] button")].map((b) => b.textContent.trim()))
+      expect(!tabs.includes("Stores") && tabs.length === 6, `six tabs, no Stores: ${tabs.join(", ")}`, tabs.join(", "))
+
+      const before = await page.evaluate(() => ({
+        header: document.querySelector("[data-probe-header-avatar] [data-app-avatar]").dataset.state,
+        settings: document.querySelector("[data-profile-photo] [data-app-avatar]").dataset.state,
+      }))
+      expect(before.header === "photo" && before.settings === "photo", "with a photo, the header and Settings both show it", JSON.stringify(before))
+      await page.evaluate(() => [...document.querySelectorAll("[data-profile-photo] button")].find((b) => b.textContent.trim() === "Remove").click())
+      const t0 = Date.now()
+      await page.waitForFunction(() => document.querySelector("[data-probe-header-avatar] [data-app-avatar]").dataset.state === "initials", { timeout: 3000 }).catch(() => null)
+      const after = await page.evaluate(() => ({
+        header: document.querySelector("[data-probe-header-avatar] [data-app-avatar]").dataset.state,
+        headerText: document.querySelector("[data-probe-header-avatar]").textContent.trim(),
+        settings: document.querySelector("[data-profile-photo] [data-app-avatar]").dataset.state,
+        reloaded: performance.getEntriesByType("navigation").length,
+      }))
+      expect(after.header === "initials" && after.headerText === "ML" && after.settings === "initials",
+        `Remove: the header shows the initials "${after.headerText}" ${Date.now() - t0}ms after the press (the server answers in 250), and so does Settings`, JSON.stringify(after))
+      expect(avatarPosts.length === 1 && avatarPosts[0].url === null, "saved through POST /api/account/avatar { url: null }", JSON.stringify(avatarPosts))
+      if (SHOTS) await page.screenshot({ path: join(SHOTS, `settings2-photo-removed-${label}.png`), fullPage: false })
+
+      /* The Support Email note, pressed the way each screen presses. */
+      await page.evaluate(() => document.querySelector("#supportEmailProfile").scrollIntoView({ block: "center" }))
+      await wait(200)
+      const tip = await page.$("[data-info-tip][aria-label='About the support email']")
+      if (label === "390") await tip.tap()
+      else await tip.hover()
+      await page.waitForSelector("[data-slot=tooltip-content]", { timeout: 2000 }).catch(() => null)
+      await wait(350)
+      const t = await page.evaluate(() => {
+        const el = document.querySelector("[data-slot=tooltip-content]")
+        if (!el) return null
+        const r = el.getBoundingClientRect()
+        return {
+          left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom), w: Math.round(r.width),
+          vw: innerWidth, vh: innerHeight,
+          onBody: !el.closest("[data-settings-panel]"),
+          /* The words as drawn (Radix keeps a hidden copy for screen readers beside them): every line inside the box. */
+          clipped: (() => {
+            const node = [...el.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim())
+            if (!node) return true
+            const range = document.createRange()
+            range.selectNodeContents(node)
+            const words = range.getBoundingClientRect()
+            return words.left < r.left - 0.5 || words.right > r.right + 0.5 || words.top < r.top - 0.5 || words.bottom > r.bottom + 0.5
+          })(),
+          text: [...el.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim())?.textContent.trim() ?? "",
+          lines: (() => {
+            const node = [...el.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim())
+            const range = document.createRange()
+            range.selectNodeContents(node)
+            return new Set([...range.getClientRects()].map((q) => Math.round(q.top))).size
+          })(),
+        }
+      })
+      expect(!!t, "the Support Email note opens", "no tooltip")
+      if (t) {
+        expect(t.onBody, "drawn on the body, outside the card that clipped it")
+        expect(t.left >= 12 && t.right <= t.vw - 12 && t.top >= 0 && t.bottom <= t.vh, `inside the screen, 12px from its edges: ${t.left}..${t.right} of ${t.vw}, ${t.w}px wide`, JSON.stringify(t))
+        expect(!t.clipped && /^This email appears on customer receipts[\s\S]*Customers write to it for support\.$/.test(t.text), `its whole sentence showing on ${t.lines} lines, nothing cut`, JSON.stringify(t))
+      }
+      if (SHOTS) await page.screenshot({ path: join(SHOTS, `settings2-tooltip-${label}.png`), fullPage: false })
+      expect(errors.length === 0, "no page errors", errors.join(" | "))
+      await page.close()
+
+      const old = await browser.newPage()
+      await old.setViewport(viewport)
+      await old.goto(`${base}/app/settings?tab=stores`)
+      await old.waitForSelector("[data-settings-panel]")
+      await wait(300)
+      const landed = await old.evaluate(() => ({ panel: document.querySelector("[data-settings-panel]").dataset.settingsPanel, search: location.search }))
+      expect(landed.panel === "general" && landed.search === "", "an old ?tab=stores link opens General, and the address loses the tab", JSON.stringify(landed))
+      await old.close()
+    }
+
+    /* ── Language and Time zone ────────────────────────────────────────── */
+    {
+      const page = await browser.newPage()
+      await page.setViewport(viewport)
+      await page.emulateTimezone("Asia/Tokyo")
+      const errors = []
+      page.on("pageerror", (e) => errors.push(String(e)))
+      zonePosts = []
+      await page.goto(`${base}/app/settings?tab=general&photo=none&tz=Europe/Bucharest`)
+      await page.waitForSelector("[data-choice-field=language]")
+      await wait(500)
+      console.log(`\nLanguage and time zone pickers, ${label}px`)
+      const measure = (name) => page.evaluate((name) => {
+        const r = (el) => el.getBoundingClientRect()
+        const sheet = document.querySelector("[data-sheet-panel] [data-choice-sheet]")?.closest("[data-sheet-panel]")
+        const pop = document.querySelector(`[data-choice-popover=${name}]`)
+        const root = sheet || pop
+        if (!root) return null
+        const rows = [...root.querySelectorAll("[data-choice]")].filter((b) => b.dataset.choice !== "__action")
+        const search = root.querySelector("[data-choice-search]")
+        const box = r(root)
+        return {
+          kind: sheet ? "sheet" : "popover",
+          rows: rows.length,
+          rowH: rows.slice(0, 6).map((b) => Math.round(r(b).height)),
+          /* Above the list's box: the list itself may be scrolled to the chosen row. */
+          searchAboveRows: !!search && rows.length > 0 && r(search).bottom <= r(root.querySelector("[role=listbox]")).top + 1,
+          searchFont: search ? getComputedStyle(search).fontSize : null,
+          closeButton: !!root.querySelector("[aria-label=Close]"),
+          grabber: !!(sheet && sheet.querySelector("[data-sheet-handle]")),
+          lead: root.querySelector("[data-choice=__action]")?.textContent.trim() ?? null,
+          inside: box.left >= 0 && box.right <= innerWidth + 0.5 && box.bottom <= innerHeight + 0.5,
+          width: Math.round(box.width),
+          checked: root.querySelector("[data-choice][data-checked]")?.dataset.choice ?? null,
+        }
+      }, name)
+
+      for (const [name, search, expectRow, minRows] of [["language", "germ", "de", 4], ["time-zone", "bucharest", "Europe/Bucharest", 300]]) {
+        await page.evaluate((name) => document.querySelector(`[data-choice-field=${name}]`).scrollIntoView({ block: "center" }), name)
+        await wait(150)
+        await page.click(`[data-choice-field=${name}]`)
+        await wait(700)
+        const m = await measure(name)
+        const want = label === "390" ? "sheet" : "popover"
+        expect(m && m.kind === want, `${name}: a ${want} at ${label}`, JSON.stringify(m))
+        if (!m) continue
+        if (SHOTS) await page.screenshot({ path: join(SHOTS, `settings2-${name}-${label}.png`), fullPage: false })
+        expect(m.rows >= minRows, `${name}: ${m.rows} rows`, m.rows)
+        expect(m.searchAboveRows, `${name}: the search at the top, above the rows`)
+        if (label === "390") {
+          expect(m.rowH.every((h) => h >= 48), `${name}: rows 48px or taller on a phone (${m.rowH.join(", ")})`, m.rowH.join(","))
+          expect(!m.closeButton && m.grabber, `${name}: the sheet's grabber and no X`, JSON.stringify(m))
+          expect(m.searchFont === "16px", `${name}: 16px search text, so iOS does not zoom (${m.searchFont})`, m.searchFont)
+        } else {
+          expect(m.rowH.every((h) => h >= 36), `${name}: rows 36px or taller (${m.rowH.join(", ")})`, m.rowH.join(","))
+          expect(m.inside, `${name}: the popover inside the screen, ${m.width}px wide`, JSON.stringify(m))
+        }
+        if (name === "time-zone") {
+          expect(m.checked === "Europe/Bucharest", `time-zone: the account's zone is the one checked (${m.checked})`, m.checked)
+          expect(/^Use my current time zone \(Tokyo\)UTC\+9$/.test(m.lead ?? ""), `time-zone: "Use my current time zone" offers this device's (${m.lead})`, m.lead)
+        }
+        await page.focus(label === "390" ? "[data-sheet-panel] [data-choice-search]" : `[data-choice-popover=${name}] [data-choice-search]`)
+        await page.keyboard.type(search)
+        await wait(250)
+        const found = await page.evaluate((expectRow) => {
+          const rows = [...document.querySelectorAll("[data-choice]")].filter((b) => b.dataset.choice !== "__action" && b.getClientRects().length)
+          return { n: rows.length, has: rows.some((b) => b.dataset.choice === expectRow) }
+        }, expectRow)
+        expect(found.has && found.n <= 3, `${name}: "${search}" narrows the list to ${found.n}, with ${expectRow}`, JSON.stringify(found))
+        if (name === "time-zone") {
+          /* A new search, set the way React hears it. */
+          await page.evaluate((sel) => {
+            const el = document.querySelector(sel)
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, "tokyo")
+            el.dispatchEvent(new Event("input", { bubbles: true }))
+          }, label === "390" ? "[data-sheet-panel] [data-choice-search]" : `[data-choice-popover=${name}] [data-choice-search]`)
+          await wait(250)
+          await page.evaluate(() => document.querySelector("[data-choice='Asia/Tokyo']").click())
+        } else {
+          await page.evaluate((v) => document.querySelector(`[data-choice='${v}']`).click(), expectRow)
+        }
+        await wait(700)
+      }
+      const fields = await page.evaluate(() => ({
+        language: document.querySelector("[data-choice-field=language]").textContent.trim(),
+        zone: document.querySelector("[data-choice-field=time-zone]").textContent.trim(),
+      }))
+      expect(fields.language.startsWith("Deutsch") && /^Tokyo\s*UTC\+9/.test(fields.zone), `the fields read what was picked: ${fields.language} / ${fields.zone}`, JSON.stringify(fields))
+      /* Save: the time zone goes to the account. The language is applied on save by a reload, which the stubbed page cannot survive, so it is put back first. */
+      await page.evaluate(() => document.querySelector("[data-choice-field=language]").click())
+      await wait(600)
+      await page.evaluate(() => document.querySelector("[data-choice='en']").click())
+      await wait(600)
+      await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Save").click())
+      await wait(900)
+      const stored = await page.evaluate(() => ({ local: localStorage.getItem("storelib_timezone"), cookie: document.cookie }))
+      expect(zonePosts.length === 1 && zonePosts[0].timeZone === "Asia/Tokyo", "Save sends the zone to POST /api/account/time-zone", JSON.stringify(zonePosts))
+      expect(stored.local === "Asia/Tokyo" && /storelib_tz=Asia%2FTokyo/.test(stored.cookie), "and this browser's pages read it from then on", JSON.stringify(stored))
+      expect(errors.length === 0, "no page errors", errors.join(" | "))
+      await page.close()
+    }
+
+    /* ── Notifications on this browser, with the browser's push stubbed ── */
+    for (const scenario of ["granted", "denied", "unsupported", "iphone", "server", "abort"]) {
+      const page = await browser.newPage()
+      await page.setViewport(viewport)
+      const errors = []
+      page.on("pageerror", (e) => errors.push(String(e)))
+      await page.evaluateOnNewDocument((scenario) => {
+        const state = { permission: scenario === "denied" ? "denied" : "default", sub: null }
+        if (scenario === "unsupported" || scenario === "iphone") {
+          /* "PushManager" in window has to be false: the property goes entirely. */
+          delete window.PushManager
+          if (scenario === "iphone") Object.defineProperty(navigator, "standalone", { value: false, configurable: true })
+        } else {
+          window.PushManager = function PushManager() {}
+        }
+        const NotificationStub = function () {}
+        Object.defineProperty(NotificationStub, "permission", { get: () => state.permission })
+        NotificationStub.requestPermission = () => {
+          state.permission = scenario === "denied" ? "denied" : "granted"
+          return Promise.resolve(state.permission)
+        }
+        window.Notification = NotificationStub
+        const pushManager = {
+          getSubscription: async () => state.sub,
+          subscribe: async (opts) => {
+            if (scenario === "abort") throw new DOMException("Registration failed - push service error", "AbortError")
+            const bytes = new Uint8Array(opts.applicationServerKey)
+            state.sub = {
+              endpoint: "https://fcm.googleapis.com/fcm/send/probe_endpoint",
+              options: { applicationServerKey: bytes.buffer },
+              toJSON: () => ({ endpoint: "https://fcm.googleapis.com/fcm/send/probe_endpoint", keys: { p256dh: "BPk", auth: "au" } }),
+              unsubscribe: async () => { state.sub = null; return true },
+            }
+            return state.sub
+          },
+        }
+        const worker = { scriptURL: `${location.origin}/storelib-push-sw.js`, state: "activated", addEventListener() {} }
+        const reg = { active: null, installing: null, waiting: null, pushManager }
+        Object.defineProperty(navigator, "serviceWorker", {
+          configurable: true,
+          value: {
+            getRegistrations: async () => (reg.active ? [reg] : []),
+            register: async () => { reg.active = worker; return reg },
+          },
+        })
+      }, scenario)
+      pushPosts = []
+      pushServerFails = scenario === "server"
+      await page.goto(`${base}/app/settings?tab=privacy`)
+      await page.waitForSelector("[data-account-panel=privacy]")
+      await wait(500)
+      if (scenario === "granted") console.log(`\nNotifications on this browser, ${label}px`)
+      const read = () => page.evaluate(() => {
+        const row = document.querySelector("[data-privacy-row=browser-notifications]")
+        if (!row) return null
+        const sw = row.querySelector("[role=switch]")
+        return {
+          checked: sw.getAttribute("aria-checked"), disabled: sw.disabled,
+          detail: row.querySelector("[data-notifications-detail]")?.textContent ?? "",
+          error: row.querySelector("[data-notifications-error]")?.textContent ?? "",
+          saved: /Saved/.test(row.textContent),
+        }
+      })
+      const first = await read()
+      if (scenario === "unsupported" || scenario === "iphone" || scenario === "denied") {
+        const words = { unsupported: /^This browser cannot show notifications\.$/, iphone: /^Safari on iPhone does not show website notifications\. The Storelib app for iPhone does\.$/, denied: /^Blocked in this browser's settings for storelib\.com\./ }[scenario]
+        expect(first && first.disabled && first.checked === "false" && words.test(first.detail), `${scenario}: the switch is off and disabled, and says "${first?.detail}"`, JSON.stringify(first))
+      } else {
+        expect(first && !first.disabled && first.checked === "false", `${scenario}: off on load, and can be turned on`, JSON.stringify(first))
+        await page.evaluate(() => document.querySelector("[data-privacy-row=browser-notifications] [role=switch]").click())
+        await wait(900)
+        const now = await read()
+        if (scenario === "granted") {
+          expect(now.checked === "true" && now.saved && !now.error && pushPosts.length === 1 && pushPosts[0].subscription?.endpoint?.includes("probe_endpoint"),
+            "granted: on, saved (POST /api/push/web with the subscription), no error", JSON.stringify({ now, pushPosts }))
+        } else if (scenario === "server") {
+          expect(now.checked === "false" && /^Storelib could not save this browser\. Try again in a moment\.$/.test(now.error), `server error: back off, and says "${now.error}"`, JSON.stringify(now))
+        } else {
+          expect(now.checked === "false" && /push service refused/.test(now.error) && pushPosts.length === 0, `push service refused: back off, and says "${now.error}"`, JSON.stringify(now))
+        }
+        if (SHOTS && label === "390" && scenario === "server") await page.screenshot({ path: join(SHOTS, `settings2-push-server-error-${label}.png`), fullPage: false })
+      }
+      if (SHOTS && scenario === "denied") await page.screenshot({ path: join(SHOTS, `settings2-push-denied-${label}.png`), fullPage: false })
+      expect(errors.length === 0, `${scenario}: no page errors`, errors.join(" | "))
+      pushServerFails = false
       await page.close()
     }
   }

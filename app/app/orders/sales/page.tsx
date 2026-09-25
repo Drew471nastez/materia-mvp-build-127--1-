@@ -6,6 +6,7 @@ import { stripe } from "@/lib/stripe"
 import { COLUMNS_COOKIE, hiddenColumnsFrom, type OrderRow } from "@/lib/orders/order-view"
 import { readCreatorOrders } from "@/lib/orders/load-rows"
 import { TIME_ZONE_COOKIE, readTimeZone } from "@/lib/orders/time-zone"
+import { accountTimeZone } from "@/lib/account/time-zone"
 import { RANGE_COOKIE } from "@/lib/orders/range"
 import { OrdersClient } from "../orders-client"
 import { pageUser } from "@/lib/auth/page-user"
@@ -119,7 +120,7 @@ export default async function OrdersPage() {
       stripeConnected={creator.stripe_onboarding_status === "connected"}
       hiddenColumns={hiddenColumnsFrom(jar.get(COLUMNS_COOKIE)?.value)}
       initialRange={jar.get(RANGE_COOKIE)?.value ?? null}
-      timeZone={readTimeZone(jar.get(TIME_ZONE_COOKIE)?.value)}
+      timeZone={accountTimeZone(null, user.user_metadata) ?? readTimeZone(jar.get(TIME_ZONE_COOKIE)?.value)}
       now={Date.now()}
     />
   )

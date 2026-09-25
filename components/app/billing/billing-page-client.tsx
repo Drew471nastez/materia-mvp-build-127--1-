@@ -5,7 +5,7 @@ import type React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import {
-  Settings, Shield, ToggleLeft, Wallet, Store, CreditCard,
+  Settings, Shield, ToggleLeft, Wallet, CreditCard,
   Check, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle,
   Lock, Pencil, ExternalLink, X, ChevronDown, Globe,
 } from "lucide-react"
@@ -22,7 +22,6 @@ const TABS = [
   { id: "billing", label: "Billing", icon: CreditCard },
   { id: "domains", label: "Domains", icon: Globe },
   { id: "privacy", label: "Privacy", icon: ToggleLeft },
-  { id: "stores", label: "Stores", icon: Store },
 ] as const
 
 type TabId = typeof TABS[number]["id"]
@@ -249,7 +248,6 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
       case "privacy": return t("settings.privacy")
       case "billing": return t("settings.billing")
       case "payments": return t("settings.payments")
-      case "stores": return t("settings.stores")
       case "domains": return "Domains"
       default: return tabId
     }

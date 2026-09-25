@@ -546,7 +546,8 @@ check(
     return (
       problems.length === 0 &&
       header.includes("<LanguageModal") &&
-      sidebar.includes("<LanguageModal")
+      /* /app opens its own list of the dashboard's languages (components/app/language-picker). */
+      sidebar.includes("<AppLanguageModal")
     )
   })(),
   "        every Sign out row must be matched by a language row",

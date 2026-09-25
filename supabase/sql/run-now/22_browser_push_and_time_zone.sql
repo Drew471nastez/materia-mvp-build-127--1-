@@ -1,0 +1,4 @@
+/* Browser notifications save (push_tokens takes platform 'web'), and the account's time zone (profiles.timezone). */
+do $$ declare c record; begin if to_regclass('public.push_tokens') is null then raise notice 'skipping push_tokens: the table does not exist here (scripts/060_create_push_tokens.sql)'; return; end if; for c in select conname from pg_constraint where conrelid = 'public.push_tokens'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%platform%' loop execute format('alter table public.push_tokens drop constraint %I', c.conname); end loop; alter table public.push_tokens add constraint push_tokens_platform_check check (platform in ('ios', 'android', 'web')); create unique index if not exists push_tokens_token_idx on public.push_tokens (token); end; $$;
+alter table public.profiles add column if not exists timezone text;
+notify pgrst, 'reload schema';

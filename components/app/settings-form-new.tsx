@@ -11,17 +11,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { SmartLink } from "@/components/smart-link"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { InfoTip } from "@/components/ui/tooltip"
+import { ChoicePicker } from "@/components/ui/choice-list"
 import {
   X, Check, Loader2, AlertCircle, Mail, Lock,
-  CreditCard, Store, Shield, Settings, Wallet, Landmark,
+  CreditCard, Shield, Settings, Wallet, Landmark,
   ExternalLink, ChevronRight, Globe,
-  User, Palette, Link2, FileText, Search, ChevronLeft,
+  User, FileText, Search, ChevronLeft,
   ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, MonitorSmartphone
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
@@ -29,7 +25,10 @@ import { isValidUsername } from "@/lib/reserved-words"
 import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl, getStoreUrlDisplay, getWebsiteUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
-import { useLanguage, LANGUAGES } from "@/lib/i18n"
+import { useLanguage, type LanguageCode } from "@/lib/i18n"
+import { appLanguageChoices, appLanguageName } from "@/components/app/language-picker"
+import { rememberTimeZone } from "@/lib/orders/time-zone"
+import { TIME_ZONE_STORAGE_KEY, validTimeZone } from "@/lib/account/time-zone"
 import { BillingPageClient } from "@/components/app/billing/billing-page-client"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { TimeZonePicker } from "@/components/app/time-zone-picker"
@@ -38,6 +37,7 @@ import { AddressList, type SettingsWebsite } from "@/components/app/settings/add
 import { WaitingArea } from "@/components/ui/activity-spinner"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { EmailChangeFlow, PrivacyPanel, SecurityPanel } from "@/components/app/settings/account-panels"
+import { profileAvatar } from "@/lib/account/avatar"
 
 function ChainLinkIcon({ className = "w-3 h-3", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
   return (
@@ -137,11 +137,17 @@ const TABS = [
   { id: "billing", label: "Billing", icon: CreditCard },
   { id: "domains", label: "Domains", icon: Globe },
   { id: "privacy", label: "Privacy", icon: ToggleLeft },
-  { id: "stores", label: "Stores", icon: Store },
 ] as const
+/*
+  NO STORES TAB. "Get rid of the Stores tab in Settings. It doesn't make any
+  sense." It held three cards, each a copy of something that has a home: the
+  creator page's address (General, Your addresses, which opens it), a link to
+  the creator page editor and a link to the OnePage editor (both in the
+  sidebar). An old ?tab=stores link opens General.
+*/
 
 type TabId = typeof TABS[number]["id"]
-const TAB_IDS: TabId[] = ["general", "security", "payments", "billing", "domains", "privacy", "stores"]
+const TAB_IDS: TabId[] = ["general", "security", "payments", "billing", "domains", "privacy"]
 
 interface SettingsFormProps {
   profile: Profile & {
@@ -166,9 +172,8 @@ interface SettingsFormProps {
     payout_currency?: string | null
     slug?: string
   }
-  storeBuilderAvatarUrl?: string | null
-  onepageAvatarUrl?: string | null
-  googleAvatarUrl?: string | null
+  /** The account's time zone (lib/account/time-zone), or null when none is saved yet. */
+  accountTimeZone?: string | null
   /** True only when a site has actually been published, never when one merely exists. */
   websitePublished?: boolean
   /** On Storelib's own newsletter list (storelib_newsletter), read on the server. */
@@ -397,31 +402,29 @@ function CountrySelectorModal({
 
 
 
-export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl, websitePublished = false, newsletter = false, website = null, initialTab = "general" }: SettingsFormProps) {
+export function SettingsFormNew({ profile, creator, accountTimeZone = null, websitePublished = false, newsletter = false, website = null, initialTab = "general" }: SettingsFormProps) {
   const router = useRouter()
   const { language: currentLanguage, setLanguage, t } = useLanguage()
-  const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage)
-  const [showLanguageModal, setShowLanguageModal] = useState(false)
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>(currentLanguage)
   const initialLanguage = useRef(currentLanguage)
 
-  // Timezone state - auto-detect from browser, then allow manual change
-  const detectTimezone = () => {
-    try {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
-    } catch {
-      return "UTC"
+  /*
+    THE ACCOUNT'S TIME ZONE (lib/account/time-zone): the one saved on the
+    account, else the one this browser chose before it was saved anywhere,
+    else the device's own. Saved with the rest of the page, to the account.
+  */
+  const [selectedTimezone, setSelectedTimezone] = useState<string>(() => {
+    if (accountTimeZone) return accountTimeZone
+    if (typeof window !== "undefined") {
+      try {
+        const stored = validTimeZone(localStorage.getItem(TIME_ZONE_STORAGE_KEY))
+        if (stored) return stored
+      } catch {
+        /* Storage refused: the device's zone. */
+      }
+      return validTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "UTC"
     }
-  }
-  const [selectedTimezone, setSelectedTimezone] = useState(() => {
-    // First check if stored in localStorage
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('storelib_timezone')
-      if (stored) return stored
-    }
-    // Then check profile data
-    if (profile && (profile as any).timezone) return (profile as any).timezone
-    // Auto-detect from browser
-    return detectTimezone()
+    return "UTC"
   })
   const initialTimezone = useRef(selectedTimezone)
 
@@ -473,7 +476,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [stripeBankLoading, setStripeBankLoading] = useState(false)
   const [stripePayoutInfo, setStripePayoutInfo] = useState<{ payoutsEnabled: boolean; detailsSubmitted: boolean; requirementsDue: string[]; requirementsPastDue: string[] } | null>(null)
 
-  const [activeTab, setActiveTab] = useState<TabId>(initialTab)
+  /* A tab that no longer exists (an old ?tab=stores) is General. */
+  const [activeTab, setActiveTab] = useState<TabId>(() => (TAB_IDS.includes(initialTab) ? initialTab : "general"))
   /**
    * Billing's own data, fetched the first time the tab is opened and kept.
    *
@@ -539,20 +543,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [domainIssues, setDomainIssues] = useState<string[]>([])
   const [copiedValue, setCopiedValue] = useState<string | null>(null)
 
-  // Avatar fallback order: Profile → Creator → Store Builder → OnePage → Google → Initials
-  // Filter out placeholder URLs to match layout.tsx logic for sidebar consistency
-  const isValidAvatarUrl = (url: string | null | undefined): boolean => {
-    return !!url && !url.includes("placeholder.svg")
-  }
-
-  const getDefaultAvatarUrl = () => {
-    if (isValidAvatarUrl(profile.avatar_url)) return profile.avatar_url!
-    if (isValidAvatarUrl(creator.avatar_url)) return creator.avatar_url!
-    if (isValidAvatarUrl(storeBuilderAvatarUrl)) return storeBuilderAvatarUrl!
-    if (isValidAvatarUrl(onepageAvatarUrl)) return onepageAvatarUrl!
-    if (isValidAvatarUrl(googleAvatarUrl)) return googleAvatarUrl!
-    return ""
-  }
+  /*
+    THE PROFILE'S PHOTO, OR THE INITIALS: the one answer the header gives too
+    (lib/account/avatar). This walked the creator row, the creator page
+    header, the OnePage and the Google picture, so Settings and the header
+    could each show a different photo, and a removed one came back.
+  */
+  const getDefaultAvatarUrl = () => profileAvatar(profile.avatar_url) ?? ""
 
   // Profile fields
   const [firstName, setFirstName] = useState(profile.first_name || profile.display_name?.split(" ")[0] || "")
@@ -742,6 +739,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     if (tab && TAB_IDS.includes(tab as TabId)) {
       setActiveTab(tab as TabId)
       if (tab === "domains") fetchDomains()
+    } else if (tab) {
+      /* A tab that is gone (?tab=stores) or never was: General, and the address says so. */
+      const url = new URL(window.location.href)
+      url.searchParams.delete("tab")
+      window.history.replaceState({}, "", url.pathname + url.search)
     }
 
     if (stripeParam === "return" || stripeParam === "refresh") {
@@ -1224,9 +1226,24 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         }
       }
 
-      // Save timezone to localStorage
+      /* The time zone is the account's (lib/account/time-zone): saved on the
+         server, then written where this browser's pages read it. */
       if (selectedTimezone !== initialTimezone.current) {
-        localStorage.setItem('storelib_timezone', selectedTimezone)
+        const res = await fetch("/api/account/time-zone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ timeZone: selectedTimezone }),
+        }).catch(() => null)
+        const data = res ? ((await res.json().catch(() => null)) as { timeZone?: string; error?: string } | null) : null
+        if (!res || !res.ok || !data?.timeZone) {
+          throw new Error(data?.error || "Your details were saved, but the time zone was not. Try again in a moment.")
+        }
+        try {
+          localStorage.setItem(TIME_ZONE_STORAGE_KEY, data.timeZone)
+        } catch {
+          /* The cookie below still carries it. */
+        }
+        rememberTimeZone(data.timeZone)
       }
 
       if (onepageWarning) {
@@ -1559,8 +1576,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                               tab.id === "privacy" ? t("settings.privacy") :
                               tab.id === "billing" ? t("settings.billing") :
                               tab.id === "payments" ? t("settings.payments") :
-                              tab.id === "domains" ? "Domains" :
-                              t("settings.stores")
+                              "Domains"
               return (
                 <button
                   key={tab.id}
@@ -1705,24 +1721,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   {t("settings.profileInfo")}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="firstName" className="text-[13px] font-medium text-[#374151]">
-                      Name
-                    </Label>
-                    <Input
-                      id="firstName"
-                      value={fullNameForUsernameInput}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        const [first = "", ...rest] = value.trimStart().split(/\s+/)
-                        setFirstName(first)
-                        setLastName(rest.join(" "))
-                      }}
-                      placeholder="Your name or your brand's"
-                      className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
-                    />
-                    <p className="text-[12px] text-[#9ca3af]">Shown on your pages and on receipts</p>
-                  </div>
+                  {/* The username first, as asked: the handle every address is built from, then the name the pages show. */}
                   <div className="space-y-1.5">
                     <Label htmlFor="username" className="text-[13px] font-medium text-[#374151]">
                       Username
@@ -1750,6 +1749,24 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     ) : (
                       <p className="text-[12px] text-[#9ca3af]">The address of your creator page and your OnePage</p>
                     )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="firstName" className="text-[13px] font-medium text-[#374151]">
+                      Name
+                    </Label>
+                    <Input
+                      id="firstName"
+                      value={fullNameForUsernameInput}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        const [first = "", ...rest] = value.trimStart().split(/\s+/)
+                        setFirstName(first)
+                        setLastName(rest.join(" "))
+                      }}
+                      placeholder="Your name or your brand's"
+                      className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                    />
+                    <p className="text-[12px] text-[#9ca3af]">Shown on your pages and on receipts</p>
                   </div>
                 </div>
                 <div className="mt-5">
@@ -1802,17 +1819,12 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       placeholder={currentEmail || "support@yourdomain.com"}
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1">
                       <p className="text-[12px] text-[#9ca3af]">Shown to customers on receipts</p>
-                      <div className="relative group">
-                        <Info className="h-3.5 w-3.5 text-[#9ca3af] cursor-help" />
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[12px] rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-lg">
-                          <div className="max-w-[220px] text-center leading-relaxed">
-                            This email will appear on customer receipts and order confirmations. It&apos;s also the contact for customer support inquiries.
-                          </div>
-                          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1a1a2e]"></div>
-                        </div>
-                      </div>
+                      {/* On the body, kept inside the screen, wrapping (components/ui/tooltip): it was clipped at "customer receip". */}
+                      <InfoTip label="About the support email">
+                        This email appears on customer receipts and order confirmations. Customers write to it for support.
+                      </InfoTip>
                     </div>
                   </div>
                 </div>
@@ -1823,15 +1835,17 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
                   Language
                 </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Choose your preferred language for the dashboard</p>
-                <button
-                  type="button"
-                  onClick={() => setShowLanguageModal(true)}
-                  className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
-                >
-                  <span className="text-[#1a1a2e]">{LANGUAGES.find(l => l.code === selectedLanguage)?.name || "English (US)"}</span>
-                  <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
-                </button>
+                <p className="text-[13px] text-[#6b7280] mb-4">The language of your dashboard</p>
+                {/* A popover with a search on a computer, the shared sheet on a phone (components/ui/choice-list). */}
+                <ChoicePicker
+                  name="language"
+                  title="Language"
+                  choices={appLanguageChoices}
+                  value={selectedLanguage}
+                  onChange={(code) => setSelectedLanguage(code as LanguageCode)}
+                  placeholder="Search languages"
+                  fieldLabel={appLanguageName(selectedLanguage)}
+                />
               </div>
 
               {/* Timezone Card */}
@@ -1839,8 +1853,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
                   Time zone
                 </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Used for analytics, product launches, scheduled emails, and sales timestamps</p>
-                {/* The Analytics picker's parts: a popover on a computer, the shared sheet on a phone (components/app/time-zone-picker). */}
+                <p className="text-[13px] text-[#6b7280] mb-4">Your days and times in Home, Orders, Analytics, Emails and Payouts, and in the sale emails we send you</p>
+                {/* Saved to the account and followed by the server too (lib/account/time-zone). */}
                 <TimeZonePicker value={selectedTimezone} onChange={setSelectedTimezone} />
               </div>
 
@@ -2188,22 +2202,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <div className="space-y-1.5 max-w-[420px]">
                   <div className="flex items-center gap-2">
                     <Label htmlFor="statement-descriptor" className="text-[13px] font-medium text-[#374151]">Statement Descriptor</Label>
-                    <TooltipProvider delayDuration={120}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex items-center justify-center text-[#9ca3af] hover:text-[#6b7280] transition-colors cursor-help"
-                            aria-label="About statement descriptor"
-                          >
-                            <Info className="h-3.5 w-3.5" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-[280px] text-xs leading-relaxed">
-                          This text appears on your customer&apos;s bank statement to identify who charged them.
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    <InfoTip label="About statement descriptor">
+                      This text appears on your customer&apos;s bank statement to identify who charged them.
+                    </InfoTip>
                   </div>
                   <Input
                     id="statement-descriptor"
@@ -2247,70 +2248,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   ))}
                 </div>
               </MobileBottomSheet>
-            </div>
-          )}
-
-          {/* Manage Stores Tab */}
-          {activeTab === "stores" && (
-            <div className="space-y-4 sm:space-y-6">
-              {/* Store Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
-                  Your Store
-                </h3>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4 pb-4 border-b border-[#e5e7eb]">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[#1a1a2e] text-[15px] truncate">{creator.headline || "My Store"}</p>
-                    <p className="text-[13px] text-[#6b7280] truncate">{storeUrlDisplay}</p>
-                  </div>
-                  <a
-                    href={storeUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-4 h-9 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-lg transition-colors whitespace-nowrap"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    {t("settings.visitStore")}
-                  </a>
-                </div>
-
-                {/* The address comes from the username, which is set in General. */}
-                <p className="text-[13px] text-[#6b7280]">
-                  Its address is your username.{" "}
-                  <button type="button" onClick={() => handleTabChange("general")} className="cursor-pointer font-medium text-[#1a1a2e] underline-offset-4 hover:underline">
-                    Change it in General
-                  </button>
-                </p>
-              </div>
-
-              {/* Store Settings Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">{t("settings.storeCustomization")}</h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.storeCustomizationDesc")}</p>
-                <a
-                  href="/creator-page"
-                  className="inline-flex items-center gap-2 px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors"
-                >
-                  <Palette className="h-4 w-4" />
-                  {t("settings.openStoreBuilder")}
-                  <ChevronRight className="h-4 w-4" />
-                </a>
-              </div>
-
-              {/* OnePage Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">OnePage</h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Manage your link-in-bio page.</p>
-                <a
-                  href="/app/onepage"
-                  className="inline-flex items-center gap-2 px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors"
-                >
-                  <Link2 className="h-4 w-4" />
-                  Edit OnePage
-                  <ChevronRight className="h-4 w-4" />
-                </a>
-              </div>
-
             </div>
           )}
 
@@ -2781,7 +2718,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
       {/* Sticky Save Bar - Smooth fade animation */}
       {(() => {
-        const barUp = hasUnsavedChanges && !showEmailChangeModal && !showLanguageModal && !showCountryModal && !showDeleteModal
+        const barUp = hasUnsavedChanges && !showEmailChangeModal && !showCountryModal && !showDeleteModal
         return (
       <div
         /*
@@ -2863,31 +2800,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           setCurrentEmail(next)
           router.refresh()
         }} />
-      </MobileBottomSheet>
-
-      {/* Language Selector Modal */}
-      <MobileBottomSheet isOpen={showLanguageModal} onClose={() => setShowLanguageModal(false)} title="Select Language">
-        <div className="space-y-1 max-h-[60vh] overflow-y-auto">
-          {LANGUAGES.map((lang) => (
-            <button
-              key={lang.code}
-              onClick={() => {
-                setSelectedLanguage(lang.code)
-                setShowLanguageModal(false)
-              }}
-              className={`w-full text-left px-3 py-3 rounded-xl text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
-                selectedLanguage === lang.code
-                  ? "bg-[#f5f3ff] text-[#8b5cf6]"
-                  : "text-[#374151] hover:bg-[#f3f4f6] active:bg-[#e5e7eb]"
-              }`}
-            >
-              <span>{lang.name}</span>
-              {selectedLanguage === lang.code && (
-                <Check className="h-4 w-4 text-[#8b5cf6]" />
-              )}
-            </button>
-          ))}
-        </div>
       </MobileBottomSheet>
 
       {/* Delete Account Modal */}

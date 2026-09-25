@@ -14,9 +14,7 @@ export default async function SettingsPage() {
     <SettingsFormNew
       profile={data.profile}
       creator={data.creator}
-      storeBuilderAvatarUrl={data.storeBuilderAvatarUrl}
-      onepageAvatarUrl={data.onepageAvatarUrl}
-      googleAvatarUrl={data.googleAvatarUrl}
+      accountTimeZone={data.timeZone}
       websitePublished={data.websitePublished}
       website={data.website}
       newsletter={data.newsletter}
