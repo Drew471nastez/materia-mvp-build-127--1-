@@ -32,7 +32,7 @@
  *     scrolling sideways, a row's actions a sheet on a phone and a dropdown
  *     on a computer; a buyer who did not ask for news is a Customer, and the
  *     Status filter finds them;
- *   - a contact opens on the shared sheet on a phone with everything in it
+ *   - a contact opens as its own page over the list, like an order, with everything in it
  *     laid out on its first frame, rising once and going down once, and in
  *     the side panel on a computer, also already filled (its runs are read
  *     from a stand-in that answers after RUNS_DELAY_MS).
@@ -541,7 +541,7 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
     await p.close()
   }
 
-  /* ── A contact, opened from its row ─────────────────────────────────── */
+  /* ── A contact, opened from its row, as its own page over the list ──── */
   const contactFrames = (p, ms) => p.evaluate((ms) => {
     window.__cf = []
     window.__tapAt = null
@@ -550,20 +550,20 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
     document.addEventListener("click", at, { capture: true, once: true })
     const t0 = performance.now()
     const tick = () => {
-      const panel = [...document.querySelectorAll("[data-sheet-panel], aside[role=dialog]")].find((x) => [...x.querySelectorAll("h3")].some((h) => h.textContent === "Automations"))
-      const r = panel?.getBoundingClientRect()
+      const page = document.querySelector("[data-contact-page]")
+      const body = page?.querySelector("[data-contact-body]")
       window.__cf.push({
         t: performance.now(),
-        top: r ? Math.round(r.top) : null,
-        h: r ? Math.round(r.height) : null,
-        busy: panel ? panel.querySelectorAll("[aria-busy]").length : 0,
-        runs: panel ? panel.querySelectorAll("li").length : 0,
+        x: page ? Math.round(new DOMMatrixReadOnly(getComputedStyle(page).transform === "none" ? "matrix(1,0,0,1,0,0)" : getComputedStyle(page).transform).m41) : null,
+        busy: body ? body.querySelectorAll("[aria-busy]").length : 0,
+        runs: body ? body.querySelectorAll("li").length : 0,
+        bar: page ? !!page.querySelector("h1") : false,
       })
       if (performance.now() - t0 < ms) requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
   }, ms)
-  const readContact = (p) => p.evaluate(() => ({ frames: window.__cf, tapAt: window.__tapAt, asked: window.__runsAsked || [] }))
+  const readContact = (p) => p.evaluate(() => ({ frames: window.__cf, tapAt: window.__tapAt, asked: window.__runsAsked || [], url: location.search }))
   const rowSpot = (p, n) => p.evaluate((n) => {
     const td = document.querySelector(`section[aria-label=Subscribers] tbody tr:nth-child(${n}) td:nth-child(2)`)
     td.scrollIntoView({ block: "center" })
@@ -571,26 +571,19 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
   }, n)
   const opening = ({ frames, tapAt }) => {
-    const seen = frames.filter((f) => tapAt !== null && f.t >= tapAt && f.top !== null)
+    const seen = frames.filter((f) => tapAt !== null && f.t >= tapAt && f.x !== null)
     const first = seen[0]
-    const tops = seen.map((f) => f.top)
-    let turns = 0
-    for (let i = 2; i < tops.length; i++) if (Math.sign(tops[i] - tops[i - 1]) * Math.sign(tops[i - 1] - tops[i - 2]) < 0) turns++
-    const rest = seen.find((f, i) => i > 0 && f.top === tops.at(-1) && seen[i - 1].top === f.top)
+    const xs = seen.map((f) => f.x)
     return {
       ms: first ? Math.round(first.t - tapAt) : null,
-      firstTop: first?.top ?? null,
+      firstX: first?.x ?? null,
       firstBusy: first?.busy ?? null,
       firstRuns: first?.runs ?? null,
-      heights: [...new Set(seen.map((f) => f.h))],
-      /* Sub-pixel rounding of a moving box can read a pixel either way. */
-      heightSpread: seen.length ? Math.max(...seen.map((f) => f.h)) - Math.min(...seen.map((f) => f.h)) : null,
-      runs: [...new Set(seen.map((f) => f.runs))],
+      firstBar: first?.bar ?? null,
       busyFrames: seen.filter((f) => f.busy > 0).length,
-      rising: tops.every((t, i) => i === 0 || t <= tops[i - 1]),
-      turns,
-      restTop: tops.at(-1),
-      riseMs: rest && first ? Math.round(rest.t - first.t) : null,
+      runs: [...new Set(seen.map((f) => f.runs))],
+      oneWay: xs.every((x, i) => i === 0 || x <= xs[i - 1]),
+      restX: xs.at(-1),
       frames: seen.length,
     }
   }
@@ -599,9 +592,6 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
   {
     const { p, errors } = await openPage({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 })
     await sleep(300)
-    const closedSheets = await p.evaluate(() => document.querySelectorAll("[data-sheet-panel]").length)
-    expect(closedSheets === 0, "no sheet is in the page until one is opened", closedSheets)
-
     /* A thumb on the second row (person1, who has two automations), resting a moment, then up. */
     const spot = await rowSpot(p, 2)
     await contactFrames(p, 1100)
@@ -611,45 +601,28 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
     await sleep(1100)
     const a = await readContact(p)
     const o = opening(a)
-    console.log(`  ..    tap to the sheet's first frame ${o.ms}ms, its top at ${o.firstTop}px (of 844) with ${o.firstRuns} runs laid out and ${o.firstBusy} loading blocks; rose to ${o.restTop}px in ${o.riseMs}ms over ${o.frames} frames; heights seen ${JSON.stringify(o.heights)}; turns ${o.turns}`)
+    console.log(`  ..    tap to the page's first frame ${o.ms}ms, at x ${o.firstX}px with ${o.firstRuns} runs laid out and ${o.firstBusy} loading blocks; settled at ${o.restX}px over ${o.frames} frames`)
     expect(a.asked[0] === "person1@example.com", "the finger on the row asked for the contact's runs before it lifted", a.asked)
-    expect(o.firstTop !== null && o.firstTop >= 780, "the sheet's first frame is below the screen, not at rest", o.firstTop)
-    expect(o.firstBusy === 0 && o.firstRuns === 2 && o.busyFrames === 0 && o.runs.length === 1, "with its content already laid out on that frame, and nothing popping in after", { firstRuns: o.firstRuns, busyFrames: o.busyFrames, runs: o.runs })
-    expect(o.heightSpread !== null && o.heightSpread <= 1, "at one height on every frame", o.heights)
-    expect(o.rising && o.turns === 0, "rising once, one way, with no second animation", { rising: o.rising, turns: o.turns })
-    expect(o.riseMs !== null && o.riseMs >= 300 && o.riseMs <= 560, "in the shared sheet's time", o.riseMs)
+    expect(/contact=/.test(a.url), "the page is a real address (?contact=), so back and a reload work", a.url)
+    expect(o.firstX !== null && o.firstX > 100 && o.restX === 0 && o.oneWay, "on a phone the page is pushed in from the right edge, one way, like an order", { firstX: o.firstX, restX: o.restX, oneWay: o.oneWay })
+    expect(o.firstBar && o.firstBusy === 0 && o.firstRuns === 2 && o.busyFrames === 0 && o.runs.length === 1, "with its bar and content already laid out on the first frame, nothing popping in after", o)
     await p.screenshot({ path: join(shots, "phone-contact.png") })
 
-    /* Down, with a tap outside it. */
-    await contactFrames(p, 700)
-    await p.touchscreen.tap(195, 60)
-    await sleep(750)
-    const down = (await readContact(p)).frames.filter((f) => f.top !== null)
-    const downTops = down.map((f) => f.top)
-    const gone = await p.evaluate(() => [...document.querySelectorAll("[data-sheet-panel]")].every((x) => x.getBoundingClientRect().top >= 843))
-    console.log(`  ..    down from ${downTops[0]}px to ${downTops.at(-1)}px over ${down.length} frames; content the same on each: ${new Set(down.map((f) => f.runs)).size === 1}`)
-    expect(downTops.every((t, i) => i === 0 || t >= downTops[i - 1]) && new Set(down.map((f) => f.runs)).size === 1 && gone, "a tap outside takes it down, one way, its content unchanged as it goes", downTops.slice(-3))
+    /* Back: the page goes, the list is where it was. */
+    await p.evaluate(() => document.querySelector("[data-contact-page] button[aria-label='Back to subscribers']").click())
+    await sleep(700)
+    const back = await p.evaluate(() => ({ page: !!document.querySelector("[data-contact-page]"), rows: document.querySelectorAll("section[aria-label=Subscribers] tbody tr").length, url: location.search }))
+    expect(!back.page && back.rows > 0 && !/contact=/.test(back.url), "Back takes the page away and the list is still there", back)
 
-    /* A quick tap on a contact nobody asked about yet: it waits for the runs, a moment, then rises once. */
+    /* A quick tap on a contact nobody asked about yet: it waits for the runs, a moment, then comes in once, filled. */
     const quick = await rowSpot(p, 5)
     await contactFrames(p, 1100)
     await p.touchscreen.tap(quick.x, quick.y)
     await sleep(1100)
     const q = opening(await readContact(p))
-    console.log(`  ..    a quick tap: first frame ${q.ms}ms after it, ${q.firstBusy} loading blocks, "None yet" laid out: ${q.firstRuns === 0 && q.firstBusy === 0}; heights ${JSON.stringify(q.heights)}; turns ${q.turns}`)
-    expect(q.firstBusy === 0 && q.busyFrames === 0 && q.heightSpread <= 1 && q.rising && q.turns === 0, "a quick tap too: the sheet rises once, already filled, at one height", q)
+    console.log(`  ..    a quick tap: first frame ${q.ms}ms after it, ${q.firstBusy} loading blocks, "None yet" laid out: ${q.firstRuns === 0 && q.firstBusy === 0}`)
+    expect(q.firstBusy === 0 && q.busyFrames === 0 && q.oneWay, "a quick tap too: the page comes in once, already filled", q)
     expect(q.ms !== null && q.ms <= RUNS_DELAY_MS + 120, "after waiting no longer than the answer took", q.ms)
-    await p.touchscreen.tap(195, 60)
-    await sleep(600)
-
-    /* The first contact again: known now, so it rises at once. */
-    const again = await rowSpot(p, 2)
-    await contactFrames(p, 900)
-    await p.touchscreen.tap(again.x, again.y)
-    await sleep(900)
-    const g = opening(await readContact(p))
-    console.log(`  ..    the same contact again: first frame ${g.ms}ms after the tap, ${g.firstRuns} runs on it`)
-    expect(g.firstRuns === 2 && g.firstBusy === 0 && g.ms !== null && g.ms <= 80, "a contact opened before opens at once, filled", g)
     expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
     await p.close()
   }
@@ -665,9 +638,9 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
     await p.mouse.click(spot.x, spot.y)
     await sleep(700)
     const o = opening(await readContact(p))
-    const panel = await p.evaluate(() => { const a = document.querySelector("aside[role=dialog]"); const r = a.getBoundingClientRect(); return { right: Math.round(r.right), width: Math.round(r.width), sheets: document.querySelectorAll("[data-sheet-panel]").length } })
-    console.log(`  ..    the side panel: first frame ${o.ms}ms after the click, ${o.firstRuns} runs and ${o.firstBusy} loading blocks on it; ${panel.width} wide to ${panel.right}`)
-    expect(o.firstBusy === 0 && o.firstRuns === 2 && o.busyFrames === 0 && panel.sheets === 0 && panel.width === 420, "on a computer the side panel opens, filled on its first frame, and no sheet", { o, panel })
+    const layout = await p.evaluate(() => ({ sheets: document.querySelectorAll("[data-sheet-panel], aside[role=dialog]").length, cards: document.querySelectorAll("[data-contact-body] > section").length }))
+    console.log(`  ..    the page: first frame ${o.ms}ms after the click, ${o.firstRuns} runs and ${o.firstBusy} loading blocks on it; ${layout.cards} cards`)
+    expect(o.firstBar && o.firstBusy === 0 && o.firstRuns === 2 && o.busyFrames === 0 && o.firstX === 0 && layout.sheets === 0 && layout.cards === 2, "on a computer a page over the list, bar in place and filled on its first frame, no panel or sheet", { o, layout })
     expect(o.ms !== null && o.ms <= 80, "at once, the pointer resting on the row having asked already", o.ms)
     await p.screenshot({ path: join(shots, "desktop-contact.png") })
     expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))

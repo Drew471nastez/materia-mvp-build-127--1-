@@ -4,14 +4,18 @@
  * ===========================================================================
  *  ONE CONTACT: WHO, WHERE THEY CAME FROM, AND WHAT THEY HAVE BEEN SENT
  * ===========================================================================
- * Opened from a row of Subscribers. A panel on the right on a desktop, the
- * shared sheet on a phone (components/ui/bottom-sheet). It reads the
- * contact's automation runs itself, through the creator's own session
- * (row level security keeps it to theirs); before the engine's SQL has run
- * there are none, and it says so plainly.
+ * Opened from a row of Subscribers as its own page over the list, the way
+ * an order opens over Orders: "when I click on an email it should take me
+ * to a sub page of that email, like the orders". The bar with back, who it
+ * is, where they stand and what can be done; then their automations and
+ * their details as cards, two columns on a computer. It comes in and goes
+ * back with Orders' own move (app/app/orders/order-motion.ts, run by
+ * ./emails-client.tsx), and it reads the contact's automation runs itself,
+ * through the creator's own session (row level security keeps it to
+ * theirs); before the engine's SQL has run there are none, and it says so.
  *
- * "When I click on an email it should open the bottom sheet clean, with no
- * glitch, smooth in and out." What the glitch was, measured:
+ * It used to be a sheet on a phone and a panel on a computer. What made that
+ * sheet glitch, measured, still shapes how the page opens:
  *
  *   THE SHEET CAME UP BEFORE ITS CONTENT. The runs were asked for when the
  *   sheet opened, so it rose with two grey bars in it and, half way up or
@@ -22,25 +26,19 @@
  *   OPEN_WAIT_MS (usually it is already here), and the sheet rises once,
  *   with everything in it laid out.
  *
- *   THE SHEET WAS MOUNTED BY AN EFFECT. The contact to show was copied into
- *   state from an effect, so the first render after the tap drew nothing,
- *   and the sheet was created fresh a render later, with its own mount
- *   round. It is always there on a phone now, closed, and opening it is one
- *   render: the sheet's portal and its content land in the same commit, and
- *   its rise starts before that commit is painted.
- *
  *   A SECOND CONTACT SHOWED THE FIRST ONE'S RUNS for a frame, then grey
  *   bars, then its own. The body is keyed by the contact and starts from
  *   what is already known about that contact.
  */
 
 import * as React from "react"
-import { X } from "lucide-react"
-import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { ArrowLeft, ChevronDown, MoreHorizontal } from "lucide-react"
+import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { WaitingArea } from "@/components/ui/activity-spinner"
 import { createClient } from "@/lib/supabase/client"
 import { sourceView } from "@/lib/contacts/contact-source"
 import { cn } from "@/lib/utils"
-import { StatusBadge, iconButton } from "../orders/order-parts"
+import { GUTTER, ORDER_WIDTH, OrderBarFrame, StatusBadge, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import type { SubscriberRow } from "./emails-home"
 
 interface RunLite {
@@ -137,66 +135,78 @@ export const RUN_STATUS: Record<string, { label: string; tone: "neutral" | "atte
   failed: { label: "Failed", tone: "critical" },
 }
 
-function useWide(query = "(min-width: 768px)") {
-  const [wide, setWide] = React.useState(false)
-  React.useEffect(() => {
-    const mq = window.matchMedia(query)
-    const read = () => setWide(mq.matches)
-    read()
-    mq.addEventListener("change", read)
-    return () => mq.removeEventListener("change", read)
-  }, [query])
-  return wide
-}
-
-export function ContactDetail({ contact, onClose }: { contact: SubscriberRow | null; onClose: () => void }) {
-  const wide = useWide()
-  const open = contact !== null
-  /* The contact on screen, kept while the sheet or panel leaves. Taken while
-     rendering, not from an effect, so the render that opens it draws it. */
-  const [shown, setShown] = React.useState<SubscriberRow | null>(contact)
-  if (contact && contact !== shown) setShown(contact)
-
-  React.useEffect(() => {
-    if (!open || !wide) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [open, wide, onClose])
-
-  if (!wide) {
-    /* Always there, closed, so opening is the one render that flips it. */
+/**
+ * One contact, as a page. `contact` is null only while a reloaded
+ * /app/emails?contact=<id> is still reading the list it comes from.
+ */
+export function ContactPage({
+  contact,
+  onBack,
+  onCopy,
+  onRemove,
+}: {
+  contact: SubscriberRow | null
+  onBack: () => void
+  onCopy: (email: string) => void
+  onRemove: (id: string) => void
+}) {
+  const back = (
+    <button type="button" onClick={onBack} aria-label="Back to subscribers" className={cn(iconButton, "h-9 w-9")}>
+      <ArrowLeft className="h-5 w-5" />
+    </button>
+  )
+  if (!contact) {
     return (
-      <BottomSheet isOpen={open} onClose={onClose} label={shown?.email ?? "Contact"} hideFrom="md">
-        {shown ? <ContactBody key={keyOf(shown.email)} contact={shown} /> : null}
-      </BottomSheet>
+      <>
+        <OrderBarFrame back={back} title={<h1 className="text-[20px] font-bold leading-7 text-[#1a1a2e]">Contact</h1>} subtitle={null} />
+        <div className={cn("orders-body mx-auto pt-4 pb-6", ORDER_WIDTH, GUTTER)}>
+          <WaitingArea className="h-[420px]" />
+        </div>
+      </>
     )
   }
-  if (!shown) return null
+  const status = contactStatusLabel(contact)
+  const joined = day(contact.subscribed_at)
+  const removable = contact.status === "subscribed"
   return (
-    <div className={cn("fixed inset-0 z-[200]", open ? "" : "pointer-events-none")} aria-hidden={!open}>
-      <div className={cn("absolute inset-0 bg-[#1a1a2e]/20 transition-opacity duration-200", open ? "opacity-100" : "opacity-0")} onClick={onClose} />
-      <aside
-        role="dialog"
-        aria-modal={open ? "true" : undefined}
-        aria-label={shown.email}
-        className={cn(
-          "absolute inset-y-2 right-2 flex w-[420px] flex-col overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_24px_60px_-12px_rgba(17,24,39,0.28),0_2px_8px_rgba(17,24,39,0.06)] transition-[translate,opacity] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
-          open ? "translate-x-0 opacity-100" : "translate-x-6 opacity-0",
-        )}
-      >
-        <div className="flex h-12 shrink-0 items-center justify-end border-b border-[#eef0f2] px-2">
-          <button type="button" aria-label="Close" className={iconButton} onClick={onClose}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <ContactBody key={keyOf(shown.email)} contact={shown} />
-        </div>
-      </aside>
-    </div>
+    <>
+      <OrderBarFrame
+        back={back}
+        title={
+          <>
+            <h1 className="min-w-0 truncate text-[20px] font-bold leading-7 text-[#1a1a2e]">{contact.name || contact.email}</h1>
+            <StatusBadge tone={contact.status === "subscribed" ? "success" : "neutral"}>{status}</StatusBadge>
+          </>
+        }
+        actions={
+          <ResponsiveActionMenu
+            title={contact.email}
+            menuWidth="w-56"
+            items={[
+              { label: "Copy email", onClick: () => onCopy(contact.email) },
+              ...(removable ? [{ label: "Remove", variant: "destructive" as const, separatorBefore: true, onClick: () => onRemove(contact.id) }] : []),
+            ]}
+            trigger={
+              <button type="button" className={cn(buttonSecondary, "shrink-0 px-2.5 sm:px-3")} aria-label="More actions">
+                <span className="hidden sm:inline">More actions</span>
+                <MoreHorizontal className="h-4 w-4 sm:hidden" />
+                <ChevronDown className="hidden h-4 w-4 sm:block" />
+              </button>
+            }
+          />
+        }
+        subtitle={
+          <>
+            {contact.name ? contact.email : null}
+            {contact.name && joined ? " · " : null}
+            {joined ? `${contact.status === "customer" ? "Added" : "Joined"} ${joined}` : null}
+          </>
+        }
+      />
+      <div className={cn("orders-body mx-auto pt-4 pb-6", ORDER_WIDTH, GUTTER)}>
+        <ContactBody key={keyOf(contact.email)} contact={contact} />
+      </div>
+    </>
   )
 }
 
@@ -219,59 +229,69 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
   const status = contactStatusLabel(contact)
 
   return (
-    <div data-contact-body="" className="px-5 pb-6 pt-3">
-      <p className="truncate text-[17px] font-semibold text-[#1a1a2e]">{contact.name || contact.email}</p>
-      {contact.name ? <p className="truncate text-[13px] text-[#6b7280]">{contact.email}</p> : null}
+    <div data-contact-body="" className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
+      <section className={cn(card, "min-w-0 px-4 pb-3 pt-3.5 lg:col-start-1 lg:row-start-1")}>
+        <h2 className="text-[14px] font-semibold text-[#1a1a2e]">Automations</h2>
+        {runs === null ? (
+          <div className="mt-3 space-y-2" aria-busy="true">
+            <div className="h-11 rounded-lg bg-[#f4f5f7]" />
+            <div className="h-11 rounded-lg bg-[#f7f8f9]" />
+          </div>
+        ) : runs.length === 0 ? (
+          <p className="mt-1.5 pb-1 text-[13px] text-[#6b7280]">None yet. When an automation starts for them, it shows here.</p>
+        ) : (
+          <ul className="-mx-4 mt-2 divide-y divide-[#f1f2f4] border-t border-[#f1f2f4]">
+            {runs.map((r) => {
+              const st = RUN_STATUS[r.status] ?? RUN_STATUS.cancelled
+              return (
+                <li key={r.id} className="flex items-center gap-3 px-4 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <a href={`/app/emails/flow/${r.flow_id}`} className="block truncate text-[14px] font-medium text-[#1a1a2e] hover:underline">
+                      {r.email_flows?.name ?? "Deleted flow"}
+                    </a>
+                    <p className="truncate text-[12px] text-[#6b7280]">
+                      {day(r.started_at)}
+                      {r.exit_reason ? ` · ${r.exit_reason}` : ""}
+                    </p>
+                  </div>
+                  <StatusBadge tone={st.tone}>{st.label}</StatusBadge>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
 
-      <dl className="mt-5 grid grid-cols-[104px_minmax(0,1fr)] gap-x-3 gap-y-3 text-[13px]">
-        <dt className="text-[#6b7280]">Status</dt>
-        <dd>
-          <StatusBadge tone={contact.status === "subscribed" ? "success" : "neutral"}>{status}</StatusBadge>
-        </dd>
-        <dt className="text-[#6b7280]">{contact.status === "customer" ? "Added" : "Joined"}</dt>
-        <dd className="text-[#1a1a2e]">{day(contact.subscribed_at) || "Not recorded"}</dd>
-        <dt className="text-[#6b7280]">Source</dt>
-        <dd className="min-w-0">
-          <span className={cn("block break-words font-medium", source.recorded ? "text-[#1a1a2e]" : "text-[#6b7280]")}>{source.label}</span>
-          {source.detail ? <span className="block break-words text-[#6b7280]">{source.detail}</span> : null}
-        </dd>
-        {contact.consent_text ? (
-          <>
-            <dt className="text-[#6b7280]">Consent</dt>
-            <dd className="break-words text-[#4b5563]">{contact.consent_text}</dd>
-          </>
-        ) : null}
-      </dl>
-
-      <h3 className="mt-7 text-[13px] font-semibold text-[#1a1a2e]">Automations</h3>
-      {runs === null ? (
-        <div className="mt-2 space-y-2" aria-busy="true">
-          <div className="h-10 rounded-lg bg-[#f4f5f7]" />
-          <div className="h-10 rounded-lg bg-[#f7f8f9]" />
-        </div>
-      ) : runs.length === 0 ? (
-        <p className="mt-1.5 text-[13px] text-[#6b7280]">None yet.</p>
-      ) : (
-        <ul className="mt-2 divide-y divide-[#f1f2f4] rounded-xl border border-[#eef0f2]">
-          {runs.map((r) => {
-            const s = RUN_STATUS[r.status] ?? RUN_STATUS.cancelled
-            return (
-              <li key={r.id} className="flex items-center gap-3 px-3 py-2.5">
-                <div className="min-w-0 flex-1">
-                  <a href={`/app/emails/flow/${r.flow_id}`} className="block truncate text-[13px] font-medium text-[#1a1a2e] hover:underline">
-                    {r.email_flows?.name ?? "Deleted flow"}
-                  </a>
-                  <p className="truncate text-[12px] text-[#6b7280]">
-                    {day(r.started_at)}
-                    {r.exit_reason ? ` · ${r.exit_reason}` : ""}
-                  </p>
-                </div>
-                <StatusBadge tone={s.tone}>{s.label}</StatusBadge>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      <section className={cn(card, "min-w-0 px-4 pb-4 pt-3.5 lg:col-start-2 lg:row-start-1")}>
+        <h2 className="text-[14px] font-semibold text-[#1a1a2e]">Details</h2>
+        <dl className="mt-3 grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-3 text-[13px]">
+          <dt className="text-[#6b7280]">Email</dt>
+          <dd className="min-w-0 break-words text-[#1a1a2e]">{contact.email}</dd>
+          {contact.name ? (
+            <>
+              <dt className="text-[#6b7280]">Name</dt>
+              <dd className="min-w-0 break-words text-[#1a1a2e]">{contact.name}</dd>
+            </>
+          ) : null}
+          <dt className="text-[#6b7280]">Status</dt>
+          <dd>
+            <StatusBadge tone={contact.status === "subscribed" ? "success" : "neutral"}>{status}</StatusBadge>
+          </dd>
+          <dt className="text-[#6b7280]">{contact.status === "customer" ? "Added" : "Joined"}</dt>
+          <dd className="text-[#1a1a2e]">{day(contact.subscribed_at) || "Not recorded"}</dd>
+          <dt className="text-[#6b7280]">Source</dt>
+          <dd className="min-w-0">
+            <span className={cn("block break-words font-medium", source.recorded ? "text-[#1a1a2e]" : "text-[#6b7280]")}>{source.label}</span>
+            {source.detail ? <span className="block break-words text-[#6b7280]">{source.detail}</span> : null}
+          </dd>
+          {contact.consent_text ? (
+            <>
+              <dt className="text-[#6b7280]">Consent</dt>
+              <dd className="break-words text-[#4b5563]">{contact.consent_text}</dd>
+            </>
+          ) : null}
+        </dl>
+      </section>
     </div>
   )
 }

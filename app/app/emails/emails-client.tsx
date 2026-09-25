@@ -49,7 +49,8 @@ import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-ran
 import { cn } from "@/lib/utils"
 import { buttonPrimary, buttonSecondary } from "../orders/order-parts"
 import { markRow, moveOrder, stillOrder } from "../orders/order-motion"
-import { EmailsHome, type CampaignRow, type EmailsTab, type FlowRow } from "./emails-home"
+import { EmailsHome, type CampaignRow, type EmailsTab, type FlowRow, type SubscriberRow } from "./emails-home"
+import { ContactPage } from "./contact-detail"
 import { EmailDetail, type EmailAction, type EmailSeed } from "./email-detail"
 import { TABS, campaignKey, isTab, loadReport, loadTab, reportKey, tabKey, type SentData, type SubscribersData } from "./emails-data"
 
@@ -164,8 +165,17 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   }, [])
   React.useEffect(() => () => window.clearTimeout(noticeTimer.current), [])
 
-  /* ── An email over the list ─────────────────────────────────────────── */
-  const openId = searchParams.get("email")
+  /* ── An email, or a contact, over the list ──────────────────────────── */
+  /*
+    One page at a time over the list: an email (?email=<id>) or a subscriber
+    (?contact=<id>). Both are one key, "email:<id>" or "contact:<id>", so the
+    move, the leaving page and Back are the same code for either.
+  */
+  const emailParam = searchParams.get("email")
+  const contactParam = emailParam ? null : searchParams.get("contact")
+  const openId = emailParam ? `email:${emailParam}` : contactParam ? `contact:${contactParam}` : null
+  /* The row a page key came from: "email:<id>" and "contact:<id>" both mark row <id>. */
+  const rowOf = (key: string) => key.slice(key.indexOf(":") + 1)
   const pushed = React.useRef(false)
   const detailRef = React.useRef<HTMLDivElement>(null)
   const [openedOnEmail] = React.useState(() => openId !== null)
@@ -220,12 +230,12 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     browserMoved.current = false
     if (openId !== null) {
       if (was !== null || !detail) return
-      markRow(list, openId, "held")
+      markRow(list, rowOf(openId), "held")
       if (skip) return stillOrder(detail, list)
       moveOrder("push", detail, list)
       return
     }
-    markRow(list, was, "fading")
+    markRow(list, was && rowOf(was), "fading")
     if (!detail || skip) {
       stillOrder(detail, list)
       setLeavingId(null)
@@ -248,11 +258,15 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const onOpen = (c: CampaignRow) => {
     prefetch(reportKey(c.id), () => loadReport(c.id))
     pushed.current = true
-    writeAddress((p) => p.set("email", c.id), "push")
+    writeAddress((p) => { p.delete("contact"); p.set("email", c.id) }, "push")
+  }
+  const onOpenContact = (s: SubscriberRow) => {
+    pushed.current = true
+    writeAddress((p) => { p.delete("email"); p.set("contact", s.id) }, "push")
   }
   const onBack = React.useCallback(() => {
     if (pushed.current) window.history.back()
-    else writeAddress((p) => p.delete("email"), "replace")
+    else writeAddress((p) => { p.delete("email"); p.delete("contact") }, "replace")
   }, [])
 
   const onCampaignIntent = (c: CampaignRow) => {
@@ -265,6 +279,12 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   }
 
   /* ── Actions ────────────────────────────────────────────────────────── */
+  const copyEmail = (email: string) => {
+    void navigator.clipboard?.writeText(email).then(
+      () => onNotice("Email copied"),
+      () => onNotice("Could not copy the email"),
+    )
+  }
   const [confirm, setConfirm] = React.useState<{ type: "campaign" | "subscriber" | "flow"; id: string } | null>(null)
 
   const refreshCampaignLists = () => {
@@ -435,18 +455,14 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
           search={search}
           onSearch={setSearch}
           onExportSubscribers={() => void exportSubscribers()}
-          onCopyEmail={(email) => {
-            void navigator.clipboard?.writeText(email).then(
-              () => onNotice("Email copied"),
-              () => onNotice("Could not copy the email"),
-            )
-          }}
+          onCopyEmail={copyEmail}
           onRemoveSubscriber={(id) => setConfirm({ type: "subscriber", id })}
           flows={flows}
           onToggleFlow={(f) => void toggleFlow(f)}
           onDeleteFlow={(id) => setConfirm({ type: "flow", id })}
           campaigns={campaigns}
           onOpenCampaign={onOpen}
+          onOpenContact={onOpenContact}
           onCampaignIntent={onCampaignIntent}
           onDuplicateCampaign={(c) => void duplicate(c.id).then((m) => m && onNotice(m))}
           onDeleteCampaign={(id) => setConfirm({ type: "campaign", id })}
@@ -463,14 +479,25 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
           ref={detailRef}
           className="orders-pane orders-detail page-scroll absolute inset-0 overflow-y-auto overflow-x-hidden bg-[#f8f9fa]"
           role="region"
-          aria-label="Email"
-          data-email-detail={displayedId}
+          aria-label={displayedId.startsWith("contact:") ? "Contact" : "Email"}
+          data-email-detail={displayedId.startsWith("email:") ? rowOf(displayedId) : undefined}
+          data-contact-page={displayedId.startsWith("contact:") ? rowOf(displayedId) : undefined}
           data-arrival="list"
           data-leaving={openId ? undefined : ""}
           inert={!openId}
           aria-hidden={!openId || undefined}
         >
-          <EmailDetail key={displayedId} seed={seedFor(displayedId)} onBack={onBack} onAction={onEmailAction} onNotice={onNotice} />
+          {displayedId.startsWith("contact:") ? (
+            <ContactPage
+              key={displayedId}
+              contact={(subscribersData?.rows ?? []).find((r) => r.id === rowOf(displayedId)) ?? null}
+              onBack={onBack}
+              onCopy={copyEmail}
+              onRemove={(id) => setConfirm({ type: "subscriber", id })}
+            />
+          ) : (
+            <EmailDetail key={displayedId} seed={seedFor(rowOf(displayedId))} onBack={onBack} onAction={onEmailAction} onNotice={onNotice} />
+          )}
         </div>
       ) : null}
 

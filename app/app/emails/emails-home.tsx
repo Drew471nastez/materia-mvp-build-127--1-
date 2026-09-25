@@ -36,7 +36,7 @@ import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/respo
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { NOT_RECORDED, sourceView } from "@/lib/contacts/contact-source"
 import { TRIGGERS, isTriggerType, normalizeSteps, stepSummary } from "@/lib/automations/flow-model"
-import { ContactDetail, contactReady, contactStatusLabel, prefetchContact } from "./contact-detail"
+import { contactReady, contactStatusLabel, prefetchContact } from "./contact-detail"
 import type { RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
 import { ShimmerBlock, ShimmerRows, ShimmerSwap } from "@/components/ui/shimmer"
@@ -126,6 +126,8 @@ export interface EmailsHomeProps {
   campaigns: CampaignRow[]
   /** Opens a sent or scheduled email's page over the list. */
   onOpenCampaign: (campaign: CampaignRow) => void
+  /** A subscriber's row: their page opens over the list, as an order's does. */
+  onOpenContact: (contact: SubscriberRow) => void
   /** A pointer arriving on a row, or a finger touching it: read what it opens. */
   onCampaignIntent: (campaign: CampaignRow) => void
   onDuplicateCampaign: (campaign: CampaignRow) => void
@@ -529,10 +531,9 @@ function SubscribersTable(props: EmailsHomeProps) {
   const [page, setPage] = React.useState(1)
   const [source, setSource] = React.useState("")
   const [status, setStatus] = React.useState("")
-  const [open, setOpen] = React.useState<SubscriberRow | null>(null)
   const press = usePress()
   /*
-    A contact's sheet rises with its content already in it: the tap waits
+    A contact's page opens with its content already in it: the tap waits
     for the contact's automation runs (asked for when the finger landed), at
     most a moment, and then opens it (./contact-detail). The row stays
     pressed while it waits. The latest tap wins.
@@ -546,7 +547,7 @@ function SubscribersTable(props: EmailsHomeProps) {
       if (opening.current !== s) return
       opening.current = null
       setWaiting(null)
-      setOpen(s)
+      props.onOpenContact(s)
     })
   }
   const q = props.search.trim().toLowerCase()
@@ -670,7 +671,8 @@ function SubscribersTable(props: EmailsHomeProps) {
                     <tr
                       key={s.id}
                       data-contact-row=""
-                      className={pressable}
+                      data-order-id={s.id}
+                      className={cn("orders-row", pressable)}
                       onClick={() => openContact(s)}
                       {...press(s.id, () => prefetchContact(s.email))}
                       {...(waiting === s.id ? { "data-pressed": "true" } : null)}
@@ -710,7 +712,6 @@ function SubscribersTable(props: EmailsHomeProps) {
         )}
       </ShimmerSwap>
       <Pager page={page} pages={pages} total={rows.length} onPage={setPage} />
-      <ContactDetail contact={open} onClose={() => setOpen(null)} />
     </>
   )
 }

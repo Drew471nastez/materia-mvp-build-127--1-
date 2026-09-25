@@ -86,14 +86,14 @@ console.log("\nTables that scroll sideways under a frozen column")
 
 console.log("\nAn email's page, opened over the list the way an order is")
 {
-  check("?email= is pushed, so back closes it, and the list stays mounted under it", /writeAddress\(\(p\) => p\.set\("email", c\.id\), "push"\)/.test(page) && /window\.history\.back\(\)/.test(page) && /inert=\{listCovered\}/.test(page) && /orders-pane orders-detail/.test(page))
+  check("?email= is pushed, so back closes it, and the list stays mounted under it", /writeAddress\(\(p\) => \{ p\.delete\("contact"\); p\.set\("email", c\.id\) \}, "push"\)/.test(page) && /window\.history\.back\(\)/.test(page) && /inert=\{listCovered\}/.test(page) && /orders-pane orders-detail/.test(page))
   check("its bar is the order's, drawn on the first frame", /<OrderBarFrame/.test(detail))
   check("it comes in and goes back with Orders' own move, not one of its own",
     /import \{ markRow, moveOrder, stillOrder \} from "\.\.\/orders\/order-motion"/.test(page)
       && /moveOrder\("push", detail, list\)/.test(page) && /moveOrder\("pop", detail, list, \(\) => setLeavingId\(null\)\)/.test(page)
       && /hasUAVisualTransition/.test(page) && /data-order-open=\{listCovered \? "" : undefined\}/.test(page) && /orders-pane orders-list page-scroll/.test(page)
       && /data-arrival="list"/.test(page) && /inert=\{!openId\}/.test(page) && !/visibility: listCovered/.test(page))
-  check("the row it came from is marked like an order's row, so the eye lands where it left", /className=\{cn\("orders-row", pressable\)\}[^>]*data-order-id=\{c\.id\}/.test(home) && /markRow\(list, openId, "held"\)/.test(page) && /markRow\(list, was, "fading"\)/.test(page))
+  check("the row it came from is marked like an order's row, so the eye lands where it left", /className=\{cn\("orders-row", pressable\)\}[^>]*data-order-id=\{c\.id\}/.test(home) && /markRow\(list, rowOf\(openId\), "held"\)/.test(page) && /markRow\(list, was && rowOf\(was\), "fading"\)/.test(page))
   check("/app/emails/<id> lands on it", /redirect\(UUID\.test\(id\) \? `\/app\/emails\?tab=published&email=/.test(read("app/app/emails/[id]/page.tsx")))
   check("the email is shown as it went out, in the sandboxed preview", /<EmailPreview/.test(detail) && /sandbox="allow-same-origin"/.test(read("components/email/compose/email-preview.tsx")))
   const report = read("app/api/email/campaigns/[id]/report/route.ts")
@@ -117,12 +117,14 @@ console.log("\nA contact, opened from its row")
   check("a finger on the row, or a pointer resting on it as long as on an order's row, asks for the contact's runs",
     /\{\.\.\.press\(s\.id, \(\) => prefetchContact\(s\.email\)\)\}/.test(homeCode) && /onPointerDown: \(e: React\.PointerEvent\) => \{\s*intent\?\.\(\)/.test(homeCode)
       && /hover\.current = window\.setTimeout\(intent, HOVER_PREFETCH_MS\)/.test(homeCode) && /import \{ HOVER_PREFETCH_MS \} from "\.\.\/orders\/order-prefetch"/.test(homeCode))
-  check("and the row stays pressed while its sheet waits", /\{\.\.\.\(waiting === s\.id \? \{ "data-pressed": "true" \} : null\)\}/.test(homeCode))
+  check("and the row stays pressed while its page waits", /\{\.\.\.\(waiting === s\.id \? \{ "data-pressed": "true" \} : null\)\}/.test(homeCode))
   check("the tap waits for them, at most a moment, and the latest tap wins",
     /export const OPEN_WAIT_MS = 300/.test(detail) && /void contactReady\(s\.email\)\.then\(\(\) => \{\s*if \(opening\.current !== s\) return/.test(homeCode) && /onClick=\{\(\) => openContact\(s\)\}/.test(homeCode))
-  check("the sheet is always there on a phone, so opening is one render",
-    /<BottomSheet isOpen=\{open\} onClose=\{onClose\} label=\{shown\?\.email \?\? "Contact"\} hideFrom="md">/.test(detail) && /if \(contact && contact !== shown\) setShown\(contact\)/.test(detail) && !/React\.useEffect\(\(\) => \{\s*if \(contact\) setShown\(contact\)/.test(detail))
-  check("its body is the contact's own and starts from what is known", /<ContactBody key=\{keyOf\(shown\.email\)\} contact=\{shown\} \/>/.test(detail) && /useState<RunLite\[\] \| null>\(\(\) => keptRuns\(contact\.email\)\)/.test(detail) && !/setRuns\(null\)/.test(detail))
+  check("it opens as its own page over the list, like an order: a real address, the bar, cards; no sheet or side panel",
+    /onOpenContact=\{onOpenContact\}/.test(code("app/app/emails/emails-client.tsx")) && /p\.set\("contact", s\.id\)/.test(code("app/app/emails/emails-client.tsx"))
+      && /<ContactPage/.test(code("app/app/emails/emails-client.tsx")) && /<OrderBarFrame/.test(detail) && !/BottomSheet|aside/.test(detail)
+      && /props\.onOpenContact\(s\)/.test(homeCode) && !/<ContactDetail/.test(homeCode))
+  check("its body is the contact's own and starts from what is known", /<ContactBody key=\{keyOf\(contact\.email\)\} contact=\{contact\} \/>/.test(detail) && /useState<RunLite\[\] \| null>\(\(\) => keptRuns\(contact\.email\)\)/.test(detail) && !/setRuns\(null\)/.test(detail))
   check("a failed read is not kept", /if \(!error\) runsKept\.set\(key/.test(detail))
 }
 
