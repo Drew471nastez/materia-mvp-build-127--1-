@@ -31,6 +31,29 @@ import { plainSummary } from "@/lib/html-entities"
 import { getProductShareUrl } from "@/lib/url-helpers"
 import { productIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript, productJsonLd } from "@/lib/website-builder/site-seo"
+import { cachedShopProducts } from "@/lib/website-builder/published-site"
+import { productVariants, toProductPage } from "@/lib/website-builder/shop-products"
+
+/**
+ * How this product is priced, read on its own so the product read above
+ * stays the one it has always been. Best effort: a database without these
+ * columns prices the product as it always did.
+ */
+async function productPricing(
+  admin: ReturnType<typeof createAdminClient>,
+  productId: string,
+): Promise<{ type?: string | null; pay_what_you_want?: boolean | null; pwyw_min_price_cents?: number | null }> {
+  try {
+    const { data, error } = await admin
+      .from("products")
+      .select("type, pay_what_you_want, pwyw_min_price_cents")
+      .eq("id", productId)
+      .maybeSingle()
+    return error || !data ? {} : (data as { type?: string | null; pay_what_you_want?: boolean | null; pwyw_min_price_cents?: number | null })
+  } catch {
+    return {}
+  }
+}
 
 type ProductRow = {
   id: string
@@ -206,7 +229,12 @@ export async function renderProduct(
 
   // Fetch product-page AND home-page sections in parallel. Home is the
   // source of truth for header/footer on every page of the live site.
-  const [{ data: pageData }, { data: homeData }] = await Promise.all([
+  //
+  // Beside them, and in the same round trip: the shop (cached for a minute,
+  // shared with the rest of the site) so a product list on this page draws
+  // the catalogue, and this product's options and pricing mode, so a section
+  // reading `page.product` gets the same fields as a card in `products`.
+  const [{ data: pageData }, { data: homeData }, catalogue, variants, extra] = await Promise.all([
     admin
       .from("store_theme_pages")
       .select("sections, draft_sections")
@@ -219,6 +247,9 @@ export async function renderProduct(
       .eq("install_id", install.id)
       .eq("page_key", "home")
       .maybeSingle(),
+    cachedShopProducts(product.creator_id),
+    productVariants(admin as never, [product.id]),
+    productPricing(admin, product.id),
   ])
 
   /**
@@ -288,6 +319,14 @@ export async function renderProduct(
     page,
     themeSettings,
     "product",
+    catalogue,
+    /**
+     * THE PRODUCT THIS PAGE IS ABOUT, as `page.product`: the same fields as
+     * a card in `products`, and its description as plain text. A section
+     * written for the product page reads it; a section that does not, does
+     * not notice it. See content/developers/selling.md.
+     */
+    { product: toProductPage({ ...product, ...extra }, variants) },
   )
 
   return (

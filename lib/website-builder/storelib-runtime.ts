@@ -112,7 +112,7 @@ export type StorelibRendered =
 export function renderStorelibSection(
   section: SectionInstance,
   theme: ThemeSettingsValues,
-  page: { template: string; in_editor?: boolean } = { template: "index" },
+  page: { template: string; in_editor?: boolean; [key: string]: unknown } = { template: "index" },
   overrides?: Record<string, string>,
   /**
    * The creator's published products, block-shaped, for a section that draws
@@ -129,7 +129,7 @@ export function renderStorelibSection(
     id: section.id,
     instance: toInstanceData(section),
     theme: theme as unknown as Record<string, unknown>,
-    page,
+    page: withPageProduct(page, products),
     products,
   })
   return {
@@ -139,4 +139,28 @@ export function renderStorelibSection(
     script: c.value.script ?? null,
     capabilities: c.value.schema.capabilities ?? [],
   }
+}
+
+/**
+ * ===========================================================================
+ *  THE PRODUCT A PRODUCT PAGE IS ABOUT, IN THE BUILDER TOO
+ * ===========================================================================
+ * On a live product page the route hands its sections the product as
+ * `page.product` (components/website-builder/theme/render-product.tsx). The
+ * builder has no product in its address, so a section written for the
+ * product page would draw an empty page there and the creator would be
+ * designing blind. While the builder is drawing the product template and
+ * nobody said which product, the newest one stands in: the same card the
+ * site would draw, so what is designed is what is published.
+ *
+ * Only in the builder, and only on the product template. A visitor's page
+ * without a product is a missing product, never somebody else's.
+ */
+export function withPageProduct(
+  page: { template: string; in_editor?: boolean; [key: string]: unknown },
+  products?: RenderContext["products"],
+): { template: string; in_editor?: boolean; [key: string]: unknown } {
+  if (page.template !== "product" || page.product !== undefined || page.in_editor !== true) return page
+  const first = products?.[0]
+  return first ? { ...page, product: first } : page
 }
