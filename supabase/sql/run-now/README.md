@@ -21,7 +21,7 @@ part changed. Stop there and send the error; the parts after it expect it.
 
 | File | What it does | Lines | Bytes |
 | --- | --- | ---: | ---: |
-| `00_check_first.sql` | Read only. The pre-flight, and the storage policies as they are now. | 3 | 1,755 |
+| `00_check_first.sql` | Read only. The audit: everything the app needs, whether it is there, and which file creates what is not. | 3 | 44,925 |
 | `01_rate_limits_and_newsletter.sql` | Rate limit counter for the open forms, and the storelib.com footer newsletter table. Server only. | 9 | 1,116 |
 | `02_agent_connections_and_github.sql` | Agent connections (Claude Code, Codex), their activity log, GitHub sync, and the indexes on them. | 33 | 4,852 |
 | `03_refund_recorded_once.sql` | A Stripe refund is recorded on an order once. If this fails with "could not create unique index", see README. | 2 | 291 |
@@ -48,11 +48,11 @@ part changed. Stop there and send the error; the parts after it expect it.
 Parts `01` to `19` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
-Two columns of the new pre-flight matter to `16` and to Route 1 below:
-`editor_bypasses_rls` should read true (it does on Supabase, where the editor
-runs as `postgres`), or `16` cannot write bucket settings; and
-`storage_has_owner_id` should read true, or Route 1 needs `owner = (select
-auth.uid())` in place of `owner_id = (select auth.uid())::text`.
+Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:
+"does this role bypass row level security" should read yes (it does on Supabase,
+where the editor runs as `postgres`), or `16` cannot write bucket settings; and
+"storage.objects names the uploader" should read `owner_id`, or Route 1 needs
+`owner = (select auth.uid())` in place of `owner_id = (select auth.uid())::text`.
 
 Two parts can stop on what is already in your database:
 
@@ -61,16 +61,86 @@ Two parts can stop on what is already in your database:
   it, so carry on with `04`, and send the result of this before changing any
   ledger row:
   `select stripe_refund_id, order_id, count(*) from public.ledger_events where event_type = 'refund' and stripe_refund_id is not null group by 1, 2 having count(*) > 1;`
-- `19` needs `has_variants_reviews_courses` from the pre-flight to read
-  true. If it reads false, skip `19` and say so; nothing else depends on it.
+- `19` needs `product_variants`, `product_variant_files`, `reviews` and
+  `courses`. If `00` lists any of those four as a missing table, skip `19` and
+  say so; nothing else depends on it.
 
 `05` and `08` are the only parts that change rows you already have: `05`
 marks old basket orders as website orders, `08` sets products archived the
-old way to status `archived` (your pre-flight counted 0 of those).
+old way to status `archived` (there were none of those last time).
+
+## Reading `00_check_first.sql`
+
+This is the whole picture: 657 things the running app needs from the database,
+checked against yours. `99_check_after.sql` is the quick one, a single row of
+true or false that answers "did the parts land". `00` answers the larger
+question, "is anything the app calls missing, whenever it was supposed to
+arrive", and for each missing thing names the file that creates it.
+
+Where the list comes from: every table, column and function `app/`, `lib/` and
+`components/` name (every `.from("...")` with the columns its `select` and
+filters name, every `.rpc("...")`, the curated list in
+`lib/admin/schema-expectations.ts`, every `.storage.from("...")` bucket, every
+`onConflict` target, and what the cron routes and webhooks read), matched
+against the `CREATE` statements in `supabase/migrations/`, `supabase/sql/`,
+`sql/` and `scripts/` so each one can name its file.
+
+Run the audit, which is the second line of the file. Its result reads top to
+bottom:
+
+| status | what it is |
+| --- | --- |
+| a count | how many things were checked, how many are missing, how many are worth a look |
+| `fact` | three things about the role you are running as, see above |
+| `MISSING` | one row per missing thing, with its kind, its name, and the file that creates it |
+| `LOOK` | something that is there but wrong in a way the app will not complain about |
+| `ok` | one count per kind, then every requirement that is present |
+
+`MISSING` covers tables, columns, functions, constraints, indexes, policies,
+unique keys an upsert needs, buckets, and buckets that must be private.
+
+`LOOK` rows are the quiet ones:
+
+- a paid file bucket that is public, so its files download without a signed link
+- a picture bucket with no file type limit
+- a `storage.objects` policy that reaches a paid bucket as `anon`, or that lets
+  any signed in account write with no check on the path
+- a function the public key can run that should be service role only
+- a table with policies and row level security switched off, so the policies do
+  nothing
+- a table the app reads with the public key that has row level security and no
+  policies, so it reads as empty
+
+Six rows can read `not shipped` in the FIX column, meaning nothing in this
+repository creates them. They are not part of this round and no part fixes
+them:
+
+- `public.onepages` and `public.library_items`: tables made in the dashboard.
+  Nothing creates them, so a fresh project has neither.
+- `public.exec_sql` and `public.generate_onepage_slug`: functions made in the
+  dashboard. `/api/v2/search` and the onepage editor call them.
+- `email_events.recipient_email`: `lib/admin/views/platform.ts` reads it in the
+  recent bounces list, but `20260203_rebuild_email_sent_system.sql` rebuilt
+  `email_events` with `email` in its place. If `00` lists this one, that panel
+  is failing.
+- `payment_methods (creator_id, stripe_payment_method_id)`: the Stripe webhook
+  upserts on that pair, and the only unique key on the table is on
+  `stripe_payment_method_id` alone. Postgres refuses an `on conflict` whose
+  columns have no matching unique index, so a saved card is never recorded. The
+  webhook swallows the error.
+
+Anything else that reads `MISSING` has a file next to it. Run that file.
+
+It never fails on a database that is missing things: nothing in it names a
+`public` table directly, it asks the catalogue instead. The two exceptions are
+`storage.buckets` and `storage.objects`, which every Supabase project has. It
+reads catalogue rows only, so it takes about 20 ms and never scans a table of
+yours.
 
 ## The storage part: `90_storage_policies_needs_owner.sql`
 
-Your pre-flight said `can_manage_storage_policies = false`. Creating or
+Your pre-flight said "can this role manage storage.objects policies: no".
+Creating or
 dropping a policy on `storage.objects` needs the owner of that table,
 `supabase_storage_admin`, and the SQL editor's role is not it. So this part
 is on its own, last.
@@ -176,7 +246,9 @@ for each policy it drops.
 ## After
 
 Run `99_check_after.sql`. Every column should read true. A false column names
-the part to look at.
+the part to look at. Then run `00_check_first.sql` again: the count on the
+first row should have dropped to the six `not shipped` rows above, and nothing
+with a file next to it should still read `MISSING`.
 
 ## Not in here, on purpose
 
@@ -188,7 +260,8 @@ the part to look at.
   `RUN_THEME_MARKETPLACE.sql`, `RUN_THEME_BACKUPS.sql`,
   `RUN_THEME_FILE_DRAFTS.sql`, `RUN_THEME_PREVIEW_LINK.sql`,
   `RUN_THEME_PUBLISHED_AT.sql`): older than this round.
-  `CHECK_WHAT_IS_MISSING.sql` says whether any of their tables are absent.
+  `00_check_first.sql` says whether any of their tables, columns or functions
+  are absent, and names the file that creates each one.
 - `RUN_ALL_PENDING.sql`, `RUN_THIS_ROUND.sql` and `RUN_SAFETY_ROUND.sql`:
   every statement in them is already in these parts. Do not paste them as
   well.
@@ -200,6 +273,12 @@ statement by statement, by a tokenizer that knows quotes, dollar quotes and
 comments: comments dropped, whitespace joined, literals untouched. Nothing
 was retyped. If a source file changes, rebuild the parts from it rather than
 editing a part by hand.
+
+`00_check_first.sql` is generated the same way, from two sides: the table,
+column, function, bucket and `onConflict` names read out of `app/`, `lib/` and
+`components/`, and the `CREATE` statements read out of every `.sql` file in the
+repository. Change the app or add a migration and it wants regenerating, not
+editing by hand.
 
 Checked on Postgres 16 with a copy shaped like production (storage owned by
 `supabase_storage_admin`, the editor's role not a member): each part as one
