@@ -39,7 +39,8 @@ export class MissingAnthropicKeyError extends Error {
   }
 }
 
-function anthropic(): Anthropic {
+/** The one client, shared with the product editor's category suggestion (lib/products/category-suggest-claude.ts). */
+export function anthropic(): Anthropic {
   if (!client) {
     const apiKey = process.env.ANTHROPIC_API_KEY
     /**
