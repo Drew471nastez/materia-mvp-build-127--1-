@@ -161,7 +161,7 @@ async function leaving(p, label, vp, isPhone) {
     const keep = shape.btns.find((b) => b.text === "Keep editing")
     const discard = shape.btns.find((b) => b.text === "Discard")
     expect(shape.btns.length === 2 && !!keep && !!discard, "two answers, Keep editing and Discard", shape.btns.map((b) => b.text))
-    expect(/inset/.test(keep?.shadow ?? "") && discard?.bg === "rgb(196, 41, 12)", "Keep editing has the same depth as Cancel, Discard is red", { keep: keep?.shadow, discard: discard?.bg })
+    expect(/inset/.test(keep?.shadow ?? "") && discard?.bg === "rgb(26, 26, 46)", "Keep editing has the same depth as Cancel, Discard is near black, never red", { keep: keep?.shadow, discard: discard?.bg })
     if (isPhone) {
       expect(shape.surface === "sheet" && Math.abs(shape.bottom) <= 1 && shape.left === 0 && shape.right === 0, "on a phone it is the shared sheet, on the bottom edge, the full width", shape)
       expect(keep?.h === 48 && discard?.h === 48 && keep.top === discard.top && keep.w === discard.w, "its two buttons side by side, 48px, the same width", shape.btns)
