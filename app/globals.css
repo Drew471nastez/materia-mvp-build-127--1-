@@ -4257,6 +4257,22 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
   .wb-slider-thumb { transition: none; }
 }
 
+/* A rich text setting in the sidebar stops growing sooner than a product
+   description does, so the section's other settings stay in reach
+   (components/website-builder/rich-text-field.tsx). */
+.wb-rich-text .rich-text-content {
+  max-height: var(--wb-rich-max, 260px);
+}
+
+/* The white piece behind a segmented control's answer slides, by transform
+   (components/website-builder/editor/setting-controls.tsx). */
+.wb-segmented-thumb {
+  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-segmented-thumb { transition: none; }
+}
+
 /* ── Website-builder Add-Section modal close animation ──
    Overrides the base dialog duration so close feels smoother. */
 /* ── Images are not draggable ─────────────────────────────────────────────────
@@ -4843,6 +4859,17 @@ html.pop-in-flight #platform-header-root {
     --wb-thumb: 28px;
   }
 
+  /* The sidebar's own select and segmented control, at a thumb's size. */
+  [data-mobile-bottom-sheet] [data-setting-select] > button,
+  [data-mobile-bottom-sheet] [data-setting-select] [role="option"] {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  [data-mobile-bottom-sheet] .wb-segmented button {
+    min-height: 40px;
+    font-size: 14px;
+  }
+
   /*
    * AND THE EMPTY IMAGE BOX STOPS BEING A THIRD OF THE SCREEN.
    *
@@ -4866,10 +4893,10 @@ html.pop-in-flight #platform-header-root {
     padding: 0 14px;
     justify-content: flex-start;
   }
-  [data-mobile-bottom-sheet] .wb-dropzone > p:first-of-type {
+  [data-mobile-bottom-sheet] .wb-dropzone > .wb-dropzone-title {
     font-size: 15px;
   }
-  [data-mobile-bottom-sheet] .wb-dropzone > p + p {
+  [data-mobile-bottom-sheet] .wb-dropzone > .wb-dropzone-hint {
     display: none;
   }
 }
@@ -5020,6 +5047,10 @@ html.pop-in-flight #platform-header-root {
 }
 .wb-image-fade {
   transition: opacity 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+/* The upload's hairline eases between progress events instead of stepping. */
+.wb-upload-bar {
+  transition: transform 220ms linear;
 }
 @media (prefers-reduced-motion: reduce) {
   .wb-image-skeleton::after { animation: none; }
