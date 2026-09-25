@@ -410,9 +410,26 @@ export function BannerGlobe({ className }: { className?: string }) {
       fallBack()
     }
 
-    mount(true)
-    if (!renderer) return
+    /*
+      STARTED AFTER THE PAGE HAS PAINTED, in a task of its own. Creating a
+      WebGL context and starting its programs is tens of milliseconds on a
+      slow phone; inside React's commit it was added to the task that puts
+      Home on the screen. A frame, then a task: Home paints first, the globe
+      a moment later.
+    */
+    let ro: ResizeObserver | null = null
+    let io: IntersectionObserver | null = null
+    let startTimer = 0
+    const start = () => {
+      mount(true)
+      if (!renderer) return
+      listen()
+    }
+    const firstFrame = requestAnimationFrame(() => {
+      startTimer = window.setTimeout(start, 0)
+    })
 
+    const listen = () => {
     grip.addEventListener("pointerdown", onDown)
     grip.addEventListener("pointermove", onMove)
     grip.addEventListener("pointerup", onUp)
@@ -423,22 +440,25 @@ export function BannerGlobe({ className }: { className?: string }) {
     document.addEventListener("scroll", onScroll, { capture: true, passive: true })
     document.addEventListener("visibilitychange", onVisibility)
     reduce.addEventListener?.("change", onMotion)
-    const ro = new ResizeObserver(resize)
+    ro = new ResizeObserver(resize)
     ro.observe(box)
     window.addEventListener("resize", resize)
-    const io = new IntersectionObserver(([entry]) => {
+    io = new IntersectionObserver(([entry]) => {
       onScreen = entry.isIntersecting
       if (onScreen) wake()
       else sleep()
     })
     io.observe(box)
     resize()
+    }
 
     return () => {
+      cancelAnimationFrame(firstFrame)
+      window.clearTimeout(startTimer)
       sleep()
       window.clearTimeout(scrollTimer)
-      ro.disconnect()
-      io.disconnect()
+      ro?.disconnect()
+      io?.disconnect()
       window.removeEventListener("resize", resize)
       document.removeEventListener("scroll", onScroll, { capture: true })
       document.removeEventListener("visibilitychange", onVisibility)

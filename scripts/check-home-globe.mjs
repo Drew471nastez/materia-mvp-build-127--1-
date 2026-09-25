@@ -18,7 +18,8 @@
  * callbacks, from a trace), the bytes allocated per frame (V8's sampling
  * heap profiler, over the same frames), what else repainted, how long a
  * drag's pointer events and frames took, and at mount the longest task
- * and the time to the first frame drawn. The graphics process's time is
+ * after the page's own script has loaded (the globe starting) and the time
+ * to the first frame drawn. The graphics process's time is
  * printed too: here it is SwiftShader, the processor standing in for a
  * graphics card, so it is where WebGL pays in this harness and not on a
  * phone.
@@ -154,7 +155,18 @@ try {
     const byThread = new Map()
     for (const t of mountTasks) byThread.set(`${t.pid}:${t.tid}`, (byThread.get(`${t.pid}:${t.tid}`) ?? 0) + t.dur)
     const pageMain = [...byThread.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
-    const longestMount = Math.max(0, ...mountTasks.filter((t) => `${t.pid}:${t.tid}` === pageMain).map((t) => t.dur)) / 1000
+    /* Not the task that parses the page and evaluates its bundle: that is this harness loading React, the same for every version. */
+    const loading = mountTrace.filter((e) => `${e.pid}:${e.tid}` === pageMain && (e.name === "ParseHTML" || e.name === "EvaluateScript"))
+    const pageTasks = mountTasks.filter((t) => `${t.pid}:${t.tid}` === pageMain && !loading.some((e) => e.ts >= t.ts && e.ts <= t.ts + t.dur))
+    const longestMount = Math.max(0, ...pageTasks.map((t) => t.dur)) / 1000
+    /* What the longest one was made of: evaluating the page's script, React's first render, the globe's start. */
+    const top = pageTasks.sort((a, b) => b.dur - a.dur)[0]
+    const mountContents = top
+      ? [...mountTrace.filter((e) => `${e.pid}:${e.tid}` === pageMain && e.ph === "X" && e.ts >= top.ts && e.ts + e.dur <= top.ts + top.dur && e.dur > 3000 && !/RunTask|ThreadControllerImpl/.test(e.name))
+          .reduce((m, e) => { const k = e.name === "FunctionCall" ? `FunctionCall ${e.args?.data?.functionName || "?"}` : e.name; m.set(k, Math.max(m.get(k) ?? 0, e.dur)); return m }, new Map())]
+          .sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k} ${(v / 1000).toFixed(0)}ms`).join(", ")
+      : ""
+    if (process.env.MOUNT_DETAIL) console.log(`  ${c.view} ${c.variant} mount's longest task: ${mountContents}`)
     await sleep(1200)
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU })
     await sleep(600)
@@ -255,7 +267,7 @@ try {
 const f = (n, d = 2) => (Number.isFinite(n) ? n.toFixed(d) : "-")
 console.log(`\nThe globe alone, CPU slowed ${CPU}x, four seconds turning by itself and one second dragged`)
 console.log(`old = ${BASE}'s 2D globe; gl and 2d = the new one's two renderers\n`)
-console.log("  view  version  canvas px   frames  JS/frame avg  p95    max    bytes/frame  main busy  paints  drag: JS/frame  input/event  mount: longest task, first frame   (GPU process, software here)")
+console.log("  view  version  canvas px   frames  JS/frame avg  p95    max    bytes/frame  main busy  paints  drag: JS/frame  input/event  mount: longest globe task, first frame   (GPU process, software here)")
 for (const r of results) {
   console.log(`  ${r.view.padEnd(5)} ${r.variant.padEnd(8)} ${`${r.canvas.w}x${r.canvas.h}`.padEnd(10)} ${String(r.idle.frames).padStart(6)}  ${f(r.idle.msPerFrame).padStart(8)}ms  ${f(r.idle.p95).padStart(5)}  ${f(r.idle.max).padStart(5)}  ${f(r.bytesPerFrame, 0).padStart(11)}  ${f(r.idle.mainBusy * 100, 1).padStart(7)}%  ${String(r.idle.paints).padStart(6)}  ${f(r.drag.msPerFrame).padStart(12)}ms  ${f(r.drag.inputMs).padStart(9)}ms  ${f(r.longestMount, 0).padStart(10)}ms, ${f(r.firstFrame, 0).padStart(5)}ms   (${f(r.idle.gpuBusy * 100, 1)}%)`)
 }
