@@ -470,6 +470,7 @@ export function LinksTab() {
     moveBlockDown,
     toggleBlockEnabled,
     updateBlock,
+    updateBlockData,
     updateSocialLinks,
     reorderBlocks,
     updateProfile,
@@ -701,6 +702,21 @@ export function LinksTab() {
     const url = normalizeUrlInput(rawUrl)
     if (!url) return
 
+    /*
+      A FETCH THAT COMES BACK LATE DOES NOT UNDO WHAT WAS TYPED MEANWHILE.
+      Each answer used to write back the whole block as it was when the fetch
+      began, so a label typed during it was lost, and an answer for an address
+      since replaced landed on the new one. It now merges into the block as
+      it is, only while the block still points at this address, and joins the
+      edit that asked for it in undo.
+    */
+    const landFetched = (fields: (current: LinkButtonBlockData) => Partial<LinkButtonBlockData>) =>
+      updateBlockData(
+        blockId,
+        (current) => (normalizeUrlInput((current as LinkButtonBlockData).url || "") === url ? fields(current as LinkButtonBlockData) : null),
+        { joinLastStep: true },
+      )
+
     // Skip if URL is empty or block already has a custom thumbnail
     const block = onepage?.draft_blocks.find(b => b.id === blockId)
     if (!block || block.type !== 'link_button') return
@@ -724,9 +740,7 @@ export function LinksTab() {
             thumbnailUrl = spotifyData.thumbnailUrl?.replace('ab67616d00001e02', 'ab67616d0000b273') || spotifyData.thumbnailUrl
             const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
             if (currentData) {
-              updateBlock(blockId, {
-                data: {
-                  ...currentData,
+              landFetched((currentData) => ({
                   url,
                   thumbnail_url: thumbnailUrl || currentData.thumbnail_url,
                   icon: thumbnailUrl ? null : currentData.icon,
@@ -735,8 +749,7 @@ export function LinksTab() {
                   spotify_type: spotifyData.type || null,
                   spotify_thumbnail: thumbnailUrl || null,
                   spotify_show_metadata: currentData.spotify_show_metadata !== false ? true : false
-                }
-              })
+              }))
               return
             }
           }
@@ -770,9 +783,7 @@ export function LinksTab() {
             thumbnailUrl = soundcloudData.thumbnailUrl
             const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
             if (currentData) {
-              updateBlock(blockId, {
-                data: {
-                  ...currentData,
+              landFetched((currentData) => ({
                   url,
                   thumbnail_url: thumbnailUrl || currentData.thumbnail_url,
                   icon: thumbnailUrl ? null : currentData.icon,
@@ -781,8 +792,7 @@ export function LinksTab() {
                   soundcloud_type: soundcloudData.type || null,
                   soundcloud_thumbnail: thumbnailUrl || null,
                   soundcloud_show_metadata: currentData.soundcloud_show_metadata !== false ? true : false
-                }
-              })
+              }))
               return
             }
           }
@@ -802,9 +812,7 @@ export function LinksTab() {
             thumbnailUrl = appleMusicData.thumbnailUrl
             const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
             if (currentData) {
-              updateBlock(blockId, {
-                data: {
-                  ...currentData,
+              landFetched((currentData) => ({
                   url,
                   thumbnail_url: thumbnailUrl || currentData.thumbnail_url,
                   icon: thumbnailUrl ? null : currentData.icon,
@@ -815,8 +823,7 @@ export function LinksTab() {
                   apple_music_show_metadata: currentData.apple_music_show_metadata !== false ? true : false,
                   apple_music_preview_url: appleMusicData.previewUrl || null,
                   apple_music_streaming_services: appleMusicData.streamingServices || []
-                }
-              })
+              }))
               return
             }
           }
@@ -841,17 +848,14 @@ export function LinksTab() {
             if (currentData) {
               const videoIdMatch = url.match(/video\/(\d+)/)
               const videoId = videoIdMatch ? videoIdMatch[1] : null
-              updateBlock(blockId, {
-                data: {
-                  ...currentData,
+              landFetched((currentData) => ({
                   url,
                   thumbnail_url: thumbnailUrl || currentData.thumbnail_url,
                   icon: thumbnailUrl ? null : currentData.icon,
                   tiktok_video_id: videoId,
                   tiktok_embed_url: tiktokData.embedUrl || null,
                   tiktok_show_embed: true
-                }
-              })
+              }))
               return
             }
           }
@@ -863,20 +867,17 @@ export function LinksTab() {
       if (thumbnailUrl) {
         const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
         if (currentData) {
-          updateBlock(blockId, {
-            data: {
-              ...currentData,
+          landFetched((currentData) => ({
               url,
               thumbnail_url: thumbnailUrl,
               icon: null
-            }
-          })
+              }))
         }
       }
     } catch (error) {
       console.error('Error auto-fetching thumbnail:', error)
     }
-  }, [onepage?.draft_blocks, updateBlock])
+  }, [onepage?.draft_blocks, updateBlockData])
 
   // Handle URL change with auto-fetch
   const handleUrlChangeWithAutoFetch = useCallback((blockId: string, rawUrl: string) => {
@@ -884,9 +885,7 @@ export function LinksTab() {
     const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
     if (currentData) {
       if (!normalizedUrl || normalizedUrl.length < 10) {
-        updateBlock(blockId, {
-          data: {
-            ...currentData,
+        updateBlockData(blockId, (currentData: any) => ({
             url: normalizedUrl,
             thumbnail_url: null,
             icon: null,
@@ -907,8 +906,7 @@ export function LinksTab() {
             tiktok_video_id: null,
             tiktok_embed_url: null,
             tiktok_show_embed: false
-          }
-        })
+          }))
         return
       }
 
@@ -927,9 +925,7 @@ export function LinksTab() {
       const platformChanged = (wasSpotify !== isSpotify) || (wasYouTube !== isYouTube) || (wasSoundCloud !== isSoundCloud) || (wasAppleMusic !== isAppleMusic) || (wasTikTok !== isTikTok)
 
       if (platformChanged) {
-        updateBlock(blockId, {
-          data: {
-            ...currentData,
+        updateBlockData(blockId, (currentData: any) => ({
             url: normalizedUrl,
             thumbnail_url: null,
             icon: null,
@@ -950,10 +946,10 @@ export function LinksTab() {
             tiktok_video_id: null,
             tiktok_embed_url: null,
             tiktok_show_embed: false
-          }
-        })
+          }))
       } else {
-        updateBlock(blockId, { data: { ...currentData, url: normalizedUrl } })
+        updateBlockData(blockId, (currentData: any) => ({ url: normalizedUrl
+          }))
       }
     }
 
@@ -963,7 +959,7 @@ export function LinksTab() {
       }, 220)
       return () => clearTimeout(timeoutId)
     }
-  }, [autoFetchThumbnail, onepage?.draft_blocks, updateBlock])
+  }, [autoFetchThumbnail, onepage?.draft_blocks, updateBlock, updateBlockData])
 
 // Effect to ensure thumbnails are fetched for existing Spotify/YouTube URLs without thumbnails
   useEffect(() => {
@@ -5426,7 +5422,7 @@ function BlockEditor({
   updateBlockOverride?: (blockId: string, updates: Partial<OnePageBlock>) => void
   sellerProducts?: SellerProduct[]
 }) {
-  const { updateBlock: contextUpdateBlock, updateSocialLinks, setActiveSection, onepage } = useOnePage()
+  const { updateBlock: contextUpdateBlock, updateBlockData, updateSocialLinks, setActiveSection, onepage } = useOnePage()
   const updateBlock = updateBlockOverride || contextUpdateBlock
 
   // Products for product block selector
@@ -5539,8 +5535,12 @@ function BlockEditor({
     }
   }, [socialLinks, block.type, block.id])
 
+  /* A block on the page merges into the block as it is now (lib/onepage/context
+     updateBlockData), so two changes in one tick, or an upload that finishes
+     after an edit, both land. A block inside a group goes through its group. */
   const updateData = (updates: Partial<OnePageBlock["data"]>) => {
-    updateBlock(block.id, { data: { ...block.data, ...updates } })
+    if (updateBlockOverride) updateBlockOverride(block.id, { data: { ...block.data, ...updates } })
+    else updateBlockData(block.id, updates as Record<string, any>)
   }
 
   // Handle thumbnail upload

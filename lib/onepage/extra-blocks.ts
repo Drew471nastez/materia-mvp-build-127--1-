@@ -14,6 +14,7 @@ import type {
   OnePageBlockSchedule,
   VideoBlockData,
 } from "./types"
+import { hasRealUrl } from "./editor-state"
 
 export const EXTRA_BLOCK_TYPES = ["heading", "faq", "countdown", "map", "video"] as const
 export type ExtraBlockType = (typeof EXTRA_BLOCK_TYPES)[number]
@@ -81,4 +82,27 @@ export function extraBlockHasContent(block: Pick<OnePageBlock, "type" | "data">)
     default:
       return true
   }
+}
+
+/**
+ * IS A BLOCK ON THE PAGE? One rule, used by the live page and by the editor's
+ * preview, so the preview never shows a block a visitor would not see: off,
+ * outside its schedule, a text of less than two real characters, an image
+ * with no picture, a link with no address (a bare "https://" included), or
+ * one of the newer blocks left empty.
+ */
+export function isBlockShown(block: any, now: number = Date.now()): boolean {
+  if (!block?.enabled) return false
+  if (!isScheduledNow(block, now)) return false
+  if (block.type === "text") {
+    const content = block.data?.content || ""
+    const stripped = content.replace(/[^a-zA-Z0-9\u00C0-\u024F\u0400-\u04FF\u0600-\u06FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF!?.,;:'"()@#$%&+=\/\\<>{}[\]~`^*]/g, "")
+    return stripped.length >= 2
+  }
+  if (block.type === "image") {
+    const images = block.data?.images || (block.data?.image_url ? [{ image_url: block.data.image_url }] : [])
+    return images.length > 0 && !!images[0]?.image_url
+  }
+  if (block.type === "link_button") return hasRealUrl(block.data?.url)
+  return extraBlockHasContent(block)
 }

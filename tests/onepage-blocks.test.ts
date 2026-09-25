@@ -9,7 +9,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { extraBlockHasContent, isScheduledNow, scheduleLabel, videoSource } from "@/lib/onepage/extra-blocks"
+import { extraBlockHasContent, isBlockShown, isScheduledNow, scheduleLabel, videoSource } from "@/lib/onepage/extra-blocks"
 import { ONEPAGE_FONTS, familyOf, onePageFontHref, onePageFontHrefs, onePageFontSampleHref } from "@/lib/onepage/fonts"
 import { createDefaultBlock } from "@/lib/onepage/types"
 
@@ -82,9 +82,16 @@ function main() {
     const cases = /case "heading":\s*case "faq":\s*case "countdown":\s*case "map":\s*case "video":\s*return <ExtraBlock block=\{block\}/
     check("the preview calls the one component", cases.test(preview))
     check("and so does the live page", cases.test(live))
-    check("the preview leaves out what the live page leaves out: off schedule, or empty",
-      (preview.match(/\.filter\(\(b\) => b\.enabled && isScheduledNow\(b\) && extraBlockHasContent\(b\)\)/g) ?? []).length === 2 &&
-      /if \(!isScheduledNow\(block\)\) return false/.test(live) && /return extraBlockHasContent\(block\)\n\}/.test(live))
+    check("the preview and the live page leave out blocks by one rule",
+      (preview.match(/\.filter\(\(b\) => isBlockShown\(b\)\)/g) ?? []).length === 2 &&
+      /const isBlockVisible = \(block: any\): boolean => isBlockShown\(block\)/.test(live))
+    const on = (block: any) => isBlockShown({ enabled: true, ...block }, NOW)
+    check("a link with no address, or only https://, is not on the page", !on({ type: "link_button", data: { url: "https://" } }) && !on({ type: "link_button", data: { url: "" } }) && on({ type: "link_button", data: { url: "https://storelib.com" } }))
+    check("nor is a block that is off, off schedule, a one letter text or an image with no picture",
+      !isBlockShown({ enabled: false, type: "divider", data: {} }, NOW) &&
+      !on({ type: "divider", data: {}, schedule: { start_at: iso(NOW + DAY) } }) &&
+      !on({ type: "text", data: { content: "a" } }) && on({ type: "text", data: { content: "Hi there" } }) &&
+      !on({ type: "image", data: { images: [] } }))
     const page = read("app/(marketing)/l/[slug]/page.tsx")
     check("a block that has not started is not sent to the browser at all", /\.filter\(\(b\) => isScheduledNow\(b\)\)/.test(page))
 

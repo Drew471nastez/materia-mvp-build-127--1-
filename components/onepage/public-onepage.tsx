@@ -31,7 +31,7 @@ import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { ExtraBlock, SensitiveLinkQuestion } from "@/components/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
-import { extraBlockHasContent, isScheduledNow } from "@/lib/onepage/extra-blocks"
+import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 
 const stripHtmlToPlainText = (value?: string | null) => {
@@ -3570,28 +3570,8 @@ function sensitiveLabel(block: any): string | undefined {
   return String(block.data.label || "")
 }
 
-/** Check if a block will produce visible content — used to skip empty wrapper divs */
-function isBlockVisible(block: any): boolean {
-  if (!block?.enabled) return false
-  // Outside its schedule (the server drops these too, before the page is sent)
-  if (!isScheduledNow(block)) return false
-  // Text blocks: must have meaningful alphanumeric content
-  if (block.type === "text") {
-    const content = block.data?.content || ""
-    const stripped = content.replace(/[^a-zA-Z0-9\u00C0-\u024F\u0400-\u04FF\u0600-\u06FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF!?.,;:'"()@#$%&+=\/\\<>{}[\]~`^*]/g, "")
-    return stripped.length >= 2
-  }
-  // Image blocks: must have an image URL
-  if (block.type === "image") {
-    const images = block.data?.images || (block.data?.image_url ? [{ image_url: block.data.image_url }] : [])
-    return images.length > 0 && !!images[0]?.image_url
-  }
-  // Link buttons: must have a URL
-  if (block.type === "link_button") {
-    return !!(block.data?.url)
-  }
-  return extraBlockHasContent(block)
-}
+/** Is a block on the page? The one rule the editor's preview uses too (lib/onepage/extra-blocks). */
+const isBlockVisible = (block: any): boolean => isBlockShown(block)
 
 function PublicBlockRenderer({
   block,
@@ -4774,7 +4754,7 @@ function PublicBlockRenderer({
       return (
         <p
           className={cn(
-            "text-sm sm:text-base leading-relaxed w-full",
+            "text-sm sm:text-base leading-relaxed w-full whitespace-pre-line",
             data.alignment === "left" ? "text-left" : data.alignment === "right" ? "text-right" : "text-center",
           )}
           style={{ color: theme.secondary_text_color || theme.text_color }}

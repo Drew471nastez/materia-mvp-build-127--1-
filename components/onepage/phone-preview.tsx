@@ -32,7 +32,7 @@ import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { ExtraBlock } from "@/components/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
-import { extraBlockHasContent, isScheduledNow } from "@/lib/onepage/extra-blocks"
+import { isBlockShown } from "@/lib/onepage/extra-blocks"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -1658,7 +1658,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 )}
               >
                 {draft_blocks
-                  .filter((b) => b.enabled && isScheduledNow(b) && extraBlockHasContent(b))
+                  .filter((b) => isBlockShown(b))
                   .sort((a, b) => a.sort_order - b.sort_order)
                   .map((block, index) => (
                     <div
@@ -2454,7 +2454,7 @@ export function MobilePreviewContent() {
             )}
           >
             {draft_blocks
-              .filter((b) => b.enabled && isScheduledNow(b) && extraBlockHasContent(b))
+              .filter((b) => isBlockShown(b))
               .sort((a, b) => a.sort_order - b.sort_order)
               .map((block, index) => (
                 <div
@@ -4510,8 +4510,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       const data = block.data as TextBlockData
       return (
         <div
-          className={cn(s.text, "w-full leading-relaxed")}
-          style={{ color: theme.text_color, textAlign: data.alignment || "center" }}
+          className={cn(s.text, "w-full whitespace-pre-line leading-relaxed")}
+          style={{ color: (theme as any).secondary_text_color || theme.text_color, textAlign: data.alignment || "center" }}
         >
           {data.content}
         </div>
