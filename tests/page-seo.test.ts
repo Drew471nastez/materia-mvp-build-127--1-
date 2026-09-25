@@ -13,6 +13,9 @@ import { PAGE_DESCRIPTION_MAX, PAGE_TITLE_MAX, hiddenPages, pageSeoOf, typedPage
 import { onePageIndexable } from "@/lib/seo/indexing"
 import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
 import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
+import { soldOut, toCard } from "@/lib/website-builder/shop-products"
+import { DB_CATEGORY_TO_ID, categoryPath } from "@/lib/marketplace/categories"
+import { hasCategoryPage } from "@/lib/explore/category-pages"
 
 let passed = 0
 let failed = 0
@@ -141,6 +144,32 @@ console.log("\nThe creator page is one address, described in the creator's own w
   check("the products are an ItemList of at most twenty, in order, beside the ProfilePage",
     ld["@graph"]?.[0]["@type"] === "ProfilePage" && ld["@graph"][0].mainEntity?.sameAs?.[0] === "https://x.com/mara" &&
       list?.itemListElement?.length === 20 && list.itemListElement[0].position === 1 && list.itemListElement[19].url.endsWith("pack-20"))
+}
+
+console.log("\nA product is described in its creator's words, with its real availability and category")
+{
+  check("sold out means stock is counted and none is left; stock nobody counts never runs out",
+    soldOut({ inventory_count: 0 }) && soldOut({ inventory_count: -1 }) && !soldOut({ inventory_count: 3 }) && !soldOut({ inventory_count: null }) && !soldOut({}))
+  check("the shop's card says so by the same rule", toCard({ id: "p", title: "Pack", slug: "pack", price_cents: 1200, compare_at_cents: null, thumbnail_url: null, status: "published", inventory_count: 0 }).settings.tag === "Sold out")
+  check("a product's category is the Explore page the sitemap lists",
+    DB_CATEGORY_TO_ID["lightroom presets"] === "photography" && hasCategoryPage("photography") && categoryPath("photography") === "/explore/photography" && !hasCategoryPage("for-you"))
+
+  const page = code("app/(marketing)/p/[slug]/page.tsx")
+  const meta = page.slice(page.indexOf("export async function generateMetadata"), page.indexOf("export default async function ProductPage"))
+  check("its title and description are the ones its creator wrote in the editor, when they wrote them",
+    /const ownTitle = typeof product\.seo_title === "string"/.test(meta) && /const tabTitle = ownTitle \|\|/.test(meta) && /const ogTitle = ownTitle \|\|/.test(meta) &&
+      /const pageDescription = ownDescription \|\| plainSummary\(product\.description\)/.test(meta) && /product\.seo_description/.test(meta))
+  check("its structured data says sold out when it is, and its trail points at a page that exists",
+    /availability: soldOut\(product\) \? "https:\/\/schema\.org\/OutOfStock" : "https:\/\/schema\.org\/InStock"/.test(page) &&
+      /item: `https:\/\/storelib\.com\$\{categoryPath\(exploreCategory\)\}`/.test(page) && !/explore\?category=/.test(page) && /hasCategoryPage\(id\)/.test(page))
+  check("and both layouts print it, not only the one nobody arranged",
+    (page.match(/jsonLdScript\(productJsonLd\)/g) ?? []).length === 2 && (page.match(/jsonLdScript\(breadcrumbJsonLd\)/g) ?? []).length === 2 &&
+      page.indexOf("const productJsonLd = {") < page.indexOf("if (themedSections && themedSections.length > 0 && productPageConfig)"))
+  const site = code("components/website-builder/theme/render-product.tsx")
+  check("a website's product page says sold out by the same rule, reading the row whole so a missing column cannot fail it",
+    /inStock: !soldOut\(product\)/.test(site) && !/inStock: true/.test(site) && /\.from\("products"\)\s*\.select\("\*"\)/.test(site) && /products!inner \( \* \)/.test(site))
+  check("and is described in the creator's words there too",
+    /const ownTitle = typeof product\.seo_title === "string"/.test(site) && /plainSummary\(product\.seo_description \?\? "", 300\) \|\| plainSummary\(product\.description\)/.test(site))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

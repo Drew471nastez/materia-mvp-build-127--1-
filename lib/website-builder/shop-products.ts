@@ -74,6 +74,16 @@ interface ProductRow {
   inventory_count?: number | null
 }
 
+/**
+ * Whether a product has sold out: its stock is counted and none is left. A
+ * product whose stock is not counted (no such column, or null) never sells
+ * out. One rule for the card's tag and for the availability a search result
+ * is told, on the website's product page and storelib.com's alike.
+ */
+export function soldOut(row: { inventory_count?: number | null }): boolean {
+  return typeof row.inventory_count === "number" && row.inventory_count <= 0
+}
+
 /** A row to the card a section draws. Exported so a test can drive it. */
 export function toCard(row: ProductRow): ProductCard {
   const price = formatPrice(row.price_cents)
@@ -90,7 +100,7 @@ export function toCard(row: ProductRow): ProductCard {
       compare_price: was && (row.compare_at_cents ?? 0) > (row.price_cents ?? 0) ? was : "",
       image: row.thumbnail_url ?? "",
       url: row.slug ? `/products/${row.slug}` : "",
-      tag: typeof row.inventory_count === "number" && row.inventory_count <= 0 ? "Sold out" : "",
+      tag: soldOut(row) ? "Sold out" : "",
     },
   }
 }
