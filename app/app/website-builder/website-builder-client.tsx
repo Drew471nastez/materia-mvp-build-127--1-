@@ -281,6 +281,7 @@ const DECODED = new Set<string>()
  * a photograph is on its way (PendingCover).
  */
 function CoverPicture({ install, eager = false, preparing = false }: { install: WebsiteSummary; eager?: boolean; preparing?: boolean }) {
+  const fade = useCoverFade(install.snapshot_url)
   if (install.snapshot_url) {
     const ready = eager || DECODED.has(install.snapshot_url)
     return (
@@ -296,10 +297,61 @@ function CoverPicture({ install, eager = false, preparing = false }: { install: 
         draggable={false}
         data-cover-picture=""
         className="block h-full w-full object-cover object-top"
+        ref={fade.ref}
+        onLoad={fade.onLoad}
+        onError={fade.onLoad}
+        style={fade.style}
       />
     )
   }
   return <PendingCover name={install.name} preparing={preparing} />
+}
+
+/**
+ * ===========================================================================
+ *  A COVER ARRIVES, IT DOES NOT PLUNK
+ * ===========================================================================
+ * The screenshot is a 1440px picture that lands after the page does: the
+ * shell's 180ms landing is over by then, so the picture used to appear in one
+ * frame at full strength over the grey frame, which read as a snap. Now a
+ * picture this tab has not shown yet starts clear and fades in once it has
+ * loaded (or, if it had already loaded before the page came to life, as soon
+ * as it can), on the same curve and length as a retaken cover's crossfade.
+ *
+ * A picture already shown in this tab, or one fetched and decoded ahead
+ * (DECODED), is drawn at full strength on its first frame: going back to the
+ * page, or a retaken cover crossfading in its own wrapper, never fades twice.
+ * All of it is opacity on the element itself, so nothing is laid out again.
+ */
+const SHOWN = new Set<string>()
+const COVER_IN = `opacity ${COVER_FADE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
+
+function useCoverFade(url: string | null | undefined) {
+  const known = !!url && (SHOWN.has(url) || DECODED.has(url))
+  const reveal = React.useCallback(
+    (el: HTMLImageElement | null) => {
+      if (!el || !url || el.style.opacity === "1") return
+      SHOWN.add(url)
+      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+        el.style.opacity = "1"
+        return
+      }
+      el.style.transition = COVER_IN
+      /* The clear frame has to be painted before the change, or there is nothing to fade from. */
+      requestAnimationFrame(() => {
+        el.style.opacity = "1"
+      })
+    },
+    [url],
+  )
+  const ref = React.useCallback(
+    (el: HTMLImageElement | null) => {
+      if (el && !known && el.complete && el.naturalWidth > 0) reveal(el)
+    },
+    [known, reveal],
+  )
+  const onLoad = React.useCallback((e: React.SyntheticEvent<HTMLImageElement>) => reveal(e.currentTarget), [reveal])
+  return { ref, onLoad, style: known ? undefined : ({ opacity: 0 } as React.CSSProperties) }
 }
 
 /**

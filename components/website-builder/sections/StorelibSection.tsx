@@ -19,12 +19,14 @@
  * published page renders nothing, so a broken section is a gap and not a
  * broken storefront.
  */
-import { useLayoutEffect, useMemo, useState, type FormEvent, type MouseEvent } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from "react"
 import { SectionWrapper, type SectionProps } from "./_shared"
 import { useStorelibContext, useStorelibPage } from "./storelib-sources"
 import { useStorefront } from "../theme/storefront-context"
 import { formIntent } from "@/lib/website-builder/form-intent"
 import { subscribeToCreator } from "@/lib/website-builder/subscribe-client"
+import { pageKeyOfTemplate, sendContactMessage } from "@/lib/website-builder/contact-client"
+import { useSiteWishlist } from "../site-wishlist"
 import { useSectionScript } from "./section-sandbox"
 import { morphInto } from "@/lib/website-builder/morph-html"
 
@@ -91,6 +93,10 @@ export function StorelibSection({
    */
   const [scriptRoot, setScriptRoot] = useState<HTMLDivElement | null>(null)
   const { template: pageTemplate } = useStorelibPage()
+  const wishlist = useSiteWishlist()
+  /* When this section appeared, for how long a form in it was on the screen. */
+  const shownAt = useRef(0)
+  useEffect(() => { shownAt.current = Date.now() }, [])
   const out = useMemo(() => {
     const ready = prerendered[section.id]
     if (ready) {
@@ -152,6 +158,34 @@ export function StorelibSection({
     morphInto(scriptRoot, html)
     drawn.set(scriptRoot, html)
   }, [scriptRoot, html, htmlProp])
+  /*
+    THE HEARTS SAY WHAT IS SAVED. A section draws each product's heart as
+    `data-storelib-wishlist="<product id>"` and cannot know the visitor's list
+    (it is rendered once for everybody). The page does: `aria-pressed` on each
+    heart, and on the Wishlist page a card whose product was taken out is
+    hidden, with the section's own empty line shown once none are left.
+    Attributes only, after the markup is in place, so nothing reflows.
+  */
+  const { ids: savedIds, ready: savedReady } = wishlist
+  useLayoutEffect(() => {
+    if (!scriptRoot) return
+    const saved = new Set(savedIds)
+    scriptRoot.querySelectorAll<HTMLElement>("[data-storelib-wishlist]").forEach((el) => {
+      const on = saved.has((el.getAttribute("data-storelib-wishlist") || "").toLowerCase())
+      if (el.getAttribute("aria-pressed") !== String(on)) el.setAttribute("aria-pressed", String(on))
+    })
+    if (!savedReady) return
+    const cards = scriptRoot.querySelectorAll<HTMLElement>("[data-storelib-wishlist-card]")
+    if (cards.length === 0) return
+    let shown = 0
+    cards.forEach((el) => {
+      const on = saved.has((el.getAttribute("data-storelib-wishlist-card") || "").toLowerCase())
+      el.hidden = !on
+      if (on) shown++
+    })
+    scriptRoot.querySelectorAll<HTMLElement>("[data-storelib-wishlist-empty]").forEach((el) => { el.hidden = shown > 0 })
+  }, [scriptRoot, html, savedIds, savedReady])
+
   const script = out.ok === true ? out.script ?? null : null
   useSectionScript(
     script
@@ -193,14 +227,27 @@ export function StorelibSection({
    * browser. The React renderers each wired this by hand; here it is one
    * capture-phase handler over the rendered markup.
    */
-  const intercept = onEditorNavigate
-    ? (e: MouseEvent<HTMLDivElement>) => {
-        const a = (e.target as HTMLElement).closest("a")
-        if (!a) return
-        e.preventDefault()
-        onEditorNavigate(a.getAttribute("href") ?? "#")
-      }
-    : undefined
+  const intercept = (e: MouseEvent<HTMLDivElement>) => {
+    /*
+      A HEART IS A BUTTON, NOT A LINK. It sits over the card's link, so the
+      click stops here and the card does not open: the product is saved, or
+      taken out, and the visitor stays where they are. In the canvas it
+      toggles in memory, so a creator can see both states.
+    */
+    const heart = (e.target as HTMLElement).closest<HTMLElement>("[data-storelib-wishlist]")
+    if (heart && e.currentTarget.contains(heart)) {
+      e.preventDefault()
+      e.stopPropagation()
+      const id = heart.getAttribute("data-storelib-wishlist") || ""
+      if (id) wishlist.toggle(id)
+      return
+    }
+    if (!onEditorNavigate) return
+    const a = (e.target as HTMLElement).closest("a")
+    if (!a) return
+    e.preventDefault()
+    onEditorNavigate(a.getAttribute("href") ?? "#")
+  }
 
   /**
    * ===========================================================================
@@ -225,11 +272,43 @@ export function StorelibSection({
     if (inCanvas) {
       e.preventDefault()
       if (intent === "subscribe") settle(form, "done", "Sign-ups go to Subscribers on your live site.")
+      if (intent === "contact") settle(form, "done", "Messages reach your email on your live site.")
       return
     }
     if (intent === "native") return
     e.preventDefault()
     if (intent === "inert") return
+
+    /*
+      A MESSAGE TO THE CREATOR. The fields are read by name: name, email,
+      subject, message, and the unticked consent box. `company` is a field no
+      person can see, so a value in it is a script. See
+      lib/website-builder/contact-client.ts and the route behind it.
+    */
+    if (intent === "contact") {
+      const field = (n: string) =>
+        (form.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${n}"]`)?.value ?? "").trim()
+      if (!creatorId) {
+        settle(form, "error", "Messages cannot be sent from this page.")
+        return
+      }
+      settle(form, "sending")
+      const result = await sendContactMessage({
+        creatorId,
+        name: field("name"),
+        email: field("email") || (form.querySelector<HTMLInputElement>('input[type="email"]')?.value ?? ""),
+        subject: field("subject"),
+        message: field("message"),
+        consent: form.querySelector<HTMLInputElement>('input[name="consent"]')?.checked === true,
+        company: field("company"),
+        elapsed: shownAt.current ? Date.now() - shownAt.current : 0,
+        page: pageKeyOfTemplate(pageTemplate),
+        sectionId: section.id,
+      })
+      if (result.ok === false) settle(form, "error", result.error)
+      else settle(form, "done", "Thanks. Your message has been sent.")
+      return
+    }
 
     const email = form.querySelector<HTMLInputElement>('input[type="email"]')?.value ?? ""
     const name =

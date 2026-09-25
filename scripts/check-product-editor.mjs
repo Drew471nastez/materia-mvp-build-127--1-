@@ -90,7 +90,12 @@ const useBar = (width) => {
   saveButton = `${BAR} [data-save-button]`
   leaveButton = `${BAR} [data-leave-button]`
 }
-const pressLeave = (p) => p.$eval(leaveButton, (b) => b.click())
+/* This harness never leaves the page, where a real press takes the editor away: each press starts from an editor shown again (pageshow), which is what lifts the lock the last one left. */
+const pressLeave = async (p) => {
+  await p.evaluate(() => window.dispatchEvent(new Event("pageshow")))
+  await new Promise((r) => setTimeout(r, 30))
+  return p.$eval(leaveButton, (b) => b.click())
+}
 const leaveMode = (p) => p.$eval(leaveButton, (b) => b.dataset.mode)
 const pressText = (p, scope, text) => p.evaluate((scope, text) => {
   const b = [...document.querySelectorAll(scope)].find((x) => x.textContent.trim() === text && x.getBoundingClientRect().width > 0)
@@ -110,7 +115,13 @@ async function leaving(p, label, vp, isPhone) {
   console.log(`  -- Cancel, and the question`)
   /* Opened directly (no list behind it in this harness), the way out puts the list in its place. */
   const pushes = () => p.evaluate(() => (window.__router || []).filter(([k, a]) => (k === "replace" && a === "/app/products") || k === "back" || k === "push").length)
-  const open = () => p.evaluate(() => !!document.querySelector("[data-confirm-sheet]") && (!document.querySelector("[data-app-sheet]") || document.querySelector("[data-app-sheet]").dataset.appSheet === "open"))
+  /* Open means seen: on a phone the sheet is built ahead and kept (BottomSheet keepMounted), so at rest it is in the page, invisible and unmarked. */
+  const open = () => p.evaluate(() => {
+    const s = document.querySelector("[data-confirm-sheet]")
+    if (!s || getComputedStyle(s).visibility === "hidden") return false
+    const layer = s.closest("[data-app-sheet]")
+    return !layer || layer.dataset.appSheet === "open"
+  })
 
   const p0 = await pushes()
   const restMode = await leaveMode(p)
@@ -118,6 +129,12 @@ async function leaving(p, label, vp, isPhone) {
   await pressLeave(p)
   await sleep(650)
   expect((await pushes()) === p0 + 1 && !(await open()), "and it goes straight back to Products", { pushes: (await pushes()) - p0 })
+  /* The press is answered at once: the button holds a spinner and takes no second press. */
+  const answered = await p.evaluate((sel) => !!document.querySelector(`${sel}[data-leaving] [role=status]`), leaveButton)
+  expect(answered, "the press is answered at once, with a spinner in the button", answered)
+  /* A real Back takes the editor away; this harness stays. Shown again (the back cache's pageshow), the editor comes back to life. */
+  await p.evaluate(() => window.dispatchEvent(new Event("pageshow")))
+  await sleep(50)
 
   /* The more menu names the state the bar used to. */
   await p.click(MORE)
@@ -180,7 +197,8 @@ async function leaving(p, label, vp, isPhone) {
     await sleep(700)
     const cdp = await p.createCDPSession()
     const grab = await p.evaluate(() => {
-      const h = document.querySelector("[data-sheet-handle]").getBoundingClientRect()
+      /* The open sheet's handle: the others are built ahead and kept, out of sight. */
+      const h = document.querySelector('[data-app-sheet="open"] [data-sheet-handle]').getBoundingClientRect()
       return { x: Math.round(h.left + h.width / 2), y: Math.round(h.top + 8) }
     })
     const t = (type, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x: grab.x, y, radiusX: 4, radiusY: 4, force: 1, id: 1 }] })

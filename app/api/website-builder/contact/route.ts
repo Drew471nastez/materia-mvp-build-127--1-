@@ -1,0 +1,86 @@
+/**
+ * ===========================================================================
+ *  A WEBSITE'S CONTACT FORM, SENT
+ * ===========================================================================
+ * Public by design: anybody on a creator's website can write to them. What
+ * happens to a message, and every check in front of it, is in
+ * lib/site-contact/contact.ts; the order they run in is
+ * lib/site-contact/handle.ts. This file hands them the real database,
+ * limiter, mailer and automations.
+ *
+ * Rate limited twice (lib/api/rate-limit): per visitor and per address, so
+ * one person cannot write a hundred times, and per creator, so a flood from
+ * many addresses stops at the creator's inbox rather than in it.
+ */
+import { NextRequest, NextResponse } from "next/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { rateLimit, addressSubject, emailSubject } from "@/lib/api/rate-limit"
+import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
+import { triggerEmailFlows } from "@/lib/email"
+import { buildMailgunFromHeader, sendMailgunEmail } from "@/lib/mailgun"
+import { getMainDomain } from "@/lib/url-helpers"
+import { siteBrandName } from "@/lib/site-accounts/brand"
+import { handleContact } from "@/lib/site-contact/handle"
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
+export async function POST(req: NextRequest) {
+  let raw: unknown
+  try {
+    raw = await req.json()
+  } catch {
+    return NextResponse.json({ error: "Bad request" }, { status: 400 })
+  }
+
+  const db = createAdminClient()
+  const sent = (raw && typeof raw === "object" ? (raw as Record<string, unknown>).origin : undefined)
+
+  const reply = await handleContact(raw, {
+    db,
+    platform: `https://${getMainDomain()}`,
+    limit: async (msg) => {
+      const visitor = await rateLimit({
+        bucket: "site-contact",
+        subjects: [addressSubject(req), emailSubject(msg.email)],
+        windows: [{ limit: 3, seconds: 600 }, { limit: 20, seconds: 86400 }],
+        message: "That is a lot of messages at once. Try again in a few minutes.",
+      })
+      if (visitor) return { status: visitor.status, error: "That is a lot of messages at once. Try again in a few minutes." }
+      const inbox = await rateLimit({
+        bucket: "site-contact-inbox",
+        subjects: [`creator:${msg.creatorId}`],
+        windows: [{ limit: 30, seconds: 3600 }, { limit: 200, seconds: 86400 }],
+        message: "This store is getting a lot of messages. Try again later.",
+      })
+      return inbox ? { status: inbox.status, error: "This store is getting a lot of messages. Try again later." } : null
+    },
+    send: (mail) =>
+      sendMailgunEmail({
+        to: mail.to,
+        replyTo: mail.replyTo,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+        from: buildMailgunFromHeader(mail.fromName),
+        tags: ["contact-form"],
+      }),
+    welcome: async (msg, source) => {
+      await triggerEmailFlows(db, {
+        triggerType: "new_subscriber",
+        creatorId: msg.creatorId,
+        recipientEmail: msg.email,
+        recipientName: msg.name || undefined,
+        source: source as never,
+      })
+    },
+    source: (msg) => {
+      const detail = contactSourceFrom({ request: req, surface: "website", form: "contact", sent, page: msg.page })
+      return { site: detail?.site ?? null, detail }
+    },
+    brand: (creatorId) => siteBrandName(db, creatorId),
+    recordSource: (creatorId, email, detail) => recordContactSource(db, creatorId, email, detail as never),
+  })
+
+  return NextResponse.json(reply.body, { status: reply.status, headers: { "Cache-Control": "no-store" } })
+}

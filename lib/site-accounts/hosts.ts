@@ -1,0 +1,218 @@
+/**
+ * ===========================================================================
+ *  WHICH HOSTS ARE A CREATOR'S OWN WEBSITE
+ * ===========================================================================
+ * Signing in to a creator's website sends the visitor to storelib.com and
+ * back. "Back" is an address the website puts in a link, which is the shape
+ * of every open redirect there has ever been: an address that is followed
+ * because it was given, with storelib.com's credibility behind the hop.
+ *
+ * So an address is followed, and a sign-in code is handed to it, only when
+ * its host is one of the hosts a creator's built website is actually served
+ * at:
+ *
+ *   <name>.storelib.com   a single label under the sites domain, not one of
+ *                         the platform's own names, that belongs to a
+ *                         creator (username, creator slug, or the website's
+ *                         own address), with a published website and no live
+ *                         AI-built site answering there instead;
+ *
+ *   a connected domain    one the creator connected for their website that
+ *                         Storelib has seen pointing at it (active, or
+ *                         active with its certificate on the way), at the
+ *                         host it is served at or its bare name.
+ *
+ * Anything else, including every storelib.com page, a *.vercel.app host,
+ * localhost and an address with a user name in it, is refused. The check is
+ * made from the database on the server that follows the address, never from
+ * anything the page claims about itself.
+ *
+ * The pure half is exported on its own so tests/site-accounts.test.ts can
+ * throw the odd shapes at it without a database.
+ */
+
+import { MCP_HOST_LABEL } from "@/lib/agent-access/mcp-host"
+import { isSitePath } from "./token"
+
+/** The platform's own names under storelib.com, which are never a website. */
+const PLATFORM_LABELS = new Set(["www", "app", "api", "admin", "dashboard", "localhost", MCP_HOST_LABEL])
+
+export type SiteHost =
+  | { kind: "subdomain"; host: string; name: string }
+  | { kind: "custom"; host: string; domain: string }
+
+export interface HostRules {
+  /** "storelib.com". */
+  mainDomain: string
+  /** Where websites are published, when not the main domain. */
+  sitesDomain?: string
+}
+
+function rules(): HostRules {
+  const mainDomain = (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com").toLowerCase()
+  return { mainDomain, sitesDomain: (process.env.NEXT_PUBLIC_SITES_HOST || mainDomain).toLowerCase() }
+}
+
+const LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
+
+/**
+ * What kind of website host this is, or null when it is not one. `host` is
+ * what the browser sent, port and all; the port is kept in `host` (the
+ * exact thing a code is bound to) and left out of everything else.
+ */
+export function classifySiteHost(rawHost: unknown, r: HostRules = rules()): SiteHost | null {
+  if (typeof rawHost !== "string") return null
+  const host = rawHost.trim().toLowerCase().replace(/\.$/, "")
+  if (!host || host.length > 260 || !/^[a-z0-9.-]+(:\d{1,5})?$/.test(host)) return null
+  const bare = host.split(":")[0]
+  const main = r.mainDomain.toLowerCase()
+  const sites = (r.sitesDomain || main).toLowerCase()
+  const labels = bare.split(".")
+  if (labels.some((l) => !LABEL.test(l))) return null
+  if (bare === main || bare === "localhost" || /^\d+\.\d+\.\d+\.\d+$/.test(bare)) return null
+  if (bare.endsWith(".vercel.app")) return null
+
+  if (bare.endsWith(`.${sites}`)) {
+    const name = bare.slice(0, -(sites.length + 1))
+    if (!name || name.includes(".") || PLATFORM_LABELS.has(name)) return null
+    return { kind: "subdomain", host, name }
+  }
+  /* Any other name under the platform's own domain is the platform's. */
+  if (bare.endsWith(`.${main}`)) return null
+  if (labels.length < 2) return null
+  return { kind: "custom", host, domain: bare.replace(/^www\./, "") }
+}
+
+/**
+ * An address to come back to, taken apart, when it is shaped like one of a
+ * website's pages: https (http only for localhost while developing), no user
+ * name or password, and a path that is a page rather than the API.
+ */
+export function parseReturnUrl(raw: unknown): { host: string; path: string; href: string } | null {
+  if (typeof raw !== "string") return null
+  const value = raw.trim()
+  if (!value || value.length > 2048) return null
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000- \u007f\\]/.test(value)) return null
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return null
+  }
+  const local = url.hostname === "localhost" || url.hostname === "127.0.0.1"
+  if (url.protocol !== "https:" && !(local && url.protocol === "http:")) return null
+  if (url.username || url.password) return null
+  const path = `${url.pathname}${url.search}`
+  if (!isSitePath(path) || url.pathname === "/api" || url.pathname.startsWith("/api/")) return null
+  return { host: url.host.toLowerCase(), path, href: `${url.protocol}//${url.host.toLowerCase()}${path}` }
+}
+
+/** A path on the website to return to after signing in, from a query value. `/account` when it is not one. */
+export function returnPathOf(raw: unknown, fallback = "/account"): string {
+  if (!isSitePath(raw)) return fallback
+  if (raw === "/api" || raw.startsWith("/api/") || raw.startsWith("/api?")) return fallback
+  return raw
+}
+
+/* ─── The database half ─────────────────────────────────────────────────── */
+
+type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+
+/** Every status in which Storelib has seen the domain pointing at it. */
+const VERIFIED = ["active", "ssl_provisioning"]
+
+export interface SiteOwner {
+  creatorId: string
+  host: string
+  kind: SiteHost["kind"]
+}
+
+async function one(query: PromiseLike<{ data: unknown; error: unknown }>): Promise<Record<string, unknown> | null> {
+  try {
+    const { data, error } = await query
+    if (error || !data) return null
+    return data as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+/** A name under the sites domain, to its creator: username, then creator slug, then the website's own address. */
+async function creatorOfName(db: Db, name: string): Promise<string | null> {
+  const profile = await one(db.from("profiles").select("id").eq("username", name).maybeSingle())
+  if (profile?.id) {
+    const creator = await one(db.from("creators").select("id").eq("user_id", profile.id).maybeSingle())
+    if (typeof creator?.id === "string") return creator.id
+  }
+  const bySlug = await one(db.from("creators").select("id").eq("slug", name).maybeSingle())
+  if (typeof bySlug?.id === "string") return bySlug.id
+  const now = await one(db.from("website_addresses").select("creator_id").eq("handle", name).maybeSingle())
+  if (typeof now?.creator_id === "string") return now.creator_id
+  const before = await one(db.from("website_address_history").select("creator_id").eq("handle", name).maybeSingle())
+  return typeof before?.creator_id === "string" ? before.creator_id : null
+}
+
+/** A connected domain, to its creator, when it is verified and is the website's. */
+async function creatorOfDomain(db: Db, domain: string): Promise<string | null> {
+  try {
+    let { data, error } = await db
+      .from("custom_domains")
+      .select("creator_id, status, purpose")
+      .eq("domain", domain)
+      .in("status", VERIFIED)
+      .limit(1)
+    /* A database from before domains had a purpose: every domain is the website's. */
+    if (error && /column|42703|PGRST204/i.test(`${error.code} ${error.message}`)) {
+      ;({ data, error } = await db.from("custom_domains").select("creator_id, status").eq("domain", domain).in("status", VERIFIED).limit(1))
+    }
+    if (error || !Array.isArray(data) || data.length === 0) return null
+    const row = data[0] as { creator_id?: string; purpose?: string | null }
+    if (row.purpose && row.purpose !== "website") return null
+    return typeof row.creator_id === "string" ? row.creator_id : null
+  } catch {
+    return null
+  }
+}
+
+async function hasPublishedWebsite(db: Db, creatorId: string): Promise<boolean> {
+  const install = await one(
+    db.from("store_theme_installs").select("id").eq("creator_id", creatorId).eq("status", "published").limit(1).maybeSingle(),
+  )
+  return !!install
+}
+
+/**
+ * A banned creator's website answers as no site (lib/seo/bans.ts), so nobody
+ * signs in to it either. Read whole: a database without the ban column has
+ * no bans, and a failed read is not taken as one.
+ */
+async function isBannedCreator(db: Db, creatorId: string): Promise<boolean> {
+  const row = await one(db.from("creators").select("*").eq("id", creatorId).maybeSingle())
+  return !!(row as { banned_at?: string | null } | null)?.banned_at
+}
+
+async function isLiveAiSite(db: Db, name: string): Promise<boolean> {
+  const deployment = await one(db.from("site_deployments").select("storage_prefix").eq("is_live", true).eq("slug", name).maybeSingle())
+  return !!deployment?.storage_prefix
+}
+
+/**
+ * The creator whose built website answers at this host, or null. Every
+ * lookup failing reads as null: a host we cannot place is not one we follow.
+ */
+export async function siteOwnerOfHost(db: Db, rawHost: unknown, r: HostRules = rules()): Promise<SiteOwner | null> {
+  const site = classifySiteHost(rawHost, r)
+  if (!site) return null
+  let creatorId: string | null = null
+  if (site.kind === "subdomain") {
+    if (await isLiveAiSite(db, site.name)) return null
+    creatorId = await creatorOfName(db, site.name)
+  } else {
+    creatorId = await creatorOfDomain(db, site.domain)
+  }
+  if (!creatorId) return null
+  if (!(await hasPublishedWebsite(db, creatorId))) return null
+  if (await isBannedCreator(db, creatorId)) return null
+  return { creatorId, host: site.host, kind: site.kind }
+}
