@@ -50,6 +50,7 @@ export const useSearchParams = () => new URLSearchParams()
 `)
 writeFileSync(join(stubs, "link.jsx"), `import React from "react"
 export default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }
+export const useLinkStatus = () => ({ pending: false })
 `)
 
 /**
@@ -62,8 +63,6 @@ export default function Link({ href, children, ...rest }) { return React.createE
  */
 const SAFE_AREA_SHIM = `
   html.capacitor::before { height: 44px; }
-
-export const useLinkStatus = () => ({ pending: false })
 `
 
 const PROBE = `<script>

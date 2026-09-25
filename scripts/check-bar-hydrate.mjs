@@ -35,6 +35,7 @@ export const useSearchParams = () => new URLSearchParams()
 `)
 writeFileSync(join(stubs, "link.jsx"), `import React from "react"
 export default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }
+export const useLinkStatus = () => ({ pending: false })
 `)
 
 const PROBE = `<script>
@@ -47,8 +48,6 @@ async function run() {
     /* Rendered something real, rather than having quietly rendered nothing. */
     rendered: app.querySelectorAll("input,button").length,
   }
-
-export const useLinkStatus = () => ({ pending: false })
   var pre = document.createElement("pre"); pre.id = "out"; pre.textContent = JSON.stringify(result); document.body.append(pre)
 }
 if (document.readyState === "complete") run(); else addEventListener("load", run)
