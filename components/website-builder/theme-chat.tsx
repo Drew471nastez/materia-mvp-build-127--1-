@@ -41,10 +41,19 @@
   is resized by its handle). Everything that talks to the server is shared
   and written once, below; only the layout differs.
 
-  The pill is frosted over the canvas, the blur confined to its own rounded
-  shape. Around it the page is lifted towards white by a soft glow that fades
-  to nothing: a shadow, not a filter, so it has no edge in any browser and
-  costs nothing to scroll under.
+  GLASS, AND NO GLOW. The pill and the open conversation are frosted glass:
+  the canvas behind them blurred and saturated, a translucent white over it,
+  a hairline edge, and shadows of the page's own ink for depth. Around the
+  folded pill the canvas is blurred a little more, fading to nothing in a
+  pill shaped band (a masked backdrop blur, `data-ask-fade`): the page is
+  softened, never lightened. Nothing around either paints white.
+
+  THE BLUR STAYS ON WHILE THEY FADE. A backdrop filter stops at an ancestor
+  whose opacity is below 1 (the Backdrop Root), so an element that fades an
+  ancestor loses its blur for the length of the fade and gets it back with a
+  jump at the end. So every glass layer carries its own opacity, and what
+  moves the pill and the conversation in and out is a transform on the
+  element around them, which does not stop a backdrop filter.
 */
 
 import * as React from "react"
@@ -54,6 +63,7 @@ import {
   ChevronDown,
   ChevronLeft,
   History,
+  ImageOff,
   ImagePlus,
   Loader2,
   Maximize2,
@@ -94,12 +104,10 @@ import {
 } from "@/lib/sites/agent/attachments"
 import {
   EMPTY_ACTIVITY,
-  activityFromOps,
   activityLine,
   changeSummary,
   detailToShow,
   finishedSteps,
-  questionFromReply,
   READING_MS,
   reduceActivity,
   settleActivity,
@@ -107,10 +115,12 @@ import {
 } from "@/lib/website-builder/ask-activity"
 import { attachProblem, kindOf, stillsRoom } from "@/lib/website-builder/ask-attach"
 import { reportAnswer, streamPost } from "@/lib/website-builder/ask-client"
+import { promptForPictures, restoreExchanges, type StoredMessage } from "@/lib/website-builder/ask-restore"
+import { armAskSounds, playAskSound, setSoundsOn, soundsOn } from "@/lib/website-builder/ask-sounds"
 import { suggestionsFor } from "@/lib/website-builder/ask-suggestions"
 import { typeToward, withSpoken } from "@/lib/website-builder/ask-typing"
 import type { ThemeOp } from "@/lib/website-builder/agent/operations"
-import { CLOSE_MS, DOCK_PAD, EASE, OPEN_MS, SLIDE_MS, dockGeometry } from "@/lib/website-builder/ask-dock"
+import { CLOSE_MS, DOCK_PAD, EASE, FADE_BLUR, FADE_MASK, FADE_REACH, OPEN_MS, SLIDE_MS, dockGeometry } from "@/lib/website-builder/ask-dock"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
 /** A picture in the thread: the composer's, once sent, or a stored one read back. */
@@ -139,6 +149,18 @@ interface Exchange {
    * again after a reload.
    */
   images?: Attachment[]
+  /**
+   * Pictures this question was sent with that did not come back when it was
+   * read again: past their thirty days, or never kept. Each is drawn as a
+   * "Picture no longer available" tile where the picture was.
+   */
+  missingImages?: number
+  /**
+   * This question, or its pictures, could not be kept for a reason other
+   * than the database update not being run (that one is said once, above
+   * the thread): said under it, so a reload does not surprise anybody.
+   */
+  notKept?: "chat" | "pictures"
   /**
    * The request, pictures and all, has reached the server. Until then the
    * thumbnails say they are being sent, with a ring for how much of it has.
@@ -380,27 +402,58 @@ const ExchangeItem = React.memo(function ExchangeItem({
   const sending = exchange.running && !exchange.sent
   const hasWork = !!activity.plan || finished.length > 0 || activity.code.length > 0
 
+  /*
+    THE PICTURES, AS PICTURES. The ones in hand are thumbnails that open in
+    the viewer: the bytes themselves while the chat is open, a signed URL
+    once it is read back. One whose URL does not load (its thirty days ran
+    out between the read and the look) and one the transcript mentions but
+    did not return are the same tile: "Picture no longer available", where
+    the picture was, never the note the transcript keeps for them.
+  */
+  const [broken, setBroken] = React.useState<string[]>([])
+  const pictures = (exchange.images ?? []).filter((image) => image.url && !broken.includes(image.id))
+  const gone = (exchange.missingImages ?? 0) + (exchange.images?.length ?? 0) - pictures.length
+
   return (
     <li data-ask-exchange={exchange.running ? "running" : exchange.error ? "failed" : "done"} className="space-y-2.5">
-      {exchange.images && exchange.images.length > 0 && (
-        <div className="flex flex-wrap justify-end gap-1.5">
-          {exchange.images.map((image, index) => (
+      {(pictures.length > 0 || gone > 0) && (
+        <div data-ask-sent-images="" className="flex flex-wrap justify-end gap-1.5">
+          {pictures.map((image, index) => (
             <button
               key={image.id}
               type="button"
               data-ask-sent-image=""
-              onClick={() => onView(exchange.images ?? [], index)}
+              onClick={() => onView(pictures, index)}
               aria-label={`Open ${image.name}`}
-              className="relative block overflow-hidden rounded-xl border border-[#e5e7eb] transition-opacity hover:opacity-90"
+              className="relative block overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f1f2f4] transition-opacity hover:opacity-90"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element -- bytes this thread already holds. */}
-              <img src={image.url} alt={image.name} loading="lazy" decoding="async" className="h-16 w-16 object-cover" />
+              {/* eslint-disable-next-line @next/next/no-img-element -- bytes this thread already holds, or a signed URL made for this read. */}
+              <img
+                src={image.url}
+                alt={image.name}
+                loading="lazy"
+                decoding="async"
+                onError={() => setBroken((was) => (was.includes(image.id) ? was : [...was, image.id]))}
+                className="h-16 w-16 object-cover"
+              />
               {exchange.running && !exchange.sent && (
                 <span data-ask-sending="" className="absolute inset-0 flex items-center justify-center bg-white/60">
                   <ProgressRing fraction={exchange.upload ?? null} />
                 </span>
               )}
             </button>
+          ))}
+          {Array.from({ length: Math.max(0, gone) }, (_, index) => (
+            <span
+              key={`gone-${index}`}
+              data-ask-missing-image=""
+              role="img"
+              aria-label="Picture no longer available"
+              className="flex h-16 w-[104px] flex-col items-center justify-center gap-1 rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] px-2 text-center"
+            >
+              <ImageOff aria-hidden className="h-3.5 w-3.5 text-[#6b7280]/70" strokeWidth={1.8} />
+              <span className="text-[11px] leading-[1.25] text-[#6b7280]">Picture no longer available</span>
+            </span>
           ))}
         </div>
       )}
@@ -412,6 +465,13 @@ const ExchangeItem = React.memo(function ExchangeItem({
           {exchange.prompt}
         </p>
       </div>
+      {exchange.notKept && (
+        <p data-ask-not-kept={exchange.notKept} className="text-right text-[11.5px] leading-snug text-[#6b7280]">
+          {exchange.notKept === "chat"
+            ? "This message could not be saved, so it will not be here after a reload."
+            : "These pictures could not be kept, so they will not show after a reload."}
+        </p>
+      )}
 
       {exchange.running && (
         <div className="min-w-0">
@@ -613,7 +673,19 @@ function ThemeChatPanel({
    */
   const [seenRun, setSeenRun] = React.useState<string | null>(null)
   const [loadingHistory, setLoadingHistory] = React.useState(true)
+  /**
+   * `not_set_up` is a database with the chat table but not the
+   * conversations part: every message is kept, as one chat. A database
+   * without even the chat table is `keeping.chat` below.
+   */
   const [historyError, setHistoryError] = React.useState<null | "not_set_up" | "read_failed">(null)
+  /**
+   * WHAT THIS DATABASE CAN KEEP. False before the update that creates the
+   * table (chat: run-now part 24; pictures: part 33). Said once, plainly,
+   * above the thread, instead of letting a reload show an empty history or
+   * a note where a picture was.
+   */
+  const [keeping, setKeeping] = React.useState<{ chat: boolean; pictures: boolean }>({ chat: true, pictures: true })
   const [draft, setDraft] = React.useState("")
   const dock = variant === "dock"
   const phone = !dock
@@ -720,6 +792,25 @@ function ThemeChatPanel({
     } catch {
       /* per-browser convenience only */
     }
+  }, [])
+
+  /**
+   * SOUNDS: a tick as the microphone opens and closes, a whoosh as a message
+   * goes, a chime when the answer is in (lib/website-builder/ask-sounds.ts).
+   * On unless this browser turned them off, from the menu under the model
+   * button. Arming only listens for the first press on the page, where the
+   * audio may be woken; nothing plays until something is sent or recorded.
+   */
+  const [sounds, setSounds] = React.useState(true)
+  React.useEffect(() => {
+    setSounds(soundsOn())
+    armAskSounds()
+  }, [])
+  const chooseSounds = React.useCallback((on: boolean) => {
+    setSounds(on)
+    setSoundsOn(on)
+    /* Turned on: one chime, so the choice is heard. */
+    if (on) playAskSound("done")
   }, [])
   const abortRef = React.useRef<AbortController | null>(null)
   /** The conversation's own scroller, and the only thing a new message scrolls. */
@@ -860,11 +951,14 @@ function ThemeChatPanel({
           /**
            * A FAILED READ IS NOT AN EMPTY CONVERSATION. Showing a blank panel
            * would let somebody believe their history was gone when it is
-           * sitting in the table.
+           * sitting in the table. And a database without the chat table at
+           * all keeps nothing, which is said as that: not "could not load",
+           * and not "kept as one chat", which would not be true.
            */
           const body = (await response.json().catch(() => ({}))) as { reason?: string }
           if (!cancelled) {
-            setHistoryError(body.reason === "not_set_up" ? "not_set_up" : "read_failed")
+            if (body.reason === "not_set_up") setKeeping((was) => ({ ...was, chat: false }))
+            else setHistoryError("read_failed")
           }
           return
         }
@@ -872,69 +966,41 @@ function ThemeChatPanel({
           conversation?: { id: string; title: string } | null
           earlier?: boolean
           history?: string
-          messages: Array<{
-            id: string
-            role: string
-            content: string
-            ops: unknown[]
-            error: string | null
-            images?: { id: string; name: string; url: string }[]
-          }>
+          pictures?: string
+          messages: StoredMessage[]
         }
         if (cancelledNow()) return
 
-        const restored: Exchange[] = []
-        for (const message of body.messages) {
-          if (message.role === "user") {
-            restored.push({
-              id: message.id,
-              messageId: message.id,
-              /**
-               * The note the route wrote is for the day the pictures have
-               * expired and the words are all there is. While the picture is
-               * still there, "[an image attached]" underneath it is a caption
-               * nobody needs.
-               */
-              prompt: message.images?.length
-                ? message.content.replace(/\n*\[(?:an image|\d+ images) attached\]\s*$/, "").trim() ||
-                  (message.images.length === 1 ? "Build this." : "Build these.")
-                : message.content,
-              running: false,
-              activity: EMPTY_ACTIVITY,
-              /**
-               * The pictures come back too, as signed URLs the server minted
-               * for this read. After thirty days there are none and the words
-               * are what is left.
-               */
-              images: message.images?.length
-                ? message.images.map((image) => ({
-                    id: image.id,
-                    name: image.name,
-                    state: "ready" as const,
-                    progress: 1,
-                    /* Kept only to satisfy the shape; a restored picture is never sent again. */
-                    mediaType: "image/png" as AllowedImageType,
-                    data: "",
-                    url: image.url,
-                  }))
-                : undefined,
-            })
-            continue
-          }
-          const open = restored[restored.length - 1]
-          if (!open) continue
-          open.reply = message.content || undefined
-          open.error = message.error ?? undefined
-          /**
-           * The operations are counted rather than replayed. Replaying them
-           * would apply the same edits a second time to a page that already
-           * has them: the transcript is a record, not a script.
-           */
-          const counted = activityFromOps(Array.isArray(message.ops) ? message.ops : [])
-          /* A run that stopped to ask kept its question as text: it is a question again, answered by the message after it. */
-          const question = questionFromReply(open.reply, message.id)
-          open.activity = question ? { ...counted, question } : counted
-        }
+        /**
+         * Paired and read back the way they were sent: the words without
+         * the note the transcript keeps for pictures, the pictures that came
+         * back as signed URLs, and a count of the ones that did not, drawn
+         * as "no longer available". The operations are counted, never
+         * replayed. See lib/website-builder/ask-restore.ts.
+         */
+        const restored: Exchange[] = restoreExchanges(body.messages).map((r) => ({
+          id: r.id,
+          messageId: r.messageId,
+          prompt: r.prompt,
+          reply: r.reply,
+          error: r.error,
+          running: false,
+          activity: r.activity,
+          images: r.images.length
+            ? r.images.map((image) => ({
+                id: image.id,
+                name: image.name,
+                state: "ready" as const,
+                progress: 1,
+                /* Kept only to satisfy the shape; a restored picture is never sent again. */
+                mediaType: "image/png" as AllowedImageType,
+                data: "",
+                url: image.url,
+              }))
+            : undefined,
+          missingImages: r.missingImages || undefined,
+        }))
+        setKeeping({ chat: true, pictures: body.pictures !== "not_set_up" })
         /* A different conversation lands at its end without a glide, as a restore does. */
         seenExchanges.current = 0
         /* What was already there has been seen: the folded pill only speaks for a run that ends while it is folded. */
@@ -1152,7 +1218,7 @@ function ThemeChatPanel({
    * started typing since.
    */
   const send = React.useCallback(
-    async (text: string, images: Attachment[] = []) => {
+    async (text: string, images: Attachment[] = [], quiet = false) => {
       const prompt = text.trim()
       /**
        * A picture on its own is a whole request. "Even if it says nothing and
@@ -1163,6 +1229,8 @@ function ThemeChatPanel({
       const id = crypto.randomUUID()
       const runId = crypto.randomUUID()
       const startedOn = live.current.page
+      /* The whoosh as it goes; a queued message already had its own when it was queued. */
+      if (!quiet) playAskSound("sent")
       setBusy(true)
       /* A history read still in flight would land on top of this message: it is dropped. */
       if (loadingHistory) {
@@ -1174,7 +1242,7 @@ function ThemeChatPanel({
         ...previous,
         {
           id,
-          prompt: prompt || (images.length === 1 ? "Build this." : "Build these."),
+          prompt: prompt || promptForPictures(images.length),
           running: true,
           images,
           activity: EMPTY_ACTIVITY,
@@ -1189,6 +1257,8 @@ function ThemeChatPanel({
       /** One snapshot, before anything moves, so Undo takes back the whole run. */
       let snapshotTaken = false
       let uploadStep = -1
+      /** The run has said its last word: the chime has played, or an error made it unnecessary. */
+      let finished = false
 
       /**
        * THE RUN BELONGS TO THE PAGE IT STARTED ON.
@@ -1246,6 +1316,17 @@ function ThemeChatPanel({
                 if (messageId) patch((e) => ({ ...e, messageId }))
                 return
               }
+              /*
+                IT COULD NOT BE KEPT, said as it happens. Before the database
+                update, once above the thread for the whole chat; for any
+                other reason, under this message.
+              */
+              if (type === "unsaved") {
+                const what = event.what === "pictures" ? "pictures" : "chat"
+                if (event.reason === "not_set_up") setKeeping((was) => ({ ...was, [what]: false }))
+                else patch((e) => ({ ...e, notKept: what }))
+                return
+              }
 
               /**
                * Checked per line rather than once: the page can change at any
@@ -1284,14 +1365,21 @@ function ThemeChatPanel({
                   const next = reduceActivity(e.activity, event)
                   return next.question ? { ...e, running: false, activity: next } : e
                 })
+                /* Its turn is over: the chime, as for an answer. */
+                if (!finished) playAskSound("done")
+                finished = true
                 return
               } else if (type === "message") {
                 const reply = typeof event.text === "string" ? event.text : ""
                 patch((e) => ({ ...e, reply, running: false, activity: settleActivity(e.activity) }))
+                /* The answer is in. Once per run: a question's closing message is not a second one. */
+                if (!finished) playAskSound("done")
+                finished = true
                 return
               } else if (type === "error") {
                 const message = typeof event.message === "string" ? event.message : "The edit failed."
                 patch((e) => ({ ...e, running: false, error: message, activity: settleActivity(e.activity, true) }))
+                finished = true
                 return
               }
               /*
@@ -1343,7 +1431,8 @@ function ThemeChatPanel({
     if (busy || !queued) return
     const next = queued
     setQueued(null)
-    void send(next)
+    /* Quiet: it had its whoosh when it was queued. */
+    void send(next, [], true)
   }, [busy, queued, send])
 
   /**
@@ -1355,13 +1444,17 @@ function ThemeChatPanel({
   const writeOne = React.useCallback(
     async (prompt: string, images: Attachment[] = []) => {
       lastWrite.current = { prompt, images }
+      playAskSound("sent")
       setWriting(true)
       setWriteStage("starting")
       setWriteError(null)
       setWriteReply(null)
       setWritten(null)
-      setAttached([])
-      setAttachError(null)
+      /* The box's pictures went with this request; a suggestion tapped with pictures waiting leaves them there. */
+      if (images.length) {
+        setAttached([])
+        setAttachError(null)
+      }
       onWriteStart?.(prompt)
       /* The section arrives on the canvas: the dock gets out of its way while it does. */
       if (dock) setExpanded(false)
@@ -1422,6 +1515,8 @@ function ThemeChatPanel({
         if (!kept) onWriteFailed?.(reason, answered)
         /* Nothing on the canvas to look at: the reason, or the answer, is read here. */
         if (!kept && dock) setExpanded(true)
+        /* The section is written, or it answered: the chime. A failure has its sentence instead. */
+        if (kept || answered) playAskSound("done")
         setWriting(false)
         setWriteStage(null)
       }
@@ -1449,6 +1544,7 @@ function ThemeChatPanel({
       if (busy) {
         /* The words wait for the run in the way; the pictures stay in the box, to go with the next message. */
         setQueued(prompt)
+        playAskSound("sent")
         return
       }
       setAttached([])
@@ -1467,6 +1563,7 @@ function ThemeChatPanel({
     (text: string) => {
       if (busy) {
         setQueued(text)
+        playAskSound("sent")
         return
       }
       void send(text)
@@ -1557,6 +1654,18 @@ function ThemeChatPanel({
   const listening = voice.state === "listening"
   const voiceRef = React.useRef(voice)
   voiceRef.current = voice
+  /*
+    A TICK AS THE MICROPHONE OPENS, AND ONE AS IT CLOSES. On the state the
+    recorder is actually in, not on the press: a microphone that was refused
+    never opened, and makes no sound saying it did.
+  */
+  const heardState = React.useRef(voice.state)
+  React.useEffect(() => {
+    const was = heardState.current
+    heardState.current = voice.state
+    if (voice.state === "listening" && was !== "listening") playAskSound("record-start")
+    else if (was === "listening" && voice.state !== "listening") playAskSound("record-stop")
+  }, [voice.state])
   /*
     The recording is over. Words heard live are already in the box, so what
     is left of them lands whole. A recording turned into text by the server
@@ -1897,19 +2006,27 @@ function ThemeChatPanel({
     void voice.start()
   }, [draft, voice, dock, openDock])
 
+  /*
+    A SUGGESTION IS SENT, not copied into the box to be sent again. It is a
+    whole request already ("Show my 3 newest products"), so a tap asks for
+    it, in the mode the box is in, the same as an answer tapped under a
+    question: whatever is typed in the box, and any pictures there, stay.
+  */
   const pickSuggestion = React.useCallback(
     (text: string) => {
-      setDraft(text)
       if (dock) openDock()
-      requestAnimationFrame(() => {
-        const field = fieldRef.current
-        if (!field) return
-        field.focus({ preventScroll: true })
-        field.setSelectionRange(text.length, text.length)
-        resize()
-      })
+      if (mode === "code") {
+        if (!writing) void writeOne(text)
+        return
+      }
+      if (busy) {
+        setQueued(text)
+        playAskSound("sent")
+        return
+      }
+      void send(text)
     },
-    [dock, openDock, resize],
+    [dock, openDock, mode, writing, writeOne, busy, send],
   )
 
   viewingRef.current = !!viewing
@@ -1991,6 +2108,33 @@ function ThemeChatPanel({
     transform,
     opacity,
     transition: reducedMotion ? "none" : `transform ${SLIDE_MS}ms ${EASE}, opacity ${SLIDE_MS}ms ${EASE}`,
+  })
+
+  /* ── Where the dock is, read once for the pill's faces and the layout below ── */
+  const g = dock && box ? dockGeometry(box.w, box.h, maximized, box.vh) : null
+  const showPill = dock && !hidden && !suspended && g !== null
+  const cardOpen = expanded && showPill
+  const pillAway = !showPill || (yielding && !cardOpen)
+  /*
+    IN AND OUT, IN TWO PARTS. `lift` moves a layer on transform, and hides it
+    once it is away so nothing in it can be reached; `appear` fades a layer on
+    its own opacity. Kept apart because a glass layer has to carry its own
+    opacity: fading an element around it would switch its blur off for the
+    length of the fade (the Backdrop Root), and on at the end with a jump.
+  */
+  const lift = (shown: boolean, away: string, openMs = OPEN_MS, closeMs = CLOSE_MS): React.CSSProperties => ({
+    transform: shown ? "none" : away,
+    visibility: shown ? "visible" : "hidden",
+    pointerEvents: shown ? "auto" : "none",
+    transition: reducedMotion
+      ? "none"
+      : shown
+        ? `transform ${openMs}ms ${EASE}, visibility 0s`
+        : `transform ${closeMs}ms ${EASE}, visibility 0s linear ${closeMs}ms`,
+  })
+  const appear = (shown: boolean, openMs = OPEN_MS, closeMs = CLOSE_MS): React.CSSProperties => ({
+    opacity: shown ? 1 : 0,
+    transition: reducedMotion ? "none" : shown ? `opacity ${Math.round(openMs * 0.66)}ms ease-out` : `opacity ${closeMs - 40}ms ease-in`,
   })
 
   const header = (
@@ -2102,9 +2246,23 @@ function ThemeChatPanel({
         className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-3 [overflow-wrap:anywhere] [touch-action:pan-y]"
       >
         <div className={cn("flex min-h-full min-w-0 flex-col", dock && maximized && "mx-auto max-w-[720px]")}>
-          {historyError === "not_set_up" && (
+          {/*
+            WHAT THIS DATABASE CANNOT KEEP YET, said once, above the thread.
+            Before the update nothing is lost quietly: the creator knows a
+            reload will not bring this chat, or its pictures, back.
+          */}
+          {!keeping.chat ? (
+            <p data-ask-not-set-up="chat" className="mb-3 text-[12.5px] leading-snug text-[#6b7280]">
+              Chats are not saved yet. They are kept once the database update is run.
+            </p>
+          ) : historyError === "not_set_up" ? (
             <p data-ask-not-set-up="" className="mb-3 text-[12.5px] leading-snug text-[#6b7280]">
               History turns on once the database update is run. Until then your messages here are kept as one chat.
+            </p>
+          ) : null}
+          {keeping.chat && !keeping.pictures && (
+            <p data-ask-not-set-up="pictures" className="mb-3 text-[12.5px] leading-snug text-[#6b7280]">
+              Pictures show here until you leave. They are kept once the database update is run.
             </p>
           )}
           {loadingHistory ? (
@@ -2299,7 +2457,16 @@ function ThemeChatPanel({
   const modelSlot = (
     <div ref={engineRef} className="relative shrink-0">
       <div className={cn(listening && "invisible")}>
-        <ModelPicker engines={ENGINES} value={engine} onChange={chooseEngine} open={engineOpen} onOpenChange={setEngineOpen} phone={phone} />
+        <ModelPicker
+          engines={ENGINES}
+          value={engine}
+          onChange={chooseEngine}
+          open={engineOpen}
+          onOpenChange={setEngineOpen}
+          phone={phone}
+          sounds={sounds}
+          onSoundsChange={chooseSounds}
+        />
       </div>
       {listening && (
         <span
@@ -2510,22 +2677,29 @@ function ThemeChatPanel({
     >
       {dock && (
         <>
-          {/* The pill's two faces: frosted over the canvas, plain white as the conversation's input row. */}
+          {/*
+            The pill's two faces: frosted glass over the canvas, plain white
+            as the conversation's input row. The glass is the canvas behind
+            it blurred 24px and saturated, under 64% white; a white rim
+            inside and a hairline of ink outside for its edge; and three
+            shadows of the page's own ink (close, middle, far) for depth.
+            Nothing outside it is lighter than the page: no glow.
+          */}
           <span
             aria-hidden
             data-ask-glass=""
-            className="pointer-events-none absolute inset-0 rounded-[inherit] border border-white/70 bg-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_12px_32px_-12px_rgba(15,23,42,0.28),0_2px_8px_rgba(15,23,42,0.06)] ring-1 ring-black/[0.05] backdrop-blur-xl backdrop-saturate-150"
-            style={{ opacity: expanded ? 0 : 1, transition: reducedMotion ? "none" : "opacity 200ms ease-out" }}
+            className="pointer-events-none absolute inset-0 rounded-[inherit] border border-white/55 bg-white/[0.64] shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-8px_rgba(15,23,42,0.16),0_22px_44px_-20px_rgba(15,23,42,0.24)] backdrop-blur-xl backdrop-saturate-[1.8]"
+            style={appear(!expanded && !pillAway, 280, 200)}
           />
           <span
             aria-hidden
             data-ask-solid=""
             className="pointer-events-none absolute inset-0 rounded-[inherit] border border-[#e5e7eb] bg-white shadow-[0_8px_24px_-12px_rgba(15,23,42,0.16)]"
-            style={{ opacity: expanded ? 1 : 0, transition: reducedMotion ? "none" : "opacity 200ms ease-out" }}
+            style={appear(expanded && !pillAway, 280, 200)}
           />
         </>
       )}
-      <div className="relative min-w-0">
+      <div className="relative min-w-0" style={dock ? appear(!pillAway, 280, 200) : undefined}>
         {thumbnails}
         {attachProblemLine}
         {fileInput}
@@ -2640,22 +2814,9 @@ function ThemeChatPanel({
     )
   }
 
-  /* ── The dock ───────────────────────────────────────────────────────── */
-  const g = box ? dockGeometry(box.w, box.h, maximized, box.vh) : null
-  const showPill = !hidden && !suspended && g !== null
-  const cardOpen = expanded && showPill
-  const pillAway = !showPill || (yielding && !cardOpen)
-  const fade = (shown: boolean, away: string, openMs = OPEN_MS, closeMs = CLOSE_MS): React.CSSProperties => ({
-    transform: shown ? "none" : away,
-    opacity: shown ? 1 : 0,
-    visibility: shown ? "visible" : "hidden",
-    pointerEvents: shown ? "auto" : "none",
-    transition: reducedMotion
-      ? "none"
-      : shown
-        ? `transform ${openMs}ms ${EASE}, opacity ${Math.round(openMs * 0.66)}ms ease-out, visibility 0s`
-        : `transform ${closeMs}ms ${EASE}, opacity ${closeMs - 40}ms ease-in, visibility 0s linear ${closeMs}ms`,
-  })
+  /* ── The dock ─────────────────────────────────────────────────────────
+     Its geometry (g, showPill, cardOpen, pillAway) and the two halves of
+     its motion (lift, appear) are read above, with the pill's faces. */
 
   return (
     <div
@@ -2679,25 +2840,33 @@ function ThemeChatPanel({
       {g && box && (
         <>
           {/*
-            THE GLOW. The canvas just around the pill is lifted towards white
-            and fades out to nothing: a soft shadow of the page's own grey,
-            the pill's shape, so it has no edge anywhere and no filter to
-            repaint as the page scrolls under it. It was a blurred band with
-            a mask, and where the mask was not honoured (Safari, or a clip
-            around the canvas) it was a hard rectangle.
+            THE FADE AROUND THE PILL IS A BLUR, NEVER A GLOW. The canvas in a
+            band FADE_REACH wide around the folded pill is blurred a little
+            (FADE_BLUR), most at the pill's edge and not at all at the band's
+            outer edge: a mask of two ramps, across and down, multiplied, so
+            the band is pill shaped with no line anywhere. It softens the
+            page and never lightens it: no fill, no white, nothing but the
+            page's own pixels. The element is itself pill shaped, so an
+            engine that dropped the mask would still draw a rounded soft
+            edge, not the rectangle a band once was. Its own opacity, not an
+            ancestor's, so the blur stays on while it fades.
           */}
           <div
             aria-hidden
-            data-ask-halo=""
+            data-ask-fade=""
             className="pointer-events-none absolute rounded-full"
             style={{
-              left: (box.w - g.pillW) / 2,
-              width: g.pillW,
-              bottom: g.pillBottom,
-              height: pillHeight,
-              boxShadow: "0 6px 44px 14px rgba(248, 249, 250, 0.5)",
-              opacity: showPill && !cardOpen && !pillAway ? 1 : 0,
-              transition: reducedMotion ? "none" : "opacity 240ms ease-out",
+              left: (box.w - g.pillW) / 2 - FADE_REACH,
+              width: g.pillW + FADE_REACH * 2,
+              bottom: g.pillBottom - FADE_REACH,
+              height: pillHeight + FADE_REACH * 2,
+              backdropFilter: `blur(${FADE_BLUR}px)`,
+              WebkitBackdropFilter: `blur(${FADE_BLUR}px)`,
+              maskImage: FADE_MASK,
+              WebkitMaskImage: FADE_MASK,
+              maskComposite: "intersect",
+              WebkitMaskComposite: "source-in",
+              ...appear(showPill && !cardOpen && !pillAway, 280, 200),
             }}
           />
 
@@ -2714,19 +2883,23 @@ function ThemeChatPanel({
               width: g.cardW,
               height: g.cardH,
               transformOrigin: "50% 100%",
-              ...fade(cardOpen, "translateY(18px) scale(0.965)"),
+              ...lift(cardOpen, "translateY(18px) scale(0.965)"),
             }}
           >
             {/*
-              SOLID, NOT FROSTED. At 97% white over a wide blur the canvas's
-              colours still showed through as smudges behind the words, and
-              a backdrop filter this size repainted on every scroll of the
-              page under it. The frosted glass is the folded pill's alone.
+              FROSTED, AND READABLE. The same glass as the pill, denser and
+              calmer: the canvas blurred 24px and saturated less (1.5, the
+              pill's is 1.8) under 90% white, so a photo behind it is a faint
+              wash of its colour and never a shape behind the words, with the
+              pill's rim, hairline and three shadows. The surface fades on its
+              own opacity (appear) while the element around it moves (lift),
+              so the blur is on for the whole of the open and the close.
             */}
             <div
               ref={surfaceRef}
               data-ask-surface=""
-              className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-[#e5e7eb]/80 bg-white shadow-[0_32px_80px_-28px_rgba(15,23,42,0.38),0_10px_28px_-14px_rgba(15,23,42,0.18)] ring-1 ring-black/[0.04]"
+              className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/60 bg-white/[0.9] shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_0_0_1px_rgba(15,23,42,0.06),0_2px_6px_rgba(15,23,42,0.05),0_12px_28px_-10px_rgba(15,23,42,0.16),0_32px_72px_-24px_rgba(15,23,42,0.3)] backdrop-blur-xl backdrop-saturate-[1.5]"
+              style={appear(cardOpen)}
             >
               {dropTarget}
               <div ref={contentRef} className="flex min-h-0 flex-1 flex-col">
@@ -2749,7 +2922,8 @@ function ThemeChatPanel({
             className="absolute"
             style={{ left: (box.w - g.pillW) / 2, bottom: g.pillBottom, width: g.pillW }}
           >
-            <div data-ask-pill-state={pillAway ? "away" : "shown"} style={fade(!pillAway, "translateY(14px) scale(0.98)", 280, 200)}>
+            {/* Moved on transform only: the glass inside fades itself (see the pill's faces). */}
+            <div data-ask-pill-state={pillAway ? "away" : "shown"} style={lift(!pillAway, "translateY(14px) scale(0.98)", 280, 200)}>
               <div ref={pillFlipRef}>
                 <div
                   ref={pillRef}

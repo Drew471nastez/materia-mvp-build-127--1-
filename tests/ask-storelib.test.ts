@@ -87,30 +87,49 @@ section("The computer's pill")
       !/onClose=\{\(\) => setAiOpen\(false\)\}/.test(editor),
   )
   /*
-    "The blur around the Ask Storelib AI thing is really weird, because it's
-    a straight line cut, a container rectangle." The halo was a blurred band
-    that relied on a mask to fade, and where the mask was not honoured it
-    was a hard rectangle. Now the frosted blur is the pill's own, inside its
-    rounded shape, and the glow round it is a shadow: nothing to drop, so no
-    edge anywhere (scripts/check-ask-dock.mjs measures its opacity pixel by
-    pixel). The open conversation is solid, with no backdrop filter to
-    repaint on every scroll of the canvas under it.
+    "Around the pill-shaped Ask Storelib bar, make sure it is blur glass: a
+    smooth, clean fade around it, not a white fade." "It has a white, faded,
+    light glow around it, which is bad." The halo (a light shadow the pill's
+    shape, rgba(248, 249, 250, 0.5)) is gone. The pill and the open
+    conversation are frosted glass: a 24px blur of the canvas, saturated,
+    under translucent white, a hairline edge, and shadows of the page's own
+    ink. Around the folded pill the canvas is blurred a little more in a
+    pill shaped band that fades by a mask: the page is softened, never
+    lightened. scripts/check-ask-ai.mjs measures that no pixel around the
+    pill is lighter than the page under it.
   */
   check(
-    "the pill is frosted inside its own shape, and the glow round it is a shadow: no backdrop filter and no mask to drop",
-    /data-ask-glass=""[\s\S]{0,120}className="[^"]*bg-white\/70[^"]*backdrop-blur-xl backdrop-saturate-150/.test(chat) &&
-      /data-ask-halo=""[\s\S]{0,500}boxShadow: "0 6px 44px 14px rgba\(248, 249, 250, 0\.5\)"/.test(chat) &&
-      !/backdropFilter:/.test(chat) && !/maskImage/.test(chat),
+    "the pill is frosted glass: a 24px blur, saturated, under translucent white, with a hairline and layered shadows of ink",
+    /data-ask-glass=""[\s\S]{0,120}className="[^"]*bg-white\/\[0\.64\][^"]*0_0_0_1px_rgba\(15,23,42,0\.06\)[^"]*0_22px_44px_-20px_rgba\(15,23,42,0\.24\)[^"]*backdrop-blur-xl backdrop-saturate-\[1\.8\]/.test(chat),
   )
   check(
-    "the open conversation is solid white, with no backdrop filter",
-    /data-ask-surface=""\s*\n\s*className="[^"]*\bbg-white\b[^"]*"/.test(chat) &&
-      !/data-ask-surface=""\s*\n\s*className="[^"]*backdrop-blur/.test(chat),
+    "and nothing around it glows: the halo is gone, and no shadow anywhere in the dock is white or near white",
+    !/data-ask-halo/.test(chat) && !/248, 249, 250/.test(chat) &&
+      !/(?:shadow-\[|boxShadow: ")[^"\]]*rgba\((?:2[0-5]\d, ?){2}2[0-5]\d, ?0?\.\d+\)(?![^"\]]*inset)/.test(chat.replace(/inset_0_1px_0_rgba\(255,255,255,0\.7\)/g, "")),
+  )
+  check(
+    "the fade around the folded pill is a masked blur of the canvas, with no fill, pill shaped even without its mask",
+    /data-ask-fade=""[\s\S]{0,600}backdropFilter: `blur\(\$\{FADE_BLUR\}px\)`[\s\S]{0,200}maskImage: FADE_MASK,[\s\S]{0,80}WebkitMaskImage: FADE_MASK/.test(chat) &&
+      /data-ask-fade=""\s*\n\s*className="pointer-events-none absolute rounded-full"/.test(chat) &&
+      !/data-ask-fade=""[\s\S]{0,700}(background|boxShadow)/.test(chat) &&
+      /export const FADE_BLUR = [3-6]\b/.test(read("lib/website-builder/ask-dock.ts")),
+  )
+  check(
+    "the open conversation is frosted too, dense enough to read over: 90% white over the same blur, saturated less",
+    /data-ask-surface=""\s*\n\s*className="[^"]*bg-white\/\[0\.9\][^"]*backdrop-blur-xl backdrop-saturate-\[1\.5\]"/.test(chat),
+  )
+  check(
+    "every glass layer fades on its own opacity, and what moves them is a transform, so the blur is never switched off mid fade",
+    /style=\{appear\(!expanded && !pillAway, 280, 200\)\}/.test(chat) &&
+      /data-ask-surface=""[\s\S]{0,700}style=\{appear\(cardOpen\)\}/.test(chat) &&
+      /\.\.\.lift\(cardOpen, "translateY\(18px\) scale\(0\.965\)"\)/.test(chat) &&
+      /data-ask-pill-state=\{pillAway \? "away" : "shown"\} style=\{lift\(!pillAway/.test(chat),
   )
   check(
     "opening and closing move on transform and opacity only, on the iOS curve",
     /transform: shown \? "none" : away/.test(chat) &&
-      /`transform \$\{openMs\}ms \$\{EASE\}, opacity/.test(chat) &&
+      /`transform \$\{openMs\}ms \$\{EASE\}, visibility 0s`/.test(chat) &&
+      /`opacity \$\{Math\.round\(openMs \* 0\.66\)\}ms ease-out`/.test(chat) &&
       /EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(read("lib/website-builder/ask-dock.ts")),
   )
   check("and not at all under reduced motion", /transition: reducedMotion\s*\n?\s*\? "none"/.test(chat))
@@ -304,7 +323,7 @@ section("A creator only ever sees their own conversations")
   )
   check(
     "a database without the conversations part still has its one thread, and says so",
-    /history: "not_set_up",\s*\n\s*messages: await readThemeChat\(installId\)/.test(chatRoute) &&
+    /const all = await readThemeChat\(installId\)[\s\S]{0,160}history: "not_set_up",\s*\n\s*messages: all\.messages,/.test(chatRoute) &&
       /\.\.\.\(input\.conversationId \? \{ conversation_id: input\.conversationId \} : \{\}\)/.test(lib),
   )
   check("the panel never posts to the transcript", !/method: "POST"[\s\S]{0,200}\/chat/.test(chat))

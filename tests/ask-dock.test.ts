@@ -239,7 +239,7 @@ section("A run that stops to ask")
   check("the chat draws the question where the answer would be, and not the message that repeats it", /\{question \? \(\s*<QuestionChoices/.test(chat) && /next\.question \? \{ \.\.\.e, running: false, activity: next \}/.test(chat))
   check("a tapped answer goes to the agent as the next message in the same conversation", /onAnswer=\{answerQuestion\}/.test(chat) && /const answerQuestion = React\.useCallback\([\s\S]{0,200}void send\(text\)/.test(chat) && /conversationId: live\.current\.conversation\.id/.test(chat))
   check("the answer to a question is the message after it", /answer=\{exchanges\[index \+ 1\]\?\.prompt\}/.test(chat))
-  check("a question read back from the transcript is a question again", /questionFromReply\(open\.reply, message\.id\)/.test(chat))
+  check("a question read back from the transcript is a question again", /questionFromReply\(open\.reply, message\.id\)/.test(read("lib/website-builder/ask-restore.ts")) && /restoreExchanges\(body\.messages\)/.test(chat))
   check("with a question open the box says an answer can be typed, and the suggestions step aside", /"Or type your answer"/.test(chat) && /!queued && !openQuestion/.test(chat))
   check("the answers are 44px on a phone and wrap rather than scroll", /phone \? "min-h-\[44px\]/.test(parts) && /flex min-w-0 flex-wrap/.test(parts) && !/QuestionChoices[\s\S]*overflow-x-auto[\s\S]*export function ScopeChip/.test(parts))
 }

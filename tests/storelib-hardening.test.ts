@@ -11,7 +11,7 @@ import { readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { compileSection, renderSection } from "../lib/storelib-theme"
 import { themeTokens } from "@/lib/storelib-theme/resolve"
-import { unfence, writeSectionSystem } from "@/lib/website-builder/agent/write-section"
+import { takenNote, unfence, writeSectionSystem } from "@/lib/website-builder/agent/write-section"
 import { CONTROL_TYPES } from "@/lib/storelib-theme/controls/registry"
 import { FILTER_NAMES } from "@/lib/storelib-theme/storelib/template"
 import { LIMITS } from "@/lib/storelib-theme/types"
@@ -143,7 +143,9 @@ function main() {
     const route = read("app/api/website-builder/themes/[installId]/sections/code/route.ts")
     const chat = read("components/website-builder/theme-chat.tsx")
 
-    const system = writeSectionSystem(["Accordion FAQ"], ["faq_accordion"])
+    /* The same text for every website: what this one has already taken is said in the request (takenNote). */
+    const system = writeSectionSystem()
+    const taken = takenNote(["Northlight Plans"], ["northlight_plans"])
     /**
      * The wording of these moved into lib/storelib-ai, which every surface and
      * both providers compose from. What is asserted is that the facts still
@@ -156,7 +158,10 @@ function main() {
     check("that it must be responsive with container queries, not media ones", /@container \(min-width: 640px\)/.test(system) && /NOT MEDIA QUERIES/i.test(system))
     check("and that it must not break when the section is used twice", /A SECTION CAN BE ON A PAGE MORE THAN ONCE/.test(system))
     check("and that it is held to a quality contract that is actually checked", /you will be shown what failed/.test(system))
-    check("and what names are already taken here", system.includes("faq_accordion") && system.includes("Accordion FAQ"))
+    check(
+      "and what names are already taken here, in the request rather than the cached prefix",
+      taken.includes("northlight_plans") && taken.includes("Northlight Plans") && !system.includes("Northlight Plans") && /takenNote\(opts\.takenNames, opts\.takenTypes\),\n\s*asked && `REQUEST/.test(writer),
+    )
 
     check("a fence is stripped, because they add one anyway", unfence("```storelib\n<template>x</template>\n```") === "<template>x</template>")
     check("and a plain answer is left alone", unfence("  <template>x</template>  ") === "<template>x</template>")

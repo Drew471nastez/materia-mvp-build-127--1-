@@ -47,6 +47,7 @@ import { classifyRequest } from "@/lib/website-builder/agent/ambition"
 import { reviewImages } from "@/lib/sites/agent/attachments"
 import { completeThemeExchange, openThemeConversation, startThemeExchange } from "@/lib/website-builder/agent/chat"
 import { keepImages } from "@/lib/website-builder/agent/attachment-store"
+import { withPictureNote } from "@/lib/website-builder/ask-attach"
 import { recentMessages } from "@/lib/website-builder/agent/memory"
 import { getWebsiteShareUrl } from "@/lib/url-helpers"
 
@@ -71,10 +72,15 @@ function eitherSignal(a: AbortSignal, b: AbortSignal): AbortSignal {
 const MAX_PROMPT = 2_000
 
 /**
- * The route's own line on the stream, beside the agent's: the id the question
- * was kept under (startThemeExchange), which the panel's Report sends back.
+ * The route's own lines on the stream, beside the agent's: the id the
+ * question was kept under (startThemeExchange), which the panel's Report
+ * sends back; or, when it could not be kept, or its pictures could not, a
+ * line that says so, and why, so the chat can tell the creator plainly
+ * instead of them finding an empty history after a reload.
  */
-type RecordedEvent = { type: "recorded"; messageId: string }
+type RecordedEvent =
+  | { type: "recorded"; messageId: string }
+  | { type: "unsaved"; what: "chat" | "pictures"; reason: "not_set_up" | "failed"; kept?: number; of?: number }
 
 const BlockSchema = z.object({
   id: z.string().min(1).max(128),
@@ -210,9 +216,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    * the screenshot rather than a sentence saying there was one. The note
    * stays for after the thirty days are up, when the words are all there is.
    */
-  const noted = images.length
-    ? `${body.prompt.trim()}${body.prompt.trim() ? "\n\n" : ""}[${images.length === 1 ? "an image" : `${images.length} images`} attached]`
-    : body.prompt
+  const noted = withPictureNote(body.prompt, images.length)
   /* Ownership of the install was proved above; the conversation is checked against it. */
   const conversation = await openThemeConversation({
     installId,
@@ -229,14 +233,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    * question, mean what it meant (lib/website-builder/agent/memory.ts).
    */
   const history = await recentMessages(supabase as never, installId, conversationId)
-  const messageId = await startThemeExchange({ installId, pageKey: body.page, prompt: noted, conversationId })
+  const recorded = await startThemeExchange({ installId, pageKey: body.page, prompt: noted, conversationId })
+  const messageId = recorded.id
   /**
    * Ownership was proved above against the USER'S client before a single
    * byte was read. Storing never blocks the run: a picture that could not be
    * kept is one the thread will not show later, not a reason to refuse an
-   * edit somebody already asked for.
+   * edit somebody already asked for. What happened is said on the stream.
    */
-  await keepImages({ installId, messageId, images })
+  const kept = await keepImages({ installId, messageId, images })
 
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
@@ -260,6 +265,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       if (conversation) send({ type: "conversation", id: conversation.id, title: conversation.title })
       /* And which message the question was kept as, so its answer can be reported. */
       if (messageId) send({ type: "recorded", messageId })
+      /* Or that it was not kept: said in words, rather than lost quietly and found out after a reload. */
+      else send({ type: "unsaved", what: "chat", reason: recorded.problem ?? "failed" })
+      if (messageId && kept.problem) send({ type: "unsaved", what: "pictures", reason: kept.problem, kept: kept.kept, of: kept.of })
 
       try {
         /**

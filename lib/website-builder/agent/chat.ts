@@ -15,8 +15,10 @@ import "server-only"
  */
 
 import { createAdminClient } from "@/lib/supabase/admin"
-import { attachmentsFor } from "./attachment-store"
+import { attachmentsFor, type PictureProblem } from "./attachment-store"
 import { createClient } from "@/lib/supabase/server"
+import { readPictureNote } from "@/lib/website-builder/ask-attach"
+import { isMissingTable } from "./db-errors"
 
 import type { ThemeOp } from "./operations"
 
@@ -56,17 +58,7 @@ export class ThemeChatUnavailableError extends Error {
   }
 }
 
-/** A missing table, however the layer in front of Postgres chose to say it. */
-function isMissingTable(error: { code?: string; message?: string } | null): boolean {
-  const code = error?.code ?? ""
-  if (code === "42P01" || code === "PGRST205" || code === "PGRST202") return true
-  const message = (error?.message ?? "").toLowerCase()
-  return (
-    message.includes("does not exist") ||
-    message.includes("could not find the table") ||
-    message.includes("schema cache")
-  )
-}
+/* A missing table is told apart from a failed read in ./db-errors, shared with the pictures. */
 
 /**
  * WHICH MESSAGES A READ IS FOR.
@@ -178,10 +170,7 @@ export async function listThemeConversations(
  * word. The note the route adds for a picture is not part of the question.
  */
 export function titleFrom(prompt: string): string {
-  const words = prompt
-    .replace(/\n*\[(?:an image|\d+ images) attached\]\s*$/, "")
-    .replace(/\s+/g, " ")
-    .trim()
+  const words = readPictureNote(prompt).text.replace(/\s+/g, " ").trim()
   if (!words) return "A picture"
   if (words.length <= 72) return words
   const cut = words.slice(0, 72)
@@ -276,10 +265,20 @@ async function touchConversation(
  * only ever see their own — the policy is the check, and there is no second
  * authorisation path here to disagree with it.
  */
+export interface ThemeChatRead {
+  messages: ThemeMessage[]
+  /**
+   * Whether the pictures could be read back. "not_set_up" before the
+   * database update that keeps them (run-now part 33): the chat says so, and
+   * the pictures its messages mention show as no longer available.
+   */
+  pictures: "ready" | PictureProblem
+}
+
 export async function readThemeChat(
   installId: string,
   scope: ConversationScope = { kind: "all" },
-): Promise<ThemeMessage[]> {
+): Promise<ThemeChatRead> {
   const supabase = await createClient()
   let query = supabase
     .from("theme_chat_messages")
@@ -324,17 +323,21 @@ export async function readThemeChat(
    * otherwise be a hundred round trips and a hundred signing calls to open a
    * panel.
    */
-  const pictures = await attachmentsFor(rows.map((row) => row.id))
+  const asked = rows.filter((row) => row.role === "user" && readPictureNote(row.content).count > 0).map((row) => row.id)
+  const pictures = await attachmentsFor(installId, asked)
 
-  return rows.map((row) => ({
-    id: row.id,
-    role: row.role,
-    content: row.content,
-    images: pictures.get(row.id) ?? [],
-    ops: Array.isArray(row.ops) ? row.ops : [],
-    error: row.error,
-    createdAt: row.created_at,
-  }))
+  return {
+    messages: rows.map((row) => ({
+      id: row.id,
+      role: row.role,
+      content: row.content,
+      images: pictures.byMessage.get(row.id) ?? [],
+      ops: Array.isArray(row.ops) ? row.ops : [],
+      error: row.error,
+      createdAt: row.created_at,
+    })),
+    pictures: pictures.problem ?? "ready",
+  }
 }
 
 /**
@@ -350,10 +353,10 @@ export async function startThemeExchange(input: {
   prompt: string
   /** Null on a database without conversations, and the row is written as before. */
   conversationId?: string | null
-}): Promise<string | null> {
+}): Promise<{ id: string | null; problem: "not_set_up" | "failed" | null }> {
   try {
     const admin = createAdminClient()
-    const { data } = await admin
+    const { data, error } = await admin
       .from("theme_chat_messages")
       .insert({
         install_id: input.installId,
@@ -364,14 +367,21 @@ export async function startThemeExchange(input: {
       })
       .select("id")
       .single()
+    /*
+      NOT KEPT IS SAID, NOT SWALLOWED. Before the database update there is
+      no table to write the question into, and the chat tells the creator
+      this conversation is not being saved rather than letting them find
+      out after a reload.
+    */
+    if (error || !data) return { id: null, problem: isMissingTable(error) ? "not_set_up" : "failed" }
     await touchConversation(admin, input.conversationId)
-    return (data as { id: string } | null)?.id ?? null
+    return { id: (data as { id: string }).id, problem: null }
   } catch {
     /**
      * The transcript is evidence, not enforcement. Failing to record a
      * question must never be the reason somebody cannot make a change.
      */
-    return null
+    return { id: null, problem: "failed" }
   }
 }
 
