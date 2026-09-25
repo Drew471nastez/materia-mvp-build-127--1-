@@ -94,6 +94,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
    scripts/check-product-editor.mjs does. */
 writeFileSync(join(dir, "description-action.js"), `export async function cleanDescription(html) { return { ok: true, html: String(html ?? "") } }
 `)
+/* And `server-only` as the empty module it is outside a bundler, for anything else that reaches it. */
+writeFileSync(join(dir, "server-only.js"), "export {}\n")
 try {
   const { build } = await import("esbuild")
   await build({
@@ -106,7 +108,7 @@ try {
     outfile: join(dir, "probe.js"),
     define: { "process.env.NODE_ENV": '"production"' },
     banner: { js: "var process={env:{NODE_ENV:'production',NEXT_PUBLIC_SUPABASE_URL:'https://placeholder.supabase.co',NEXT_PUBLIC_SUPABASE_ANON_KEY:'placeholder'}};" },
-    alias: { "next/navigation": join(dir, "navigation.js"), "next/link": join(dir, "link.jsx"), "next/image": join(dir, "image.jsx"), "@": root },
+    alias: { "next/navigation": join(dir, "navigation.js"), "next/link": join(dir, "link.jsx"), "next/image": join(dir, "image.jsx"), "server-only": join(dir, "server-only.js"), "@": root },
     loader: { ".jsx": "jsx", ".css": "empty", ".svg": "dataurl", ".png": "dataurl" },
     absWorkingDir: root,
     nodePaths: [join(root, "node_modules")],

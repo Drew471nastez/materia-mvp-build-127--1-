@@ -801,17 +801,22 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
         loose,
         announce: announce ? { live: announce.getAttribute("aria-live"), w: announce.getBoundingClientRect().width } : null,
         padTop: Math.round(parseFloat(getComputedStyle(b).paddingTop)),
+        /* The pane's content area: its box less the scrollbar column it keeps from md (app/globals.css). */
+        area: { left: pane.getBoundingClientRect().left + pane.clientLeft, width: pane.clientWidth, right: window.innerWidth - (pane.getBoundingClientRect().left + pane.clientLeft + pane.clientWidth) },
       }
     })
     const H = isPhone ? 40 : 32
-    const pad = isPhone ? 16 : Math.round((vp.width - 760) / 2) + 24
+    /* The column is centred in the content area, which from md stops at the scrollbar's column. */
+    const edge = isPhone ? 16 : Math.round((bar.area.width - 760) / 2) + 24
+    const pad = isPhone ? 16 : Math.round(bar.area.left) + edge
+    const padEnd = isPhone ? 16 : Math.round(bar.area.right) + edge
     expect(bar.top === 0, "the bar is at the top of the page", bar.top)
     expect(bar.h === (isPhone ? 56 + bar.padTop : 108), `and is ${isPhone ? "56px under any safe area" : "64px, with a 44px row of section tabs,"}`, bar.h)
     expect(!!bar.save && !!bar.cancel, "with Cancel and Save in it", { save: bar.save, cancel: bar.cancel })
     expect(!bar.oldState && bar.loose.length === 0, "and no state in the middle: no Unsaved changes, Live, Draft or New product to read", { oldState: bar.oldState, loose: bar.loose })
     expect(bar.announce?.live === "polite" && bar.announce.w <= 1, "a screen reader still hears Saving and Saved, from a hidden line", bar.announce)
     expect(bar.cancel.left === pad, "Cancel is at the start of the bar, on the column's edge", { left: bar.cancel.left, want: pad })
-    expect(bar.save.right === pad, "Save is at the end", { right: bar.save.right, want: pad })
+    expect(bar.save.right === padEnd, "Save is at the end", { right: bar.save.right, want: padEnd })
     expect(bar.cancel.h === H && bar.save.h === H, `Cancel and Save are both ${H}px`, { cancel: bar.cancel.h, save: bar.save.h })
     if (!isNew) expect(bar.more && bar.more.h === H && bar.more.w === H && bar.save.left - (bar.more.left + bar.more.w) === 8, `the more button is a ${H}px square, 8px before Save`, bar.more)
     expect(/inset/.test(bar.cancel.shadow) && bar.cancel.border === "1px" && bar.cancel.bg === "rgb(255, 255, 255)", "Cancel has depth: white, a hairline, a shade at its foot", { shadow: bar.cancel.shadow, border: bar.cancel.border, bg: bar.cancel.bg })
