@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition, type CSSProperties } from "react"
+import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
@@ -32,9 +32,8 @@ import { CSS } from "@dnd-kit/utilities"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
-import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
@@ -96,7 +95,7 @@ import { chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-c
 import { AutoTextarea } from "@/components/website-builder/auto-textarea"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
 import { toPageSlug } from "@/lib/sites/slug"
-import { SECTION_SCHEMAS, ADDABLE_SECTIONS, SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
+import { SECTION_SCHEMAS, ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
@@ -107,7 +106,7 @@ import { isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTarget
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
-import { CUSTOM_SECTION_CATEGORY, customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
+import { customAddableSections, customSectionSchemas, schemaFor } from "@/lib/website-builder/storelib-schemas"
 import {
   WRITING_SECTION_ID,
   WRITING_SECTION_TYPE,

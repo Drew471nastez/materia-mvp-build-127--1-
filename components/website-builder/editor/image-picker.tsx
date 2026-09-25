@@ -211,7 +211,8 @@ export function MediaField({
 
   const handleFile = useCallback(async (file: File) => {
     const verdict = checkMediaFile(file, kind)
-    if (!verdict.ok) {
+    /* `in`, not `!verdict.ok`: it narrows under the test build's looser settings too. */
+    if ("error" in verdict) {
       setError({ message: verdict.error })
       return
     }

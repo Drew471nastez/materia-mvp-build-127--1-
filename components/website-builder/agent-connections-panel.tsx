@@ -262,7 +262,7 @@ function SetupSteps({ tool, agents }: { tool: AgentTool; agents: AgentConnection
         <Step
           n={1}
           title="Open Terminal"
-          aside={<Segmented label="Your computer" options={OSES.map((o) => ({ id: o, label: OS_LABEL[o] }))} value={os} onChange={setOs} />}
+          aside={<Segmented<Os> label="Your computer" options={OSES.map((o) => ({ id: o, label: OS_LABEL[o] }))} value={os} onChange={setOs} />}
         >
           <TerminalGuide os={os} />
         </Step>

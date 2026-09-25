@@ -31,7 +31,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const MB = 1024 * 1024
-const said = (r: ReturnType<typeof checkMediaFile>) => (r.ok ? `ok ${r.ext}` : r.error)
+const said = (r: ReturnType<typeof checkMediaFile>) => ("error" in r ? r.error : `ok ${r.ext}`)
 
 function main() {
   console.log("\nPictures")

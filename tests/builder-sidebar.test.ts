@@ -101,13 +101,13 @@ function main() {
     { type: "features_grid", name: "Feature Grid" },
     { type: "footer", name: "Footer" },
   ]
-  const name = (s: { name: string }) => s.name
+  const name = (s: (typeof page)[number]) => s.name
   check("in a gap between two sections", whereItGoes(page, 2, name) === "Between Centered Hero and Feature Grid")
   check("above the first one", whereItGoes(page, 1, name) === "At the top, above Centered Hero")
   check("never above the header, as the editor never puts it there", whereItGoes(page, 0, name) === "At the top, above Centered Hero")
   check("and never below the footer", whereItGoes(page, 9, name) === "At the end, after Feature Grid")
   check("no gap chosen is the end of the page", whereItGoes(page, null, name) === "At the end, after Feature Grid")
-  check("a page with only its header and footer is empty", whereItGoes([page[0], page[3]], 1, name) === "On the empty page" && whereItGoes([], null, name) === "On the empty page")
+  check("a page with only its header and footer is empty", whereItGoes([page[0], page[3]], 1, name) === "On the empty page" && whereItGoes<(typeof page)[number]>([], null, name) === "On the empty page")
 
   console.log("\nA new section is brought on screen, and only when it is not")
   check("its top already in view with room under it: no scroll", arrivalScrollTarget(300, 0, 800) === null)
