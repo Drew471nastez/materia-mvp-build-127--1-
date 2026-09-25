@@ -1,4 +1,4 @@
-import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
+import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { GENERATED_PAGE_KEYS } from "@/lib/website-builder/site-pages"
 import { searchSections, shopSections } from "@/lib/website-builder/shop-page"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -185,9 +185,11 @@ export async function PUT(req: Request, { params }: Params) {
    *
    * Cleaned here rather than only at render, because a value that never
    * enters the database cannot be missed by a read path somebody adds later.
-   * See lib/website-builder/sanitize.ts for the allow lists.
+   * See lib/website-builder/sanitize.ts for the allow lists. A section type
+   * the install wrote itself is cleaned by its own file's schema.
    */
-  const sections = sanitizeSections(raw)
+  const own = await readOwnSectionFields(supabase, installId, raw.map((s) => s.type))
+  const sections = sanitizeSections(raw, own)
 
   /**
    * ===========================================================================
