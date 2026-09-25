@@ -415,13 +415,12 @@ for (const [label, viewport] of VIEWPORTS) {
     /* A thumb that shows and goes again on the same page is a flash. */
     const runs = []
     for (const r of n.rec) { const k = `${r.path}|${r.thumbShown}`; if (runs[runs.length - 1] !== k) runs.push(k) }
-    const changes = {}
-    for (let i = 1; i < runs.length; i++) {
-      const [a, b] = [runs[i - 1].split("|")[0], runs[i].split("|")[0]]
-      if (a === b) changes[a] = (changes[a] ?? 0) + 1
-    }
-    /* Once is a page finding out it is long (its data arriving); twice is a flash. */
-    const flashed = Object.values(changes).filter((c) => c > 1).length
+    const byPage = {}
+    for (const k of runs) { const [p, v] = k.split("|"); (byPage[p] ??= []).push(v === "true") }
+    /* A page finding out it is long (its data arriving) shows a thumb once and
+       keeps it. A thumb that shows and goes (the rise tipping a page that fits
+       over the edge), or goes and comes back, is a flash. */
+    const flashed = Object.values(byPage).filter((v) => v.length > 2 || (v.length === 2 && v[0] && !v[1])).length
     const bars = []
     for (const r of n.rec) { const s = `${r.bar}${r.thumb ? "+thumb" : ""}`; if (bars[bars.length - 1] !== s) bars.push(s) }
     summary[n.name] = {
