@@ -24,6 +24,16 @@ import type { ThemeSettingsValues } from "./types"
 import { hiddenPages } from "./page-seo"
 
 /**
+ * The creator page's domain, at the host it is served at, or null. The
+ * OnePage answers at `/links` on it (proxy.ts), so its canonical and the
+ * addresses announced for it both read this; a website domain is not the
+ * OnePage's. Cached with the domain list (lib/custom-domains/store).
+ */
+export function activeDomainOf(creatorId: string): Promise<string | null> {
+  return primaryHostFor(creatorId, "creator_page")
+}
+
+/**
  * THE SITE'S OWN ADDRESS. A connected, active domain when there is one,
  * because that is the address the creator gives out and the one a search
  * result should show; `<name>.storelib.com` otherwise. The same page at

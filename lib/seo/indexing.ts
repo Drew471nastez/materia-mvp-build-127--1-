@@ -158,6 +158,20 @@ export function creatorIndexable(input: { publishedProducts: number; handle: str
 }
 
 /**
+ * A OnePage: published, and its owner passes the creator page's rule. The
+ * sitemap lists a OnePage only beside a creator page it lists, so the page's
+ * robots tag asks the same question; a page of outbound links is exactly what
+ * a link farm signs up for.
+ */
+export function onePageIndexable(input: {
+  status: string | null | undefined
+  publishedProducts: number
+  handle: string | null | undefined
+}): boolean {
+  return input.status === "published" && creatorIndexable(input)
+}
+
+/**
  * The site's own "Allow search indexing" setting, read the way
  * lib/website-builder/theme-metadata.ts reads it: `false`, or a string
  * containing noindex, keeps the whole site out.

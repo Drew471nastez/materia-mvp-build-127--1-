@@ -87,67 +87,6 @@ section("Sitemap files are valid, deduplicated and dated only by real dates")
       parseSitemapName("../etc.xml") === null && parseSitemapName("products-x.xml") === null)
 }
 
-section("A chunk's ids travel in short URLs, and a failed read is never a shorter file")
-{
-  const ids = Array.from({ length: 400 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`)
-  let inFlight = 0
-  let most = 0
-  const sizes: number[] = []
-  const firsts = await eachBatch(ids, async (batch) => {
-    inFlight++
-    most = Math.max(most, inFlight)
-    sizes.push(batch.length)
-    await new Promise((resolve) => setTimeout(resolve, 5))
-    inFlight--
-    return batch[0]
-  })
-  check("ids go at most 150 to a query, and every one of them goes", IDS_PER_QUERY <= 150 && sizes.every((n) => n <= IDS_PER_QUERY) && sizes.reduce((a, b) => a + b, 0) === ids.length)
-  check("the answers come back in the order of the batches", JSON.stringify(firsts) === JSON.stringify([ids[0], ids[150], ids[300]]))
-  check("a few queries at once, not one line of them and not all of them", most > 1 && most <= 4, `${most} at once`)
-  const request = `https://x.supabase.co/rest/v1/creators?${new URLSearchParams({ select: "id,user_id", id: `in.(${ids.slice(0, IDS_PER_QUERY).join(",")})` })}`
-  check("a batch's request line stays well under a gateway's 8 KB", request.length < 7000, `${request.length} characters`)
-
-  const table = Array.from({ length: 2500 }, (_, i) => i)
-  const asked: Array<[number, number]> = []
-  const rows = await readRange<number>(async (a, b) => {
-    asked.push([a, b])
-    return { data: table.slice(a, b + 1), error: null }
-  }, 0, 10_000, "table")
-  check("every row is read, a thousand to a request, until a short page", rows.length === 2500 && asked.length === 3 && asked[0][1] === 999 && asked[2][0] === 2000)
-  let calls = 0
-  const flaky = await readRange<number>(async (a) => {
-    calls++
-    return calls === 1 ? { data: null, error: { message: "blip" } } : { data: table.slice(a, 10), error: null }
-  }, 0, 1000, "flaky")
-  check("a blip is tried once more", flaky.length === 10 && calls === 2)
-  let thrown: unknown = null
-  const quiet = console.error
-  console.error = () => {}
-  try {
-    await readRange<number>(async () => ({ data: null, error: { message: "down" } }), 0, 1000, "down")
-  } catch (e) {
-    thrown = e
-  } finally {
-    console.error = quiet
-  }
-  check("and a read that fails twice is thrown, never handed back as a shorter list", thrown instanceof SitemapReadFailed)
-
-  const maps = code("lib/seo/sitemaps.ts")
-  check("the website sitemap asks for its creators in batches, not ten thousand ids in one URL",
-    !/\.in\("id", creatorIds\)/.test(maps) && /\.from\("creators"\)\.select\("id, user_id"\)\.in\("id", batch\)/.test(maps))
-  check("and every other list of ids goes the same way", !/\.slice\(i, i \+ (100|200|500)\)/.test(maps) && (maps.match(/eachBatch\(/g) ?? []).length >= 5)
-  check("a site is listed at the name it was given, where it was given one",
-    /websiteNames\(admin, creatorIds\)/.test(maps) && /const handle = chosen\.get\(i\.creator_id\) \?\? names\.get/.test(maps))
-  const index = code("app/sitemap.xml/route.ts")
-  const file = code("app/sitemap/[name]/route.ts")
-  check("both sitemap routes answer 503 for a failed read, which nothing caches",
-    [index, file].every((r) => /if \(e instanceof SitemapReadFailed\) return sitemapUnavailable\(\)/.test(r))
-      && /status: 503/.test(maps) && /"Retry-After": "600"/.test(maps) && /"Cache-Control": "no-store"/.test(maps))
-  const seoData = code("lib/website-builder/site-seo-data.ts")
-  check("a site's own sitemap reads its products a thousand at a time, not the first thousand of 5,000",
-    !/\.limit\(5000\)/.test(seoData) && /\.range\(from, from \+ PRODUCT_PAGE - 1\)/.test(seoData) && /PRODUCT_PAGE = 1000/.test(seoData))
-}
-
 section("storelib.com's robots.txt keeps crawlers out of the app, and out of nobody's page")
 {
   check("the app, the editors and the private flows are not crawled",
@@ -274,8 +213,76 @@ section("IndexNow: off without a key, never in the way of a save, one notice per
       /announceChange\(\{ profile: true \}\)/.test(code("components/app/settings-form-new.tsx")))
 }
 
-console.log(`\n${passed} passed, ${failed} failed\n`)
-if (failed > 0) {
-  console.log("Failing:", failures.join(", "))
-  process.exit(1)
+/**
+ * Batching and paging are async, so they run as one function, awaited before
+ * the summary below rather than at the top level of the file.
+ */
+async function batchingAndPaging() {
+  section("A chunk's ids travel in short URLs, and a failed read is never a shorter file")
+
+  const ids = Array.from({ length: 400 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`)
+  let inFlight = 0
+  let most = 0
+  const sizes: number[] = []
+  const firsts = await eachBatch(ids, async (batch) => {
+    inFlight++
+    most = Math.max(most, inFlight)
+    sizes.push(batch.length)
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    inFlight--
+    return batch[0]
+  })
+  check("ids go at most 150 to a query, and every one of them goes", IDS_PER_QUERY <= 150 && sizes.every((n) => n <= IDS_PER_QUERY) && sizes.reduce((a, b) => a + b, 0) === ids.length)
+  check("the answers come back in the order of the batches", JSON.stringify(firsts) === JSON.stringify([ids[0], ids[150], ids[300]]))
+  check("a few queries at once, not one line of them and not all of them", most > 1 && most <= 4, `${most} at once`)
+  const request = `https://x.supabase.co/rest/v1/creators?${new URLSearchParams({ select: "id,user_id", id: `in.(${ids.slice(0, IDS_PER_QUERY).join(",")})` })}`
+  check("a batch's request line stays well under a gateway's 8 KB", request.length < 7000, `${request.length} characters`)
+
+  const table = Array.from({ length: 2500 }, (_, i) => i)
+  const asked: Array<[number, number]> = []
+  const rows = await readRange<number>(async (a, b) => {
+    asked.push([a, b])
+    return { data: table.slice(a, b + 1), error: null }
+  }, 0, 10_000, "table")
+  check("every row is read, a thousand to a request, until a short page", rows.length === 2500 && asked.length === 3 && asked[0][1] === 999 && asked[2][0] === 2000)
+  let calls = 0
+  const flaky = await readRange<number>(async (a) => {
+    calls++
+    return calls === 1 ? { data: null, error: { message: "blip" } } : { data: table.slice(a, 10), error: null }
+  }, 0, 1000, "flaky")
+  check("a blip is tried once more", flaky.length === 10 && calls === 2)
+  let thrown: unknown = null
+  const quiet = console.error
+  console.error = () => {}
+  try {
+    await readRange<number>(async () => ({ data: null, error: { message: "down" } }), 0, 1000, "down")
+  } catch (e) {
+    thrown = e
+  } finally {
+    console.error = quiet
+  }
+  check("and a read that fails twice is thrown, never handed back as a shorter list", thrown instanceof SitemapReadFailed)
+
+  const maps = code("lib/seo/sitemaps.ts")
+  check("the website sitemap asks for its creators in batches, not ten thousand ids in one URL",
+    !/\.in\("id", creatorIds\)/.test(maps) && /\.from\("creators"\)\.select\("id, user_id"\)\.in\("id", batch\)/.test(maps))
+  check("and every other list of ids goes the same way", !/\.slice\(i, i \+ (100|200|500)\)/.test(maps) && (maps.match(/eachBatch\(/g) ?? []).length >= 5)
+  check("a site is listed at the name it was given, where it was given one",
+    /websiteNames\(admin, creatorIds\)/.test(maps) && /const handle = chosen\.get\(i\.creator_id\) \?\? names\.get/.test(maps))
+  const index = code("app/sitemap.xml/route.ts")
+  const file = code("app/sitemap/[name]/route.ts")
+  check("both sitemap routes answer 503 for a failed read, which nothing caches",
+    [index, file].every((r) => /if \(e instanceof SitemapReadFailed\) return sitemapUnavailable\(\)/.test(r))
+      && /status: 503/.test(maps) && /"Retry-After": "600"/.test(maps) && /"Cache-Control": "no-store"/.test(maps))
+  const seoData = code("lib/website-builder/site-seo-data.ts")
+  check("a site's own sitemap reads its products a thousand at a time, not the first thousand of 5,000",
+    !/\.limit\(5000\)/.test(seoData) && /\.range\(from, from \+ PRODUCT_PAGE - 1\)/.test(seoData) && /PRODUCT_PAGE = 1000/.test(seoData))
 }
+
+batchingAndPaging().then(() => {
+  console.log(`\n${passed} passed, ${failed} failed\n`)
+  if (failed > 0) {
+    console.log("Failing:", failures.join(", "))
+    process.exit(1)
+  }
+})

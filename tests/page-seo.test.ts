@@ -10,6 +10,9 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { PAGE_DESCRIPTION_MAX, PAGE_TITLE_MAX, hiddenPages, pageSeoOf, typedPageSeo, withPageSeo } from "@/lib/website-builder/page-seo"
+import { onePageIndexable } from "@/lib/seo/indexing"
+import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
+import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
 
 let passed = 0
 let failed = 0
@@ -69,6 +72,48 @@ console.log("\nA domain, added in place")
   check("a waiting domain shows the records to set and can be checked", /216\.150\.1\.1/.test(domains) && /cname\.vercel-dns\.com/.test(domains) && /\/api\/domains\/verify/.test(domains))
   const route = read("app/api/domains/route.ts")
   check("and the route is the signed-in creator's own", /auth\.getUser\(\)/.test(route) && /creator_id/.test(route))
+}
+
+/* The page's source with its comments taken out, so a check reads code only. */
+const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+
+console.log("\nA OnePage says where it lives and who it is about")
+{
+  check("it is canonical under the handle, or at /links on a connected domain",
+    getLinksShareUrl("Mara") === "https://storelib.com/mara/links" && getLinksUrlWithCustomDomain("mara", "marashop.com") === "https://www.marashop.com/links")
+  check("it is listed by the sitemap's rule: published, with something published, under a handle that is not a farm's",
+    onePageIndexable({ status: "published", publishedProducts: 2, handle: "mariapopescu" }) &&
+      !onePageIndexable({ status: "draft", publishedProducts: 2, handle: "mariapopescu" }) &&
+      !onePageIndexable({ status: "published", publishedProducts: 0, handle: "mariapopescu" }) &&
+      !onePageIndexable({ status: "published", publishedProducts: 2, handle: "powerokebos999" }) &&
+      !onePageIndexable({ status: "published", publishedProducts: 2, handle: null }))
+  const same = onePageSameAs({ instagram: "@mara.studio", youtube: "https://youtube.com/@mara", email: "mara@example.com", whatsapp: "+15550100", tiktok: "", twitter: "javascript:alert(1)" })
+  check("its social links become sameAs addresses, a handle made whole the way the page draws it",
+    same.includes("https://instagram.com/mara.studio") && same.includes("https://youtube.com/@mara"), JSON.stringify(same))
+  check("and an email, a phone number, an empty field or a script is not who somebody is",
+    same.length === 2 && !same.some((u) => /mailto|wa\.me|javascript/.test(u)), JSON.stringify(same))
+  const ld = profilePageJsonLd({ url: "https://storelib.com/mara/links", name: "Mara", image: "https://cdn.example.com/m.png", description: "<p>Film &amp; photo</p>", sameAs: same }) as {
+    "@type": string
+    mainEntity: { "@type": string; name: string; image?: string; description?: string; sameAs?: string[] }
+  }
+  check("its structured data is a ProfilePage about a Person, with a picture, a plain description and sameAs",
+    ld["@type"] === "ProfilePage" && ld.mainEntity["@type"] === "Person" && ld.mainEntity.name === "Mara" &&
+      ld.mainEntity.image === "https://cdn.example.com/m.png" && ld.mainEntity.description === "Film & photo" && ld.mainEntity.sameAs?.length === 2)
+  check("a picture that is not a full address is left out rather than guessed", !("image" in (profilePageJsonLd({ url: "u", name: "n", image: "/placeholder.svg" }) as { mainEntity: object }).mainEntity))
+
+  const page = code("app/(marketing)/l/[slug]/page.tsx")
+  check("the page names its canonical, and the share card its address and kind",
+    /const pageAddress = owner\.canonical \?\? getLinksShareUrl\(slug, pageHost\)/.test(page) &&
+      /alternates: \{ canonical: pageAddress \}/.test(page) && /type: "profile"/.test(page) && /url: pageAddress/.test(page))
+  check("its robots tag is the sitemap's rule, and noindex means nofollow too",
+    /const indexable = onePageIndexable\(\{ status: onepage\.status, publishedProducts: owner\.publishedProducts, handle: owner\.handle \}\)/.test(page) &&
+      /robots: indexable\s*\?[^:]*index: true[\s\S]{0,200}: \{ index: false, follow: false/.test(page))
+  check("its structured data is printed only when it may be listed, and escaped",
+    /owner\.canonical && onePageIndexable\(/.test(page) && /jsonLdScript\(\s*profilePageJsonLd\(/.test(page) && /sameAs: onePageSameAs\(transformedOnepage\.social_links\)/.test(page))
+  check("and a page published before the published columns existed still draws its draft content",
+    /blocks: publishedBlocks \|\| onepage\.draft_blocks \|\| \[\]/.test(page) && /social_links: onepage\.published_social_links \|\| onepage\.social_links/.test(page))
+  check("the handle and the counts are asked once per request, for the metadata and the page",
+    /const onePageOwner = cache\(async/.test(page) && (page.match(/await onePageOwner\(/g) ?? []).length === 2)
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
