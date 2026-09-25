@@ -115,7 +115,8 @@ const previous = { start: periodStart - 30 * DAY, end: periodStart }
 const ownViews = makeEvents(CREATOR, EVENTS, previous.start, periodEnd)
 const ownSteps: Ev[] = makeEvents(CREATOR, Math.floor(EVENTS / 10), previous.start, periodEnd).map((e) => ({ ...e, event_type: rnd() < 0.6 ? "buy_click" : "checkout_start" }))
 const others: Ev[] = []
-for (let c = 0; c < 3; c++) others.push(...makeEvents(uuid(), EVENTS, previous.start - 30 * DAY, periodEnd))
+/* A loop, not a spread: two hundred thousand arguments are more than a call can take. */
+for (let c = 0; c < 3; c++) for (const e of makeEvents(uuid(), EVENTS, previous.start - 30 * DAY, periodEnd)) others.push(e)
 const orders: OrderRow[] = Array.from({ length: 1000 }, (_, i) => ({
   id: uuid(),
   product_id: pick(PRODUCTS),
