@@ -367,6 +367,7 @@ export function EditProfileButton({
                 onChange={(url) => { setCover(url); setCrop(DEFAULT_COVER_CROP) }}
                 replaceOnly
                 allowRemove
+                livePreview
                 replaceLabel="Change banner"
                 /*
                   ANY COVER CAN BE PLACED. The owner asked for pinch and drag
@@ -391,6 +392,7 @@ export function EditProfileButton({
                   value={avatar || undefined}
                   onChange={(url) => setAvatar(url)}
                   replaceOnly
+                  livePreview
                   replaceLabel="Change"
                 />
               </div>
