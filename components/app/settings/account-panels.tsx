@@ -320,6 +320,9 @@ function PasswordCard({ email }: { email: string }) {
   const [confirm, setConfirm] = useState("")
   const [nonce, setNonce] = useState("")
   const [step, setStep] = useState<"form" | "reauth">("form")
+  /* The fields are a step, not the card's resting state: "you should not
+     show the inputs as default". Change password opens them. */
+  const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
@@ -365,11 +368,21 @@ function PasswordCard({ email }: { email: string }) {
       setConfirm("")
       setNonce("")
       setStep("form")
+      setOpen(false)
     } catch (err) {
       setError(accountErrorMessage(err))
     } finally {
       setBusy(false)
     }
+  }
+
+  const cancel = () => {
+    setOpen(false)
+    setPassword("")
+    setConfirm("")
+    setNonce("")
+    setStep("form")
+    setError(null)
   }
 
   const sendReset = async () => {
@@ -397,6 +410,27 @@ function PasswordCard({ email }: { email: string }) {
         Changing it signs you out on your other devices.
       </p>
 
+      {!open ? (
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(true)
+              setDone(false)
+              setResetNote(null)
+            }}
+            className={PRIMARY}
+            data-password-open=""
+          >
+            Change password
+          </button>
+          <button type="button" onClick={sendReset} disabled={resetBusy} className={QUIET} data-password-reset="">
+            {resetBusy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+            Email me a reset link
+          </button>
+        </div>
+      ) : (
+      <>
       {/*
         NOT A <form>. Settings draws every tab inside its own form (the one the
         save bar submits), and a form inside a form is invalid HTML whose
@@ -426,6 +460,7 @@ function PasswordCard({ email }: { email: string }) {
             onChange={(e) => setPassword(e.target.value)}
             className={FIELD}
             data-password-field="new"
+            autoFocus
           />
         </label>
         <label className="block">
@@ -459,12 +494,14 @@ function PasswordCard({ email }: { email: string }) {
             {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {step === "reauth" ? "Confirm and change" : "Change password"}
           </button>
-          <button type="button" onClick={sendReset} disabled={resetBusy} className={QUIET} data-password-reset="">
-            {resetBusy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-            Email me a reset link
+          <button type="button" onClick={cancel} disabled={busy} className={QUIET} data-password-cancel="">
+            Cancel
           </button>
         </div>
       </div>
+
+      </>
+      )}
 
       {error && <Note tone="error">{error}</Note>}
       {done && <Note tone="ok">Password changed. Your other devices were signed out.</Note>}

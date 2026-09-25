@@ -96,7 +96,7 @@ export function PricingSection({
         </AnimateOnScroll>
 
         <AnimateOnScroll variant="fade-up" delay={120}>
-          <PlanCards actions={actions} className="max-w-[820px] mx-auto" />
+          <PlanCards actions={actions} />
           {footnote}
         </AnimateOnScroll>
 

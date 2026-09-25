@@ -53,14 +53,21 @@ const SECONDARY_LOOK =
  * on a phone only its icon, with no box drawn round it, so the one thing in
  * the bar that looks like a button is New product.
  */
+/*
+ * FROM 1280px EVERYTHING IS A STEP UP. "On desktop larger screens the
+ * products page, things are too small: make them a little bit bigger." The
+ * bar's buttons, the search, the views, the table's text, rows and pictures
+ * each grow by one step at xl, and nothing changes below it.
+ */
 const EXPORT_LOOK = cn(
   SECONDARY_LOOK,
+  "xl:h-9 xl:px-3.5 xl:text-[14px]",
   "max-md:w-8 max-md:border-transparent max-md:bg-transparent max-md:px-0 max-md:text-[#4b5563] max-md:shadow-none",
 )
 
 /** Sort beside the search field: the field's own white box and hairline, 40px on a phone and 32 from 768px. */
 const SORT_LOOK =
-  "inline-flex h-10 w-10 items-center justify-center rounded-[10px] border border-[#e3e5e8] bg-white text-[#4b5563] transition-colors duration-100 group-hover/press:bg-[#f7f7f8] group-active/press:bg-[#f1f2f4] md:h-8 md:w-8 md:rounded-lg"
+  "inline-flex h-10 w-10 items-center justify-center rounded-[10px] border border-[#e3e5e8] bg-white text-[#4b5563] transition-colors duration-100 group-hover/press:bg-[#f7f7f8] group-active/press:bg-[#f1f2f4] md:h-8 md:w-8 md:rounded-lg xl:h-9 xl:w-9"
 /** And when an order other than Newest is on. */
 const SORT_ON = "border-transparent bg-[#eceef1] text-[#1a1a2e] group-hover/press:bg-[#e5e7eb]"
 
@@ -89,7 +96,7 @@ const Press = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonEleme
  * The New product button: the editor's violet Save (primaryDepth), at the
  * bar's 32px, with the 44px press on a phone.
  */
-const NEW_LOOK = cn(primaryDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px]")
+const NEW_LOOK = cn(primaryDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px] xl:h-9 xl:px-3.5 xl:text-[14px]")
 
 /**
  * A row's more button with the same depth as the editor's (secondaryDepth):
@@ -728,8 +735,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         {products.length > 0 ? (
           <div data-controls="" className="flex flex-col gap-1 md:gap-2 md:pt-1 @min-[700px]:flex-row-reverse @min-[700px]:items-center @min-[700px]:justify-between @min-[700px]:gap-4">
             <div className="flex min-w-0 items-center gap-1 md:gap-2">
-              <label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center md:h-8 @min-[700px]:w-[260px] @min-[700px]:flex-none">
-                <span className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-[10px] border border-[#e3e5e8] bg-white px-3 transition-[border-color,box-shadow] duration-100 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e] md:h-8 md:rounded-lg md:px-2.5">
+              <label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center md:h-8 xl:h-9 @min-[700px]:w-[260px] @min-[700px]:flex-none xl:@min-[700px]:w-[300px]">
+                <span className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-[10px] border border-[#e3e5e8] bg-white px-3 transition-[border-color,box-shadow] duration-100 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e] md:h-8 md:rounded-lg md:px-2.5 xl:h-9 xl:px-3">
                   <Search className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
                   <input
                     ref={searchInputRef}
@@ -745,7 +752,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       }
                     }}
                     placeholder="Search products"
-                    className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] md:text-[13px] [&::-webkit-search-cancel-button]:hidden"
+                    className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] md:text-[13px] xl:text-[14px] [&::-webkit-search-cancel-button]:hidden"
                   />
                   {searchQuery ? (
                     <button type="button" aria-label="Clear search" className="-mr-1.5 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#9ca3af] hover:text-[#4b5563] max-md:-mr-3 max-md:h-10 max-md:w-10" onClick={clearSearch}>
@@ -784,7 +791,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 role="tablist"
                 aria-label="Views"
                 data-views=""
-                className="relative grid h-11 w-full shrink-0 md:h-9 md:w-[calc(var(--views)*92px)]"
+                className="relative grid h-11 w-full shrink-0 md:h-9 md:w-[calc(var(--views)*92px)] xl:h-10 xl:w-[calc(var(--views)*104px)]"
                 style={{ gridTemplateColumns: `repeat(${views.length}, minmax(0, 1fr))`, ["--views" as string]: views.length }}
               >
                 <span aria-hidden className="pointer-events-none absolute inset-x-0 inset-y-1 rounded-[10px] bg-[#eceef1] md:inset-y-0" />
@@ -804,7 +811,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       aria-selected={selected}
                       onClick={() => showView(option.value)}
                       className={cn(
-                        "relative min-w-0 cursor-pointer truncate rounded-[8px] px-2 text-[13px] font-medium outline-none transition-colors duration-100 focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]",
+                        "relative min-w-0 cursor-pointer truncate rounded-[8px] px-2 text-[13px] font-medium outline-none xl:text-[14px] transition-colors duration-100 focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]",
                         selected ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
                       )}
                     >
@@ -897,14 +904,14 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 heading band and no line above the first row shown. Sales
                 joins from 1024px, where the sidebar leaves room for it.
               */}
-              <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table" hidden={pageProducts.length === 0}>
+              <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table xl:text-[14px]" hidden={pageProducts.length === 0}>
                 <thead>
-                  <tr className="h-10 text-left text-[12px] text-[#6b7280]">
-                    <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium">Product</th>
-                    <th scope="col" className="w-[112px] border-b border-[#eef0f2] px-3 font-medium">Status</th>
-                    <th scope="col" className="hidden w-[96px] border-b border-[#eef0f2] px-3 text-right font-medium lg:table-cell">Sales</th>
-                    <th scope="col" className="w-[112px] border-b border-[#eef0f2] px-3 text-right font-medium">Price</th>
-                    <th scope="col" className="w-14 border-b border-[#eef0f2]" aria-label="Actions" />
+                  <tr className="h-10 text-left text-[12px] text-[#6b7280] xl:h-11 xl:text-[13px]">
+                    <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium xl:pl-5">Product</th>
+                    <th scope="col" className="w-[112px] border-b border-[#eef0f2] px-3 font-medium xl:w-[132px]">Status</th>
+                    <th scope="col" className="hidden w-[96px] border-b border-[#eef0f2] px-3 text-right font-medium lg:table-cell xl:w-[112px]">Sales</th>
+                    <th scope="col" className="w-[112px] border-b border-[#eef0f2] px-3 text-right font-medium xl:w-[132px]">Price</th>
+                    <th scope="col" className="w-14 border-b border-[#eef0f2] xl:w-16" aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
@@ -915,7 +922,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         key={product.id}
                         data-row={product.id}
                         hidden={!shownIds.has(product.id)}
-                        className="group h-16 cursor-pointer [tr:not([hidden])~&>td]:border-t [tr:not([hidden])~&>td]:border-[#f1f2f4]"
+                        className="group h-16 cursor-pointer xl:h-[72px] [tr:not([hidden])~&>td]:border-t [tr:not([hidden])~&>td]:border-[#f1f2f4]"
                         {...hover(product.id)}
                         onClick={(e) => {
                           /* Not a press inside the row's own controls, nor one that bubbled up from its menu's portal. */
@@ -924,13 +931,13 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                           openEditor(router, `/app/products/${product.id}`)
                         }}
                       >
-                        <td className="bg-white pl-4 pr-3 group-hover:bg-[#fafafb]">
-                          <div className="flex min-w-0 items-center gap-3">
+                        <td className="bg-white pl-4 pr-3 group-hover:bg-[#fafafb] xl:pl-5">
+                          <div className="flex min-w-0 items-center gap-3 xl:gap-3.5">
                             <Thumb src={product.thumbnail_url} title={product.title} size={44} />
                             <Link
                               href={`/app/products/${product.id}`}
                               onClick={openFromLink(`/app/products/${product.id}`)}
-                              className="min-w-0 truncate text-[14px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline"
+                              className="min-w-0 truncate text-[14px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline xl:text-[15px]"
                             >
                               {product.title}
                             </Link>
@@ -943,7 +950,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                           {product.sales_count ? product.sales_count.toLocaleString("en-US") : <span className="text-[#b6bac1]">0</span>}
                         </td>
                         <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb]">{priceOf(product.price_cents)}</td>
-                        <td className="bg-white pr-3 text-right group-hover:bg-[#fafafb]">
+                        <td className="bg-white pr-3 text-right group-hover:bg-[#fafafb] xl:pr-4">
                           <ResponsiveActionMenu
                             title={product.title}
                             align="end"
@@ -997,11 +1004,11 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
             <div
               data-footer=""
               className={cn(
-                "flex h-11 items-center justify-between gap-3 md:border-t md:border-[#eef0f2] md:px-4",
+                "flex h-11 items-center justify-between gap-3 md:border-t md:border-[#eef0f2] md:px-4 xl:h-12 xl:px-5",
                 pages === 1 && "max-md:hidden",
               )}
             >
-              <span className="text-[12px] tabular-nums text-[#6b7280]">
+              <span className="text-[12px] tabular-nums text-[#6b7280] xl:text-[13px]">
                 {from + 1}&ndash;{from + pageProducts.length} of {filteredProducts.length.toLocaleString("en-US")}
               </span>
               {pages > 1 ? (
@@ -1122,11 +1129,11 @@ function Thumb({ src, title, size }: { src: string | null; title: string; size: 
       data-thumb=""
       className={cn(
         "pointer-events-none relative shrink-0 overflow-hidden bg-[#eceef1] after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06)] after:content-['']",
-        size === 56 ? "h-14 w-14 rounded-[12px]" : "h-11 w-11 rounded-[10px]",
+        size === 56 ? "h-14 w-14 rounded-[12px]" : "h-11 w-11 rounded-[10px] xl:h-12 xl:w-12 xl:rounded-[11px]",
       )}
     >
       {src ? (
-        <Image src={src} alt="" width={size} height={size} decoding="async" draggable={false} className="h-full w-full object-cover" />
+        <Image src={src} alt="" width={size === 44 ? 48 : size} height={size === 44 ? 48 : size} decoding="async" draggable={false} className="h-full w-full object-cover" />
       ) : (
         <span aria-hidden className={cn("flex h-full items-center justify-center font-semibold text-[#9ca3af]", size === 56 ? "text-[20px]" : "text-[16px]")}>
           {letter}

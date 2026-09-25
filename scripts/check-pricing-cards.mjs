@@ -16,7 +16,7 @@
  *     near what is drawn: a phone is not sent the 1672px original
  *   - the white text on the pictures reaches 4.5:1, measured on the pixels
  *     actually behind it, and every other text reaches 4.5:1 on its ground
- *   - corners of 28px, as in the reference
+ *   - corners of 22px, scaled with the card
  *   - every button 44px or taller, in capitals, with its arrow
  *
  * It renders the marketing pricing section, the onboarding step's compact
@@ -334,7 +334,7 @@ try {
       expect(r.overflow === 0, "the page does not scroll sideways", `${r.overflow}px off the side`)
       expect(free.spill === 0 && pro.spill === 0, "nothing inside a card runs out of it", [free.spill, pro.spill])
       expect(free.bg === "rgb(255, 255, 255)" && pro.bg === "rgb(255, 255, 255)", "white below the header", [free.bg, pro.bg])
-      expect(free.radius === 28 && pro.radius === 28, "corners of 28px, as in the reference", `${free.radius}/${pro.radius}px`)
+      expect(free.radius === 22 && pro.radius === 22, "corners of 22px, scaled with the card", `${free.radius}/${pro.radius}px`)
 
       for (const card of [free, pro]) {
         const p = card.picture

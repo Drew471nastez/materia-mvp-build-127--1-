@@ -98,8 +98,8 @@ section("A navigation, from start to landing")
   endAppNavigation()
   check("and clearing twice is harmless", getAppNavigation() === null)
   check(
-    "the thresholds are the ones asked for: a computer's bar at 300ms, a 180ms landing with a 4 to 6px rise",
-    NAV_BAR_AFTER_MS === 300 && NAV_ENTER_MS >= 160 && NAV_ENTER_MS <= 200 && NAV_ENTER_RISE_PX >= 4 && NAV_ENTER_RISE_PX <= 6,
+    "the thresholds are the ones asked for: a computer's bar at 300ms, a 180ms landing with a 1 to 3px rise",
+    NAV_BAR_AFTER_MS === 300 && NAV_ENTER_MS >= 160 && NAV_ENTER_MS <= 200 && NAV_ENTER_RISE_PX >= 1 && NAV_ENTER_RISE_PX <= 3,
   )
 }
 
@@ -249,9 +249,14 @@ section("No page draws a picture of itself while it loads, inside or out")
      tables loading; loading structures or skeleton, light gray shimmering."
      Page to page stays on the spinner and draws no page; the data inside a
      page draws its own shapes (components/ui/shimmer). */
-  check("Home has no full page skeleton, and its chart holds its own shape while it is read, from the first frame",
+  /* "I don't like those skeleton loading structures in the charts... it
+     just needs to be that blur thing happening." The chart waits as
+     Analytics' does: its frame, a grey line on the floor, softly blurred. */
+  check("Home has no full page skeleton, and its chart waits as a blurred grey floor line, not a skeleton, from the first frame",
     !/showLoadingSkeleton|isLoading && |Full Page Skeleton|skeleton-bar/.test(dash) && !/animate-pulse/.test(dash) && !/WaitingArea/.test(dash)
-      && /<ShimmerSwap loading=\{\(chartEvents == null \|\| isChartLoading\) && displayChartData\.length === 0\} skeleton=\{<ShimmerChart height=\{CHART_H\}/.test(dash))
+      && !/ShimmerChart|ShimmerSwap/.test(dash)
+      && /const chartWaiting = \(chartEvents == null \|\| isChartLoading\) && displayChartData\.length === 0/.test(dash)
+      && /chartWaiting \? "opacity-60 blur-\[1\.5px\]"/.test(dash) && /loading=\{chartWaiting\}/.test(dash))
   check("and its four figures wait for the period's first answer (MetricTab `loading`), with No activity yet held back until it",
     /const \[figuresReady, setFiguresReady\] = useState\(false\)/.test(dash) && (dash.match(/loading=\{!figuresReady\}/g) ?? []).length === 4
       && (dash.match(/soft=\{isRefreshing && figuresReady\}/g) ?? []).length === 4 && /\{figuresReady && !hasRealData && \(/.test(dash))
@@ -262,8 +267,8 @@ section("No page draws a picture of itself while it loads, inside or out")
       && /<ShimmerSwap loading=\{blank\} skeleton=\{<Waiting kind=\{wait\} lead=\{lead\} \/>\} className=\{BODY\} contentClassName="h-full">/.test(reports))
   const tab = code("components/app/metric-tab.tsx")
   /* "I don't like the skeleton structure in the chart tabs; before it was
-     the blur thing, I liked those, revert it." The tabs only: the charts
-     under them keep their own waiting shapes. */
+     the blur thing, I liked those, revert it." The home chart under them
+     waits as a blurred grey floor line too (checked above). */
   check("a figure tab waits blurred, the way it did before the gray bars: its number 2px and its foot 1px, clearing over 700ms",
     /const blurred = soft \|\| loading/.test(tab) && /blurred \? "blur-\[2px\]" : "blur-0"/.test(tab) && /blurred \? "blur-\[1px\]" : "blur-0"/.test(tab)
       && /transition-\[filter,color,opacity\] duration-\[700ms\]/.test(tab)
@@ -403,8 +408,6 @@ section("One scrollbar track on a computer, always there, never moving")
   const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   check("every box that scrolls a page paints its track whether or not there is anything to scroll, in one look: the shell's, a page's own, each pane of Orders and Emails, the editor's",
     new RegExp(`${SCROLLERS.map(esc).join(",\\s*")} \\{\\s*overflow-y: scroll;\\s*scrollbar-gutter: stable;\\s*scrollbar-width: thin;\\s*scrollbar-color: rgba\\(156, 163, 175, 0\\.5\\) #f8f9fa;`).test(block))
-  check("and the same width where only the older ::-webkit-scrollbar is read, so no two of them differ",
-    new RegExp(`${SCROLLERS.map((s) => esc(`${s}::-webkit-scrollbar`)).join(",\\s*")} \\{\\s*display: block;\\s*width: 8px;`).test(block))
   check("a page that scrolls itself is the one track: the shell's scroller then does not scroll and keeps no column",
     /\.app-content-scroll:has\(> \.page-scroll, > \.dashboard-scroll-container, > \.sales-scroll-container, > \.orders-stage, > \[data-page-layer\]\) \{\s*overflow-y: hidden;\s*scrollbar-gutter: auto;/.test(block))
   check("while a page that fitted rises, its thumb is drawn clear and its track stays (never overflow: hidden, which takes the track away)",
@@ -413,6 +416,14 @@ section("One scrollbar track on a computer, always there, never moving")
   check("none of it below 768px or in the native apps, where scrollbars float and take no room",
     !/@media \(max-width: 767px\) \{\s*html\.app-layout \.app-content-scroll \{\s*(scrollbar-gutter|overflow-y: scroll)/.test(css)
       && !/html\.app-layout \.app-content-scroll/.test(block) && !/html\.app-layout\.capacitor/.test(block))
+  /* "When I click Settings coming from a page with no scrollbar, it glitches
+     with the scrollbar on the right." Safari before 18.2 reads only
+     ::-webkit-scrollbar: the pages' own boxes were 6px there and the shell's
+     scroller the system's 15px, so landing on Settings moved the column. */
+  check("in a browser that reads only ::-webkit-scrollbar, every scroller's bar is the pages' 6px, on the same track",
+    new RegExp(`${SCROLLERS.map((s) => esc(`${s}::-webkit-scrollbar`)).join(",\\s*")} \\{\\s*display: block;\\s*width: 6px;\\s*background-color: #f8f9fa;`).test(block)
+      && /\.page-scroll::-webkit-scrollbar \{\s*width: 6px;/.test(css)
+      && new RegExp(`${SCROLLERS.map((s) => esc(`${s}::-webkit-scrollbar-thumb`)).join(",\\s*")} \\{\\s*background-color: rgba\\(156, 163, 175, 0\\.5\\);`).test(block))
   const stage = code("components/app/app-stage.tsx")
   check("the landing moves what is in a scroller, never the scroller: a page's own box, each pane, the editor's pane stand still with their bars",
     /function ownScrollers\(child: HTMLElement\): HTMLElement\[\]/.test(stage)

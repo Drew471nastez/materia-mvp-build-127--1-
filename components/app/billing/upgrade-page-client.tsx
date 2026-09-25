@@ -250,7 +250,6 @@ export function UpgradePageClient({
         <PlanCards
           actions={{ free: actionFor("free"), growth: actionFor("growth") }}
           lead={currentPlanId === "free" ? "growth" : undefined}
-          className="max-w-[820px] mx-auto"
         />
 
         <p className="mt-6 text-center text-[13px] leading-[1.5] text-[#6b7280]">{PLAN_FOOTNOTE}</p>

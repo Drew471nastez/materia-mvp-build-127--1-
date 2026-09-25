@@ -30,7 +30,7 @@ import {
  * the moment `usePathname` changes (the address and the page are one commit):
  *
  *   THE LANDING. Before that commit is painted, every top level box of the
- *   new page starts at opacity 0 and 5px low and rises into place over
+ *   new page starts at opacity 0 and 2px low and rises into place over
  *   180ms. Transform and opacity only, on the compositor, with no fill, so
  *   when it ends nothing is left on the element. A page that has something
  *   `position: fixed` showing inside it (a bottom bar, an editor) gets the
@@ -113,9 +113,9 @@ function ownScrollers(child: HTMLElement): HTMLElement[] {
  * THE SCROLLBAR DOES NOT LAND. On a computer with classic scrollbars a box
  * that scrolls paints its bar at its own right edge, so fading and raising a
  * page that scrolls in a box of its own faded that bar in from nothing and
- * raised it 5px, on every arrival: the bar "popping". So where a top level
- * box carries a scrollbar (ownScrollers), what moves is what is IN it, and
- * the box, its background and its bar stand still (app/globals.css, "One
+ * raised it with the page, on every arrival: the bar "popping". So where a
+ * top level box carries a scrollbar (ownScrollers), what moves is what is IN
+ * it, and the box, its background and its bar stand still (app/globals.css, "One
  * scrollbar track, always there").
  */
 export function playEntrance(outer: HTMLElement, { fade = true }: { fade?: boolean } = {}) {
@@ -164,8 +164,8 @@ function showing(el: HTMLElement) {
 
 /**
  * THE RISE NEVER SHOWS A THUMB A PAGE DOES NOT HAVE. A transform counts
- * towards what a scroller can scroll, so a page that fitted was 5px too tall
- * for the 180ms of the rise, and on a computer with classic scrollbars its
+ * towards what a scroller can scroll, so a page that fitted was the rise's
+ * few pixels too tall for its 180ms, and on a computer with classic scrollbars its
  * scroller showed a thumb for those frames and took it away again: the bar
  * that "flashes and then disappears". So every scroller that had nowhere to
  * go before the rise is marked for as long as the rise lasts, and

@@ -90,7 +90,7 @@ interface SidebarProps {
   setupProgress?: { completed: number; total: number }
 }
 
-type NotificationsHandle = { open: () => void }
+type NotificationsHandle = { open: () => void; toggle: () => void }
 
 /**
  * The notifications sheet and its open state, memoised for the same reason
@@ -104,7 +104,7 @@ const NotificationsHost = memo(forwardRef<NotificationsHandle, {
   onePagePublished: boolean
 }>(function NotificationsHost({ stripeConnected, stripeStatus, onePagePublished }, ref) {
   const [open, setOpen] = useState(false)
-  useImperativeHandle(ref, () => ({ open: () => setOpen(true) }), [])
+  useImperativeHandle(ref, () => ({ open: () => setOpen(true), toggle: () => setOpen((o) => !o) }), [])
   return (
     <NotificationsModal
       open={open}
@@ -134,7 +134,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   /* The bell opens the host below by ref: its open state is the host's, so
      opening notifications does not re-render this whole sidebar. */
   const notificationsRef = useRef<NotificationsHandle>(null)
-  const openNotifications = useCallback(() => notificationsRef.current?.open(), [])
+  /* A second press on the bell closes what the first one opened. */
+  const openNotifications = useCallback(() => notificationsRef.current?.toggle(), [])
   /* The row a click lights before its page arrives is not state here: this
      held a `pendingHref` that nothing ever read, and setting it re-rendered
      this whole shell on every click, at the moment the click should be
@@ -601,6 +602,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               </Link>
               <button
                 onClick={openNotifications}
+                data-notifications-trigger=""
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all relative"
                 title="Notifications"
               >
@@ -711,6 +713,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               size="icon"
               className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10 relative"
               onClick={openNotifications}
+              data-notifications-trigger=""
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />

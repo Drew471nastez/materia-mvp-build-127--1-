@@ -22,7 +22,7 @@
  * and two stand-ins, for the shapes no real page has on its own:
  *
  *   /app/sites            short, in the shell's scroller
- *   /app/fits             as tall as the scroller less 2px: the one the 5px
+ *   /app/fits             as tall as the scroller less 1px: the one the 2px
  *                         rise of the landing pushes over the edge
  *
  * `?v=short` or `?v=long` on the first load picks the short or the long
@@ -249,9 +249,9 @@ function Page({ path, search }: { path: string; search: string }) {
     case "/app/sites":
       return <div data-page="sites"><div className={COLUMN}><Cards n={2} /></div></div>
     case "/app/fits":
-      /* As tall as the scroller, less 2px: it fits, until something moves it 5px down. */
+      /* As tall as the scroller, less 1px: it fits, until the 2px rise moves it down. */
       return (
-        <div data-page="fits" className="h-[calc(100svh-58px-2px)] overflow-hidden bg-[#fafafa]">
+        <div data-page="fits" className="h-[calc(100svh-58px-1px)] overflow-hidden bg-[#fafafa]">
           <div className={COLUMN}><Cards n={1} /></div>
         </div>
       )
