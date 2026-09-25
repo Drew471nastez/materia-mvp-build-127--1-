@@ -7,6 +7,7 @@ import { domainOwner } from "@/lib/custom-domains/owner"
 import { apexOf, isApexHost, recordsFor, servingHost, vercelHostsFor } from "@/lib/custom-domains/hostname"
 import { creatorDomainsTag, listCreatorDomains, purposeOf, saveRecords, syncOnepageDomain } from "@/lib/custom-domains/store"
 import { addDomainHosts, httpsAnswers, recommendedRecords, verifyProjectDomain } from "@/lib/custom-domains/vercel"
+import { fixesFor, readRecord, recordFqdn, type RecordCheck } from "@/lib/custom-domains/dns-help"
 
 /**
  * ===========================================================================
@@ -29,6 +30,11 @@ import { addDomainHosts, httpsAnswers, recommendedRecords, verifyProjectDomain }
  * Statuses and the diagnostics (Cloudflare's proxy, AAAA records, CAA) are
  * the ones this route has always reported; the writes now go through the
  * service role, after the session has said whose domain it is.
+ *
+ * Added beside those fields, never instead of them: `checks`, one entry per
+ * record in `records` saying found, missing or conflict and what DNS
+ * answered instead, and `fixes`, the plain lines the Domains screens show
+ * after a check that did not pass (lib/custom-domains/dns-help.ts).
  */
 
 const resolveTxt = promisify(dns.resolveTxt)
@@ -80,6 +86,30 @@ function isCloudflareIP(ip: string): boolean {
 
 /** A person pressing Check again, and the page polling while a certificate is issued. */
 const VERIFY_LIMITS = [{ limit: 90, seconds: 600 }] as const
+
+/** An answer, or nothing when the name has no such record or does not resolve. */
+async function orEmpty<T>(p: Promise<T[]>): Promise<T[]> {
+  try {
+    return await p
+  } catch {
+    return []
+  }
+}
+
+/** What DNS answers at each record's own name, read against the value it should hold. */
+async function checkRecords(records: ReturnType<typeof recordsFor>, apex: string, acceptedIps: string[]): Promise<RecordCheck[]> {
+  return Promise.all(
+    records.map(async (r) => {
+      const at = recordFqdn(r.name, apex)
+      const [a, cname, txt] = await Promise.all([
+        r.type === "TXT" ? Promise.resolve([] as string[]) : orEmpty(resolve4(at)),
+        r.type === "CNAME" ? orEmpty(resolveCname(at)) : Promise.resolve([] as string[]),
+        r.type === "TXT" ? orEmpty(resolveTxt(at)).then((rows) => rows.map((x) => x.join(""))) : Promise.resolve([] as string[]),
+      ])
+      return readRecord(r, { a, cname, txt }, acceptedIps)
+    }),
+  )
+}
 
 const pointsAtVercel = (target: string, recommended: string) => {
   const lower = target.toLowerCase().replace(/\.$/, "")
@@ -158,11 +188,12 @@ export async function POST(request: Request) {
             ? `The certificate has not been issued after ${minutes} minutes. Something below is likely blocking it.`
             : `The certificate is taking longer than usual (${minutes} minutes). This happens with new domains; it keeps trying on its own.`
           : "The DNS is right. The certificate is being issued, which usually takes a few minutes."
+      const fixes = fixesFor(records, null, { issues, warnings })
       if (domainRecord.status === "active") {
         /* It answered before and does not now: say so, but do not take a live domain down on one failed probe. */
-        return NextResponse.json({ verified: true, status: "active", message: "Connected. HTTPS did not answer just now; if that lasts, check the records below.", records, warnings, issues })
+        return NextResponse.json({ verified: true, status: "active", message: "Connected. HTTPS did not answer just now; if that lasts, check the records below.", records, warnings, issues, fixes })
       }
-      return NextResponse.json({ verified: true, sslPending: true, status: "ssl_provisioning", message, records, warnings, issues })
+      return NextResponse.json({ verified: true, sslPending: true, status: "ssl_provisioning", message, records, warnings, issues, fixes })
     }
 
     // ============================================================
@@ -249,6 +280,10 @@ export async function POST(request: Request) {
     /* Right enough to serve: the serving host resolves to Vercel. */
     const dnsVerified = apex ? aRecordVerified || cnameVerified || txtVerified : cnameVerified || aRecordVerified
 
+    /* Record by record, for the status beside each one and the fixes under them. Reads only. */
+    const checks = await checkRecords(records, apexOf(domain), expectedIps)
+    const fixes = fixesFor(records, checks, { issues, warnings })
+
     if (!dnsVerified || waitingOnTxt) {
       await admin.from("custom_domains").update({ status: "pending" }).eq("id", domainId).eq("creator_id", creatorId)
       const hints: string[] = []
@@ -269,6 +304,8 @@ export async function POST(request: Request) {
         found: { aRecord: aRecordVerified, cname: cnameVerified, txt: txtVerified },
         warnings,
         issues,
+        checks,
+        fixes,
       })
     }
 
@@ -276,7 +313,7 @@ export async function POST(request: Request) {
     const https = await httpsAnswers(host)
     if (https.ok) {
       await markLive()
-      return NextResponse.json({ verified: true, status: "active", message: "Connected. The domain is live with HTTPS.", records, warnings, issues })
+      return NextResponse.json({ verified: true, status: "active", message: "Connected. The domain is live with HTTPS.", records, warnings, issues, checks, fixes })
     }
 
     await admin
@@ -294,6 +331,8 @@ export async function POST(request: Request) {
       records,
       warnings,
       issues,
+      checks,
+      fixes,
     })
   } catch (error) {
     console.error("Domain verify error:", error)
