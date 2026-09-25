@@ -155,12 +155,21 @@ export function renderStorelibSection(
  *
  * Only in the builder, and only on the product template. A visitor's page
  * without a product is a missing product, never somebody else's.
+ *
+ * The live route calls that template "product" and the builder, which names
+ * every page but home `page.<key>` (lib/website-builder/site-pages.ts), calls
+ * it "page.product". Both are the product page. The card has no description,
+ * so it gets an empty one: `page.product` has the same fields either way.
  */
+const PRODUCT_TEMPLATES = new Set(["product", "page.product"])
+
 export function withPageProduct(
   page: { template: string; in_editor?: boolean; [key: string]: unknown },
   products?: RenderContext["products"],
 ): { template: string; in_editor?: boolean; [key: string]: unknown } {
-  if (page.template !== "product" || page.product !== undefined || page.in_editor !== true) return page
+  if (!PRODUCT_TEMPLATES.has(page.template) || page.product !== undefined || page.in_editor !== true) return page
   const first = products?.[0]
-  return first ? { ...page, product: first } : page
+  if (!first) return page
+  const settings = (first as { settings?: Record<string, unknown> }).settings ?? {}
+  return { ...page, product: { ...first, settings: { description: "", ...settings } } }
 }

@@ -414,7 +414,11 @@ async function main() {
     check("a page with no product draws nothing for a visitor", visitor.ok && !visitor.html.includes("Your product appears here") && !visitor.html.includes("/checkout?"))
     const card = toCard(row, variants)
     check("in the builder, the product template borrows the newest product", (withPageProduct({ template: "product", in_editor: true }, [card]).product as { id?: string } | undefined)?.id === "p2")
-    check("but never on a visitor's page, and never on another template", withPageProduct({ template: "product" }, [card]).product === undefined && withPageProduct({ template: "index", in_editor: true }, [card]).product === undefined)
+    check("but never on a visitor's page, and never on another template", withPageProduct({ template: "product" }, [card]).product === undefined && withPageProduct({ template: "index", in_editor: true }, [card]).product === undefined && withPageProduct({ template: "page.about", in_editor: true }, [card]).product === undefined)
+    /* The builder names the product page "page.product" (site-pages.ts templateForPage), the live route "product". */
+    const inBuilder = renderStorelibSection(instance, theme, { template: "page.product", in_editor: true }, sources, [card])
+    check("the builder's own name for the product page draws the newest product too, not the empty note", inBuilder.ok && inBuilder.html.includes("Portrait Pack") && !inBuilder.html.includes("Your product appears here"))
+    check("and the stand-in has every field page.product has, its description empty", ((withPageProduct({ template: "page.product", in_editor: true }, [card]).product as { settings?: { description?: string } } | undefined)?.settings?.description) === "" && inBuilder.ok && !inBuilder.html.includes('class="pp__desc"'))
     check("the example compiles with no warnings and passes the checks every AI-written section must", (() => { const c = compileSection(src, { file: "sections/product_page.storelib" }); return c.ok === true && (c.warnings ?? []).length === 0 })() && qualityErrors(checkSectionQuality(src)).length === 0 && validateSection(src, { path: "sections/product_page.storelib", expectType: "product_page", strict: true }).ok === true)
     const facts = describeStore(STORE)
     check("the builder's store facts carry ids, addresses, sale prices and options", /\[id p1, \/products\/film-presets\]/.test(facts) && /was 39\.00/.test(facts) && /options: Personal 39\.00, Commercial 79\.00/.test(facts))
@@ -424,7 +428,7 @@ async function main() {
   section("Checkout comes back to the creator's own site, and nowhere else")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const rules = { hosts: ["northlight.storelib.com", "shop.northlight.co", "www.shop.northlight.co"], mainDomain: "storelib.com", base: "northlight.storelib.com" }
+    const rules: Parameters<typeof checkoutReturnTarget>[1] = { hosts: ["northlight.storelib.com", "shop.northlight.co", "www.shop.northlight.co"], mainDomain: "storelib.com", base: "northlight.storelib.com" }
     const to = (v: unknown, r = rules) => checkoutReturnTarget(v, r)
     check("their storelib address", to("https://northlight.storelib.com/products/film") === "https://northlight.storelib.com/products/film")
     check("their verified domain, fragment dropped", to("https://shop.northlight.co/thank-you?x=1#top") === "https://shop.northlight.co/thank-you?x=1")
