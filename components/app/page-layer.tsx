@@ -6,6 +6,136 @@ import { cn } from "@/lib/utils"
 
 /**
  * ===========================================================================
+ *  A LAYER COMES AND GOES LIKE A PAGE ON A PHONE
+ * ===========================================================================
+ * The product editor used to arrive and leave in one frame: the list was
+ * there, then the editor was, then the list again. Now opening a product
+ * slides the editor in from the right edge over the list, and Back or Cancel
+ * slides it off to the right with the list already drawn underneath, the
+ * way a pushed screen comes and goes on an iPhone. From 768px the travel
+ * would be the whole width of a computer's screen, so there it is a short
+ * fade with a 12px rise.
+ *
+ * HOW. The two pages never exist at the same time in React: the router
+ * swaps one for the other in a single commit. So the move is a view
+ * transition (document.startViewTransition): the browser keeps a picture of
+ * the screen as it was, the router commits the new page, and the picture and
+ * the live new page are animated against each other, on the compositor.
+ * Nothing in the move is drawn by script, and there is never a frame without
+ * a page in it: before the commit the old picture covers the screen, after
+ * it the new page is live under (or over) it.
+ *
+ *   The callback waits for this file's own signal that the commit happened:
+ *   the layer mounting (enter) or unmounting (leave), in a layout effect,
+ *   which is before that frame is painted.
+ *
+ *   It waits at most LAYER_WAIT_MS. The editor is prefetched from the list,
+ *   and the list from the editor, so the commit is normally a frame or two
+ *   away; a page that has to come from the server is not. The screen does
+ *   not render while the browser waits, so past that the move is skipped:
+ *   the screen is live again, the page arrives when it arrives, with the
+ *   stage's ordinary landing.
+ *
+ *   While it runs, <html> carries data-layer-motion ("enter" or "leave"),
+ *   which is what the ::view-transition rules in app/globals.css select on,
+ *   and what tells the stage (components/app/app-stage.tsx) not to play its
+ *   own landing under the move. The pill is named in the transition, so it
+ *   stays where it is while the page moves under it.
+ *
+ * The duration and the curve are set here and handed to the CSS as custom
+ * properties on <html>, one number in one place.
+ *
+ * No move under reduced motion, in a browser with no view transitions (the
+ * page swaps as before), or when one is already running.
+ */
+export const LAYER_MOTION_MS = 300
+/** The iOS sheet curve, the one the segmented control and the sheets use. */
+export const LAYER_MOTION_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+export const LAYER_WAIT_MS = 450
+
+type LayerMotion = "enter" | "leave"
+let waiting: { motion: LayerMotion; landed: () => void } | null = null
+let moves = 0
+
+type ViewTransitionLike = { finished: Promise<void>; ready: Promise<void>; skipTransition: () => void }
+type WithViewTransitions = Document & { startViewTransition?: (update: () => Promise<void> | void) => ViewTransitionLike }
+
+export function moveLayer(motion: LayerMotion, navigate: () => void) {
+  const doc = document as WithViewTransitions
+  const html = document.documentElement
+  const reduced = !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  if (waiting || reduced || typeof doc.startViewTransition !== "function") {
+    navigate()
+    return
+  }
+  const id = ++moves
+  let landed!: () => void
+  const commit = new Promise<void>((resolve) => {
+    landed = resolve
+  })
+  waiting = {
+    motion,
+    landed: () => {
+      waiting = null
+      landed()
+    },
+  }
+  const stop = () => {
+    if (moves === id) delete html.dataset.layerMotion
+  }
+  html.dataset.layerMotion = motion
+  html.style.setProperty("--layer-motion-ms", `${LAYER_MOTION_MS}ms`)
+  html.style.setProperty("--layer-motion-ease", LAYER_MOTION_EASE)
+
+  let move: ViewTransitionLike
+  try {
+    move = doc.startViewTransition(() => {
+      navigate()
+      return new Promise<void>((resolve) => {
+        const late = window.setTimeout(() => {
+          /* Not here yet: give the screen back and let the page land on its own. */
+          if (waiting && moves === id) waiting = null
+          stop()
+          move.skipTransition()
+          resolve()
+        }, LAYER_WAIT_MS)
+        void commit.then(() => {
+          window.clearTimeout(late)
+          resolve()
+        })
+      })
+    })
+  } catch {
+    waiting = null
+    stop()
+    navigate()
+    return
+  }
+  /* A skipped move rejects `ready`; that is an outcome, not an error. */
+  move.ready.catch(() => {})
+  move.finished.then(stop, stop)
+}
+
+/**
+ * THE SAME PAGE AT A NEW ADDRESS. A new product's first save opens it at
+ * its own address, where the router draws a new layer with the same product
+ * in it. That is not a new page to land: the stage would fade the editor in
+ * from nothing, a blink right after Save. So the address change and the new
+ * layer are marked as a layer standing in for itself (data-layer-motion
+ * "stay"), which the stage lands without its entrance, and the mark goes
+ * the frame after the new layer mounts, or after 8s if it never does.
+ */
+export function holdLayerLanding() {
+  const html = document.documentElement
+  if (html.dataset.layerMotion) return
+  html.dataset.layerMotion = "stay"
+  window.setTimeout(() => {
+    if (html.dataset.layerMotion === "stay") delete html.dataset.layerMotion
+  }, 8000)
+}
+
+/**
+ * ===========================================================================
  *  A PAGE DRAWN OVER THE WHOLE SHELL
  * ===========================================================================
  * The plans page and the product editor are pages of their own: no dark
@@ -69,7 +199,19 @@ export function PageLayer({
   useLayoutEffect(() => {
     const html = document.documentElement
     html.classList.add("has-page-layer")
-    return () => html.classList.remove("has-page-layer")
+    /* The commit a layer's move is waiting for (moveLayer, below): this layer is on the screen. */
+    if (waiting?.motion === "enter") waiting.landed()
+    /* A layer standing in for the one before it (holdLayerLanding): from the next frame the stage lands pages again. */
+    if (html.dataset.layerMotion === "stay") {
+      requestAnimationFrame(() => {
+        if (html.dataset.layerMotion === "stay") delete html.dataset.layerMotion
+      })
+    }
+    return () => {
+      html.classList.remove("has-page-layer")
+      /* ...or it has gone, and the page under it is in the same commit. */
+      if (waiting?.motion === "leave") waiting.landed()
+    }
   }, [])
 
   return (

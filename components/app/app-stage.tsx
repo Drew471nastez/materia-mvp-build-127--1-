@@ -157,6 +157,10 @@ export function AppStage() {
     const saved = traversal ? recalledScroll(key) : null
     s.outer.scrollTop = saved?.outer ?? 0
     if (s.inner) s.inner.scrollTop = saved?.inner ?? 0
+    /* A layer moving in or out (components/app/page-layer.tsx moveLayer) is
+       the landing: the page under it holds still, fully drawn. A layer
+       standing in for itself at a new address (holdLayerLanding) has none. */
+    if (document.documentElement.dataset.layerMotion) return
     playEntrance(s.outer, { fade: !slowSurfaceIsUp() })
   }, [key, pathname, search])
 

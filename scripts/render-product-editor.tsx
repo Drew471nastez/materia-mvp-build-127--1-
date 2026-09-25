@@ -13,6 +13,9 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { ProductEditor } from "@/app/app/products/new/product-editor"
 import type { LoadedProduct } from "@/app/app/products/new/editor-form"
+import { ProductsClient } from "@/app/app/products/products-client"
+import { PageLayer } from "@/components/app/page-layer"
+import { LanguageProvider } from "@/lib/i18n"
 
 const pic = (hue: number) =>
   "data:image/svg+xml;utf8," +
@@ -61,7 +64,61 @@ const isNew = location.search.includes("new")
 const isLayer = location.search.includes("layer")
 const editor = <ProductEditor creator={{ id: "c1", slug: "astrid", username: "astrid" }} loaded={isNew ? null : loaded} />
 
-createRoot(document.getElementById("app")!).render(
+/*
+  `route`: the list and the editor as the app draws them, with a router of
+  two addresses in place of Next's. The stand-in router's push calls
+  window.__navigate, which swaps the page in a transition, one commit, the
+  way the real router does: /app/products draws the Products list in the
+  shell's scroller, /app/products/<id> the editor in its PageLayer. So Back,
+  Cancel and a row's press run the real moveLayer against a real commit.
+*/
+const cover = (hue: number) =>
+  "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="hsl(${hue},45%,72%)"/><circle cx="40" cy="44" r="18" fill="hsl(${hue},40%,35%)"/></svg>`)
+const shelf = Array.from({ length: 14 }, (_, i) => ({
+  id: i === 3 ? loaded.product.id : `p${i}`,
+  creator_id: "c1",
+  title: i === 3 ? String(loaded.product.title) : `Product ${i + 1}`,
+  type: "digital",
+  price_cents: 1200 + i * 350,
+  status: i % 5 === 2 ? "draft" : "published",
+  thumbnail_url: cover(i * 37),
+  slug: `product-${i}`,
+  created_at: new Date(Date.UTC(2026, 8, 1) - i * 86400000).toISOString(),
+  archived: false,
+  sales_count: i % 3 === 0 ? 12 * i : 0,
+}))
+
+function Routed() {
+  const [path, setPath] = React.useState(`/app/products/${loaded.product.id}`)
+  ;(window as unknown as { __navigate: (h: string) => void }).__navigate = (h) => React.startTransition(() => setPath(h))
+  ;(window as unknown as { __path: string }).__path = path
+  return (
+    <div style={{ position: "fixed", inset: 0 }}>
+      <div data-shell-chrome="" className="fixed inset-x-0 top-0 z-50 h-[68px] border-b border-[#eceef1] bg-white md:h-[58px]" />
+      <main className="h-full pt-[68px] md:pt-[58px] bg-[#f8f9fa] overflow-hidden">
+        <div className="h-[calc(100svh-68px)] md:h-[calc(100svh-58px)] overflow-y-auto app-content-scroll">
+          {path === "/app/products" ? (
+            <LanguageProvider>
+              <ProductsClient products={shelf} creatorUsername="astrid" />
+            </LanguageProvider>
+          ) : (
+            <PageLayer pill inset="bar">
+              <ProductEditor key={path} creator={{ id: "c1", slug: "astrid", username: "astrid" }} loaded={loaded} />
+            </PageLayer>
+          )}
+        </div>
+      </main>
+      <div data-app-nav-pill="" className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex items-end justify-center md:hidden" style={{ paddingBottom: 6 }}>
+        <div id="pill" className="pointer-events-auto h-[58px] w-[300px] rounded-full bg-white/90 shadow-[0_8px_24px_rgba(0,0,0,0.18)]" />
+      </div>
+    </div>
+  )
+}
+
+if (location.search.includes("route")) {
+  document.documentElement.classList.add("app-layout")
+  createRoot(document.getElementById("app")!).render(<Routed />)
+} else createRoot(document.getElementById("app")!).render(
   <div style={{ position: "fixed", inset: 0 }}>
     {isLayer ? (
       <div data-page-layer="" className="fixed inset-0 z-[60] overflow-y-auto overscroll-contain bg-[#f8f9fa]">
