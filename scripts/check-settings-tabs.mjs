@@ -79,7 +79,8 @@ const server = createServer((req, res) => {
 await new Promise((r) => server.listen(0, "127.0.0.1", r))
 const base = `http://127.0.0.1:${server.address().port}`
 
-const TABS = ["security", "payments", "billing", "domains", "privacy", "stores", "general"]
+/* No Stores tab since 88d197a4 ("Get rid of the Stores tab in Settings"). */
+const TABS = ["security", "payments", "billing", "domains", "privacy", "general"]
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"], headless: true })
 const problems = []
 const report = {}
@@ -125,7 +126,7 @@ for (const [label, viewport] of [
     const t0 = await page.evaluate(() => performance.now())
     const shift0 = await page.evaluate(() => window.__shift)
     await page.evaluate((tab) => {
-      const order = ["general", "security", "payments", "billing", "domains", "privacy", "stores"]
+      const order = ["general", "security", "payments", "billing", "domains", "privacy"]
       const b = document.querySelectorAll("[data-settings-tabs] button")[order.indexOf(tab)]
       if (!b) throw new Error("no tab button for " + tab + "; the page reads: " + document.body.innerText.slice(0, 300))
       b.click()
