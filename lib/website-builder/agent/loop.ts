@@ -94,6 +94,8 @@ export const MAX_TOKENS = 300_000
 export const MAX_REVIEWS = 2
 
 export type ThemeAgentEvent =
+  /** Which conversation the run is recorded in, sent by the route before anything else. */
+  | { type: "conversation"; id: string; title: string }
   | { type: "thinking"; text: string }
   /** One change, the moment it is made, so the preview moves as it happens. */
   | { type: "op"; op: ThemeOp; label: string }

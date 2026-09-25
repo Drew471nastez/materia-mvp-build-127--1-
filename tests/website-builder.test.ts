@@ -1309,8 +1309,8 @@ section("A form that says it worked, did")
 {
   console.log("\n  Storelib AI does not lose half of itself after one message")
   const chat = read("components/website-builder/theme-chat.tsx")
-  const empty = chat.slice(chat.indexOf("exchanges.length === 0 ? ("), chat.indexOf('<div className="min-w-0 shrink-0 border-t border-border p-2.5 [overflow-wrap:anywhere]">'))
-  const composer = chat.slice(chat.indexOf('<div className="min-w-0 shrink-0 border-t border-border p-2.5 [overflow-wrap:anywhere]">'))
+  const empty = chat.slice(chat.indexOf("exchanges.length === 0 ? ("), chat.indexOf('data-ask-tray=""'))
+  const composer = chat.slice(chat.indexOf('data-ask-tray=""'))
 
   check("the mode row is with the box you type into", /\["change", "Change this page"\]/.test(composer))
   check("and not only in the empty state", !/\["change", "Change this page"\]/.test(empty))

@@ -2097,12 +2097,17 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
   )
   check(
     "the composer wraps a long path or URL instead of running past the clipped edge",
-    /<div className="min-w-0 shrink-0 border-t border-border p-2\.5 \[overflow-wrap:anywhere\]">/.test(chat),
+    /<div data-ask-tray="" className=\{cn\("min-w-0 \[overflow-wrap:anywhere\]"/.test(chat),
   )
+  /* On a phone the header's and the composer's buttons ARE 44px now, not
+     28px ones with an invisible press area around them. The small crosses
+     (a picture's, the scope chip's) keep a 44px `after` box. */
   check(
-    "the composer's and the header's 28px buttons answer a 44px thumb",
-    (chat.match(/after:absolute after:-inset-x-\[3px\] after:-bottom-3 after:-top-1 after:content-\[''\]/g) ?? []).length === 3 &&
-      (chat.match(/after:absolute after:-inset-x-1 after:-inset-y-2 after:content-\[''\]/g) ?? []).length === 2,
+    "the composer's and the header's buttons answer a 44px thumb",
+    /phone \? "h-11 w-11" : "h-8 w-8"/.test(chat) &&
+      /phone \? "h-11 w-11" : "h-9 w-9"/.test(chat) &&
+      /phone \? "h-11 pl-3\.5 pr-2\.5" : "h-9 pl-3 pr-2"/.test(chat) &&
+      (chat.match(/after:absolute after:-inset-3 after:content-\[''\]/g) ?? []).length >= 3,
   )
   check(
     "the thread scrolls up and down only: x hidden, long words broken, a vertical pan",
@@ -3789,7 +3794,12 @@ section("A setting is one way to make a change, not the limit of what is possibl
     /if \(result\.wroteCode\) send\(\{ type: "sources-changed" \}\)/.test(route) &&
       /\{ type: "sources-changed" \}/.test(loop) &&
       /onSourcesChanged\?\.\(\)/.test(readFileSync(join(process.cwd(), "components/website-builder/theme-chat.tsx"), "utf8")) &&
-      /onSourcesChanged=\{\(\) => \{ void loadStorelibSources\(\) \}\}/.test(readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")),
+      /* A stable callback now, so the memoised chat is not re-rendered by a new arrow every edit. */
+      ((editor: string) =>
+        /const reloadAiSources = useCallback\(\(\) => \{\s*void loadStorelibSources\(\)\s*\}, \[loadStorelibSources\]\)/.test(editor) &&
+        (editor.match(/onSourcesChanged=\{reloadAiSources\}/g) ?? []).length === 2)(
+        readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8"),
+      ),
   )
   check(
     "the section's own button says Ask AI",

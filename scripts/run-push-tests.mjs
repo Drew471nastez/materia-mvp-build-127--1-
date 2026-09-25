@@ -188,6 +188,7 @@ const SUITES = [
   "tests/keyboard-watch.test.ts",
   "tests/agent-attachments.test.ts",
   "tests/work-panel.test.ts",
+  "tests/ask-storelib.test.ts",
   "tests/native-feel.test.ts",
   "tests/theme-media.test.ts",
   "tests/settings-flow.test.ts",

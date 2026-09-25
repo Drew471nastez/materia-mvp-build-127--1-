@@ -23,16 +23,46 @@
  * operations.ts for why there is exactly one of it.
  */
 
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   TWO SHAPES, ONE CONVERSATION
+  ═══════════════════════════════════════════════════════════════════════════
+  `variant="dock"` on a computer: a frosted pill at the bottom centre of the
+  canvas. Focusing it opens the conversation above it, the pill becoming its
+  input row; Escape or a click outside puts it back to the pill with the
+  conversation and any running change kept. It can be maximized, and closed,
+  which hides the pill until the Ask AI button in the bar brings it back.
+
+  `variant="sheet"` on a phone: the same header, thread and composer inside
+  the editor's bottom sheet, which is what a phone does with a panel.
+
+  Both have the same header: the history (a sub page that slides in), a new
+  chat, maximize and close. Everything that talks to the server is shared
+  and written once, below; only the layout differs.
+
+  The dock is the one frosted surface in the builder, and on purpose: it sits
+  over the page being edited, and the blur is what keeps it readable over
+  whatever the page happens to be without hiding the page.
+*/
+
 import * as React from "react"
+import { createPortal } from "react-dom"
 import {
   ArrowUp,
   Check,
   ChevronDown,
+  ChevronLeft,
+  History,
   Loader2,
   Lock,
+  Maximize2,
+  Mic,
+  Minimize2,
+  Paperclip,
   RotateCcw,
   ImagePlus,
   Square,
+  SquarePen,
   TriangleAlert,
   X,
 } from "lucide-react"
@@ -41,6 +71,9 @@ import { ImageViewer, type ViewableImage } from "@/components/website-builder/im
 import { StorelibMark } from "@/components/storelib-mark"
 import { WorkPanel, type WorkCode, type WorkStep } from "@/components/website-builder/work-panel"
 import { AiStatus, useStageLabel } from "@/components/website-builder/ai-status"
+import { AskHistory, type HistoryTarget } from "@/components/website-builder/ask-history"
+import { useVoiceInput } from "@/components/website-builder/ask-voice"
+import { useSheetStop } from "@/components/website-builder/mobile-editor-sheet"
 import type { WriteStage } from "@/lib/website-builder/agent/write-section"
 import { cn } from "@/lib/utils"
 import {
@@ -52,6 +85,7 @@ import {
   type AllowedImageType,
 } from "@/lib/sites/agent/attachments"
 import type { ThemeOp } from "@/lib/website-builder/agent/operations"
+import { CLOSE_MS, DOCK_PAD, EASE, OPEN_MS, SLIDE_MS, dockGeometry } from "@/lib/website-builder/ask-dock"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
 interface Exchange {
@@ -75,6 +109,12 @@ interface Exchange {
    * words and drops the pictures, which is the trade we want.
    */
   images?: Attachment[]
+  /**
+   * The request, pictures and all, has reached the server. Until then the
+   * thumbnails say they are being sent: the route reads the whole body
+   * before it answers, so the answer starting is the upload finishing.
+   */
+  sent?: boolean
   /** What it said it would do, before it did any of it. */
   plan?: string
   /** One entry per tool call it actually made, in the order they happened. */
@@ -119,6 +159,7 @@ const ENGINES = [
   {
     id: "claude",
     label: "Claude Sonnet",
+    short: "Sonnet",
     detail: "Default, fast and good at everything here",
     provider: "anthropic",
     tier: "fast",
@@ -126,6 +167,7 @@ const ENGINES = [
   {
     id: "claude-opus",
     label: "Claude Opus",
+    short: "Opus",
     detail: "Slower and dearer. For a change you know is hard",
     provider: "anthropic",
     tier: "strong",
@@ -133,6 +175,7 @@ const ENGINES = [
   {
     id: "openai",
     label: "ChatGPT",
+    short: "ChatGPT",
     detail: "The previous engine",
     provider: "openai",
     tier: "fast",
@@ -158,6 +201,28 @@ function prefersReducedMotion(): boolean {
   } catch {
     return false
   }
+}
+
+function useReducedMotion(): boolean {
+  const [reduced, setReduced] = React.useState(false)
+  React.useEffect(() => {
+    let query: MediaQueryList
+    try {
+      query = window.matchMedia("(prefers-reduced-motion: reduce)")
+    } catch {
+      return
+    }
+    const read = () => setReduced(query.matches)
+    read()
+    query.addEventListener?.("change", read)
+    return () => query.removeEventListener?.("change", read)
+  }, [])
+  return reduced
+}
+
+/** "0:07", for the recording clock. */
+function clock(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
 }
 
 /**
@@ -261,7 +326,14 @@ function RunStatus({ exchange }: { exchange: Exchange }) {
   return label ? <AiStatus label={label} /> : null
 }
 
-export function ThemeChat({
+/**
+ * Memoised: the editor re-renders on every edit it makes, and the chat only
+ * needs to when something it is given has changed. What it types, streams
+ * and shows is its own state, so none of that re-renders the editor.
+ */
+export const ThemeChat = React.memo(ThemeChatPanel)
+
+function ThemeChatPanel({
   installId,
   page,
   sections,
@@ -277,8 +349,23 @@ export function ThemeChat({
   onWriteStart,
   onWriteDone,
   onWriteFailed,
+  variant = "sheet",
+  hidden = false,
+  suspended = false,
+  openRequest = 0,
 }: {
   installId: string
+  /**
+   * "dock" is the computer's shape, a pill over the canvas that opens into
+   * the conversation; "sheet" fills whatever holds it (the phone's sheet).
+   */
+  variant?: "sheet" | "dock"
+  /** Dock only: closed with its X. Hidden, but mounted, so a run keeps going. */
+  hidden?: boolean
+  /** Dock only: the canvas is showing something else (the code, settings). */
+  suspended?: boolean
+  /** Dock only: each new value opens the conversation and puts the cursor in it. */
+  openRequest?: number
   /**
    * WRITING A SECTION, AS THE CANVAS SEES IT. Start holds a spot on the page
    * where the section will go; done puts it there, and answers whether it
@@ -325,6 +412,37 @@ export function ThemeChat({
   const [loadingHistory, setLoadingHistory] = React.useState(true)
   const [historyError, setHistoryError] = React.useState<null | "not_set_up" | "read_failed">(null)
   const [draft, setDraft] = React.useState("")
+  const dock = variant === "dock"
+  /**
+   * THE CONVERSATION ON SCREEN. `id` is null for a new chat until its first
+   * run, when the route answers with the conversation it opened. `earlier`
+   * is the thread from before conversations were kept apart; continuing it
+   * files those messages under a new conversation.
+   */
+  const [conversation, setConversation] = React.useState<{ id: string | null; title: string; earlier: boolean }>({
+    id: null,
+    title: "",
+    earlier: false,
+  })
+  /** The thread, or the history sliding in over it. */
+  const [view, setView] = React.useState<"thread" | "history">("thread")
+  /** Mounted on first open and kept, so going back and forth is a slide rather than a fetch and a flash. */
+  const [historyMounted, setHistoryMounted] = React.useState(false)
+  const [historyKey, setHistoryKey] = React.useState(0)
+  /** Dock: the conversation is open above the pill. */
+  const [expanded, setExpanded] = React.useState(false)
+  /** Dock: the conversation fills most of the canvas. */
+  const [maximized, setMaximized] = React.useState(false)
+  /**
+   * Dock: whether the conversation has been asked for yet. The history is
+   * read the first time the dock opens rather than on every editor load:
+   * reading it signs a URL for every picture in it.
+   */
+  const [wanted, setWanted] = React.useState(!dock)
+  /** Pictures being read and shrunk, shown as placeholders while they are. */
+  const [preparing, setPreparing] = React.useState(0)
+  const reducedMotion = useReducedMotion()
+  const sheetStop = useSheetStop()
   /**
    * WHICH OF THE TWO THINGS IS BEING ASKED FOR. "change" edits this page and
    * goes to the agent; "code" writes a new section type and goes to the one
@@ -443,8 +561,8 @@ export function ThemeChat({
    * Read at SEND time, like everything else in here: a run started thirty
    * seconds ago must send what the panel looks like now.
    */
-  const live = React.useRef({ sections, settings, page, selectedSectionId, locked, engine: chosenEngine })
-  live.current = { sections, settings, page, selectedSectionId, locked, engine: chosenEngine }
+  const live = React.useRef({ sections, settings, page, selectedSectionId, locked, engine: chosenEngine, conversation })
+  live.current = { sections, settings, page, selectedSectionId, locked, engine: chosenEngine, conversation }
 
   /**
    * ===========================================================================
@@ -540,12 +658,23 @@ export function ThemeChat({
    *
    * Restored as pairs: the transcript stores one row for the question and one
    * for the reply, and the panel shows one exchange.
+   *
+   * ONE CONVERSATION AT A TIME: `which` is an id from the history, "earlier"
+   * for the messages from before conversations, or null for the one used
+   * last. A newer load, or a message sent meanwhile, makes an older load's
+   * answer stale (`loadSeq`), and a stale answer is dropped.
    */
-  React.useEffect(() => {
-    let cancelled = false
-    void (async () => {
+  const loadSeq = React.useRef(0)
+  const load = React.useCallback(
+    async (which: string | null) => {
+      const seq = ++loadSeq.current
+      const cancelledNow = () => seq !== loadSeq.current
+      setLoadingHistory(true)
+      setHistoryError(null)
       try {
-        const response = await fetch(`/api/website-builder/themes/${installId}/chat`)
+        const query = which ? `?conversation=${encodeURIComponent(which)}` : ""
+        const response = await fetch(`/api/website-builder/themes/${installId}/chat${query}`)
+        const cancelled = cancelledNow()
         if (!response.ok) {
           /**
            * A FAILED READ IS NOT AN EMPTY CONVERSATION. Showing a blank panel
@@ -559,6 +688,8 @@ export function ThemeChat({
           return
         }
         const body = (await response.json()) as {
+          conversation?: { id: string; title: string } | null
+          earlier?: boolean
           messages: Array<{
             id: string
             role: string
@@ -568,7 +699,7 @@ export function ThemeChat({
             images?: { id: string; name: string; url: string }[]
           }>
         }
-        if (cancelled) return
+        if (cancelledNow()) return
 
         const restored: Exchange[] = []
         for (const message of body.messages) {
@@ -619,17 +750,31 @@ export function ThemeChat({
               ? [`${message.ops.length} change${message.ops.length === 1 ? "" : "s"}`]
               : []
         }
+        /* A different conversation lands at its end without a glide, as a restore does. */
+        seenExchanges.current = 0
         setExchanges(restored)
+        setConversation({
+          id: body.conversation?.id ?? null,
+          title: body.conversation?.title ?? (body.earlier ? restored[0]?.prompt ?? "" : ""),
+          earlier: !!body.earlier,
+        })
       } catch {
-        if (!cancelled) setHistoryError("read_failed")
+        if (!cancelledNow()) setHistoryError("read_failed")
       } finally {
-        if (!cancelled) setLoadingHistory(false)
+        if (!cancelledNow()) setLoadingHistory(false)
       }
-    })()
+    },
+    [installId],
+  )
+
+  React.useEffect(() => {
+    if (!wanted) return
+    void load(null)
     return () => {
-      cancelled = true
+      /* An unmount, or a different install: whatever is in flight is stale. */
+      loadSeq.current++
     }
-  }, [installId])
+  }, [wanted, load])
 
   /**
    * ═════════════════════════════════════════════════════════════════════════
@@ -716,6 +861,9 @@ export function ThemeChat({
     const picked = Array.from(files).filter((f) => f.type.startsWith("image/"))
     if (picked.length === 0) return
     setAttachError(null)
+    /* A picture is somewhere to look the moment it is chosen: a placeholder
+       holds its place while it is read and shrunk. */
+    setPreparing((n) => n + picked.length)
     const read = await Promise.all(
       picked.map(
         (file) =>
@@ -749,6 +897,7 @@ export function ThemeChat({
           }),
       ),
     )
+    setPreparing((n) => Math.max(0, n - picked.length))
     const ok = read.filter((r): r is Attachment => typeof r !== "string")
     const bad = read.filter((r): r is string => typeof r === "string")
     setAttached((previous) => {
@@ -793,6 +942,12 @@ export function ThemeChat({
       setAttached([])
       setAttachError(null)
       setBusy(true)
+      /* A history read still in flight would land on top of this message: it is dropped. */
+      if (loadingHistory) {
+        loadSeq.current++
+        setLoadingHistory(false)
+      }
+      setWanted(true)
       setExchanges((previous) => [
         ...previous,
         { id, prompt: prompt || (images.length === 1 ? "Build this." : "Build these."), changes: [], running: true, images },
@@ -834,8 +989,14 @@ export function ThemeChat({
             lockToSelection: live.current.locked,
             provider: live.current.engine.provider,
             tier: live.current.engine.tier,
+            /* The conversation on screen; the route opens a new one for null. */
+            conversationId: live.current.conversation.id,
+            continueEarlier: live.current.conversation.earlier,
           }),
         })
+
+        /* The route has read the whole request, pictures included, before it answers. */
+        patch((e) => ({ ...e, sent: true }))
 
         if (!response.ok || !response.body) {
           const body = (await response.json().catch(() => ({}))) as { error?: string }
@@ -870,10 +1031,19 @@ export function ThemeChat({
               state?: string
               path?: string
               source?: string
+              /* The conversation's name, on the event that says which one this run is in. */
+              title?: string
             }
             try {
               event = JSON.parse(line)
             } catch {
+              continue
+            }
+
+            /* Which conversation this run is recorded in: a new chat now has an id, and a name. */
+            if (event.type === "conversation" && event.id) {
+              const opened = { id: event.id, title: event.title ?? "", earlier: false }
+              setConversation((was) => (was.id === opened.id && was.title === opened.title && !was.earlier ? was : opened))
               continue
             }
 
@@ -969,7 +1139,7 @@ export function ThemeChat({
         setBusy(false)
       }
     },
-    [busy, installId, onOp, onRunStart, onRunEnd],
+    [busy, installId, loadingHistory, onOp, onRunStart, onRunEnd],
   )
 
   /**
@@ -1001,6 +1171,8 @@ export function ThemeChat({
       setAttached([])
       setAttachError(null)
       onWriteStart?.(prompt)
+      /* The section arrives on the canvas: the dock gets out of its way while it does. */
+      if (dock) setExpanded(false)
       let kept = false
       let answered = false
       let reason = "The section could not be written."
@@ -1065,6 +1237,8 @@ export function ThemeChat({
         setWriteError(reason)
       } finally {
         if (!kept) onWriteFailed?.(reason, answered)
+        /* Nothing on the canvas to look at: the reason, or the answer, is read here. */
+        if (!kept && dock) setExpanded(true)
         setWriting(false)
         setWriteStage(null)
       }
@@ -1075,7 +1249,7 @@ export function ThemeChat({
      * first rendered: a section written after changing the colours was
      * written for the old ones.
      */
-    [installId, settings, sections, onWriteStart, onWriteDone, onWriteFailed],
+    [installId, settings, sections, onWriteStart, onWriteDone, onWriteFailed, dock],
   )
 
   const submit = React.useCallback(
@@ -1113,139 +1287,430 @@ export function ThemeChat({
 
   React.useEffect(resize, [draft, resize])
 
-  return (
-    <div
-      /*
-        `min-h-0 flex-1` so that inside the phone sheet this column is the
-        room the sheet leaves above its padding, which is the keyboard when
-        one is up: the thread is the part that gives, and the composer ends
-        on the keys. `min-w-0` and a clipped x axis so nothing in here can be
-        wider than the panel, or scrolled sideways by script.
-      */
-      className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col bg-background [overflow-x:clip]"
-      /**
-       * DROPPING WORKS ANYWHERE ON THE PANEL, not only on the composer. The
-       * counter is why: dragenter and dragleave fire for every child the
-       * pointer crosses, so a boolean would blink off on the way past the
-       * thread and the target would flicker down the whole panel.
-       */
-      onDragEnter={(event) => {
-        if (!event.dataTransfer.types.includes("Files")) return
-        dragDepth.current += 1
-        setDragging(true)
-      }}
-      onDragOver={(event) => {
-        if (event.dataTransfer.types.includes("Files")) event.preventDefault()
-      }}
-      onDragLeave={(event) => {
-        if (!event.dataTransfer.types.includes("Files")) return
-        dragDepth.current = Math.max(0, dragDepth.current - 1)
-        if (dragDepth.current === 0) setDragging(false)
-      }}
-      onDrop={(event) => {
-        if (!event.dataTransfer.files.length) return
-        event.preventDefault()
-        dragDepth.current = 0
-        setDragging(false)
-        void attach(event.dataTransfer.files)
-      }}
-    >
-      {/*
-        WHAT A DROP WILL DO, while the file is still in the air. Without it
-        the gesture is something you either already know about or never find,
-        and a file let go over a panel that showed no target reads as broken.
-      */}
-      {dragging && (
-        <div data-drop-target="" className="pointer-events-none absolute inset-2 z-[120] flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-foreground/30 bg-background/90">
-          <ImagePlus className="h-6 w-6 text-foreground/60" strokeWidth={1.75} />
-          <p className="text-[13px] font-medium text-foreground">Drop the picture here</p>
-          <p className="text-[12px] text-muted-foreground">It will be built as closely as the theme allows</p>
-        </div>
-      )}
 
-      {viewing && (
-        <ImageViewer
-          images={viewing.images}
-          startAt={viewing.at}
-          onClose={() => setViewing(null)}
-        />
-      )}
+  /*
+    ═════════════════════════════════════════════════════════════════════════
+     SPEAKING INSTEAD OF TYPING
+    ═════════════════════════════════════════════════════════════════════════
+    The words land in the box, after whatever was already typed, and are not
+    sent: they are read and changed first like typed ones. See ask-voice.ts
+    for which way the browser hears them, and why the microphone is simply
+    not drawn where it cannot.
+  */
+  const voiceBase = React.useRef("")
+  const voice = useVoiceInput({
+    onText: (text) => {
+      const base = voiceBase.current
+      setDraft(base ? `${base} ${text}` : text)
+    },
+  })
+  const listening = voice.state === "listening"
+  const voiceRef = React.useRef(voice)
+  voiceRef.current = voice
 
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
-        <StorelibMark className="h-[18px] w-[18px] shrink-0 rounded-[5px]" />
-        <span className="flex-1 truncate text-[13px] font-medium">Ask Storelib</span>
+  /** The model menu closes on any press outside it, as a menu does. */
+  const engineRef = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    if (!engineOpen) return
+    const away = (event: PointerEvent) => {
+      if (!engineRef.current?.contains(event.target as Node)) setEngineOpen(false)
+    }
+    document.addEventListener("pointerdown", away, true)
+    return () => document.removeEventListener("pointerdown", away, true)
+  }, [engineOpen])
 
-        {/*
-          WHICH MODEL, in the header rather than a settings page — it is a
-          per-message decision ("this one is hard, use Opus"), and a choice
-          buried two screens away is one nobody makes.
-        */}
-        <div className="relative shrink-0">
+  /* ── The dock: open, closed, where, and how it moves ─────────────────── */
+  const dockRef = React.useRef<HTMLDivElement>(null)
+  const cardRef = React.useRef<HTMLDivElement>(null)
+  const surfaceRef = React.useRef<HTMLDivElement>(null)
+  const contentRef = React.useRef<HTMLDivElement>(null)
+  const pillSlotRef = React.useRef<HTMLDivElement>(null)
+  const pillFlipRef = React.useRef<HTMLDivElement>(null)
+  const pillRef = React.useRef<HTMLDivElement>(null)
+
+  const openDock = React.useCallback(() => {
+    setWanted(true)
+    setExpanded(true)
+  }, [])
+  const collapseDock = React.useCallback(() => {
+    setExpanded(false)
+    setEngineOpen(false)
+    const field = fieldRef.current
+    if (field && document.activeElement === field) field.blur()
+  }, [])
+
+  /** The editor asking for the conversation: the Ask AI button on a section, or an answer to read. */
+  const seenRequest = React.useRef(0)
+  React.useEffect(() => {
+    if (openRequest === seenRequest.current) return
+    seenRequest.current = openRequest
+    if (!dock) return
+    openDock()
+    requestAnimationFrame(() => fieldRef.current?.focus({ preventScroll: true }))
+  }, [openRequest, dock, openDock])
+
+  /* Closed, or the canvas showing something else: the conversation folds away with it. */
+  React.useEffect(() => {
+    if (!hidden && !suspended) return
+    setExpanded(false)
+    setEngineOpen(false)
+    if (voiceRef.current.state !== "idle") voiceRef.current.cancel()
+  }, [hidden, suspended])
+
+  /*
+    ESCAPE, OR A PRESS ANYWHERE ELSE, PUTS IT BACK TO THE PILL. What is open
+    inside it goes first: the picture viewer handles its own Escape, then the
+    model menu, a recording, the history, and only then the conversation.
+    Nothing is lost: the thread, the draft and a running change all stay.
+  */
+  const viewingRef = React.useRef(false)
+  React.useEffect(() => {
+    if (!dock || !expanded) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || viewingRef.current) return
+      if (engineOpen) setEngineOpen(false)
+      else if (voiceRef.current.state === "listening") voiceRef.current.cancel()
+      else if (view === "history") setView("thread")
+      else collapseDock()
+    }
+    const onDown = (event: PointerEvent) => {
+      const target = event.target as Element | null
+      if (!target || viewingRef.current) return
+      if (cardRef.current?.contains(target) || pillSlotRef.current?.contains(target)) return
+      if (target.closest?.("[data-ask-keep]")) return
+      collapseDock()
+    }
+    document.addEventListener("keydown", onKey)
+    document.addEventListener("pointerdown", onDown, true)
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.removeEventListener("pointerdown", onDown, true)
+    }
+  }, [dock, expanded, engineOpen, view, collapseDock])
+
+  /**
+   * THE CANVAS'S BOX, MEASURED ONCE AND SHARED. The pill, the conversation
+   * and the maximized size are all placed from it (dockGeometry), in the
+   * same pixels the maximize animation measures.
+   */
+  const [box, setBox] = React.useState<{ w: number; h: number; vh: number } | null>(null)
+  useLayout(() => {
+    if (!dock) return
+    const el = dockRef.current
+    if (!el) return
+    const read = () => {
+      const w = Math.round(el.clientWidth)
+      const h = Math.round(el.clientHeight)
+      const vh = window.innerHeight
+      setBox((was) => (was && was.w === w && was.h === h && was.vh === vh ? was : { w, h, vh }))
+    }
+    read()
+    const ro = new ResizeObserver(read)
+    ro.observe(el)
+    window.addEventListener("resize", read)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener("resize", read)
+    }
+  }, [dock])
+
+  /** The pill's height, which grows with pictures and long messages; the conversation keeps room for it. */
+  const [pillHeight, setPillHeight] = React.useState(54)
+  useLayout(() => {
+    if (!dock) return
+    const el = pillRef.current
+    if (!el) return
+    const read = () => setPillHeight(el.offsetHeight || 54)
+    read()
+    const ro = new ResizeObserver(read)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [dock, box !== null])
+
+  /*
+    MAXIMIZE, MEASURED. The conversation takes its new size at once, and is
+    then drawn from where it was to where it is with a transform (the FLIP
+    technique): measure, change, invert, play. The words inside fade back in
+    at the new size rather than being stretched on screen. Transform and
+    opacity only; nothing on the canvas moves.
+  */
+  const flipFrom = React.useRef<{ surface: DOMRect; pill: DOMRect } | null>(null)
+  const toggleMaximize = React.useCallback(() => {
+    if (!dock) {
+      if (!sheetStop) return
+      if (sheetStop.tallest) sheetStop.toMiddle()
+      else sheetStop.toTallest()
+      return
+    }
+    const surface = surfaceRef.current
+    const pill = pillFlipRef.current
+    if (surface && pill && !reducedMotion && expanded) {
+      flipFrom.current = { surface: surface.getBoundingClientRect(), pill: pill.getBoundingClientRect() }
+    }
+    setWanted(true)
+    setExpanded(true)
+    setMaximized((was) => !was)
+  }, [dock, sheetStop, reducedMotion, expanded])
+  useLayout(() => {
+    const from = flipFrom.current
+    flipFrom.current = null
+    const surface = surfaceRef.current
+    const pill = pillFlipRef.current
+    const content = contentRef.current
+    if (!from || !surface || !pill || !content) return
+    const to = surface.getBoundingClientRect()
+    const pillTo = pill.getBoundingClientRect()
+    if (!to.width || !to.height) return
+    surface.style.transition = "none"
+    surface.style.transformOrigin = "0 0"
+    surface.style.transform = `translate(${from.surface.left - to.left}px, ${from.surface.top - to.top}px) scale(${from.surface.width / to.width}, ${from.surface.height / to.height})`
+    pill.style.transition = "none"
+    pill.style.transform = `translateY(${from.pill.top - pillTo.top}px)`
+    content.style.transition = "none"
+    content.style.opacity = "0"
+    void surface.offsetWidth
+    surface.style.transition = `transform ${OPEN_MS}ms ${EASE}`
+    surface.style.transform = ""
+    pill.style.transition = `transform ${OPEN_MS}ms ${EASE}`
+    pill.style.transform = ""
+    content.style.transition = `opacity 180ms ease-out ${OPEN_MS - 150}ms`
+    content.style.opacity = ""
+  }, [maximized])
+
+  /*
+    THE SECTION'S TOOLBAR WINS. The selected section's toolbar sits at the
+    top right of the section, and a section that starts near the bottom of
+    the canvas puts it where the pill is. The toolbar is drawn above the pill
+    either way, and the pill steps down out of sight while they overlap, so
+    neither is half covered. Measured against the pill's slot, which does not
+    move, so stepping away cannot itself end the overlap and start a flicker.
+  */
+  const [yielding, setYielding] = React.useState(false)
+  React.useEffect(() => {
+    if (!dock || expanded || hidden || suspended) {
+      setYielding(false)
+      return
+    }
+    let frame = 0
+    const check = () => {
+      frame = 0
+      const slot = pillSlotRef.current
+      const bar = document.querySelector<HTMLElement>(".wb-section-toolbar")
+      if (!slot || !bar || getComputedStyle(bar).pointerEvents === "none") {
+        setYielding(false)
+        return
+      }
+      const a = slot.getBoundingClientRect()
+      const b = bar.getBoundingClientRect()
+      const m = 8
+      setYielding(!(b.right < a.left - m || b.left > a.right + m || b.bottom < a.top - m || b.top > a.bottom + m))
+    }
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(check)
+    }
+    schedule()
+    const later = [window.setTimeout(schedule, 120), window.setTimeout(schedule, 320)]
+    document.addEventListener("scroll", schedule, { capture: true, passive: true })
+    window.addEventListener("resize", schedule)
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      later.forEach((t) => window.clearTimeout(t))
+      document.removeEventListener("scroll", schedule, { capture: true })
+      window.removeEventListener("resize", schedule)
+    }
+  }, [dock, expanded, hidden, suspended, selectedSectionId, box])
+
+  /* ── Conversations: the history, a new chat, closing ─────────────────── */
+  const clearThread = React.useCallback(() => {
+    seenExchanges.current = 0
+    setExchanges([])
+    setQueued(null)
+    setWritten(null)
+    setWriteError(null)
+    setWriteReply(null)
+  }, [])
+
+  /*
+    THE HISTORY IS THERE ONLY WHILE IT IS USED. Drawn off to the right and
+    slid in on the frame after (two frames, so the off screen position has
+    been painted and there is something to slide from), and taken away
+    again once it has slid back out. Left mounted, its box sat past the
+    sheet's edge for as long as the chat was open.
+  */
+  const openHistory = React.useCallback(() => {
+    setEngineOpen(false)
+    setHistoryMounted(true)
+    setHistoryKey((k) => k + 1)
+    if (reducedMotion) {
+      setView("history")
+      return
+    }
+    requestAnimationFrame(() => requestAnimationFrame(() => setView("history")))
+  }, [reducedMotion])
+  React.useEffect(() => {
+    if (view !== "thread" || !historyMounted) return
+    const gone = window.setTimeout(() => setHistoryMounted(false), reducedMotion ? 0 : SLIDE_MS + 60)
+    return () => window.clearTimeout(gone)
+  }, [view, historyMounted, reducedMotion])
+
+  const openConversation = React.useCallback(
+    (target: HistoryTarget) => {
+      setView("thread")
+      if (target.kind === "one" && target.id === conversation.id && !conversation.earlier) return
+      if (target.kind === "earlier" && conversation.earlier) return
+      clearThread()
+      setConversation(
+        target.kind === "one" ? { id: target.id, title: target.title, earlier: false } : { id: null, title: "", earlier: true },
+      )
+      void load(target.kind === "one" ? target.id : "earlier")
+    },
+    [conversation.id, conversation.earlier, clearThread, load],
+  )
+
+  /** A fresh conversation. The one on screen stays in the history. */
+  const newChat = React.useCallback(() => {
+    if (busy || writing) return
+    loadSeq.current++
+    setLoadingHistory(false)
+    setHistoryError(null)
+    clearThread()
+    setConversation({ id: null, title: "", earlier: false })
+    setView("thread")
+    setDraft("")
+    if (dock) requestAnimationFrame(() => fieldRef.current?.focus({ preventScroll: true }))
+  }, [busy, writing, clearThread, dock])
+
+  /** Closing the chat. On a computer the pill goes too, until the bar's Ask AI brings it back. */
+  const closeChat = React.useCallback(() => {
+    setEngineOpen(false)
+    setView("thread")
+    if (dock) {
+      setExpanded(false)
+      setMaximized(false)
+    }
+    onClose()
+  }, [dock, onClose])
+
+  const startVoice = React.useCallback(() => {
+    voiceBase.current = draft.trim()
+    voice.clearError()
+    if (dock) openDock()
+    void voice.start()
+  }, [draft, voice, dock, openDock])
+
+  viewingRef.current = !!viewing
+  const phone = !dock
+  const busyNow = busy || writing
+  const isMax = dock ? maximized : !!sheetStop?.tallest
+  const empty = draft.trim().length === 0 && attached.length === 0
+  const placeholder =
+    listening
+      ? "Listening…"
+      : voice.state === "transcribing"
+        ? "Writing it out…"
+        : dock && !expanded && writing
+          ? writeLabel ?? "Writing the section…"
+          : mode === "code"
+            ? "Describe a section, or attach a picture of one…"
+            : busy
+              ? dock && !expanded
+                ? "Working on it. Ask for the next change…"
+                : "Ask for the next change…"
+              : attached.length
+                ? "Say what this is for, or just send it"
+                : dock
+                  ? exchanges.length
+                    ? "Continue the conversation"
+                    : "Ask Storelib to change this page"
+                  : "Change this page, or attach a picture…"
+
+  /* ── The pieces, drawn once and placed by the variant below ──────────── */
+  const iconButton = cn(
+    "relative flex shrink-0 items-center justify-center rounded-full text-[#1a1a2e]/65 transition-[background-color,color,opacity] duration-150",
+    "hover:bg-black/[0.05] hover:text-[#1a1a2e] active:bg-black/[0.08] disabled:pointer-events-none disabled:opacity-35",
+    phone ? "h-11 w-11" : "h-8 w-8",
+  )
+  const roundButton = cn(
+    "relative flex shrink-0 items-center justify-center rounded-full transition-[background-color,color,opacity,box-shadow] duration-150 disabled:pointer-events-none disabled:opacity-40",
+    phone ? "h-11 w-11" : "h-9 w-9",
+  )
+  const quietRound = cn(roundButton, "text-[#1a1a2e]/70 hover:bg-black/[0.05] hover:text-[#1a1a2e] active:bg-black/[0.08]")
+  const slide = (transform: string, opacity: number): React.CSSProperties => ({
+    transform,
+    opacity,
+    transition: reducedMotion ? "none" : `transform ${SLIDE_MS}ms ${EASE}, opacity ${SLIDE_MS}ms ${EASE}`,
+  })
+
+  const header = (
+    <div data-ask-header="" className={cn("flex shrink-0 items-center gap-0.5", phone ? "h-[52px] px-1.5" : "h-12 px-2.5")}>
+      {view === "history" ? (
+        <>
+          <button type="button" onClick={() => setView("thread")} aria-label="Back to the conversation" className={iconButton}>
+            <ChevronLeft className="h-[19px] w-[19px]" strokeWidth={1.9} />
+          </button>
+          <span data-ask-title="" className="min-w-0 flex-1 truncate pl-1 text-[14px] font-semibold text-[#1a1a2e]">
+            Conversations
+          </span>
+        </>
+      ) : (
+        <>
           <button
             type="button"
-            onClick={() => setEngineOpen((open) => !open)}
-            aria-haspopup="listbox"
-            aria-expanded={engineOpen}
-            className="relative flex h-7 items-center gap-1 rounded-md px-1.5 text-[11.5px] text-muted-foreground transition-colors after:absolute after:-inset-x-1 after:-inset-y-2 after:content-[''] hover:bg-muted hover:text-foreground"
-            title="Which model answers"
+            data-ask-history-button=""
+            onClick={openHistory}
+            aria-label="Conversation history"
+            title="Conversation history"
+            className={cn(iconButton, "w-auto gap-0.5", phone ? "min-w-11 px-2.5" : "px-2")}
           >
-            <span className="max-w-[92px] truncate">{chosenEngine.label}</span>
-            <ChevronDown className="h-3 w-3 shrink-0 opacity-70" strokeWidth={2} />
+            <History className="h-[17px] w-[17px]" strokeWidth={1.8} />
+            <ChevronDown className="h-3 w-3 opacity-60" strokeWidth={2.2} />
           </button>
-
-          {engineOpen && (
-            <>
-              {/* Click-away. A menu you can only close by choosing something
-                  is a menu people close by choosing the wrong thing. */}
-              <div
-                className="fixed inset-0 z-40"
-                aria-hidden="true"
-                onClick={() => setEngineOpen(false)}
-              />
-              <ul
-                role="listbox"
-                className="absolute right-0 top-8 z-50 w-[236px] overflow-hidden rounded-xl border border-border bg-background py-1 shadow-lg"
-              >
-                {ENGINES.map((option) => (
-                  <li key={option.id}>
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={option.id === engine}
-                      onClick={() => chooseEngine(option.id)}
-                      className="flex w-full items-start gap-2 px-2.5 py-2 text-left transition-colors hover:bg-muted"
-                    >
-                      <Check
-                        className={cn(
-                          "mt-[3px] h-3 w-3 shrink-0",
-                          option.id === engine ? "opacity-100" : "opacity-0",
-                        )}
-                        strokeWidth={2.5}
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-[12.5px] text-foreground">{option.label}</span>
-                        <span className="block text-[11px] leading-snug text-muted-foreground">
-                          {option.detail}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </div>
-
+          <span className="flex min-w-0 flex-1 items-center gap-2 pl-1.5">
+            <StorelibMark className="h-4 w-4 shrink-0 rounded-[4px]" />
+            <span data-ask-title="" className="min-w-0 truncate text-[14px] font-medium text-[#1a1a2e]">
+              {conversation.title || "Ask Storelib"}
+            </span>
+          </span>
+        </>
+      )}
+      <button
+        type="button"
+        data-ask-new=""
+        onClick={newChat}
+        disabled={busyNow}
+        aria-label="New chat"
+        title={busyNow ? "Available when this change finishes" : "New chat"}
+        className={iconButton}
+      >
+        <SquarePen className="h-[17px] w-[17px]" strokeWidth={1.8} />
+      </button>
+      {(dock || sheetStop) && (
         <button
           type="button"
-          onClick={onClose}
-          aria-label="Close AI panel"
-          className="relative flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors after:absolute after:-inset-x-1 after:-inset-y-2 after:content-[''] hover:bg-muted hover:text-foreground"
+          data-ask-maximize=""
+          onClick={toggleMaximize}
+          aria-label={isMax ? "Restore size" : "Maximize"}
+          aria-pressed={isMax}
+          title={isMax ? "Restore size" : "Maximize"}
+          className={iconButton}
         >
-          <X className="h-4 w-4" strokeWidth={1.75} />
+          {isMax ? <Minimize2 className="h-4 w-4" strokeWidth={1.8} /> : <Maximize2 className="h-4 w-4" strokeWidth={1.8} />}
         </button>
-      </div>
+      )}
+      <button type="button" data-ask-close="" onClick={closeChat} aria-label="Close chat" title="Close chat" className={iconButton}>
+        <X className="h-[18px] w-[18px]" strokeWidth={1.8} />
+      </button>
+    </div>
+  )
 
+  const threadPane = (
+    <div
+      data-ask-view="thread"
+      aria-hidden={view === "history" || undefined}
+      inert={view === "history"}
+      className="absolute inset-0 flex min-w-0 flex-col"
+      style={slide(view === "history" ? "translateX(-24%)" : "none", view === "history" ? 0 : 1)}
+    >
       {/*
         THE THREAD SCROLLS ONE WAY. Up and down, never sideways: x is hidden,
         a word or a URL longer than the line breaks where it has to
@@ -1258,160 +1723,275 @@ export function ThemeChat({
       <div
         ref={threadRef}
         data-chat-thread=""
-        className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-3 [overflow-wrap:anywhere] [touch-action:pan-y]"
+        className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-3 [overflow-wrap:anywhere] [touch-action:pan-y]"
       >
-        {loadingHistory ? (
-          <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Loading
-          </p>
-        ) : historyError === "not_set_up" ? (
-          <div className="rounded-[10px] border border-amber-500/30 bg-amber-500/5 px-3 py-3">
-            <p className="text-[13px] font-medium">Chat history is not switched on yet.</p>
-            <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
-              This database has nowhere to keep the conversation, so it will not survive a reload.
-              Everything else works. Ask for a change and it is made.
+        <div className={cn("min-w-0", dock && maximized && "mx-auto max-w-[720px]")}>
+          {loadingHistory ? (
+            <p className="flex items-center gap-2 text-[13px] text-[#6b7280]">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading
             </p>
-          </div>
-        ) : historyError === "read_failed" ? (
-          <div className="rounded-[10px] border border-red-500/30 bg-red-500/5 px-3 py-3">
-            <p className="text-[13px] font-medium">We could not load this conversation.</p>
-            <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
-              Nothing has been lost. This is a problem reading it, not a problem with it. You can
-              still ask for a change.
-            </p>
-          </div>
-        ) : exchanges.length === 0 ? (
-          <div className="space-y-4">
-            <p className="text-[13px] leading-relaxed text-muted-foreground">
-              {mode === "change"
-                ? "Describe a change and it is made on this page. It writes the same sections, blocks and controls the panels do, the same sliders, pickers and colours, so everything stays undoable and nothing saves until you press Save."
-                : "Describe a section the library does not have and it is written as a .storelib file, with blocks, your colour scheme and a phone layout. It has to compile before it is kept. It appears on this page where you are working, and goes live when you publish."}
-            </p>
-
-            <div className="space-y-1.5">
-              {(mode === "change" ? SUGGESTIONS : CODE_SUGGESTIONS).map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  onClick={() => {
-                    setDraft(suggestion)
-                    fieldRef.current?.focus({ preventScroll: true })
-                    requestAnimationFrame(resize)
-                  }}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left text-[12.5px] leading-snug text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
-                >
-                  {suggestion}
-                </button>
-              ))}
+          ) : historyError === "not_set_up" ? (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-3">
+              <p className="text-[13px] font-medium text-[#1a1a2e]">Chat history is not switched on yet.</p>
+              <p className="mt-1 text-[12px] leading-relaxed text-[#6b7280]">
+                This database has nowhere to keep the conversation, so it will not survive a reload.
+                Everything else works. Ask for a change and it is made.
+              </p>
             </div>
+          ) : historyError === "read_failed" ? (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-3">
+              <p className="text-[13px] font-medium text-[#1a1a2e]">We could not load this conversation.</p>
+              <p className="mt-1 text-[12px] leading-relaxed text-[#6b7280]">
+                Nothing has been lost. This is a problem reading it, not a problem with it. You can
+                still ask for a change.
+              </p>
+            </div>
+          ) : exchanges.length === 0 ? (
+            <div className="space-y-4">
+              <p className="text-[13px] leading-relaxed text-[#6b7280]">
+                {mode === "change"
+                  ? "Describe a change and it is made on this page. It writes the same sections, blocks and controls the panels do, the same sliders, pickers and colours, so everything stays undoable and nothing saves until you press Save."
+                  : "Describe a section the library does not have and it is written as a .storelib file, with blocks, your colour scheme and a phone layout. It has to compile before it is kept. It appears on this page where you are working, and goes live when you publish."}
+              </p>
 
-          </div>
-        ) : (
-          <ul className="space-y-5">
-            {exchanges.map((exchange) => (
-              <li key={exchange.id} className="space-y-2">
-                {exchange.images && exchange.images.length > 0 && (
-                  <div className="mb-1.5 flex flex-wrap gap-1.5">
-                    {exchange.images.map((image, index) => (
-                      <button
-                        key={image.id}
-                        type="button"
-                        onClick={() => setViewing({ images: exchange.images ?? [], at: index })}
-                        aria-label={`Open ${image.name}`}
-                        className="block overflow-hidden rounded-lg border border-border transition-opacity hover:opacity-90"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element -- bytes this thread already holds. */}
-                        <img src={image.url} alt={image.name} className="h-16 w-16 object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <p className="text-[13px] text-foreground">{exchange.prompt}</p>
-
-                {/*
-                  THE RUN ITSELF: the plan, the steps as they tick off, and
-                  any code it wrote. Above the change list, because it is what
-                  is happening and the list is what happened.
-                */}
-                <WorkPanel
-                  plan={exchange.plan}
-                  steps={exchange.steps ?? []}
-                  code={exchange.code ?? []}
-                  running={exchange.running}
-                  onOpenCode={onOpenCodeEditor}
-                />
-
-                {exchange.changes.length > 0 && (
-                  <ul className="space-y-1 border-l border-border pl-3">
-                    {exchange.changes.map((change, index) => (
-                      <li
-                        key={`${change}-${index}`}
-                        className="flex items-center gap-2 text-[12px] text-muted-foreground"
-                      >
-                        <Check className="h-3 w-3 shrink-0 text-emerald-500" strokeWidth={2} />
-                        <span className="truncate">{change}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                {exchange.note && exchange.running && (
-                  <p
-                    key={exchange.note}
-                    className="animate-in fade-in text-[12.5px] leading-relaxed text-muted-foreground duration-300"
+              <div className="space-y-1.5">
+                {(mode === "change" ? SUGGESTIONS : CODE_SUGGESTIONS).map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => {
+                      setDraft(suggestion)
+                      fieldRef.current?.focus({ preventScroll: true })
+                      requestAnimationFrame(resize)
+                    }}
+                    className={cn(
+                      "w-full rounded-xl border border-[#e5e7eb] bg-white/70 px-3.5 text-left text-[13px] leading-snug text-[#1a1a2e]/75 transition-colors hover:border-[#1a1a2e]/20 hover:text-[#1a1a2e]",
+                      phone ? "min-h-[44px] py-2.5" : "py-2",
+                    )}
                   >
-                    {exchange.note}
-                  </p>
-                )}
-
-                {exchange.running && <RunStatus exchange={exchange} />}
-
-                {exchange.reply && (
-                  <p className="text-[13px] leading-relaxed text-muted-foreground">{exchange.reply}</p>
-                )}
-
-                {exchange.error && (
-                  <div className="space-y-1.5">
-                    <p className="flex items-start gap-1.5 text-[12px] text-red-500">
-                      <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
-                      {exchange.error}
-                    </p>
-                    {/*
-                      A failed run leaves the request sitting there with no way
-                      to make it again except retyping it, which is the moment
-                      most people give up on a feature rather than on the
-                      network.
-                    */}
-                    <button
-                      type="button"
-                      onClick={() => submit(exchange.prompt)}
-                      disabled={busy}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11.5px] text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground disabled:opacity-40"
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <ul className="space-y-5">
+              {exchanges.map((exchange) => (
+                <li key={exchange.id} className="space-y-2.5">
+                  {exchange.images && exchange.images.length > 0 && (
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      {exchange.images.map((image, index) => (
+                        <button
+                          key={image.id}
+                          type="button"
+                          data-ask-sent-image=""
+                          onClick={() => setViewing({ images: exchange.images ?? [], at: index })}
+                          aria-label={`Open ${image.name}`}
+                          className="relative block overflow-hidden rounded-xl border border-[#e5e7eb] transition-opacity hover:opacity-90"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element -- bytes this thread already holds. */}
+                          <img src={image.url} alt={image.name} className="h-16 w-16 object-cover" />
+                          {exchange.running && !exchange.sent && (
+                            <span data-ask-sending="" className="absolute inset-0 flex items-center justify-center bg-white/55">
+                              <Loader2 className="h-4 w-4 animate-spin text-[#1a1a2e]/70" />
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex justify-end">
+                    <p
+                      data-ask-prompt=""
+                      className="max-w-[85%] whitespace-pre-wrap rounded-[18px] bg-[#f1f2f4] px-3.5 py-2 text-[13.5px] leading-[1.5] text-[#1a1a2e]"
                     >
-                      <RotateCcw className="h-3 w-3" strokeWidth={2} />
-                      Try again
-                    </button>
+                      {exchange.prompt}
+                    </p>
                   </div>
-                )}
-              </li>
-            ))}
-            {queued && (
-              <li className="flex items-start gap-2 text-[12.5px] text-muted-foreground/70">
-                <span className="mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
-                <span>
-                  Up next: <span className="text-foreground/70">{queued}</span>
-                </span>
-              </li>
-            )}
-          </ul>
-        )}
-      </div>
 
-      {/* Wraps like the thread: a long path in "is saved as", or a URL in a
-          reply to the writer, breaks where it has to rather than running
-          out of the panel under the clipped x axis. */}
-      <div className="min-w-0 shrink-0 border-t border-border p-2.5 [overflow-wrap:anywhere]">
+                  {/*
+                    THE RUN ITSELF: the plan, the steps as they tick off, and
+                    any code it wrote. Above the change list, because it is what
+                    is happening and the list is what happened.
+                  */}
+                  <WorkPanel
+                    plan={exchange.plan}
+                    steps={exchange.steps ?? []}
+                    code={exchange.code ?? []}
+                    running={exchange.running}
+                    onOpenCode={onOpenCodeEditor}
+                  />
+
+                  {exchange.changes.length > 0 && (
+                    <ul className="space-y-1 border-l border-[#e5e7eb] pl-3">
+                      {exchange.changes.map((change, index) => (
+                        <li
+                          key={`${change}-${index}`}
+                          className="flex items-center gap-2 text-[12.5px] text-[#6b7280]"
+                        >
+                          <Check className="h-3 w-3 shrink-0 text-emerald-500" strokeWidth={2} />
+                          <span className="truncate">{change}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {exchange.note && exchange.running && (
+                    <p
+                      key={exchange.note}
+                      className="animate-in fade-in text-[12.5px] leading-relaxed text-[#6b7280] duration-300"
+                    >
+                      {exchange.note}
+                    </p>
+                  )}
+
+                  {exchange.running && <RunStatus exchange={exchange} />}
+
+                  {exchange.reply && (
+                    <p className="text-[13.5px] leading-relaxed text-[#1a1a2e]">{exchange.reply}</p>
+                  )}
+
+                  {exchange.error && (
+                    <div className="space-y-1.5">
+                      <p className="flex items-start gap-1.5 text-[12.5px] text-red-600">
+                        <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
+                        {exchange.error}
+                      </p>
+                      {/*
+                        A failed run leaves the request sitting there with no way
+                        to make it again except retyping it, which is the moment
+                        most people give up on a feature rather than on the
+                        network.
+                      */}
+                      <button
+                        type="button"
+                        onClick={() => submit(exchange.prompt)}
+                        disabled={busy}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-3 text-[12px] text-[#1a1a2e]/75 transition-colors hover:border-[#1a1a2e]/25 hover:text-[#1a1a2e] disabled:opacity-40"
+                      >
+                        <RotateCcw className="h-3 w-3" strokeWidth={2} />
+                        Try again
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+              {queued && (
+                <li className="flex items-start gap-2 text-[12.5px] text-[#6b7280]">
+                  <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#6b7280]/50" />
+                  <span>
+                    Up next: <span className="text-[#1a1a2e]/75">{queued}</span>
+                  </span>
+                </li>
+              )}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+
+  /* The history, off to the right until it is asked for, then slid in over the thread. */
+  const historyPane = historyMounted && (
+    <div
+      data-ask-view="history"
+      aria-hidden={view !== "history" || undefined}
+      inert={view !== "history"}
+      className="absolute inset-0 min-w-0"
+      style={slide(view === "history" ? "none" : "translateX(100%)", view === "history" ? 1 : 0)}
+    >
+      <div className={cn("h-full", dock && maximized && "mx-auto max-w-[720px]")}>
+        <AskHistory
+          installId={installId}
+          refreshKey={historyKey}
+          current={{ id: conversation.id, earlier: conversation.earlier }}
+          locked={busyNow}
+          phone={phone}
+          onOpen={openConversation}
+        />
+      </div>
+    </div>
+  )
+
+  /* Wraps like the thread: a long path in "is saved as", or a URL in a
+     reply to the writer, breaks where it has to rather than running out of
+     the panel under the clipped x axis. */
+  const tray = (
+    <div data-ask-tray="" className={cn("min-w-0 [overflow-wrap:anywhere]", dock && maximized && "mx-auto max-w-[720px]")}>
+      {/* What the writer produced, or why it could not. Also stranded in
+          the empty state before: a section written after any exchange was
+          reported to nobody. */}
+      {written && (
+        <div className="mb-2 rounded-xl border border-[#e5e7eb] bg-white p-3">
+          <p className="text-[13px] font-medium text-[#1a1a2e]">
+            {written.placed ? `${written.name} is on the page` : `${written.name} is written`}
+          </p>
+          <p className="mt-1 text-[12.5px] leading-snug text-[#6b7280]">
+            It compiled and is saved as <span className="font-mono text-[12px]">{written.path}</span>.{" "}
+            {written.placed
+              ? "It goes live when you publish."
+              : "Add it from Add Section, under Created by you. It goes live when you publish."}
+          </p>
+          {onOpenCodeEditor && (
+            <button
+              type="button"
+              onClick={() => onOpenCodeEditor(written.path)}
+              className="mt-2 h-8 rounded-full bg-[#1a1a2e] px-3 text-[12.5px] font-medium text-white"
+            >
+              Open the code
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* It answered rather than wrote: the question, then the answer,
+          like any other turn of a conversation. */}
+      {writeReply && !writing && (
+        <div className="mb-2 space-y-1.5 rounded-xl border border-[#e5e7eb] bg-white p-3">
+          <p className="text-[12.5px] text-[#6b7280]">{writeReply.prompt}</p>
+          <p className="text-[13px] leading-relaxed text-[#1a1a2e]">{writeReply.text}</p>
+        </div>
+      )}
+
+      {writeError && !writing && (
+        <div className="mb-2 space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
+          <p className="text-[12.5px] leading-snug text-[#1a1a2e]">{writeError}</p>
+          {lastWrite.current && (
+            <button
+              type="button"
+              onClick={() => {
+                const again = lastWrite.current
+                if (again) void writeOne(again.prompt, again.images)
+              }}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-3 text-[12px] text-[#1a1a2e]/75 transition-colors hover:border-[#1a1a2e]/25 hover:text-[#1a1a2e]"
+            >
+              <RotateCcw className="h-3 w-3" strokeWidth={2} />
+              Try again
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* What it is doing while it does it, from the server's reports. */}
+      {writing && writeLabel && <AiStatus label={writeLabel} className="mb-2 px-0.5" />}
+
+      {voice.error && (
+        <p data-ask-voice-error="" role="alert" className="mb-2 flex items-start gap-1.5 px-0.5 text-[12.5px] leading-snug text-[#b45309]">
+          <TriangleAlert className="mt-[3px] h-3 w-3 shrink-0" />
+          <span className="min-w-0 flex-1">{voice.error}</span>
+          <button
+            type="button"
+            onClick={voice.clearError}
+            aria-label="Dismiss"
+            className="relative -my-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#6b7280] after:absolute after:-inset-3 after:content-[''] hover:text-[#1a1a2e]"
+          >
+            <X className="h-3 w-3" strokeWidth={2.25} />
+          </button>
+        </p>
+      )}
+
+      <div className="mb-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
         {/*
           ═════════════════════════════════════════════════════════════════════
            THE TWO THINGS IT DOES, ALWAYS REACHABLE
@@ -1426,7 +2006,7 @@ export function ThemeChat({
           assistant could not be reached at all. It lives with the box you
           type into now, because it decides what typing there does.
         */}
-        <div className="mb-2 flex gap-1 rounded-lg bg-muted/60 p-0.5">
+        <div role="group" aria-label="What to ask for" className="flex min-w-0 shrink-0 gap-0.5 rounded-full bg-black/[0.045] p-0.5">
           {([
             ["change", "Change this page"],
             ["code", "Code a section"],
@@ -1437,71 +2017,17 @@ export function ThemeChat({
               onClick={() => { setMode(key); setWriteError(null) }}
               aria-pressed={mode === key}
               className={cn(
-                "min-w-0 flex-1 truncate rounded-[7px] px-2 py-1.5 text-[12px] font-medium transition-colors",
-                mode === key ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                "min-w-0 truncate rounded-full font-medium transition-[background-color,color,box-shadow] duration-150",
+                phone ? "h-11 px-4 text-[13px]" : "h-7 px-3 text-[12px]",
+                mode === key
+                  ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(15,23,42,0.1)]"
+                  : "text-[#6b7280] hover:text-[#1a1a2e]",
               )}
             >
               {label}
             </button>
           ))}
         </div>
-
-        {/* What the writer produced, or why it could not. Also stranded in
-            the empty state before: a section written after any exchange was
-            reported to nobody. */}
-        {written && (
-          <div className="mb-2 rounded-lg border border-border bg-background p-3">
-            <p className="text-[13px] font-medium text-foreground">
-              {written.placed ? `${written.name} is on the page` : `${written.name} is written`}
-            </p>
-            <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">
-              It compiled and is saved as <span className="font-mono text-[12px]">{written.path}</span>.{" "}
-              {written.placed
-                ? "It goes live when you publish."
-                : "Add it from Add Section, under Created by you. It goes live when you publish."}
-            </p>
-            {onOpenCodeEditor && (
-              <button
-                type="button"
-                onClick={() => onOpenCodeEditor(written.path)}
-                className="mt-2 h-7 rounded-md bg-foreground px-2.5 text-[12px] font-[550] text-background"
-              >
-                Open the code
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* It answered rather than wrote: the question, then the answer,
-            like any other turn of a conversation. */}
-        {writeReply && !writing && (
-          <div className="mb-2 space-y-1.5 rounded-lg border border-border bg-background p-3">
-            <p className="text-[12.5px] text-muted-foreground">{writeReply.prompt}</p>
-            <p className="text-[13px] leading-relaxed text-foreground">{writeReply.text}</p>
-          </div>
-        )}
-
-        {writeError && !writing && (
-          <div className="mb-2 space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
-            <p className="text-[12.5px] leading-snug text-foreground">{writeError}</p>
-            {lastWrite.current && (
-              <button
-                type="button"
-                onClick={() => {
-                  const again = lastWrite.current
-                  if (again) void writeOne(again.prompt, again.images)
-                }}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-[11.5px] text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
-              >
-                <RotateCcw className="h-3 w-3" strokeWidth={2} />
-                Try again
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* What it is doing while it does it, from the server's reports. */}
-        {writing && writeLabel && <AiStatus label={writeLabel} className="mb-2 px-0.5" />}
 
         {/*
           THE SCOPE OF THE EDIT, WHERE YOU ARE ABOUT TO TYPE IT.
@@ -1510,10 +2036,10 @@ export function ThemeChat({
           answer.
         */}
         {selectedSection && (
-          <div className="mb-2 flex min-w-0 items-center gap-1.5 px-0.5">
+          <div className="flex min-w-0 items-center gap-1.5">
             {locked ? (
               <>
-                <span className="inline-flex min-w-0 items-center gap-1.5 rounded-md border border-foreground/15 bg-muted/60 py-1 pl-2 pr-1 text-[11.5px] text-foreground">
+                <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-[#1a1a2e]/12 bg-white py-1 pl-2.5 pr-1 text-[12px] text-[#1a1a2e]">
                   <Lock className="h-3 w-3 shrink-0 opacity-60" strokeWidth={2} />
                   <span className="truncate">Only {selectedSection.name}</span>
                   <button
@@ -1521,12 +2047,12 @@ export function ThemeChat({
                     onClick={() => setLockOn(false)}
                     aria-label={`Stop limiting edits to ${selectedSection.name}`}
                     title="Edit the whole page instead"
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+                    className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#6b7280] transition-colors after:absolute after:-inset-3 after:content-[''] hover:bg-black/[0.06] hover:text-[#1a1a2e]"
                   >
                     <X className="h-3 w-3" strokeWidth={2.25} />
                   </button>
                 </span>
-                <span className="min-w-0 truncate text-[11px] text-muted-foreground/70">
+                <span className="min-w-0 truncate text-[11.5px] text-[#6b7280]/80">
                   nothing else will change
                 </span>
               </>
@@ -1534,7 +2060,7 @@ export function ThemeChat({
               <button
                 type="button"
                 onClick={() => setLockOn(true)}
-                className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-border px-2 py-1 text-[11.5px] text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
+                className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white/70 px-2.5 py-1 text-[12px] text-[#6b7280] transition-colors hover:border-[#1a1a2e]/25 hover:text-[#1a1a2e]"
               >
                 <Lock className="h-3 w-3 shrink-0 opacity-60" strokeWidth={2} />
                 <span className="truncate">Editing the whole page. Limit to {selectedSection.name}</span>
@@ -1542,138 +2068,535 @@ export function ThemeChat({
             )}
           </div>
         )}
-        <div
-          data-chat-composer=""
-          className="min-w-0 rounded-xl border border-border bg-background focus-within:border-foreground/30"
-          /**
-           * A drop anywhere on the composer, not just on the button. The
-           * dragover has to be cancelled or the browser opens the file
-           * instead, which loses whatever was typed.
-           */
-          onDragOver={(event) => {
-            if (event.dataTransfer.types.includes("Files")) event.preventDefault()
-          }}
-          onDrop={(event) => {
-            if (!event.dataTransfer.files.length) return
-            event.preventDefault()
-            void attach(event.dataTransfer.files)
-          }}
-        >
-          {attached.length > 0 && (
-            <div className="flex flex-wrap gap-2 px-3 pt-3">
-              {attached.map((image) => (
-                <div key={image.id} className="group/att relative">
-                  <button
-                    type="button"
-                    onClick={() => setViewing({ images: attached, at: attached.indexOf(image) })}
-                    aria-label={`Open ${image.name}`}
-                    className="block overflow-hidden rounded-lg border border-border transition-opacity hover:opacity-90"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- a data URL from the creator's own file; there is nothing to optimise and nowhere to fetch it from. */}
-                    <img src={image.url} alt={image.name} className="h-14 w-14 object-cover" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeAttachment(image.id)}
-                    aria-label={`Remove ${image.name}`}
-                    /**
-                     * The cross is 20px because a bigger one would sit on the
-                     * picture rather than beside it. The `after` box is the
-                     * part a thumb hits: 36px, invisible, over the corner.
-                     */
-                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm transition-colors after:absolute after:-inset-2 after:content-[''] hover:text-foreground"
-                  >
-                    <X className="h-3 w-3" strokeWidth={2.5} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          {attachError && (
-            <p className="px-3 pt-2 text-[11px] text-amber-600">{attachError}</p>
-          )}
-          {/*
-            NOT `disabled` while a run is going. Waiting for a spinner before
-            you are allowed to type your next thought is the difference between
-            a conversation and a form. Enter during a run queues it instead.
-          */}
-          <textarea
-            ref={fieldRef}
-            rows={2}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault()
-                submit(draft)
-              }
-            }}
-            /** A screenshot goes to the clipboard; this is where it lands. */
-            onPaste={(event) => {
-              const files = Array.from(event.clipboardData.files)
-              if (!files.some((f) => f.type.startsWith("image/"))) return
-              event.preventDefault()
-              void attach(files)
-            }}
-            placeholder={mode === "code" ? "Describe a section, or attach a picture of one…" : busy ? "Ask for the next change…" : attached.length ? "Say what this is for, or just send it" : "Change this page, or attach a picture…"}
-            className="w-full resize-none bg-transparent px-3 pt-2.5 text-[13px] leading-snug outline-none placeholder:text-muted-foreground/50"
-          />
-          <div className="flex items-center justify-between px-2 pb-2">
-            <span className="pl-1 text-[11px] text-muted-foreground/60">
-              {busy ? "Enter queues it" : "Enter to send, ⇧Enter for a new line"}
-            </span>
-            <div className="flex items-center gap-1.5">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={ALLOWED_IMAGE_TYPES.join(",")}
-                multiple
-                className="hidden"
-                onChange={(event) => {
-                  void attach(event.target.files)
-                  /* So choosing the same file twice in a row still fires. */
-                  event.target.value = ""
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={attached.length >= MAX_IMAGES}
-                aria-label="Attach a picture"
-                title={attached.length >= MAX_IMAGES ? `${MAX_IMAGES} images is the limit` : "Attach a picture of what you want"}
-                className="relative flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors after:absolute after:-inset-x-[3px] after:-bottom-3 after:-top-1 after:content-[''] hover:text-foreground disabled:opacity-40"
-              >
-                <ImagePlus className="h-3.5 w-3.5" strokeWidth={2} />
-              </button>
-              {busy && (
-                <button
-                  type="button"
-                  onClick={() => abortRef.current?.abort()}
-                  aria-label="Stop"
-                  title="Stop"
-                  className="relative flex h-7 w-7 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors after:absolute after:-inset-x-[3px] after:-bottom-3 after:-top-1 after:content-[''] hover:text-foreground"
-                >
-                  <Square className="h-2.5 w-2.5 fill-current" />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => submit(draft)}
-                disabled={draft.trim().length === 0 && attached.length === 0}
-                aria-label={busy ? "Queue" : "Send"}
-                className={cn(
-                  "relative flex h-7 w-7 items-center justify-center rounded-lg transition-opacity after:absolute after:-inset-x-[3px] after:-bottom-3 after:-top-1 after:content-['']",
-                  draft.trim().length === 0 && attached.length === 0
-                    ? "bg-muted text-muted-foreground/50"
-                    : "bg-foreground text-background",
-                )}
-              >
-                <ArrowUp className="h-3.5 w-3.5" strokeWidth={2.25} />
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )
+
+  /*
+    WHICH MODEL, where the message is written: it is a per-message decision
+    ("this one is hard, use Opus"), and a choice buried two screens away is
+    one nobody makes. A short name on the button, the reason in the menu.
+  */
+  const modelMenu = (
+    <div ref={engineRef} className="relative shrink-0">
+      <button
+        type="button"
+        data-ask-model=""
+        onClick={() => setEngineOpen((open) => !open)}
+        aria-haspopup="listbox"
+        aria-expanded={engineOpen}
+        title="Which model answers"
+        className={cn(
+          "relative flex items-center gap-1 rounded-full text-[13px] text-[#1a1a2e]/75 transition-colors hover:bg-black/[0.05] hover:text-[#1a1a2e]",
+          phone ? "h-11 pl-3.5 pr-2.5" : "h-9 pl-3 pr-2",
+        )}
+      >
+        <span className="max-w-[96px] truncate">{chosenEngine.short}</span>
+        <ChevronDown
+          className={cn("h-3.5 w-3.5 shrink-0 opacity-60 transition-transform duration-200", engineOpen && "rotate-180")}
+          strokeWidth={2}
+        />
+      </button>
+      {engineOpen && (
+        <ul
+          role="listbox"
+          aria-label="Model"
+          data-ask-model-menu=""
+          className={cn(
+            "absolute bottom-full z-50 mb-2 w-[252px] overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white p-1 shadow-[0_16px_40px_-16px_rgba(15,23,42,0.3)]",
+            "animate-in fade-in slide-in-from-bottom-1 duration-150",
+            phone ? "left-0" : "right-0",
+          )}
+        >
+          {ENGINES.map((option) => (
+            <li key={option.id}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={option.id === engine}
+                onClick={() => chooseEngine(option.id)}
+                className={cn(
+                  "flex w-full items-start gap-2 rounded-xl px-2.5 text-left transition-colors hover:bg-black/[0.04]",
+                  phone ? "min-h-[48px] py-2.5" : "py-2",
+                )}
+              >
+                <Check
+                  className={cn("mt-[3px] h-3.5 w-3.5 shrink-0 text-[#1a1a2e]", option.id === engine ? "opacity-100" : "opacity-0")}
+                  strokeWidth={2.5}
+                />
+                <span className="min-w-0">
+                  <span className="block text-[13px] text-[#1a1a2e]">{option.label}</span>
+                  <span className="block text-[11.5px] leading-snug text-[#6b7280]">{option.detail}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+
+  const fileInput = (
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept={ALLOWED_IMAGE_TYPES.join(",")}
+      multiple
+      className="hidden"
+      onChange={(event) => {
+        void attach(event.target.files)
+        /* So choosing the same file twice in a row still fires. */
+        event.target.value = ""
+      }}
+    />
+  )
+
+  const attachButton = (
+    <button
+      type="button"
+      data-ask-attach=""
+      onClick={() => {
+        if (dock) openDock()
+        fileInputRef.current?.click()
+      }}
+      disabled={attached.length + preparing >= MAX_IMAGES}
+      aria-label="Attach a picture"
+      title={attached.length >= MAX_IMAGES ? `${MAX_IMAGES} images is the limit` : "Attach a picture of what you want"}
+      className={cn(quietRound, dock && "border border-black/[0.06] bg-white/60")}
+    >
+      <Paperclip className="h-4 w-4" strokeWidth={1.9} />
+    </button>
+  )
+
+  const micButton = voice.supported && (
+    <>
+      {listening && (
+        <span data-ask-voice-clock="" className={cn("flex shrink-0 items-center px-1 text-[12.5px] tabular-nums text-[#1a1a2e]/70", phone ? "h-11" : "h-9")}>
+          {clock(voice.seconds)}
+        </span>
+      )}
+      <button
+        type="button"
+        data-ask-mic={voice.state}
+        onClick={() => (voice.state === "idle" ? startVoice() : voice.stop())}
+        disabled={voice.state === "starting" || voice.state === "transcribing"}
+        aria-label={listening ? "Stop recording" : "Speak instead of typing"}
+        aria-pressed={listening}
+        title={listening ? "Stop, and keep what was said" : "Speak instead of typing"}
+        className={cn(
+          quietRound,
+          dock && !listening && "border border-black/[0.06] bg-white/60",
+          listening && "bg-[#1a1a2e] text-white hover:bg-[#1a1a2e] hover:text-white",
+        )}
+      >
+        {listening && <span aria-hidden className="ask-listen-ring" />}
+        {voice.state === "starting" || voice.state === "transcribing" ? (
+          <Loader2 className="relative h-4 w-4 animate-spin" />
+        ) : listening ? (
+          <Square className="relative h-3 w-3 fill-current" />
+        ) : (
+          <Mic className="relative h-4 w-4" strokeWidth={1.9} />
+        )}
+      </button>
+    </>
+  )
+
+  const stopButton = busy && (
+    <button
+      type="button"
+      onClick={() => abortRef.current?.abort()}
+      aria-label="Stop"
+      title="Stop"
+      className={cn(quietRound, "border border-[#e5e7eb] bg-white")}
+    >
+      <Square className="h-2.5 w-2.5 fill-current" />
+    </button>
+  )
+
+  const sendButton = (
+    <button
+      type="button"
+      data-ask-send=""
+      onClick={() => submit(draft)}
+      disabled={draft.trim().length === 0 && attached.length === 0}
+      aria-label={busy ? "Queue" : "Send"}
+      className={cn(
+        roundButton,
+        "disabled:opacity-100",
+        empty ? "bg-black/[0.06] text-black/30" : "bg-[#1a1a2e] text-white hover:bg-[#1a1a2e]/90",
+      )}
+    >
+      <ArrowUp className="h-4 w-4" strokeWidth={2.25} />
+    </button>
+  )
+
+  /*
+    NOT `disabled` while a run is going. Waiting for a spinner before you are
+    allowed to type your next thought is the difference between a
+    conversation and a form. Enter during a run queues it instead.
+  */
+  const field = (
+    <textarea
+      ref={fieldRef}
+      rows={1}
+      value={draft}
+      aria-label="Message Storelib AI"
+      onChange={(event) => setDraft(event.target.value)}
+      onFocus={dock ? openDock : undefined}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+          event.preventDefault()
+          submit(draft)
+        }
+      }}
+      /** A screenshot goes to the clipboard; this is where it lands. */
+      onPaste={(event) => {
+        const files = Array.from(event.clipboardData.files)
+        if (!files.some((f) => f.type.startsWith("image/"))) return
+        event.preventDefault()
+        void attach(files)
+      }}
+      placeholder={placeholder}
+      className={cn(
+        "block w-full resize-none bg-transparent text-[#1a1a2e] outline-none placeholder:text-[#6b7280]/80",
+        phone ? "min-h-[44px] px-1.5 py-[11px] text-[15px] leading-[22px]" : "min-h-[40px] py-[9px] text-[14px] leading-[22px]",
+      )}
+    />
+  )
+
+  const thumbnails = (attached.length > 0 || preparing > 0) && (
+    <div data-ask-attachments="" className="flex flex-wrap gap-2 px-3 pt-3">
+      {attached.map((image) => (
+        <div key={image.id} data-ask-thumb="" className="group/att relative animate-in fade-in zoom-in-95 duration-200">
+          <button
+            type="button"
+            onClick={() => setViewing({ images: attached, at: attached.indexOf(image) })}
+            aria-label={`Open ${image.name}`}
+            className="block overflow-hidden rounded-xl border border-[#e5e7eb] transition-opacity hover:opacity-90"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- a data URL from the creator's own file; there is nothing to optimise and nowhere to fetch it from. */}
+            <img src={image.url} alt={image.name} className="h-14 w-14 object-cover" />
+          </button>
+          <button
+            type="button"
+            onClick={() => removeAttachment(image.id)}
+            aria-label={`Remove ${image.name}`}
+            /**
+             * The cross is 20px because a bigger one would sit on the
+             * picture rather than beside it. The `after` box is the part a
+             * thumb hits: 44px, invisible, over the corner.
+             */
+            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[#e5e7eb] bg-white text-[#6b7280] shadow-sm transition-colors after:absolute after:-inset-3 after:content-[''] hover:text-[#1a1a2e]"
+          >
+            <X className="h-3 w-3" strokeWidth={2.5} />
+          </button>
+        </div>
+      ))}
+      {Array.from({ length: preparing }, (_, index) => (
+        <div
+          key={`preparing-${index}`}
+          data-ask-preparing=""
+          aria-label="Preparing a picture"
+          className="flex h-14 w-14 items-center justify-center rounded-xl border border-[#e5e7eb] bg-[#f8f9fa]"
+        >
+          <Loader2 className="h-4 w-4 animate-spin text-[#6b7280]" />
+        </div>
+      ))}
+    </div>
+  )
+
+  const attachProblem = attachError && (
+    <p data-ask-attach-error="" role="alert" className="flex items-start gap-1.5 px-4 pt-2 text-[12px] leading-snug text-[#b45309]">
+      <span className="min-w-0 flex-1">{attachError}</span>
+      <button
+        type="button"
+        onClick={() => setAttachError(null)}
+        aria-label="Dismiss"
+        className="relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full after:absolute after:-inset-3 after:content-[''] hover:text-[#1a1a2e]"
+      >
+        <X className="h-3 w-3" strokeWidth={2.25} />
+      </button>
+    </p>
+  )
+
+  const composer = (
+    <div
+      data-chat-composer=""
+      className={cn(
+        "relative min-w-0",
+        dock
+          ? "rounded-[27px]"
+          : "rounded-[24px] border border-[#e5e7eb] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-colors focus-within:border-[#1a1a2e]/25",
+      )}
+      /**
+       * A drop anywhere on the composer, not just on the button. The
+       * dragover has to be cancelled or the browser opens the file
+       * instead, which loses whatever was typed.
+       */
+      onDragOver={(event) => {
+        if (event.dataTransfer.types.includes("Files")) event.preventDefault()
+      }}
+      onDrop={(event) => {
+        if (!event.dataTransfer.files.length) return
+        event.preventDefault()
+        dragDepth.current = 0
+        setDragging(false)
+        void attach(event.dataTransfer.files)
+      }}
+    >
+      {dock && (
+        <>
+          {/* The pill's two faces: frosted over the canvas, plain white as the conversation's input row. */}
+          <span
+            aria-hidden
+            data-ask-glass=""
+            className="pointer-events-none absolute inset-0 rounded-[inherit] border border-white/70 bg-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_12px_32px_-12px_rgba(15,23,42,0.28),0_2px_8px_rgba(15,23,42,0.06)] ring-1 ring-black/[0.05] backdrop-blur-xl backdrop-saturate-150"
+            style={{ opacity: expanded ? 0 : 1, transition: reducedMotion ? "none" : "opacity 200ms ease-out" }}
+          />
+          <span
+            aria-hidden
+            data-ask-solid=""
+            className="pointer-events-none absolute inset-0 rounded-[inherit] border border-[#e5e7eb] bg-white shadow-[0_8px_24px_-12px_rgba(15,23,42,0.16)]"
+            style={{ opacity: expanded ? 1 : 0, transition: reducedMotion ? "none" : "opacity 200ms ease-out" }}
+          />
+        </>
+      )}
+      <div className="relative min-w-0">
+        {thumbnails}
+        {attachProblem}
+        {fileInput}
+        {dock ? (
+          <div className="flex min-w-0 items-end gap-1.5 py-[7px] pl-5 pr-[7px]">
+            <div className="min-w-0 flex-1">{field}</div>
+            {modelMenu}
+            {attachButton}
+            {micButton}
+            {stopButton}
+            {sendButton}
+          </div>
+        ) : (
+          <>
+            <div className="px-2 pt-0.5">{field}</div>
+            <div className="flex min-w-0 items-center gap-0.5 px-1 pb-1">
+              {modelMenu}
+              <span className="min-w-0 flex-1" />
+              {attachButton}
+              {micButton}
+              {stopButton}
+              {sendButton}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+
+  /*
+    WHAT A DROP WILL DO, while the file is still in the air. Without it the
+    gesture is something you either already know about or never find, and a
+    file let go over a panel that showed no target reads as broken.
+  */
+  const dropTarget = dragging && (
+    <div data-drop-target="" className="pointer-events-none absolute inset-2 z-[120] flex flex-col items-center justify-center gap-2 rounded-[22px] border-2 border-dashed border-[#1a1a2e]/25 bg-white/90">
+      <ImagePlus className="h-6 w-6 text-[#1a1a2e]/60" strokeWidth={1.75} />
+      <p className="text-[13px] font-medium text-[#1a1a2e]">Drop the picture here</p>
+      <p className="text-[12px] text-[#6b7280]">It will be built as closely as the theme allows</p>
+    </div>
+  )
+
+  /*
+    The viewer is fixed to the window, and a fixed element inside anything
+    with a transform or a backdrop filter is fixed to THAT instead. The dock
+    has both, so the viewer is drawn in the body.
+  */
+  const viewer =
+    viewing && typeof document !== "undefined"
+      ? createPortal(
+          <div data-ask-keep="">
+            <ImageViewer images={viewing.images} startAt={viewing.at} onClose={() => setViewing(null)} />
+          </div>,
+          document.body,
+        )
+      : null
+
+  /**
+   * DROPPING WORKS ANYWHERE ON THE PANEL, not only on the composer. The
+   * counter is why: dragenter and dragleave fire for every child the
+   * pointer crosses, so a boolean would blink off on the way past the
+   * thread and the target would flicker down the whole panel.
+   */
+  const dropHandlers = {
+    onDragEnter: (event: React.DragEvent) => {
+      if (!event.dataTransfer.types.includes("Files")) return
+      dragDepth.current += 1
+      setDragging(true)
+      if (dock) openDock()
+    },
+    onDragOver: (event: React.DragEvent) => {
+      if (event.dataTransfer.types.includes("Files")) event.preventDefault()
+    },
+    onDragLeave: (event: React.DragEvent) => {
+      if (!event.dataTransfer.types.includes("Files")) return
+      dragDepth.current = Math.max(0, dragDepth.current - 1)
+      if (dragDepth.current === 0) setDragging(false)
+    },
+    onDrop: (event: React.DragEvent) => {
+      if (!event.dataTransfer.files.length) return
+      event.preventDefault()
+      dragDepth.current = 0
+      setDragging(false)
+      void attach(event.dataTransfer.files)
+    },
+  }
+
+  if (!dock) {
+    return (
+      <div
+        /*
+          `min-h-0 flex-1` so that inside the phone sheet this column is the
+          room the sheet leaves above its padding, which is the keyboard when
+          one is up: the thread is the part that gives, and the composer ends
+          on the keys. `min-w-0` and a clipped x axis so nothing in here can be
+          wider than the panel, or scrolled sideways by script.
+        */
+        className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col bg-background [overflow-x:clip]"
+        data-ask-sheet=""
+        {...dropHandlers}
+      >
+        {dropTarget}
+        {viewer}
+        {header}
+        <div data-ask-body="" className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+          {threadPane}
+          {historyPane}
+        </div>
+        <div className="min-w-0 shrink-0 px-2.5 pb-2.5 pt-1.5">
+          {tray}
+          {composer}
+        </div>
+      </div>
+    )
+  }
+
+  /* ── The dock ───────────────────────────────────────────────────────── */
+  const g = box ? dockGeometry(box.w, box.h, maximized, box.vh) : null
+  const showPill = !hidden && !suspended && g !== null
+  const cardOpen = expanded && showPill
+  const pillAway = !showPill || (yielding && !cardOpen)
+  const fade = (shown: boolean, away: string, openMs = OPEN_MS, closeMs = CLOSE_MS): React.CSSProperties => ({
+    transform: shown ? "none" : away,
+    opacity: shown ? 1 : 0,
+    visibility: shown ? "visible" : "hidden",
+    pointerEvents: shown ? "auto" : "none",
+    transition: reducedMotion
+      ? "none"
+      : shown
+        ? `transform ${openMs}ms ${EASE}, opacity ${Math.round(openMs * 0.66)}ms ease-out, visibility 0s`
+        : `transform ${closeMs}ms ${EASE}, opacity ${closeMs - 40}ms ease-in, visibility 0s linear ${closeMs}ms`,
+  })
+
+  return (
+    <div
+      ref={dockRef}
+      data-ask-dock=""
+      data-state={!showPill ? "hidden" : cardOpen ? "open" : "pill"}
+      data-maximized={maximized ? "true" : "false"}
+      className={cn("pointer-events-none absolute inset-0", cardOpen ? "z-40" : "z-20")}
+      {...dropHandlers}
+    >
+      {viewer}
+      {g && box && (
+        <>
+          {/*
+            THE HALO. The canvas just around the pill is softly blurred and
+            lifted towards white, fading out to nothing at its edge, so the
+            pill floats over the page rather than being stuck on it.
+          */}
+          <div
+            aria-hidden
+            data-ask-halo=""
+            className="pointer-events-none absolute"
+            style={{
+              left: (box.w - g.pillW) / 2 - 56,
+              width: g.pillW + 112,
+              bottom: 0,
+              height: g.pillBottom + pillHeight + 36,
+              background: "rgba(248, 249, 250, 0.38)",
+              backdropFilter: "blur(6px)",
+              WebkitBackdropFilter: "blur(6px)",
+              maskImage: "radial-gradient(closest-side, #000 42%, transparent 100%)",
+              WebkitMaskImage: "radial-gradient(closest-side, #000 42%, transparent 100%)",
+              opacity: showPill && !cardOpen && !pillAway ? 1 : 0,
+              transition: reducedMotion ? "none" : "opacity 240ms ease-out",
+            }}
+          />
+
+          {/* The conversation, above the pill. */}
+          <div
+            ref={cardRef}
+            data-ask-card=""
+            aria-hidden={!cardOpen || undefined}
+            inert={!cardOpen}
+            className="absolute"
+            style={{
+              left: (box.w - g.cardW) / 2,
+              bottom: g.cardBottom,
+              width: g.cardW,
+              height: g.cardH,
+              transformOrigin: "50% 100%",
+              ...fade(cardOpen, "translateY(18px) scale(0.965)"),
+            }}
+          >
+            <div
+              ref={surfaceRef}
+              data-ask-surface=""
+              className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/80 bg-white/[0.86] shadow-[0_32px_80px_-28px_rgba(15,23,42,0.38),0_10px_28px_-14px_rgba(15,23,42,0.18)] ring-1 ring-black/[0.06] backdrop-blur-2xl backdrop-saturate-150"
+            >
+              {dropTarget}
+              <div ref={contentRef} className="flex min-h-0 flex-1 flex-col">
+                {header}
+                <div data-ask-body="" className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+                  {threadPane}
+                  {historyPane}
+                </div>
+                <div className="shrink-0 px-4 pt-1">{tray}</div>
+                {/* Room for the pill, which sits over this. */}
+                <div aria-hidden className="shrink-0" style={{ height: pillHeight + DOCK_PAD + 6 }} />
+              </div>
+            </div>
+          </div>
+
+          {/* The pill. Its slot never moves, which is what the toolbar check measures. */}
+          <div
+            ref={pillSlotRef}
+            data-ask-pill-slot=""
+            className="absolute"
+            style={{ left: (box.w - g.pillW) / 2, bottom: g.pillBottom, width: g.pillW }}
+          >
+            <div data-ask-pill-state={pillAway ? "away" : "shown"} style={fade(!pillAway, "translateY(14px) scale(0.98)", 280, 200)}>
+              <div ref={pillFlipRef}>
+                <div
+                  ref={pillRef}
+                  data-ask-pill=""
+                  onPointerDown={(event) => {
+                    if (expanded) return
+                    openDock()
+                    const target = event.target as HTMLElement
+                    if (!target.closest("button, textarea, input")) {
+                      requestAnimationFrame(() => fieldRef.current?.focus({ preventScroll: true }))
+                    }
+                  }}
+                >
+                  {composer}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
+
+/** A layout effect in the browser and a plain one where there is no layout, on the server. */
+const useLayout = typeof window === "undefined" ? React.useEffect : React.useLayoutEffect

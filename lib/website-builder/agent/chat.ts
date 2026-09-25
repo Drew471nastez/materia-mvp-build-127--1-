@@ -69,18 +69,230 @@ function isMissingTable(error: { code?: string; message?: string } | null): bool
 }
 
 /**
+ * WHICH MESSAGES A READ IS FOR.
+ *
+ * `one` is a conversation by id. `earlier` is every message written before
+ * conversations were kept apart (their conversation_id is null), shown in the
+ * history as one thread of its own. `all` ignores conversations, which is
+ * what a database without the conversations table can answer.
+ */
+export type ConversationScope = { kind: "all" } | { kind: "earlier" } | { kind: "one"; id: string }
+
+/** One conversation in the history list. */
+export interface ThemeConversation {
+  id: string
+  title: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** The messages from before conversations existed, when there are any. */
+export interface EarlierMessages {
+  /** The last question asked in them, as the line the history shows. */
+  preview: string
+  updatedAt: string
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** True for a string shaped like a row id, before it reaches a query. */
+export function isConversationId(value: unknown): value is string {
+  return typeof value === "string" && UUID.test(value)
+}
+
+/**
+ * THE SIGNED IN CREATOR OWNS THIS WEBSITE, proved against their own client.
+ *
+ * RLS already hides another creator's rows, so a read without this would
+ * come back empty rather than leak. This says so out loud instead: 401 for
+ * nobody signed in, 404 for a website that is not theirs, before any
+ * conversation is looked at.
+ */
+export async function ownThemeInstall(
+  installId: string,
+): Promise<{ ok: true; creatorId: string } | { ok: false; status: 401 | 404 }> {
+  if (!isConversationId(installId)) return { ok: false, status: 404 }
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { ok: false, status: 401 }
+  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  if (!creator) return { ok: false, status: 404 }
+  const creatorId = (creator as { id: string }).id
+  const { data: install } = await supabase
+    .from("store_theme_installs")
+    .select("id")
+    .eq("id", installId)
+    .eq("creator_id", creatorId)
+    .maybeSingle()
+  if (!install) return { ok: false, status: 404 }
+  return { ok: true, creatorId }
+}
+
+/**
+ * EVERY CONVERSATION ON ONE WEBSITE, newest first, through the user's client.
+ *
+ * The policy on theme_chat_conversations is the same ownership chain every
+ * theme table uses, so another creator's conversations are not in the answer
+ * whatever id is asked for. Throws ThemeChatUnavailableError with `notSetUp`
+ * when the table or the column is not there yet.
+ */
+export async function listThemeConversations(
+  installId: string,
+): Promise<{ conversations: ThemeConversation[]; earlier: EarlierMessages | null }> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("theme_chat_conversations")
+    .select("id, title, created_at, updated_at")
+    .eq("install_id", installId)
+    .order("updated_at", { ascending: false })
+    .limit(60)
+  if (error) throw new ThemeChatUnavailableError(error.message, isMissingTable(error))
+
+  const { data: early, error: earlyError } = await supabase
+    .from("theme_chat_messages")
+    .select("content, created_at")
+    .eq("install_id", installId)
+    .is("conversation_id", null)
+    .eq("role", "user")
+    .order("created_at", { ascending: false })
+    .limit(1)
+  if (earlyError) throw new ThemeChatUnavailableError(earlyError.message, isMissingTable(earlyError))
+
+  type Row = { id: string; title: string | null; created_at: string; updated_at: string }
+  const last = ((early as { content: string; created_at: string }[] | null) ?? [])[0]
+  return {
+    conversations: ((data as Row[] | null) ?? []).map((row) => ({
+      id: row.id,
+      title: row.title?.trim() || "Untitled",
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    })),
+    earlier: last ? { preview: titleFrom(last.content), updatedAt: last.created_at } : null,
+  }
+}
+
+/**
+ * A conversation's name: the first thing asked in it, on one line, cut at a
+ * word. The note the route adds for a picture is not part of the question.
+ */
+export function titleFrom(prompt: string): string {
+  const words = prompt
+    .replace(/\n*\[(?:an image|\d+ images) attached\]\s*$/, "")
+    .replace(/\s+/g, " ")
+    .trim()
+  if (!words) return "A picture"
+  if (words.length <= 72) return words
+  const cut = words.slice(0, 72)
+  const space = cut.lastIndexOf(" ")
+  return `${(space > 40 ? cut.slice(0, space) : cut).trim()}…`
+}
+
+/**
+ * THE CONVERSATION A RUN IS WRITTEN INTO, opened or started.
+ *
+ * Called only after the route has proved ownership of the install against
+ * the user's own client. An id is used only when it names a conversation ON
+ * THIS INSTALL: one from another website, or one that has been removed, is
+ * never written into, and a new conversation starts instead.
+ *
+ * `adoptEarlier` is continuing the thread from before conversations existed:
+ * those messages move into the new conversation, so it reads as one.
+ *
+ * Null when the table is not there yet, and the messages are then written as
+ * they always were, with no conversation.
+ */
+export async function openThemeConversation(input: {
+  installId: string
+  requested: string | null
+  prompt: string
+  adoptEarlier?: boolean
+}): Promise<{ id: string; title: string } | null> {
+  try {
+    const admin = createAdminClient()
+    if (input.requested && isConversationId(input.requested)) {
+      const { data } = await admin
+        .from("theme_chat_conversations")
+        .select("id, title")
+        .eq("id", input.requested)
+        .eq("install_id", input.installId)
+        .maybeSingle()
+      if (data) return data as { id: string; title: string }
+    }
+
+    let title = titleFrom(input.prompt)
+    if (input.adoptEarlier) {
+      const { data: first } = await admin
+        .from("theme_chat_messages")
+        .select("content")
+        .eq("install_id", input.installId)
+        .is("conversation_id", null)
+        .eq("role", "user")
+        .order("created_at", { ascending: true })
+        .limit(1)
+      const oldest = ((first as { content: string }[] | null) ?? [])[0]
+      if (oldest) title = titleFrom(oldest.content)
+    }
+
+    const { data, error } = await admin
+      .from("theme_chat_conversations")
+      .insert({ install_id: input.installId, title })
+      .select("id, title")
+      .single()
+    if (error || !data) return null
+    const opened = data as { id: string; title: string }
+
+    if (input.adoptEarlier) {
+      await admin
+        .from("theme_chat_messages")
+        .update({ conversation_id: opened.id })
+        .eq("install_id", input.installId)
+        .is("conversation_id", null)
+    }
+    return opened
+  } catch {
+    /* The transcript is evidence, not enforcement; the edit still runs. */
+    return null
+  }
+}
+
+/** Moves a conversation to the top of the history. */
+async function touchConversation(
+  admin: ReturnType<typeof createAdminClient>,
+  conversationId: string | null | undefined,
+): Promise<void> {
+  if (!conversationId) return
+  await admin
+    .from("theme_chat_conversations")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", conversationId)
+}
+
+/**
  * The conversation for one theme, oldest first. RLS decides visibility.
  *
  * Read through the USER's client rather than the admin one, so a creator can
  * only ever see their own — the policy is the check, and there is no second
  * authorisation path here to disagree with it.
  */
-export async function readThemeChat(installId: string): Promise<ThemeMessage[]> {
+export async function readThemeChat(
+  installId: string,
+  scope: ConversationScope = { kind: "all" },
+): Promise<ThemeMessage[]> {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from("theme_chat_messages")
     .select("id, role, content, ops, error, created_at")
     .eq("install_id", installId)
+  /*
+    One conversation, or the messages from before conversations were kept
+    apart. "all" is what a database without the conversations table gets:
+    the one thread it has always had.
+  */
+  if (scope.kind === "one") query = query.eq("conversation_id", scope.id)
+  else if (scope.kind === "earlier") query = query.is("conversation_id", null)
+  const { data, error } = await query
     /**
      * NEWEST first, then reversed below. Ascending with a limit keeps the
      * OLDEST hundred and silently drops everything recent — reopen a busy
@@ -136,6 +348,8 @@ export async function startThemeExchange(input: {
   installId: string
   pageKey: string
   prompt: string
+  /** Null on a database without conversations, and the row is written as before. */
+  conversationId?: string | null
 }): Promise<string | null> {
   try {
     const admin = createAdminClient()
@@ -146,9 +360,11 @@ export async function startThemeExchange(input: {
         page_key: input.pageKey,
         role: "user",
         content: input.prompt,
+        ...(input.conversationId ? { conversation_id: input.conversationId } : {}),
       })
       .select("id")
       .single()
+    await touchConversation(admin, input.conversationId)
     return (data as { id: string } | null)?.id ?? null
   } catch {
     /**
@@ -166,6 +382,7 @@ export async function completeThemeExchange(input: {
   reply: string
   ops: ThemeOp[]
   error: string | null
+  conversationId?: string | null
 }): Promise<void> {
   try {
     const admin = createAdminClient()
@@ -176,7 +393,9 @@ export async function completeThemeExchange(input: {
       content: input.reply,
       ops: input.ops,
       error: input.error,
+      ...(input.conversationId ? { conversation_id: input.conversationId } : {}),
     })
+    await touchConversation(admin, input.conversationId)
   } catch {
     // Same reason: the edit already happened and is on the creator's screen.
   }

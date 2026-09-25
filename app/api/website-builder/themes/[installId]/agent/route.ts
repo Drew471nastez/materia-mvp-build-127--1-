@@ -45,7 +45,7 @@ import {
 } from "@/lib/sites/agent/provider"
 import { classifyRequest } from "@/lib/website-builder/agent/ambition"
 import { reviewImages } from "@/lib/sites/agent/attachments"
-import { completeThemeExchange, startThemeExchange } from "@/lib/website-builder/agent/chat"
+import { completeThemeExchange, openThemeConversation, startThemeExchange } from "@/lib/website-builder/agent/chat"
 import { keepImages } from "@/lib/website-builder/agent/attachment-store"
 
 export const dynamic = "force-dynamic"
@@ -112,6 +112,15 @@ const BodySchema = z.object({
   provider: z.enum(["anthropic", "openai"]).optional(),
   /** How hard a model to use. "strong" is the creator asking for Opus. */
   tier: z.enum(["fast", "strong"]).optional(),
+  /**
+   * WHICH CONVERSATION THIS CONTINUES. Null or absent starts a new one. An id
+   * is honoured only when it is a conversation on THIS install (see
+   * openThemeConversation), so naming another website's conversation starts
+   * a new one here rather than writing into theirs.
+   */
+  conversationId: z.string().uuid().nullable().optional(),
+  /** Continuing the messages from before conversations were kept apart. */
+  continueEarlier: z.boolean().optional(),
 })
 
 export async function POST(request: NextRequest, context: { params: Promise<{ installId: string }> }) {
@@ -196,7 +205,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   const noted = images.length
     ? `${body.prompt.trim()}${body.prompt.trim() ? "\n\n" : ""}[${images.length === 1 ? "an image" : `${images.length} images`} attached]`
     : body.prompt
-  const messageId = await startThemeExchange({ installId, pageKey: body.page, prompt: noted })
+  /* Ownership of the install was proved above; the conversation is checked against it. */
+  const conversation = await openThemeConversation({
+    installId,
+    requested: body.conversationId ?? null,
+    prompt: noted,
+    adoptEarlier: body.continueEarlier === true && !body.conversationId,
+  })
+  const conversationId = conversation?.id ?? null
+  const messageId = await startThemeExchange({ installId, pageKey: body.page, prompt: noted, conversationId })
   /**
    * Ownership was proved above against the USER'S client before a single
    * byte was read. Storing never blocks the run: a picture that could not be
@@ -222,6 +239,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           listening = false
         }
       }
+
+      /* First, so the panel knows which conversation this run is in before anything else arrives. */
+      if (conversation) send({ type: "conversation", id: conversation.id, title: conversation.title })
 
       try {
         /**
@@ -467,6 +487,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           reply: result.message || (result.status === "failed" ? "" : "Done."),
           ops: result.ops,
           error: result.status === "failed" ? result.error : null,
+          conversationId,
         })
       } catch (thrown) {
         const claude = describeAnthropicError(thrown)

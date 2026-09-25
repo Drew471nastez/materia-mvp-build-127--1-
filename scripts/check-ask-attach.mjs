@@ -14,17 +14,17 @@
  *   pnpm build && node scripts/check-ask-attach.mjs   (add KEEP_SHOT=1)
  */
 import { execFileSync } from "node:child_process"
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { appCss } from "./probe-css.mjs"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const root = process.cwd()
 const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
-const cssDir = join(root, ".next/static/chunks")
-if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first.")
-const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
+/* The build's stylesheet, or the same one compiled from source (PROBE_CSS=source). */
+const css = await appCss(root)
 
 const stubs = join(root, ".wb-probe")
 mkdirSync(stubs, { recursive: true })
@@ -99,7 +99,7 @@ const DRIVE = `
       attach: box(attachButton()),
       attachVisible: visible(attachButton()),
       sendDisabledEmpty: sendButton() ? sendButton().disabled : null,
-      composerHeight: box(field.closest("div.rounded-xl")) ? box(field.closest("div.rounded-xl")).h : null,
+      composerHeight: box(field.closest("[data-chat-composer]")) ? box(field.closest("[data-chat-composer]")).h : null,
     }
 
     /**
@@ -145,7 +145,7 @@ const DRIVE = `
      */
     var reach = 0
     if (rb) { for (var d = 0; d <= 24; d++) { if (!owns(document.elementFromPoint(rb.x + d, rb.y)) || !owns(document.elementFromPoint(rb.x, rb.y + d))) break; reach = d } }
-    var composer = field.closest("div.rounded-xl")
+    var composer = field.closest("[data-chat-composer]")
 
     var result = {
       before: before,
@@ -241,7 +241,7 @@ const DRIVE = `
           result.afterRemove = {
             thumbs: document.querySelectorAll('img[alt="screenshot.png"]').length,
             sendDisabled: sendButton() ? sendButton().disabled : null,
-            composerHeight: box(field.closest("div.rounded-xl")) ? box(field.closest("div.rounded-xl")).h : null,
+            composerHeight: box(field.closest("[data-chat-composer]")) ? box(field.closest("[data-chat-composer]")).h : null,
           }
           report(result)
         }, 60)
