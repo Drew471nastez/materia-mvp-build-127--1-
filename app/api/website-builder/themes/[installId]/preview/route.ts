@@ -18,7 +18,8 @@
  */
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { newPreviewToken } from "@/lib/website-builder/preview-link"
+import { newPreviewToken, previewBase } from "@/lib/website-builder/preview-link"
+import { getCanonicalSiteUrl, getMainDomain } from "@/lib/url-helpers"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -54,10 +55,13 @@ const MIGRATION = "Preview links need RUN_THEME_PREVIEW_LINK.sql to be run once.
  * Where the link points. The storefront resolves a creator by username, so
  * the caller supplies the site's own address and this only adds the token:
  * building the host here would mean knowing about custom domains, which is
- * somebody else's job and changes more often than this does.
+ * somebody else's job and changes more often than this does. The address is
+ * kept only when it is one of ours (previewBase in lib/website-builder/
+ * preview-link.ts); a link carrying a real token never points elsewhere.
  */
-function withToken(base: unknown, token: string): string | null {
-  if (typeof base !== "string" || !base) return null
+function withToken(req: NextRequest, sent: unknown, token: string): string | null {
+  if (typeof sent !== "string" || !sent) return null
+  const base = previewBase(sent, { requestOrigin: req.nextUrl.origin, mainDomain: getMainDomain(), canonical: getCanonicalSiteUrl() })
   /**
    * A PATH, NOT A QUERY. The token used to be `?preview=<token>` on the
    * site's own URL, which forced the public route to read a query string —
@@ -83,7 +87,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   if (o.error || !o.supabase) return NextResponse.json({ error: o.error }, { status: o.status })
   const token = o.install.preview_token
   const base = req.nextUrl.searchParams.get("base")
-  return NextResponse.json({ token, url: token ? withToken(base, token) : null })
+  return NextResponse.json({ token, url: token ? withToken(req, base, token) : null })
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
@@ -93,7 +97,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const existing = o.install.preview_token
   if (existing) {
-    return NextResponse.json({ token: existing, url: withToken(await baseOf(req), existing), created: false })
+    return NextResponse.json({ token: existing, url: withToken(req, await baseOf(req), existing), created: false })
   }
 
   const token = newPreviewToken()
@@ -101,7 +105,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (error) {
     return NextResponse.json({ error: /preview_token/.test(error.message) ? MIGRATION : error.message }, { status: 503 })
   }
-  return NextResponse.json({ token, url: withToken(await baseOf(req), token), created: true })
+  return NextResponse.json({ token, url: withToken(req, await baseOf(req), token), created: true })
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {

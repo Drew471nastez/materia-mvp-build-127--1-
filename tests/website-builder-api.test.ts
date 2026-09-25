@@ -16,6 +16,8 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+import { previewBase } from "@/lib/website-builder/preview-link"
+
 let passed = 0
 let failed = 0
 const failures: string[] = []
@@ -89,6 +91,38 @@ function main() {
     check("so a long label is shortened, not refused",
       /label: z\.string\(\)\.transform\(\(s\) => Array\.from\(s\)\.slice\(0, LABEL_MAX\)\.join\(""\)\)\.optional\(\)/.test(backups)
         && !/label: z\.string\(\)\.max\(/.test(backups))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A preview link points at one of our addresses, and nowhere else")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const allowed = { requestOrigin: "https://storelib.com", mainDomain: "storelib.com", canonical: "https://storelib.com" }
+    const kept = (base: string, a = allowed) => previewBase(base, a)
+    check("the address the publish panel sends is kept as it was", kept("https://mara.storelib.com") === "https://mara.storelib.com/"
+      && kept("https://mara.storelib.com/?ref=panel") === "https://mara.storelib.com/?ref=panel")
+    check("and so is a deployment's own main domain",
+      kept("https://mara.example.test", { ...allowed, mainDomain: "example.test" }) === "https://mara.example.test/")
+    check("a local build, which is http on its own address, still works",
+      kept("http://localhost:3000/w/mara", { requestOrigin: "http://localhost:3000", mainDomain: "localhost:3000", canonical: "http://localhost:3000" }) === "http://localhost:3000/w/mara")
+    const hostile = [
+      "https://evil.example/x",
+      "https://storelib.com.evil.example/",
+      "https://storelib.com@evil.example/",
+      "https://user:pass@mara.storelib.com/",
+      "http://mara.storelib.com/",
+      "javascript:alert(1)",
+      "data:text/html,x",
+      "//evil.example",
+      "not an address",
+    ]
+    const leaked = hostile.filter((b) => kept(b) !== "https://storelib.com")
+    check(`${hostile.length} other addresses all fall back to the canonical origin`, leaked.length === 0, leaked.join(" | "))
+    check("a fragment is dropped rather than carried into the link", kept("https://mara.storelib.com/#x") === "https://mara.storelib.com/")
+    const route = read(`${ROUTES}/preview/route.ts`)
+    check("every link the route hands out goes through it",
+      /const base = previewBase\(sent, \{ requestOrigin: req\.nextUrl\.origin, mainDomain: getMainDomain\(\), canonical: getCanonicalSiteUrl\(\) \}\)/.test(route)
+        && (route.match(/withToken\(req, /g) ?? []).length === 3)
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
