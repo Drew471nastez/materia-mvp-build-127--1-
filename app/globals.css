@@ -2070,6 +2070,26 @@ html.capacitor body {
   box-shadow: var(--bar-depth-dark);
 }
 
+/*
+  THE CREATOR PAGE'S BAR IN THE APP, BEFORE THE APP IS KNOWN.
+  The bar is in the server's HTML now, and the server renders the web's
+  sticky layout: fixed at the top, with a spacer under it. Inside the iOS and
+  Android apps the bar sits in the flow under the app's own header instead,
+  and the component only learns it is in the app after hydration. The root
+  layout marks <html> with `capacitor` before first paint, so these put it in
+  the flow from the first frame and nothing moves when React catches up.
+  components/store-builder/subscribe-bar.tsx.
+*/
+html.capacitor .subscribe-bar-fixed {
+  position: relative !important;
+  top: auto !important;
+  z-index: auto !important;
+  transform: none !important;
+}
+html.capacitor .subscribe-bar-spacer {
+  display: none;
+}
+
 /* OnePage Button Animations */
 
 /* Pulse - subtle scale effect (20% more subtle) */
