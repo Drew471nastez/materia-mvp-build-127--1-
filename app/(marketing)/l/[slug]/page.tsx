@@ -7,6 +7,7 @@ import { headers } from "next/headers"
 import { getLinksInternalPath, getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { onePageIndexable } from "@/lib/seo/indexing"
+import { isBanned } from "@/lib/seo/bans"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
 import { activeDomainOf } from "@/lib/website-builder/site-seo-data"
@@ -38,6 +39,8 @@ interface Props {
  *               storelib.com/<handle>/links, or /links on their connected
  *               domain, where the proxy serves the same page
  *   indexable   the sitemap's own rule, lib/seo/indexing.ts onePageIndexable
+ *   banned      an operator banned the owner: the page is not served at all,
+ *               as their products are not (lib/seo/bans.ts)
  *
  * The creator row is read whole (`*`), the way the product page reads it, so
  * a column one database has and another does not cannot fail the read.
@@ -50,7 +53,7 @@ const onePageOwner = cache(async (sellerId: string | null, creatorId: string | n
     : ownerId
       ? await supabase.from("creators").select("*").eq("user_id", ownerId).maybeSingle()
       : { data: null }
-  const row = creator as { id?: string; user_id?: string | null } | null
+  const row = creator as { id?: string; user_id?: string | null; banned_at?: string | null } | null
   // profiles.avatar_url is the single source of truth — both Settings and Store Builder sync to it.
   const userId = ownerId || row?.user_id || null
   const { data: profile } = userId
@@ -66,6 +69,7 @@ const onePageOwner = cache(async (sellerId: string | null, creatorId: string | n
   const handle = (profile as { username?: string | null } | null)?.username || null
   return {
     handle,
+    banned: isBanned(row),
     avatarUrl: (profile as { avatar_url?: string | null } | null)?.avatar_url || null,
     publishedProducts: products.count ?? 0,
     canonical: handle ? (domain ? getLinksUrlWithCustomDomain(handle, domain) : getLinksShareUrl(handle)) : null,
@@ -155,7 +159,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
   const userProfileAvatarUrl: string | null = owner.avatarUrl
   /* The sitemap's rule, so a page it does not list does not ask to be listed. */
-  const indexable = onePageIndexable({ status: onepage.status, publishedProducts: owner.publishedProducts, handle: owner.handle })
+  const indexable = !owner.banned && onePageIndexable({ status: onepage.status, publishedProducts: owner.publishedProducts, handle: owner.handle })
 
   if (!faviconUrl && effectiveSellerId) {
     try {
@@ -334,6 +338,14 @@ export default async function PublicOnePageRoute({ params }: Props) {
     notFound()
   }
 
+  /*
+    An operator banned the owner: the page goes the way their products went,
+    before anything is counted. The answer is the one the metadata asked for,
+    held for the request (onePageOwner).
+  */
+  const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
+  if (owner.banned) notFound()
+
   // Track view with IP/device deduplication (one view per IP per day)
   try {
     const headersList = await headers()
@@ -471,11 +483,10 @@ export default async function PublicOnePageRoute({ params }: Props) {
 
   /*
     WHO THIS PAGE IS ABOUT, for a search engine, and only on a page it may
-    list: the same answer the metadata gave (onePageOwner, cached for the
-    request). `sameAs` is the social links the page draws, so an engine can
-    tie this page to the accounts it already knows.
+    list: the same answer the metadata gave (`owner` above, from
+    onePageOwner). `sameAs` is the social links the page draws, so an engine
+    can tie this page to the accounts it already knows.
   */
-  const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
   const structured =
     owner.canonical && onePageIndexable({ status: onepage.status, publishedProducts: owner.publishedProducts, handle: owner.handle })
       ? jsonLdScript(

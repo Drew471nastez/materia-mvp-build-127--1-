@@ -81,6 +81,7 @@ import { ReviewsPanel, type StorefrontReview } from "@/components/storefront/rev
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 import { deservesIndexing } from "@/lib/security/spam-signals"
 import { jsonLdScript } from "@/lib/seo/json-ld"
+import { isBanned } from "@/lib/seo/bans"
 import { MAX_LISTED_PRODUCTS, profilePageJsonLd, sameAsUrls } from "@/lib/seo/structured-data"
 import { plainSummary } from "@/lib/html-entities"
 import { getProductShareUrl } from "@/lib/url-helpers"
@@ -291,7 +292,8 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
      * that tells crawlers to go away, which is worse than either alone.
      */
     ...(() => {
-      const indexable = deservesIndexing({ publishedProducts, handle })
+      /* And not banned: a ban takes the products down, and a product put back afterwards does not buy the page back. */
+      const indexable = deservesIndexing({ publishedProducts, handle }) && !isBanned(creator)
       return {
         robots: indexable
           ? { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" as const } }
@@ -662,7 +664,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    */
   /* The username as stored: the address typed may be /Andrew, the page is /andrew. */
   const pageHandle: string = profile.username || username
-  const indexable = deservesIndexing({ publishedProducts: products?.length ?? 0, handle: pageHandle })
+  const indexable = deservesIndexing({ publishedProducts: products?.length ?? 0, handle: pageHandle }) && !isBanned(creator)
 
   /*
     WHO THE PAGE IS ABOUT, AND WHAT THEY SELL, printed by both branches below

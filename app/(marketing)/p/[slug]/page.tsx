@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import { plainSummary } from "@/lib/html-entities"
 import { productIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
+import { isBanned } from "@/lib/seo/bans"
 import { soldOut } from "@/lib/website-builder/shop-products"
 import { DB_CATEGORY_TO_ID, categoryLabel, categoryPath } from "@/lib/marketplace/categories"
 import { hasCategoryPage } from "@/lib/explore/category-pages"
@@ -117,6 +118,8 @@ export async function generateMetadata({ params }: ProductPageProps) {
   let sellerName: string | undefined
   let faviconUrl: string | undefined
   let sellerHandle: string | undefined
+  /* Read from the creator row the page loads whole, so it costs no query. */
+  let sellerBanned = false
   if (product.creator_id) {
     /*
       THE NAME AND THE FAVICON, from rows the page needs anyway.
@@ -132,6 +135,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
     ])
 
     if (creator) {
+      sellerBanned = isBanned(creator)
       sellerName = creator.display_name || undefined
       /**
        * THE HANDLE IS NEEDED WHETHER OR NOT THE NAME WAS, because the
@@ -216,11 +220,12 @@ export async function generateMetadata({ params }: ProductPageProps) {
       canonical: productUrl,
     },
     /* Listed and indexed by one rule (lib/seo/indexing productIndexable):
-       a published product, unless its seller's handle is a link farm's. */
+       a published product, unless its seller's handle is a link farm's, or
+       its seller was banned and put it back up (the sitemap leaves it out). */
     robots: {
-      index: productIndexable(product, sellerHandle ?? null),
+      index: productIndexable(product, sellerHandle ?? null) && !sellerBanned,
       follow: true,
-      googleBot: { index: productIndexable(product, sellerHandle ?? null), follow: true, "max-image-preview": "large" as const },
+      googleBot: { index: productIndexable(product, sellerHandle ?? null) && !sellerBanned, follow: true, "max-image-preview": "large" as const },
     },
     ...(faviconUrl && {
       icons: {

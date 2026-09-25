@@ -30,12 +30,15 @@ import "server-only"
  * once listed no creator pages for months: a file cut short at a failure is
  * served and cached for an hour as if the rest did not exist, while a 503
  * leaves search engines the copy they already have and they ask again.
- * A table that arrives with a migration (website_addresses) is read softly
- * instead, because its absence is a normal state.
+ * A table or column that arrives with a migration (website_addresses,
+ * creators.banned_at) is read softly instead, because its absence is a
+ * normal state. A banned creator is in none of these files
+ * (lib/seo/bans.ts).
  */
 
 import { unstable_cache } from "next/cache"
 import { siteSeo } from "@/lib/website-builder/site-seo-data"
+import { bannedCreatorIds } from "./bans"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { CATEGORIES } from "@/lib/marketplace/categories"
@@ -45,6 +48,7 @@ import { HELP_ARTICLES, HELP_CATEGORIES, helpArticlePath } from "@/lib/help/arti
 import { isMissingColumn } from "@/lib/custom-domains/store"
 import {
   SITEMAP_CHUNK,
+  builtSiteIndexable,
   creatorIndexable,
   lastmodOf,
   newestOf,
@@ -306,7 +310,7 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
     SITEMAP_CHUNK,
     "products",
   )
-  const usernameByUserId = await usernames(admin, rows.map(userIdOf).filter(Boolean) as string[])
+  const [usernameByUserId, banned] = await Promise.all([usernames(admin, rows.map(userIdOf).filter(Boolean) as string[]), bannedCreatorIds(admin)])
   if (rows.length > 0 && usernameByUserId.size === 0) {
     /* Every product would fall back to the old address. That is the failure
        this block used to have in silence. */
@@ -316,7 +320,8 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
   for (const row of rows) {
     const userId = userIdOf(row)
     const username = userId ? usernameByUserId.get(userId) : undefined
-    if (!productIndexable(row, username)) continue
+    /* Banned: the ban took it down, and republishing it does not put it back here. */
+    if (!productIndexable(row, username) || (row.creator_id && banned.has(row.creator_id))) continue
     entries.push({
       url: getProductShareUrl(username || "", row.slug),
       lastModified: lastmodOf(row.updated_at),
@@ -365,7 +370,8 @@ export async function creatorsSitemap(chunk: number): Promise<SitemapEntry[]> {
     const seen = newestProduct.get(p.creator_id) ?? { n: 0, at: null }
     newestProduct.set(p.creator_id, { n: seen.n + 1, at: newestOf(seen.at, p.updated_at) })
   }
-  const selling = creators.filter((c) => newestProduct.has(c.id) && c.user_id)
+  const banned = await bannedCreatorIds(admin)
+  const selling = creators.filter((c) => newestProduct.has(c.id) && c.user_id && !banned.has(c.id))
   const sellerByUserId = await sellers(admin, selling.map((c) => c.user_id as string))
   const onePages = await publishedOnePages(admin, selling.map((c) => c.id))
   const entries: SitemapEntry[] = []
@@ -505,7 +511,8 @@ export async function websitesSitemap(chunk: number): Promise<SitemapEntry[]> {
     SITEMAP_CHUNK,
     "websites",
   )
-  const open = installs.filter((i) => websiteIndexable(settingsOf(i)))
+  const banned = await bannedCreatorIds(admin)
+  const open = installs.filter((i) => websiteIndexable(settingsOf(i)) && !banned.has(i.creator_id))
   const creatorIds = [...new Set(open.map((i) => i.creator_id))]
   /*
     IN BATCHES. This was one `.in("id", …)` naming every creator in the chunk,
@@ -527,7 +534,8 @@ export async function websitesSitemap(chunk: number): Promise<SitemapEntry[]> {
   for (const i of open) {
     /* The name the site was given, else its creator's username: the host it is canonical at. */
     const handle = chosen.get(i.creator_id) ?? names.get(userOf.get(i.creator_id) ?? "")
-    if (!handle || domains.has(i.creator_id)) continue
+    /* The site's own rule, word for word: its switch, and not a farm's handle (siteSeo reads the same). */
+    if (!handle || domains.has(i.creator_id) || !builtSiteIndexable(settingsOf(i), handle)) continue
     entries.push({ url: `${siteOrigin({ handle, mainDomain: main })}/`, lastModified: newestOf(i.published_at, i.updated_at) })
   }
   return entries

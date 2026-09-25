@@ -217,6 +217,18 @@ export function websiteIndexable(settings: Record<string, unknown> | null | unde
   return true
 }
 
+/**
+ * A built site may be listed: its creator's own switch is on, and it is not
+ * under a handle the spam rules hold back. ONE RULE for the site's own
+ * robots.txt and sitemap (lib/website-builder/site-seo-data.ts siteSeo), the
+ * robots tag on each of its pages, and storelib.com's websites sitemap. They
+ * used to be three: the site's sitemap left a farm's handle out while its
+ * pages said index and storelib.com's sitemap listed it.
+ */
+export function builtSiteIndexable(settings: Record<string, unknown> | null | undefined, handle: string | null | undefined): boolean {
+  return websiteIndexable(settings) && !!handle && deservesIndexing({ publishedProducts: 1, handle })
+}
+
 /* ── A built site's address ───────────────────────────────────────────── */
 
 /**

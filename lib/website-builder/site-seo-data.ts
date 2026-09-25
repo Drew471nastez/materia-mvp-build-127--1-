@@ -9,7 +9,7 @@ import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { getMainDomain } from "@/lib/url-helpers"
-import { deservesIndexing } from "@/lib/security/spam-signals"
+import { builtSiteIndexable } from "@/lib/seo/indexing"
 import { creatorShopTag, creatorSiteTag, publishedShopByName } from "./published-site"
 import { websiteHandleOf } from "./site-address-data"
 import {
@@ -17,7 +17,6 @@ import {
   listedPageKeys,
   pageUrl,
   productUrl,
-  siteIsIndexable,
   type SitemapEntry,
 } from "./site-seo"
 import type { ThemeSettingsValues } from "./types"
@@ -151,9 +150,9 @@ export async function siteSeo(name: string): Promise<SiteSeo> {
   const { site } = found
   const origin = await siteOrigin(site.creatorId, name)
   /* The creator's switch, and the same spam rule storelib.com's own
-     sitemap applies to a handle (lib/security/spam-signals). */
-  const indexable =
-    siteIsIndexable(site.themeSettings as Record<string, unknown>) && deservesIndexing({ publishedProducts: 1, handle: name })
+     sitemap applies to a handle: lib/seo/indexing builtSiteIndexable, which
+     the site's pages and storelib.com's websites sitemap read too. */
+  const indexable = builtSiteIndexable(site.themeSettings as Record<string, unknown>, name)
 
   const entries: SitemapEntry[] = []
   if (indexable) {

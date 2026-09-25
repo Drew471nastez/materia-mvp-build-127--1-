@@ -111,7 +111,7 @@ console.log("\nA OnePage says where it lives and who it is about")
     /const pageAddress = owner\.canonical \?\? getLinksShareUrl\(slug, pageHost\)/.test(page) &&
       /alternates: \{ canonical: pageAddress \}/.test(page) && /type: "profile"/.test(page) && /url: pageAddress/.test(page))
   check("its robots tag is the sitemap's rule, and noindex means nofollow too",
-    /const indexable = onePageIndexable\(\{ status: onepage\.status, publishedProducts: owner\.publishedProducts, handle: owner\.handle \}\)/.test(page) &&
+    /const indexable = !owner\.banned && onePageIndexable\(\{ status: onepage\.status, publishedProducts: owner\.publishedProducts, handle: owner\.handle \}\)/.test(page) &&
       /robots: indexable\s*\?[^:]*index: true[\s\S]{0,200}: \{ index: false, follow: false/.test(page))
   check("its structured data is printed only when it may be listed, and escaped",
     /owner\.canonical && onePageIndexable\(/.test(page) && /jsonLdScript\(\s*profilePageJsonLd\(/.test(page) && /sameAs: onePageSameAs\(transformedOnepage\.social_links\)/.test(page))

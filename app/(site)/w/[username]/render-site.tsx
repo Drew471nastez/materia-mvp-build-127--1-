@@ -29,6 +29,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
 import { heroImage, jsonLdScript, pageUrl, siteSameAs, websiteJsonLd } from "@/lib/website-builder/site-seo"
 import { pageSeoOf } from "@/lib/website-builder/page-seo"
+import { builtSiteIndexable, websiteIndexable } from "@/lib/seo/indexing"
 import { creatorAvatar, siteOrigin } from "@/lib/website-builder/site-seo-data"
 import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -153,6 +154,16 @@ export async function siteMetadata(
     ...themeMetadata(settings, { title: rawTitle, description, url, image: shareImage }),
     /* A page kept out of search on its own, whatever the site's setting. */
     ...(own.hidden ? { robots: { index: false, follow: true } } : {}),
+    /*
+      And a whole site under a handle the spam rules hold back, which its own
+      sitemap already left out while each page said index. The one rule the
+      site's robots.txt, its sitemap and storelib.com's read
+      (lib/seo/indexing builtSiteIndexable); the creator's own switch is
+      already in the robots above, as they set it.
+    */
+    ...(websiteIndexable(settings as Record<string, unknown>) && !builtSiteIndexable(settings as Record<string, unknown>, username)
+      ? { robots: { index: false, follow: false } }
+      : {}),
   }
 }
 

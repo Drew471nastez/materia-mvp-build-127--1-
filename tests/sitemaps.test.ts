@@ -18,6 +18,7 @@ import {
   PLATFORM_DISALLOW,
   SITEMAP_CHUNK,
   SITE_DISALLOW,
+  builtSiteIndexable,
   creatorIndexable,
   lastmodOf,
   newestOf,
@@ -31,6 +32,7 @@ import {
 } from "@/lib/seo/indexing"
 import { IDS_PER_QUERY, SitemapReadFailed, eachBatch, parseSitemapName, readRange } from "@/lib/seo/sitemaps"
 import { byHost, indexNowKey, worthSending } from "@/lib/seo/indexnow"
+import { bannedCreatorIds, isBanned } from "@/lib/seo/bans"
 import { isReservedWord } from "@/lib/reserved-words"
 
 let passed = 0
@@ -151,7 +153,7 @@ section("A built site is canonical at one origin")
   check("the site's own sitemap and canonicals name the www host the proxy answers on, not the bare domain it redirects",
     /* The host comes from lib/custom-domains: www.<apex> for an apex, a connected subdomain as it is. */
     /primaryHostFor\(creatorId, "website"\)/.test(seoData) && /servingHost\(primary\.domain\)/.test(code("lib/custom-domains/store.ts")) && !/replace\(\/\^www\\\.\/, ""\) : `\$\{name/.test(seoData))
-  check("a site under a handle the spam rules hold back is not listed", /deservesIndexing\(\{ publishedProducts: 1, handle: name \}\)/.test(seoData))
+  check("a site under a handle the spam rules hold back is not listed", /const indexable = builtSiteIndexable\(site\.themeSettings as Record<string, unknown>, name\)/.test(seoData))
 }
 
 section("Every host answers its own robots.txt and sitemap")
@@ -335,7 +337,48 @@ async function batchingAndPaging() {
     !/\.limit\(5000\)/.test(seoData) && /\.range\(from, from \+ PRODUCT_PAGE - 1\)/.test(seoData) && /PRODUCT_PAGE = 1000/.test(seoData))
 }
 
-batchingAndPaging().then(() => {
+/** Bans and the one rule for a built site: pure checks, plus a read driven with a fake database. */
+async function bansAndOneRule() {
+  section("A banned creator is not listed, served or announced, and a site has one rule")
+
+  check("a built site is listed when its switch is on and its handle is not a farm's",
+    builtSiteIndexable({}, "mariapopescu") && !builtSiteIndexable({ seo_robots: false }, "mariapopescu") &&
+      !builtSiteIndexable({}, "powerokebos999") && !builtSiteIndexable({}, null))
+  check("a row read whole says banned only when it carries a ban", isBanned({ banned_at: "2026-09-20T00:00:00Z" }) && !isBanned({ banned_at: null }) && !isBanned({}) && !isBanned(null))
+
+  const fake = (pages: Array<{ data: { id: string }[] | null; error: { message: string } | null }>) => {
+    let call = 0
+    const chain = { select: () => chain, not: () => chain, order: () => chain, range: async () => pages[call++] ?? { data: [], error: null } }
+    return { from: () => chain } as never
+  }
+  const set = await bannedCreatorIds(fake([{ data: [{ id: "a" }, { id: "b" }], error: null }]))
+  check("the banned set is read", set.has("a") && set.has("b") && set.size === 2)
+  const soft = await bannedCreatorIds(fake([{ data: null, error: { message: 'column creators.banned_at does not exist' } }]))
+  check("and a database without the column has no bans, rather than no sitemap", soft.size === 0)
+
+  const maps = code("lib/seo/sitemaps.ts")
+  check("products, creator pages and websites all leave banned creators out",
+    (maps.match(/bannedCreatorIds\(admin\)/g) ?? []).length === 3 && /banned\.has\(row\.creator_id\)/.test(maps) &&
+      /!banned\.has\(c\.id\)/.test(maps) && /!banned\.has\(i\.creator_id\)/.test(maps))
+  check("storelib.com's websites sitemap reads the site's own rule", /!builtSiteIndexable\(settingsOf\(i\), handle\)/.test(maps))
+  const published = code("lib/website-builder/published-site.ts")
+  check("a banned creator's website answers as no site, from rows read whole",
+    (published.match(/if \(isBanned\(/g) ?? []).length === 3 && !/\.select\("id, slug, display_name"\)/.test(published))
+  const render = code("app/(site)/w/[username]/render-site.tsx")
+  check("a website's pages say noindex under a farm's handle, as its sitemap already left them out",
+    /websiteIndexable\(settings as Record<string, unknown>\) && !builtSiteIndexable\(settings as Record<string, unknown>, username\)\s*\? \{ robots: \{ index: false, follow: false \} \}/.test(render))
+  const onepage = code("app/(marketing)/l/[slug]/page.tsx")
+  check("a banned owner's OnePage is not served, before a view is counted, and is never indexable",
+    /if \(owner\.banned\) notFound\(\)/.test(onepage) && onepage.indexOf("if (owner.banned) notFound()") < onepage.indexOf("onepage_views") &&
+      /const indexable = !owner\.banned && onePageIndexable\(/.test(onepage))
+  check("a banned creator's page and a product they put back are noindex",
+    /deservesIndexing\(\{ publishedProducts, handle \}\) && !isBanned\(creator\)/.test(code("app/(marketing)/u/[username]/page.tsx")) &&
+      /index: productIndexable\(product, sellerHandle \?\? null\) && !sellerBanned/.test(code("app/(marketing)/p/[slug]/page.tsx")))
+  const announce = code("lib/seo/announce.ts")
+  check("and nothing of theirs is announced", /if \(isBanned\(c\)\) return null/.test(announce) && /isBanned\(creator as \{ banned_at\?: string \| null \} \| null\)\) return \[\]/.test(announce))
+}
+
+batchingAndPaging().then(bansAndOneRule).then(() => {
   console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed > 0) {
     console.log("Failing:", failures.join(", "))
