@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useSyncExternalStore } from "react"
-import { Bell, X, ListFilter, CircleCheck } from "lucide-react"
+import { Bell, ListFilter, CircleCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useLanguage } from "@/lib/i18n"
@@ -99,7 +99,7 @@ function HeaderButton({
         data-face=""
         className={cn(
           "flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-150",
-          "group-focus-visible:ring-2 group-focus-visible:ring-[#8b5cf6]/40",
+          "group-focus-visible:ring-2 group-focus-visible:ring-[#1a1a2e]/25",
           pressed
             ? "bg-[#1a1a2e] text-white group-hover:bg-[#2a2a40]"
             : "text-[#6b7280] group-hover:bg-[#f3f4f6] group-hover:text-[#1a1a2e] group-active:bg-[#e5e7eb]",
@@ -136,6 +136,8 @@ export function NotificationsModal({
   const [marking, setMarking] = useState(false)
   const [markError, setMarkError] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const { t } = useLanguage()
   const closeSheet = useCallback(() => onOpenChange(false), [onOpenChange])
   const unread = useUnreadState()
@@ -290,6 +292,30 @@ export function NotificationsModal({
   const filteredNotifications = unreadOnly ? inTab.filter((n) => !n.read) : inTab
   const hasUnread = unreadCount(unread, setupIds) > 0 || notifications.some((n) => !n.read)
 
+  /*
+    SWITCHING VIEWS. The new view's rows fade in (opacity, 180ms) from the
+    top of the list, rather than replacing the old ones in a single frame.
+    On a computer the panel is as tall as its content, so a view with fewer
+    rows used to pull its foot up under the pointer; it holds the tallest
+    height it has had since it opened, until it closes. The sheet on a phone
+    has one height already.
+  */
+  const switchTab = (id: typeof activeTab) => {
+    if (id === activeTab) return
+    const body = bodyRef.current
+    if (body && !isMobile) body.style.minHeight = `${Math.max(body.offsetHeight, parseFloat(body.style.minHeight) || 0)}px`
+    if (listRef.current) listRef.current.scrollTop = 0
+    setActiveTab(id)
+  }
+  useEffect(() => {
+    if (open) return
+    /* After the close has faded, so the panel does not shrink as it goes. */
+    const id = window.setTimeout(() => {
+      if (bodyRef.current) bodyRef.current.style.minHeight = ""
+    }, 240)
+    return () => window.clearTimeout(id)
+  }, [open])
+
   const tabs = [
     { id: "all" as const, labelKey: "notifications.all" },
     { id: "updates" as const, labelKey: "notifications.updates" },
@@ -384,6 +410,13 @@ export function NotificationsModal({
     }
   }
 
+  /*
+    NO CLOSE BUTTON. The panel closes the way everything else in /app that
+    floats does: a press anywhere outside it or Escape on a computer, a drag
+    down or a tap on the dimmed page for the sheet on a phone. An X in the
+    corner was a third button in a header of two, for something the hand
+    already knows how to do.
+  */
   const headerButtons = (
     <div className="flex items-center gap-0.5 md:gap-1">
       <HeaderButton
@@ -404,9 +437,6 @@ export function NotificationsModal({
       >
         <CircleCheck className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
       </HeaderButton>
-      <HeaderButton label="Close" onClick={closeSheet}>
-        <X className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
-      </HeaderButton>
     </div>
   )
 
@@ -418,26 +448,26 @@ export function NotificationsModal({
    * rebuilt subtree and a list scrolled back to the top.
    */
   const notificationsContent = (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-1 flex-col h-full min-h-0">
       {markError ? (
-        <p role="alert" className="border-b border-[#fde2e1] bg-[#fef3f2] px-5 py-2 text-[13px] text-[#b42318]">
+        <p role="alert" className="shrink-0 border-b border-[#fde2e1] bg-[#fef3f2] px-5 py-2 text-[13px] text-[#b42318]">
           {markError}
         </p>
       ) : null}
       <NotificationTabs
         tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey as any) }))}
         active={activeTab}
-        onChange={setActiveTab}
+        onChange={switchTab}
       />
 
       {/* Notifications list */}
-      <div className="flex-1 overflow-y-auto overscroll-contain min-h-0" data-notifications-list="">
+      <div ref={listRef} className="flex flex-1 flex-col overflow-y-auto overscroll-contain min-h-0" data-notifications-list="">
         {isLoading && notifications.length === 0 ? (
           /* Nothing drawn while the first read is out: no spinner, and the
              same height the empty words take, so nothing moves when it lands. */
           <div className="h-full min-h-[180px]" aria-busy="true" aria-label={t("notifications.loading")} />
         ) : filteredNotifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full py-12 px-4" data-notifications-empty="">
+          <div key={activeTab} className="flex flex-1 flex-col items-center justify-center py-12 px-4 animate-in fade-in-0 duration-200 motion-reduce:animate-none" data-notifications-empty="">
             <div className="w-14 h-14 rounded-full bg-[#f3f4f6] flex items-center justify-center mb-4">
               <Bell className="w-7 h-7 text-[#6b7280]" strokeWidth={1.75} />
             </div>
@@ -451,7 +481,7 @@ export function NotificationsModal({
             )}
           </div>
         ) : (
-          <div className="divide-y divide-[#f1f2f4]">
+          <div key={activeTab} data-notifications-view={activeTab} className="divide-y divide-[#f1f2f4] animate-in fade-in-0 duration-200 motion-reduce:animate-none">
             {filteredNotifications.map((notification) => (
               <NotificationItem
                 key={notification.id}
@@ -508,7 +538,7 @@ export function NotificationsModal({
         <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{t("notifications.title")}</h3>
         {headerButtons}
       </div>
-      <div className="max-h-[420px] overflow-y-auto overscroll-contain">
+      <div ref={bodyRef} className="flex max-h-[420px] flex-col overflow-y-auto overscroll-contain">
         {notificationsContent}
       </div>
     </div>
@@ -551,12 +581,19 @@ function whenOf(date: Date): string | null {
 }
 
 /**
- * THE TABS. A grey pill per view and one dark pill that slides to the chosen
- * one, on transform and width alone. It used to swap colours in place, which
- * read as a blink. Measured from the buttons themselves, so a longer word in
- * another language still gets a pill that fits; the first measurement is
- * placed without moving, so the panel never opens with the pill flying in.
+ * THE TABS. A grey pill per view, and the chosen one dark. The dark pill is
+ * a second copy of the row, dark with white words, laid exactly over the
+ * first and cut to the chosen tab's pill by a clip-path. Moving to another
+ * tab moves the cut: the dark pill slides and stretches to its new place,
+ * and because the words under it are the white copy's, a word turns white
+ * exactly as the pill reaches it. It used to be a pill sliding under words
+ * that changed colour on their own clock, so for a moment the new word was
+ * white on grey and the old one grey on dark. Measured from the buttons, so
+ * a longer word in another language still fits; the first placing does not
+ * animate, so the panel never opens with the pill flying in.
  */
+const TAB_MOVE = "clip-path 300ms cubic-bezier(0.32, 0.72, 0, 1)"
+
 function NotificationTabs<T extends string>({
   tabs,
   active,
@@ -567,7 +604,7 @@ function NotificationTabs<T extends string>({
   onChange: (id: T) => void
 }) {
   const rowRef = useRef<HTMLDivElement>(null)
-  const pillRef = useRef<HTMLSpanElement>(null)
+  const pillRef = useRef<HTMLDivElement>(null)
   const placedRef = useRef(false)
 
   const place = useCallback((animate: boolean) => {
@@ -576,11 +613,10 @@ function NotificationTabs<T extends string>({
     if (!row || !pill) return
     const button = row.querySelector<HTMLElement>(`[data-tab="${active}"]`)
     if (!button || !button.offsetWidth) return
-    pill.style.transition = animate
-      ? "transform 280ms cubic-bezier(0.32, 0.72, 0, 1), width 280ms cubic-bezier(0.32, 0.72, 0, 1)"
-      : "none"
-    pill.style.width = `${button.offsetWidth}px`
-    pill.style.transform = `translate3d(${button.offsetLeft}px, 0, 0)`
+    const left = button.offsetLeft
+    const right = row.offsetWidth - left - button.offsetWidth
+    pill.style.transition = animate ? TAB_MOVE : "none"
+    pill.style.clipPath = `inset(0px ${right}px 0px ${left}px round 999px)`
     pill.style.opacity = "1"
     placedRef.current = true
   }, [active])
@@ -592,48 +628,56 @@ function NotificationTabs<T extends string>({
 
   /* The words can change width after the first paint (the font arriving, a
      language switch, the panel going from hidden to shown): follow them
-     without animating. */
+     without animating. One observer for the row's life, reading the latest
+     placing: a new observer per tab reported the row's size at once, and
+     that report placed the pill again without its move, so it jumped. */
+  const placeRef = useRef(place)
+  placeRef.current = place
   useEffect(() => {
     const row = rowRef.current
     if (!row || typeof ResizeObserver === "undefined") return
-    const ro = new ResizeObserver(() => place(false))
+    let first = true
+    const ro = new ResizeObserver(() => {
+      if (first) {
+        first = false
+        return
+      }
+      placeRef.current(false)
+    })
     ro.observe(row)
     return () => ro.disconnect()
-  }, [place])
+  }, [])
 
+  const word = "whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium md:px-2.5"
   return (
-    <div className="overflow-x-auto border-b border-[#eef0f2] px-4 py-3 scrollbar-hide">
+    <div className="shrink-0 overflow-x-auto border-b border-[#eef0f2] px-4 py-3 scrollbar-hide">
       <div ref={rowRef} role="tablist" aria-label="Notification views" className="relative isolate flex w-max items-center gap-2 md:gap-1.5">
-        <span
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={tab.id === active}
+            data-tab={tab.id}
+            onClick={() => onChange(tab.id)}
+            className={cn("group relative cursor-pointer outline-none focus-visible:shadow-[0_0_0_2px_#ffffff,0_0_0_4px_#1a1a2e]", word)}
+          >
+            <span aria-hidden="true" className="absolute inset-0 z-0 rounded-full bg-[#f3f4f6] transition-colors duration-150 group-hover:bg-[#e9eaed]" />
+            <span className="relative z-[1] text-[#4b5563] transition-colors duration-150 group-hover:text-[#1a1a2e]">{tab.label}</span>
+          </button>
+        ))}
+        <div
           ref={pillRef}
           aria-hidden="true"
           data-tab-pill=""
-          className="pointer-events-none absolute left-0 top-0 z-[1] h-full rounded-full bg-[#1a1a2e] opacity-0 will-change-transform"
-        />
-        {tabs.map((tab) => {
-          const selected = tab.id === active
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              data-tab={tab.id}
-              onClick={() => onChange(tab.id)}
-              className="group relative cursor-pointer whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium md:px-2.5 outline-none focus-visible:shadow-[0_0_0_2px_#8b5cf6]"
-            >
-              <span aria-hidden="true" className="absolute inset-0 z-0 rounded-full bg-[#f3f4f6] transition-colors duration-150 group-hover:bg-[#e9eaed]" />
-              <span
-                className={cn(
-                  "relative z-[2] transition-colors duration-200",
-                  selected ? "text-white" : "text-[#4b5563] group-hover:text-[#1a1a2e]",
-                )}
-              >
-                {tab.label}
-              </span>
-            </button>
-          )
-        })}
+          className="pointer-events-none absolute inset-0 z-[2] flex items-center gap-2 bg-[#1a1a2e] opacity-0 md:gap-1.5"
+        >
+          {tabs.map((tab) => (
+            <span key={tab.id} className={cn(word, "text-white")}>
+              {tab.label}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -671,21 +715,26 @@ function NotificationItem({
           href={notification.href}
           onClick={onClick}
           aria-label={notification.title}
-          className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#8b5cf6]"
+          className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]"
         />
       ) : (
         <button
           type="button"
           onClick={onClick}
           aria-label={notification.title}
-          className="absolute inset-0 z-0 cursor-pointer outline-none focus-visible:shadow-[inset_0_0_0_2px_#8b5cf6]"
+          className="absolute inset-0 z-0 cursor-pointer outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]"
         />
       )}
+      {/* The unread mark: a near black bead with a soft ring round it and a
+          touch of light on its top edge, so it reads as a thing on the row
+          rather than a hole in it. Marked read, it shrinks away on
+          transform and opacity. */}
       <span
         aria-hidden="true"
+        data-unread-dot=""
         className={cn(
-          "pointer-events-none relative mt-[6px] h-2 w-2 shrink-0 rounded-full transition-opacity duration-200",
-          unread ? "bg-[#8b5cf6] opacity-100" : "opacity-0",
+          "pointer-events-none relative mt-[6px] h-2 w-2 shrink-0 rounded-full bg-[#111113] shadow-[0_0_0_3px_rgba(17,17,19,0.07),inset_0_1px_0.5px_rgba(255,255,255,0.28)] transition-[opacity,scale] duration-200 ease-out",
+          unread ? "scale-100 opacity-100" : "scale-50 opacity-0",
         )}
       />
       <div className="pointer-events-none relative min-w-0 flex-1">
@@ -706,7 +755,7 @@ function NotificationItem({
           aria-label="Mark as read"
           title="Mark as read"
           data-notification-read=""
-          className="relative z-[1] -my-1 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#9ca3af] outline-none transition-colors duration-150 hover:bg-black/[0.05] hover:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_#8b5cf6]"
+          className="relative z-[1] -my-1 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#9ca3af] outline-none transition-colors duration-150 hover:bg-black/[0.05] hover:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_#1a1a2e]"
         >
           <CircleCheck className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
         </button>

@@ -13,6 +13,11 @@
  *   - "Mark all as read" empties the bell and the unread marks before the
  *     server answers, sends one request, and is disabled once nothing is
  *     unread; when the server says no, everything goes back and it says so
+ *   - no close button; an unread row's mark is a near black bead, and
+ *     nothing in the panel is violet
+ *   - switching views slides the dark pill frame by frame and lands it on
+ *     the tab, the new rows fade in, and on a computer the panel keeps its
+ *     height
  *
  *   node scripts/check-notifications-panel.mjs
  *   SHOTS_DIR=/some/dir node scripts/check-notifications-panel.mjs
@@ -168,6 +173,60 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
       })
       expect(tipBox.inside, "and the tooltip stays inside the panel", tipBox)
     }
+    /* No X: the panel closes from outside it, by Escape, or by dragging the sheet down. */
+    const look = await p.evaluate(() => {
+      const vis = (el) => el && el.getBoundingClientRect().width > 0 && getComputedStyle(el).visibility !== "hidden"
+      const header = [...document.querySelectorAll("[data-notifications-header]")].find(vis)
+      const dot = [...document.querySelectorAll("[data-notification-item][data-unread] [data-unread-dot]")].find(vis)
+      const box = header.closest("[data-notifications-panel], [role=dialog]") || document.body
+      const violet = [...box.querySelectorAll("*")].filter(vis).filter((el) => { const c = getComputedStyle(el); return /139, 92, 246/.test(`${c.backgroundColor} ${c.color} ${c.boxShadow} ${c.borderTopColor}`) }).length
+      const d = dot ? getComputedStyle(dot) : null
+      return { buttons: [...header.querySelectorAll("button")].map((b) => b.getAttribute("aria-label")), dot: d && { bg: d.backgroundColor, shadow: d.boxShadow, w: Math.round(dot.getBoundingClientRect().width) }, violet }
+    })
+    expect(look.buttons.join() === "Unread only,Mark all as read", "no close button in the header: Unread only and Mark all as read, nothing else", look.buttons)
+    expect(look.dot && look.dot.bg === "rgb(17, 17, 19)" && /rgba\(17, 17, 19, 0\.07\) 0px 0px 0px 3px/.test(look.dot.shadow) && look.dot.w === 8, "an unread row's mark is an 8px near black bead with a soft ring, not a violet dot", look.dot)
+    expect(look.violet === 0, "nothing violet in the panel", look.violet)
+
+    /* Switching views: the dark pill's cut moves every frame on its way, never jumps, and lands on the tab; the rows fade in. */
+    const tabSwitch = async (id) => {
+      await p.evaluate(() => {
+        window.__tabFrames = []
+        const pill = document.querySelector("[data-tab-pill]")
+        const body = document.querySelector("[data-notifications-panel] .max-h-\\[420px\\]")
+        const t0 = performance.now()
+        const tick = () => {
+          const m = /inset\(0px ([\d.]+)px 0px ([\d.]+)px/.exec(getComputedStyle(pill).clipPath)
+          const view = document.querySelector("[data-notifications-list] > [data-notifications-view], [data-notifications-list] > [data-notifications-empty]")
+          window.__tabFrames.push({ t: performance.now() - t0, right: m ? +m[1] : null, left: m ? +m[2] : null, view: view?.getAttribute("data-notifications-view") ?? null, fade: view ? +getComputedStyle(view).opacity : null, body: body ? Math.round(body.getBoundingClientRect().height) : null })
+          if (performance.now() - t0 < 450) requestAnimationFrame(tick)
+        }
+        requestAnimationFrame(tick)
+      })
+      if (phone) await p.tap(`[data-tab="${id}"]`)
+      else await p.click(`[data-tab="${id}"]`)
+      await sleep(520)
+      return p.evaluate((id) => {
+        const row = document.querySelector("[role=tablist]")
+        const b = row.querySelector(`[data-tab="${id}"]`)
+        return { frames: window.__tabFrames, want: { left: b.offsetLeft, right: row.offsetWidth - b.offsetLeft - b.offsetWidth }, selected: b.getAttribute("aria-selected") }
+      }, id)
+    }
+    const bodyBefore = phone ? null : await p.evaluate(() => Math.round(document.querySelector("[data-notifications-panel] .max-h-\\[420px\\]").getBoundingClientRect().height))
+    const sw = await tabSwitch("updates")
+    const lefts = sw.frames.map((f) => f.left).filter((x) => x != null)
+    const steps = lefts.slice(1).map((x, i) => x - lefts[i])
+    const last = sw.frames[sw.frames.length - 1]
+    expect(sw.selected === "true" && Math.abs(last.left - sw.want.left) < 0.5 && Math.abs(last.right - sw.want.right) < 0.5, "the dark pill lands exactly on Updates", { last, want: sw.want })
+    expect(steps.every((d) => d >= -0.01) && new Set(lefts.map(Math.round)).size >= 6 && Math.max(...steps) < (sw.want.left - lefts[0]) * 0.45, "and slides there over several frames, one way, with no jump", { frames: lefts.length, distinct: new Set(lefts.map(Math.round)).size, biggest: Math.max(...steps) })
+    const fades = sw.frames.filter((f) => f.view === "updates").map((f) => f.fade)
+    expect(fades[0] < 0.9 && fades[fades.length - 1] === 1 && fades.slice(1).every((x, i) => x >= fades[i] - 0.001), "the Updates rows fade in rather than appearing in one frame", fades.slice(0, 6).map((x) => Math.round(x * 100) / 100))
+    if (!phone) {
+      const heights = sw.frames.map((f) => f.body)
+      expect(heights.every((h) => h === bodyBefore), "on a computer the panel holds its height while the view has fewer rows", { before: bodyBefore, during: [...new Set(heights)] })
+    }
+    await p.screenshot({ path: join(shots, `${label}-notifications-updates.png`) })
+    await tabSwitch("all")
+
     const before = { headerH: r.headerH, listTop: r.listTop }
 
     /* Unread only. */
