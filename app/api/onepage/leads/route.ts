@@ -194,7 +194,7 @@ export async function POST(request: Request) {
             console.error("[leads] Email flow trigger error (non-fatal):", flowErr)
           }
         }
-      } else if (existingSub.status === "unsubscribed" || existingSub.status === "customer") {
+      } else if (existingSub.status === "unsubscribed" || existingSub.status === "customer" || existingSub.status === "wrote") {
         /* Back on the list, or a buyer who never asked for news asking now
            (lib/contacts/checkout-contact): this form is the yes, and the
            record says so. */

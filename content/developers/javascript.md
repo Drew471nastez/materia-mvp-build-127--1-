@@ -127,6 +127,7 @@ CSS transitions and `@keyframes`, on `opacity` and `transform`, which are cheap 
 | The form has | It is |
 | --- | --- |
 | `data-storelib-form="subscribe"` | Sent to the creator's Subscribers. Saying so explicitly always wins. |
+| `data-storelib-form="contact"` | A message to the creator. See [Contact forms](#contact-forms). Never the default: a form has to say it is one. |
 | `data-storelib-form="native"` | Left to the browser, action and all. |
 | No attribute, no `action`, and an `<input type="email">` | Sent to the creator's Subscribers. This is the default, so a sign-up box works even when its author did not say. |
 | No attribute and a real `action` | Left to the browser, such as a search box posting to `/search`. |
@@ -164,6 +165,52 @@ To post to Mailchimp, Kit, Buttondown or anything else instead, give the form th
 A sign-up form is a request to be emailed, and the platform records where on the page it was given. A **contact** form is not: somebody asking a question has not agreed to a mailing list. Never make a contact form add its sender to Subscribers. Offer an unticked "Keep me updated" checkbox instead, and add the sender only when it was ticked.
 
 Sign-ups are rate limited per visitor and per address, so a script cannot fill a creator's list.
+
+### Contact forms
+
+A form marked `data-storelib-form="contact"` sends a message to the creator. It is emailed to them, with Reply going to the sender, and kept on the sender's page in Emails. The page reads the fields by name:
+
+| Field | |
+| --- | --- |
+| `email` | Required. |
+| `message` | Required, up to 5,000 characters. |
+| `name`, `subject` | Optional. |
+| `consent` | An unticked checkbox. Only a ticked one adds the sender to Subscribers; otherwise they are kept as a contact who wrote, and never sent news. |
+| `company` | Leave it empty and hidden from people. A value in it is a script, which is told the message went and nothing is sent. |
+
+```storelib
+<form class="cf" data-storelib-form="contact">
+  <label>Name <input name="name" autocomplete="name"></label>
+  <label>Email <input name="email" type="email" autocomplete="email" required></label>
+  <label>Message <textarea name="message" required></textarea></label>
+  <div class="cf__trap" aria-hidden="true"><input name="company" tabindex="-1" autocomplete="off"></div>
+  <label><input type="checkbox" name="consent" value="yes"> Email me news from {{ shop.name }}</label>
+  <button type="submit">Send</button>
+  <p data-storelib-success hidden>Thanks, your message has been sent.</p>
+</form>
+```
+
+A form sent within a couple of seconds of the page appearing is treated as a script too, and messages are rate limited per visitor, per address and per store.
+
+## Saving products
+
+A button with `data-storelib-wishlist="<product id>"` saves that product to the visitor's Wishlist, and takes it out again. The page sets `aria-pressed` to `"true"` or `"false"` on every such button to say whether the product is saved, so your CSS draws both states. Put it inside the card, above the card's link:
+
+```storelib
+{% for block in products %}
+  <article class="card">
+    <button type="button" class="heart" data-storelib-wishlist="{{ block.id }}" aria-pressed="false" aria-label="Save {{ block.settings.title }}">♡</button>
+    <a class="card__link" href="{{ block.settings.url | url }}">{{ block.settings.title }}</a>
+  </article>
+{% endfor %}
+```
+
+```css
+.heart { position: relative; z-index: 2; }
+.heart[aria-pressed="true"] { color: var(--scheme-accent); }
+```
+
+Only `products` carry an id that can be saved. A visitor who is not signed in keeps the list in their browser; signing in moves it to their account. On the Wishlist page, a card marked `data-storelib-wishlist-card="<product id>"` is hidden when its product is taken out, and an element marked `data-storelib-wishlist-empty` is shown once none are left.
 
 ## Embeds
 

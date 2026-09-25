@@ -12,6 +12,15 @@ A file written for a newer version is **refused, not misread**: a schema declari
 
 Every change since 1.0 has been additive. Nothing a section could do on 11 September 2026 has stopped working since, which is why every version above is still 1.
 
+## 25 September 2026
+
+**Added**
+
+- Four objects every section can read: `shop`, `routes`, `customer` and `wishlist`. See [What a template can read](/developers/sections#what-a-template-can-read).
+- Contact forms: `data-storelib-form="contact"` sends a message to the creator, keeps it in Emails, and adds the sender to Subscribers only when they tick the box. See [Contact forms](/developers/javascript#contact-forms).
+- Saving products: `data-storelib-wishlist` on a button saves a product to the visitor's Wishlist. See [Saving products](/developers/javascript#saving-products).
+- Every website has an account page, a sign in page, a Wishlist and a contact page, drawn by the `main_account`, `main_login`, `main_wishlist` and `contact` sections.
+
 ## 24 September 2026
 
 **Added**

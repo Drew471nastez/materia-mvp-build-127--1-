@@ -73,7 +73,13 @@ A path reads plain data only. `__proto__`, `constructor` and `prototype` cannot 
 | `page.template` | Which page this is on: `index`, `product`, `page.about` and so on. |
 | `page.in_editor` | `true` inside the builder. Put prompts for the creator behind it so a visitor never sees them. |
 | `products` | The creator's published products, newest first, each `{ id, type, settings }` with `settings.title`, `price` (already formatted), `compare_price`, `image`, `url` and `tag`. The same shape as a block, so one card works for both. |
+| `shop` | The store: `shop.name`, `shop.tagline`, `shop.logo`, `shop.url`, and `shop.socials`, a list of `{ key, label, url }` from the theme's social links. `shop.email` is the support email from Settings, and it is only there on a page where a section has a `show_email` setting turned on. |
+| `routes` | The addresses every Storelib website answers on: `root_url`, `products_url`, `search_url`, `cart_url`, `contact_url`, `wishlist_url`, `account_url`, `account_login_url`, `account_signin_url` and `account_register_url` (these two leave for Storelib to sign in or make an account, and come back to the account page), and `account_logout_url`. |
+| `customer` | The signed-in visitor, on the account page: `customer.name`, `first_name`, `email`, `orders_count` and `orders`, each `{ title, image, url, date, price, action_label, action_url }`. `null` everywhere else, and on a page for a visitor who is not signed in. |
+| `wishlist` | The visitor's saved products, on the account and Wishlist pages: `wishlist.items` (block-shaped, like `products`), `wishlist.count`, and `wishlist.signed_in`. `null` on other pages. |
 | `forloop.index`, `index0`, `first`, `last`, `length` | Inside a `for`. |
+
+`customer` and `wishlist` belong to one visitor, so they are only given to the pages drawn for one visitor, which are never cached. A section on the home page cannot read who is looking; it can draw a heart (see [JavaScript and forms](/developers/javascript#saving-products)) and the page fills it in.
 
 ### Filters
 
