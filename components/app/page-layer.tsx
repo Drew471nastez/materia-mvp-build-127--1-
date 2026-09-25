@@ -46,11 +46,25 @@ import { cn } from "@/lib/utils"
  * The page inside scrolls in `[data-page-layer-scroll]`, or in a scroller of
  * its own that fills it (the editor's `.page-scroll`). The room the pill
  * needs at the foot goes on whichever one moves, in app/globals.css.
+ *
+ * ONLY ON A PHONE (`phoneOnly`, the product editor). "On desktop large
+ * screen the edit product page should be with the sidebar, with the header up
+ * there. Not how it is on mobile." Below md it is the layer described above;
+ * from md it is an ordinary page in the shell's content area, under the
+ * header and beside the rail, filling it the way every page that scrolls
+ * itself does, and the page's own bar sticks to the top of that area. Decided
+ * by the stylesheet alone (768px, the pill's breakpoint), so the server draws
+ * the same thing for both, and a window dragged across the breakpoint keeps
+ * the same boxes and the same scroll: only where they sit changes. What the
+ * layer does to the shell (the chrome, the shield, the strip under the status
+ * bar) is then under a media query too, keyed on [data-page-layer-phone] and
+ * the html class `has-phone-page-layer`.
  */
 export function PageLayer({
   children,
   pill = false,
   inset = "page",
+  phoneOnly = false,
   className,
 }: {
   children: React.ReactNode
@@ -60,24 +74,30 @@ export function PageLayer({
    * Who clears the status bar. "page" and "white": the layer pads its top by
    * the inset and paints that strip in the page's colour or in white. "bar":
    * the page's own sticky bar pads itself (the product editor's does, inside
-   * any [data-page-layer]), so the layer adds nothing and the bar's colour
-   * runs up under the clock as the page scrolls beneath it.
+   * any [data-page-layer] below md), so the layer adds nothing and the bar's
+   * colour runs up under the clock as the page scrolls beneath it.
    */
   inset?: "page" | "white" | "bar"
+  /** A layer below md only; from md an ordinary page inside the shell. */
+  phoneOnly?: boolean
   className?: string
 }) {
   useLayoutEffect(() => {
     const html = document.documentElement
-    html.classList.add("has-page-layer")
-    return () => html.classList.remove("has-page-layer")
-  }, [])
+    const name = phoneOnly ? "has-phone-page-layer" : "has-page-layer"
+    html.classList.add(name)
+    return () => html.classList.remove(name)
+  }, [phoneOnly])
 
   return (
     <div
       data-page-layer={pill ? "pill" : ""}
+      data-page-layer-phone={phoneOnly ? "" : undefined}
       className={cn(
-        "fixed inset-0 z-[52] flex flex-col bg-[#f8f9fa]",
-        inset !== "bar" && "pt-[env(safe-area-inset-top,0px)]",
+        phoneOnly
+          ? "flex h-full flex-col bg-[#f8f9fa] max-md:fixed max-md:inset-0 max-md:z-[52] max-md:h-auto"
+          : "fixed inset-0 z-[52] flex flex-col bg-[#f8f9fa]",
+        inset !== "bar" && (phoneOnly ? "max-md:pt-[env(safe-area-inset-top,0px)]" : "pt-[env(safe-area-inset-top,0px)]"),
         inset === "white" && "bg-white",
         className,
       )}

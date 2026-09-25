@@ -62,6 +62,9 @@ function scrollers(): Scrollers | null {
     /* The orders page scrolls in the pane inside its stage. */
     const pane = child.querySelector<HTMLElement>(":scope > .orders-pane")
     if (pane) { inner = pane; break }
+    /* The product editor scrolls in its own box inside its layout's. */
+    const editor = child.querySelector<HTMLElement>(":scope > [data-page-layer-scroll] > .page-scroll")
+    if (editor) { inner = editor; break }
   }
   return { outer, inner }
 }
@@ -207,6 +210,14 @@ export function PageLanded() {
   return null
 }
 
+/** Is a page drawn over the whole shell showing (components/app/page-layer.tsx)? */
+function overShell() {
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>("[data-page-layer]"))) {
+    if (getComputedStyle(el).position === "fixed") return true
+  }
+  return false
+}
+
 /** From wherever an element's opacity is now to `to`, dropping whatever was moving it. */
 function fadeTo(el: HTMLElement, to: number, duration: number, easing: string) {
   const from = Number(getComputedStyle(el).opacity)
@@ -283,8 +294,10 @@ function SlowPage() {
         return clear
       }
       /* Leaving a page drawn over the whole shell: that layer stays over
-         everything until the next page is here, so there is nothing to draw. */
-      if (document.querySelector("[data-page-layer]")) return clear
+         everything until the next page is here, so there is nothing to draw.
+         The product editor is one only on a phone; from md it is a page in
+         the shell, and leaving it slowly waits like leaving any other. */
+      if (overShell()) return clear
       const wait = Math.max(0, delay - (performance.now() - nav.startedAt))
       timers.push(window.setTimeout(() => setShown(true), wait))
       return clear

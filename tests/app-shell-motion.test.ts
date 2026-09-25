@@ -9,6 +9,8 @@
  *   scripts/check-app-stage.mjs        no outline ever; the spinner only past its wait; the landing; back keeps scroll
  *   scripts/check-settings-tabs.mjs    the tab bar and the new tab hold still through every switch
  *   scripts/check-upgrade-page.mjs     the plans page covers the shell; Back goes back
+ *   scripts/check-page-layer.mjs       the editor over the shell on a phone, in it from md, its bar under the header
+ *   scripts/check-scrollbar-stable.mjs the column and the scrollbar gutter never move while pages swap (1440, 1920)
  *   scripts/check-app-avatar.mjs       no initials before a photo; one fade; none on the way back
  *
  * What is held here is the logic those rest on (the navigation record, the
@@ -292,23 +294,60 @@ section("Pages drawn over the whole shell")
   const upgrade = code("app/app/settings/billing/upgrade/layout.tsx")
   const newLayout = code("app/app/products/new/layout.tsx")
   const idLayout = code("app/app/products/[id]/layout.tsx")
-  check("the plans page and both editor addresses use the one shared layer; the editor keeps the pill and its bar clears the status bar itself",
-    /<PageLayer inset="white">/.test(upgrade) && /<PageLayer pill inset="bar">/.test(newLayout) && /<PageLayer pill inset="bar">/.test(idLayout))
+  check("the plans page and both editor addresses use the one shared layer; the editor keeps the pill, its bar clears the status bar itself, and it is a layer on a phone only",
+    /<PageLayer inset="white">/.test(upgrade) && /<PageLayer pill inset="bar" phoneOnly>/.test(newLayout) && /<PageLayer pill inset="bar" phoneOnly>/.test(idLayout))
   const layer = code("components/app/page-layer.tsx")
   check("the layer is the whole window, between the header and the pill, and pads itself under the status bar",
-    /fixed inset-0 z-\[52\]/.test(layer) && /pt-\[env\(safe-area-inset-top,0px\)\]/.test(layer) && /classList\.add\("has-page-layer"\)/.test(layer))
+    /"fixed inset-0 z-\[52\] flex flex-col bg-\[#f8f9fa\]"/.test(layer) && /"pt-\[env\(safe-area-inset-top,0px\)\]"/.test(layer)
+      && /phoneOnly \? "has-phone-page-layer" : "has-page-layer"/.test(layer) && /html\.classList\.add\(name\)/.test(layer))
+  check("a phone only layer is the same layer below md and, from md, fills the shell's content area in the flow",
+    /"flex h-full flex-col bg-\[#f8f9fa\] max-md:fixed max-md:inset-0 max-md:z-\[52\] max-md:h-auto"/.test(layer)
+      && /data-page-layer-phone=\{phoneOnly \? "" : undefined\}/.test(layer) && /"max-md:pt-\[env\(safe-area-inset-top,0px\)\]"/.test(layer))
   const css = read("app/globals.css")
   check("while a layer is up the shell's chrome is not painted, the scroller is no stacking context on iOS, and the black shield stands down, each by :has() and by class",
-    /html:has\(\[data-page-layer\]\) \[data-shell-chrome\] \{\s*visibility: hidden;/.test(css)
+    /html:has\(\[data-page-layer\]:not\(\[data-page-layer-phone\]\)\) \[data-shell-chrome\] \{\s*visibility: hidden;/.test(css)
       && /html\.has-page-layer \[data-shell-chrome\] \{\s*visibility: hidden;/.test(css)
-      && /html:has\(\[data-page-layer\]\) \.app-content-scroll \{\s*-webkit-overflow-scrolling: auto;/.test(css)
-      && /html\.capacitor:has\(\[data-page-layer\]\)::before \{\s*display: none;/.test(css)
+      && /html:has\(\[data-page-layer\]:not\(\[data-page-layer-phone\]\)\) \.app-content-scroll \{\s*-webkit-overflow-scrolling: auto;/.test(css)
+      && /html\.capacitor:has\(\[data-page-layer\]:not\(\[data-page-layer-phone\]\)\)::before \{\s*display: none;/.test(css)
       && /html\.capacitor\.has-page-layer::before \{\s*display: none;/.test(css))
+  const phoneOnlyRules = /@media \(max-width: 767px\) \{\s*html:has\(\[data-page-layer-phone\]\) \[data-shell-chrome\] \{[\s\S]*?\n\}/.exec(css)?.[0] ?? ""
+  check("and for the editor's layer the same four, by :has() and by class, below 768px only: from md the header and the rail stay",
+    /html:has\(\[data-page-layer-phone\]\) \[data-shell-chrome\] \{\s*visibility: hidden;/.test(phoneOnlyRules)
+      && /html\.has-phone-page-layer \[data-shell-chrome\] \{\s*visibility: hidden;/.test(phoneOnlyRules)
+      && /html:has\(\[data-page-layer-phone\]\) \.app-content-scroll \{\s*-webkit-overflow-scrolling: auto;/.test(phoneOnlyRules)
+      && /html\.capacitor:has\(\[data-page-layer-phone\]\)::before \{\s*display: none;/.test(phoneOnlyRules)
+      && /html\.capacitor\.has-phone-page-layer::before \{\s*display: none;/.test(phoneOnlyRules)
+      && /html\.capacitor\.has-phone-page-layer \{\s*background-color: #f8f9fa;/.test(phoneOnlyRules))
+  const stage = code("components/app/app-stage.tsx")
+  check("the slow page's surface stands aside only for a layer that is over the shell now, not for the editor in it",
+    /if \(overShell\(\)\) return clear/.test(stage) && /getComputedStyle\(el\)\.position === "fixed"/.test(stage) && !/document\.querySelector\("\[data-page-layer\]"\)\) return clear/.test(stage))
   check("the pill steps aside only for a layer that does not keep it, and a layer that does gives the scroller room for it",
     /html:has\(\[data-page-layer=""\]\) \[data-app-nav-pill\] \{\s*visibility: hidden;/.test(css)
       && /\[data-page-layer="pill"\] \[data-page-layer-scroll\] > \.page-scroll \{\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
   const sidebar = read("components/app/sidebar.tsx")
   check("both headers and the rail say they are the shell's chrome", (sidebar.match(/data-shell-chrome=""/g) || []).length >= 3)
+}
+
+section("One scrollbar column on a computer")
+{
+  /* Measured every frame, at 1440 and 1920 with classic scrollbars, by scripts/check-scrollbar-stable.mjs. */
+  const css = read("app/globals.css")
+  const block = /@media \(min-width: 768px\) \{\s*html\.app-layout \.app-content-scroll \{\s*scrollbar-gutter: stable;[\s\S]*?\n\}/.exec(css)?.[0] ?? ""
+  check("the shell's scroller keeps its scrollbar column, in the same slim bar as the pages' own",
+    /html\.app-layout \.app-content-scroll \{\s*scrollbar-gutter: stable;\s*scrollbar-width: thin;/.test(block)
+      && /\.page-scroll \{\s*scrollbar-width: thin;/.test(css))
+  check("a page that scrolls itself keeps the column in its own box, and the shell's scroller then does not scroll and keeps none",
+    /\.app-content-scroll:has\(> \.page-scroll, > \.dashboard-scroll-container, > \.sales-scroll-container, > \.orders-stage, > \[data-page-layer\]\) \{\s*overflow-y: hidden;\s*scrollbar-gutter: auto;/.test(block)
+      && /\.app-content-scroll > \.page-scroll,/.test(block) && /\.app-content-scroll > \.orders-stage > \.orders-pane,/.test(block)
+      && /\[data-page-layer-scroll\] > \.page-scroll \{\s*scrollbar-gutter: stable;/.test(block))
+  check("while the landing rises, the shell's scroller cannot scroll", /\.app-content-scroll\[data-app-landing\] \{\s*overflow-y: hidden;/.test(block))
+  check("none of it below 768px, where scrollbars float and take no room", !/@media \(max-width: 767px\) \{\s*html\.app-layout \.app-content-scroll \{\s*scrollbar-gutter/.test(css))
+  const stage = code("components/app/app-stage.tsx")
+  check("the stage reads whether the page fitted before the rise starts, and holds the scroller only then, letting go when the rise is over or soon after",
+    /const fitted = outer\.scrollHeight <= outer\.clientHeight\s+const moving/.test(stage)
+      && /holdStill\(outer, fitted && moving\.length > 0, moving\)/.test(stage)
+      && /outer\.setAttribute\("data-app-landing", ""\)/.test(stage)
+      && /a\.finished\.catch\(\(\) => undefined\)/.test(stage) && /window\.setTimeout\(release, NAV_ENTER_MS \+ 120\)/.test(stage))
 }
 
 section("The way back")

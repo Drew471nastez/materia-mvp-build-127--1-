@@ -3205,30 +3205,62 @@ html.capacitor:has(.cp-editor)::before {
    strip in its own colour by padding its top by the inset.
 
    Pairs of rules, not selector lists, for the reason given above: the class
-   is set by the layer for an engine without :has(). */
-html:has([data-page-layer]) [data-shell-chrome] {
+   is set by the layer for an engine without :has().
+
+   THE PRODUCT EDITOR IS A LAYER ON A PHONE ONLY. From md it is a page in the
+   shell with the header and the rail around it, "not how it is on mobile",
+   so its layer carries [data-page-layer-phone] (and sets
+   `has-phone-page-layer` rather than `has-page-layer`), the rules for every
+   width skip it, and the same rules hold for it below 768px only. */
+html:has([data-page-layer]:not([data-page-layer-phone])) [data-shell-chrome] {
   visibility: hidden;
 }
 html.has-page-layer [data-shell-chrome] {
   visibility: hidden;
 }
-html:has([data-page-layer]) .app-content-scroll {
+html:has([data-page-layer]:not([data-page-layer-phone])) .app-content-scroll {
   -webkit-overflow-scrolling: auto;
 }
 html.has-page-layer .app-content-scroll {
   -webkit-overflow-scrolling: auto;
 }
-html.capacitor:has([data-page-layer])::before {
+html.capacitor:has([data-page-layer]:not([data-page-layer-phone]))::before {
   display: none;
 }
 html.capacitor.has-page-layer::before {
   display: none;
 }
-html.capacitor:has([data-page-layer]) {
+html.capacitor:has([data-page-layer]:not([data-page-layer-phone])) {
   background-color: #f8f9fa;
 }
 html.capacitor.has-page-layer {
   background-color: #f8f9fa;
+}
+@media (max-width: 767px) {
+  html:has([data-page-layer-phone]) [data-shell-chrome] {
+    visibility: hidden;
+  }
+  html.has-phone-page-layer [data-shell-chrome] {
+    visibility: hidden;
+  }
+  html:has([data-page-layer-phone]) .app-content-scroll {
+    -webkit-overflow-scrolling: auto;
+  }
+  html.has-phone-page-layer .app-content-scroll {
+    -webkit-overflow-scrolling: auto;
+  }
+  html.capacitor:has([data-page-layer-phone])::before {
+    display: none;
+  }
+  html.capacitor.has-phone-page-layer::before {
+    display: none;
+  }
+  html.capacitor:has([data-page-layer-phone]) {
+    background-color: #f8f9fa;
+  }
+  html.capacitor.has-phone-page-layer {
+    background-color: #f8f9fa;
+  }
 }
 
 html.capacitor.cp-fullscreen {

@@ -2597,7 +2597,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   }, [])
 
   return (
-    <div ref={contentRef} data-product-editor="" className="page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa] [[data-page-layer]_&]:pb-[calc(32px+env(safe-area-inset-bottom))]">
+    <div ref={contentRef} data-product-editor="" className="page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa] max-md:[[data-page-layer]_&]:pb-[calc(32px+env(safe-area-inset-bottom))]">
       {/* Success Notification - Modern black toast */}
       {showNotification && (
         <div
@@ -2666,17 +2666,18 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         with a hairline once something is under it, and Cmd or Ctrl and S
         saves from anywhere on the page.
 
-        When the editor is the first thing on the screen, a full screen layer
-        over the app's header (`data-page-layer`, as the plans page does), the
-        bar starts below the status bar: env(safe-area-inset-top), which is 0
-        in a browser. Under the app's header it adds nothing, the header has
-        already taken the inset.
+        On a phone the editor is the first thing on the screen, a full screen
+        layer over the app's header (`data-page-layer`, as the plans page
+        does), and the bar starts below the status bar:
+        env(safe-area-inset-top), which is 0 in a browser. From md the editor
+        is a page in the shell, under the app's header, which has already
+        taken the inset, so the bar adds nothing there (`max-md:`).
       */}
       <div
         ref={barRef}
         data-editor-bar=""
         className={cn(
-          "sticky top-0 z-30 bg-[#f8f9fa] transition-shadow duration-150 [[data-page-layer]_&]:pt-[env(safe-area-inset-top)]",
+          "sticky top-0 z-30 bg-[#f8f9fa] transition-shadow duration-150 max-md:[[data-page-layer]_&]:pt-[env(safe-area-inset-top)]",
           isScrolled ? "shadow-[0_1px_0_#e3e5e8,0_4px_12px_-8px_rgba(17,24,39,0.12)]" : "",
         )}
       >
