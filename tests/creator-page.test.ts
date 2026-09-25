@@ -1669,7 +1669,7 @@ function main() {
     const buy = code("components/checkout/buy-button.tsx")
     const sticky = code("components/store-builder/sticky-add-to-cart.tsx")
     const hook = read("components/storefront/use-editor-frame.ts")
-    check("the buy button stands down in a frame", buy.includes("if (inEditorFrame) return") && buy.includes("disabled={disabled || loading || inEditorFrame}"))
+    check("the buy button stands down in a frame", buy.includes("if (inEditorFrame || loading) return") && buy.includes("disabled={disabled || inEditorFrame}"))
     check("and so does the sticky one", sticky.includes("if (inEditorFrame) return"))
     check("both ask the same question", buy.includes("useEditorFrame()") && sticky.includes("useEditorFrame()"))
     /**

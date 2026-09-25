@@ -31,4 +31,17 @@ export function getStripePromise(): ReturnType<typeof loadStripe> {
   return promise
 }
 
+/**
+ * Forget a Stripe.js that failed to arrive, so the next ask loads it again.
+ * `loadStripe` keeps its own rejected script otherwise, and Try again would
+ * be handed the same failure.
+ */
+export function resetStripePromise() {
+  promise = null
+  if (typeof document === "undefined") return
+  document.querySelectorAll('script[src^="https://js.stripe.com/"]').forEach((s) => {
+    if (!(window as unknown as { Stripe?: unknown }).Stripe) s.remove()
+  })
+}
+
 export { isCapacitorShell }
