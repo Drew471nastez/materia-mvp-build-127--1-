@@ -21,7 +21,7 @@ import { join } from "node:path"
 import { appCss, interFaces } from "./probe-css.mjs"
 
 export async function homeProbePage(root = process.cwd()) {
-  const dir = join(root, `.home-banner-probe-${process.pid}`)
+  const dir = join(root, `.home-banner-${process.pid}-probe`)
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, "navigation.js"), `export const usePathname = () => "/app"
 export const useRouter = () => ({ push(h) { window.__pushed = h }, prefetch(h) { (window.__prefetched = window.__prefetched || []).push(h) }, replace() {}, refresh() {}, back() {} })
@@ -42,10 +42,15 @@ export default function Image({ src, alt, width, height, priority, fill, sizes, 
 `)
   writeFileSync(join(dir, "supabase.js"), `
 const qs = new URLSearchParams(location.search)
-const counts = { subscribers: Number(qs.get("subs") ?? 0), email_flows: Number(qs.get("flows") ?? 0) }
+/* The address wins; otherwise what the fixture set for its state (window.__probeCounts); otherwise none. */
+const countOf = (table, param) => {
+  if (qs.get(param) != null) return Number(qs.get(param))
+  const fixture = window.__probeCounts || {}
+  return table in fixture ? fixture[table] : 0
+}
 window.__reads = []
 function query(table) {
-  const answer = () => ({ data: [], error: null, count: table in counts ? counts[table] : 0 })
+  const answer = () => ({ data: [], error: null, count: table === "subscribers" ? countOf(table, "subs") : table === "email_flows" ? countOf(table, "flows") : 0 })
   const q = new Proxy(function () {}, {
     get: (_, k) => (k === "then" ? (resolve, reject) => { window.__reads.push(table); return Promise.resolve(answer()).then(resolve, reject) } : q),
     apply: () => q,
@@ -91,12 +96,30 @@ export function isNativePlatform() { return false }
       .probe-rail{display:block;position:fixed;left:0;top:58px;bottom:0;width:240px;background:#fff;border-right:1px solid rgba(229,229,229,.6)}
       .probe-main{top:58px;left:240px;border-radius:0}
     }`
+  /* Inter from the build, served from here: a page on http may not load a file:// font. */
+  const fontFiles = new Map()
+  const faces = interFaces(root).replace(/url\(file:\/\/([^)]+)\)/g, (_, file) => {
+    const name = `/__font/${fontFiles.size}.woff2`
+    fontFiles.set(name, file)
+    return `url(${name})`
+  })
   const html = `<!doctype html><html class="light app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
-    `<style>${interFaces(root)}</style><style>${await appCss(root)}</style><style>${shell}</style>` +
+    `<style>${faces}</style><style>${await appCss(root)}</style><style>${shell}</style>` +
     `</head><body><div class="probe-top"></div><div class="probe-rail"></div><main class="probe-main"><div class="app-content-scroll"><div id="app"></div></div></main>` +
     `<script>window.process={env:{NODE_ENV:"production"}};window.__err=[];addEventListener("error",function(e){window.__err.push(String(e.message))})</script><script>${script}</script></body></html>`
 
   const server = createServer((req, res) => {
+    if (fontFiles.has(req.url)) {
+      try {
+        const body = readFileSync(fontFiles.get(req.url))
+        res.writeHead(200, { "content-type": "font/woff2" })
+        res.end(body)
+      } catch {
+        res.writeHead(404)
+        res.end()
+      }
+      return
+    }
     if (req.url.startsWith("/api/")) {
       res.writeHead(200, { "content-type": "application/json" })
       res.end("{}")

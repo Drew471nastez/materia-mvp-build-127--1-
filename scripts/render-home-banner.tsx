@@ -54,6 +54,9 @@ const FIXTURES: Record<string, Fixture> = {
   pro: { product: true, payouts: true, site: true, domain: true, plan: "growth", sales: Array.from({ length: 30 }, (_, i) => 2 + i * 3), price: 3900 },
 }
 const f = FIXTURES[state] ?? FIXTURES.selling
+/* What the database answers for the two counts the banner reads (scripts/home-probe-page.mjs); `&subs=` and `&flows=` override. */
+;(window as unknown as { __probeCounts?: Record<string, number> }).__probeCounts =
+  state === "pro" ? { subscribers: 180, email_flows: 2 } : { subscribers: 0, email_flows: 0 }
 
 const orders = f.sales.map((days, i) => ({
   id: `order-${i}`,

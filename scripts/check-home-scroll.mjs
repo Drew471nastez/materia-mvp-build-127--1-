@@ -54,7 +54,7 @@ const browser = await puppeteer.launch({
   executablePath: CHROMIUM,
   headless: true,
   /* WebGL through SwiftShader, which is how a canvas that asks for it gets one here; and no request leaves the machine. */
-  args: ["--no-sandbox", "--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"],
+  args: ["--no-sandbox", "--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--no-proxy-server", "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"],
 })
 const traceDir = mkdtempSync(join(tmpdir(), "home-scroll-"))
 const tracePath = join(traceDir, "trace.json")

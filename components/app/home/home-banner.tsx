@@ -1,0 +1,656 @@
+"use client"
+
+/**
+ * ===========================================================================
+ *  HOME'S BANNER: WHAT MATTERS NOW, BESIDE THE GLOBE
+ * ===========================================================================
+ * "The banner with the globe should present announcements that matter, a
+ * slideshow based on the user's progress ... autoplay, performance
+ * optimized, good on mobile ... the content should not overlap into the
+ * globe."
+ *
+ * WHAT IT SAYS is lib/home/announcements.ts: rules on the creator's real
+ * state (Getting started's steps, the orders Home holds, the plan, and two
+ * counts read here once the page is idle), most important first, at most
+ * five. Only this store's things: connect payouts, a first sale, what Pro
+ * would really have saved.
+ *
+ * THE SLIDESHOW. Six seconds a slide, the time drawn in the slide's own
+ * segment under the text; it waits while a mouse is over the banner, while
+ * focus is inside it, while a finger is on it, while it is off screen and
+ * while the tab is hidden. The segments pick a slide (arrow keys move
+ * between them), a sideways swipe on a phone does too. A change is the text
+ * alone: it fades and slides a few pixels, line by line, in the one fixed
+ * height, so nothing under it moves. The clock is a CSS animation on
+ * `transform`, run by the compositor, and the slide changes when it ends:
+ * no timer runs, and a slide change renders the banner and nothing else.
+ * Screen readers hear a change they asked for and none they did not
+ * (aria-live off while it plays by itself).
+ *
+ * THE GLOBE (components/app/home/globe) has its own column: the text's
+ * right padding and the globe's place are one set of numbers, per banner
+ * width (container queries on the banner, so the sidebar cannot throw them
+ * out), and the text column ends where the globe's atmosphere begins.
+ *
+ * THE BACKGROUND is light grey with a pattern too soft to name: a few
+ * blurred shapes as static gradients, a sheen and a grain, a hairline and a
+ * shadow for depth. Painted once; nothing in it moves or blurs live.
+ *
+ * Buttons go where the sidebar's rows go and the same way: a Link, fetched
+ * ahead under the pointer (prefetchAppPage), the press recorded for the
+ * shell's loading state (startNavigationLoading).
+ */
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { prefetchAppPage } from "@/lib/ui/app-navigation"
+import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+import { announcementsFor, salesSummary, stepsDone, type Announcement, type StepLike } from "@/lib/home/announcements"
+import type { OrderRow } from "@/lib/orders/order-view"
+import { BannerGlobe } from "./globe"
+
+/** How long a slide stays, in ms. */
+export const SLIDE_MS = 6000
+
+type Counts = { subscribers: number | null; automations: number | null }
+
+/* ─── The data ─────────────────────────────────────────────────────────── */
+
+/**
+ * The two counts the rules need that Home does not already hold, read as
+ * the banner mounts and only when a rule could use them: subscribers once a
+ * website is live, active automations once there is a sale. Two head
+ * requests, no rows, counted by the database under the creator's own row
+ * level security. They decide which slides there are, so they are not left
+ * for an idle moment: the first slide shows for six seconds, and they are
+ * back long before it ends. A failed read stays null and its rule stays
+ * quiet.
+ */
+function useCounts(creatorId: string, wantSubscribers: boolean, wantAutomations: boolean): Counts {
+  const [counts, setCounts] = useState<Counts>({ subscribers: null, automations: null })
+  useEffect(() => {
+    if (!creatorId || (!wantSubscribers && !wantAutomations)) return
+    let cancelled = false
+    const read = async () => {
+      try {
+        const supabase = createClient()
+        const [subs, flows] = await Promise.all([
+          wantSubscribers
+            ? supabase.from("subscribers").select("id", { count: "exact", head: true }).eq("creator_id", creatorId)
+            : null,
+          wantAutomations
+            ? supabase.from("email_flows").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).eq("status", "active")
+            : null,
+        ])
+        if (cancelled) return
+        const countOf = (r: { count: number | null; error: unknown } | null) => (r && !r.error && typeof r.count === "number" ? r.count : null)
+        setCounts({ subscribers: countOf(subs), automations: countOf(flows) })
+      } catch {
+        /* unread: the rules that need these stay quiet */
+      }
+    }
+    void read()
+    return () => {
+      cancelled = true
+    }
+  }, [creatorId, wantSubscribers, wantAutomations])
+  return counts
+}
+
+export interface HomeBannerProps {
+  /** Getting started's steps, as Home works them out (components/app/home/home-cards StartStep). Read only. */
+  steps: readonly StepLike[]
+  planId: string
+  /** The orders Home holds, kept live. */
+  orders: readonly unknown[]
+  creatorId: string
+}
+
+export const HomeBanner = memo(function HomeBanner({ steps, planId, orders, creatorId }: HomeBannerProps) {
+  /* One clock for the page view: the same on the server and in the browser to the second, so the words agree. */
+  const [now] = useState(() => Date.now())
+  const done = useMemo(() => stepsDone(steps), [steps])
+  const sales = useMemo(() => salesSummary(orders as OrderRow[], now), [orders, now])
+  const counts = useCounts(creatorId, done.websitePublished, sales.count > 0 || done.hasSale)
+  const share = steps.find((s) => s.id === "sale")?.onSelect
+
+  const list = useMemo(
+    () =>
+      announcementsFor(
+        {
+          plan: planId,
+          hasProduct: done.hasProduct,
+          hasPayouts: done.hasPayouts,
+          websitePublished: done.websitePublished,
+          hasDomain: done.hasDomain,
+          sales,
+          subscribers: counts.subscribers,
+          activeAutomations: counts.automations,
+          canShare: !!share,
+        },
+        now,
+      ),
+    [planId, done, sales, counts, share, now],
+  )
+
+  return <BannerView list={list} onShare={share} />
+})
+
+/* ─── The view ─────────────────────────────────────────────────────────── */
+
+/** Why the clock is held. Any of them holds it. */
+const HOVER = 1
+const FOCUS = 2
+const TOUCH = 4
+const HIDDEN = 8
+
+function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => void }) {
+  const router = useRouter()
+  const count = list.length
+  const [currentId, setCurrentId] = useState(list[0]?.id)
+  const [leavingId, setLeavingId] = useState<string | null>(null)
+  const [dir, setDir] = useState(1)
+  /* Each slide shown gets its own clock, from nothing. */
+  const [turn, setTurn] = useState(0)
+  const [hold, setHold] = useState(0)
+  /* A change the reader asked for is read out; one the clock made is not. */
+  const [live, setLive] = useState<"off" | "polite">("off")
+  const rootRef = useRef<HTMLElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const tabsRef = useRef<HTMLDivElement>(null)
+
+  /* The slide showing stays the one showing when the list changes under it (a count arriving, a sale coming in). */
+  const found = list.findIndex((a) => a.id === currentId)
+  const index = found >= 0 ? found : 0
+  const current = list[index]
+
+  const go = useCallback(
+    (to: number, direction: number, asked: boolean) => {
+      if (count < 2) return
+      const next = list[((to % count) + count) % count]
+      if (!next || next.id === current?.id) return
+      setLeavingId(current?.id ?? null)
+      setCurrentId(next.id)
+      setDir(direction)
+      setTurn((t) => t + 1)
+      setLive(asked ? "polite" : "off")
+    },
+    [count, list, current],
+  )
+
+  const setBit = useCallback((bit: number, on: boolean) => setHold((h) => (on ? h | bit : h & ~bit)), [])
+
+  /* Off screen or on a hidden tab, the clock waits. */
+  useEffect(() => {
+    const el = rootRef.current
+    if (!el) return
+    let onScreen = true
+    const sync = () => setBit(HIDDEN, !onScreen || document.visibilityState === "hidden")
+    const io = typeof IntersectionObserver === "function"
+      ? new IntersectionObserver(([entry]) => {
+          onScreen = entry.isIntersecting
+          sync()
+        })
+      : null
+    io?.observe(el)
+    document.addEventListener("visibilitychange", sync)
+    sync()
+    return () => {
+      io?.disconnect()
+      document.removeEventListener("visibilitychange", sync)
+    }
+  }, [setBit])
+
+  /* ── Swipe, on a touch screen ───────────────────────────────────────── */
+  const swipe = useRef<{ id: number; x: number; y: number; dx: number; on: boolean } | null>(null)
+  const setTrack = (dx: number, animate: boolean) => {
+    const t = trackRef.current
+    if (!t) return
+    t.style.transition = animate ? "translate 380ms cubic-bezier(0.22, 1, 0.36, 1)" : "none"
+    t.style.translate = dx ? `${dx}px 0` : ""
+  }
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse") return
+    setBit(TOUCH, true)
+    swipe.current = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, on: false }
+  }
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const s = swipe.current
+    if (!s || s.id !== e.pointerId || count < 2) return
+    const dx = e.clientX - s.x
+    const dy = e.clientY - s.y
+    if (!s.on && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) s.on = true
+    if (!s.on) return
+    s.dx = dx
+    /* The text follows the finger a little, and less the further it goes. */
+    setTrack(Math.sign(dx) * Math.min(28, Math.abs(dx) * 0.3), false)
+  }
+  const onPointerEnd = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const s = swipe.current
+    if (!s || s.id !== e.pointerId) return
+    swipe.current = null
+    setTrack(0, true)
+    window.setTimeout(() => setBit(TOUCH, false), 250)
+    if (e.type !== "pointerup" || !s.on) return
+    if (s.dx <= -44) go(index + 1, 1, true)
+    else if (s.dx >= 44) go(index - 1, -1, true)
+  }
+
+  /* ── The segments, as tabs ──────────────────────────────────────────── */
+  const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const keys: Record<string, number> = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: count - 1 }
+    if (!(e.key in keys)) return
+    e.preventDefault()
+    const to = ((keys[e.key] % count) + count) % count
+    go(to, to > index || (e.key === "ArrowRight" && to === 0) ? 1 : -1, true)
+    const tab = tabsRef.current?.querySelectorAll<HTMLButtonElement>("[role=tab]")[to]
+    tab?.focus()
+  }
+
+  const playing = count > 1 && hold === 0
+
+  const warm = (href: string) => {
+    if (href.startsWith("/app/")) prefetchAppPage(router, href)
+  }
+
+  return (
+    <section
+      ref={rootRef}
+      data-home-banner=""
+      aria-roledescription="carousel"
+      aria-label="Announcements"
+      className="home-banner relative isolate overflow-hidden rounded-2xl"
+      onPointerEnter={(e) => e.pointerType === "mouse" && setBit(HOVER, true)}
+      onPointerLeave={(e) => e.pointerType === "mouse" && setBit(HOVER, false)}
+      onFocus={() => setBit(FOCUS, true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setBit(FOCUS, false)
+      }}
+    >
+      <style href="home-banner" precedence="default">{BANNER_CSS}</style>
+      <div aria-hidden="true" className="home-banner-bg" />
+      <div className="home-banner-inner">
+        <div
+          className="home-banner-text"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerEnd}
+          onPointerCancel={onPointerEnd}
+        >
+          <div
+            ref={trackRef}
+            className="home-banner-stack"
+            aria-live={live}
+            style={{ "--in": `${dir * 14}px`, "--out": `${dir * -10}px` } as CSSProperties}
+          >
+            {list.map((a, i) => {
+              const state = a.id === current?.id ? "active" : a.id === leavingId ? "leaving" : "idle"
+              return (
+                <div
+                  key={a.id}
+                  id={`home-banner-slide-${a.id}`}
+                  role={count > 1 ? "tabpanel" : "group"}
+                  aria-roledescription="slide"
+                  aria-label={`${i + 1} of ${count}`}
+                  aria-hidden={state !== "active"}
+                  inert={state !== "active"}
+                  data-state={state}
+                  data-announcement={a.id}
+                  className="home-banner-slide"
+                >
+                  <p className={`home-banner-eyebrow${a.tone === "critical" ? " is-critical" : ""}`}>{a.eyebrow}</p>
+                  <h2 className="home-banner-title">{a.title}</h2>
+                  <p className="home-banner-line">{a.line}</p>
+                  <div className="home-banner-cta-row">
+                    {a.action === "share" && onShare ? (
+                      <button type="button" className="home-banner-cta" onClick={onShare}>
+                        {a.cta}
+                      </button>
+                    ) : (
+                      <Link
+                        href={a.href}
+                        className="home-banner-cta"
+                        onClick={() => startNavigationLoading(a.href)}
+                        onMouseEnter={() => warm(a.href)}
+                        onFocus={() => warm(a.href)}
+                        onPointerDown={(e) => e.pointerType !== "mouse" && warm(a.href)}
+                      >
+                        {a.cta}
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {count > 1 && (
+            <div ref={tabsRef} role="tablist" aria-label="Announcements" className="home-banner-tabs" onKeyDown={onTabKey}>
+              {list.map((a, i) => {
+                const on = i === index
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={on}
+                    aria-controls={`home-banner-slide-${a.id}`}
+                    aria-label={a.title}
+                    tabIndex={on ? 0 : -1}
+                    className="home-banner-tab"
+                    data-on={on ? "" : undefined}
+                    onClick={() => go(i, i >= index ? 1 : -1, true)}
+                  >
+                    <span className="home-banner-tab-track">
+                      {on && (
+                        <span
+                          key={`${a.id}:${turn}`}
+                          className="home-banner-tab-fill"
+                          style={{ animationDuration: `${SLIDE_MS}ms`, animationPlayState: playing ? "running" : "paused" }}
+                          onAnimationEnd={() => go(index + 1, 1, false)}
+                        />
+                      )}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <BannerGlobe className="home-banner-globe" />
+      </div>
+    </section>
+  )
+}
+
+/* ─── The look ─────────────────────────────────────────────────────────── */
+
+/**
+ * THE GEOMETRY, in one place. `--g` is the globe's square box, `--gx` how
+ * far its centre sits from the banner's right edge, `--gy` how far below
+ * the middle. The ball's radius is 0.4 of the box and its atmosphere
+ * reaches 0.452 (globe-scene GLOBE_RADIUS, and the 1.13 the renderers draw
+ * the halo to), so the text stops at `--gx + 0.452 * --g + --gap` from the
+ * right: the same numbers place the globe and end the text, and cannot
+ * disagree. Per banner width, by container query, because the sidebar
+ * makes the viewport a poor guide to how wide the banner is.
+ */
+const BANNER_CSS = `
+.home-banner {
+  container-type: inline-size;
+  border: 1px solid rgba(208, 213, 223, 0.85);
+  background: #eceef2;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.04),
+    0 18px 36px -24px rgba(16, 24, 40, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+.home-banner-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(34% 62% at 97% 50%, rgba(124, 92, 230, 0.16), rgba(124, 92, 230, 0) 72%),
+    radial-gradient(26% 58% at 64% 112%, rgba(99, 115, 160, 0.16), rgba(99, 115, 160, 0) 70%),
+    radial-gradient(22% 46% at 46% -8%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(18% 40% at 30% 70%, rgba(203, 208, 222, 0.55), rgba(203, 208, 222, 0) 72%),
+    radial-gradient(30% 70% at 4% 104%, rgba(176, 184, 204, 0.42), rgba(176, 184, 204, 0) 70%),
+    radial-gradient(20% 44% at 14% 6%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 72%),
+    radial-gradient(14% 30% at 76% 16%, rgba(214, 206, 248, 0.5), rgba(214, 206, 248, 0) 72%),
+    linear-gradient(180deg, #f3f4f7 0%, #e9ebf0 100%);
+}
+/* The pattern, out of focus: large soft dots in a grid, too blurred to read as dots, strongest across the
+   middle and gone at the edges. Then the glass: a sheen across the upper left. */
+.home-banner-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(112deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.16) 34%, rgba(255, 255, 255, 0) 52%),
+    radial-gradient(circle at 50% 50%, rgba(46, 50, 84, 0.05) 0%, rgba(46, 50, 84, 0.025) 30%, rgba(46, 50, 84, 0) 64%) 0 0 / 56px 56px,
+    radial-gradient(circle at 50% 50%, rgba(46, 50, 84, 0.04) 0%, rgba(46, 50, 84, 0.02) 30%, rgba(46, 50, 84, 0) 64%) 28px 28px / 56px 56px;
+  -webkit-mask-image: radial-gradient(64% 110% at 60% 72%, #000 0%, rgba(0, 0, 0, 0.5) 42%, transparent 76%);
+  mask-image: radial-gradient(64% 110% at 60% 72%, #000 0%, rgba(0, 0, 0, 0.5) 42%, transparent 76%);
+}
+.home-banner-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  mix-blend-mode: soft-light;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0 0.16 0.7 0 0 0 -0.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.home-banner-inner {
+  --g: 168px;
+  --gx: 56px;
+  --gy: 4px;
+  --gap: 8px;
+  --pad-l: 18px;
+  position: relative;
+  height: 236px;
+}
+@container (min-width: 380px) {
+  .home-banner-inner { --g: 180px; --gx: 64px; --pad-l: 20px; }
+}
+@container (min-width: 460px) {
+  .home-banner-inner { --g: 204px; --gx: 96px; --gy: 6px; --gap: 14px; --pad-l: 26px; height: 224px; }
+}
+@container (min-width: 620px) {
+  .home-banner-inner { --g: 252px; --gx: 136px; --gy: 10px; --gap: 22px; --pad-l: 32px; height: 224px; }
+}
+@container (min-width: 860px) {
+  .home-banner-inner { --g: 292px; --gx: 176px; --gy: 18px; --gap: 32px; --pad-l: 36px; height: 236px; }
+}
+
+.home-banner-globe {
+  position: absolute;
+  width: var(--g);
+  height: var(--g);
+  right: calc(var(--gx) - var(--g) / 2);
+  top: calc(50% - var(--g) / 2 + var(--gy));
+}
+/* Its shadow on the banner, thrown down and to the right, away from the light: painted once, it never moves. */
+.home-banner-globe::before {
+  content: "";
+  position: absolute;
+  left: 16%;
+  right: 2%;
+  top: 22%;
+  bottom: -4%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(28, 22, 56, 0.3), rgba(28, 22, 56, 0.12) 58%, rgba(28, 22, 56, 0) 100%);
+  pointer-events: none;
+}
+
+.home-banner-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 18px calc(var(--gx) + var(--g) * 0.452 + var(--gap)) 10px var(--pad-l);
+  touch-action: pan-y;
+}
+@container (min-width: 460px) {
+  .home-banner-text { padding-top: 22px; padding-bottom: 12px; }
+}
+@container (min-width: 620px) {
+  .home-banner-text { padding-top: 28px; padding-bottom: 14px; }
+}
+.home-banner-stack {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-width: 560px;
+}
+.home-banner-slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  visibility: hidden;
+}
+.home-banner-slide > * {
+  opacity: 0;
+  translate: var(--in) 0;
+  transition: none;
+}
+.home-banner-slide[data-state="active"] { visibility: visible; }
+.home-banner-slide[data-state="active"] > * {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    translate 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.home-banner-slide[data-state="active"] > :nth-child(2) { transition-delay: 40ms; }
+.home-banner-slide[data-state="active"] > :nth-child(3) { transition-delay: 80ms; }
+.home-banner-slide[data-state="active"] > :nth-child(4) { transition-delay: 120ms; }
+.home-banner-slide[data-state="leaving"] {
+  visibility: hidden;
+  transition: visibility 0s linear 300ms;
+}
+.home-banner-slide[data-state="leaving"] > * {
+  opacity: 0;
+  translate: var(--out) 0;
+  transition:
+    opacity 220ms cubic-bezier(0.4, 0, 1, 1),
+    translate 300ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.home-banner-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: #6b7280;
+}
+.home-banner-eyebrow.is-critical { color: #b45309; }
+.home-banner-eyebrow.is-critical::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
+}
+.home-banner-title {
+  margin-top: 4px;
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #1a1a2e;
+  text-wrap: balance;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.home-banner-line {
+  margin-top: 5px;
+  font-size: 13px;
+  line-height: 18px;
+  color: #5f6673;
+  text-wrap: pretty;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+@container (min-width: 460px) {
+  .home-banner-title { font-size: 18px; line-height: 24px; }
+  .home-banner-line { font-size: 13.5px; line-height: 19px; }
+}
+@container (min-width: 620px) {
+  .home-banner-title { margin-top: 6px; font-size: 21px; line-height: 27px; letter-spacing: -0.015em; }
+  .home-banner-line { margin-top: 6px; font-size: 14px; line-height: 20px; -webkit-line-clamp: 2; }
+}
+.home-banner-cta-row { margin-top: 14px; }
+.home-banner-cta {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: #16161a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px rgba(0, 0, 0, 0.18);
+  transition: background-color 150ms ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.home-banner-cta:hover { background: #2a2a31; }
+.home-banner-cta:active { background: #0b0b0d; }
+.home-banner-cta:focus-visible { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #8b5cf6; }
+@container (min-width: 620px) {
+  .home-banner-cta { height: 36px; padding: 0 16px; }
+}
+
+.home-banner-tabs {
+  display: flex;
+  gap: 2px;
+  height: 22px;
+  margin-top: 6px;
+  margin-left: -4px;
+  flex: 0 0 auto;
+}
+.home-banner-tab {
+  display: flex;
+  align-items: center;
+  width: 30px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 6px;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.home-banner-tab:focus-visible { box-shadow: 0 0 0 2px #8b5cf6; }
+.home-banner-tab-track {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(26, 26, 46, 0.13);
+  transition: background-color 200ms ease;
+}
+.home-banner-tab:hover .home-banner-tab-track { background: rgba(26, 26, 46, 0.24); }
+.home-banner-tab-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(26, 26, 46, 0.72);
+  transform-origin: left center;
+  animation-name: home-banner-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+@keyframes home-banner-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Reduced motion keeps the clock and loses the movement: the text changes in place, and the segment
+   under it only marks which slide is showing. */
+@keyframes home-banner-fill-still {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-banner-tab-fill { animation-name: home-banner-fill-still; }
+  .home-banner-slide > *,
+  .home-banner-slide[data-state="active"] > *,
+  .home-banner-slide[data-state="leaving"] > * { translate: 0 0; transition: opacity 160ms linear; transition-delay: 0ms; }
+}
+`
