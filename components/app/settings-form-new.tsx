@@ -1337,8 +1337,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
             <p className="text-[14px] text-[#6b7280] mt-1">{t("settings.subtitle")}</p>
           </div>
           <div className="flex min-w-0 max-w-[58%] shrink-0 justify-end pt-0.5 sm:max-w-[300px] sm:pt-1">
-            {/* On a phone the pill is 10% narrower than the 58% it could take (and than 300px from sm), so the title keeps its room. */}
-            <ShareStorelib size="sm" className="md:hidden max-w-[calc((100vw-32px)*0.522)] sm:max-w-[270px]" addresses={shareAddresses} platforms={sharePlatforms} />
+            {/* On a phone the pill is 10% narrower than it was: at most 90% of the 58% of the row it could take, and 184px, 90% of
+                storelib.com/andrewrullz at full length (300px to 270px from sm), so the title keeps its room. A short address is left whole. */}
+            <ShareStorelib size="sm" className="md:hidden max-w-[min(calc((100vw-32px)*0.522),184px)] sm:max-w-[270px]" addresses={shareAddresses} platforms={sharePlatforms} />
             <ShareStorelib className="hidden md:inline-flex" addresses={shareAddresses} platforms={sharePlatforms} />
           </div>
         </div>
