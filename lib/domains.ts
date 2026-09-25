@@ -14,9 +14,10 @@ export async function resolveCustomDomain(domain: string): Promise<{
     const { data: domainRecord } = await supabase
       .from("custom_domains")
       .select("creator_id")
-      .eq("domain", domain.toLowerCase())
+      /* Stored without www; a request arrives at the www host. */
+      .eq("domain", domain.toLowerCase().replace(/^www\./, ""))
       .in("status", ["active", "ssl_provisioning"])
-      .single()
+      .maybeSingle()
 
     if (!domainRecord) return null
 

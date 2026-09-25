@@ -19,6 +19,7 @@
 
 import { isNativeApp } from "@/lib/platform-utils"
 import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
+import { servingHost } from "@/lib/custom-domains/hostname"
 
 // Main domain from environment or default
 export const getMainDomain = () => process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
@@ -180,7 +181,10 @@ export function getProductUrl(username: string, productSlug: string): string {
  * Use this for copy-to-clipboard, display text, and any URL shown to the user.
  * For in-app navigation in Capacitor use getStoreUrl() or getStoreInternalPath().
  */
-export function getStoreShareUrl(username: string): string {
+export function getStoreShareUrl(username: string, pageHost?: string | null): string {
+  /* The creator page on a domain of its own: the domain is the address. */
+  const own = onOwnDomain(pageHost)
+  if (own) return `${own}/`
   if (!username) return getSiteUrl()
 
   const sanitizedUsername = username
@@ -203,10 +207,25 @@ export function getStoreShareUrl(username: string): string {
 }
 
 /**
+ * `https://<host>` for a creator page's own domain, or null. The host is the
+ * one it is served at (www.<apex>, or a subdomain as it is), which is what
+ * lib/custom-domains/store.ts hands out; a bare apex is given its www, since
+ * the bare name only redirects.
+ */
+function onOwnDomain(pageHost?: string | null): string | null {
+  const host = (pageHost || "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "")
+  if (!host || !host.includes(".")) return null
+  return `https://${servingHost(host)}`
+}
+
+/**
  * Get the canonical links/onepage URL for sharing/copying/displaying — always
  * returns the full subdomain URL regardless of whether running inside Capacitor.
  */
-export function getLinksShareUrl(username: string): string {
+export function getLinksShareUrl(username: string, pageHost?: string | null): string {
+  /* The OnePage lives at /links on the creator page's own domain. */
+  const own = onOwnDomain(pageHost)
+  if (own) return `${own}/links`
   if (!username) return getSiteUrl()
 
   const handle = username.toLowerCase()
@@ -223,8 +242,11 @@ export function getLinksShareUrl(username: string): string {
  * Get the canonical product URL for sharing/copying/opening in external browser —
  * always returns the full subdomain URL regardless of Capacitor.
  */
-export function getProductShareUrl(username: string, productSlug: string): string {
-  if (!productSlug) return getStoreShareUrl(username)
+export function getProductShareUrl(username: string, productSlug: string, pageHost?: string | null): string {
+  if (!productSlug) return getStoreShareUrl(username, pageHost)
+  /* On the creator page's own domain a product is /<slug>: the domain already says whose. */
+  const own = onOwnDomain(pageHost)
+  if (own) return `${own}/${encodeURIComponent(productSlug)}`
 
   const mainDomain = getMainDomain()
 
@@ -327,9 +349,8 @@ export function getLinksUrlDisplay(username: string): string {
  */
 export function getStoreUrlWithCustomDomain(username: string, customDomain?: string | null): string {
   if (customDomain) {
-    // Always use www as canonical host for custom domains (prevents SSL issues)
-    const domain = customDomain.startsWith("www.") ? customDomain : `www.${customDomain}`
-    return `https://${domain}`
+    // www for an apex (the bare name only redirects), a subdomain as it is
+    return `https://${servingHost(customDomain.toLowerCase())}`
   }
   return getStoreUrl(username)
 }
@@ -342,8 +363,7 @@ export function getStoreUrlWithCustomDomain(username: string, customDomain?: str
  */
 export function getLinksUrlWithCustomDomain(username: string, customDomain?: string | null): string {
   if (customDomain) {
-    const domain = customDomain.startsWith("www.") ? customDomain : `www.${customDomain}`
-    return `https://${domain}/links`
+    return `https://${servingHost(customDomain.toLowerCase())}/links`
   }
   return getLinksUrl(username)
 }
@@ -357,8 +377,7 @@ export function getLinksUrlWithCustomDomain(username: string, customDomain?: str
  */
 export function getProductUrlWithCustomDomain(username: string, productSlug: string, customDomain?: string | null): string {
   if (customDomain) {
-    const domain = customDomain.startsWith("www.") ? customDomain : `www.${customDomain}`
-    return `https://${domain}/p/${productSlug}`
+    return `https://${servingHost(customDomain.toLowerCase())}/p/${productSlug}`
   }
   return getProductUrl(username, productSlug)
 }

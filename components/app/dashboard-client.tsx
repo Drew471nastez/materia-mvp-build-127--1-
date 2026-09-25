@@ -10,37 +10,26 @@ import Link from "next/link"
 import Image from "next/image"
 import { dayPart, firstName, type DayPart } from "@/lib/greeting"
 import { rememberTimeZone, viewerTimeZone } from "@/lib/orders/time-zone"
-import { useRouter } from "next/navigation"
 import {
   Eye,
   ShoppingCart,
   DollarSign,
   TrendingUp,
   TrendingDown,
-  Check,
   ChevronRight,
   ArrowRight,
   ChevronDown,
   ChevronUp,
   Sparkles,
   Image as ImageIcon,
-  Package,
-  Link2,
-  Trophy,
-  User,
-  Palette,
-  CreditCard,
-  ExternalLink,
   X,
   Camera,
   FileText,
   Type,
   Wallet,
-  Share2,
   Blocks,
   BarChart3,
   Globe,
-  MonitorSmartphone,
 } from "lucide-react"
 import dynamic from "next/dynamic"
 
@@ -70,15 +59,16 @@ const LazyAreaChart = dynamic(
 )
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
-import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl, getWebsiteUrl } from "@/lib/url-helpers"
+import { getLinksShareUrl, getLinksUrlDisplay, getStoreShareUrl, getStoreUrlDisplay, getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
+import { SharePill, ShareStorelibSheet } from "@/components/app/share/share-storelib"
+import { HomeCards, bumpGettingStarted, type StartStep } from "@/components/app/home/home-cards"
+import { BannerGlobe } from "@/components/app/home/globe"
+import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { AxisLabels, fixedScale } from "@/components/app/chart-morph"
 import { MorphLines } from "@/components/app/morph-lines"
-import { useToast } from "@/hooks/use-toast"
 import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
-import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { spansToRead } from "@/lib/analytics/buckets"
@@ -384,42 +374,6 @@ const SAMPLE_KPI = {
   conversionRate: 6.2, prevConversionRate: 5.8,
 }
 
-// Icon mapping for setup steps
-const stepIcons: Record<string, any> = {
-  welcome: User,
-  branding: Palette,
-  product: Package,
-  payouts: CreditCard,
-  onepage: Link2,
-  sale: Trophy,
-}
-
-// Substeps for each main step - using translation keys
-const stepSubsteps: Record<string, { labelKey: string; check: (data: any) => boolean; href: string }[]> = {
-  welcome: [
-    { labelKey: "setup.accountCreated", check: () => true, href: "/app/settings" },
-  ],
-  branding: [
-    { labelKey: "setup.addPhoto", check: (d) => !!d.hasAvatar, href: "/app/settings" },
-    { labelKey: "setup.setName", check: (d) => !!d.hasName, href: "/app/settings" },
-    { labelKey: "setup.writeBio", check: (d) => !!d.hasBio, href: "/app/settings" },
-  ],
-  product: [
-    { labelKey: "setup.createAProduct", check: (d) => d.hasProducts, href: "/app/products/new" },
-  ],
-  payouts: [
-    { labelKey: "setup.connectStripe", check: (d) => d.hasPayouts, href: "/app/payouts" },
-  ],
-  onepage: [
-    { labelKey: "setup.createOnePage", check: (d) => d.hasOnePage, href: "/app/onepage" },
-    { labelKey: "setup.addBlocks", check: (d) => d.hasOnePageBlock, href: "/app/onepage" },
-  ],
-  sale: [
-    { labelKey: "setup.shareLink", check: () => false, href: "/app/onepage" },
-    { labelKey: "setup.getFirstSale", check: (d) => d.hasFirstSale, href: "/app/orders" },
-  ],
-}
-
 /**
  * An order row as Home holds it: enough to group a basket into one payment
  * and to take its refunds off (lib/analytics/home-figures). The rows the
@@ -438,103 +392,14 @@ interface DashboardClientProps {
   initialOrders?: Order[]
   creatorHandle?: string
   connectedDomain?: string | null
-  brandingDetail?: { hasAvatar: boolean; hasName: boolean; hasBio: boolean }
+  /** The website's own domain (lib/custom-domains). On an old database, the same one domain. */
+  websiteDomain?: string | null
   /** True only when a site has actually been published, never when one merely exists. */
   websitePublished?: boolean
   subscriptionPlanId?: string
+  /** The platforms the creator is on, for the share sheet's "My platforms" (app/app/page.tsx). */
+  sharePlatforms?: ConnectedPlatform[]
 }
-
-function ChainLinkIcon({ className = "w-4 h-4", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      <path
-        d="M10.0002 13C10.4297 13.5741 10.9776 14.0491 11.6067 14.3929C12.2359 14.7367 12.9317 14.9411 13.6468 14.9923C14.362 15.0435 15.0798 14.9403 15.7515 14.6897C16.4233 14.4392 17.0333 14.047 17.5402 13.54L20.5402 10.54C21.451 9.59695 21.955 8.33394 21.9436 7.02296C21.9322 5.71198 21.4063 4.45791 20.4793 3.53087C19.5523 2.60383 18.2982 2.07799 16.9872 2.0666C15.6762 2.0552 14.4132 2.55918 13.4702 3.46997L11.7502 5.17997M14.0002 11C13.5707 10.4258 13.0228 9.95078 12.3936 9.60703C11.7645 9.26327 11.0687 9.05885 10.3535 9.00763C9.63841 8.95641 8.92061 9.0596 8.24885 9.31018C7.5771 9.56077 6.96709 9.9529 6.4602 10.46L3.4602 13.46C2.54941 14.403 2.04544 15.666 2.05683 16.977C2.06822 18.288 2.59407 19.542 3.52111 20.4691C4.44815 21.3961 5.70221 21.9219 7.01319 21.9333C8.32418 21.9447 9.58719 21.4408 10.5302 20.53L12.2402 18.82"
-        stroke={stroke}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function CopyLinkIcon({ className = "w-4 h-4" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      <path
-        d="M10.0696 7C10.3869 3.9787 11.8424 3 15.5 3C19.7059 3 21 4.29412 21 8.5C21 12.1576 20.0213 13.6131 17 13.9304M3 15.5C3 11.2941 4.29412 10 8.5 10C12.7059 10 14 11.2941 14 15.5C14 19.7059 12.7059 21 8.5 21C4.29412 21 3 19.7059 3 15.5Z"
-        stroke="#6b6b6b"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function QuickAccessRow({
-  label,
-  url,
-  icon,
-  actionLabel,
-  isCopied,
-  onAction,
-  onOpen,
-}: {
-  label: string
-  url: string
-  icon: ReactNode
-  actionLabel: "copy" | "setup"
-  isCopied: boolean
-  onAction: () => void
-  onOpen: () => void
-}) {
-  const isSetupAction = actionLabel === "setup"
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") onOpen()
-      }}
-      className="w-full text-left rounded-2xl border border-[#ececf1] p-3.5 hover:bg-[#fafafa] active:bg-[#f4f4f5] transition-colors cursor-pointer"
-    >
-      <div className="flex items-center gap-3">
-        {icon}
-        <div className="min-w-0 flex-1">
-          <p className="text-[15px] font-semibold text-[#111827]">{label}</p>
-          <p className="text-[12px] text-[#6b7280] truncate">{url}</p>
-        </div>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onAction()
-          }}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
-            isSetupAction
-              ? "border-[#ddd6fe] bg-[#f5f3ff] text-[#6d28d9] hover:bg-[#ede9fe]"
-              : isCopied
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                : "border-[#e5e7eb] bg-white text-[#6b7280] hover:bg-[#f8fafc]"
-          }`}
-        >
-          {isSetupAction ? (
-            <ArrowRight className="h-3.5 w-3.5" />
-          ) : isCopied ? (
-            <Check className="h-3.5 w-3.5" />
-          ) : (
-            <CopyLinkIcon className="h-3.5 w-3.5" />
-          )}
-          {isSetupAction ? "Set up" : isCopied ? "Copied" : "Copy link"}
-        </button>
-      </div>
-    </div>
-  )
-}
-
 
 // Helper function to calculate percentage change
 const calculatePercentChange = (current: number, previous: number): { value: number; isPositive: boolean; isZero: boolean } => {
@@ -561,125 +426,6 @@ function PercentChangeIndicator({ current, previous }: { current: number; previo
       )}
       {Math.round(value)}%
     </span>
-  )
-}
-
-// Helper function to format period text naturally
-// Progress circle component with purple accent
-function ProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
-  const strokeWidth = 2.5
-  const radius = (size - strokeWidth) / 2
-  const circumference = radius * 2 * Math.PI
-  const offset = circumference - (progress / 100) * circumference
-
-  return (
-    <svg width={size} height={size} className="transform -rotate-90">
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="#f3f4f6"
-        strokeWidth={strokeWidth}
-      />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="#8b5cf6"
-        strokeWidth={strokeWidth}
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        className="transition-all duration-500"
-      />
-    </svg>
-  )
-}
-
-/**
- * Quick access on a phone: the shared sheet (components/ui/bottom-sheet), so
- * it opens, follows the thumb and closes like every other sheet in /app and
- * sits above the navigation pill. It was drawn here by hand, on a CSS
- * transition that started from an effect a paint late, with its own drag.
- */
-function QuickAccessBottomSheet({
-  isOpen,
-  onClose,
-  onePageUrl,
-  storeUrl,
-  navOnePageUrl,
-  navStoreUrl,
-  isOnePageCopied,
-  isStoreCopied,
-  onCopyOnePage,
-  onCopyStore,
-  isOnePageReady,
-  onSetupOnePage,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  onePageUrl: string
-  storeUrl: string
-  navOnePageUrl?: string
-  navStoreUrl?: string
-  isOnePageCopied: boolean
-  isStoreCopied: boolean
-  onCopyOnePage: () => void
-  onCopyStore: () => void
-  isOnePageReady: boolean
-  onSetupOnePage: () => void
-}) {
-  return (
-    <BottomSheet
-      isOpen={isOpen}
-      onClose={onClose}
-      label="Quick access"
-      hideFrom="md"
-      header={<h3 className="px-4 pt-2 text-[16px] font-semibold text-[#1a1a2e]">Quick access</h3>}
-    >
-      <div className="space-y-2 px-4 pb-5 pt-4">
-        <QuickAccessRow
-          label="OnePage"
-          url={isOnePageReady ? onePageUrl : "Set up your OnePage to create a link"}
-          actionLabel={isOnePageReady ? "copy" : "setup"}
-          isCopied={isOnePageCopied}
-          onAction={() => {
-            if (isOnePageReady) {
-              onCopyOnePage()
-            } else {
-              onSetupOnePage()
-              onClose()
-            }
-          }}
-          onOpen={() => {
-            if (isOnePageReady) {
-              const url = onePageUrl || navOnePageUrl
-              if (url) openExternal(url)
-            } else {
-              onSetupOnePage()
-            }
-            onClose()
-          }}
-          icon={<div className="w-8 h-8 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-4 h-4" stroke="#ffffff" /></div>}
-        />
-
-        <QuickAccessRow
-          label="Store"
-          url={storeUrl}
-          actionLabel="copy"
-          isCopied={isStoreCopied}
-          onAction={onCopyStore}
-          onOpen={() => {
-            const url = storeUrl || navStoreUrl
-            if (url) openExternal(url)
-            onClose()
-          }}
-          icon={<img src={STORELIB_LOGO} alt="" width={32} height={32} className="w-8 h-8 shrink-0 object-contain" loading="eager" decoding="async" />}
-        />
-      </div>
-    </BottomSheet>
   )
 }
 
@@ -792,10 +538,7 @@ const AnnouncementBar = memo(function AnnouncementBar({
                   <span className="hidden md:inline text-white/85 ml-2">{totalSteps - completedSteps} {t("dashboard.stepsRemaining")}</span>
                 </span>
                 <button
-                  onClick={() => {
-                    const setupSection = document.getElementById("store-setup-section")
-                    setupSection?.scrollIntoView({ behavior: "smooth" })
-                  }}
+                  onClick={bumpGettingStarted}
                   className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
                 >
                   {t("common.continue")}
@@ -871,9 +614,10 @@ export function DashboardClient({
   initialOrders = [],
   creatorHandle = "",
   connectedDomain = null,
-  brandingDetail,
+  websiteDomain = null,
   websitePublished = false,
   subscriptionPlanId = "free",
+  sharePlatforms = [],
 }: DashboardClientProps) {
   /**
    * THE PERIOD, from the date picker every page in /app shares, remembered
@@ -896,12 +640,7 @@ export function DashboardClient({
     return resolveValue(saved, dashToday, "last_7_days")
   })
   const periodKey = `${period.preset}:${period.start}:${period.end}`
-  const [isProfileAccessOpen, setIsProfileAccessOpen] = useState(false)
-  const [isProfileAccessVisible, setIsProfileAccessVisible] = useState(false)
-  const [isProfileAccessAnimating, setIsProfileAccessAnimating] = useState(false)
-  const [isQuickAccessMobileOpen, setIsQuickAccessMobileOpen] = useState(false)
-  const profileAccessRef = useRef<HTMLDivElement | null>(null)
-  const router = useRouter()
+  const [isShareOpen, setIsShareOpen] = useState(false)
 
   useHideNativeSplash()
 
@@ -914,19 +653,6 @@ export function DashboardClient({
     }
   }, [periodKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Canonical subdomain URLs for display text and clipboard copy
-  const publicStoreUrl = connectedDomain ? `https://${connectedDomain}` : (creatorHandle ? getStoreShareUrl(creatorHandle) : "")
-  /**
-   * TWO ADDRESSES, TWO THINGS, and url-helpers is explicit about which is
-   * which: <name>.storelib.com is the WEBSITE built in the website builder,
-   * storelib.com/<name> is the creator PAGE. Quick access listed the page
-   * twice under two names and never listed the website at all.
-   */
-  const publicWebsiteUrl = creatorHandle && websitePublished ? getWebsiteUrl(creatorHandle) : ""
-  const publicOnePageUrl = connectedDomain ? `https://${connectedDomain}/links` : (creatorHandle ? getLinksShareUrl(creatorHandle) : "")
-  // Internal-path URLs for in-app navigation (preserves auth in Capacitor)
-  const navStoreUrl = connectedDomain ? `https://${connectedDomain}` : (creatorHandle ? getStoreUrl(creatorHandle) : "")
-  const navOnePageUrl = connectedDomain ? `https://${connectedDomain}/links` : (creatorHandle ? getLinksUrl(creatorHandle) : "")
   /* The page arrives with its data (app/app/page.tsx), so it is drawn at once;
      the figures the browser reads for itself soften while they refresh. There
      is no drawing of the page before it: a full page skeleton used to sit
@@ -937,7 +663,6 @@ export function DashboardClient({
      (components/app/metric-tab `loading`), and "No activity yet" waits for
      the answer rather than showing over the chart before it. */
   const [figuresReady, setFiguresReady] = useState(false)
-  const [expandedStep, setExpandedStep] = useState<string | null>(null)
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")
   /* Follows the chosen tab, and keeps a sideways swipe off the page. */
   const kpiStripRef = useTabStrip<HTMLDivElement>(openKPIModal ?? "views", KPI_TAB_ORDER)
@@ -1075,9 +800,6 @@ export function DashboardClient({
     return () => window.clearInterval(id)
   }, [])
   const greetingName = displayName === "there" ? "" : firstName(displayName)
-  const { toast } = useToast()
-  const [copiedTarget, setCopiedTarget] = useState<"onepage" | "store" | "website" | null>(null)
-  const [copyNotice, setCopyNotice] = useState<string | null>(null)
 
   const formatCurrency = (cents: number, compact = false) => {
     const value = cents / 100
@@ -1250,54 +972,79 @@ export function DashboardClient({
     return () => window.clearTimeout(safetyTimer)
   }, [periodKey, creatorId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Close dropdown when clicking outside (desktop only)
-  const copyQuickAccessUrl = async (target: "onepage" | "store" | "website") => {
-    const url = target === "onepage" ? publicOnePageUrl : target === "website" ? publicWebsiteUrl : publicStoreUrl
-    if (!url) return
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopiedTarget(target)
-      setCopyNotice("Link copied")
-      toast({ title: "Link copied" })
-      setTimeout(() => setCopiedTarget((prev) => (prev === target ? null : prev)), 1800)
-      setTimeout(() => setCopyNotice(null), 1800)
-    } catch {
-      toast({ title: "Could not copy the link", variant: "destructive" })
-    }
-  }
-
-
-  useEffect(() => {
-    if (isProfileAccessOpen) {
-      setIsProfileAccessVisible(true)
-      requestAnimationFrame(() => requestAnimationFrame(() => setIsProfileAccessAnimating(true)))
-    } else if (isProfileAccessVisible) {
-      setIsProfileAccessAnimating(false)
-      const timer = setTimeout(() => setIsProfileAccessVisible(false), 180)
-      return () => clearTimeout(timer)
-    }
-  }, [isProfileAccessOpen, isProfileAccessVisible])
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-      if (profileAccessRef.current && !profileAccessRef.current.contains(target)) {
-        setIsProfileAccessOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
-
-  const completedSteps = initialSetupSteps.filter((s) => s.completed).length
-  const totalSteps = initialSetupSteps.length
-  const allCompleted = completedSteps === totalSteps
-
   // Derive completion status from steps
   const hasProducts = initialSetupSteps.find((s) => s.id === "product")?.completed || false
   const hasPayouts = initialSetupSteps.find((s) => s.id === "payouts")?.completed || false
   const hasOnePageSetup = initialSetupSteps.find((s) => s.id === "onepage")?.completed || false
-  const mobileHandleLabel = creatorHandle.length > 14 ? `${creatorHandle.slice(0, 14)}...` : creatorHandle
+  const hasFirstSale = initialSetupSteps.find((s) => s.id === "sale")?.completed || false
+  /**
+   * THE ADDRESSES A CREATOR HANDS OUT, for the pill and the share sheet
+   * (components/app/share). Always absolute, so the same string is copied,
+   * put in the QR code and handed to a share link, in the app as in a
+   * browser. The creator page comes first: it is what the pill shows.
+   *
+   * A domain is connected for the website or for the creator page
+   * (Settings, Domains), and each is given to the one it opens. A website
+   * domain answers with the creator page while no website is published
+   * (proxy.ts), and before the database knew purposes there was one domain
+   * for both, which is why the page also takes it then. The
+   * OnePage is only offered once it has been set up, and the website only
+   * once it has been published, never because a theme was installed.
+   */
+  const shareAddresses = useMemo<ShareAddress[]>(() => {
+    if (!creatorHandle) return []
+    const domainIsWebsite = !!websiteDomain && websitePublished
+    const domainIsPage = !!connectedDomain && (!websitePublished || connectedDomain !== websiteDomain)
+    const list: ShareAddress[] = [
+      {
+        surface: "creator",
+        label: "Creator page",
+        url: domainIsPage ? `https://${connectedDomain}` : getStoreShareUrl(creatorHandle),
+        display: domainIsPage ? (connectedDomain as string) : getStoreUrlDisplay(creatorHandle),
+      },
+    ]
+    if (hasOnePageSetup) {
+      list.push({
+        surface: "onepage",
+        label: "OnePage",
+        url: connectedDomain ? `https://${connectedDomain}/links` : getLinksShareUrl(creatorHandle),
+        display: connectedDomain ? `${connectedDomain}/links` : getLinksUrlDisplay(creatorHandle),
+      })
+    }
+    if (websitePublished) {
+      list.push({
+        surface: "website",
+        label: "Website",
+        url: domainIsWebsite ? `https://${websiteDomain}` : getWebsiteShareUrl(creatorHandle),
+        display: domainIsWebsite ? (websiteDomain as string) : getWebsiteUrlDisplay(creatorHandle),
+      })
+    }
+    return list
+  }, [creatorHandle, connectedDomain, websiteDomain, websitePublished, hasOnePageSetup])
+
+  /**
+   * GETTING STARTED (components/app/home/home-cards): the six things a new
+   * store does before it sells, each read off the account the server sent,
+   * never ticked by hand. Signing up is done by being here. The store is the
+   * website, done once one is published; the domain once one is connected
+   * and active, for the website or for the creator page. The first sale
+   * opens the share sheet while there is none, because sharing the address
+   * is how the first one comes. The purple bar's "steps remaining" counts
+   * these same six.
+   */
+  const startSteps = useMemo<StartStep[]>(() => [
+    { id: "signup", label: "Sign up", done: true, href: "/app/settings" },
+    { id: "product", label: "Add your first product", done: hasProducts, href: hasProducts ? "/app/products" : "/app/products/new" },
+    { id: "store", label: "Build your store", done: websitePublished, href: "/app/website-builder", hardNavigation: true },
+    { id: "payments", label: "Set up payments", done: hasPayouts, href: "/app/payouts" },
+    { id: "domain", label: "Connect your domain", done: !!(connectedDomain || websiteDomain), href: "/app/settings?tab=domains" },
+    hasFirstSale || shareAddresses.length === 0
+      ? { id: "sale", label: "Make your first sale", done: hasFirstSale, href: "/app/orders" }
+      : { id: "sale", label: "Make your first sale", done: false, onSelect: () => setIsShareOpen(true) },
+  ], [hasProducts, websitePublished, hasPayouts, connectedDomain, websiteDomain, hasFirstSale, shareAddresses.length])
+  const completedSteps = startSteps.filter((s) => s.done).length
+  const totalSteps = startSteps.length
+  const allCompleted = completedSteps === totalSteps
 
 
   /* The purple bar's slides, worked out from the account. The bar itself,
@@ -1308,25 +1055,6 @@ export function DashboardClient({
     if (hasProducts && !hasPayouts) list.push("payouts")
     return list
   }, [allCompleted, hasProducts, hasPayouts])
-
-  // Build substep data based on step completion
-  const getSubstepData = (step: SetupStep) => {
-    return {
-      hasAvatar: step.id === "branding" ? (brandingDetail?.hasAvatar ?? step.completed) : false,
-      hasName: step.id === "branding" ? (brandingDetail?.hasName ?? step.completed) : false,
-      hasBio: step.id === "branding" ? (brandingDetail?.hasBio ?? step.completed) : false,
-      hasProducts: step.id === "product" ? step.completed : false,
-      hasPayouts: step.id === "payouts" ? step.completed : false,
-      hasOnePage: step.id === "onepage" ? step.completed : false,
-      hasOnePageBlock: step.id === "onepage" ? step.completed : false,
-      hasFirstSale: step.id === "sale" ? step.completed : false,
-    }
-  }
-
-  const handleStepClick = (stepId: string, e: React.MouseEvent) => {
-    e.preventDefault()
-    setExpandedStep(expandedStep === stepId ? null : stepId)
-  }
 
   // ── Pull-to-refresh ───────────────────────────────────────────────────────
   // Wraps the dashboard's own scroll container so we can intercept touch events
@@ -1408,151 +1136,46 @@ export function DashboardClient({
         >
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
-        {copyNotice && (
-          <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-[calc(58px+env(safe-area-inset-top)+14px)] left-1/2 z-[120] -translate-x-1/2 rounded-full bg-[#111827] px-4 py-2 text-xs font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2 duration-200 whitespace-nowrap">
-            {copyNotice}
-          </div>
-        )}
 
         {/* Header Section */}
+        {/*
+          THE ADDRESS ON THE RIGHT, THE PERIOD BESIDE THE GREETING.
+
+          The period and the live count sit where quick access used to, next
+          to the greeting they describe. The right of the row is the creator's
+          address in a grey pill (components/app/share): the one thing on this
+          page they hand to other people, and what opens the share sheet. On a
+          phone the pill sits above the greeting where the @handle chip was,
+          and the period and live count keep their own row below.
+        */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-          <div>
-            <div className="mb-1 flex justify-end md:hidden">
-              {creatorHandle && (
-                <button
-                  type="button"
-                  onClick={() => setIsQuickAccessMobileOpen(true)}
-                  className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] font-medium text-[#4b5563] transition-all cursor-pointer overflow-hidden"
-                >
-                  <span className="absolute -inset-px rounded-full opacity-40 pointer-events-none animate-[spin_12s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(139,92,246,0.30)_320deg,transparent_360deg)]" />
-                  <span className="absolute inset-[1px] rounded-full bg-white/95" />
-                  <span className="relative z-[1] inline-flex items-center gap-1.5">
-                    @{mobileHandleLabel}
-                    <ExternalLink className="h-3.5 w-3.5 text-[#9ca3af]" />
-                  </span>
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="min-w-0">
+            {shareAddresses.length > 0 && (
+              <div className="mb-2 flex justify-end md:hidden">
+                <SharePill size="sm" display={shareAddresses[0].display} onOpen={() => setIsShareOpen(true)} />
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">
                 {t(`dashboard.greeting.${greetingPart}` as Parameters<typeof t>[0])}
                 {greetingName ? `, ${greetingName}` : ""}
               </h1>
-              {creatorHandle && (
-                <div ref={profileAccessRef} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (window.innerWidth < 768) {
-                        setIsQuickAccessMobileOpen(true)
-                        return
-                      }
-                      setIsProfileAccessOpen((v) => !v)
-                    }}
-                    className="hidden md:inline-flex relative items-center gap-1.5 px-3 py-1 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] font-medium text-[#4b5563] hover:text-[#111827] hover:border-[#d1d5db] hover:bg-white transition-all cursor-pointer overflow-hidden"
-                  >
-                    <span className="absolute -inset-px rounded-full opacity-45 pointer-events-none animate-[spin_12s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(139,92,246,0.30)_320deg,transparent_360deg)]" />
-                    <span className="absolute inset-[1px] rounded-full bg-white/95" />
-                    <span className="relative z-[1] inline-flex items-center gap-1.5">
-                      @{creatorHandle}
-                      <ExternalLink className="h-3.5 w-3.5 text-[#9ca3af]" />
-                    </span>
-                  </button>
-                  {isProfileAccessVisible && (
-                    <div className={`absolute left-0 top-full mt-2 w-[280px] sm:w-[320px] rounded-2xl border border-[#e5e7eb] bg-white shadow-xl p-2 z-50 origin-top-left transition-all duration-180 ease-out ${isProfileAccessAnimating ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-1 scale-[0.98]"}`}>
-                      <p className="px-2 pt-1 pb-2 text-[11px] text-[#6b7280]">Quick access</p>
-                      {/*
-                        NO ACTION BUTTONS. There were two here, "View page" and
-                        "Customize page", and they were removed on the owner's
-                        instruction.
-
-                        They also did not belong: this panel answers "what are
-                        my addresses?", and every row in it is a thing to copy
-                        and hand to somebody else. Opening the page is what the
-                        row itself already does, and the editor is reached from
-                        the nav — a pair of buttons on top of three addresses
-                        made the one question it answers harder to read.
-                      */}
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => {
-                          if (hasOnePageSetup) {
-                            openExternal(publicOnePageUrl || navOnePageUrl)
-                          } else {
-                            router.push("/app/onepage")
-                          }
-                          setIsProfileAccessOpen(false)
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            if (hasOnePageSetup) {
-                              openExternal(publicOnePageUrl || navOnePageUrl)
-                            } else {
-                              router.push("/app/onepage")
-                            }
-                            setIsProfileAccessOpen(false)
-                          }
-                        }}
-                        className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-2.5 h-2.5" stroke="#ffffff" /></span>OnePage</div>
-                        <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{hasOnePageSetup ? publicOnePageUrl : "Set up your OnePage to create a link"}</p><button type="button" onClick={(e) => { e.stopPropagation(); if (hasOnePageSetup) { copyQuickAccessUrl("onepage") } else { router.push("/app/onepage"); setIsProfileAccessOpen(false) } }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${hasOnePageSetup ? (copiedTarget === "onepage" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white") : "border-[#ddd6fe] bg-[#f5f3ff] text-[#6d28d9]"}`}>{hasOnePageSetup ? (copiedTarget === "onepage" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />) : <ArrowRight className="h-3 w-3" />}{hasOnePageSetup ? (copiedTarget === "onepage" ? "Copied" : "Copy") : "Set up"}</button></div>
-                      </div>
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => {
-                          openExternal(publicStoreUrl || navStoreUrl)
-                          setIsProfileAccessOpen(false)
-                        }}
-                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { openExternal(publicStoreUrl || navStoreUrl); setIsProfileAccessOpen(false) } }}
-                        className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><img src={STORELIB_LOGO} alt="Storelib" width={20} height={20} className="w-5 h-5 shrink-0 object-contain" loading="eager" decoding="async" />Creator page</div>
-                        <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{publicStoreUrl}</p><button type="button" onClick={(e) => { e.stopPropagation(); copyQuickAccessUrl("store") }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${copiedTarget === "store" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white"}`}>{copiedTarget === "store" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />}{copiedTarget === "store" ? "Copied" : "Copy"}</button></div>
-                      </div>
-                      {/*
-                        THE THIRD SURFACE, WHICH WAS NEVER LISTED.
-
-                        Quick access held the creator page and the OnePage and
-                        stopped, so the one address a creator is most likely to
-                        be asked for by somebody else was the one they could
-                        not find. It appears only when a site has actually been
-                        PUBLISHED: every account is seeded with theme installs
-                        on first visit, so listing it on existence would hand
-                        people a link to a page nobody has made.
-                      */}
-                      {publicWebsiteUrl && (
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => {
-                            openExternal(publicWebsiteUrl)
-                            setIsProfileAccessOpen(false)
-                          }}
-                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { openExternal(publicWebsiteUrl); setIsProfileAccessOpen(false) } }}
-                          className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer group"
-                        >
-                          <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-[#1a1a2e] flex items-center justify-center"><MonitorSmartphone className="w-2.5 h-2.5 text-white" /></span>Website</div>
-                          <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{publicWebsiteUrl.replace(/^https?:\/\//, "")}</p><button type="button" onClick={(e) => { e.stopPropagation(); copyQuickAccessUrl("website") }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${copiedTarget === "website" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white"}`}>{copiedTarget === "website" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />}{copiedTarget === "website" ? "Copied" : "Copy"}</button></div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Desktop: the period and the live count, beside the greeting */}
+              <div className="hidden md:flex items-center gap-2.5">
+                {/* The date picker every page in /app shares. */}
+                <DateRangePicker value={period} onChange={setPeriod} today={dashToday} align="start" className="h-[38px] rounded-xl px-3.5" />
+                <LivePill count={liveVisitors} label={t("dashboard.liveVisitors")} className="px-3 py-2 rounded-lg" textClassName="text-[13px]" />
+              </div>
             </div>
             <p className="text-[14px] text-[#6b7280] mt-1">{t("dashboard.subtitle")}</p>
           </div>
 
-          {/* Desktop: Timeframe Dropdown + Live Indicator */}
-          <div className="hidden md:flex items-center gap-3">
-            {/* The date picker every page in /app shares. */}
-            <DateRangePicker value={period} onChange={setPeriod} today={dashToday} align="end" className="h-[38px] rounded-xl px-3.5" />
-            {/* Live Indicator Pill - Desktop */}
-            <LivePill count={liveVisitors} label={t("dashboard.liveVisitors")} className="px-3 py-2 rounded-lg" textClassName="text-[13px]" />
-          </div>
+          {/* Desktop: the address, which opens the share sheet */}
+          {shareAddresses.length > 0 && (
+            <div className="hidden md:flex min-w-0 shrink-0 items-center">
+              <SharePill display={shareAddresses[0].display} onOpen={() => setIsShareOpen(true)} />
+            </div>
+          )}
 
           {/* Mobile: Live Indicator + Timeframe Button */}
           <div className="md:hidden flex items-center gap-2">
@@ -1744,7 +1367,17 @@ export function DashboardClient({
               className="absolute inset-0 w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30" />
-            <div className="relative z-10 px-5 py-5 sm:px-8 sm:py-6">
+            {/*
+              THE GLOBE, in the right corner and running off its foot
+              (components/app/home/globe). A dark pool under it so the dots
+              read over the painting. The text column stops short of it and
+              lets the pointer through its empty space, so the globe can be
+              grabbed wherever it shows and the buttons are always the
+              buttons.
+            */}
+            <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 -right-16 h-[300px] w-[340px] bg-[radial-gradient(closest-side,rgba(8,6,18,0.62),rgba(8,6,18,0))] sm:-bottom-28 sm:right-0 sm:h-[340px] sm:w-[420px]" />
+            <BannerGlobe className="absolute -right-10 top-8 h-[190px] w-[190px] sm:right-6 sm:top-2 sm:h-[250px] sm:w-[250px] lg:right-12" />
+            <div className="pointer-events-none relative z-10 max-w-[62%] px-5 py-5 sm:max-w-[calc(100%-260px)] sm:px-8 sm:py-6 lg:max-w-[calc(100%-300px)] [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
               {subscriptionPlanId === "growth" || subscriptionPlanId === "pro" ? (
                 /* Pro plan banner (internal ids "growth" and the earlier "pro") */
                 <>
@@ -1792,195 +1425,88 @@ export function DashboardClient({
           </div>
         </div>
 
-        {/* Main Content Grid - Store Setup + Quick Actions */}
-        <div className="grid gap-6 lg:grid-cols-[370px_1fr]">
-          {/* Left Column - Store Setup Checklist */}
-          <div id="store-setup-section" className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] h-fit">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{t("dashboard.storeSetup")}</h2>
-                <span className="text-[13px] font-medium text-[#6b7280] bg-[#f3f4f6] px-2.5 py-1 rounded-full">
-                  {completedSteps}/{totalSteps}
-                </span>
-              </div>
+        {/* Getting started, the guide and Your Plan (components/app/home/home-cards) */}
+        <div className="mb-8">
+          <HomeCards steps={startSteps} planId={subscriptionPlanId} />
+        </div>
 
-              {/* Progress bar */}
-              <div className="w-full h-1.5 bg-[#f3f4f6] rounded-full mb-5 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-[#8b5cf6] to-[#a78bfa] rounded-full transition-all duration-500"
-                  style={{ width: `${(completedSteps / totalSteps) * 100}%` }}
-                />
-              </div>
-
-              {/* Steps List with Collapsible Substeps */}
-              <div className="space-y-1">
-                {initialSetupSteps.map((step) => {
-                  const Icon = stepIcons[step.id] || Package
-                  const isExpanded = expandedStep === step.id
-                  const substeps = stepSubsteps[step.id] || []
-                  const substepData = getSubstepData(step)
-
-                  return (
-                    <div key={step.id}>
-                      <button
-                        onClick={(e) => handleStepClick(step.id, e)}
-                        className="group relative flex items-center gap-3 p-3 rounded-xl hover:bg-[#f9fafb] transition-all duration-150 w-full text-left"
-                      >
-                        {/* Checkmark or Progress circle */}
-                        <div className="relative shrink-0">
-                          {step.completed ? (
-                            <div className="w-8 h-8 rounded-full bg-[#8b5cf6] flex items-center justify-center">
-                              <Check className="h-4 w-4 text-white" strokeWidth={2.5} />
-                            </div>
-                          ) : (
-                            <div className="relative">
-                              <ProgressCircle progress={0} size={32} />
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <Icon className="h-3.5 w-3.5 text-[#9ca3af]" />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={`text-[13px] font-medium text-[#1a1a2e]`}
-                          >
-                            {step.title}
-                          </p>
-                          <p className="text-[11px] text-[#9ca3af] mt-0.5 truncate">{step.description}</p>
-                        </div>
-
-                        {/* Expand/Collapse Arrow */}
-                        <ChevronDown
-                          className={`h-4 w-4 text-[#d1d5db] shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
-                        />
-
-                        {/* Tooltip on hover - hidden on mobile, wider on desktop */}
-                        <div className="hidden lg:block absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200">
-                          <div className="bg-[#1a1a2e] text-white text-[12px] px-4 py-2.5 rounded-xl shadow-lg w-[220px] whitespace-normal leading-relaxed">
-                            {step.tooltip}
-                            <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 border-4 border-transparent border-r-[#1a1a2e]" />
-                          </div>
-                        </div>
-                      </button>
-
-                      {/* Collapsible Substeps */}
-                      <div
-                        className={`overflow-hidden transition-all duration-300 ease-out ${
-                          isExpanded ? "max-h-[200px] opacity-100" : "max-h-0 opacity-0"
-                        }`}
-                      >
-                        <div className="pl-11 pr-3 pb-2 space-y-1">
-                          {substeps.map((substep, idx) => {
-                            const isSubstepComplete = substep.check(substepData)
-                            return (
-                              <Link
-                                key={idx}
-                                href={substep.href}
-                                className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-[#f5f3ff]/50 transition-colors"
-                              >
-                                <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                                  isSubstepComplete
-                                    ? "bg-[#8b5cf6] border-[#8b5cf6]"
-                                    : "border-[#d1d5db]"
-                                }`}>
-                                  {isSubstepComplete && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
-                                </div>
-                                <span className={`text-[12px] ${
-                                  isSubstepComplete ? "text-[#1a1a2e]" : "text-[#6b7280]"
-                                }`}>
-                                  {t(substep.labelKey as any)}
-                                </span>
-                              </Link>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+        {/* Quick actions, two across from a tablet up */}
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Add a product card */}
+          <Link
+            href="/app/products/new"
+            className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
+          >
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
+              <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/iiii.png" alt="Create product" width={128} height={128} className="h-full w-full object-cover" />
             </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
+                  {t("dashboard.createProduct")}
+                </p>
+                <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
+              </div>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.createProductDesc")}</p>
+            </div>
+          </Link>
 
-          {/* Right Column - Quick Actions */}
-          <div className="space-y-4">
-            {/* Add a product card */}
-            <Link
-              href="/app/products/new"
-              className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-                <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/iiii.png" alt="Create product" width={128} height={128} className="h-full w-full object-cover" />
+          {/* Market your products card */}
+          <Link
+            href="/app/onepage"
+            className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
+          >
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
+              <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/ooaw.png" alt="Edit OnePage" width={128} height={128} className="h-full w-full object-cover" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
+                  {t("dashboard.editOnePage")}
+                </p>
+                <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                    {t("dashboard.createProduct")}
-                  </p>
-                  <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
-                </div>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.createProductDesc")}</p>
-              </div>
-            </Link>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.editOnePageDesc")}</p>
+            </div>
+          </Link>
 
-            {/* Market your products card */}
-            <Link
-              href="/app/onepage"
-              className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-                <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/ooaw.png" alt="Edit OnePage" width={128} height={128} className="h-full w-full object-cover" />
+          {/* View analytics card */}
+          <Link
+            href="/app/analytics"
+            className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
+          >
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
+              <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/naaly.png" alt="View analytics" width={128} height={128} className="h-full w-full object-cover" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
+                  {t("dashboard.viewAnalytics")}
+                </p>
+                <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                    {t("dashboard.editOnePage")}
-                  </p>
-                  <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
-                </div>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.editOnePageDesc")}</p>
-              </div>
-            </Link>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.viewAnalyticsDesc")}</p>
+            </div>
+          </Link>
 
-            {/* View analytics card */}
-            <Link
-              href="/app/analytics"
-              className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-                <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/naaly.png" alt="View analytics" width={128} height={128} className="h-full w-full object-cover" />
+          {/* Add Custom Domain card */}
+          <Link
+            href="/app/settings?tab=domains"
+            className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
+          >
+            <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
+              <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/domani.png" alt="Add domain" width={128} height={128} className="h-full w-full object-cover" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
+                  Add Custom Domain
+                </p>
+                <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                    {t("dashboard.viewAnalytics")}
-                  </p>
-                  <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
-                </div>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.viewAnalyticsDesc")}</p>
-              </div>
-            </Link>
-
-            {/* Add Custom Domain card */}
-            <Link
-              href="/app/settings?tab=domains"
-              className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-                <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/domani.png" alt="Add domain" width={128} height={128} className="h-full w-full object-cover" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                    Add Custom Domain
-                  </p>
-                  <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
-                </div>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">Connect your own domain to your store</p>
-              </div>
-            </Link>
-          </div>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">Connect your own domain to your store</p>
+            </div>
+          </Link>
         </div>
 
       </div>
@@ -2031,20 +1557,7 @@ export function DashboardClient({
       </div>{/* end below-the-bar area that hosts the pull indicator */}
 
       {/* Bottom sheets rendered OUTSIDE transform wrapper — iOS position:fixed requires no ancestor transform */}
-      <QuickAccessBottomSheet
-        isOpen={isQuickAccessMobileOpen}
-        onClose={() => setIsQuickAccessMobileOpen(false)}
-        onePageUrl={hasOnePageSetup ? publicOnePageUrl : "Set up your OnePage to create a link"}
-        storeUrl={publicStoreUrl}
-        navOnePageUrl={hasOnePageSetup ? navOnePageUrl : undefined}
-        navStoreUrl={navStoreUrl}
-        isOnePageCopied={copiedTarget === "onepage"}
-        isStoreCopied={copiedTarget === "store"}
-        onCopyOnePage={() => copyQuickAccessUrl("onepage")}
-        onCopyStore={() => copyQuickAccessUrl("store")}
-        isOnePageReady={hasOnePageSetup}
-        onSetupOnePage={() => router.push("/app/onepage")}
-      />
+      <ShareStorelibSheet open={isShareOpen} onOpenChange={setIsShareOpen} addresses={shareAddresses} platforms={sharePlatforms} />
     </div>
   )
 }

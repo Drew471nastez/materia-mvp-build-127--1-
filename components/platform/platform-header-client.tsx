@@ -20,13 +20,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, Bot, Share2, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { useSearchHandoff } from "@/lib/explore/use-search-handoff"
+import { CategoryBrowser, Chevron, type BrowseGroup } from "@/components/explore/category-browser"
 
 const LOGO_URL = STORELIB_LOGO
 
@@ -176,6 +177,23 @@ const SEARCH_CATEGORIES = CATEGORIES_WITH_SUBS.slice(0, 9).map(cat => ({
   isHot: cat.isHot,
 }))
 
+/**
+ * The same list, in the shape the category browser draws
+ * (components/explore/category-browser): ids read off the hrefs, so a pick
+ * goes where the old menu's link went and the one on screen can be ticked.
+ */
+const param = (href: string, key: string) => new URLSearchParams(href.split("?")[1] ?? "").get(key) ?? ""
+const HEADER_GROUPS: BrowseGroup[] = CATEGORIES_WITH_SUBS.map((c) => ({
+  id: param(c.href, "category"),
+  label: c.label,
+  items: c.subcategories.map((sub) => ({ id: param(sub.href, "sub"), label: sub.label })),
+}))
+const hrefFor = (groupId: string, itemId: string | null) => {
+  const cat = CATEGORIES_WITH_SUBS.find((c) => param(c.href, "category") === groupId)
+  const sub = itemId ? cat?.subcategories.find((x) => param(x.href, "sub") === itemId) : undefined
+  return (sub ?? cat)?.href ?? "/explore"
+}
+
 // Product type for search results
 type SearchProduct = {
   id: string
@@ -234,12 +252,18 @@ function MobileBottomSheet({
   children,
   title,
   contentKey,
+  fill = false,
+  height,
 }: {
   isOpen: boolean
   onClose: () => void
   children: React.ReactNode
   title?: string
   contentKey?: string | null
+  /** The children lay themselves out and scroll themselves (the category browser). */
+  fill?: boolean
+  /** A fixed height, so a list that changes level does not move the top edge. */
+  height?: string
 }) {
   return (
     <BottomSheet
@@ -248,12 +272,28 @@ function MobileBottomSheet({
       title={title}
       label={title ?? "Menu"}
       hideFrom="md"
-      maxHeight="min(74dvh, 720px)"
+      fill={fill}
+      height={height}
+      maxHeight={height ?? "min(74dvh, 720px)"}
       className="rounded-t-[24px]"
       scrollKey={contentKey ?? "default"}
     >
       {children}
     </BottomSheet>
+  )
+}
+
+/** A link row in the category sheet, drawn like the browser's own rows. */
+function MenuRow({ to, label, onNav }: { href: string; to: string; label: string; onNav: (e: React.MouseEvent<HTMLElement>) => void }) {
+  return (
+    <Link
+      href={to}
+      onClick={onNav}
+      className="flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[16px] leading-5 text-[#1a1a2e] outline-none transition-colors duration-100 active:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
+    >
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <Chevron className="text-[#9ca3af]" />
+    </Link>
   )
 }
 
@@ -441,8 +481,6 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
-  const [selectedCategoryForSubs, setSelectedCategoryForSubs] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
@@ -466,8 +504,6 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     setCategoriesDropdownOpen(false)
     setMobileMenuOpen(false)
     setMobileProfileOpen(false)
-    setExpandedCategory(null)
-    setSelectedCategoryForSubs(null)
     setDesktopProfileOpen(false)
   }, [pathname])
 
@@ -478,8 +514,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       // Never interfere with mobile sheet portals. These render to document.body
       // outside the header DOM tree, so they always appear "outside" the header.
       // Without this guard, every tap inside the bottom sheet fires mousedown on
-      // document → setExpandedCategory(null) is scheduled 100ms later → the
-      // subcategory view opens for 100ms and immediately collapses back.
+      // document and closes things that are not what was tapped.
       if (
         target.closest('[data-app-sheet]') ||
         target.closest('[data-mobile-bottom-sheet]') ||
@@ -490,11 +525,6 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       // Only close if clicking completely outside the dropdown
       if (!target.closest('[data-categories-dropdown]')) {
         setCategoriesDropdownOpen(false)
-        // Reset states when fully closing
-        setTimeout(() => {
-          setExpandedCategory(null)
-          setSelectedCategoryForSubs(null)
-        }, 100)
       }
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(target)) {
         setDesktopProfileOpen(false)
@@ -1074,13 +1104,20 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       const seg = pathname.split("/explore/")[1]?.split("/")[0]?.split("?")[0]
       return seg || "all"
     }
-    return searchParams.get("category") || "all"
+    /* Explore writes `c` now and still reads `category` (app/(marketing)/explore/page.tsx). */
+    return searchParams.get("c") || searchParams.get("category") || "all"
   }, [pathname, searchParams])
+  const activeSubId = searchParams.get("sub")
 
-  // Get selected category data for subcategory view
-  const selectedCategoryData = selectedCategoryForSubs
-    ? CATEGORIES_WITH_SUBS.find(c => c.label === selectedCategoryForSubs)
-    : null
+  /* A pick from either category list: where the old menu's link went. */
+  const pickCategory = useCallback((groupId: string, itemId: string | null) => {
+    setCategoriesDropdownOpen(false)
+    setMobileMenuOpen(false)
+    navigateToExploreCategory(hrefFor(groupId, itemId) + "&scroll=recommended")
+  }, [navigateToExploreCategory])
+  const browserSelection = pathname.startsWith("/explore") && activeCategoryId !== "all"
+    ? { group: activeCategoryId, item: activeSubId }
+    : { group: null, item: null }
 
   return (
     <>
@@ -1265,11 +1302,9 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => {
-                      setCategoriesDropdownOpen(!categoriesDropdownOpen)
-                      setExpandedCategory(null)
-                      setSelectedCategoryForSubs(null)
-                    }}
+                    onClick={() => setCategoriesDropdownOpen(!categoriesDropdownOpen)}
+                    aria-expanded={categoriesDropdownOpen}
+                    aria-haspopup="true"
                     className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150 cursor-pointer ${
                       categoriesDropdownOpen
                         ? "bg-white/15 text-white"
@@ -1285,93 +1320,32 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 </TooltipContent>
               </Tooltip>
 
-              {/* Categories Megamenu Dropdown with dedicated subcategory view */}
+              {/*
+                THE SAME LIST AS EXPLORE'S MORE PICKER, HANGING FROM THE BUTTON.
+                Plain rows, a chevron where a category opens and a tick on the
+                one you are on; a category's subcategories slide in as a level
+                of their own with a back row, instead of replacing the list
+                with a "Back to Categories" link over a violet icon and a Hot
+                badge. See components/explore/category-browser.
+              */}
               {categoriesDropdownOpen && (
-                <div className="absolute top-full left-0 mt-2 w-[320px] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50">
-                  <div className="max-h-[70vh] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}>
-                    {/* Subcategory View */}
-                    {selectedCategoryForSubs && selectedCategoryData ? (
-                      <div className="p-3">
-                        <button
-                          onClick={() => setSelectedCategoryForSubs(null)}
-                          className="flex items-center gap-2 px-2 py-2 mb-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                          <span>Back to Categories</span>
-                        </button>
-                        <div className="flex items-center gap-3 px-3 py-2 mb-2">
-                          <selectedCategoryData.icon className="h-5 w-5 text-violet-500" />
-                          <span className="text-base font-semibold text-gray-900">{selectedCategoryData.label}</span>
-                          {selectedCategoryData.isHot && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
-                              <Flame className="h-3 w-3" />
-                              Hot
-                            </span>
-                          )}
-                        </div>
-                        <Link
-                          href={getCanonicalOrRelativePath(selectedCategoryData.href + '&scroll=recommended')}
-                          onClick={() => setCategoriesDropdownOpen(false)}
-                          className="flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
-                        >
-                          <span>View All {selectedCategoryData.label}</span>
-                          <ArrowRight className="h-4 w-4" />
-                        </Link>
-                        <div className="space-y-0.5 mt-2">
-                          {selectedCategoryData.subcategories.map((sub) => (
-                            <Link
-                              key={sub.label}
-                              href={getCanonicalOrRelativePath(sub.href + '&scroll=recommended')}
-                              onClick={() => setCategoriesDropdownOpen(false)}
-                              className="block px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
-                            >
-                              {sub.label}
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      /* Main Categories List */
-                      <div className="p-3">
-                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Browse Categories</h3>
-                        <div className="space-y-0.5">
-                          {CATEGORIES_WITH_SUBS.map((cat) => {
-                            const Icon = cat.icon
-                            const hasSubcats = cat.subcategories && cat.subcategories.length > 0
-                            return (
-                              <button
-                                key={cat.label}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  if (hasSubcats) {
-                                    setSelectedCategoryForSubs(cat.label)
-                                  } else {
-                                    navigateToExploreCategory(cat.href + '&scroll=recommended')
-                                    setCategoriesDropdownOpen(false)
-                                  }
-                                }}
-                                className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <Icon className="h-4 w-4 text-gray-400" />
-                                  <span>{cat.label}</span>
-                                  {cat.isHot && (
-                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
-                                      <Flame className="h-3 w-3" />
-                                      Hot
-                                    </span>
-                                  )}
-                                </div>
-                                {hasSubcats && (
-                                  <ChevronRight className="h-4 w-4 text-gray-400" />
-                                )}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                <div
+                  data-header-categories=""
+                  role="dialog"
+                  aria-label="Categories"
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setCategoriesDropdownOpen(false)
+                  }}
+                  className="absolute top-full left-0 mt-2 z-50 flex h-[min(480px,calc(100dvh-120px))] w-[320px] flex-col overflow-hidden rounded-xl bg-white text-[#1a1a2e] shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_2px_4px_-1px_rgba(15,23,42,0.06),0_12px_32px_-8px_rgba(15,23,42,0.18)] animate-in fade-in-0 zoom-in-[0.97] origin-top-left duration-150 ease-out"
+                >
+                  <CategoryBrowser
+                    groups={HEADER_GROUPS}
+                    selectedGroup={browserSelection.group}
+                    selectedItem={browserSelection.item}
+                    onPick={pickCategory}
+                    phone={false}
+                    heading="Browse categories"
+                  />
                 </div>
               )}
             </div>
@@ -1817,14 +1791,22 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       </div>
 
       {/* Mobile Categories Bottom Sheet with swipe-to-close */}
+      {/*
+        ON EXPLORE, A PRODUCT OR THE WISHLIST THIS SHEET IS THE CATEGORY
+        BROWSER: the same list as Explore's More picker, at a fixed height so
+        opening a category never moves the sheet's top, each level its own
+        scroller, and a category's subcategories sliding in as a level with a
+        back row. What sat around the old list (sign in for a guest, the
+        search link on a product, My Library and the rest) scrolls with the
+        first level. On the marketing pages it is the menu it always was.
+      */}
       <MobileBottomSheet
         isOpen={mobileMenuOpen}
-        onClose={() => {
-          setMobileMenuOpen(false)
-          setExpandedCategory(null)
-        }}
-        contentKey={expandedCategory}
+        onClose={() => setMobileMenuOpen(false)}
+        fill={!isMarketingNavRoute}
+        height={isMarketingNavRoute ? undefined : "min(78dvh, 680px)"}
       >
+        {isMarketingNavRoute ? (
         <div className="px-4 pb-6">
           {/* Guest User - Simple Sign in and Discover buttons only */}
           {!user && (
@@ -1935,168 +1917,54 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             </div>
           )}
 
-          {isDiscoverProductContext && !isMarketingNavRoute && (
-            <div className="mb-3">
-              {/*
-                This opened the sheet that no longer exists. It goes to the
-                page whose whole top half is a search field instead, which is
-                where somebody who taps "search products" wanted to end up.
-              */}
-              <Link
-                href="/explore"
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full h-[42px] flex items-center gap-2 px-3 bg-gray-100 border border-gray-200 text-gray-600 rounded-xl text-sm cursor-pointer overflow-hidden"
-              >
-                <Search className="h-4 w-4 text-gray-400 shrink-0" />
-                <span className="truncate">{t("search_placeholder")}</span>
-              </Link>
-            </div>
-          )}
-
-          {/* Subcategory View with animation - Only show Browse Categories on non-homepage pages */}
-          {!isMarketingNavRoute && expandedCategory ? (
-            <div className="animate-in slide-in-from-right-4 fade-in duration-300 ease-out">
-              <button
-                type="button"
-                onClick={() => setExpandedCategory(null)}
-                className="flex items-center gap-2 px-2 py-2.5 mb-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-all duration-200 cursor-pointer rounded-lg hover:bg-gray-100 active:scale-[0.98]"
-              >
-                <ChevronLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
-                <span>Back to Categories</span>
-              </button>
-              {(() => {
-                const cat = CATEGORIES_WITH_SUBS.find(c => c.label === expandedCategory)
-                if (!cat) return null
-                const Icon = cat.icon
-                return (
-                  <>
-                    <div className="flex items-center gap-3 px-2 py-2 mb-3">
-                      <Icon className="h-5 w-5 text-violet-500" />
-                      <span className="text-base font-semibold text-gray-900">{cat.label}</span>
-                      {cat.isHot && (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
-                          <Flame className="h-3 w-3" />
-                          Hot
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigateToExploreCategory(cat.href + '&scroll=recommended')
-                        setExpandedCategory(null)
-                        setMobileMenuOpen(false)
-                      }}
-                      className="flex w-full items-center justify-between px-4 py-3 mb-2 rounded-xl text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer touch-manipulation"
-                    >
-                      <span>View All {cat.label}</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </button>
-                    <div className="space-y-0.5">
-                      {cat.subcategories.map((sub, index) => (
-                        <button
-                          key={sub.label}
-                          type="button"
-                          onClick={() => {
-                            navigateToExploreCategory(sub.href + '&scroll=recommended')
-                            setExpandedCategory(null)
-                            setMobileMenuOpen(false)
-                          }}
-                          className="block w-full text-left px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer touch-manipulation animate-in fade-in slide-in-from-right-2"
-                          style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
-                        >
-                          {sub.label}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )
-              })()}
-            </div>
-          ) : !isMarketingNavRoute ? (
-            /* Main Categories List - Only show on non-homepage pages */
-            <div className="animate-in slide-in-from-left-4 fade-in duration-300 ease-out">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Browse Categories</h3>
-              <div className="space-y-0.5">
-                {CATEGORIES_WITH_SUBS.map((cat) => {
-                  const Icon = cat.icon
-                  const hasSubcats = cat.subcategories && cat.subcategories.length > 0
-
-                  const handleCategoryClick = () => {
-                    if (hasSubcats) {
-                      setExpandedCategory(cat.label)
-                    } else {
-                      navigateToExploreCategory(cat.href + '&scroll=recommended')
-                      setMobileMenuOpen(false)
-                    }
-                  }
-
-                  return (
-                    <button
-                      key={cat.label}
-                      type="button"
-                      onClick={handleCategoryClick}
-                      className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer active:bg-gray-200 touch-manipulation select-none"
-                    >
-                      <div className="flex items-center gap-3 pointer-events-none">
-                        <Icon className="h-5 w-5 text-gray-400" />
-                        <span>{cat.label}</span>
-                        {cat.isHot && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
-                            <Flame className="h-3 w-3" />
-                            Hot
-                          </span>
-                        )}
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-gray-400 pointer-events-none" />
-                    </button>
-                  )
-                })}
-              </div>
-
-              {/* Quick Links section */}
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <Link
-                  href={getCanonicalOrRelativePath("/library")}
-                  onClick={(e) => { onCanonicalNav(e, "/library"); setMobileMenuOpen(false) }}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <Library className="h-5 w-5" />
-                    <span>My Library</span>
+        </div>
+        ) : (
+          <CategoryBrowser
+            groups={HEADER_GROUPS}
+            selectedGroup={browserSelection.group}
+            selectedItem={browserSelection.item}
+            onPick={pickCategory}
+            phone
+            heading="Browse categories"
+            rootTop={
+              <div className="px-4 pt-1">
+                {!user && (
+                  <div className="mb-2 flex gap-2">
+                    <Link href="/login" onClick={(e) => { onCanonicalNav(e, "/login"); setMobileMenuOpen(false) }} className="flex h-11 flex-1 items-center justify-center rounded-[10px] bg-[#111113] text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)] active:bg-black">
+                      Sign in
+                    </Link>
+                    <Link href="/explore" onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }} className="flex h-11 flex-1 items-center justify-center rounded-[10px] border border-neutral-200 bg-white text-[15px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(15,23,42,0.05)] active:bg-[#f1f2f4]">
+                      Discover
+                    </Link>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </Link>
-                {user && hasCompletedSellerOnboarding && (
+                )}
+                {isDiscoverProductContext && (
+                  /* This opened a search sheet that no longer exists. It goes to
+                     the page whose whole top half is a search field instead. */
                   <Link
-                    href={getCanonicalOrRelativePath(dashboardHref)}
-                    onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }}
-                    className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                    href="/explore"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="mb-2 flex h-11 w-full items-center gap-2 overflow-hidden rounded-[10px] bg-[#f1f2f4] px-3 text-[15px] text-[#6b7280]"
                   >
-                    <div className="flex items-center gap-3">
-                      <LayoutDashboard className="h-5 w-5" />
-                      <span>Dashboard</span>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                    <Search className="h-4 w-4 shrink-0 text-[#6b7280]" />
+                    <span className="truncate">{t("search_placeholder")}</span>
                   </Link>
+                )}
+              </div>
+            }
+            rootBottom={
+              <div className="border-t border-[#eef0f2] pb-2 pt-1">
+                <MenuRow href="/library" label="My Library" onNav={(e) => { onCanonicalNav(e, "/library"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/library")} />
+                {user && hasCompletedSellerOnboarding && (
+                  <MenuRow href={dashboardHref} label="Dashboard" onNav={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath(dashboardHref)} />
                 )}
                 {user && !hasCompletedSellerOnboarding && (
-                  <Link
-                    href={getCanonicalOrRelativePath('/onboarding')}
-                    onClick={(e) => { onCanonicalNav(e, '/onboarding'); setMobileMenuOpen(false) }}
-                    className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Sparkles className="h-5 w-5" />
-                      <span>Become a Seller</span>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  </Link>
+                  <MenuRow href="/onboarding" label="Become a Seller" onNav={(e) => { onCanonicalNav(e, "/onboarding"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/onboarding")} />
                 )}
               </div>
-            </div>
-          ) : null}
-        </div>
+            }
+          />
+        )}
       </MobileBottomSheet>
 
       {/* Mobile Profile Bottom Sheet with swipe-to-close */}

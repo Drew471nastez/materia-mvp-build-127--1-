@@ -56,6 +56,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ReviewsList } from "@/components/reviews/reviews-list"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { verifiedBadgeLabels } from "@/lib/store-builder/defaults"
+import { CreatorBadges } from "@/components/storefront/creator-badges"
+import type { CreatorBadgeId } from "@/lib/creators/badges"
 import { getIconComponent } from "./section-icons"
 import { DescriptionEditWrapper, RichDescriptionContent } from "./description-rich-editor"
 import { plainSummary } from "@/lib/html-entities"
@@ -2622,6 +2624,12 @@ export interface UnifiedShopHeaderProps {
    */
   surface?: { textColor?: string; mutedColor?: string; avatarBorderColor?: string }
   /**
+   * The badges Storelib has granted this creator (lib/creators/badges.ts),
+   * drawn after the name. Ids, not components, so the server page can pass
+   * them across the client boundary.
+   */
+  badges?: CreatorBadgeId[]
+  /**
    * THE CONTACT IS NOT ON THIS LINE.
    *
    * It was, for a day. The line under the bio is followers, sales and the
@@ -2652,6 +2660,7 @@ export function UnifiedShopHeader({
   reviewAverage = 0,
   followerCount = 0,
   surface,
+  badges,
 }: UnifiedShopHeaderProps) {
   /**
    * One decision, used by the name, the handle, the bio and the meta row.
@@ -3132,6 +3141,7 @@ export function UnifiedShopHeader({
                 </Tooltip>
               </TooltipProvider>
             )}
+            <CreatorBadges badges={badges} ink={headingColor} size={isMobile ? 17 : 20} className={isMobile ? undefined : "max-sm:[&_svg]:h-[17px] max-sm:[&_svg]:w-[17px]"} />
           </h1>
 
           {/*

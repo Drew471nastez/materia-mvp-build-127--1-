@@ -269,7 +269,8 @@ for (const [name, connections, want] of [
       title: r.querySelector("span span:nth-child(2) > span")?.textContent.trim(),
       sub: r.querySelector("span span:nth-child(2) > span:last-child")?.textContent.trim(),
       marks: r.querySelectorAll("svg").length - 1,
-      last: !!card && card.lastElementChild === r,
+      /* Right above the security line, which is the last thing in the card. */
+      last: !!card && r.nextElementSibling === card.lastElementChild && card.lastElementChild.hasAttribute("data-publish-security"),
       h: Math.round(box.height),
       onScreen: box.bottom <= window.innerHeight && box.top >= 0,
     }
@@ -278,7 +279,7 @@ for (const [name, connections, want] of [
   if (row) {
     expect(row.state === want.state && row.title === want.title && row.sub === want.sub && row.marks === want.marks,
       `  it reads "${row.title}", "${row.sub}", with ${row.marks} mark${row.marks === 1 ? "" : "s"}`, row.state)
-    expect(row.last, "  and it is the last thing in the sheet's card")
+    expect(row.last, "  and it sits right above the security line, the last thing in the sheet's card")
     expect(row.h >= 44, `  a thumb's height (${row.h}px)`)
   }
   const heights = [...new Set(frames.map((f) => f.h))]

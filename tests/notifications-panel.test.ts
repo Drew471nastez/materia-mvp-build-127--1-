@@ -168,6 +168,17 @@ console.log("\nThe panel")
       && /\{unreadOnly \? "No unread notifications" : t\("notifications\.empty"\)\}/.test(panel)
       && !/w-14 h-14 rounded-full/.test(panel) && !/w-7 h-7/.test(panel) && !/notifications\.emptyDesc/.test(panel))
   check("both bells read the live count", (readCode("components/app/sidebar.tsx").match(/<LiveNotificationBadge \{\.\.\.badgeProps\} \/>/g) ?? []).length === 2)
+  /* "Remove the X close button. Replace the purple unread dot with a more refined modern circle. Switching between All / Updates / Messages / Opportunities must be smooth." */
+  check("no close button: outside, Escape or a drag down closes it", !/label="Close"/.test(panel) && !/\bX\b[^"]*from "lucide-react"/.test(panel) && /onClose=\{closeSheet\}/.test(panel) && /if \(e\.key === "Escape"\) onOpenChange\(false\)/.test(panel))
+  check("an unread row's mark is a near black bead with a soft ring and a touch of light, shrinking away when read; nothing violet in the panel",
+    /bg-\[#111113\] shadow-\[0_0_0_3px_rgba\(17,17,19,0\.07\),inset_0_1px_0\.5px_rgba\(255,255,255,0\.28\)\]/.test(panel) && /unread \? "scale-100 opacity-100" : "scale-50 opacity-0"/.test(panel) && !/8b5cf6/.test(panel))
+  check("the chosen tab is a dark copy of the row cut to its pill, and a switch moves the cut, so each word turns white as the pill reaches it",
+    /pill\.style\.clipPath = `inset\(0px \$\{right\}px 0px \$\{left\}px round 999px\)`/.test(panel) && /const TAB_MOVE = "clip-path 300ms cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(panel)
+      && /data-tab-pill=""[\s\S]{0,200}bg-\[#1a1a2e\]/.test(panel) && !/selected \? "text-white"/.test(panel))
+  check("one resize observer for the row's life, so a switch is never placed again without its move", /placeRef\.current\(false\)/.test(panel) && /ro\.observe\(row\)\s*return \(\) => ro\.disconnect\(\)\s*\}, \[\]\)/.test(panel))
+  check("the new view's rows fade in from the top, and a computer's panel keeps its height until it closes",
+    (panel.match(/key=\{activeTab\}[^>]*animate-in fade-in-0 duration-200 motion-reduce:animate-none/g) ?? []).length === 2 && /if \(listRef\.current\) listRef\.current\.scrollTop = 0/.test(panel)
+      && /body\.style\.minHeight = `\$\{Math\.max\(body\.offsetHeight, parseFloat\(body\.style\.minHeight\) \|\| 0\)\}px`/.test(panel))
   check("no glass or gradient on the panel", !/backdrop-blur|bg-gradient/.test(panel))
   const banned = /\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i
   const copy = [...panel.matchAll(/"([A-Z][^"]{6,})"/g)].map((m) => m[1])

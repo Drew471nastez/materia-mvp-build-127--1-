@@ -28,6 +28,7 @@ import {
 import { useState, useEffect, useCallback, useRef } from "react"
 import type { OnePage } from "@/lib/onepage/types"
 import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
+import { creatorPageHostFrom } from "@/lib/custom-domains/client"
 import { openExternal } from "@/lib/native-bridge"
 import {
   Dialog,
@@ -406,8 +407,9 @@ function EditorLayout() {
     fetch("/api/domains")
       .then((res) => res.json())
       .then((data) => {
-        const active = data.domains?.find((d: any) => d.status === "active")
-        if (active) setConnectedDomain(active.domain)
+        /* The OnePage is at /links on the creator page's domain. */
+        const host = creatorPageHostFrom(data)
+        if (host) setConnectedDomain(host)
       })
       .catch(() => {})
 

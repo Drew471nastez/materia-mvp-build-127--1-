@@ -14,10 +14,16 @@ interface DomainRow {
   ssl_status?: string | null
   verified_at?: string | null
   verification_token?: string | null
+  /** From app/api/domains: what it is for, where it is served, and the records Vercel asked for. */
+  purpose?: string | null
+  host?: string | null
+  apex?: boolean | null
+  records?: { type: string; name: string; value: string }[] | null
 }
 
-/** The records a domain needs, the same three Settings › Domains lists. */
+/** The records a domain needs: the ones Vercel recommended (app/api/domains), else its documented defaults. */
 function recordsFor(d: DomainRow): { type: string; name: string; value: string }[] {
+  if (d.records && d.records.length > 0) return d.records
   return [
     { type: "A", name: "@", value: "216.150.1.1" },
     { type: "CNAME", name: "www", value: "cname.vercel-dns.com" },
@@ -60,7 +66,8 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
       .then(async (res) => {
         const d = (await res.json().catch(() => ({}))) as { domains?: DomainRow[]; error?: string }
         if (!res.ok) throw new Error(d.error || "Could not load your domains")
-        if (alive) setDomains(d.domains ?? [])
+        /* This is the website's: a domain connected to the creator page is listed in Settings. */
+        if (alive) setDomains((d.domains ?? []).filter((x) => (x.purpose ?? "website") === "website"))
       })
       .catch((e) => {
         if (!alive) return
@@ -80,7 +87,9 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
   const [confirming, setConfirming] = useState(false)
   const [checking, setChecking] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
-  const current = domains?.[0] ?? null
+  /* One website domain is replaced by a new one (it redirects for 30 days); a creator who
+     connected several in Settings adds alongside them, and manages them there. */
+  const current = domains && domains.length === 1 ? domains[0] : null
   const clean = draft.trim().toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, "").replace(/\/.*$/, "")
 
   const add = async () => {
@@ -98,11 +107,12 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
       const res = await fetch("/api/domains", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domain: clean }),
+        body: JSON.stringify({ domain: clean, purpose: "website", replace: Boolean(current) }),
       })
       const d = (await res.json().catch(() => ({}))) as { domain?: DomainRow; error?: string }
       if (!res.ok || !d.domain) throw new Error(d.error || "Could not connect that domain")
-      setDomains([d.domain])
+      const added = d.domain
+      setDomains((prev) => (current ? [added] : [added, ...(prev ?? [])]))
       setDraft("")
       setConfirming(false)
       setNote("Now add these records where you bought the domain, then press Check DNS.")
@@ -161,12 +171,14 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
             const waiting = d.status !== "active"
             return (
               <Fragment key={d.id}>
-                <Row label={`www.${d.domain}`} hint="Primary address" inline>
+                <Row label={d.host || `www.${d.domain}`} hint="Primary address" inline>
                   <Badge tone={s.tone}>{s.label}</Badge>
                 </Row>
-                <Row label={d.domain} hint="Redirects">
-                  <span className="text-[14px] text-white/60">to www.{d.domain}</span>
-                </Row>
+                {d.apex !== false && (
+                  <Row label={d.domain} hint="Redirects">
+                    <span className="text-[14px] text-white/60">to www.{d.domain}</span>
+                  </Row>
+                )}
                 <Row label="HTTPS" inline>
                   <span className="text-[14px] text-white/60">{s.ssl}</span>
                 </Row>
@@ -175,7 +187,7 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
                     <p className="text-[14px] font-medium text-white">Records to add where you bought the domain</p>
                     <div className="overflow-hidden rounded-xl border border-white/10">
                       {recordsFor(d).map((r) => (
-                        <DnsRecord key={r.type} {...r} />
+                        <DnsRecord key={`${r.type}-${r.name}`} {...r} />
                       ))}
                     </div>
                     <button type="button" onClick={() => void check(d)} disabled={checking === d.id} className={buttonClass}>

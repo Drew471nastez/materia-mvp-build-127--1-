@@ -3,7 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { headers } from "next/headers"
-import { getLinksInternalPath } from "@/lib/url-helpers"
+import { getLinksInternalPath, getLinksShareUrl } from "@/lib/url-helpers"
+import { primaryHostFor } from "@/lib/custom-domains/store"
 import crypto from "crypto"
 
 // Hash IP address for privacy (same as track API)
@@ -155,10 +156,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     faviconUrl = userProfileAvatarUrl
   }
 
+  /* The address it is shared at: <creator page domain>/links, or storelib.com/<handle>/links. */
+  const pageHost = await primaryHostFor(effectiveSellerId, "creator_page")
+  const pageAddress = getLinksShareUrl(slug, pageHost)
+
   return {
     title: pageTitle,
     description: settings?.seo_description || profile?.bio || undefined,
+    alternates: { canonical: pageAddress },
     openGraph: {
+      url: pageAddress,
       title: ogTitle,
       description: settings?.seo_description || profile?.bio || undefined,
       images: socialImageUrl ? [socialImageUrl] : undefined,
@@ -401,7 +408,10 @@ export default async function PublicOnePageRoute({ params }: Props) {
       },
     blocks: publishedBlocks || onepage.draft_blocks || [],
     social_links: onepage.published_social_links || onepage.social_links || {},
-    settings: onepage.settings || { show_branding: true, analytics_enabled: true, subscribe_enabled: true },
+    /* The creator page's own domain names the OnePage too (<domain>/links):
+       read here as well as kept in settings.custom_domain, so a share link is
+       right the moment a domain connects. */
+    settings: { ...(onepage.settings || { show_branding: true, analytics_enabled: true, subscribe_enabled: true }), custom_domain: await primaryHostFor(resolvedCreatorId, "creator_page") },
     seller_id: resolvedCreatorId,
   }
 

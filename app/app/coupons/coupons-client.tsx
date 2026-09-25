@@ -1,13 +1,19 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { LAYER_MOTION_MS } from "@/components/app/page-layer"
+import { prefetchAppPage } from "@/lib/ui/app-navigation"
 import { COUPON_STATE_LABEL, couponState, type CouponState } from "@/lib/checkout/coupons"
-import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card } from "../orders/order-parts"
+import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonSecondary, card } from "../orders/order-parts"
+import { withReturn } from "./coupon-form"
+import { Pill, inkDepth, usePill } from "./coupon-parts"
+import { isReturning, openCoupon, peekReturn, takeReturn } from "./list-return"
+import { whenIdle } from "../products/list-return"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -81,8 +87,19 @@ function datesText(c: Coupon, state: CouponState) {
 
 const usedText = (c: Coupon) => (c.usage_limit !== null ? `${c.usage_count} of ${c.usage_limit} used` : `${c.usage_count} used`)
 
-/** A thumb's size on a phone, the Orders size from 768px. */
-const NEW_BUTTON = "max-md:h-11 max-md:rounded-xl max-md:px-4 max-md:text-[15px]"
+/** New coupon: near black, a thumb's size on a phone, the Orders size from 768px. */
+const NEW_BUTTON = cn(inkDepth, "h-8 rounded-lg px-3 text-[13px] font-medium max-md:h-11 max-md:rounded-xl max-md:px-4 max-md:text-[15px]")
+
+/**
+ * WHERE THE LIST WAS LEFT: the view, kept for the tab (never stored) and
+ * taken up again only on a return from a coupon or the browser's back
+ * (./list-return isReturning). A fresh visit starts at All.
+ */
+let leftAt: View | null = null
+
+/** The row you came back from: a grey tint, fading once the editor has gone. */
+const EDITED_TINT = "#eceef1"
+const EDITED_FADE_MS = 1200
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
@@ -99,28 +116,48 @@ const NEW_BUTTON = "max-md:h-11 max-md:rounded-xl max-md:px-4 max-md:text-[15px]
  * same rule the checkout's (lib/checkout/coupons.ts).
  */
 export function CouponsClient({ initialCoupons, products }: CouponsClientProps) {
-  const [coupons, setCoupons] = useState<Coupon[]>(initialCoupons)
-  const [view, setView] = useState<View>("all")
+  /* A save or a delete in the editor, laid over the rows the router kept (./list-return). */
+  const [coupons, setCoupons] = useState<Coupon[]>(() => withReturn(initialCoupons, peekReturn()))
+  /* The server's list again (a refresh after a change): it is the truth from here. */
+  const [seen, setSeen] = useState(initialCoupons)
+  if (seen !== initialCoupons) {
+    setSeen(initialCoupons)
+    setCoupons(initialCoupons)
+  }
+  const [view, setView] = useState<View>(() => (isReturning() && leftAt ? leftAt : "all"))
+  useEffect(() => {
+    leftAt = view
+  }, [view])
   const [confirmDelete, setConfirmDelete] = useState<Coupon | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const [notice, setNotice] = useState<{ message: string; tone: "ok" | "error" } | null>(null)
-  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const searchParams = useSearchParams()
+  const [notice, say] = usePill()
   const router = useRouter()
+  const sectionRef = useRef<HTMLElement>(null)
 
-  const say = useCallback((message: string, tone: "ok" | "error" = "ok") => {
-    setNotice({ message, tone })
-    if (noticeTimer.current) clearTimeout(noticeTimer.current)
-    noticeTimer.current = setTimeout(() => setNotice(null), 3500)
-  }, [])
-
-  // Returning from the create or edit page
+  /*
+    BACK FROM A COUPON. Say what happened, tint the row it was (brought into
+    view if the scroll left it out), and ask the server for the list again:
+    the one the router kept was drawn before the save.
+  */
   useEffect(() => {
-    const created = searchParams.get("created")
-    const updated = searchParams.get("updated")
-    if (!created && !updated) return
-    say(created ? `${created} created` : `${updated} saved`)
-    router.replace("/app/coupons", { scroll: false })
+    const back = takeReturn()
+    if (!back) return
+    if (back.message) say(back.message)
+    if (back.saved || back.deleted) router.refresh()
+    const section = sectionRef.current
+    if (!back.id || back.deleted || !section) return
+    const row = Array.from(section.querySelectorAll<HTMLElement>(`[data-row="${CSS.escape(back.id)}"]`)).find((el) => el.getClientRects().length > 0)
+    if (!row || typeof row.animate !== "function") return
+    const pane = section.closest<HTMLElement>(".orders-pane")
+    if (pane) {
+      const r = row.getBoundingClientRect()
+      const p = pane.getBoundingClientRect()
+      if (r.top < p.top || r.bottom > p.bottom) pane.scrollTo({ top: pane.scrollTop + r.top - p.top - (p.height - r.height) / 2, behavior: "smooth" })
+    }
+    const targets = row.tagName === "TR" ? (Array.from(row.children) as HTMLElement[]) : [row]
+    for (const el of targets) {
+      el.animate([{ backgroundColor: EDITED_TINT }, { backgroundColor: "rgba(236, 238, 241, 0)" }], { duration: EDITED_FADE_MS, delay: LAYER_MOTION_MS, easing: "ease-out", fill: "backwards" })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -144,7 +181,34 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
     return `${c.product_ids.length} products`
   }
 
-  const warm = (id: string) => router.prefetch(`/app/coupons/${id}`)
+  /* A coupon's page, fetched whole when its row is hovered or touched, so the press finds it here. */
+  const warmed = useRef(new Set<string>())
+  const warm = (href: string) => {
+    if (warmed.current.has(href)) return
+    warmed.current.add(href)
+    prefetchAppPage(router, href)
+  }
+  /* Once the list has drawn and the browser is idle, New coupon and the first three rows, as the Products list does: on a phone there is no hover to start them. */
+  const firstShown = useRef<string[]>([])
+  firstShown.current = shown.slice(0, 3).map((r) => r.coupon.id)
+  useEffect(
+    () =>
+      whenIdle(() => {
+        warm("/app/coupons/new")
+        for (const id of firstShown.current) warm(`/app/coupons/${id}`)
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per visit, with the rows shown when the browser is idle
+    [],
+  )
+  /*
+    OPENING A COUPON SLIDES IT IN over the list on a phone (./list-return).
+    A press with a modifier key, or not the main button, is left to the link.
+  */
+  const openFromLink = (href: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+    e.preventDefault()
+    openCoupon(router, href)
+  }
 
   // ── Actions ─────────────────────────────────────────────────────────────
 
@@ -184,7 +248,7 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
 
   const actionsFor = (c: Coupon) => [
     { label: "Copy code", onClick: () => copyCode(c) },
-    { label: "Edit", href: `/app/coupons/${c.id}` },
+    { label: "Edit", onClick: () => openCoupon(router, `/app/coupons/${c.id}`) },
     { label: c.is_active ? "Turn off" : "Turn on", onClick: () => setActive(c, !c.is_active), separatorBefore: true },
     { label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirmDelete(c) },
   ]
@@ -193,24 +257,18 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
-      {notice && (
-        <div role="status" className="fixed left-1/2 top-[calc(68px+env(safe-area-inset-top)+12px)] z-[100] -translate-x-1/2 animate-in fade-in-0 slide-in-from-top-2 duration-300 md:top-[calc(58px+env(safe-area-inset-top)+14px)]">
-          <div className={cn("max-w-[calc(100vw-2rem)] truncate rounded-xl px-4 py-3 text-[13px] font-medium text-white shadow-lg", notice.tone === "error" ? "bg-rose-600" : "bg-[#1a1a2e]")}>
-            {notice.message}
-          </div>
-        </div>
-      )}
+      <Pill notice={notice} />
 
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
         <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Coupons</h1>
-        <Link href="/app/coupons/new" className={cn(buttonAccent, NEW_BUTTON)}>
+        <Link href="/app/coupons/new" data-new-coupon="" onClick={openFromLink("/app/coupons/new")} onMouseEnter={() => warm("/app/coupons/new")} onTouchStart={() => warm("/app/coupons/new")} className={NEW_BUTTON}>
           <Plus className="h-[18px] w-[18px] md:h-4 md:w-4" />
           New coupon
         </Link>
       </PaneBar>
 
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
-        <section aria-label="Coupons" className={cn(card, "mt-3 overflow-hidden")}>
+        <section ref={sectionRef} aria-label="Coupons" className={cn(card, "mt-3 overflow-hidden")}>
           <div className="flex h-[52px] items-center border-b border-[#eef0f2] px-2 md:h-12">
             <div role="tablist" aria-label="Views" className="orders-strip -my-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-2">
               {VIEWS.map((option) => {
@@ -242,12 +300,13 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
                 {shown.map(({ coupon, state }) => {
                   const dates = datesText(coupon, state)
                   return (
-                    <li key={coupon.id} className="relative flex min-h-[76px] items-center gap-3 py-3 pl-4 pr-1.5 has-[a:active]:bg-[#f6f7f8]">
+                    <li key={coupon.id} data-row={coupon.id} className="relative flex min-h-[76px] items-center gap-3 py-3 pl-4 pr-1.5 has-[a:active]:bg-[#f6f7f8]">
                       <Link
                         href={`/app/coupons/${coupon.id}`}
                         aria-label={`${coupon.code}, ${discountText(coupon)}`}
-                        onTouchStart={() => warm(coupon.id)}
-                        className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#8b5cf6]"
+                        onTouchStart={() => warm(`/app/coupons/${coupon.id}`)}
+                        onClick={openFromLink(`/app/coupons/${coupon.id}`)}
+                        className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#111113]"
                       />
                       <span className="pointer-events-none min-w-0 flex-1">
                         <span className="flex items-center gap-2">
@@ -287,9 +346,20 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
                 </thead>
                 <tbody className="divide-y divide-[#f1f2f4]">
                   {shown.map(({ coupon, state }) => (
-                    <tr key={coupon.id} className="group hover:bg-[#fafbfb]" onMouseEnter={() => warm(coupon.id)}>
+                    <tr
+                      key={coupon.id}
+                      data-row={coupon.id}
+                      className="group cursor-pointer hover:bg-[#fafbfb]"
+                      onMouseEnter={() => warm(`/app/coupons/${coupon.id}`)}
+                      onClick={(e) => {
+                        /* The whole row opens it, except a press inside its own controls or one that bubbled up from its menu's portal. */
+                        const target = e.target as HTMLElement
+                        if (!e.currentTarget.contains(target) || target.closest("a,button,input,label")) return
+                        openCoupon(router, `/app/coupons/${coupon.id}`)
+                      }}
+                    >
                       <td className="h-14 px-3">
-                        <Link href={`/app/coupons/${coupon.id}`} className="font-mono text-[13px] font-semibold tracking-wide text-[#1a1a2e] hover:underline">
+                        <Link href={`/app/coupons/${coupon.id}`} onClick={openFromLink(`/app/coupons/${coupon.id}`)} className="font-mono text-[13px] font-semibold tracking-wide text-[#1a1a2e] hover:underline">
                           {coupon.code}
                         </Link>
                       </td>
@@ -310,7 +380,7 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
                       <td className="h-14 whitespace-nowrap px-3 text-[13px] text-[#6b7280]">{datesText(coupon, state) ?? "No end date"}</td>
                       <td className="h-14 whitespace-nowrap px-2 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Link href={`/app/coupons/${coupon.id}`} className={buttonSecondary}>
+                          <Link href={`/app/coupons/${coupon.id}`} onClick={openFromLink(`/app/coupons/${coupon.id}`)} className={buttonSecondary}>
                             Edit
                           </Link>
                           <ResponsiveActionMenu
@@ -337,7 +407,7 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
                   : "Codes move here on their own as their dates and limits come round."}
               </p>
               {coupons.length === 0 ? (
-                <Link href="/app/coupons/new" className={cn(buttonAccent, NEW_BUTTON, "mt-4")}>
+                <Link href="/app/coupons/new" onClick={openFromLink("/app/coupons/new")} onMouseEnter={() => warm("/app/coupons/new")} onTouchStart={() => warm("/app/coupons/new")} className={cn(NEW_BUTTON, "mt-4")}>
                   <Plus className="h-[18px] w-[18px] md:h-4 md:w-4" />
                   Create coupon
                 </Link>

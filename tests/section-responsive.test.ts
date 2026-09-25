@@ -1479,15 +1479,14 @@ check(
 )
 
 check(
-  "the header and the footer wear a black badge, because they are the two rows that are different",
+  "the header and the footer wear a dark grey badge, because they are the two rows that are different",
   /**
-   * Quietened to grey for one round on the argument that two black squares
-   * are the loudest thing in a white list. The owner asked for the black
-   * back and is right that loud is the point: these are the only two rows
-   * that cannot be moved, duplicated or deleted, and the badge says so
-   * before anybody tries.
+   * Grey, then black on the owner's word, and now a dark grey on the
+   * owner's word again: still the darkest tile in the list, because these
+   * are the only two rows that cannot be moved, duplicated or deleted and
+   * the badge says so before anybody tries, but not full black.
    */
-  /isSelected \? "bg-white\/15 text-white" : "bg-neutral-800 text-white"/.test(editor),
+  /isSelected \? "bg-white\/15 text-white" : "bg-\[#4d5058\] text-white"/.test(editor),
 )
 
 check(

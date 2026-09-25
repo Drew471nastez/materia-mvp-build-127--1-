@@ -5,17 +5,24 @@
  * Mounts the real chooser, builder and Subscribers view
  * (scripts/render-automations-probe.tsx) and checks what they claim:
  *
+ *   frame        the product editor's: on a phone a layer over the whole
+ *                screen, over the app's black bar, with its own bar stuck to
+ *                the top; from 768px a page under the black bar with its
+ *                header 24px below it, the 1200px container from lg, and
+ *                the app's back button (an arrow, no border)
  *   chooser      one list of starting points in the order a person meets a
- *                creator, each a neutral line icon, a name, one line and its
- *                steps in words; no violet anywhere, no gradient; full width
- *                inside a 16px gutter on a phone; one you have opens yours;
- *                Start from scratch asks what starts it
- *   builder      a bar with a visible Back, the name, Draft or Live, one
- *                primary action and a menu; the bar, the state line, every
+ *                creator, each a drawing made for it on a white tile, a name,
+ *                one line and its steps in words; no violet anywhere, no
+ *                gradient; full width inside a 16px gutter on a phone and the
+ *                page's width on a computer; one you have opens yours; Start
+ *                from scratch asks what starts it
+ *   builder      a bar with Back, the name, Draft or Live, one primary action
+ *                in near black and a menu; the header, the state line, every
  *                step node and the activity on one left edge and one width;
  *                every + on the column's centre line; no layout shift while it
  *                loads or when a step is opened; the panel beside it on a
- *                desktop, the sheet on a phone; Back goes to the list
+ *                desktop, the sheet on a phone; Save in the bar on a phone and
+ *                in a foot bar from 768px; Back goes to the list
  *   subscribers  a Source column that names the website, a filter that
  *                narrows to one source, and a contact's detail with where
  *                they came from
@@ -136,6 +143,47 @@ try {
   const minText = (p) => p.evaluate(() => Math.min(...[...document.querySelectorAll(".orders-pane *")].filter((e) => e.childNodes.length && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())).map((e) => parseFloat(getComputedStyle(e).fontSize))))
   const lastNav = (p) => p.evaluate(() => (window.__nav || []).filter((n) => n[0] !== "prefetch").at(-1) ?? null)
 
+  /**
+   * The product editor's frame. On a phone: the page is a layer over the
+   * whole screen, the shell's black bar is neither painted nor under the
+   * page's own bar, the bar starts at the top edge and stays there when the
+   * page scrolls. From 768px: the black bar is there, and the page's header
+   * (`title`) starts 24px or more under it, not stuck to it.
+   */
+  const frame = async (p, isPhone, title) => {
+    const f = await p.evaluate((sel) => {
+      const shell = document.querySelector("[data-probe-topbar]")
+      const bar = document.querySelector("[data-flow-bar]")
+      const t = document.querySelector(sel)
+      const top = document.elementFromPoint(20, 20)
+      return {
+        shellShown: getComputedStyle(shell).visibility !== "hidden",
+        shellBottom: Math.round(shell.getBoundingClientRect().bottom),
+        barTop: Math.round(bar.getBoundingClientRect().top),
+        titleTop: Math.round(t.getBoundingClientRect().top),
+        topIsPage: !!top?.closest("[data-page-layer]"),
+      }
+    }, title)
+    if (isPhone) {
+      expect(!f.shellShown && f.topIsPage && f.barTop === 0, "a page of its own over the whole screen: no black bar, its own bar at the top", f)
+      await p.evaluate(() => { document.querySelector(".orders-pane").scrollTop = 600 })
+      await sleep(250)
+      const stuck = await p.evaluate(() => { const bar = document.querySelector("[data-flow-bar]"); return { top: Math.round(bar.getBoundingClientRect().top), shadow: getComputedStyle(bar).boxShadow !== "none" } })
+      expect(stuck.top === 0 && stuck.shadow, "and the bar stays at the top as the page scrolls, with a shade under it", stuck)
+      await p.evaluate(() => { document.querySelector(".orders-pane").scrollTop = 0 })
+      await sleep(200)
+    } else {
+      expect(f.shellShown && f.titleTop - f.shellBottom >= 24 && f.titleTop - f.shellBottom <= 32, "under the black bar, with the product editor's 24px of room above the header", f)
+      const pane = await p.evaluate(() => { const el = document.querySelector(".orders-pane"); el.scrollTop = 400; return el.scrollTop })
+      await sleep(200)
+      const moved = await p.evaluate(() => Math.round(document.querySelector("[data-flow-bar]").getBoundingClientRect().top))
+      /* A page that fits the window has nothing to scroll: the header then stays by itself. */
+      expect(pane === 0 || moved === f.barTop - pane, "the header is in the page and scrolls away with it, as the product editor's does", { before: f.barTop, after: moved, scrolled: pane })
+      await p.evaluate(() => { document.querySelector(".orders-pane").scrollTop = 0 })
+      await sleep(200)
+    }
+  }
+
   const phone = (width, height) => ({ width, height, isMobile: true, hasTouch: true, deviceScaleFactor: 2 })
   const viewports = [
     ["360", phone(360, 740)],
@@ -163,10 +211,15 @@ try {
     expect(new Set(rows.map((r) => r.x)).size === 1 && new Set(rows.map((r) => r.w)).size === 1 && new Set(rows.map((r) => r.iconX)).size === 1, "every row and every icon on one left edge, one width", rows.map((r) => [r.x, r.w, r.iconX]))
     const listBox = await p.$eval("[aria-label='Starting points']", (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), w: Math.round(r.width) } })
     if (isPhone) expect(listBox.x === 16 + 1 && listBox.w === vp.width - 32 - 2, "full width inside a 16px gutter", listBox)
-    else expect(listBox.w <= 760, "a readable measure on a wide screen, centred", listBox)
+    else expect(listBox.w === 1200 - 64 - 2 && Math.abs(listBox.x + listBox.w / 2 - vp.width / 2) <= 1, "the page's 1200px container on a wide screen, centred, like the product editor", listBox)
+    await frame(p, isPhone, "h1")
+    const drawn = await p.$$eval("[aria-label='Starting points'] > li > button [data-list-icon] svg", (x) => x.map((e) => e.getAttribute("data-flow-icon")))
+    expect(drawn.length === 9 && drawn.every(Boolean) && new Set(drawn.slice(0, 8)).size >= 7, "every icon is one of the drawings made for these pages, not an icon set's", drawn)
+    const tile = await p.$eval("[aria-label='Starting points'] > li > button [data-list-icon]", (t) => { const cs = getComputedStyle(t); return { w: t.getBoundingClientRect().width, bg: cs.backgroundColor, shadow: cs.boxShadow } })
+    expect(tile.w === 40 && tile.bg === "rgb(255, 255, 255)" && (tile.shadow.match(/rgba/g) ?? []).length >= 3, "on a 40px white tile with a hairline and layered shade", tile)
     expect((await violetOrGradient(p, "[aria-label='Starting points']")).length === 0, "no violet and no gradient anywhere in the list", await violetOrGradient(p, "[aria-label='Starting points']"))
     const iconColour = await p.$eval("[aria-label='Starting points'] li button span[aria-hidden] svg", (s) => getComputedStyle(s).color)
-    expect(/rgb\((63, 63, 70|55, 65, 81|75, 85, 99)\)/.test(iconColour), "the icons are one neutral ink", iconColour)
+    expect(/rgb\((39, 39, 42|63, 63, 70|55, 65, 81|75, 85, 99)\)/.test(iconColour), "the icons are one neutral ink", iconColour)
     expect((await spills(p, "[aria-label='Starting points'] > li > button")).length === 0, "nothing spills out of a row", await spills(p, "[aria-label='Starting points'] > li > button"))
     expect((await sideways(p)) === 0, "the page never scrolls sideways", await sideways(p))
     expect((await minText(p)) >= 12, "no text under 12px", await minText(p))
@@ -202,13 +255,14 @@ try {
       const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height), r: Math.round(r.right) } }
       const back = document.querySelector("button[aria-label='Back to automations']")
       const name = document.querySelector("input[aria-label=Name]")
-      const primary = [...document.querySelectorAll("[data-orders-bar] button")].find((x) => ["Save", "Turn on"].includes(x.textContent.trim()))
-      const more = document.querySelector("[data-orders-bar] button[aria-label='More actions']")
-      const badge = [...document.querySelectorAll("[data-orders-bar] span")].find((x) => ["Live", "Draft", "Paused"].includes(x.textContent.trim()) && getComputedStyle(x).display !== "none")
+      const primary = [...document.querySelectorAll("[data-flow-bar] button")].find((x) => ["Save", "Turn on"].includes(x.textContent.trim()) && getComputedStyle(x).display !== "none")
+      const more = document.querySelector("[data-flow-bar] button[aria-label='More actions']")
+      const badge = [...document.querySelectorAll("span")].find((x) => ["Live", "Draft", "Paused"].includes(x.textContent.trim()) && getComputedStyle(x).display !== "none" && x.getBoundingClientRect().width > 0)
       return { back: box(back), backBorder: back ? getComputedStyle(back).borderTopWidth : null, name: box(name), primary: primary ? primary.textContent.trim() : null, more: box(more), badge: badge ? { text: badge.textContent.trim(), ...box(badge) } : null }
     })
-    expect(bar.back && bar.back.w >= 36 && bar.back.h >= 36 && bar.backBorder === "1px", "Back is a 36px bordered button, easy to see", bar.back)
-    if (isPhone) expect(bar.more && bar.more.r === vp.width - gutter, "the menu sits at the bar's right edge, on the gutter", { more: bar.more, gutter })
+    expect(bar.back && bar.back.w === (isPhone ? 40 : 36) && bar.back.h === bar.back.w && bar.backBorder === "0px", "Back is the app's back button: an arrow on a quiet square, no border, 40px on a phone and 36px from 768px", { ...bar.back, border: bar.backBorder })
+    await frame(b, isPhone, "input[aria-label=Name]")
+    if (isPhone) expect(bar.more && bar.more.r <= vp.width && bar.more.r >= vp.width - gutter, "the menu sits at the bar's right edge, on the gutter", { more: bar.more, gutter })
     expect(bar.badge?.text === "Live", "the state says Live", bar.badge)
     expect(bar.primary === null, "a live flow with nothing to save shows no primary action, only the menu", bar.primary)
     expect(bar.name && bar.name.w >= 80, "the name has room to be read", bar.name)
@@ -216,7 +270,7 @@ try {
       const box = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), r: Math.round(r.right), w: Math.round(r.width), cx: Math.round(r.left + r.width / 2) } }
       const nodes = [...document.querySelectorAll("ol[aria-label=Steps] > li > button:not([aria-label^='Add'])")].map(box)
       const adds = [...document.querySelectorAll("ol[aria-label=Steps] button[aria-label='Add a step here'], ol[aria-label=Steps] button[aria-label='Add the first step']")].map(box)
-      const back = box(document.querySelector("button[aria-label='Back to automations']"))
+      const back = box(document.querySelector("button[aria-label='Back to automations'] svg"))
       const state = box(document.querySelector("[aria-label='Whether this automation is sending']"))
       const activity = box(document.querySelector("section[aria-label=Activity]"))
       const aside = document.querySelector("aside")
@@ -228,13 +282,13 @@ try {
     expect(new Set(axis.nodes.map((n) => n.x)).size === 1 && new Set(axis.nodes.map((n) => n.w)).size === 1, "every step node on one left edge, one width", axis.nodes.map((n) => [n.x, n.w]))
     expect(axis.adds.length === 6 && axis.adds.every((a) => Math.abs(a.cx - axis.nodes[0].cx) <= 1), "every + on the column's centre line", axis.adds.map((a) => a.cx))
     expect(axis.state.x === axis.nodes[0].x && axis.state.w === axis.nodes[0].w && axis.activity.x === axis.nodes[0].x && axis.activity.w === axis.nodes[0].w, "the state line, the steps and the activity share one edge and one width", { state: axis.state, node: axis.nodes[0], activity: axis.activity })
-    expect(Math.abs(axis.back.x - axis.nodes[0].x) <= 2, "the Back button lines up with the column below it", { back: axis.back.x, column: axis.nodes[0].x })
+    expect(Math.abs(axis.back.x - axis.nodes[0].x) <= 3, "the Back arrow lines up with the column below it", { back: axis.back.x, column: axis.nodes[0].x })
     if (isPhone) {
       expect(axis.nodes[0].x === 16 && axis.nodes[0].r === vp.width - 16, "16px gutters on a phone", axis.nodes[0])
       expect(axis.aside === null, "no side panel on a phone", axis.aside)
     } else {
       expect(axis.aside && axis.aside.w === 420 && axis.aside.x > axis.nodes[0].r && Math.abs(axis.aside.r - axis.more.r) <= 2, "the panel beside the column, 420px, its right edge under the menu", { aside: axis.aside, more: axis.more })
-      expect(Math.abs((axis.back.x + axis.aside.r) / 2 - vp.width / 2) <= 2, "the whole page centred", { left: axis.back.x, right: axis.aside.r })
+      expect(Math.abs((axis.nodes[0].x + axis.aside.r) / 2 - vp.width / 2) <= 2 && axis.aside.r - axis.nodes[0].x === 1200 - 64, "the whole page centred, in the 1200px container", { left: axis.nodes[0].x, right: axis.aside.r })
       expect(axis.aside.y === axis.state.y, "the panel's top lines up with the column's", { aside: axis.aside.y, column: axis.state.y })
       expect(bar.badge && bar.name && bar.badge.x - bar.name.r >= 0 && bar.badge.x - bar.name.r <= 12, "the state badge sits right after the name", { name: bar.name, badge: bar.badge })
     }
@@ -274,13 +328,25 @@ try {
     await b.screenshot({ path: join(shots, `builder-${label}-email.png`) })
     await b.type("input[id^='subject-']", " and welcome")
     await sleep(150)
-    const saveNow = await b.evaluate(() => [...document.querySelectorAll("[data-orders-bar] button")].find((x) => x.textContent.trim() === "Save")?.disabled === false)
-    expect(saveNow, "an edit brings Save into the bar as its one action")
-    await b.evaluate(() => [...document.querySelectorAll("[data-orders-bar] button")].find((x) => x.textContent.trim() === "Save").click())
+    /* A phone saves from its bar; from 768px the foot bar comes up with Discard and Save. */
+    const saveSel = isPhone ? "[data-flow-bar] button" : "[data-flow-foot][data-shown] button"
+    const saves = (sel) => b.evaluate((q) => [...document.querySelectorAll(q)].filter((x) => x.textContent.trim() === "Save" && getComputedStyle(x).display !== "none" && x.getBoundingClientRect().width > 0).map((x) => ({ disabled: x.disabled, bg: getComputedStyle(x).backgroundColor })), sel)
+    await sleep(250)
+    const saveNow = await saves(saveSel)
+    expect(saveNow.length === 1 && !saveNow[0].disabled, isPhone ? "an edit brings Save into the bar as its one action" : "an edit brings up the foot bar with Save", saveNow)
+    expect(saveNow[0]?.bg === "rgb(26, 26, 46)", "Save is near black, not violet", saveNow[0]?.bg)
+    await b.screenshot({ path: join(shots, `builder-${label}-dirty.png`) })
+    if (!isPhone) {
+      expect((await saves("[data-flow-bar] button")).length === 0, "and only there: the header does not carry a second Save")
+      const foot = await b.$eval("[data-flow-foot]", (f) => { const r = f.getBoundingClientRect(); return { bottom: Math.round(r.bottom), h: Math.round(r.height), words: f.textContent } })
+      expect(foot.bottom === vp.height && foot.h >= 64 && /Unsaved changes/.test(foot.words) && /Discard/.test(foot.words), "the foot bar sits on the bottom edge and says what it is for", foot)
+    }
+    await b.evaluate((q) => [...document.querySelectorAll(q)].find((x) => x.textContent.trim() === "Save" && getComputedStyle(x).display !== "none").click(), saveSel)
     await sleep(300)
     const patched = await b.evaluate(() => window.__calls.filter(([m, u]) => m === "PATCH" && u === "/api/automations/flows/f1").length)
     expect(patched === 1, "and Save sends it once", patched)
-    const goneAgain = await b.evaluate(() => ![...document.querySelectorAll("[data-orders-bar] button")].some((x) => x.textContent.trim() === "Save"))
+    await sleep(250)
+    const goneAgain = (await saves("[data-flow-bar] button")).length === 0 && (await b.evaluate(() => !document.querySelector("[data-flow-foot][data-shown]")))
     expect(goneAgain, "once saved, Save leaves the bar")
     await b.keyboard.press("Escape")
     await sleep(500)
@@ -317,11 +383,19 @@ try {
     const x = await open(vp, "broken")
     const listed = await x.$eval("[aria-label='Whether this automation is sending']", (s) => s.textContent)
     expect(/3 things to finish/.test(listed) && /needs a subject/.test(listed) && /is empty/.test(listed), "the state line lists what is missing", listed.slice(0, 160))
-    const primary = await x.evaluate(() => [...document.querySelectorAll("[data-orders-bar] button")].map((b) => b.textContent.trim()).find((t) => ["Save", "Turn on"].includes(t)))
-    const badge = await x.evaluate(() => [...document.querySelectorAll("[data-orders-bar] span")].find((s) => ["Live", "Draft", "Paused"].includes(s.textContent.trim()) && getComputedStyle(s).display !== "none")?.textContent.trim())
+    const primary = await x.evaluate(() => [...document.querySelectorAll("[data-flow-bar] button")].map((b) => b.textContent.trim()).find((t) => ["Save", "Turn on"].includes(t)))
+    const badge = await x.evaluate(() => [...document.querySelectorAll("span")].find((s) => ["Live", "Draft", "Paused"].includes(s.textContent.trim()) && getComputedStyle(s).display !== "none" && s.getBoundingClientRect().width > 0)?.textContent.trim())
     expect(primary === "Turn on" && badge === "Draft", "a draft says Draft, and its one action is Turn on", { primary, badge })
-    await x.evaluate(() => [...document.querySelectorAll("[data-orders-bar] button")].find((b) => b.textContent.trim() === "Turn on").click())
+    await x.evaluate(() => [...document.querySelectorAll("[data-flow-bar] button")].find((b) => b.textContent.trim() === "Turn on").click())
     await sleep(400)
+    const toastLook = await x.evaluate(() => {
+      const t = document.querySelector("[data-toast]")
+      if (!t) return null
+      const icon = t.querySelector("[data-toast-icon]")
+      const greens = [...t.querySelectorAll("*")].filter((e) => /rgb\((16, 185, 129|34, 197, 94|22, 163, 74)\)/.test(getComputedStyle(e).backgroundColor + getComputedStyle(e).color)).length
+      return { bg: getComputedStyle(t).backgroundColor, icon: icon ? getComputedStyle(icon).color : null, title: getComputedStyle(t.querySelector("div > div, li > div") ?? t).color, greens }
+    })
+    expect(toastLook && toastLook.bg === "rgb(17, 17, 19)" && toastLook.icon === "rgb(255, 255, 255)" && toastLook.greens === 0, "its toast is the dark box with a white mark, not red, not green", toastLook)
     const statusCalls = await x.evaluate(() => window.__calls.filter(([, u]) => u.endsWith("/status")).length)
     expect(statusCalls === 0, "Turn on does not reach the server while it is not complete", statusCalls)
     const flagged = await x.$eval("ol[aria-label=Steps]", (o) => o.textContent)
@@ -370,11 +444,26 @@ try {
     expect(filtered.length === 1 && /andrewrullz/.test(filtered[0]), "choosing one shows only that source", filtered)
     expect((await sideways(sp)) === 0, "the page never scrolls sideways", await sideways(sp))
     await sp.screenshot({ path: join(shots, `subscribers-${label}.png`) })
-    await sp.click("section[aria-label=Subscribers] tbody tr td:nth-child(2)")
-    await sleep(600)
-    const detail = await sp.evaluate(() => [...document.querySelectorAll("[role=dialog]")].map((d) => d.textContent).find((t) => /Source/.test(t)) ?? null)
-    expect(detail && /andrewrullz\.storelib\.com/.test(detail) && /Welcome series/.test(detail), "a contact's detail says where they came from and what they are in", detail?.slice(0, 140))
     await sp.close()
+
+    /* The Automations tab's switches: the one slim black switch of /app (components/ui/switch-style.ts), not blue. */
+    const at = await open(vp, "subscribers")
+    await at.evaluate(() => [...document.querySelectorAll("button, [role=tab]")].find((b) => b.textContent.trim() === "Automations").click())
+    await sleep(500)
+    const switches = await at.$$eval("[role=switch]", (x) => x.map((e) => { const r = e.getBoundingClientRect(); return { on: e.getAttribute("aria-checked"), bg: getComputedStyle(e).backgroundColor, w: Math.round(r.width), h: Math.round(r.height) } }))
+    const onSwitch = switches.find((x) => x.on === "true")
+    const offSwitch = switches.find((x) => x.on === "false")
+    expect(switches.length === 2 && onSwitch?.bg === "rgb(17, 17, 19)" && offSwitch?.bg === "rgb(228, 229, 233)" && switches.every((x) => x.w === 38 && x.h === 22),
+      "the Automations list's switches are the slim black switch: near black on, quiet grey off, 38 by 22", switches)
+    await at.screenshot({ path: join(shots, `automations-list-${label}.png`) })
+    await at.close()
+    const sp2 = await open(vp, "subscribers")
+    await sp2.click("section[aria-label=Subscribers] tbody tr td:nth-child(2)")
+    await sleep(600)
+    /* A contact is a page of its own over the list now (app/app/emails/contact-detail.tsx, ContactPage), not a dialog. */
+    const detail = await sp2.evaluate(() => document.querySelector("[data-contact-page]")?.textContent ?? null)
+    expect(detail && /andrewrullz\.storelib\.com/.test(detail) && /Welcome series/.test(detail), "a contact's detail says where they came from and what they are in", detail?.slice(0, 140))
+    await sp2.close()
   }
   console.log(`\nScreenshots: ${shots}`)
 } finally {

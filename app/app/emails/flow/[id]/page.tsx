@@ -37,8 +37,8 @@ export default async function FlowPage({ params }: { params: Promise<{ id: strin
   const [creator, flowRes, products, stats, runs, active, finished, left, failed, failedJobs, starts] = await Promise.all([
     creatorRead,
     supabase.from("email_flows").select("id, creator_id, name, trigger_type, trigger_config, status, steps, updated_at").eq("id", id).maybeSingle(),
-    creatorRead.then((data) =>
-      data ? supabase.from("products").select("id, title").eq("creator_id", data.id).order("created_at", { ascending: false }).limit(200) : { data: [] },
+    creatorRead.then(async (data): Promise<{ data: Array<{ id: string; title: string }> | null }> =>
+      data ? await supabase.from("products").select("id, title").eq("creator_id", data.id).order("created_at", { ascending: false }).limit(200) : { data: [] },
     ),
     supabase.rpc("email_flow_step_stats", { p_flow_id: id }),
     supabase

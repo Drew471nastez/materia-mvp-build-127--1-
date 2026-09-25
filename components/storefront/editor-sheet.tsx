@@ -57,6 +57,7 @@ import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { OverlayScroll } from "@/components/storefront/overlay-scroll"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
 import { useRouter } from "next/navigation"
 
@@ -245,6 +246,26 @@ export function EditorSheet({
     wasOpen.current = open
     /* The phone sheet reports its own exit, to the frame. */
     if (!leaving || phone) return
+    /**
+     * ===================================================================
+     *  THE PAGE ANSWERS THE MOMENT THE DRAWER STARTS TO LEAVE
+     * ===================================================================
+     * "Sometimes after closing it, it cannot be opened again." A modal
+     * Radix dialog turns `pointer-events` off on the body while it is
+     * mounted, and it stays mounted for the length of its exit. So for the
+     * 200ms the drawer took to slide away, every click on the page landed
+     * nowhere: close it by clicking beside it, press the pencil again, and
+     * nothing happened. Measured in scripts/check-creator-editor.mjs, where
+     * a press 90ms after closing opened nothing at all.
+     *
+     * The layer being closed no longer holds the page: the overlay and the
+     * panel stop taking pointers as soon as their state is `closed` (the
+     * classes below), and the body's lock goes now rather than after the
+     * slide. Radix puts back the same empty value when the layer unmounts.
+     */
+    if (typeof document !== "undefined" && document.body.style.pointerEvents === "none") {
+      document.body.style.pointerEvents = ""
+    }
     const fn = closedRef.current
     if (!fn) return
     const timer = setTimeout(fn, SHEET_EXIT_MS_DESKTOP)
@@ -368,7 +389,7 @@ export function EditorSheet({
           overlay element itself stays, because it is what catches a click
           outside and closes the drawer.
         */
-        overlayClassName="bg-transparent"
+        overlayClassName="bg-transparent data-[state=closed]:!pointer-events-none"
         /*
           The base content class zooms from 95% about the centre, which is a
           dialog's animation and fights a drawer's slide. `disableDefaultAnimations`
@@ -424,6 +445,8 @@ export function EditorSheet({
           */
           "transition-none",
           "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
+          /* Leaving, it takes no clicks: see the note on the body's lock above. */
+          "data-[state=closed]:!pointer-events-none",
         )}
       >
         <DialogHeader className="shrink-0 border-b border-border px-6 py-4">
@@ -431,14 +454,15 @@ export function EditorSheet({
         </DialogHeader>
 
         {/*
-          wb-slim-scroll, the same bar the phone sheet and the builder's
-          panels use. Without it this one drew the system's 15px bar with a
-          painted track, which is the heaviest thing in the drawer.
+          A THIN THUMB OVER THE CONTENT, not the platform's bar. wb-slim-scroll
+          was meant to be that, but Chrome ignores every ::-webkit-scrollbar
+          rule once `scrollbar-width` is set, and drew its own bar with arrow
+          buttons down the side of the form. See overlay-scroll.
         */}
-        <div data-sheet-scroll className="wb-slim-scroll min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+        <OverlayScroll className="px-6 py-5" scrollerProps={{ "data-sheet-scroll": "" }}>
           {children}
           {error && <p className="text-sm text-destructive">{error}</p>}
-        </div>
+        </OverlayScroll>
 
         {/* Not DialogFooter: its `sm:justify-end` beats a grid quietly. */}
         {footer}

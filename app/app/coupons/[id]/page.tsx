@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
-import { CreateCouponClient, type CouponRecord } from "../new/create-coupon-client"
+import { CouponEditor } from "../coupon-editor"
+import type { CouponRecord } from "../coupon-form"
 import { loadCouponArea } from "../load-coupons"
 
 export const dynamic = "force-dynamic"
@@ -27,5 +28,5 @@ export default async function CouponEditPage({ params }: CouponEditPageProps) {
   if (load.state === "no-creator") redirect("/signup/success")
   const coupon = load.coupons[0] as CouponRecord | undefined
   if (!coupon) redirect("/app/coupons")
-  return <CreateCouponClient key={id} products={load.products} initialCoupon={coupon} />
+  return <CouponEditor key={id} products={load.products} initialCoupon={coupon} />
 }

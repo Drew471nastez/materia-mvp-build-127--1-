@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isMissingColumn } from "@/lib/custom-domains/store"
 
 // GET - Resolve a custom domain to a username (used in server-side rendering)
 export async function GET(request: Request) {
@@ -17,12 +18,21 @@ export async function GET(request: Request) {
     const lookupDomain = domain.toLowerCase().replace(/^www\./, "")
 
     // Look up the domain - match active or ssl_provisioning (DNS is verified for both)
-    const { data: domainRecord } = await supabase
+    let { data: domainRecord, error: lookupError } = await supabase
       .from("custom_domains")
-      .select("creator_id, domain, status")
+      .select("creator_id, domain, status, purpose")
       .eq("domain", lookupDomain)
       .in("status", ["active", "ssl_provisioning"])
-      .single()
+      .maybeSingle()
+    /* Before the purpose column exists every domain is a website domain. */
+    if (lookupError && isMissingColumn(lookupError)) {
+      ;({ data: domainRecord } = await supabase
+        .from("custom_domains")
+        .select("creator_id, domain, status")
+        .eq("domain", lookupDomain)
+        .in("status", ["active", "ssl_provisioning"])
+        .maybeSingle() as never)
+    }
 
     if (!domainRecord) {
       return NextResponse.json({ error: "Domain not found" }, { status: 404 })
@@ -53,6 +63,7 @@ export async function GET(request: Request) {
       username: profile.username,
       domain: domainRecord.domain,
       creatorId: domainRecord.creator_id,
+      purpose: (domainRecord as { purpose?: string }).purpose === "creator_page" ? "creator_page" : "website",
     })
   } catch (error) {
     console.error("Domain resolve error:", error)

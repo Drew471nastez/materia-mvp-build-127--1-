@@ -71,40 +71,57 @@ function main() {
   /* ---------------------------------------------------------------------
      A CONNECTED DOMAIN, AND WHAT IT ACTUALLY SERVES
      --------------------------------------------------------------------- */
-  console.log("\n  a connected domain replaces the right rows")
+  console.log("\n  a connected domain is given to what it actually opens")
 
   /*
-    proxy.ts resolves a custom domain and rewrites it to `/u/{username}` —
-    the creator page. So the page and the OnePage under it move to the custom
-    domain, and the WEBSITE does not, because the website is the subdomain and
-    a custom domain does not front it. That is behaviour, not preference, so
-    it is pinned against the proxy rather than against taste.
+    proxy.ts answers a connected domain with the same thing the subdomain
+    answers with: the PUBLISHED WEBSITE when there is one, the creator page
+    when there is not, and the OnePage at /links either way. So the share
+    sheet (quick access's successor, components/app/share) gives the domain to
+    the website once one is published and to the creator page otherwise. This
+    used to say a custom domain never serves the website; the proxy changed
+    and that stopped being true, so it is pinned against the proxy's code now
+    rather than a comment in it.
   */
+  const proxy = read("proxy.ts")
   check(
-    "the creator page uses it when there is one",
-    /const publicStoreUrl = connectedDomain \? `https:\/\/\$\{connectedDomain\}` :/.test(dash),
+    "the proxy serves the published website on a connected domain",
+    /if \(pathname === "\/links" \|\| pathname === "\/links\/"\) \{[\s\S]{0,200}rewritePath = `\/l\/\$\{username\}`[\s\S]{0,400}\} else if \(builtSite\) \{\s*rewritePath = `\/w\/\$\{username\}/.test(proxy),
+  )
+  check("and the creator page when there is none", /\} else if \(pathname === "\/" \|\| pathname === ""\) \{[\s\S]{0,120}rewritePath = `\/u\/\$\{username\}`/.test(proxy))
+  check(
+    /* Its own domain (a creator page domain), or on an old database the one domain while no website is published. */
+    "the creator page takes the domain only when no website is published",
+    /const domainIsPage = !!connectedDomain && \(!websitePublished \|\| connectedDomain !== websiteDomain\)/.test(dash) &&
+      /url: domainIsPage \? `https:\/\/\$\{connectedDomain\}` : getStoreShareUrl\(creatorHandle\)/.test(dash),
   )
   check(
-    "the OnePage uses it too",
-    /const publicOnePageUrl = connectedDomain \? `https:\/\/\$\{connectedDomain\}\/links` :/.test(dash),
+    "the website takes it once one is",
+    /const domainIsWebsite = !!websiteDomain && websitePublished/.test(dash) &&
+      /url: domainIsWebsite \? `https:\/\/\$\{websiteDomain\}` : getWebsiteShareUrl\(creatorHandle\)/.test(dash),
   )
   check(
-    "and the website does not, because a custom domain does not serve it",
-    /const publicWebsiteUrl = creatorHandle && websitePublished \? getWebsiteUrl\(creatorHandle\) : ""/.test(dash),
-    "proxy.ts rewrites a custom domain to /u/{username}, the page — not the site",
+    "the OnePage is the domain's /links",
+    /url: connectedDomain \? `https:\/\/\$\{connectedDomain\}\/links` : getLinksShareUrl\(creatorHandle\)/.test(dash),
   )
-  check("the proxy still says so", /\/u\/\{username\}/.test(read("proxy.ts")))
 
   /* ---------------------------------------------------------------------
-     QUICK ACCESS IS ADDRESSES, NOT ACTIONS
+     THE SHARE SHEET IS ADDRESSES, NOT ACTIONS
      --------------------------------------------------------------------- */
-  console.log("\n  Quick access lists addresses and nothing else")
+  console.log("\n  the share sheet lists addresses and nothing else")
 
   check("no View page button", !/>\s*View page\s*</.test(dash))
   check("no Customize page button", !/>\s*Customize page\s*</.test(dash))
-  check("the three rows are still there", /Creator page/.test(dash) && /OnePage/.test(dash) && />Website</.test(dash))
-  /* And the mark in those rows is the shared one, not a fourth logo file. */
-  check("its Storelib mark is the shared constant", !/image2vector/.test(dash) && /STORELIB_LOGO/.test(dash))
+  check(
+    "the three addresses are still there",
+    /label: "Creator page"/.test(dash) && /label: "OnePage"/.test(dash) && /label: "Website"/.test(dash),
+  )
+  /* And the mark on the pill is the real S, not a fourth logo file. */
+  const outline = read("components/app/share/storelib-outline-mark.tsx")
+  check(
+    "its Storelib mark draws the shared S",
+    !/image2vector/.test(dash) && /STORELIB_S_PATH/.test(outline) && /export const STORELIB_S_PATH/.test(read("components/storelib-mark.tsx")),
+  )
 
   /* ---------------------------------------------------------------------
      THE HEADER IS 3% SHORTER

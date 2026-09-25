@@ -36,6 +36,7 @@ const SUITES = [
   "tests/cookie-banner.test.ts",
   "tests/ai-keeps-working.test.ts",
   "tests/site-address.test.ts",
+  "tests/custom-domains.test.ts",
   "tests/emails-page.test.ts",
   "tests/orders-view.test.ts",
   "tests/orders-detail.test.ts",
@@ -110,6 +111,7 @@ const SUITES = [
   "tests/product-page-load.test.ts",
   "tests/back-no-replay.test.ts",
   "tests/explore-entrance.test.ts",
+  "tests/explore-browse.test.ts",
   "tests/route-loading-bar.test.ts",
   "tests/avatar-grounds.test.ts",
   "tests/brand-logo.test.ts",
@@ -213,6 +215,10 @@ const SUITES = [
   "tests/upload-security.test.ts",
   "tests/direct-uploader.test.ts",
   "tests/settings-account-fixes.test.ts",
+  "tests/coupon-editor.test.ts",
+  "tests/coupon-checkout.test.ts",
+  "tests/home-cards.test.ts",
+  "tests/creator-badges.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

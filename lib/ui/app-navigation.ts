@@ -108,8 +108,8 @@ function pathOf(href: string): string {
 
 /**
  * Whether a slow navigation to this address waits with the spinner. Not the
- * product editor, new or saved: the page you were on stays until the editor
- * is ready. Not the plans page either: it is drawn over the whole shell
+ * product editor or the coupon editor, new or saved: the page you were on
+ * stays until the editor is ready. Not the plans page either: it is drawn over the whole shell
  * (components/app/page-layer.tsx), so a surface under the header would be
  * the wrong shape in the wrong place.
  */
@@ -118,6 +118,8 @@ export function waitsWithSpinner(href: string | null): boolean {
   const path = pathOf(href)
   if (path !== "/app" && !path.startsWith("/app/")) return false
   if (/^\/app\/products\/[^/]+(\/|$)/.test(path)) return false
+  /* The coupon editor, new or saved: the same frame as the product editor's (app/app/coupons/coupon-editor.tsx). */
+  if (/^\/app\/coupons\/[^/]+(\/|$)/.test(path)) return false
   if (path === "/app/settings/billing/upgrade") return false
   return true
 }

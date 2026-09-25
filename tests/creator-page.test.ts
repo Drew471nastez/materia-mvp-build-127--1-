@@ -186,7 +186,10 @@ function main() {
      * covering its middle, works against that.
      */
     check("pinned to the right edge, not centred", sheet.includes("left-auto right-0 top-0 translate-x-0"))
-    check("with no dimming overlay", sheet.includes('overlayClassName="bg-transparent"'))
+    /* Transparent, and it stops taking clicks the moment it starts to leave
+       (`data-[state=closed]`), so a press on the pencil during the drawer's
+       exit reopens it instead of landing on a layer that is on its way out. */
+    check("with no dimming overlay", sheet.includes('overlayClassName="bg-transparent data-[state=closed]:!pointer-events-none"'))
     check("and depth instead", sheet.includes("shadow-[-24px_0_60px_-24px_rgba(15,23,42,0.35)]"))
     /** Radix keeps the node mounted for the exit, so closing is animated. */
     check("it slides both ways", sheet.includes("data-[state=closed]:slide-out-to-right") && sheet.includes("data-[state=open]:slide-in-from-right"))
@@ -517,8 +520,10 @@ function main() {
     const settings = read("components/app/settings-form-new.tsx")
 
     for (const [name, code] of [["the dashboard", dash], ["settings", settings]] as const) {
-      check(`${name} builds the website address from the helper`, code.includes("getWebsiteUrl("))
-      check(`${name} lists Website in quick access`, />Website<\/(div|p)>/.test(code))
+      /* The dashboard's share sheet copies, encodes and shares the address, so it
+         uses the share helper, which is absolute in the app as in a browser. */
+      check(`${name} builds the website address from the helper`, code.includes("getWebsiteUrl(") || code.includes("getWebsiteShareUrl("))
+      check(`${name} lists Website in quick access`, />Website<\/(div|p)>/.test(code) || /label: "Website"/.test(code))
       /**
        * PUBLISHED, NOT INSTALLED. Every account is seeded with theme installs
        * the first time it opens the website builder, so listing on existence
@@ -2144,7 +2149,29 @@ function main() {
      */
     check("the bar's spacer is measured, not guessed", /setBarHeight\(el\.offsetHeight/.test(subscribe))
     check("from the laid-out box, not the transformed one", /offsetHeight/.test(subscribe) && !/spacer[\s\S]{0,40}getBoundingClientRect/.test(subscribe))
-    check("with the old constant as the value before the first measurement", /h-\[76px\] sm:h-\[52px\]/.test(subscribe))
+    /*
+      The old constant (76px, 52px) was the spacer's height before the first
+      measurement, and it was 9px short of the real bar in Inter, so the page
+      moved when the measurement landed. Before measuring, the bar now sits
+      in the flow itself and there is no spacer to guess; after, it is fixed
+      over a spacer of exactly its height. scripts/check-subscribe-states.mjs
+      hydrates it from server HTML and measures the page not moving.
+    */
+    /*
+      THE BAR IS IN THE SERVER'S HTML. It returned null until hydration, so
+      it arrived with the JavaScript and pushed the whole page down by its
+      height on every visit. And its three states move nothing: one button
+      width for all three, no half-faded disabled button, and the success
+      said by a dark pill over the page rather than a green line that made
+      the bar taller. scripts/check-subscribe-states.mjs measures all of it.
+    */
+    check("the subscribe bar is not held back until hydration", !/if \(!settings\.visible \|\| !isHydrated\) return null/.test(subscribe) && /if \(!settings\.visible\) return null/.test(subscribe))
+    check("its button stacks both labels in one cell", /data-subscribe-phase=\{phase\}/.test(subscribe) && (subscribe.match(/col-start-1 row-start-1/g) ?? []).length >= 2)
+    check("and says it worked with the pill, not a green line", /showPillToast\(`Subscribed to/.test(subscribe) && !/text-green-600/.test(subscribe.slice(0, subscribe.indexOf("/** Editor preview version"))))
+    check(
+      "and before the first measurement the bar is in the flow, with no guessed spacer",
+      /!measured && "!relative"/.test(subscribe) && /\{measured && <div aria-hidden className="subscribe-bar-spacer"/.test(subscribe) && !/h-\[76px\] sm:h-\[52px\]/.test(subscribe),
+    )
 
     /**
      * The sheet grows by the keyboard and shrinks back. Only `transform` was

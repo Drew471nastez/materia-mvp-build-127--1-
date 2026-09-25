@@ -1559,8 +1559,29 @@ check(
      * the tabs are equal thirds on a phone and their own widths on desktop,
      * and a webfont arriving late changes those widths after first paint.
      */
-    if (!/transition-\[left,width\]/.test(tabs))
-      missing.push("the active mark no longer slides between tabs")
+    /*
+      It slid on `left` and `width`, which is a layout on every frame of the
+      slide. It slides on transform now (a one-pixel bar translated and
+      scaled), so the compositor draws it; scripts/check-storefront-tabs.mjs
+      reads the computed transition to be sure.
+    */
+    if (!/transition-transform/.test(tabs) || !/translateX\(\$\{bar\.left\}px\) scaleX\(\$\{bar\.width\}\)/.test(tabs))
+      missing.push("the active mark no longer slides between tabs on transform")
+    if (/transition-\[left,width\]/.test(tabs))
+      missing.push("the active mark animates left and width again, a layout per frame")
+    /*
+      AND WHAT A SWITCH MUST NOT DO, each measured by that probe: the other
+      tabs' pictures are fetched at idle, so Products opens finished rather
+      than grey; the strip is held where it was when a shorter tab would
+      have let the page clamp and drop it; and a label is as wide as its
+      chosen weight, so the others do not shift sideways.
+    */
+    if (!/'\[role="tabpanel"\]\[hidden\] img\[loading="lazy"\]'/.test(tabs))
+      missing.push("the hidden tabs' pictures are no longer warmed; Products opens on grey boxes")
+    if (!/panels\.style\.minHeight = `\$\{natural \+ drift\}px`/.test(tabs))
+      missing.push("a switch to a shorter tab can drop the strip down the screen again")
+    if (!/after:font-\[530\] after:content-\[attr\(data-label\)/.test(tabs))
+      missing.push("a label no longer reserves its chosen width; the tabs shift sideways on a press")
     if (!/setBar\(\{ left: el\.offsetLeft, width: el\.offsetWidth \}\)/.test(tabs))
       missing.push("the sliding bar is no longer measured from the tab it belongs to")
     if (!/selected && !bar \? "border-foreground" : "border-transparent"/.test(tabs))

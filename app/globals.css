@@ -1342,6 +1342,61 @@ html.capacitor body {
   }
 
   /**
+   * THE EDITOR DRAWER'S SCROLLBAR (components/storefront/overlay-scroll).
+   * Under a mouse or a trackpad the platform's bar is hidden and a 6px thumb
+   * is drawn over the content instead, fading in while the list moves or the
+   * pointer is over it. On a touch screen (a coarse primary pointer) the
+   * platform's overlay indicator already is that, so it is left alone and the
+   * drawn thumb never appears.
+   */
+  .cp-overlay-rail {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    right: 3px;
+    width: 6px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 220ms ease-out;
+  }
+  .cp-overlay-rail[data-visible="true"],
+  .cp-overlay-rail[data-dragging] {
+    opacity: 1;
+    transition-duration: 120ms;
+  }
+  .cp-overlay-thumb {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border-radius: 999px;
+    background: rgba(17, 17, 19, 0.26);
+    pointer-events: auto;
+    will-change: transform;
+    transition: background-color 150ms ease-out;
+  }
+  .cp-overlay-thumb:hover,
+  .cp-overlay-rail[data-dragging] .cp-overlay-thumb {
+    background: rgba(17, 17, 19, 0.42);
+  }
+  .cp-overlay-rail[data-visible="false"]:not([data-dragging]) .cp-overlay-thumb {
+    pointer-events: none;
+  }
+  @media not (pointer: coarse) {
+    .cp-overlay-scroll {
+      scrollbar-width: none;
+    }
+    .cp-overlay-scroll::-webkit-scrollbar {
+      display: none;
+    }
+  }
+  @media (pointer: coarse) {
+    .cp-overlay-rail {
+      display: none !important;
+    }
+  }
+
+  /**
    * ===========================================================================
    *  THE CODE EDITOR'S TWO THEMES
    * ===========================================================================
@@ -2024,6 +2079,26 @@ html.capacitor body {
 .subscribe-bar-border-dark {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: var(--bar-depth-dark);
+}
+
+/*
+  THE CREATOR PAGE'S BAR IN THE APP, BEFORE THE APP IS KNOWN.
+  The bar is in the server's HTML now, and the server renders the web's
+  sticky layout: fixed at the top, with a spacer under it. Inside the iOS and
+  Android apps the bar sits in the flow under the app's own header instead,
+  and the component only learns it is in the app after hydration. The root
+  layout marks <html> with `capacitor` before first paint, so these put it in
+  the flow from the first frame and nothing moves when React catches up.
+  components/store-builder/subscribe-bar.tsx.
+*/
+html.capacitor .subscribe-bar-fixed {
+  position: relative !important;
+  top: auto !important;
+  z-index: auto !important;
+  transform: none !important;
+}
+html.capacitor .subscribe-bar-spacer {
+  display: none;
 }
 
 /* OnePage Button Animations */
@@ -5689,4 +5764,192 @@ html.pop-in-flight #platform-header-root {
  */
 html:has([data-app-sheet="open"], [role="dialog"][aria-modal="true"], [role="dialog"][data-state="open"]) [data-cookie-banner] {
   visibility: hidden;
+}
+
+/* ─── HOME CARDS ──────────────────────────────────────────────────────────
+ * Getting started, the guide and Your Plan (components/app/home/home-cards).
+ *
+ * WHY HERE AND NOT IN hover: CLASSES. On a touch screen the rules above take
+ * the shadow off anything with a hover:shadow class the moment it is tapped,
+ * and every transform inside a .group. These cards keep their resting
+ * shadow on a phone and only lift, tip and drift under a real mouse
+ * (hover: hover and pointer: fine), so the rules are written out here.
+ * Every movement is on `translate`, `rotate` and `scale`, the individual
+ * properties, never `transform`.
+ */
+.home-card {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 2px 6px -2px rgba(16, 24, 40, 0.05);
+  transition:
+    box-shadow 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    scale 160ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .home-card:hover {
+    border-color: #dcdee4;
+    box-shadow:
+      0 1px 2px rgba(16, 24, 40, 0.04),
+      0 22px 44px -18px rgba(16, 24, 40, 0.2),
+      0 8px 16px -8px rgba(16, 24, 40, 0.08);
+  }
+}
+
+/* The three payment tiles, tipped at rest, lifted and tipped further on hover. */
+[data-pay-tile] {
+  overflow: hidden;
+  box-shadow:
+    0 16px 30px -14px rgba(16, 24, 40, 0.42),
+    0 4px 10px -3px rgba(16, 24, 40, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  transition:
+    translate 640ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    rotate 640ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+[data-pay-tile]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 45%);
+  pointer-events: none;
+}
+[data-pay-tile="paypal"] {
+  rotate: -13deg;
+  box-shadow:
+    0 0 0 1px rgba(16, 24, 40, 0.06),
+    0 16px 30px -14px rgba(16, 24, 40, 0.3),
+    0 4px 10px -3px rgba(16, 24, 40, 0.1);
+}
+[data-pay-tile="paypal"]::before {
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0), rgba(16, 24, 40, 0.035));
+}
+[data-pay-tile="visa"] { rotate: -6deg; }
+[data-pay-tile="stripe"] { rotate: 11deg; }
+@media (hover: hover) and (pointer: fine) {
+  .home-card:hover [data-pay-tile="paypal"] { translate: -4px -10px; rotate: -19deg; }
+  .home-card:hover [data-pay-tile="visa"] { translate: 2px -14px; rotate: -1deg; transition-delay: 40ms; }
+  .home-card:hover [data-pay-tile="stripe"] { translate: 6px -9px; rotate: 17deg; transition-delay: 80ms; }
+}
+
+/* Pressing the guide: Getting started bumps, its tiles hop, and its next step lights for a moment. */
+@keyframes home-bump {
+  0% { scale: 1; }
+  28% { scale: 1.03; }
+  58% { scale: 0.994; }
+  80% { scale: 1.004; }
+  100% { scale: 1; }
+}
+@keyframes home-tile-hop {
+  0%, 100% { translate: 0 0; }
+  35% { translate: 0 -12px; }
+  68% { translate: 0 2px; }
+}
+@keyframes home-next-lit {
+  0%, 100% { background-color: rgba(139, 92, 246, 0); }
+  22%, 55% { background-color: rgba(139, 92, 246, 0.1); }
+}
+.home-card[data-bump] { animation: home-bump 620ms cubic-bezier(0.3, 0.7, 0.4, 1); }
+.home-card[data-bump] [data-pay-tile] { animation: home-tile-hop 720ms cubic-bezier(0.3, 0.7, 0.4, 1); }
+.home-card[data-bump] [data-pay-tile="visa"] { animation-delay: 50ms; }
+.home-card[data-bump] [data-pay-tile="stripe"] { animation-delay: 100ms; }
+.home-card[data-bump] [data-next-step] { animation: home-next-lit 1400ms ease-out; }
+
+/* The guide: a small press, and its thumbnail drifts, light moving across it. */
+.home-guide:active { scale: 0.985; }
+.home-guide-thumb {
+  background:
+    radial-gradient(60% 75% at 16% 6%, rgba(139, 92, 246, 0.6), rgba(139, 92, 246, 0) 62%),
+    radial-gradient(55% 70% at 96% 96%, rgba(217, 70, 239, 0.22), rgba(217, 70, 239, 0) 70%),
+    linear-gradient(158deg, #1b1630 0%, #0d0c14 72%);
+  background-size: 150% 150%;
+  background-position: 0% 0%;
+  box-shadow:
+    0 22px 44px -20px rgba(20, 12, 48, 0.6),
+    0 3px 8px rgba(20, 12, 48, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition:
+    translate 560ms cubic-bezier(0.34, 1.4, 0.64, 1),
+    background-position 1200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.home-guide-thumb::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.55 0 0 0 -0.18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+.home-guide-thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1.2px) 0 0 / 14px 14px;
+  -webkit-mask-image: radial-gradient(70% 80% at 100% 0%, #000, transparent 70%);
+  mask-image: radial-gradient(70% 80% at 100% 0%, #000, transparent 70%);
+  pointer-events: none;
+}
+.home-guide-thumb > * { z-index: 1; }
+.home-guide-play { transition: scale 400ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 200ms ease; }
+@media (hover: hover) and (pointer: fine) {
+  .home-guide:hover .home-guide-thumb { translate: -6px -6px; background-position: 70% 55%; }
+  .home-guide:hover .home-guide-play { scale: 1.08; background-color: rgba(255, 255, 255, 0.22); }
+}
+
+/* Your Plan: a deep violet sky, clouded and grained, that drifts a little on hover. */
+.home-plan-sky {
+  position: relative;
+  overflow: hidden;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='560' height='120'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.010 0.032' numOctaves='5' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.8 0 0 0 0 0.74 0 0 0 0 1 1.2 0 0 0 -0.53'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3C/svg%3E") 0 50% / 560px 120px,
+    radial-gradient(80% 190% at 92% -30%, rgba(139, 92, 246, 0.45), rgba(139, 92, 246, 0) 62%),
+    radial-gradient(70% 170% at 4% 130%, rgba(20, 6, 52, 0.9), rgba(20, 6, 52, 0) 70%),
+    linear-gradient(100deg, #1f0b4a 0%, #321170 46%, #4c1d95 100%);
+  transition: background-position 1400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.home-plan-sky::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.6 0 0 0 -0.18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.55;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .home-card:hover .home-plan-sky { background-position: -60px 50%, 0 0, 0 0, 0 0; }
+}
+.home-plan-fade {
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), #fff 88%);
+  -webkit-backdrop-filter: blur(1.6px);
+  backdrop-filter: blur(1.6px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 65%);
+  mask-image: linear-gradient(to bottom, transparent, #000 65%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-card[data-bump],
+  .home-card[data-bump] [data-pay-tile] { animation: none; }
+  [data-pay-tile],
+  .home-guide-thumb,
+  .home-plan-sky { transition-duration: 0ms; }
+/*
+  THE NAME OF A CREATOR BADGE, over the badge (components/storefront/creator-badges.tsx).
+  Placed by the badge's centre and top; this lifts it clear and centres it,
+  and it arrives on opacity and transform only.
+*/
+.creator-badge-label {
+  transform: translate(-50%, -100%);
+  animation: creator-badge-in 170ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes creator-badge-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-100% + 4px)) scale(0.96);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .creator-badge-label {
+    animation: none;
+  }
 }

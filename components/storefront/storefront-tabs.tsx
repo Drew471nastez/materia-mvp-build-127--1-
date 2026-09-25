@@ -18,8 +18,9 @@
  */
 
 import * as React from "react"
-import { Users, MessagesSquare } from "lucide-react"
+import { Users } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CommunitiesIllustration } from "./communities-illustration"
 
 export interface StorefrontTab {
   id: string
@@ -49,7 +50,7 @@ export interface StorefrontTab {
  */
 const EMPTY_ICONS = {
   people: Users,
-  communities: MessagesSquare,
+  communities: CommunitiesIllustration,
 } as const
 
 export function EmptyTabPanel({
@@ -61,7 +62,7 @@ export function EmptyTabPanel({
   detail: string
   icon?: keyof typeof EMPTY_ICONS
 }) {
-  const Icon = EMPTY_ICONS[icon] ?? Users
+  const Icon = (EMPTY_ICONS[icon] ?? Users) as typeof Users
   return (
     <div className="mx-auto w-full max-w-[1180px] px-3 sm:px-4 lg:px-6">
       {/*
@@ -82,7 +83,12 @@ export function EmptyTabPanel({
         heading ended up sitting ON the dashed border.
       */}
       <div data-panel-spacing className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
-        <Icon className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden />
+        {/* The drawn mark carries its own colours and size; a glyph is tinted. */}
+        {icon === "communities" ? (
+          <CommunitiesIllustration className="mx-auto mb-4 h-[88px] w-[112px] sm:mb-5 sm:h-[100px] sm:w-[128px]" />
+        ) : (
+          <Icon className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden />
+        )}
         <p className="font-medium text-foreground">{title}</p>
         <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">{detail}</p>
       </div>
@@ -141,6 +147,105 @@ export function StorefrontTabs({
   const listRef = React.useRef<HTMLDivElement>(null)
   const tabRefs = React.useRef(new Map<string, HTMLButtonElement>())
   const [bar, setBar] = React.useState<{ left: number; width: number } | null>(null)
+  const panelsRef = React.useRef<HTMLDivElement>(null)
+  /** Where the strip was on screen the moment a tab was pressed. */
+  const heldAt = React.useRef<number | null>(null)
+
+  const choose = (id: string) => {
+    if (id === active) return
+    heldAt.current = listRef.current ? listRef.current.getBoundingClientRect().top : null
+    setActive(id)
+  }
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  THE STRIP STAYS UNDER THE FINGER
+   * ═══════════════════════════════════════════════════════════════════════
+   * Scrolled down a long Home and pressing Communities, the page got shorter
+   * than the scroll position. The browser clamps that, so the whole page,
+   * strip included, dropped down the screen by the difference: measured at
+   * 115px on a 1280 window. That is the jump.
+   *
+   * So, before paint, the strip is put back where it was: the panels are
+   * given exactly the room the clamp took away and the scroll is handed back.
+   * Nothing moves on screen. The room is only ever what the clamp took, and
+   * it goes again (below) as soon as it is out of sight, so the page does not
+   * end in a hole once the visitor scrolls on.
+   */
+  React.useLayoutEffect(() => {
+    const panels = panelsRef.current
+    const list = listRef.current
+    const was = heldAt.current
+    heldAt.current = null
+    if (!panels || !list) return
+    panels.style.minHeight = ""
+    if (was === null) return
+    const drift = list.getBoundingClientRect().top - was
+    if (drift < 0.5) return
+
+    const scroller = scrollParent(list)
+    const natural = panels.offsetHeight
+    panels.style.minHeight = `${natural + drift}px`
+    if (scroller) scroller.scrollTop += drift
+    else window.scrollBy(0, drift)
+
+    /* Gone once the held room is wholly below what can be seen. */
+    const target: HTMLElement | Window = scroller ?? window
+    const release = () => {
+      const bottom = scroller ? scroller.getBoundingClientRect().bottom : window.innerHeight
+      if (panels.getBoundingClientRect().top + natural <= bottom) return
+      panels.style.minHeight = ""
+      target.removeEventListener("scroll", release)
+    }
+    target.addEventListener("scroll", release, { passive: true })
+    return () => target.removeEventListener("scroll", release)
+  }, [active])
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  THE OTHER TABS' PICTURES ARE FETCHED BEFORE THEY ARE ASKED FOR
+   * ═══════════════════════════════════════════════════════════════════════
+   * A panel that is not showing is `hidden`, which is `display: none`, and a
+   * lazy picture inside it is never requested. So the first press of
+   * Products opened a grid of grey boxes that filled in one by one a
+   * moment later: measured, none of nine pictures ready on the first frame.
+   * That, not the panel swap, was the flash.
+   *
+   * Once the page has loaded and the browser is idle, the pictures in the
+   * hidden panels are asked for and decoded. The first press then shows a
+   * finished grid. Not on a connection that asked to save data, and only the
+   * first couple of dozen, which is more than a phone shows at once.
+   */
+  React.useEffect(() => {
+    if (tabs.length < 2) return
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
+    if (connection?.saveData) return
+    let idle: number | null = null
+    let timer: number | null = null
+    const warm = () => {
+      const panels = panelsRef.current
+      if (!panels) return
+      const waiting = panels.querySelectorAll<HTMLImageElement>('[role="tabpanel"][hidden] img[loading="lazy"]')
+      waiting.forEach((img, i) => {
+        if (i >= 24) return
+        img.loading = "eager"
+        img.decode?.().catch(() => {})
+      })
+    }
+    const start = () => {
+      const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+      if (w.requestIdleCallback) idle = w.requestIdleCallback(warm, { timeout: 2500 })
+      else timer = window.setTimeout(warm, 800)
+    }
+    if (document.readyState === "complete") start()
+    else window.addEventListener("load", start, { once: true })
+    return () => {
+      window.removeEventListener("load", start)
+      const w = window as Window & { cancelIdleCallback?: (id: number) => void }
+      if (idle !== null) w.cancelIdleCallback?.(idle)
+      if (timer !== null) window.clearTimeout(timer)
+    }
+  }, [tabs.length])
 
   React.useLayoutEffect(() => {
     const measure = () => {
@@ -227,7 +332,7 @@ export function StorefrontTabs({
                   role="tab"
                   aria-selected={selected}
                   aria-controls={`storefront-panel-${tab.id}`}
-                  onClick={() => setActive(tab.id)}
+                  onClick={() => choose(tab.id)}
                   className={cn(
                     // `flex-1` on a phone so the three share the width evenly;
                     // `sm:flex-none` hands the width back to the words.
@@ -272,16 +377,38 @@ export function StorefrontTabs({
                       : undefined
                   }
                 >
-                  {tab.label}
+                  {/*
+                    AS WIDE AS ITS OWN SELECTED SELF. The chosen tab is set a
+                    weight heavier, and on a computer the tabs take their own
+                    widths, so choosing one widened it and pushed every label
+                    to its right sideways. The invisible second copy is the
+                    label at the chosen weight; the box is always that wide.
+                    It is generated content with empty alternative text, so
+                    it is neither in the text nor read out.
+                  */}
+                  <span
+                    data-tab-label
+                    data-label={tab.label}
+                    className="inline-flex flex-col items-center after:invisible after:h-0 after:select-none after:overflow-hidden after:font-[530] after:content-[attr(data-label)_/_'']"
+                  >
+                    {tab.label}
+                  </span>
                 </button>
               )
             })}
 
+            {/*
+              ON TRANSFORM, NOT ON LEFT AND WIDTH. Animating `left` and `width`
+              is a layout on every frame of the slide; a one-pixel bar moved
+              and stretched by a transform is drawn by the compositor, so the
+              slide holds its frames even while the panel under it swaps.
+            */}
             {bar && (
               <span
                 aria-hidden
-                className="absolute -bottom-px h-0.5 rounded-full bg-foreground transition-[left,width] duration-[220ms] ease-out motion-reduce:transition-none"
-                style={{ left: bar.left, width: bar.width, background: surface?.textColor }}
+                data-tab-mark
+                className="absolute -bottom-px left-0 h-0.5 w-px origin-left bg-foreground transition-transform duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+                style={{ transform: `translateX(${bar.left}px) scaleX(${bar.width})`, background: surface?.textColor }}
               />
             )}
           </div>
@@ -294,6 +421,7 @@ export function StorefrontTabs({
         sections or re-fetch a single image, and anything a visitor had scrolled
         or typed into a panel is still there when they return.
       */}
+      <div ref={panelsRef} data-tab-panels>
       {tabs.map((tab) => (
         <div
           key={tab.id}
@@ -362,6 +490,18 @@ export function StorefrontTabs({
           {tab.panel}
         </div>
       ))}
+      </div>
     </>
   )
+}
+
+/** The nearest ancestor that scrolls, or null for the page itself. */
+function scrollParent(el: HTMLElement): HTMLElement | null {
+  let node = el.parentElement
+  while (node && node !== document.body && node !== document.documentElement) {
+    const { overflowY } = getComputedStyle(node)
+    if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight) return node
+    node = node.parentElement
+  }
+  return null
 }

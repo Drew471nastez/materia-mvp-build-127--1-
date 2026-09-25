@@ -2033,7 +2033,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     return patterns[patternType] || null
   }
 
-  const pageUrl = getLinksShareUrl(onepage.slug)
+  /* On the creator page's own domain it is <domain>/links (settings.custom_domain, lib/custom-domains). */
+  const pageUrl = getLinksShareUrl(onepage.slug, (onepage.settings as { custom_domain?: string | null } | null)?.custom_domain)
 
   /**
    * ═══════════════════════════════════════════════════════════════════════

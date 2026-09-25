@@ -10,6 +10,8 @@ import { TIME_ZONE_COOKIE } from "@/lib/orders/time-zone"
 import { accountTimeZone } from "@/lib/account/time-zone"
 import { homeTotals } from "@/lib/analytics/home-figures"
 import { pageUser } from "@/lib/auth/page-user"
+import { connectedBioPlatforms } from "@/components/app/share/share-data"
+import { creatorPageHostFromRows, websiteHostFromRows } from "@/lib/custom-domains/client"
 
 /*
   WHO IS ASKING, AND THEIR TWO ROWS, ONCE PER REQUEST. The title and the page
@@ -85,7 +87,7 @@ export default async function AppDashboard() {
     homeProfile(user.id),
     adminSupabase
       .from("onepages")
-      .select("id, status, draft_blocks, bio, avatar_url, title")
+      .select("id, status, draft_blocks, bio, avatar_url, title, social_links, instagram, tiktok, youtube")
       .eq("owner_id", user.id)
       .maybeSingle(),
   ])
@@ -96,9 +98,10 @@ export default async function AppDashboard() {
 
   const [
     { data: products },
-    { data: activeDomain },
+    { data: activeDomains },
     { data: publishedSite },
     { data: ordersData },
+    { data: creatorPageConfig },
   ] = await Promise.all([
     adminSupabase
       .from("products")
@@ -106,10 +109,12 @@ export default async function AppDashboard() {
       .eq("creator_id", creator.id),
     adminSupabase
       .from("custom_domains")
-      .select("domain")
+      /* Every live domain, not maybeSingle: a creator can have several now, and
+         one row too many read as none. The creator page's is picked below. */
+      .select("*")
       .eq("creator_id", creator.id)
       .eq("status", "active")
-      .maybeSingle(),
+      .order("created_at", { ascending: true }),
     /**
      * HAS THIS CREATOR GOT A WEBSITE THAT IS ACTUALLY LIVE?
      *
@@ -132,6 +137,13 @@ export default async function AppDashboard() {
       .select("id, product_id, amount_cents, status, created_at, stripe_session_id, refund_amount_cents, products!inner(creator_id)")
       .eq("products.creator_id", creator.id)
       .order("created_at", { ascending: false }),
+    /* The creator page's header holds the socials Settings edits; the share sheet lists them as "My platforms". */
+    adminSupabase
+      .from("store_builder_configs")
+      .select("published_config, draft_config")
+      .eq("creator_id", creator.id)
+      .eq("page_type", "shop")
+      .maybeSingle(),
   ])
 
   const productIds = products?.map((p: any) => p.id) || []
@@ -213,6 +225,19 @@ export default async function AppDashboard() {
     },
   ]
 
+  /* The platforms a creator is on, from the creator page first and the OnePage second (components/app/share/share-data). */
+  const pageSocials =
+    (creatorPageConfig?.published_config as any)?.headerSettings?.socialLinks ??
+    (creatorPageConfig?.draft_config as any)?.headerSettings?.socialLinks ??
+    null
+  const onePageSocials = {
+    ...((onepage?.social_links as Record<string, string | null> | null) ?? {}),
+    instagram: (onepage?.social_links as any)?.instagram ?? onepage?.instagram ?? null,
+    tiktok: (onepage?.social_links as any)?.tiktok ?? onepage?.tiktok ?? null,
+    youtube: (onepage?.social_links as any)?.youtube ?? onepage?.youtube ?? null,
+  }
+  const sharePlatforms = connectedBioPlatforms({ creatorPage: pageSocials, onePage: onePageSocials })
+
   const displayName = profile?.display_name || creator.display_name || "there"
   const [jar, head] = await Promise.all([cookies(), headers()])
   const greetingTimeZone = greetingZone(jar.get(TIME_ZONE_COOKIE)?.value, head.get("x-vercel-ip-timezone"), accountTimeZone(null, user.user_metadata))
@@ -226,10 +251,11 @@ export default async function AppDashboard() {
       productIds={productIds}
       initialOrders={allOrders}
       creatorHandle={profile?.username || creator.slug || ""}
-      connectedDomain={activeDomain?.domain || null}
-      brandingDetail={{ hasAvatar, hasName, hasBio }}
+      connectedDomain={creatorPageHostFromRows(activeDomains)}
+      websiteDomain={websiteHostFromRows(activeDomains)}
       websitePublished={!!publishedSite}
       subscriptionPlanId={creator.subscription_plan_id || "free"}
+      sharePlatforms={sharePlatforms}
     />
   )
 }
