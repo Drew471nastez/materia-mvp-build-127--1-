@@ -53,6 +53,31 @@ export async function siteOrigin(creatorId: string, name: string): Promise<strin
   return `${protocol}://${origin}`
 }
 
+/**
+ * The creator's own picture (profiles.avatar_url, which Settings and the
+ * page builder both keep), for a share card that has nothing better. Asked
+ * only when the site has no share image, logo or hero picture; cached for
+ * five minutes, and nothing at all rather than an error.
+ */
+export async function creatorAvatar(creatorId: string): Promise<string | null> {
+  return unstable_cache(
+    async () => {
+      try {
+        const admin = createAdminClient()
+        const { data: creator } = await admin.from("creators").select("user_id").eq("id", creatorId).maybeSingle()
+        const userId = (creator as { user_id?: string | null } | null)?.user_id
+        if (!userId) return null
+        const { data: profile } = await admin.from("profiles").select("avatar_url").eq("id", userId).maybeSingle()
+        return ((profile as { avatar_url?: string | null } | null)?.avatar_url ?? null) || null
+      } catch {
+        return null
+      }
+    },
+    ["site-avatar", creatorId],
+    { revalidate: 300 },
+  )()
+}
+
 interface ListedProduct {
   slug: string
   title: string | null

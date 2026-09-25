@@ -22,6 +22,8 @@
  */
 import type { SectionInstance } from "./types"
 import { SITE_DISALLOW, xmlEscape } from "@/lib/seo/indexing"
+import { sameAsUrls } from "@/lib/seo/structured-data"
+import { THEME_SETTINGS_GROUPS } from "./theme-settings-schema"
 
 export interface SitemapImage {
   loc: string
@@ -101,6 +103,28 @@ export function imagesOnPage(sections: SectionInstance[], limit = MAX_IMAGES_PER
     for (const b of s.blocks ?? []) take(b.settings, heading)
   }
   return out
+}
+
+/**
+ * The first picture of the first hero on a page, or undefined. A share card
+ * with no picture of its own takes this: it is what the site opens with.
+ * An SVG is passed over, because the networks that draw share cards do not
+ * draw one.
+ */
+export function heroImage(sections: SectionInstance[]): string | undefined {
+  const hero = sections.find((s) => !s.hidden && /^(?:hero|video_hero)/.test(s.type))
+  if (!hero) return undefined
+  return imagesOnPage([hero], 20).find((i) => !/\.svg(?:\?|$)/i.test(i.loc))?.loc
+}
+
+/** Every address field in Website Settings › Social links, read from the schema so a new one is not missed. */
+const SOCIAL_SETTING_IDS = (THEME_SETTINGS_GROUPS.find((g) => g.id === "social")?.fields ?? [])
+  .filter((f) => f.type === "link")
+  .map((f) => f.id)
+
+/** A site's profiles elsewhere, for `sameAs`: the social links its creator gave it. */
+export function siteSameAs(settings: Record<string, unknown>): string[] {
+  return sameAsUrls(SOCIAL_SETTING_IDS.map((id) => settings[id]))
 }
 
 export function sitemapXml(entries: SitemapEntry[]): string {

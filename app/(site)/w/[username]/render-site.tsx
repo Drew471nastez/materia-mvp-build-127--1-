@@ -27,9 +27,9 @@ import { shopProducts } from "@/lib/website-builder/shop-products"
 import { chromeOf, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
 import { getMainDomain } from "@/lib/url-helpers"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
-import { jsonLdScript, pageUrl, websiteJsonLd } from "@/lib/website-builder/site-seo"
+import { heroImage, jsonLdScript, pageUrl, siteSameAs, websiteJsonLd } from "@/lib/website-builder/site-seo"
 import { pageSeoOf } from "@/lib/website-builder/page-seo"
-import { siteOrigin } from "@/lib/website-builder/site-seo-data"
+import { creatorAvatar, siteOrigin } from "@/lib/website-builder/site-seo-data"
 import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
@@ -125,6 +125,23 @@ export async function siteMetadata(
    */
   const url = pageUrl(await siteOrigin(creator.creatorId, username), pageKey)
 
+  /*
+    A SHARE CARD WITH A PICTURE. og:image came only from the share image in
+    SEO & Social, so most sites were shared as a bare line of text. Without
+    one, the card takes the site's logo, then the first picture of the
+    published front page's hero, then the creator's own avatar. A logo that
+    is not a full address, or is an SVG, is passed over: the networks that
+    draw share cards cannot fetch the one or draw the other.
+  */
+  const hasShareImage = typeof settings.seo_og_image === "string" && settings.seo_og_image.trim() !== ""
+  const logo =
+    typeof settings.logo_url === "string" && /^https?:\/\//i.test(settings.logo_url.trim()) && !/\.svg(?:\?|$)/i.test(settings.logo_url.trim())
+      ? settings.logo_url.trim()
+      : ""
+  const shareImage = hasShareImage
+    ? undefined
+    : logo || heroImage(found.site.pages.home ?? found.site.sections) || (await creatorAvatar(creator.creatorId)) || undefined
+
   return {
     title: { absolute: rawTitle },
     description,
@@ -133,7 +150,7 @@ export async function siteMetadata(
     // The share image, the card type and — the one that matters — whether the
     // page may be indexed at all. All three were in the panel and read by
     // nothing, so "noindex" was a setting somebody trusted and did not have.
-    ...themeMetadata(settings, { title: rawTitle, description, url }),
+    ...themeMetadata(settings, { title: rawTitle, description, url, image: shareImage }),
     /* A page kept out of search on its own, whatever the site's setting. */
     ...(own.hidden ? { robots: { index: false, follow: true } } : {}),
   }
@@ -380,6 +397,8 @@ async function homeStructuredData(
       name: str(t.brand_name) ?? site.displayName,
       description: str(t.seo_description),
       logo: str(t.logo_url) ?? str(t.favicon_url),
+      /* Social links in Website Settings: the owner's profiles elsewhere. */
+      sameAs: siteSameAs(t),
     }),
   )
 }
