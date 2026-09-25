@@ -58,7 +58,7 @@ export function ExploreSkeleton({ cards = 6, gridClassName = "" }: { cards?: num
       <section className="mt-2 scroll-mt-28">
         <div className="flex flex-col gap-4 mb-6 relative">
           <div className="flex items-center gap-2 sm:gap-3" inert>
-            <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide -mx-1 px-1 py-0.5 [mask-image:linear-gradient(to_right,transparent_0,black_8px,black_calc(100%-20px),transparent_100%)]">
+            <div className="flex-1 min-w-0 overflow-x-auto scrollbar-hide -mx-1 pl-1 pr-5 py-0.5 [mask-image:linear-gradient(to_right,transparent_0,black_8px,black_calc(100%-20px),transparent_100%)]">
               <div data-skeleton-pills-row="" className="flex w-max mx-auto items-center gap-2">
                 {CATEGORY_PILLS.map((cat, i) => (
                   <span key={cat.id} className={`${PILL} ${i === 0 ? PILL_ON : PILL_OFF}`}>

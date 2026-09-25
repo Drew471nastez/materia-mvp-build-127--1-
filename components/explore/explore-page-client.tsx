@@ -1069,6 +1069,24 @@ export function ExplorePageClient({
     mainCategory !== pillRow.first.id &&
     !pillRow.pills.some((p) => p.id === mainCategory)
 
+  /*
+    THE PILL YOU ARE ON IS SCROLLED INTO VIEW. On a phone the row scrolls, so
+    a category chosen from More (AI, say, which has a pill) could be the
+    pressed pill somewhere off to the side; and with a category's name on it
+    the More pill is wider, and sat half under the fade at the row's end. The
+    pill saying what you are looking at was the one you could not see.
+  */
+  const pillTrackRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const track = pillTrackRef.current
+    const on = track?.querySelector<HTMLElement>(moreHolds ? "[data-more-pill]" : '[aria-pressed="true"]')
+    if (!track || !on) return
+    const t = track.getBoundingClientRect()
+    const m = on.getBoundingClientRect()
+    if (m.right > t.right - 20) track.scrollBy({ left: m.right - t.right + 24, behavior: "smooth" })
+    else if (m.left < t.left + 8) track.scrollBy({ left: m.left - t.left - 12, behavior: "smooth" })
+  }, [moreHolds, mainCategory])
+
   // Get current browse category label
   const browseCategoryLabel = CATEGORIES.find(c => c.id === browseCategory)?.label || "All"
 
@@ -1138,8 +1156,11 @@ export function ExplorePageClient({
                 continues past the edge looks like more rather than like a
                 pill cut in half.
               */}
+              {/* pr-5 is the fade's own width, so a row scrolled to its end
+                  shows its last pill whole rather than under the fade. */}
               <div
-                className="flex-1 min-w-0 overflow-x-auto scrollbar-hide -mx-1 px-1 py-0.5 [mask-image:linear-gradient(to_right,transparent_0,black_8px,black_calc(100%-20px),transparent_100%)]"
+                ref={pillTrackRef}
+                className="flex-1 min-w-0 overflow-x-auto scrollbar-hide -mx-1 pl-1 pr-5 py-0.5 [mask-image:linear-gradient(to_right,transparent_0,black_8px,black_calc(100%-20px),transparent_100%)]"
               >
               <div
                 data-category-pills-row
@@ -1153,6 +1174,7 @@ export function ExplorePageClient({
                   return (
                     <button
                       key={cat.id}
+                      aria-pressed={isSelected}
                       onClick={() => {
                         setMainCategory(cat.id)
                         setSelectedSubcategoryId(null)

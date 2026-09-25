@@ -216,11 +216,15 @@ console.log("\n2. The More picker")
   await sleep(420)
   await p.click('[data-browse-option="photography/*"]')
   await sleep(400)
+  await sleep(500)
   const held = await p.evaluate(() => {
     const m = document.querySelector("[data-more-pill]")
-    return { label: m.textContent.trim(), bg: getComputedStyle(m).backgroundColor }
+    const t = m.closest(".overflow-x-auto").getBoundingClientRect()
+    const b = m.getBoundingClientRect()
+    return { label: m.textContent.trim(), bg: getComputedStyle(m).backgroundColor, clear: Math.round(t.right - b.right) }
   })
   expect(held.label === "Photography" && held.bg !== "rgb(255, 255, 255)", "More carries the category it is holding, pressed", held)
+  expect(held.clear >= 8, "and the row scrolls it clear of the fade at the edge", held.clear)
   await p.screenshot({ path: join(shots, "more-1280-held.png") })
   await p.close()
 }
@@ -293,8 +297,14 @@ console.log("\n2. The More picker")
   await sleep(450)
   await p.tap('[data-browse-option="ai/prompts"]')
   await sleep(600)
-  const picked = await p.evaluate(() => ({ sheet: !!document.querySelector("[data-app-sheet]"), chip: document.querySelector("[data-subcategory-chip]")?.textContent.trim() }))
+  const picked = await p.evaluate(() => {
+    const on = document.querySelector('[data-category-pills-row] [aria-pressed="true"]')
+    const t = on.closest(".overflow-x-auto").getBoundingClientRect()
+    const b = on.getBoundingClientRect()
+    return { sheet: !!document.querySelector("[data-app-sheet]"), chip: document.querySelector("[data-subcategory-chip]")?.textContent.trim(), pill: on.textContent.trim(), inView: b.left >= t.left && b.right <= t.right - 8 }
+  })
   expect(!picked.sheet && picked.chip === "AI Prompts", "a subcategory tap chooses it and closes the sheet", picked)
+  expect(picked.pill.endsWith("AI") && picked.inView, "and the row brings the AI pill into view, pressed", picked)
   await p.screenshot({ path: join(shots, "more-390-picked.png") })
   await p.close()
 }
