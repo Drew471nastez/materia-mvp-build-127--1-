@@ -78,7 +78,7 @@ export function renderSection(input: RenderInput): Rendered {
     shop: shopObject(input.theme, input.globals?.shop) as unknown as Record<string, unknown>,
     routes: SITE_ROUTES,
     customer: input.globals?.customer ?? null,
-    wishlist: (input.globals?.wishlist ?? null) as Record<string, unknown> | null,
+    wishlist: (input.globals?.wishlist ?? null) as unknown as Record<string, unknown> | null,
   }
   /* No tag here acts on the whole document, whatever the file or a richtext
      setting held: storelib/template.ts, DOCUMENT_MARKUP. And nothing drawn
