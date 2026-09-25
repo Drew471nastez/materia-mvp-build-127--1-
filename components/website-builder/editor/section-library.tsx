@@ -681,7 +681,7 @@ export const SectionLibrary = memo(function SectionLibrary({
   )
 
   const grid = built ? (
-    <StorelibLiveProvider sources={sources}>
+    <>
       <div
         ref={gridRef}
         data-library-grid=""
@@ -705,7 +705,7 @@ export const SectionLibrary = memo(function SectionLibrary({
       {shown.size === 0 && (
         <p className="py-16 text-center text-[14px] text-[#6b7280]">{empty}</p>
       )}
-    </StorelibLiveProvider>
+    </>
   ) : null
 
   const chip = (cat: { key: string; label: string; count: number }) => {

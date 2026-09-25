@@ -80,7 +80,7 @@ function main() {
   check("both answers are offered",
     /"value": "header"/.test(schema) && /"value": "page"/.test(schema))
   check("and the panel draws it",
-    /onUpdateSetting\("search_behaviour"/.test(editor) && /Open it in the header/.test(editor))
+    /onUpdateSetting\("search_behaviour"/.test(editor) && /\{ label: "In the header", value: "header" \}/.test(editor))
 
   check("opening in the header is what a header that says nothing does",
     /str\(s\.search_behaviour, "header"\) !== "page"/.test(header))

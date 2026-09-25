@@ -226,10 +226,12 @@ function main() {
       "the preview's scale is what makes a section drawn at 800px fit a card a third of that",
     )
     check("and its transitions are still killed like the rest", /\.group \*\[data-keep-transform\] \{\s*transition-property: none !important;/.test(css))
-    check("both preview boxes claim their transform", (editor.match(/data-keep-transform/g) ?? []).length >= 2)
+    /* One preview box now, shared by the phone's sheet and the computer's dialog (section-library.tsx). */
+    const library = read("components/website-builder/editor/section-library.tsx")
+    check("the preview box claims its transform", /data-keep-transform/.test(library) && !/data-keep-transform/.test(editor))
 
     // The state a stylesheet, a test and a screen reader can all read.
-    check("the selected chip says so in the DOM, not only in a class", /data-on=\{on \? "true" : "false"\}/.test(editor) && /aria-pressed=\{on\}/.test(editor))
+    check("the selected chip says so in the DOM, not only in a class", /data-on=\{on \? "true" : "false"\}/.test(library) && /aria-pressed=\{on\}/.test(library))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

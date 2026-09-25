@@ -44,7 +44,7 @@ function main() {
   check(
     "the phone breakpoint is the editor's own",
     /const PHONE_MAX_WIDTH = 639/.test(popover) &&
-      /window\.innerWidth < 640/.test(read("app/website-builder/editor/[installId]/page.tsx")),
+      /const PHONE_QUERY = "\(max-width: 639px\)"/.test(read("components/website-builder/editor/section-library.tsx")),
     "two different breakpoints leave a width where the sheet is on and this is not",
   )
   check(

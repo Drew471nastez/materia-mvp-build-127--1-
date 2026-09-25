@@ -957,8 +957,10 @@ section("Add Section is derived from the files, one card per preset")
   check("a creator's own section is filed under its own heading", CUSTOM_SECTION_CATEGORY === "yours" && SECTION_CATEGORIES.yours === "Created by you")
 
   const editorSrc = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+  /* Add a section lives in its own module: components/website-builder/editor/section-library.tsx. */
+  const librarySrc = readFileSync(join(process.cwd(), "components/website-builder/editor/section-library.tsx"), "utf8")
   // The entries are built once, in a memo, rather than per render of the list.
-  check("the modal draws one card per preset, named after the preset", /const allEntries = useMemo<LibraryEntry\[\]>/.test(editorSrc) && /title: name,/.test(editorSrc))
+  check("the library draws one card per preset, named after the preset", /const entries = useMemo<LibraryEntry\[\]>/.test(librarySrc) && /title: name,/.test(librarySrc))
   /**
    * A component declared inside another component is a new type on every
    * render of its parent, so every card unmounts and remounts — the width
@@ -966,9 +968,10 @@ section("Add Section is derived from the files, one card per preset")
    * That was the flicker on picking a category, and it would have been one
    * flicker per keystroke once there was a search box.
    */
-  check("the cards are declared once, at the top level, and memoised", /^const SectionLibraryCard = memo\(function SectionLibraryCard\(/m.test(editorSrc) && !/^\s+const SectionCard = \(/m.test(editorSrc))
-  check("the library can be searched across name, category and description", /placeholder="Search sections"/.test(editorSrc) && /haystack: `\$\{name\} \$\{schema\.name\} \$\{label\}/.test(editorSrc) && /words\.every\(w => e\.haystack\.includes\(w\)\)/.test(editorSrc))
-  check("and a creator's own sections have their own heading, pinned last", /const mine = counts\.has\(CUSTOM_SECTION_CATEGORY\)/.test(editorSrc) && /ownTypes=\{ownSectionTypes\}/.test(editorSrc))
+  check("the cards are declared once, at the top level, and memoised", /^const LibraryCard = memo\(function LibraryCard\(/m.test(librarySrc) && !/^\s+const SectionCard = \(/m.test(librarySrc))
+  check("the library can be searched across name, category and description", /placeholder="Search sections"/.test(librarySrc) && /haystack: `\$\{name\} \$\{schema\.name\} \$\{label\}/.test(librarySrc) && /words\.every\(\(w\) => e\.haystack\.includes\(w\)\)/.test(librarySrc))
+  /* First, not last: what somebody made themselves is what they come back for. */
+  check("and a creator's own sections have their own heading, first", /const mine = counts\.has\(CUSTOM_SECTION_CATEGORY\)/.test(librarySrc) && /return \[\s*\n\s*\.\.\.mine,\s*\n\s*\{ key: "all", label: "All"/.test(librarySrc) && /ownTypes=\{ownSectionTypes\}/.test(editorSrc))
   check("and the chosen preset is the one that lands on the page", /const addSection = \(type: string, presetIndex = 0\)/.test(editorSrc) && /schema\.presets\?\.\[presetIndex\]/.test(editorSrc))
 }
 
@@ -1599,7 +1602,8 @@ section("Two at once still make five, and an import that says what went wrong")
   check("Back in a panel is the whole left of the row, 44px, on a quiet tile",
     /aria-label="Back"/.test(back) && /after:absolute after:inset-0 after:content-\[''\]/.test(back) && /flex h-11 w-11 shrink-0/.test(back) &&
       /<ArrowLeft className="h-5 w-5 md:h-4 md:w-4"/.test(back) && /group-active\/back:scale-\[0\.94\]/.test(back) &&
-      (editor.match(/<PanelBack onBack=/g) ?? []).length === 6)
+      /* Section, header tab, pages, and a colour scheme's own panel. The header's two layout panels are gone: its layouts are drawn in place. */
+      (editor.match(/<PanelBack onBack=/g) ?? []).length === 4)
 
   check("Website Settings on a phone: a subject is pushed over the list and popped off it",
     /const PUSH_MS = 340/.test(settings) && /const POP_MS = 280/.test(settings) && /page\.animate\(push \? \[\{ transform: off \}, \{ transform: at \}\]/.test(settings) &&

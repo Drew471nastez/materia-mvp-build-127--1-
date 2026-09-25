@@ -120,7 +120,7 @@ function main() {
      */
     const lines = editor.split("\n")
     const isFieldLabel = (l: string) =>
-      /<label className="text-xs font-medium text-muted-foreground mb-1\.5 block">\{field\.label\}<\/label>/.test(l)
+      /<label className="wb-field-label mb-1\.5 block text-\[13px\] font-medium text-\[#374151\]">\{field\.label\}<\/label>/.test(l)
     /** A branch above the label that pins the type means a colour cannot reach it. */
     const typePinnedAbove = (i: number) =>
       lines.slice(Math.max(0, i - 6), i).some((l) => /field\.type === "/.test(l))

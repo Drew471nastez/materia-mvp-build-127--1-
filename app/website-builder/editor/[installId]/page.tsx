@@ -3747,7 +3747,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /**
    * Into a scheme's panel and back out again, on a computer: the same short
    * ease the tabs have, so it reads as going somewhere. A phone's sheet
-   * slides its panels already (`wb-sheet-panel`).
+   * slides its panels already.
    */
   const schemeOpen = schemeEditing?.key ?? null
   const lastSchemeRef = useRef(schemeOpen)

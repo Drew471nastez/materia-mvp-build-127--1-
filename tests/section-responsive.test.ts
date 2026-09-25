@@ -183,6 +183,9 @@ const editor = readFileSync(
   join(root, "app/website-builder/editor/[installId]/page.tsx"),
   "utf8",
 )
+/* Add a section: the phone's sheet and the computer's dialog, in their own module. */
+const library = readFileSync(join(root, "components/website-builder/editor/section-library.tsx"), "utf8")
+const libraryPhone = library.slice(library.indexOf("if (phone) {"), library.indexOf("// ── A computer"))
 const nativeChromeSrc = readFileSync(join(root, "components/website-builder/native-chrome.ts"), "utf8")
 const scrollbarSrc = readFileSync(join(root, "components/website-builder/canvas-scrollbar.tsx"), "utf8")
 
@@ -1135,15 +1138,15 @@ check(
    * whose start is not committed does not run, so the sheet vanishes instead
    * of sliding. One frame hands it to the compositor first.
    */
-  /<MobileEditorSheet\s*\n\s*open=\{open\}\s*\n\s*onOpenChange=\{onOpenChange\}/.test(editor) &&
-    /openFull\s*\n\s*detents=\{\[0\.92\]\}/.test(editor) &&
-    /layer="raised"\s*\n\s*peekHeight=\{0\}/.test(editor) &&
+  /<MobileEditorSheet\s*\n\s*open=\{open\}\s*\n\s*onOpenChange=\{onOpenChange\}/.test(libraryPhone) &&
+    /openFull\s*\n\s*detents=\{\[0\.92\]\}/.test(libraryPhone) &&
+    /layer="raised"\s*\n\s*peekHeight=\{0\}/.test(libraryPhone) &&
     // the sheet brings its own handle, and nothing brings a close button
-    !/aria-label="Close"/.test(editor) &&
-    !/\n\s*enableDragToClose\n/.test(editor) &&
-    /onOpenChange\(false\)\s*\n\s*requestAnimationFrame\(\(\) => onAddSection\(type, presetIndex\)\)/.test(editor) &&
+    !/aria-label="Close"/.test(libraryPhone) &&
+    !/\n\s*enableDragToClose\n/.test(library) &&
+    /onOpenChange\(false\)\s*\n\s*requestAnimationFrame\(\(\) => onAddSection\(type, presetIndex\)\)/.test(library) &&
     // and its search field does not zoom the page out from under the sheet
-    /pl-9 pr-8 text-\[16px\][^"]*md:h-9 md:text-sm/.test(editor),
+    /pl-9 pr-9 text-\[16px\][^"]*md:h-9 md:text-sm/.test(library),
 )
 
 check(
@@ -1163,18 +1166,14 @@ check(
    * stops and makes a small deliberate nudge feel like an argument.
    * `node scripts/check-mobile-sheets.mjs`
    */
-  /"wb-chip shrink-0 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap"/.test(editor) &&
-    /"transition-\[background-color,color,scale\] duration-200 ease-out active:scale-\[0\.96\]"/.test(editor) &&
-    /<div className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3">/.test(editor) &&
-    // a new list arrives rather than appearing, keyed on the category only:
-    // an entrance animation per keystroke is a list that flickers as you type
-    /key=\{activeCategory \?\? "all"\}/.test(editor) &&
-    /className="wb-cards-enter wb-slim-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain/.test(editor) &&
-    ((css) =>
-      /\.wb-chip-row \{[\s\S]{0,200}?scroll-snap-type: x proximity;/.test(css) &&
-      /\.wb-cards-enter \{\s*\n\s*animation: wb-cards-in 200ms/.test(css) &&
-      /@keyframes wb-cards-in \{[\s\S]{0,200}?transform: translate3d\(0, 6px, 0\);/.test(css) &&
-      /\.wb-cards-enter \{ animation: none; \}/.test(css))(
+  /"wb-chip shrink-0 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap"/.test(library) &&
+    /"transition-\[background-color,color\] duration-150 ease-out"/.test(library) &&
+    !/transition-all/.test(libraryPhone) &&
+    /className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3"/.test(library) &&
+    // the grid says it changed on a category, and not on every keystroke of a search
+    /Only a category change is announced; a keystroke is not\./.test(library) &&
+    /if \(!categoryChanged \|\| !grid/.test(library) &&
+    ((css) => /\.wb-chip-row \{[\s\S]{0,200}?scroll-snap-type: x proximity;/.test(css))(
         readFileSync(join(root, "app/globals.css"), "utf8"),
       ),
 )
@@ -1360,14 +1359,13 @@ check(
    * stacked split at 390, in a box that is 240px rather than 160.
    * `node scripts/check-preview-width.mjs`
    */
-  /const PREVIEW_RENDER_WIDTH_MOBILE = 390/.test(editor) &&
-    /const PREVIEW_RATIO_MOBILE = 0\.75/.test(editor) &&
-    /const renderWidth = mobile \? PREVIEW_RENDER_WIDTH_MOBILE : PREVIEW_RENDER_WIDTH/.test(editor) &&
-    /const cacheKey = `\$\{type\}:\$\{presetIndex\}:\$\{renderWidth\}`/.test(editor) &&
-    /const scale = containerWidth \/ renderWidth/.test(editor) &&
-    /deviceMode=\{mobile \? "mobile" : "desktop"\}/.test(editor) &&
-    // and the flag reaches the thumbnail from the card that already had it
-    /<SectionPreviewThumbnail type=\{type\} presetIndex=\{presetIndex\} containerWidth=\{width\} schema=\{schema\} mobile=\{mobile\} \/>/.test(editor),
+  /export const PREVIEW_RENDER_WIDTH_MOBILE = 390/.test(library) &&
+    /* Taller than wide on a phone: a phone's layout is a column, and its first screen is what is shown. */
+    /export const PREVIEW_RATIO_MOBILE = 1\.22/.test(library) &&
+    /const renderWidth = phone \? PREVIEW_RENDER_WIDTH_MOBILE : PREVIEW_RENDER_WIDTH/.test(library) &&
+    /export const previewKey = \(type: string, presetIndex: number, width: number, sourcesTag: string\) => `\$\{type\}:\$\{presetIndex\}:\$\{width\}:\$\{sourcesTag\}`/.test(library) &&
+    /const scale = width > 0 \? width \/ renderWidth : 0\.3/.test(library) &&
+    /deviceMode=\{job\.width <= PREVIEW_RENDER_WIDTH_MOBILE \? "mobile" : "desktop"\}/.test(library),
 )
 
 check(
@@ -1395,15 +1393,21 @@ check(
    * exist. And the cache is MODULE-LEVEL, outliving the modal — which is
    * exactly the case that used to rebuild everything.
    */
-  /const PREVIEW_MARKUP = new Map<string, string>\(\)/.test(editor) &&
-    /useState<string \| null>\(\(\) => PREVIEW_MARKUP\.get\(cacheKey\) \?\? null\)/.test(editor) &&
-    /useLayoutEffect\(\(\) => \{\s*\n\s*if \(markup !== null \|\| !section\) return/.test(editor) &&
-    /PREVIEW_MARKUP\.set\(cacheKey, html\)/.test(editor) &&
+  /*
+    Now drawn off screen, in a root of its own that is never in the
+    document, in idle time before the library is opened
+    (components/website-builder/editor/section-library.tsx): the markup is
+    kept in a module-level map, and a card reads its own entry.
+  */
+  /const MARKUP = new Map<string, string>\(\)/.test(library) &&
+    /flushSync\(\(\) => \{\s*\n\s*root!\.render\(/.test(library) &&
+    /MARKUP\.set\(/.test(library) &&
+    /useSyncExternalStore\(/.test(library) &&
     /* The markup handed to React as the same object while it is the same
        string: React 19 compares the object, so an inline one rewrote every
        card's preview on every render of the library. */
-    /const markupProp = useMemo\(\(\) => \(markup === null \? null : \{ __html: markup \}\), \[markup\]\)/.test(editor) &&
-    /dangerouslySetInnerHTML=\{markupProp \?\? undefined\}/.test(editor),
+    /const html = useMemo\(\(\) => \(markup \? \{ __html: markup \} : null\), \[markup\]\)/.test(library) &&
+    /dangerouslySetInnerHTML=\{html\}/.test(library),
 )
 
 check(
@@ -1419,8 +1423,8 @@ check(
    *
    * Nothing here needs to be relative to anything.
    */
-  /\? "bg-\[#1a1a2e\] text-white"\s*\n\s*: "bg-\[#f3f4f6\] text-\[#4b5563\]",/.test(editor) &&
-    !/\? "bg-foreground text-background"/.test(editor) &&
+  /on \? "bg-\[#1a1a2e\] text-white" : "bg-\[#f3f4f6\] text-\[#4b5563\]"/.test(library) &&
+    !/\? "bg-foreground text-background"/.test(library) &&
     ((css) => /\.wb-chip-row \{[\s\S]{0,400}?-webkit-tap-highlight-color: transparent;/.test(css))(
       readFileSync(join(root, "app/globals.css"), "utf8"),
     ),
