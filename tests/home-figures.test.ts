@@ -147,8 +147,10 @@ console.log("\nHome: the page reads it this way")
     !/ShimmerBlock/.test(dash) && (dash.match(/<LivePill count=\{liveVisitors\}/g) ?? []).length === 2
       && /count == null \? "opacity-0" : "opacity-100"/.test(dash) && /\{count \?\? 0\}<\/span> \{label\}/.test(dash))
   const home = code("app/app/page.tsx")
+  /* The first sale is counted by lib/home/progress (salesFrom), which is homeTotals, from these same rows. */
   check("the page hands over what a basket and a refund need, and counts its first sale the same way",
-    /stripe_session_id, refund_amount_cents, products!inner\(creator_id\)/.test(home) && /const \{ totalOrders \} = homeTotals\(allOrders\)/.test(home))
+    /stripe_session_id, refund_amount_cents, products!inner\(creator_id\)/.test(home) && /orders: allOrders/.test(home)
+      && /homeTotals\(\(orders \?\? \[\]\) as OrderRow\[\]\)/.test(code("lib/home/progress.ts")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

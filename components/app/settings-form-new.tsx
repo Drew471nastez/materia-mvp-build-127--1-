@@ -1177,7 +1177,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         <div data-settings-header="" className="mb-6 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 sm:items-start sm:gap-y-0">
           <h1 className="col-start-1 row-start-1 text-[22px] font-bold text-[#1a1a2e] sm:text-[28px]">{t("settings.title")}</h1>
           <div data-settings-pill="" className="col-start-2 row-start-1 flex min-w-0 justify-end sm:row-span-2 sm:max-w-[300px] sm:justify-self-end sm:pt-1">
-            <ShareStorelib size="sm" className="md:hidden" addresses={shareAddresses} platforms={sharePlatforms} />
+            {/* On a phone the pill is 10% narrower than it was, so the title keeps its room. A short address is left whole. */}
+            <ShareStorelib size="sm" className="md:hidden max-w-[min(calc((100vw-32px)*0.522),184px)] sm:max-w-[270px]" addresses={shareAddresses} platforms={sharePlatforms} />
             <ShareStorelib className="hidden md:inline-flex" addresses={shareAddresses} platforms={sharePlatforms} />
           </div>
           <p className="col-span-2 row-start-2 text-[14px] text-[#6b7280] sm:col-span-1 sm:col-start-1 sm:mt-1">{t("settings.subtitle")}</p>

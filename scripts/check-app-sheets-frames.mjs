@@ -292,13 +292,13 @@ async function run(file) {
   if (!(await sheetOpen(s))) throw new Error("the share sheet did not open")
   await rec("share: drag", () => drag(s), 1400)
   for (const label of ["OnePage", "Website", "Creator page"]) await rec(`share: tab ${label}`, () => tapText(s, "[data-share-sheet]", label), 500)
-  for (const name of ["Instagram", "YouTube", "Facebook", "X", "TikTok", "LinkedIn", "Pinterest", "Threads"]) {
-    await rec(`share: open ${name}`, () => tapText(s, "[data-share-sheet] [data-sheet-no-drag]", name), 550)
-    await rec(`share: back from ${name}`, () => tap(s, "[data-app-sheet='open'] button[aria-label='Back']"), 550)
+  /* The panel holds the address, Open, QR code and Share (components/app/share/share-storelib.tsx).
+     The QR code twice: the second time it is the view the sheet already keeps. */
+  await rec("share: open the page", () => tapText(s, "[data-share-sheet] [data-share-actions]", "Open"), 350)
+  for (const again of ["", " again"]) {
+    await rec(`share: QR code${again}`, () => tapText(s, "[data-share-sheet]", "QR code"), 700)
+    await rec(`share: back from QR code${again}`, () => tap(s, "[data-app-sheet='open'] button[aria-label='Back']"), 550)
   }
-  for (const name of ["WhatsApp", "Reddit", "Telegram"]) await rec(`share: tap ${name}`, () => tapText(s, "[data-share-sheet]", name), 350)
-  await rec("share: QR code", () => tapText(s, "[data-share-sheet]", "QR code"), 700)
-  await rec("share: back from QR code", () => tap(s, "[data-app-sheet='open'] button[aria-label='Back']"), 550)
   /* Long enough for "Copied" to turn back into "Copy" inside this window, not the next one's. */
   await rec("share: copy", () => tap(s, "[data-share-copy]"), 2300)
   await rec("share: close (tap the scrim)", () => tapScrim(s), 700)
@@ -395,7 +395,7 @@ console.log("")
   code), a choice that redraws the page (a preset), and Copy (the clipboard's
   fallback puts a field in the page) are left out.
 */
-const judged = Object.entries(result).filter(([k]) => !/QR code$|pick|copy|tap (WhatsApp|Reddit|Telegram)/.test(k))
+const judged = Object.entries(result).filter(([k]) => !/QR code$|pick|copy/.test(k))
 /* The home page has timers of its own (the announcement's cycle, the live
    count) whose redraws can land in any window, so two are allowed. Before
    the sheets were kept, 41 of these 42 restyled more than half the page. */

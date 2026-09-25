@@ -613,8 +613,8 @@ section("Leaving a page always ends, one way or the other")
       bar.length > 0 && /<AnnouncementBar slides=\{slides\}/.test(dash) && !/useState\(0\)[^\n]*\n[^\n]*announceLeaving/.test(dash.slice(dash.indexOf("export function DashboardClient("))))
     check("and it stops when nobody can see it",
       /new IntersectionObserver/.test(bar) && /document\.visibilityState === "hidden"/.test(bar) && /animationPlayState: paused \? "paused" : "running"/.test(bar))
-    check("one slide is drawn at a time, picked by the counter", /const announcementType = slides\[announceCycle % slides\.length\]/.test(dash))
-    check("and its line restarts with it", /key=\{announceCycle\}/.test(dash) && /announce-progress/.test(dash))
+    check("one slide is shown at a time, picked by the counter", /const announcementType = slides\[announceCycle % slides\.length\]/.test(dash) && /hidden=\{announcementType !== "upgrade"\}/.test(bar))
+    check("and its line restarts with it, in place", /run\.currentTime = 0/.test(bar) && /\}, \[announceCycle\]\)/.test(bar) && /announce-progress/.test(dash))
     check("the bar holds one line, so two slides can never stack", /whitespace-nowrap/.test(dash.slice(dash.indexOf("announcementType ==="), dash.indexOf("announcementType ===") + 4000)) || /h-7 md:h-8[^"]*whitespace-nowrap|whitespace-nowrap[^"]*h-7 md:h-8/.test(dash))
   }
 

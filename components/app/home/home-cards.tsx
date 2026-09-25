@@ -4,51 +4,52 @@
  * ===========================================================================
  *  HOME'S THREE CARDS: GETTING STARTED, THE GUIDE, AND YOUR PLAN
  * ===========================================================================
- * Under the Pro plan banner, in place of the Store setup list.
+ * Under the Pro plan banner.
  *
- * GETTING STARTED is six steps and nothing under them: what a new store
- * actually has to do before it sells, each one worked out from the account
- * (app/app/page.tsx and dashboard-client), never ticked by hand. What is
- * left comes first and what is done drops to the bottom, crossed out, so the
- * step at the top is always the next one, and it alone carries the arrow.
- * At its foot, the three ways a buyer pays, on tiles that lift when the
- * card is hovered.
+ * GETTING STARTED is the eight steps of lib/home/progress, each read off the
+ * account on the server and asked for again when Home is landed on
+ * (use-home-progress), never ticked by hand. What is left comes first and
+ * what is done drops to the bottom, crossed out, so the step at the top is
+ * always the next one, and it alone carries the arrow. When all eight are
+ * done the same card turns into the CHALLENGES, the next things that grow a
+ * store, counted the same way and drawn the same way, with how far each has
+ * got. At its foot, the three ways a buyer pays, on tiles that lift.
+ *
+ * Every step and challenge that is a page is an AppLink
+ * (components/app/app-link): it moves exactly like a row in the sidebar.
+ * The two that are done here are buttons: the guide, and the first sale,
+ * which opens the share panel.
  *
  * THE GUIDE is the way in for somebody who does not know where to start, so
  * pressing it points at Getting started: the card gives a small press, and
- * Getting started bumps (scrolled into view first when it is off screen) with
- * its next step lit for a moment.
+ * Getting started bumps (scrolled into view first when it is off screen)
+ * with its next step lit for a moment. Opening it is itself a step, kept on
+ * the account.
  *
  * YOUR PLAN is the plan the account is on, by the name Billing uses, and the
  * lines are that plan's own, from lib/billing/plans.ts, the same table the
  * pricing cards read. On Free the button is Upgrade to Pro.
  *
- * The hover depth, the tiles and the bump are CSS in app/globals.css (HOME
- * CARDS), and they are CSS rather than hover: classes on purpose: on a touch
- * screen globals.css removes the shadow of anything with a hover:shadow
- * class once it is tapped, and every transform inside a .group. These cards
- * keep their shadow on a phone and move only under a real mouse.
+ * HOVER, AND ITS STAND IN ON A PHONE. The lift (a deeper shadow on a layer
+ * of its own, the tiles tipping, the guide's light drifting, the plan's dots
+ * moving) is CSS in app/globals.css (HOME CARDS), on opacity, translate,
+ * rotate and scale only, and behind (hover: hover) and (pointer: fine), so a
+ * tap never leaves it stuck. A phone cannot hover, so there it plays by
+ * itself (useHoverAutoplay): the same motion, the same rules, on a card that
+ * has been at least 60% on screen for two seconds, and again every five
+ * while it stays there.
  */
-import Link from "next/link"
 import { ArrowRight, Check, Play } from "lucide-react"
-import type { ReactNode } from "react"
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react"
+import { useRouter } from "next/navigation"
+import { AppLink } from "@/components/app/app-link"
 import { StorelibMark } from "@/components/storelib-mark"
 import { OFFERED_PLANS, planDisplayName, planHighlights } from "@/lib/billing/plans"
+import type { HomeProgress, ProgressItem } from "@/lib/home/progress"
+import { APP_PAGE_KEPT_MS, prefetchAppPage } from "@/lib/ui/app-navigation"
 import { PayPalMark, StripeMark, VisaMark } from "./payment-marks"
 
 export const GETTING_STARTED_ID = "getting-started"
-
-export type StartStep = {
-  id: string
-  label: string
-  done: boolean
-  /** Where the step is done. */
-  href?: string
-  /** Leaves the /app router tree (the website builder), so it is a full page load. */
-  hardNavigation?: boolean
-  /** Instead of a link: the first sale step opens the share sheet. */
-  onSelect?: () => void
-}
 
 let bumpTimer = 0
 
@@ -74,45 +75,241 @@ export function bumpGettingStarted() {
   } else play()
 }
 
-const CARD = "home-card relative flex flex-col overflow-hidden rounded-[20px] border border-[#e6e7eb] bg-white"
+/*
+  No overflow-hidden on the card itself: the deeper shadow of the lift is a
+  layer of its own (::before in globals.css) that has to show outside the
+  card. What must be clipped (the tiles, the plan's sky, the guide's
+  thumbnail) is clipped where it is drawn.
+*/
+const CARD = "home-card relative flex flex-col rounded-[20px] border border-[#e6e7eb] bg-white"
 
-/* ─── Getting started ──────────────────────────────────────────────────── */
+/* ─── Playing the hover on a touch screen ──────────────────────────────── */
 
-export function GettingStartedCard({ steps }: { steps: StartStep[] }) {
-  const done = steps.filter((s) => s.done).length
-  const ordered = [...steps.filter((s) => !s.done), ...steps.filter((s) => s.done)]
+/** On screen this long before the first play... */
+export const AUTOPLAY_AFTER_MS = 2000
+/** ...then every this long while it stays there... */
+export const AUTOPLAY_EVERY_MS = 5000
+/** ...held lifted this long, then let go: the time a hover takes to arrive and be seen. */
+export const AUTOPLAY_HOLD_MS = 1400
+/** How much of the card has to be on screen. */
+export const AUTOPLAY_IN_VIEW = 0.6
+
+/**
+ * The hover's motion, played on a card where nothing can hover. It sets
+ * `data-play` on the card, which globals.css lifts exactly as `:hover` does,
+ * and takes it off AUTOPLAY_HOLD_MS later, which lets it settle exactly as
+ * leaving does.
+ *
+ * It runs only while all of this holds: the device has no hover (a mouse
+ * never sees it), the card is at least 60% on screen (IntersectionObserver),
+ * no finger is on it, the tab is showing, and nobody asked for less motion.
+ * The moment one stops holding, every timer is cleared and the card settles;
+ * nothing runs for a card that is off screen. When they hold again the two
+ * seconds start over. A play that falls while a sheet covers the page is
+ * skipped, so nothing moves under the sheet while it is dragged.
+ */
+export function useHoverAutoplay<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof window === "undefined" || typeof IntersectionObserver !== "function" || !window.matchMedia) return
+    const mouse = window.matchMedia("(hover: hover) and (pointer: fine)")
+    const calm = window.matchMedia("(prefers-reduced-motion: reduce)")
+    let inView = false
+    let touching = false
+    let start = 0
+    let cycle = 0
+    let settle = 0
+    const letGo = () => {
+      window.clearTimeout(settle)
+      settle = 0
+      el.removeAttribute("data-play")
+    }
+    const play = () => {
+      /* A sheet or a dialog over the page covers the card: the shared sheet marks <html>, Radix's scroll lock marks <body>. */
+      if (document.documentElement.hasAttribute("data-app-sheet-up") || document.body.hasAttribute("data-scroll-locked")) return
+      el.setAttribute("data-play", "")
+      window.clearTimeout(settle)
+      settle = window.setTimeout(letGo, AUTOPLAY_HOLD_MS)
+    }
+    const stop = () => {
+      window.clearTimeout(start)
+      window.clearInterval(cycle)
+      start = 0
+      cycle = 0
+      letGo()
+    }
+    const sync = () => {
+      const may = inView && !touching && document.visibilityState === "visible" && !mouse.matches && !calm.matches
+      if (!may) {
+        stop()
+        return
+      }
+      if (start || cycle) return
+      start = window.setTimeout(() => {
+        start = 0
+        play()
+        cycle = window.setInterval(play, AUTOPLAY_EVERY_MS)
+      }, AUTOPLAY_AFTER_MS)
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        inView = !!entry && entry.isIntersecting && entry.intersectionRatio >= AUTOPLAY_IN_VIEW - 0.001
+        sync()
+      },
+      { threshold: [0, AUTOPLAY_IN_VIEW, 1] },
+    )
+    io.observe(el)
+    /* A finger on the card, scrolling or about to tap: it holds still until the finger lifts. */
+    const down = () => {
+      touching = true
+      sync()
+    }
+    const up = () => {
+      if (!touching) return
+      touching = false
+      sync()
+    }
+    el.addEventListener("touchstart", down, { passive: true })
+    window.addEventListener("touchend", up, { passive: true })
+    window.addEventListener("touchcancel", up, { passive: true })
+    document.addEventListener("visibilitychange", sync)
+    mouse.addEventListener?.("change", sync)
+    calm.addEventListener?.("change", sync)
+    return () => {
+      stop()
+      io.disconnect()
+      el.removeEventListener("touchstart", down)
+      window.removeEventListener("touchend", up)
+      window.removeEventListener("touchcancel", up)
+      document.removeEventListener("visibilitychange", sync)
+      mouse.removeEventListener?.("change", sync)
+      calm.removeEventListener?.("change", sync)
+    }
+  }, [])
+  return ref
+}
+
+/**
+ * THE NEXT STEP IS FETCHED AHEAD, once the card has been seen: the press
+ * most likely to come lands on the next frame, the way the pill's four
+ * pages do (they are fetched when it mounts). One page, once per
+ * APP_PAGE_KEPT_MS, and only a page of /app.
+ */
+function useWarmWhenSeen(ref: React.RefObject<HTMLElement | null>, href: string | null) {
+  const router = useRouter()
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !href || !(href === "/app" || href.startsWith("/app/")) || typeof IntersectionObserver !== "function") return
+    let warmedAt = 0
+    const io = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting || Date.now() - warmedAt < APP_PAGE_KEPT_MS) return
+      warmedAt = Date.now()
+      prefetchAppPage(router, href)
+    })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [ref, href, router])
+}
+
+/* ─── Getting started, then the challenges ─────────────────────────────── */
+
+export function GettingStartedCard({
+  progress,
+  onGuide,
+  onShare,
+}: {
+  progress: HomeProgress
+  /** Opens the guide: the step "How to get started". */
+  onGuide?: () => void
+  /** Opens the share panel; without it the sale steps are links to Orders. */
+  onShare?: () => void
+}) {
+  const challenges = progress.phase === "challenges"
+  const items = challenges ? progress.challenges : progress.steps
+  const done = challenges ? progress.challengesDone : progress.completed
+  const total = items.length
+  const ordered = [...items.filter((s) => !s.done), ...items.filter((s) => s.done)]
   const next = ordered.find((s) => !s.done)
+  const cardRef = useHoverAutoplay<HTMLElement>()
+  useWarmWhenSeen(cardRef, next?.href ?? null)
 
+  /*
+    A STEP THAT IS DONE MOVES, IT DOES NOT JUMP. When one ticks while the
+    card is on screen (the guide pressed, a refresh after a domain was
+    verified) the rows swap places: each is drawn where it was and slides to
+    where it is, on transform, the rest of the page untouched.
+  */
+  const listRef = useRef<HTMLUListElement>(null)
+  const tops = useRef(new Map<string, number>())
+  const orderKey = ordered.map((s) => `${s.id}:${s.done ? 1 : 0}`).join(",")
+  useLayoutEffect(() => {
+    const list = listRef.current
+    if (!list) return
+    const rows = Array.from(list.querySelectorAll<HTMLElement>("[data-row]"))
+    const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    for (const row of rows) {
+      const id = row.dataset.row!
+      const top = row.offsetTop
+      const before = tops.current.get(id)
+      tops.current.set(id, top)
+      if (calm || before == null || before === top || typeof row.animate !== "function") continue
+      row.animate([{ transform: `translateY(${before - top}px)` }, { transform: "translateY(0)" }], {
+        duration: 420,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+      })
+    }
+  }, [orderKey])
+
+  /* Setup done while on screen: the challenges come in on a fade, once. */
+  const phaseRef = useRef(progress.phase)
+  useLayoutEffect(() => {
+    if (phaseRef.current === progress.phase) return
+    phaseRef.current = progress.phase
+    const list = listRef.current
+    if (!list || typeof list.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    tops.current.clear()
+    list.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: "ease-out" })
+  }, [progress.phase])
+
+  const title = challenges ? "Challenges" : "Getting started"
   return (
-    <section id={GETTING_STARTED_ID} aria-labelledby="getting-started-title" className={`${CARD} min-h-[392px]`}>
-      <div className="px-5 pt-5">
+    <section
+      ref={cardRef}
+      id={GETTING_STARTED_ID}
+      data-phase={progress.phase}
+      aria-labelledby="getting-started-title"
+      className={`${CARD} min-h-[392px]`}
+    >
+      <div className="relative z-10 px-5 pt-5">
         <div className="flex items-center justify-between">
           <h2 id="getting-started-title" className="text-[14px] font-semibold text-[#1a1a2e]">
-            Getting started
+            {title}
           </h2>
-          <span className="text-[12px] font-medium tabular-nums text-[#9ca3af]">
-            {done} of {steps.length}
+          <span data-progress-count="" className="text-[12px] font-medium tabular-nums text-[#9ca3af]">
+            {done} of {total}
           </span>
         </div>
         <div
           className="mt-3 h-[5px] overflow-hidden rounded-full bg-[#eef0f3]"
           role="progressbar"
           aria-valuemin={0}
-          aria-valuemax={steps.length}
+          aria-valuemax={total}
           aria-valuenow={done}
-          aria-label="Setup progress"
+          aria-label={challenges ? "Challenges done" : "Setup progress"}
         >
+          {/* Full width, moved back by what is left: it grows on translate, and keeps its round end. */}
           <div
-            className="h-full rounded-full bg-[#1a1a2e] transition-[width] duration-700 ease-out"
-            style={{ width: `${(done / steps.length) * 100}%` }}
+            className="h-full w-full rounded-full bg-[#1a1a2e] transition-[translate] duration-700 ease-out"
+            style={{ translate: `${(done / Math.max(1, total) - 1) * 100}% 0` }}
           />
         </div>
       </div>
 
-      <ul className="relative z-10 mt-2.5 px-2.5">
-        {ordered.map((step) => (
-          <li key={step.id}>
-            <StepRow step={step} isNext={step === next} />
+      <ul ref={listRef} className="relative z-10 mt-2.5 px-2.5">
+        {ordered.map((item) => (
+          <li key={item.id} data-row={item.id}>
+            <ProgressRow item={item} isNext={item === next} onGuide={onGuide} onShare={onShare} />
           </li>
         ))}
       </ul>
@@ -122,11 +319,33 @@ export function GettingStartedCard({ steps }: { steps: StartStep[] }) {
   )
 }
 
-function StepRow({ step, isNext }: { step: StartStep; isNext: boolean }) {
+/** "3/10", or "$120/$1,000" for money. */
+function countText(item: ProgressItem): string | null {
+  if (item.done || item.target == null || item.target <= 1) return null
+  const current = item.current ?? 0
+  if (item.unit === "cents") {
+    const money = (cents: number) => `$${Math.floor(cents / 100).toLocaleString("en-US")}`
+    return `${money(current)}/${money(item.target)}`
+  }
+  return `${current}/${item.target}`
+}
+
+function ProgressRow({
+  item,
+  isNext,
+  onGuide,
+  onShare,
+}: {
+  item: ProgressItem
+  isNext: boolean
+  onGuide?: () => void
+  onShare?: () => void
+}) {
   const row = `flex h-9 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-left outline-none transition-colors duration-150 hover:bg-[#f5f6f7] focus-visible:bg-[#f5f6f7] [-webkit-tap-highlight-color:transparent]`
+  const count = countText(item)
   const body: ReactNode = (
     <>
-      {step.done ? (
+      {item.done ? (
         <span className="flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full bg-[#b9bec7]">
           <Check className="h-[11px] w-[11px] text-white" strokeWidth={3} aria-hidden="true" />
         </span>
@@ -135,14 +354,15 @@ function StepRow({ step, isNext }: { step: StartStep; isNext: boolean }) {
       )}
       <span
         className={
-          step.done
+          item.done
             ? "min-w-0 flex-1 truncate text-[13px] text-[#9ca3af] line-through decoration-[#b9bec7]"
             : `min-w-0 flex-1 truncate text-[13px] ${isNext ? "font-medium text-[#1a1a2e]" : "text-[#4b5563]"}`
         }
       >
-        {step.label}
-        {step.done && <span className="sr-only"> (done)</span>}
+        {item.label}
+        {item.done && <span className="sr-only"> (done)</span>}
       </span>
+      {count && <span className="shrink-0 text-[12px] tabular-nums text-[#9ca3af]">{count}</span>}
       {isNext && (
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] border border-[#e3e5e9] bg-white text-[#6b7280] shadow-[0_1px_1px_rgba(16,24,40,0.05)]">
           <ArrowRight className="h-3 w-3" strokeWidth={2.25} aria-hidden="true" />
@@ -152,60 +372,68 @@ function StepRow({ step, isNext }: { step: StartStep; isNext: boolean }) {
   )
   const nextProps = isNext ? { "data-next-step": "" } : {}
 
-  if (step.onSelect) {
+  const press = item.action === "guide" ? onGuide : item.action === "share" ? onShare : undefined
+  if (press) {
     return (
-      <button type="button" onClick={step.onSelect} className={row} {...nextProps}>
+      <button type="button" onClick={press} className={row} {...nextProps}>
         {body}
       </button>
     )
   }
-  if (step.hardNavigation) {
-    return (
-      <a href={step.href} className={row} {...nextProps}>
-        {body}
-      </a>
-    )
-  }
+  /* A sale step with no address to share yet: Orders, where sales are. */
+  const href = item.href ?? (item.action === "share" ? "/app/orders" : "/app")
   return (
-    <Link href={step.href ?? "/app"} className={row} {...nextProps}>
+    <AppLink href={href} className={row} {...nextProps}>
       {body}
-    </Link>
+    </AppLink>
   )
 }
 
-/** PayPal, Visa and Stripe on their tiles, tipped, part of the Stripe tile past the card's edge. */
+/**
+ * PayPal, Visa and Stripe on their tiles, tipped, part of the Stripe tile
+ * past the card's edge. The room they take is held in the card's flow; the
+ * tiles themselves sit in a layer the card's own shape clips, so the card
+ * needs no overflow of its own and its lift can show outside it.
+ */
 function PaymentTiles() {
   return (
-    <div aria-hidden="true" className="pointer-events-none relative mt-auto h-[118px] shrink-0">
-      <div
-        data-pay-tile="visa"
-        className="absolute bottom-[-26px] left-[40%] flex h-[74px] w-[112px] items-center justify-center rounded-[16px] bg-[#0f0f12] text-white"
-      >
-        <VisaMark className="w-[58px]" />
+    <>
+      <div aria-hidden="true" className="mt-auto h-[118px] shrink-0" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-[19px]">
+        <div className="absolute inset-x-0 bottom-0 h-[118px]">
+          <div
+            data-pay-tile="visa"
+            className="absolute bottom-[-26px] left-[40%] flex h-[74px] w-[112px] items-center justify-center rounded-[16px] bg-[#0f0f12] text-white"
+          >
+            <VisaMark className="w-[58px]" />
+          </div>
+          <div
+            data-pay-tile="paypal"
+            className="absolute bottom-[20px] left-[9%] flex h-[78px] w-[78px] items-center justify-center rounded-[20px] bg-white"
+          >
+            <PayPalMark className="h-[40px] w-auto" />
+          </div>
+          <div
+            data-pay-tile="stripe"
+            className="absolute bottom-[4px] right-[-18px] flex h-[72px] w-[104px] items-center justify-center rounded-[16px] bg-[#635bff] text-white"
+          >
+            <StripeMark className="w-[58px]" />
+          </div>
+        </div>
       </div>
-      <div
-        data-pay-tile="paypal"
-        className="absolute bottom-[20px] left-[9%] flex h-[78px] w-[78px] items-center justify-center rounded-[20px] bg-white"
-      >
-        <PayPalMark className="h-[40px] w-auto" />
-      </div>
-      <div
-        data-pay-tile="stripe"
-        className="absolute bottom-[4px] right-[-18px] flex h-[72px] w-[104px] items-center justify-center rounded-[16px] bg-[#635bff] text-white"
-      >
-        <StripeMark className="w-[58px]" />
-      </div>
-    </div>
+    </>
   )
 }
 
 /* ─── The guide ────────────────────────────────────────────────────────── */
 
-export function SetupGuideCard() {
+export function SetupGuideCard({ onOpen }: { onOpen?: () => void }) {
+  const ref = useHoverAutoplay<HTMLButtonElement>()
   return (
     <button
+      ref={ref}
       type="button"
-      onClick={bumpGettingStarted}
+      onClick={onOpen ?? bumpGettingStarted}
       className={`${CARD} home-guide min-h-[300px] cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6] focus-visible:ring-offset-2 [-webkit-tap-highlight-color:transparent]`}
     >
       <span className="px-6 pt-6 text-[13px] font-medium text-[#6b7280]">Store setup guide</span>
@@ -213,22 +441,23 @@ export function SetupGuideCard() {
         How to get started with your store
       </span>
 
-      <span
-        aria-hidden="true"
-        className="home-guide-thumb absolute bottom-[-18px] right-[-18px] flex aspect-[16/10.5] w-[78%] max-w-[320px] flex-col justify-between overflow-hidden rounded-[18px] p-4"
-      >
-        <span className="relative flex items-center gap-1.5">
-          <StorelibMark className="h-[18px] w-[18px] shrink-0" />
-          <span className="text-[12px] font-medium text-white/80">Storelib</span>
-        </span>
-        <span className="relative flex items-end justify-between gap-3 pb-3 pr-3">
-          <span className="text-[22px] font-semibold leading-[1.08] tracking-[-0.015em] text-white">
-            Welcome to
-            <br />
-            Storelib
+      {/* The card's own shape clips the thumbnail where it runs off the corner. */}
+      <span aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-[19px]">
+        <span className="home-guide-thumb absolute bottom-[-18px] right-[-18px] flex aspect-[16/10.5] w-[78%] max-w-[320px] flex-col justify-between overflow-hidden rounded-[18px] p-4">
+          <span className="home-guide-light" />
+          <span className="relative flex items-center gap-1.5">
+            <StorelibMark className="h-[18px] w-[18px] shrink-0" />
+            <span className="text-[12px] font-medium text-white/80">Storelib</span>
           </span>
-          <span className="home-guide-play flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/25 bg-white/15">
-            <Play className="ml-0.5 h-4 w-4 fill-white text-white" aria-hidden="true" />
+          <span className="relative flex items-end justify-between gap-3 pb-3 pr-3">
+            <span className="text-[22px] font-semibold leading-[1.08] tracking-[-0.015em] text-white">
+              Welcome to
+              <br />
+              Storelib
+            </span>
+            <span className="home-guide-play flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/25 bg-white/15">
+              <Play className="ml-0.5 h-4 w-4 fill-white text-white" aria-hidden="true" />
+            </span>
           </span>
         </span>
       </span>
@@ -250,10 +479,13 @@ export function PlanCard({ planId }: { planId: string }) {
   const free = !planId || planId === "free"
   const id = free ? "free" : planId
   const lines = linesFor(id)
+  const ref = useHoverAutoplay<HTMLElement>()
 
   return (
-    <section aria-labelledby="your-plan-title" className={`${CARD} min-h-[392px]`}>
-      <div className="home-plan-sky flex h-[46px] shrink-0 items-center px-5">
+    <section ref={ref} aria-labelledby="your-plan-title" className={`${CARD} min-h-[392px]`}>
+      {/* A deep violet band with a fine halftone of dots, fading in toward the right, away from the words. */}
+      <div className="home-plan-sky flex h-[46px] shrink-0 items-center rounded-t-[19px] px-5">
+        <span aria-hidden="true" className="home-plan-dots" />
         <h2 id="your-plan-title" className="relative text-[13.5px] font-semibold text-white">
           Your Plan
         </h2>
@@ -267,7 +499,10 @@ export function PlanCard({ planId }: { planId: string }) {
           <ul className="space-y-[9px]">
             {lines.map((line) => (
               <li key={line} className="flex items-start gap-2.5 text-[13.5px] leading-[20px] text-[#1f2230]">
-                <Check className="mt-[3px] h-[14px] w-[14px] shrink-0 text-[#22a06b]" strokeWidth={2.5} aria-hidden="true" />
+                {/* A light grey circle with a lit top edge, the check in the page's grey: one size for every line. */}
+                <span data-plan-check="" className="home-plan-check mt-px flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full">
+                  <Check className="h-[11px] w-[11px] text-[#6b7280]" strokeWidth={2.75} aria-hidden="true" />
+                </span>
                 <span>{line}</span>
               </li>
             ))}
@@ -276,12 +511,12 @@ export function PlanCard({ planId }: { planId: string }) {
           <div aria-hidden="true" className="home-plan-fade pointer-events-none absolute inset-x-0 bottom-0 h-[64px]" />
         </div>
 
-        <Link
+        <AppLink
           href={free ? "/app/settings/billing/upgrade" : "/app/settings/billing"}
           className="mt-4 inline-flex h-11 w-full shrink-0 items-center justify-center rounded-[12px] bg-[#16161a] text-[14px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(0,0,0,0.18)] outline-none transition-colors duration-150 hover:bg-[#2a2a31] active:bg-[#0b0b0d] focus-visible:ring-2 focus-visible:ring-[#8b5cf6] focus-visible:ring-offset-2 [-webkit-tap-highlight-color:transparent]"
         >
           {free ? "Upgrade to Pro" : "Manage plan"}
-        </Link>
+        </AppLink>
       </div>
     </section>
   )
@@ -295,12 +530,22 @@ export function PlanCard({ planId }: { planId: string }) {
  * side with the guide across the width under them; on a phone, one under
  * another in the order they read.
  */
-export function HomeCards({ steps, planId }: { steps: StartStep[]; planId: string }) {
+export function HomeCards({
+  progress,
+  planId,
+  onGuide,
+  onShare,
+}: {
+  progress: HomeProgress
+  planId: string
+  onGuide?: () => void
+  onShare?: () => void
+}) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 xl:gap-5">
-      <GettingStartedCard steps={steps} />
+      <GettingStartedCard progress={progress} onGuide={onGuide} onShare={onShare} />
       <div className="grid sm:order-last sm:col-span-2 xl:order-none xl:col-span-1">
-        <SetupGuideCard />
+        <SetupGuideCard onOpen={onGuide} />
       </div>
       <PlanCard planId={planId} />
     </div>

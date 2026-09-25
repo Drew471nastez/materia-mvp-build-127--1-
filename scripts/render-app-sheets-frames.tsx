@@ -33,7 +33,7 @@ declare global {
 }
 window.__renders = { home: 0 }
 
-/* Nothing leaves the page: a share target or "Open Instagram" is a window.open. */
+/* Nothing leaves the page: the panel's Open is a window.open. */
 window.open = (() => null) as typeof window.open
 
 const at = (h: number) => new Date(Date.now() - h * 3600_000).toISOString()

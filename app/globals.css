@@ -5247,9 +5247,10 @@ html.pop-in-flight #platform-header-root {
 }
 
 /* The dashboard announcement bar's line: how long until the next slide.
-   components/app/dashboard-client.tsx keys it to the cycle, so each slide
-   draws its own from nothing. A transform, not a width: it runs on the
-   compositor and costs the page no layout for fifteen seconds. */
+   components/app/dashboard-client.tsx runs this same animation again from
+   its start for each slide (a new line put in the page would restyle the
+   whole document under its :has() rules). A transform, not a width: it runs
+   on the compositor and costs the page no layout for fifteen seconds. */
 .announce-progress {
   transform-origin: left center;
   animation-name: announce-progress;
@@ -5962,26 +5963,40 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
  * WHY HERE AND NOT IN hover: CLASSES. On a touch screen the rules above take
  * the shadow off anything with a hover:shadow class the moment it is tapped,
  * and every transform inside a .group. These cards keep their resting
- * shadow on a phone and only lift, tip and drift under a real mouse
- * (hover: hover and pointer: fine), so the rules are written out here.
- * Every movement is on `translate`, `rotate` and `scale`, the individual
- * properties, never `transform`.
+ * shadow on a phone and lift, tip and drift under a real mouse (hover: hover
+ * and pointer: fine), so the rules are written out here.
+ *
+ * ONLY OPACITY AND THE TRANSFORM PROPERTIES MOVE. The deeper shadow and the
+ * darker edge of the lift are a layer of their own (::before) that fades in,
+ * the guide's light and the plan's dots are layers that slide, and every
+ * movement is on `translate`, `rotate` and `scale`, the individual
+ * properties, never `transform`. So a hover paints nothing: the compositor
+ * runs all of it.
+ *
+ * AND THE SAME LIFT PLAYS BY ITSELF WHERE NOTHING CAN HOVER. On a phone the
+ * card is given `data-play` for a moment when it has been on screen a while
+ * (useHoverAutoplay in home-cards), and every [data-play] rule below is the
+ * :hover rule above it, word for word.
  */
 .home-card {
+  isolation: isolate;
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 2px 6px -2px rgba(16, 24, 40, 0.05);
-  transition:
-    box-shadow 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    scale 160ms ease-out;
+  transition: scale 160ms ease-out;
 }
-@media (hover: hover) and (pointer: fine) {
-  .home-card:hover {
-    border-color: #dcdee4;
-    box-shadow:
-      0 1px 2px rgba(16, 24, 40, 0.04),
-      0 22px 44px -18px rgba(16, 24, 40, 0.2),
-      0 8px 16px -8px rgba(16, 24, 40, 0.08);
-  }
+/* The lift: over the card's edge (the 1px ring) and under it (the two soft shadows). 19px: the card's 20 less its border. */
+.home-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 19px;
+  box-shadow:
+    0 0 0 1px #dcdee4,
+    0 22px 44px -18px rgba(16, 24, 40, 0.2),
+    0 8px 16px -8px rgba(16, 24, 40, 0.08);
+  opacity: 0;
+  transition: opacity 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
 }
 
 /* The three payment tiles, tipped at rest, lifted and tipped further on hover. */
@@ -6015,11 +6030,6 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 }
 [data-pay-tile="visa"] { rotate: -6deg; }
 [data-pay-tile="stripe"] { rotate: 11deg; }
-@media (hover: hover) and (pointer: fine) {
-  .home-card:hover [data-pay-tile="paypal"] { translate: -4px -10px; rotate: -19deg; }
-  .home-card:hover [data-pay-tile="visa"] { translate: 2px -14px; rotate: -1deg; transition-delay: 40ms; }
-  .home-card:hover [data-pay-tile="stripe"] { translate: 6px -9px; rotate: 17deg; transition-delay: 80ms; }
-}
 
 /* Pressing the guide: Getting started bumps, its tiles hop, and its next step lights for a moment. */
 @keyframes home-bump {
@@ -6047,24 +6057,33 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 /* The guide: a small press, and its thumbnail drifts, light moving across it. */
 .home-guide:active { scale: 0.985; }
 .home-guide-thumb {
-  background:
-    radial-gradient(60% 75% at 16% 6%, rgba(139, 92, 246, 0.6), rgba(139, 92, 246, 0) 62%),
-    radial-gradient(55% 70% at 96% 96%, rgba(217, 70, 239, 0.22), rgba(217, 70, 239, 0) 70%),
-    linear-gradient(158deg, #1b1630 0%, #0d0c14 72%);
-  background-size: 150% 150%;
-  background-position: 0% 0%;
+  isolation: isolate;
+  background: linear-gradient(158deg, #1b1630 0%, #0d0c14 72%);
   box-shadow:
     0 22px 44px -20px rgba(20, 12, 48, 0.6),
     0 3px 8px rgba(20, 12, 48, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transition:
-    translate 560ms cubic-bezier(0.34, 1.4, 0.64, 1),
-    background-position 1200ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: translate 560ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+/* The light: a layer half as big again as the thumbnail, slid rather than repainted (it was a background-position). */
+.home-guide-light {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 150%;
+  height: 150%;
+  z-index: 0;
+  background:
+    radial-gradient(60% 75% at 16% 6%, rgba(139, 92, 246, 0.6), rgba(139, 92, 246, 0) 62%),
+    radial-gradient(55% 70% at 96% 96%, rgba(217, 70, 239, 0.22), rgba(217, 70, 239, 0) 70%);
+  transition: translate 1200ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
 }
 .home-guide-thumb::before {
   content: "";
   position: absolute;
   inset: 0;
+  z-index: 1;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.55 0 0 0 -0.18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   opacity: 0.5;
   mix-blend-mode: overlay;
@@ -6074,55 +6093,115 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
   content: "";
   position: absolute;
   inset: 0;
+  z-index: 1;
   background: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1.2px) 0 0 / 14px 14px;
   -webkit-mask-image: radial-gradient(70% 80% at 100% 0%, #000, transparent 70%);
   mask-image: radial-gradient(70% 80% at 100% 0%, #000, transparent 70%);
   pointer-events: none;
 }
-.home-guide-thumb > * { z-index: 1; }
-.home-guide-play { transition: scale 400ms cubic-bezier(0.34, 1.56, 0.64, 1), background-color 200ms ease; }
-@media (hover: hover) and (pointer: fine) {
-  .home-guide:hover .home-guide-thumb { translate: -6px -6px; background-position: 70% 55%; }
-  .home-guide:hover .home-guide-play { scale: 1.08; background-color: rgba(255, 255, 255, 0.22); }
+.home-guide-thumb > *:not(.home-guide-light) { z-index: 2; }
+.home-guide-play {
+  position: relative;
+  isolation: isolate;
+  transition: scale 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+/* A touch more white on hover, as a layer that fades in under the arrow. */
+.home-guide-play::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.08);
+  opacity: 0;
+  transition: opacity 200ms ease;
 }
 
-/* Your Plan: a deep violet sky, clouded and grained, that drifts a little on hover. */
+/*
+  Your Plan: a deep violet band, a little lighter where the light falls on
+  its right, carrying a halftone of dots in two sizes on a grid, which fades
+  in from where the words are to the far edge. Drawn by the browser at the
+  screen's own density, so it is sharp at 2x and 3x, and the band under the
+  words stays dark enough for white (measured by scripts/check-home-flow).
+*/
 .home-plan-sky {
   position: relative;
+  isolation: isolate;
   overflow: hidden;
   background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='560' height='120'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.010 0.032' numOctaves='5' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.8 0 0 0 0 0.74 0 0 0 0 1 1.2 0 0 0 -0.53'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3C/svg%3E") 0 50% / 560px 120px,
-    radial-gradient(80% 190% at 92% -30%, rgba(139, 92, 246, 0.45), rgba(139, 92, 246, 0) 62%),
-    radial-gradient(70% 170% at 4% 130%, rgba(20, 6, 52, 0.9), rgba(20, 6, 52, 0) 70%),
-    linear-gradient(100deg, #1f0b4a 0%, #321170 46%, #4c1d95 100%);
-  transition: background-position 1400ms cubic-bezier(0.22, 1, 0.36, 1);
+    radial-gradient(90% 240% at 100% 0%, rgba(167, 139, 250, 0.42), rgba(167, 139, 250, 0) 60%),
+    linear-gradient(100deg, #1c0942 0%, #2c0f64 45%, #4a1d96 100%);
 }
-.home-plan-sky::after {
+/* The layer that drifts; its two grids are one pitch, so the dots grow in place from fine to full across the band: a halftone. */
+.home-plan-dots {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: -28px;
+  z-index: 0;
+  transition: translate 1400ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.home-plan-dots::before,
+.home-plan-dots::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.6 0 0 0 -0.18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  opacity: 0.55;
-  mix-blend-mode: overlay;
-  pointer-events: none;
 }
-@media (hover: hover) and (pointer: fine) {
-  .home-card:hover .home-plan-sky { background-position: -60px 50%, 0 0, 0 0, 0 0; }
+.home-plan-dots::before {
+  background: radial-gradient(circle, rgba(237, 233, 254, 0.46) 0.7px, rgba(237, 233, 254, 0) 1.15px) 0 0 / 7px 7px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 16%, #000 46%, #000 60%, transparent 86%);
+  mask-image: linear-gradient(90deg, transparent 16%, #000 46%, #000 60%, transparent 86%);
+}
+.home-plan-dots::after {
+  background: radial-gradient(circle, rgba(221, 214, 254, 0.42) 1.55px, rgba(221, 214, 254, 0) 2px) 0 0 / 7px 7px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 50%, #000 88%);
+  mask-image: linear-gradient(90deg, transparent 50%, #000 88%);
+}
+/* The checks: a light grey circle with a lit top edge and the faintest shade under it. */
+.home-plan-check {
+  background: #f1f2f4;
+  box-shadow:
+    0 0 0 1px #e3e5e8,
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 1px 1.5px rgba(16, 24, 40, 0.07);
 }
 .home-plan-fade {
   background: linear-gradient(to bottom, rgba(255, 255, 255, 0), #fff 88%);
-  -webkit-backdrop-filter: blur(1.6px);
-  backdrop-filter: blur(1.6px);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 65%);
-  mask-image: linear-gradient(to bottom, transparent, #000 65%);
 }
+
+/* The lift, under a real mouse... */
+@media (hover: hover) and (pointer: fine) {
+  .home-card:hover::before { opacity: 1; }
+  .home-card:hover [data-pay-tile="paypal"] { translate: -4px -10px; rotate: -19deg; }
+  .home-card:hover [data-pay-tile="visa"] { translate: 2px -14px; rotate: -1deg; transition-delay: 40ms; }
+  .home-card:hover [data-pay-tile="stripe"] { translate: 6px -9px; rotate: 17deg; transition-delay: 80ms; }
+  .home-guide:hover .home-guide-thumb { translate: -6px -6px; }
+  .home-guide:hover .home-guide-light { translate: -23% -18%; }
+  .home-guide:hover .home-guide-play { scale: 1.08; }
+  .home-guide:hover .home-guide-play::after { opacity: 1; }
+  .home-card:hover .home-plan-dots { translate: -14px 0; }
+}
+/* ...and the same, played where nothing can hover (useHoverAutoplay). */
+.home-card[data-play]::before { opacity: 1; }
+.home-card[data-play] [data-pay-tile="paypal"] { translate: -4px -10px; rotate: -19deg; }
+.home-card[data-play] [data-pay-tile="visa"] { translate: 2px -14px; rotate: -1deg; transition-delay: 40ms; }
+.home-card[data-play] [data-pay-tile="stripe"] { translate: 6px -9px; rotate: 17deg; transition-delay: 80ms; }
+.home-guide[data-play] .home-guide-thumb { translate: -6px -6px; }
+.home-guide[data-play] .home-guide-light { translate: -23% -18%; }
+.home-guide[data-play] .home-guide-play { scale: 1.08; }
+.home-guide[data-play] .home-guide-play::after { opacity: 1; }
+.home-card[data-play] .home-plan-dots { translate: -14px 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .home-card[data-bump],
   .home-card[data-bump] [data-pay-tile] { animation: none; }
   [data-pay-tile],
+  .home-card::before,
   .home-guide-thumb,
-  .home-plan-sky { transition-duration: 0ms; }
+  .home-guide-light,
+  .home-plan-dots { transition-duration: 0ms; }
 }
 
 /*
