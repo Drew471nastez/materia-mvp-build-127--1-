@@ -16,6 +16,7 @@ import { join } from "node:path"
 
 import { PricingSection } from "@/components/marketing/pricing-section"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
+import { PlanCards } from "@/components/billing/plan-cards"
 
 const OUT = process.env.OUT_DIR!
 
@@ -39,6 +40,12 @@ const pages: Record<string, ReactElement> = {
   ),
   upgrade: <UpgradePageClient plans={plans} currentPlanId="free" hasActiveSubscription={false} />,
   "upgrade-legacy": <UpgradePageClient plans={plans} currentPlanId="pro" hasActiveSubscription />,
+  /* The same cards with Yearly picked in the pill. */
+  yearly: (
+    <div style={{ maxWidth: 860, margin: "0 auto", padding: "32px 16px" }}>
+      <PlanCards interval="yearly" actions={{ free: { label: "Start free", href: "/signup" }, growth: { label: "Get Pro", href: "/checkout/growth" } }} />
+    </div>
+  ),
 }
 
 for (const [name, el] of Object.entries(pages)) {

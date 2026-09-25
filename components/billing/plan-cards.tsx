@@ -26,10 +26,11 @@
  * scripts/check-pricing-cards.mjs measures that, the equal heights, the
  * contrast of the white text on the picture, and the 44px buttons.
  */
+import * as React from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, Check, Loader2, X } from "lucide-react"
-import { OFFERED_PLANS, type OfferedPlan, type OfferedPlanId } from "@/lib/billing/plans"
+import { OFFERED_PLANS, YEARLY_BILLING_LIVE, YEARLY_SAVING_PERCENT, pricedFor, type BillingInterval, type OfferedPlan, type OfferedPlanId } from "@/lib/billing/plans"
 
 export interface PlanCardAction {
   label: string
@@ -53,7 +54,7 @@ const PICTURE_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object
  * picture inlined in the markup, shown blurred until the real one arrives,
  * so the header never pops from flat colour to picture.
  */
-const LOOK: Record<OfferedPlanId, { picture: string; blur: string; ground: string; dim: string; fade: string; dot: string; button: string; ring: string }> = {
+const LOOK: Record<OfferedPlanId, { picture: string; blur: `data:image/${string}`; ground: string; dim: string; fade: string; dot: string; button: string; ring: string }> = {
   free: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2010_29_35%20AM.png`,
     blur: "data:image/webp;base64,UklGRkgAAABXRUJQVlA4IDwAAAAwAwCdASoYAA4APrVInkm3JCKhMAgC4BaJaQAAelPp0aAAAP7w3blrXGLU+JE1tbFf8V/YdHwlAu9pAAA=",
@@ -68,7 +69,7 @@ const LOOK: Record<OfferedPlanId, { picture: string; blur: string; ground: strin
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
     blur: "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAABQAwCdASoYAA4APrVMoUq3JCMhsAgC4BaJYgAAesFl7Y4P1AD+5WYnJTUuz//yU/+8r/XdyP1rncUch4oVkh+Ip7UA+Bb1kTZGrQXedRNyS4sSL7u3PKU5zEv/HrIHYtVHAAAA",
     ground: "bg-[#24178a]",
-    dim: "brightness-[0.62] contrast-[0.95] saturate-[0.95]",
+    dim: "brightness-[0.52] contrast-[0.9] saturate-[0.92]",
     fade: "from-[#170e66]/85",
     dot: "bg-[#5a43ee]",
     button: "bg-[#5a43ee] hover:bg-[#4d37dd] active:bg-[#412dc4]",
@@ -129,13 +130,25 @@ function PlanCard({
   action,
   label,
   compact,
+  interval,
 }: {
   plan: OfferedPlan
   action: PlanCardAction
   label?: string
   compact?: boolean
+  interval: BillingInterval
 }) {
   const look = LOOK[plan.id]
+  const priced = pricedFor(plan, interval)
+  /* Yearly Pro is shown, not sold, until its Stripe price exists (lib/billing/plans). */
+  const held = interval === "yearly" && plan.priceCents > 0 && !YEARLY_BILLING_LIVE && !action.settled
+  const shownAction: PlanCardAction = held ? { label: "Yearly opens soon", settled: true } : action
+  /* The price eases in when the interval changes, never on the first paint. */
+  const [changed, setChanged] = React.useState(false)
+  const firstInterval = React.useRef(interval)
+  React.useEffect(() => {
+    if (interval !== firstInterval.current) setChanged(true)
+  }, [interval])
   const pad = compact ? "px-5" : "px-6"
 
   return (
@@ -175,9 +188,11 @@ function PlanCard({
         <p
           className={`mt-1.5 ${compact ? "text-[38px]" : "text-[44px] sm:text-[48px]"} font-extrabold leading-none tracking-[-0.035em] tabular-nums`}
         >
-          {plan.price}
+          <span key={priced.price} className={changed ? "inline-block animate-in fade-in-0 slide-in-from-bottom-1 duration-200 motion-reduce:animate-none" : "inline-block"}>
+            {priced.price}
+          </span>
         </p>
-        <p className="mt-1.5 text-[13px] font-medium leading-[18px] text-white/85">{plan.priceNote}</p>
+        <p className="mt-1.5 text-[13px] font-medium leading-[18px] text-white/85">{priced.priceNote}</p>
         <p className={`mt-auto ${compact ? "pt-3" : "pt-4"} ${compact ? "text-[13px]" : "text-[14px]"} leading-[20px] text-white/90`}>{plan.summary}</p>
       </div>
 
@@ -205,8 +220,8 @@ function PlanCard({
         </ul>
 
         <div className={`mt-auto ${compact ? "pt-5" : "pt-6"}`}>
-          <PlanButton action={action} plan={plan.id} compact={compact} />
-          <p className="mt-2.5 text-center text-[12px] leading-[16px] text-[#6b7280]">{plan.note}</p>
+          <PlanButton action={shownAction} plan={plan.id} compact={compact} />
+          <p className="mt-2.5 text-center text-[12px] leading-[16px] text-[#6b7280]">{priced.note}</p>
         </div>
       </div>
     </article>
@@ -219,8 +234,13 @@ export function PlanCards({
   compact,
   lead,
   className = "",
+  interval: controlled,
+  onInterval,
 }: {
   actions: Record<OfferedPlanId, PlanCardAction>
+  /** Monthly or yearly; held here unless the page wants to hold it. */
+  interval?: BillingInterval
+  onInterval?: (next: BillingInterval) => void
   /** In place of the small label at the top of a card, such as "Current plan". */
   labels?: Partial<Record<OfferedPlanId, string>>
   compact?: boolean
@@ -228,16 +248,69 @@ export function PlanCards({
   lead?: OfferedPlanId
   className?: string
 }) {
+  const [own, setOwn] = React.useState<BillingInterval>("monthly")
+  const interval = controlled ?? own
+  const pick = (next: BillingInterval) => {
+    setOwn(next)
+    onInterval?.(next)
+  }
   return (
+    <>
+    <IntervalSwitch value={interval} onChange={pick} compact={compact} />
     <div
       data-plan-cards
       className={`mx-auto grid w-full max-w-[720px] grid-cols-1 md:grid-cols-2 items-stretch ${compact ? "gap-3" : "gap-5"} ${className}`}
     >
       {OFFERED_PLANS.map((plan) => (
         <div key={plan.id} data-plan-slot={plan.id} className={`flex ${lead === plan.id ? "order-first md:order-none" : ""}`}>
-          <PlanCard plan={plan} action={actions[plan.id]} label={labels?.[plan.id]} compact={compact} />
+          <PlanCard plan={plan} action={actions[plan.id]} label={labels?.[plan.id]} compact={compact} interval={interval} />
         </div>
       ))}
+    </div>
+    </>
+  )
+}
+
+/**
+ * MONTHLY OR YEARLY, as one pill with a white thumb that slides between the
+ * two, the way Shopify's plans page asks. Yearly carries what it saves. Only
+ * the thumb moves; the words stay where they are.
+ */
+function IntervalSwitch({ value, onChange, compact }: { value: BillingInterval; onChange: (next: BillingInterval) => void; compact?: boolean }) {
+  const yearly = value === "yearly"
+  return (
+    <div className={`flex justify-center ${compact ? "mb-3" : "mb-5 sm:mb-6"}`}>
+      <div
+        role="radiogroup"
+        aria-label="Billing"
+        data-billing-interval={value}
+        className="relative inline-grid grid-cols-2 rounded-full bg-[#eceef1] p-1 shadow-[inset_0_1px_2px_rgba(16,24,40,0.10),inset_0_0_0_1px_rgba(16,24,40,0.04)]"
+      >
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.12),0_4px_10px_-4px_rgba(16,24,40,0.18),inset_0_-1px_0_rgba(16,24,40,0.04)] transition-[translate] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+          style={{ translate: yearly ? "100% 0" : "0 0" }}
+        />
+        {(["monthly", "yearly"] as const).map((option) => {
+          const on = value === option
+          return (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              data-interval-option={option}
+              onClick={() => onChange(option)}
+              className={`relative z-[1] inline-flex h-9 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[13px] font-semibold outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[#111113]/25 [-webkit-tap-highlight-color:transparent] sm:px-5 ${on ? "text-[#111113]" : "text-[#4b5260] hover:text-[#1a1a2e]"}`}
+            >
+              {option === "monthly" ? "Monthly" : "Yearly"}
+              {option === "yearly" ? (
+                <span className="rounded-full bg-[#111113] px-1.5 py-px text-[10.5px] font-semibold leading-4 text-white">Save {YEARLY_SAVING_PERCENT}%</span>
+              ) : null}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

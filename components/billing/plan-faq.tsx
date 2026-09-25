@@ -71,7 +71,7 @@ export function PlanFaq() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <h2 id="plan-faq-title" className="text-[28px] font-bold leading-[1.1] tracking-[-0.02em] text-[#1a1a2e] sm:text-[40px]">
           Frequent questions
-          <span className="block text-[#9ca3af]">Find answers</span>
+          <span className="block text-[#6b7280]">Find answers</span>
         </h2>
         <div className="sm:text-right">
           <p className="text-[14px] text-[#1a1a2e]">Any more questions?</p>

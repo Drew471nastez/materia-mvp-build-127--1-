@@ -295,7 +295,7 @@ const PIXELS = async ({ shot, boxes }) => {
 
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
 try {
-  for (const name of ["marketing", "onboarding", "upgrade", "upgrade-legacy"]) {
+  for (const name of ["marketing", "onboarding", "upgrade", "upgrade-legacy", "yearly"]) {
     const body = readFileSync(join(out, `${name}.html`), "utf8")
     for (const W of [390, 1280, 1920]) {
       const phone = W < 768
@@ -376,6 +376,27 @@ try {
         mkdirSync(SHOTS, { recursive: true })
         await page.evaluate(() => document.querySelectorAll("style").forEach((s) => { if (s.textContent.includes("color:transparent!important")) s.remove() }))
         await page.screenshot({ path: join(SHOTS, `pricing-${name}-${W}.png`), fullPage: true })
+      }
+
+      /* Monthly or yearly: the pill says which, the prices follow, and yearly Pro is shown, not sold, until its price exists. */
+      const interval = await page.evaluate(() => {
+        const pill = document.querySelector("[data-billing-interval]")
+        const pro = document.querySelector('[data-plan-card="growth"]')
+        const button = pro?.querySelector("[data-plan-action]")
+        return {
+          pill: pill?.getAttribute("data-billing-interval") ?? null,
+          price: pro?.querySelector("[data-plan-header] p")?.textContent?.trim(),
+          yearlyNote: !!pro?.textContent?.includes("billed yearly"),
+          button: button?.textContent?.trim(),
+          disabled: !!button?.hasAttribute("disabled"),
+          settled: /Current plan/.test(button?.textContent ?? ""),
+        }
+      })
+      if (name === "yearly") {
+        expect(interval.pill === "yearly" && interval.price === "$22" && interval.yearlyNote && interval.disabled && /opens soon/.test(interval.button ?? ""),
+          "Yearly: $22 a month billed yearly, and Pro's button does not sell it yet", interval)
+      } else {
+        expect(interval.pill === "monthly" && (interval.price === "$29" || interval.settled), "the pill starts on Monthly, at the monthly price", interval)
       }
       await page.close()
     }

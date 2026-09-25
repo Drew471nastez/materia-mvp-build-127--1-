@@ -60,7 +60,7 @@ export function ComparePlans() {
               </th>
               <th scope="col" className="h-[72px] border-b border-[#e4e1ff] bg-[#f6f5ff] px-2 text-center">
                 <span className="block text-[15px] font-semibold text-[#3b2bb8] sm:text-[16px]">{planDisplayName(PRO_CHECKOUT_PLAN_ID)}</span>
-                <span className="block text-[12px] font-normal text-[#6b7280]">{formatPlanPrice(PRO_PRICE_CENTS)} a month</span>
+                <span className="block text-[12px] font-normal text-[#5f6570]">{formatPlanPrice(PRO_PRICE_CENTS)} a month</span>
               </th>
             </tr>
           </thead>

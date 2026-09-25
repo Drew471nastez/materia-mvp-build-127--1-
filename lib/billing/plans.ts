@@ -32,6 +32,24 @@ export const OFFERED_PLAN_IDS: readonly OfferedPlanId[] = ["free", PRO_CHECKOUT_
 /** What the Stripe price for `growth` charges, in cents. */
 export const PRO_PRICE_CENTS = 2900
 
+/**
+ * PAYING YEARLY, the way Shopify offers it: the same plan, paid once a
+ * year, for less per month. Pro yearly is $22 a month, $264 once a year,
+ * against $29 a month: 24% less.
+ *
+ * NOT ON SALE YET. There is no yearly price in Stripe, so a yearly Pro
+ * checkout would charge the monthly price. Until one exists the cards show
+ * yearly prices when Yearly is picked, and Pro's button says it opens soon
+ * rather than taking anyone to a checkout for a price they did not see.
+ * Turning it on: create the yearly price in Stripe, send `interval` through
+ * checkout, and set YEARLY_BILLING_LIVE to true.
+ */
+export type BillingInterval = "monthly" | "yearly"
+export const PRO_YEARLY_MONTHLY_CENTS = 2200
+export const PRO_YEARLY_TOTAL_CENTS = PRO_YEARLY_MONTHLY_CENTS * 12
+export const YEARLY_SAVING_PERCENT = Math.round((1 - PRO_YEARLY_MONTHLY_CENTS / PRO_PRICE_CENTS) * 100)
+export const YEARLY_BILLING_LIVE = false
+
 const DISPLAY_NAMES: Record<PlanId, string> = {
   free: "Free",
   growth: "Pro",
@@ -179,6 +197,20 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
     note: "Billed monthly. Cancel anytime.",
   },
 ]
+
+/**
+ * What a card says about its price for the interval picked. Free is the
+ * same either way; Pro yearly is its monthly equivalent, with the yearly
+ * total (or, until it is on sale, when it opens) in the small print.
+ */
+export function pricedFor(plan: OfferedPlan, interval: BillingInterval): Pick<OfferedPlan, "price" | "priceNote" | "note"> {
+  if (interval === "monthly" || plan.priceCents === 0) return { price: plan.price, priceNote: plan.priceNote, note: plan.note }
+  return {
+    price: formatPlanPrice(PRO_YEARLY_MONTHLY_CENTS),
+    priceNote: "per month, billed yearly",
+    note: YEARLY_BILLING_LIVE ? `${formatPlanPrice(PRO_YEARLY_TOTAL_CENTS)} once a year. Cancel anytime.` : "Yearly opens soon. Pay monthly for now.",
+  }
+}
 
 export function offeredPlan(id: OfferedPlanId): OfferedPlan {
   return OFFERED_PLANS.find((p) => p.id === id) ?? OFFERED_PLANS[0]

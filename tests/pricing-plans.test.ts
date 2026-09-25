@@ -29,6 +29,11 @@ import {
   planHighlights,
   formatPlanPrice,
   withPlanLabel,
+  pricedFor,
+  PRO_YEARLY_MONTHLY_CENTS,
+  PRO_YEARLY_TOTAL_CENTS,
+  YEARLY_BILLING_LIVE,
+  YEARLY_SAVING_PERCENT,
 } from "@/lib/billing/plans"
 import { getFeePreview, formatFeePercent } from "@/lib/billing/fee-calculator"
 import { siteLimits } from "@/lib/sites/plan"
@@ -263,6 +268,20 @@ function main() {
     const code = readCode(file)
     check(`${file}: the pro fallback is still there`, /id: "pro",[\s\S]{0,40}price_cents: 9900/.test(code))
     check(`${file}: growth's fallback is 2900, not 2990`, /id: "growth",[\s\S]{0,40}price_cents: 2900/.test(code) && !/2990/.test(code))
+  }
+
+  console.log("\nMonthly or yearly")
+  {
+    const pro = OFFERED_PLANS.find((p) => p.id === PRO_CHECKOUT_PLAN_ID)!
+    const free = OFFERED_PLANS.find((p) => p.id === "free")!
+    const y = pricedFor(pro, "yearly")
+    check("yearly Pro is $22 a month, $264 a year, 24% less than monthly", y.price === "$22" && PRO_YEARLY_TOTAL_CENTS === 26400 && PRO_YEARLY_MONTHLY_CENTS * 12 === 26400 && YEARLY_SAVING_PERCENT === 24, JSON.stringify(y))
+    check("monthly is the plan as it always was", JSON.stringify(pricedFor(pro, "monthly")) === JSON.stringify({ price: pro.price, priceNote: pro.priceNote, note: pro.note }))
+    check("Free is the same either way", pricedFor(free, "yearly").price === "$0")
+    const cards = readCode("components/billing/plan-cards.tsx")
+    check("until a yearly Stripe price exists, yearly is shown but never sold: Pro's button says it opens soon",
+      YEARLY_BILLING_LIVE === false && /opens soon/.test(y.note) && /held \? \{ label: "Yearly opens soon", settled: true \}/.test(cards))
+    check("one pill switches it for every place the cards are drawn", /role="radiogroup"/.test(cards) && /<IntervalSwitch value=\{interval\}/.test(cards))
   }
 
   console.log("\nThe new copy reads like Storelib")
