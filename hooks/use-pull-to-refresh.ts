@@ -116,13 +116,56 @@ export function usePullToRefresh(
       }
     }
 
-    // touchmove MUST be non-passive to call preventDefault()
+    /*
+      THE BLOCKING LISTENER ONLY WHILE THE PAGE IS AT THE TOP.
+
+      touchmove MUST be non-passive to call preventDefault(), and a
+      non-passive touchmove on the scroller tells the browser that any
+      swipe on the page might be cancelled: every swipe then waits for the
+      page's thread before it scrolls. A pull can only start at the top
+      (onTouchStart), so anywhere below it the listener could never act and
+      only made swipes wait. Measured on Home, the swipes below the chart
+      were the ones that lagged (scripts/check-home-scroll.mjs).
+
+      So it is added when the page reaches the top and taken off when it
+      leaves, never mid pull. Everything a pull does is unchanged.
+
+      WHAT TELLS IT WHERE THE TOP IS: an IntersectionObserver on a marker
+      of no height at the top of the scroller. Not a scroll listener
+      reading `scrollTop`: that read forces the browser to finish style and
+      layout on the spot whenever anything has changed, in the middle of a
+      scroll, and measured at 24ms of forced layout across three flicks.
+      An observer costs nothing per scroll.
+    */
+    let blocking = false
+    const setBlocking = (atTop: boolean) => {
+      if (atTop && !blocking) {
+        el.addEventListener("touchmove", onTouchMove, { passive: false })
+        blocking = true
+      } else if (!atTop && blocking && !trackingRef.current) {
+        el.removeEventListener("touchmove", onTouchMove)
+        blocking = false
+      }
+    }
     el.addEventListener("touchstart", onTouchStart, { passive: true })
-    el.addEventListener("touchmove", onTouchMove, { passive: false })
     el.addEventListener("touchend", onTouchEnd, { passive: true })
     el.addEventListener("touchcancel", onTouchEnd, { passive: true })
+    /* No observer (a very old engine): the listener stays on, as it always was. */
+    const top = typeof IntersectionObserver === "function" ? document.createElement("div") : null
+    let io: IntersectionObserver | null = null
+    if (top) {
+      top.setAttribute("aria-hidden", "true")
+      top.style.cssText = "height:0;margin:0;padding:0;border:0;pointer-events:none;overflow:hidden"
+      el.prepend(top)
+      io = new IntersectionObserver(([entry]) => setBlocking(entry.isIntersecting), { root: el })
+      io.observe(top)
+    } else {
+      setBlocking(true)
+    }
 
     return () => {
+      io?.disconnect()
+      top?.remove()
       el.removeEventListener("touchstart", onTouchStart)
       el.removeEventListener("touchmove", onTouchMove)
       el.removeEventListener("touchend", onTouchEnd)

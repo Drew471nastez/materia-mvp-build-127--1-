@@ -7,7 +7,6 @@ import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "./pull-to-refresh-indicator"
 import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
 import Link from "next/link"
-import Image from "next/image"
 import { dayPart, firstName, type DayPart } from "@/lib/greeting"
 import { rememberTimeZone, viewerTimeZone } from "@/lib/orders/time-zone"
 import {
@@ -27,7 +26,6 @@ import {
   Type,
   Wallet,
   Blocks,
-  BarChart3,
   Globe,
 } from "lucide-react"
 import dynamic from "next/dynamic"
@@ -64,11 +62,9 @@ import { HomeCards, bumpGettingStarted } from "@/components/app/home/home-cards"
 import { QuickActions } from "@/components/app/home/quick-actions"
 import { AppLink } from "@/components/app/app-link"
 import { useHomeProgress } from "@/components/app/home/use-home-progress"
-import { BannerGlobe } from "@/components/app/home/globe"
+import { HomeBanner } from "@/components/app/home/home-banner"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { homeProgress, legacyFacts, type ProgressFacts } from "@/lib/home/progress"
-import { isNativeApp } from "@/lib/platform-utils"
-import { openExternal } from "@/lib/native-bridge"
 import { AxisLabels, fixedScale } from "@/components/app/chart-morph"
 import { MorphLines } from "@/components/app/morph-lines"
 import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
@@ -1395,84 +1391,9 @@ export function DashboardClient({
           </div>
         </div>
 
-        {/* Dashboard Banner — content changes based on subscription plan */}
+        {/* Dashboard Banner: what matters now for this store, beside the globe (components/app/home/home-banner) */}
         <div className="mb-8">
-          <div className="relative overflow-hidden rounded-2xl">
-            {/*
-              `sizes`, because without it next/image builds its srcset from
-              the `width` prop and a phone downloads the 1200px candidate —
-              2400 on a 3x screen — for a box about 358px wide. That is a
-              megapixel and a half decoded on the main thread for a banner
-              a third of that. The number is what the box really is: the
-              content column, which is the viewport under `sm` and 640px of
-              it above.
-            */}
-            <Image
-              src="https://images.unsplash.com/photo-1541367777708-7905fe3296c0?w=1200&h=300&fit=crop"
-              alt=""
-              width={1200}
-              height={300}
-              sizes="(max-width: 640px) 100vw, 640px"
-              priority
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30" />
-            {/*
-              THE GLOBE, in the right corner and running off its foot
-              (components/app/home/globe). A dark pool under it so the dots
-              read over the painting. The text column stops short of it and
-              lets the pointer through its empty space, so the globe can be
-              grabbed wherever it shows and the buttons are always the
-              buttons.
-            */}
-            <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 -right-16 h-[300px] w-[340px] bg-[radial-gradient(closest-side,rgba(8,6,18,0.62),rgba(8,6,18,0))] sm:-bottom-28 sm:right-0 sm:h-[340px] sm:w-[420px]" />
-            <BannerGlobe className="absolute -right-10 top-8 h-[190px] w-[190px] sm:right-6 sm:top-2 sm:h-[250px] sm:w-[250px] lg:right-12" />
-            <div className="pointer-events-none relative z-10 max-w-[62%] px-5 py-5 sm:max-w-[calc(100%-260px)] sm:px-8 sm:py-6 lg:max-w-[calc(100%-300px)] [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
-              {subscriptionPlanId === "growth" || subscriptionPlanId === "pro" ? (
-                /* Pro plan banner (internal ids "growth" and the earlier "pro") */
-                <>
-                  <p className="text-[16px] sm:text-[20px] font-medium text-white mb-1">Track what&apos;s working in real time</p>
-                  <p className="text-[13px] sm:text-[14px] text-white/80 mb-3 sm:mb-4">Use your dashboard to optimize for more sales.</p>
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                    <Link
-                      href="/app/analytics"
-                      className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-white rounded-lg text-[12px] sm:text-[13px] font-semibold text-[#1a1a2e] hover:bg-white/90 transition-colors"
-                    >
-                      <BarChart3 className="h-3.5 w-3.5" />
-                      View analytics
-                    </Link>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[13px] sm:text-[15px] font-semibold text-white">Pro plan</span>
-                  </div>
-                  <p className="text-[14px] sm:text-[16px] text-white/90 mb-3 sm:mb-4">3% fees instead of 6%, and 25 GB of storage instead of 1 GB.</p>
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                    <Link
-                      href="/app/settings/billing/upgrade"
-                      className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-white rounded-lg text-[12px] sm:text-[13px] font-semibold text-[#1a1a2e] hover:bg-white/90 transition-colors"
-                    >
-                      Upgrade
-                    </Link>
-                    <button
-                      onClick={() => {
-                        if (isNativeApp()) {
-                          openExternal("https://storelib.com/features")
-                        } else {
-                          window.open("/features", "_blank", "noopener,noreferrer")
-                        }
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-[12px] sm:text-[13px] font-medium text-white hover:bg-white/20 transition-colors cursor-pointer"
-                    >
-                      Features
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+          <HomeBanner facts={facts} planId={subscriptionPlanId} orders={liveOrders} onShare={canShare ? openShare : undefined} />
         </div>
 
         {/* Getting started, the guide and Your Plan (components/app/home/home-cards).
