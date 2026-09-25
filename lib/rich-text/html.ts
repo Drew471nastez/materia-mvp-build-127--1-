@@ -46,6 +46,7 @@ import {
   safeHref,
   safeIframeSrc,
   safeImageSrc,
+  pictureStyle,
 } from "./policy"
 
 // ===========================================================================
@@ -302,10 +303,16 @@ function storedAttributes(tag: string, attrs: Record<string, string>, legacyImag
   }
   for (const name of allowed ?? []) {
     if (name === "href" || name === "src") continue
-    /* A picture is lazy, always; its styles are only the old editor's. */
-    if (tag === "img" && (name === "loading" || (name === "style" && !legacyImage))) continue
+    /* A picture is lazy, always. An old editor's picture keeps its sizing
+       styles; a new one keeps only its width and shape (pictureStyle). */
+    if (tag === "img" && name === "loading") continue
     const raw = attrs[name]
     if (raw === undefined) continue
+    if (tag === "img" && name === "style" && !legacyImage) {
+      const style = pictureStyle(raw)
+      if (style) out.push(["style", style])
+      continue
+    }
     if (name === "style") {
       const style = filterStyle(tag, raw)
       if (style) out.push(["style", style])

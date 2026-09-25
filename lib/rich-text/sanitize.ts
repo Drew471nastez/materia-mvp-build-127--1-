@@ -40,6 +40,7 @@ import {
   TAG_ALIASES,
   isButtonShaped,
   isExternalHref,
+  pictureStyle,
   safeHref,
   safeIframeSrc,
   safeImageSrc,
@@ -131,14 +132,20 @@ for (const tag of STORED_TAGS) {
 
 /**
  * A picture: its address checked (own storage anywhere, the old editor's
- * shapes only inside its wrappers), lazy, and styled only if it is old.
+ * shapes only inside its wrappers), lazy, and styled as it was if it is old;
+ * a new one keeps only its width and shape.
  */
 function imageAttributes(tagName: string, attribs: sanitizeHtml.Attributes, legacy: boolean) {
   const out: Record<string, string> = { ...attribs }
   const src = safeImageSrc(attribs.src, legacy)
   if (src) out.src = src
   else delete out.src
-  if (!legacy) delete out.style
+  if (!legacy) {
+    /* A new picture keeps only its width and shape, rebuilt (pictureStyle). */
+    const style = pictureStyle(out.style ?? "")
+    if (style) out.style = style
+    else delete out.style
+  }
   out.loading = "lazy"
   return { tagName, attribs: out }
 }

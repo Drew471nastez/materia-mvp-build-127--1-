@@ -356,6 +356,34 @@ section("The wiring")
   check("a product card shows the description as text, not as markup", /plainSummary\(product\.description/.test(grid))
 }
 
+/*
+ * A PICTURE'S SIZE, SHAPE AND PLACE. "I can adjust the size of the images,
+ * position the image better, adjust its ratios, with draggers in corners."
+ * The field writes a width in %, an aspect ratio and data-align; both the
+ * server and the browser keep exactly those, rebuilt, and nothing else.
+ */
+console.log("\nA picture's size, shape and place")
+{
+  const OWN_PIC = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/product-images/c/p/1.webp"
+  const placed = `<p><img src="${OWN_PIC}" alt="Mug" width="1600" height="900" data-align="right" style="width: 62.4%; aspect-ratio: 4 / 3; object-fit: cover; position: fixed; background: url(x); left: 0" onclick="x()"></p>`
+  for (const [name, clean] of [["server", sanitizeDescription], ["browser", (h: string) => cleanStoredHtml(h, { blocks: true })]] as const) {
+    const out = clean(placed)
+    check(`${name}: keeps its width as a whole %, its shape with cover, and its place`,
+      /style="width: ?62%; ?aspect-ratio: ?4 \/ 3; ?object-fit: ?cover"/.test(out) && /data-align="right"/.test(out), out)
+    check(`${name}: and nothing else a style could say, and no handler`, !/position|background|left:|onclick/.test(out), out)
+    const odd = clean(`<p><img src="${OWN_PIC}" data-align="middle" style="width: 400px; aspect-ratio: 0 / 1"></p>`)
+    check(`${name}: a place, width or shape outside the few it can be is dropped`, !/data-align|style=/.test(odd), odd)
+    const full = clean(`<p><img src="${OWN_PIC}" style="width: 100%"></p>`)
+    check(`${name}: full width is no width at all`, !/style=/.test(full), full)
+  }
+  const css = readFileSync(join(process.cwd(), "app/globals.css"), "utf8")
+  check("the page draws a placed picture as a block, left, centre or right, as the field does",
+    /\.storelib-prose img\[data-align\] \{ display: block; \}/.test(css) && /\.storelib-prose img\[data-align="center"\] \{ margin-left: auto; margin-right: auto; \}/.test(css)
+      && /\.storelib-prose img\[data-align="right"\] \{ margin-left: auto; margin-right: 0; \}/.test(css))
+  const editor = readFileSync(join(process.cwd(), "components/app/rich-text-editor.tsx"), "utf8")
+  check("the field has an Emoji control, and no blue focus ring", /emoji: \{ label: "Emoji", icon: Smile \}/.test(editor) && !/ring-ring/.test(editor) && !/focus:border-ring/.test(editor))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

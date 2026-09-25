@@ -1215,6 +1215,12 @@ html.capacitor body {
   }
   .storelib-prose hr { border: 0; border-top: 1px solid currentColor; opacity: 0.2; margin: 1.4em 0; }
   .storelib-prose img { border-radius: 10px; max-width: 100%; height: auto; }
+  /* A picture the description field placed (data-align) is a block of its
+     own, at its own width (a %, from its style), left, centre or right. */
+  .storelib-prose img[data-align] { display: block; }
+  .storelib-prose img[data-align="left"] { margin-left: 0; margin-right: auto; }
+  .storelib-prose img[data-align="center"] { margin-left: auto; margin-right: auto; }
+  .storelib-prose img[data-align="right"] { margin-left: auto; margin-right: 0; }
   /*
    * WHAT A PRODUCT DESCRIPTION ADDS. The description is written in
    * components/app/rich-text-editor.tsx and drawn by RichDescriptionContent,
@@ -1261,7 +1267,10 @@ html.capacitor body {
   .rich-text-content img { display: block; margin: 0.25em 0; }
   .rich-text-content img { cursor: pointer; }
   .rich-text-content img[data-uploading] { opacity: 0.55; }
-  .rich-text-content img[data-picked] { outline: 2px solid #1a1a2e; outline-offset: 2px; }
+  /* The picked picture's frame and handles are drawn over it (rich-text/picture-controls). */
+  .rich-text-content img[data-picked] { outline: none; }
+  /* Selected words in a soft grey, not the system's bright blue. */
+  .rich-text-content ::selection { background: rgba(17, 17, 19, 0.13); }
 
   /**
    * The bar across the top of the editor's canvas while the next page is

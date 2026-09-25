@@ -167,7 +167,7 @@ try {
 
     const buttons = await p.$$eval("[role=toolbar] button", (bs) => bs.map((b) => { const r = b.getBoundingClientRect(); return { l: b.getAttribute("aria-label"), w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top) } }))
     const want = phone ? 44 : 32
-    expect(buttons.length === 15, "fifteen controls: two headings, four marks, two lists, quote, link, picture, divider, clear, undo, redo", buttons.length)
+    expect(buttons.length === 16, "sixteen controls: two headings, four marks, two lists, quote, link, picture, emoji, divider, clear, undo, redo", buttons.length)
     expect(buttons.every((b) => b.w === want && b.h === want), `every control is ${want}px square`, [...new Set(buttons.map((b) => `${b.w}x${b.h}`))])
     const rows = new Set(buttons.map((b) => b.top)).size
     /* The row of controls is the scroller, inside the toolbar: the toolbar
@@ -196,10 +196,11 @@ try {
     await sleep(150)
     const after = await box(p, ".rich-text-field")
     expect(before.h === after.h && before.y === after.y, "focusing it moves and resizes nothing", { before, after })
-    const ring = await p.$eval(".rich-text-field", (el) => getComputedStyle(el).boxShadow)
-    /* Tailwind's ring is the last of several stacked shadows; the others are transparent. */
-    const drawn = ring.split(/,(?![^(]*\))/).map((x) => x.trim()).find((x) => /\b3px$/.test(x) && !/rgba\([^)]*,\s*0\)/.test(x))
-    expect(!!drawn, "and draws a 3px ring, the one the other inputs draw", drawn ?? ring)
+    const ring = await p.$eval(".rich-text-field", (el) => ({ shadow: getComputedStyle(el).boxShadow, border: getComputedStyle(el).borderTopColor }))
+    /* "I don't like that blue line when I select the description": a soft grey halo and a slightly darker border, no blue. */
+    const drawn = ring.shadow.split(/,(?![^(]*\))/).map((x) => x.trim()).find((x) => /^rgba\(17, 17, 19, 0\.06\)/.test(x) && /\b(2\.9\d*|3)px$/.test(x))
+    const blue = (c) => { const m = /rgba?\((\d+), (\d+), (\d+)/.exec(c); return !!m && Number(m[3]) > Number(m[1]) + 40 }
+    expect(!!drawn && !blue(ring.border) && !ring.shadow.split(/,(?![^(]*\))/).some((x) => blue(x) && !/, 0\)/.test(x)), "and draws a soft grey halo, not a blue ring", ring)
 
     await p.keyboard.type("Hello ")
     await tool(p, "Bold")
@@ -339,15 +340,92 @@ try {
     expect(shown.loaded && shown.w <= shown.room && Math.abs(shown.w / shown.h - 16 / 9) < 0.02 && shown.radius === "10px",
       "it fills the width of the text at most, keeps its shape, and has the page's rounded corners", shown)
     expect((await sideways(p)) <= 0, "the page does not scroll sideways", await sideways(p))
+    /* Picked the moment it lands: a frame with four handles, and the picture's bar over it. */
+    const picked = await p.evaluate(() => {
+      const img = document.querySelector("[role=textbox] img").getBoundingClientRect()
+      const frame = document.querySelector("[data-picture-frame]")?.getBoundingClientRect()
+      const bar = document.querySelector("[data-picture-bar]")?.getBoundingClientRect()
+      return {
+        frame: frame ? Math.abs(frame.left - img.left) + Math.abs(frame.top - img.top) + Math.abs(frame.width - img.width) : null,
+        handles: document.querySelectorAll("[data-picture-handle]").length,
+        bar: bar ? { w: Math.round(bar.width), h: Math.round(bar.height) } : null,
+        tools: [...document.querySelectorAll("[data-picture-bar] button")].map((b) => b.getAttribute("aria-label")),
+      }
+    })
+    expect(picked.frame !== null && picked.frame <= 3 && picked.handles === 4 && !!picked.bar, "the new picture is picked: a frame on it with four corner handles, and its bar", picked)
+    expect(["Align left", "Align centre", "Align right", "Medium, half the width", "Shape", "Move up", "Move down", "Alt text", "Remove picture"].every((t) => picked.tools.includes(t)), "the bar places it, sizes it, shapes it, moves it, describes it and removes it", picked.tools)
+    const barButtons = await p.$$eval("[data-picture-bar] button", (bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height)))
+    expect(barButtons.every((h) => h >= (phone ? 36 : 32)), `its buttons are ${phone ? 36 : 32}px or taller`, barButtons)
+
+    const room = shown.room
+    const measure = () => p.$eval("[role=textbox] img", (img) => { const r = img.getBoundingClientRect(); const box = img.closest("[role=textbox]").getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), left: Math.round(r.left - box.left), right: Math.round(box.right - r.right) } })
+
+    /* Medium: half the width, centred. */
+    await p.click('[data-picture-bar] button[aria-label="Medium, half the width"]')
+    await sleep(120)
+    let m = await measure()
+    expect(Math.abs(m.w - room / 2) <= 2 && Math.abs(m.left - m.right) <= 2, "Medium makes it half the width, centred", { ...m, room })
+    expect(/<img [^>]*style="width: 50%" data-align="center"/.test(await value(p)), "and that is what is saved", await value(p))
+
+    /* A corner handle, dragged: wider, from both sides while it is centred. */
+    const h = await box(p, '[data-picture-handle="br"]')
+    await p.mouse.move(h.x + h.w / 2, h.y + h.h / 2)
+    await p.mouse.down()
+    const dx = Math.round(room * 0.1)
+    for (let i = 1; i <= 6; i++) { await p.mouse.move(h.x + h.w / 2 + (dx * i) / 6, h.y + h.h / 2 + i); await sleep(16) }
+    await p.mouse.up()
+    await sleep(150)
+    m = await measure()
+    const dragged = /style="width: (\d+)%"/.exec(await value(p))?.[1]
+    expect(dragged && Number(dragged) >= 66 && Number(dragged) <= 74 && Math.abs(m.w - room * Number(dragged) / 100) <= 3, "dragging a corner resizes it, saved as its share of the width", { dragged, w: m.w, room })
+
+    /* A shape: square. */
+    await p.click('[data-picture-bar] button[aria-label="Shape"]')
+    await sleep(120)
+    await p.evaluate(() => [...document.querySelectorAll("[role=menuitemradio]")].find((b) => b.textContent.startsWith("1:1")).click())
+    await sleep(120)
+    m = await measure()
+    expect(Math.abs(m.w - m.h) <= 2 && /aspect-ratio: 1 \/ 1; object-fit: cover/.test(await value(p)), "a shape cuts it to that ratio, and is saved", { ...m })
+
+    /* Right, then up above the words. */
+    await p.click('[data-picture-bar] button[aria-label="Align right"]')
+    await sleep(120)
+    m = await measure()
+    expect(m.right <= 16 && m.left > m.right && /data-align="right"/.test(await value(p)), "Right puts it against the right edge of the text", m)
+    await p.click('[data-picture-bar] button[aria-label="Move up"]')
+    await sleep(150)
+    expect(/^<p><img [^>]+><\/p><p>Before the picture\.<\/p>$/.test(await value(p)), "Move up puts it before the paragraph above it", await value(p))
+    expect((await sideways(p)) <= 0, "the page does not scroll sideways with the bar out", await sideways(p))
+    await p.screenshot({ path: join(shots, `picture-controls-${label}.png`), fullPage: true })
+
+    /* Its description. */
+    await p.click('[data-picture-bar] button[aria-label="Alt text"]')
+    await sleep(120)
     const altBox = await p.$eval("[aria-label='Picture description']", (el) => ({ fs: parseFloat(getComputedStyle(el).fontSize), h: Math.round(el.getBoundingClientRect().height) }))
-    expect(altBox.fs >= (phone ? 16 : 14) && altBox.h >= (phone ? 44 : 36), "its description field opens under the toolbar", altBox)
+    expect(altBox.fs >= (phone ? 16 : 14) && altBox.h >= (phone ? 44 : 36), "Alt opens its description field under the toolbar", altBox)
     await p.type("[aria-label='Picture description']", "A mug on a desk")
     await sleep(80)
     expect(/<img [^>]*alt="A mug on a desk"/.test(await value(p)), "the description is saved as its alt text", await value(p))
     await p.screenshot({ path: join(shots, `picture-${label}.png`), fullPage: true })
-    await p.evaluate(() => [...document.querySelectorAll(".rich-text-field button")].find((b) => b.textContent.trim() === "Remove picture").click())
+    await p.keyboard.press("Enter")
+    await sleep(80)
+    await p.click('[data-picture-bar] button[aria-label="Remove picture"]')
     await sleep(120)
-    expect(!/<img/.test(await value(p)) && !(await p.$("[role=textbox] img")), "Remove picture takes it out", await value(p))
+    expect(!/<img/.test(await value(p)) && !(await p.$("[role=textbox] img")) && !(await p.$("[data-picture-bar]")), "Remove takes it out, and its bar with it", await value(p))
+
+    /* An emoji, where the caret was. */
+    await p.click(field)
+    await p.keyboard.press("End")
+    await tool(p, "Emoji")
+    await sleep(phone ? 600 : 200)
+    const panel = await p.evaluate(() => { const el = document.querySelector("[data-emoji-panel]"); if (!el) return null; const r = el.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), cells: el.querySelectorAll("button[aria-label]").length } })
+    expect(!!panel && panel.cells > 200 && panel.w <= vp.width, `the Emoji control opens the picker ${phone ? "in a sheet" : "under it"}`, panel)
+    await p.screenshot({ path: join(shots, `emoji-${label}.png`) })
+    await p.type("[aria-label='Search emoji']", "fire")
+    await sleep(120)
+    await p.evaluate(() => document.querySelector('[data-emoji-panel] button[aria-label="🔥"]').click())
+    await sleep(phone ? 500 : 150)
+    expect(/Before the picture\.\s?🔥<\/p>$/.test(await value(p)), "a search finds it and a pick goes in where the caret was", await value(p))
     expect(errors.length === 0, "nothing in the console", errors)
     await p.close()
   }

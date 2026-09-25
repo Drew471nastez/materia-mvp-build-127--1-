@@ -64,7 +64,7 @@ export const VOID_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "i
 export const STORED_ATTRIBUTES: Record<string, string[]> = {
   a: ["href", "title", "style"],
   /* `style` survives only on an old editor's picture; see safeImageSrc. */
-  img: ["src", "alt", "width", "height", "loading", "style"],
+  img: ["src", "alt", "width", "height", "loading", "style", "data-align"],
   iframe: ["src", "title", "allow", "allowfullscreen", "loading", "frameborder", "width", "height"],
   div: ["data-embed-type", "data-image-size", "data-x-url", "class", "style", "dir"],
   span: ["style"],
@@ -94,6 +94,8 @@ export const ATTRIBUTE_VALUES: Record<string, RegExp> = {
   "data-image-size": /^(cover|contain|wide|portrait|square|standard)$/,
   "data-x-url": /^https:\/\/(www\.)?(twitter\.com|x\.com)\/[\w/?=&.-]{1,300}$/,
   "data-dnt": /^(true|false)$/,
+  /* Where a picture sits in the text: see pictureStyle below. */
+  "data-align": /^(left|center|right)$/,
   "data-theme": /^(light|dark)$/,
   dir: /^(ltr|rtl|auto)$/,
   start: /^\d{1,5}$/,
@@ -158,6 +160,33 @@ function BUTTON_RULES(): Record<string, RegExp> {
     "font-weight": /^(normal|bold|[1-9]00)$/,
     "text-decoration": /^(none|underline)$/,
   }
+}
+
+/**
+ * A PICTURE'S OWN SIZE AND SHAPE, as the description field sets them: how
+ * wide it is (a share of the text's width, 10% to 100%), the shape it is cut
+ * to (an aspect ratio, filled with object-fit: cover) and nothing else. Its
+ * place (left, centre, right) is `data-align`, drawn by .storelib-prose.
+ *
+ * Rebuilt from the numbers, never passed through: whatever else a style
+ * says is dropped, and a value outside these shapes is dropped too. Used by
+ * the browser's cleaner (lib/rich-text/html.ts) and the server's
+ * (lib/rich-text/sanitize.ts), so both keep exactly the same thing.
+ */
+export function pictureStyle(style: string): string {
+  const decls = new Map(parseStyle(style))
+  const out: string[] = []
+  const width = /^(\d{1,3})(\.\d+)?%$/.exec(decls.get("width") ?? "")
+  if (width) {
+    const pct = Math.round(Number(width[1] + (width[2] ?? "")))
+    if (pct >= 10 && pct < 100) out.push(`width: ${pct}%`)
+  }
+  const ratio = /^(\d{1,2})\s*\/\s*(\d{1,2})$/.exec(decls.get("aspect-ratio") ?? "")
+  if (ratio && Number(ratio[1]) > 0 && Number(ratio[2]) > 0) {
+    out.push(`aspect-ratio: ${Number(ratio[1])} / ${Number(ratio[2])}`)
+    out.push("object-fit: cover")
+  }
+  return out.join("; ")
 }
 
 /** `prop: value; prop: value` as pairs, lower-cased names, values trimmed. */
