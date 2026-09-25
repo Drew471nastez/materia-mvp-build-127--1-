@@ -27,6 +27,8 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContex
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
+import { ExtraBlock, SensitiveLinkQuestion } from "@/components/onepage/extra-blocks"
+import { extraBlockHasContent, isScheduledNow } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 
 const stripHtmlToPlainText = (value?: string | null) => {
@@ -2092,6 +2094,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 key={block.id}
                 className={cn("w-full", animClass)}
                 style={animStyle}
+                data-sensitive-label={sensitiveLabel(block)}
               >
               <PublicBlockRenderer
                 block={block}
@@ -2162,6 +2165,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     <PDFModalContext.Provider value={pdfModalContextValue}>
       {/* Dynamic Favicon - uses avatar, video frame, or store builder avatar */}
       <OnePageDynamicFavicon avatarUrl={avatar_url} videoUrl={avatar_video_url} sellerId={seller_id} />
+      {/* Asks before a link marked sensitive opens (data-sensitive-label on its box) */}
+      <SensitiveLinkQuestion />
 
       {/*
         THE DEBLUR IS GONE ON PURPOSE.
@@ -3123,6 +3128,7 @@ function GroupBlockRenderer({
                 key={child.id}
                 className="shrink-0 snap-start"
                 style={itemStyle}
+                data-sensitive-label={sensitiveLabel(child)}
               >
                 <div className="w-full" style={{ overflow: 'visible' }}>
                   <PublicBlockRenderer
@@ -3198,7 +3204,7 @@ function GroupBlockRenderer({
       }}
     >
       {enabledChildren.map((child) => (
-        <div key={child.id} className="w-full" style={{ overflow: 'visible' }}>
+        <div key={child.id} className="w-full" style={{ overflow: 'visible' }} data-sensitive-label={sensitiveLabel(child)}>
           <PublicBlockRenderer
             block={child}
             theme={theme}
@@ -3612,9 +3618,17 @@ function PublicImageCarousel({
   )
 }
 
+/** A link marked sensitive: its label, for the box around it (SensitiveLinkQuestion asks before it opens). */
+function sensitiveLabel(block: any): string | undefined {
+  if (block?.type !== "link_button" || !block.data?.sensitive) return undefined
+  return String(block.data.label || "")
+}
+
 /** Check if a block will produce visible content — used to skip empty wrapper divs */
 function isBlockVisible(block: any): boolean {
   if (!block?.enabled) return false
+  // Outside its schedule (the server drops these too, before the page is sent)
+  if (!isScheduledNow(block)) return false
   // Text blocks: must have meaningful alphanumeric content
   if (block.type === "text") {
     const content = block.data?.content || ""
@@ -3630,7 +3644,7 @@ function isBlockVisible(block: any): boolean {
   if (block.type === "link_button") {
     return !!(block.data?.url)
   }
-  return true
+  return extraBlockHasContent(block)
 }
 
 function PublicBlockRenderer({
@@ -5623,6 +5637,7 @@ function PublicBlockRenderer({
                 <div
                   key={child.id}
                   className="w-full px-3"
+                  data-sensitive-label={sensitiveLabel(child)}
                 >
                   <PublicBlockRenderer
                     block={child}
@@ -6653,6 +6668,13 @@ function PublicBlockRenderer({
         </>
       )
     }
+
+    case "heading":
+    case "faq":
+    case "countdown":
+    case "map":
+    case "video":
+      return <ExtraBlock block={block} look={{ theme, scale: "live" }} />
 
     default:
       return null

@@ -129,6 +129,7 @@ import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, longDate, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { createClient } from "@/lib/supabase/client"
 import { BLOCKED_EXTENSIONS, readFileHeader, scanFile, MAX_DIGITAL_PRODUCT_FILE_SIZE } from "@/lib/storage/security"
+import { BlockBadges, BlockExtras, EXTRA_BLOCK_CATALOG, EXTRA_BLOCK_TYPES, ExtraBlockEditor, extraBlockRow, type ExtraBlockType } from "@/components/onepage/extra-blocks"
 
 // Validate social URL and transform if needed
 function validateSocialUrl(platform: keyof OnePageSocialLinks, url: string): { valid: boolean; error?: string; transformedUrl?: string } {
@@ -438,6 +439,7 @@ const blockCategories = [
     icon: Video,
     blocks: [
       { type: "image" as const, label: "Image", description: "Upload or link an image", icon: ImageIcon },
+      EXTRA_BLOCK_CATALOG.video,
       { type: "link_button" as const, label: "YouTube Video", description: "Embed a video link", icon: Video, preset: { label: "Watch Video", url: "https://youtube.com/watch?v=" } },
       { type: "link_button" as const, label: "Vimeo", description: "Link to Vimeo", icon: Video, preset: { label: "Watch on Vimeo", url: "https://vimeo.com/" } },
     ],
@@ -471,6 +473,7 @@ const blockCategories = [
     blocks: [
       { type: "email_capture" as const, label: "Email Signup", description: "Collect emails", icon: Mail },
       { type: "calendly" as const, label: "Calendly", description: "Book meetings with Calendly", icon: Calendar },
+      EXTRA_BLOCK_CATALOG.map,
       { type: "link_button" as const, label: "Contact Form", description: "Link to form", icon: FileText, comingSoon: true, preset: { label: "Contact Me", url: "" } },
       { type: "link_button" as const, label: "WhatsApp", description: "Link to WhatsApp", icon: MessageSquare, preset: { label: "Message on WhatsApp", url: "https://wa.me/" } },
       { type: "link_button" as const, label: "Telegram", description: "Link to Telegram", icon: MessageSquare, preset: { label: "Message on Telegram", url: "https://t.me/" } },
@@ -483,7 +486,10 @@ const blockCategories = [
     icon: Grid3X3,
     blocks: [
       { type: "link_button" as const, label: "Link", description: "Add any URL", icon: Link },
+      EXTRA_BLOCK_CATALOG.heading,
       { type: "text" as const, label: "Text", description: "Add text content", icon: Type },
+      EXTRA_BLOCK_CATALOG.faq,
+      EXTRA_BLOCK_CATALOG.countdown,
       { type: "divider" as const, label: "Divider", description: "Add spacing", icon: Minus },
       { type: "group" as const, label: "Group", description: "Group blocks together", icon: Layers },
     ],
@@ -552,6 +558,12 @@ function getBlockPreviewData(block: OnePageBlock) {
       const data = block.data as CalendlyBlockData
       return { title: data.title || "Book a Meeting", subtitle: data.calendly_url ? "Calendly connected" : "Add Calendly URL", icon: Calendar, thumbnail_url: data.thumbnail_url }
     }
+    case "heading":
+    case "faq":
+    case "countdown":
+    case "map":
+    case "video":
+      return extraBlockRow(block)
     default:
       return { title: block.type, subtitle: "", icon: Link }
   }
@@ -1536,7 +1548,7 @@ export function LinksTab() {
     // If adding to a group, handle differently
     if (addToGroupId) {
       // Don't allow adding these types to a group
-      if (type === "header" || type === "group" || type === "social_row" || type === "product" || type === "email_capture" || type === "text" || type === "divider") {
+      if (type === "header" || type === "group" || type === "social_row" || type === "product" || type === "email_capture" || type === "text" || type === "divider" || EXTRA_BLOCK_TYPES.includes(type as ExtraBlockType)) {
         closeAddSheet()
         return
       }
@@ -2028,7 +2040,7 @@ export function LinksTab() {
   const hasHeaderBlock = sortedBlocks.some(b => b.type === "header")
 
   // Block types that can't be added to a group
-  const blockedInGroup = ["header", "group", "social_row", "product", "email_capture", "text", "divider"]
+  const blockedInGroup = ["header", "group", "social_row", "product", "email_capture", "text", "divider", "heading", "faq", "countdown", "map", "video"]
 
   const activeCategoryBlocks = (searchQuery
     ? filteredCategories.flatMap(c => c.blocks)
@@ -5105,6 +5117,12 @@ function BlockItem({
         const data = block.data as CalendlyBlockData
         return { title: data.title || "Book a Meeting", subtitle: data.calendly_url ? "Calendly connected" : "Add Calendly URL", icon: Calendar, thumbnail_url: data.thumbnail_url }
       }
+      case "heading":
+      case "faq":
+      case "countdown":
+      case "map":
+      case "video":
+        return extraBlockRow(block)
       default:
         return { title: block.type, subtitle: "", icon: Link }
     }
@@ -5245,7 +5263,10 @@ function BlockItem({
         {/* Title and subtitle - clickable to select block */}
         <div className="flex-1 min-w-0 cursor-pointer" onClick={onSelect}>
           <p className="font-medium text-sm truncate">{preview.title}</p>
-          <p className="text-xs text-muted-foreground truncate">{preview.subtitle}</p>
+          <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="truncate">{preview.subtitle}</span>
+            <BlockBadges block={block} />
+          </p>
         </div>
 
         {/* Warning icon for link blocks without URL */}
@@ -8951,6 +8972,13 @@ function BlockEditor({
         )
       }
 
+      case "heading":
+      case "faq":
+      case "countdown":
+      case "map":
+      case "video":
+        return <ExtraBlockEditor block={block} updateData={updateData} />
+
       case "group": {
         // Group block has special handling - returns null here, handled separately at the end
         return null
@@ -9433,6 +9461,25 @@ function BlockEditor({
     )
   }
 
+  /*
+    THE SCHEDULE AND THE SENSITIVE SWITCH (components/onepage/extra-blocks),
+    under every block's own settings but the profile header's. A block inside
+    a group shows with its group, so it has the switch but not the schedule.
+  */
+  const settingsWithExtras = () => (
+    <>
+      {renderSettingsContent()}
+      {block.type !== "header" ? (
+        <BlockExtras
+          block={block}
+          scheduling={!updateBlockOverride}
+          updateBlock={(updates) => updateBlock(block.id, updates)}
+          updateData={updateData}
+        />
+      ) : null}
+    </>
+  )
+
   // If block supports layout, render with tabs; otherwise just render settings
   if (supportsLayout) {
     return (
@@ -9448,7 +9495,7 @@ function BlockEditor({
           </TabsTrigger>
         </TabsList>
         <TabsContent value="settings" className="mt-0">
-          {renderSettingsContent()}
+          {settingsWithExtras()}
         </TabsContent>
         <TabsContent value="layout" className="mt-0">
           {renderLayoutContent()}
@@ -9458,5 +9505,5 @@ function BlockEditor({
   }
 
   // For blocks without layout support, just render settings directly
-  return renderSettingsContent()
+  return settingsWithExtras()
 }

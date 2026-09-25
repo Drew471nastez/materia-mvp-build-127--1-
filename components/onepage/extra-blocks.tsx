@@ -1,0 +1,783 @@
+"use client"
+
+/**
+ * ===========================================================================
+ *  THE ONEPAGE'S NEWER BLOCKS, DRAWN ONCE FOR THE EDITOR AND THE LIVE PAGE
+ * ===========================================================================
+ * The OnePage editor's phone preview (phone-preview.tsx) and the live page
+ * (public-onepage.tsx) each carry their own copy of every block, and the
+ * copies have drifted: a size here, a colour there, a block that shows in
+ * one and not the other. The blocks in this file are drawn by ONE function,
+ * `ExtraBlock`, which both of them call, so what the creator sees while
+ * editing is what a visitor sees. Only the scale differs: the small phone
+ * drawn beside the editor is 0.8 of a real phone, as the rest of that
+ * preview is.
+ *
+ * What is here, after the features people use most on Linktree:
+ *
+ *   HEADING     a line of bold text between links, three sizes, to split a
+ *               page into parts ("Shop", "Watch", "Work with me").
+ *   FAQ         questions that open one at a time, by their own height.
+ *   COUNTDOWN   days, hours, minutes and seconds to a date, then a line of
+ *               your own once it has passed.
+ *   MAP         a place on a map, with a button that opens it in the
+ *               visitor's maps app.
+ *   VIDEO       a YouTube, Vimeo or TikTok video that plays on the page. The
+ *               player loads on the first press, so a page with a video on
+ *               it opens as fast as one without.
+ *
+ * And two things any block can have (the editor's BlockExtras below):
+ *
+ *   SCHEDULE    a start and an end. Outside them the block is not on the
+ *               page, and the editor says so on the block's row.
+ *   SENSITIVE   on a link: a visitor is asked before it opens, as Linktree
+ *               does for content some people would rather not see.
+ *
+ * Everything takes its colours and shape from the page's own theme (the
+ * button colour, text colour, corner radius and style), so a new block looks
+ * like it belongs to the page it is on.
+ */
+
+import * as React from "react"
+import { useSyncExternalStore } from "react"
+import { ChevronDown, Clock, EyeOff, HelpCircle, Heading, MapPin, Play, Plus, Timer, Trash2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { scheduleLabel, videoSource } from "@/lib/onepage/extra-blocks"
+import type {
+  CountdownBlockData,
+  FaqBlockData,
+  HeadingBlockData,
+  MapBlockData,
+  OnePageBlock,
+  OnePageBlockData,
+  OnePageBlockSchedule,
+  OnePageTheme,
+  VideoBlockData,
+} from "@/lib/onepage/types"
+
+export { EXTRA_BLOCK_TYPES, extraBlockHasContent, isExtraBlock, isScheduledNow, scheduleLabel, videoSource, type ExtraBlockType } from "@/lib/onepage/extra-blocks"
+
+/* ─── The page's look, shared by every block here ─────────────────────── */
+
+type Scale = "small" | "normal" | "live"
+
+export interface ExtraBlockLook {
+  theme: OnePageTheme
+  scale: Scale
+  /** The editor's preview, where the page changes as the creator types. */
+  preview?: boolean
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const clean = (hex || "").replace("#", "")
+  const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean
+  const r = Number.parseInt(full.slice(0, 2), 16) || 0
+  const g = Number.parseInt(full.slice(2, 4), 16) || 0
+  const b = Number.parseInt(full.slice(4, 6), 16) || 0
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
+/** The page's button, as the link blocks draw it (filled, outline or glass, its radius, border and shadow). */
+export function themeButtonStyle(theme: OnePageTheme): React.CSSProperties {
+  const t = theme as OnePageTheme & { button_shadow?: string; button_shadow_color?: string }
+  const shadowColor = t.button_shadow_color || "#000000"
+  const shadows: Record<string, string> = {
+    none: "none",
+    subtle: `0 2px 4px ${hexToRgba(shadowColor, 0.15)}`,
+    strong: `0 4px 12px ${hexToRgba(shadowColor, 0.3)}`,
+    hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
+  }
+  return {
+    backgroundColor: theme.button_style === "outline" ? "transparent" : theme.button_style === "glass" ? "rgba(255, 255, 255, 0.15)" : theme.button_color,
+    color: theme.button_text_color,
+    borderRadius: `${theme.button_border_radius}px`,
+    borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : theme.button_border_width || 0}px`,
+    borderStyle: "solid",
+    borderColor: theme.button_style === "outline" ? theme.button_border_color || theme.button_color : theme.button_border_color,
+    backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
+    boxShadow: shadows[t.button_shadow || "none"] || "none",
+  }
+}
+
+const k = (scale: Scale) => (scale === "small" ? 0.8 : 1)
+const px = (n: number, scale: Scale) => `${Math.round(n * k(scale) * 10) / 10}px`
+
+/* ─── Heading ──────────────────────────────────────────────────────────── */
+
+const HEADING_SIZE: Record<HeadingBlockData["size"], number> = { small: 15, medium: 18, large: 22 }
+
+function HeadingView({ data, look }: { data: HeadingBlockData; look: ExtraBlockLook }) {
+  const text = (data.text || "").trim()
+  if (!text) return null
+  const t = look.theme as OnePageTheme & { title_color?: string | null; title_font?: string | null }
+  return (
+    <h2
+      data-onepage-heading=""
+      className="w-full font-bold leading-tight tracking-[-0.01em]"
+      style={{
+        fontSize: px(HEADING_SIZE[data.size] ?? 18, look.scale),
+        color: t.title_color || look.theme.text_color,
+        textAlign: data.alignment || "center",
+        paddingTop: px(6, look.scale),
+      }}
+    >
+      {text}
+    </h2>
+  )
+}
+
+/* ─── FAQ ──────────────────────────────────────────────────────────────── */
+
+function FaqView({ data, look }: { data: FaqBlockData; look: ExtraBlockLook }) {
+  const items = (data.items || []).filter((i) => (i.question || "").trim())
+  const [open, setOpen] = React.useState<string | null>(null)
+  if (items.length === 0) return null
+  const button = themeButtonStyle(look.theme)
+  return (
+    <div data-onepage-faq="" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
+      {data.title?.trim() ? (
+        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }}>
+          {data.title}
+        </p>
+      ) : null}
+      {items.map((item) => {
+        const on = open === item.id
+        return (
+          <div key={item.id} className="w-full overflow-hidden" style={button}>
+            <button
+              type="button"
+              aria-expanded={on}
+              onClick={() => setOpen(on ? null : item.id)}
+              className="flex w-full cursor-pointer items-center gap-3 text-left font-medium outline-none"
+              style={{ padding: `${px(14, look.scale)} ${px(16, look.scale)}`, fontSize: px(15, look.scale), color: "inherit" }}
+            >
+              <span className="min-w-0 flex-1">{item.question}</span>
+              <ChevronDown
+                aria-hidden
+                className={cn("shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]", on && "rotate-180")}
+                style={{ width: px(16, look.scale), height: px(16, look.scale) }}
+              />
+            </button>
+            <div className={cn("grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]", on ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+              <div className="overflow-hidden">
+                <p
+                  className={cn("whitespace-pre-line leading-relaxed transition-opacity duration-300", on ? "opacity-85" : "opacity-0")}
+                  style={{ padding: `0 ${px(16, look.scale)} ${px(14, look.scale)}`, fontSize: px(14, look.scale) }}
+                >
+                  {item.answer}
+                </p>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ─── Countdown ────────────────────────────────────────────────────────── */
+
+/**
+ * Ticks once a second, and only after the page is in the browser: the
+ * server and the browser would read the clock a second apart, and the
+ * numbers drawn first would not match. Until then the boxes hold dashes.
+ */
+function useNow(active: boolean) {
+  const [now, setNow] = React.useState<number | null>(null)
+  React.useEffect(() => {
+    if (!active) return
+    setNow(Date.now())
+    const t = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(t)
+  }, [active])
+  return now
+}
+
+function CountdownView({ data, look }: { data: CountdownBlockData; look: ExtraBlockLook }) {
+  const target = data.target_at ? Date.parse(data.target_at) : NaN
+  const now = useNow(!Number.isNaN(target))
+  if (Number.isNaN(target)) return null
+  const left = now === null ? null : Math.max(0, target - now)
+  const ended = left !== null && left <= 0
+  const button = themeButtonStyle(look.theme)
+  const parts = left === null
+    ? [["--", "days"], ["--", "hrs"], ["--", "min"], ["--", "sec"]]
+    : [
+        [Math.floor(left / 86_400_000), "days"],
+        [Math.floor((left % 86_400_000) / 3_600_000), "hrs"],
+        [Math.floor((left % 3_600_000) / 60_000), "min"],
+        [Math.floor((left % 60_000) / 1000), "sec"],
+      ].map(([n, l]) => [String(n).padStart(2, "0"), l])
+  return (
+    <div data-onepage-countdown="" className="w-full text-center">
+      {data.title?.trim() ? (
+        <p className="mb-2 font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }}>
+          {data.title}
+        </p>
+      ) : null}
+      {ended ? (
+        <p className="font-medium" style={{ ...button, padding: `${px(14, look.scale)} ${px(16, look.scale)}`, fontSize: px(15, look.scale) }}>
+          {data.ended_text?.trim() || "It's here"}
+        </p>
+      ) : (
+        <div className="grid grid-cols-4" style={{ gap: px(8, look.scale) }}>
+          {parts.map(([n, l]) => (
+            <div key={l} className="flex flex-col items-center" style={{ ...button, padding: `${px(10, look.scale)} 0` }}>
+              <span className="font-bold tabular-nums leading-none" style={{ fontSize: px(22, look.scale) }}>{n}</span>
+              <span className="mt-1 uppercase tracking-[0.06em] opacity-80" style={{ fontSize: px(10.5, look.scale) }}>{l}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─── Map ──────────────────────────────────────────────────────────────── */
+
+/** The value, once it has stopped changing for `ms`. The editor's map waits for the typing to stop. */
+function useSettled<T>(value: T, ms: number, active: boolean): T {
+  const [settled, setSettled] = React.useState(value)
+  React.useEffect(() => {
+    if (!active) return
+    const t = window.setTimeout(() => setSettled(value), ms)
+    return () => window.clearTimeout(t)
+  }, [value, ms, active])
+  return active ? settled : value
+}
+
+function MapView({ data, look }: { data: MapBlockData; look: ExtraBlockLook }) {
+  const typed = (data.address || "").trim()
+  /* In the editor the map follows the address once the typing stops, not on every letter: each change reloads the map. */
+  const address = useSettled(typed, 700, !!look.preview)
+  if (!typed) return null
+  const q = encodeURIComponent(address || typed)
+  const button = themeButtonStyle(look.theme)
+  const radius = `${look.theme.button_border_radius}px`
+  return (
+    <div data-onepage-map="" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
+      {data.title?.trim() ? (
+        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }}>
+          {data.title}
+        </p>
+      ) : null}
+      <div className="relative w-full overflow-hidden bg-black/5" style={{ borderRadius: radius, height: px(190, look.scale) }}>
+        {address ? (
+          <iframe
+            key={address}
+            title={`Map of ${address}`}
+            src={`https://maps.google.com/maps?q=${q}&z=15&output=embed`}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            className="h-full w-full border-0"
+          />
+        ) : null}
+      </div>
+      {data.show_button !== false ? (
+        <a
+          href={`https://www.google.com/maps/search/?api=1&query=${q}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex w-full items-center justify-center gap-2 font-medium"
+          style={{ ...button, padding: `${px(14, look.scale)} ${px(16, look.scale)}`, fontSize: px(15, look.scale) }}
+        >
+          <MapPin aria-hidden style={{ width: px(16, look.scale), height: px(16, look.scale) }} />
+          Open in Maps
+        </a>
+      ) : null}
+    </div>
+  )
+}
+
+/* ─── Video ────────────────────────────────────────────────────────────── */
+
+function VideoView({ data, look }: { data: VideoBlockData; look: ExtraBlockLook }) {
+  const source = videoSource(data.url)
+  const [playing, setPlaying] = React.useState(false)
+  if (!source) return null
+  const radius = `${look.theme.button_border_radius}px`
+  const tall = source.kind === "tiktok"
+  const src =
+    source.kind === "youtube"
+      ? `https://www.youtube-nocookie.com/embed/${source.id}?autoplay=1&rel=0&playsinline=1`
+      : source.kind === "vimeo"
+        ? `https://player.vimeo.com/video/${source.id}?autoplay=1`
+        : `https://www.tiktok.com/embed/v2/${source.id}`
+  const poster = source.kind === "youtube" ? `https://i.ytimg.com/vi/${source.id}/hqdefault.jpg` : null
+  return (
+    <div data-onepage-video="" className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
+      {data.title?.trim() ? (
+        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }}>
+          {data.title}
+        </p>
+      ) : null}
+      <div
+        className={cn("relative mx-auto w-full overflow-hidden bg-black", tall ? "aspect-[9/16] max-w-[320px]" : "aspect-video")}
+        style={{ borderRadius: radius }}
+      >
+        {playing ? (
+          <iframe
+            title={data.title || "Video"}
+            src={src}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            className="absolute inset-0 h-full w-full border-0"
+          />
+        ) : (
+          /*
+            THE PLAYER LOADS ON THE FIRST PRESS. A YouTube player is close to a
+            megabyte of script; the picture and a play button are what one
+            shows before it is pressed anyway, so the page draws those and
+            loads the player when somebody wants it.
+          */
+          <button
+            type="button"
+            aria-label={`Play ${data.title || "video"}`}
+            onClick={() => setPlaying(true)}
+            className="group absolute inset-0 flex h-full w-full cursor-pointer items-center justify-center"
+          >
+            {poster ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={poster} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+            ) : (
+              <span className="absolute inset-0 bg-gradient-to-b from-[#26262b] to-[#111113]" />
+            )}
+            <span
+              className="relative grid place-items-center rounded-full bg-black/60 text-white transition-transform duration-150 group-active:scale-95"
+              style={{ width: px(56, look.scale), height: px(56, look.scale) }}
+            >
+              <Play aria-hidden fill="currentColor" style={{ width: px(22, look.scale), height: px(22, look.scale), marginLeft: px(3, look.scale) }} />
+            </span>
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Draws one of the blocks in this file, in the editor's preview or on the live page. */
+export function ExtraBlock({ block, look }: { block: OnePageBlock; look: ExtraBlockLook }) {
+  switch (block.type) {
+    case "heading":
+      return <HeadingView data={block.data as HeadingBlockData} look={look} />
+    case "faq":
+      return <FaqView data={block.data as FaqBlockData} look={look} />
+    case "countdown":
+      return <CountdownView data={block.data as CountdownBlockData} look={look} />
+    case "map":
+      return <MapView data={block.data as MapBlockData} look={look} />
+    case "video":
+      return <VideoView data={block.data as VideoBlockData} look={look} />
+    default:
+      return null
+  }
+}
+
+/* ─── A sensitive link asks first ─────────────────────────────────────── */
+
+/**
+ * HOW THE QUESTION GETS IN THE WAY. The live page marks the box around a
+ * block whose link is sensitive with `data-sensitive-label`. The question
+ * listens for presses on the whole page before anything else hears them; a
+ * press on a link or a button inside a marked box is held, the question
+ * opens, and Continue presses the same thing again, this time let through.
+ * So the link's own code (the click count, the new tab, a player that opens)
+ * runs exactly as it would have, just after the visitor has said yes.
+ */
+type Ask = { label: string; target: HTMLElement } | null
+let asking: Ask = null
+let letThrough: HTMLElement | null = null
+const listeners = new Set<() => void>()
+const emit = () => listeners.forEach((l) => l())
+const close = () => {
+  asking = null
+  emit()
+}
+
+/** Rendered once by the live page: the question, over the page, when a sensitive link is pressed. */
+export function SensitiveLinkQuestion() {
+  const ask = useSyncExternalStore(
+    (l) => {
+      listeners.add(l)
+      return () => listeners.delete(l)
+    },
+    () => asking,
+    () => null,
+  )
+  React.useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const el = e.target instanceof Element ? e.target : null
+      const box = el?.closest<HTMLElement>("[data-sensitive-label]")
+      if (!box) return
+      const target = el?.closest<HTMLElement>("a[href], button")
+      if (!target || !box.contains(target)) return
+      if (letThrough === target) {
+        letThrough = null
+        return
+      }
+      e.preventDefault()
+      e.stopPropagation()
+      asking = { label: box.dataset.sensitiveLabel || "", target }
+      emit()
+    }
+    document.addEventListener("click", onClick, true)
+    return () => document.removeEventListener("click", onClick, true)
+  }, [])
+  React.useEffect(() => {
+    if (!ask) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [ask])
+  if (!ask) return null
+  return (
+    <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/50 p-4 animate-in fade-in-0 duration-200 sm:items-center" onClick={close} role="presentation">
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="onepage-sensitive-title"
+        aria-describedby="onepage-sensitive-body"
+        data-onepage-sensitive=""
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-[380px] rounded-2xl bg-white p-5 text-center shadow-[0_24px_60px_-18px_rgba(17,24,39,0.35)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
+      >
+        <span className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-[#f1f2f4] text-[#1a1a2e]">
+          <EyeOff aria-hidden className="h-5 w-5" />
+        </span>
+        <h2 id="onepage-sensitive-title" className="mt-3 text-[17px] font-semibold text-[#1a1a2e]">
+          Sensitive content
+        </h2>
+        <p id="onepage-sensitive-body" className="mt-1.5 text-[14px] leading-[1.5] text-[#6b7280]">
+          {ask.label ? <>&ldquo;{ask.label}&rdquo; may</> : "This link may"} contain content that is not suitable for everyone. Do you want to continue?
+        </p>
+        <div className="mt-5 grid grid-cols-2 gap-2.5">
+          <button type="button" onClick={close} className="h-11 cursor-pointer rounded-xl border border-[#d9dbe0] bg-white text-[15px] font-medium text-[#1a1a2e] active:bg-[#f1f2f4]">
+            Go back
+          </button>
+          <button
+            type="button"
+            autoFocus
+            onClick={() => {
+              const target = ask.target
+              close()
+              letThrough = target
+              target.click()
+              letThrough = null
+            }}
+            className="h-11 cursor-pointer rounded-xl bg-[#1a1a2e] text-[15px] font-semibold text-white active:bg-black"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─── The editor ───────────────────────────────────────────────────────── */
+
+/** The entries the Add block sheet lists for these blocks, in the category each belongs to. */
+export const EXTRA_BLOCK_CATALOG = {
+  heading: { type: "heading" as const, label: "Heading", description: "A title between your links", icon: Heading },
+  faq: { type: "faq" as const, label: "FAQ", description: "Questions and answers that open", icon: HelpCircle },
+  countdown: { type: "countdown" as const, label: "Countdown", description: "Count down to a launch or a drop", icon: Timer },
+  map: { type: "map" as const, label: "Map", description: "Show where to find you", icon: MapPin },
+  video: { type: "video" as const, label: "Video", description: "Play a YouTube, Vimeo or TikTok video", icon: Play },
+}
+
+/** The title, the line under it and the icon a block's row shows in the editor's list. */
+export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: string; icon: React.ComponentType<{ className?: string }> } {
+  switch (block.type) {
+    case "heading": {
+      const d = block.data as HeadingBlockData
+      return { title: d.text?.trim() || "Heading", subtitle: "Heading", icon: Heading }
+    }
+    case "faq": {
+      const d = block.data as FaqBlockData
+      const n = (d.items || []).filter((i) => i.question?.trim()).length
+      return { title: d.title?.trim() || "FAQ", subtitle: `${n} question${n === 1 ? "" : "s"}`, icon: HelpCircle }
+    }
+    case "countdown": {
+      const d = block.data as CountdownBlockData
+      const t = d.target_at ? Date.parse(d.target_at) : NaN
+      return {
+        title: d.title?.trim() || "Countdown",
+        subtitle: Number.isNaN(t) ? "Pick a date" : new Date(t).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+        icon: Timer,
+      }
+    }
+    case "map": {
+      const d = block.data as MapBlockData
+      return { title: d.title?.trim() || "Map", subtitle: d.address?.trim() || "Add an address", icon: MapPin }
+    }
+    case "video": {
+      const d = block.data as VideoBlockData
+      const s = videoSource(d.url)
+      return { title: d.title?.trim() || "Video", subtitle: s ? `${s.kind === "youtube" ? "YouTube" : s.kind === "vimeo" ? "Vimeo" : "TikTok"} video` : "Paste a video link", icon: Play }
+    }
+    default:
+      return { title: block.type, subtitle: "", icon: Heading }
+  }
+}
+
+const field = "space-y-1.5"
+const label = "text-xs"
+
+function Segmented<T extends string>({ value, options, onChange }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void }) {
+  return (
+    <div className="grid rounded-xl bg-[#f1f2f4] p-1" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          onClick={() => onChange(o.id)}
+          className={cn(
+            "h-8 cursor-pointer rounded-[9px] text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150",
+            value === o.id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_1px_rgba(16,24,40,0.04)]" : "text-[#6b7280] hover:text-[#1a1a2e]",
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** A value for a datetime-local field, in the browser's own time, from an ISO time (or empty). */
+function toLocalInput(iso: string | null | undefined): string {
+  if (!iso) return ""
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return ""
+  const d = new Date(t)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+const fromLocalInput = (v: string): string | null => (v ? new Date(v).toISOString() : null)
+
+/** The form for one of the blocks in this file, inside the editor's block panel. */
+export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; updateData: (updates: Partial<OnePageBlockData>) => void }) {
+  switch (block.type) {
+    case "heading": {
+      const d = block.data as HeadingBlockData
+      return (
+        <div className="space-y-3">
+          <div className={field}>
+            <Label className={label}>Heading</Label>
+            <Input value={d.text} maxLength={80} placeholder="Shop my picks" onChange={(e) => updateData({ text: e.target.value })} />
+          </div>
+          <div className={field}>
+            <Label className={label}>Size</Label>
+            <Segmented value={d.size || "medium"} options={[{ id: "small", label: "Small" }, { id: "medium", label: "Medium" }, { id: "large", label: "Large" }]} onChange={(size) => updateData({ size })} />
+          </div>
+          <div className={field}>
+            <Label className={label}>Alignment</Label>
+            <Segmented value={d.alignment || "center"} options={[{ id: "left", label: "Left" }, { id: "center", label: "Center" }, { id: "right", label: "Right" }]} onChange={(alignment) => updateData({ alignment })} />
+          </div>
+        </div>
+      )
+    }
+    case "faq": {
+      const d = block.data as FaqBlockData
+      const items = d.items || []
+      const set = (next: FaqBlockData["items"]) => updateData({ items: next })
+      return (
+        <div className="space-y-3">
+          <div className={field}>
+            <Label className={label}>Title (optional)</Label>
+            <Input value={d.title || ""} maxLength={80} placeholder="Questions" onChange={(e) => updateData({ title: e.target.value })} />
+          </div>
+          {items.map((item, i) => (
+            <div key={item.id} className="space-y-2 rounded-xl border border-[#e5e7eb] bg-white p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] font-medium text-[#6b7280]">Question {i + 1}</span>
+                <button
+                  type="button"
+                  aria-label={`Remove question ${i + 1}`}
+                  onClick={() => set(items.filter((x) => x.id !== item.id))}
+                  className="grid h-7 w-7 cursor-pointer place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <Input value={item.question} maxLength={160} placeholder="What do I get?" onChange={(e) => set(items.map((x) => (x.id === item.id ? { ...x, question: e.target.value } : x)))} />
+              <Textarea value={item.answer} rows={3} maxLength={1000} placeholder="The answer" onChange={(e) => set(items.map((x) => (x.id === item.id ? { ...x, answer: e.target.value } : x)))} />
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => set([...items, { id: `q_${Date.now().toString(36)}`, question: "", answer: "" }])}
+            className="flex h-10 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#d9dbe0] text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f7f7f8]"
+          >
+            <Plus className="h-4 w-4" />
+            Add a question
+          </button>
+        </div>
+      )
+    }
+    case "countdown": {
+      const d = block.data as CountdownBlockData
+      return (
+        <div className="space-y-3">
+          <div className={field}>
+            <Label className={label}>Title (optional)</Label>
+            <Input value={d.title || ""} maxLength={80} placeholder="New drop in" onChange={(e) => updateData({ title: e.target.value })} />
+          </div>
+          <div className={field}>
+            <Label className={label}>Counts down to</Label>
+            <Input type="datetime-local" value={toLocalInput(d.target_at)} onChange={(e) => updateData({ target_at: fromLocalInput(e.target.value) })} />
+          </div>
+          <div className={field}>
+            <Label className={label}>Once it has passed, say</Label>
+            <Input value={d.ended_text || ""} maxLength={80} placeholder="It's here" onChange={(e) => updateData({ ended_text: e.target.value })} />
+          </div>
+        </div>
+      )
+    }
+    case "map": {
+      const d = block.data as MapBlockData
+      return (
+        <div className="space-y-3">
+          <div className={field}>
+            <Label className={label}>Title (optional)</Label>
+            <Input value={d.title || ""} maxLength={80} placeholder="Visit the studio" onChange={(e) => updateData({ title: e.target.value })} />
+          </div>
+          <div className={field}>
+            <Label className={label}>Address or place</Label>
+            <Input value={d.address || ""} maxLength={200} placeholder="Strada Lipscani 12, Bucharest" onChange={(e) => updateData({ address: e.target.value })} />
+          </div>
+          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2.5">
+            <span className="text-[13px] text-[#1a1a2e]">Show an Open in Maps button</span>
+            <input type="checkbox" className="theme-checkbox-purple" checked={d.show_button !== false} onChange={(e) => updateData({ show_button: e.target.checked })} />
+          </label>
+        </div>
+      )
+    }
+    case "video": {
+      const d = block.data as VideoBlockData
+      const ok = !d.url?.trim() || videoSource(d.url) !== null
+      return (
+        <div className="space-y-3">
+          <div className={field}>
+            <Label className={label}>Video link</Label>
+            <Input value={d.url || ""} inputMode="url" autoCapitalize="off" autoCorrect="off" placeholder="https://youtube.com/watch?v=..." onChange={(e) => updateData({ url: e.target.value.trim() })} aria-invalid={!ok || undefined} />
+            {!ok ? <p className="text-[12px] text-[#b42318]">Paste a YouTube, Vimeo or TikTok video link.</p> : null}
+          </div>
+          <div className={field}>
+            <Label className={label}>Title (optional)</Label>
+            <Input value={d.title || ""} maxLength={80} placeholder="Watch the trailer" onChange={(e) => updateData({ title: e.target.value })} />
+          </div>
+        </div>
+      )
+    }
+    default:
+      return null
+  }
+}
+
+/**
+ * THE SCHEDULE AND THE WARNING, UNDER ANY BLOCK'S OWN SETTINGS. Closed until
+ * used, so a block's panel is no longer than it was for somebody who never
+ * schedules anything; opened by itself once a schedule is set.
+ */
+export function BlockExtras({
+  block,
+  scheduling = true,
+  updateBlock,
+  updateData,
+}: {
+  block: OnePageBlock
+  /** Off inside a group: a group's blocks show with the group. */
+  scheduling?: boolean
+  updateBlock: (updates: Partial<OnePageBlock>) => void
+  updateData: (updates: Partial<OnePageBlockData>) => void
+}) {
+  const s = block.schedule || null
+  const [open, setOpen] = React.useState(!!(s?.start_at || s?.end_at))
+  const isLink = block.type === "link_button"
+  const sensitive = isLink && !!(block.data as { sensitive?: boolean }).sensitive
+  const status = scheduleLabel(block)
+  const set = (next: OnePageBlockSchedule) => updateBlock({ schedule: next.start_at || next.end_at ? next : null })
+  const invalid = !!(s?.start_at && s?.end_at && Date.parse(s.end_at) <= Date.parse(s.start_at))
+  return (
+    <div data-block-extras="" className="mt-4 space-y-2 border-t border-[#eef0f2] pt-4">
+      {isLink ? (
+        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2.5">
+          <span className="flex min-w-0 items-center gap-2.5">
+            <EyeOff aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280]" />
+            <span className="min-w-0">
+              <span className="block text-[13px] font-medium text-[#1a1a2e]">Sensitive content</span>
+              <span className="block text-[12px] text-[#6b7280]">Visitors confirm before it opens</span>
+            </span>
+          </span>
+          <input type="checkbox" className="theme-checkbox-purple" checked={sensitive} onChange={(e) => updateData({ sensitive: e.target.checked })} />
+        </label>
+      ) : null}
+      {scheduling ? (
+      <div className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-white">
+        <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2.5 text-left">
+          <span className="flex min-w-0 items-center gap-2.5">
+            <Clock aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280]" />
+            <span className="min-w-0">
+              <span className="block text-[13px] font-medium text-[#1a1a2e]">Schedule</span>
+              <span className="block truncate text-[12px] text-[#6b7280]">{status ? status.text : "Show it only between two dates"}</span>
+            </span>
+          </span>
+          <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 text-[#6b7280] transition-transform duration-200", open && "rotate-180")} />
+        </button>
+        {open ? (
+          <div className="space-y-2.5 border-t border-[#eef0f2] px-3 pb-3 pt-2.5">
+            <div className={field}>
+              <Label className={label}>Starts</Label>
+              <Input type="datetime-local" value={toLocalInput(s?.start_at)} onChange={(e) => set({ ...(s || {}), start_at: fromLocalInput(e.target.value) })} />
+            </div>
+            <div className={field}>
+              <Label className={label}>Ends</Label>
+              <Input type="datetime-local" value={toLocalInput(s?.end_at)} onChange={(e) => set({ ...(s || {}), end_at: fromLocalInput(e.target.value) })} aria-invalid={invalid || undefined} />
+            </div>
+            {invalid ? <p className="text-[12px] text-[#b42318]">The end is before the start, so it would never show.</p> : null}
+            {s?.start_at || s?.end_at ? (
+              <button type="button" onClick={() => updateBlock({ schedule: null })} className="cursor-pointer text-[12px] font-medium text-[#6b7280] underline underline-offset-2 hover:text-[#1a1a2e]">
+                Clear the schedule
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+      ) : null}
+    </div>
+  )
+}
+
+/** The small marks on a block's row in the editor: when it is scheduled, and when its link asks first. */
+export function BlockBadges({ block }: { block: OnePageBlock }) {
+  const status = scheduleLabel(block)
+  const sensitive = block.type === "link_button" && !!(block.data as { sensitive?: boolean }).sensitive
+  if (!status && !sensitive) return null
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1">
+      {status ? (
+        <span
+          data-block-schedule={status.live ? "live" : "off"}
+          className={cn(
+            "inline-flex h-[18px] items-center gap-1 rounded-full px-1.5 text-[10.5px] font-medium",
+            status.live ? "bg-[#e3f5e9] text-[#15803d]" : "bg-[#fff4e0] text-[#9a5b00]",
+          )}
+        >
+          <Clock aria-hidden className="h-2.5 w-2.5" />
+          {status.text}
+        </span>
+      ) : null}
+      {sensitive ? (
+        <span data-block-sensitive="" className="inline-flex h-[18px] items-center gap-1 rounded-full bg-[#f1f2f4] px-1.5 text-[10.5px] font-medium text-[#4b5563]">
+          <EyeOff aria-hidden className="h-2.5 w-2.5" />
+          Sensitive
+        </span>
+      ) : null}
+    </span>
+  )
+}

@@ -28,6 +28,8 @@ import { Globe, Bell, X, Send, Check, Link2, ExternalLink, Calendar } from "luci
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext } from "react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
+import { ExtraBlock } from "@/components/onepage/extra-blocks"
+import { extraBlockHasContent, isScheduledNow } from "@/lib/onepage/extra-blocks"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -1736,7 +1738,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 )}
               >
                 {draft_blocks
-                  .filter((b) => b.enabled)
+                  .filter((b) => b.enabled && isScheduledNow(b) && extraBlockHasContent(b))
                   .sort((a, b) => a.sort_order - b.sort_order)
                   .map((block, index) => (
                     <div
@@ -2531,7 +2533,7 @@ export function MobilePreviewContent() {
             )}
           >
             {draft_blocks
-              .filter((b) => b.enabled)
+              .filter((b) => b.enabled && isScheduledNow(b) && extraBlockHasContent(b))
               .sort((a, b) => a.sort_order - b.sort_order)
               .map((block, index) => (
                 <div
@@ -5915,6 +5917,13 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         </button>
       )
     }
+
+    case "heading":
+    case "faq":
+    case "countdown":
+    case "map":
+    case "video":
+      return <ExtraBlock block={block} look={{ theme, scale: scale === "small" ? "small" : "normal", preview: true }} />
 
     default:
       return null
