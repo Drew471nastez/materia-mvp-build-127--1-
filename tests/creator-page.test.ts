@@ -540,9 +540,13 @@ function main() {
     for (const server of ["app/app/page.tsx", "app/app/settings/_server.ts"]) {
       const code = read(server)
       check(`${server} asks for a published install`, code.includes("store_theme_installs"))
+      /* Home asks for one published RIGHT NOW, by the status the builder sets on
+         publish and takes away on unpublish (lib/home/progress WEBSITE_LIVE_STATUS),
+         which is also there on a database without published_at. Either is a test
+         of being published, never of merely existing. */
       check(
-        `${server} tests published_at rather than existence`,
-        /\.not\("published_at", "is", null\)/.test(code),
+        `${server} tests being published rather than existence`,
+        /\.not\("published_at", "is", null\)/.test(code) || /\.eq\("status", WEBSITE_LIVE_STATUS\)/.test(code),
       )
     }
 
