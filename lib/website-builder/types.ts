@@ -357,6 +357,20 @@ export type SchemaFieldType =
   | "video"
   | "font"
   | "radio"
+  /* The types added with the Shopify gap work, and Shopify's own names. */
+  | "inline_richtext"
+  | "html"
+  | "color_background"
+  | "datetime"
+  | "focal_point"
+  | "video_url"
+  | "product_list"
+  | "link_list"
+  | "text_alignment"
+  | "product"
+  | "page"
+  /* The theme's menus, edited in Theme settings › Menus. Not a section setting. */
+  | "menus"
 
 export interface SelectOption {
   label: string
@@ -383,6 +397,14 @@ export interface SchemaField {
    * hand-editing the file and by no other means.
    */
   responsive?: boolean
+  /** product_list: how many it holds. */
+  limit?: number
+  /** video_url: which hosts it takes. */
+  accept?: string[]
+  /** focal_point: the id of the picture setting it points into. */
+  image?: string
+  /** paragraph: the words it shows. */
+  content?: string
 }
 
 export interface BlockSchema {

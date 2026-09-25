@@ -13,6 +13,7 @@
  */
 import { SECTION_SCHEMAS } from "./section-schemas"
 import { htmlFieldsOf, sanitizeSettings, type HtmlFieldMap } from "./sanitize"
+import { cleanMenus } from "@/lib/storelib-theme/values"
 import type { SectionInstance, SectionSchema } from "./types"
 
 const cache = new Map<string, HtmlFieldMap>()
@@ -102,7 +103,16 @@ const THEME_HTML_SETTINGS: HtmlFieldMap = {
 
 export function sanitizeThemeSettings<T extends Record<string, unknown>>(settings: T | null | undefined): T {
   if (!settings) return {} as T
-  return sanitizeSettings(settings, THEME_HTML_SETTINGS) as T
+  const cleaned = sanitizeSettings(settings, THEME_HTML_SETTINGS) as T
+  /*
+    THE MENUS, TO THE SHAPE A SECTION READS: handles that are handles,
+    titles cut to length, every address made safe, no more than three
+    levels (lib/storelib-theme/values.ts, cleanMenus). The same function
+    runs again as a menu is drawn; this is what keeps the stored copy honest.
+  */
+  if (cleaned.menus === undefined) return cleaned
+  const menus = cleanMenus(cleaned.menus)
+  return JSON.stringify(menus) === JSON.stringify(cleaned.menus) ? cleaned : ({ ...cleaned, menus } as T)
 }
 
 /**

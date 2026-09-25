@@ -132,13 +132,14 @@
     },
     {
       "id": "mobile_logo_height",
-      "label": "Mobile logo height",
+      "label": "Logo height on phones",
       "type": "range",
       "min": 20,
       "max": 80,
       "step": 2,
       "unit": "px",
-      "default": 32
+      "default": 32,
+      "info": "The logo's height on a phone, whichever logo it is. Empty uses the desktop height."
     },
     {
       "id": "mobile_logo_horizontal_offset_enabled",
@@ -211,6 +212,13 @@
       "info": "Used by the default “Logo left, nav right” layout."
     },
     {
+      "id": "menu",
+      "label": "Menu",
+      "type": "link_list",
+      "default": "",
+      "info": "One of the site's menus in place of the header's own links. Empty shows the header's own links."
+    },
+    {
       "id": "mobile_header_layout",
       "label": "Mobile header layout",
       "type": "select",
@@ -223,6 +231,26 @@
         {
           "label": "Hamburger left · Logo left",
           "value": "hamburger_left_logo_left"
+        }
+      ]
+    },
+    {
+      "id": "mobile_menu_style",
+      "label": "Menu on phones",
+      "type": "select",
+      "default": "left",
+      "options": [
+        {
+          "label": "Slides in from the left",
+          "value": "left"
+        },
+        {
+          "label": "Slides in from the right",
+          "value": "right"
+        },
+        {
+          "label": "Covers the screen",
+          "value": "full"
         }
       ]
     },
@@ -300,6 +328,23 @@
       "label": "Make header transparent",
       "type": "toggle",
       "default": false
+    },
+    {
+      "id": "header_transparent_scope",
+      "label": "Transparent on",
+      "type": "select",
+      "default": "all",
+      "options": [
+        {
+          "label": "Every page",
+          "value": "all"
+        },
+        {
+          "label": "The home page only",
+          "value": "home"
+        }
+      ],
+      "info": "Used when the header is transparent. An inner page often has no picture at the top to sit over."
     },
     {
       "id": "hdr_border",
@@ -438,8 +483,14 @@
       "type": "select",
       "default": "header",
       "options": [
-        { "label": "Open it in the header", "value": "header" },
-        { "label": "Go to the search page", "value": "page" }
+        {
+          "label": "Open it in the header",
+          "value": "header"
+        },
+        {
+          "label": "Go to the search page",
+          "value": "page"
+        }
       ]
     },
     {

@@ -46,13 +46,9 @@ export async function POST(_req: Request, { params }: Params) {
     .maybeSingle()
 
   /* The database's own words go to the log, never to the browser. */
-
   if (readErr) {
-
     console.error("[backups/restore] failed", { code: readErr.code })
-
     return NextResponse.json({ error: "Could not load that. Try again." }, { status: 500 })
-
   }
   if (!backup) return NextResponse.json({ error: "Backup not found" }, { status: 404 })
 

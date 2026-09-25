@@ -196,6 +196,8 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
 
   announcement_bar_enabled: { does: "A thin bar across the top of every page." },
   announcement_bar_text: { does: "What the bar says." },
+  announcement_bar_messages: { does: "More messages, one per line. With more than one, the bar shows them in turn, with arrows to move between them; it stops while the pointer or the keyboard is on it, and does not move by itself for a visitor who asks their device for less motion." },
+  announcement_bar_rotate: { does: "How long each message stays before the next one." },
   announcement_bar_link_text: { does: "The words of the link at the end of the bar." },
   announcement_bar_link_url: { does: "Where that link goes." },
   announcement_bar_bg: { does: "The bar's colour." },
@@ -232,6 +234,11 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   cookie_decline_text: { does: "The words on the reject button." },
   cookie_bg: { does: "The banner's colour." },
   cookie_text_color: { does: "The banner's text colour." },
+
+  menus: {
+    does: "Named lists of links, two levels deep, that a section shows through a `link_list` setting. Each menu gets a handle from its first name, such as `footer`, which is what a section stores. The header's own links are the menu `main-menu` without being made here.",
+    as: { control: "picker", value: "Main menu, Footer" },
+  },
 }
 
 const THEME_DRAWN_AS: Record<string, SpecimenControl> = {

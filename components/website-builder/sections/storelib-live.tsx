@@ -11,7 +11,7 @@
 import { useCallback, useMemo, type ReactNode } from "react"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
-import type { RenderContext } from "@/lib/storelib-theme/types"
+import type { RenderContext, StorefrontData } from "@/lib/storelib-theme/types"
 import { StorelibRenderProvider, type SectionRenderFn } from "./storelib-sources"
 
 export function StorelibLiveProvider({
@@ -19,6 +19,7 @@ export function StorelibLiveProvider({
   page,
   inEditor,
   products,
+  data,
   children,
 }: {
   /** Saved `.storelib` files, path to source. The bundled theme is the fallback. */
@@ -41,13 +42,19 @@ export function StorelibLiveProvider({
    * which is what the section library's thumbnails want.
    */
   products?: RenderContext["products"]
+  /**
+   * The shop's own facts: the catalogue a picker names, the menus, the shop,
+   * the creator and on the product page the product. The same object the
+   * live site draws with (lib/website-builder/storefront-data.ts).
+   */
+  data?: StorefrontData
   children: ReactNode
 }) {
   const template = page?.template ?? "index"
   const render = useCallback<SectionRenderFn>(
     (section: SectionInstance, theme: ThemeSettingsValues) =>
-      renderStorelibSection(section, theme, { template, in_editor: inEditor === true }, sources, products),
-    [sources, template, inEditor, products],
+      renderStorelibSection(section, theme, { template, in_editor: inEditor === true }, sources, products, data),
+    [sources, template, inEditor, products, data],
   )
   /* The same object while the template is the same. Inline, it was a new
      context value on every render of the canvas, and every section that reads

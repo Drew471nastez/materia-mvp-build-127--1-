@@ -32,6 +32,11 @@ function field(s: SettingDefinition): SchemaField {
   if (s.placeholder !== undefined) f.placeholder = s.placeholder
   if (s.info !== undefined) f.info = s.info
   if (s.responsive) f.responsive = true
+  /* The keys the newer controls read, carried to the panel rather than dropped on the way. */
+  if (typeof s.limit === "number") f.limit = s.limit
+  if (Array.isArray(s.accept)) f.accept = (s.accept as unknown[]).filter((x): x is string => typeof x === "string")
+  if (typeof s.image === "string") f.image = s.image
+  if (typeof s.content === "string") f.content = s.content
   return f
 }
 

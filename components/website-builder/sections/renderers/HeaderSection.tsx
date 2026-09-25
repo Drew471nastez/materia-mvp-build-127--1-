@@ -38,6 +38,8 @@ import {
   SectionWrapper,
 } from "../_shared"
 import { useStorelibPage } from "../storelib-sources"
+import { cleanMenus } from "@/lib/storelib-theme/values"
+import { headerMenuBlocks, mobileMenuStyle, transparentHere, type MobileMenuStyle } from "@/lib/website-builder/header-settings"
 
 // ── Header color schemes ─────────────────────────────────────
 type HeaderColorScheme = ColorSchemeKey
@@ -73,7 +75,10 @@ function HeaderMobileNavDrawer({
   showSearch,
   cta,
   onOpenSearch,
+  menuStyle = "left",
 }: {
+  /** Header › Menu on phones: from the left, from the right, or over the whole screen. */
+  menuStyle?: MobileMenuStyle
   open: boolean
   onClose: () => void
   items: MobileNavItem[]
@@ -121,6 +126,7 @@ function HeaderMobileNavDrawer({
       showWishlist={!!showWishlist}
       cta={cta ?? null}
       onOpenSearch={onOpenSearch ?? null}
+      menuStyle={menuStyle}
     />
   )
 
@@ -904,7 +910,9 @@ function MobileDrawerInner({
   showSearch,
   cta,
   onOpenSearch,
+  menuStyle = "left",
 }: {
+  menuStyle?: MobileMenuStyle
   open: boolean
   onClose: () => void
   visibleItems: MobileNavItem[]
@@ -1058,16 +1066,27 @@ function MobileDrawerInner({
         data-self-nav=""
         className={cn(
           positionClass,
-          "left-0 flex flex-col",
+          "flex flex-col",
           DRAWER_PANEL_Z,
           open && "shadow-2xl",
-          scopedToPreview ? "w-[82%] max-w-[320px]" : "w-[85vw] max-w-[360px]",
+          /*
+            WHERE IT COMES FROM: Header › Menu on phones. From the left is
+            what every site had; from the right sits under a thumb on the
+            right hand; over the whole screen is a menu with room for long
+            names. Only the transform differs, so the slide stays on the
+            compositor whichever it is.
+          */
+          menuStyle === "full"
+            ? "left-0 right-0 w-full max-w-none"
+            : menuStyle === "right"
+              ? cn("right-0", scopedToPreview ? "w-[82%] max-w-[320px]" : "w-[85vw] max-w-[360px]")
+              : cn("left-0", scopedToPreview ? "w-[82%] max-w-[320px]" : "w-[85vw] max-w-[360px]"),
         )}
         style={{
           ...frameStyle,
           background: scheme.bg,
           color: scheme.heading,
-          transform: open ? "translateX(0)" : "translateX(-101%)",
+          transform: open ? "translate3d(0, 0, 0)" : menuStyle === "full" ? "translate3d(0, -101%, 0)" : menuStyle === "right" ? "translate3d(101%, 0, 0)" : "translate3d(-101%, 0, 0)",
           transition: drawerTransition,
           willChange: "transform",
           pointerEvents: open ? "auto" : "none",
@@ -1390,7 +1409,9 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
    * control has never been set. It was a second primary read before, which
    * meant a creator turning the toggle off could not turn transparency off.
    */
-  const transparent = bool(s.header_transparent, bool(s.transparent_on_hero, false))
+  /* And, since Header › Transparent on, only on the home page when the
+     creator asked for that: an inner page has no picture to sit over. */
+  const transparent = transparentHere(bool(s.header_transparent, bool(s.transparent_on_hero, false)), s.header_transparent_scope, pageTemplate)
   // We approximate this by using transparent background only when the toggle is on
   // — the consumer (page renderer) wraps the header above the hero in those cases.
   const bg = transparent ? "transparent" : scheme.bg
@@ -1690,7 +1711,15 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const logoMaxWidth = Number(branding.logo_width) || undefined
 
   const mobileLogoSrc = s.use_mobile_logo && s.mobile_logo_url ? str(s.mobile_logo_url) : headerLogo
-  const mobileLogoH = s.use_mobile_logo && s.mobile_logo_url ? (Number(s.mobile_logo_height) || 32) : (Number(s.logo_height) || 64)
+  /*
+    THE PHONE'S LOGO HEIGHT IS ITS OWN NUMBER, with or without a separate
+    phone logo. It used to apply only to a second picture, so a site with one
+    logo drew it 64px tall on a 390px screen and the only way to make it
+    smaller was to upload the same file twice.
+  */
+  const mobileLogoH = typeof s.mobile_logo_height === "number" && s.mobile_logo_height > 0
+    ? s.mobile_logo_height
+    : s.use_mobile_logo && s.mobile_logo_url ? 32 : (Number(s.logo_height) || 64)
   const desktopLogoH = Number(s.logo_height) || 64
 
   // Custom logo horizontal position — desktop & mobile (separate)
@@ -1798,7 +1827,15 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     { id: "nav-home", type: "nav_link", settings: { label: "Home", url: "/", link_type: "custom" } },
     { id: "nav-shop", type: "nav_link", settings: { label: "Shop", url: SHOP_PATH, link_type: "custom" } },
   ]
-  const navBlocks = (section.blocks && section.blocks.length > 0) ? section.blocks : DEFAULT_NAV_BLOCKS
+  /*
+    A MENU FROM THEME SETTINGS › MENUS, when the header names one, in place
+    of its own links: see lib/website-builder/header-settings.ts. The same
+    menu can then sit in the header and in a footer column without being
+    typed twice. `theme.menus` is cleaned (every address made safe) before
+    it is turned into links.
+  */
+  const fromMenu = headerMenuBlocks(str(s.menu), cleanMenus((theme as Record<string, unknown>).menus))
+  const navBlocks = fromMenu ?? ((section.blocks && section.blocks.length > 0) ? section.blocks : DEFAULT_NAV_BLOCKS)
 
   const resolveHref = (block: { settings: Record<string, unknown> }): string => {
     const linkType = str(block.settings.link_type, "custom")
@@ -2683,6 +2720,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       open={mobileNavOpen}
       onClose={() => setMobileNavOpen(false)}
       scheme={scheme}
+      menuStyle={mobileMenuStyle(s.mobile_menu_style)}
       // CRITICAL: use `renderingInsideEditor`, NOT `isEditing`. `isEditing`
       // flips with the Inspector toggle — when the user turns Inspector off
       // the drawer would portal into `document.body` with `position: fixed`

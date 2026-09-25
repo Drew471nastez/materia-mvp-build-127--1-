@@ -46,13 +46,9 @@ export async function GET(_req: Request, { params }: Params) {
     .maybeSingle()
 
   /* The database's own words go to the log, never to the browser. */
-
   if (fetchErr) {
-
     console.error("[theme-settings] failed", { code: fetchErr.code })
-
     return NextResponse.json({ error: "Could not load that. Try again." }, { status: 500 })
-
   }
   return NextResponse.json({ settings: data })
 }
