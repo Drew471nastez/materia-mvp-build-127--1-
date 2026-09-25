@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { takeBackup } from "@/lib/website-builder/backups"
 import { promoteFileDrafts } from "@/lib/website-builder/theme-file-drafts"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
-import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
+import { readOwnSectionFields, sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
 type Params = { params: Promise<{ installId: string }> }
@@ -42,39 +42,38 @@ export async function POST(req: Request, { params }: Params) {
   const action = body?.action as "publish" | "unpublish" | "save_draft"
 
   if (action === "publish") {
-    // Use admin to bypass the unique-index constraint atomically:
-    // 1. Unpublish any currently published theme
-    // 2. Publish this one
-    // 3. Promote draft_sections → sections for all pages
-    // 4. Promote draft_settings → settings
+    /*
+      ======================================================================
+       THE NEW SITE IS READY BEFORE THE OLD ONE STOPS
+      ======================================================================
+      A creator has one published storefront, and the database holds them to
+      it (uniq_sti_creator_published), so the old one has to go down before
+      this one goes up. This used to do that first, then flip this one live,
+      then copy the drafts across, checking almost none of it: a failure
+      after the first write left the creator with no website at all, or a
+      live one still showing the old pages under a success message.
 
-    await admin
-      .from("store_theme_installs")
-      .update({ status: "unpublished" })
-      .eq("creator_id", creator.id)
-      .eq("status", "published")
-      .neq("id", installId)
-
-    // The moment, as well as the fact. "Changes since published 4 minutes
-    // ago" needs to know when, and status alone cannot say. The column is
-    // added by RUN_THEME_PUBLISHED_AT.sql; until it has been run the write
-    // falls back to status only, so publishing never fails on a timestamp.
-    let { error } = await admin
-      .from("store_theme_installs")
-      .update({ status: "published", published_at: new Date().toISOString() })
-      .eq("id", installId)
-    if (error && /published_at/.test(error.message)) {
-      ;({ error } = await admin.from("store_theme_installs").update({ status: "published" }).eq("id", installId))
+      So the drafts are promoted first. They are this install's own columns:
+      nobody sees them until its status changes, or, when it is already the
+      live site, promoting them IS the publish. Every write is checked and
+      the first failure stops here. Only then does the status flip, and if
+      this one will not go up, the one that was live is put back.
+    */
+    let touchedLive = false
+    const failed = async (message: string, detail: string) => {
+      console.error(`[publish] ${message} (${detail})`)
+      /* Part of it may already be live, and the cached site has to hear about that part too. */
+      if (touchedLive) await revalidatePublishedSite(creator.id)
+      return NextResponse.json({ error: message }, { status: 500 })
     }
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
     // Promote draft_settings if present
-    const { data: settingsRow } = await admin
+    const { data: settingsRow, error: settingsReadErr } = await admin
       .from("store_theme_settings")
       .select("settings, draft_settings")
       .eq("install_id", installId)
       .maybeSingle()
+    if (settingsReadErr) return failed("Could not read the website's settings. Nothing was published.", settingsReadErr.message)
 
     /*
       ======================================================================
@@ -91,33 +90,37 @@ export async function POST(req: Request, { params }: Params) {
       safe content without having to know to ask for it.
     */
     if (settingsRow?.draft_settings) {
-      await admin
+      const { error: settingsErr } = await admin
         .from("store_theme_settings")
         .update({
           settings: sanitizeThemeSettings(settingsRow.draft_settings as Record<string, unknown>),
           draft_settings: null,
         })
         .eq("install_id", installId)
+      if (settingsErr) return failed("Could not publish the website's settings. Nothing was published.", settingsErr.message)
+      touchedLive = true
     }
 
     // Promote draft_sections for all pages
-    const { data: pagesRows } = await admin
+    const { data: pagesRows, error: pagesReadErr } = await admin
       .from("store_theme_pages")
       .select("id, sections, draft_sections")
       .eq("install_id", installId)
+    if (pagesReadErr) return failed("Could not read the website's pages. Publish again to finish.", pagesReadErr.message)
 
-    if (pagesRows) {
-      for (const page of pagesRows) {
-        if (page.draft_sections) {
-          await admin
-            .from("store_theme_pages")
-            .update({
-              sections: sanitizeSections(page.draft_sections as SectionInstance[]),
-              draft_sections: null,
-            })
-            .eq("id", page.id)
-        }
-      }
+    /* A section type the install wrote itself is cleaned by its own file: lib/website-builder/sanitize-sections.ts. */
+    const drafts = (pagesRows ?? []).filter((page) => page.draft_sections)
+    const own = await readOwnSectionFields(admin, installId, drafts.flatMap((page) => (page.draft_sections as SectionInstance[]).map((s) => s.type)))
+    for (const page of drafts) {
+      const { error: pageErr } = await admin
+        .from("store_theme_pages")
+        .update({
+          sections: sanitizeSections(page.draft_sections as SectionInstance[], own),
+          draft_sections: null,
+        })
+        .eq("id", page.id)
+      if (pageErr) return failed("Could not publish every page. Publish again to finish.", pageErr.message)
+      touchedLive = true
     }
 
     /**
@@ -127,6 +130,43 @@ export async function POST(req: Request, { params }: Params) {
      */
     await promoteFileDrafts(admin, installId)
 
+    /* Now the switch: whatever else was live goes down, and this goes up. */
+    const { data: previous, error: downErr } = await admin
+      .from("store_theme_installs")
+      .update({ status: "unpublished" })
+      .eq("creator_id", creator.id)
+      .eq("status", "published")
+      .neq("id", installId)
+      .select("id")
+    if (downErr) return failed("Could not switch the live website. The one that was live still is.", downErr.message)
+    const wasLive = ((previous ?? []) as { id: string }[]).map((row) => row.id)
+    if (wasLive.length > 0) touchedLive = true
+
+    // The moment, as well as the fact. "Changes since published 4 minutes
+    // ago" needs to know when, and status alone cannot say. The column is
+    // added by RUN_THEME_PUBLISHED_AT.sql; until it has been run the write
+    // falls back to status only, so publishing never fails on a timestamp.
+    let { error } = await admin
+      .from("store_theme_installs")
+      .update({ status: "published", published_at: new Date().toISOString() })
+      .eq("id", installId)
+    if (error && /published_at/.test(error.message)) {
+      ;({ error } = await admin.from("store_theme_installs").update({ status: "published" }).eq("id", installId))
+    }
+
+    if (error) {
+      /* This one would not go up, so the one that was live goes back up rather than leaving nothing. */
+      if (wasLive.length > 0) {
+        const { error: backErr } = await admin.from("store_theme_installs").update({ status: "published" }).in("id", wasLive)
+        if (backErr) {
+          console.error("[publish] the previous website could not be put back:", backErr.message)
+          return failed("Could not publish, and the website that was live is now offline. Publish again.", error.message)
+        }
+        return failed("Could not publish. The website that was live still is.", error.message)
+      }
+      return failed("Could not publish. Try again.", error.message)
+    }
+
     // Audit log
     const { data: settings } = await admin
       .from("store_theme_settings")
@@ -134,12 +174,14 @@ export async function POST(req: Request, { params }: Params) {
       .eq("install_id", installId)
       .maybeSingle()
 
-    await admin.from("theme_publish_history").insert({
+    /* A record of the publish, not the publish: the site is live by now, so a failure here is logged, not returned. */
+    const { error: historyErr } = await admin.from("theme_publish_history").insert({
       install_id: installId,
       creator_id: creator.id,
       action: "published",
       snapshot: settings?.settings ?? {},
     })
+    if (historyErr) console.error("[publish] the publish history row was not written:", historyErr.message)
 
     // A publish is a moment worth being able to go back to. Never allowed to
     // fail the publish itself: the table is created by RUN_THEME_BACKUPS.sql
@@ -172,16 +214,22 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ error: "Theme is not currently published" }, { status: 400 })
     }
 
-    await admin
+    /* A take-down that did not happen must not be reported as one. */
+    const { error: downErr } = await admin
       .from("store_theme_installs")
       .update({ status: "unpublished" })
       .eq("id", installId)
+    if (downErr) {
+      console.error("[publish] could not take the website down:", downErr.message)
+      return NextResponse.json({ error: "Could not take the website down. It is still live. Try again." }, { status: 500 })
+    }
 
-    await admin.from("theme_publish_history").insert({
+    const { error: historyErr } = await admin.from("theme_publish_history").insert({
       install_id: installId,
       creator_id: creator.id,
       action: "unpublished",
     })
+    if (historyErr) console.error("[publish] the unpublish history row was not written:", historyErr.message)
 
     // A site taken down that stays in a cache is still up.
     await revalidatePublishedSite(creator.id)
@@ -193,11 +241,12 @@ export async function POST(req: Request, { params }: Params) {
   }
 
   if (action === "save_draft") {
-    await admin
+    const { error: draftErr } = await admin
       .from("store_theme_installs")
       .update({ status: "draft" })
       .eq("id", installId)
       .eq("status", "unpublished") // don't downgrade published
+    if (draftErr) return NextResponse.json({ error: "Could not save it as a draft. Try again." }, { status: 500 })
 
     return NextResponse.json({ ok: true, status: "draft" })
   }

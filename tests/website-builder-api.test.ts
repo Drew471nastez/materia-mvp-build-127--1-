@@ -48,6 +48,34 @@ function main() {
       /if \(failed > 0\) \{/.test(sync) && /status: 500/.test(sync.slice(sync.indexOf("if (failed > 0) {"))))
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  section("Publishing never leaves a creator with no website")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const route = read(`${ROUTES}/publish/route.ts`)
+    const publish = route.slice(route.indexOf('if (action === "publish")'), route.indexOf('if (action === "unpublish")'))
+    const promoted = publish.indexOf("draft_sections: null")
+    const down = publish.indexOf('.update({ status: "unpublished" })')
+    const up = publish.indexOf('.update({ status: "published", published_at')
+    check("the drafts are promoted before any status changes", promoted > 0 && down > promoted && up > down)
+    check("every write that makes up the publish is checked",
+      /if \(settingsErr\) return failed\(/.test(publish) && /if \(pageErr\) return failed\(/.test(publish)
+        && /if \(settingsReadErr\) return failed\(/.test(publish) && /if \(pagesReadErr\) return failed\(/.test(publish)
+        && /if \(downErr\) return failed\(/.test(publish))
+    check("the sites it takes down are remembered, and put back if this one will not go up",
+      /\.neq\("id", installId\)\s*\n\s*\.select\("id"\)/.test(publish)
+        && /\.update\(\{ status: "published" \}\)\.in\("id", wasLive\)/.test(publish))
+    check("and a failure says which website is live now, in plain words",
+      /The website that was live still is\./.test(publish) && /is now offline\. Publish again\./.test(publish))
+    check("a partial publish still clears the cached site",
+      /if \(touchedLive\) await revalidatePublishedSite\(creator\.id\)/.test(publish))
+    check("the section types the install wrote are cleaned by their own files on the way live",
+      /sanitizeSections\(page\.draft_sections as SectionInstance\[\], own\)/.test(publish))
+    const unpublish = route.slice(route.indexOf('if (action === "unpublish")'), route.indexOf('if (action === "save_draft")'))
+    check("a take-down that did not happen is not reported as one", /if \(downErr\) \{/.test(unpublish))
+    check("and neither is a draft that was not saved", /if \(draftErr\) return NextResponse\.json\(/.test(route.slice(route.indexOf('if (action === "save_draft")'))))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
