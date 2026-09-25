@@ -14,6 +14,11 @@ export type OnePageBlockType =
   | "pdf_document"
   | "food_menu"
   | "calendly"
+  | "heading"
+  | "faq"
+  | "countdown"
+  | "map"
+  | "video"
 
 export interface OnePageTheme {
   template_id: string
@@ -159,6 +164,8 @@ export interface LinkButtonBlockData {
   tiktok_video_id?: string | null
   tiktok_embed_url?: string | null
   tiktok_show_embed?: boolean
+  // Ask the visitor before opening (components/onepage/extra-blocks)
+  sensitive?: boolean
 }
 
 export type ProductBlockStyle = 'button' | 'callout' | 'preview'
@@ -352,6 +359,41 @@ export interface GroupBlockData {
   carousel_fade_edges?: boolean
 }
 
+// The blocks drawn by components/onepage/extra-blocks, the same in the editor and on the live page
+export interface HeadingBlockData {
+  text: string
+  size: "small" | "medium" | "large"
+  alignment: "left" | "center" | "right"
+}
+
+export interface FaqItem {
+  id: string
+  question: string
+  answer: string
+}
+
+export interface FaqBlockData {
+  title?: string | null
+  items: FaqItem[]
+}
+
+export interface CountdownBlockData {
+  title?: string | null
+  target_at: string | null
+  ended_text?: string | null
+}
+
+export interface MapBlockData {
+  title?: string | null
+  address: string
+  show_button?: boolean
+}
+
+export interface VideoBlockData {
+  url: string
+  title?: string | null
+}
+
 export type OnePageBlockData =
   | LinkButtonBlockData
   | ProductBlockData
@@ -365,6 +407,11 @@ export type OnePageBlockData =
   | PDFDocumentBlockData
   | FoodMenuBlockData
   | CalendlyBlockData
+  | HeadingBlockData
+  | FaqBlockData
+  | CountdownBlockData
+  | MapBlockData
+  | VideoBlockData
 
 export interface OnePageBlockStyle {
   background_color?: string
@@ -383,6 +430,13 @@ export interface OnePageBlock {
   data: OnePageBlockData
   style?: OnePageBlockStyle
   sort_order: number
+  // Shown only between these times (ISO). Either end may be left open.
+  schedule?: OnePageBlockSchedule | null
+}
+
+export interface OnePageBlockSchedule {
+  start_at?: string | null
+  end_at?: string | null
 }
 
 export interface OnePage {
@@ -480,6 +534,8 @@ export const buttonPresetLabels: Record<EmailCaptureButtonPreset, string> = {
   get_access: 'Get Access',
   download: 'Download',
   sign_up: 'Sign Up',
+  unlock: 'Unlock Now',
+  custom: 'Custom',
 }
 
 // Default values
@@ -697,6 +753,38 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
           embed_type: "modal",
           animation_type: "none",
         } as CalendlyBlockData,
+      }
+    case "heading":
+      return {
+        ...baseBlock,
+        data: { text: "New section", size: "medium", alignment: "center" } as HeadingBlockData,
+      }
+    case "faq":
+      return {
+        ...baseBlock,
+        data: {
+          title: "",
+          items: [{ id: `q_${Date.now().toString(36)}`, question: "What do I get?", answer: "" }],
+        } as FaqBlockData,
+      }
+    case "countdown":
+      return {
+        ...baseBlock,
+        data: {
+          title: "",
+          target_at: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+          ended_text: "",
+        } as CountdownBlockData,
+      }
+    case "map":
+      return {
+        ...baseBlock,
+        data: { title: "", address: "", show_button: true } as MapBlockData,
+      }
+    case "video":
+      return {
+        ...baseBlock,
+        data: { url: "", title: "" } as VideoBlockData,
       }
     default:
       return baseBlock as OnePageBlock
