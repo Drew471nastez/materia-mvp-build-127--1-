@@ -2,7 +2,7 @@
 
 import { useTabStrip } from "@/components/app/use-tab-strip"
 import { MetricTab } from "@/components/app/metric-tab"
-import { memo, useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
+import { memo, useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "./pull-to-refresh-indicator"
 import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
@@ -463,7 +463,14 @@ function PercentChangeIndicator({ current, previous }: { current: number; previo
  * nothing here runs at all. The one timer left, the fade, is cleared on the
  * way out.
  *
- * The line is keyed to the cycle, so each slide draws its own from nothing.
+ * A NEW SLIDE PUTS NOTHING INTO THE PAGE. Every slide the bar can show is
+ * there from the start, the others hidden by their `hidden` attribute, the
+ * fade is a style, and the line starts its animation again where it is
+ * rather than a new line taking its place. An element going in or out was
+ * a change the page's :has() rules answer by restyling the whole document:
+ * about 820 elements and 35 to 50ms of style work on a phone's CPU every
+ * fifteen seconds, whatever else the page was doing (Chromium's trace, as
+ * scripts/check-app-sheets-frames.mjs takes it).
  */
 type AnnouncementSlide = "upgrade" | "steps" | "payouts"
 const DURATION = 15000
@@ -514,18 +521,33 @@ const AnnouncementBar = memo(function AnnouncementBar({
   const announcementType = slides[announceCycle % slides.length]
   const announcementVisible = !announceLeaving
 
+  /* Each new slide runs the same line's animation again from its start, and
+     it ends again, which is what picks the slide after. Without the Web
+     Animations API to do that, a new line takes its place, as it used to. */
+  const lineRef = useRef<HTMLDivElement>(null)
+  const [lineKey, setLineKey] = useState(0)
+  const firstCycle = useRef(true)
+  useLayoutEffect(() => {
+    if (firstCycle.current) {
+      firstCycle.current = false
+      return
+    }
+    const run = lineRef.current?.getAnimations?.().find((a) => String((a as CSSAnimation).animationName ?? "").startsWith("announce-progress"))
+    if (run) run.currentTime = 0
+    else setLineKey((k) => k + 1)
+  }, [announceCycle])
+
   return (
       <div ref={barRef} className="bg-[#8b5cf6] text-white">
         {/* 38px on a phone and 40px wider, the same as every other /app page's
             bar (components/app/announcement-bar-mobile). It was 44 and 52. */}
         <div className="py-[5px] px-4 md:py-1">
           <div
-            className={`max-w-[1200px] mx-auto flex h-7 md:h-8 items-center justify-center gap-2 md:gap-3 text-center whitespace-nowrap transition-opacity duration-300 ${
-              announcementVisible ? "opacity-100" : "opacity-0"
-            }`}
+            className="max-w-[1200px] mx-auto flex h-7 md:h-8 items-center justify-center gap-2 md:gap-3 text-center whitespace-nowrap transition-opacity duration-300"
+            style={{ opacity: announcementVisible ? 1 : 0 }}
           >
-            {announcementType === "upgrade" && (
-              <>
+            {slides.includes("upgrade") && (
+              <span hidden={announcementType !== "upgrade"} className="contents">
                 <span className="text-[12px] md:text-[14px] text-white/90">
                   <span className="font-semibold text-white">{t("dashboard.tryProFree")}</span>
                   <span className="hidden md:inline text-white/85 ml-2">{t("dashboard.proSubtitle")}</span>
@@ -542,10 +564,10 @@ const AnnouncementBar = memo(function AnnouncementBar({
                   <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
                   <span className="relative z-10">{t("dashboard.upgrade")}</span>
                 </AppLink>
-              </>
+              </span>
             )}
-            {announcementType === "steps" && (
-              <>
+            {slides.includes("steps") && (
+              <span hidden={announcementType !== "steps"} className="contents">
                 <span className="text-[12px] md:text-[14px] text-white/90">
                   <span className="font-semibold text-white">{t("dashboard.completeSetup")}</span>
                   <span className="md:hidden text-white/85 ml-1.5">{completedSteps}/{totalSteps}</span>
@@ -558,10 +580,10 @@ const AnnouncementBar = memo(function AnnouncementBar({
                   {t("common.continue")}
                   <ChevronRight className="h-3 w-3 md:h-3.5 md:w-3.5" />
                 </button>
-              </>
+              </span>
             )}
-            {announcementType === "payouts" && (
-              <>
+            {slides.includes("payouts") && (
+              <span hidden={announcementType !== "payouts"} className="contents">
                 <span className="text-[12px] md:text-[14px] text-white/90">
                   <span className="font-semibold text-white">{t("dashboard.getPaid")}</span>
                   <span className="hidden md:inline text-white/85 ml-2">{t("dashboard.connectPayoutsDesc")}</span>
@@ -573,16 +595,17 @@ const AnnouncementBar = memo(function AnnouncementBar({
                   <Wallet className="h-3 w-3 md:h-3.5 md:w-3.5" />
                   {t("common.connect")}
                 </AppLink>
-              </>
+              </span>
             )}
           </div>
         </div>
-        {/* How long until the next slide. Keyed to the cycle, so each slide
-            draws its own line from nothing; see "ONE SLIDE AT A TIME". */}
+        {/* How long until the next slide. Each slide runs it again from the
+            start; see "A NEW SLIDE PUTS NOTHING INTO THE PAGE". */}
         <div className="h-[2px] bg-white/10 overflow-hidden">
           {slides.length > 1 && (
             <div
-              key={announceCycle}
+              key={lineKey}
+              ref={lineRef}
               className="announce-progress h-full bg-white/35"
               style={{ animationDuration: `${DURATION}ms`, animationPlayState: paused ? "paused" : "running" }}
               onAnimationEnd={() => setAnnounceLeaving(true)}

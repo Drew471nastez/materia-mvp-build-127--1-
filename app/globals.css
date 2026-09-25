@@ -5228,9 +5228,10 @@ html.pop-in-flight #platform-header-root {
 }
 
 /* The dashboard announcement bar's line: how long until the next slide.
-   components/app/dashboard-client.tsx keys it to the cycle, so each slide
-   draws its own from nothing. A transform, not a width: it runs on the
-   compositor and costs the page no layout for fifteen seconds. */
+   components/app/dashboard-client.tsx runs this same animation again from
+   its start for each slide (a new line put in the page would restyle the
+   whole document under its :has() rules). A transform, not a width: it runs
+   on the compositor and costs the page no layout for fifteen seconds. */
 .announce-progress {
   transform-origin: left center;
   animation-name: announce-progress;
