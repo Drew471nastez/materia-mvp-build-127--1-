@@ -148,7 +148,9 @@ try {
  *   a colour or a size that comes back to a value it had left
  *   text that is replaced by other text: a zero or a dash drawn and then
  *     turned into the figure is a figure that changed twice, the second
- *     time in front of you (text arriving where there was none is fine).
+ *     time in front of you (text arriving where there was none is fine,
+ *     and so is text replaced before it was ever drawn above opacity 0: a
+ *     placeholder held invisible to keep its width, d8116b52).
  *     One exception, the owner's: a figure tab's number drawn blurred while
  *     it waits and clearing to the real one ("before it was the blur thing,
  *     I liked those"). Text inside a [data-tab] that is still blurred when
@@ -214,7 +216,9 @@ const RECORDER = `(() => {
         const vals = read(el, cs, r)
         let s = state.get(id)
         if (!s) vals[3] = Math.round(vals[3]), vals[4] = Math.round(vals[4])
-        if (!s) { state.set(id, s = { el, first: f.frames, what: describe(el), last: vals, seen: PROPS.map((_, k) => [vals[k]]), runs: PROPS.map(() => []), lastChange: PROPS.map(() => -99), returned: PROPS.map(() => null), low: 1, loop: looping(el) }); continue }
+        if (!s) { state.set(id, s = { el, first: f.frames, what: describe(el), last: vals, seen: PROPS.map((_, k) => [vals[k]]), runs: PROPS.map(() => []), lastChange: PROPS.map(() => -99), returned: PROPS.map(() => null), low: 1, loop: looping(el), textShown: Number(vals[2]) > 0.02 }); continue }
+        /* Whether the text it holds has been drawn where it can be seen: a placeholder held at opacity 0 to keep a width (Home's live pill, d8116b52) is not a figure anyone saw. */
+        if (vals[5] === s.last[5] && Number(vals[2]) > 0.02) s.textShown = true
         if (!s.loop && looping(el)) s.loop = true
         for (let k = 0; k < PROPS.length; k++) {
           if (same(k, vals[k], s.last[k], el)) continue
@@ -230,7 +234,8 @@ const RECORDER = `(() => {
             if (v >= Number(seen[0]) - 0.001 && s.low > 0.1 && s.low < Number(seen[0]) - 0.03 && s.returned[k] == null) s.returned[k] = { frame: fr, value: vals[k], path: [seen[0], String(s.low), vals[k]] }
             s.low = Math.min(s.low, v)
           } else if (PROPS[k] === "text") {
-            if (s.last[k] !== "" && vals[k] !== "" && s.returned[k] == null && !waitingBlurred(el)) s.returned[k] = { frame: fr, value: vals[k], path: [s.last[k], vals[k]], replaced: true }
+            if (s.last[k] !== "" && vals[k] !== "" && s.returned[k] == null && !waitingBlurred(el) && s.textShown) s.returned[k] = { frame: fr, value: vals[k], path: [s.last[k], vals[k]], replaced: true }
+            s.textShown = Number(vals[2]) > 0.02
           } else if (seen.length > 1 && seen.slice(0, -1).includes(vals[k]) && s.returned[k] == null) {
             s.returned[k] = { frame: fr, value: vals[k], path: seen.concat(vals[k]).slice(-4) }
           }
