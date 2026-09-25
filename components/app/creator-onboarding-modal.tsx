@@ -5,6 +5,7 @@ import { createPortal } from "react-dom"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { AVATAR_CHOSEN, onboardingPhoto } from "@/lib/account/avatar"
 import {
   ArrowLeft,
   Check,
@@ -573,13 +574,23 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     setPlanCheckoutLoading(null)
   }
 
-  // Load existing avatar from Google login
+  /*
+    THE PHOTO IT STARTS WITH IS THE PROFILE'S (lib/account/avatar,
+    onboardingPhoto). It was always the picture Google sent at sign in, so a
+    person who had removed their photo got it back here, written into the
+    profile, the creator page and the OnePage.
+  */
   useEffect(() => {
     const loadUserAvatar = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user?.user_metadata?.avatar_url) {
-        setAvatarUrl(user.user_metadata.avatar_url)
-      }
+      if (!user) return
+      const { data: own } = await supabase.from("profiles").select("avatar_url").eq("id", user.id).maybeSingle()
+      const start = onboardingPhoto({
+        profileAvatar: (own as { avatar_url?: string | null } | null)?.avatar_url,
+        providerAvatar: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+        chosen: user.user_metadata?.[AVATAR_CHOSEN] === true,
+      })
+      if (start) setAvatarUrl(start)
       if (user?.user_metadata?.full_name) {
         setDisplayName(user.user_metadata.full_name)
       }

@@ -36,7 +36,7 @@
 
 import Link from "next/link"
 import { useShownPath } from "@/lib/ui/app-navigation"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 /*
   IMPORTED ONE MODULE AT A TIME, per style.
@@ -52,15 +52,7 @@ import { BillListIcon as OrdersLinear } from "@solar-icons/react/linear/bill-lis
 import { BillListIcon as OrdersBold } from "@solar-icons/react/bold/bill-list"
 import { BoxIcon as ProductsLinear } from "@solar-icons/react/linear/box"
 import { BoxIcon as ProductsBold } from "@solar-icons/react/bold/box"
-/**
- * A BANKNOTE, for Payouts. It was a bank card, which read as "a wallet": a
- * way to pay, when this page is money on its way to you. A note with the
- * round seal in the middle is the one shape at 20px that only means cash,
- * and it keeps the card's landscape outline, so the rail's rhythm is the
- * same. The order timeline draws a payout with a banknote as well.
- */
-import { BanknoteIcon as PayoutsLinear } from "@solar-icons/react/linear/banknote"
-import { BanknoteIcon as PayoutsBold } from "@solar-icons/react/bold/banknote"
+/* Payouts is drawn below (PayoutsLineIcon): a bag of money, not Solar's banknote. */
 import { ChartSquareIcon as AnalyticsLinear } from "@solar-icons/react/linear/chart-square"
 import { ChartSquareIcon as AnalyticsBold } from "@solar-icons/react/bold/chart-square"
 import { LetterIcon as EmailsLinear } from "@solar-icons/react/linear/letter"
@@ -90,7 +82,7 @@ import { SettingsIcon as SettingsBold } from "@solar-icons/react/bold/settings"
  * People row two below it, so the rail had two people in it and one of them
  * was a page. A card with a person on it says PAGE ABOUT A PERSON, which is
  * what this is, and nothing else in the rail is that shape. Payouts is a
- * banknote, Website a browser window, OnePage a tall phone of buttons.
+ * bag of money, Website a browser window, OnePage a tall phone of buttons.
  *
  * The Store Builder this icon was originally drawn for is gone; the name
  * `storeBuilder` stays only because the key is referenced in several places,
@@ -322,6 +314,67 @@ function OnePageFillIcon({ size = 24, style, className, ...rest }: HomeIconProps
   )
 }
 
+/**
+ * ===========================================================================
+ *  PAYOUTS, A BAG OF MONEY
+ * ===========================================================================
+ * "The payouts icon should actually be like payouts: a bag, like cash, not
+ * that dollar thing." It was Solar's banknote, a note with a round seal in
+ * the middle, which at 20px reads as a dollar bill. A payout is money on its
+ * way to you, and the picture everybody has for that is the sack: tied at
+ * the neck, the cloth gathered into two ears above the tie, a $ on its belly.
+ *
+ * Solar's own "money bag" is a briefcase with a handle, so this one is drawn
+ * here, to Solar's rules like OnePage above: the 24 unit box, the 1.5 stroke,
+ * round caps where a line ends, and the same optical size as the rest of the
+ * rail (its long side reaches the box's edge the way the box and the letter
+ * do). The $ is Solar's own, from that briefcase, a little smaller.
+ *
+ * The filled variant is the same bag solid, with the tie and the $ cut out of
+ * it through a mask: the $ is a stroke, and a stroke cannot be cut out with
+ * evenodd the way the house's door is. The cut is the outline's own $ path,
+ * so the two variants carry it in exactly the same place.
+ *
+ * Checked beside the rest of the rail by scripts/check-nav-icons.mjs.
+ */
+const PAYOUTS_BODY_D =
+  "M9.4 8.6C6 10.4 2.75 13.5 2.75 17C2.75 20.6 5.2 22 9.3 22H14.7C18.8 22 21.25 20.6 21.25 17C21.25 13.5 18 10.4 14.6 8.6"
+const PAYOUTS_TIE_D = "M8.4 8.6H15.6"
+const PAYOUTS_TOP_D =
+  "M10.1 8.6L8.1 4.6C7.6 3.6 8.5 2.6 9.5 2.9C10.3 3.2 11.1 3.4 12 3.4C12.9 3.4 13.7 3.2 14.5 2.9C15.5 2.6 16.4 3.6 15.9 4.6L13.9 8.6"
+const PAYOUTS_DOLLAR_D =
+  "M12 18.57C13.05 18.57 13.9 17.86 13.9 16.98C13.9 16.11 13.05 15.4 12 15.4C10.95 15.4 10.1 14.69 10.1 13.82C10.1 12.94 10.95 12.23 12 12.23" +
+  "M12 18.57C10.95 18.57 10.1 17.86 10.1 16.98M12 18.57V19.2M12 11.6V12.23M12 12.23C13.05 12.23 13.9 12.94 13.9 13.82"
+
+function PayoutsLineIcon({ size = 24, strokeWidth = 1.5, style, className, ...rest }: HomeIconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style} className={className} {...rest}>
+      <path d={PAYOUTS_BODY_D} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
+      <path d={PAYOUTS_TIE_D} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
+      <path d={PAYOUTS_TOP_D} stroke="currentColor" strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <path d={PAYOUTS_DOLLAR_D} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function PayoutsFillIcon({ size = 24, style, className, ...rest }: HomeIconProps) {
+  /* One mask per drawing: the rail and the phone menu can both be on the page. */
+  const cut = `payouts-cut-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={style} className={className} {...rest}>
+      <mask id={cut} maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+        <rect width="24" height="24" fill="#fff" />
+        <path d="M6 8.6H18" stroke="#000" strokeWidth={1.5} />
+        <path d={PAYOUTS_DOLLAR_D} stroke="#000" strokeWidth={1.5} strokeLinecap="round" fill="none" />
+      </mask>
+      <g mask={`url(#${cut})`} fill="currentColor">
+        <path d={`${PAYOUTS_BODY_D}Z`} />
+        <path d={`${PAYOUTS_TOP_D}Z`} />
+      </g>
+    </svg>
+  )
+}
+
 /** The icons the sidebar uses, exported so the shell can build its nav list. */
 export const NAV_ICONS = {
   dashboard: { line: HomeLineIcon, fill: HomeFillIcon },
@@ -332,7 +385,7 @@ export const NAV_ICONS = {
   storeBuilder: { line: CreatorPageLinear, fill: CreatorPageBold },
   websiteBuilder: { line: WebsiteBuilderLinear, fill: WebsiteBuilderBold },
   emails: { line: EmailsLinear, fill: EmailsBold },
-  payouts: { line: PayoutsLinear, fill: PayoutsBold },
+  payouts: { line: PayoutsLineIcon, fill: PayoutsFillIcon },
 } as const satisfies Record<string, NavIconPair>
 
 /**
@@ -690,6 +743,9 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
 
 // ── The sidebar's own content ───────────────────────────────────────────────
 
+/** The plans page the Upgrade card opens, here and in the phone menu. */
+export const UPGRADE_HREF = "/app/settings/billing/upgrade"
+
 export function DesktopSidebarContent({
   items,
   expandedGroups,
@@ -715,6 +771,7 @@ export function DesktopSidebarContent({
 }) {
   const pathname = useShownPath()
   const settingsActive = isRouteActive(pathname, "/app/settings")
+  const upgradeActive = isRouteActive(pathname, UPGRADE_HREF)
   const { hovered: settingsHovered, handlers: settingsHandlers } = useHover()
 
   return (
@@ -761,16 +818,30 @@ export function DesktopSidebarContent({
       {/* pb accounts for the iOS home indicator in Capacitor; env() is 0 in a
           browser, so this is a no-op there. */}
       <div className="space-y-2 px-[7px] pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))]">
-        {/* A white card with a violet bolt (components/app/upgrade-bolt), the same in the phone menu. */}
+        {/*
+          A QUIET CARD: a light surface and a hairline, no shadow, the bolt
+          flat in a soft violet tint (components/app/upgrade-bolt), the same
+          in the phone menu. And it goes to the plans page the way every row
+          above goes to its page: fetched ahead under the pointer, and the
+          navigation recorded on the click, so the shell answers it the same.
+        */}
         <Link
-          href="/app/settings/billing/upgrade"
-          className="flex items-center justify-between gap-3 rounded-[14px] border border-[#e6e7eb] bg-white py-3 pl-[14px] pr-3 shadow-[0_1px_2px_rgba(16,24,40,0.05),0_2px_6px_-2px_rgba(16,24,40,0.06)] transition-colors duration-[140ms] ease-out hover:bg-[#fafafb] active:bg-[#f4f4f6]"
+          href={UPGRADE_HREF}
+          data-upgrade-card=""
+          onClick={() => onNavigate?.(UPGRADE_HREF)}
+          onMouseEnter={() => {
+            if (!upgradeActive) onPrefetch?.(UPGRADE_HREF)
+          }}
+          onFocus={() => {
+            if (!upgradeActive) onPrefetch?.(UPGRADE_HREF)
+          }}
+          className="flex items-center justify-between gap-3 rounded-[14px] border border-[#ececef] bg-[#fafafa] py-3 pl-[14px] pr-3 transition-colors duration-[140ms] ease-out hover:bg-[#f4f4f5] active:bg-[#efeff1]"
         >
           <div className="min-w-0">
             <p className="truncate text-[13.5px] font-semibold tracking-[-0.005em] text-[#1a1a2e]">{upgradeTitle}</p>
             <p className="truncate text-[12px] text-[#6b7280]">{upgradeSubtitle}</p>
           </div>
-          <UpgradeBolt size={32} />
+          <UpgradeBolt size={28} />
         </Link>
 
         <Link

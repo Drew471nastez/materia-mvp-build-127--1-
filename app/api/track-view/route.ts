@@ -1,6 +1,7 @@
 // app/api/track-view/route.ts
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isOwnVisit } from "@/lib/analytics/own-visit"
+import { anonSession, anonVisitorId, clientIp } from "@/lib/analytics/anon-visit"
 import { type NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { CONSENT_COOKIE, allows, parse } from "@/lib/consent/consent"
@@ -154,17 +155,29 @@ export async function POST(req: NextRequest) {
 
     /**
      * ---- consent, read from the visitor's own record, not from the page.
-     * Without analytics consent the view is counted with a throwaway id:
-     * no cookie is read or set (one left from before is deleted), and no
-     * city or region is kept, only the country.
+     * Without analytics consent no cookie is read or set (one left from
+     * before is deleted), and no city or region is kept, only the country.
+     *
+     * The visit is still one visit, not one per page (lib/analytics/
+     * anon-visit): the visitor is a hash of the IP address, the browser and
+     * the creator under a key that changes every day, never stored raw and
+     * never on the device, and a session is pages under 30 minutes apart, as
+     * with consent. It used to be a fresh visitor and session per page, so
+     * every page a declining visitor opened was a new session, and sessions
+     * read high and conversion low. Without an IP address there is nothing
+     * to hash and the id is a throwaway, as before.
      */
     const consented = allows(parse(cookieStore.get(CONSENT_COOKIE)?.value, Date.now()), "analytics")
+    const anonVisitor = consented ? null : anonVisitorId({ ip: clientIp(req.headers), userAgent: ua, creatorId: payload.creatorId, now: Date.now() })
 
     // ---- visitor identity (ONE source of truth)
-    let visitorId = consented ? cookieStore.get("visitor_id")?.value || short(payload.visitorId, 80) || undefined : undefined
+    let visitorId = consented ? cookieStore.get("visitor_id")?.value || short(payload.visitorId, 80) || undefined : anonVisitor ?? undefined
     if (!visitorId) visitorId = `${consented ? "v" : "anon"}_${crypto.randomUUID().replace(/-/g, "")}`
 
-    const sessionId = (consented && short(payload.sessionId, 80)) || `s_${crypto.randomUUID().replace(/-/g, "")}`
+    const sessionId =
+      (consented && short(payload.sessionId, 80)) ||
+      (anonVisitor ? await anonSession(supabase, anonVisitor, payload.creatorId, Date.now()) : null) ||
+      `s_${crypto.randomUUID().replace(/-/g, "")}`
 
     // ---- geo
     const country = getCountryFromRequest(req)
@@ -228,7 +241,7 @@ export async function POST(req: NextRequest) {
       console.error("[track-view] dedupe error", dedupeError.message)
       // don't block tracking because of dedupe lookup error
     } else if (existing && existing.length > 0) {
-      return NextResponse.json({ ok: true, duplicate: true, visitorId, sourceCategory })
+      return NextResponse.json({ ok: true, duplicate: true, visitorId: consented ? visitorId : undefined, sourceCategory })
     }
 
     // ---- INSERT EVENT
@@ -337,7 +350,8 @@ export async function POST(req: NextRequest) {
 
     const res = NextResponse.json({
       ok: true,
-      visitorId,
+      /* The hash of a visitor who declined stays on the server. */
+      visitorId: consented ? visitorId : undefined,
       // helpful for debugging in devtools / logs
       sourceCategory,
       clientApp: clientApp || null,

@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { profileAvatar } from "@/lib/account/avatar"
 import { businessAlias } from "./email-alias"
 import { UUID_PATTERN, maySwitch, type BusinessLink } from "./rules"
 
@@ -90,21 +91,22 @@ export async function listBusinesses(userId: string): Promise<BusinessSummary[]>
   const admin = createAdminClient()
   const [{ data: profiles }, { data: creators }] = await Promise.all([
     admin.from("profiles").select("id, username, display_name, avatar_url").in("id", ids),
-    admin.from("creators").select("user_id, slug, display_name, avatar_url, onboarding_completed").in("user_id", ids),
+    admin.from("creators").select("user_id, slug, display_name, onboarding_completed").in("user_id", ids),
   ])
   return ids.map((id) => {
     const p = (profiles ?? []).find((x: { id: string }) => x.id === id) as
       | { username: string | null; display_name: string | null; avatar_url: string | null }
       | undefined
     const c = (creators ?? []).find((x: { user_id: string }) => x.user_id === id) as
-      | { slug: string | null; display_name: string | null; avatar_url: string | null; onboarding_completed: boolean | null }
+      | { slug: string | null; display_name: string | null; onboarding_completed: boolean | null }
       | undefined
     const handle = p?.username || c?.slug || null
     return {
       userId: id,
       name: (p?.display_name || c?.display_name || handle || "").trim() || "New business",
       handle,
-      avatarUrl: p?.avatar_url || c?.avatar_url || null,
+      /* The profile's photo and nothing else (lib/account/avatar): a removed photo is no photo here too, never an older copy on the creator row. */
+      avatarUrl: profileAvatar(p?.avatar_url),
       ready: c?.onboarding_completed === true,
       current: id === userId,
       role: link && id === link.memberId ? "member" : "owner",

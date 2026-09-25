@@ -26,8 +26,9 @@ const ATTR_PREFIX = "materia_attr_"
 
 /**
  * WITHOUT ANALYTICS CONSENT NOTHING HERE IS STORED. No visitor or session
- * cookie is made and no attribution is kept: the view is still counted, once
- * and without an identifier, by app/api/track-view. See lib/consent.
+ * cookie is made and no attribution is kept: the view is still counted by
+ * app/api/track-view, its visit found on the server from a daily hash that
+ * is never on the device (lib/analytics/anon-visit). See lib/consent.
  */
 function analyticsAllowed(): boolean {
   return hasConsent("analytics")

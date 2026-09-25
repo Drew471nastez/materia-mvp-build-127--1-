@@ -5,6 +5,7 @@ import { announce, productAddresses, profileAddresses } from "@/lib/seo/announce
 import { createClient } from "@/lib/supabase/server"
 import { defaultShopPageConfig, defaultProductPageConfig } from "@/lib/store-builder/defaults"
 import type { PageType } from "@/lib/store-builder/types"
+import { pagePhotoForProfile } from "@/lib/account/avatar"
 
 // GET - Fetch store builder config for a page type or specific product
 export async function GET(request: Request) {
@@ -281,18 +282,28 @@ export async function POST(request: Request) {
   console.log("[v0] Creator found", { creatorId: creator.id })
 
   if (config.headerSettings && config.headerSettings.avatarUrl !== undefined) {
-    // If avatarUrl is empty string, set profile.avatar_url to null (removal)
-    // If avatarUrl has a value, set it to that value
-    const avatarValue = config.headerSettings.avatarUrl === "" ? null : config.headerSettings.avatarUrl
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ avatar_url: avatarValue })
-      .eq("id", user.id)
+    /*
+      ONLY A PHOTO CHANGED HERE GOES TO THE PROFILE (lib/account/avatar,
+      pagePhotoForProfile). Every save used to write the header's photo into
+      the profile, changed or not, so a photo removed in Settings came back
+      the next time the creator page was saved: onboarding had put the Google
+      picture in the header. The save is compared with the draft it replaces;
+      "" (removed here) clears the profile's photo too.
+    */
+    const stored =
+      productId && pageType === "product"
+        ? await supabase.from("product_page_configs").select("stored:draft_config->headerSettings->>avatarUrl").eq("creator_id", creator.id).eq("product_id", productId).maybeSingle()
+        : await supabase.from("store_builder_configs").select("stored:draft_config->headerSettings->>avatarUrl").eq("creator_id", creator.id).eq("page_type", pageType).maybeSingle()
+    const avatarValue = pagePhotoForProfile(config.headerSettings.avatarUrl, (stored.data as { stored?: string | null } | null)?.stored ?? undefined)
+    if (avatarValue !== undefined) {
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: avatarValue })
+        .eq("id", user.id)
 
-    if (profileError) {
-      console.error("[v0] Error updating profile avatar:", profileError)
-    } else {
-      console.log("[v0] Profile avatar synced:", avatarValue ? "set" : "removed")
+      if (profileError) {
+        console.error(`[store-builder] profile photo not synced (${profileError.code ?? "unknown"})`)
+      }
     }
   }
 
@@ -483,7 +494,7 @@ export async function PUT(request: Request) {
 
     const { data: currentConfig } = await supabase
       .from("product_page_configs")
-      .select("draft_config")
+      .select("draft_config, published:published_config->headerSettings->>avatarUrl")
       .eq("creator_id", creator.id)
       .eq("product_id", productId)
       .single()
@@ -495,18 +506,16 @@ export async function PUT(request: Request) {
 
     console.log("[v0] Found draft config to publish", { sections: currentConfig.draft_config?.sections?.length })
 
-    if (currentConfig.draft_config?.headerSettings?.avatarUrl !== undefined) {
-      const avatarValue =
-        currentConfig.draft_config.headerSettings.avatarUrl === ""
-          ? null
-          : currentConfig.draft_config.headerSettings.avatarUrl
+    /* Only a photo changed on the page since it was last published goes to the profile (lib/account/avatar). */
+    const productPhoto = pagePhotoForProfile(currentConfig.draft_config?.headerSettings?.avatarUrl, (currentConfig as { published?: string | null }).published ?? undefined)
+    if (productPhoto !== undefined) {
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({ avatar_url: avatarValue })
+        .update({ avatar_url: productPhoto })
         .eq("id", user.id)
 
       if (profileError) {
-        console.error("[v0] Error updating profile avatar on publish:", profileError)
+        console.error(`[store-builder] profile photo not synced on publish (${profileError.code ?? "unknown"})`)
       }
     }
 
@@ -568,7 +577,7 @@ export async function PUT(request: Request) {
   // Publish shop or default product template
   const { data: currentConfig } = await supabase
     .from("store_builder_configs")
-    .select("draft_config")
+    .select("draft_config, published:published_config->headerSettings->>avatarUrl")
     .eq("creator_id", creator.id)
     .eq("page_type", pageType)
     .single()
@@ -580,18 +589,16 @@ export async function PUT(request: Request) {
 
   console.log("[v0] Found draft config to publish", { sections: currentConfig.draft_config?.sections?.length })
 
-  if (currentConfig.draft_config?.headerSettings?.avatarUrl !== undefined) {
-    const avatarValue =
-      currentConfig.draft_config.headerSettings.avatarUrl === ""
-        ? null
-        : currentConfig.draft_config.headerSettings.avatarUrl
+  /* Only a photo changed on the page since it was last published goes to the profile (lib/account/avatar). */
+  const pagePhoto = pagePhotoForProfile(currentConfig.draft_config?.headerSettings?.avatarUrl, (currentConfig as { published?: string | null }).published ?? undefined)
+  if (pagePhoto !== undefined) {
     const { error: profileError } = await supabase
       .from("profiles")
-      .update({ avatar_url: avatarValue })
+      .update({ avatar_url: pagePhoto })
       .eq("id", user.id)
 
     if (profileError) {
-      console.error("[v0] Error updating profile avatar on publish:", profileError)
+      console.error(`[store-builder] profile photo not synced on publish (${profileError.code ?? "unknown"})`)
     }
   }
 

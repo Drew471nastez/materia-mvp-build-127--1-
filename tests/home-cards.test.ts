@@ -105,10 +105,19 @@ function main() {
   check("the banner text lets the pointer through to it, the buttons excepted", /pointer-events-none relative z-10[^"]*\[&_a\]:pointer-events-auto \[&_button\]:pointer-events-auto/.test(dash))
 
   console.log("\nUpgrade to Pro")
-  check("the sidebar card has the violet bolt", /<UpgradeBolt size=\{32\} \/>/.test(desktop))
-  check("and so does the phone menu", /<UpgradeBolt size=\{34\} \/>/.test(phone))
-  check("both on white cards", /border-\[#e6e7eb\] bg-white/.test(desktop) && /border-\[#e6e7eb\] bg-white/.test(phone))
-  check("the bolt is white", /fill="#fff"/.test(read("components/app/upgrade-bolt.tsx")))
+  /* "Too gradient, too depthish, that thunder purple thing": the same card and copy, quieter. */
+  check("the sidebar card has the bolt", /<UpgradeBolt size=\{28\} \/>/.test(desktop))
+  check("and so does the phone menu", /<UpgradeBolt size=\{30\} \/>/.test(phone))
+  const cardClass = (src: string) => /data-upgrade-card=""[\s\S]*?className="([^"]*)"/.exec(src)?.[1] ?? ""
+  check("both on a quiet surface with a hairline and no shadow",
+    /border-\[#ececef\] bg-\[#fafafa\]/.test(cardClass(desktop)) && /border-\[#ececef\] bg-white/.test(cardClass(phone))
+      && !/shadow/.test(cardClass(desktop)) && !/shadow/.test(cardClass(phone)), JSON.stringify({ desktop: cardClass(desktop), phone: cardClass(phone) }))
+  const bolt = read("components/app/upgrade-bolt.tsx").replace(/\/\*[\s\S]*?\*\//g, "")
+  check("the bolt is flat: a soft violet tint, a violet glyph, no gradient, no glow", /backgroundColor: UPGRADE_TINT/.test(bolt) && /fill=\{UPGRADE_INK\}/.test(bolt)
+    && !/gradient|drop-shadow|0 4px 10px/.test(bolt))
+  check("the card goes to the plans page the way the rows go to theirs",
+    /onClick=\{\(\) => onNavigate\?\.\(UPGRADE_HREF\)\}/.test(desktop) && /onPrefetch\?\.\(UPGRADE_HREF\)/.test(desktop)
+      && /onNavigate\?\.\(UPGRADE_HREF\)/.test(phone) && /prefetchAppPage\(router, UPGRADE_HREF\)/.test(phone))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

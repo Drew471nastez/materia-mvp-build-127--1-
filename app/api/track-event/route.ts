@@ -5,6 +5,7 @@ import { ignoreError } from "@/lib/supabase/ignore-error"
 import { CONSENT_COOKIE, allows, parse } from "@/lib/consent/consent"
 import { isBotAgent } from "@/lib/analytics/user-agent"
 import { isOwnVisit } from "@/lib/analytics/own-visit"
+import { anonSession, anonVisitorId, clientIp } from "@/lib/analytics/anon-visit"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -67,11 +68,19 @@ export async function POST(req: NextRequest) {
      * THE VISITOR'S OWN RECORD DECIDES, not the page. The browser leaves the
      * ids out without analytics consent (lib/analytics-utils); this is the
      * same rule on the server, so ids a page sent anyway are dropped. The
-     * step is still counted, with no identifier.
+     * step is still counted, under the same daily hash and 30 minute visit
+     * the view tracker gives a visitor who declined (lib/analytics/
+     * anon-visit), so it joins that visit, and a repeat of it is dropped,
+     * without anything stored on the device.
      */
     const consented = allows(parse((await cookies()).get(CONSENT_COOKIE)?.value, Date.now()), "analytics")
-    const sessionId = consented && typeof payload.sessionId === "string" && payload.sessionId.length <= 80 ? payload.sessionId : null
-    const visitorId = consented && typeof payload.visitorId === "string" && payload.visitorId.length <= 80 ? payload.visitorId : null
+    const anonVisitor = consented
+      ? null
+      : anonVisitorId({ ip: clientIp(req.headers), userAgent: req.headers.get("user-agent"), creatorId: payload.creatorId, now: Date.now() })
+    const sessionId = consented
+      ? typeof payload.sessionId === "string" && payload.sessionId.length <= 80 ? payload.sessionId : null
+      : anonVisitor ? await anonSession(supabase, anonVisitor, payload.creatorId, Date.now()) : null
+    const visitorId = consented ? (typeof payload.visitorId === "string" && payload.visitorId.length <= 80 ? payload.visitorId : null) : anonVisitor
 
     /*
       ONE STEP PER VISIT. The checkout page reported "reached checkout" every
