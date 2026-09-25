@@ -230,6 +230,7 @@ const SUITES = [
   "tests/avatar-one-source.test.ts",
   "tests/coupon-editor.test.ts",
   "tests/coupon-checkout.test.ts",
+  "tests/cart-coupons.test.ts",
   "tests/home-cards.test.ts",
   "tests/home-progress.test.ts",
   "tests/creator-badges.test.ts",

@@ -151,6 +151,8 @@ export default function CheckoutPageClient({
   const [applied, setApplied] = React.useState<{ code: string; label: string; discountCents: number } | null>(null)
   const [codeBusy, setCodeBusy] = React.useState(false)
   const [codeError, setCodeError] = React.useState<string | null>(null)
+  /** The reason a code from the link did not apply: said quietly, the buyer did nothing wrong. */
+  const [codeFromLink, setCodeFromLink] = React.useState(false)
   const discountCents = applied ? Math.min(applied.discountCents, subtotal) : 0
   const total = Math.max(0, subtotal - discountCents + tipCents)
   const isFree = total === 0
@@ -439,11 +441,12 @@ export default function CheckoutPageClient({
   }
 
   /* ── Discount code ───────────────────────────────────────────────── */
-  const applyCode = async () => {
-    const typed = code.trim()
+  const applyCode = async (fromLink?: string) => {
+    const typed = (fromLink ?? code).trim()
     if (!typed) return
     setCodeBusy(true)
     setCodeError(null)
+    setCodeFromLink(!!fromLink)
     try {
       const res = await postJson<{ ok?: boolean; code?: string; label?: string; discountCents?: number }>("/api/coupons/validate", {
         code: typed,
@@ -468,6 +471,15 @@ export default function CheckoutPageClient({
     setCode("")
     setCodeError(null)
   }
+  /* A link with ?discountCode= applies it as the page opens: the buyer sees
+     it taken off, or why it was not, without pressing Apply. Once. */
+  const linkCode = React.useRef(searchParams.get("discountCode")?.trim() || "")
+  React.useEffect(() => {
+    const fromLink = linkCode.current
+    linkCode.current = ""
+    if (fromLink) void applyCode(fromLink)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   /* Another option is another price: the code is checked again against it. */
   const chooseVariant = (v: SummaryVariant) => {
     setVariant(v.id === initialVariant?.id ? initialVariant : v)
@@ -517,11 +529,13 @@ export default function CheckoutPageClient({
         onCode={(v) => {
           setCode(v)
           setCodeError(null)
+          setCodeFromLink(false)
         }}
         applied={!!applied}
         label={applied?.label || ""}
         busy={codeBusy}
         error={codeError}
+        quiet={codeFromLink}
         onApply={() => void applyCode()}
         onRemove={removeCode}
         idSuffix={suffix}

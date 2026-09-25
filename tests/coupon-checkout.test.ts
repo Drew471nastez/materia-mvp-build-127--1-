@@ -247,7 +247,10 @@ async function main() {
   {
     const insert = fulfil.indexOf('.from("orders").insert(row)')
     const found = fulfil.indexOf("if (found) {")
-    const count = fulfil.indexOf('if (m.coupon_id) await step("coupon use", () => recordCouponUse(admin, m.coupon_id))')
+    /* Changed on purpose: the use now also names the place the payment held
+       under the code's limit (m.coupon_holder, lib/checkout/coupon-holds.ts),
+       so the order turns that place into the use. Still once, still after the insert. */
+    const count = fulfil.indexOf('if (m.coupon_id) await step("coupon use", () => recordCouponUse(admin, m.coupon_id, m.coupon_holder))')
     check("after paying, the use is counted once: only by whoever made the order, after the insert", insert > 0 && found > 0 && found < insert && count > insert && (fulfil.match(/recordCouponUse\(/g) ?? []).length === 1)
   }
   check("the webhook makes the order from a paid checkout, the same way", /fulfilPaymentIntent\(supabaseAdmin, pi\.id/.test(webhook))

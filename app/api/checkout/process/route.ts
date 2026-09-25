@@ -11,6 +11,7 @@ import { channelOf, orderSourceFromRequest, originOf, tagOrderSource } from "@/l
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { priceOrder } from "@/lib/checkout/pricing"
 import { recordCouponUse } from "@/lib/checkout/coupons"
+import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 
 export const runtime = "nodejs"
 
@@ -78,6 +79,12 @@ export async function POST(request: Request) {
 
     if (totals.totalCents !== 0) {
       return NextResponse.json({ error: "This order has a price. Refresh the page to pay for it." }, { status: 400 })
+    }
+
+    /* The last use of a limited code goes to one buyer, even two at once (lib/checkout/coupon-holds). */
+    const holder = needsHold(coupon) ? holderForEmail(email) : null
+    if (coupon && holder && !(await holdCouponUse(admin, coupon.id, holder))) {
+      return NextResponse.json({ error: "That code has been used up." }, { status: 400 })
     }
 
     /* Owning it already still makes a receipt (for a re-download); only the library row is not doubled. */
@@ -155,6 +162,7 @@ export async function POST(request: Request) {
     }
     if (orderError || !order) {
       console.error("[checkout/process] order could not be saved:", orderError?.code, orderError?.message)
+      if (holder) await releaseCouponHold(admin, coupon?.id, holder)
       return NextResponse.json({ error: "The order could not be saved. Try again in a moment." }, { status: 500 })
     }
 
@@ -206,7 +214,7 @@ export async function POST(request: Request) {
       })
     }
 
-    if (coupon) await step("coupon use", () => recordCouponUse(admin, coupon.id))
+    if (coupon) await step("coupon use", () => recordCouponUse(admin, coupon.id, holder))
 
     await step("sales count", async () => {
       await admin.rpc("increment_product_sales", { p_product_id: product.id })

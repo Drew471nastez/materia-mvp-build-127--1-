@@ -17,6 +17,8 @@
  *     server, once, when an order is created with it.
  */
 
+import { apportionFee } from "./cart-items"
+
 type Db = { from: (table: string) => any; rpc?: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export interface CouponRow {
@@ -72,27 +74,93 @@ export function couponLabel(coupon: Pick<CouponRow, "discount_type" | "discount_
   return coupon.discount_type === "percentage" ? `${value}%` : `$${value.toFixed(2)}`
 }
 
-/** Every rule a found code must pass, without a database. */
+/** Whether a found code can be used at all right now, whatever it is used on. */
+export function couponStanding(coupon: CouponRow | null, now: Date = new Date()): { ok: true; coupon: CouponRow } | { ok: false; error: string } {
+  if (!coupon || coupon.is_active !== true) return { ok: false, error: "That code is not valid." }
+  const t = now.getTime()
+  if (coupon.starts_at && Date.parse(coupon.starts_at) > t) return { ok: false, error: "That code is not active yet." }
+  if (coupon.expires_at && Date.parse(coupon.expires_at) < t) return { ok: false, error: "That code has expired." }
+  if (coupon.usage_limit !== null && coupon.usage_limit !== undefined && (coupon.usage_count ?? 0) >= coupon.usage_limit) {
+    return { ok: false, error: "That code has been used up." }
+  }
+  return { ok: true, coupon }
+}
+
+/** Whether the code's product list lets it take something off this product. No list is every product. */
+export function couponCovers(coupon: Pick<CouponRow, "product_ids">, productId: string): boolean {
+  return !Array.isArray(coupon.product_ids) || coupon.product_ids.length === 0 || coupon.product_ids.includes(productId)
+}
+
+/**
+ * ===========================================================================
+ *  ONE CODE OVER SEVERAL LINES
+ * ===========================================================================
+ * A line is one product (or one option of it) at its price times its
+ * quantity. The code comes off the lines it applies to: a product of the
+ * code's own creator, inside its product list. Every other line is paid in
+ * full.
+ *
+ *   percentage  each line it applies to loses that share of itself, rounded
+ *               to the nearest cent, exactly as a single product would;
+ *   fixed       the amount comes off the lines it applies to together, never
+ *               more than they cost, split in proportion to each line by the
+ *               largest remainder (lib/checkout/cart-items apportionFee), so
+ *               the parts add up to the amount to the cent and no line goes
+ *               below zero.
+ *
+ * The single product checkout is this with one line (checkCoupon below), so
+ * the two cannot price the same product differently.
+ */
+export interface CouponLine {
+  productId: string
+  creatorId: string
+  /** The line's price times its quantity, in cents. */
+  cents: number
+}
+
+export type CouponLinesCheck =
+  | { ok: true; coupon: CouponRow; discounts: number[]; discountCents: number; label: string }
+  | { ok: false; error: string }
+
+/** What the code takes off each line, given which lines it applies to. */
+export function lineDiscounts(coupon: Pick<CouponRow, "discount_type" | "discount_value">, lines: number[], applies: boolean[]): number[] {
+  if (coupon.discount_type === "percentage") return lines.map((cents, i) => (applies[i] ? discountFor(coupon, cents) : 0))
+  const eligible = lines.map((cents, i) => (applies[i] ? Math.max(0, cents) : 0))
+  const amount = discountFor(coupon, eligible.reduce((n, c) => n + c, 0))
+  return apportionFee(amount, eligible)
+}
+
+export function checkCouponLines(
+  coupon: CouponRow | null,
+  lines: CouponLine[],
+  opts: { now?: Date; notCovered?: string } = {},
+): CouponLinesCheck {
+  const standing = couponStanding(coupon, opts.now)
+  if (standing.ok === false) return standing
+  const c = standing.coupon
+  const applies = lines.map((l) => l.creatorId === c.creator_id && couponCovers(c, l.productId))
+  if (!applies.some(Boolean)) return { ok: false, error: opts.notCovered ?? "That code does not apply to anything in your cart." }
+  const eligibleCents = lines.reduce((n, l, i) => n + (applies[i] ? l.cents : 0), 0)
+  if (c.min_purchase_cents && eligibleCents < c.min_purchase_cents) {
+    return { ok: false, error: `That code needs an order of at least $${(c.min_purchase_cents / 100).toFixed(2)}.` }
+  }
+  const discounts = lineDiscounts(c, lines.map((l) => l.cents), applies)
+  const discountCents = discounts.reduce((n, d) => n + d, 0)
+  if (discountCents <= 0) return { ok: false, error: "That code takes nothing off this price." }
+  return { ok: true, coupon: c, discounts, discountCents, label: couponLabel(c) }
+}
+
+/** Every rule a found code must pass for one product, without a database: one line of the above. */
 export function checkCoupon(
   coupon: CouponRow | null,
   opts: { productId: string; priceCents: number; now?: Date },
 ): CouponCheck {
-  if (!coupon || coupon.is_active !== true) return { ok: false, error: "That code is not valid." }
-  const now = (opts.now ?? new Date()).getTime()
-  if (coupon.starts_at && Date.parse(coupon.starts_at) > now) return { ok: false, error: "That code is not active yet." }
-  if (coupon.expires_at && Date.parse(coupon.expires_at) < now) return { ok: false, error: "That code has expired." }
-  if (coupon.usage_limit !== null && coupon.usage_limit !== undefined && (coupon.usage_count ?? 0) >= coupon.usage_limit) {
-    return { ok: false, error: "That code has been used up." }
-  }
-  if (Array.isArray(coupon.product_ids) && coupon.product_ids.length > 0 && !coupon.product_ids.includes(opts.productId)) {
-    return { ok: false, error: "That code does not apply to this product." }
-  }
-  if (coupon.min_purchase_cents && opts.priceCents < coupon.min_purchase_cents) {
-    return { ok: false, error: `That code needs an order of at least $${(coupon.min_purchase_cents / 100).toFixed(2)}.` }
-  }
-  const discountCents = discountFor(coupon, opts.priceCents)
-  if (discountCents <= 0) return { ok: false, error: "That code takes nothing off this price." }
-  return { ok: true, coupon, discountCents, label: couponLabel(coupon) }
+  const r = checkCouponLines(coupon, [{ productId: opts.productId, creatorId: coupon?.creator_id ?? "", cents: opts.priceCents }], {
+    now: opts.now,
+    notCovered: "That code does not apply to this product.",
+  })
+  if (r.ok === false) return r
+  return { ok: true, coupon: r.coupon, discountCents: r.discountCents, label: r.label }
 }
 
 /** One creator's code, matched exactly and without regard to case. */
@@ -122,10 +190,19 @@ export async function validateCoupon(
 /**
  * Counts one use of a code, from the server, when an order is created with
  * it. Never allowed to fail the order it belongs to.
+ *
+ * With the holder of the place the payment took under the code's limit
+ * (lib/checkout/coupon-holds.ts), the use is counted and the place dropped
+ * in one statement; before that function exists, the use is counted as it
+ * always was.
  */
-export async function recordCouponUse(db: Db, couponId: string | null | undefined): Promise<void> {
+export async function recordCouponUse(db: Db, couponId: string | null | undefined, holder?: string | null): Promise<void> {
   if (!couponId) return
   try {
+    if (holder && db.rpc) {
+      const held = await db.rpc("use_coupon_hold", { p_coupon_id: couponId, p_holder: holder })
+      if (!held?.error) return
+    }
     const rpc = db.rpc ? await db.rpc("increment_coupon_usage", { coupon_id: couponId }) : { error: true }
     if (!rpc?.error) return
     const { data } = await db.from("coupons").select("usage_count").eq("id", couponId).maybeSingle()

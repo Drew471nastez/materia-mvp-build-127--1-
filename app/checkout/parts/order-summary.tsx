@@ -109,6 +109,7 @@ export function DiscountForm({
   onApply,
   onRemove,
   idSuffix,
+  quiet = false,
 }: {
   code: string
   onCode: (v: string) => void
@@ -116,6 +117,8 @@ export function DiscountForm({
   label: string
   busy: boolean
   error: string | null
+  /** The error is about a code the page applied from its link: grey and polite, not red and urgent. */
+  quiet?: boolean
   onApply: () => void
   onRemove: () => void
   idSuffix: string
@@ -153,7 +156,7 @@ export function DiscountForm({
           autoCapitalize="characters"
           spellCheck={false}
           maxLength={64}
-          invalid={!!error}
+          invalid={!!error && !quiet}
           aria-describedby={error ? `${id}-error` : undefined}
           onChange={(e) => onCode(e.target.value)}
           onKeyDown={(e) => {
@@ -174,7 +177,7 @@ export function DiscountForm({
         </button>
       </div>
       {error ? (
-        <p id={`${id}-error`} role="alert" className="mt-1.5 text-[13px] text-[#dc2626]">
+        <p id={`${id}-error`} role={quiet ? "status" : "alert"} className={cn("mt-1.5 text-[13px]", quiet ? "text-[#6b7280]" : "text-[#dc2626]")}>
           {error}
         </p>
       ) : null}
