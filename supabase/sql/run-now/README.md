@@ -53,11 +53,12 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `29_notification_rules.sql` | Notifications that decide for themselves: the columns a rule writes on its row, one row per creator and dedupe key, and the leased claim the hourly run takes creators with. Server only. Until it runs the engine does nothing and the panel reads as before. | 31 | 5,139 |
 | `30_site_accounts_contact.sql` | Website accounts and contact forms: each sign in code used once, the contact form messages a creator reads in Emails, and the `wrote` contact status. Run after `13`. Before it runs, Sign in on a website says it is not available yet (the account stays on storelib.com), and a contact message is emailed to the creator but not kept, and its sender is added only if they ticked the box. | 24 | 3,085 |
 | `31_coupon_holds.sql` | Discount code limits that two buyers paying at once cannot pass: a started payment holds a place under the limit, the order uses it, an abandoned one gives it back or it expires. Server only. Until it runs, uses are counted as before. | 21 | 3,773 |
+| `32_orders_keep_sales.sql` | Sales kept when a product is deleted: each order carries its creator (filled for every order already there, and by a trigger from then on), deleting a product leaves its orders with no product rather than deleting them, a disputed payment can be written, and the all time line under Analytics counts by the creator. Run after `25`. Until it runs, the app reads orders through their product as before, and deleting a product still deletes its orders. | 16 | 4,776 |
 | `90_storage_policies_needs_owner.sql` | LAST, ON ITS OWN. Replaces the storage.objects policies. Needs the owner of storage.objects; see README if it says "must be owner". | 2 | 3,896 |
 | `91_storage_policies_to_remove.sql` | Read only. For the dashboard route: the storage policies to delete. | 2 | 1,242 |
-| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 8,293 |
+| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 9,946 |
 
-Parts `01` to `31` all run as the editor's normal role. `90` is the one
+Parts `01` to `32` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
 Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:
@@ -76,9 +77,12 @@ Two parts depend on what is already in your database:
   `courses`. If `00` lists any of those four as a missing table, skip `19` and
   say so; nothing else depends on it.
 
-`05` and `08` are the only parts that change rows you already have: `05`
-marks old basket orders as website orders, `08` sets products archived the
-old way to status `archived` (there were none of those last time).
+`05`, `08` and `32` are the only parts that change rows you already have:
+`05` marks old basket orders as website orders, `08` sets products archived
+the old way to status `archived` (there were none of those last time), and
+`32` writes each order's creator into its new `creator_id` column, from the
+order's product. `32` also changes what deleting a product does: its orders
+stay, with no product, where before the database deleted them with it.
 
 ## Reading `00_check_first.sql`
 

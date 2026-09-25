@@ -1,6 +1,6 @@
 import "server-only"
 
-import type { OrderRow } from "@/lib/orders/order-view"
+import { creatorSalesTotals } from "@/lib/analytics/creator-orders"
 import {
   SENT_CAMPAIGN_STATUSES,
   WEBSITE_LIVE_STATUS,
@@ -75,19 +75,13 @@ export async function readProgressFacts(
   const creator = creatorRead.data
   if (!creator?.id) return null
 
-  const [products, domains, website, orders, counts] = await Promise.all([
+  const [products, domains, website, sales, counts] = await Promise.all([
     settle<{ status?: string | null }[]>(db.from("products").select("status").eq("creator_id", creator.id)),
     /* Every column, so a database from before purposes answers too. */
     settle<ProgressRows["domains"]>(db.from("custom_domains").select("*").eq("creator_id", creator.id)),
     settle<{ id: string } | null>(db.from("store_theme_installs").select("id").eq("creator_id", creator.id).eq("status", WEBSITE_LIVE_STATUS).limit(1).maybeSingle()),
-    input.withSales === false
-      ? Promise.resolve({ data: null, error: null } as Result<OrderRow[]>)
-      : settle<OrderRow[]>(
-          db
-            .from("orders")
-            .select("id, product_id, amount_cents, status, created_at, stripe_session_id, refund_amount_cents, products!inner(creator_id)")
-            .eq("products.creator_id", creator.id),
-        ),
+    /* Counted over every order, by the creator (lib/analytics/creator-orders): a read of the rows stopped at 1,000. */
+    input.withSales === false ? Promise.resolve(null) : creatorSalesTotals(db as Parameters<typeof creatorSalesTotals>[0], creator.id),
     readChallengeCounts(db, creator.id),
   ])
 
@@ -96,11 +90,7 @@ export async function readProgressFacts(
     products: products.data ?? [],
     domains: domains.data ?? [],
     websiteLive: !!website.data,
-    /* Without the embedded product, which was only the filter. */
-    orders: (orders.data ?? []).map((row) => {
-      const { products: _owner, ...order } = row as OrderRow & { products?: unknown }
-      return order as OrderRow
-    }),
+    sales,
     userMetadata: input.userMetadata ?? null,
     counts,
   })

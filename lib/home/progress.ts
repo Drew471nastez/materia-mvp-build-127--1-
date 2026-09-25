@@ -190,6 +190,12 @@ export interface ProgressRows {
   websiteLive: boolean
   /** Every order row of the creator's, or null when they were not read (the sales then stay at 0). */
   orders?: OrderRow[] | null
+  /**
+   * The sales already counted, by the same rule, over every order
+   * (lib/analytics/creator-orders creatorSalesTotals). Used instead of
+   * `orders` when given: a single read of the rows stops at 1,000.
+   */
+  sales?: { sales: number; revenueCents: number } | null
   userMetadata?: Record<string, unknown> | null
   counts?: Partial<Pick<ProgressFacts, "subscribers" | "emailsSent" | "automationsOn" | "couponUses">> | null
 }
@@ -204,7 +210,7 @@ export function factsFromRows(rows: ProgressRows): ProgressFacts {
     paymentsReady: paymentsReadyFrom(rows.creator),
     websiteLive: rows.websiteLive === true,
     ...domainFactsFrom(rows.domains),
-    ...salesFrom(rows.orders),
+    ...(rows.sales ? { sales: n(rows.sales.sales), revenueCents: n(rows.sales.revenueCents) } : salesFrom(rows.orders)),
     guideOpened: guideOpenedFrom(rows.userMetadata),
     pro: isProPlan(rows.creator?.subscription_plan_id),
     subscribers: n(counts.subscribers),

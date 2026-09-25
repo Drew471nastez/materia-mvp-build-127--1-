@@ -124,6 +124,9 @@ export interface Reports {
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
 
+/** Sales by product's one row for every product the creator has deleted. */
+export const REMOVED_PRODUCT = "removed"
+
 /* ─── Sessions ────────────────────────────────────────────────────────── */
 
 export function sessionKey(v: ViewRow, timeZone: string): string {
@@ -713,16 +716,21 @@ export function buildReports(input: {
   })()
 
   /* Sales by product: each product's own line of each payment, by the rule
-     Total sales is counted with (lineMoney), so the two agree. */
+     Total sales is counted with (lineMoney), so the two agree. A product
+     the creator has deleted keeps its sales, in one "Removed product" row:
+     its orders stay, with no product once supabase/sql/run-now part 32 has
+     run, and with the id of a product that is gone before it. */
   const productRows = (() => {
+    const keyOf = (id: string | null | undefined) => (id && input.productTitles[id] ? id : REMOVED_PRODUCT)
     const tally = (list: Grouped[]) => {
       const m = new Map<string, { cents: number; units: number }>()
       for (const o of list) {
         for (const line of o.lines) {
-          const row = m.get(line.product_id) ?? { cents: 0, units: 0 }
+          const key = keyOf(line.product_id)
+          const row = m.get(key) ?? { cents: 0, units: 0 }
           row.cents += lineMoney(line).net
           row.units += 1
-          m.set(line.product_id, row)
+          m.set(key, row)
         }
       }
       return m
@@ -733,7 +741,7 @@ export function buildReports(input: {
     return [...now.entries()]
       .map(([id, v]) => ({
         key: id,
-        label: input.productTitles[id] || "Removed product",
+        label: id === REMOVED_PRODUCT ? "Removed product" : input.productTitles[id],
         value: v.cents,
         previous: before.get(id)?.cents ?? 0,
         share: total ? v.cents / total : 0,

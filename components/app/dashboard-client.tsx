@@ -74,10 +74,10 @@ import { MorphLines } from "@/components/app/morph-lines"
 import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
-import { spansToRead } from "@/lib/analytics/buckets"
-import { homeFigures, homeSpans, homeTotals, type HomeMetric } from "@/lib/analytics/home-figures"
-import type { ViewRow } from "@/lib/analytics/reports"
-import type { OrderRow } from "@/lib/orders/order-view"
+import { clicksByBucket, homeAllTime, homeFigures, homeFromReports, homeQuestion, homeSpans, type HomeMetric } from "@/lib/analytics/home-figures"
+import type { Reports } from "@/lib/analytics/reports"
+import { NOW_STEP_MS, askReport, keptAnswer, questionOf, reportNow } from "@/lib/analytics/report-cache"
+import { KEYSET_PAGE, keysetFrom, readByKeyset } from "@/lib/analytics/keyset"
 
 /** The old checklist's shape, still accepted from the probes that render Home with it. */
 interface SetupStep {
@@ -379,12 +379,20 @@ const SAMPLE_KPI = {
 }
 
 /**
- * An order row as Home holds it: enough to group a basket into one payment
- * and to take its refunds off (lib/analytics/home-figures). The rows the
- * page arrives with carry these columns (app/app/page.tsx), and a realtime
- * row carries every column.
+ * What Home draws its figures from: the Analytics answer for the period
+ * (app/api/analytics/reports, counted on the server from every row), the
+ * period it was asked for, and the period's link taps.
  */
-type Order = Pick<OrderRow, "id" | "product_id" | "amount_cents" | "status" | "created_at" | "stripe_session_id" | "refund_amount_cents">
+interface HomeAnswer {
+  /** Null when the answer could not be had: every figure zero, and the chart stops waiting. */
+  reports: Reports | null
+  allTime: { views?: number; orders?: number; salesCents?: number } | null
+  window: { start: number; end: number }
+  previous: { start: number; end: number } | null
+  clicks: number[]
+}
+/** A realtime order row: only which creator and product it is for is read. */
+type LiveOrder = { product_id?: string | null; creator_id?: string | null }
 
 interface DashboardClientProps {
   creatorId: string
@@ -401,7 +409,8 @@ interface DashboardClientProps {
   /** The old checklist, read only when `initialProgress` is not given. */
   initialSetupSteps?: SetupStep[]
   productIds: string[]
-  initialOrders?: Order[]
+  /** The signed in user: a kept Analytics answer is shown only to the person it was counted for. */
+  viewerId?: string | null
   creatorHandle?: string
   connectedDomain?: string | null
   /** The website's own domain (lib/custom-domains). On an old database, the same one domain. */
@@ -649,7 +658,7 @@ export function DashboardClient({
   initialProgress,
   initialSetupSteps,
   productIds,
-  initialOrders = [],
+  viewerId = null,
   creatorHandle = "",
   connectedDomain = null,
   websiteDomain = null,
@@ -720,21 +729,35 @@ export function DashboardClient({
   const [isChartLoading, setIsChartLoading] = useState(false)
   // Sample data toggle — session-only (resets on page refresh, no localStorage)
   const [showSampleData, setShowSampleData] = useState(false)
-  /* Every page view the creator has had, counted by the database, as Analytics' all time is. */
-  const [totalViews, setTotalViews] = useState(0)
-  // Live orders — starts from SSR-fetched initialOrders, updated via Realtime
-  const [liveOrders, setLiveOrders] = useState<Order[]>(initialOrders)
-  const liveOrdersRef = useRef<Order[]>(initialOrders)
-
-  // Keep ref in sync so realtime handler always has latest array
-  useEffect(() => {
-    liveOrdersRef.current = liveOrders
-  }, [liveOrders])
+  /**
+   * ===========================================================================
+   *  THE FOUR FIGURES AND THE CHART ARE ANALYTICS' OWN
+   * ===========================================================================
+   * Home asks app/api/analytics/reports the very question the Analytics page
+   * asks for the same period (lib/analytics/home-figures homeQuestion), and
+   * draws its answer (homeFromReports): a basket is one order, money is what
+   * was charged less what was refunded, a disputed payment is not a sale,
+   * the period is compared with the one just before on the creator's clock,
+   * and every figure is counted on the server from every row.
+   *
+   * It used to read the period's views in the browser and every order on
+   * the server (app/app/page.tsx), and a read stops at 1,000 rows: a busy
+   * store's views, and a store past its thousandth order, simply stopped
+   * counting, without saying so. The answer is shared with Analytics too:
+   * one Home has asked for opens Analytics at once, and the other way round.
+   */
+  const [homeAnswer, setHomeAnswer] = useState<HomeAnswer | null>(null)
+  /* A new order, or a changed one, asks again (the realtime subscription below). */
+  const [ordersChanged, setOrdersChanged] = useState(0)
+  /* That question ends a step later than the last, so neither this browser
+     nor the server answers it with what they kept from before the order. */
+  const askPastKept = useRef(false)
 
   // Subscribe to new/updated orders for this creator's products
   useEffect(() => {
     if (!productIds || productIds.length === 0) return
     const supabase = createClient()
+    let pending: number | undefined
     const channel = supabase
       .channel("dashboard-orders")
       .on(
@@ -745,70 +768,36 @@ export function DashboardClient({
           table: "orders",
         },
         (payload) => {
-          const row = (payload.new || payload.old) as Order | undefined
-          if (!row || !productIds.includes(row.product_id)) return
-
-          setLiveOrders((prev) => {
-            if (payload.eventType === "INSERT") {
-              // Avoid duplicates
-              if (prev.some((o) => o.id === row.id)) return prev
-              return [row, ...prev]
-            }
-            if (payload.eventType === "UPDATE") {
-              return prev.map((o) => (o.id === row.id ? { ...o, ...row } : o))
-            }
-            if (payload.eventType === "DELETE") {
-              return prev.filter((o) => o.id !== row.id)
-            }
-            return prev
-          })
+          const row = (payload.new || payload.old) as LiveOrder | undefined
+          if (!row || !(row.creator_id === creatorId || (row.product_id && productIds.includes(row.product_id)))) return
+          /* A basket writes a row per product in a burst: one question for all of them. */
+          window.clearTimeout(pending)
+          pending = window.setTimeout(() => {
+            askPastKept.current = true
+            setOrdersChanged((n) => n + 1)
+          }, 1500)
         }
       )
       .subscribe()
 
     return () => {
+      window.clearTimeout(pending)
       supabase.removeChannel(channel)
     }
   }, [productIds.join(",")]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** The period's page views and link taps, read once per period (fetchPeriodEvents). */
-  const [chartEvents, setChartEvents] = useState<{ views: ViewRow[]; clicks: number[] } | null>(null)
-  /**
-   * ===========================================================================
-   *  THE FOUR FIGURES AND THE CHART, BY THE ANALYTICS PAGE'S RULES
-   * ===========================================================================
-   * Worked out in one place, lib/analytics/home-figures, from the events read
-   * for the period and the orders the page keeps live, by the rules the
-   * Analytics page counts with: a basket is one order, money is what was
-   * charged less what was refunded, a disputed payment is not a sale, the
-   * period is compared with the one just before on the creator's clock, and
-   * the buckets are that clock's hours, days or months.
-   *
-   * This used to be three copies of other rules, one for the tabs, one for
-   * the chart and one for when an order came in live, and they disagreed
-   * with Analytics and with each other (home-figures says how).
-   *
-   * The period's instants are taken again here rather than at the read, so
-   * an order that arrives live after it still lands in a period that runs
-   * to now. Before the first read there are no views yet, and the orders
-   * are already right.
-   */
+  /* Before the first answer: the period's buckets, every figure zero, drawn soft. */
   const figures = useMemo(() => {
+    if (homeAnswer?.reports) return homeFromReports(homeAnswer.reports, clicksByBucket(homeAnswer.clicks, homeAnswer.window, homeAnswer.previous, dashTimeZone))
     const { window, previous } = homeSpans(period, dashTimeZone, Date.now())
-    return homeFigures({
-      orders: liveOrders as OrderRow[],
-      views: chartEvents?.views ?? [],
-      clicks: chartEvents?.clicks ?? [],
-      window,
-      previous,
-      timeZone: dashTimeZone,
-    })
+    return homeFigures({ orders: [], views: [], clicks: [], window, previous, timeZone: dashTimeZone })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartEvents, liveOrders, periodKey, dashTimeZone])
-  const totals = useMemo(() => homeTotals(liveOrders as OrderRow[]), [liveOrders])
-  const analyticsData = { ...figures, ...totals, totalViews }
-  /** Every metric's series for the period. Null until the period's events are in. */
-  const chartSeries: Record<HomeMetric, ChartDataPoint[]> | null = chartEvents ? figures.series : null
+  }, [homeAnswer, periodKey, dashTimeZone])
+  /* All time, under each figure, as Analytics counts it (analytics_all_time). */
+  const totals = homeAllTime(homeAnswer?.allTime)
+  const analyticsData = { ...figures, ...totals }
+  /** Every metric's series for the period. Null until the period's answer is in. */
+  const chartSeries: Record<HomeMetric, ChartDataPoint[]> | null = homeAnswer ? figures.series : null
   /** The chosen metric's series. A tab changes this and nothing else. */
   const chartData = (openKPIModal && chartSeries?.[openKPIModal]) || NO_POINTS
 
@@ -914,73 +903,79 @@ export function DashboardClient({
    * =========================================================================
    * This fetched on every tab: tapping Revenue asked Supabase again, then
    * redrew, so a tap was a wait and a line that appeared rather than one
-   * that moved. The events are read once for the period (views and clicks,
-   * the only two that are not already in `liveOrders`), and the four figures
-   * and every metric's series are worked out from them (`figures` above). A
-   * tab picks one of four series the page already holds, and the chart
-   * morphs to it.
+   * that moved. The period is asked for once (the Analytics answer, and the
+   * link taps beside it), and the four figures and every metric's series
+   * are worked out from it (`figures` above). A tab picks one of four series
+   * the page already holds, and the chart morphs to it.
    *
-   * The views are read for the period and the one it is compared with, in
-   * one read when the two touch (lib/analytics/buckets spansToRead), each
-   * with its end left out, as Analytics reads them. The chart used to read
-   * the period's views and the figures read them again, with their own
-   * idea of where the period began.
+   * The figures are the Analytics answer for the period and the one just
+   * before (homeQuestion), asked through lib/analytics/report-cache: the
+   * figures line is drawn as soon as the server has counted it, a question
+   * already on its way (the sidebar's prefetch) is joined rather than asked
+   * again, and the last answer kept for this person is drawn at once while
+   * the new one comes. The link taps are the one read left in the browser,
+   * every one of the period's, a page at a time (lib/analytics/keyset): a
+   * single read stopped at the thousandth.
    *
    * A newer period's answer wins: a slow reply for the period before is
    * dropped rather than drawn over the new one.
    */
   const chartRequestRef = useRef(0)
+  /* The link taps last read for a question, so a kept answer is drawn with its own. */
+  const clicksKept = useRef(new Map<string, number[]>())
   const fetchPeriodEvents = async () => {
     const request = ++chartRequestRef.current
     // First load: isRefreshing is already true (seeded in useState), and the
     // soft blur on the figures is the only sign of the read.
     setIsRefreshing(true)
     setIsChartLoading(true)
-    const supabase = createClient()
+    const { window: span, previous, key } = homeQuestion(period, dashTimeZone, reportNow(Date.now() + (askPastKept.current ? NOW_STEP_MS : 0)))
+    askPastKept.current = false
+    const question = questionOf(key)
+    const answerOf = (answer: Record<string, unknown>, clicks: number[]): HomeAnswer => ({
+      reports: (answer.reports as Reports | undefined) ?? null,
+      allTime: (answer.allTime as HomeAnswer["allTime"] | undefined) ?? null,
+      window: span,
+      previous,
+      clicks,
+    })
+    const kept = keptAnswer(question, viewerId)
+    if (kept) setHomeAnswer(answerOf(kept.answer, clicksKept.current.get(question) ?? []))
     try {
-      const { window: span, previous } = homeSpans(period, dashTimeZone, Date.now())
+      const supabase = createClient()
       const iso = (ms: number) => new Date(ms).toISOString()
-      const [viewsRead, clicksRead, allViews] = await Promise.all([
-        Promise.all(
-          spansToRead(span, previous).map((s) =>
-            supabase
-              .from("analytics_events")
-              .select("id, visitor_id, session_id, product_id, created_at")
-              .eq("creator_id", creatorId)
-              .eq("event_type", "view")
-              .gte("created_at", iso(s.start))
-              .lt("created_at", iso(s.end)),
-          ),
-        ),
-        supabase
-          .from("analytics_events")
-          .select("id, created_at")
-          .eq("creator_id", creatorId)
-          .eq("event_type", "click")
-          .gte("created_at", iso(span.start))
-          .lt("created_at", iso(span.end)),
-        /* Counted by the database: a read of the rows stops at 1,000. */
-        supabase
-          .from("analytics_events")
-          .select("id", { count: "exact", head: true })
-          .eq("creator_id", creatorId)
-          .eq("event_type", "view"),
-      ])
-      if (request !== chartRequestRef.current) return
-      setTotalViews(allViews.count ?? 0)
-      setChartEvents({
-        views: viewsRead.flatMap((read) => (read.data || []) as ViewRow[]),
-        clicks: (clicksRead.data || []).map((e: any) => Date.parse(e.created_at)),
+      const clicksRead = readByKeyset<{ id: string; created_at: string }>(
+        (after) =>
+          keysetFrom(
+            supabase.from("analytics_events").select("id, created_at").eq("creator_id", creatorId).eq("event_type", "click").lt("created_at", iso(span.end)),
+            iso(span.start),
+            after,
+          )
+            .order("created_at", { ascending: true })
+            .order("id", { ascending: true })
+            .limit(KEYSET_PAGE),
+        50_000,
+      )
+        .then((read) => read.rows.map((e) => Date.parse(e.created_at)))
+        /* Taps that cannot be read are a missing second line, not a failed page. */
+        .catch(() => [] as number[])
+      const answer = await new Promise<Record<string, unknown>>((resolve, reject) => {
+        const asked = askReport(key, (quick) => resolve(quick))
+        asked.promise.then(resolve, reject).finally(asked.release)
       })
+      const clicks = await clicksRead
+      if (request !== chartRequestRef.current) return
+      clicksKept.current.set(question, clicks)
+      setHomeAnswer(answerOf(answer, clicks))
       // Delay removing loading blur so chart lines redraw while still
       // blurred, then the CSS transition fades in the finished chart cleanly
       setTimeout(() => setIsChartLoading(false), 350)
     } catch (error) {
-      console.error("Error fetching the period's events:", error)
+      console.error("Error fetching the period's figures:", error)
       if (request === chartRequestRef.current) {
         setIsChartLoading(false)
         /* Nothing to draw, rather than a skeleton that waits for ever. */
-        setChartEvents((prev) => prev ?? { views: [], clicks: [] })
+        setHomeAnswer((prev) => prev ?? answerOf({}, []))
       }
     } finally {
       if (request === chartRequestRef.current) {
@@ -997,32 +992,35 @@ export function DashboardClient({
     }
   }
 
-  // Read the period's events when the period changes. Not when the tab does.
+  // Read the period when it changes, or when an order comes in. Not when the tab does.
   useEffect(() => {
-    // Safety net: if Supabase queries hang (slow network, Supabase latency),
-    // stop the chart's wait and show the figures after 5 s rather than never.
+    // Safety net: if the answer hangs (slow network, a busy database), stop
+    // the chart's wait after 15 s rather than never. The answer still lands
+    // when it comes; until then the figures stay soft.
     const safetyTimer = window.setTimeout(() => {
       setIsChartLoading(false)
-      setChartEvents((prev) => prev ?? { views: [], clicks: [] })
       isFirstLoadRef.current = false
-      setFiguresReady(true)
-    }, 5000)
+    }, 15000)
     fetchPeriodEvents().finally(() => window.clearTimeout(safetyTimer))
     return () => window.clearTimeout(safetyTimer)
-  }, [periodKey, creatorId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [periodKey, creatorId, ordersChanged]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * WHAT THE ACCOUNT HAS DONE (lib/home/progress), from the server, asked for
    * again when Home is landed on from another page or comes back into view
    * (use-home-progress), so a domain verified or Stripe connected meanwhile
-   * ticks without a reload. The sales are this page's own orders, kept live
-   * over realtime, counted by the same rule (homeTotals): a first sale ticks
-   * the moment it lands.
+   * ticks without a reload. The sales are the all time line of this page's
+   * Analytics answer, asked again when an order comes in over realtime: a
+   * first sale ticks moments after it lands.
    */
   const { facts: readFacts, markGuideOpened } = useHomeProgress(initialProgress ?? legacyFacts(initialSetupSteps ?? [], subscriptionPlanId))
   const facts = useMemo<ProgressFacts>(
-    () => ({ ...readFacts, sales: totals.totalOrders, revenueCents: Math.max(0, totals.totalRevenue) }),
-    [readFacts, totals.totalOrders, totals.totalRevenue],
+    () =>
+      /* The server's count (every order, app/app/page.tsx) until Home's first answer, then the answer's all time line, which a new order moves. */
+      homeAnswer?.allTime
+        ? { ...readFacts, sales: totals.totalOrders, revenueCents: Math.max(0, totals.totalRevenue) }
+        : readFacts,
+    [readFacts, homeAnswer?.allTime, totals.totalOrders, totals.totalRevenue],
   )
   const progress = useMemo(() => homeProgress(facts), [facts])
   const hasProducts = facts.products > 0
@@ -1336,12 +1334,12 @@ export function DashboardClient({
                 is drawn as Analytics draws it: its frame, a grey line on the
                 floor, softly blurred. The line then rises into place and the
                 blur clears, one motion. The grey block shapes that stood here
-                before read as too much for one chart. `chartEvents == null`
+                before read as too much for one chart. `homeAnswer == null`
                 counts as waiting, because the read starts in an effect and
                 `isChartLoading` alone left one empty frame first.
               */}
               {(() => {
-                const chartWaiting = (chartEvents == null || isChartLoading) && displayChartData.length === 0
+                const chartWaiting = (homeAnswer == null || isChartLoading) && displayChartData.length === 0
                 return (
                 <div className="relative">
                   {/*

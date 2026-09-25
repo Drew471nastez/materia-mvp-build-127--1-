@@ -258,7 +258,8 @@ section("No page draws a picture of itself while it loads, inside or out")
   check("Home has no full page skeleton, and its chart waits as a blurred grey floor line, not a skeleton, from the first frame",
     !/showLoadingSkeleton|isLoading && |Full Page Skeleton|skeleton-bar/.test(dash) && !/animate-pulse/.test(dash) && !/WaitingArea/.test(dash)
       && !/ShimmerChart|ShimmerSwap/.test(dash)
-      && /const chartWaiting = \(chartEvents == null \|\| isChartLoading\) && displayChartData\.length === 0/.test(dash)
+      /* Renamed on purpose: Home waits for the Analytics answer (homeAnswer), not for events it read itself. */
+      && /const chartWaiting = \(homeAnswer == null \|\| isChartLoading\) && displayChartData\.length === 0/.test(dash)
       && /chartWaiting \? "opacity-60 blur-\[1\.5px\]"/.test(dash) && /loading=\{chartWaiting\}/.test(dash))
   check("and its four figures wait for the period's first answer (MetricTab `loading`), with No activity yet held back until it",
     /const \[figuresReady, setFiguresReady\] = useState\(false\)/.test(dash) && (dash.match(/loading=\{!figuresReady\}/g) ?? []).length === 4

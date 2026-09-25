@@ -199,7 +199,8 @@ function main() {
   console.log("\nthe pages read it from there")
   {
     const page = read("app/app/page.tsx")
-    check("Home builds its facts with factsFromRows, orders and counts included", /factsFromRows\(\{[\s\S]*orders: allOrders[\s\S]*counts: challengeCounts[\s\S]*\}\)/.test(page) && /initialProgress=\{progressFacts\}/.test(page))
+    /* Changed on purpose: the sales are counted over every order (creatorSalesTotals), not from one read of the rows, which stopped at 1,000. */
+    check("Home builds its facts with factsFromRows, sales and counts included", /factsFromRows\(\{[\s\S]*sales: salesTotals[\s\S]*counts: challengeCounts[\s\S]*\}\)/.test(page) && /initialProgress=\{progressFacts\}/.test(page))
     check("Home reads a website that is published now, by its status", /\.from\("store_theme_installs"\)[\s\S]{0,120}\.eq\("status", WEBSITE_LIVE_STATUS\)/.test(page))
     check("Home reads every domain, so a verified one waiting on its certificate counts", /\.from\("custom_domains"\)[\s\S]{0,400}\.select\("\*"\)\s*\.eq\("creator_id", creator\.id\)\s*\.order/.test(page) && !/\.from\("custom_domains"\)[\s\S]{0,400}\.eq\("status", "active"\)/.test(page))
     check("and the challenge counts in the same batch", /readChallengeCounts\(adminSupabase, creator\.id\)/.test(page))

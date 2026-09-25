@@ -485,7 +485,8 @@ check(
       && /<MorphLines\s+lines=\{lines\}/.test(src)
       && !/setShouldAnimate/.test(src)
       && /React\.useLayoutEffect\(\(\) => \{\s*const s = st\.current\s*if \(s\.sig === sig\) return/.test(lines)
-      && /\}, \[periodKey, creatorId\]\)/.test(src) && !/\}, \[openKPIModal, periodKey, creatorId\]\)/.test(src)
+      /* Changed on purpose: a new order asks again too (ordersChanged); the tab still never does. */
+      && /\}, \[periodKey, creatorId, ordersChanged\]\)/.test(src) && !/openKPIModal, periodKey/.test(src)
   })(),
 )
 
@@ -759,7 +760,8 @@ check(
     const src = code("components/app/dashboard-client.tsx")
     return (
       !/isChartLoading \? "opacity-30 blur-\[2px\]"/.test(src) &&
-      /const chartWaiting = \(chartEvents == null \|\| isChartLoading\) && displayChartData\.length === 0/.test(src) &&
+      /* Renamed on purpose: Home waits for the Analytics answer (homeAnswer), not for events it read itself. */
+      /const chartWaiting = \(homeAnswer == null \|\| isChartLoading\) && displayChartData\.length === 0/.test(src) &&
       /showSampleData && !hasRealData \? "opacity-50/.test(src)
     )
   })(),
