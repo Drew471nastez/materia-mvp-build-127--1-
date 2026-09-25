@@ -116,5 +116,32 @@ console.log("\nA OnePage says where it lives and who it is about")
     /const onePageOwner = cache\(async/.test(page) && (page.match(/await onePageOwner\(/g) ?? []).length === 2)
 }
 
+console.log("\nThe creator page is one address, described in the creator's own words")
+{
+  const page = code("app/(marketing)/u/[username]/page.tsx")
+  const meta = page.slice(page.indexOf("export async function generateMetadata"), page.indexOf("export default async function StorefrontPage"))
+  check("its metadata finds the profile the way the page does, so /Andrew is Andrew's page",
+    /const profile = await loadProfileByUsername\(username\)/.test(meta) && !/\.eq\("username", username\)/.test(meta) && /const creator = await loadCreatorForUser\(profile\.id\)/.test(meta))
+  check("and every address in it is the stored username's, the share card's included",
+    /const handle: string = profile\.username \|\| username/.test(meta) && /canonical: pageUrl,/.test(meta) &&
+      /const pageUrl = pageHost \? `https:\/\/\$\{pageHost\}\/` : `https:\/\/storelib\.com\/\$\{handle\}`/.test(meta) && /url: pageUrl/.test(meta) && !/\.storelib\.com`/.test(meta) &&
+      /url: pageAddress,/.test(page) && /getProductShareUrl\(pageHandle, p\.slug, pageHost\)/.test(page))
+  check("the description is the creator's own before anything generic: override, SEO tab, headline or bio, then the sentence",
+    /seoOverride\?\.seo_description \|\|\s*ownDescription \|\|\s*plainSummary\(creator\?\.headline \|\| headerBio \|\| creator\?\.bio \|\| "", 200\) \|\|\s*defaultDescription/.test(meta) &&
+      /ownDescription = globalSettings\?\.seoDescription\?\.trim\(\)/.test(meta) && /ownTitle = globalSettings\?\.seoTitle\?\.trim\(\)/.test(meta))
+  check("its robots rule judges the stored handle", /deservesIndexing\(\{ publishedProducts, handle \}\)/.test(meta) && /deservesIndexing\(\{ publishedProducts: products\?\.length \?\? 0, handle: pageHandle \}\)/.test(page))
+  check("its structured data carries sameAs and the products, in both branches, behind the same gate",
+    /sameAs: sameAsUrls\(Object\.values\(shopHeader\?\.socialLinks \?\? \{\}\)/.test(page) && /\.slice\(0, MAX_LISTED_PRODUCTS\)/.test(page) &&
+      (page.match(/jsonLdScript\(profileJsonLd\)/g) ?? []).length === 2)
+  const products = Array.from({ length: 25 }, (_, i) => ({ name: `Pack ${i + 1}`, url: `https://storelib.com/mara/pack-${i + 1}` }))
+  const ld = profilePageJsonLd({ url: "https://storelib.com/mara", name: "Mara", sameAs: ["https://x.com/mara"], products }) as {
+    "@graph": Array<{ "@type": string; mainEntity?: { sameAs?: string[] }; itemListElement?: Array<{ position: number; url: string }> }>
+  }
+  const list = ld["@graph"]?.find((n) => n["@type"] === "ItemList")
+  check("the products are an ItemList of at most twenty, in order, beside the ProfilePage",
+    ld["@graph"]?.[0]["@type"] === "ProfilePage" && ld["@graph"][0].mainEntity?.sameAs?.[0] === "https://x.com/mara" &&
+      list?.itemListElement?.length === 20 && list.itemListElement[0].position === 1 && list.itemListElement[19].url.endsWith("pack-20"))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

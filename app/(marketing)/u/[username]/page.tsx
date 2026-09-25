@@ -81,6 +81,9 @@ import { ReviewsPanel, type StorefrontReview } from "@/components/storefront/rev
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 import { deservesIndexing } from "@/lib/security/spam-signals"
 import { jsonLdScript } from "@/lib/seo/json-ld"
+import { MAX_LISTED_PRODUCTS, profilePageJsonLd, sameAsUrls } from "@/lib/seo/structured-data"
+import { plainSummary } from "@/lib/html-entities"
+import { getProductShareUrl } from "@/lib/url-helpers"
 import {
   STOREFRONT_PAGE_BACKGROUND,
   storefrontSectionBackground,
@@ -144,12 +147,15 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     them for rows the page below fetches anyway. The loaders are deduped per
     request, so the profile and the creator are now paid for once between the
     two, and the three reads that only need the creator go out together.
+    The lookup is the page's own, case and all, so every address below is
+    built from the username as stored, whatever case it was typed in.
   */
   const profile = await loadProfileByUsername(username)
 
   if (!profile) {
     return { title: "Creator Not Found" }
   }
+  const handle: string = profile.username || username
 
   const creator = await loadCreatorForUser(profile.id)
 
@@ -159,7 +165,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
       .from("seo_overrides")
       .select("seo_title, seo_description")
       .eq("type", "creator")
-      .eq("identifier", username)
+      .eq("identifier", handle)
       .maybeSingle(),
     creator
       ? supabase
@@ -175,12 +181,19 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
 
   let faviconUrl: string | undefined
   let socialPreviewImage: string | undefined
+  /* The creator's own words for search results, from the page builder's SEO tab. */
+  let ownTitle: string | undefined
+  let ownDescription: string | undefined
+  let headerBio: string | undefined
   if (creator) {
     const publishedConfig = publishedConfigForMeta
     const headerSettings = publishedConfig?.headerSettings as ShopHeaderSettings | undefined
     faviconUrl = headerSettings?.faviconUrl || undefined
+    headerBio = headerSettings?.bio || undefined
 
     const globalSettings = publishedConfig?.globalSettings as GlobalStoreSettings | undefined
+    ownTitle = globalSettings?.seoTitle?.trim() || undefined
+    ownDescription = globalSettings?.seoDescription?.trim() || undefined
     const avatarFromHeader =
       headerSettings?.avatarUrl && headerSettings.avatarUrl !== "" ? headerSettings.avatarUrl : undefined
 
@@ -197,15 +210,29 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     socialPreviewImage = profile.avatar_url || undefined
   }
 
-  /* The creator page's own domain when it has one: the address canonicals and
-     link previews name. `<name>.storelib.com` was here, which is the WEBSITE. */
-  const siteUrl = pageHost ? `https://${pageHost}/` : `https://storelib.com/${username}`
+  /*
+    THE PAGE'S OWN ADDRESS: its own domain when it has one, the address
+    canonicals and link previews name. og:url named `<name>.storelib.com`,
+    which is the creator's WEBSITE, a different page, so a share of the
+    creator page was counted against the website and previewed as it.
+  */
+  const pageUrl = pageHost ? `https://${pageHost}/` : `https://storelib.com/${handle}`
   const displayTitle = profile.display_name || profile.username || "Creator"
   const defaultDescription = `Check out ${profile.display_name || profile.username}'s products on Storelib`
 
-  // Use SEO overrides if set, otherwise use defaults
-  const title = seoOverride?.seo_title?.replace(/ \| Storelib$/i, "") || displayTitle
-  const description = seoOverride?.seo_description || defaultDescription
+  /*
+    Whose words describe the page, in order: an operator's override, what the
+    creator typed in the page builder's SEO tab (offered there for years and
+    read by nothing), their headline or bio, which is what that tab says it
+    falls back to, and last the sentence every page used to get. The root
+    layout adds "| Storelib" to a title, so a typed one loses its own.
+  */
+  const title = seoOverride?.seo_title?.replace(/ \| Storelib$/i, "") || ownTitle?.replace(/ \| Storelib$/i, "") || displayTitle
+  const description =
+    seoOverride?.seo_description ||
+    ownDescription ||
+    plainSummary(creator?.headline || headerBio || creator?.bio || "", 200) ||
+    defaultDescription
 
   return {
     title,
@@ -215,7 +242,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
       description,
       type: "website",
       siteName: "Storelib",
-      url: siteUrl,
+      url: pageUrl,
       images: socialPreviewImage
         ? [
             {
@@ -234,7 +261,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
       images: socialPreviewImage ? [socialPreviewImage] : undefined,
     },
     alternates: {
-      canonical: pageHost ? `https://${pageHost}/` : `https://storelib.com/${username}`,
+      canonical: pageUrl,
     },
     /**
      * ═══════════════════════════════════════════════════════════════════════
@@ -264,7 +291,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
      * that tells crawlers to go away, which is worse than either alone.
      */
     ...(() => {
-      const indexable = deservesIndexing({ publishedProducts, handle: username })
+      const indexable = deservesIndexing({ publishedProducts, handle })
       return {
         robots: indexable
           ? { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" as const } }
@@ -484,7 +511,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     viewerPromise.then(({ data }) => hasBoughtFromCreator(supabase, data.user?.id, creator.id)),
   ])
   const pageHost = await pageHostPromise
-  const pageAddress = pageHost ? `https://${pageHost}/` : `https://storelib.com/${username}`
+  const pageAddress = pageHost ? `https://${pageHost}/` : `https://storelib.com/${profile.username || username}`
 
   const viewerIsOwner = !!viewer && viewer.id === profile.id
 
@@ -633,7 +660,30 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    * owns it sees their page exactly as before — it just stops claiming to be a
    * search result.
    */
-  const indexable = deservesIndexing({ publishedProducts: products?.length ?? 0, handle: username })
+  /* The username as stored: the address typed may be /Andrew, the page is /andrew. */
+  const pageHandle: string = profile.username || username
+  const indexable = deservesIndexing({ publishedProducts: products?.length ?? 0, handle: pageHandle })
+
+  /*
+    WHO THE PAGE IS ABOUT, AND WHAT THEY SELL, printed by both branches below
+    and only when `indexable`. `sameAs` is every social link the header
+    draws, so a search engine can tie this page to the accounts it already
+    knows; the products are the published ones this page lists, newest first,
+    at most twenty, each at its canonical address (on the page's own
+    domain when it has one, like the page).
+  */
+  const shopHeader = publishedConfig?.headerSettings as ShopHeaderSettings | undefined
+  const profileJsonLd = profilePageJsonLd({
+    url: pageAddress,
+    name: profile.display_name || username,
+    image: profile.avatar_url,
+    description: shopHeader?.bio || creator.bio,
+    sameAs: sameAsUrls(Object.values(shopHeader?.socialLinks ?? {}).map((link) => link?.url)),
+    products: (products ?? [])
+      .slice(0, MAX_LISTED_PRODUCTS)
+      .filter((p) => p.slug && p.title)
+      .map((p) => ({ name: p.title as string, url: getProductShareUrl(pageHandle, p.slug, pageHost) })),
+  })
 
   const srcParam = src === "platform" ? "?src=platform" : ""
 
@@ -1026,17 +1076,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       },
     }))
 
-    const profilePageJsonLd = {
-      "@context": "https://schema.org",
-      "@type": "ProfilePage",
-      mainEntity: {
-        "@type": "Person",
-        name: profile.display_name || username,
-        url: pageAddress,
-        ...(profile.avatar_url ? { image: profile.avatar_url } : {}),
-      },
-    }
-
     const breadcrumbJsonLd = {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
@@ -1052,7 +1091,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           <>
             <script
               type="application/ld+json"
-              dangerouslySetInnerHTML={{ __html: jsonLdScript(profilePageJsonLd) }}
+              dangerouslySetInnerHTML={{ __html: jsonLdScript(profileJsonLd) }}
             />
             <script
               type="application/ld+json"
@@ -1416,17 +1455,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   // Use default subscribe bar settings for stores without published config
   const defaultSubscribeSettings = buildSubscribeBarSettings()
 
-  const defaultProfilePageJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "ProfilePage",
-    mainEntity: {
-      "@type": "Person",
-      name: profile.display_name || username,
-      url: pageAddress,
-      ...(profile.avatar_url ? { image: profile.avatar_url } : {}),
-    },
-  }
-
   const defaultBreadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -1442,7 +1470,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         <>
           <script
             type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: jsonLdScript(defaultProfilePageJsonLd) }}
+            dangerouslySetInnerHTML={{ __html: jsonLdScript(profileJsonLd) }}
           />
           <script
             type="application/ld+json"
