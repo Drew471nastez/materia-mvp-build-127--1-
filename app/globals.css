@@ -5597,6 +5597,104 @@ html.pop-in-flight #platform-header-root {
   .ask-listen-ring { animation: none; opacity: 0; }
 }
 
+/* Ask Storelib's live line (components/website-builder/ask-activity.tsx).
+   One line that says what the run is doing now. When it changes, the old
+   words rise out as the new ones rise in; the box is one line tall and
+   clips them, so nothing below it moves.
+
+   The band of light on the words in progress is two copies of the same
+   line: the grey one, and a dark one inside a window with feathered edges.
+   The window slides one way while the copy inside it slides the other by
+   the same distance, so the light travels and the letters stay put. Every
+   part of it is transform and opacity, so it costs the page no painting;
+   under reduced motion it is the plain dark line. */
+@keyframes ask-line-in {
+  from { opacity: 0; transform: translateY(0.5em); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ask-line-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(-0.5em); }
+}
+@keyframes ask-shine-window {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+@keyframes ask-shine-copy {
+  from { transform: translateX(100%); }
+  to { transform: translateX(-100%); }
+}
+.ask-line {
+  position: relative;
+  display: block;
+  height: 20px;
+  min-width: 0;
+  overflow: hidden;
+}
+.ask-line > [data-line] {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.ask-line > [data-line="in"] { animation: ask-line-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.ask-line > [data-line="out"] { animation: ask-line-out 200ms cubic-bezier(0.4, 0, 1, 1) both; }
+.ask-shine {
+  position: relative;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #6b7280;
+}
+.ask-shine-window {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 28%, #000 46%, #000 54%, transparent 72%);
+  mask-image: linear-gradient(90deg, transparent 28%, #000 46%, #000 54%, transparent 72%);
+  animation: ask-shine-window 2.4s linear infinite;
+}
+.ask-shine-copy {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #1a1a2e;
+  animation: ask-shine-copy 2.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ask-line > [data-line] { animation: none; }
+  .ask-line > [data-line="out"] { display: none; }
+  .ask-shine { color: #1a1a2e; }
+  .ask-shine-window { display: none; }
+}
+
+/* A picture's progress ring while it is prepared or sent: the arc is drawn
+   from the state; when there is no number yet it turns, on transform. */
+@keyframes ask-ring-turn {
+  to { transform: rotate(360deg); }
+}
+.ask-ring-turn { animation: ask-ring-turn 0.9s linear infinite; transform-origin: 50% 50%; }
+@media (prefers-reduced-motion: reduce) {
+  .ask-ring-turn { animation: none; }
+}
+
+/* Recording: a red dot that breathes beside the clock. */
+@keyframes ask-rec {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+.ask-rec-dot { animation: ask-rec 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ask-rec-dot { animation: none; }
+}
+
 /* ─── Checkout ──────────────────────────────────────────────────────────
    A new line (a discount, a message) rises into place; a Stripe field that
    has not drawn yet shimmers where it will be; and paying ends on a check

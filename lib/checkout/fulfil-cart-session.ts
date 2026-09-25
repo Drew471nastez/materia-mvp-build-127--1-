@@ -44,7 +44,7 @@ import { cartFingerprint, cartReceiptToken } from "./cart-tokens"
 type Db = FulfilContext["admin"]
 
 export type CartFulfilment =
-  | { ok: true; created: boolean; receiptToken: string; sessionFingerprint: string; complete: boolean }
+  | { ok: true; created: boolean; receiptToken: string; sessionFingerprint: string; complete: boolean; creatorId: string }
   | { ok: false; status: number; reason: "not_found" | "unpaid" | "unreadable" | "failed" }
 
 export function isCartSession(session: Pick<Stripe.Checkout.Session, "metadata" | "mode">): boolean {
@@ -149,7 +149,7 @@ export async function fulfilCartSession(
     await sideEffects(admin, { ctx, created, ownsBasket, paidTotal, feeTotal, destinationPaymentId: facts?.destinationPaymentId ?? null, baseUrl: opts.baseUrl, firstOrderId: firstOrder?.id ?? created[0].orderId, receiptToken })
   }
 
-  return { ok: true, created: created.length > 0, receiptToken, sessionFingerprint, complete: failed === 0 }
+  return { ok: true, created: created.length > 0, receiptToken, sessionFingerprint, complete: failed === 0, creatorId }
 }
 
 async function sideEffects(

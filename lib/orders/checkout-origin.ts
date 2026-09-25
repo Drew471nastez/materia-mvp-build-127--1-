@@ -241,13 +241,43 @@ export function describePage(input: OriginInput): OrderOrigin | null {
 }
 
 /**
- * A /checkout address with what this website knows added to it: which
- * website, and where the visit came from. Keys already on the address are
- * left as they are. Anything that is not a checkout address comes back as
- * it was.
+ * The page a buyer should come back to: its address without the fragment or
+ * a result a previous checkout left on it. Only http(s), never anything a
+ * browser would run.
  */
-export function checkoutHrefWithOrigin(href: string, here: OrderOrigin | null): string {
-  if (!here) return href
+function pageAddress(page: string | null | undefined): URL | null {
+  if (!page) return null
+  try {
+    const url = new URL(page)
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null
+    url.hash = ""
+    url.searchParams.delete("checkout")
+    return url
+  } catch {
+    return null
+  }
+}
+
+/**
+ * A /checkout address with what this website knows added to it: which
+ * website, where the visit came from, and (given the page) where to come
+ * back to. Keys already on the address are left as they are. Anything that
+ * is not a checkout address comes back as it was.
+ */
+export function checkoutHrefWithOrigin(
+  href: string,
+  here: OrderOrigin | null,
+  /**
+   * The address of the page the link is on, when it is a creator's website.
+   * Checkout sends the buyer back to it after paying (`return`) and Back goes
+   * to it (`cancel`), unless the link already names somewhere; a path it
+   * names is made absolute here, on the site, where "/thank-you" means this
+   * site. Checkout checks both against the creator's own sites
+   * (lib/checkout/return-url.ts), so nothing written here is trusted there.
+   */
+  page?: string | null,
+): string {
+  if (!here && !page) return href
   let url: URL
   try {
     url = new URL(href, "https://placeholder.invalid")
@@ -256,16 +286,29 @@ export function checkoutHrefWithOrigin(href: string, here: OrderOrigin | null): 
   }
   if (url.pathname !== "/checkout") return href
   const add: Array<[string, string | undefined]> = [
-    ["site", here.site],
-    ["ref", here.from],
-    ["utm_source", here.utm_source],
-    ["utm_campaign", here.utm_campaign],
+    ["site", here?.site],
+    ["ref", here?.from],
+    ["utm_source", here?.utm_source],
+    ["utm_campaign", here?.utm_campaign],
   ]
   let changed = false
   for (const [key, value] of add) {
     if (value && !url.searchParams.has(key)) {
       url.searchParams.set(key, value)
       changed = true
+    }
+  }
+  const back = pageAddress(page)
+  if (back) {
+    for (const key of ["return", "cancel"]) {
+      const named = url.searchParams.get(key)
+      if (named === null || named === "") {
+        url.searchParams.set(key, back.href)
+        changed = true
+      } else if (named.startsWith("/") && !named.startsWith("//")) {
+        url.searchParams.set(key, new URL(named, back.origin).href)
+        changed = true
+      }
     }
   }
   if (!changed) return href

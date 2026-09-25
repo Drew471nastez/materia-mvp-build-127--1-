@@ -265,11 +265,12 @@ function main() {
   /* Kept steps are out of sight (visibility), which also takes them out of the accessibility tree; no aria-hidden
      that changes, which is named under a :has() in the app's CSS (scripts/check-app-sheets-frames.mjs). */
   check("the step that is leaving is inert while it goes",
-    /inert=\{!on\}/.test(picker) && /!on && !going && "invisible \[content-visibility:hidden\]"/.test(picker) && /\{kept\.map\(\(k\) => \{/.test(picker))
+    /inert=\{!on\}/.test(picker) && /style=\{!on && !going \? \(compact \? STEP_AWAY_FULL : STEP_AWAY\) : undefined\}/.test(picker)
+      && /const STEP_AWAY: React\.CSSProperties = \{ visibility: "hidden", contentVisibility: "hidden"/.test(picker) && /\{kept\.map\(\(k\) => \{/.test(picker))
   /* The phone's sheet is kept (keepMounted) and goes back to the list once it is out of sight (restart), rather than
      a new panel built on the tap that opens it. The popover and the inline picker still get a new one each time. */
   check("the sheet keeps its panel while it closes, and a new one opens each time",
-    /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title="Date range" keepMounted=\{onScreen\} onClosed=\{onSheetClosed\}>\s*<PickerPanel value=\{value\} today=\{today\} firstDay=\{firstDay\} compact onPick=\{pick\} restart=\{restart\} \/>/.test(picker)
+    /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title="Date range" keepMounted=\{onScreen\} onClosed=\{onSheetClosed\}>\s*<PickerPanel value=\{value\} today=\{today\} firstDay=\{firstDay\} compact onPick=\{pick\} restart=\{restart\} ahead=\{CUSTOM_AHEAD\} \/>/.test(picker)
       && /if \(restart !== lastRestart\) \{\s*setLastRestart\(restart\)\s*setStep\("list"\)/.test(picker)
       && !/\{open && panel\(/.test(picker) && /<PickerPanel key=\{session\}/.test(picker))
   check("days can be walked with the arrow keys", /ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7/.test(picker))

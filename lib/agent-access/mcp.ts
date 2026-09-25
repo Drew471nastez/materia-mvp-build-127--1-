@@ -52,6 +52,8 @@ export interface ProjectOps {
   searchComponents: (args: Args) => Promise<OpResult<string>>
   createSection: (args: Args) => Promise<OpResult<string>>
   editSection: (args: Args) => Promise<OpResult<string>>
+  /** Optional so older test doubles still bind. */
+  patchSection?: (args: Args) => Promise<OpResult<string>>
   updateStyles: (args: Args) => Promise<OpResult<string>>
   createPage: (args: Args) => Promise<OpResult<string>>
   createSafePatch: (args: Args) => Promise<OpResult<string>>
@@ -184,6 +186,28 @@ export const PROJECT_TOOLS = [
     inputSchema: { type: "object", properties: { path: PATH, source: SOURCE, base_updated_at: { type: "string" } }, required: ["path", "source"], additionalProperties: false },
   },
   {
+    name: "storelib_patch_section",
+    description: "Change PART of a section file the creator already has: exact find-and-replace edits, each find copied from storelib_read_file and in the file exactly once. Costs a fraction of resending the file and cannot touch lines you did not name. Send base_updated_at. The result is compiled and quality checked like storelib_edit_section, saved as a draft, and the previous version is kept.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: PATH,
+        edits: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: { find: { type: "string" }, replace: { type: "string" } },
+            required: ["find", "replace"],
+            additionalProperties: false,
+          },
+        },
+        base_updated_at: { type: "string" },
+      },
+      required: ["path", "edits"],
+      additionalProperties: false,
+    },
+  },
+  {
     name: "storelib_update_styles",
     description: "Change settings: colours, colour scheme, button colours and hover, spacing, alignment, type, backgrounds. scope \"section\" (section_id), \"block\" (section_id, block_id) or \"theme\" for the whole site. Checked against what the section declares. A restore point is taken first.",
     inputSchema: {
@@ -273,6 +297,8 @@ const PROJECT_CALLS: Record<string, (p: ProjectOps, args: Json) => Promise<OpRes
   storelib_search_components: (p, a) => p.searchComponents(a),
   storelib_create_section: (p, a) => p.createSection(a),
   storelib_edit_section: (p, a) => p.editSection(a),
+  storelib_patch_section: (p, a) =>
+    p.patchSection ? p.patchSection(a) : Promise.resolve({ ok: false as const, status: 404, error: "Unknown tool: storelib_patch_section" }),
   storelib_update_styles: (p, a) => p.updateStyles(a),
   storelib_create_page: (p, a) => p.createPage(a),
   storelib_create_safe_patch: (p, a) => p.createSafePatch(a),

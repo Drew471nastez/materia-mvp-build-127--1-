@@ -322,6 +322,54 @@ function looksLikePlaceholder(value: unknown): boolean {
 }
 
 /**
+ * ===========================================================================
+ *  COPY THAT READS AS MACHINE-WRITTEN, CAUGHT IN WHAT THIS RUN WROTE
+ * ===========================================================================
+ * The rulebook bans a short list of words and the em dash (CLAUDE.md, and
+ * lib/agent-rules "Copy"). Said in a prompt, that is followed most of the
+ * time; checked here, the rest of the time it comes back to be rewritten
+ * before anybody sees it. Only in words the run itself wrote, so a creator's
+ * own dash in their own heading is theirs.
+ */
+const SLOP_WORDS = /\b(unlock(s|ed|ing)?|elevate[sd]?|elevating|seamless(ly)?|powerful|effortless(ly)?|supercharge[sd]?|transform(s|ed|ing|ative)?|game[- ]changer|cutting[- ]edge|next[- ]level)\b/i
+
+export function copyProblem(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null
+  const text = value.replace(/<[^>]*>/g, " ")
+  if (/—/.test(text)) return "an em dash"
+  const word = text.match(SLOP_WORDS)
+  return word ? `"${word[0]}"` : null
+}
+
+function copyFindings(section: SectionInstance, written: Set<string>, blocks: Set<string>, schemas?: SchemaMap): Finding[] {
+  const out: Finding[] = []
+  for (const field of textFields(section.type, schemas)) {
+    if (!written.has(field.id)) continue
+    const problem = copyProblem(section.settings?.[field.id])
+    if (problem) {
+      out.push({
+        sectionId: section.id,
+        message: `"${field.id}" on this ${section.type} uses ${problem}. The site's copy rules do not allow it: say the same thing in plain words, with a comma or a full stop where a dash was.`,
+      })
+    }
+  }
+  for (const block of section.blocks ?? []) {
+    if (!blocks.has(block.id)) continue
+    for (const [id, value] of Object.entries(block.settings ?? {})) {
+      const problem = copyProblem(value)
+      if (problem) {
+        out.push({
+          sectionId: section.id,
+          message: `The ${block.type} block [${block.id}] has ${problem} in "${id}". The site's copy rules do not allow it: say it in plain words.`,
+        })
+        break
+      }
+    }
+  }
+  return out
+}
+
+/**
  * A section that was ADDED in this run and still holds the preset's demo copy.
  *
  * THE CONTENT IS IN THE BLOCKS, and the first version of this check missed
@@ -533,6 +581,8 @@ export interface ReviewInput {
    * reason the checks below do not fire on the product's own presets.
    */
   written?: Record<string, string[]>
+  /** Which BLOCKS the run wrote words into, per section: added or updated. */
+  writtenBlocks?: Record<string, string[]>
 }
 
 /**
@@ -565,6 +615,7 @@ export function reviewSections(input: ReviewInput): Finding[] {
       ...contrastFindings(section, state.settings, written, state, new Set(touched), schemas),
     )
     findings.push(...houseStyleFindings({ section, written, style }))
+    findings.push(...copyFindings(section, written, new Set(input.writtenBlocks?.[id] ?? []), schemas))
     findings.push(...emptyFindings(section, written))
     findings.push(...duplicateBlockFindings(section))
     findings.push(...emptyBlockFindings(section))

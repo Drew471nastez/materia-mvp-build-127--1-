@@ -106,6 +106,7 @@ The instance's blocks in order. Each is `{ id, type, settings }`, and each block
 | `page.template` | Which page this is. `index` for home and `page.<key>` for the others, with the differences below. |
 | `page.in_editor` | `true` while the builder draws the page, and absent on the live site. |
 | `page.query` | On the live search page, what was searched for, up to 120 characters. Absent everywhere else. |
+| `page.product` | On a product page, the product it is about: the fields of a product in `products` and its description. Empty everywhere else. See [Selling](/developers/selling#the-product-page-pageproduct). |
 
 `page.template` on each page:
 
@@ -164,13 +165,15 @@ The creator's published products, newest first, in the same shape as `blocks`, s
 | `block.settings.url` | Its page, `/products/<slug>`. |
 | `block.settings.tag` | Meant to read `Sold out` when none are left. Today it is always empty, because stock is not read yet. |
 
+It has more than these: every picture, the options, the buy link and whether it can be bought. The full list is in [Selling](/developers/selling#products-reach-a-section-as-products).
+
 Which products a page has:
 
 | Where | `products` |
 | --- | --- |
 | Home, the shop and your own pages, live | The newest 24 published products. A change to a product reaches the site within about a minute. |
 | Search results, live | Those of the 24 that match `page.query`. |
-| A product page, live | Empty. |
+| A product page, live | The newest 24 published products. The product the page is about is `page.product`. |
 | The builder | Up to 100 of the newest published products, on every page. |
 
 ```storelib
