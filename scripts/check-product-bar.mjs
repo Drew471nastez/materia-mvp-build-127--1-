@@ -44,12 +44,11 @@ export const useSearchParams = () => new URLSearchParams()
 `)
 writeFileSync(join(stubs, "link.jsx"), `import React from "react"
 export default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }
+export const useLinkStatus = () => ({ pending: false })
 `)
 
 const PROBE = `<script>
 function rect(el) { const r = el.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } }
-
-export const useLinkStatus = () => ({ pending: false })
 function visible(el) {
   if (!el) return false
   const r = el.getBoundingClientRect()

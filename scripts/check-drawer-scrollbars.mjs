@@ -40,12 +40,11 @@ export const useSearchParams = () => new URLSearchParams()
 `)
 writeFileSync(join(stubs, "link.jsx"), `import React from "react"
 export default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }
+export const useLinkStatus = () => ({ pending: false })
 `)
 
 const PROBE = `<script>
 function rect(el) { const r = el.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } }
-
-export const useLinkStatus = () => ({ pending: false })
 
 /* An element paints a vertical scrollbar when it reserves width for one. */
 function gutter(el) { return el.offsetWidth - el.clientWidth }
@@ -110,6 +109,10 @@ async function run() {
   const deCS = getComputedStyle(de)
   result.open = {
     scrollbars: scrollbarsNow(),
+    /* The drawer's own thumb (components/storefront/overlay-scroll, c43e4200): drawn over a scroller whose platform bar is hidden and takes no width. */
+    overlays: Array.prototype.filter.call(document.querySelectorAll(".cp-overlay-scroll"), function (el) {
+      return el.scrollHeight > el.clientHeight && el.parentElement && el.parentElement.querySelector(".cp-overlay-thumb")
+    }).map(function (el) { return { gutter: gutter(el), rect: rect(el) } }),
     bodyPaddingRight: bodyCS.paddingRight,
     bodyMarginRight: bodyCS.marginRight,
     bodyOverflow: bodyCS.overflow,
@@ -169,8 +172,12 @@ expect(r.shortPage.docGutter === 0,
 
 console.log("\nwith the drawer open, one thing scrolls")
 const bars = r.open.scrollbars
-expect(bars.length === 1, "exactly one scrollbar is drawn",
-  `${bars.length}: ${bars.map((b) => `${b.tag}.${b.cls || "-"}@${b.rect.x}+${b.width}px`).join("  |  ")}`)
+const overlays = r.open.overlays ?? []
+/* Since c43e4200 the drawer's scrollbar is its own 6px thumb over the list,
+   and the platform's bar is hidden: one scrollbar is one of either, never
+   two, and an overlay one takes no width. */
+expect(bars.length + overlays.length === 1 && overlays.every((o) => o.gutter === 0), "exactly one scrollbar is drawn",
+  `${bars.length} native: ${bars.map((b) => `${b.tag}.${b.cls || "-"}@${b.rect.x}+${b.width}px`).join("  |  ")}; ${overlays.length} overlay`)
 if (bars.length >= 1) {
   /*
     `scrollbar-width: thin` is the standard property and Chromium renders it
