@@ -182,7 +182,7 @@ async function main() {
     const sql = read(part)
     const lines = sql.trim().split("\n").slice(1)
     check("the part exists, and every line of it is one whole statement", lines.length > 5 && lines.every((l) => /;\s*$/.test(l)))
-    check("  listed in the README and read by the after check", /32_orders_keep_sales\.sql/.test(read("supabase/sql/run-now/README.md")) && /as p32_orders_keep_sales;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    check("  listed in the README and read by the after check", /32_orders_keep_sales\.sql/.test(read("supabase/sql/run-now/README.md")) && /as p32_orders_keep_sales\b/.test(read("supabase/sql/run-now/99_check_after.sql")))
     check("  and carried into the four files", read("supabase/sql/run-four/3_of_4_latest.sql").includes("-- part 32_orders_keep_sales.sql"))
     check("orders carry their creator, filled for the orders already there and by a trigger from then on",
       /ADD COLUMN IF NOT EXISTS creator_id uuid;/.test(sql) && /UPDATE public\.orders o SET creator_id = p\.creator_id FROM public\.products p WHERE p\.id = o\.product_id/.test(sql)

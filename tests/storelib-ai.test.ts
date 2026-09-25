@@ -372,7 +372,7 @@ async function main() {
       const out = await writeSection({ provider, model: "test", prompt: "hi", takenTypes: [], takenNames: [], onStage: (s) => stages.push(s) })
       check("a message that is not a section gets an answer, not a file", out.ok === false && out.reply?.startsWith("Tell me what the section should show") === true)
       check("and it asked the model once", seen.length === 1)
-      check("the writer is told it may answer instead", /THE ONE EXCEPTION/.test(writeSectionSystem([], [])) && /REPLY:/.test(writeSectionSystem([], [])))
+      check("the writer is told it may answer instead", /THE ONE EXCEPTION/.test(writeSectionSystem()) && /REPLY:/.test(writeSectionSystem()))
       check("it said it was thinking before it answered", stages[0] === "thinking")
     }
 
@@ -496,7 +496,7 @@ async function main() {
     const fix = read("lib/website-builder/agent/fix-section.ts")
 
     check("the page assistant composes the shared rules", /\$\{pageAgentRules\(\)\}/.test(loop))
-    check("Code a section composes the shared rules", writeSectionSystem([], []).includes(SECTION_CONTRACT))
+    check("Code a section composes the shared rules", writeSectionSystem().includes(SECTION_CONTRACT))
     check("repairing a section composes the shared rules", /editSectionRules\(\)/.test(fix))
     check("the sites agent gets the taste and not the section format", /\$\{sitesAgentRules\(\)\}/.test(sites))
     check("and the sites agent is not sent rules about a format it cannot produce", !sitesAgentRules().includes(SECTION_CONTRACT))

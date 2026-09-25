@@ -172,6 +172,38 @@ export function CodePreview({ file, onOpenCode }: { file: ActivityCode; onOpenCo
 
 /* ── under an answer ───────────────────────────────────────────────────── */
 
+/**
+ * COPY THAT COPIES. The clipboard API first; where it is refused (a page
+ * without clipboard permission, an older web view, a document that has lost
+ * focus) the old way, a selected field and the copy command, which still
+ * works in all of them. True when the words are on the clipboard.
+ */
+export async function writeClipboard(text: string): Promise<boolean> {
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    /* refused: try the old way */
+  }
+  try {
+    const area = document.createElement("textarea")
+    area.value = text
+    area.setAttribute("readonly", "")
+    area.setAttribute("aria-hidden", "true")
+    area.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none"
+    document.body.appendChild(area)
+    area.select()
+    area.setSelectionRange(0, text.length)
+    const done = document.execCommand("copy")
+    area.remove()
+    return done
+  } catch {
+    return false
+  }
+}
+
 export type ReportState =
   | { stage: "closed" }
   | { stage: "open"; reason: string }
@@ -207,20 +239,16 @@ export function AnswerMeta({
   onReport: (next: ReportState) => void
   phone: boolean
 }) {
-  const [copied, setCopied] = React.useState(false)
+  /** What the last Copy did, said beside the button for a moment: "Copied", or that it could not. */
+  const [copied, setCopied] = React.useState<null | "copied" | "failed">(null)
   React.useEffect(() => {
     if (!copied) return
-    const off = window.setTimeout(() => setCopied(false), 1600)
+    const off = window.setTimeout(() => setCopied(null), copied === "copied" ? 1600 : 2600)
     return () => window.clearTimeout(off)
   }, [copied])
 
   const copy = React.useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(copyText)
-      setCopied(true)
-    } catch {
-      /* A browser that refuses the clipboard: select-and-copy still works on the words above. */
-    }
+    setCopied((await writeClipboard(copyText)) ? "copied" : "failed")
   }, [copyText])
 
   const icon = cn(
@@ -247,9 +275,21 @@ export function AnswerMeta({
       {undo === "done" && <span data-ask-undone="">Undone</span>}
       {steps && <StepsToggle label={steps} open={stepsOpen} onToggle={onToggleSteps} phone={phone} />}
       <span className="min-w-0 flex-1" />
+      {copied && (
+        <span data-ask-copied={copied} role="status" className={cn("text-[12px]", copied === "copied" ? "text-[#1a1a2e]" : "text-[#b45309]")}>
+          {copied === "copied" ? "Copied" : "Could not copy. Select the text instead."}
+        </span>
+      )}
       {copyText && (
-        <button type="button" data-ask-copy="" onClick={() => void copy()} aria-label={copied ? "Copied" : "Copy the answer"} title={copied ? "Copied" : "Copy"} className={icon}>
-          {copied ? <Check className="h-3.5 w-3.5" strokeWidth={2.25} /> : <Copy className="h-3.5 w-3.5" strokeWidth={1.9} />}
+        <button
+          type="button"
+          data-ask-copy=""
+          onClick={() => void copy()}
+          aria-label={copied === "copied" ? "Copied" : "Copy the answer"}
+          title={copied === "copied" ? "Copied" : "Copy"}
+          className={icon}
+        >
+          {copied === "copied" ? <Check className="h-3.5 w-3.5" strokeWidth={2.25} /> : <Copy className="h-3.5 w-3.5" strokeWidth={1.9} />}
         </button>
       )}
       {canReport && report.stage !== "sent" && (
@@ -265,7 +305,11 @@ export function AnswerMeta({
           <Flag className="h-3.5 w-3.5" strokeWidth={1.9} />
         </button>
       )}
-      {report.stage === "sent" && <span data-ask-reported="">Reported</span>}
+      {report.stage === "sent" && (
+        <span data-ask-reported="" role="status" className="text-[#1a1a2e]">
+          Reported. Thank you.
+        </span>
+      )}
     </div>
   )
 }
@@ -283,6 +327,8 @@ export function ReportForm({
   phone: boolean
 }) {
   const field = React.useRef<HTMLInputElement>(null)
+  /* One per answer: two reports open at once each keep their own label. */
+  const fieldId = `ask-report-${React.useId()}`
   React.useEffect(() => {
     if (report.stage === "open") field.current?.focus({ preventScroll: true })
     // Only when it opens.
@@ -300,12 +346,12 @@ export function ReportForm({
       }}
       className="mt-1.5 min-w-0 rounded-xl border border-[#e5e7eb] bg-white p-2.5"
     >
-      <label className="block text-[12.5px] font-medium text-[#1a1a2e]" htmlFor="ask-report-reason">
+      <label className="block text-[12.5px] font-medium text-[#1a1a2e]" htmlFor={fieldId}>
         What went wrong?
       </label>
       <input
         ref={field}
-        id="ask-report-reason"
+        id={fieldId}
         value={reason}
         maxLength={500}
         onChange={(event) => onChange({ stage: "open", reason: event.target.value })}

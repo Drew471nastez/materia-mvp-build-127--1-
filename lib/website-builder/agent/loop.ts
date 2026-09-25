@@ -60,6 +60,7 @@ import { describeRecent, lastQuestion, type RecentMessage } from "./memory"
 import { PROGRESS_LABELS, ProgressTrail, progress, savingLabel, writingLabel, type ProgressEvent } from "./progress"
 import { checkSectionQuality, describeQuality, pageAgentRules, qualityErrors } from "@/lib/storelib-ai"
 import { builderAgentRules } from "@/lib/agent-rules"
+import { pageAgentReference } from "@/lib/storelib-ai/reference"
 import { skillContext } from "@/lib/agent-skills"
 import type { AgentQuestion } from "@/lib/sites/agent/questions"
 import type {
@@ -187,7 +188,9 @@ Rules:
 
 ${pageAgentRules()}
 
-${builderAgentRules()}`
+${builderAgentRules()}
+
+${pageAgentReference()}`
 
 function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): ToolSpec<string>[] {
   return [

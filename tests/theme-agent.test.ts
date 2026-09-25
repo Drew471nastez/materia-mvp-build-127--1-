@@ -1073,8 +1073,10 @@ section("The conversation survives a refresh")
      * Replaying them would apply the same edits a second time to a page that
      * already has them. The transcript is a record, not a script.
      */
-    /const counted = activityFromOps\(Array\.isArray\(message\.ops\) \? message\.ops : \[\]\)/.test(panel) &&
-      /open\.activity = question \? \{ \.\.\.counted, question \} : counted/.test(panel) &&
+    /* Read back by lib/website-builder/ask-restore.ts, which the panel draws from. */
+    /const counted = activityFromOps\(Array\.isArray\(message\.ops\) \? message\.ops : \[\]\)/.test(readFileSync(join(root, "lib/website-builder/ask-restore.ts"), "utf8")) &&
+      /open\.activity = question \? \{ \.\.\.counted, question \} : counted/.test(readFileSync(join(root, "lib/website-builder/ask-restore.ts"), "utf8")) &&
+      /restoreExchanges\(body\.messages\)/.test(panel) &&
       !/onOp\(message/.test(panel),
   )
 }
