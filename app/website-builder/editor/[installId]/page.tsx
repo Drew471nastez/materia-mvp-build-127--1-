@@ -6413,7 +6413,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         leaving && "wb-editor-leaving",
       )}
     >
-      <FullScreenLock tone={chromeTone} />
+      <FullScreenLock tone={chromeTone} fromFirstPaint />
       <CanvasTopLayerGuard />
       {/* ── Top bar ── */}
       {/* Dark, like the reference: the bar is chrome, and chrome that is the

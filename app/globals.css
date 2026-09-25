@@ -3405,18 +3405,16 @@ html.capacitor::before {
    reported more than once.
 
    Stood down while the editor is up. Nothing is lost by it: the bar already
-   covers the same strip, in the colour it should be, and `html:has(.wb-editor)`
+   covers the same strip, in the colour it should be, and `.wb-fullscreen`
    sets the canvas behind it to the same #171717 for the frame before paint
    and for any bounce.
 
-   TWO RULES, NOT A SELECTOR LIST. One selector a browser cannot parse throws
-   away the whole rule, so an iOS without `:has()` would lose the class-based
-   fallback as well — the opposite of a fallback. `.wb-fullscreen` is added by
-   an effect and `:has()` holds from the first paint; either alone is enough. */
+   ONE RULE, ON THE CLASS. The editor's server HTML sets `.wb-fullscreen`
+   before the editor paints and a layout effect sets it on the client
+   (FullScreenLock, fromFirstPaint), so it holds from the first paint as the
+   `html:has(.wb-editor)` twin of this rule did, without a :has() on <html>,
+   which restyled the whole document whenever text anywhere was replaced. */
 html.capacitor.wb-fullscreen::before {
-  display: none;
-}
-html.capacitor:has(.wb-editor)::before {
   display: none;
 }
 
@@ -4660,29 +4658,15 @@ html.wb-fullscreen,
 html.wb-fullscreen body {
   background-color: #171717;
 }
-html:has(.wb-editor),
-html:has(.wb-editor) body {
-  background-color: #171717;
-}
 
-/* The same lock, keyed on the editor existing rather than on a class an
-   effect adds — so it holds from the FIRST PAINT, and holds even if
-   hydration is slow or never happens.
-   
-   ITS OWN RULE, NOT A SELECTOR ADDED TO THE LIST ABOVE. A selector list is
-   not forgiving: one selector the browser cannot parse throws away the whole
-   rule. Sharing a list would mean an iOS without `:has()` losing the
-   class-based lock as well, which is the opposite of a fallback. */
-html:has(.wb-editor),
-html:has(.wb-editor) body {
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-  overscroll-behavior: none;
-}
-html:has(.wb-editor) body {
-  padding: 0;
-}
+/* The lock holds from the FIRST PAINT, and holds even if hydration is slow
+   or never happens: the editor's server HTML sets `.wb-fullscreen` with a
+   one line script as the first thing inside its root, and on the client a
+   layout effect sets it before the commit paints (FullScreenLock,
+   fromFirstPaint). It was a second copy of these rules keyed on
+   `html:has(.wb-editor)`, and a :has() whose subject is <html> restyled every
+   element in the document whenever text anywhere was replaced ("Copy" to
+   "Copied", a figure, a label), on every page, editor or not. */
 
 /* ===========================================================================
     THE LOADING LINE
