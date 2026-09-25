@@ -41,7 +41,7 @@ import { WaitingArea } from "@/components/ui/activity-spinner"
 import { ShareStorelib } from "@/components/app/share/share-storelib"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { EmailChangeFlow, PrivacyPanel, SecurityPanel } from "@/components/app/settings/account-panels"
-import { profileAvatar } from "@/lib/account/avatar"
+import { useShellAvatar } from "@/lib/account/avatar-store"
 
 /* The country field is components/app/settings/country-picker: every country, with its flag. */
 
@@ -359,25 +359,26 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const [domainsData, setDomainsData] = useState<DomainsData | null>(null)
 
   /*
-    THE PROFILE'S PHOTO, OR THE INITIALS: the one answer the header gives too
-    (lib/account/avatar). This walked the creator row, the creator page
-    header, the OnePage and the Google picture, so Settings and the header
-    could each show a different photo, and a removed one came back.
+    THE PROFILE'S PHOTO, OR THE INITIALS, READ FROM THE SAME PLACE THE HEADER
+    READS IT (lib/account/avatar-store): the server's answer, or the one this
+    page or another tab has just saved. It walked the creator row, the creator
+    page header, the OnePage and the Google picture once, so Settings and the
+    header could each show a different photo. It is saved the moment it is
+    changed (components/app/settings/profile-photo), so it is not one of the
+    fields the save bar asks about.
   */
-  const getDefaultAvatarUrl = () => profileAvatar(profile.avatar_url) ?? ""
+  const avatarUrl = useShellAvatar(profile.avatar_url) ?? ""
 
   // Profile fields
   const [firstName, setFirstName] = useState(profile.first_name || profile.display_name?.split(" ")[0] || "")
   const [lastName, setLastName] = useState(profile.last_name || profile.display_name?.split(" ").slice(1).join(" ") || "")
   const [username, setUsername] = useState(profile.username || creator.slug || "")
-  const [avatarUrl, setAvatarUrl] = useState(getDefaultAvatarUrl())
 
   // Track initial values for unsaved changes detection
   const initialValues = useRef({
     firstName: profile.first_name || profile.display_name?.split(" ")[0] || "",
     lastName: profile.last_name || profile.display_name?.split(" ").slice(1).join(" ") || "",
     username: profile.username || creator.slug || "",
-    avatarUrl: getDefaultAvatarUrl(),
     addressLine1: profile.address_line1 || "",
     city: profile.city || "",
     state: profile.state || "",
@@ -404,7 +405,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     firstName !== initialValues.current.firstName ||
     lastName !== initialValues.current.lastName ||
     username !== initialValues.current.username ||
-    avatarUrl !== initialValues.current.avatarUrl ||
     addressLine1 !== initialValues.current.addressLine1 ||
     city !== initialValues.current.city ||
     state !== initialValues.current.state ||
@@ -932,7 +932,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         firstName,
         lastName,
         username: cleanUsername,
-        avatarUrl,
         addressLine1,
         city,
         state,
@@ -1309,10 +1308,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   userId={profile.id}
                   src={avatarUrl || null}
                   name={`${firstName} ${lastName}`.trim() || username || "You"}
-                  onChanged={(url) => {
-                    /* Saved already: not a change for the save bar to ask about. */
-                    setAvatarUrl(url ?? "")
-                    initialValues.current.avatarUrl = url ?? ""
+                  onChanged={() => {
+                    /* Saved and announced already (the header has it); the server's pages catch up. */
                     router.refresh()
                   }}
                 />
@@ -1915,7 +1912,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 setFirstName(initialValues.current.firstName)
                 setLastName(initialValues.current.lastName)
                 setUsername(initialValues.current.username)
-                setAvatarUrl(initialValues.current.avatarUrl)
                 setAddressLine1(initialValues.current.addressLine1)
                 setCity(initialValues.current.city)
                 setState(initialValues.current.state)
