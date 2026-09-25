@@ -96,7 +96,7 @@ export function supabaseNotificationStore(db: Db, log: (line: string) => void = 
           .select(EXISTING_COLUMNS)
           .in("creator_id", creatorIds)
           .not("kind", "is", null)
-          .or(`resolved_at.is.null,created_at.gte.${since},category.eq.milestone`)
+          .or(`resolved_at.is.null,created_at.gte."${since}",category.eq.milestone`)
           .order("created_at", { ascending: true })
           .order("id", { ascending: true })
           .range(page * PAGE, page * PAGE + PAGE - 1)

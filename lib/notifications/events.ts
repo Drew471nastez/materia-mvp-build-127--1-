@@ -21,13 +21,15 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { evaluateCreator, type ApplyResult } from "./engine"
 import { storelibPusher } from "./push-sender"
-import { firstReview, salesMilestone } from "./rules/milestones"
+import { firstReview, SALES_THRESHOLDS, salesMilestone } from "./rules/milestones"
 import { disputeOpened, payoutFailed, stripeRequirementsDue, stripeRestricted } from "./rules/payments"
 import { supabaseSnapshots } from "./snapshot"
 import { supabaseNotificationStore } from "./supabase-store"
 import type { Rule, StripeAccountFacts } from "./types"
 
 export const EVENT_BUDGET_MS = 2_500
+/** The sale's own push waits for this at most: it is on the way to the buyer's receipt. */
+export const SALE_BUDGET_MS = 1_200
 
 function within<T>(p: Promise<T>, ms: number): Promise<T | null> {
   return new Promise((resolve) => {
@@ -45,7 +47,7 @@ function within<T>(p: Promise<T>, ms: number): Promise<T | null> {
   })
 }
 
-async function run(creatorId: string, rules: readonly Rule[], extra: { stripeAccount?: StripeAccountFacts; pushInline?: boolean } = {}): Promise<ApplyResult | null> {
+async function run(creatorId: string, rules: readonly Rule[], extra: { stripeAccount?: StripeAccountFacts; pushInline?: boolean; budgetMs?: number } = {}): Promise<ApplyResult | null> {
   if (!creatorId) return null
   try {
     const db = createAdminClient()
@@ -59,7 +61,7 @@ async function run(creatorId: string, rules: readonly Rule[], extra: { stripeAcc
         context: extra.stripeAccount ? { stripeAccount: extra.stripeAccount } : undefined,
         pushInline: extra.pushInline,
       }),
-      EVENT_BUDGET_MS,
+      extra.budgetMs ?? EVENT_BUDGET_MS,
     )
   } catch {
     return null
@@ -76,7 +78,12 @@ export async function saleMilestone(input: { userId: string }): Promise<{ title:
     const db = createAdminClient()
     const { data: creator } = await db.from("creators").select("id").eq("user_id", input.userId).maybeSingle()
     if (!creator?.id) return null
-    const result = await run(creator.id as string, [salesMilestone], { pushInline: false })
+    /* A creator past every sales milestone (most, soon) costs one more read, not a snapshot. */
+    const { data: said, error } = await db.from("seller_notifications").select("subject_id").eq("creator_id", creator.id).eq("kind", "sales_milestone")
+    if (error) return null
+    const recorded = new Set(((said ?? []) as Array<{ subject_id: string | null }>).map((r) => r.subject_id))
+    if (SALES_THRESHOLDS.every((n) => recorded.has(`sales_${n}`))) return null
+    const result = await run(creator.id as string, [salesMilestone], { pushInline: false, budgetMs: SALE_BUDGET_MS })
     const reached = (result?.inserted ?? []).filter((x) => x.row.kind === "sales_milestone" && !x.row.baseline).map((x) => x.row)
     if (reached.length === 0) return null
     const top = reached.sort((a, b) => Number(b.data.sales ?? 0) - Number(a.data.sales ?? 0))[0]

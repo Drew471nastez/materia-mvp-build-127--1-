@@ -46,7 +46,7 @@ const cmp = (a: unknown, b: unknown) => (a === b ? 0 : a === null || a === undef
 function orFilter(expr: string): Filter {
   const parts = expr.split(",").map((p) => {
     const [col, op, ...rest] = p.split(".")
-    const val = rest.join(".")
+    const val = rest.join(".").replace(/^"(.*)"$/, "$1")
     return (r: Row) => {
       const v = r[col]
       if (op === "is") return val === "null" ? v === null || v === undefined : String(v) === val

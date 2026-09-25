@@ -285,6 +285,47 @@ console.log("\nThe planner: said once, resolved when fixed")
   check("and is never said twice", !kinds(plan(base({ sales: { times: [ago(1)], first: null, truncated: false } }), [milestone]).inserts).includes("sales_1"))
 }
 
+console.log("\nEvery rule: fires, is said once, and resolves when fixed (a milestone stays)")
+{
+  const noStripe = { chargesEnabled: true, payoutsEnabled: true, currentlyDue: [] as string[], pastDue: [] as string[], currentDeadline: null, disabledReason: null }
+  const cases: Array<[Rule, CreatorSnapshot, CreatorSnapshot]> = [
+    [stripeRestricted, withCreator({ payoutsEnabled: false }), base()],
+    [stripeRequirementsDue, base({ stripeAccount: { ...noStripe, currentlyDue: ["external_account"] } }), base({ stripeAccount: noStripe })],
+    [payoutFailed, base({ payouts: [{ id: "po_1", status: "failed", amountCents: 900, currency: "usd", createdAt: ago(1), failureCode: null }] }), base({ payouts: [] })],
+    [disputeOpened, base({ disputes: [{ id: "dp_1", amountCents: 900, currency: "usd", openedAt: ago(1), closed: false }] }), base({ disputes: [{ id: "dp_1", amountCents: 900, currency: "usd", openedAt: ago(1), closed: true }] })],
+    [domainHttps, base({ domains: [{ id: "d1", domain: "a.example", status: "active", sslStatus: "failed", verifiedAt: ago(9), createdAt: ago(9), updatedAt: ago(1) }] }), base({ domains: [{ id: "d1", domain: "a.example", status: "active", sslStatus: "active", verifiedAt: ago(9), createdAt: ago(9), updatedAt: ago(0) }] })],
+    [domainNotConnected, base({ domains: [{ id: "d1", domain: "a.example", status: "pending", sslStatus: "pending", verifiedAt: null, createdAt: ago(3), updatedAt: ago(3) }] }), base({ domains: [] })],
+    [emailBounceRate, base({ emailHealth: { wentOut: 400, bounced: 30, complained: 0 } }), base({ emailHealth: { wentOut: 400, bounced: 2, complained: 0 } })],
+    [productMissingFile, base({ deliverable: [] }), base()],
+    [checkoutNotCompleting, base({ checkout: { starts: 5, buyers: 4, orders: 0, soldBefore: true } }), base({ checkout: { starts: 5, buyers: 4, orders: 2, soldBefore: true } })],
+    [campaignFailed, base({ failedCampaigns: [{ id: "e1", subject: "Hi", status: "failed", scheduledAt: ago(1), createdAt: ago(2) }] }), base({ failedCampaigns: [] })],
+    [setupNextStep, withCreator({ createdAt: ago(2) }, { products: [] }), withCreator({ createdAt: ago(2) })],
+    [checkoutReminderOff, base({ recovery: { recoverable: 4, reminderOn: false, flowId: null } }), base({ recovery: { recoverable: 4, reminderOn: true, flowId: null } })],
+    [productViewsNoSales, base({ traffic: { views14: { p1: 90 }, orders14: {}, soldRecently: [] } }), base({ traffic: { views14: { p1: 90 }, orders14: { p1: 1 }, soldRecently: [] } })],
+    [subscribersNotEmailed, base({ subscribers: { count: 80, countWeekAgo: 80 }, lastCampaignSentAt: ago(40) }), base({ subscribers: { count: 80, countWeekAgo: 80 }, lastCampaignSentAt: ago(1) })],
+    [couponExpiring, base({ coupons: [{ id: "k1", code: "HI", expiresAt: ahead(1), usageCount: 2, usageLimit: null }] }), base({ coupons: [] })],
+    [salesMilestone, base({ sales: { times: [ago(0.2)], first: { productTitle: "X", amountCents: 100, currency: "usd" }, truncated: false } }), base({ sales: { times: [ago(9)], first: null, truncated: false } })],
+    [firstReview, base({ reviews: { firstRecent: { id: "r1", at: ago(1), rating: 4, productId: "p1", productTitle: "X" }, olderExists: false } }), base({ reviews: { firstRecent: null, olderExists: false } })],
+    [subscribersMilestone, base({ subscribers: { count: 51, countWeekAgo: 20 } }), base({ subscribers: { count: 49, countWeekAgo: 51 } })],
+    [featureLaunchRule([{ id: "launch-x", live: "2026-09-20", title: "Sell products together as a bundle", message: "Pick two or more products and set one price.", href: "/app/products/new" }]), base(), withCreator({ createdAt: "2026-09-21T00:00:00Z" })],
+  ]
+  check("every rule has a case here", RULES.every((r) => cases.some(([c]) => c.kind === r.kind)), RULES.map((r) => r.kind).filter((k) => !cases.some(([c]) => c.kind === k)))
+  for (const [rule, firing, quiet] of cases) {
+    const once = planCreator({ rules: [rule], snapshot: firing, existing: [], now: NOW, complete: false })
+    const made = once.inserts.filter((r) => !r.baseline && !r.foldedInto)
+    const rows = made.map((r, i) => row({ id: `${rule.kind}-${i}`, kind: r.kind, subject_id: r.subject, category: r.category, dedupe_key: r.dedupeKey, created_at: ago(0.01) }))
+    const again = planCreator({ rules: [rule], snapshot: firing, existing: rows, now: NOW, complete: false })
+    const later = planCreator({ rules: [rule], snapshot: { ...firing, now: NOW + 3 * HOUR }, existing: rows, now: NOW + 3 * HOUR, complete: false })
+    const fixed = planCreator({ rules: [rule], snapshot: quiet, existing: rows, now: NOW, complete: false })
+    const resolved = rows.every((r) => fixed.resolve.includes(r.id))
+    check(`${rule.kind}: fires, then is said once (again now, and three hours later), then ${rule.resolveWhenGone ? "resolves when fixed" : "stays: it happened"}`,
+      made.length >= 1 && made.every((r) => r.kind === rule.kind && r.version === rule.version && r.category === rule.category)
+        && again.inserts.filter((r) => !r.baseline).length === 0 && later.inserts.filter((r) => !r.baseline).length === 0
+        && (rule.resolveWhenGone ? resolved : fixed.resolve.length === 0),
+      { made: made.length, again: again.inserts.length, later: later.inserts.length, resolve: fixed.resolve })
+  }
+}
+
 console.log("\nThe planner: cooldowns")
 {
   const missing = base({ deliverable: [] })

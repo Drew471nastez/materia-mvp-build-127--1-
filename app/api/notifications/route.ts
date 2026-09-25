@@ -115,7 +115,20 @@ export async function GET(request: NextRequest) {
     return q.order("created_at", { ascending: false }).range(offset, offset + limit - 1)
   }
 
-  const recent = await recentQuery(COLUMNS, true)
+  /* What needs the creator, pinned above the rest: read beside the list, first page only. */
+  const attentionQuery = () => {
+    let q = supabase
+      .from("seller_notifications")
+      .select(COLUMNS)
+      .eq("user_id", user.id)
+      .in("category", ATTENTION)
+      .is("dismissed_at", null)
+      .is("resolved_at", null)
+    if (unreadOnly) q = q.is("read_at", null)
+    return q.order("priority", { ascending: false }).order("created_at", { ascending: false }).limit(ATTENTION_LIMIT)
+  }
+
+  const [recent, attention] = await Promise.all([recentQuery(COLUMNS, true), offset === 0 ? attentionQuery() : Promise.resolve(null)])
   if (recent.error && missingColumns(recent.error)) {
     /* Before the engine's SQL: exactly the list as it always was. */
     engine = false
@@ -130,19 +143,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch notifications" }, { status: 500 })
   } else {
     const rows = (recent.data ?? []) as unknown as Record<string, unknown>[]
-    let pinned: Record<string, unknown>[] = []
-    if (offset === 0) {
-      let q = supabase
-        .from("seller_notifications")
-        .select(COLUMNS)
-        .eq("user_id", user.id)
-        .in("category", ATTENTION)
-        .is("dismissed_at", null)
-        .is("resolved_at", null)
-      if (unreadOnly) q = q.is("read_at", null)
-      const attention = await q.order("priority", { ascending: false }).order("created_at", { ascending: false }).limit(ATTENTION_LIMIT)
-      if (!attention.error) pinned = (attention.data ?? []) as unknown as Record<string, unknown>[]
-    }
+    const pinned = attention && !attention.error ? ((attention.data ?? []) as unknown as Record<string, unknown>[]) : []
     const seen = new Set(pinned.map((r) => r.id))
     notifications = [...pinned, ...rows.filter((r) => !seen.has(r.id))]
   }
