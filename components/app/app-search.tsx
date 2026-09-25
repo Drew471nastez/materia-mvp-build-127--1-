@@ -368,7 +368,7 @@ export const AppSearch = memo(
                   setActiveKey(null)
                 }}
                 onKeyDown={onKeyDown}
-                className="h-11 w-full min-w-0 rounded-xl bg-[#f3f4f6] pl-9 pr-9 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#6b7280] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/30 md:h-10 md:rounded-none md:bg-transparent md:pl-8 md:pr-8 md:text-[15px] md:focus-visible:ring-0 [&::-webkit-search-cancel-button]:hidden"
+                className="h-11 w-full min-w-0 rounded-xl bg-[#f3f4f6] pl-9 pr-9 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#6b7280] focus-visible:shadow-[inset_0_0_0_1px_#c9ccd3,0_0_0_3px_rgba(17,17,19,0.06)] md:h-10 md:rounded-none md:bg-transparent md:pl-8 md:pr-8 md:text-[15px] md:focus-visible:shadow-none [&::-webkit-search-cancel-button]:hidden"
               />
               <span className="pointer-events-none absolute right-3 flex h-4 w-4 items-center justify-center md:right-1" aria-hidden="true">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin text-[#6b7280]" data-search-spinner="" /> : null}

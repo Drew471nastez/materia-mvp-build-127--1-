@@ -597,7 +597,7 @@ function SubscribersTable(props: EmailsHomeProps) {
       <div className="flex h-12 items-center gap-2 border-b border-[#eef0f2] px-2">
         {searching ? (
           <>
-            <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#d5d7dd] bg-white px-2.5 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e]">
+            <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#d5d7dd] bg-white px-2.5 transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]">
               <Search className="h-4 w-4 shrink-0 text-[#6b7280]" />
               <input
                 autoFocus

@@ -440,6 +440,19 @@ section("One scrollbar track on a computer, always there, never moving")
       && /a\.finished\.catch\(\(\) => undefined\)/.test(stage) && /window\.setTimeout\(release, NAV_ENTER_MS \+ 120\)/.test(stage))
   check("the billing tab, drawn inside Settings, is not a scroller of its own: no second, empty track down its side",
     /className=\{embedded \? "overflow-x-clip bg-\[#fafafa\]" : "h-full overflow-y-scroll/.test(code("components/app/billing/billing-page-client.tsx")))
+  /* "Search inputs across /app: on focus the border turns heavy black, too much weight." Every search field focuses the description editor's way now: a #c9ccd3 hairline and a 3px halo at 6%, measured by scripts/check-search-focus. */
+  {
+    const HALO_WITHIN = /focus-within:border-\[#c9ccd3\] focus-within:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
+    const HALO = /focus:border-\[#c9ccd3\] focus:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
+    const within = ["app/app/orders/orders-list.tsx", "app/app/emails/emails-home.tsx", "app/app/products/products-client.tsx"]
+    const direct = ["components/app/product-picker.tsx", "components/app/time-zone-picker.tsx", "components/app/settings-form-new.tsx"]
+    const heavy = /focus-within:border-\[#1a1a2e\] focus-within:shadow-\[0_0_0_1px_#1a1a2e\]/
+    check("every /app search field focuses with a light grey hairline and a soft halo, never a black 2px edge or a violet ring",
+      within.every((f) => HALO_WITHIN.test(code(f)) && !heavy.test(code(f))) && direct.every((f) => HALO.test(code(f)))
+        && !/placeholder="Search countries\.\.\."[\s\S]{0,500}focus:ring-\[#8b5cf6\]/.test(code("components/app/settings-form-new.tsx"))
+        && /focus-visible:shadow-\[inset_0_0_0_1px_#c9ccd3,0_0_0_3px_rgba\(17,17,19,0\.06\)\]/.test(code("components/app/app-search.tsx")) && !/focus-visible:ring-\[#8b5cf6\]/.test(code("components/app/app-search.tsx")),
+      [...within, ...direct].filter((f) => !(HALO_WITHIN.test(code(f)) || HALO.test(code(f)))).join(", "))
+  }
   /* "When landing on the settings page, the content drifts toward the right." Its wrapper was overflow-x: hidden, so a scroller; the rise overflowed it by 2px, a scrollbar came for 180ms and went, and the page slid 7.5px right (scripts/check-settings-landing). */
   const settingsForm = code("components/app/settings-form-new.tsx")
   check("Settings is not a scroller of its own either: its wrappers clip sideways, so the landing's rise raises no bar and nothing slides",
