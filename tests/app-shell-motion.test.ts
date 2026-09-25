@@ -445,11 +445,13 @@ section("One scrollbar track on a computer, always there, never moving")
     const HALO_WITHIN = /focus-within:border-\[#c9ccd3\] focus-within:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
     const HALO = /focus:border-\[#c9ccd3\] focus:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
     const within = ["app/app/orders/orders-list.tsx", "app/app/emails/emails-home.tsx", "app/app/products/products-client.tsx"]
-    const direct = ["components/app/product-picker.tsx", "components/ui/choice-list.tsx", "components/app/settings-form-new.tsx"]
+    /* Settings' country search is the shared list's now (components/app/settings/country-picker), so it is choice-list's halo. */
+    const direct = ["components/app/product-picker.tsx", "components/ui/choice-list.tsx"]
     const heavy = /focus-within:border-\[#1a1a2e\] focus-within:shadow-\[0_0_0_1px_#1a1a2e\]/
     check("every /app search field focuses with a light grey hairline and a soft halo, never a black 2px edge or a violet ring",
       within.every((f) => HALO_WITHIN.test(code(f)) && !heavy.test(code(f))) && direct.every((f) => HALO.test(code(f)))
         && !/placeholder="Search countries\.\.\."[\s\S]{0,500}focus:ring-\[#8b5cf6\]/.test(code("components/app/settings-form-new.tsx"))
+        && /<ChoicePicker/.test(code("components/app/settings/country-picker.tsx")) && !/<input/.test(code("components/app/settings/country-picker.tsx"))
         && /focus-visible:shadow-\[inset_0_0_0_1px_#c9ccd3,0_0_0_3px_rgba\(17,17,19,0\.06\)\]/.test(code("components/app/app-search.tsx")) && !/focus-visible:ring-\[#8b5cf6\]/.test(code("components/app/app-search.tsx")),
       [...within, ...direct].filter((f) => !(HALO_WITHIN.test(code(f)) || HALO.test(code(f)))).join(", "))
   }

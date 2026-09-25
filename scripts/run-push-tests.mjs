@@ -215,6 +215,7 @@ const SUITES = [
   "tests/upload-security.test.ts",
   "tests/direct-uploader.test.ts",
   "tests/settings-account-fixes.test.ts",
+  "tests/settings-country.test.ts",
   "tests/coupon-editor.test.ts",
   "tests/coupon-checkout.test.ts",
   "tests/home-cards.test.ts",

@@ -2,11 +2,13 @@
 
 /**
  * ===========================================================================
- *  PICK ONE FROM A LONG LIST: LANGUAGE, TIME ZONE
+ *  PICK ONE FROM A LONG LIST: LANGUAGE, TIME ZONE, COUNTRY
  * ===========================================================================
  * "The select language pop up is not updated to the latest UI of Storelib
  * and Polaris. Update it, and a mobile bottom sheet as well. And the time
- * zone as well, make it cleaner."
+ * zone as well, make it cleaner." The country field followed
+ * (components/app/settings/country-picker), with a flag before each name
+ * (`leading`, and `fieldLeading` in the field).
  *
  * One list, drawn in two places:
  *
@@ -48,12 +50,20 @@ export function usePhoneWidth(): boolean {
 export { matches }
 
 function moveFocus(e: React.KeyboardEvent<HTMLElement>) {
-  const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0
-  if (!step) return
+  /* The search already moved the focus to the first row (ChoiceSearch): moving it again skipped that row. */
+  if (e.defaultPrevented) return
   const rows = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("[data-choice]"))
   if (!rows.length) return
-  e.preventDefault()
   const at = rows.indexOf(document.activeElement as HTMLButtonElement)
+  /* Home and End on a row go to the first and the last; in the search they move the caret. */
+  if ((e.key === "Home" || e.key === "End") && at >= 0) {
+    e.preventDefault()
+    rows[e.key === "Home" ? 0 : rows.length - 1].focus()
+    return
+  }
+  const step = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : 0
+  if (!step) return
+  e.preventDefault()
   if (at === 0 && step === -1) {
     e.currentTarget.closest("[data-choice-list]")?.querySelector<HTMLInputElement>("[data-choice-search]")?.focus()
     return
@@ -61,7 +71,34 @@ function moveFocus(e: React.KeyboardEvent<HTMLElement>) {
   rows[at < 0 ? 0 : Math.min(rows.length - 1, Math.max(0, at + step))].focus()
 }
 
-function Row({ choice, checked, compact, onPick }: { choice: Choice; checked: boolean; compact: boolean; onPick: () => void }) {
+/**
+ * The chosen row in the middle of the list it scrolls in, before anything is
+ * painted. Its own scroller only: `scrollIntoView` scrolls every scroller
+ * around the row too, and could move the page under the list.
+ */
+function centerChecked(root: Element | null) {
+  const row = root?.querySelector<HTMLElement>("[data-choice][data-checked]")
+  const scroller = row?.closest<HTMLElement>("[data-choice-scroll], [data-sheet-scroll]")
+  if (!row || !scroller) return
+  const r = row.getBoundingClientRect()
+  const s = scroller.getBoundingClientRect()
+  scroller.scrollTop += r.top - s.top - (s.height - r.height) / 2
+}
+
+function Row({
+  choice,
+  checked,
+  compact,
+  onPick,
+  leading,
+}: {
+  choice: Choice
+  checked: boolean
+  compact: boolean
+  onPick: () => void
+  /** Drawn before the name: a country's flag. */
+  leading?: React.ReactNode
+}) {
   return (
     <button
       type="button"
@@ -75,6 +112,7 @@ function Row({ choice, checked, compact, onPick }: { choice: Choice; checked: bo
         compact ? "min-h-[48px] px-3 py-1.5 active:bg-[#f1f1f4]" : "min-h-[40px] px-2.5 py-1.5 hover:bg-[#f4f4f6] active:bg-[#ececef]",
       )}
     >
+      {leading}
       <span className="min-w-0 flex-1">
         <span className={cn("block truncate text-[#1a1a2e]", compact ? "text-[15px]" : "text-[13px]", checked && "font-semibold")}>{choice.label}</span>
         {choice.detail ? (
@@ -103,6 +141,8 @@ export function ChoiceList({
   label,
   placeholder,
   lead,
+  leading,
+  uniform = false,
   autoFocus = false,
   searchInHeader = false,
 }: {
@@ -114,6 +154,10 @@ export function ChoiceList({
   label: string
   placeholder: string
   lead?: (compact: boolean) => React.ReactNode
+  /** A picture before each name (a country's flag); `near` is false for a row drawn after the list opened, off screen. */
+  leading?: (choice: Choice, near: boolean) => React.ReactNode
+  /** Every row is one line (ROW_PX tall): the list opens with the rows around the chosen one. */
+  uniform?: boolean
   autoFocus?: boolean
   /** On a phone the search is drawn by the sheet's header instead (ChoiceSearch). */
   searchInHeader?: boolean
@@ -127,6 +171,8 @@ export function ChoiceList({
       compact={compact}
       label={label}
       lead={lead}
+      leading={leading}
+      uniform={uniform}
       query={query}
       search={searchInHeader ? null : <ChoiceSearch value={query} onChange={setQuery} placeholder={placeholder} label={label} compact={compact} autoFocus={autoFocus} />}
     />
@@ -179,6 +225,13 @@ export function ChoiceSearch({
   )
 }
 
+/** A row with one line of text, at each density: what `uniform` lists are drawn at. */
+const ROW_PX = { compact: 48, regular: 40 } as const
+/** How many rows either side of the chosen one a `uniform` list opens with. */
+const OPEN_WITH = 12
+/** Rows either side of the chosen one that are on screen when it opens: 8 fit the popover, 11 the sheet. */
+const NEAR_ROWS = 7
+
 function ChoiceListBody({
   choices,
   value,
@@ -186,6 +239,8 @@ function ChoiceListBody({
   compact,
   label,
   lead,
+  leading,
+  uniform = false,
   query,
   search,
 }: {
@@ -195,22 +250,69 @@ function ChoiceListBody({
   compact: boolean
   label: string
   lead?: (compact: boolean) => React.ReactNode
+  leading?: (choice: Choice, near: boolean) => React.ReactNode
+  uniform?: boolean
   query: string
   search: React.ReactNode
 }) {
   const shown = React.useMemo(() => (query.trim() ? choices.filter((c) => matches(c, query)) : choices), [choices, query])
+  /*
+    A LONG LIST OPENS WITH THE ROWS YOU CAN SEE. Every row of every country
+    was rendered in the tap that opened it: about 100ms of script before the
+    first frame of the popover, on a desktop Chromium. A `uniform` list (one
+    line per row, so every row is ROW_PX tall) opens with the chosen row and
+    OPEN_WITH either side of it, between two spacers exactly as tall as the
+    rows they stand for, so the scroll and the chosen row are where they will
+    be. The rest is rendered a frame later in a transition, which React does
+    in slices between frames, and it lands on exactly the spacers' pixels.
+  */
+  const [whole, setWhole] = React.useState(!uniform)
+  React.useEffect(() => {
+    if (whole) return
+    let timer = 0
+    const frame = requestAnimationFrame(() => {
+      timer = window.setTimeout(() => React.startTransition(() => setWhole(true)), 0)
+    })
+    return () => {
+      cancelAnimationFrame(frame)
+      window.clearTimeout(timer)
+    }
+  }, [whole])
+  const at = Math.max(0, shown.findIndex((c) => c.value === value))
+  const [from, to] = React.useMemo(() => [Math.max(0, at - OPEN_WITH), Math.min(shown.length, at + OPEN_WITH + 1)], [at, shown.length])
+  const windowed = uniform && !whole && !query.trim()
+  const rowPx = compact ? ROW_PX.compact : ROW_PX.regular
+  /*
+    The rows on screen when it opens carry everything at once; the others
+    say they are not `near`, and a picture in them can wait until it is
+    scrolled close (a country's flag is an SVG document of its own: the
+    browser built sixty nine of them in the frames after the list opened).
+  */
+  const firstAt = React.useRef<number | null>(null)
+  if (firstAt.current === null) firstAt.current = at
+  const near = (i: number) => (query.trim() ? i < NEAR_ROWS * 2 : Math.abs(i - (firstAt.current ?? 0)) <= NEAR_ROWS)
+  const row = (c: Choice, i: number) => (
+    <Row key={c.value} choice={c} checked={c.value === value} compact={compact} onPick={() => onPick(c.value)} leading={leading?.(c, near(i))} />
+  )
   return (
     <div data-choice-list="" onKeyDown={moveFocus}>
       {search}
       <div
         role="listbox"
         aria-label={label}
+        data-choice-scroll={compact ? undefined : ""}
+        data-choice-whole={windowed ? undefined : ""}
         className={cn(compact ? "px-2 pb-3" : "max-h-[320px] overflow-y-auto overscroll-contain px-1.5 pb-1.5")}
       >
         {!query.trim() && lead ? lead(compact) : null}
-        {shown.map((c) => (
-          <Row key={c.value} choice={c} checked={c.value === value} compact={compact} onPick={() => onPick(c.value)} />
-        ))}
+        {/* One keyed list in both states, so the rows drawn first are kept, not drawn again, when the rest arrive. */}
+        {uniform
+          ? [
+              <div key="__above" aria-hidden style={{ height: windowed ? from * rowPx : 0 }} />,
+              ...(windowed ? shown.slice(from, to).map((c, i) => row(c, from + i)) : shown.map(row)),
+              <div key="__below" aria-hidden style={{ height: windowed ? (shown.length - to) * rowPx : 0 }} />,
+            ]
+          : shown.map(row)}
         {shown.length === 0 ? (
           <p className={cn("px-3 py-3 text-[#6b7280]", compact ? "text-[15px]" : "text-[13px]")}>Nothing matches “{query.trim()}”</p>
         ) : null}
@@ -255,6 +357,8 @@ export function ChoiceSheet({
   onPick,
   placeholder,
   lead,
+  leading,
+  uniform = false,
 }: {
   open: boolean
   onClose: () => void
@@ -264,6 +368,8 @@ export function ChoiceSheet({
   onPick: (value: string) => void
   placeholder: string
   lead?: (compact: boolean) => React.ReactNode
+  leading?: (choice: Choice, near: boolean) => React.ReactNode
+  uniform?: boolean
 }) {
   const [query, setQuery] = React.useState("")
   const [prevOpen, setPrevOpen] = React.useState(open)
@@ -271,6 +377,13 @@ export function ChoiceSheet({
     setPrevOpen(open)
     if (open) setQuery("")
   }
+  /* A long list (every country, every zone) opens on the one chosen, in the
+     middle of the sheet, from its first frame: this runs in the commit that
+     puts the sheet in the document, before it is painted or starts to rise. */
+  const listRef = React.useRef<HTMLDivElement>(null)
+  React.useLayoutEffect(() => {
+    if (open) centerChecked(listRef.current)
+  }, [open])
   return (
     <BottomSheet
       isOpen={open}
@@ -286,8 +399,8 @@ export function ChoiceSheet({
         </div>
       }
     >
-      <div data-choice-sheet="">
-        <ChoiceListBody choices={choices} value={value} onPick={onPick} compact label={title} lead={lead} query={query} search={null} />
+      <div data-choice-sheet="" ref={listRef}>
+        <ChoiceListBody choices={choices} value={value} onPick={onPick} compact label={title} lead={lead} leading={leading} uniform={uniform} query={query} search={null} />
       </div>
     </BottomSheet>
   )
@@ -305,9 +418,14 @@ export function ChoicePicker({
   onChange,
   placeholder,
   lead,
+  leading,
+  uniform = false,
   fieldLabel,
   fieldAside,
+  fieldLeading,
+  fieldMuted = false,
   name,
+  id,
 }: {
   title: string
   choices: Choice[] | (() => Choice[])
@@ -315,10 +433,20 @@ export function ChoicePicker({
   onChange: (value: string) => void
   placeholder: string
   lead?: (compact: boolean, pick: (value: string) => void) => React.ReactNode
+  /** A picture before each name in the list (a country's flag). */
+  leading?: (choice: Choice, near: boolean) => React.ReactNode
+  /** Every row is one line: the list opens with the rows around the chosen one (ChoiceListBody). */
+  uniform?: boolean
   fieldLabel: string
   fieldAside?: string
+  /** The chosen one's picture, before its name in the field. */
+  fieldLeading?: React.ReactNode
+  /** Nothing chosen yet: the field's words are a prompt, in the placeholder grey. */
+  fieldMuted?: boolean
   /** data-choice-field, for the probes. */
   name: string
+  /** The field's id, for a <label htmlFor> beside it. */
+  id?: string
 }) {
   const [open, setOpen] = React.useState(false)
   const phone = usePhoneWidth()
@@ -331,6 +459,7 @@ export function ChoicePicker({
   const trigger = (
     <button
       type="button"
+      id={id}
       data-choice-field={name}
       data-state={open ? "open" : "closed"}
       aria-haspopup={phone ? "dialog" : "listbox"}
@@ -338,7 +467,8 @@ export function ChoicePicker({
       onClick={phone ? () => setOpen(true) : undefined}
       className="flex h-11 w-full min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-[#e5e7eb] bg-white px-3 text-left text-[14px] text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.04)] outline-none transition-[background-color,box-shadow,border-color] duration-100 hover:bg-[#fafafb] data-[state=open]:border-[#1a1a2e] data-[state=open]:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] focus-visible:border-[#1a1a2e] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.10)]"
     >
-      <span className="min-w-0 flex-1 truncate">{fieldLabel}</span>
+      {fieldLeading}
+      <span className={cn("min-w-0 flex-1 truncate", fieldMuted && "text-[#9ca3af]")}>{fieldLabel}</span>
       {fieldAside ? <span className="shrink-0 tabular-nums text-[13px] text-[#6b7280]">{fieldAside}</span> : null}
       <ChevronDown className={cn("h-4 w-4 shrink-0 text-[#6b7280] transition-transform duration-150", open && "rotate-180")} aria-hidden />
     </button>
@@ -348,7 +478,7 @@ export function ChoicePicker({
     return (
       <>
         {trigger}
-        <ChoiceSheet open={open} onClose={() => setOpen(false)} title={title} choices={list} value={value} onPick={pick} placeholder={placeholder} lead={leadFor} />
+        <ChoiceSheet open={open} onClose={() => setOpen(false)} title={title} choices={list} value={value} onPick={pick} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} />
       </>
     )
   }
@@ -365,11 +495,11 @@ export function ChoicePicker({
           e.preventDefault()
           const root = e.currentTarget as HTMLElement | null
           root?.querySelector<HTMLElement>("[data-choice-search]")?.focus({ preventScroll: true })
-          /* The chosen one in view under the search, not the top of a long list. */
-          root?.querySelector<HTMLElement>("[data-choice][data-checked]")?.scrollIntoView({ block: "center" })
+          /* The chosen one in view under the search, not the top of a long list, and nothing else scrolled. */
+          centerChecked(root)
         }}
       >
-        <ChoiceList choices={list} value={value} onPick={pick} compact={false} label={title} placeholder={placeholder} lead={leadFor} />
+        <ChoiceList choices={list} value={value} onPick={pick} compact={false} label={title} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} />
       </PopoverContent>
     </Popover>
   )
