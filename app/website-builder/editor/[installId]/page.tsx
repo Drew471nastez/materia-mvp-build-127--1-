@@ -4259,6 +4259,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       price_cents: p.price_cents,
       compare_at_cents: p.compare_at_cents,
       thumbnail_url: p.thumbnail_url,
+      gallery_urls: p.gallery_urls,
       status: "published",
     })),
     [products],

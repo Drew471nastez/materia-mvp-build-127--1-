@@ -210,15 +210,24 @@ check(
   "the reading order is spelled out, every step",
   (() => {
     const text = describeImages(one, true)
-    return ["1. LAYOUT", "2. SPACING", "3. TYPE", "4. COLOUR", "5. SHAPE", "6. THE PARTS"].every((step) =>
+    return ["1. LAYOUT", "2. HIERARCHY", "3. SPACING", "4. TYPE", "5. COLOUR", "6. SHAPE", "7. THE PARTS"].every((step) =>
       text.includes(step),
     )
   })(),
 )
 
+/**
+ * "Create me something similar": the picture's layout, hierarchy and style,
+ * built with this site's theme and filled with the creator's own words and
+ * products. A picture is usually somebody else's page, so its words, logo
+ * and prices are never copied onto the creator's site.
+ */
 check(
-  "the words in the picture are the words in the section",
-  /WRITE THE WORDS THAT ARE IN THE PICTURE/.test(describeImages(one, true)),
+  "the picture is the brief for layout and style, and the words are the creator's",
+  /reference for layout, hierarchy and style/.test(describeImages(one, true)) &&
+    /DO NOT COPY ITS WORDS, LOGOS OR BRAND/.test(describeImages(one, true)) &&
+    /read_store/.test(describeImages(one, true)) &&
+    !/WRITE THE WORDS THAT ARE IN THE PICTURE/.test(describeImages(one, true)),
 )
 
 check(
@@ -227,8 +236,13 @@ check(
 )
 
 check(
-  "colours come off the image but stay the creator's to change",
-  /set them as the\n     section's own colours/.test(describeImages(one, true)),
+  "colours map to the site's own schemes, with the section's own colours only as a fallback",
+  /Use the colour\n     scheme of this site closest to it/.test(describeImages(one, true)) && /only when no scheme is close/.test(describeImages(one, true)),
+)
+
+check(
+  "a picture it cannot read is a question, not a guess",
+  /IF YOU CANNOT READ IT/.test(describeImages(one, true)) && /ask_creator/.test(describeImages(one, true)),
 )
 
 {

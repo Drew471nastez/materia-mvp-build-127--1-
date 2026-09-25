@@ -296,9 +296,16 @@ section("The panel shows the run and does not invent one")
       return named > 0 && ran > 0 && named < ran
     })(),
   )
+  /**
+   * The source sent is the file as it was saved: for a whole-file write the
+   * model's own string untouched, for a patch (edit_section_code) the file
+   * with the edits applied, and only once the save succeeded.
+   */
   check(
     "and the source of a section it wrote is sent as it was written",
-    /yield \{ type: "code", path: result\.trim\(\), source \}/.test(loop),
+    /yield \{ type: "code", path: `sections\/\$\{codeType\}\.storelib`, source: saved\.source \}/.test(loop) &&
+      /source = typeof args\.source === "string" \? args\.source : ""/.test(loop) &&
+      /const wrote = writing && saved\.ok/.test(loop),
   )
 }
 

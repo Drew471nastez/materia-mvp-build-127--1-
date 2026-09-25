@@ -10,7 +10,19 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 import { money } from "./ui"
 
-export function PaidOverlay({ show, total, free }: { show: boolean; total: number; free: boolean }) {
+export function PaidOverlay({
+  show,
+  total,
+  free,
+  returningTo = null,
+}: {
+  show: boolean
+  total: number
+  free: boolean
+  /** The creator's website the buyer is going back to, when checkout was started there. */
+  returningTo?: string | null
+}) {
+  const next = returningTo ? `Taking you back to ${returningTo}` : "Opening your receipt"
   const [mounted, setMounted] = React.useState(false)
   React.useEffect(() => setMounted(true), [])
   if (!show || !mounted) return null
@@ -23,7 +35,8 @@ export function PaidOverlay({ show, total, free }: { show: boolean; total: numbe
           <path className="checkout-paid-check" d="M20 33.5l8 8 16-17" fill="none" stroke="#1a1a2e" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <p className="checkout-paid-text mt-5 text-[20px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">{free ? "It's yours" : "Payment complete"}</p>
-        <p className="checkout-paid-text mt-1 text-[14px] text-[#6b7280]">{free ? "Opening your receipt" : `${money(total)} paid. Opening your receipt`}</p>
+        <p className="checkout-paid-text mt-1 text-[14px] text-[#6b7280]">{free ? next : `${money(total)} paid. ${next}`}</p>
+        {returningTo && <p className="checkout-paid-text mt-1 text-[13px] text-[#6b7280]">Your receipt is in your email.</p>}
       </div>
     </div>,
     document.body,
