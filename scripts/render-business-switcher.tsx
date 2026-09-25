@@ -1,20 +1,17 @@
 /**
  * The account menu's business switcher (components/app/business-switcher) in
- * both of its sizes, and the screen that starts a second business
- * (app/(auth)/onboarding/business), for scripts/check-business-switcher.mjs.
+ * both of its sizes, for scripts/check-business-switcher.mjs.
  * Fixture businesses: the one you are in, a second still being set up.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
 import { BusinessSwitcher, type BusinessRow } from "@/components/app/business-switcher"
-import { NewBusinessScreen } from "@/app/(auth)/onboarding/business/new-business-screen"
 
 const TWO: BusinessRow[] = [
   { userId: "00000000-0000-4000-8000-00000000000a", name: "AndrewRullz", handle: "andrewrullz", avatarUrl: null, ready: true, current: true, role: "owner" },
   { userId: "00000000-0000-4000-8000-00000000000b", name: "Loudlib", handle: "loudlib", avatarUrl: null, ready: false, current: false, role: "member" },
 ]
 const ONE: BusinessRow[] = [TWO[0]]
-const view = new URLSearchParams(location.search).get("view") || "menus"
 
 function Menus() {
   return (
@@ -32,6 +29,4 @@ function Menus() {
   )
 }
 
-createRoot(document.getElementById("app")!).render(
-  view === "new" ? <NewBusinessScreen currentName="AndrewRullz" blocked={null} /> : view === "full" ? <NewBusinessScreen currentName="AndrewRullz" blocked="full" /> : <Menus />,
-)
+createRoot(document.getElementById("app")!).render(<Menus />)

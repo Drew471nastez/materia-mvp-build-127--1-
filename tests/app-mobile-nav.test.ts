@@ -914,8 +914,8 @@ function main() {
     /a group opens and closes/.test(read("scripts/check-app-mobile-nav.mjs")))
 
   console.log("\nThe bar, this round")
-  check("3% bigger: a 60px bar and 55px slots, with the glyphs kept at the 22px their fill is matched at",
-    /const BAR_H = 60\b/.test(nav) && /const SLOT = 55\b/.test(nav) && /const GLYPH = 22\b/.test(nav))
+  check("5% bigger: a 63px bar and 58px slots, with the glyphs kept at the 22px their fill is matched at",
+    /const BAR_H = 63\b/.test(nav) && /const SLOT = 58\b/.test(nav) && /const GLYPH = 22\b/.test(nav))
   check("5% more blur in the glass", /backdropFilter: "blur\(25px\) saturate\(120%\)"/.test(nav))
   /* Stretched along the way it moves, by its smoothed speed, to at most
      about 1.12 wide with the lift: the probe reads 1.068 on a slow slide and

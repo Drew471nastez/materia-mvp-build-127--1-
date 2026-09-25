@@ -3,7 +3,7 @@
 import { announceChange } from "@/lib/seo/announce-client"
 import { forwardRef, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
-import { ArrowUpDown, Check, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Eye, Search, X } from "lucide-react"
+import { ArrowUpDown, Check, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Search, X } from "lucide-react"
 import { getProductUrl } from "@/lib/url-helpers"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
@@ -146,8 +146,8 @@ const EYE_DEPTH = cn(
   quietDepth,
   "aria-disabled:cursor-not-allowed aria-disabled:text-[#b6bac1] aria-disabled:shadow-none aria-disabled:hover:bg-white aria-disabled:active:bg-white aria-disabled:active:shadow-none",
 )
-const EYE_PHONE = cn(EYE_DEPTH, ROW_BUTTON_PHONE)
-const EYE_TABLE = cn(EYE_DEPTH, ROW_BUTTON_TABLE)
+/* In the table View is a word beside the more button, the same height; a phone row has only the more button, whose menu starts with View. */
+const VIEW_TABLE = cn(EYE_DEPTH, "inline-flex h-7 items-center rounded-[7px] px-2.5 text-[13px] font-medium text-[#4b5563] lg:h-[30px] lg:px-3")
 
 /**
  * THE PICTURES, SHARP ON EVERY SCREEN. They went through next/image at a
@@ -808,7 +808,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   const previewOff = (e: ReactMouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!window.matchMedia("(hover: hover)").matches) showNotification("Publish to preview")
+    if (!window.matchMedia("(hover: hover)").matches) showNotification("Publish to view")
   }
 
   const actionsFor = (product: Product) => [
@@ -855,25 +855,25 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
    * "Preview" (or why it is off) on a pointer in the table; a phone has no
    * pointer to rest, so there it is only the button's label.
    */
-  const previewButton = (product: Product, look: string, tip: boolean) => {
+  const previewButton = (product: Product, look: string) => {
     const on = previewable(product)
     const url = getProductUrl(creatorUsername, product.slug)
-    const eye = <Eye className="h-4 w-4" strokeWidth={1.9} aria-hidden />
     const button = on ? (
-      <a href={url} target="_blank" rel="noopener noreferrer" data-preview="" aria-label={`Preview ${product.title}`} onClick={openPreview(url)} className={look}>
-        {eye}
+      <a href={url} target="_blank" rel="noopener noreferrer" data-preview="" aria-label={`View ${product.title}`} onClick={openPreview(url)} className={look}>
+        View
       </a>
     ) : (
-      <button type="button" data-preview="" aria-disabled="true" aria-label={`Preview ${product.title}`} onClick={previewOff} className={look}>
-        {eye}
+      <button type="button" data-preview="" aria-disabled="true" aria-label={`View ${product.title}`} onClick={previewOff} className={look}>
+        View
       </button>
     )
-    if (!tip) return button
+    if (on) return button
+    /* Why it is off, on a pointer: a product with no public page has nothing to view yet. */
     return (
       <Tooltip delayDuration={400}>
         <TooltipTrigger asChild>{button}</TooltipTrigger>
         <TooltipContent side="top" sideOffset={6} className={TOOLTIP}>
-          {on ? "Preview" : "Publish to preview"}
+          Publish to view
         </TooltipContent>
       </Tooltip>
     )
@@ -1141,7 +1141,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                           ) : null}
                         </span>
                       </span>
-                      {opening === product.id ? openingMark("phone") : previewButton(product, EYE_PHONE, false)}
+                      {opening === product.id ? openingMark("phone") : null}
                       <ResponsiveActionMenu
                         title={product.title}
                         align="end"
@@ -1173,7 +1173,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                     <th scope="col" className="w-[96px] border-b border-[#eef0f2] px-3 font-medium lg:w-[111px] lg:px-[13px] xl:w-[128px]">Status</th>
                     <th scope="col" className="hidden w-[94px] border-b border-[#eef0f2] px-3 text-right font-medium lg:table-cell lg:px-[13px] xl:w-[107px]">Sales</th>
                     <th scope="col" className="w-[88px] border-b border-[#eef0f2] px-3 text-right font-medium lg:w-[111px] lg:px-[13px] xl:w-[128px]">Price</th>
-                    <th scope="col" className="w-[76px] border-b border-[#eef0f2] lg:w-[82px] xl:w-[86px]" aria-label="Actions" />
+                    <th scope="col" className="w-[106px] border-b border-[#eef0f2] lg:w-[114px] xl:w-[120px]" aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
@@ -1215,7 +1215,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:px-[13px]">{priceOf(product.price_cents)}</td>
                         <td className="bg-white pr-3 group-hover:bg-[#fafafb] lg:pr-[13px] xl:pr-[17px]">
                           <div data-row-actions="" className="flex items-center justify-end gap-2 lg:gap-[9px]">
-                            {opening === product.id ? openingMark("table") : previewButton(product, EYE_TABLE, true)}
+                            {opening === product.id ? openingMark("table") : previewButton(product, VIEW_TABLE)}
                             <ResponsiveActionMenu
                               title={product.title}
                               align="end"

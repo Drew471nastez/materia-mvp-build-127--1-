@@ -60,7 +60,8 @@ export function StorelibGlyph({ size = 16, className, style }: { size?: number; 
  * id, so two pills on one page never share one.
  */
 export const S_VIOLET = "#8b56fa"
-export function StorelibVioletS({ size = 16, className }: { size?: number; className?: string }) {
+/** `flat`: the logo's violet and nothing else, for a quiet surface like the share pill. */
+export function StorelibVioletS({ size = 16, className, flat = false }: { size?: number; className?: string; flat?: boolean }) {
   const raw = React.useId()
   const id = `storelib-s-${raw.replace(/[^a-zA-Z0-9_-]/g, "")}`
   return (
@@ -93,7 +94,7 @@ export function StorelibVioletS({ size = 16, className }: { size?: number; class
         </filter>
       </defs>
       {/* data-keep-transform: globals.css flattens transforms inside a `.group` on touch screens, and this one places the S. */}
-      <path d={STORELIB_S_PATH} transform={STORELIB_S_TRANSFORM} fill={S_VIOLET} filter={`url(#${id})`} data-keep-transform="" />
+      <path d={STORELIB_S_PATH} transform={STORELIB_S_TRANSFORM} fill={S_VIOLET} filter={flat ? undefined : `url(#${id})`} data-keep-transform="" />
     </svg>
   )
 }

@@ -377,9 +377,9 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
           return { left: b.left - grow, right: b.right + grow, top: b.top - grow, bottom: b.bottom + grow, drawn: [Math.round(b.width), Math.round(b.height)], mid: b.top + b.height / 2, dl: b.left, dr: b.right }
         }
         const menuEl = li.querySelector("button[aria-label^='Actions for']")
+        /* No View on a phone row: its more button's menu starts with View. */
         const eyeEl = li.querySelector("[data-preview]")
         const menu = target(menuEl)
-        const eye = target(eyeEl)
         const name = li.querySelector("[data-name]")
         const meta = li.querySelector("[data-meta]")
         const metaRight = meta.getBoundingClientRect().right
@@ -389,20 +389,18 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
           h: Math.round(box.height), inset: Math.round(box.left - card.left), w: Math.round(box.width), cardW: Math.round(card.width), pic: [Math.round(pr.width), Math.round(pr.height)], picIn: Math.round(pr.left - box.left), radius: getComputedStyle(pic).borderTopLeftRadius,
           link: [Math.round(link.width), Math.round(link.height)],
           menu: [Math.round(menu.right - menu.left), Math.round(menu.bottom - menu.top)], menuDrawn: menu.drawn,
-          eye: [Math.round(eye.right - eye.left), Math.round(eye.bottom - eye.top)], eyeDrawn: eye.drawn, eyeTag: eyeEl.tagName, eyeLabel: eyeEl.getAttribute("aria-label"), eyeTarget: eyeEl.getAttribute("target"), eyeRel: eyeEl.getAttribute("rel"), eyeHref: eyeEl.getAttribute("href"), eyeOff: eyeEl.getAttribute("aria-disabled"),
-          midGap: +Math.abs(eye.mid - menu.mid).toFixed(1), rowMid: +Math.abs(eye.mid - (box.top + box.height / 2)).toFixed(1), gap: Math.round(menu.dl - eye.dr), overlap: eye.right > menu.left + 0.5,
-          right: Math.round(box.right - menu.dr), sameLook: look(eyeEl).split(" ").slice(0, 2).join(" ") === look(menuEl).split(" ").slice(0, 2).join(" "),
+          eyeShown: !!eyeEl, rowMid: +Math.abs(menu.mid - (box.top + box.height / 2)).toFixed(1),
+          right: Math.round(box.right - menu.dr), look: look(menuEl),
           nameSize: getComputedStyle(name).fontSize, nameWeight: getComputedStyle(name).fontWeight, nameH: Math.round(name.getBoundingClientRect().height), metaSize: getComputedStyle(meta).fontSize, metaColor: getComputedStyle(meta).color,
           priceNums: getComputedStyle(meta.querySelector("[data-price]")).fontVariantNumeric, price: meta.querySelector("[data-price]").textContent,
           status: status ? status.textContent.trim() : "", statusBg: status ? getComputedStyle(status).backgroundColor : null, metaText: meta.textContent,
-          clear: Math.round(eye.left - metaRight), nameClear: Math.round(eye.dl - name.getBoundingClientRect().right), cut: name.scrollWidth > name.clientWidth, ellipsis: getComputedStyle(name).textOverflow, metaCut: meta.scrollWidth > meta.clientWidth, metaEllipsis: getComputedStyle(meta).textOverflow, meta1line: Math.round(meta.getBoundingClientRect().height),
+          clear: Math.round(menu.left - metaRight), nameClear: Math.round(menu.dl - name.getBoundingClientRect().right), cut: name.scrollWidth > name.clientWidth, ellipsis: getComputedStyle(name).textOverflow, metaCut: meta.scrollWidth > meta.clientWidth, metaEllipsis: getComputedStyle(meta).textOverflow, meta1line: Math.round(meta.getBoundingClientRect().height),
           letter: pic.querySelector("img") ? null : pic.textContent.trim(),
         }
       }))
       row.row = rows[0].h
       row.thumb = rows[0].pic.join("x")
       row.text = `${rows[0].nameSize} name, ${rows[0].metaSize} meta`
-      row.eye = `${rows[0].eyeDrawn.join("x")} in ${rows[0].eye.join("x")}`
       expect(rows.length === 13, "one row per product in All (not archived)", rows.length)
       expect(rows.every((r) => r.h === 64), "every row is 64px, a long name included", [...new Set(rows.map((r) => r.h))])
       expect(rows.every((r) => r.inset === 1 && r.w === r.cardW - 2), "each row runs the card's full width inside its 1px border", [rows[0].inset, rows[0].w, rows[0].cardW])
@@ -415,19 +413,13 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       const drafts = rows.filter((r) => r.status)
       expect(drafts.length === 2 && drafts.every((r) => r.status === "Draft" && r.statusBg === "rgba(0, 0, 0, 0)"), "only the two drafts say so, as a dot and a word with no badge; a live row says nothing", rows.map((r) => r.status || "-"))
       expect(rows.every((r) => r.link[0] === r.w && r.link[1] >= r.h - 1), "the whole row is the link", rows[0].link)
-      /* Preview, on every row, beside the more button. */
-      expect(rows.every((r) => r.eyeDrawn.join() === "32,32" && r.menuDrawn.join() === "32,32"), "every row has Preview beside the more button, both drawn 32px", [...new Set(rows.map((r) => `${r.eyeDrawn.join("x")}/${r.menuDrawn.join("x")}`))])
-      expect(rows.every((r) => r.eye.join() === "44,44" && r.menu.join() === "44,44"), "each a 44px press", [...new Set(rows.map((r) => `${r.eye.join("x")}/${r.menu.join("x")}`))])
-      expect(rows.every((r) => r.midGap === 0 && r.rowMid <= 0.5), "on one centre line, the row's own", [...new Set(rows.map((r) => `${r.midGap}/${r.rowMid}`))])
-      expect(rows.every((r) => r.gap === 12 && !r.overlap && r.right === 12), "12px apart, so their presses meet and never overlap, and 12px from the card's edge", [...new Set(rows.map((r) => `${r.gap} ${r.overlap} ${r.right}`))])
-      expect(rows.every((r) => r.sameLook), "the same hairline on both", rows[0].sameLook)
-      expect(rows.every((r) => r.clear >= 0 && r.nameClear >= 12), "the name and the line under it never run under Preview (12px clear at least)", [...new Set(rows.map((r) => Math.min(r.clear, r.nameClear)))])
+      /* A phone row has only the more button; its menu starts with View. */
+      expect(rows.every((r) => !r.eyeShown), "no View or eye on a phone row, only the more button", rows.filter((r) => r.eyeShown).length)
+      expect(rows.every((r) => r.menuDrawn.join() === "32,32" && r.menu.join() === "44,44"), "the more button drawn 32px, a 44px press", [...new Set(rows.map((r) => `${r.menuDrawn.join("x")}/${r.menu.join("x")}`))])
+      expect(rows.every((r) => r.rowMid <= 0.5 && r.right === 12), "on the row's centre line, 12px from the card's edge", [...new Set(rows.map((r) => `${r.rowMid} ${r.right}`))])
+      expect(rows.every((r) => r.clear >= 0 && r.nameClear >= 12), "the name and the line under it never run under the button (12px clear at least)", [...new Set(rows.map((r) => Math.min(r.clear, r.nameClear)))])
       expect(rows[2].cut && rows[2].ellipsis === "ellipsis", "a long name gives way with an ellipsis before the buttons move", { cut: rows[2].cut, clear: rows[2].nameClear })
       expect(rows.every((r) => r.metaEllipsis === "ellipsis"), `and so does the line under it${rows.some((r) => r.metaCut) ? " (cut here: " + rows.filter((r) => r.metaCut).map((r) => r.metaText).join(", ") + ")" : ""}`, rows.filter((r) => r.metaCut).length)
-      const live = rows.filter((r) => !r.status)
-      expect(live.every((r) => r.eyeTag === "A" && r.eyeTarget === "_blank" && /noopener/.test(r.eyeRel) && /noreferrer/.test(r.eyeRel) && /^https:\/\/storelib\.com\/astrid\/product-\d+$/.test(r.eyeHref) && /^Preview /.test(r.eyeLabel)), "a live product's Preview is a link to its page, a new tab, noopener noreferrer, labelled Preview and its name", live[0])
-      expect(drafts.every((r) => r.eyeTag === "BUTTON" && r.eyeOff === "true"), "a draft's is drawn but off: it has no page to open", drafts.map((r) => [r.eyeTag, r.eyeOff]))
-
       const rules = await p.$$eval("section[aria-label=Products] ul > li", (r) => r.map((li) => {
         const b = getComputedStyle(li, "::before")
         return b.content === "none" ? null : [Math.round(parseFloat(b.left)), b.backgroundColor]
@@ -483,38 +475,6 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
 
       await p.screenshot({ path: join(shots, `${label}-products-v3.png`) })
 
-      /*
-        IN THE APP. Capacitor's web view has no tabs, so there Preview hands
-        the address to openExternal (lib/native-bridge), which on iOS is
-        window.open(url, "_system"): Safari, outside the app. Stubbed here as
-        the app's bridge would answer.
-      */
-      if (vp.width === 390) {
-        const native = await p.evaluate(async () => {
-          const opened = []
-          const realOpen = window.open
-          window.Capacitor = { isNativePlatform: () => true, getPlatform: () => "ios" }
-          window.open = (url, name) => { opened.push([url, name]); return {} }
-          let held = null
-          window.addEventListener("click", (e) => { if (e.target.closest?.("a[data-preview]")) setTimeout(() => { held = e.defaultPrevented }, 0) }, { capture: true, once: true })
-          document.querySelector("section[aria-label=Products] ul > li:not([hidden]) a[data-preview]").click()
-          await new Promise((r) => setTimeout(r, 50))
-          delete window.Capacitor
-          window.open = realOpen
-          return { opened, held, pushed: (window.__pushed || []).length }
-        })
-        expect(native.opened.length === 1 && native.opened[0][0] === "https://storelib.com/astrid/product-0" && native.opened[0][1] === "_system" && native.held === true && native.pushed === 0,
-          "in the app, Preview opens the page in the phone's browser through openExternal, and the web view goes nowhere", native)
-      }
-
-      /* Preview on a draft says why it is off, in a toast, and opens nothing. */
-      await p.evaluate(() => [...document.querySelectorAll("section[aria-label=Products] ul > li:not([hidden]) button[data-preview]")][0].scrollIntoView({ block: "center" }))
-      await wait(100)
-      await p.click("section[aria-label=Products] ul > li:not([hidden]) button[data-preview]")
-      await wait(200)
-      const toast = await p.evaluate(() => ({ text: document.body.innerText.includes("Publish to preview"), pushed: (window.__pushed || []).length }))
-      expect(toast.text && toast.pushed === 0, "a draft's Preview says Publish to preview, and does not open the product", toast)
-      await p.evaluate(() => { document.querySelector(".orders-pane").scrollTop = 0 })
     } else {
       const list = await p.$eval("section[aria-label=Products] ul", (u) => getComputedStyle(u).display)
       expect(list === "none", "the phone list is not drawn", list)
@@ -538,7 +498,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
             nums: cells.filter((c) => /^\$|^\d|^Free$/.test(c.textContent.trim())).map((c) => [getComputedStyle(c).textAlign, getComputedStyle(c).fontVariantNumeric]),
             divider: getComputedStyle(cells[0]).borderTopWidth + " " + getComputedStyle(cells[0]).borderTopColor,
             status: status.textContent.trim(), statusBg: getComputedStyle(status).backgroundColor, dot: getComputedStyle(status.firstElementChild).backgroundColor,
-            eye: [Math.round(eye.width), Math.round(eye.height)], menu: [Math.round(menu.width), Math.round(menu.height)], mid: +Math.abs(eye.top + eye.height / 2 - (menu.top + menu.height / 2)).toFixed(1), gap: Math.round(menu.left - eye.right),
+            eye: [Math.round(eye.width), Math.round(eye.height)], viewText: tr.querySelector("[data-preview]").textContent.trim(), menu: [Math.round(menu.width), Math.round(menu.height)], mid: +Math.abs(eye.top + eye.height / 2 - (menu.top + menu.height / 2)).toFixed(1), gap: Math.round(menu.left - eye.right),
             eyeInCell: eye.left >= cells[cells.length - 1].getBoundingClientRect().left,
           }
         })
@@ -566,8 +526,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         "the status is a dot and a word, green for Active and amber for Draft, with no badge", t.rows.slice(0, 4).map((r) => [r.status, r.dot]))
       expect(t.rows.every((r) => r.nums.length >= 1 && r.nums.every(([a, n]) => a === "right" && /tabular-nums/.test(n))), "numbers right aligned in figures of one width", t.rows[0].nums)
       expect(/^0px/.test(t.rows[0].divider) && /^1px rgb\(241, 242, 244\)$/.test(t.rows[1].divider), "no line over the first row, a light hairline between the rest", [t.rows[0].divider, t.rows[1].divider])
-      expect(t.rows.every((r) => r.inside >= 12 && r.ellipsis === "ellipsis") && t.nameCol >= (tier === "md" ? 188 : 150), `a long name stays in its column${t.rows[2].cut ? " and stops with an ellipsis" : ", whole at this width"}`, { inside: t.rows[2].inside, cut: t.rows[2].cut, nameCol: t.nameCol })
-      expect(t.rows.every((r) => r.eye.join() === `${S.rowBtn},${S.rowBtn}` && r.menu.join() === r.eye.join() && r.mid === 0 && r.gap === S.rowGap && r.eyeInCell), `Preview on every row in the actions column, ${S.rowBtn}px like the more button, ${S.rowGap}px before it, on one centre line`, [...new Set(t.rows.map((r) => `${r.eye.join("x")}/${r.menu.join("x")} gap ${r.gap} mid ${r.mid}`))])
+      expect(t.rows.every((r) => r.inside >= 12 && r.ellipsis === "ellipsis") && t.nameCol >= (tier === "md" ? 176 : 150) /* 176 at 768px since View became a word in the actions column */, `a long name stays in its column${t.rows[2].cut ? " and stops with an ellipsis" : ", whole at this width"}`, { inside: t.rows[2].inside, cut: t.rows[2].cut, nameCol: t.nameCol })
+      expect(t.rows.every((r) => r.eye[1] === S.rowBtn && r.eye[0] > r.eye[1] && r.viewText === "View" && r.mid === 0 && r.gap === S.rowGap && r.eyeInCell), `View, a word, on every row in the actions column, ${S.rowBtn}px tall like the more button, ${S.rowGap}px before it, on one centre line`, [...new Set(t.rows.map((r) => `${r.viewText} ${r.eye.join("x")}/${r.menu.join("x")} gap ${r.gap} mid ${r.mid}`))])
       if (tier !== "md") {
         const o = OLD[tier]
         const n = { bar: bar.barH, row: t.rows[0].h, pic: t.rows[0].pic[0], name: parseFloat(t.rows[0].nameSize), table: parseFloat(t.rows[0].tableSize), head: t.headH, btn: bar.add[1], search: row.search, track: row.views, rowBtn: t.rows[0].menu[0], container: col.width, title: parseFloat(bar.titleSize) }
@@ -630,21 +590,11 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       }
       const tipLive = await tipOf("section[aria-label=Products] tbody tr:nth-child(1) [data-preview]")
       row.tip = tipLive?.text
-      expect(tipLive && tipLive.text === "Preview" && tipLive.bg === "rgb(26, 26, 46)" && tipLive.color === "rgb(255, 255, 255)" && tipLive.arrow === "none", "Preview says Preview on a pointer: near black, white 12px words, no arrow", tipLive)
+      expect(tipLive === null, "a live product's View needs no tooltip: it says what it does", tipLive)
       const tipDraft = await tipOf("section[aria-label=Products] tbody tr:nth-child(4) [data-preview]")
-      expect(tipDraft && tipDraft.text === "Publish to preview", "a draft's says Publish to preview", tipDraft)
+      expect(tipDraft && tipDraft.text === "Publish to view" && tipDraft.bg === "rgb(26, 26, 46)" && tipDraft.arrow === "none", "a draft's says Publish to view: near black, no arrow", tipDraft)
       await p.mouse.move(5, 5)
       await wait(200)
-      const focusTip = await p.evaluate(async () => {
-        const eye = document.querySelector("section[aria-label=Products] tbody tr:nth-child(2) [data-preview]")
-        eye.focus()
-        await new Promise((r) => setTimeout(r, 150))
-        const id = eye.getAttribute("aria-describedby")
-        const text = id ? document.getElementById(id)?.textContent.trim() : null
-        eye.blur()
-        return text
-      })
-      expect(focusTip === "Preview", "and on the keyboard's focus", focusTip)
       await wait(200)
 
       /*
@@ -680,13 +630,14 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       const look = (el) => { const c = getComputedStyle(el); const r = el.getBoundingClientRect(); return { shadow: c.boxShadow, border: `${c.borderTopWidth} ${c.borderTopColor}`, bg: c.backgroundColor, color: c.color, size: `${Math.round(r.width)}x${Math.round(r.height)}` } }
       const btn = [...document.querySelectorAll("section[aria-label=Products] button[aria-label^='Actions for']")].find((b) => b.getBoundingClientRect().width > 0)
       const eye = [...document.querySelectorAll("section[aria-label=Products] a[data-preview]")].find((b) => b.getBoundingClientRect().width > 0)
-      return { row: look(btn), eye: look(eye), editor: look(document.querySelector("[data-probe-more]")) }
+      return { row: look(btn), eye: eye ? look(eye) : null, editor: look(document.querySelector("[data-probe-more]")) }
     })
     row.menuShadow = depth.row.shadow === depth.editor.shadow ? "= editor" : "differs"
     /* The rows' button is smaller than the editor's since the page's scale came down, so its size and radius are its own; the depth is still the editor's. */
     const rowSize = isPhone ? "32x32" : `${S.rowBtn}x${S.rowBtn}`
     expect(["shadow", "border", "bg", "color"].every((k) => depth.row[k] === depth.editor[k]) && depth.row.size === rowSize, `the rows' more button has the editor's depth: the same shade, hairline and white, at ${rowSize}`, depth)
-    expect(["shadow", "border", "bg", "color", "size"].every((k) => depth.eye[k] === depth.row[k]), "and Preview the same, at the same size", { eye: depth.eye, menu: depth.row })
+    if (isPhone) expect(depth.eye === null, "no View on a phone", depth.eye)
+    else expect(["shadow", "border", "bg", "color"].every((k) => depth.eye[k] === depth.row[k]) && depth.eye.size.endsWith(`x${S.rowBtn}`), "and View the same depth, at the same height", { eye: depth.eye, menu: depth.row })
 
     const footer = await p.evaluate(() => { const f = document.querySelector("[data-footer]"); return f ? getComputedStyle(f).display : "missing" })
     expect(isPhone ? footer === "none" : footer === "flex", isPhone ? "no footer counting rows on a phone when there is one page" : "the footer counts what is shown", footer)

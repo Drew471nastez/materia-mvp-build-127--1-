@@ -303,19 +303,20 @@ check("a row's more button wears the editor's quieter icon depth (quietDepth), 3
     && /const ROW_BUTTON_TABLE = "h-7 w-7 rounded-\[7px\] text-\[#4b5563\] lg:h-\[30px\] lg:w-\[30px\] lg:\[&>svg\]:h-\[17px\] lg:\[&>svg\]:w-\[17px\]"/.test(list)
     && /const ROW_MENU_PHONE = cn\(quietDepth, ROW_BUTTON_PHONE\)/.test(list) && /const ROW_MENU_TABLE = cn\(quietDepth, ROW_BUTTON_TABLE\)/.test(list)
     && /className=\{ROW_MENU_PHONE\}/.test(list) && /className=\{ROW_MENU_TABLE\}/.test(list) && !/shadow-\[inset_0_-1px_0/.test(list))
-/* "For each product add the eye icon next to the ... A small view icon with a little bit of depth; when clicked it opens a preview in a new browser tab; it has a tooltip Preview." */
-check("every row has Preview beside the more button, the same size and depth, on a phone and in the table",
-  /const EYE_DEPTH = cn\(\s*quietDepth,/.test(list) && /const EYE_PHONE = cn\(EYE_DEPTH, ROW_BUTTON_PHONE\)/.test(list) && /const EYE_TABLE = cn\(EYE_DEPTH, ROW_BUTTON_TABLE\)/.test(list)
-    && /\{opening === product\.id \? openingMark\("phone"\) : previewButton\(product, EYE_PHONE, false\)\}\s*<ResponsiveActionMenu/.test(list) && /\{opening === product\.id \? openingMark\("table"\) : previewButton\(product, EYE_TABLE, true\)\}\s*<ResponsiveActionMenu/.test(list))
-check("Preview opens the product's own page, the address View opens, in a new tab with noopener noreferrer, labelled with the name",
+/* "The eye in the products page should be a View button, text, left of the ... button" on a computer; "on a phone get rid of the eye, just the three dots". */
+check("in the table each row has View, a word, beside the more button at its height and depth; a phone row has only the more button",
+  /const VIEW_TABLE = cn\(EYE_DEPTH, "inline-flex h-7 items-center rounded-\[7px\] px-2\.5 text-\[13px\] font-medium text-\[#4b5563\] lg:h-\[30px\] lg:px-3"\)/.test(list)
+    && /\{opening === product\.id \? openingMark\("phone"\) : null\}\s*<ResponsiveActionMenu/.test(list) && /\{opening === product\.id \? openingMark\("table"\) : previewButton\(product, VIEW_TABLE\)\}\s*<ResponsiveActionMenu/.test(list)
+    && !/\bEye\b/.test(list))
+check("View opens the product's own page, the address the menu's View opens, in a new tab with noopener noreferrer, labelled with the name",
   /const url = getProductUrl\(creatorUsername, product\.slug\)/.test(list) && /label: t\("common\.view"\), href: getProductUrl\(creatorUsername, product\.slug\), target: "_blank"/.test(list)
-    && /<a href=\{url\} target="_blank" rel="noopener noreferrer" data-preview="" aria-label=\{`Preview \$\{product\.title\}`\} onClick=\{openPreview\(url\)\}/.test(list))
+    && /<a href=\{url\} target="_blank" rel="noopener noreferrer" data-preview="" aria-label=\{`View \$\{product\.title\}`\} onClick=\{openPreview\(url\)\}/.test(list))
 check("it never opens the editor too, and in the app it goes through openExternal to the phone's browser",
   /const openPreview = \(url: string\) => \(e: ReactMouseEvent<HTMLAnchorElement>\) => \{\s*e\.stopPropagation\(\)\s*if \(isNativeApp\(\)\) \{\s*e\.preventDefault\(\)\s*openExternal\(url\)/.test(list)
     && /import \{ isNativeApp, openExternal \} from "@\/lib\/native-bridge"/.test(list) && /target\.closest\("a,button,input,label"\)\) return/.test(list))
-check("a product with no public page (a draft, an archived one) draws its eye off, Publish to preview on a pointer and in a toast on a phone",
-  /const previewable = \(product: Product\) => statusOf\(product\) === "live"/.test(list) && /aria-disabled="true" aria-label=\{`Preview \$\{product\.title\}`\} onClick=\{previewOff\}/.test(list)
-    && /\{on \? "Preview" : "Publish to preview"\}/.test(list) && /showNotification\("Publish to preview"\)/.test(list))
+check("a product with no public page (a draft, an archived one) draws View off, Publish to view on a pointer",
+  /const previewable = \(product: Product\) => statusOf\(product\) === "live"/.test(list) && /aria-disabled="true" aria-label=\{`View \$\{product\.title\}`\} onClick=\{previewOff\}/.test(list)
+    && /Publish to view\s*<\/TooltipContent>/.test(list) && /showNotification\("Publish to view"\)/.test(list))
 check("its name on a pointer is the Website page's tooltip: near black, no arrow, a moment's delay",
   /const TOOLTIP = "rounded-md bg-\[#1a1a2e\] px-2 py-1 text-\[12px\] font-medium text-white shadow-\[0_2px_8px_rgba\(15,23,42,0\.18\)\] \[&_svg\]:hidden!"/.test(list)
     && /<Tooltip delayDuration=\{400\}>\s*<TooltipTrigger asChild>\{button\}<\/TooltipTrigger>\s*<TooltipContent side="top" sideOffset=\{6\} className=\{TOOLTIP\}>/.test(list))

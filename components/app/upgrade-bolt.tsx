@@ -6,17 +6,15 @@
  * sidebar (sidebar-desktop-nav) and the phone menu (sidebar-mobile-nav),
  * drawn once so the two cannot drift.
  *
- * "That purple thing has too much depth and draws too much attention. More
- * subtle, keep it how it is, but it's too gradient, too depthish." It was a
- * violet ball lit from above: a radial gradient, a highlight, an inner
- * shadow, a violet glow under it and a white bolt with its own shadow, the
- * loudest thing in the rail. Now it is a flat circle of soft violet tint with
- * a hairline of the same violet, and the bolt in violet on it. No gradient,
- * no shadow, nothing lit: the violet says Pro, and the card around it is the
- * same quiet surface as the rest of the sidebar.
+ * It was a violet ball lit from above (a radial gradient, a highlight, an
+ * inner shadow and a violet glow), the loudest thing in the rail; then a pale
+ * tint that no longer read as the purple button it is. "Keep the button
+ * purple, just less depth and gradient." So: one flat violet, the bolt in
+ * white, a hairline of light along the top edge and a small soft shadow
+ * under it. No gradient, no glow.
  */
-export const UPGRADE_TINT = "#f3f0ff"
-export const UPGRADE_INK = "#7c3aed"
+export const UPGRADE_FILL = "#8b5cf6"
+export const UPGRADE_INK = "#ffffff"
 
 export function UpgradeBolt({ size = 28 }: { size?: number }) {
   const glyph = Math.round(size * 0.5)
@@ -28,8 +26,8 @@ export function UpgradeBolt({ size = 28 }: { size?: number }) {
       style={{
         width: size,
         height: size,
-        backgroundColor: UPGRADE_TINT,
-        boxShadow: "inset 0 0 0 1px rgba(124,58,237,0.14)",
+        backgroundColor: UPGRADE_FILL,
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.22), 0 1px 2px rgba(76,29,149,0.22)",
       }}
     >
       <svg width={glyph} height={glyph} viewBox="0 0 24 24" fill={UPGRADE_INK}>

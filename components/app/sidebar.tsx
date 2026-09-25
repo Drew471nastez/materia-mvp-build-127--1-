@@ -512,8 +512,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <button
               onClick={() => setHeaderProfileOpen(!headerProfileOpen)}
               className={cn(
-                "flex items-center gap-2.5 rounded-full px-2.5 py-1.5 transition-all duration-200 ease-out",
-                headerProfileOpen ? "bg-white/15" : "hover:bg-white/10"
+                /* A soft grey pill behind the name on hover, in and out on the colour alone. */
+                "flex items-center gap-2.5 rounded-full px-2.5 py-1.5 transition-[background-color] duration-200 ease-out",
+                headerProfileOpen ? "bg-[#2e2e34]" : "hover:bg-[#26262b]"
               )}
             >
               <AppAvatar src={avatarSrc} name={userDisplayName} size={28} tone="dark" className="ring-1 ring-white/20" />

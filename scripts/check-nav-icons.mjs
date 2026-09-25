@@ -235,7 +235,7 @@ try {
     }
   })
   check("the card: a light surface, a hairline, no shadow", !!card && card.shadow === "none" && card.bg === "rgb(250, 250, 250)" && card.border === "rgb(236, 236, 239)", card && { shadow: card.shadow, bg: card.bg, border: card.border })
-  check("the bolt: a flat circle of soft violet, a violet glyph, no gradient, no glow", !!card && card.boltImage === "none" && card.boltBg === "rgb(243, 240, 255)" && !/rgba\(109, 40, 217|0px 4px 10px/.test(card.boltShadow) && card.glyph === "#7c3aed" && card.glyphFilter === "none", card && { bg: card.boltBg, image: card.boltImage, shadow: card.boltShadow, glyph: card.glyph })
+  check("the bolt: a flat violet button, a white glyph, no gradient, no glow", !!card && card.boltImage === "none" && card.boltBg === "rgb(139, 92, 246)" && !/rgba\(109, 40, 217|0px 4px 10px/.test(card.boltShadow) && card.glyph === "#ffffff" && card.glyphFilter === "none", card && { bg: card.boltBg, image: card.boltImage, shadow: card.boltShadow, glyph: card.glyph })
   check("the same words and the same place: the plans page", !!card && card.href === "/app/settings/billing/upgrade" && /Upgrade to Pro/.test(card.text), card?.text)
   if (card) await page.screenshot({ path: join(shots, "icons-upgrade-1280.png"), clip: { x: 0, y: Math.max(0, card.rect.y - 16), width: 240, height: card.rect.h + 72 } })
 

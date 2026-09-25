@@ -1,10 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Check, Loader2, Plus } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
-import { switchBusiness } from "@/lib/businesses/switch-client"
+import { createBusiness, switchBusiness } from "@/lib/businesses/switch-client"
 import { cn } from "@/lib/utils"
 
 /**
@@ -19,6 +18,10 @@ import { cn } from "@/lib/utils"
  * switch-client), which reloads the app as that business: its dashboard,
  * products, orders, pages, emails and payouts. A business still being set up
  * says so, and opening it carries on with its onboarding.
+ *
+ * "New business" makes the second account right there and goes straight
+ * into the creator onboarding, the same "Name your store" everyone starts
+ * with. No page in between: the row says it is setting up while it works.
  */
 
 /** The size of a business's photo in each menu: the account sheet preloads the one it will draw. */
@@ -37,13 +40,12 @@ export interface BusinessRow {
 export function BusinessSwitcher({
   businesses,
   variant,
-  onNavigate,
   currentAvatar,
 }: {
   businesses: BusinessRow[]
   variant: "dropdown" | "sheet"
-  /** Closes the menu before a page change. */
-  onNavigate: () => void
+  /** Closes the menu before a page change. Both actions reload the app, so nothing calls it now. */
+  onNavigate?: () => void
   /**
    * The signed in person's photo as the header draws it (lib/account/
    * avatar-store). The business you are in is that person, so its row
@@ -52,7 +54,6 @@ export function BusinessSwitcher({
    */
   currentAvatar?: string | null
 }) {
-  const router = useRouter()
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   if (businesses.length === 0) return null
@@ -73,11 +74,22 @@ export function BusinessSwitcher({
     }
   }
 
+  const add = async () => {
+    if (busy) return
+    setError(null)
+    setBusy("new")
+    try {
+      await createBusiness()
+    } catch (e) {
+      setBusy(null)
+      setError(e instanceof Error ? e.message : "The business could not be created. Try again.")
+    }
+  }
+
   return (
     <div data-business-switcher="" className={sheet ? "pb-1" : "pb-0.5"}>
-      <p className={cn("font-medium text-neutral-500", sheet ? "px-3 pb-1.5 pt-1 text-[13px]" : "px-3 pb-1 pt-1.5 text-[11.5px]")}>
-        Businesses
-      </p>
+      {/* A label on the desktop menu only: on a phone the sheet's rows say it on their own. */}
+      {!sheet && <p className="px-3 pb-1 pt-1.5 text-[11.5px] font-medium text-neutral-500">Businesses</p>}
       {businesses.map((b) => (
         <button
           key={b.userId}
@@ -115,10 +127,8 @@ export function BusinessSwitcher({
         <button
           type="button"
           disabled={!!busy}
-          onClick={() => {
-            onNavigate()
-            router.push("/onboarding/business")
-          }}
+          onClick={add}
+          data-business-new=""
           className={cn(
             "flex w-full items-center font-medium text-neutral-700 transition-colors [-webkit-tap-highlight-color:transparent]",
             sheet ? "min-h-[48px] gap-3 rounded-xl px-3 py-2 text-[15px] active:bg-neutral-100" : "min-h-[40px] gap-2.5 rounded-lg px-3 py-1.5 text-[13px] hover:bg-neutral-50",
@@ -130,9 +140,13 @@ export function BusinessSwitcher({
               sheet ? "h-8 w-8" : "h-[26px] w-[26px]",
             )}
           >
-            <Plus className={sheet ? "h-4 w-4" : "h-3.5 w-3.5"} strokeWidth={2} />
+            {busy === "new" ? (
+              <Loader2 className={cn("animate-spin", sheet ? "h-4 w-4" : "h-3.5 w-3.5")} aria-hidden />
+            ) : (
+              <Plus className={sheet ? "h-4 w-4" : "h-3.5 w-3.5"} strokeWidth={2} />
+            )}
           </span>
-          New business
+          {busy === "new" ? "Setting up your new business" : "New business"}
         </button>
       )}
       {error && (
