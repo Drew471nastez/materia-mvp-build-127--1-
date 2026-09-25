@@ -538,7 +538,7 @@ function SubscribersTable(props: EmailsHomeProps) {
             <table className="w-full min-w-[720px] border-collapse">
               <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
                 <tr>
-                  <th data-scroll-edge="" className={cn(th, stickyHead)}>Email</th>
+                  <th data-scroll-edge="" className={cn(th, stickyHead, "w-px")}>Email</th>
                   <th className={th}>Name</th>
                   <th className={th}>Source</th>
                   <th className={th}>Status</th>

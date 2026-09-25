@@ -753,7 +753,7 @@ async function routeTrip(p, browser, label, vp, isPhone) {
     console.log(`        (exit: ${JSON.stringify(old)})`)
     expect(!!old && old.dur >= 260 && old.dur <= 320 && /0\.32, 0\.72, 0, 1/.test(old.easing), "the editor leaves in 260 to 320ms on the iOS curve", old && { ms: old.dur, easing: old.easing })
     expect(!!old && old.frames.every((k) => k.transform !== undefined || k.opacity !== undefined), "on transform and opacity alone", old?.frames)
-    expect(isPhone ? /translateX\(100%\)|matrix\(1, 0, 0, 1, 390/.test(JSON.stringify(old?.frames)) : /translateY\(12px\)/.test(JSON.stringify(old?.frames)), isPhone ? "on a phone it slides off to the right edge" : "on a computer it fades with a 12px drop", old?.frames)
+    expect(isPhone ? /translateX?\(100%\)|matrix\(1, 0, 0, 1, 390/.test(JSON.stringify(old?.frames)) : /translateY\(12px\)/.test(JSON.stringify(old?.frames)), isPhone ? "on a phone it slides off to the right edge" : "on a computer it fades with a 12px drop", old?.frames)
     expect(!neu || neu.name === "none" || neu.frames.length === 0, "the list under it holds still", neu)
     expect(!back.under.layer && back.under.rows > 0 && back.under.path === "/app/products" && back.under.motion === "leave", "the list is already drawn under the move's first frame, and the layer is gone", back.under)
     const inks = back.frames.map((f) => f.ink)
