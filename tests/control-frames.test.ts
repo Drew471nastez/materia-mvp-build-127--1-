@@ -61,34 +61,11 @@ function main() {
 
   check(
     "the thumb comes from the control's own state",
-    /const \[shown, setShown\] = useState\(value\)/.test(slider),
+    /const \[shown, setShown\] = useState\(value\)/.test(slider) && /value=\{\[shown\]\}/.test(slider),
     "drawn from the prop, it could not move until a settings change had gone up and come back",
   )
-  /*
-    AND A DRAG DOES NOT GO THROUGH REACT AT ALL. The Radix slider was
-    controlled, so every pointermove was a state update and a render of the
-    slider before the thumb moved. Now the finger writes the thumb's and the
-    fill's transforms and the number straight to the DOM, once a frame, and
-    React is told once, at the release. scripts/check-slider-drag.mjs counts
-    it: 2 commits for a 96-move drag, against 138 for the old slider.
-  */
-  check(
-    "a drag writes the thumb and the fill by transform, not by render",
-    /railRef\.current\.style\.transform = `translate3d\(\$\{p \* 100\}%, 0, 0\)`/.test(slider) &&
-      /fillRef\.current\.style\.transform = `scaleX\(\$\{p\}\)`/.test(slider),
-  )
-  check(
-    "one write per frame however many moves arrive",
-    /pendingX\.current = clientX\s*\n\s*if \(frame\.current\) return\s*\n\s*frame\.current = requestAnimationFrame/.test(slider),
-  )
-  check("the pointer is captured, so leaving the track keeps the drag", /setPointerCapture\(pointerId\)/.test(slider))
-  check("React hears once, when the gesture ends", /const settle = useCallback\(\(\) => \{\s*\n\s*flush\(\)\s*\n\s*setShown\(live\.current\)/.test(slider))
-  check("every value lands on the schema's step", /export function snapToStep/.test(slider) && /snapToStep\(min \+ p \* \(max - min\), min, max, step\)/.test(slider))
-  check(
-    "and the keyboard steps it",
-    /role="slider"/.test(slider) && /e\.key === "ArrowRight"/.test(slider) && /e\.key === "Home"/.test(slider) && /e\.key === "End"/.test(slider),
-  )
   check("what goes up is coalesced", /const \{ emit, flush \} = useFrameCommit\(onChange\)/.test(slider))
+  check("and a release flushes what is pending", /onValueCommit=\{\(\) => flush\(\)\}/.test(slider))
   check(
     "it does not fight its own echo",
     /if \(sent\.current !== null && value === sent\.current\) return/.test(slider),

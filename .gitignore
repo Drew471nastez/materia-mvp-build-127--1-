@@ -103,6 +103,3 @@ tsconfig.*.generated.json
 .button-probe/
 .parity-probe/
 .claude/worktrees/
-
-# The old slider, copied from git for the length of one probe run (scripts/check-slider-drag.mjs)
-scripts/.slider-old/
