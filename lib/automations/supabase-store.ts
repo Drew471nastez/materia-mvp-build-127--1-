@@ -19,6 +19,7 @@ import type { Brand, FlowRow, Identity, JobRow, JobState, RunLinks, RunRow, Send
 import type { TriggerType } from "./flow-model"
 import { textOn } from "./merge-fields"
 import type { CheckoutStart, StartOutcome, StartsStore } from "./abandoned"
+import { ownerAddress } from "@/lib/businesses/email-alias"
 
 type Db = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 type PgError = { code?: string; message?: string } | null | undefined
@@ -427,7 +428,7 @@ async function readIdentity(db: Db, creatorId: string): Promise<Identity & { han
       readSiteBrand(db, creatorId),
     ])
     const fromName = profile?.display_name?.trim() || profile?.username?.trim() || creator.headline?.trim() || creator.slug?.trim() || "Storelib"
-    const replyTo = (creator.support_email?.trim() || profile?.email?.trim() || replyFallback).toLowerCase()
+    const replyTo = (creator.support_email?.trim() || ownerAddress(profile?.email)?.trim() || replyFallback).toLowerCase()
     const handle = profile?.username?.trim() || creator.slug?.trim() || null
     const accent = site.color ?? "#1a1a2e"
     const brand: Brand = {

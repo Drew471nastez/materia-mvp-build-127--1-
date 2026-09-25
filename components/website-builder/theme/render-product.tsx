@@ -34,6 +34,28 @@ import { plainSummary } from "@/lib/html-entities"
 import { getProductShareUrl } from "@/lib/url-helpers"
 import { productIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript, productJsonLd } from "@/lib/website-builder/site-seo"
+import { productVariants, soldOut, toProductPage } from "@/lib/website-builder/shop-products"
+
+/**
+ * How this product is priced, read on its own so the product read above
+ * stays the one it has always been. Best effort: a database without these
+ * columns prices the product as it always did.
+ */
+async function productPricing(
+  admin: ReturnType<typeof createAdminClient>,
+  productId: string,
+): Promise<{ type?: string | null; pay_what_you_want?: boolean | null; pwyw_min_price_cents?: number | null }> {
+  try {
+    const { data, error } = await admin
+      .from("products")
+      .select("type, pay_what_you_want, pwyw_min_price_cents")
+      .eq("id", productId)
+      .maybeSingle()
+    return error || !data ? {} : (data as { type?: string | null; pay_what_you_want?: boolean | null; pwyw_min_price_cents?: number | null })
+  } catch {
+    return {}
+  }
+}
 
 type ProductRow = {
   id: string
@@ -47,16 +69,27 @@ type ProductRow = {
   slug: string | null
   status: string | null
   creator_id: string | null
+  /* Read when the database has them, which is why the row is read whole below. */
+  inventory_count?: number | null
+  seo_title?: string | null
+  seo_description?: string | null
 }
 
-/* One read per request, shared by the metadata, the page and its structured data. */
+/*
+  One read per request, shared by the metadata, the page and its structured
+  data. THE WHOLE ROW, as storelib.com's product page reads it: the stock
+  count that says whether it has sold out is a column one database may have
+  and another not, and naming a column that is not there fails the read. The
+  page hands its sections an explicit subset (`productData` below), so nothing
+  more reaches the browser.
+*/
 const fetchProductBySlug = cache(async function fetchProductBySlug(slug: string): Promise<ProductRow | null> {
   const supabase = await createClient()
 
   // Try current slug first
   const { data } = await supabase
     .from("products")
-    .select("id, title, description, price_cents, compare_at_cents, thumbnail_url, gallery_urls, whats_included, slug, status, creator_id")
+    .select("*")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle()
@@ -68,10 +101,7 @@ const fetchProductBySlug = cache(async function fetchProductBySlug(slug: string)
     .from("product_slug_history")
     .select(`
       product_id,
-      products!inner (
-        id, title, description, price_cents, compare_at_cents,
-        thumbnail_url, gallery_urls, whats_included, slug, status, creator_id
-      )
+      products!inner ( * )
     `)
     .eq("old_slug", slug)
     .maybeSingle()
@@ -104,7 +134,9 @@ export async function productMetadata(
 
   const ogImage = (product.gallery_urls?.[0]) || product.thumbnail_url || undefined
   const name = product.title ?? "Product"
-  const description = plainSummary(product.description) || undefined
+  /* The product's own search result when its creator wrote one, as storelib.com's product page reads it. */
+  const ownTitle = typeof product.seo_title === "string" ? product.seo_title.trim().replace(/ \| Storelib$/i, "") : ""
+  const description = plainSummary(product.seo_description ?? "", 300) || plainSummary(product.description) || undefined
   const site = where && "url" in where ? where : null
   let canonical: string | undefined = site?.url
   let index = site ? site.indexable : true
@@ -120,12 +152,12 @@ export async function productMetadata(
     index = productIndexable(product, handle || null)
   }
   return {
-    title: site ? { absolute: `${name} | ${site.brand}` } : name,
+    title: site ? { absolute: ownTitle || `${name} | ${site.brand}` } : ownTitle || name,
     description,
     ...(canonical ? { alternates: { canonical } } : {}),
     ...(index ? {} : { robots: { index: false, follow: false } }),
     openGraph: {
-      title: name,
+      title: ownTitle || name,
       description,
       ...(canonical ? { url: canonical } : {}),
       ...(site ? { siteName: site.brand } : {}),
@@ -133,7 +165,7 @@ export async function productMetadata(
     },
     twitter: {
       card: ogImage ? "summary_large_image" : "summary",
-      title: name,
+      title: ownTitle || name,
       description,
       ...(ogImage ? { images: [ogImage] } : {}),
     },
@@ -152,7 +184,8 @@ export async function productStructuredData(slug: string, site: { url: string; s
       description: product.description,
       images: [...new Set(images)],
       priceCents: product.price_cents,
-      inStock: true,
+      /* Sold out when its stock is counted and none is left: the shop's own rule. */
+      inStock: !soldOut(product),
       seller: site.seller,
     }),
   )
@@ -209,7 +242,13 @@ export async function renderProduct(
 
   // Fetch product-page AND home-page sections in parallel. Home is the
   // source of truth for header/footer on every page of the live site.
-  const [{ data: pageData }, { data: homeData }] = await Promise.all([
+  //
+  // Beside them, and in the same round trip: the shop (cached for a minute,
+  // shared with the rest of the site) so a product list on this page draws
+  // the catalogue, and this product's options and pricing mode, so a section
+  // reading `page.product` gets the same fields as a card in `products`.
+  /* The shop itself comes with the page's owner, below (ownerOf). */
+  const [{ data: pageData }, { data: homeData }, variants, extra] = await Promise.all([
     admin
       .from("store_theme_pages")
       .select("sections, draft_sections")
@@ -222,6 +261,8 @@ export async function renderProduct(
       .eq("install_id", install.id)
       .eq("page_key", "home")
       .maybeSingle(),
+    productVariants(admin as never, [product.id]),
+    productPricing(admin, product.id),
   ])
 
   /**
@@ -300,7 +341,14 @@ export async function renderProduct(
   const facts = productFacts(product)
   const others = products.filter((p) => p.id !== product.id)
   const dressed = await dressPage(shop, page, products, productCount, "product", product.title ?? "Product", facts, { cached })
-  const prerendered = renderWithSources(shop.sources, dressed.sections, themeSettings, "product", others, undefined, dressed.data)
+  /**
+   * THE PRODUCT THIS PAGE IS ABOUT, as `page.product` too: the same fields
+   * as a card in `products`, and its description as plain text. A section
+   * written for the product page reads it; a section that does not, does
+   * not notice it. See content/developers/selling.md.
+   */
+  const about = { product: toProductPage({ ...product, ...extra }, variants) }
+  const prerendered = renderWithSources(shop.sources, dressed.sections, themeSettings, "product", others, about, dressed.data)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "product" }}>

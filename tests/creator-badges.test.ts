@@ -56,6 +56,16 @@ const badge = read("components/storefront/creator-badges.tsx")
 check("the name shows on hover and on a tap", /onPointerEnter/.test(badge) && /touched\.current/.test(badge))
 check("and a tap inside a link does not follow it", /e\.preventDefault\(\)\s*\n\s*e\.stopPropagation\(\)/.test(badge))
 
+/* The paste-ready part: one whole statement per line, listed, and checked after. */
+{
+  const part = read("supabase/sql/run-now/27_creator_badges.sql")
+  const body = part.replace(/\/\*[\s\S]*?\*\//g, "").split("\n").filter((l) => l.trim())
+  check("run-now part 27 is one whole statement per line", body.length > 0 && body.every((l) => /;\s*$/.test(l)))
+  check("and keeps the trigger that stops self-granted badges", /CREATE TRIGGER profiles_keep_badges BEFORE INSERT OR UPDATE ON public\.profiles/.test(part))
+  check("and is listed in the run-now README", /27_creator_badges\.sql/.test(read("supabase/sql/run-now/README.md")))
+  check("and the after check reads it", /p27_creator_badges/.test(read("supabase/sql/run-now/99_check_after.sql")))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

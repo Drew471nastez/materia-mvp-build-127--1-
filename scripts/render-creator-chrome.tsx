@@ -17,12 +17,13 @@ import { StorefrontProductCard } from "@/components/storefront/storefront-produc
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { resolveStorefrontChrome, cardAccents } from "@/lib/store-builder/storefront-chrome"
 import { themePresets, defaultShopHeaderSettings } from "@/lib/store-builder/defaults"
+import { OFFERED_SCHEMES } from "@/lib/store-builder/scheme-preview"
 import type { ShopHeaderSettings } from "@/lib/store-builder/types"
 
 const OUT = process.env.OUT_DIR!
 
-/** The five the workspace offers. */
-const SCHEMES = ["default", "blacks", "cream", "pink", "astrid"] as const
+/** Every scheme the picker offers (eight since sage, harbor and clay). */
+const SCHEMES = OFFERED_SCHEMES
 
 /**
  * WHAT A REAL STORED CONFIG LOOKS LIKE, which is the whole point.

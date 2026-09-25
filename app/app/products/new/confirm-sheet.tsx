@@ -66,6 +66,8 @@ const primaryDepth = cn(
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
 )
 
+const AHEAD: ConfirmQuestion = { title: "Discard changes?", body: "Your edits since the last save will be lost.", confirm: "Discard", cancel: "Keep editing" }
+
 export function ConfirmSheet({
   question,
   onAnswer,
@@ -79,7 +81,8 @@ export function ConfirmSheet({
   /* The words stay as they were while it closes, rather than going blank under the slide. */
   const [shown, setShown] = React.useState<ConfirmQuestion | null>(question)
   if (question !== null && question !== shown) setShown(question)
-  const q = question ?? shown
+  /* On a phone the sheet is built ahead, before the first question, with the words it most often asks; the real ones replace them on the tap. */
+  const q = question ?? shown ?? (phone ? AHEAD : null)
   if (!q) return null
   const doIt = q.tone === "default" ? primaryDepth : destructiveDepth
 
@@ -90,6 +93,7 @@ export function ConfirmSheet({
         onClose={() => onAnswer(false)}
         label={q.title}
         maxHeight="min(70dvh, 520px)"
+        keepMounted
         header={
           <div className="px-5 pb-1 pt-3">
             <h2 className="text-[17px] font-semibold leading-6 text-[#1a1a2e]">{q.title}</h2>

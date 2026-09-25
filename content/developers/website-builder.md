@@ -2,80 +2,75 @@
 
 Every part of the Storelib website builder: what each button, panel and setting is, what it changes, and where it lives. The settings on this page are drawn from the same lists the builder reads, with their defaults, so what you see here is what you see in the editor.
 
-The builder opens from **Websites** in your dashboard. Pick a website and press **Edit website**.
+The builder opens from **Websites** in your dashboard. Pick a website and press **Edit website**. It edits one website at a time, and everything you change is a draft until you publish.
 
 ## The screen
 
 | Part | Where | What it is for |
 | --- | --- | --- |
-| Top bar | Across the top | Leaving, switching page, desktop or phone preview, the inspector, Ask AI, and Publish. |
-| Sidebar | Left, on a computer. A sheet at the bottom, on a phone | The sections of the page, the pages of the site, and General Settings. |
+| Top bar | Across the top | Leaving, the website's menu, Preview, Code or Website Settings, the page you are on, desktop or phone, undo, the inspector, connections, Ask AI, and Publish. |
+| Sidebar | Left, on a computer. A sheet at the bottom, on a phone | Three tabs: **Sections** of the page, the site's **Pages**, and the **Theme** settings. A selected section's settings open here. |
 | Canvas | The middle | The page, drawn by the same renderer your visitors get. Click a section to edit it. |
 | Ask AI | Between the sidebar and the canvas, when open | Describe a change, or a new section, and it is made. |
 
-A window narrower than 768px is treated as a phone: the preview is the phone preview and the sidebar becomes a sheet with three tabs, **Sections**, **Pages** and **Settings**.
+A window narrower than 768px is treated as a phone: the canvas shows the phone layout, the sidebar becomes a sheet you drag up from the bottom with the same three tabs, and the menu holds what the bar has no room for. On a computer the sidebar can be dragged wider, from 240 to 560px, and a double click on its edge puts it back.
 
 ## The top bar
 
-From left to right on a computer:
+From left to right, on a computer:
 
 | Control | What it does |
 | --- | --- |
-| Exit | Back to your websites. If a save is still going or a code file is unsaved, it asks first: **Stay here** or **Leave anyway**. |
-| Sections, Pages, General Settings | Switch what the sidebar shows. |
-| Website name and green dot | The dot means the website is published. |
-| **…** menu | View code, Theme settings, Website settings, Connect Claude Code or Codex, Undo, Redo, View live site, Back to Dashboard. On a phone this is also how you reach Code, Website settings and the connections. |
-| Preview, Code, Website Settings | Three ways of looking at the project. Code opens the code editor over the canvas. |
+| Exit, the arrow | Back to your websites. If a save is still going or a code file is unsaved, it asks first: **Stay here** or **Leave anyway**. |
+| The website's name | A green dot beside it means it is the live website. |
+| **…** | View code, Theme settings, Website settings, Connect Claude Code or Codex, Undo, Redo, View live site, and Back to Dashboard. On a phone it also opens the connection. |
+| Preview, Code, Website Settings | How you are looking at the website: the canvas, the [code editor](#the-code-editor), or [Website settings](#website-settings). On a phone these are in the **…** menu. |
 | Desktop or phone | One button that switches the canvas between the full width and a 390px phone. |
 | Page switcher | Which page you are editing. See [Pages](#pages). |
 | Open the live page | The page you are on, on the live site, in a new tab. |
-| Undo and Redo | 30 steps. Typing in a box counts as one step. Changing page starts a fresh history. |
+| Undo and Redo | See [Undo and redo](#undo-and-redo). On a phone they sit beside the menu. |
 | Inspector | On: click a section in the canvas to select it. Off: the canvas is a plain preview you can click through. |
-| Plug | **Connect Claude Code, Codex or ChatGPT.** Opens Website Settings › Connections, where they connect. |
-| Ask AI | Opens and closes the AI panel. |
-| Publish, or Save | See [Saving and publishing](#saving-and-publishing). |
+| Connection | The mark of what is connected, Claude, OpenAI or GitHub, with a green dot while it is live. It opens Website settings on Connections, and a change a connected agent makes is announced under it. |
+| Ask AI | Opens and closes the AI panel. A dot on it means it is still working with the panel closed. |
+| Publish, or Save | **Publish** on the live website, with a bright dot when the draft is ahead of it; it opens the [Publish panel](#publishing). **Save** on a website that is not live, which saves the draft. |
 
-Shortcuts: **⌘Z** or **Ctrl+Z** undoes, **⌘⇧Z**, **⌘Y** or **Ctrl+Y** redoes. In the code editor, **⌘S** or **Ctrl+S** saves.
+## Sections, Pages and Theme
 
-## The sidebar
+The three tabs at the top of the sidebar, and at the top of the sheet on a phone.
 
 ### Sections
 
 The page's sections, top to bottom.
 
 - **The header and footer** sit in their own boxes at the top and bottom. They are the same on every page: change them on one and every page changes. They can be hidden with the eye, but not moved, copied or deleted.
-- **Every other section** has a grip to drag it up or down (press and hold on a phone, or use the arrow keys), and a **…** menu with **Duplicate**, **Hide** or **Show**, and **Delete**. Right-clicking the row opens the same menu.
+- **Every other section** has a grip to drag it up or down: press and hold on a phone, or use the arrow keys. Its **…** menu, or a right click on the row, has **Duplicate**, **Hide** or **Show**, and **Delete**.
 - A hidden section is drawn faded in the list and is left out of the page. Delete takes effect at once; Undo brings it back.
 - A thin line between two rows shows a **+** under the pointer: press it to add a section at exactly that point.
 - **Add section**, at the end of the list on a computer and the start on a phone, adds a section above the footer.
 
 ### Adding a section
 
-**Add section** opens the library: a search box, the categories down the side, and a card for each section drawn small with its real content. Sections you or Ask AI coded are under **Created by you**. Pick one and it is placed, selected and scrolled to.
+**Add section** opens the library: a search box, the categories down the side, and a card for each section drawn small with its real content. A section with several presets has a card for each. Sections you or Ask AI coded are under **Created by you**. Pick one and it is placed, selected and scrolled to.
 
-The library's categories are Hero, Products, Features, Content, Social Proof, CTA, Media, About, FAQ and Marketing.
-
-### Blocks
-
-Some sections hold repeated items: questions in an FAQ, columns in a footer, slides in a gallery. These are blocks, listed under the section's settings. Each block can be moved up or down, duplicated, deleted, and opened to edit its own settings. **Add** adds another until the section's limit, and clicking a block in the canvas opens it in the list.
+The library's categories are Hero, Products, Features, Content, Social Proof, CTA, Media, About, FAQ and Marketing. A section is only in the library when its file declares a preset; see [Blocks](/developers/blocks#presets-fill-a-new-section).
 
 ### Pages
 
-**Pages** lists the website's pages: Home, About, Contact, Shop and Search, the pages you made, and a product page for each product. The switcher in the top bar does the same with a search box, and **Create page** asks for a title and makes a page at an address taken from it. A new page starts with the header and footer and nothing between.
+**Pages** lists the website's pages: Home, the product page, About, Contact, Shop and Search, the pages you made, and a product page for each of your products. The page switcher in the top bar does the same with a search box, a **Yours** group for the pages you made, a **Products** group, and **Create page**, which asks for a name and makes a page at an address taken from it. A new page starts with the header and footer and nothing between. A page you made can be deleted from the switcher; that takes it off the live site at once.
 
-Every website comes with a Refund Policy, a Privacy Policy and Terms of Service page. Edit them like any other page before you publish.
+Every website comes with a Refund Policy, a Privacy Policy and Terms of Service page. Edit them like any other page before you publish. Keys, addresses and each page's search settings are in [Pages and page settings](/developers/pages).
 
 ## A section's settings
 
 Click a section, in the canvas or the list, and its settings open in the sidebar.
 
-- **Colour scheme** comes first: pick one of the website's schemes and every colour in the section follows it. **Advanced colors** overrides single colours (background, text, heading, accent, border, and the two buttons) for this section only. **Reset to scheme** undoes that.
-- **Text** picks the heading and body styles from General Settings, or **Custom** to set font, weight, size per screen, line height, letter spacing and case for this section.
-- **The section's own settings** follow, in the order its file declares them, each with its help text.
-- **Blocks**, if it has any.
+- **Colour scheme** comes first: pick one of the website's schemes and every colour in the section follows it. **Advanced colors** overrides single colours (background, text, heading, accent, border, and the two buttons with their hover colours) for this section only. **Reset to scheme** undoes that.
+- **Text** picks the heading style and the body style from the theme's text styles, or **Custom** to set font, weight, size per screen, line height, letter spacing and case for this section.
+- **The section's own settings** follow, in the order its file declares them, each with its help text. A setting marked responsive has a Desktop, Tablet, Phone switch above it.
+- **Blocks**, if it has any. Each block can be moved up or down, duplicated, deleted, and opened to edit its own settings. **Add** adds another, until the section's `limit` for that kind of block or its `max_blocks`. Clicking a block in the canvas opens it in the list.
 - **Hide**, **Duplicate** and **Delete** are pinned along the bottom.
 
-With the inspector on, a selected section also shows a small toolbar at its top right: Ask AI, Move up, Move down, Duplicate, Hide and Delete.
+A section's file decides which of these it offers; see [Schema](/developers/schema#top-level). With the inspector on, a selected section also shows a small toolbar at its top right: Ask AI, Move up, Move down, Duplicate, Hide and Delete.
 
 ### Every control a section can have
 
@@ -93,9 +88,9 @@ The header has a panel of its own, in three parts.
 
 The header and the announcement bar are the same on every page. The announcement bar is set in General Settings.
 
-## General Settings
+## Theme settings
 
-The settings that belong to the whole website. Open them with the gear in the top bar, or **Settings** on a phone.
+The settings that belong to the whole website, under the **Theme** tab of the sidebar, where the panel is called General Settings. **Theme settings** in the **…** menu opens it too. How they are stored is in [Themes](/developers/themes#theme-settings).
 
 ### Colors
 
@@ -167,7 +162,7 @@ Named lists of links that a section can show: a footer column, a second navigati
 
 ## The canvas
 
-The canvas is your page, drawn the way a visitor sees it.
+The canvas is your page, drawn the way a visitor sees it, by the same renderer.
 
 **With the inspector on**, a section shows a faint ring under the pointer and a solid one when selected. Clicking selects a section, or a block inside it. Clicking into a form field lets you type in it rather than selecting the section. Hovering the gap between two sections shows **Add a section here**.
 
@@ -179,14 +174,41 @@ Either way, the builder never leaves itself:
 - Links to other websites, email links and phone links do nothing.
 - Forms do not submit, and nothing can be bought. A sign-up box in the canvas does not subscribe anyone.
 
-A section that fails to draw says so in its place, with the error and **Try again**. The rest of the page is unaffected.
+The phone preview is 390px wide, the width of the most common phones. A section's layout answers to its own width, so the phone preview draws the phone layout exactly as a phone would.
+
+A section that fails to draw says so in its place, in red, naming the file and the line, with the rest of the page unaffected. On the live site the same section is left out. See [Publishing and checks](/developers/publishing#when-a-visitor-opens-a-page).
+
+## Undo and redo
+
+**⌘Z** or **Ctrl+Z** undoes, and **⌘⇧Z**, **⌘Y** or **Ctrl+Y** redoes, as do the two arrows in the top bar.
+
+- The last 30 changes can be undone: moving, hiding, duplicating and deleting sections and blocks, settings, theme settings and what Ask AI changed on the page.
+- A run of typing in one box is one step.
+- Changing page starts a fresh history, so Undo never reaches into a page you are not looking at.
+- Undo does not reach a section file saved in the code editor, which has its own [History](#the-code-editor), or a page you deleted.
+
+## Saving and publishing
+
+- **The draft saves itself**, a second and a half after your last change: the theme settings, then the page you are on, then the header and footer copied onto every page. There is no save button to remember while editing. A save that fails says so.
+- **The live website does not change until you publish.** Visitors see the published version and nothing else.
+- On a website that is not live, the top bar's button is **Save**. It is published from Website settings › Publishing or from its menu in the library.
+
+### Publishing
+
+On the live website, **Publish** opens the Publish panel: the website's address, who can see it, when it was last published, **Preview**, and **Publish changes**. Publishing puts every page's draft, the theme settings and the saved section files live at once, and keeps a backup. Every step is in [Publishing and checks](/developers/publishing#what-publish-does).
+
+**Preview** makes a private link that shows the drafts to anyone you send it to, and the panel then shows the link with a copy button and **Turn off**. See [Preview links](/developers/sharing-themes#preview-links).
+
+### Backups
+
+Website settings › **Backups & Versions** lists the website's backups. One is kept every time you publish, every time Ask AI finishes a task, and before a connected agent changes a page. **Back up now** makes one; **Restore** puts one back as the draft, after backing up the draft it replaces. The newest 30 are kept. A backup holds the theme settings and every page; section files keep their own history in the code editor.
 
 ## Ask AI
 
 Ask AI has two modes.
 
 - **Change this page**: describe a change and it is made with the same sections, blocks and settings the panels use. It is one step of Undo, and nothing is saved until the builder saves. Select a section first and it can be limited to that one.
-- **Code a section**: describe a section the library does not have. It is written as a section file, compiled, and only kept if it compiles; a file that does not compile is sent back to be fixed, up to three times. While it is being written, the panel says what it is doing (Starting, Thinking, Writing the section, Checking it, Fixing a detail), the spot it will fill shows code being typed, and the finished section takes its place. If it still cannot get it right, it says so in plain words with **Try again**, never with the compiler's report.
+- **Code a section**: describe a section the library does not have. It is written as a section file, compiled, and only kept if it compiles and passes the same checks as any agent's file; a file that fails is sent back to be fixed, up to three times. While it is being written, the panel says what it is doing (Starting, Thinking, Writing the section, Checking it, Fixing a detail), the spot it will fill shows code being typed, and the finished section takes its place. If it still cannot get it right, it says so in plain words with **Try again**, never with the compiler's report.
 
 Both modes answer rather than guess. A greeting, a question, or a request too unclear to act on gets a short reply saying what it understood and what to ask for, and nothing on the page changes.
 
@@ -194,19 +216,20 @@ You can attach up to four pictures (PNG, JPEG, WebP or GIF) of something you wan
 
 ## The code editor
 
-**Code**, in the top bar, opens every file of the website's theme: the section files, the templates, the settings, the styles and the scripts. The list marks files you changed in blue and unsaved ones in amber.
+**Code**, in the top bar, opens the website's files in a tree: the section files, the templates, the settings, the snippets and the styles. The list marks files you changed in blue and unsaved ones in amber.
 
 - **Save** (or ⌘S) compiles a section file first. If it does not compile, nothing is saved, and each error is listed with its line; press one to jump to it, or **Solve with AI**.
 - A save is a draft: the live website changes when you publish.
-- **History** lists every save of a file; open any of them to bring it back.
+- **New file** under `sections/` saves a starter section that already compiles, with a colour scheme, a heading, text and spacing, and a preset, so it is in Add Section at once.
+- **History** lists every save of a file, the newest 50; open any of them to bring it back.
 - **Revert** puts a theme file back to how the theme shipped it. Your own files can be renamed, duplicated and deleted; the editor warns first if a page uses the section.
 - Unsaved edits are kept in the browser, and offered back when you return.
 
-The language section files are written in is the [Storelib Builder Framework](/developers/sections).
+Only `sections/*.storelib` changes what the site draws. The other files in the tree are views of the theme's data, and saving an edit to one changes nothing on the site; see [Themes](/developers/themes#what-the-site-reads-and-what-it-does-not). The language section files are written in is the [Storelib Builder Framework](/developers/sections).
 
 ## Website settings
 
-**Website Settings**, in the top bar, is a page of its own, with eight subjects about the website down the left and Connections under its own heading, Code. On a phone they are a list, and each opens with its own Back. On the Website page, **Settings** beside the title opens it for the live website, and a draft's own is in its **More** menu. The live website's **More** menu also has **View website** and **Take offline**, and a website that was taken offline has **Publish again**.
+**Website Settings**, in the top bar, is a page of its own, with eight subjects about the website down the left and Connections under its own heading, Code. On a phone they are a list, and each opens with its own Back. On the Websites page, **Settings** beside the live website opens it, and a draft's own is in that draft's **More** menu.
 
 Every website has its own settings. Anything marked below as part of the draft is saved with the website's other changes, can be undone, and reaches visitors when you publish.
 
@@ -215,6 +238,12 @@ Every website has its own settings. Anything marked below as part of the draft i
 | General | The website's name, which only you see. Its address, set by your username. Whether it is live. Its favicon and its language (both part of the draft); the language sets the page's `lang` and the share card's locale. |
 | Domains | The Storelib address, which starts as your username and can be given its own name with **Change address** (your username stays as it is, and the old address keeps working), and a custom domain if one is connected, with its status: waiting for DNS, securing, or connected. The `www.` address is the main one and the bare domain redirects to it. HTTPS is set up for both. A domain is added right here. Until it is connected, the three DNS records to set are listed, each with a copy button, and **Check DNS** looks them up. A site has one domain. Adding another asks first, then the old one sends its visitors to the new one for 30 days. Removing a domain is in Settings › Domains. |
 | SEO & Social | A preview of the search result. Site title, meta description, social image, share card size, and whether search engines may list the website (all part of the draft). |
+| Pages & Navigation | Every page with **Edit**, which opens it in the builder, and **Add page**. **Search** opens the page's own search result: its title, its description, and **Show in search engines**. Off gives the page `noindex` and leaves it out of the sitemap. These are stored in the theme settings as `page_seo`, keyed by page, so they are saved with the draft and go live on publish. The home page's search result is the site's own, in SEO & Social. **Edit menu** selects the header, where the menu is. |
+| Commerce | How many published products the website can show, and **Manage products**. Checkout is Storelib's, paid by card or Google Pay through Stripe, in US dollars. **Payments settings** is where payouts go. |
+| Policies | The refund, privacy and terms pages, each with **Edit**. The cookie banner: **Show the cookie banner** (off means no banner, and nothing optional is stored for visitors), its message and its two buttons, which start with the site's default words, and **Use my own colours**. All part of the draft, and the same settings as the builder's Cookie & privacy. |
+| Publishing | Live or draft, the published address, when it was last published, **Publish**, and **Take offline**, which asks first and deletes nothing. |
+| Backups & Versions | See [Backups](#backups). **Duplicate** makes a draft copy of the website, if the library has room. |
+| Connections | Under Code, apart from the website's own settings. **Connect Claude Code, Codex or ChatGPT**: directly with a token and one line in a terminal, or through a GitHub repository. Whatever they write is a draft until you publish, and they never change a built-in section. **Edit code**, and the developer docs. See [Building with AI agents](/developers/ai) and [Rules before you ship](/developers/rules). |
 
 **How a published website is found.** Every published website answers for itself, at its Storelib address and on a connected domain:
 
@@ -223,19 +252,5 @@ Every website has its own settings. Anything marked below as part of the draft i
 - Every page names its **canonical** address, which is the connected domain when there is one, so the two addresses count as one page.
 - The home page carries structured data naming the website and its owner. A product page carries the product with its price, which is what lets a search result show the price and picture.
 - With search engines switched off, pages say `noindex` and the sitemap is not offered. Crawlers are still let in, so they read the `noindex` and drop the pages.
-| Pages & Navigation | Every page with **Edit**, which opens it in the builder, and **Add page**. **Search** opens the page's own search result: its title, its description, and **Show in search engines**. Off gives the page `noindex` and leaves it out of the sitemap. These are stored in the theme settings as `page_seo`, keyed by page, so they are saved with the draft and go live on publish. The home page's search result is the site's own, in SEO & Social. **Edit menu** selects the header, where the menu is. |
-| Commerce | How many published products the website can show, and **Manage products**. Checkout is Storelib's, paid by card or Google Pay through Stripe, in US dollars. **Payments settings** is where payouts go. |
-| Policies | The refund, privacy and terms pages, each with **Edit**. The cookie banner: **Show the cookie banner** (off means no banner, and nothing optional is stored for visitors), its message and its two buttons, which start with the site's default words, and **Use my own colours**. All part of the draft, and the same settings as the builder's Cookie & privacy. |
-| Publishing | Live or draft, the published address, when it was last published, **Publish**, and **Take offline**, which asks first and deletes nothing. |
-| Backups & Versions | A backup is kept every time you publish and every time Ask AI finishes. **Back up now** makes one; **Restore** puts one back (after saving the current draft as a backup first). The newest 30 are kept. **Duplicate** makes a draft copy, if the library has room. |
-| Connections | Under Code, apart from the website's own settings. **Connect Claude Code, Codex or ChatGPT**: directly with a token and one line in a terminal, or through a GitHub repository. Whatever they write is a draft until you publish, and they never change a built-in section. **Edit code**, and the developer docs. See [Building with AI agents](/developers/ai) and [Rules before you ship](/developers/rules). |
 
-A creator keeps up to five websites: one live and four drafts. Add theme, Duplicate and Import all refuse a sixth, on the server, and the page shows which websites are taking the room with **Remove** beside each draft.
-
-## Saving and publishing
-
-- Every change is saved as a **draft** a moment after you make it. There is no save button to remember while editing.
-- The live website does not change until you **Publish**. On a website that is live, the button in the top bar says Publish, with a bright dot when the draft is ahead of the live site.
-- The Publish panel shows the website's address, when it was last published, and **Preview**, which makes a private link that shows the draft to anyone you send it to.
-- Publishing makes every page's draft, the theme settings and the saved code files live at once, and keeps a backup.
-- A website that has never been published has a **Save** button instead, since there is nothing live to update yet.
+A creator keeps up to five websites: one live and four drafts. Add theme, Duplicate and Import all refuse a sixth, on the server, and the Websites page shows which websites are taking the room with **Remove** beside each draft. See [Themes](/developers/themes#the-website-library).

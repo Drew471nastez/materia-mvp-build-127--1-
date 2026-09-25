@@ -2277,8 +2277,12 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         // "Fade siblings": when any link is hovered, every other anchor in
         // the nav smoothly fades to 40% opacity. Uses :has() so it requires
         // no JS, and hits every anchor — including dropdown triggers.
+        // The :has() sets a variable on the nav and the anchors read it, so
+        // no :has() rule ends in `a`: the browser keeps one list of what any
+        // change under any :has() restyles, and an `a` there restyled every
+        // link in the app each time a sheet or dialog opened or closed.
         menuHoverStyle === "fade_siblings" &&
-          "[&_a]:transition-opacity [&_a]:duration-[220ms] [&:has(a:hover)_a]:opacity-40 [&:has(a:hover)_a:hover]:opacity-100",
+          "[&_a]:transition-opacity [&_a]:duration-[220ms] [&_a]:[opacity:var(--nav-fade,1)] [&:has(a:hover)]:[--nav-fade:0.4] [&_a:hover]:opacity-100",
       )}
       style={{ gap: `${linkSpacingPx}px` }}
     >

@@ -434,11 +434,13 @@ export function CategoryPicker({
           <span className="truncate text-[#9ca3af]">Search categories</span>
         </button>
         {value ? <Chosen value={value} suggested={suggested} onClear={onClear} /> : null}
+        {/* Built while the editor is idle and kept between opens (BottomSheet keepMounted): its 37 groups and the search are already styled and laid out, so the tap only slides it up. */}
         <BottomSheet
           isOpen={open}
           onClose={() => show(false)}
           label="Category"
           aboveKeyboard
+          keepMounted
           fill
           height="min(78dvh, 680px)"
           maxHeight="min(78dvh, 680px)"

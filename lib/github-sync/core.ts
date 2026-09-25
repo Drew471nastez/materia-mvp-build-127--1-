@@ -15,6 +15,8 @@
  * It imports nothing from Next, so tests/github-sync.test.ts runs it as is.
  */
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
+/* The one rulebook, so a repository's agents read what the builder and MCP agents read. Pure text, no Next. */
+import { RULEBOOK_VERSION, ruleGroupsMarkdown } from "@/lib/agent-rules"
 
 /** The one kind of file a push can change on a site. Same rule as a connected agent. */
 export const SYNCED = /^sections\/[a-z0-9_-]{1,64}\.storelib$/
@@ -314,13 +316,34 @@ template. Before writing one:
   styles. Never introduce a new palette or font.
 - Write copy about what the site really sells, in its own voice. Never invent
   a product, a price, a discount or a review.
-- Products reach a section as \`products\` (title, formatted price, picture,
-  page URL). Link a card to \`{{ block.settings.url | url }}\`, or straight
-  to checkout with \`/checkout?productId={{ block.id }}&src=website\`.
+- Products reach a section as \`products\`, block-shaped: \`block.id\` and
+  \`block.settings\` with \`title\`, \`price\`, \`compare_price\`, \`currency\`,
+  \`image\`, \`images\`, \`url\`, \`slug\`, \`available\`, \`tag\`,
+  \`checkout_url\` and \`variants\` (each with its own \`checkout_url\`). A
+  section on the product page reads its product as \`page.product\`.
+- Link a card to \`{{ block.settings.url | url }}\`, and a buy button to
+  \`{{ block.settings.checkout_url | url }}\`, which is
+  \`/checkout?productId={{ block.id }}&src=website\`. Checkout sends the
+  buyer back to this site after paying.
 - Never build a payment form or load a payment or tracking script. Storelib
   checkout takes the payment.
 
-The whole of that is at https://storelib.com/developers/selling.
+The whole of that, with a product page example, is at
+https://storelib.com/developers/selling.
+
+## When something is missing, ask
+
+If a fact that changes the result is not in this repository or on the site
+(which product to feature, which page, brand colours the site does not have,
+a business fact), ask the person you are working with one short question
+with a few options, and wait. Never ask what the files or storelib_site can
+tell you.
+
+## The Storelib agent rules, in full (version ${RULEBOOK_VERSION})
+
+The same rules Storelib AI in the builder and every agent over MCP work by.
+
+${ruleGroupsMarkdown(3)}
 `
 }
 

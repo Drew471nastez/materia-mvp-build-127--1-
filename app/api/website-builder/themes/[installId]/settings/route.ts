@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
+import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -30,7 +32,7 @@ async function getCreatorInstall(installId: string) {
 
   // The creator id comes back too: a write that lands on the LIVE `settings`
   // column changes the website, so the cached published site has to go.
-  return { error: null, status: 200, supabase, creatorId: (creator as { id: string }).id }
+  return { error: null, status: 200, supabase, creatorId: (creator as { id: string }).id, userId: user.id }
 }
 
 // GET /api/website-builder/themes/[installId]/settings
@@ -59,15 +61,23 @@ export async function GET(_req: Request, { params }: Params) {
 // When publishing, pass settings (and clear draft_settings).
 export async function PUT(req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase, creatorId } = await getCreatorInstall(installId)
+  const { error, status, supabase, creatorId, userId } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
 
-  let body: unknown
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
-  }
+  /* Per person, after they are known, sized for autosave in two tabs: LIMITS.siteSave. */
+  const limited = await rateLimit({
+    bucket: "site-settings-save",
+    subjects: [`user:${userId}`],
+    windows: LIMITS.siteSave,
+    message: "Too many saves in a short time. Wait a moment, then keep editing.",
+  })
+  if (limited) return limited
+
+  /* Read up to a cap rather than whatever arrives: lib/website-builder/request-body.ts. */
+  const read = await readEditorBody(req, BODY_LIMITS.settings)
+  if (read.ok === false) return read.response
+  if (read.invalid) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  const body = read.json
   const parsed = SettingsBodySchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(

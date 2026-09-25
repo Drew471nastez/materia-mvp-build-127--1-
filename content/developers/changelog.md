@@ -4,7 +4,7 @@ Changes to the Storelib Builder Framework: the section format, the template lang
 
 ## Versions
 
-Four things carry a version, and they move independently so that one changing does not force the others.
+Five things carry a version, and they move independently so that one changing does not force the others.
 
 @[versions]
 
@@ -27,6 +27,9 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 - The 404 page: every site draws its own inside its header and footer for an address it does not have, and a creator can arrange it in the builder like the shop and search pages.
 - The Product Grid can show products the creator chooses from the shop.
 - [Coming from Shopify](/developers/shopify).
+- [Themes](/developers/themes): what a theme holds, the website library, every theme setting key, colour schemes and typography, and the package format with `theme.json`, `manifest.json` and `templates/*.json`.
+- [Pages and page settings](/developers/pages), [Sharing themes](/developers/sharing-themes), [Publishing and checks](/developers/publishing), [Dynamic values](/developers/dynamic-values) and [Data model](/developers/data-model).
+- The hub is grouped the way it is used: Get started, Themes, Sections, Data and logic, Tools and AI, and Reference. Every page keeps its address.
 
 **Changed**
 
@@ -34,11 +37,27 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 - The countdown's exact time is a `datetime`, written out when no end is typed.
 - The header's phone menu can slide in from either side or cover the screen, and its see-through setting can apply to the home page only.
 - The announcement bar can hold several messages that take turns.
+- `migrations` are applied: a section's own setting stored under `from` is read under `to` as the section is drawn.
+- The theme export downloads media from public addresses only, checked at every redirect.
 
 **Security**
 
 - A creator's own sections are cleaned by the schema their file declares, not only by the built-in ones, when a page is saved, read in the builder and published.
 - The builder's routes no longer return database error text.
+
+
+**Fixed in these pages**
+
+- `allowed_templates` is described as it ships: validated and kept, and not used yet.
+- An unknown filter is not refused by the compiler. It prints the value unchanged.
+- There is no `layout/theme.storelib`. A theme has no stylesheet for the whole site that you can write.
+- An export names its page files by page key, `templates/home.json` and `templates/about.json`, and takes the theme settings from the draft and the pages as last published.
+- Media settings hold public URLs on a site. `asset://` references exist only inside a theme package.
+- The importer holds blocks to the ceiling of 50. `limit` and `max_blocks` are held by the builder's buttons, and `max_blocks` by the agent page tools.
+- A page picker and a product picker store the address they link to.
+- A section's script receives the settings stored on the instance, without schema defaults.
+- A product's `tag` is always empty today.
+- A page stores its preset's values and everything the creator sets, not only what differs from the defaults.
 
 ## 24 September 2026
 
@@ -118,6 +137,6 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 - Blocks, presets, `max_blocks` and per-type `limit`.
 - Responsive settings, resolved as `{ desktop, tablet, mobile }`.
 - Colour schemes and text styles as theme tokens, with per-section overrides.
-- `migrations` for renaming a setting without losing content.
+- `migrations`, a list of setting renames a section can declare. It is validated and kept; nothing applies it yet (25 September 2026).
 - Themes export to and import from a single `.storelib-theme` file, checked as a whole, with every file hashed.
 - An accessibility baseline: on every built-in colour scheme, body text meets a contrast of 4.5 to 1 against its background and headings meet 3 to 1.

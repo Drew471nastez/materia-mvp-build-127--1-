@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -40,7 +41,10 @@ export async function PUT(req: Request, { params }: Params) {
     .maybeSingle()
   if (!install) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  const body = (await req.json().catch(() => ({}))) as { page_key?: unknown; section_id?: unknown; block_id?: unknown }
+  /* Three short strings, so a small cap: lib/website-builder/request-body.ts. */
+  const read = await readEditorBody(req, BODY_LIMITS.small)
+  if (read.ok === false) return read.response
+  const body = ((read.invalid ? null : read.json) ?? {}) as { page_key?: unknown; section_id?: unknown; block_id?: unknown }
   const page = typeof body.page_key === "string" ? body.page_key.toLowerCase() : ""
   if (!PAGE_KEY.test(page)) return NextResponse.json({ error: "page_key" }, { status: 400 })
   const section = typeof body.section_id === "string" && ID.test(body.section_id) ? body.section_id : null

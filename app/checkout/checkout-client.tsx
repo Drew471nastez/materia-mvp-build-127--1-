@@ -34,6 +34,7 @@ import { getProductUrl } from "@/lib/url-helpers"
 import { ReturnLink } from "@/components/navigation/return-link"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
+import { paidReturnUrl, returnHostLabel } from "@/lib/checkout/return-url"
 import { EMPTY_BUSINESS, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
 import { CheckRow, ErrorBanner, Field, PayButton, SectionTitle, TextInput, money } from "./parts/ui"
 import { DiscountForm, LineItem, TipPicker, Totals, type SummaryVariant } from "./parts/order-summary"
@@ -60,6 +61,14 @@ interface CheckoutPageClientProps {
   }
   userEmail: string | null
   isLoggedIn: boolean
+  /**
+   * The creator's own website page to land on after paying, checked on the
+   * server against their sites (lib/checkout/return-url.ts). Null: the
+   * Storelib receipt, as before.
+   */
+  returnTo?: string | null
+  /** Where Back goes, checked the same way. Null: the product. */
+  backTo?: string | null
   selectedVariant?: SummaryVariant | null
   isPwyw?: boolean
   customPriceCents?: number | null
@@ -101,6 +110,8 @@ export default function CheckoutPageClient({
   product,
   creator,
   userEmail,
+  returnTo = null,
+  backTo = null,
   selectedVariant: initialVariant,
   isPwyw,
   customPriceCents,
@@ -166,9 +177,37 @@ export default function CheckoutPageClient({
     void trackFunnelStep("checkout_start", creator.id, product.id)
   }, [creator.id, product.id])
 
-  /* Back goes where the buyer came from: a website's product page sends ?from=. */
+  /* Back goes where the buyer came from: the creator's website page when the
+     server checked one (backTo), else a product page's ?from=, else the product. */
   const from = searchParams.get("from") || ""
-  const productUrl = from.startsWith("/") && !from.startsWith("//") ? from : getProductUrl(creator.username, product.slug)
+  const productUrl = backTo ?? (from.startsWith("/") && !from.startsWith("//") ? from : getProductUrl(creator.username, product.slug))
+  const siteHost = returnHostLabel(backTo ?? returnTo)
+  /* A buyer who came from a creator's website keeps shopping there, not in Explore. */
+  const shopUrl = (() => {
+    const site = backTo ?? returnTo
+    if (!site) return "/explore"
+    try {
+      return `${new URL(site).origin}/`
+    } catch {
+      return "/explore"
+    }
+  })()
+
+  /**
+   * AFTER PAYING: the creator's website when the link asked for it and the
+   * server agreed, else the receipt. The receipt is emailed either way, and
+   * its address never travels to the website: it is a credential.
+   */
+  const afterPaid = React.useCallback(
+    (receiptToken: string) => {
+      if (returnTo) {
+        window.location.replace(paidReturnUrl(returnTo))
+        return
+      }
+      router.replace(`/receipt/${encodeURIComponent(receiptToken)}`)
+    },
+    [returnTo, router],
+  )
 
   /* ── After paying: the order, then the receipt ───────────────────── */
   /**
@@ -195,7 +234,7 @@ export default function CheckoutPageClient({
         if (res?.ok && res.data.receiptToken) {
           const token = res.data.receiptToken
           setPaid({ total: res.data.amountCents ?? 0, free: false })
-          window.setTimeout(() => router.replace(`/receipt/${encodeURIComponent(token)}`), 1100)
+          window.setTimeout(() => afterPaid(token), 1100)
           return
         }
         /* A refusal is an answer; only a failure to answer is retried. */
@@ -207,7 +246,7 @@ export default function CheckoutPageClient({
       setSettled(true)
       throw new Error(last)
     },
-    [router],
+    [afterPaid],
   )
 
   /* Arriving with a payment in the address: back from a bank's page, or a
@@ -391,7 +430,7 @@ export default function CheckoutPageClient({
       if (!res.ok || !res.data.receiptToken) throw new Error(res.data.error || "The order could not be finished. Try again.")
       const token = res.data.receiptToken
       setPaid({ total: 0, free: true })
-      window.setTimeout(() => router.replace(`/receipt/${encodeURIComponent(token)}`), 1100)
+      window.setTimeout(() => afterPaid(token), 1100)
     } catch (e) {
       setError(e instanceof Error ? e.message : "The order could not be finished. Try again.")
     } finally {
@@ -642,10 +681,10 @@ export default function CheckoutPageClient({
         <div className="mx-auto flex h-14 max-w-[1100px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
           <ReturnLink href={productUrl} className="flex min-h-[44px] min-w-0 items-center gap-2 text-[14px] text-[#6b7280] transition-colors hover:text-[#1a1a2e]">
             <ArrowLeft className="h-4 w-4 shrink-0" />
-            <span className="truncate">Back to product</span>
+            <span className="truncate">{backTo && siteHost ? `Back to ${siteHost}` : "Back to product"}</span>
           </ReturnLink>
           <Link
-            href="/explore"
+            href={shopUrl}
             className="inline-flex h-9 shrink-0 items-center rounded-[10px] border border-[#d4d6db] px-3.5 text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]"
           >
             Continue Shopping
@@ -713,7 +752,7 @@ export default function CheckoutPageClient({
         </aside>
       </div>
 
-      <PaidOverlay show={!!paid} total={paid?.total ?? 0} free={!!paid?.free} />
+      <PaidOverlay show={!!paid} total={paid?.total ?? 0} free={!!paid?.free} returningTo={returnTo ? returnHostLabel(returnTo) : null} />
     </div>
   )
 }

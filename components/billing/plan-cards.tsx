@@ -83,11 +83,73 @@ const LOOK: Record<OfferedPlanId, { picture: string; blur: `data:image/${string}
  */
 export const PLAN_PICTURE_SIZES = "(min-width: 768px) 360px, calc(100vw - 32px)"
 
-function PlanButton({ action, plan, compact }: { action: PlanCardAction; plan: OfferedPlanId; compact?: boolean }) {
+/**
+ * FILM GRAIN OVER THE PICTURES. A tile of fractal noise with the colour
+ * taken out, laid over each header picture in overlay at a low opacity, so
+ * the pictures read as printed rather than rendered. Drawn once as an SVG
+ * tile the size of a stamp: no image to fetch, nothing that moves.
+ */
+const GRAIN =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E\")"
+
+/* The curve the pill's thumb and the price share, so they move as one. */
+const SWITCH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+
+/**
+ * MONTHLY AND YEARLY ARE BOTH ALREADY THERE. Every line that differs between
+ * the two (the price, the words under it, the small print, the button) is
+ * drawn twice in the same grid cell and only the one that applies is shown.
+ * Switching fades one out as it drifts away and the other in as it settles,
+ * on the pill's curve, and because both are always laid out the card never
+ * changes size: nothing jumps, nothing is remounted, nothing pops in late.
+ * The one going leaves quickly and the one coming waits a beat, so the two
+ * are barely on screen together.
+ */
+function Morph<K extends string>({
+  value,
+  items,
+  align = "start",
+  className = "",
+}: {
+  value: K
+  items: Record<K, React.ReactNode>
+  align?: "start" | "center"
+  className?: string
+}) {
+  const keys = Object.keys(items) as K[]
+  const at = keys.indexOf(value)
+  return (
+    <span className={`inline-grid ${align === "center" ? "justify-items-center" : "justify-items-start"} ${className}`}>
+      {keys.map((key, i) => {
+        const on = key === value
+        return (
+          <span
+            key={key}
+            aria-hidden={on ? undefined : true}
+            data-morph={on ? "on" : "off"}
+            className="[grid-area:1/1] motion-reduce:!transition-none"
+            style={{
+              opacity: on ? 1 : 0,
+              translate: on ? "0 0" : `0 ${i < at ? "-0.35em" : "0.35em"}`,
+              transition: on
+                ? `opacity 240ms ${SWITCH_EASE} 70ms, translate 380ms ${SWITCH_EASE}`
+                : `opacity 130ms ease-out, translate 380ms ${SWITCH_EASE}`,
+              pointerEvents: on ? undefined : "none",
+            }}
+          >
+            {items[key]}
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
+function PlanButton({ action, plan, compact, label }: { action: PlanCardAction; plan: OfferedPlanId; compact?: boolean; label?: React.ReactNode }) {
   const look = LOOK[plan]
   const className =
     `inline-flex w-full ${compact ? "h-11" : "h-12"} items-center justify-center gap-2 rounded-xl px-5 ` +
-    "text-[13px] font-bold uppercase tracking-[0.06em] no-underline select-none transition-colors duration-150 " +
+    "text-[13px] font-bold uppercase tracking-[0.06em] no-underline select-none transition-colors duration-300 " +
     `focus-visible:outline-none focus-visible:ring-4 ${look.ring} ` +
     (action.settled
       ? "bg-[#f3f4f6] text-[#4b5563] cursor-default"
@@ -98,10 +160,12 @@ function PlanButton({ action, plan, compact }: { action: PlanCardAction; plan: O
       Processing
     </>
   ) : (
-    <>
-      <span className="min-w-0 truncate">{action.label}</span>
-      {action.settled ? null : <ArrowRight className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden="true" />}
-    </>
+    label ?? (
+      <>
+        <span className="min-w-0 truncate">{action.label}</span>
+        {action.settled ? null : <ArrowRight className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden="true" />}
+      </>
+    )
   )
 
   if (action.href && !action.disabled && !action.settled) {
@@ -139,16 +203,20 @@ function PlanCard({
   interval: BillingInterval
 }) {
   const look = LOOK[plan.id]
-  const priced = pricedFor(plan, interval)
+  const monthly = pricedFor(plan, "monthly")
+  const yearly = pricedFor(plan, "yearly")
   /* Yearly Pro is shown, not sold, until its Stripe price exists (lib/billing/plans). */
-  const held = interval === "yearly" && plan.priceCents > 0 && !YEARLY_BILLING_LIVE && !action.settled
-  const shownAction: PlanCardAction = held ? { label: "Yearly opens soon", settled: true } : action
-  /* The price eases in when the interval changes, never on the first paint. */
-  const [changed, setChanged] = React.useState(false)
-  const firstInterval = React.useRef(interval)
-  React.useEffect(() => {
-    if (interval !== firstInterval.current) setChanged(true)
-  }, [interval])
+  const heldAction = (i: BillingInterval): PlanCardAction => {
+    const held = i === "yearly" && plan.priceCents > 0 && !YEARLY_BILLING_LIVE && !action.settled
+    return held ? { label: "Yearly opens soon", settled: true } : action
+  }
+  const shownAction = heldAction(interval)
+  const buttonLabel = (a: PlanCardAction) => (
+    <span className="inline-flex min-w-0 items-center gap-2">
+      <span className="min-w-0 truncate">{a.label}</span>
+      {a.settled ? null : <ArrowRight className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden="true" />}
+    </span>
+  )
   const pad = compact ? "px-5" : "px-6"
 
   return (
@@ -174,13 +242,20 @@ function PlanCard({
           className={`-z-10 object-cover object-right select-none pointer-events-none ${look.dim}`}
           data-plan-picture=""
         />
-        {/* The bottom of the picture melts away: blurred and darkened toward the text, so the
-            description sits on a quiet ground instead of the picture's detail. */}
+        {/*
+          The bottom of the picture darkens toward the text, so the description
+          sits on a quiet ground. It used to be blurred as well, a backdrop
+          blur faded out by a mask: Safari draws that blur but not the mask,
+          so on an iPhone the blur ended in a hard edge across the picture,
+          a cut through the Storelib mark. The darkening alone does the job.
+        */}
+        <span aria-hidden="true" className={`pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[72%] bg-gradient-to-t ${look.fade} to-transparent`} />
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[62%] backdrop-blur-[10px] [mask-image:linear-gradient(to_top,black_30%,transparent)] [-webkit-mask-image:linear-gradient(to_top,black_30%,transparent)]"
+          data-plan-grain=""
+          className="pointer-events-none absolute inset-0 -z-10 opacity-[0.28] mix-blend-overlay"
+          style={{ backgroundImage: GRAIN, backgroundSize: "180px 180px" }}
         />
-        <span aria-hidden="true" className={`pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[70%] bg-gradient-to-t ${look.fade} to-transparent`} />
         <span className="self-start rounded-full bg-white/15 px-2.5 py-0.5 text-[11.5px] font-semibold leading-[18px] text-white ring-1 ring-inset ring-white/25">
           {label ?? plan.pill}
         </span>
@@ -188,11 +263,11 @@ function PlanCard({
         <p
           className={`mt-1.5 ${compact ? "text-[38px]" : "text-[44px] sm:text-[48px]"} font-extrabold leading-none tracking-[-0.035em] tabular-nums`}
         >
-          <span key={priced.price} className={changed ? "inline-block animate-in fade-in-0 slide-in-from-bottom-1 duration-200 motion-reduce:animate-none" : "inline-block"}>
-            {priced.price}
-          </span>
+          <Morph value={interval} items={{ monthly: monthly.price, yearly: yearly.price }} />
         </p>
-        <p className="mt-1.5 text-[13px] font-medium leading-[18px] text-white/85">{priced.priceNote}</p>
+        <p className="mt-1.5 text-[13px] font-medium leading-[18px] text-white/85">
+          <Morph value={interval} items={{ monthly: monthly.priceNote, yearly: yearly.priceNote }} />
+        </p>
         <p className={`mt-auto ${compact ? "pt-3" : "pt-4"} ${compact ? "text-[13px]" : "text-[14px]"} leading-[20px] text-white/90`}>{plan.summary}</p>
       </div>
 
@@ -220,8 +295,19 @@ function PlanCard({
         </ul>
 
         <div className={`mt-auto ${compact ? "pt-5" : "pt-6"}`}>
-          <PlanButton action={shownAction} plan={plan.id} compact={compact} />
-          <p className="mt-2.5 text-center text-[12px] leading-[16px] text-[#6b7280]">{priced.note}</p>
+          <PlanButton
+            action={shownAction}
+            plan={plan.id}
+            compact={compact}
+            label={
+              shownAction.loading ? undefined : (
+                <Morph align="center" className="w-full min-w-0" value={interval} items={{ monthly: buttonLabel(heldAction("monthly")), yearly: buttonLabel(heldAction("yearly")) }} />
+              )
+            }
+          />
+          <p className="mt-2.5 text-center text-[12px] leading-[16px] text-[#6b7280]">
+            <Morph align="center" value={interval} items={{ monthly: monthly.note, yearly: yearly.note }} />
+          </p>
         </div>
       </div>
     </article>
@@ -288,7 +374,7 @@ function IntervalSwitch({ value, onChange, compact }: { value: BillingInterval; 
       >
         <span
           aria-hidden="true"
-          className="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.12),0_4px_10px_-4px_rgba(16,24,40,0.18),inset_0_-1px_0_rgba(16,24,40,0.04)] transition-[translate] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+          className="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.12),0_4px_10px_-4px_rgba(16,24,40,0.18),inset_0_-1px_0_rgba(16,24,40,0.04)] transition-[translate] duration-[380ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
           style={{ translate: yearly ? "100% 0" : "0 0" }}
         />
         {(["monthly", "yearly"] as const).map((option) => {
@@ -301,7 +387,7 @@ function IntervalSwitch({ value, onChange, compact }: { value: BillingInterval; 
               aria-checked={on}
               data-interval-option={option}
               onClick={() => onChange(option)}
-              className={`relative z-[1] inline-flex h-9 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[13px] font-semibold outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[#111113]/25 [-webkit-tap-highlight-color:transparent] sm:px-5 ${on ? "text-[#111113]" : "text-[#4b5260] hover:text-[#1a1a2e]"}`}
+              className={`relative z-[1] inline-flex h-9 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[13px] font-semibold outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-[#111113]/25 [-webkit-tap-highlight-color:transparent] sm:px-5 ${on ? "text-[#111113]" : "text-[#4b5260] hover:text-[#1a1a2e]"}`}
             >
               {option === "monthly" ? "Monthly" : "Yearly"}
               {option === "yearly" ? (

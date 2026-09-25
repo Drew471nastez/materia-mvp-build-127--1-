@@ -364,7 +364,7 @@ function main() {
     "bottom-sheet.tsx: the product form's sheet sits on the keyboard through the published inset",
     /\.\.\.\(aboveKeyboard \? bottomAboveKeyboard\(\) : \{\}\)/.test(read("components/ui/bottom-sheet.tsx"))
       && /calc\(var\(--vv-h, 100dvh\) - 24px\)/.test(read("components/ui/bottom-sheet.tsx"))
-      && /<BottomSheet isOpen=\{isOpen\} onClose=\{onClose\} maxHeight=\{maxHeight \?\? "85dvh"\} aboveKeyboard>/.test(read("app/app/products/new/product-editor.tsx")),
+      && /<BottomSheet isOpen=\{isOpen\} onClose=\{onClose\} maxHeight=\{maxHeight \?\? "85dvh"\} aboveKeyboard keepMounted=\{kept\}>/.test(read("app/app/products/new/product-editor.tsx")),
   )
   /* The guard's own height variable has to follow the same number, or the
      class says a keyboard is up and the height says the screen is empty. */

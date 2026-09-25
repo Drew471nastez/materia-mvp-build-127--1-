@@ -9,13 +9,16 @@
  * read, instead of each working it out for itself.
  *
  * TWO KINDS OF NOTIFICATION.
- *   From the database (seller_notifications): a new review and the like.
+ *   From the database (seller_notifications): a new review, and what the
+ *     rules engine decides a creator should hear (lib/notifications/engine).
  *     Read or not is `read_at`, set on the server; the store keeps how many
- *     are unread, as the server last said, less what was read since.
+ *     are unread, as the server last said, less what was read since. A row
+ *     that resolved itself is not counted.
  *   Made in the browser: "set up payments", "publish your OnePage". They are
  *     to-dos worked out from the creator's state, with no row anywhere, so
  *     whether one has been read, or dismissed, is kept in this browser's
- *     localStorage, as dismissing them always was.
+ *     localStorage, as dismissing them always was. One steps aside when the
+ *     server says a row of its own covers it (`covered`).
  *
  * Every localStorage read and write is in a try/catch: a private window, a
  * blocked site or a full quota gives an empty list, never a crash.
@@ -35,9 +38,15 @@ export interface UnreadState {
   dismissed: readonly string[]
   /** Browser-made notifications read in this browser. */
   read: readonly string[]
+  /**
+   * Browser-made notifications an open row from the server already says
+   * better, so they step aside: "Set up payments" while a row says "Stripe
+   * paused your payouts" (app/api/notifications, `covered`).
+   */
+  covered?: readonly string[]
 }
 
-export const EMPTY_STATE: UnreadState = Object.freeze({ dbUnread: 0, dismissed: Object.freeze([]), read: Object.freeze([]) })
+export const EMPTY_STATE: UnreadState = Object.freeze({ dbUnread: 0, dismissed: Object.freeze([]), read: Object.freeze([]), covered: Object.freeze([]) })
 
 type Storage = Pick<globalThis.Storage, "getItem" | "setItem">
 
@@ -97,7 +106,8 @@ export function setupNotificationIds(opts: { stripeConnected: boolean; stripeSta
 
 /** The number on the bell. */
 export function unreadCount(state: UnreadState, setupIds: readonly string[]): number {
-  const local = setupIds.filter((id) => !state.dismissed.includes(id) && !state.read.includes(id)).length
+  const covered = state.covered ?? []
+  const local = setupIds.filter((id) => !state.dismissed.includes(id) && !state.read.includes(id) && !covered.includes(id)).length
   return local + Math.max(0, state.dbUnread)
 }
 
@@ -182,6 +192,12 @@ export function setDbUnread(count: number): void {
   if (n !== state.dbUnread) setUnreadState({ ...state, dbUnread: n })
 }
 
+/** Which browser-made to-dos the server says are covered by one of its rows. */
+export function setCovered(ids: unknown): void {
+  const next = Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string").slice(0, 10) : []
+  if (next.join() !== (state.covered ?? []).join()) setUnreadState({ ...state, covered: next })
+}
+
 /** A browser-made notification read from its own row, kept in the list. */
 export function markSetupNotificationRead(id: string): void {
   if (!state.read.includes(id)) setUnreadState({ ...state, read: [...state.read, id] })
@@ -204,6 +220,7 @@ export function refreshDbUnread(): Promise<void> {
     .then((res) => (res.ok ? res.json() : null))
     .then((data) => {
       if (data && typeof data.unreadCount === "number") setDbUnread(data.unreadCount)
+      if (data && "covered" in data) setCovered(data.covered)
     })
     .catch(() => {
       /* The bell shows the setup to-dos only; the panel will ask again. */

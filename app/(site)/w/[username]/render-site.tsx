@@ -14,21 +14,22 @@
  * could do and no visitor could see.
  */
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
-import { notFound, redirect } from "next/navigation"
+import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
 import { mayPreview, pageSections, previewTokenFrom, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
-import { dressPage, ownerOf, publishedSiteByName } from "@/lib/website-builder/published-site"
+import { creatorByName, dressPage, ownerOf, publishedShopByName, publishedSiteByName } from "@/lib/website-builder/published-site"
 import { SiteNotPublished } from "./not-published"
 import { chromeOf, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
 import { getMainDomain } from "@/lib/url-helpers"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
-import { jsonLdScript, pageUrl, websiteJsonLd } from "@/lib/website-builder/site-seo"
+import { heroImage, jsonLdScript, pageUrl, siteSameAs, websiteJsonLd } from "@/lib/website-builder/site-seo"
 import { pageSeoOf } from "@/lib/website-builder/page-seo"
-import { siteOrigin } from "@/lib/website-builder/site-seo-data"
+import { builtSiteIndexable, websiteIndexable } from "@/lib/seo/indexing"
+import { creatorAvatar, siteOrigin } from "@/lib/website-builder/site-seo-data"
 import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
@@ -62,51 +63,38 @@ export async function siteMetadata(
   }
 
   /**
-   * THE ADMIN CLIENT, NOT THE VIEWER'S. A published site's title, description
-   * and favicon are the same for everybody, and reading them through the
-   * viewer's client meant calling `cookies()` — which makes the whole route
-   * dynamic and uncacheable no matter what else it does. Nothing here is
-   * per-viewer, so nothing here needs to know who is asking.
+   * THE SAME LOOKUP THE PAGE MAKES. This read `creators` by slug or username
+   * and nothing else, so a site reached by the name it was given in Website
+   * Settings › Domains was drawn by the page and described by nothing: a
+   * title of "Not Found", no canonical, no description, no share card.
+   * creatorByName and publishedShopByName are the page's own resolution
+   * (lib/website-builder/published-site.ts), username, creator slug and
+   * website name alike, and both are cached, so asking them here is free.
+   *
+   * THE ADMIN CLIENT, NOT THE VIEWER'S, is what they read through. A
+   * published site's title, description and favicon are the same for
+   * everybody, and reading them through the viewer's client meant calling
+   * `cookies()`, which makes the whole route dynamic and uncacheable.
    */
-  const supabase = createAdminClient()
-
-  const { data: creator } = await supabase
-    .from("creators")
-    .select("id, slug, display_name")
-    .or(`slug.eq.${username},username.eq.${username}`)
-    .maybeSingle()
-
+  const creator = await creatorByName(username)
   if (!creator) return { title: "Not Found" }
+  const found = await publishedShopByName(username)
 
-  // Pull published theme settings so we can use brand_name, seo fields and favicon.
-  // Use admin client — published installs must be readable by anyone and
-  // `store_theme_*` tables are locked down by RLS to the owning creator.
-  const adminForMeta = createAdminClient()
-  const { data: install } = await adminForMeta
-    .from("store_theme_installs")
-    .select(`
-      id,
-      store_theme_settings ( settings, draft_settings )
-    `)
-    .eq("creator_id", creator.id)
-    .eq("status", "published")
-    .order("sort_order", { ascending: true })
-    .limit(1)
-    .maybeSingle()
+  // Default format: "{username} | Storelib" — prefer the creator's platform
+  // username/slug over the brand_name so the tab title matches the URL.
+  const defaultHandle = creator.slug || username || creator.displayName || "Storelib"
 
-  const settingsRow: any =
-    (install as any)?.store_theme_settings?.[0] ??
-    (install as any)?.store_theme_settings ??
-    {}
+  /* Nothing published: the page says so, and is not a page to index. */
+  if (found.kind !== "site") {
+    return { title: { absolute: `${defaultHandle} | Storelib` }, robots: { index: false, follow: true } }
+  }
+
   // PUBLISHED ONLY. This fell back to `draft_settings` "so a freshly uploaded
   // favicon shows up before a re-publish", which is a draft title, description
   // and favicon on a public page — the same leak the body of this page was
   // fixed for. A favicon shows up when it is published, like everything else.
-  const settings: ThemeSettingsValues = settingsRow.settings ?? {}
-
-  // Default format: "{username} | Storelib" — prefer the creator's platform
-  // username/slug over the brand_name so the tab title matches the URL.
-  const defaultHandle = creator.slug || username || creator.display_name || "Storelib"
+  // The published site is built from published values alone (buildSite).
+  const settings: ThemeSettingsValues = found.site.themeSettings ?? {}
   const siteTitle = typeof settings.seo_title === "string" && settings.seo_title.trim()
     ? settings.seo_title.trim()
     : `${defaultHandle} | Storelib`
@@ -135,12 +123,24 @@ export async function siteMetadata(
    * it knows between them. The canonical names the one the creator gives
    * out: lib/website-builder/site-seo-data.ts.
    */
-  const url = pageUrl(await siteOrigin(creator.id, username), pageKey)
+  const url = pageUrl(await siteOrigin(creator.creatorId, username), pageKey)
 
-  /* Nothing published: the page says so, and is not a page to index. */
-  if (!install) {
-    return { title: { absolute: `${defaultHandle} | Storelib` }, robots: { index: false, follow: true } }
-  }
+  /*
+    A SHARE CARD WITH A PICTURE. og:image came only from the share image in
+    SEO & Social, so most sites were shared as a bare line of text. Without
+    one, the card takes the site's logo, then the first picture of the
+    published front page's hero, then the creator's own avatar. A logo that
+    is not a full address, or is an SVG, is passed over: the networks that
+    draw share cards cannot fetch the one or draw the other.
+  */
+  const hasShareImage = typeof settings.seo_og_image === "string" && settings.seo_og_image.trim() !== ""
+  const logo =
+    typeof settings.logo_url === "string" && /^https?:\/\//i.test(settings.logo_url.trim()) && !/\.svg(?:\?|$)/i.test(settings.logo_url.trim())
+      ? settings.logo_url.trim()
+      : ""
+  const shareImage = hasShareImage
+    ? undefined
+    : logo || heroImage(found.site.pages.home ?? found.site.sections) || (await creatorAvatar(creator.creatorId)) || undefined
 
   return {
     title: { absolute: rawTitle },
@@ -150,9 +150,19 @@ export async function siteMetadata(
     // The share image, the card type and — the one that matters — whether the
     // page may be indexed at all. All three were in the panel and read by
     // nothing, so "noindex" was a setting somebody trusted and did not have.
-    ...themeMetadata(settings, { title: rawTitle, description, url }),
+    ...themeMetadata(settings, { title: rawTitle, description, url, image: shareImage }),
     /* A page kept out of search on its own, whatever the site's setting. */
     ...(own.hidden ? { robots: { index: false, follow: true } } : {}),
+    /*
+      And a whole site under a handle the spam rules hold back, which its own
+      sitemap already left out while each page said index. The one rule the
+      site's robots.txt, its sitemap and storelib.com's read
+      (lib/seo/indexing builtSiteIndexable); the creator's own switch is
+      already in the robots above, as they set it.
+    */
+    ...(websiteIndexable(settings as Record<string, unknown>) && !builtSiteIndexable(settings as Record<string, unknown>, username)
+      ? { robots: { index: false, follow: false } }
+      : {}),
   }
 }
 
@@ -188,7 +198,8 @@ export async function renderSite(
   if (wantedToken) return await previewPage(username, wantedToken, pageKey)
 
   const found = await publishedSiteByName(username, pageKey)
-  if (found.kind === "renamed") redirect(`https://${found.to}.${getMainDomain()}`)
+  /* A renamed creator's site, at the new name for good (308), and at the same page of it rather than its front page. */
+  if (found.kind === "renamed") permanentRedirect(pageUrl(`https://${found.to}.${getMainDomain()}`, pageKey))
   if (found.kind === "missing") notFound()
   /**
    * NOTHING PUBLISHED IS NOT THE SAME AS "GO TO THE CREATOR PAGE". This used
@@ -401,6 +412,8 @@ async function homeStructuredData(
       name: str(t.brand_name) ?? site.displayName,
       description: str(t.seo_description),
       logo: str(t.logo_url) ?? str(t.favicon_url),
+      /* Social links in Website Settings: the owner's profiles elsewhere. */
+      sameAs: siteSameAs(t),
     }),
   )
 }

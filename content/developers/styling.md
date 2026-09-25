@@ -29,7 +29,7 @@ the compiler emits
 - `@keyframes` names are prefixed with the section type, and every `animation` that uses one is rewritten to match.
 - `@import` is refused. A stylesheet cannot fetch anything.
 - A `<style>`, `<link>`, `<base>` or `<meta>` tag inside `<template>` is refused on save. Each acts on the whole page, not on the section; a section's CSS goes in its `<style>` block.
-- Global rules, such as resets and font faces, belong only in `layout/theme.storelib`.
+- There is no stylesheet for the whole site that you can write yet. Resets and the fonts are the theme's own, and a font is chosen in Theme › Typography rather than loaded by a section.
 
 ## The page a section sees
 

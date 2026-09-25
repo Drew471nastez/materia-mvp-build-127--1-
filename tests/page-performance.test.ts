@@ -2516,7 +2516,9 @@ check(
     }
     // `\b` matters: without it a renamed `<SocialLinksEditorX` satisfies the
     // check, which is exactly how a break-test found this guard was loose.
-    if (!/<SocialLinksEditor\b/.test(dialog)) missing.push("the dialog no longer uses the shared editor")
+    /* Or its memoised wrapper, which is the same component (React.memo(SocialLinksEditor)). */
+    if (!/<SocialLinksEditor\b/.test(dialog) && !(/<MemoSocialLinksEditor\b/.test(dialog) && /React\.memo\(SocialLinksEditor\)/.test(dialog)))
+      missing.push("the dialog no longer uses the shared editor")
     if ((sidebar.match(/<SocialLinksEditor\b/g) || []).length < 2)
       missing.push("the store builder has gone back to hand-rolling its social inputs")
 

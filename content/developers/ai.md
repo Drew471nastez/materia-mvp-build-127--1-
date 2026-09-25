@@ -54,11 +54,11 @@ When you cannot run the compiler, the person will: the code editor compiles on s
 
 ## Change content before source
 
-Most requests are not new sections. "Make the heading bigger", "use the dark scheme", "add a fourth question" are changes to a section's **settings** or **blocks**, which the creator can make in the builder without new code. Write or change a section file only when no existing setting can do what was asked. When you do change one, change the least that does it, and never rename or remove a setting `id` without a `migrations` entry; see [Changing a section safely](/developers/schema#changing-a-section-safely).
+Most requests are not new sections. "Make the heading bigger", "use the dark scheme", "add a fourth question" are changes to a section's **settings** or **blocks**, which the creator can make in the builder without new code. Write or change a section file only when no existing setting can do what was asked. When you do change one, change the least that does it, and never rename or remove a setting `id`: nothing moves a stored value to a new id, so whatever the creator typed under the old one stops showing. See [Changing a section safely](/developers/schema#changing-a-section-safely).
 
 ## What you may not do
 
-- Write outside `sections/`, `templates/`, `config/`, `layout/`, `snippets/` and `locales/`.
+- Write any file but `sections/<type>.storelib`, or change one of the library's built-in sections. Both are refused; see [Rules before you ship](/developers/rules#1-what-you-may-change).
 - Invent an asset. Images are chosen by the creator through an `image_picker`; never put a URL to a picture into a default.
 - Declare a capability the section does not need.
 - Use `window`, `document`, `fetch`, `localStorage` or `eval`. They are refused when the file is saved; query inside `root` instead.
@@ -168,6 +168,7 @@ For the task itself, `storelib_skills` with the task in the agent's own words re
 | `storelib_search_components` | The sections this site can use, built in and the creator's own, ranked for what you are looking for. |
 | `storelib_create_section` | Saves a new section file and, with `page`, places it there. Refused with what to fix unless it compiles and passes the quality checks. |
 | `storelib_edit_section` | Saves a change to a section file the creator has, with `base_updated_at`. The previous version is kept. |
+| `storelib_patch_section` | The same, as find-and-replace `edits` instead of the whole file. Each `find` is in the file exactly once. Checked and saved exactly as `storelib_edit_section`, for a fraction of the tokens. |
 | `storelib_update_styles` | Settings on a section, a block or the theme: colour scheme, button colours and hover, spacing, alignment, type. Checked against what the section declares. |
 | `storelib_create_page` | A new page with the site's header and footer and the sections listed. |
 | `storelib_create_safe_patch` | Several page operations as one change. All are checked first; if one is refused, nothing is written. A restore point is taken before it is applied. |
@@ -175,11 +176,13 @@ For the task itself, `storelib_skills` with the task in the agent's own words re
 | `storelib_run_preview` | A link to the page as the drafts make it, the builder link, and the page checks. |
 | `storelib_guide`, `storelib_site`, `storelib_list_files`, `storelib_read_file`, `storelib_compile`, `storelib_write_section` | The framework, the site brief, and the section files, as before. |
 
-The loop that works: read the project and the selected section, get the skills for the task, change settings where a setting does it and write a file only where it does not, run the tests, and preview. When changing a file that exists, pass the `updated_at` you read as `base_updated_at`, and a save made elsewhere in the meantime is refused rather than overwritten.
+The loop that works: read the project and the selected section, get the skills for the task, change settings where a setting does it and write a file only where it does not, patch the lines that change rather than resending a file, run the tests, and preview. When changing a file that exists, pass the `updated_at` you read as `base_updated_at`, and a save made elsewhere in the meantime is refused rather than overwritten.
+
+When a fact that changes the result is missing and no tool has it (which product to feature, which page, brand colours the site does not have, a business fact), ask the person you are working with one short question with a few options, and wait. Never ask what `storelib_site` or the page can tell you. `storelib_site` lists the published products with every field of the [product data](/developers/selling#products-reach-a-section-as-products), including each one's `checkout_url` and options.
 
 ### What a connection can and cannot do
 
-- It reaches **one site**. Not the creator's other sites, orders, buyers, subscribers or account. It sees the site's published products only as a visitor does: title, price, picture and address. No argument to any tool names a site; the token decides it.
+- It reaches **one site**. Not the creator's other sites, orders, buyers, subscribers or account. It sees the site's published products only as a visitor does: title, prices, pictures, options, address and buy link. No argument to any tool names a site; the token decides it.
 - It writes **section files** as `sections/<type>.storelib`, lower case, digits, `_` and `-`, and **never changes a built-in section**: a different version is written as a new section. Paths with `../`, a leading `/` or another folder are refused.
 - It changes **pages and settings only through the page tools**, which refuse a setting a section does not declare or a value its control cannot take. Before every page or theme change a restore point of the whole site is taken, listed in Website Settings › Backups.
 - **Every change is a draft**. Nothing reaches visitors until the creator publishes. It cannot publish, and it cannot delete a page or a section file.
@@ -208,4 +211,4 @@ curl -X PUT https://storelib.com/api/agent/v1/files \
 ## Without a connection
 
 - **One section.** Open the code editor in the website builder, create `sections/<type>.storelib`, paste the file and save. It compiles, appears in Add Section, and can be placed on any page.
-- **A whole theme.** Export the theme from the builder as a `.storelib-theme` file, unzip it, let the agent work on the folder, zip it and import it. The import checks every file and refuses the package with the reasons if anything is wrong, so a broken edit never reaches a live site.
+- **A whole theme.** Export the theme from your library as a `.storelib-theme.zip` file, unzip it, let the agent work on the folder, update `manifest.json` with the new hashes, zip the folder's contents and import it as a new draft website. The import checks every file and refuses the package with the reasons if anything is wrong, a stale hash included, so a broken edit never reaches a live site. [Editing a package by hand](/developers/sharing-themes#editing-a-package-by-hand) has the script and the zip command.

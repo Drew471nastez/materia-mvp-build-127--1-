@@ -12,6 +12,7 @@
  * is only loaded where a whole page is being handled.
  */
 import { SECTION_SCHEMAS } from "./section-schemas"
+import { schemaFromStorelib } from "./storelib-schemas"
 import { htmlFieldsOf, sanitizeSettings, type HtmlFieldMap } from "./sanitize"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import type { SectionInstance, SectionSchema } from "./types"
@@ -50,24 +51,104 @@ function blockFieldsFor(type: string, blockType: string): HtmlFieldMap {
   return out
 }
 
+/**
+ * ===========================================================================
+ *  A SECTION TYPE THE INSTALL DEFINES IN ITS OWN FILE
+ * ===========================================================================
+ * The registry above knows the theme's sections. A type it has never heard
+ * of, one the creator wrote in the code editor or one an imported theme
+ * brought with it, was cleaned only by the id list in sanitize.ts, so a
+ * richtext setting called anything else (`promo_text`, say) went into the
+ * database as written and out through the template's `raw`.
+ *
+ * The schema for such a type is in the install's own `sections/<type>.storelib`,
+ * so it is read from there and every richtext setting, on the section and on
+ * each block, is cleaned like a built-in one. Both halves of a file count, the
+ * draft and what is live, because either may be the one that draws the value.
+ * The install's file wins over the theme's for the same type, because that
+ * file is what draws it.
+ */
+export type OwnSectionFields = Record<string, { section: HtmlFieldMap; blocks: Record<string, HtmlFieldMap> }>
+
+type SectionFile = { path: string; content?: string | null; draft_content?: string | null }
+
+const SECTION_FILE = /^sections\/([a-z0-9_-]+)\.storelib$/
+
+export function ownSectionFields(files: readonly SectionFile[] | null | undefined): OwnSectionFields {
+  const out: OwnSectionFields = {}
+  for (const file of files ?? []) {
+    const type = SECTION_FILE.exec(file.path)?.[1]
+    if (!type) continue
+    for (const source of [file.content, file.draft_content]) {
+      if (typeof source !== "string" || !source.trim()) continue
+      const read = schemaFromStorelib(source, file.path)
+      if (read.ok !== true) continue
+      const own = (out[type] ??= { section: {}, blocks: {} })
+      Object.assign(own.section, htmlFieldsOf(read.schema.fields))
+      for (const block of read.schema.blocks ?? []) Object.assign((own.blocks[block.type] ??= {}), htmlFieldsOf(block.fields))
+    }
+  }
+  return out
+}
+
+type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+
+/**
+ * The install's own files for the section types in hand. Only those types,
+ * because a page is saved every couple of seconds while somebody edits and
+ * most of its types are the theme's. A read that fails falls back to the
+ * registry, which is how every save was cleaned before this existed: a save
+ * is never refused because this could not be read.
+ */
+export async function readOwnSectionFields(db: Db, installId: string, types: Iterable<string>): Promise<OwnSectionFields> {
+  const paths = [...new Set([...types].filter((t) => typeof t === "string" && /^[a-z0-9_-]{1,64}$/.test(t)))].map((t) => `sections/${t}.storelib`)
+  if (paths.length === 0) return {}
+  try {
+    const both = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).in("path", paths)
+    if (!both.error) return ownSectionFields(both.data)
+    /* An install from before file drafts existed has no draft column. */
+    const live = await db.from("store_theme_custom_files").select("path, content").eq("install_id", installId).in("path", paths)
+    if (!live.error) return ownSectionFields(live.data)
+    console.error(`[sanitize] could not read the section files, cleaning by the registry: ${live.error.message}`)
+  } catch (e) {
+    console.error("[sanitize] could not read the section files, cleaning by the registry:", e instanceof Error ? e.message : e)
+  }
+  return {}
+}
+
 interface LooseSection {
   type: string
   settings?: Record<string, unknown>
   blocks?: { type: string; settings?: Record<string, unknown> }[]
 }
 
+/**
+ * Where a section's own fields come from: the install's section files read
+ * into field maps (ownSectionFields), or a lookup that answers with a type's
+ * schema (lib/website-builder/custom-schemas.ts). Either way the install's
+ * file wins over the theme's for the type it defines.
+ */
+export type OwnFields = OwnSectionFields | SchemaLookup
+
+function ownOf(own: OwnFields | undefined, type: string): { section: HtmlFieldMap; blocks: Record<string, HtmlFieldMap> } | undefined {
+  if (!own) return undefined
+  if (typeof own !== "function") return own[type]
+  const schema = own(type)
+  if (!schema) return undefined
+  const blocks: Record<string, HtmlFieldMap> = {}
+  for (const block of schema.blocks ?? []) blocks[block.type] = htmlFieldsOf(block.fields)
+  return { section: htmlFieldsOf(schema.fields), blocks }
+}
+
 /** One section, settings and blocks. The same object back when nothing changed. */
-export function sanitizeSection<T extends LooseSection>(section: T, schemaOf?: SchemaLookup): T {
-  const own = schemaOf?.(section.type)
-  const settings = sanitizeSettings(section.settings, own ? htmlFieldsOf(own.fields) : fieldsFor(section.type))
+export function sanitizeSection<T extends LooseSection>(section: T, own?: OwnFields): T {
+  const mine = ownOf(own, section.type)
+  const settings = sanitizeSettings(section.settings, mine ? mine.section : fieldsFor(section.type))
   let blocks = section.blocks
   if (blocks?.length) {
     let touched = false
     const next = blocks.map((b) => {
-      const s = sanitizeSettings(
-        b.settings,
-        own ? htmlFieldsOf(own.blocks?.find((d) => d.type === b.type)?.fields) : blockFieldsFor(section.type, b.type),
-      )
+      const s = sanitizeSettings(b.settings, mine ? (mine.blocks[b.type] ?? {}) : blockFieldsFor(section.type, b.type))
       if (s === b.settings) return b
       touched = true
       return { ...b, settings: s }
@@ -78,12 +159,16 @@ export function sanitizeSection<T extends LooseSection>(section: T, schemaOf?: S
   return { ...section, settings, ...(blocks ? { blocks } : {}) }
 }
 
-/** A page. The same array back when nothing in it changed. */
-export function sanitizeSections<T extends SectionInstance>(sections: T[] | null | undefined, schemaOf?: SchemaLookup): T[] {
+/**
+ * A page. The same array back when nothing in it changed. `own` is the
+ * install's own section files (ownSectionFields, or a schema lookup), for
+ * the types it defines.
+ */
+export function sanitizeSections<T extends SectionInstance>(sections: T[] | null | undefined, own?: OwnFields): T[] {
   if (!Array.isArray(sections)) return []
   let touched = false
   const out = sections.map((s) => {
-    const next = sanitizeSection(s as unknown as LooseSection, schemaOf) as unknown as T
+    const next = sanitizeSection(s as unknown as LooseSection, own) as unknown as T
     if (next !== (s as unknown)) touched = true
     return next
   })

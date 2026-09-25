@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation"
+import { notFound, permanentRedirect, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
@@ -50,7 +50,8 @@ export default async function SiteShopPage({ params }: PageProps) {
   const { username } = await params
 
   const found = await publishedShopByName(username)
-  if (found.kind === "renamed") redirect(`https://${found.to}.${getMainDomain()}`)
+  /* Renamed for good: the shop at the new name, permanently (308). */
+  if (found.kind === "renamed") permanentRedirect(`https://${found.to}.${getMainDomain()}/products`)
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 

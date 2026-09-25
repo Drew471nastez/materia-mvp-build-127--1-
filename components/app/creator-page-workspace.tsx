@@ -53,6 +53,7 @@ import { useRouter } from "next/navigation"
 import { BuilderLoader, useLinger } from "@/components/website-builder/builder-loader"
 import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { CreatorPageShare } from "@/components/app/creator-page-share"
+import { SaveNotification } from "@/components/ui/save-notification"
 import { CREATOR_EDITOR_CHANNEL } from "@/lib/store-builder/editor-channel"
 import { cn } from "@/lib/utils"
 import { getMainDomain, getStoreInternalPath } from "@/lib/url-helpers"
@@ -155,6 +156,8 @@ export function CreatorPageWorkspace({
     }
   }, [leaving])
   const [shareOpen, setShareOpen] = useState(false)
+  /** "Saved", after an editor inside the frame has saved and closed. */
+  const [savedToast, setSavedToast] = useState(0)
   const [isPhone, setIsPhone] = useState(false)
 
   /**
@@ -271,7 +274,11 @@ export function CreatorPageWorkspace({
       if (event.origin !== window.location.origin) return
       const data = event.data as { channel?: string; kind?: string } | null
       if (!data || data.channel !== CREATOR_EDITOR_CHANNEL) return
-      if (data.kind === "saved") reframe()
+      if (data.kind === "saved") {
+        reframe()
+        /* The frame's own toast would go with the frame it is in; the workspace says it instead. */
+        setSavedToast((n) => n + 1)
+      }
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
@@ -383,12 +390,19 @@ export function CreatorPageWorkspace({
       </div>
 
       {/*
-        THE CANVAS. Inset and bordered on a desktop so the page has edges of
-        its own. Not on a phone: a gutter and a hairline around a 390px page
-        eats the content it frames. There, the page simply is the screen.
+        THE CANVAS IS THE WINDOW'S WIDTH, EDGE TO EDGE, ON EVERY SCREEN.
+
+        It was inset by 10px and bordered on a desktop, so the page inside was
+        drawn 20px narrower than the same page in a browser tab. That is not
+        a margin, it is a different page: a window near a breakpoint laid the
+        products out one way here and another way live, and the banner came
+        out a different shape, so a cover positioned here sat differently on
+        the live page. At the window's full width the page's breakpoints and
+        its banner are exactly the live page's. The bar's hairline above it
+        is the only edge it needs.
       */}
-      <div className="min-h-0 flex-1 overflow-hidden p-0 md:p-2.5">
-        <div className="relative h-full w-full overflow-hidden bg-white md:rounded-xl md:border md:border-[#e5e7eb] md:shadow-[0_12px_36px_-20px_rgba(0,0,0,0.35)]">
+      <div className="min-h-0 flex-1 overflow-hidden p-0">
+        <div className="relative h-full w-full overflow-hidden bg-white">
           {/*
             =================================================================
              THE LOADER LEAVES ACROSS THE PAGE, IT DOES NOT VANISH
@@ -444,6 +458,8 @@ export function CreatorPageWorkspace({
           )}
         </div>
       </div>
+
+      <SaveNotification key={savedToast} show={savedToast > 0} message="Saved" duration={2200} />
 
       <CreatorPageShare open={shareOpen} onClose={() => setShareOpen(false)} handle={handle} isPhone={isPhone} />
 

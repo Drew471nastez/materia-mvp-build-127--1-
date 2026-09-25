@@ -46,6 +46,13 @@ export async function prerenderStorelibSections(
    * section exactly as before, and a section asking for products draws none.
    */
   products?: ProductCard[],
+  /**
+   * What this page is about, for its sections to read as `page.<key>`. The
+   * product page passes `{ product }`, which is how a section on it reads
+   * the product it is about (`page.product`, the same shape as a card in
+   * `products`). See lib/website-builder/shop-products.ts.
+   */
+  pageExtras?: Record<string, unknown>,
   /** The shop's own facts; see lib/website-builder/storefront-data.ts. */
   data?: StorefrontData,
 ): Promise<Record<string, RenderedSection>> {
@@ -65,7 +72,7 @@ export async function prerenderStorelibSections(
    * edited one.
    */
   const sources = await sectionSources(db, installId)
-  return renderWithSources(sources, sections, theme, template, products, undefined, data)
+  return renderWithSources(sources, sections, theme, template, products, pageExtras, data)
 }
 
 /**

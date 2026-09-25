@@ -8,12 +8,13 @@
  * upload are platform writes a creator must not be able to make directly.
  */
 
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse, after } from "next/server"
 
 import { resolveSite } from "@/lib/sites/resolve"
 
 import { } from "@/lib/sites/projects"
-import { publishSite, unpublishSite } from "@/lib/sites/publish"
+import { publishSite, publishedUrl, unpublishSite } from "@/lib/sites/publish"
+import { announce, aiSiteAddresses } from "@/lib/seo/announce"
 import { publishRateLimit } from "@/lib/sites/rate-limit"
 
 export const dynamic = "force-dynamic"
@@ -38,6 +39,11 @@ export async function POST(_request: NextRequest, context: { params: Promise<{ s
     return NextResponse.json({ error: result.error, details: result.details }, { status: 400 })
   }
 
+  /* After the answer: the site's address, to the search engines that take
+     IndexNow (lib/seo/indexnow.ts). Never in the way of the publish. */
+  const published = result.url
+  after(() => announce(() => aiSiteAddresses(site.creatorId, published)))
+
   return NextResponse.json({
     ok: true,
     url: result.url,
@@ -54,5 +60,8 @@ export async function DELETE(_request: NextRequest, context: { params: Promise<{
   const site = found.site
 
   await unpublishSite(siteId)
+  /* And taken down: where it was, so engines look again and drop it. */
+  const was = site.slug
+  if (was) after(() => announce(() => aiSiteAddresses(site.creatorId, publishedUrl(was))))
   return NextResponse.json({ ok: true })
 }

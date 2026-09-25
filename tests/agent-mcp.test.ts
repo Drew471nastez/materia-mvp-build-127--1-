@@ -75,7 +75,8 @@ async function main() {
   console.log("\nThe rules reach every agent")
   const loop = read("lib/website-builder/agent/loop.ts")
   check("Storelib AI's system prompt carries them", /\$\{pageAgentRules\(\)\}\n\n\$\{builderAgentRules\(\)\}`/.test(loop))
-  check("and its turn carries the skills for the request", /skillContext\(prompt\)/.test(loop) && !/knowledgeBlock\(prompt\)/.test(loop))
+  /* With the picture as a signal too: an attached image selects the image skill. */
+  check("and its turn carries the skills for the request", /skillContext\(prompt, \{ images: images\.length > 0 \}\)/.test(loop) && !/knowledgeBlock\(prompt\)/.test(loop))
   const agents = agentsGuide({ siteName: "Astrid", branch: "main", root: "" })
   check("a linked repository's AGENTS.md has the workflow", /## How to work/.test(agents) && /\*\*Inspect\.\*\*/.test(agents) && /\*\*Repair\.\*\*/.test(agents))
 

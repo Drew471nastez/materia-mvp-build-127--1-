@@ -55,6 +55,11 @@ export const RESERVED_PAGE_KEYS: ReadonlySet<string> = new Set([
  */
 const PAGE_KEY = /^[a-z0-9](?:[a-z0-9-]{0,62})$/
 
+/** Whether a key has that shape, exactly as given. Reserved names are the caller's question. */
+export function isPageKey(key: string): boolean {
+  return PAGE_KEY.test(key)
+}
+
 /**
  * The path segment a visitor typed, as a page key, or null when it is not
  * one. Null means 404: a segment that is not a legal key cannot name a page

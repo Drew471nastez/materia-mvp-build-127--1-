@@ -302,7 +302,7 @@ section("Bugs found on the way")
   const publish = read("app/api/website-builder/themes/[installId]/publish/route.ts")
   check("a publish purges the rendered page under every name the site answers to, found by the creator's user", /\.from\("creators"\)\s*\.select\("user_id, slug"\)/.test(published) && /websiteHandleOf\(creatorId, admin\)/.test(published) && !/\.from\("profiles"\)\s*\.select\("username"\)\s*\.eq\("id", creatorId\)/.test(published))
   check("a renamed name is matched literally, not as a LIKE pattern", /\.ilike\("old_username", literal\)/.test(published) && /name\.replace\(\/\[\\\\%_\]\/g/.test(published))
-  check("publishing cleans each page by the schemas that go live with it", /customSchemaLookup\(admin as never, installId, drafted, \{ draft: true \}\)/.test(publish) && /sanitizeSections\(page\.draft_sections as SectionInstance\[\], lookup\)/.test(publish))
+  check("publishing cleans each page by the section files that go live with it", /readOwnSectionFields\(admin, installId,/.test(publish) && /sanitizeSections\(page\.draft_sections as SectionInstance\[\], own\)/.test(publish))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

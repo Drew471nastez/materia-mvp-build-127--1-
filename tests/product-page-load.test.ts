@@ -121,8 +121,8 @@ function main() {
     files resolving slug history separately is three chances to disagree
     about where an old link goes.
   */
-  check("an old slug still redirects to the current one", /if \(product && viaHistory\) \{\s*\n\s*redirect\(`\/p\/\$\{product\.slug\}`\)/.test(body))
-  check("and only the page decides that", (page.match(/redirect\(`\/p\//g) || []).length === 1)
+  check("an old slug still redirects to the current one, permanently", /if \(product && viaHistory\) \{\s*\n\s*permanentRedirect\(`\/p\/\$\{product\.slug\}`\)/.test(body))
+  check("and only the page decides that", (page.match(/[rR]edirect\(`\/p\//g) || []).length === 1)
   check("the loader reports it rather than redirecting itself", !/\bredirect\(/.test(loaders))
 
   /* ---------------------------------------------------------------------

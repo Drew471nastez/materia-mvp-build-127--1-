@@ -9,6 +9,7 @@ import { BottomSheet, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
 import { prefetchAppPage } from "@/lib/ui/app-navigation"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
+import { BusinessSwitcher, type BusinessRow } from "@/components/app/business-switcher"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
 const HELP_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/help`
@@ -27,7 +28,10 @@ const HELP_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storeli
  * Its own file so scripts/check-sheet-motion.mjs can open the real one over
  * a page the size of the dashboard and count what else renders.
  */
+const NO_BUSINESSES: BusinessRow[] = []
+
 export const MobileAccountMenu = memo(function MobileAccountMenu({
+  businesses = NO_BUSINESSES,
   avatarSrc,
   userDisplayName,
   settingsLabel,
@@ -37,6 +41,8 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
   onLanguage,
   onSignOut,
 }: {
+  /** Both businesses when there are two, else this one alone: the switcher at the top of the sheet. */
+  businesses?: BusinessRow[]
   avatarSrc: string | undefined
   userDisplayName: string
   settingsLabel: string
@@ -97,7 +103,12 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
           setMobileProfileDropdownOpen((v) => !v)
         }}
         aria-haspopup="dialog"
-        aria-expanded={mobileProfileDropdownOpen}
+        /* data-open, not aria-expanded: an aria-expanded that changes is a
+           change under a :has() in the site builder's CSS, and Chromium
+           answers it by restyling the whole document on the tap
+           (scripts/check-app-sheets-frames.mjs). A button that opens a modal
+           dialog does not need it: focus moves into the dialog. */
+        data-open={mobileProfileDropdownOpen ? "" : undefined}
         className={cn(
           "flex items-center gap-2 w-fit justify-start rounded-xl px-2 py-1.5 transition-colors duration-200 ease-out",
           mobileProfileDropdownOpen ? "bg-white/15" : "hover:bg-white/10"
@@ -129,17 +140,27 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
         that cannot refuse the page's scroll slides against it.
       */}
     </div>
+    {/* Kept: built while the page is idle, so the tap only slides it up. */}
     <BottomSheet
       isOpen={mobileProfileDropdownOpen}
       onClose={closeMobileProfile}
       label="Account"
       hideFrom="md"
+      keepMounted
     >
       <div className="px-3 pb-3">
-        <div className="flex items-center gap-3 px-2 pb-3 pt-1">
-          <AppAvatar src={avatarSrc} name={userDisplayName} size={40} className="ring-1 ring-neutral-200" />
-          <span className="truncate text-[15px] font-semibold text-neutral-900">{userDisplayName}</span>
-        </div>
+        {/* With the businesses known, they head the sheet (the current one checked); before, the account alone. */}
+        {businesses.length > 0 ? (
+          <>
+            <BusinessSwitcher businesses={businesses} variant="sheet" onNavigate={closeMobileProfile} />
+            <div className="my-1.5 h-px bg-neutral-100" />
+          </>
+        ) : (
+          <div className="flex items-center gap-3 px-2 pb-3 pt-1">
+            <AppAvatar src={avatarSrc} name={userDisplayName} size={40} className="ring-1 ring-neutral-200" />
+            <span className="truncate text-[15px] font-semibold text-neutral-900">{userDisplayName}</span>
+          </div>
+        )}
 
         {items.map((item) => {
           const Icon = item.icon

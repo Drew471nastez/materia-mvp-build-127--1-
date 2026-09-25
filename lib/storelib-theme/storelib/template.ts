@@ -36,6 +36,7 @@
  */
 import type { RenderContext, Result, ThemeError } from "../types"
 import { Linked, formatDatetime, plainText, safeHref } from "../values"
+import { guardRawHtml, isScriptScheme } from "./raw-html"
 
 // ── AST ─────────────────────────────────────────────────────────────────────
 
@@ -269,9 +270,11 @@ export const FOREIGN_SYNTAX: [RegExp, string][] = [
   [/\s:([a-z-]+)\s*=/i, `the attribute itself, with the value in it`],
 ]
 
+const HANDLER_REFUSAL = "an on*= attribute. Add the listener in the section's <script> block instead, or use HTML that needs none: <details>, a radio input with :checked, or popovertarget"
+
 export const FORBIDDEN_MARKUP: [RegExp, string][] = [
   [/<script\b/i, "a <script> tag inside <template>. A section's script goes in its own <script> block, beside <template>, where it runs in a sandbox"],
-  [/\son[a-z]+\s*=/i, "an on*= attribute. Add the listener in the section's <script> block instead, or use HTML that needs none: <details>, a radio input with :checked, or popovertarget"],
+  [/\son[a-z]+\s*=/i, HANDLER_REFUSAL],
   [/javascript:/i, "a javascript: URL"],
   [/<object\b|<embed\b/i, "an <object> or <embed>"],
 ]
@@ -299,6 +302,28 @@ export const DOCUMENT_MARKUP: [RegExp, string][] = [
   [/<base\b/i, "a <base> tag, which would change every address on the page"],
   [/<meta\b/i, "a <meta> tag. A page's title, description and sharing picture are set in Website Settings"],
 ]
+
+/**
+ * ===========================================================================
+ *  THE SAME REFUSALS, SPELLED THE WAYS A BROWSER ALSO ACCEPTS
+ * ===========================================================================
+ * `\son…=` above reads a handler as a space and a name. A browser also
+ * starts a new attribute after a slash or straight after a closing quote, so
+ * `<img/onerror=…>` and `<img src="x"onerror=…>` are handlers too, and a
+ * javascript: address still runs when it is written as `jav&#x61;script:` or
+ * split by a tab. `srcdoc` is a whole page inside one attribute, character
+ * references and all.
+ *
+ * Refused when a file is saved or a theme is imported. A file saved before
+ * this existed still compiles as it did, so no live section changes.
+ */
+export const DISGUISED_MARKUP: [RegExp, string][] = [
+  [/[/"']on[a-z]+\s*=/i, HANDLER_REFUSAL],
+  [/[\s/"']srcdoc\s*=/i, "a srcdoc attribute, which puts a whole page inside one attribute"],
+]
+
+/** An address attribute written out in the template, with its value. */
+const ADDRESS_IN_TEMPLATE = /[\s/"'](?:href|src|action|formaction|xlink:href|data|poster|background|codebase|cite|ping)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>"']+))/gi
 
 export function stripDocumentMarkup(html: string): string {
   if (!/<(?:style|link|base|meta)\b/i.test(html)) return html
@@ -395,11 +420,16 @@ export function compileTemplate(src: string, opts: { file?: string; line?: numbe
     }
   }
 
-  for (const [re, what] of opts.lenient ? FORBIDDEN_MARKUP : [...FORBIDDEN_MARKUP, ...DOCUMENT_MARKUP]) {
+  for (const [re, what] of opts.lenient ? FORBIDDEN_MARKUP : [...FORBIDDEN_MARKUP, ...DOCUMENT_MARKUP, ...DISGUISED_MARKUP]) {
     const m = src.match(re)
     if (m && m.index !== undefined) {
       const line = lineAt(m.index)
       return err(`The template contains ${what}`, line)
+    }
+  }
+  if (!opts.lenient) {
+    for (const m of src.matchAll(ADDRESS_IN_TEMPLATE)) {
+      if (isScriptScheme(m[1] ?? m[2] ?? m[3] ?? "")) return err("The template contains a javascript: URL", lineAt(m.index ?? 0))
     }
   }
 
@@ -553,7 +583,10 @@ const FILTERS: Record<string, Filter> = {
   round: (v, [d]) => { const p = 10 ** Number(d ?? 0); return Math.round(Number(v) * p) / p },
   json: (v) => JSON.stringify(v ?? null),
   escape: (v) => escapeHtml(str(v)),
-  /** Only for values that were sanitised on the way in: richtext. */
+  /**
+   * Only for values that were sanitised on the way in: richtext. What it
+   * emits is looked at again as it is drawn: storelib/raw-html.ts.
+   */
   raw: (v) => new Safe(str(v)),
   /**
    * An href that is one of ours or an http(s)/mailto/tel address; anything
@@ -736,7 +769,8 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
         case "text": out.push(n.value); break
         case "output": {
           const v = evaluate(n.expr, scope, ctx)
-          out.push(v instanceof Safe ? v.html : css ? cssValue(str(v)) : escapeHtml(str(v)))
+          /* In a stylesheet `raw` is checked with the whole sheet, in render.ts. */
+          out.push(v instanceof Safe ? (css ? v.html : guardRawHtml(v.html)) : css ? cssValue(str(v)) : escapeHtml(str(v)))
           break
         }
         case "if": {

@@ -68,7 +68,7 @@ import {
 /* ── the look ───────────────────────────────────────────────────────────── */
 
 export const pickerButton =
-  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e3e4e8] bg-white px-2.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] data-[state=open]:bg-[#ececef] data-[state=open]:shadow-[inset_0_1px_2px_rgba(17,24,39,0.12)] cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 focus-visible:ring-offset-1"
+  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e3e4e8] bg-white px-2.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] data-[state=open]:bg-[#ececef] data-[state=open]:shadow-[inset_0_1px_2px_rgba(17,24,39,0.12)] data-open:bg-[#ececef] data-open:shadow-[inset_0_1px_2px_rgba(17,24,39,0.12)] cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 focus-visible:ring-offset-1"
 
 export const pickerSurface =
   "overflow-hidden rounded-xl border border-[#e3e4e8] bg-white p-0 text-[#1a1a2e] shadow-[0_12px_40px_-8px_rgba(17,24,39,0.22),0_2px_6px_rgba(17,24,39,0.06)]"
@@ -80,6 +80,9 @@ const secondaryBtn =
   "inline-flex items-center justify-center rounded-lg border border-[#e3e4e8] bg-white font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] hover:bg-[#f7f7f8] active:bg-[#f1f2f4]"
 const primaryBtn =
   "inline-flex items-center justify-center rounded-lg bg-[#1a1a2e] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(17,24,39,0.25)] hover:bg-[#2a2a40] active:bg-[#111122] disabled:cursor-not-allowed disabled:bg-[#d4d4d8] disabled:shadow-none"
+
+/** A month's arrival: the sheet's own curve. */
+const MONTH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 
 /** How long one step takes to become the next. The curve is in globals.css (.drp-*). */
 export const STEP_MS = 240
@@ -99,33 +102,58 @@ export function usePhone(): boolean {
 
 /* ── the frame the steps move in ────────────────────────────────────────── */
 
+const NO_STEPS: readonly string[] = []
 /**
- * Two steps side by side for the length of one move, and only then.
+ * A kept step: out of sight, out of the flow, its rendering skipped where
+ * the browser has content-visibility. Set as a style: a class that hides
+ * something is a change the page's :has() rules answer by restyling the
+ * whole document, a style is not (scripts/check-app-sheets-frames.mjs).
+ */
+const STEP_AWAY: React.CSSProperties = { visibility: "hidden", contentVisibility: "hidden", pointerEvents: "none", position: "absolute", left: 0, top: 0 }
+const STEP_AWAY_FULL: React.CSSProperties = { ...STEP_AWAY, right: 0 }
+const CUSTOM_AHEAD: readonly string[] = ["custom"]
+
+/**
+ * Two steps side by side for the length of one move.
  *
  * The step that is leaving keeps its React key, so it keeps its state while
- * it goes, and is inert and hidden from assistive technology from the first
- * frame. The frame's size is the arriving step's, read from that step by a
- * ResizeObserver and written straight to the frame, which transitions it on
- * the same curve as the slide (see .drp-frame).
+ * it goes, and is inert and out of sight from the first frame. The frame's
+ * size is the arriving step's, read from that step by a ResizeObserver and
+ * written straight to the frame, which transitions it on the same curve as
+ * the slide (see .drp-frame).
+ *
+ * A STEP ONCE SHOWN IS KEPT, out of sight, out of the flow and inert, and
+ * `content-visibility: hidden` where the browser has it. Going to the
+ * custom range built the calendar on the tap (two month grids, 150 elements
+ * styled and laid out) and Back threw it away and built the list again: 75
+ * to 120ms each on a phone's CPU, and an element put in or taken out under a
+ * sheet is also a change the page's :has() rules answer by restyling the
+ * whole document (scripts/check-app-sheets-frames.mjs). Now a step that
+ * comes back is only shown again.
  */
 function StepFrame({
   active,
   dir,
   compact,
   render,
+  ahead = NO_STEPS,
 }: {
   active: string
   dir: 1 | -1
   compact: boolean
   render: (key: string) => React.ReactNode
+  /** Steps built with the frame and kept out of sight, so the first visit to each is only a show. */
+  ahead?: readonly string[]
 }) {
   const [shown, setShown] = React.useState(active)
   const [leaving, setLeaving] = React.useState<{ key: string; dir: 1 | -1 } | null>(null)
+  const [kept, setKept] = React.useState<string[]>(() => [active, ...ahead.filter((k) => k !== active)])
   /* Decided during the render that receives the new step, so the first frame
      painted already has both layers in place. */
   if (shown !== active) {
     setLeaving({ key: shown, dir })
     setShown(active)
+    if (!kept.includes(active)) setKept([...kept, active])
   }
   React.useEffect(() => {
     if (!leaving) return
@@ -149,20 +177,26 @@ function StepFrame({
     return () => ro.disconnect()
   }, [shown, compact])
 
-  const layers = leaving && leaving.key !== shown ? [leaving.key, shown] : [shown]
   return (
     <div ref={frameRef} className="drp-frame relative overflow-hidden" data-drp-frame>
-      {layers.map((k) => {
+      {kept.map((k) => {
         const on = k === shown
-        const motion = leaving ? (on ? (leaving.dir === 1 ? "drp-in-next" : "drp-in-back") : leaving.dir === 1 ? "drp-out-next" : "drp-out-back") : null
+        const going = !on && leaving?.key === k
+        const motion = leaving ? (on ? (leaving.dir === 1 ? "drp-in-next" : "drp-in-back") : going ? (leaving.dir === 1 ? "drp-out-next" : "drp-out-back") : null) : null
         return (
           <div
             key={k}
             ref={on ? activeRef : undefined}
             data-drp-step={k}
-            aria-hidden={on ? undefined : true}
             inert={!on}
-            className={cn(compact ? "w-full" : "w-max", !on && "pointer-events-none absolute left-0 top-0", !on && compact && "right-0", motion)}
+            className={cn(
+              compact ? "w-full" : "w-max",
+              going && "pointer-events-none absolute left-0 top-0",
+              going && compact && "right-0",
+              motion,
+            )}
+            /* A kept step is away by its style, not by classes: see STEP_AWAY. */
+            style={!on && !going ? (compact ? STEP_AWAY_FULL : STEP_AWAY) : undefined}
           >
             {render(k)}
           </div>
@@ -345,40 +379,52 @@ function Month({
         ))}
       </div>
       <div role="grid" aria-label={`${MONTHS_LONG[m]} ${y}`} className="grid grid-cols-7" style={{ gridTemplateRows: `repeat(6, ${cell}px)` }} onMouseLeave={() => onHover(null)}>
-        {cells.map((d, i) => {
-          if (!d) return <div key={`e${i}`} aria-hidden />
-          const disabled = d > today
-          const inBand = lo && hi && lo !== hi ? d >= lo && d <= hi : false
-          const isStart = d === lo
-          const isEnd = d === hi
+        {cells.map((cellDay, i) => {
+          /*
+            Keyed by place, not by day, and every square has its band, its
+            button and its dot whether it is a day or not (the ones that are
+            not are `hidden`): the next month is the same 42 squares with
+            other numbers and nothing is put in or taken out, which under a
+            sheet is a change the page's :has() rules answer by restyling the
+            whole document (scripts/check-app-sheets-frames.mjs).
+          */
+          const d = cellDay ?? ("" as Ymd)
+          const isDay = !!cellDay
+          const disabled = isDay && d > today
+          const inBand = isDay && lo && hi && lo !== hi ? d >= lo && d <= hi : false
+          const isStart = isDay && d === lo
+          const isEnd = isDay && d === hi
           const edge = (isStart || isEnd) && !(previewing && d === hover && d !== range.start)
           const col = i % 7
           return (
-            <div key={d} className="relative flex items-center justify-center">
-              {inBand ? (
-                <span
-                  aria-hidden
-                  className={cn(
-                    "drp-band absolute inset-y-0",
-                    previewing ? "bg-[#f4f4f7]" : "bg-[#efeff3]",
-                    isStart ? "left-1/2" : "left-0",
-                    isEnd ? "right-1/2" : "right-0",
-                    !isStart && col === 0 && "rounded-l-lg",
-                    !isEnd && col === 6 && "rounded-r-lg",
-                  )}
-                />
-              ) : null}
+            <div key={i} className="relative flex items-center justify-center">
+              <span
+                aria-hidden
+                className={cn(
+                  "drp-band absolute inset-y-0",
+                  !inBand && "hidden",
+                  previewing ? "bg-[#f4f4f7]" : "bg-[#efeff3]",
+                  isStart ? "left-1/2" : "left-0",
+                  isEnd ? "right-1/2" : "right-0",
+                  !isStart && col === 0 && "rounded-l-lg",
+                  !isEnd && col === 6 && "rounded-r-lg",
+                )}
+              />
               <button
                 type="button"
-                data-day={d}
-                tabIndex={d === focusDay ? 0 : -1}
-                disabled={disabled}
+                hidden={!isDay}
+                data-day={isDay ? d : undefined}
+                tabIndex={isDay && d === focusDay ? 0 : -1}
+                /* aria-disabled, not disabled: a :disabled that changes is a
+                   change under a :has() in the app's CSS, answered with a
+                   restyle of the whole document on every arrow tap. */
+                aria-disabled={disabled || !isDay || undefined}
                 aria-pressed={edge}
-                aria-current={d === today ? "date" : undefined}
-                aria-label={longDate(d)}
-                onClick={() => onPick(d)}
-                onMouseEnter={() => onHover(d)}
-                onFocus={() => setFocusDay(d)}
+                aria-current={isDay && d === today ? "date" : undefined}
+                aria-label={isDay ? longDate(d) : undefined}
+                onClick={() => isDay && !disabled && onPick(d)}
+                onMouseEnter={() => isDay && onHover(d)}
+                onFocus={() => isDay && setFocusDay(d)}
                 className={cn(
                   "relative flex items-center justify-center rounded-lg tabular-nums outline-none transition-[background-color,color,box-shadow] duration-150",
                   compact ? "h-11 w-11 text-[16px]" : "h-9 w-9 text-[13px]",
@@ -388,13 +434,11 @@ function Month({
                     : edge
                       ? "cursor-pointer bg-[#1a1a2e] font-semibold text-white shadow-[0_1px_2px_rgba(17,24,39,0.25),inset_0_1px_0_rgba(255,255,255,0.12)]"
                       : cn("cursor-pointer text-[#1a1a2e] active:bg-[#e4e4e9]", !compact && "hover:bg-[#e8e8ed]"),
-                  d === today && !edge && "font-semibold",
+                  isDay && d === today && !edge && "font-semibold",
                 )}
               >
-                {parts(d).d}
-                {d === today ? (
-                  <span aria-hidden className={cn("absolute left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-current", compact ? "bottom-[6px]" : "bottom-[4px]")} />
-                ) : null}
+                {isDay ? parts(d).d : ""}
+                <span aria-hidden hidden={!isDay || d !== today} className={cn("absolute left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-current", compact ? "bottom-[6px]" : "bottom-[4px]")} />
               </button>
             </div>
           )
@@ -466,6 +510,8 @@ interface PanelProps {
    * complete choice is handed over as it is made.
    */
   inline?: boolean
+  /** A new number starts the panel again from `initial`, for a panel that is kept between visits. */
+  reset?: number
 }
 
 type DateRangeDraft = { start: Ymd; end: Ymd }
@@ -474,7 +520,7 @@ type DateRangeDraft = { start: Ymd; end: Ymd }
  * THE CUSTOM RANGE: two date boxes, the months, and Back and Apply. The
  * second step of the picker, and on its own in the orders export dialog.
  */
-export function RangePanel({ initial, today, months, onBack, onApply, inline = false }: PanelProps) {
+export function RangePanel({ initial, today, months, onBack, onApply, inline = false, reset = 0 }: PanelProps) {
   const compact = months === 1
   const [draft, setDraft] = React.useState<{ start: Ymd | null; end: Ymd | null }>({ start: initial.start, end: initial.end })
   const [hover, setHover] = React.useState<Ymd | null>(null)
@@ -493,6 +539,16 @@ export function RangePanel({ initial, today, months, onBack, onApply, inline = f
   }
   const [focusDay, setFocusDay] = React.useState<Ymd>(initial.end)
   const gridRef = React.useRef<HTMLDivElement>(null)
+  /* Kept between visits (StepFrame): each visit starts where a new panel would. */
+  const [lastReset, setLastReset] = React.useState(reset)
+  if (reset !== lastReset) {
+    setLastReset(reset)
+    setDraft({ start: initial.start, end: initial.end })
+    setHover(null)
+    setViewState({ y: endParts.y, m: endParts.m - (months === 2 ? 1 : 0) })
+    setDir(0)
+    setFocusDay(initial.end)
+  }
 
   const show = (d: Ymd) => {
     const p = parts(d)
@@ -549,7 +605,31 @@ export function RangePanel({ initial, today, months, onBack, onApply, inline = f
     if (inline && draft.start && draft.end) applyRef.current({ start: draft.start, end: draft.end, preset: "custom" })
   }, [inline, draft.start, draft.end])
 
-  const slide = dir === 1 ? "drp-month-next" : dir === -1 ? "drp-month-back" : undefined
+  /**
+   * A MONTH ARRIVES FROM THE SIDE IT WAS ASKED FOR, and the grid under it is
+   * the same grid with other numbers in it. Each month used to be a new grid
+   * (keyed by the month), so every arrow tap took 42 days out of the page
+   * and put 42 in: 60 to 110ms of rendering, styling and layout on a
+   * phone's CPU, and an element put in or taken out under a sheet is a
+   * change the page's :has() rules answer by restyling the whole document
+   * (scripts/check-app-sheets-frames.mjs). The slide is played on the
+   * compositor on the grid that stays: it never starts invisible, so the
+   * days are readable from the first frame.
+   */
+  const labelsRef = React.useRef<HTMLDivElement>(null)
+  const firstMonth = React.useRef(true)
+  React.useLayoutEffect(() => {
+    if (firstMonth.current) {
+      firstMonth.current = false
+      return
+    }
+    if (!dir || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    const from = `translate3d(${dir === 1 ? 14 : -14}px, 0, 0)`
+    const moving = [...Array.from(labelsRef.current?.children ?? []), ...Array.from(gridRef.current?.children ?? [])]
+    for (const el of moving) {
+      el.animate([{ opacity: 0.35, transform: from }, { opacity: 1, transform: "none" }], { duration: 220, easing: MONTH_EASE })
+    }
+  }, [view.y, view.m]) // eslint-disable-line react-hooks/exhaustive-deps
   const days = complete ? lengthOf({ start: draft.start as Ymd, end: draft.end as Ymd }) : 0
   const navSize = compact ? "h-10 w-10" : "h-8 w-8"
 
@@ -585,18 +665,19 @@ export function RangePanel({ initial, today, months, onBack, onApply, inline = f
           <button type="button" aria-label="Previous month" onClick={back} className={cn(monthNav, navSize)}>
             <ChevronLeft className="h-4 w-4" strokeWidth={2.25} />
           </button>
-          <div className="flex flex-1 justify-around overflow-hidden">
-            {monthsShown.map((mo) => (
+          <div ref={labelsRef} className="flex flex-1 justify-around overflow-hidden">
+            {monthsShown.map((mo, i) => (
               <span
-                key={`${mo.y}-${mo.m}`}
+                key={i}
                 aria-live="polite"
-                className={cn("font-semibold tabular-nums text-[#1a1a2e]", compact ? "text-[15px]" : "text-[14px]", slide)}
+                className={cn("font-semibold tabular-nums text-[#1a1a2e]", compact ? "text-[15px]" : "text-[14px]")}
               >
                 {MONTHS_LONG[mo.m]} {mo.y}
               </span>
             ))}
           </div>
-          <button type="button" aria-label="Next month" disabled={!canForward} onClick={forward} className={cn(monthNav, navSize)}>
+          {/* aria-disabled with the same look, not disabled: see the days above. */}
+          <button type="button" aria-label="Next month" aria-disabled={!canForward || undefined} onClick={forward} className={cn(monthNav, navSize, !canForward && "pointer-events-none opacity-35")}>
             <ChevronRight className="h-4 w-4" strokeWidth={2.25} />
           </button>
         </div>
@@ -621,8 +702,8 @@ export function RangePanel({ initial, today, months, onBack, onApply, inline = f
           }}
           className={cn("mt-3 flex overflow-hidden", compact ? "pb-3" : "gap-6 pb-4")}
         >
-          {monthsShown.map((mo) => (
-            <div key={`${mo.y}-${mo.m}`} className={cn(compact && "w-full", slide)}>
+          {monthsShown.map((mo, i) => (
+            <div key={i} className={cn(compact && "w-full")}>
               <Month
                 compact={compact}
                 y={mo.y}
@@ -674,22 +755,37 @@ function PickerPanel({
   firstDay,
   compact,
   onPick,
+  restart = 0,
+  ahead,
 }: {
   value: RangeValue
   today: Ymd
   firstDay?: Ymd
   compact: boolean
   onPick: (v: RangeValue) => void
+  /** A new number puts the panel back on the list, for a sheet that is kept between opens. */
+  restart?: number
+  /** Steps to build with the panel (see StepFrame `ahead`). */
+  ahead?: readonly string[]
 }) {
   const [step, setStep] = React.useState("list")
   const [dir, setDir] = React.useState<1 | -1>(1)
+  const [lastRestart, setLastRestart] = React.useState(restart)
+  if (restart !== lastRestart) {
+    setLastRestart(restart)
+    setStep("list")
+    setDir(-1)
+  }
   const rootRef = React.useRef<HTMLDivElement>(null)
   /** Where focus goes once the next step is on screen: the step it came from loses it. */
   const focusNext = React.useRef<string | null>(null)
+  /* Each visit to the custom range starts it again (RangePanel reset). */
+  const [visits, setVisits] = React.useState(0)
   const go = (next: string, d: 1 | -1, focus: string) => {
     focusNext.current = focus
     setDir(d)
     setStep(next)
+    if (next === "custom") setVisits((n) => n + 1)
   }
   React.useEffect(() => {
     const sel = focusNext.current
@@ -708,6 +804,7 @@ function PickerPanel({
           months={compact ? 1 : 2}
           onBack={() => go("list", -1, `[data-row="custom"]`)}
           onApply={onPick}
+          reset={visits}
         />
       )
     }
@@ -727,7 +824,7 @@ function PickerPanel({
 
   return (
     <div ref={rootRef} data-drp-panel>
-      <StepFrame active={step} dir={dir} compact={compact} render={render} />
+      <StepFrame active={step} dir={dir} compact={compact} render={render} ahead={ahead} />
     </div>
   )
 }
@@ -757,23 +854,67 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
   const [session, setSession] = React.useState(0)
   const phone = usePhone()
   const compact = phone || inline
+  /**
+   * A choice closes the picker at once; the page catches up behind it, at a
+   * priority that cannot hold up the close.
+   *
+   * ON A PHONE, ONCE THE SHEET HAS GONE. The home page drawing a new period
+   * is 100 to 270ms of main thread on a phone's CPU (a chart, the figures,
+   * their morphs), and it landed in the frames of the sheet's slide down.
+   * The website builder's sheets tell their page about a release when the
+   * sheet has arrived; this one tells the page about a choice when the
+   * sheet has left, 340ms later, so the page's own motion is seen whole.
+   */
+  const pendingPick = React.useRef<RangeValue | null>(null)
+  const onChangeRef = React.useRef(onChange)
+  onChangeRef.current = onChange
+  const flushPick = React.useCallback(() => {
+    const v = pendingPick.current
+    pendingPick.current = null
+    if (v) React.startTransition(() => onChangeRef.current(v))
+  }, [])
   const setShown = (o: boolean) => {
     if (o) setSession((s) => s + 1)
+    /* Opened again before the last choice reached the page: it reaches it now. */
+    if (o) flushPick()
     setOpen(o)
   }
-  /* A choice closes the picker at once; the page catches up behind it, at a
-     priority that cannot hold up the close. */
   const pick = (v: RangeValue) => {
     setOpen(false)
+    if (phone && !inline) {
+      pendingPick.current = v
+      return
+    }
     React.startTransition(() => onChange(v))
   }
+  /* The phone sheet is kept between opens (BottomSheet keepMounted), so the
+     panel goes back to the list once it is out of sight, not on the tap. */
+  const [restart, setRestart] = React.useState(0)
+  const onSheetClosed = React.useCallback(() => {
+    setRestart((n) => n + 1)
+    flushPick()
+  }, [flushPick])
+  /* Only the picker that is on screen keeps a sheet: the home page draws one for each width. */
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
+  const [onScreen, setOnScreen] = React.useState(false)
+  React.useEffect(() => {
+    const el = triggerRef.current
+    setOnScreen(!!el && el.getClientRects().length > 0)
+  }, [phone])
   const trigger = (
     <button
+      ref={triggerRef}
       type="button"
       className={cn(pickerButton, className)}
-      data-state={open ? "open" : "closed"}
+      /* On a phone the button opens a modal sheet and says so with data-open.
+         `data-state` and `aria-expanded` are both named in :has() rules in
+         the app's CSS, and a change to either restyled the whole document
+         on the tap (scripts/check-app-sheets-frames.mjs). The popover on a
+         computer still gets both from Radix's trigger. */
+      data-state={phone && !inline ? undefined : open ? "open" : "closed"}
+      data-open={open ? "" : undefined}
       aria-haspopup="dialog"
-      aria-expanded={open}
+      aria-expanded={phone && !inline ? undefined : open}
       title={value.preset === "custom" ? undefined : rangeLabel(value)}
       onClick={compact ? () => setShown(inline ? !open : true) : undefined}
     >
@@ -795,8 +936,9 @@ export function DateRangePicker({ value, onChange, today, firstDay, align = "sta
     return (
       <>
         {trigger}
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title="Date range">
-          {panel}
+        {/* Kept, and built while the page is idle: the tap only slides it up. */}
+        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title="Date range" keepMounted={onScreen} onClosed={onSheetClosed}>
+          <PickerPanel value={value} today={today} firstDay={firstDay} compact onPick={pick} restart={restart} ahead={CUSTOM_AHEAD} />
         </BottomSheet>
       </>
     )
