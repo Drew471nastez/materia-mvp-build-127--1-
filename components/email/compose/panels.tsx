@@ -26,7 +26,7 @@ function linkError(v: string): string | null {
   return safeUrl(v) ? null : "Use a full web address, like https://example.com"
 }
 
-export function ButtonPanel({ block, onChange }: { block: ButtonBlock; onChange: (p: Partial<ButtonBlock>) => void }) {
+export function ButtonPanel({ block, onChange, brand }: { block: ButtonBlock; onChange: (p: Partial<ButtonBlock>) => void; brand?: string }) {
   const id = block.id
   const urlError = linkError(block.url)
   return (
@@ -48,7 +48,7 @@ export function ButtonPanel({ block, onChange }: { block: ButtonBlock; onChange:
         />
       </Field>
       <Field label="Color">
-        <ColorChoice value={block.color} onChange={(color) => onChange({ color })} />
+        <ColorChoice value={block.color} brand={brand} onChange={(color) => onChange({ color })} />
       </Field>
       <Field label="Alignment">
         <Segmented label="Alignment" value={block.align} options={ALIGN} onChange={(align) => onChange({ align })} />
@@ -128,6 +128,7 @@ export function ProductPanel({
   username,
   pickerOpen,
   onPickerOpen,
+  brand,
 }: {
   block: ProductBlock
   onChange: (p: Partial<ProductBlock>) => void
@@ -135,6 +136,7 @@ export function ProductPanel({
   username: string | null
   pickerOpen: boolean
   onPickerOpen: (o: boolean) => void
+  brand?: string
 }) {
   return (
     <div className={panel} data-block-panel="product">
@@ -164,7 +166,7 @@ export function ProductPanel({
         <input id={`${block.id}-cta`} className={inputClass} value={block.cta} maxLength={40} onChange={(e) => onChange({ cta: e.target.value })} />
       </Field>
       <Field label="Button color" className="sm:col-span-2">
-        <ColorChoice value={block.color} onChange={(color) => onChange({ color })} />
+        <ColorChoice value={block.color} brand={brand} onChange={(color) => onChange({ color })} />
       </Field>
     </div>
   )

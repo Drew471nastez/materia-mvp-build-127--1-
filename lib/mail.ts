@@ -77,11 +77,10 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
   const emailOnly = emailMatch ? emailMatch[1] : EMAIL_FROM
   const fromAddress = options.from || `${PLATFORM_BRAND} <${emailOnly}>`
 
+  /* Addresses masked, and no subject: a personalised one carries the reader's name. */
   console.log("[mail] Sending email via Mailgun:", {
-    from: fromAddress,
     to: maskEmail(options.to),
-    subject: options.subject,
-    replyTo: options.replyTo || EMAIL_REPLY_TO,
+    replyTo: maskEmail(options.replyTo || EMAIL_REPLY_TO),
   })
 
   // Convert legacy tags format to Mailgun format
@@ -106,9 +105,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     })
   } else {
     console.error("[mail] Failed to send email:", {
-      error: result.error,
       to: maskEmail(options.to),
-      subject: options.subject,
     })
   }
 

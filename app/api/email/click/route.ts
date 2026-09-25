@@ -2,21 +2,27 @@
  * ===========================================================================
  *  A LINK IN A CAMPAIGN: COUNT THE CLICK, THEN GO WHERE THE LINK WENT
  * ===========================================================================
- * GET ?url=<base64 of the link>&t=<recipient's tracking token>
+ * GET ?u=<base64url of the link>&t=<recipient's tracking token>&s=<signature>
  *
- * This used to redirect to whatever the url parameter said. A redirector on
- * storelib.com that goes anywhere is a phishing tool: "storelib.com/api/..."
- * in a link looks safe and lands on any page an attacker likes. Now the
- * target must be a link that is actually in the email that token belongs to
- * (appearsIn), or on storelib.com itself. Anything else goes to the home
- * page.
+ * A redirector on storelib.com that goes anywhere is a phishing tool, so the
+ * redirect only follows a target it can vouch for:
  *
- * The click is recorded after the response (after()), so the reader is never
- * kept waiting on the database.
+ *   signed     the signature is of (token, target) with a server key
+ *              (lib/email-campaigns/link-sign.ts). Every link a campaign
+ *              sends carries one, made from the exact address in the email,
+ *              so a real link always goes where it said.
+ *   older      an email sent before signatures (?url=&t=): the target must
+ *              be a link in that campaign's saved body (appearsIn), as it
+ *              was checked then.
+ *   our own    a page on storelib.com itself.
+ *
+ * Anything else goes to the home page. The click is recorded after the
+ * response (after()), so the reader is never kept waiting on the database.
  */
 import { type NextRequest, NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { appearsIn } from "@/lib/email-campaigns/links"
+import { decodeTarget, verifyLink } from "@/lib/email-campaigns/link-sign"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -25,36 +31,29 @@ const TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 /* storelib.com itself, not its subdomains: those are sites creators publish. */
 const OWN_HOST = /^(www\.)?storelib\.com$/i
 
-function decodeTarget(raw: string | null): string | null {
-  if (!raw) return null
-  try {
-    const url = Buffer.from(raw, "base64").toString("utf-8")
-    const u = new URL(url)
-    return u.protocol === "http:" || u.protocol === "https:" ? u.toString() : null
-  } catch {
-    return null
-  }
-}
+type Recipient = { id: string; campaign_id: string; creator_id: string; email: string; clicked_at: string | null; click_count: number | null }
 
 export async function GET(request: NextRequest) {
+  const q = request.nextUrl.searchParams
   const home = new URL("/", request.url)
-  const target = decodeTarget(request.nextUrl.searchParams.get("url"))
+  const target = decodeTarget(q.get("u") ?? q.get("url"))
   if (!target) return NextResponse.redirect(home)
-  const token = request.nextUrl.searchParams.get("t")
+  const token = q.get("t")
+  const validToken = !!token && TOKEN.test(token)
 
-  let allowed = OWN_HOST.test(new URL(target).hostname)
-  let recipient: { id: string; campaign_id: string; creator_id: string; email: string; clicked_at: string | null; click_count: number | null } | null = null
-  if (token && TOKEN.test(token)) {
+  let allowed = OWN_HOST.test(new URL(target).hostname) || (validToken && verifyLink(token!, target, q.get("s")))
+  let recipient: Recipient | null = null
+  if (validToken) {
     try {
       const db = createAdminClient()
       const { data } = await db.from("campaign_recipients").select("id, campaign_id, creator_id, email, clicked_at, click_count").eq("tracking_token", token).maybeSingle()
-      recipient = data
+      recipient = (data as Recipient | null) ?? null
       if (recipient && !allowed) {
         const { data: campaign } = await db.from("email_campaigns").select("body").eq("id", recipient.campaign_id).maybeSingle()
         allowed = typeof campaign?.body === "string" && appearsIn(campaign.body, target)
       }
     } catch {
-      /* Could not check: only our own pages are safe to send them to. */
+      /* Could not read the row: a signed link still goes where it said. */
     }
   }
   if (!allowed) return NextResponse.redirect(home)

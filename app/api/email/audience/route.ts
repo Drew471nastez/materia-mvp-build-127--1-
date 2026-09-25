@@ -8,7 +8,8 @@
 import { NextResponse } from "next/server"
 import { isResponse, noStore, requireCreator } from "@/lib/email-campaigns/route-auth"
 import { monthlyLimit } from "@/lib/email-campaigns/limits"
-import { usedThisMonth } from "@/lib/email-campaigns/queue"
+import { isModernSchema, usedThisMonth } from "@/lib/email-campaigns/queue"
+import { loadBrand } from "@/lib/email-campaigns/brand-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -23,7 +24,7 @@ export async function GET() {
     db.from("subscribers").select("id", { count: "exact", head: true }).eq("creator_id", ctx.creatorId).eq("status", "subscribed").or("is_active.is.null,is_active.eq.true")
   const since = (days: number) => new Date(Date.now() - days * DAY).toISOString()
 
-  const [all, week, month, quarter, onepage, store, segments, creator, used] = await Promise.all([
+  const [all, week, month, quarter, onepage, store, segments, creator, used, brand, upgraded] = await Promise.all([
     base(),
     base().gte("subscribed_at", since(7)),
     base().gte("subscribed_at", since(30)),
@@ -33,6 +34,9 @@ export async function GET() {
     db.from("email_segments").select("id, name, filters").eq("creator_id", ctx.creatorId).order("name"),
     db.from("creators").select("subscription_plan_id, subscription_status").eq("id", ctx.creatorId).maybeSingle(),
     usedThisMonth(db, ctx.creatorId),
+    /* The look the email will be sent in, for the preview beside the editor. */
+    loadBrand(db, ctx.creatorId),
+    isModernSchema(db),
   ])
   if (all.error) return NextResponse.json({ error: "Could not read your subscriber list. Try again in a moment." }, { status: 503 })
 
@@ -53,6 +57,8 @@ export async function GET() {
         count: Array.isArray(s.filters?.subscriber_ids) ? (s.filters?.subscriber_ids as unknown[]).length : null,
       })),
       plan: { limit: monthlyLimit(creator.data?.subscription_plan_id, creator.data?.subscription_status), used },
+      brand,
+      upgraded,
     },
     { headers: noStore },
   )

@@ -57,6 +57,7 @@ export function SendStatus({
         ...(c.delivered ? [{ label: "Delivered", value: c.delivered }] : []),
         ...(c.bounced ? [{ label: "Bounced", value: c.bounced, tone: "critical" as const }] : []),
         ...(c.failed ? [{ label: "Not sent", value: c.failed, tone: "critical" as const }] : []),
+        ...(c.unknown ? [{ label: "May not have arrived", value: c.unknown }] : []),
         ...(c.skipped ? [{ label: "Left the list before their turn", value: c.skipped }] : []),
         ...(waiting ? [{ label: "Waiting", value: waiting }] : []),
       ]

@@ -20,7 +20,10 @@ import { rateLimit } from "@/lib/api/rate-limit"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { normalizeAddress } from "@/lib/email-campaigns/address"
 import { loadSender, prepareContent } from "@/lib/email-campaigns/queue"
-import { buildCampaignEmail, campaignPlainText, personalizeHtml, personalizeSubject } from "@/lib/email-campaigns/template"
+import { buildEmail, emailText, personalizeHtml, personalizeSubject } from "@/lib/email-campaigns/template"
+import { renderBlocks } from "@/lib/email-campaigns/blocks"
+import { themeOf } from "@/lib/email-campaigns/brand"
+import { esc } from "@/lib/email-campaigns/rich"
 import { plainReason } from "@/lib/email-campaigns/retry"
 import { isResponse, readJson, requireCreator } from "@/lib/email-campaigns/route-auth"
 import { APP_URL } from "@/lib/email-automation"
@@ -65,22 +68,26 @@ export async function POST(request: Request) {
   })
   if (limited) return limited
 
+  /* The body as the send renders it: the blocks read back out, in the brand's look as it is now. */
   const reader = { name: sender.name, email: asked }
-  const html = personalizeHtml(content.body, reader).replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, `${APP_URL}/unsubscribe`)
+  const page = `${APP_URL}/unsubscribe`
+  const html = personalizeHtml(renderBlocks(content.blocks, themeOf(sender.brand)), reader).replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, esc(page))
+  const subject = personalizeSubject(content.subject, reader)
   const result = await sendMailgunOnce({
     to: asked,
     from: sender.from,
     replyTo: sender.replyTo,
-    subject: `Test: ${personalizeSubject(content.subject, reader)}`,
-    html: buildCampaignEmail({
-      subject: personalizeSubject(content.subject, reader),
-      previewText: content.previewText,
+    subject: `Test: ${subject}`,
+    html: buildEmail({
+      subject,
+      previewText: personalizeSubject(content.previewText, reader),
       bodyHtml: html,
-      senderName: sender.name,
-      senderAvatarUrl: sender.avatarUrl,
-      unsubscribeUrl: `${APP_URL}/unsubscribe`,
+      brand: sender.brand,
+      avatarUrl: sender.avatarUrl,
+      kind: "marketing",
+      unsubscribeUrl: page,
     }),
-    text: campaignPlainText(html, `${APP_URL}/unsubscribe`),
+    text: emailText({ bodyHtml: html, brand: sender.brand, kind: "marketing", unsubscribeUrl: page }),
     tags: ["campaign-test"],
   })
 

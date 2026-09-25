@@ -21,6 +21,7 @@ export type DraftPatch = Partial<{
   body: string
   audience_type: string
   segment_id: string | null
+  track_opens: boolean
 }>
 
 export type Cleaned = { ok: true; patch: DraftPatch } | { ok: false; status: number; error: string; field?: string }
@@ -54,6 +55,8 @@ export async function cleanDraft(db: Db, creatorId: string, input: Record<string
     } else return { ok: false, status: 400, field: "audience", error: "That segment no longer exists." }
   }
   if (patch.audience_type && patch.audience_type !== "segment" && !("segment_id" in patch)) patch.segment_id = null
+  /* Only once the column exists (RUN_EMAIL_SENDING.sql); before, opens are always counted. */
+  if ("track_opens" in input && (await isModernSchema(db))) patch.track_opens = input.track_opens !== false
   return { ok: true, patch }
 }
 
@@ -70,4 +73,4 @@ export async function audienceRefusal(db: Db, error: { code?: string } | null, a
 }
 
 export const DRAFT_COLUMNS = "id, subject, preview_text, body, status, audience_type, segment_id, scheduled_at, sent_at, updated_at, created_at, audience_count"
-export const DRAFT_COLUMNS_MODERN = `${DRAFT_COLUMNS}, last_error, completed_at`
+export const DRAFT_COLUMNS_MODERN = `${DRAFT_COLUMNS}, last_error, completed_at, track_opens`

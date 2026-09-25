@@ -22,10 +22,15 @@
  *    Each batch of recipients is claimed row by row, pending -> sending,
  *    WHERE status = 'pending', before the provider is called. A row that is
  *    sent is marked sent with the provider's message id and is never
- *    selected again. A 429, a 5xx or a timeout puts the row back to pending
- *    with a later next_attempt_at; a refusal marks it failed with the reason.
- *    A row left in `sending` by a worker that died is put back after
- *    STALE_CLAIM_MS and sent with the same Message-Id as the first try.
+ *    selected again. A 429, a 5xx or a connection that never opened puts the
+ *    row back to pending with a later next_attempt_at; a refusal marks it
+ *    failed with the reason.
+ *
+ *    NEVER TWICE. A request that left and got no answer (a timeout), and a
+ *    row a worker left in `sending` when it died, may already be in the
+ *    reader's inbox. Neither is sent again: the row becomes `unknown` and
+ *    the creator is told how many may not have arrived. A retry is only ever
+ *    of a row the provider certainly did not take.
  *
  *    The subscriber is read again just before each batch: somebody who
  *    unsubscribed after Send was pressed is skipped, not mailed.
@@ -53,9 +58,15 @@ import { scoreSignup } from "@/lib/security/spam-signals"
 import { APP_URL, unsubscribeUrlFor } from "@/lib/email-automation"
 import { normalizeAddress, safeDisplayName } from "./address"
 import { byteLength, checkContent, cleanPreview, cleanSubject, type Problem } from "./validate"
-import { imageCount, sanitizeForSend, visibleText } from "./sanitize"
-import { buildCampaignEmail, campaignPlainText, personalizeHtml, personalizeSubject, unknownMergeFields } from "./template"
-import { afterAttempt, MAX_ATTEMPTS, nextAttemptAt, plainReason } from "./retry"
+import { imageCount, visibleText } from "./sanitize"
+import { buildEmail, emailText, personalizeHtml, personalizeSubject, unknownMergeFields } from "./template"
+import { afterAttempt, MAX_ATTEMPTS, nextAttemptAt, plainReason, UNCERTAIN_REASON } from "./retry"
+import { PLAIN_THEME, renderBlocks, type Block } from "./blocks"
+import { readStoredBody } from "./stored"
+import { themeOf, type Brand } from "./brand"
+import { loadBrand } from "./brand-server"
+import { trackLinks } from "./link-sign"
+import { esc } from "./rich"
 import { fitsPlan, monthlyLimit, monthStart } from "./limits"
 import {
   EMPTY_COUNTS,
@@ -93,7 +104,7 @@ let schemaCache: { modern: boolean; at: number } | null = null
 export async function isModernSchema(db: Db): Promise<boolean> {
   if (schemaCache && Date.now() - schemaCache.at < 60_000) return schemaCache.modern
   const [a, b] = await Promise.all([
-    db.from("email_campaigns").select("id, last_error, send_idempotency_key, completed_at").limit(1),
+    db.from("email_campaigns").select("id, last_error, send_idempotency_key, completed_at, track_opens").limit(1),
     db.from("campaign_recipients").select("id, attempts, next_attempt_at, claimed_at").limit(1),
   ])
   const modern = !a.error && !b.error
@@ -124,6 +135,8 @@ export interface Sender {
   planId: string | null
   planStatus: string | null
   blocked: boolean
+  /** The store's name, logo, colour and address, as they are now. */
+  brand: Brand
 }
 
 function fromAddress(): string {
@@ -152,6 +165,7 @@ export async function loadSender(db: Db, creatorId: string, fromName?: string | 
   const name = safeDisplayName(fromName || profile?.display_name || profile?.username || creator.headline || creator.slug, "Storelib")
   const replyTo = normalizeAddress(creator.support_email) || normalizeAddress(profile?.email) || EMAIL_REPLY_TO
   const verdict = scoreSignup({ handle: profile?.username, email: profile?.email, displayName: profile?.display_name })
+  const brand = await loadBrand(db, creatorId)
   return {
     creatorId,
     userId: creator.user_id,
@@ -164,6 +178,7 @@ export async function loadSender(db: Db, creatorId: string, fromName?: string | 
     planId: creator.subscription_plan_id ?? null,
     planStatus: creator.subscription_status ?? null,
     blocked: verdict.blocked,
+    brand: { name: brand.name, logoUrl: brand.logoUrl, storeUrl: brand.storeUrl, accent: brand.accent, address: brand.address },
   }
 }
 
@@ -172,15 +187,25 @@ export async function loadSender(db: Db, creatorId: string, fromName?: string | 
 export interface PreparedContent {
   subject: string
   previewText: string
+  /** The email's blocks, read back out of the saved draft. */
+  blocks: Block[]
+  /** Those blocks as email HTML in the plain look, for the checks. The send renders them again in the brand's. */
   body: string
   errors: Problem[]
   warnings: Problem[]
 }
 
+/**
+ * The saved draft as the send sees it. The body is never sent as saved: its
+ * blocks are read back out (lib/email-campaigns/stored.ts) and rendered by
+ * this code, so whatever a browser put in the column, what goes out is HTML
+ * the renderer wrote.
+ */
 export function prepareContent(input: { subject?: unknown; preview_text?: unknown; body?: unknown }): PreparedContent {
   const subject = cleanSubject(input.subject)
   const previewText = cleanPreview(input.preview_text)
-  const body = sanitizeForSend(typeof input.body === "string" ? input.body : "")
+  const blocks = readStoredBody(typeof input.body === "string" ? input.body : "").blocks
+  const body = renderBlocks(blocks, PLAIN_THEME)
   const verdict = checkContent({
     subject,
     previewText,
@@ -189,7 +214,7 @@ export function prepareContent(input: { subject?: unknown; preview_text?: unknow
     bytes: byteLength(body),
     unknownFields: unknownMergeFields(subject, previewText, body),
   })
-  return { subject, previewText, body, ...verdict }
+  return { subject, previewText, blocks, body, ...verdict }
 }
 
 /* ─── Who it goes to ─────────────────────────────────────────────────── */
@@ -305,7 +330,7 @@ export type StartResult =
   | { kind: "conflict" }
   | { kind: "not_found" }
   | { kind: "invalid"; errors: Problem[]; status?: number }
-  | { kind: "dry_run"; recipients: number; excluded: number; warnings: Problem[]; sender: { name: string; from: string; replyTo: string } }
+  | { kind: "dry_run"; recipients: number; excluded: number; warnings: Problem[]; sender: { name: string; from: string; replyTo: string; address: string | null } }
 
 export interface StartOptions {
   creatorId: string
@@ -325,7 +350,7 @@ export async function startSend(db: Db, o: StartOptions): Promise<StartResult> {
   const modern = await isModernSchema(db)
   const { data: campaign } = await db
     .from("email_campaigns")
-    .select(modern ? `${CAMPAIGN_COLUMNS}, send_idempotency_key` : CAMPAIGN_COLUMNS)
+    .select(modern ? `${CAMPAIGN_COLUMNS}, send_idempotency_key, track_opens` : CAMPAIGN_COLUMNS)
     .eq("id", o.campaignId)
     .eq("creator_id", o.creatorId)
     .maybeSingle()
@@ -369,7 +394,7 @@ export async function startSend(db: Db, o: StartOptions): Promise<StartResult> {
       recipients: audience.recipients.length,
       excluded: audience.excluded,
       warnings: content.warnings,
-      sender: { name: sender.name, from: sender.from, replyTo: sender.replyTo },
+      sender: { name: sender.name, from: sender.from, replyTo: sender.replyTo, address: sender.brand.address },
     }
   }
 
@@ -491,6 +516,8 @@ export interface ProcessResult {
   sent: number
   failed: number
   skipped: number
+  /** Handed over with no answer: may have arrived, not sent again. */
+  unknown: number
   status?: CampaignStatus
 }
 
@@ -503,11 +530,14 @@ interface Claimed {
   attempts?: number
 }
 
-interface Frame {
+export interface Frame {
   subject: string
   previewText: string
+  /** The blocks rendered once for the whole send, in the brand's look, with {{fields}} still in. */
   body: string
   sender: Sender
+  /** Whether the open pixel goes in. Off when the creator turned counting opens off. */
+  trackOpens: boolean
 }
 
 const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
@@ -516,9 +546,9 @@ export async function processCampaign(db: Db, campaignId: string, o: ProcessOpti
   const modern = await isModernSchema(db)
   const send = o.send ?? sendMailgunOnce
   const sleep = o.sleep ?? realSleep
-  const tally = { sent: 0, failed: 0, skipped: 0 }
+  const tally = { sent: 0, failed: 0, skipped: 0, unknown: 0 }
 
-  const { data: campaign } = await db.from("email_campaigns").select(CAMPAIGN_COLUMNS).eq("id", campaignId).maybeSingle()
+  const { data: campaign } = await db.from("email_campaigns").select(modern ? `${CAMPAIGN_COLUMNS}, track_opens` : CAMPAIGN_COLUMNS).eq("id", campaignId).maybeSingle()
   if (!campaign) return { outcome: "not_active", ...tally }
   const status = readStatus(campaign.status)
   if (status !== "queued" && status !== "sending") return { outcome: "not_active", ...tally, status }
@@ -539,7 +569,13 @@ export async function processCampaign(db: Db, campaignId: string, o: ProcessOpti
     await failOutstanding(db, campaignId, modern, "The email could not be prepared for sending.")
     return { ...(await finalize(db, campaignId, modern)), ...tally, outcome: "finished" }
   }
-  const frame: Frame = { subject: content.subject, previewText: content.previewText, body: content.body, sender }
+  const frame: Frame = {
+    subject: content.subject,
+    previewText: content.previewText,
+    body: renderBlocks(content.blocks, themeOf(sender.brand)),
+    sender,
+    trackOpens: campaign.track_opens !== false,
+  }
 
   let parallel = PARALLEL
   const legacyTries = new Map<string, number>()
@@ -558,14 +594,8 @@ export async function processCampaign(db: Db, campaignId: string, o: ProcessOpti
     }
     lease = renewed
 
-    if (modern) {
-      await db
-        .from("campaign_recipients")
-        .update({ status: "pending", claimed_at: null })
-        .eq("campaign_id", campaignId)
-        .eq("status", "sending")
-        .lt("claimed_at", new Date(Date.now() - STALE_CLAIM_MS).toISOString())
-    }
+    /* A row a worker claimed and never answered for may be in the inbox: never again. */
+    if (modern) await settleStaleClaims(db, campaignId)
 
     const batch = await claimBatch(db, campaignId, modern)
     if (batch.length === 0) {
@@ -612,6 +642,10 @@ export async function processCampaign(db: Db, campaignId: string, o: ProcessOpti
           await recordFailed(db, a.row, modern, plainReason(a.answer))
           tally.failed++
           console.warn(`[campaign] ${campaignId} could not send to ${maskEmail(a.row.email)}: ${a.answer.status ?? "no answer"}`)
+        } else if (outcome === "unknown") {
+          await recordUnknown(db, a.row, modern)
+          tally.unknown++
+          console.warn(`[campaign] ${campaignId} got no answer for ${maskEmail(a.row.email)}; not sent again`)
         } else if (outcome === "retry") {
           if (a.answer.status === 429) slowDown = true
           if (modern) await recordRetry(db, a.row, attempts, plainReason(a.answer))
@@ -723,16 +757,18 @@ export function messageFor(frame: Frame, campaignId: string, row: Claimed, unsub
   const reader = { name: row.name, email: row.email }
   const page = unsubscribeToken ? unsubscribeUrlFor(unsubscribeToken) : `${APP_URL}/unsubscribe`
   const oneClick = unsubscribeToken ? `${APP_URL}/api/email/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}` : ""
-  const personal = personalizeHtml(frame.body, reader).replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, page)
+  const personal = personalizeHtml(frame.body, reader).replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, esc(page))
   const subject = personalizeSubject(frame.subject, reader)
-  const html = buildCampaignEmail({
+  const brand = frame.sender.brand
+  const html = buildEmail({
     subject,
-    previewText: frame.previewText,
+    previewText: personalizeSubject(frame.previewText, reader),
     bodyHtml: trackLinks(personal, row.tracking_token),
-    senderName: frame.sender.name,
-    senderAvatarUrl: frame.sender.avatarUrl,
+    brand,
+    avatarUrl: frame.sender.avatarUrl,
+    kind: "marketing",
     unsubscribeUrl: page,
-    trackingPixelUrl: `${APP_URL}/api/email/track?t=${encodeURIComponent(row.tracking_token)}`,
+    openPixelUrl: frame.trackOpens ? `${APP_URL}/api/email/track?t=${encodeURIComponent(row.tracking_token)}` : null,
   })
   const headers: Record<string, string> = {}
   if (oneClick) {
@@ -745,7 +781,7 @@ export function messageFor(frame: Frame, campaignId: string, row: Claimed, unsub
     replyTo: frame.sender.replyTo,
     subject,
     html,
-    text: campaignPlainText(personal, page),
+    text: emailText({ bodyHtml: personal, brand, kind: "marketing", unsubscribeUrl: page }),
     headers,
     messageId: `<c${campaignId}.r${row.id}@${mailgunDomain()}>`,
     tags: ["campaign"],
@@ -753,15 +789,7 @@ export function messageFor(frame: Frame, campaignId: string, row: Claimed, unsub
   }
 }
 
-/** Every http(s) link through /api/email/click, which checks it belongs to this email before redirecting. */
-export function trackLinks(html: string, token: string): string {
-  return html.replace(/<a\s([^>]*?)href="([^"]+)"([^>]*)>/gi, (whole, before: string, href: string, after: string) => {
-    const url = href.replace(/&amp;/g, "&")
-    if (!/^https?:\/\//i.test(url) || /\/unsubscribe|\/api\/email\//i.test(url)) return whole
-    const encoded = encodeURIComponent(Buffer.from(url).toString("base64"))
-    return `<a ${before}href="${APP_URL}/api/email/click?url=${encoded}&amp;t=${encodeURIComponent(token)}"${after}>`
-  })
-}
+export { trackLinks }
 
 /* ─── What happened to one address ───────────────────────────────────── */
 
@@ -794,6 +822,43 @@ async function recordSkip(db: Db, row: Claimed, modern: boolean, reason: string)
   if (isCheckViolation(error)) await db.from("campaign_recipients").update({ status: "failed", error_message: reason }).eq("id", row.id)
 }
 
+/**
+ * Handed over, never answered for. Not sent again: `unknown` after the
+ * migration, before it a failure whose reason says it may have arrived
+ * (retryFailed leaves those alone).
+ */
+async function recordUnknown(db: Db, row: Claimed, modern: boolean) {
+  if (!modern) {
+    await db.from("campaign_recipients").update({ status: "failed", error_message: UNCERTAIN_REASON }).eq("id", row.id).in("status", ["sending", "pending"])
+    return
+  }
+  const { error } = await db
+    .from("campaign_recipients")
+    .update({ status: "unknown", claimed_at: null, error_message: UNCERTAIN_REASON })
+    .eq("id", row.id)
+    .eq("status", "sending")
+  if (isCheckViolation(error)) await db.from("campaign_recipients").update({ status: "failed", claimed_at: null, error_message: UNCERTAIN_REASON }).eq("id", row.id).eq("status", "sending")
+}
+
+/** Rows a worker claimed and then went quiet on, past STALE_CLAIM_MS: may have been sent, so never again. */
+async function settleStaleClaims(db: Db, campaignId: string) {
+  const cutoff = new Date(Date.now() - STALE_CLAIM_MS).toISOString()
+  const { error } = await db
+    .from("campaign_recipients")
+    .update({ status: "unknown", claimed_at: null, error_message: UNCERTAIN_REASON })
+    .eq("campaign_id", campaignId)
+    .eq("status", "sending")
+    .lt("claimed_at", cutoff)
+  if (isCheckViolation(error)) {
+    await db
+      .from("campaign_recipients")
+      .update({ status: "failed", claimed_at: null, error_message: UNCERTAIN_REASON })
+      .eq("campaign_id", campaignId)
+      .eq("status", "sending")
+      .lt("claimed_at", cutoff)
+  }
+}
+
 /** Back to pending with the attempt given back: the provider refused us, not them. */
 async function release(db: Db, row: Claimed, modern: boolean) {
   if (!modern) return
@@ -822,7 +887,7 @@ async function failOutstanding(db: Db, campaignId: string, _modern: boolean, rea
 /* ─── 3. Finish ──────────────────────────────────────────────────────── */
 
 export async function countRecipients(db: Db, campaignId: string): Promise<RecipientCounts> {
-  const statuses = ["pending", "sending", "sent", "delivered", "bounced", "failed", "skipped"] as const
+  const statuses = ["pending", "sending", "sent", "delivered", "bounced", "failed", "skipped", "unknown"] as const
   const results = await Promise.all(
     statuses.map((s) => db.from("campaign_recipients").select("id", { count: "exact", head: true }).eq("campaign_id", campaignId).eq("status", s)),
   )
@@ -832,7 +897,7 @@ export async function countRecipients(db: Db, campaignId: string): Promise<Recip
   })
   const complained = await db.from("campaign_recipients").select("id", { count: "exact", head: true }).eq("campaign_id", campaignId).eq("status", "complained")
   counts.bounced += complained.error ? 0 : complained.count ?? 0
-  counts.total = counts.pending + counts.sending + counts.sent + counts.delivered + counts.bounced + counts.failed + counts.skipped
+  counts.total = counts.pending + counts.sending + counts.sent + counts.delivered + counts.bounced + counts.failed + counts.skipped + counts.unknown
   return counts
 }
 
@@ -854,7 +919,7 @@ export async function finalize(db: Db, campaignId: string, modern: boolean): Pro
   const status = finalStatus(counts)
   const out = wentOut(counts)
   const extra: Record<string, unknown> = { audience_count: out, completed_at: new Date().toISOString() }
-  extra.last_error = counts.failed > 0 ? await lastFailure(db, campaignId) : null
+  extra.last_error = counts.failed > 0 ? await lastFailure(db, campaignId) : counts.unknown > 0 ? UNCERTAIN_REASON : null
   const patch: Record<string, unknown> = { status: storedStatus(status, !modern, out), audience_count: out, updated_at: new Date().toISOString() }
   if (modern) Object.assign(patch, extra)
   await db.from("email_campaigns").update(patch).eq("id", campaignId).in("status", ["queued", "sending"])
@@ -905,8 +970,14 @@ export async function retryFailed(db: Db, creatorId: string, campaignId: string)
   if (!moved?.length) return { ok: false, retried: 0 }
   const patch: Record<string, unknown> = { status: "pending", error_message: null }
   if (modern) Object.assign(patch, { attempts: 0, next_attempt_at: null, claimed_at: null })
-  const { data: rows } = await db.from("campaign_recipients").update(patch).eq("campaign_id", campaignId).eq("status", "failed").select("id")
-  const retried = rows?.length ?? 0
+  /* Only what the provider certainly refused. A row that may have arrived is never sent again. */
+  const { data: failedRows } = await db.from("campaign_recipients").select("id, error_message").eq("campaign_id", campaignId).eq("status", "failed")
+  const ids = ((failedRows ?? []) as { id: string; error_message: string | null }[]).filter((r) => r.error_message !== UNCERTAIN_REASON).map((r) => r.id)
+  let retried = 0
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data: rows } = await db.from("campaign_recipients").update(patch).in("id", ids.slice(i, i + 200)).eq("status", "failed").select("id")
+    retried += rows?.length ?? 0
+  }
   if (retried === 0) await finalize(db, campaignId, modern)
   return { ok: true, retried, leaseFrom: moved[0].updated_at }
 }

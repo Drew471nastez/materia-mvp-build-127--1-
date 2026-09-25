@@ -197,6 +197,7 @@ export async function POST(request: NextRequest) {
     audience_type: cleaned.patch.audience_type ?? "all",
     segment_id: cleaned.patch.segment_id ?? null,
     status: "draft",
+    ...(cleaned.patch.track_opens !== undefined ? { track_opens: cleaned.patch.track_opens } : {}),
   }
   const { data, error } = await ctx.admin.from("email_campaigns").insert(row).select(DRAFT_COLUMNS).maybeSingle()
   if (error?.code === "23505" && id) {

@@ -26,14 +26,16 @@ import { PaneBar, LIST_WIDTH, GUTTER } from "@/app/app/orders/order-parts"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
-import { blockIssues, hasRealContent, newBlock, renderBlocks } from "@/lib/email-campaigns/blocks"
-import { buildCampaignEmail, personalizeHtml, personalizeSubject, unknownMergeFields } from "@/lib/email-campaigns/template"
+import { Switch } from "@/components/ui/switch"
+import { blockIssues, hasRealContent, newBlock, renderBlocks, storeBlocks } from "@/lib/email-campaigns/blocks"
+import { DEFAULT_BRAND, brandName, themeOf, type Brand } from "@/lib/email-campaigns/brand"
+import { readStoredBody } from "@/lib/email-campaigns/stored"
+import { buildEmail, personalizeHtml, personalizeSubject, unknownMergeFields } from "@/lib/email-campaigns/template"
 import { byteLength, checkContent, PREVIEW_MAX, SUBJECT_MAX, SUBJECT_SHORT, type Problem } from "@/lib/email-campaigns/validate"
 import { STATUS_LABEL, readStatus, type CampaignStatus, type RecipientCounts } from "@/lib/email-campaigns/state"
 import { BlockEditor } from "./block-editor"
 import { EmailPreview, type PreviewMode } from "./email-preview"
 import { AudiencePicker, audienceLabel, type Audience, type AudienceOption, type SegmentOption } from "./audience-picker"
-import { cleanBlocks, parseHtmlToBlocks } from "./parse"
 import { useDoc } from "./use-doc"
 import { ComposeDialog, Segmented, StatusBadge, buttonAccent, buttonPrimary, buttonSecondary, card, errorClass, helpClass, iconButton } from "./ui"
 import { SendStatus } from "./send-status"
@@ -97,10 +99,15 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   const [subject, setSubject] = React.useState("")
   const [previewText, setPreviewText] = React.useState("")
   const [audience, setAudience] = React.useState<Audience>({ type: "all", segmentId: null })
-  const doc = useDoc([newBlock("text")])
+  const doc = useDoc([newBlock("rich")])
   const [options, setOptions] = React.useState<AudienceOption[]>([])
   const [segments, setSegments] = React.useState<SegmentOption[]>([])
   const [plan, setPlan] = React.useState<{ limit: number; used: number } | null>(null)
+  /* The look the email is sent in, read by the server as it is now (lib/email-campaigns/brand-server). */
+  const [brand, setBrand] = React.useState<(Brand & { avatarUrl?: string | null }) | null>(null)
+  /* Counting opens is a setting only once the database has the column for it. */
+  const [trackOpens, setTrackOpens] = React.useState(true)
+  const [canSetOpens, setCanSetOpens] = React.useState(false)
   const [save, setSave] = React.useState<SaveState>("idle")
   const [saveError, setSaveError] = React.useState<string | null>(null)
   const [fieldError, setFieldError] = React.useState<Partial<Record<Problem["field"], string>>>({})
@@ -144,6 +151,8 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
         setOptions(d.options ?? [])
         setSegments(d.segments ?? [])
         setPlan(d.plan ?? null)
+        setBrand(d.brand ?? null)
+        setCanSetOpens(d.upgraded === true)
       })
       .catch(() => {})
     return () => {
@@ -173,7 +182,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   const load = React.useCallback(
     async (id: string) => {
       setLoading(true)
-      const r = await api<{ campaign: Record<string, unknown>; counts: RecipientCounts | null }>(`/api/email/campaigns/${id}`)
+      const r = await api<{ campaign: Record<string, unknown>; counts: RecipientCounts | null; upgraded?: boolean }>(`/api/email/campaigns/${id}`)
       if (!r.ok) {
         setLoadError(r.data.error ?? "This email could not be opened.")
         setLoading(false)
@@ -185,8 +194,9 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
       setSubject(String(c.subject ?? ""))
       setPreviewText(String(c.preview_text ?? ""))
       setAudience({ type: String(c.audience_type ?? "all"), segmentId: (c.segment_id as string) ?? null })
-      const blocks = parseHtmlToBlocks(String(c.body ?? ""))
-      doc.reset(blocks.length ? blocks : [newBlock("text")])
+      setTrackOpens(c.track_opens !== false)
+      if (r.data.upgraded === true) setCanSetOpens(true)
+      doc.reset(readStoredBody(String(c.body ?? "")).blocks)
       lastSaved.current = null
       setSave("saved")
       setLoading(false)
@@ -205,50 +215,56 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
 
   /* ─── What would be saved, and what would be sent ─── */
 
-  /* Empty paragraphs at the end are where the caret waits, not part of the email. */
+  /* An empty text block at the end is where the caret waits, not part of the email. */
   const clean = React.useMemo(() => {
-    const all = cleanBlocks(doc.blocks)
+    const all = doc.blocks
     let end = all.length
-    while (end > 1 && all[end - 1].type === "text" && !hasRealContent([all[end - 1]])) end--
+    while (end > 1 && all[end - 1].type === "rich" && !hasRealContent([all[end - 1]])) end--
     return all.slice(0, end)
   }, [doc.blocks])
-  const bodyHtml = React.useMemo(() => renderBlocks(clean), [clean])
+  /* What is saved: the blocks, each marked, text as the editor wrote it. */
+  const bodyHtml = React.useMemo(() => storeBlocks(clean), [clean])
+  const look: Brand = React.useMemo(() => brand ?? { ...DEFAULT_BRAND, name: brandName(me.name) }, [brand, me.name])
+  const theme = React.useMemo(() => themeOf(look), [look])
+  /* What is sent: the same blocks rendered in the brand, exactly as the server will. */
+  const sentBody = React.useMemo(() => renderBlocks(clean, theme), [clean, theme])
   const issues = React.useMemo(() => blockIssues(clean), [clean])
 
   const verdict = React.useMemo(() => {
     const div = typeof document !== "undefined" ? document.createElement("div") : null
-    if (div) div.innerHTML = bodyHtml
+    if (div) div.innerHTML = sentBody
     const text = div ? (div.textContent ?? "") : ""
     return checkContent({
       subject,
       previewText,
       text: hasRealContent(clean) ? text || "content" : "",
       images: clean.filter((b) => b.type === "image" && b.src).length,
-      bytes: byteLength(bodyHtml),
-      unknownFields: unknownMergeFields(subject, previewText, bodyHtml),
+      bytes: byteLength(sentBody),
+      unknownFields: unknownMergeFields(subject, previewText, sentBody),
     })
-  }, [subject, previewText, bodyHtml, clean])
+  }, [subject, previewText, sentBody, clean])
 
   const previewHtml = React.useMemo(() => {
     const reader = { name: me.name, email: me.email }
-    return buildCampaignEmail({
+    return buildEmail({
       subject: personalizeSubject(subject, reader),
-      previewText,
-      bodyHtml: personalizeHtml(bodyHtml, reader),
-      senderName: me.name || "You",
-      senderAvatarUrl: me.avatarUrl,
+      previewText: personalizeSubject(previewText, reader),
+      bodyHtml: personalizeHtml(sentBody, reader).replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, "#"),
+      brand: look,
+      avatarUrl: brand?.avatarUrl ?? me.avatarUrl,
+      kind: "marketing",
       unsubscribeUrl: "#",
     })
-  }, [subject, previewText, bodyHtml, me.name, me.email, me.avatarUrl])
+  }, [subject, previewText, sentBody, me.name, me.email, me.avatarUrl, look, brand])
 
   /* ─── Saving ─── */
 
   const lastSaved = React.useRef<string | null>(null)
   const inFlight = React.useRef<Promise<boolean> | null>(null)
-  const latest = React.useRef({ subject, previewText, audience, bodyHtml, loaded, clean })
-  latest.current = { subject, previewText, audience, bodyHtml, loaded, clean }
+  const latest = React.useRef({ subject, previewText, audience, bodyHtml, loaded, clean, trackOpens, canSetOpens })
+  latest.current = { subject, previewText, audience, bodyHtml, loaded, clean, trackOpens, canSetOpens }
 
-  const snapshot = () => JSON.stringify([latest.current.subject, latest.current.previewText, latest.current.audience, latest.current.bodyHtml])
+  const snapshot = () => JSON.stringify([latest.current.subject, latest.current.previewText, latest.current.audience, latest.current.bodyHtml, latest.current.canSetOpens ? latest.current.trackOpens : null])
 
   const saveNow = React.useCallback(
     async (force = false): Promise<boolean> => {
@@ -269,6 +285,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
           body: l.bodyHtml,
           audience_type: l.audience.type,
           segment_id: l.audience.type === "segment" ? l.audience.segmentId : null,
+          ...(l.canSetOpens ? { track_opens: l.trackOpens } : {}),
         }
         const r = l.loaded
           ? await api<{ campaign: Record<string, unknown> }>(`/api/email/campaigns/${l.loaded.id}`, { method: "PATCH", body: JSON.stringify({ ...body, expected_updated_at: l.loaded.version }) })
@@ -335,7 +352,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
     }, 1000)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subject, previewText, audience, bodyHtml])
+  }, [subject, previewText, audience, bodyHtml, trackOpens])
 
   /* Leaving with something unsaved asks the browser to check first. */
   React.useEffect(() => {
@@ -389,7 +406,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
 
   /* ─── Sending ─── */
 
-  const [confirm, setConfirm] = React.useState<{ loading: boolean; error: string | null; recipients?: number; excluded?: number; warnings?: Problem[]; sender?: { name: string; from: string; replyTo: string } }>({ loading: false, error: null })
+  const [confirm, setConfirm] = React.useState<{ loading: boolean; error: string | null; recipients?: number; excluded?: number; warnings?: Problem[]; sender?: { name: string; from: string; replyTo: string; address?: string | null } }>({ loading: false, error: null })
   const sendKey = React.useRef<string>(uuid())
   const [sending, setSending] = React.useState(false)
 
@@ -397,7 +414,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
     if (dialog !== "send" || !latest.current.loaded) return
     sendKey.current = uuid()
     setConfirm({ loading: true, error: null })
-    void api<{ recipients: number; excluded: number; warnings: Problem[]; sender: { name: string; from: string; replyTo: string } }>("/api/email/send", {
+    void api<{ recipients: number; excluded: number; warnings: Problem[]; sender: { name: string; from: string; replyTo: string; address: string | null } }>("/api/email/send", {
       method: "POST",
       body: JSON.stringify({ campaign_id: latest.current.loaded.id, dry_run: true, expected_updated_at: latest.current.loaded.version }),
     }).then((r) => {
@@ -710,10 +727,18 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
                         className="h-11 w-full min-w-0 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:h-9 sm:text-[14px]"
                       />
                     </Row>
+                    {canSetOpens ? (
+                      <Row label="Opens" htmlFor="compose-opens">
+                        <label className="flex h-11 min-w-0 cursor-pointer items-center justify-between gap-3 sm:h-9">
+                          <span className="truncate text-[14px] text-[#4b5563]">{trackOpens ? "Counted, with an invisible picture" : "Not counted"}</span>
+                          <Switch id="compose-opens" checked={trackOpens} onCheckedChange={setTrackOpens} aria-label="Count opens" />
+                        </label>
+                      </Row>
+                    ) : null}
                   </section>
 
                   <section aria-label="Email" className={cn(card, fieldError.body && "shadow-[0_0_0_2px_#d72c0d]")}>
-                    <BlockEditor doc={doc} creatorId={me.creatorId} username={me.username} issues={issues} showIssues={showIssues} onUploadImage={uploadImage} />
+                    <BlockEditor doc={doc} creatorId={me.creatorId} username={me.username} issues={issues} showIssues={showIssues} theme={theme} onUploadImage={uploadImage} />
                   </section>
                   {fieldError.body ? <p className={errorClass}>{fieldError.body}</p> : null}
                   {plan ? (
@@ -777,6 +802,11 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
               <dt className="text-[12px] font-medium text-[#6b7280]">From</dt>
               <dd className="break-words text-[#1a1a2e]">{confirm.sender?.from}</dd>
               <dd className="break-words text-[13px] text-[#6b7280]">Replies go to {confirm.sender?.replyTo}</dd>
+              {confirm.sender && !confirm.sender.address ? (
+                <dd className="mt-1 text-[13px] text-[#5c4300]">
+                  No postal address in the footer. Marketing email must carry one in the US and many other places: add it under Settings, Address.
+                </dd>
+              ) : null}
             </div>
             <div>
               <dt className="text-[12px] font-medium text-[#6b7280]">Subject</dt>

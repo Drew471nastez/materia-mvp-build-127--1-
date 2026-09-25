@@ -77,7 +77,7 @@ async function main() {
   check("it is in the HTML", mail.html.includes(url) && /Unsubscribe<\/a>/.test(mail.html))
   check("and in the plain text", (mail.text ?? "").includes(`Unsubscribe: ${url}`))
   check("and in the headers every inbox provider reads",
-    mail.headers?.["List-Unsubscribe"] === `<${url}>` && mail.headers?.["List-Unsubscribe-Post"] === "List-Unsubscribe=One-Click")
+    mail.headers?.["List-Unsubscribe"] === `<${APP_URL}/api/email/unsubscribe?token=tok-1>` && mail.headers?.["List-Unsubscribe-Post"] === "List-Unsubscribe=One-Click")
   check("the footer says why they are getting it", /You are getting this because you joined Astrid's list/.test(mail.html))
   const none = automationEmail({ body: "<p>Hi</p>", fromName: "Astrid", unsubscribeToken: null })
   check("with no token there is no link and no header, rather than a broken one",

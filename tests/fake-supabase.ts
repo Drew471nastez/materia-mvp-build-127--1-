@@ -21,10 +21,10 @@ export interface FakeOptions {
 const LEGACY_CAMPAIGN = ["draft", "scheduled", "sending", "sent", "failed"]
 const MODERN_CAMPAIGN = ["draft", "scheduled", "queued", "sending", "sent", "partially_failed", "failed", "cancelled"]
 const LEGACY_RECIPIENT = ["pending", "sent", "delivered", "bounced", "failed"]
-const MODERN_RECIPIENT = ["pending", "sending", "sent", "delivered", "bounced", "complained", "failed", "skipped"]
+const MODERN_RECIPIENT = ["pending", "sending", "sent", "delivered", "bounced", "complained", "failed", "skipped", "unknown"]
 
 const MODERN_ONLY: Record<string, string[]> = {
-  email_campaigns: ["last_error", "send_idempotency_key", "completed_at"],
+  email_campaigns: ["last_error", "send_idempotency_key", "completed_at", "track_opens"],
   campaign_recipients: ["attempts", "next_attempt_at", "claimed_at"],
 }
 

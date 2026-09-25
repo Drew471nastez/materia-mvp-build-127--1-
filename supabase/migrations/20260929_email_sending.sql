@@ -7,15 +7,19 @@
    What the app does before this is run: campaigns still send. A campaign
    that is queued shows as "sending", a partial send shows as "sent", a
    temporary provider error is retried a few times inside the same run
-   instead of later, and the reason a send failed is not kept.
+   instead of later, the reason a send failed is not kept, opens are always
+   counted, and a worker stopped mid-send can send its last few addresses
+   again (after this, those are kept as "may not have arrived" instead).
 
    What this adds (lib/email-campaigns/queue.ts reads all of it):
      1. The campaign statuses the send pipeline moves through, and the
         audience types the compose page offers (the old check refused
         last_7days and segment, so those drafts could not be saved).
-     2. last_error, completed_at and send_idempotency_key on a campaign.
+     2. last_error, completed_at, send_idempotency_key and track_opens on a
+        campaign (track_opens: the composer's "Count opens" switch).
      3. attempts, next_attempt_at and claimed_at on each recipient row, so a
-        row is claimed before it is sent and retried later with backoff.
+        row is claimed before it is sent and retried later with backoff, and
+        the status "unknown" for a message handed over with no answer.
      4. The unique (campaign_id, email) index that makes a second recipient
         row for the same address impossible, and the indexes the queue reads.
      5. Row level security on campaign_recipients and email_events. Both had
@@ -35,6 +39,7 @@ ALTER TABLE public.email_campaigns ADD COLUMN IF NOT EXISTS last_error TEXT;
 ALTER TABLE public.email_campaigns ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
 ALTER TABLE public.email_campaigns ADD COLUMN IF NOT EXISTS send_idempotency_key TEXT;
 ALTER TABLE public.email_campaigns ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE public.email_campaigns ADD COLUMN IF NOT EXISTS track_opens BOOLEAN NOT NULL DEFAULT true;
 CREATE UNIQUE INDEX IF NOT EXISTS email_campaigns_send_once ON public.email_campaigns (creator_id, send_idempotency_key) WHERE send_idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS email_campaigns_due ON public.email_campaigns (status, scheduled_at);
 CREATE INDEX IF NOT EXISTS email_campaigns_active ON public.email_campaigns (status, updated_at);
@@ -46,7 +51,7 @@ CREATE TRIGGER email_campaigns_updated_at BEFORE UPDATE ON public.email_campaign
 
 /* 3. Each recipient row: claimed before the send, retried with backoff. */
 ALTER TABLE public.campaign_recipients DROP CONSTRAINT IF EXISTS campaign_recipients_status_check;
-ALTER TABLE public.campaign_recipients ADD CONSTRAINT campaign_recipients_status_check CHECK (status IN ('pending', 'sending', 'sent', 'delivered', 'bounced', 'complained', 'failed', 'skipped')) NOT VALID;
+ALTER TABLE public.campaign_recipients ADD CONSTRAINT campaign_recipients_status_check CHECK (status IN ('pending', 'sending', 'sent', 'delivered', 'bounced', 'complained', 'failed', 'skipped', 'unknown')) NOT VALID;
 ALTER TABLE public.campaign_recipients ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE public.campaign_recipients ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ;
 ALTER TABLE public.campaign_recipients ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ;

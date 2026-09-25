@@ -2,14 +2,19 @@
  * ===========================================================================
  *  WHAT A PROVIDER ANSWER MEANS FOR THE ADDRESS IT WAS ABOUT
  * ===========================================================================
- * Three outcomes, and mixing them up is how a campaign either goes out twice
+ * Five outcomes, and mixing them up is how a campaign either goes out twice
  * or quietly never goes out:
  *
  *   sent      the provider took it. Recorded with its message id, never sent
  *             again.
- *   retry     the provider or the network had a bad moment: 429, 5xx, a
- *             timeout. Nothing about the address is wrong, so it waits and
- *             is tried again, a little later each time, up to MAX_ATTEMPTS.
+ *   retry     the provider said no for now (429, 5xx), or the connection
+ *             never opened (refused, no such host). Nothing left us, so it
+ *             waits and is tried again, a little later each time, up to
+ *             MAX_ATTEMPTS.
+ *   unknown   the request left and no answer came back: a timeout, or the
+ *             connection dropped mid-way. The provider may have taken it,
+ *             and trying again could put a second copy in the inbox. It is
+ *             never sent again on its own; the creator sees how many.
  *   failed    the provider refused this message for good (a 4xx about the
  *             message or the address). Recorded with the reason, not retried.
  *   halt      the provider refused US: bad credentials, domain not allowed,
@@ -18,7 +23,7 @@
  *             reason and picks up when it is fixed.
  */
 
-export type ProviderOutcome = "sent" | "retry" | "failed" | "halt"
+export type ProviderOutcome = "sent" | "retry" | "unknown" | "failed" | "halt"
 
 export interface ProviderAnswer {
   success: boolean
@@ -28,6 +33,8 @@ export interface ProviderAnswer {
   messageId?: string
   /** The request never got an answer in time. */
   timedOut?: boolean
+  /** The connection never opened, so nothing was handed over. */
+  connectFailed?: boolean
   /** Our side could not send at all (no API key). */
   notConfigured?: boolean
 }
@@ -41,7 +48,8 @@ export function classify(answer: ProviderAnswer): ProviderOutcome {
   if (answer.success) return "sent"
   if (answer.notConfigured) return "halt"
   const s = answer.status
-  if (s === undefined || answer.timedOut) return "retry"
+  if (answer.timedOut) return "unknown"
+  if (s === undefined) return answer.connectFailed ? "retry" : "unknown"
   if (s === 401 || s === 403) return "halt"
   if (s === 408 || s === 425 || s === 429) return "retry"
   if (s >= 500) return "retry"
@@ -69,9 +77,12 @@ export function nextAttemptAt(attempts: number, now = Date.now()): string {
  * The reason, in words a creator can act on, and short enough for a table
  * cell. Never the provider's raw body: that can carry the address back out.
  */
+/** Why an address is in the "may have arrived" count: said the same everywhere. */
+export const UNCERTAIN_REASON = "The email service did not answer. It may have arrived, so it was not sent again."
+
 export function plainReason(answer: ProviderAnswer): string {
   if (answer.notConfigured) return "Email sending is not set up on the server."
-  if (answer.timedOut) return "The email service did not answer in time."
+  if (classify(answer) === "unknown") return UNCERTAIN_REASON
   const s = answer.status
   if (s === undefined) return "Could not reach the email service."
   if (s === 401 || s === 403) return "The email service refused the sending account."

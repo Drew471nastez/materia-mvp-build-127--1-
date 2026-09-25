@@ -93,10 +93,28 @@ export function Segmented<T extends string | number>({
   )
 }
 
-export function ColorChoice({ value, onChange }: { value: string; onChange: (c: string) => void }) {
-  const current = safeColor(value)
+/**
+ * A button's colour: the brand's (the default, read when the email is sent,
+ * so a new brand colour reaches every button that did not choose one), one
+ * of a few, or any.
+ */
+export function ColorChoice({ value, onChange, brand }: { value: string; onChange: (c: string) => void; brand?: string }) {
+  const current = value ? safeColor(value) : ""
   return (
     <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Color">
+      <button
+        type="button"
+        role="radio"
+        aria-checked={current === ""}
+        onClick={() => onChange("")}
+        className={cn(
+          "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border pl-1 pr-2.5 text-[12px] font-medium transition-colors duration-100",
+          current === "" ? "border-[#1a1a2e]/30 bg-[#f1f2f4] text-[#1a1a2e]" : "border-[#e3e4e8] bg-white text-[#4b5563] hover:bg-[#f7f7f8]",
+        )}
+      >
+        <span className="h-5 w-5 rounded-full border border-black/10" style={{ backgroundColor: brand || "#1a1a2e" }} />
+        Brand
+      </button>
       {SWATCHES.map((c) => (
         <button
           key={c}
@@ -112,9 +130,9 @@ export function ColorChoice({ value, onChange }: { value: string; onChange: (c: 
         </button>
       ))}
       <label className="relative ml-1 inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-[#e3e4e8] bg-white pl-1 pr-2.5 text-[12px] font-medium text-[#4b5563] hover:bg-[#f7f7f8]">
-        <span className="h-5 w-5 rounded-full border border-black/10" style={{ backgroundColor: current }} />
+        <span className="h-5 w-5 rounded-full border border-black/10" style={{ backgroundColor: current || brand || "#1a1a2e" }} />
         Custom
-        <input type="color" value={current} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label="Custom color" />
+        <input type="color" value={current || brand || "#1a1a2e"} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" aria-label="Custom color" />
       </label>
     </div>
   )

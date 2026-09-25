@@ -127,7 +127,7 @@ async function isEmailSuppressed(email: string): Promise<boolean> {
     return false
   } catch (err) {
     // Don't block sending on suppression check failure
-    console.warn("[mailgun] Suppression check failed (allowing send):", err)
+    console.warn("[mailgun] Suppression check failed (allowing send):", err instanceof Error ? err.name : "unknown")
     return false
   }
 }
@@ -211,11 +211,8 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
   const authString = Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64")
 
   console.log("[mailgun] Sending email:", {
-    from: fromAddress,
     to: maskEmail(options.to),
-    subject: options.subject,
-    replyTo,
-    url,
+    replyTo: maskEmail(replyTo),
     domain: MAILGUN_DOMAIN,
   })
 
@@ -251,12 +248,10 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
       }
 
       if (!response.ok) {
+        /* The status only: the provider's body can repeat the address. */
         console.error("[mailgun] API error:", {
           status: response.status,
-          statusText: response.statusText,
-          body: responseData,
           to: maskEmail(options.to),
-          subject: options.subject,
         })
 
         return {
@@ -277,9 +272,8 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
       }
     } catch (error: any) {
       console.error("[mailgun] Request failed:", {
-        error: error.message || error,
+        error: error?.name || "network error",
         to: maskEmail(options.to),
-        subject: options.subject,
       })
 
       return {
@@ -315,7 +309,18 @@ export interface MailgunOnceResult {
   status?: number
   error?: string
   timedOut?: boolean
+  /** The connection never opened: nothing reached Mailgun, so a retry cannot double up. */
+  connectFailed?: boolean
   notConfigured?: boolean
+}
+
+/** Errors that happen before a request is written: the message cannot have been taken. */
+const CONNECT_CODES = new Set(["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "EHOSTUNREACH", "ENETUNREACH", "UND_ERR_CONNECT_TIMEOUT", "CERT_HAS_EXPIRED", "ERR_TLS_CERT_ALTNAME_INVALID"])
+
+function connectFailed(error: unknown): boolean {
+  const cause = (error as { cause?: { code?: unknown } } | null)?.cause
+  const code = typeof cause?.code === "string" ? cause.code : (error as { code?: unknown } | null)?.code
+  return typeof code === "string" && CONNECT_CODES.has(code)
 }
 
 export async function sendMailgunOnce(
@@ -359,7 +364,7 @@ export async function sendMailgunOnce(
     return { success: true, status: response.status, messageId: data.id || options.messageId }
   } catch (error) {
     const aborted = error instanceof Error && error.name === "AbortError"
-    return { success: false, timedOut: aborted, error: aborted ? "Timed out" : "Network error" }
+    return { success: false, timedOut: aborted, connectFailed: !aborted && connectFailed(error), error: aborted ? "Timed out" : "Network error" }
   } finally {
     clearTimeout(timer)
   }

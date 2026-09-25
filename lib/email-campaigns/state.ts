@@ -98,7 +98,12 @@ export function storedSources(to: CampaignStatus, legacy: boolean): CampaignStat
 
 /* ─── Recipients ─────────────────────────────────────────────────────── */
 
-export const RECIPIENT_STATUSES = ["pending", "sending", "sent", "delivered", "bounced", "complained", "failed", "skipped"] as const
+/**
+ * `unknown` is an address whose message was handed over and never answered
+ * for (a timeout, a worker stopped mid-send). It may have arrived, so it is
+ * never sent again on its own (lib/email-campaigns/retry.ts).
+ */
+export const RECIPIENT_STATUSES = ["pending", "sending", "sent", "delivered", "bounced", "complained", "failed", "skipped", "unknown"] as const
 export type RecipientStatus = (typeof RECIPIENT_STATUSES)[number]
 
 /** The provider took it. Delivered, bounced and complained all started as a send. */
@@ -115,9 +120,11 @@ export interface RecipientCounts {
   bounced: number
   failed: number
   skipped: number
+  /** May have arrived: never sent again on its own. */
+  unknown: number
 }
 
-export const EMPTY_COUNTS: RecipientCounts = { total: 0, pending: 0, sending: 0, sent: 0, delivered: 0, bounced: 0, failed: 0, skipped: 0 }
+export const EMPTY_COUNTS: RecipientCounts = { total: 0, pending: 0, sending: 0, sent: 0, delivered: 0, bounced: 0, failed: 0, skipped: 0, unknown: 0 }
 
 /** How many the provider accepted, whatever happened after. */
 export function wentOut(c: RecipientCounts): number {
@@ -133,13 +140,16 @@ export function outstanding(c: RecipientCounts): number {
  *
  * All out is sent. Some out and some not is partially_failed. None out is
  * failed, including the odd case of every address having left the list
- * between Send and its turn, because "sent" to nobody would be a lie.
+ * between Send and its turn, because "sent" to nobody would be a lie. An
+ * address that may have arrived is neither: it makes the send partial, and
+ * a send of nothing but those is partial too, not "not sent".
  */
 export function finalStatus(c: RecipientCounts, cancelled = false): CampaignStatus {
   if (cancelled) return "cancelled"
   const out = wentOut(c)
-  if (out === 0) return "failed"
-  if (c.failed > 0) return "partially_failed"
+  const unknown = c.unknown ?? 0
+  if (out === 0 && unknown === 0) return "failed"
+  if (c.failed > 0 || unknown > 0) return "partially_failed"
   return "sent"
 }
 

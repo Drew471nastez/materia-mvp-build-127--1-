@@ -7,8 +7,9 @@
  * supabase/sql/RUN_EMAIL_SENDING.sql:
  *
  *   two Sends at once start one send, and write one row per address
- *   every address gets exactly one accepted message, however the work is
- *     split between workers, retried, or picked up after a crash
+ *   every address gets at most one message, however the work is split
+ *     between workers, retried, or picked up after a crash: a message that
+ *     may have arrived is never sent again
  *   unsubscribed, bounced, invalid and duplicate addresses are not mailed,
  *     including someone who leaves between Send and their turn
  *   a 5xx is retried later, a refusal is recorded, a credentials problem
@@ -16,10 +17,15 @@
  *   the end state (sent, partly sent, not sent, stopped) matches the rows
  *
  * And the pure parts: the state machine, addresses, the sanitizer, content
- * checks, plan limits, the email frame and the blocks it is built from.
+ * checks, plan limits, the brand and its contrast checks, the rich text
+ * renderer, the one layout, signed links, and the blocks as saved and read
+ * back.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+
+/* Links are signed with a server key; the suite has its own. */
+process.env.EMAIL_LINK_SECRET = "a-test-key-that-is-long-enough"
 
 import { FakeDb, tick } from "./fake-supabase"
 import {
@@ -41,9 +47,13 @@ import { afterAttempt, classify, MAX_ATTEMPTS, plainReason } from "@/lib/email-c
 import { sanitizeForSend, sanitizeForStorage, visibleText } from "@/lib/email-campaigns/sanitize"
 import { checkContent, cleanSubject } from "@/lib/email-campaigns/validate"
 import { emailPlanOf, fitsPlan, monthlyLimit } from "@/lib/email-campaigns/limits"
-import { buildCampaignEmail, campaignPlainText, personalizeHtml, personalizeSubject, unknownMergeFields } from "@/lib/email-campaigns/template"
+import { buildEmail, emailText, personalizeHtml, personalizeSubject, unknownMergeFields } from "@/lib/email-campaigns/template"
 import { appearsIn } from "@/lib/email-campaigns/links"
-import { blockIssues, hasRealContent, newBlock, renderBlocks, safeUrl, textOn, type Block } from "@/lib/email-campaigns/blocks"
+import { decodeTarget, signLink, verifyLink } from "@/lib/email-campaigns/link-sign"
+import { blockIssues, hasRealContent, newBlock, renderBlocks, safeUrl, storeBlocks, textOn, type Block } from "@/lib/email-campaigns/blocks"
+import { readStoredBody } from "@/lib/email-campaigns/stored"
+import { addressLine, brandName, buttonColors, contrast, httpsUrl, themeOf } from "@/lib/email-campaigns/brand"
+import { emailHref, richToEmail } from "@/lib/email-campaigns/rich"
 
 let passed = 0
 let failed = 0
@@ -86,7 +96,8 @@ check("an empty display name falls back", safeDisplayName("  ") === "Storelib")
 
 console.log("\nProvider answers")
 check("a 2xx is sent", classify({ success: true, status: 200 }) === "sent")
-check("429, 5xx, timeouts and network errors are retried", ["retry", "retry", "retry", "retry"].join() === [classify({ success: false, status: 429 }), classify({ success: false, status: 503 }), classify({ success: false, timedOut: true }), classify({ success: false })].join())
+check("429, 5xx and a connection that never opened are retried", ["retry", "retry", "retry"].join() === [classify({ success: false, status: 429 }), classify({ success: false, status: 503 }), classify({ success: false, connectFailed: true })].join())
+check("a timeout or a dropped connection may have been sent, so it is never retried", classify({ success: false, timedOut: true }) === "unknown" && classify({ success: false }) === "unknown" && /may have arrived/.test(plainReason({ success: false, timedOut: true })))
 check("a 400 about the message is a failure, not retried", classify({ success: false, status: 400 }) === "failed")
 check("401 and 403 halt the campaign instead of failing addresses", classify({ success: false, status: 401 }) === "halt" && classify({ success: false, status: 403 }) === "halt")
 check("no API key halts too", classify({ success: false, notConfigured: true }) === "halt")
@@ -125,45 +136,99 @@ check("a send that fits, fits", fitsPlan(100, 300, 500).ok)
 const over = fitsPlan(300, 300, 500)
 check("one that does not says how many are left", !over.ok && /200 left/.test((over as { message: string }).message))
 
-console.log("\nThe email frame")
-const frame = buildCampaignEmail({ subject: "Hi <b>", previewText: "Look <here>", bodyHtml: "<p>Body</p>", senderName: "Ana & Co", unsubscribeUrl: "https://storelib.com/unsubscribe?token=t1" })
+console.log("\nThe brand, checked before an email wears it")
+check("a pale accent is not a button anybody could see: the default ink is used", themeOf({ accent: "#fef3c7" }).button === "#1a1a2e")
+check("a dark accent keeps white words, a light one ink", themeOf({ accent: "#7c3aed" }).buttonText === "#ffffff" && buttonColors("#f59e0b", themeOf({ accent: "#7c3aed" })).text === "#111827" && buttonColors("#fde047", themeOf({ accent: "#7c3aed" })).fill === "#1a1a2e")
+check("links take the accent only when it reads as text on white (4.5:1)", themeOf({ accent: "#7c3aed" }).link === "#7c3aed" && themeOf({ accent: "#f59e0b" }).link === "#111827")
+check("the contrast formula is WCAG's", Math.abs(contrast("#ffffff", "#000000") - 21) < 0.01 && Math.abs(contrast("#777777", "#ffffff") - 4.48) < 0.02)
+check("a button with no colour of its own wears the brand's", buttonColors("", themeOf({ accent: "#0f766e" })).fill === "#0f766e")
+check("half an address is not an address", addressLine({ line1: "12 Main St" }) === null && addressLine({ line1: "12 Main St", city: "Springfield", state: "IL", postal: "62701", country: "United States" }) === "12 Main St, Springfield, IL 62701, United States")
+check("a logo is https or nothing", httpsUrl("http://x.com/a.png") === null && httpsUrl("javascript:alert(1)") === null && httpsUrl("https://cdn.x.com/l.png") === "https://cdn.x.com/l.png")
+check("a store name is one line with no markup", !/[<>\n]/.test(brandName("  Ana\n<b>Shop</b> ")) && brandName("", null, " Ana ") === "Ana")
+
+console.log("\nRich text, as an inbox draws it")
+const theme = themeOf({ accent: "#0f766e" })
+const rich = richToEmail(
+  `<h2>Title</h2><p onclick="x()">Hi <strong>{{first_name}}</strong>, <a href="javascript:alert(1)">bad</a> <a href="http://ana.shop/new?a=1&amp;b=2">new</a> <a href="mailto:ana@ana.shop">mail</a></p><ul><li>One</li><li>Two<ul><li>Deep</li></ul></li></ul><blockquote><p>Quoted</p></blockquote><hr><script>steal()</script><style>p{}</style><iframe src="https://x.com"></iframe><p><img src="http://cdn.x.com/a.png" alt="A"><img src="data:image/png;base64,AAA"></p><p><a href="https://ana.shop/buy" style="display:inline-block;padding:10px 18px;background-color:#1a1a2e;color:#fff">Buy now</a></p>`,
+  theme,
+)
+check("every element carries its own style", /<h2 style="[^"]*font-size:22px/.test(rich) && /<p style="margin:0 0 16px;[^"]*"/.test(rich) && /<ul style="/.test(rich) && /<blockquote style="[^"]*border-left:3px/.test(rich))
+check("nothing that runs survives: no script, no style block, no iframe, no handler", !/<script|<style|<iframe|onclick|javascript:/i.test(rich), rich)
+check("a javascript: link keeps its words and loses its link", /, bad </.test(rich) && !/href="javascript/i.test(rich))
+check("http links and pictures are upgraded to https", /href="https:\/\/ana\.shop\/new\?a=1&amp;b=2"/.test(rich) && /src="https:\/\/cdn\.x\.com\/a\.png"/.test(rich))
+check("mailto stays mailto", /href="mailto:ana@ana\.shop"/.test(rich))
+check("an inline picture is dropped", !/data:image/.test(rich))
+check("links wear the brand's colour, underlined", /<a href="https:\/\/ana\.shop\/new[^"]*" target="_blank" style="color:#0f766e;text-decoration:underline;">/.test(rich))
+check("a nested list stays nested", /<li style="[^"]*">Two<ul style="margin:6px 0 0;/.test(rich))
+check("a field stays for the send to fill in", /\{\{first_name\}\}/.test(rich))
+check("a paragraph that is only a button becomes a button Outlook paints", /bgcolor="#1a1a2e"[^>]*mso-padding-alt:12px 24px/.test(rich) && /<span style="color:#ffffff;">Buy now<\/span>/.test(rich))
+check("the unsubscribe placeholder survives as a link", /href="\{\{unsubscribe_url\}\}"/.test(richToEmail('<p><a href="{{unsubscribe_url}}">leave</a></p>', theme)))
+check("a relative link means nothing in an inbox and is dropped", !/href=/.test(richToEmail('<p><a href="/app">x</a></p>', theme)))
+check("emailHref: https, mailto, tel; never javascript or data", emailHref("http://a.co/x") === "https://a.co/x" && emailHref("tel:+123456") === "tel:+123456" && emailHref("javascript:x") === null && emailHref("data:text/html,x") === null)
+
+console.log("\nThe one layout")
+const brand = { name: "Ana & Co", logoUrl: "https://cdn.ana.shop/logo.png", storeUrl: "https://storelib.com/ana", accent: "#0f766e", address: "12 Main St, Springfield, IL 62701" }
+const frame = buildEmail({ subject: "Hi <b>", previewText: "Look <here>", bodyHtml: "<p>Body</p>", brand, kind: "marketing", unsubscribeUrl: "https://storelib.com/unsubscribe?token=t1" })
 check("the subject, preview and name are escaped", /<title>Hi &lt;b&gt;<\/title>/.test(frame) && /Look &lt;here&gt;/.test(frame) && /Ana &amp; Co/.test(frame))
-check("every email says who it is from and how to leave", /joined Ana &amp; Co's list/.test(frame) && /href="https:\/\/storelib\.com\/unsubscribe\?token=t1"/.test(frame))
-check("no tracking pixel unless one is given", !/api\/email\/track/.test(frame))
-check("the text part ends with the way out", campaignPlainText("<p>Hello <a href=\"https://x.com/a?b=1&amp;c=2\">here</a></p>", "https://u").endsWith("Unsubscribe: https://u") && campaignPlainText("<p>Hello <a href=\"https://x.com/a?b=1&amp;c=2\">here</a></p>", "https://u").includes("here (https://x.com/a?b=1&c=2)"))
+check("marketing email says who it is from, why, where, and how to leave", /joined Ana &amp; Co's list/.test(frame) && /12 Main St, Springfield, IL 62701/.test(frame) && /href="https:\/\/storelib\.com\/unsubscribe\?token=t1"/.test(frame))
+check("the logo is the store's, with its name as alt text, linking to the store", /<a href="https:\/\/storelib\.com\/ana"[^>]*><img class="sl-logo" src="https:\/\/cdn\.ana\.shop\/logo\.png" alt="Ana &amp; Co"/.test(frame))
+check("with no logo the store's name is written instead", /class="sl-brand"[^>]*>Ana &amp; Co</.test(buildEmail({ subject: "s", bodyHtml: "", brand: { ...brand, logoUrl: null }, kind: "marketing", unsubscribeUrl: "#" })))
+check("fluid to 600px, with a fixed table only for Outlook", /max-width:600px/.test(frame) && /<!--\[if mso\]><table role="presentation" width="600"/.test(frame))
+check("dark mode is declared and styled, logo on a plate", /name="color-scheme" content="light dark"/.test(frame) && /prefers-color-scheme: dark/.test(frame) && /\.sl-logo\{background-color:#ffffff/.test(frame) && /\[data-ogsc\]/.test(frame))
+check("the preheader is hidden and padded so the body stays out of the inbox line", /class="sl-preheader" style="display:none;[^"]*mso-hide:all;">Look &lt;here&gt;(&#8199;&#65279;&#847; ){60}/.test(frame))
+check("no tracking pixel unless one is given", !/width="1" height="1"/.test(frame) && /width="1" height="1"/.test(buildEmail({ subject: "s", bodyHtml: "", brand, kind: "marketing", unsubscribeUrl: "#", openPixelUrl: "https://storelib.com/api/email/track?t=x" })))
+const receipt = buildEmail({ subject: "s", bodyHtml: "<p>x</p>", brand, kind: "transactional", reason: "You bought from Ana." })
+check("a receipt has no unsubscribe link and says why it came", !/Unsubscribe/.test(receipt) && /You bought from Ana\./.test(receipt))
+const text = emailText({ bodyHtml: richToEmail('<h2>Hello</h2><p>Read <a href="https://x.com/a?b=1&amp;c=2">here</a></p><ul><li>One</li></ul>', theme), brand, kind: "marketing", unsubscribeUrl: "https://u" })
+check("the text part is the same words, links written out, lists dashed", /^Hello\n\nRead here \(https:\/\/x\.com\/a\?b=1&c=2\)\n\n- One/.test(text), text)
+check("and ends with the name, the address and the way out", text.endsWith("Ana & Co\n12 Main St, Springfield, IL 62701\nYou are getting this because you joined Ana & Co's list.\nUnsubscribe: https://u"), text)
 check("a name is escaped when it is put in the body", personalizeHtml("<p>Hi {{first_name}}</p>", { name: "<img src=x> Ana" }) === "<p>Hi &lt;img</p>")
 check("a missing name reads there", personalizeSubject("Hi {{ first_name }}", { name: "" }) === "Hi there")
-check("click tracking leaves mailto, unsubscribe and #", (() => {
-  const t = trackLinks('<a href="https://x.com/p">a</a><a href="mailto:a@b.co">m</a><a href="https://storelib.com/unsubscribe?token=1">u</a>', "tok")
-  return /api\/email\/click\?url=[^"]+&amp;t=tok/.test(t) && /mailto:a@b\.co/.test(t) && /storelib\.com\/unsubscribe\?token=1/.test(t)
+check("click tracking signs https links and leaves mailto, unsubscribe and http alone", (() => {
+  const t = trackLinks('<a href="https://x.com/p?a=1&amp;b=2">a</a><a href="mailto:a@b.co">m</a><a href="https://storelib.com/unsubscribe?token=1">u</a>', "11111111-1111-4111-8111-111111111111")
+  const m = /api\/email\/click\?u=([A-Za-z0-9_-]+)&amp;t=11111111-1111-4111-8111-111111111111&amp;s=([0-9a-f]{32})/.exec(t)
+  return !!m && decodeTarget(m[1]) === "https://x.com/p?a=1&b=2" && verifyLink("11111111-1111-4111-8111-111111111111", "https://x.com/p?a=1&b=2", m[2]) && /mailto:a@b\.co/.test(t) && /storelib\.com\/unsubscribe\?token=1/.test(t)
 })())
-
-check("the click redirect follows a link that is in the email, escaped or not", appearsIn('<a href="https://x.com/a?b=1&amp;c=2">x</a>', "https://x.com/a?b=1&c=2") && appearsIn("<a href='https://x.com/'>x</a>", "https://x.com"))
+check("a signature for one reader does not open the redirect for another link", !verifyLink("11111111-1111-4111-8111-111111111111", "https://evil.example/", signLink("11111111-1111-4111-8111-111111111111", "https://x.com/p")))
+check("links in emails sent before signatures still decode", decodeTarget(Buffer.from("https://x.com/a").toString("base64")) === "https://x.com/a")
+check("the old redirect check still follows a link that is in the email, escaped or not", appearsIn('<a href="https://x.com/a?b=1&amp;c=2">x</a>', "https://x.com/a?b=1&c=2") && appearsIn("<a href='https://x.com/'>x</a>", "https://x.com"))
 check("and refuses one that is not", !appearsIn('<a href="https://x.com/a">x</a>', "https://evil.example/a"))
 
-console.log("\nBlocks")
-check("a link without a scheme gets https, a script link is refused", safeUrl("example.com/x") === "https://example.com/x" && safeUrl("javascript:alert(1)") === "" && safeUrl("/relative") === "")
+console.log("\nBlocks, saved and read back")
+check("a link without a scheme gets https, http is upgraded, a script link is refused", safeUrl("example.com/x") === "https://example.com/x" && safeUrl("http://example.com/x") === "https://example.com/x" && safeUrl("javascript:alert(1)") === "" && safeUrl("/relative") === "")
 check("button text is white on dark and ink on light", textOn("#1a1a2e") === "#ffffff" && textOn("#fde68a") === "#111827")
 const blocks: Block[] = [
-  newBlock("text", { style: "h1", html: "Title" } as Partial<Block>),
-  newBlock("text", { html: 'Hello <a href="javascript:x()">there</a>' } as Partial<Block>),
-  newBlock("list", { items: ["One", "Two"] } as Partial<Block>),
+  newBlock("rich", { html: "<h2>Title</h2><p>Hello <a href=\"https://ana.shop\">there</a>, {{first_name}}</p><ul><li>One</li><li>Two</li></ul>" } as Partial<Block>),
   newBlock("button", { label: "Buy <now>", url: "shop.example.com" } as Partial<Block>),
+  newBlock("button", { label: "Mine", url: "https://x.com", color: "#dc2626" } as Partial<Block>),
   newBlock("image", { src: "https://cdn.x.com/a.png", alt: "", width: 50 } as Partial<Block>),
+  newBlock("product", { productId: "p1", title: "Guide", price: "$9.00", url: "https://storelib.com/ana/guide", imageUrl: "https://cdn.x.com/g.png" } as Partial<Block>),
   newBlock("divider"),
   newBlock("spacer", { size: 48 } as Partial<Block>),
 ]
-const html = renderBlocks(blocks)
-check("headings, text, lists render as email HTML", /<h1 [^>]*>Title<\/h1>/.test(html) && /<ul [^>]*><li[^>]*>One<\/li><li[^>]*>Two<\/li><\/ul>/.test(html))
-check("a script link inside text loses its href", !/javascript:/.test(html))
-check("a button is a table with an escaped label and a real link", /<a href="https:\/\/shop\.example\.com\/"[^>]*>Buy &lt;now&gt;<\/a>/.test(html))
-check("an image at half width is 260px wide", /width="260"/.test(html) && /max-width:260px/.test(html))
-check("each block carries its type for reopening the draft", (html.match(/data-sl-block=/g) ?? []).length === blocks.length)
-check("rendering it through the send sanitizer keeps the layout", /<table/.test(sanitizeForSend(html)) && /max-width:260px/.test(sanitizeForSend(html)))
+const html = renderBlocks(blocks, themeOf({ accent: "#0f766e" }))
+check("text renders as email HTML", /<h2 style="[^"]*">Title<\/h2>/.test(html) && /<ul style="[^"]*"><li style="[^"]*">One<\/li>/.test(html))
+check("a button is a table with an escaped label and a real link", /<a href="https:\/\/shop\.example\.com\/"[^>]*><span[^>]*>Buy &lt;now&gt;<\/span><\/a>/.test(html))
+check("a button with no colour wears the brand, one with a colour keeps it", /bgcolor="#0f766e"[^>]*>[^]*Buy &lt;now&gt;/.test(html) && /bgcolor="#dc2626"/.test(html))
+check("an image at half width is 260px wide and fluid", /width="260"/.test(html) && /max-width:260px/.test(html) && /width:100%;max-width:260px/.test(html))
+check("what is sent carries no editor markers", !/data-sl-/.test(html))
+const stored = storeBlocks(blocks)
+check("what is saved marks every block", (stored.match(/data-sl-block=/g) ?? []).length === blocks.length)
+const back = readStoredBody(sanitizeForStorage(stored))
+check("a saved draft reads back as the same blocks, through the storage sanitizer", back.blocks.map((b) => b.type).join() === blocks.map((b) => b.type).join() && !back.legacy, back.blocks.map((b) => b.type))
+check("a text block comes back as the editor's HTML", back.blocks[0].type === "rich" && /^<h2>Title<\/h2><p>Hello <a href="https:\/\/ana\.shop"[^>]*>there<\/a>, \{\{first_name\}\}<\/p><ul><li>One<\/li><li>Two<\/li><\/ul>$/.test((back.blocks[0] as { html: string }).html), (back.blocks[0] as { html: string }).html)
+check("a block's settings come back, colour included", (back.blocks[2] as { color: string }).color === "#dc2626" && (back.blocks[1] as { color: string }).color === "" && (back.blocks[3] as { width: number }).width === 50)
+check("and render the same as before they were saved", renderBlocks(back.blocks, themeOf({ accent: "#0f766e" })) === html)
+const firstComposer = readStoredBody('<h2 data-sl-block="text" data-sl-style="h2" style="x">Hi</h2><ul data-sl-block="list"><li>A</li><li>B</li></ul>')
+check("a draft from the first composer reads as rich text", firstComposer.blocks.length === 2 && firstComposer.blocks.every((b) => b.type === "rich") && /<h2>Hi<\/h2>/.test((firstComposer.blocks[0] as { html: string }).html) && /<ul><li>A<\/li><li>B<\/li><\/ul>/.test((firstComposer.blocks[1] as { html: string }).html))
+const legacy = readStoredBody('<p>Hello</p><p><img src="https://cdn.x.com/p.png" alt="P"></p><div style="text-align:center"><a href="https://ana.shop" style="display:inline-block;padding:12px 24px;background-color:#2563eb;color:#fff">Shop</a></div><p>Bye</p>')
+check("a draft from the old editor: its words, its picture and its button come back as blocks", legacy.legacy && legacy.blocks.map((b) => b.type).join() === "rich,image,button,rich" && (legacy.blocks[2] as { color: string; align: string }).color === "#2563eb" && (legacy.blocks[2] as { align: string }).align === "center", legacy.blocks)
+check("an empty body is one empty text block", readStoredBody("").blocks.length === 1 && readStoredBody("").blocks[0].type === "rich")
+check("a saved block cannot smuggle a script through its settings", !/<script|javascript:/i.test(renderBlocks(readStoredBody(`<div data-sl-block="button" data-sl-props="${'{"label":"<script>x</script>","url":"javascript:alert(1)"}'.replace(/"/g, "&quot;")}"></div>`).blocks)))
 check("a lone divider is not content", !hasRealContent([newBlock("divider")]) && hasRealContent(blocks))
 check("an image without a description is a warning, an empty button an error", (() => {
   const issues = blockIssues([...blocks, newBlock("button")])
-  return issues.some((i) => i.level === "warning") && issues.some((i) => i.level === "error" && /no label/.test(i.message))
+  return issues.some((i) => i.level === "warning") && issues.some((i) => i.level === "error" && /no text/.test(i.message))
 })())
 
 /* ─── The queue ──────────────────────────────────────────────────────── */
@@ -172,7 +237,7 @@ const CREATOR = "c-1"
 
 function seed(db: FakeDb, o: { plan?: string; handle?: string; subscribers?: { email: string; status?: string; is_active?: boolean; source?: string }[] } = {}) {
   db.tables.creators.push({ id: CREATOR, user_id: "u-1", support_email: "Help@Ana.Shop", slug: "ana", headline: null, subscription_plan_id: o.plan ?? "pro", subscription_status: "active" })
-  db.tables.profiles.push({ id: "u-1", email: "ana@example.com", display_name: "Ana Pop", username: o.handle ?? "anapop", avatar_url: null })
+  db.tables.profiles.push({ id: "u-1", email: "ana@example.com", display_name: "Ana Pop", username: o.handle ?? "anapop", avatar_url: null, address_line1: "12 Main St", city: "Springfield", state: "IL", postal_code: "62701", country: "United States" })
   const subs = o.subscribers ?? [
     { email: "one@example.com" },
     { email: "two@example.com" },
@@ -194,7 +259,7 @@ function campaign(db: FakeDb, over: Record<string, unknown> = {}) {
     creator_id: CREATOR,
     subject: "Hello {{first_name}}",
     preview_text: "A short note",
-    body: renderBlocks([newBlock("text", { html: "Hi {{first_name}}, new things." } as Partial<Block>), newBlock("button", { label: "Look", url: "https://ana.shop/new" } as Partial<Block>)]),
+    body: storeBlocks([newBlock("rich", { html: "<p>Hi {{first_name}}, new things.</p>" } as Partial<Block>), newBlock("button", { label: "Look", url: "https://ana.shop/new" } as Partial<Block>)]),
     status: "draft",
     audience_type: "all",
     segment_id: null,
@@ -211,7 +276,7 @@ function campaign(db: FakeDb, over: Record<string, unknown> = {}) {
   return row
 }
 
-type Sent = { to: string; subject: string; html: string; headers: Record<string, string>; messageId?: string }
+type Sent = { to: string; subject: string; html: string; text: string; headers: Record<string, string>; messageId?: string }
 function provider(answers: Record<string, ({ success: boolean; status?: number } | undefined)[]> = {}) {
   const log: Sent[] = []
   const send = async (m: Sent) => {
@@ -268,7 +333,9 @@ for (const modern of [true, false]) {
   const m = p.log.find((x) => x.to === "one@example.com")!
   check("the subject and body carry the reader's first name", m.subject === "Hello One" && /Hi One, new things/.test(m.html))
   check("the reader's own unsubscribe link, and the one-click header", /unsubscribe\?token=unsub-0/.test(m.html) && m.headers["List-Unsubscribe"] === "<https://storelib.com/api/email/unsubscribe?token=unsub-0>" && m.headers["List-Unsubscribe-Post"] === "List-Unsubscribe=One-Click")
-  check("links go through the click counter and the open is counted", /api\/email\/click\?url=/.test(m.html) && /api\/email\/track\?t=/.test(m.html))
+  check("links go through the signed click counter and the open is counted", /api\/email\/click\?u=[A-Za-z0-9_-]+&amp;t=[^&]+&amp;s=[0-9a-f]{32}/.test(m.html) && /api\/email\/track\?t=/.test(m.html))
+  check("it is drawn in the one layout, in the creator's name, with their address", /Ana Pop/.test(m.html) && /12 Main St, Springfield, IL 62701, United States/.test(m.html) && /max-width:600px/.test(m.html))
+  check("the text part is the same email, with the way out", /Hi One, new things\./.test((m as unknown as { text: string }).text ?? "") && /Unsubscribe: https:\/\/storelib\.com\/unsubscribe\?token=unsub-0/.test((m as unknown as { text: string }).text ?? ""))
   check("the Message-Id is fixed to the row, so a resend is the same message", /^<c.+\.r.+@/.test(m.messageId ?? ""))
   check("the editor's markers are not in what was sent", !/data-sl-/.test(m.html))
   const more = await processCampaign(db, c.id, { deadline: soon(), send: p.send, sleep: noSleep })
@@ -359,9 +426,25 @@ console.log("\nCrashes, leases and the cron (after the migration)")
   db.tables.email_campaigns[0].updated_at = new Date(Date.now() - 5 * 60_000).toISOString()
   const run = await runCampaignQueue(db, soon(), { send: p.send, sleep: noSleep })
   check("the cron takes over a quiet campaign", run.processed === 1)
-  check("the row left mid-send is sent again, once, with the same Message-Id as its first try", p.log.filter((x) => x.to === row.email).length === 1 && p.log.length === 3 && p.log.find((x) => x.to === row.email)!.messageId === `<c${c.id}.r${row.id}@storelib.com>`)
+  check("the row left mid-send is not sent again: it may already be in the inbox", p.log.filter((x) => x.to === row.email).length === 0 && p.log.length === 2)
   const counts = await countRecipients(db, c.id)
-  check("and everything went out", counts.sent === 3 && db.tables.email_campaigns[0].status === "sent", counts)
+  check("it is counted as may not have arrived, the rest went out", counts.unknown === 1 && counts.sent === 2 && db.tables.email_campaigns[0].status === "partially_failed", counts)
+  check("with the reason the creator reads", /may have arrived/.test(String(db.tables.email_campaigns[0].last_error)))
+  const again = await retryFailed(db, CREATOR, c.id)
+  check("Send again never picks up a message that may have arrived", again.retried === 0 && db.tables.campaign_recipients.find((r) => r.id === row.id)!.status === "unknown")
+}
+{
+  resetSchemaCache()
+  const db = new FakeDb({ modern: true })
+  seed(db)
+  const c = campaign(db, { track_opens: false })
+  const s = await startSend(db, { creatorId: CREATOR, campaignId: c.id, from: ["draft"] })
+  const p = provider({ "one@example.com": [{ success: false, timedOut: true } as never], "two@example.com": [{ success: false, connectFailed: true } as never] })
+  await processCampaign(db, c.id, { deadline: soon(), leaseFrom: s.kind === "started" ? s.leaseFrom : null, send: p.send, sleep: async () => { for (const r of db.tables.campaign_recipients) if (r.next_attempt_at) r.next_attempt_at = new Date(Date.now() - 1000).toISOString() } })
+  const by = (e: string) => db.tables.campaign_recipients.find((r) => r.email === e)!
+  check("a timeout is sent once and kept as may not have arrived", p.log.filter((x) => x.to === "one@example.com").length === 1 && by("one@example.com").status === "unknown")
+  check("a connection that never opened is tried again and goes", p.log.filter((x) => x.to === "two@example.com").length === 2 && by("two@example.com").status === "sent")
+  check("with counting opens off, no pixel is sent", p.log.length > 0 && p.log.every((x) => !/api\/email\/track/.test(x.html)))
 }
 {
   resetSchemaCache()
@@ -437,13 +520,13 @@ console.log("\nThe routes are wired to the pipeline")
   const cron = read("app/api/cron/process-scheduled-emails/route.ts")
   check("the cron runs the campaign queue", /runCampaignQueue\(/.test(cron))
   const click = read("app/api/email/click/route.ts")
-  check("the click redirect only follows links that are in that email", /belongsTo|inCampaign|appearsIn/.test(click))
+  check("the click redirect only follows a signed link, or one in that email", /verifyLink\(/.test(click) && /appearsIn\(/.test(click))
   const unsub = read("app/api/email/unsubscribe/route.ts")
   check("one-click unsubscribe accepts the form POST mail clients send", /List-Unsubscribe=One-Click/.test(unsub))
   const sql = read("supabase/sql/RUN_EMAIL_SENDING.sql")
   const statements = sql.replace(/\/\*[\s\S]*?\*\//g, "").split("\n").map((l) => l.trim()).filter(Boolean)
   check("every SQL line is a whole statement", statements.every((l) => l.endsWith(";")), statements.filter((l) => !l.endsWith(";")))
-  check("the migration and the RUN file are the same", sql === read("supabase/migrations/20260926_email_sending.sql"))
+  check("the migration and the RUN file are the same", sql === read("supabase/migrations/20260929_email_sending.sql"))
   check("no -- comments in the SQL", !/^\s*--/m.test(sql))
 }
 
