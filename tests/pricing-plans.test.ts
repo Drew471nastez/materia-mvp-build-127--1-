@@ -51,6 +51,8 @@ const OFFER_SURFACES = [
   "app/(marketing)/pricing/loading.tsx",
   "components/app/billing/upgrade-page-client.tsx",
   "components/app/billing/billing-page-client.tsx",
+  "components/billing/compare-plans.tsx",
+  "components/billing/plan-faq.tsx",
 ]
 
 /**
@@ -170,7 +172,8 @@ function main() {
   )
   check("what Free is shown without is its own domain, which it lacks and Pro has", freePlan.excluded.join() === "Your own domain" && !siteLimits("free").customDomain && g.customDomain)
   check("Pro claims nothing as missing", proPlan.excluded.length === 0)
-  check("the labels are about who a plan is for", freePlan.pill === "Start here" && proPlan.pill === "For growing stores")
+  /* "Start here" and "For growing stores" read as if Free were somewhere to stay. */
+  check("the labels point to Pro: Basics on Free, Everything included on Pro", freePlan.pill === "Basics" && proPlan.pill === "Everything included")
   check("under the price: no fee, or per month", freePlan.priceNote === "No monthly fee" && proPlan.priceNote === "per month")
   check(
     "Free's small print: no card, because Free never reaches a checkout",

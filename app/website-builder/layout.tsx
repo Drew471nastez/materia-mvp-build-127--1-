@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { SessionRecovery } from "@/components/auth/session-recovery"
 import { EditorToaster } from "@/components/ui/editor-toaster"
+import { EditorFrame } from "@/components/website-builder/editor-frame"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -28,16 +29,12 @@ export default async function WebsiteBuilderEditorLayout({
   }
 
   return (
-    /*
-      `fixed inset-0`, for the same reason the editor's own root is: an
-      `h-svh` wrapper is content, and the body's safe-area padding sits
-      underneath it, making the document taller than the screen by the
-      home indicator. Pinned to the viewport it adds no height at all.
-    */
-    <div className="fixed inset-0 overflow-hidden bg-background">
+    /* Pinned to the viewport, with the editor's own frame under it rather
+       than white (components/website-builder/editor-frame). */
+    <EditorFrame>
       {children}
       {/* Compact on a phone and clear of the home indicator: see the file. */}
       <EditorToaster />
-    </div>
+    </EditorFrame>
   )
 }

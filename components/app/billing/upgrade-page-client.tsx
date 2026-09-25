@@ -9,6 +9,8 @@ import { hasInAppHistory } from "@/lib/ui/app-navigation"
 import { isNativeApp } from "@/lib/native-bridge"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
+import { ComparePlans } from "@/components/billing/compare-plans"
+import { PlanFaq } from "@/components/billing/plan-faq"
 import { PLAN_FOOTNOTE, formatPlanPrice, offeredPlan, planHighlights, type OfferedPlanId } from "@/lib/billing/plans"
 
 const STORELIB_LOGO_URL = STORELIB_LOGO
@@ -200,7 +202,8 @@ export function UpgradePageClient({
         that). A see-through bar let the cards show through it as they
         scrolled under.
       */}
-      <div data-upgrade-bar="" className="sticky top-0 z-10 border-b border-[#e5e7eb]/60 bg-white">
+      {/* A little depth under it ("more depth, just a little"): a hairline and a soft shade. */}
+      <div data-upgrade-bar="" className="sticky top-0 z-20 border-b border-[#e5e7eb]/70 bg-white shadow-[0_1px_2px_rgba(17,24,39,0.04),0_6px_16px_-10px_rgba(17,24,39,0.18)]">
         <div className="relative flex h-14 items-center px-4 sm:h-16 sm:px-6">
           <Link
             href="/app/settings?tab=billing"
@@ -232,7 +235,7 @@ export function UpgradePageClient({
       <div className="mx-auto max-w-[1080px] px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
         <div className="mb-8 sm:mb-10 sm:text-center">
           <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Choose a plan</h1>
-          <p className="mt-1.5 text-[14px] text-[#6b7280]">Pro is $29 a month. Change or cancel it from Billing at any time.</p>
+          <p className="mt-1.5 text-[14px] text-[#6b7280]">Start free. Upgrade when you&apos;re ready, and change or cancel anytime.</p>
         </div>
 
         {error && (
@@ -253,6 +256,12 @@ export function UpgradePageClient({
         />
 
         <p className="mt-6 text-center text-[13px] leading-[1.5] text-[#6b7280]">{PLAN_FOOTNOTE}</p>
+
+        {/* The plans side by side, row by row, and the questions people ask before choosing. */}
+        <div className="mt-16 space-y-16 sm:mt-24 sm:space-y-24">
+          <ComparePlans />
+          <PlanFaq />
+        </div>
       </div>
     </div>
   )

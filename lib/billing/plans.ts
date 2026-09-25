@@ -154,7 +154,8 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
     priceCents: 0,
     price: formatPlanPrice(0),
     period: "forever",
-    pill: "Start here",
+    /* "Start here" read as a place to stay: Free is the basics, and Pro has everything. */
+    pill: "Basics",
     priceNote: "No monthly fee",
     summary: "Open your store and start selling today.",
     features: freeFeatures(),
@@ -168,7 +169,7 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
     priceCents: PRO_PRICE_CENTS,
     price: formatPlanPrice(PRO_PRICE_CENTS),
     period: "/month",
-    pill: "For growing stores",
+    pill: "Everything included",
     priceNote: "per month",
     summary: "Keep more of every sale.",
     features: proFeatures(),
@@ -183,6 +184,110 @@ export function offeredPlan(id: OfferedPlanId): OfferedPlan {
   return OFFERED_PLANS.find((p) => p.id === id) ?? OFFERED_PLANS[0]
 }
 
-/** The small print under the cards. True for every plan. */
-export const PLAN_FOOTNOTE =
-  "The $0.25 is added to orders of $3.00 or more. Stripe's card processing fees are separate."
+/**
+ * The small print under the cards. True for every plan. The rule for the
+ * fixed $0.25 (orders of $3.00 or more, lib/billing/fee-calculator) is how
+ * the fee is worked out, not something to read under a price: the owner
+ * asked for the standard line.
+ */
+export const PLAN_FOOTNOTE = "Prices in US dollars. Stripe's payment processing fees apply on every plan."
+
+/* ─── Compare plans, and the questions under it ───────────────────────── */
+
+/** A cell: words, or included / not included (drawn as a check or a cross). */
+export type ComparisonValue = string | boolean
+
+export interface ComparisonSection {
+  title: string
+  rows: { label: string; free: ComparisonValue; pro: ComparisonValue }[]
+}
+
+/**
+ * THE TABLE UNDER THE CARDS on the upgrade page. Every row is written from
+ * the table that decides it (fees, site limits, storage), the same way the
+ * cards are, so the comparison cannot say something the plan does not do.
+ * The rows every plan shares are the ones the Free card already lists.
+ */
+export function planComparison(): ComparisonSection[] {
+  const free = siteLimits("free")
+  const pro = siteLimits(PRO_CHECKOUT_PLAN_ID)
+  const storage = (id: PlanId) => formatBytes(PLAN_LIMITS[id].storageQuotaBytes)
+  const fee = (id: PlanId) => getFeeDescription(id).replace(" per transaction", "")
+  return [
+    {
+      title: "Selling",
+      rows: [
+        { label: "Fee per sale", free: fee("free"), pro: fee(PRO_CHECKOUT_PLAN_ID) },
+        { label: "Digital products and courses", free: "Unlimited", pro: "Unlimited" },
+        { label: "Payouts to your bank through Stripe", free: true, pro: true },
+        { label: "Email your buyers and subscribers", free: true, pro: true },
+        { label: "Sales and visitor analytics", free: true, pro: true },
+      ],
+    },
+    {
+      title: "Websites",
+      rows: [
+        { label: "Websites", free: String(free.maxSites), pro: String(pro.maxSites) },
+        { label: "Pages per website", free: String(free.maxPages), pro: String(pro.maxPages) },
+        { label: "Your own domain", free: free.customDomain, pro: pro.customDomain },
+        { label: "No Storelib branding", free: free.removeBranding, pro: pro.removeBranding },
+        { label: "Premium templates", free: free.premiumTemplates, pro: pro.premiumTemplates },
+        { label: "AI edits a month", free: String(free.aiEditsPerMonth), pro: String(pro.aiEditsPerMonth) },
+      ],
+    },
+    {
+      title: "Your account",
+      rows: [
+        { label: "File storage", free: storage("free"), pro: storage(PRO_CHECKOUT_PLAN_ID) },
+        { label: "Creator page and OnePage", free: true, pro: true },
+        { label: "Verified badge", free: false, pro: true },
+      ],
+    },
+  ]
+}
+
+/**
+ * THE QUESTIONS UNDER THE TABLE. Each answer is what the code does:
+ * cancelling is `cancel_at_period_end` (app/api/billing/subscription/cancel),
+ * the fee is lib/billing/fee-calculator, and the break even is the fee
+ * difference against the price, worked out here rather than typed.
+ */
+export function planQuestions(): { q: string; a: string }[] {
+  const proPrice = formatPlanPrice(PRO_PRICE_CENTS)
+  const freeFee = getFeeDescription("free").replace(" per transaction", "")
+  const proFee = getFeeDescription(PRO_CHECKOUT_PLAN_ID).replace(" per transaction", "")
+  const rate = (s: string) => Number(/([\d.]+)%/.exec(s)?.[1] ?? 0) / 100
+  const saved = rate(freeFee) - rate(proFee)
+  const breakEven = saved > 0 ? Math.ceil(PRO_PRICE_CENTS / 100 / saved / 10) * 10 : 0
+  const pro = siteLimits(PRO_CHECKOUT_PLAN_ID)
+  return [
+    {
+      q: "How do I decide which plan is best for me?",
+      a: `Free opens your store with no monthly fee, so you can start selling today. Pro is for when your store is earning: a lower fee on every sale (${proFee} instead of ${freeFee}), your own domain, no Storelib branding, and room for ${pro.maxSites} websites.`,
+    },
+    ...(breakEven
+      ? [
+          {
+            q: "When does Pro pay for itself?",
+            a: `Pro costs ${proPrice} a month and takes ${Math.round(saved * 1000) / 10}% less of every sale. Once you sell about $${breakEven.toLocaleString("en-US")} a month, the lower fee alone covers the plan, and everything past that is yours.`,
+          },
+        ]
+      : []),
+    {
+      q: "What fees are taken from a sale?",
+      a: `Storelib's fee for your plan (${freeFee} on Free, ${proFee} on Pro; the $0.25 only on orders of $3.00 or more), and Stripe's card processing fee, which Stripe charges on every plan. There is nothing else.`,
+    },
+    {
+      q: "How do I change or cancel my plan?",
+      a: "From Billing in Settings, at any time. An upgrade starts straight away. When you cancel, Pro stays active until the end of the period you paid for, then your account moves to Free.",
+    },
+    {
+      q: "What happens when I move back to Free?",
+      a: "Your products, pages, customers and orders stay exactly as they are. The Free fee applies to new sales, and the things only Pro has, like your own domain and hidden branding, stop at the end of your paid period.",
+    },
+    {
+      q: "Do I need a card to start?",
+      a: "No. Free asks for no card. You only add one when you upgrade to Pro.",
+    },
+  ]
+}

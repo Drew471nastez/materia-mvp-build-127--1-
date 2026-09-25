@@ -2375,6 +2375,7 @@ check(
 // sheet with a gap of exactly 0 both with the inset and without it.
 const lockSrc = readFileSync(join(root, "components/website-builder/full-screen-lock.tsx"), "utf8")
 const wbLayout = readFileSync(join(root, "app/website-builder/layout.tsx"), "utf8")
+const readRoot = (p: string) => readFileSync(join(root, p), "utf8")
 
 check(
   "the editor is pinned to the viewport rather than laid out in the body's flow",
@@ -2382,8 +2383,18 @@ check(
   // measured against the viewport and adds no height to the document.
   /"wb-editor fixed inset-0 flex flex-col/.test(editor) &&
     !/"wb-editor h-svh/.test(editor) &&
-    /<div className="fixed inset-0 overflow-hidden bg-background">/.test(wbLayout) &&
+    /<EditorFrame>/.test(wbLayout) && /className="fixed inset-0 overflow-hidden bg-\[#eef1f5\]"/.test(readRoot("components/website-builder/editor-frame.tsx")) &&
     !/h-svh overflow-hidden bg-background/.test(wbLayout),
+)
+
+/* "Sometimes going into the website builder flashes the whole screen white."
+   The editor fades in over whatever is under it; both of its addresses now
+   put the editor's own frame there, and the canonical one its toaster too. */
+check(
+  "both editor addresses draw the editor's frame under it (its surround and its dark bar), never white",
+  /bg-\[#171717\]/.test(readRoot("components/website-builder/editor-frame.tsx"))
+    && /<EditorFrame>/.test(readRoot("app/store/[creatorSlug]/themes/[installId]/editor/layout.tsx"))
+    && /<EditorToaster \/>/.test(readRoot("app/store/[creatorSlug]/themes/[installId]/editor/layout.tsx")),
 )
 
 check(
