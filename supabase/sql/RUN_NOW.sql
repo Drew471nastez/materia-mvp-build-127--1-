@@ -3,9 +3,10 @@
    ===========================================================================
    Select all, copy, paste into the Supabase SQL editor, press Run.
 
-   Safe to run more than once, and safe when part of it ran already: every
-   statement checks before it acts. Nothing here deletes or rewrites data you
-   already have.
+   Verified before you paste it: run three times against a Postgres 16 built
+   to match this project, with rows in the tables it touches. Zero errors, and
+   the schema after three runs is identical to the schema after one. Running
+   it again changes nothing.
 
    What is in it, in the order it runs:
      1  Website addresses      a website's address can differ from your username
@@ -18,8 +19,64 @@
    Part 4 is the one that matters most: until it runs, anyone holding the
    public key can list and download paid files, and any signed-in account can
    delete other people's files. The app code for it is already live.
-   =========================================================================== */
 
+   ---------------------------------------------------------------------------
+   WHAT IT CHANGES THAT IS NOT JUST "ADD IF MISSING"
+   ---------------------------------------------------------------------------
+   Three things here rewrite what is already in the database. All three are
+   meant, and none of them touches an order, a payout or a customer:
+
+     • Products archived the old way, while still published, are set to
+       status 'archived', so an archived product really does leave your page.
+       Count them first if you want to know how many:
+         select count(*) from public.products
+          where archived is true and status = 'published';
+     • The policy "Public read active coupons" is dropped. It was letting
+       anyone with the public key list every active discount code.
+     • Storage policies are replaced, and buckets holding paid files are set
+       private. Policies for buckets this file does not manage are left alone
+       (checked: listings, messages, site-assets, site-deployments,
+       theme-chat-attachments, site-backups all survive).
+
+   ---------------------------------------------------------------------------
+   RUN THIS FIRST, AND READ THE ANSWER
+   ---------------------------------------------------------------------------
+   The SQL editor runs a paste as ONE transaction: either all of it lands or
+   none of it does. One thing can stop it before it starts, so check first:
+
+     select pg_has_role(current_user, (select relowner from pg_class
+              where oid = 'storage.objects'::regclass), 'member')
+              as can_manage_storage_policies,
+            to_regclass('public.email_change_codes') is not null as has_email_codes,
+            to_regclass('public.email_flows')        is not null as has_email_flows,
+            to_regclass('public.digital_assets')     is not null as has_assets,
+            to_regclass('public.product_bundles')    is not null as has_bundles;
+
+   Every column should read true. If can_manage_storage_policies is false,
+   the storage part has to be applied from Storage > Policies in the dashboard
+   instead, because dropping a policy needs ownership of the table.
+
+   Keep a copy of what the storage policies are now, since the SQL editor does
+   not always show the notices this file raises while it replaces them:
+
+     select policyname, cmd, roles, qual, with_check from pg_policies
+      where schemaname = 'storage' and tablename = 'objects' order by policyname;
+
+   ---------------------------------------------------------------------------
+   IF YOUR SITE IS BUSY RIGHT NOW
+   ---------------------------------------------------------------------------
+   Replacing the storage policies locks storage.objects until the paste
+   finishes, and while it is held every upload, download and signed link
+   waits. On a small database that is under a second. To keep it short on a
+   big one, build these four indexes BEFORE the paste, one line at a time, on
+   their own (they cannot run inside a transaction, and the file then skips
+   them):
+
+     create index concurrently if not exists idx_digital_assets_file_path on public.digital_assets (file_path);
+     create index concurrently if not exists idx_digital_assets_pending on public.digital_assets (created_at) where upload_status in ('pending','failed');
+     create index concurrently if not exists idx_digital_assets_product_status on public.digital_assets (product_id, upload_status);
+     create index concurrently if not exists idx_product_bundles_zip_path on public.product_bundles (zip_path);
+   =========================================================================== */
 
 /* =========================== RUN_WEBSITE_ADDRESSES =========================== */
 -- ===========================================================================
@@ -106,7 +163,10 @@ grant execute on function public.website_handle_taken(text, uuid) to authenticat
 
 alter table public.theme_agent_activity add column if not exists detail jsonb;
 alter table public.theme_agent_activity drop constraint if exists theme_agent_activity_action_check;
-alter table public.theme_agent_activity add constraint theme_agent_activity_action_check check (action in ('created', 'updated', 'page', 'page_created'));
+-- NOT VALID, so the rows already in this log are not rescanned: the check
+-- applies to every new row, and adding it does not read a table that only
+-- ever grows. The same as the coupons and email flow checks in this round.
+alter table public.theme_agent_activity add constraint theme_agent_activity_action_check check (action in ('created', 'updated', 'page', 'page_created')) not valid;
 
 create table if not exists public.theme_editor_focus (
   install_id uuid primary key references public.store_theme_installs(id) on delete cascade,
