@@ -33,7 +33,9 @@
  * needs it stays quiet rather than guess.
  *
  * The step Getting started names next leads, whatever its priority, so the
- * banner and the card never point at two different first things.
+ * banner and the card never point at two different first things. News this
+ * week (a first sale, a milestone) still comes before it: it is the one
+ * thing that will not be true next week.
  *
  * Pure and client safe, so tests/home-announcements.test.ts runs every rule
  * against fixture states without a browser.
@@ -424,10 +426,19 @@ export function announcementsFor(p: HomeProgress, now: number, limit = MAX_ANNOU
     const rule = FALLBACK_FREE.applies(p, now) ? FALLBACK_FREE : FALLBACK_PAID
     out.push({ id: rule.id, priority: rule.priority, ...rule.write(p, now) })
   }
-  const lead = p.nextStep ? LEADS[p.nextStep] ?? [] : []
-  const rank = (a: Announcement) => (lead.includes(a.id) ? 1000 : 0) + a.priority
+  /* The card's next step, when a slide says it; otherwise nothing leads and the priorities alone decide. */
+  const lead = (p.nextStep ? LEADS[p.nextStep] ?? [] : []).filter((id) => out.some((a) => a.id === id))
+  const rank = (a: Announcement) => {
+    const leads = lead.includes(a.id)
+    /* Critical stays on top unless the card names another step first (a product before Stripe). */
+    if (NEWS.includes(a.id) || (a.tone === "critical" && (leads || lead.length === 0))) return 2000 + a.priority
+    return (leads ? 1000 : 0) + a.priority
+  }
   return out.sort((a, b) => rank(b) - rank(a)).slice(0, Math.max(1, limit))
 }
+
+/** What happened this week: ahead of any step. */
+const NEWS: readonly AnnouncementId[] = ["first-sale", "milestone"]
 
 /** The announcements that say a Getting started step, by the step's id (lib/home/progress SetupStepId). */
 const LEADS: Record<string, readonly AnnouncementId[]> = {

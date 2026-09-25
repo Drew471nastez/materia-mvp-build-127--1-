@@ -50,10 +50,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const EXPECT = {
   new: ["payouts", "first-product"],
   product: ["payouts", "website"],
-  payouts: ["share", "website"],
+  payouts: ["website", "share"],
   firstsale: ["first-sale", "automations", "newsletter", "domain-pro"],
   selling: ["upgrade-saving", "automations", "newsletter"],
-  milestone: ["milestone", "automations", "newsletter", "domain"],
+  milestone: ["milestone", "domain", "automations", "newsletter"],
   quiet: ["pro-offer"],
   pro: ["all-set"],
 }
@@ -167,7 +167,8 @@ async function measureSlides(page) {
   const out = []
   for (let i = 0; i < list.length; i++) {
     if (list.length > 1) {
-      await page.evaluate((n) => document.querySelectorAll("[data-home-banner] [role=tab]")[n].click(), i)
+      /* Focus inside the banner holds the clock, so the slide measured is the one picked, at rest. */
+      await page.evaluate((n) => { const tab = document.querySelectorAll("[data-home-banner] [role=tab]")[n]; tab.focus(); tab.click() }, i)
       await sleep(650)
     }
     out.push(await page.evaluate(() => {
@@ -287,6 +288,8 @@ try {
       /* A finger resting on it holds it. */
       const t = await page.evaluate(() => { const r = document.querySelector("[data-home-banner] .home-banner-title:not(:empty)").closest("[data-home-banner]").getBoundingClientRect(); return { x: r.left + 40, y: r.top + 60 } })
       await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: t.x, y: t.y }] })
+      /* At ten times the speed a slide lasts 0.6s: one may have been ending as the finger landed. */
+      await sleep(200)
       const touchA = await active(page)
       await sleep(1100)
       expect((await held(page)) && (await active(page)) === touchA, "a finger on it holds it")
@@ -454,8 +457,11 @@ try {
     const { page, errors } = await open(390, "state=payouts")
     console.log("\nthe share announcement at 390")
     await page.evaluate(() => { window.__linked = null })
-    const first = await active(page)
-    expect(first === "share", "comes first when the store can sell and has not", first)
+    /* Getting started names the website next, so that leads; sharing the page is the one after. */
+    const order = await ids(page)
+    expect(order[0] === "website" && order[1] === "share", "follows the website when the store can sell and has not", order)
+    await page.evaluate((n) => { const tab = document.querySelectorAll("[data-home-banner] [role=tab]")[n]; tab.focus(); tab.click() }, order.indexOf("share"))
+    await until(async () => (await active(page)) === "share")
     await page.evaluate(() => document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"] .home-banner-cta').click())
     await sleep(600)
     const opened = await page.evaluate(() => ({ linked: window.__linked, dialog: !!document.querySelector("[data-share-sheet]") }))

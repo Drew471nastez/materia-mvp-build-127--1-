@@ -176,6 +176,10 @@ function main() {
   check("the guide unopened leads nothing: the usual order", ids(fromFacts(facts({ guideOpened: false }), none, "free", true))[0] === "payouts")
   const siteNext = fromFacts(facts({ products: 1, paymentsReady: true }), none, "free", true)
   check("no website: the website leads, share after it", siteNext.nextStep === "store" && same(ids(siteNext).slice(0, 2), ["website", "share"]), ids(siteNext))
+  const newsFirst = fromFacts(facts({ products: 1, paymentsReady: true, websiteLive: true, pro: true, sales: 42 }), salesSummary([...Array.from({ length: 38 }, (_, i) => order(9 + i, 2500)), order(3, 2500), order(2, 2500), order(1, 2500)], NOW), "growth", true)
+  check("news this week stays ahead of the card's next step", newsFirst.nextStep === "domain" && same(ids(newsFirst).slice(0, 2), ["milestone", "domain"]), ids(newsFirst))
+  const saleNoPay = fromFacts(facts({ products: 1, sales: 1 }), salesSummary([order(1, 2900)], NOW), "free", true)
+  check("Stripe the card names next, with a sale this week: Stripe still first", same(ids(saleNoPay).slice(0, 2), ["payouts", "first-sale"]), ids(saleNoPay))
   check("every step done: nothing leads", fromFacts(facts({ products: 1, paymentsReady: true, websiteLive: true, domainConnected: true, pro: true, sales: 1 }), none, "growth", true).nextStep === null)
 
   console.log("\nthe words")
