@@ -429,7 +429,9 @@ function Flag({ code }: { code: string }) {
  * grey bar behind the name, the way Vercel and Plausible draw theirs. It was
  * a thin violet line under the name, which the owner found generic; the
  * figure is what matters and the bar only says how big it is next to the
- * others, so it sits behind the words in the page's own grey.
+ * others, so it sits behind the words: a light grey, a little raised (a
+ * soft top to bottom shade, a bright top edge, a hairline and a faint
+ * shadow) rather than a flat grey block.
  */
 function Row({
   r,
@@ -451,7 +453,7 @@ function Row({
         <div
           aria-hidden
           data-bar=""
-          className="absolute inset-y-0 left-0 rounded-md bg-[#f1f2f5] transition-[width,background-color] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:bg-[#e8eaef]"
+          className="absolute inset-y-0 left-0 rounded-md bg-[linear-gradient(180deg,#f8f9fb_0%,#eff1f4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_0_0_1px_rgba(16,24,40,0.045),0_1px_2px_rgba(16,24,40,0.05)] transition-[width,filter] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:brightness-[0.975]"
           style={{ width: `${Math.max(2, (r.value / max) * 100)}%` }}
         />
         <div className="relative flex min-w-0 items-center gap-2 pl-1">

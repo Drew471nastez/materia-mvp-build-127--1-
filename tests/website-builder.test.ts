@@ -395,8 +395,8 @@ section("The page")
         /\brounded-\[12px\]/.test(frame) && !/rounded-t-|rounded-tr-|rounded-bl-/.test(frame) &&
         /\boverflow-hidden\b/.test(frame) && /\bisolate\b/.test(frame) && /\[transform:translateZ\(0\)\]/.test(frame) && /className=\{COVER_FRAME\}/.test(live) &&
         /<div className="flex min-w-0 flex-col px-4 pb-4 pt-2 lg:p-6 lg:pl-4">/.test(live))
-    check("  with depth: a close and a wide soft shadow, and a hairline ring drawn over the picture",
-      /shadow-\[0_1px_2px_rgba\(15,23,42,0\.06\),0_10px_28px_-14px_rgba\(15,23,42,0\.22\)\]/.test(frame) &&
+    check("  with depth: a close, a faint middle and a wide soft shadow, and a hairline ring drawn over the picture",
+      /shadow-\[0_1px_2px_rgba\(15,23,42,0\.06\),0_4px_10px_-6px_rgba\(15,23,42,0\.08\),0_10px_28px_-14px_rgba\(15,23,42,0\.22\)\]/.test(frame) &&
         /after:rounded-\[inherit\] after:shadow-\[inset_0_0_0_1px_rgba\(15,23,42,0\.08\)\]/.test(frame))
     check("  not a .group, so a tap on a phone does not take its shadow off; the tint is a pointer's, the focus an outline that draws",
       !/(^|\s)group(\s|$)/.test(frame) && /pointer-fine:hover:before:bg-\[#1a1a2e\]\/\[0\.04\]/.test(frame) &&
