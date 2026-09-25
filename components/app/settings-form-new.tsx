@@ -1450,8 +1450,19 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         </div>
       </div>
 
-      <div className="overflow-x-hidden bg-[#fafafa]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-hidden">
+      {/*
+        CLIP, NOT HIDDEN. `overflow-x: hidden` makes a box a scroller on both
+        axes (its overflow-y turns to auto), so this wrapper was a scroller
+        with no height of its own. On landing the stage raises what is in a
+        scroller by 2px (app-stage playEntrance); that 2px overflowed this
+        box, a classic scrollbar came up inside it for the 180ms of the rise,
+        the centred column narrowed, and when the bar went the whole page slid
+        7.5px to the right (scripts/check-settings-landing). `clip` cuts the
+        sideways overflow the same way without making a scroller, so the
+        page rises inside the shell's scroller, whose track is always there.
+      */}
+      <div data-settings-page="" className="overflow-x-clip bg-[#fafafa]">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-clip">
         {/* Header with Handle pill */}
         <div className="mb-6 flex items-start justify-between gap-3">
           <div>
