@@ -180,9 +180,7 @@ export function EditProfileButton({
    * old version watched `open` alone, so it put back the pre-save props and
    * never heard about the refreshed ones.
    */
-  useSavedValues(
-    open,
-    {
+  const savedValues = {
       displayName,
       bio,
       avatarUrl: avatarUrl ?? null,
@@ -192,8 +190,8 @@ export function EditProfileButton({
       socialLinks,
       display,
       themePreset,
-    },
-    (saved) => {
+  }
+  const applySaved = (saved: typeof savedValues) => {
       setName(saved.displayName)
       setAbout(saved.bio)
       setAvatar(saved.avatarUrl)
@@ -208,8 +206,20 @@ export function EditProfileButton({
       })
       setScheme(saved.themePreset)
       setError(null)
-    },
-  )
+  }
+  useSavedValues(open, savedValues, applySaved)
+
+  /**
+   * CLOSED WITHOUT SAVING IS CLOSED WITHOUT SAVING. The re-sync above only
+   * fires when the saved values change, so a Cancel left the abandoned edits
+   * in the form for next time, a scheme among them: reopened, the picker
+   * showed a scheme the page was not in, and Save would have kept it. The
+   * form is put back to what is saved once the sheet has finished leaving,
+   * so nothing changes in it on the way out.
+   */
+  const abandoned = React.useRef(false)
+  const restoreRef = React.useRef(() => applySaved(savedValues))
+  restoreRef.current = () => applySaved(savedValues)
 
   /**
    * THE COVER IS DECODED BEFORE THE SHEET MOVES. The press starts it, at the
@@ -325,7 +335,10 @@ export function EditProfileButton({
           type="button"
           onPointerDown={warmCover}
           onFocus={warmCover}
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            abandoned.current = false
+            setOpen(true)
+          }}
           aria-label="Edit profile"
           // rounded-lg (8px), not a pill. A fully rounded control reads as a
           // chip or a tag; this is a button, and it sits beside a card grid whose
@@ -343,8 +356,15 @@ export function EditProfileButton({
 
       <EditorSheet
         open={open}
-        onClosed={onClosed}
+        onClosed={() => {
+          if (abandoned.current) {
+            abandoned.current = false
+            restoreRef.current()
+          }
+          onClosed()
+        }}
         onClose={() => {
+          abandoned.current = true
           setOpen(false)
           setPeeking(false)
           /* Closed without saving: the page goes back to the scheme it has. */
