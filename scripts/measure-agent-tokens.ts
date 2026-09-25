@@ -23,7 +23,7 @@
 import { themeAgent } from "@/lib/website-builder/agent/loop"
 import { buildSection, type ThemeState } from "@/lib/website-builder/agent/operations"
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
-import { toMessages } from "@/lib/sites/agent/anthropic-provider"
+import * as anthropicShape from "@/lib/sites/agent/anthropic-provider"
 import type { AgentProvider, ProviderRequest, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
 import { DEFAULT_THEME_SOURCES } from "../themes/default/sources.generated"
 
@@ -49,7 +49,9 @@ function measure(request: ProviderRequest): Sent {
   const tools = JSON.stringify(
     request.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters, strict: true })),
   )
-  const messages = toMessages(request.turns) as unknown as Array<{ role: string; content: unknown }>
+  /* What the provider sends: requestMessages where it exists (with its cache breakpoint), else the plain shape. */
+  const shape = (anthropicShape as { requestMessages?: typeof anthropicShape.toMessages }).requestMessages ?? anthropicShape.toMessages
+  const messages = shape(request.turns) as unknown as Array<{ role: string; content: unknown }>
   const text = JSON.stringify(messages)
   /* A breakpoint on the last block means the whole transcript is cached for the next turn. */
   const last = messages[messages.length - 1]

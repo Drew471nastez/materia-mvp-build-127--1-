@@ -143,7 +143,10 @@ export async function writeSection(opts: {
      * told afterwards what the colours are has already chosen them.
      */
     opts.theme ? describeThemeForAuthoring(opts.theme) : "",
-    describeImages(images, asked.length > 0),
+    describeImages(images, asked.length > 0, {
+      ask: "answer REPLY: with one short question",
+      content: "the site described above and the creator's own business",
+    }),
     knowledgeBlock(asked),
     asked && `REQUEST\n${asked}`,
   ]

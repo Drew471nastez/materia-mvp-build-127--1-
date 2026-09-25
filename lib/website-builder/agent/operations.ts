@@ -693,14 +693,32 @@ export interface StoreFacts {
   live: boolean
   totalProducts: number
   publishedProducts: number
-  products: Array<{ title: string; type: string; priceCents: number; published: boolean }>
+  products: Array<{
+    title: string
+    type: string
+    priceCents: number
+    published: boolean
+    /**
+     * The rest of the product data API (lib/website-builder/shop-products),
+     * optional so a caller with only the basics still describes a store: the
+     * id and page address a product picker and a buy link need, the sale
+     * price, and the options a product is bought as.
+     */
+    id?: string
+    url?: string
+    compareAtCents?: number | null
+    payWhatYouWant?: boolean
+    options?: Array<{ name: string; priceCents: number }>
+  }>
+  /** The site's address, when known, for copy that names it. */
+  address?: string | null
 }
 
 export function describeStore(facts: StoreFacts): string {
   if (facts.totalProducts === 0) {
     return [
       `STORE: ${facts.storeName}${facts.live ? " (live)" : " (not published yet)"}`,
-      "It has no products yet. Do not write copy that promises a catalogue, and do not add a product section — it would render empty.",
+      "It has no products yet. Do not write copy that promises a catalogue, and do not add a product section: it would render empty.",
     ].join("\n")
   }
 
@@ -708,12 +726,16 @@ export function describeStore(facts: StoreFacts): string {
     cents === 0 ? "free" : `${(cents / 100).toFixed(2)}`
 
   return [
-    `STORE: ${facts.storeName}${facts.live ? " (live)" : " (not published yet)"}`,
-    `${facts.publishedProducts} published of ${facts.totalProducts} products.`,
+    `STORE: ${facts.storeName}${facts.live ? " (live)" : " (not published yet)"}${facts.address ? `, at ${facts.address}` : ""}`,
+    `${facts.publishedProducts} published of ${facts.totalProducts} products. Prices in USD. A product picker takes a product's page address; a buy button is its checkout.`,
     "PRODUCTS",
-    ...facts.products.map(
-      (p) => `  ${p.title} — ${p.type}, ${money(p.priceCents)}${p.published ? "" : " (draft)"}`,
-    ),
+    ...facts.products.map((p) => {
+      const where = [p.id ? `id ${p.id}` : "", p.url ? p.url : ""].filter(Boolean).join(", ")
+      const was = typeof p.compareAtCents === "number" && p.compareAtCents > p.priceCents ? ` (was ${money(p.compareAtCents)})` : ""
+      const price = p.payWhatYouWant ? `pay what you want from ${money(p.priceCents)}` : money(p.priceCents)
+      const options = p.options?.length ? `; options: ${p.options.slice(0, 6).map((o) => `${o.name} ${money(o.priceCents)}`).join(", ")}` : ""
+      return `  ${p.title}${where ? ` [${where}]` : ""}: ${p.type}, ${price}${was}${options}${p.published ? "" : " (draft)"}`
+    }),
     facts.products.length < facts.totalProducts
       ? `  …and ${facts.totalProducts - facts.products.length} more.`
       : "",

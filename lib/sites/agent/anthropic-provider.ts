@@ -122,6 +122,44 @@ export function toMessages(turns: AgentTurn[]): Anthropic.MessageParam[] {
 }
 
 /**
+ * ===========================================================================
+ *  THE TRANSCRIPT IS CACHED TOO, NOT ONLY THE RULES
+ * ===========================================================================
+ * Every turn of a tool loop resends the whole conversation: the page, the
+ * picture, every tool result so far. The system block's breakpoint caches
+ * the rules and tools in front of it and nothing after, so turn five paid
+ * full price for turns one to four again. Measured on the fixtures in
+ * scripts/measure-agent-tokens.ts, that resent transcript was most of what a
+ * build cost.
+ *
+ * So the request's last block carries a breakpoint as well. Anthropic caches
+ * the longest prefix up to it, and the next turn, which begins with exactly
+ * that prefix, reads it back at a tenth of the price and pays in full only
+ * for what is new. Two breakpoints of the four a request may carry.
+ *
+ * Kept apart from `toMessages`, which is the shape of a conversation and is
+ * pinned by tests that way; this is a billing instruction on top of it.
+ */
+export function requestMessages(turns: AgentTurn[]): Anthropic.MessageParam[] {
+  const messages = toMessages(turns)
+  const last = messages[messages.length - 1]
+  if (!last) return messages
+  const breakpoint = { type: "ephemeral" as const }
+  if (typeof last.content === "string") {
+    if (!last.content) return messages
+    messages[messages.length - 1] = { ...last, content: [{ type: "text", text: last.content, cache_control: breakpoint }] }
+    return messages
+  }
+  const blocks = [...last.content]
+  const end = blocks[blocks.length - 1]
+  /* Thinking blocks are replayed byte for byte and take no marker; the last message here is the user's anyway. */
+  if (!end || end.type === "thinking" || end.type === "redacted_thinking") return messages
+  blocks[blocks.length - 1] = { ...end, cache_control: breakpoint } as Anthropic.ContentBlockParam
+  messages[messages.length - 1] = { ...last, content: blocks }
+  return messages
+}
+
+/**
  * ANTHROPIC'S THREE INPUT COUNTS ARE DISJOINT. OpenAI's are nested.
  *
  * `TokenUsage.inputTokens` is documented as the TOTAL, with the two cache
@@ -193,7 +231,8 @@ export const anthropicProvider: AgentProvider = {
          * MATCH, which the `cache_control` above already asks for. Inventing a
          * parameter to carry the key would be a 400.
          */
-        messages: toMessages(request.turns),
+        /* With a breakpoint on the last block: see requestMessages. */
+        messages: requestMessages(request.turns),
         tools: request.tools.map((tool) => ({
           name: tool.name,
           description: tool.description,
@@ -286,13 +325,13 @@ export const anthropicProvider: AgentProvider = {
  */
 export function describeAnthropicError(thrown: unknown): string | null {
   if (thrown instanceof MissingAnthropicKeyError) {
-    return "Claude is not configured on this deployment — ANTHROPIC_API_KEY is not set."
+    return "Claude is not configured on this deployment: ANTHROPIC_API_KEY is not set."
   }
   if (thrown instanceof Anthropic.AuthenticationError) {
     return "Claude rejected the API key. It may have been revoked or rotated."
   }
   if (thrown instanceof Anthropic.RateLimitError) {
-    return "Claude is rate limited right now. Wait a moment and try again — nothing was lost."
+    return "Claude is rate limited right now. Wait a moment and try again. Nothing was lost."
   }
   if (thrown instanceof Anthropic.APIConnectionError) {
     return "Lost the connection to Claude. Anything already changed is still here."

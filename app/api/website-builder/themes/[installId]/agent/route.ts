@@ -47,6 +47,8 @@ import { classifyRequest } from "@/lib/website-builder/agent/ambition"
 import { reviewImages } from "@/lib/sites/agent/attachments"
 import { completeThemeExchange, openThemeConversation, startThemeExchange } from "@/lib/website-builder/agent/chat"
 import { keepImages } from "@/lib/website-builder/agent/attachment-store"
+import { recentMessages } from "@/lib/website-builder/agent/memory"
+import { getWebsiteShareUrl } from "@/lib/url-helpers"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -160,7 +162,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    */
   if (!isConfigured("anthropic") && !isConfigured("openai")) {
     return NextResponse.json(
-      { error: "Storelib AI is not configured yet — no model key is set." },
+      { error: "Storelib AI is not set up on this deployment yet: no model key is set." },
       { status: 503 },
     )
   }
@@ -213,6 +215,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
     adoptEarlier: body.continueEarlier === true && !body.conversationId,
   })
   const conversationId = conversation?.id ?? null
+  /**
+   * WHAT WAS JUST SAID in this conversation, read BEFORE this request is
+   * recorded so it is never among it. Through the creator's own client:
+   * row-level security decides, as it does for the history panel. It is
+   * what lets "I meant the animation", or a tap on the assistant's own
+   * question, mean what it meant (lib/website-builder/agent/memory.ts).
+   */
+  const history = await recentMessages(supabase as never, installId, conversationId)
   const messageId = await startThemeExchange({ installId, pageKey: body.page, prompt: noted, conversationId })
   /**
    * Ownership was proved above against the USER'S client before a single
@@ -411,39 +421,80 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
            */
           readStore: async () => {
             try {
-              const [{ data: profile }, { data: rows, count }] = await Promise.all([
+              /**
+               * The product data API's fields (lib/website-builder/shop-products):
+               * ids and page addresses for a product picker and a buy button,
+               * sale prices, pay what you want, and the options below. Asked
+               * again with the basic columns when an older database does not
+               * have one of them, so the store is described either way.
+               */
+              const productQuery = (cols: string) =>
+                supabase
+                  .from("products")
+                  .select(cols, { count: "exact" })
+                  .eq("creator_id", (creator as { id: string }).id)
+                  .order("created_at", { ascending: false })
+                  .limit(30)
+              const [{ data: profile }, first] = await Promise.all([
                 supabase
                   .from("creators")
                   .select("slug, store_published")
                   .eq("id", (creator as { id: string }).id)
                   .maybeSingle(),
-                supabase
-                  .from("products")
-                  .select("title, type, price_cents, status", { count: "exact" })
-                  .eq("creator_id", (creator as { id: string }).id)
-                  .order("created_at", { ascending: false })
-                  .limit(30),
+                productQuery("id, title, type, slug, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, status"),
               ])
+              const { data: rows, count } = first.error ? await productQuery("id, title, type, slug, price_cents, status") : first
 
-              type Row = { title: string; type: string; price_cents: number; status: string }
-              const products = ((rows as Row[] | null) ?? []).map((p) => ({
+              type Row = {
+                id: string
+                title: string
+                type: string
+                slug?: string | null
+                price_cents: number
+                compare_at_cents?: number | null
+                pay_what_you_want?: boolean | null
+                pwyw_min_price_cents?: number | null
+                status: string
+              }
+              const list = (rows as unknown as Row[] | null) ?? []
+              /* The options each product is bought as, read the same way; none if they will not load. */
+              let options: { product_id: string; name: string | null; price_cents: number | null }[] = []
+              if (list.length) {
+                const { data: variantRows } = await supabase
+                  .from("product_variants")
+                  .select("product_id, name, price_cents, position")
+                  .in("product_id", list.map((p) => p.id))
+                  .order("position", { ascending: true })
+                options = (variantRows as typeof options | null) ?? []
+              }
+              const products = list.map((p) => ({
+                id: p.id,
                 title: p.title,
                 type: p.type,
-                priceCents: p.price_cents,
+                priceCents: p.pay_what_you_want ? p.pwyw_min_price_cents ?? 0 : p.price_cents,
+                payWhatYouWant: p.pay_what_you_want === true,
+                compareAtCents: p.compare_at_cents ?? null,
+                url: p.slug ? `/products/${p.slug}` : undefined,
                 published: p.status === "published",
+                options: options
+                  .filter((o) => o.product_id === p.id)
+                  .map((o) => ({ name: o.name ?? "Option", priceCents: o.price_cents ?? 0 })),
               }))
 
+              const slug = (profile as { slug?: string } | null)?.slug ?? null
               return {
-                storeName: (profile as { slug?: string } | null)?.slug ?? "this store",
+                storeName: slug ?? "this store",
                 live: (profile as { store_published?: boolean } | null)?.store_published === true,
                 totalProducts: count ?? products.length,
                 publishedProducts: products.filter((p) => p.published).length,
                 products,
+                address: slug ? getWebsiteShareUrl(slug) : null,
               }
             } catch {
               return null
             }
           },
+          history,
           // Groups this theme's requests for the provider's prompt cache. A
           // theme id, never anything about the person.
           cacheKey: `theme:${installId}`,
@@ -496,9 +547,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           message: claude
             ? claude
             : thrown instanceof NoProviderConfiguredError
-              ? "Storelib AI is not configured yet — no model key is set."
+              ? "Storelib AI is not set up on this deployment yet: no model key is set."
               : thrown instanceof MissingKeyError
-                ? "Storelib AI is not configured yet — no model key is set."
+                ? "Storelib AI is not set up on this deployment yet: no model key is set."
                 : thrown instanceof Error
                 ? thrown.message
                 : "The edit failed.",

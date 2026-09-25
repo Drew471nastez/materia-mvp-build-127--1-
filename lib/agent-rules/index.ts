@@ -277,10 +277,17 @@ export function agentRulesText(): string {
 export function agentRulesBrief(ctx: { siteName: string; agentName: string }): string {
   return [
     `Connected to the Storelib website "${ctx.siteName}" as "${ctx.agentName}". Every change you make is a draft the creator publishes. Rules version ${RULEBOOK_VERSION}.`,
-    workflowText(),
-    "EDGES: one website only. Write section files as sections/<type>.storelib, never a built-in one. Change pages and settings only with the page tools. Never publish, delete, or ask for orders, buyers, keys or secrets. No generic AI styling or copy. Products come from storelib_site; buy buttons use a product's checkout_url.",
-    "ASK, DON'T GUESS: when a missing fact changes the result (which product, which page, brand colours, a business fact) and no tool has it, ask your user one short question with options. Never ask what a tool can tell you.",
-    "Call storelib_rules for the full rules and storelib_skills with the task in your own words for the skills it needs.",
+    [
+      "WORKFLOW, every task:",
+      "1. Inspect. Read before changing anything: storelib_site (what it sells), storelib_read_page, storelib_read_selected_section, storelib_skills. Never guess what is on a page.",
+      "2. Plan. Say what will change and which existing setting or section does it.",
+      "3. Implement. The smallest change: storelib_patch_section for part of a file, storelib_compile before saving.",
+      "4. Test. storelib_run_tests, then storelib_run_preview at phone and desktop width.",
+      "5. Repair. Fix what a test names; after three rounds, stop and say what is wrong.",
+    ].join("\n"),
+    "EDGES: one website only. Write sections/<type>.storelib, never a built-in one. Never publish, delete, or ask for orders, buyers, keys or secrets. No generic AI styling or copy. Buy buttons use a product's checkout_url.",
+    "ASK, DON'T GUESS: when a missing fact changes the result and no tool has it, ask your user one short question with options.",
+    "Call storelib_rules for the full rules and storelib_skills with the task in your own words.",
   ].join("\n\n")
 }
 
