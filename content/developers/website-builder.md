@@ -82,9 +82,11 @@ A section declares its settings in its schema, and each type is drawn as one con
 
 The header has a panel of its own, in three parts.
 
-- **Store Logo**: the logo, its height, a nudge left or right, and a separate logo and height for phones.
-- **Navigation Links**: up to eight links, each with a label, where it goes, and whether it opens in a new tab. Drag to reorder. Each link can hold one level of sub-links.
-- **Header Settings**: the layout on a computer (logo left, nav inline, nav centred, or logo centred) and on a phone; the colour scheme; how menu links react to the pointer; width and spacing; sticky and transparent behaviour; a bottom border and shadow; which icons show (search, account, wishlist, cart); and an optional button with its own text and link.
+- **Store Logo**: the logo, its height, a nudge left or right, a separate logo for phones if you want one, and the logo's height on phones, which applies to whichever logo the phone shows.
+- **Navigation Links**: up to eight links, each with a label, where it goes, and whether it opens in a new tab. Drag to reorder. Each link can hold one level of sub-links. Once the site has menus of its own (General Settings, Menus), **Links** at the top can show one of them instead; the links here are kept for when you switch back.
+- **Header Settings**: the layout on a computer (logo left, nav inline, nav centred, or logo centred) and on a phone; **Menu on phones**, which slides in from the left or the right or covers the screen; the colour scheme; how menu links react to the pointer; width and spacing; sticky behaviour (always, or only when scrolling up); a transparent header, on every page or on the home page only; a bottom border and shadow; which icons show (search, account, wishlist, cart); and an optional button with its own text and link.
+
+The header and the announcement bar are the same on every page. The announcement bar is set in General Settings.
 
 ## Theme settings
 
@@ -132,7 +134,15 @@ The text styles, with their defaults. Each can be changed: font, weight, a size 
 
 ### Announcement bar
 
+A bar above the header on every page. With more than one message, the messages take turns, with arrows to move between them. The bar stops while the pointer or the keyboard is on it and does not move by itself for a visitor whose device asks for less motion.
+
 @[theme-settings:announcement]
+
+### Menus
+
+Named lists of links that a section can show: a footer column, a second navigation, a list of courses. A link can have links under it. The header's own links are always there as **Main menu**, so a section that shows the main menu shows the header's navigation without it being typed twice.
+
+@[theme-settings:menus]
 
 ### Social links
 

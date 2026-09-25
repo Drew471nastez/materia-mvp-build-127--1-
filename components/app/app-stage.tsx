@@ -54,6 +54,21 @@ import {
 
 type Scrollers = { outer: HTMLElement; inner: HTMLElement | null }
 
+/**
+ * The page's scrollers the reader has moved off the top, as their own scroll
+ * events said. A commit that has to put a scroller back at the top needs the
+ * new page's layout to do it; one where nothing was moved does not, and so
+ * asks the browser for nothing (see the commit, in AppStage).
+ */
+const awayFromTop = new Set<Element>()
+function anyAwayFromTop() {
+  for (const el of awayFromTop) {
+    if (el.isConnected) return true
+    awayFromTop.delete(el)
+  }
+  return false
+}
+
 function scrollers(): Scrollers | null {
   const outer = document.querySelector<HTMLElement>(".app-content-scroll")
   if (!outer) return null
@@ -224,6 +239,9 @@ export function AppStage() {
       const t = e.target
       if (t !== s.outer && t !== s.inner) return
       rememberScroll(keyRef.current, s.outer.scrollTop, s.inner?.scrollTop ?? 0)
+      const el = t === s.outer ? s.outer : s.inner
+      if (el && el.scrollTop > 0) awayFromTop.add(el)
+      else if (el) awayFromTop.delete(el)
     }
     document.addEventListener("scroll", onScroll, { capture: true, passive: true })
     return () => document.removeEventListener("scroll", onScroll, { capture: true })
@@ -242,16 +260,43 @@ export function AppStage() {
        page: no landing, and the scroll stays where the reader put it. */
     if (!pageChanged) return
     markLanded()
-    const s = scrollers()
-    if (!s) return
+    /*
+      NOTHING IN THE COMMIT THAT CAN WAIT FOR ITS FRAME. Placing the scroll
+      and starting the landing read the new page's styles and layout, and
+      reading them here made the browser work out the whole page inside
+      React's commit: on the Website page at a phone's speed that was one
+      task of 120ms and more (scripts/check-website-arrival.mjs), with the
+      spinner's way out waiting behind it. "That loading freezes."
+
+      So the scroll is placed here only when there is something to place: a
+      back or forward, or a scroller the reader had moved off the top (its
+      own scroll events say so). Before the page's own layout effects, as
+      always, so a page that places its own scroll still has the last word.
+      A new page with nothing moved is at the top already.
+
+      And the landing starts on the frame that paints the page: a
+      requestAnimationFrame callback runs at the start of that frame, before
+      its style, layout and paint, which it would do anyway. The page is
+      still never painted before its landing has begun.
+    */
     const saved = traversal ? recalledScroll(key) : null
-    s.outer.scrollTop = saved?.outer ?? 0
-    if (s.inner) s.inner.scrollTop = saved?.inner ?? 0
+    if (saved || traversal || anyAwayFromTop()) {
+      const s = scrollers()
+      if (s) {
+        s.outer.scrollTop = saved?.outer ?? 0
+        if (s.inner) s.inner.scrollTop = saved?.inner ?? 0
+      }
+    }
     /* A layer moving in or out (components/app/page-layer.tsx moveLayer) is
        the landing: the page under it holds still, fully drawn. A layer
-       standing in for itself at a new address (holdLayerLanding) has none. */
-    if (document.documentElement.dataset.layerMotion) return
-    playEntrance(s.outer, { fade: !slowSurfaceIsUp() })
+       standing in for itself at a new address (holdLayerLanding) has none.
+       Read on the commit, where the layer sets it. */
+    const layered = !!document.documentElement.dataset.layerMotion
+    requestAnimationFrame(() => {
+      const s = scrollers()
+      if (!s || layered || document.documentElement.dataset.layerMotion) return
+      playEntrance(s.outer, { fade: !slowSurfaceIsUp() })
+    })
   }, [key, pathname, search])
 
   return <SlowPage />

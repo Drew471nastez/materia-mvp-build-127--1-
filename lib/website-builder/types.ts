@@ -290,12 +290,13 @@ export interface ThemePage {
 }
 
 /**
- * "products" and "search" are pages the site has whether or not anybody has
- * arranged them: the shop and the search results, built from the home page's
- * header and footer and a section each until the creator opens one in the
- * builder, after which what they saved is what is served.
+ * "products", "search" and "404" are pages the site has whether or not
+ * anybody has arranged them: the shop, the search results and the page for
+ * an address the site does not have, built from the home page's header and
+ * footer and a section each until the creator opens one in the builder,
+ * after which what they saved is what is served.
  */
-export type PageKey = "home" | "product" | "about" | "contact" | "products" | "search" | "account" | "login" | "wishlist"
+export type PageKey = "home" | "product" | "about" | "contact" | "products" | "search" | "404" | "account" | "login" | "wishlist"
 
 /**
  * The account, its sign in page and the wishlist are pages every website
@@ -310,6 +311,7 @@ export const PAGE_META: Record<PageKey, { label: string; icon: string }> = {
   contact: { label: "Contact page", icon: "mail" },
   products: { label: "Shop", icon: "grid" },
   search: { label: "Search", icon: "search" },
+  "404": { label: "404 page", icon: "search" },
   account: { label: "Account", icon: "user" },
   login: { label: "Sign in", icon: "user" },
   wishlist: { label: "Wishlist", icon: "heart" },
@@ -366,6 +368,20 @@ export type SchemaFieldType =
   | "video"
   | "font"
   | "radio"
+  /* The types added with the Shopify gap work, and Shopify's own names. */
+  | "inline_richtext"
+  | "html"
+  | "color_background"
+  | "datetime"
+  | "focal_point"
+  | "video_url"
+  | "product_list"
+  | "link_list"
+  | "text_alignment"
+  | "product"
+  | "page"
+  /* The theme's menus, edited in Theme settings › Menus. Not a section setting. */
+  | "menus"
 
 export interface SelectOption {
   label: string
@@ -392,6 +408,16 @@ export interface SchemaField {
    * hand-editing the file and by no other means.
    */
   responsive?: boolean
+  /** product_list: how many it holds. */
+  limit?: number
+  /** video_url: which hosts it takes. */
+  accept?: string[]
+  /** focal_point: the id of the picture setting it points into. */
+  image?: string
+  /** paragraph: the words it shows. */
+  content?: string
+  /** When the panel shows it. See lib/storelib-theme/visible-if.ts. */
+  visible_if?: string
 }
 
 export interface BlockSchema {

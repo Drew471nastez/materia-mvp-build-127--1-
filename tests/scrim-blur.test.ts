@@ -160,12 +160,13 @@ function main() {
   for (const [file, count] of [
     ["components/onepage/tabs/links-tab.tsx", 5],
     ["components/onepage/tabs/products-tab.tsx", 1],
-    ["components/onepage/onepage-editor.tsx", 2],
     ["components/onepage/mobile-color-picker.tsx", 1],
   ] as const) {
     const used = (read(file).match(/scrim-graduated/g) ?? []).length
     check(`${file.split("/").slice(-1)[0]}: ${count} scrim${count > 1 ? "s" : ""}`, used === count, `${used} of ${count}`)
   }
+  /* The OnePage editor's two questions are the shared BottomSheet on a phone now, which brings its own scrim. */
+  check("onepage-editor.tsx: its questions are the shared sheet, with its scrim", /<BottomSheet isOpen=\{open\}/.test(read("components/onepage/onepage-editor.tsx")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

@@ -95,3 +95,38 @@ export async function creatorSalesTotals(admin: Admin, creatorId: string): Promi
     return { sales: 0, revenueCents: 0 }
   }
 }
+
+/**
+ * WHAT HOME'S BANNER TELLS FROM THE ORDERS (lib/home/announcements
+ * salesSummaryFrom): every order of the last 30 days, a page at a time, and
+ * the first few the creator ever had, for the first sale. Never every order:
+ * the totals come from creatorSalesTotals.
+ */
+export async function creatorSalesRows(admin: Admin, creatorId: string, now: number): Promise<{ recent: OrderRow[]; earliest: OrderRow[] }> {
+  const since = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString()
+  try {
+    return await byCreator(async (scope) => {
+      const [recent, earliest] = await Promise.all([
+        readByKeyset<OrderRow>((after) =>
+          keysetFrom(scopedOrders(admin, SALE_COLUMNS, scope, creatorId, null), since, after)
+            .order("created_at", { ascending: true })
+            .order("id", { ascending: true })
+            .limit(KEYSET_PAGE),
+        ),
+        /* A basket is several rows, and a failed payment is no sale: enough rows to find the first one that is. */
+        scopedOrders(admin, SALE_COLUMNS, scope, creatorId, null)
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .limit(50)
+          .then(({ data, error }: { data: OrderRow[] | null; error: { message: string } | null }) => {
+            if (error) throw new Error(error.message)
+            return data ?? []
+          }),
+      ])
+      return { recent: ownRows(recent.rows), earliest: ownRows(earliest) }
+    })
+  } catch (error) {
+    console.error("[creator-orders] banner sales not read:", (error as Error).message)
+    return { recent: [], earliest: [] }
+  }
+}

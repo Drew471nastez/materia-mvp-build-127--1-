@@ -475,7 +475,6 @@ function main() {
   for (const [file, count] of [
     ["components/onepage/tabs/links-tab.tsx", 5],
     ["components/onepage/tabs/products-tab.tsx", 1],
-    ["components/onepage/onepage-editor.tsx", 2],
   ] as const) {
     const src = read(file)
     const used = (src.match(/\.\.\.sheetAboveKeyboard\(/g) ?? []).length
@@ -486,6 +485,11 @@ function main() {
     )
     check(`${file.split("/").slice(-1)[0]}: imports it`, src.includes('from "@/lib/ui/keyboard-safe-sheet"'))
   }
+
+  /* The OnePage editor's two questions (Save changes?, Upgrade to Pro?) have
+     nothing typed into them and are the shared sheet on a phone now, so they
+     no longer need the helper; the panel itself still does (above). */
+  check("onepage-editor.tsx: its questions are the shared sheet", /<BottomSheet isOpen=\{open\}[^>]*hideFrom="md"/.test(read("components/onepage/onepage-editor.tsx")))
 
   /* The product form's category picker is typed into. It was a dialog that
      used the helper; it is the shared sheet now, which sits on the keyboard

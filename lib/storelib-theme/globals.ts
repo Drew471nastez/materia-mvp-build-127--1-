@@ -41,7 +41,13 @@ export interface ShopObject {
   socials: SocialLink[]
 }
 
-/** The customer on the account page: see lib/site-accounts/account-data.ts. */
+/**
+ * The customer on the account page: `name`, `first_name`, `email`, `orders`
+ * (one per payment, each with its `items`, `total`, `status` and the button
+ * to its receipt), `orders_count`, and `sample`, true only in the builder,
+ * where the name and email are placeholders. See
+ * lib/site-accounts/account-data.ts.
+ */
 export type CustomerObject = Record<string, unknown> | null
 
 export interface WishlistItem {
@@ -87,8 +93,13 @@ export interface StorefrontGlobals {
 /**
  * The addresses every Storelib website answers on. Shopify names most of
  * these the same way, so a section written for one reads naturally here.
- * The two that leave for storelib.com to sign in are routes on the website's
- * own host (app/api/site-account/start), which remember where to come back to.
+ *
+ * Signing in happens on the website itself, with an email and a code
+ * (lib/site-accounts/sign-in.ts): the sign in page, and the three form
+ * addresses its forms and the account page's profile form post to, all on
+ * the website's own host. There is no separate sign up: a new email makes
+ * the account, so `account_register_url` is the sign in page too, kept for
+ * sections written when it was not.
  */
 export const SITE_ROUTES = Object.freeze({
   root_url: "/",
@@ -99,10 +110,16 @@ export const SITE_ROUTES = Object.freeze({
   wishlist_url: "/wishlist",
   account_url: "/account",
   account_login_url: "/account/login",
-  /** Leaves for Storelib to sign in, and comes back to the account page. */
-  account_signin_url: "/api/site-account/start?return=%2Faccount",
-  /** Leaves for Storelib to make an account, and comes back to the account page. */
-  account_register_url: "/api/site-account/start?return=%2Faccount&mode=signup",
+  /** The sign in page. The same page as account_login_url. */
+  account_signin_url: "/account/login",
+  /** The sign in page as well: a new email makes the account there. */
+  account_register_url: "/account/login",
+  /** POST `email` (and `return`, a path): sends a code and shows the code step. */
+  account_code_url: "/api/site-account/code",
+  /** POST `code`: signs the visitor in. */
+  account_verify_url: "/api/site-account/verify",
+  /** POST `name`: the signed-in customer's name. */
+  account_profile_url: "/api/site-account/profile",
   account_logout_url: "/account/logout",
 })
 

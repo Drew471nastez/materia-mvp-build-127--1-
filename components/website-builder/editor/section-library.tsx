@@ -325,8 +325,12 @@ const PreviewBox = memo(function PreviewBox({
    * So the fade is played by hand, by the Web Animations API, in the commit
    * the preview lands in, and only if the box is in front of somebody right
    * then. An animation played by hand runs on its own clock and is gone when
-   * it ends; hiding and showing the card afterwards has nothing to replay.
-   * A box that had its preview from the start fades nothing.
+   * it ends, holding nothing (no fill, so no layer of its own afterwards);
+   * hiding and showing the card afterwards has nothing to replay. A box that
+   * had its preview from the start fades nothing, and neither does a preview
+   * drawn ahead into the CLOSED library, whose sheet or dialog is hidden:
+   * dozens of fades nobody saw were what an idle editor paid for on every
+   * frame the AI ring turned (scripts/check-ai-ring-cost.mjs).
    */
   const innerRef = useRef<HTMLDivElement | null>(null)
   const held = useRef(html !== null)

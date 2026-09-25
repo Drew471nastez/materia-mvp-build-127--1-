@@ -45,7 +45,7 @@ interface RefundPolicyDisplayProps {
   className?: string
   textColor?: string
   isPreviewMode?: boolean
-  /** Theme preset name, for knowing whether the page is dark. */
+  /** The scheme's name. Not read for "dark": `isDarkTheme` answers that, from the scheme's colours. */
   themePreset?: string
   isDarkTheme?: boolean
   /** Background colour of the page, for the same question. */
@@ -72,7 +72,6 @@ const POLICY_LABELS: Record<string, string> = {
 
 const NO_REFUNDS_LINE = "Because this is a digital product, it can't be refunded once it's yours."
 
-const DARK_PRESETS = ["astrid", "midnight", "dark", "noir", "obsidian"]
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString)
@@ -109,7 +108,6 @@ export function RefundPolicyDisplay({
   updatedAt,
   className,
   textColor,
-  themePreset,
   isDarkTheme = false,
   backgroundColor,
 }: RefundPolicyDisplayProps) {
@@ -123,10 +121,10 @@ export function RefundPolicyDisplay({
   const isNoRefunds = policyType === "no_refunds"
   const body = hasFinePrint ? finePrint!.trim() : isNoRefunds ? NO_REFUNDS_LINE : null
   const updated = updatedAt ? formatDate(updatedAt) : ""
-  const dark =
-    isDarkTheme ||
-    (themePreset ? DARK_PRESETS.includes(themePreset.toLowerCase()) : false) ||
-    isDarkColor(backgroundColor)
+  /* `isDarkTheme` is the scheme's own answer, from its page colour
+     (lib/store-builder/scheme-tone), which every caller passes; no list of
+     names here, so a new dark scheme is dark on this line too. */
+  const dark = isDarkTheme || isDarkColor(backgroundColor)
 
   const lineStyle = textColor ? { color: `${textColor}a6` } : undefined
 

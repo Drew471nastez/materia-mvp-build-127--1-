@@ -134,6 +134,11 @@ import { ThemeChat } from "@/components/website-builder/theme-chat"
 import { ColorField } from "@/components/storefront/color-field"
 import { applyOp, type ThemeOp } from "@/lib/website-builder/agent/operations"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
+import { DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, controlCarriesOwnLabel, renderRegisteredControl, type EditorFieldEnv } from "@/components/website-builder/editor/controls"
+import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSources, type CreatorFacts } from "@/lib/website-builder/storefront-data"
+import { formatPrice } from "@/lib/website-builder/shop-products"
+import { cleanMenus } from "@/lib/storelib-theme/values"
+import { visibleFields } from "@/lib/storelib-theme/visible-if"
 
 /** Ask Storelib on a phone: half, and the whole screen below the status bar. A constant so the sheet's memo holds. */
 const AI_SHEET_DETENTS = [0.5, 1]
@@ -307,7 +312,7 @@ const LOGO_SYNC_THEME_TO_HEADER: Record<string, string> = {
 // user is currently previewing. We also accept the legacy `?page=X[&product=Y]`
 // query string so existing deep-links keep working.
 type ParsedPreview = {
-  page: "home" | "product" | "about" | "contact" | "products" | "search"
+  page: "home" | "product" | "about" | "contact" | "products" | "search" | "404"
   productSlug?: string
   productTitle?: string
 }
@@ -333,6 +338,7 @@ function parsePreviewFromSearch(search: string): ParsedPreview {
   if (pathOnly === "/contact") return { page: "contact" }
   if (pathOnly === SHOP_PATH) return { page: "products" }
   if (pathOnly === "/search") return { page: "search" }
+  if (pathOnly === "/404") return { page: "404" }
   if (pathOnly.startsWith("/products/")) {
     const slug = pathOnly.slice("/products/".length).split("/")[0]
     return { page: "product", productSlug: slug || undefined }
@@ -345,6 +351,7 @@ function previewPathForState(page: string, productSlug?: string): string {
   if (page === "contact") return "/contact"
   if (page === "products") return SHOP_PATH
   if (page === "search") return "/search"
+  if (page === "404") return "/404"
   if (page === "product" && productSlug) return `/products/${productSlug}`
   return "/"
 }
@@ -453,7 +460,7 @@ function ResponsiveField({
  * "all of them are updated" checkable rather than hopeful.
  */
 function fieldCarriesOwnLabel(field: SchemaField): boolean {
-  return field.type === "color" || field.type === "header" || field.type === "paragraph"
+  return field.type === "color" || field.type === "header" || field.type === "paragraph" || controlCarriesOwnLabel(field.type)
 }
 
 /**
@@ -475,7 +482,20 @@ function EchoTextInput({ value, onChange, placeholder }: { value: string; onChan
 }
 
 // ── Field editor ─────────────────────────────────────────────
-function FieldEditor({
+/**
+ * Every setting's control, with the one thing any of them may carry under
+ * it: Insert shop data, for a setting that can take a dynamic source
+ * (components/website-builder/editor/controls/dynamic-source-field.tsx).
+ */
+function FieldEditor(props: Parameters<typeof FieldControl>[0]) {
+  return (
+    <DynamicSourceField field={props.field} value={props.value ?? props.field.default} onChange={props.onChange}>
+      <FieldControl {...props} />
+    </DynamicSourceField>
+  )
+}
+
+function FieldControl({
   field,
   value,
   onChange,
@@ -508,6 +528,10 @@ function FieldEditor({
   if (field.responsive && controlFor(field.type)?.responsive) {
     return <ResponsiveField field={field} value={value} onChange={onChange} />
   }
+
+  /* The newer controls, each in its own file: components/website-builder/editor/controls. */
+  const registered = renderRegisteredControl(kind, field, raw, onChange)
+  if (registered) return <>{registered}</>
 
   /**
    * An icon field had NO editor at all — it fell through to the last branch
@@ -1438,16 +1462,17 @@ function HeaderSectionSettings({
               aspectRatio="logo"
               folder="logos"
             />
-            {typeof s.mobile_logo_url === "string" && s.mobile_logo_url && (
+            {/* The phone's own logo height, for whichever logo it is: see HeaderSection. */}
+            {((typeof s.mobile_logo_url === "string" && s.mobile_logo_url) || (typeof s.logo_url === "string" && s.logo_url)) && (
               <WbSlider
-                label="Mobile logo height"
+                label="Logo height on phones"
                 value={s.mobile_logo_height}
                 onChange={v => onUpdateSetting("mobile_logo_height", v)}
                 min={20}
                 max={80}
                 step={2}
                 unit="px"
-                defaultValue={32}
+                defaultValue={typeof s.mobile_logo_url === "string" && s.mobile_logo_url ? 32 : Math.min(80, Math.max(20, Number(s.logo_height) || 64))}
               />
             )}
 
@@ -1480,8 +1505,29 @@ function HeaderSectionSettings({
         const roots = allBlocks.filter(b => !(b.settings?.parent_id))
         const childrenOf = (parentId: string) =>
           allBlocks.filter(b => (b.settings?.parent_id as string | undefined) === parentId)
+        /* A menu from Theme settings › Menus in place of these links: see header-settings.ts. */
+        const themeMenus = cleanMenus((theme as Record<string, unknown>).menus)
+        const menuHandle = typeof s.menu === "string" ? s.menu : ""
+        const usingMenu = !!menuHandle && !!themeMenus[menuHandle]
         return (
           <div className="space-y-3">
+            {Object.keys(themeMenus).length > 0 && (
+              <WbSelect
+                label="Links"
+                value={usingMenu ? menuHandle : ""}
+                onChange={v => onUpdateSetting("menu", v)}
+                options={[
+                  { label: "These links", value: "" },
+                  ...Object.entries(themeMenus).map(([handle, m]) => ({ label: `The ${m.title} menu`, value: handle })),
+                ]}
+              />
+            )}
+            {usingMenu && (
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                The header shows the {themeMenus[menuHandle].title} menu. Change its links in Theme settings, Menus. These links are kept for when you switch back.
+              </p>
+            )}
+            <div className={usingMenu ? "opacity-50" : undefined}>
             <DndContext sensors={navSensors} collisionDetection={closestCenter} onDragEnd={handleNavDragEnd}>
               <SortableContext items={roots.map(b => b.id)} strategy={verticalListSortingStrategy}>
                 {roots.map((block, idx) => {
@@ -1542,6 +1588,7 @@ function HeaderSectionSettings({
                 Add navigation link
               </button>
             )}
+            </div>
           </div>
         )
       }
@@ -1585,6 +1632,17 @@ function HeaderSectionSettings({
                 value={currentMobileLayout}
                 options={MOBILE_HEADER_LAYOUTS}
                 onChange={id => onUpdateSetting("mobile_header_layout", id)}
+              />
+              {/* Where the phone's menu comes from: lib/website-builder/header-settings.ts. */}
+              <WbSelect
+                label="Menu on phones"
+                value={typeof s.mobile_menu_style === "string" ? s.mobile_menu_style : "left"}
+                onChange={v => onUpdateSetting("mobile_menu_style", v)}
+                options={[
+                  { label: "Slides in from the left", value: "left" },
+                  { label: "Slides in from the right", value: "right" },
+                  { label: "Covers the screen", value: "full" },
+                ]}
               />
             </div>
 
@@ -1727,6 +1785,17 @@ function HeaderSectionSettings({
                 value={s.header_transparent}
                 onChange={v => onUpdateSetting("header_transparent", v)}
               />
+              {!!s.header_transparent && (
+                <WbSelect
+                  label="Transparent on"
+                  value={typeof s.header_transparent_scope === "string" ? s.header_transparent_scope : "all"}
+                  onChange={v => onUpdateSetting("header_transparent_scope", v)}
+                  options={[
+                    { label: "Every page", value: "all" },
+                    { label: "The home page only", value: "home" },
+                  ]}
+                />
+              )}
             </div>
 
             <div className="h-px bg-border" />
@@ -2474,6 +2543,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [isMobileView, setIsMobileView] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [username, setUsername] = useState("")
+  /* The creator's four public facts, for `{{ creator.name }}` on the canvas. See the install route. */
+  const [creatorFacts, setCreatorFacts] = useState<CreatorFacts | null>(null)
   /** The website's own name on Storelib, when it has one apart from the username. */
   const [siteHandle, setSiteHandle] = useState<string | null>(null)
   const [hasPublished, setHasPublished] = useState(false)
@@ -2897,6 +2968,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const inst: ThemeInstall = data.install
     setInstall(inst)
     if (data.username) setUsername(data.username)
+    if (data.creatorFacts && typeof data.creatorFacts === "object") setCreatorFacts(data.creatorFacts as CreatorFacts)
     setSiteHandle(typeof data.siteHandle === "string" && data.siteHandle ? data.siteHandle : null)
 
     /**
@@ -4473,7 +4545,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * has to light up the canvas at once, because the tap WAS on the canvas.
    */
   const canvasThemeSettings = useDeferredValue(activeThemeSettings)
-  const deferredSections = useDeferredValue(sections)
+  /*
+    EXCEPT ACROSS A PAGE CHANGE. `handlePageChange` puts the new page and its
+    sections in one commit so no frame shows one page's name over another's
+    content; deferring the sections alone undid that, and for a frame or two
+    the canvas drew the page being left under the page being opened
+    (scripts/check-page-switch.mjs, "the page's name never moves ahead of its
+    content"). The deferred copy is used only while it belongs to the page on
+    screen; a page's first render takes its sections at once.
+  */
+  const sectionsOnPage = useMemo(
+    () => ({ page: `${currentPage}|${selectedProductPage ?? ""}`, sections }),
+    [currentPage, selectedProductPage, sections],
+  )
+  const deferredOnPage = useDeferredValue(sectionsOnPage)
+  const deferredSections = deferredOnPage.page === sectionsOnPage.page ? deferredOnPage.sections : sections
 
   /**
    * THE PLACEHOLDER GOES IN HERE AND NOWHERE ELSE. `sections` is what is
@@ -5086,7 +5172,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           /* No label here: fieldCarriesOwnLabel(field) is true for a
              colour, because ColorField's own row is the label. */
           <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
-        ) : field.type === "header" || field.type === "paragraph" ? (
+        ) : field.type === "header" || field.type === "paragraph" || field.type === "menus" ? (
           <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
         ) : (
           <>
@@ -5528,7 +5614,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               // Also drop "header"/"paragraph" dividers that only separated
               // color groups and end up as orphans once the colors are gone.
               const DESIGN_FIELDS = new Set(["color_scheme", "heading_style", "body_style", "custom_heading", "custom_body", "color_overrides"])
-              const visible = schema.fields.filter(f => f.type !== "color" && f.type !== "color_scheme" && !DESIGN_FIELDS.has(f.id))
+              // And a setting whose `visible_if` does not hold for this section's values.
+              const visible = visibleFields(schema.fields, section.settings).filter(f => f.type !== "color" && f.type !== "color_scheme" && !DESIGN_FIELDS.has(f.id))
               const clean: typeof visible = []
               for (let i = 0; i < visible.length; i++) {
                 const f = visible[i]
@@ -5544,6 +5631,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               /* A picture's description is drawn under the picture, not as a field of its own. */
               const altIds = pairedAltIds(clean)
               return (
+                <SiblingSettingsProvider settings={section.settings}>
                 <div className="p-4 space-y-4 [&>div:first-child>.wb-field-header]:mt-0 [&>div:first-child>.wb-field-header]:border-t-0 [&>div:first-child>.wb-field-header]:pt-0">
                   {clean.filter(field => !altIds.has(field.id)).map(field => {
                     const altId = altFieldFor(field, clean)
@@ -5570,6 +5658,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     )
                   })}
                 </div>
+                </SiblingSettingsProvider>
               )
             })()}
 
@@ -5637,8 +5726,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                           </div>
                         </summary>
                         <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
+                          <SiblingSettingsProvider settings={block.settings}>
                           {(() => {
-                            const fields = blockSchema?.fields ?? []
+                            const fields = visibleFields(blockSchema?.fields ?? [], block.settings, { fields: schema.fields ?? [], saved: section.settings })
                             const altIds = pairedAltIds(fields)
                             return fields.filter(field => !altIds.has(field.id)).map(field => {
                               const altId = altFieldFor(field, fields)
@@ -5661,6 +5751,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                               )
                             })
                           })()}
+                          </SiblingSettingsProvider>
                         </div>
                       </details>
                     )
@@ -5772,6 +5863,60 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const siteName = siteHandle || username
   const websiteUrl = siteName ? getWebsiteShareUrl(siteName) : ""
   const websiteUrlDisplay = siteName ? getWebsiteUrlDisplay(siteName) : ""
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  WHAT THE NEWER CONTROLS AND THE CANVAS KNOW ABOUT THE SHOP
+   * ═══════════════════════════════════════════════════════════════════════
+   * The product list offers these products, the menu picker these menus
+   * (the header's links as main-menu), and a dynamic source is offered by
+   * the page that is open. The canvas draws with the same facts the live
+   * site is drawn with (lib/website-builder/storefront-data.ts), so a
+   * heading holding `{{ shop.name }}` reads as the shop's name here too,
+   * and on the product page as the product being previewed.
+   */
+  const pickerProducts = useMemo(
+    () => products.map((p) => ({ id: p.id, title: p.title, price: formatPrice(p.price_cents), image: p.thumbnail_url, url: p.slug ? `/products/${p.slug}` : "" })),
+    [products],
+  )
+  const canvasMenus = useMemo(() => siteMenus(activeThemeSettings, sections), [activeThemeSettings, sections])
+  const openMenus = useCallback(() => {
+    setSidebarMode("settings")
+    setExpandedSettings("menus")
+    setSelectedPanel({ type: "pages" })
+  }, [])
+  const fieldEnv = useMemo<EditorFieldEnv>(
+    () => ({ products: pickerProducts, menus: canvasMenus, template: templateForPage(currentPage), openMenus }),
+    [pickerProducts, canvasMenus, currentPage, openMenus],
+  )
+  const previewedProduct = useMemo(() => {
+    if (currentPage !== "product") return null
+    const p = products.find((x) => x.title === selectedProductPage) ?? products[0]
+    return p
+      ? productFacts({ id: p.id, title: p.title, slug: p.slug, description: p.description, price_cents: p.price_cents, compare_at_cents: p.compare_at_cents, thumbnail_url: p.thumbnail_url, gallery_urls: p.gallery_urls, whats_included: p.whats_included })
+      : null
+  }, [currentPage, products, selectedProductPage])
+  const canvasDynamic = useMemo(
+    () => dynamicContext({
+      theme: activeThemeSettings,
+      creator: creatorFacts,
+      siteUrl: websiteUrl,
+      productCount: products.length,
+      product: previewedProduct,
+      pageTitle: pageTitleFromKey(currentPage),
+      template: templateForPage(currentPage),
+    }),
+    [activeThemeSettings, creatorFacts, websiteUrl, products.length, previewedProduct, currentPage],
+  )
+  const canvasData = useMemo(
+    () => storefrontData({ dynamic: canvasDynamic, catalog: shopCards, menus: canvasMenus }),
+    [canvasDynamic, shopCards, canvasMenus],
+  )
+  /* What the canvas draws: the page with its placeholders filled. Never saved. */
+  const drawnSections = useMemo(
+    () => withDynamicSources(canvasSections, (type) => schemaFor(type, storelibSources, librarySchemas), canvasDynamic),
+    [canvasSections, storelibSources, librarySchemas, canvasDynamic],
+  )
 
   /**
    * Undo and redo, as one pair. On a desktop they sit on the right beside the
@@ -6385,7 +6530,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         leaving && "wb-editor-leaving",
       )}
     >
-      <FullScreenLock tone={chromeTone} />
+      <FullScreenLock tone={chromeTone} fromFirstPaint />
       <CanvasTopLayerGuard />
       {/* ── Top bar ── */}
       {/* Dark, like the reference: the bar is chrome, and chrome that is the
@@ -6914,6 +7059,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               </div>
               <div ref={desktopScrollRef} data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
                 <LinkTargetsProvider targets={linkTargets}>
+                <EditorFieldProvider value={fieldEnv}>
                   <div
                     key={sidebarPanelKey}
                     ref={desktopPanelRef}
@@ -6921,6 +7067,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   >
                     {renderSidebarContent()}
                   </div>
+                </EditorFieldProvider>
                 </LinkTargetsProvider>
               </div>
             </div>
@@ -6985,6 +7132,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 it into view. scripts/check-sheet-reach.mjs measures it. */}
             <div data-wb-sidebar-scroll data-sheet-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden bg-background">
               <LinkTargetsProvider targets={linkTargets}>
+              <EditorFieldProvider value={fieldEnv}>
                   <div
                     key={sidebarPanelKey}
                     className="h-full wb-sheet-panel"
@@ -6992,6 +7140,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   >
                     {renderSidebarContent()}
                   </div>
+              </EditorFieldProvider>
                 </LinkTargetsProvider>
             </div>
           </MobileEditorSheet>
@@ -7512,7 +7661,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 theme={canvasThemeSettings}
                 sources={storelibSources}
                 pageTemplate={templateForPage(currentPage)}
-                sections={canvasSections}
+                sections={drawnSections}
+                storefrontData={canvasData}
                 arrivedId={arrivedId}
                 arrival={arrivalRef}
                 inspectorEnabled={canvasInspecting}
@@ -8153,6 +8303,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   onCreateMissingPage,
   shopCards,
   installId,
+  storefrontData: canvasStorefrontData,
 }: {
   theme: ThemeSettingsValues
   sections: SectionInstance[]
@@ -8189,6 +8340,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   shopCards: ProductCard[]
   /** Which theme install the canvas is drawing, so a section can ask on its behalf. */
   installId: string
+  /** The shop's own facts, the same the live site draws with: lib/website-builder/storefront-data.ts. */
+  storefrontData?: import("@/lib/storelib-theme/types").StorefrontData
 }) {
   /**
    * The same navigate, already marked as coming from the site's navigation.
@@ -8221,7 +8374,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
      canvas render, and every section reading it rendered again past its memo. */
   const storefront = useMemo(() => ({ inEditor: true, installId }), [installId])
   return (
-    <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor products={shopCards}>
+    <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor products={shopCards} data={canvasStorefrontData}>
     <ThemePage
       theme={theme}
       sections={sections}

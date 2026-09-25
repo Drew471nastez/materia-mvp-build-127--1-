@@ -13,8 +13,9 @@ import { siteVisitor } from "../visitor"
  * ===========================================================================
  *  THE WISHLIST, ON THE CREATOR'S OWN WEBSITE
  * ===========================================================================
- * What this visitor saved with the heart: the account's list when they are
- * signed in to this website, and otherwise the list this browser keeps,
+ * What this visitor saved with the heart: their customer account's list
+ * when they are signed in to this website, and otherwise the list this
+ * browser keeps,
  * which the page's own code copies into a cookie on this host so it can be
  * drawn here, full, rather than empty and then filled. Either way only this
  * creator's published products are drawn; an id that is anybody else's, or

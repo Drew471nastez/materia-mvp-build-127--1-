@@ -109,6 +109,7 @@ export function pageTitleFromKey(key: string): string {
   if (policy) return policy.title
   /* "products" is the shop; nobody calls it Products in a menu. */
   if (key === "products") return "Shop"
+  if (key === NOT_FOUND_PAGE_KEY) return "Page not found"
   /* The sign in page's key is one word; its name is two. */
   if (key === "login") return "Sign in"
 
@@ -117,10 +118,17 @@ export function pageTitleFromKey(key: string): string {
 }
 
 /**
- * The pages the site has without anybody making them. The shop and the search
- * results are generated from the home page's chrome plus one section each,
- * and become stored pages the moment a creator edits them; they stay
- * reserved above so nobody can also make a page BY that name.
+ * The page a visitor gets at an address the site does not have. Not an
+ * address itself: "404" is reserved above, so `/404` is one more address
+ * the site does not have, and shows this page like any other.
+ */
+export const NOT_FOUND_PAGE_KEY = "404"
+
+/**
+ * The pages the site has without anybody making them. The shop, the search
+ * results and the 404 page are generated from the home page's chrome plus
+ * one section each, and become stored pages the moment a creator edits
+ * them; they stay reserved above so nobody can also make a page BY that name.
  *
  * So are the visitor's account, its sign in page, the wishlist and the
  * contact page (lib/website-builder/account-pages). Contact is the one a
@@ -128,10 +136,10 @@ export function pageTitleFromKey(key: string): string {
  * stored contact page is served as it is, and a site without one gets the
  * generated page instead of a 404.
  */
-export const GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set(["products", "search", "account", "login", "wishlist", "contact"])
+export const GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set(["products", "search", "404", "account", "login", "wishlist", "contact"])
 
 /** The pages the theme ships with. Everything else is one a person made. */
-export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product", "about", "contact", "products", "search", "account", "login", "wishlist"])
+export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist"])
 
 /**
  * Where a page is served, when that is not `/<key>`: the sign in page is

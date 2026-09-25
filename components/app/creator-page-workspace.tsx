@@ -57,6 +57,7 @@ import { SaveNotification } from "@/components/ui/save-notification"
 import { CREATOR_EDITOR_CHANNEL } from "@/lib/store-builder/editor-channel"
 import { cn } from "@/lib/utils"
 import { getMainDomain, getStoreInternalPath } from "@/lib/url-helpers"
+import { HtmlClass } from "@/components/platform/html-class"
 
 export function CreatorPageWorkspace({
   handle,
@@ -293,6 +294,7 @@ export function CreatorPageWorkspace({
       under the clock with the editor starting below it.
     */
     <div className="cp-editor relative flex h-svh min-h-0 flex-col overflow-hidden bg-[#f1f1f3]">
+      <HtmlClass name="with-cp-editor" />
       {/*
         ONE LIGHT ROW, AND ALMOST NOTHING IN IT.
 

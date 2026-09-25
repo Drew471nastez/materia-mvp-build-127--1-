@@ -11,10 +11,11 @@ import { siteVisitor } from "../visitor"
 
 /**
  * ===========================================================================
- *  A VISITOR'S ACCOUNT, ON THE CREATOR'S OWN WEBSITE
+ *  A CUSTOMER'S ACCOUNT, ON THE CREATOR'S OWN WEBSITE
  * ===========================================================================
- * Their orders from this creator, what they saved here, and the way out.
- * Signed out, the sign in page, the way every shop does it.
+ * The page a Shopify store's customer lands on after signing in: their
+ * orders from this creator, their profile, the way to what they saved, and
+ * the way out. Signed out, the sign in page, the way every shop does it.
  *
  * Per visitor, so never cached and never indexed: the page reads the
  * website's own session cookie (see ../visitor.ts), and two people must
@@ -24,6 +25,8 @@ export const dynamic = "force-dynamic"
 
 interface PageProps {
   params: Promise<{ username: string }>
+  /** `edit=name` opens the name for changing; `profile=` is how the save went. */
+  searchParams: Promise<{ profile?: string; edit?: string }>
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -32,21 +35,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { ...base, alternates: undefined, robots: { index: false, follow: false } }
 }
 
-export default async function SiteAccountPage({ params }: PageProps) {
+export default async function SiteAccountPage({ params, searchParams }: PageProps) {
   const { username } = await params
-  const { visitor, creatorId } = await siteVisitor(username)
+  const sp = await searchParams.catch(() => ({}) as Awaited<PageProps["searchParams"]>)
+  const { visitor, customer, creatorId } = await siteVisitor(username)
   if (!creatorId) notFound()
-  if (!visitor) redirect("/account/login")
+  if (!visitor || !customer) redirect("/account/login")
 
   const db = createAdminClient()
-  const [customer, list] = await Promise.all([
-    siteCustomer(db, visitor, `https://${getMainDomain()}`),
-    listSiteWishlist(db, visitor),
-  ])
+  const [account, list] = await Promise.all([siteCustomer(db, customer, `https://${getMainDomain()}`), listSiteWishlist(db, visitor)])
   const cards = await wishlistCards(db, visitor.creatorId, list.ids)
 
   return renderAccountPage(username, "account", {
-    customer: customer as unknown as Record<string, unknown> | null,
+    customer: account as unknown as Record<string, unknown>,
     wishlist: wishlistObject(cards, true),
+    notice: sp.profile === "saved" ? "Saved." : sp.profile === "error" ? "That name could not be saved. Try again." : null,
+    edit: sp.edit === "name" ? "name" : null,
   })
 }

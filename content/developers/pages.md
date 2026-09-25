@@ -12,8 +12,11 @@ A website is a set of pages, and a page is an ordered list of sections. Each pag
 | `contact` | `/contact` | The same. |
 | `products` | `/products` | The shop. Until it is edited, it is built from the home page's header and footer and a product grid. |
 | `search` | `/search?q=` | Search results over the newest 24 published products. Built the same way until it is edited. |
+| `404` | any address the site does not have | The page a visitor gets for a missing address: the header and footer around the Page not found section, with a search box and a few products. Built the same way until it is edited, and opened from the page switcher as **404 page**. |
 
-A new website starts with its home and product pages stored. The shop and search pages exist on the live site from the first publish, whether or not anyone has opened them.
+A new website starts with its home and product pages stored. The shop, search and 404 pages exist on the live site from the first publish, whether or not anyone has opened them. Generated, each takes the header's colour scheme, so a dark site's shop is dark too.
+
+The 404 page keeps the real 404 status. The site's missing address is answered by Storelib's one not-found page, which on a creator's own address asks the site for its 404 page (at `/not_found`, published content only) and draws it in place of a plain message. `404` is a reserved key, so `/404` is one more address the site does not have.
 
 Three **policy pages** are added the first time a website opens in the builder, as ordinary pages made of ordinary sections, linked from the footer. Their text is a template with the parts only the business can fill in written in [square brackets], so an unedited page reads as unfinished.
 
@@ -83,6 +86,7 @@ A section can ask which page it is on through `page.template`. Home is `index`, 
 | A product page | `product` | `page.product` |
 | The shop | `page.products` | `page.products` |
 | Search results | `page.search`, with the search as `page.query` | `page.search` |
+| The 404 page | `page.404` | `page.404` |
 | Any other page | `page.<key>` | `page.<key>` |
 
 So a section that should draw differently on product pages tests for both: `{% if page.template == "product" or page.template == "page.product" %}`. See [Dynamic values](/developers/dynamic-values#page).

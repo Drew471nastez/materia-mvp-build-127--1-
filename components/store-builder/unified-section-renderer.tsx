@@ -29,6 +29,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { applyManualOrder, pickFeatured } from "@/lib/store-builder/featured-order"
 import { cn } from "@/lib/utils"
+import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { ProductGallery } from "@/components/product/product-gallery"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
@@ -74,6 +75,9 @@ export interface ProductData {
   thumbnail_url?: string | null
   price_cents: number
   compare_at_cents?: number
+  /* Pay what you want, listed from its minimum (lib/pricing/list-price). */
+  pay_what_you_want?: boolean | null
+  pwyw_min_price_cents?: number | null
   sales_count?: number
   description?: string | null
   whats_included?: string[]
@@ -3539,7 +3543,7 @@ export function UnifiedProductPage({
 
   // Determine if this is a dark/colorful theme based on preset
   const isColorfulTheme = ["royal", "ocean", "sunset", "forest", "rose"].includes(themePreset)
-  const isDarkTheme = ["astrid", "midnight"].includes(themePreset) || (settings.colors?.backgroundColor && (
+  const isDarkTheme = isDarkScheme(themePreset) || (settings.colors?.backgroundColor && (
     settings.colors.backgroundColor.startsWith("#0") ||
     settings.colors.backgroundColor.startsWith("#1") ||
     settings.colors.backgroundColor.startsWith("#2")

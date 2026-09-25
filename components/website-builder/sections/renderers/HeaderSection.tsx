@@ -12,7 +12,7 @@
 
 import {
   ChevronDown, ChevronLeft, ChevronRight,
-  Heart, Menu, Minus, Plus, Search, ShoppingBag, Trash2, User, UserPlus, X,
+  Heart, Menu, Minus, Plus, Search, ShoppingBag, Trash2, User, X,
 } from "lucide-react"
 import { useCallback, useState, useEffect, useRef, useLayoutEffect, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
@@ -25,7 +25,6 @@ import { useStorefront } from "../../theme/storefront-context"
 import { lineKey } from "@/lib/website-builder/cart"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
-import { SITE_ROUTES } from "@/lib/storelib-theme/globals"
 import { useSiteWishlist } from "../../site-wishlist"
 import type { ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
 import {
@@ -39,6 +38,8 @@ import {
   SectionWrapper,
 } from "../_shared"
 import { useStorelibPage } from "../storelib-sources"
+import { cleanMenus } from "@/lib/storelib-theme/values"
+import { headerMenuBlocks, mobileMenuStyle, transparentHere, type MobileMenuStyle } from "@/lib/website-builder/header-settings"
 
 // ── Header color schemes ─────────────────────────────────────
 type HeaderColorScheme = ColorSchemeKey
@@ -74,7 +75,10 @@ function HeaderMobileNavDrawer({
   showSearch,
   cta,
   onOpenSearch,
+  menuStyle = "left",
 }: {
+  /** Header › Menu on phones: from the left, from the right, or over the whole screen. */
+  menuStyle?: MobileMenuStyle
   open: boolean
   onClose: () => void
   items: MobileNavItem[]
@@ -122,6 +126,7 @@ function HeaderMobileNavDrawer({
       showWishlist={!!showWishlist}
       cta={cta ?? null}
       onOpenSearch={onOpenSearch ?? null}
+      menuStyle={menuStyle}
     />
   )
 
@@ -149,18 +154,31 @@ function HeaderMobileNavDrawer({
  * ═══════════════════════════════════════════════════════════════════════════
  * They used to be links to storelib.com, because the session that knows who
  * a visitor is lives there and is host-only on purpose. Every website now
- * has an account page of its own (/account, and /account/login to sign in)
- * and a Wishlist (/wishlist): signing in still happens on storelib.com, and
- * the visitor comes back here with this website's own session
- * (app/api/site-account). So these are root-relative links, which the proxy
+ * has customer accounts of its own, the way a Shopify store does: an email
+ * and a code on its own sign in page (/account/login), its account page
+ * (/account) and a Wishlist (/wishlist), with this website's own session
+ * (lib/site-accounts). So these are root-relative links, which the proxy
  * resolves to whichever address the site is being served on, and in the
  * builder they open those pages in the canvas.
+ *
+ * SIGN IN OR ACCOUNT. A visitor who is not signed in is offered Sign in, and
+ * it goes straight to the sign in page; a signed in one is offered Account.
+ * The page's hint cookie says which (../../site-wishlist), read once the
+ * page is in the browser, so the server's drawing is the signed out one and
+ * the first render agrees with it.
  *
  * The heart carries the count of saved products, from the same list the
  * hearts on the products draw (../../site-wishlist), once it has been read.
  */
 const ACCOUNT_PATH = "/account"
+const SIGN_IN_PATH = "/account/login"
 const WISHLIST_PATH = "/wishlist"
+
+/** Where the account control goes, and what it is called, for this visitor. */
+function useAccountLink(): { href: string; label: string } {
+  const { signedIn } = useSiteWishlist()
+  return signedIn ? { href: ACCOUNT_PATH, label: "Account" } : { href: SIGN_IN_PATH, label: "Sign in" }
+}
 
 function SavedCount({ className }: { className?: string }) {
   const { count, ready } = useSiteWishlist()
@@ -912,7 +930,9 @@ function MobileDrawerInner({
   showSearch,
   cta,
   onOpenSearch,
+  menuStyle = "left",
 }: {
+  menuStyle?: MobileMenuStyle
   open: boolean
   onClose: () => void
   visibleItems: MobileNavItem[]
@@ -935,8 +955,8 @@ function MobileDrawerInner({
   // The back button on the sub-page returns us to the root by clearing it.
   const dismissBackdrop = useBackdropDismiss(open, onClose)
   const [activeSubmenuId, setActiveSubmenuId] = useState<string | null>(null)
-  /* The saved count for the heart, and whether this visitor is signed in here. */
-  const { signedIn } = useSiteWishlist()
+  /* The saved count for the heart, and Sign in or Account for this visitor. */
+  const account = useAccountLink()
   const wishlistLabel = useWishlistLabel()
   // Reset to root whenever the drawer closes so reopening always starts
   // fresh on the main menu.
@@ -1069,16 +1089,27 @@ function MobileDrawerInner({
         data-self-nav=""
         className={cn(
           positionClass,
-          "left-0 flex flex-col",
+          "flex flex-col",
           DRAWER_PANEL_Z,
           open && "shadow-2xl",
-          scopedToPreview ? "w-[82%] max-w-[320px]" : "w-[85vw] max-w-[360px]",
+          /*
+            WHERE IT COMES FROM: Header › Menu on phones. From the left is
+            what every site had; from the right sits under a thumb on the
+            right hand; over the whole screen is a menu with room for long
+            names. Only the transform differs, so the slide stays on the
+            compositor whichever it is.
+          */
+          menuStyle === "full"
+            ? "left-0 right-0 w-full max-w-none"
+            : menuStyle === "right"
+              ? cn("right-0", scopedToPreview ? "w-[82%] max-w-[320px]" : "w-[85vw] max-w-[360px]")
+              : cn("left-0", scopedToPreview ? "w-[82%] max-w-[320px]" : "w-[85vw] max-w-[360px]"),
         )}
         style={{
           ...frameStyle,
           background: scheme.bg,
           color: scheme.heading,
-          transform: open ? "translateX(0)" : "translateX(-101%)",
+          transform: open ? "translate3d(0, 0, 0)" : menuStyle === "full" ? "translate3d(0, -101%, 0)" : menuStyle === "right" ? "translate3d(101%, 0, 0)" : "translate3d(-101%, 0, 0)",
           transition: drawerTransition,
           willChange: "transform",
           pointerEvents: open ? "auto" : "none",
@@ -1260,16 +1291,16 @@ function MobileDrawerInner({
           >
             {/* LEFT slot */}
             {showAccount ? (
-              /* This website's own account page, which sends a visitor who
-                 is not signed in to its sign in page. */
+              /* Sign in, straight to this website's sign in page, or the
+                 account page once signed in (useAccountLink). */
               <a
-                href={ACCOUNT_PATH}
-                onClick={handleLinkClick(ACCOUNT_PATH)}
-                className="flex items-center gap-2 text-[15px] font-semibold hover:opacity-70 transition-opacity"
+                href={account.href}
+                onClick={handleLinkClick(account.href)}
+                className="flex min-h-[44px] items-center gap-2 text-[15px] font-semibold hover:opacity-70 transition-opacity"
                 style={{ color: scheme.nav_link }}
               >
                 <User className="h-5 w-5" strokeWidth={1.8} />
-                <span>Account</span>
+                <span>{account.label}</span>
               </a>
             ) : (
               // Wishlist-only case: wishlist goes on the LEFT.
@@ -1305,27 +1336,11 @@ function MobileDrawerInner({
         )}
 
         {/*
-          AND A WAY TO MAKE ONE. "Account" is the right word for somebody who
-          already has one and says nothing to somebody who does not, and a
-          shop whose only account control is a log in is a shop that assumes
-          everyone arriving has shopped here before.
-
-          Accounts are Storelib accounts, so it leaves for storelib.com to
-          make one and comes back to this website's account page
-          (routes.account_register_url). Not shown to somebody already
-          signed in here.
+          NO SEPARATE CREATE ACCOUNT. Signing in with an email and a code
+          makes the account when the email is new (lib/site-accounts/
+          sign-in.ts), so "Sign in" above is the way in for somebody who
+          has shopped here before and for somebody who has not.
         */}
-        {showAccount && !signedIn && (
-          <a
-            href={SITE_ROUTES.account_register_url}
-            onClick={handleLinkClick(SITE_ROUTES.account_register_url)}
-            className="border-t border-black/10 px-5 py-4 flex items-center gap-3 shrink-0 text-[15px] font-medium"
-            style={{ background: scheme.bg, color: scheme.nav_link }}
-          >
-            <UserPlus className="h-[20px] w-[20px]" strokeWidth={1.8} />
-            <span>Create account</span>
-          </a>
-        )}
 
         {/*
           AND SEARCH ON A PHONE, which is where somebody is least willing to
@@ -1400,7 +1415,9 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
    * control has never been set. It was a second primary read before, which
    * meant a creator turning the toggle off could not turn transparency off.
    */
-  const transparent = bool(s.header_transparent, bool(s.transparent_on_hero, false))
+  /* And, since Header › Transparent on, only on the home page when the
+     creator asked for that: an inner page has no picture to sit over. */
+  const transparent = transparentHere(bool(s.header_transparent, bool(s.transparent_on_hero, false)), s.header_transparent_scope, pageTemplate)
   // We approximate this by using transparent background only when the toggle is on
   // — the consumer (page renderer) wraps the header above the hero in those cases.
   const bg = transparent ? "transparent" : scheme.bg
@@ -1415,6 +1432,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const showAccount = headerIconOn(s.show_account_icon)
   const showWishlist = headerIconOn(s.show_wishlist_icon)
   const wishlistLabel = useWishlistLabel()
+  const account = useAccountLink()
   /*
     ON BY DEFAULT. Every shop is expected to have one, and a header without a
     way to look for something is the first thing a visitor misses. It is a
@@ -1701,7 +1719,15 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const logoMaxWidth = Number(branding.logo_width) || undefined
 
   const mobileLogoSrc = s.use_mobile_logo && s.mobile_logo_url ? str(s.mobile_logo_url) : headerLogo
-  const mobileLogoH = s.use_mobile_logo && s.mobile_logo_url ? (Number(s.mobile_logo_height) || 32) : (Number(s.logo_height) || 64)
+  /*
+    THE PHONE'S LOGO HEIGHT IS ITS OWN NUMBER, with or without a separate
+    phone logo. It used to apply only to a second picture, so a site with one
+    logo drew it 64px tall on a 390px screen and the only way to make it
+    smaller was to upload the same file twice.
+  */
+  const mobileLogoH = typeof s.mobile_logo_height === "number" && s.mobile_logo_height > 0
+    ? s.mobile_logo_height
+    : s.use_mobile_logo && s.mobile_logo_url ? 32 : (Number(s.logo_height) || 64)
   const desktopLogoH = Number(s.logo_height) || 64
 
   // Custom logo horizontal position — desktop & mobile (separate)
@@ -1809,7 +1835,15 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     { id: "nav-home", type: "nav_link", settings: { label: "Home", url: "/", link_type: "custom" } },
     { id: "nav-shop", type: "nav_link", settings: { label: "Shop", url: SHOP_PATH, link_type: "custom" } },
   ]
-  const navBlocks = (section.blocks && section.blocks.length > 0) ? section.blocks : DEFAULT_NAV_BLOCKS
+  /*
+    A MENU FROM THEME SETTINGS › MENUS, when the header names one, in place
+    of its own links: see lib/website-builder/header-settings.ts. The same
+    menu can then sit in the header and in a footer column without being
+    typed twice. `theme.menus` is cleaned (every address made safe) before
+    it is turned into links.
+  */
+  const fromMenu = headerMenuBlocks(str(s.menu), cleanMenus((theme as Record<string, unknown>).menus))
+  const navBlocks = fromMenu ?? ((section.blocks && section.blocks.length > 0) ? section.blocks : DEFAULT_NAV_BLOCKS)
 
   const resolveHref = (block: { settings: Record<string, unknown> }): string => {
     const linkType = str(block.settings.link_type, "custom")
@@ -2048,22 +2082,17 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const renderIcons = (forMobile: boolean = false) => (
     <div className="flex min-w-0 items-center gap-2 shrink-0" style={{ color: textColor }}>
       {/*
-        ACCOUNT AND WISHLIST GO SOMEWHERE NOW. Both were buttons whose only
+        ACCOUNT AND WISHLIST GO SOMEWHERE. Both were buttons whose only
         behaviour was `preventDefault()`: on a published site they were three
-        pixels of hover state and nothing else. What they mean already exists,
-        on the platform rather than on the site — a buyer's purchases and
-        their saved items — and the session that knows who the buyer is is
-        held on storelib.com, so these are absolute links to it. Signed out,
-        the library sends them to sign in, which is the right answer to
-        "Account" too.
+        pixels of hover state and nothing else. They are this website's own
+        pages now: Sign in (or Account, once signed in) and the Wishlist,
+        see ACCOUNT_PATH above.
       */}
       {/*
-        SEARCH GOES TO THE SITE, not to the platform. Account and wishlist are
-        absolute links to storelib.com because the session that knows who the
-        buyer is lives there; a search is about THIS shop's catalogue, so it
-        is a root-relative link the proxy resolves to whichever address the
-        site is being served on — the subdomain, the custom domain or
-        /w/<name> — without any of them being named here.
+        SEARCH GOES TO THE SITE, not to the platform. A search is about THIS
+        shop's catalogue, so it is a root-relative link the proxy resolves to
+        whichever address the site is being served on (the subdomain, the
+        custom domain or /w/<name>) without any of them being named here.
       */}
       {/*
         SEARCH IS ON A PHONE TOO, on the right beside the bag.
@@ -2102,9 +2131,10 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       )}
       {showAccount && !forMobile && (
         <a
-          href={ACCOUNT_PATH}
-          aria-label="Account"
-          onClick={onEditorNavigate ? (e) => { e.preventDefault(); onEditorNavigate(ACCOUNT_PATH, true) } : undefined}
+          href={account.href}
+          aria-label={account.label}
+          title={account.label}
+          onClick={onEditorNavigate ? (e) => { e.preventDefault(); onEditorNavigate(account.href, true) } : undefined}
           className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
         >
           <User className="h-[18px] w-[18px]" strokeWidth={1.8} />
@@ -2699,6 +2729,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       open={mobileNavOpen}
       onClose={() => setMobileNavOpen(false)}
       scheme={scheme}
+      menuStyle={mobileMenuStyle(s.mobile_menu_style)}
       // CRITICAL: use `renderingInsideEditor`, NOT `isEditing`. `isEditing`
       // flips with the Inspector toggle — when the user turns Inspector off
       // the drawer would portal into `document.body` with `position: fixed`

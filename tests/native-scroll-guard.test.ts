@@ -97,11 +97,17 @@ function main() {
     /html\.capacitor,\s*\nhtml\.capacitor body \{\s*\n\s*overscroll-behavior: none;/.test(css)
       && /html\.capacitor \.app-content-scroll \{\s*\n\s*overscroll-behavior: none;/.test(css))
 
-  console.log("\n  and the dashboard's banner is sized for the box it goes in")
+  console.log("\n  and the dashboard's banner decodes no picture at all")
 
+  /* It was a 1200px photograph that had to declare its real width (`sizes`) so a
+     phone did not decode a 3x one; now its background is CSS gradients, painted
+     once, and there is nothing to download or decode (components/app/home/home-banner). */
   const dash = read("components/app/dashboard-client.tsx")
-  check("the full width banner declares the width it is really drawn at",
-    /sizes="\(max-width: 640px\) 100vw, 640px"/.test(dash))
+  const banner = read("components/app/home/home-banner.tsx")
+  check("no photograph behind the banner any more",
+    !/images\.unsplash\.com/.test(dash) && !/images\.unsplash\.com/.test(banner))
+  check("and the banner loads no image of any kind",
+    !/next\/image/.test(banner) && !/<img\b|<Image\b/.test(banner) && !/url\(["']?https?:/.test(banner))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

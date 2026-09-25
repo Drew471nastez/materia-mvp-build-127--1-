@@ -1,36 +1,45 @@
 import "server-only"
 
-import { readSession, SESSION_TTL_MS, STATE_TTL_S } from "./token"
+import { PENDING_TTL_MS, readPending, readSession, SESSION_TTL_MS, type PendingClaims } from "./token"
 
 /**
  * ===========================================================================
  *  THE WEBSITE'S OWN COOKIES
  * ===========================================================================
- * Three, all host-only on the website's host (no Domain attribute), so one
- * creator's website can never see another's, and storelib.com never sees any
- * of them:
+ * Three, all on the website's own host and nowhere else, so one creator's
+ * website can never see another's, and storelib.com never sees any of them:
  *
- *   sl_site_session   httpOnly. The signed session (lib/site-accounts/token).
- *                     Scripts on the page cannot read it.
- *   sl_signed_in      "1", readable by the page, and nothing else in it. It
- *                     tells the page's own code to ask the server for the
- *                     account's saved items instead of reading the guest list.
- *                     Knowing it proves nothing: every route checks the
- *                     session itself.
- *   sl_site_state     httpOnly, and sent only to /api/site-account. The random
- *                     value a sign-in started with in this browser; a code
- *                     that comes back without it is somebody else's, which is
- *                     what stops a stranger's link signing this browser in as
- *                     them.
+ *   __Host-sl_site_session   httpOnly. The signed session (./token). Scripts
+ *                            on the page cannot read it.
+ *   __Host-sl_site_pending   httpOnly. Which code this browser is waiting
+ *                            on, between "Continue" and the code.
+ *   sl_signed_in             "1", readable by the page, and nothing else in
+ *                            it. It tells the page's own code to ask the
+ *                            server for the account's saved items instead of
+ *                            reading the guest list, and the header to say
+ *                            Account rather than Sign in. Knowing it proves
+ *                            nothing: every route checks the session itself.
+ *
+ * THE __Host- PREFIX is what makes "this host only" a rule the browser
+ * keeps rather than a habit of ours. Websites live side by side under
+ * storelib.com, and some of them (the AI-built ones) serve their own
+ * scripts, which may set a cookie for the whole of storelib.com. A browser
+ * refuses a __Host- cookie that names a domain, so nothing another website
+ * sets can be read here as this website's session. The prefix needs Secure,
+ * so on http://localhost, while developing, the plain names are used.
+ *
+ * Both httpOnly cookies are SameSite=Lax: sent when the visitor follows a
+ * link to the website, never with a form another site submits. The routes
+ * that change anything also check the request's Origin
+ * (lib/site-accounts/respond.ts).
  */
 
-export const SESSION_COOKIE = "sl_site_session"
+const SESSION_NAME = "sl_site_session"
+const PENDING_NAME = "sl_site_pending"
 export const HINT_COOKIE = "sl_signed_in"
-export const STATE_COOKIE = "sl_site_state"
-export const STATE_PATH = "/api/site-account"
 
 export interface SiteVisitor {
-  userId: string
+  customerId: string
   creatorId: string
   host: string
   issuedAt: number
@@ -41,22 +50,33 @@ function isLocal(host: string): boolean {
   return bare === "localhost" || bare === "127.0.0.1"
 }
 
+/** The session cookie's name on this host: __Host- prefixed wherever it can be Secure. */
+export function sessionCookieName(host: string): string {
+  return isLocal(host) ? SESSION_NAME : `__Host-${SESSION_NAME}`
+}
+
+export function pendingCookieName(host: string): string {
+  return isLocal(host) ? PENDING_NAME : `__Host-${PENDING_NAME}`
+}
+
 export function sessionCookie(host: string) {
   return { httpOnly: true, secure: !isLocal(host), sameSite: "lax" as const, path: "/", maxAge: Math.floor(SESSION_TTL_MS / 1000) }
+}
+
+export function pendingCookie(host: string) {
+  return { httpOnly: true, secure: !isLocal(host), sameSite: "lax" as const, path: "/", maxAge: Math.floor(PENDING_TTL_MS / 1000) }
 }
 
 export function hintCookie(host: string) {
   return { httpOnly: false, secure: !isLocal(host), sameSite: "lax" as const, path: "/", maxAge: Math.floor(SESSION_TTL_MS / 1000) }
 }
 
-export function stateCookie(host: string) {
-  return { httpOnly: true, secure: !isLocal(host), sameSite: "lax" as const, path: STATE_PATH, maxAge: STATE_TTL_S }
-}
-
 /**
  * Who is signed in to this website, from the cookie's value and the host the
  * request arrived on. A session made for another host, or for another
- * creator than the one the caller expects, is nobody.
+ * creator than the one the caller expects, is nobody. Whether the customer
+ * still exists is the caller's question (lib/site-accounts/customers.ts):
+ * this is the signature alone.
  */
 export function visitorFrom(
   value: string | null | undefined,
@@ -69,7 +89,22 @@ export function visitorFrom(
   if (!claims) return null
   if (claims.h !== host.trim().toLowerCase()) return null
   if (expect?.creatorId && claims.c !== expect.creatorId) return null
-  return { userId: claims.u, creatorId: claims.c, host: claims.h, issuedAt: claims.i }
+  return { customerId: claims.u, creatorId: claims.c, host: claims.h, issuedAt: claims.i }
+}
+
+/** The sign in this browser is part way through on this website, or null. */
+export function pendingFrom(
+  value: string | null | undefined,
+  host: string | null | undefined,
+  expect?: { creatorId?: string | null },
+  now = Date.now(),
+): PendingClaims | null {
+  if (!value || !host) return null
+  const claims = readPending(value, now)
+  if (!claims) return null
+  if (claims.h !== host.trim().toLowerCase()) return null
+  if (expect?.creatorId && claims.c !== expect.creatorId) return null
+  return claims
 }
 
 /** The request's host, as the browser sent it. */
@@ -97,5 +132,6 @@ export function cookieFrom(request: Request, name: string): string | null {
 
 /** The visitor behind a request to one of the website's routes. */
 export function visitorOfRequest(request: Request, expect?: { creatorId?: string | null }): SiteVisitor | null {
-  return visitorFrom(cookieFrom(request, SESSION_COOKIE), hostOf(request), expect)
+  const host = hostOf(request)
+  return visitorFrom(cookieFrom(request, sessionCookieName(host)), host, expect)
 }

@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
-import { publishedShopByName } from "@/lib/website-builder/published-site"
+import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
 import { getMainDomain } from "@/lib/url-helpers"
 import { productMatchesQuery, searchSections } from "@/lib/website-builder/shop-page"
 import { siteMetadata } from "../render-site"
@@ -50,7 +50,7 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
-  const { site, products } = found
+  const { site, products, productCount } = found
   /* Filtered here rather than in the database: the shop's catalogue is
      already fetched and cached by publishedShopByName, and a search that
      goes back to Postgres would be a second round trip for a list that is
@@ -62,12 +62,15 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
      then. Either way the query rides on the page object, so a saved search
      page still says what was asked and what was found. */
   const stored = site.pages.search
-  const sections = stored && stored.length > 0 ? stored : searchSections(site.pages.home ?? site.sections)
+  const arranged = stored && stored.length > 0 ? stored : searchSections(site.pages.home ?? site.sections)
+  /* Placeholders filled, menus and picked products in hand: see dressPage.
+     Pickers name from the whole shop; `products` is what matched. */
+  const { sections, data } = await dressPage(site, arranged, products, productCount, "page.search", "Search")
   /* The query travels on the page rather than in the section's settings: it
      belongs to this request, not to anything the creator arranged. */
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.search", matches, {
     query,
-  })
+  }, data)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "page.search", query }}>

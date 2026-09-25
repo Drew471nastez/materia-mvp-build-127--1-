@@ -7,6 +7,7 @@ import { LanguageProvider } from "@/lib/i18n"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { DocumentScrollGuard } from "@/components/app/document-scroll-guard"
 import { keyboardInsetOrFloor } from "@/lib/ui/keyboard-safe-sheet"
+import AppColdStart from "@/app/app/cold-start"
 
 export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
 
@@ -158,8 +159,18 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  /*
+    THE SHELL'S FRAME UNTIL THE LANGUAGE IS KNOWN. LanguageProvider draws none
+    of /app until a client effect has run, so the server's HTML for every
+    /app page was empty: a page that arrived as a document showed white until
+    its script had loaded and run. It shows the shell's own frame and the
+    slow page's spinner now, in the slow page's place (app/app/cold-start,
+    the native cold start's frame), so a navigation the router hands to the
+    browser (a new deployment, a failed fetch) goes from the spinner to the
+    same spinner, never to a blank page.
+  */
   return (
-    <LanguageProvider>
+    <LanguageProvider fallback={<AppColdStart />}>
       <Suspense fallback={null}>
         <NavigationLoadingBar />
         {/* How a page arrives: the landing, the scroll, and the spinner for a slow page. */}

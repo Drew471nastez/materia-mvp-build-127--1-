@@ -7,8 +7,9 @@
  * bars, it's weird and bad. Fix it fully: modern, good, clean, smooth."
  *
  * The real editor (scripts/editor-probe-harness.mjs) with a site that has
- * every page a site can have: the theme's nine, three policies and three of
- * the creator's own, and eight products. Then, in a browser:
+ * every page a site can have: the theme's ten (the 404 page among them),
+ * three policies and three of the creator's own, and eight products. Then,
+ * in a browser:
  *
  *   1280 × 800   the pill's menu. Its groups and their order; the headings'
  *                size and case; every row's height; which elements in it can
@@ -46,7 +47,8 @@ const page = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewp
 <style>${interFaces()}</style><style>${css}</style></head><body><div id="app"></div>
 <script>
   window.PROBE_SHORT = true
-  window.PROBE_PAGES = ${JSON.stringify(PAGES)}
+  /* Each saved page with sections of its own, which is also what lists it (render-editor-probe.tsx). */
+  window.PROBE_PAGES = ${JSON.stringify(Object.fromEntries(PAGES.map((k) => [k, ["header", "text_rich", "footer"]])))}
   window.PROBE_PRODUCTS = ${JSON.stringify(PRODUCTS)}
 </script>
 <script src="/editor-probe.js"></script></body></html>`
@@ -147,7 +149,7 @@ async function desktop() {
   const list = await p.evaluate((READ) => new Function("root", `return (${READ})(root)`)(document.querySelector(".wb-pages-menu")), READ.toString())
   const order = list.groups.map((g) => g.label)
   note(`groups: ${order.join(" / ")}`)
-  expect(order.join(",") === "Home,Shop,Products,Pages,Customer accounts,Contact,Policies", "every page is in the group a shop puts it in, in that order", order)
+  expect(order.join(",") === "Home,Shop,Products,Pages,Customer accounts,Contact,Policies,Other", "every page is in the group a shop puts it in, in that order", order)
   expect(list.groups.every((g) => g.size === "12px" && g.transform === "none"), "each heading is 12px and not in capitals", list.groups.map((g) => `${g.size}/${g.transform}`))
   const heights = [...new Set(list.groups.flatMap((g) => g.rows.map((r) => r.h)))]
   expect(heights.length === 1 && heights[0] === 40, "every row is 40px", heights)
@@ -165,6 +167,8 @@ async function desktop() {
   expect(policyRows.length === 3, "the three policies under Policies", policyRows)
   expect(pageRows.length === 4 && /About/.test(pageRows[0]), "About and the creator's three under Pages", pageRows)
   expect(productRows.length === 6 && /Show all 8 products/.test(productRows[5]), "five products and a row to show the rest", productRows)
+  const otherRows = list.groups.find((g) => g.key === "other")?.rows.map((r) => r.text) ?? []
+  expect(otherRows.length === 1 && /^404 page\/404$/.test(otherRows[0]), "and the 404 page, under Other, at the end", otherRows)
   const box = list.box
   note(`the menu: ${box[2]}px wide at x ${box[0]}, ${box[3]}px tall`)
 
@@ -246,7 +250,7 @@ async function desktop() {
   if (!side?.groups) expect(false, "the sidebar's Pages tab shows the grouped list", side)
   else {
     const sheights = [...new Set(side.groups.flatMap((g) => g.rows.map((r) => r.h)))]
-    expect(side.groups.length === 7 && sheights.length === 1 && sheights[0] === 40 && side.scrollers <= 2 && side.scrolling === 1, "the sidebar's Pages tab is the same list: seven groups, 40px rows, one thing scrolling", { groups: side.groups.length, heights: sheights, scrolling: side.scrolling })
+    expect(side.groups.length === 8 && sheights.length === 1 && sheights[0] === 40 && side.scrollers <= 2 && side.scrolling === 1, "the sidebar's Pages tab is the same list: eight groups, 40px rows, one thing scrolling", { groups: side.groups.length, heights: sheights, scrolling: side.scrolling })
     expect(side.ticked.length === 1 && side.ticked[0].key === "wishlist", "with the page now open ticked", side.ticked)
   }
   await p.close()
@@ -283,7 +287,7 @@ async function phone() {
   }
   const order = list.groups.map((g) => g.label)
   note(`sheet top at ${list.sheetTop}; groups: ${order.join(" / ")}`)
-  expect(order.join(",") === "Home,Shop,Products,Pages,Customer accounts,Contact,Policies", "the same groups, in the same order", order)
+  expect(order.join(",") === "Home,Shop,Products,Pages,Customer accounts,Contact,Policies,Other", "the same groups, in the same order", order)
   expect(list.groups.every((g) => g.size === "12px" && g.transform === "none"), "the same quiet headings", list.groups.map((g) => g.size))
   const heights = [...new Set(list.groups.flatMap((g) => g.rows.map((r) => r.h)))]
   expect(heights.length === 1 && heights[0] === 48, "every row is 48px on a phone", heights)

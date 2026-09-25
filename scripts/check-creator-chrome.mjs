@@ -24,6 +24,10 @@
  *      have caught the original bug: black-on-black is perfectly "themed" as
  *      far as any code inspection goes, and it is invisible.
  *
+ *   3. THE PRODUCT PAGE IT OPENS ONTO. The same scheme's product page, from
+ *      the function the page itself calls (lib/store-builder/product-page-tone),
+ *      dark exactly when the creator page is, and just as readable.
+ *
  *   pnpm build && node scripts/check-creator-chrome.mjs
  */
 import { execFileSync } from "node:child_process"
@@ -78,9 +82,21 @@ export const useSearchParams = () => new URLSearchParams()
  * difference between measuring the page and measuring a wrapper div.
  */
 const PROBE = `<script>
+/* The design system's tokens come back as lab() and oklch(), which the
+   regex below cannot read; a 1px canvas turns any CSS colour into sRGB. */
+var swatch = document.createElement("canvas").getContext("2d", { willReadFrequently: true })
+function viaCanvas(c) {
+  if (!c || c === "transparent") return null
+  swatch.clearRect(0, 0, 1, 1)
+  swatch.fillStyle = "rgba(0,0,0,0)"
+  swatch.fillStyle = c
+  swatch.fillRect(0, 0, 1, 1)
+  var d = swatch.getImageData(0, 0, 1, 1).data
+  return { r: d[0], g: d[1], b: d[2], a: d[3] / 255 }
+}
 function parse(c) {
   var m = /rgba?\\(([^)]+)\\)/.exec(c || "")
-  if (!m) return null
+  if (!m) return /^(lab|lch|oklab|oklch|color|hsl|hwb)\\(/.test(c || "") ? viaCanvas(c) : null
   var p = m[1].split(/[\\s,\\/]+/).filter(Boolean).map(Number)
   return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }
 }
@@ -148,7 +164,31 @@ function run() {
       items: items,
     })
   })
-  var pre = document.createElement("pre"); pre.id = "out"; pre.textContent = JSON.stringify(rows); document.body.append(pre)
+  /* The product page on the same scheme: its type against what is behind it, and its star against the page. */
+  var products = []
+  document.querySelectorAll("[data-product-page]").forEach(function (scope) {
+    var star = scope.querySelector('[data-part="star"]')
+    var starFg = star ? parse(getComputedStyle(star).color) : null
+    var page = parse(getComputedStyle(scope).backgroundColor) || { r: 255, g: 255, b: 255, a: 1 }
+    products.push({
+      scheme: scope.getAttribute("data-product-page"),
+      dark: scope.getAttribute("data-dark") === "true",
+      page: getComputedStyle(scope).backgroundColor,
+      pageLum: lum(page),
+      star: starFg ? Math.round(ratio(starFg, behind(star)) * 100) / 100 : null,
+      items: [
+        read(scope, "h1", "the product's title", true),
+        read(scope, '[data-part="badge"]', "the category pill"),
+        read(scope, '[data-part="seller"]', "the seller's name"),
+        read(scope, '[data-part="rating"]', "the rating"),
+        read(scope, '[data-part="price"]', "the price", true),
+        read(scope, '[data-part="was"]', "the price it was"),
+        read(scope, '[data-part="refund"] p', "the refund line"),
+        read(scope, '[data-part="faq"]', "the FAQ heading", true),
+      ],
+    })
+  })
+  var pre = document.createElement("pre"); pre.id = "out"; pre.textContent = JSON.stringify({ rows: rows, products: products }); document.body.append(pre)
 }
 if (document.readyState === "complete") run(); else addEventListener("load", run)
 </script>`
@@ -198,15 +238,17 @@ try {
   }
   const match = dom.match(/<pre id="out">([\s\S]*?)<\/pre>/)
   if (!match) fail("Nothing reported. The probe did not run.")
-  const rows = JSON.parse(match[1].replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"))
+  const { rows, products } = JSON.parse(match[1].replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"))
 
   let broken = 0
   const expect = (ok, what, got) => {
-    console.log(`  ${ok ? "ok  " : "FAIL"}  ${what}${ok ? "" : `   ${got ?? ""}`}`)
+    console.log(`  ${ok ? "ok  " : "FAIL"}  ${what}${ok && !process.env.VERBOSE ? "" : `   ${got ?? ""}`}`)
     if (!ok) broken++
   }
 
-  if (rows.length !== 8) fail(`Expected the eight offered schemes, measured ${rows.length}.`)
+  /* Nine since graphite joined, a second dark scheme (lib/store-builder/scheme-tone). */
+  if (rows.length !== 9) fail(`Expected the nine offered schemes, measured ${rows.length}.`)
+  if (products.length !== rows.length) fail(`Expected a product page for each scheme, measured ${products.length}.`)
 
   for (const row of rows) {
     console.log(`\n${row.scheme}  page ${row.page}`)
@@ -241,6 +283,33 @@ try {
     if (a.missing || b.missing) continue
     expect(a.color !== b.color, `${a.label} is repainted`, `${a.color} on both`)
   }
+
+  /**
+   * THE PRODUCT PAGE A CREATOR PAGE OPENS ONTO. It decided "dark" by the
+   * scheme's name, astrid, so no other dark scheme could be offered: the
+   * creator page went dark and the product page stayed light. Each scheme's
+   * product page has to be dark exactly when its creator page is, and every
+   * word on it readable.
+   */
+  for (const product of products) {
+    const creator = rows.find((r) => r.scheme === product.scheme)
+    console.log(`\n${product.scheme}  product page ${product.page}`)
+    const creatorDark = creator && (() => {
+      const m = /rgba?\(([^)]+)\)/.exec(creator.page)
+      if (!m) return false
+      const [r, g, b] = m[1].split(/[\s,/]+/).map(Number)
+      return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.5
+    })()
+    expect(product.dark === creatorDark && (product.pageLum < 0.18) === product.dark, "dark exactly when its creator page is", `product page dark: ${product.dark} (${product.page}), creator page dark: ${creatorDark} (${creator?.page})`)
+    for (const item of product.items) {
+      if (item.missing) { expect(false, `${item.label} rendered`, "not found"); continue }
+      const need = item.large ? 3 : 4.5
+      expect(item.ratio !== null && item.ratio >= need - 0.005, `${item.label} is readable on what is behind it`, `${item.ratio} to 1, needs ${need} — ${item.color} on ${item.bg}`)
+    }
+    expect(product.star !== null && product.star >= 3, "the rating's star stands out from the page (3 to 1)", `${product.star}`)
+  }
+  const expectedDark = ["astrid", "graphite"]
+  expect(products.filter((p) => p.dark).map((p) => p.scheme).sort().join() === expectedDark.join(), "astrid and graphite are the dark ones; the rest are light as they were", products.filter((p) => p.dark).map((p) => p.scheme).join())
 
   console.log(broken === 0 ? "\nEvery part of the chrome follows the scheme, and every word on it is readable.\n" : `\n${broken} measured wrong.\n`)
   process.exit(broken === 0 ? 0 : 1)

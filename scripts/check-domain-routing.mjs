@@ -89,13 +89,17 @@ const { proxy } = require(join(dir, "proxy.cjs"))
 
 const quiet = console.warn
 console.warn = () => {}
-async function ask(url) {
-  const r = await proxy(new NextRequest(url, { headers: { host: new URL(url).host } }))
+async function ask(url, init = {}) {
+  const r = await proxy(new NextRequest(url, { ...init, headers: { host: new URL(url).host, ...(init.headers ?? {}) } }))
   const to = r.headers.get("location")
   if (to) return `${r.status} ${to}`
   const rw = r.headers.get("x-middleware-rewrite")
-  return rw ? `rewrite ${new URL(rw).pathname}${new URL(rw).search}` : `next`
+  if (rw) return `rewrite ${new URL(rw).pathname}${new URL(rw).search}`
+  return r.status >= 400 ? `${r.status}` : `next`
 }
+/** A form a page submits: POST, with the Origin and Sec-Fetch-Site a browser sends. */
+const post = (url, from) =>
+  ask(url, { method: "POST", headers: { origin: from, "sec-fetch-site": new URL(from).host === new URL(url).host ? "same-origin" : "same-site", "content-type": "application/x-www-form-urlencoded" } })
 
 let broken = 0
 const expect = (got, want, what) => {
@@ -138,6 +142,27 @@ expect(await ask("https://www.maralind.com/robots.txt"), "rewrite /w/mara/robots
 expect(await ask("https://www.maralind.com/sitemap.xml"), "rewrite /w/mara/sitemap.xml", "and the website's own sitemap")
 expect(await ask("https://links.maralind.com/robots.txt"), "rewrite /u/mara/robots.txt", "a creator page domain never answers the website's")
 expect(await ask("https://links.maralind.com/"), "rewrite /u/mara", "nor shows it")
+
+console.log("\nCustomer accounts on the website, on its domain and on its subdomain")
+expect(await ask("https://www.maralind.com/account/login?return=%2Fwishlist"), "rewrite /w/mara/account/login?return=%2Fwishlist", "a website domain answers its sign in page, query and all")
+expect(await ask("https://www.maralind.com/account/login?step=email"), "rewrite /w/mara/account/login?step=email", "and its email step")
+expect(await ask("https://www.maralind.com/account"), "rewrite /w/mara/account", "and its account page")
+expect(await ask("https://www.maralind.com/account?edit=name"), "rewrite /w/mara/account?edit=name", "with the profile open for editing")
+expect(await post("https://www.maralind.com/account/logout", "https://www.maralind.com"), "rewrite /w/mara/account/logout", "signing out posts to the website's own route")
+expect(await ask("https://www.maralind.com/wishlist"), "rewrite /w/mara/wishlist", "and the Wishlist is the website's, not storelib.com's")
+for (const route of ["code", "verify", "profile", "wishlist"]) {
+  expect(await post(`https://www.maralind.com/api/site-account/${route}`, "https://www.maralind.com"), "next", `the ${route} form reaches its route on the domain itself, not rewritten or refused`)
+}
+expect(await post("https://maralind.com/api/site-account/code", "https://maralind.com"), "next", "and on the bare name too: the API is never sent to www")
+expect(await ask("https://maralind.com/account/login"), "301 https://www.maralind.com/account/login", "while the page itself goes to www, where its cookies are")
+expect(await ask("https://www.maralind.shop/account/login"), "308 https://www.maralind.com/account/login", "a secondary domain sends the sign in page to the primary one")
+expect(await ask("https://mara.storelib.com/account/login"), "rewrite /w/mara/account/login", "a storelib.com subdomain answers its sign in page")
+expect(await ask("https://mara.storelib.com/account"), "rewrite /w/mara/account", "and its account page")
+expect(await post("https://mara.storelib.com/account/logout", "https://mara.storelib.com"), "rewrite /w/mara/account/logout", "and signing out")
+for (const route of ["code", "verify", "profile"]) {
+  expect(await post(`https://mara.storelib.com/api/site-account/${route}`, "https://mara.storelib.com"), "next", `the ${route} form reaches its route on the subdomain`)
+}
+expect(await post("https://storelib.com/api/site-account/code", "https://mara.storelib.com"), "403", "a website's page still cannot post to storelib.com's own API")
 website = false
 
 legacy = true

@@ -2,13 +2,10 @@
  * ===========================================================================
  *  WHICH HOSTS ARE A CREATOR'S OWN WEBSITE
  * ===========================================================================
- * Signing in to a creator's website sends the visitor to storelib.com and
- * back. "Back" is an address the website puts in a link, which is the shape
- * of every open redirect there has ever been: an address that is followed
- * because it was given, with storelib.com's credibility behind the hop.
- *
- * So an address is followed, and a sign-in code is handed to it, only when
- * its host is one of the hosts a creator's built website is actually served
+ * A visitor signs in to a creator's website on the website itself
+ * (lib/site-accounts/sign-in.ts), and the website they are signing in to is
+ * the host the request arrived on. That host is only taken for a website
+ * when it is one of the hosts a creator's built website is actually served
  * at:
  *
  *   <name>.storelib.com   a single label under the sites domain, not one of
@@ -22,10 +19,10 @@
  *                         active with its certificate on the way), at the
  *                         host it is served at or its bare name.
  *
- * Anything else, including every storelib.com page, a *.vercel.app host,
- * localhost and an address with a user name in it, is refused. The check is
- * made from the database on the server that follows the address, never from
- * anything the page claims about itself.
+ * Anything else, including every storelib.com page, a *.vercel.app host and
+ * localhost, is refused: no code is sent from it and no session is made for
+ * it. The check is made from the database on the server, never from anything
+ * the page claims about itself.
  *
  * The pure half is exported on its own so tests/site-accounts.test.ts can
  * throw the odd shapes at it without a database.
@@ -84,34 +81,16 @@ export function classifySiteHost(rawHost: unknown, r: HostRules = rules()): Site
 }
 
 /**
- * An address to come back to, taken apart, when it is shaped like one of a
- * website's pages: https (http only for localhost while developing), no user
- * name or password, and a path that is a page rather than the API.
+ * A path on the website to land on after signing in, from a query value or
+ * a form field. `/account` when it is not one: never the API, and never the
+ * sign in or sign out pages themselves, so a link cannot make signing in end
+ * in signing out.
  */
-export function parseReturnUrl(raw: unknown): { host: string; path: string; href: string } | null {
-  if (typeof raw !== "string") return null
-  const value = raw.trim()
-  if (!value || value.length > 2048) return null
-  // eslint-disable-next-line no-control-regex
-  if (/[\u0000- \u007f\\]/.test(value)) return null
-  let url: URL
-  try {
-    url = new URL(value)
-  } catch {
-    return null
-  }
-  const local = url.hostname === "localhost" || url.hostname === "127.0.0.1"
-  if (url.protocol !== "https:" && !(local && url.protocol === "http:")) return null
-  if (url.username || url.password) return null
-  const path = `${url.pathname}${url.search}`
-  if (!isSitePath(path) || url.pathname === "/api" || url.pathname.startsWith("/api/")) return null
-  return { host: url.host.toLowerCase(), path, href: `${url.protocol}//${url.host.toLowerCase()}${path}` }
-}
-
-/** A path on the website to return to after signing in, from a query value. `/account` when it is not one. */
 export function returnPathOf(raw: unknown, fallback = "/account"): string {
   if (!isSitePath(raw)) return fallback
   if (raw === "/api" || raw.startsWith("/api/") || raw.startsWith("/api?")) return fallback
+  const page = raw.split(/[?#]/)[0].replace(/\/+$/, "")
+  if (page === "/account/login" || page === "/account/logout") return fallback
   return raw
 }
 

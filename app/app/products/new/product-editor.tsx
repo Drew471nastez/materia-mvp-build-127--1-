@@ -9,6 +9,7 @@ import { isNativeApp } from "@/lib/platform-utils"
 import { hapticTap, openExternal } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -38,6 +39,7 @@ import {
   AlertCircle,
   MoreHorizontal,
   ArrowLeft,
+  Pencil,
 } from "lucide-react"
 import Link from "next/link"
 import { RichTextEditor } from "@/components/app/rich-text-editor"
@@ -89,10 +91,31 @@ type SectionId = "about" | "media" | "content" | "files" | "variants" | "categor
 const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:space-y-5 sm:p-6"
 const CARD_TITLE = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
 
+/**
+ * A PRICE AS IT IS TYPED. The price fields are text with a decimal keyboard,
+ * not `type="number"`: a number field grows spinner arrows, changes its value
+ * when the page is scrolled over it or dragged, and accepts "1e5". This keeps
+ * digits and one point with two places after it; a comma is a point.
+ */
+function moneyTyped(raw: string): string {
+  const clean = raw.replace(/,/g, ".").replace(/[^\d.]/g, "")
+  const [whole, ...rest] = clean.split(".")
+  return rest.length ? `${whole.slice(0, 7)}.${rest.join("").slice(0, 2)}` : whole.slice(0, 7)
+}
+
+/** A count as it is typed: digits only. */
+function countTyped(raw: string): string {
+  return raw.replace(/\D/g, "").slice(0, 7)
+}
+
+/** The quiet chip that opens an optional field, the way Shopify offers Compare-at under a price. */
+const OPTION_CHIP =
+  "inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#f1f2f4] px-3 text-[13px] font-medium text-[#4b5563] transition-colors duration-100 hover:bg-[#e8e9ec] hover:text-[#1a1a2e] active:bg-[#e2e3e7] [-webkit-tap-highlight-color:transparent]"
+
 // Limits
 const MAX_PHOTOS = 12
 const MAX_YOUTUBE_VIDEOS = 5
-const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB per file
+const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024 // 10 GB per file (lib/storage/security MAX_DIGITAL_PRODUCT_FILE_SIZE)
 const MAX_DIGITAL_FILES = 15
 
 // Blocked file extensions for security
@@ -346,6 +369,11 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   // Settings tab fields
   const [price, setPrice] = useState(initial.price)
   const [compareAtPrice, setCompareAtPrice] = useState(initial.compareAtPrice)
+  /* The compare-at field shows when there is one, or once its chip is pressed. */
+  const [compareOpen, setCompareOpen] = useState(() => !!initial.compareAtPrice)
+  /* The search engine listing's fields, opened from its card's pencil. */
+  const [seoOpen, setSeoOpen] = useState(false)
+  const compareRef = useRef<HTMLInputElement>(null)
   const [slug, setSlug] = useState(initial.slug)
   const [productType] = useState<"digital" | "course">(initial.productType)
   const [showSalesBadge, setShowSalesBadge] = useState(initial.showSalesBadge)
@@ -398,6 +426,20 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
   // Variants state (max 7 variants)
   const [variants, setVariants] = useState<ProductVariant[]>(initial.variants)
+  /** A new, open variant at the end of the list, scrolled into view once it is drawn. */
+  const addVariant = () => {
+    const variantId = `new-variant-${Date.now()}`
+    setVariants((prev) => [
+      ...prev,
+      { id: variantId, name: "", description: "", price: "", compareAtPrice: "", maxPurchases: "", isExpanded: true, assignedFiles: [], payWhatYouWant: false, pwywMinPrice: "", pwywSuggestedPrice: "" },
+    ])
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const el = document.querySelector(`[data-variant-id="${variantId}"]`)
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
+      }, 50)
+    })
+  }
   const MAX_VARIANTS = 7
 
   // Pay What You Want state (product-level, used when no variants)
@@ -436,6 +478,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
   // FAQ state (3 defaults + unlimited custom)
   const [faqs, setFaqs] = useState<FAQItem[]>(initial.faqs)
+  /* The FAQ card is folded to one line until it is opened or a question is added. */
+  const [faqOpen, setFaqOpen] = useState(false)
 
   // Category state
   const [selectedCategory, setSelectedCategory] = useState<string | null>(initial.selectedCategory)
@@ -743,8 +787,15 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         slug: finalSlug,
         description: savedDescription,
         status: publish ? "published" : "draft",
-        price_cents: Math.round(Number.parseFloat(price || "0") * 100),
-        compare_at_cents: compareAtPrice ? Math.round(Number.parseFloat(compareAtPrice) * 100) : null,
+        /* Free is 0; pay what you want is listed at its minimum; a fixed price is the price. */
+        price_cents: priceMode === "free" ? 0 : priceMode === "pwyw" ? Math.round(Number.parseFloat(pwywMinPrice || "0") * 100) : Math.round(Number.parseFloat(price || "0") * 100),
+        /* A struck-through price only where it is a real discount on a fixed price: never on free or pay what you want, never at or under the price. */
+        compare_at_cents: (() => {
+          if (priceMode !== "fixed" || !compareAtPrice) return null
+          const compare = Math.round(Number.parseFloat(compareAtPrice) * 100)
+          const now = Math.round(Number.parseFloat(price || "0") * 100)
+          return Number.isFinite(compare) && compare > now ? compare : null
+        })(),
         // Thumbnail uses the FIRST media item - respects drag-and-drop ordering
         // If YouTube is 1st, uses YouTube thumbnail. If image is 1st, uses that image.
         thumbnail_url: determinedThumbnailUrl,
@@ -1291,9 +1342,9 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         return
       }
 
-      // Check file size (5GB max)
+      // Check file size (10 GB max)
       if (file.size > MAX_FILE_SIZE) {
-        setError(`File "${file.name}" exceeds 5GB limit`)
+        setError(`File "${file.name}" is over 10 GB, the most one file can be`)
         return
       }
 
@@ -2203,6 +2254,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     placeholder="What it is, who it is for, and what they get"
                     uploadImage={(file) => uploadDescriptionImage(file, { creatorId, productId })}
                     checkSize={descriptionTooLong}
+                    resizable
                   />
                 </div>
               </div>
@@ -2319,52 +2371,26 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                 ref={(el) => { sectionRefs.current.variants = el }}
                 className={CARD}
               >
-                <div className="flex items-start justify-between">
+                {/*
+                  WITH NO VARIANTS THIS IS ONE LINE. "Variants" and "Optional",
+                  then "Add variants for this product": the full editor, with its
+                  names, prices and files, only once there is a variant to edit.
+                */}
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
                       <h2 className={CARD_TITLE}>Variants</h2>
-                      <TooltipIcon
-                        content={<p>Add different versions of your product with different prices</p>}
-                      />
+                      {variants.length === 0 ? <span className="text-[13px] font-normal text-[#9ca3af]">Optional</span> : null}
                     </div>
-                    <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                      Offer different versions or tiers of your product.
-                    </p>
+                    {variants.length > 0 ? (
+                      <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">Different versions or tiers, each with its own price.</p>
+                    ) : null}
                   </div>
-                  {variants.length < MAX_VARIANTS && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const variantId = `new-variant-${Date.now()}`
-                        const newVariant: ProductVariant = {
-                          id: variantId,
-                          name: "",
-                          description: "",
-                          price: "",
-                          compareAtPrice: "",
-                          maxPurchases: "",
-                          isExpanded: true,
-                          assignedFiles: [],
-                          payWhatYouWant: false,
-                          pwywMinPrice: "",
-                          pwywSuggestedPrice: "",
-                        }
-                        setVariants(prev => [...prev, newVariant])
-                        // Smooth scroll to newly added variant after render
-                        requestAnimationFrame(() => {
-                          setTimeout(() => {
-                            const el = document.querySelector(`[data-variant-id="${variantId}"]`)
-                            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
-                          }, 50)
-                        })
-                      }}
-                      className="text-gray-600 border-gray-200 h-8 text-xs rounded-lg hover:bg-gray-50"
-                    >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Add Variant
-                    </Button>
+                  {variants.length > 0 && variants.length < MAX_VARIANTS && (
+                    <button type="button" onClick={addVariant} className={cn(secondaryDepth, "h-8 shrink-0 rounded-lg px-3 text-[13px]")}>
+                      <Plus className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
+                      Add variant
+                    </button>
                   )}
                 </div>
 
@@ -2628,35 +2654,17 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                 )}
 
                 {variants.length === 0 && (
-                  <div className="p-6 rounded-xl bg-gray-50 border border-dashed border-gray-200 text-center">
-                    <Layers className="h-6 w-6 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500 mb-3">No variants yet</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const newVariant: ProductVariant = {
-                          id: `new-variant-${Date.now()}`,
-                          name: "",
-                          description: "",
-                          price: "",
-                          compareAtPrice: "",
-                          maxPurchases: "",
-                          isExpanded: true,
-                          assignedFiles: [],
-                          payWhatYouWant: false,
-                          pwywMinPrice: "",
-                          pwywSuggestedPrice: "",
-                        }
-                        setVariants(prev => [...prev, newVariant])
-                      }}
-                      className="text-gray-600 border-gray-300 h-9 rounded-lg"
-                    >
-                      <Plus className="h-4 w-4 mr-1.5" />
-                      Create your first variant
-                    </Button>
-                  </div>
+                  <button
+                    type="button"
+                    data-add-variants=""
+                    onClick={addVariant}
+                    className="-mx-1.5 -my-1 flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f6f7f8] active:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
+                  >
+                    <span className="grid h-5 w-5 place-items-center rounded-full border-[1.5px] border-[#4b5563] text-[#4b5563]">
+                      <Plus className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+                    </span>
+                    Add variants for this product
+                  </button>
                 )}
               </div>
 
@@ -2692,41 +2700,76 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     {
                       key: "fixed",
                       node: (
-                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                          <div className="space-y-1.5">
-                            <Label htmlFor="price" className="text-xs sm:text-sm font-medium text-gray-700">Price (USD)</Label>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
-                              <Input
-                                id="price"
-                                type="number"
-                                inputMode="decimal"
-                                step="0.01"
-                                min="0"
-                                placeholder="0.00"
-                                value={price}
-                                onChange={(e) => setPrice(e.target.value)}
-                                className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
-                              />
+                        <div className="space-y-3">
+                          <div className={cn("grid gap-3 sm:gap-4", compareOpen ? "grid-cols-2" : "grid-cols-1 sm:max-w-[calc(50%-8px)]")}>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="price" className="text-xs sm:text-sm font-medium text-gray-700">Price</Label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
+                                <Input
+                                  id="price"
+                                  type="text"
+                                  inputMode="decimal"
+                                  autoComplete="off"
+                                  placeholder="0.00"
+                                  value={price}
+                                  onChange={(e) => setPrice(moneyTyped(e.target.value))}
+                                  className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base tabular-nums"
+                                />
+                              </div>
                             </div>
+                            {compareOpen && (
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <Label htmlFor="comparePrice" className="text-xs sm:text-sm font-medium text-gray-700">Compare-at price</Label>
+                                  <button
+                                    type="button"
+                                    aria-label="Remove the compare-at price"
+                                    onClick={() => {
+                                      setCompareAtPrice("")
+                                      setCompareOpen(false)
+                                    }}
+                                    className="-my-1 grid h-7 w-7 place-items-center rounded-md text-[#9ca3af] transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e]"
+                                  >
+                                    <X className="h-3.5 w-3.5" aria-hidden />
+                                  </button>
+                                </div>
+                                <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
+                                  <Input
+                                    id="comparePrice"
+                                    ref={compareRef}
+                                    type="text"
+                                    inputMode="decimal"
+                                    autoComplete="off"
+                                    placeholder="0.00"
+                                    value={compareAtPrice}
+                                    onChange={(e) => setCompareAtPrice(moneyTyped(e.target.value))}
+                                    className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base tabular-nums"
+                                  />
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="space-y-1.5">
-                            <Label htmlFor="comparePrice" className="text-xs sm:text-sm font-medium text-gray-700">Compare at price</Label>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
-                              <Input
-                                id="comparePrice"
-                                type="number"
-                                inputMode="decimal"
-                                step="0.01"
-                                min="0"
-                                placeholder="0.00"
-                                value={compareAtPrice}
-                                onChange={(e) => setCompareAtPrice(e.target.value)}
-                                className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
-                              />
+                          {compareOpen && compareAtPrice && Number.parseFloat(compareAtPrice) <= Number.parseFloat(price || "0") ? (
+                            <p className="text-[13px] leading-[18px] text-[#b45309]">Buyers only see it struck through when it is higher than the price.</p>
+                          ) : null}
+                          {!compareOpen && (
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                data-compare-chip=""
+                                onClick={() => {
+                                  setCompareOpen(true)
+                                  requestAnimationFrame(() => compareRef.current?.focus())
+                                }}
+                                className={OPTION_CHIP}
+                              >
+                                <Plus className="h-3.5 w-3.5" aria-hidden />
+                                Compare-at price
+                              </button>
                             </div>
-                          </div>
+                          )}
                         </div>
                       ),
                     },
@@ -2741,13 +2784,12 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
                                 <Input
                                   id="pwywMin"
-                                  type="number"
+                                  type="text"
                                   inputMode="decimal"
-                                  step="0.01"
-                                  min="0"
+                                  autoComplete="off"
                                   placeholder="0.00"
                                   value={pwywMinPrice}
-                                  onChange={(e) => setPwywMinPrice(e.target.value)}
+                                  onChange={(e) => setPwywMinPrice(moneyTyped(e.target.value))}
                                   className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
                                 />
                               </div>
@@ -2758,13 +2800,12 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
                                 <Input
                                   id="pwywSuggested"
-                                  type="number"
+                                  type="text"
                                   inputMode="decimal"
-                                  step="0.01"
-                                  min="0"
+                                  autoComplete="off"
                                   placeholder="0.00"
                                   value={pwywSuggestedPrice}
-                                  onChange={(e) => setPwywSuggestedPrice(e.target.value)}
+                                  onChange={(e) => setPwywSuggestedPrice(moneyTyped(e.target.value))}
                                   className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
                                 />
                               </div>
@@ -2799,13 +2840,14 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                       />
                     </div>
                     <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                      Answer common questions. Hold and drag to reorder.
+                      {faqOpen ? "Answer common questions. Hold and drag to reorder." : faqs.length === 0 ? "Answer the questions buyers ask." : `${faqs.length} ${faqs.length === 1 ? "question" : "questions"} on the product page.`}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => {
                       const faqId = `custom-${Date.now()}`
+                      setFaqOpen(true)
                       setFaqs(prev => [...prev, {
                         id: faqId,
                         question: "",
@@ -2826,7 +2868,29 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                   </button>
                 </div>
 
-                <FaqList faqs={faqs} onChange={setFaqs} />
+                {/* Folded until asked for: the questions are there on the page either way. */}
+                {faqOpen ? (
+                  <>
+                    <FaqList faqs={faqs} onChange={setFaqs} />
+                    <button type="button" onClick={() => setFaqOpen(false)} className="flex items-center gap-1 text-[13px] font-medium text-[#6b7280] hover:text-[#1a1a2e]">
+                      <ChevronUp className="h-4 w-4" aria-hidden />
+                      Hide questions
+                    </button>
+                  </>
+                ) : faqs.length > 0 ? (
+                  <button
+                    type="button"
+                    data-faq-show=""
+                    onClick={() => setFaqOpen(true)}
+                    className="flex w-full items-center justify-between rounded-xl bg-[#f6f7f8] px-4 py-3 text-left text-[14px] text-[#4b5563] transition-colors hover:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
+                  >
+                    <span className="min-w-0 truncate">{faqs.map((f) => f.question).filter(Boolean).slice(0, 2).join(" · ") || "Your questions"}</span>
+                    <span className="flex shrink-0 items-center gap-1 pl-3 font-medium text-[#1a1a2e]">
+                      Show
+                      <ChevronDown className="h-4 w-4" aria-hidden />
+                    </span>
+                  </button>
+                ) : null}
               </div>
           </div>
 
@@ -2933,13 +2997,13 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     {limitSalesEnabled && (
                       <div className="flex items-center gap-2 px-4 pb-3">
                         <Input
-                          type="number"
+                          type="text"
                           inputMode="numeric"
-                          min="1"
+                          autoComplete="off"
                           placeholder="100"
                           aria-label="Copies"
                           value={salesLimit}
-                          onChange={(e) => setSalesLimit(e.target.value)}
+                          onChange={(e) => setSalesLimit(countTyped(e.target.value))}
                           className="h-11 w-32 rounded-[10px] border-[#e5e7eb] text-[15px] sm:h-9 sm:rounded-lg sm:text-sm"
                         />
                         <span className="text-[14px] text-[#6b7280]">copies</span>
@@ -2983,115 +3047,37 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                 </div>
               </div>
 
-              {/* SEO Section */}
-              <div
-                className={CARD}
-              >
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h2 className={CARD_TITLE}>SEO</h2>
-                    <TooltipIcon
-                      content={
-                        <>
-                          <p className="font-medium mb-2">Search Engine Optimization</p>
-                          <ul className="text-sm space-y-1 list-disc pl-4">
-                            <li>Helps your product appear in Google results</li>
-                            <li>SEO title: max 60 characters for best display</li>
-                            <li>Meta description: max 160 characters</li>
-                            <li>Custom URL slug for clean, shareable links</li>
-                          </ul>
-                        </>
-                      }
-                    />
+              {/*
+                SEARCH ENGINE LISTING, FOLDED. It fills itself in from the
+                title and the description, so most people never need to open
+                it: the card shows how the product reads in a search result,
+                and the pencil opens the fields (a dialog on a computer, the
+                editor's sheet on a phone).
+              */}
+              <div className={CARD} data-seo-card="">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className={CARD_TITLE}>Search engine listing</h2>
+                    <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">How it can look in Google.</p>
                   </div>
-                  <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Optimize your product for search engines.
-                  </p>
+                  <button
+                    type="button"
+                    aria-label="Edit the search engine listing"
+                    data-seo-edit=""
+                    onClick={() => setSeoOpen(true)}
+                    className={cn(secondaryDepth, "h-8 w-8 shrink-0 rounded-lg p-0")}
+                  >
+                    <Pencil className="h-3.5 w-3.5 text-[#4b5563]" aria-hidden />
+                  </button>
                 </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="seoTitle" className="text-xs sm:text-sm font-medium text-gray-700">
-                    SEO title
-                  </Label>
-                  <Input
-                    id="seoTitle"
-                    placeholder="Product title for search engines"
-                    value={seoTitle}
-                    onChange={(e) => setSeoTitle(e.target.value)}
-                    className="h-11 border-gray-200 text-sm sm:text-base"
-                  />
-                  <p className="text-[10px] sm:text-xs text-gray-400">
-                    {seoTitle.length}/60 characters
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] text-[#4b5563]">
+                    storelib.com/{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/{slug || "product-url"}
                   </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="seoDescription" className="text-xs sm:text-sm font-medium text-gray-700">
-                    SEO description
-                  </Label>
-                  <Textarea
-                    id="seoDescription"
-                    placeholder="Auto-generated from your product description"
-                    value={seoDescription}
-                    onChange={(e) => {
-                      seoManuallyEditedRef.current = true // Track that user manually edited
-                      setSeoDescription(e.target.value)
-                    }}
-                    className="border-gray-200 min-h-[80px] sm:min-h-[100px] text-sm sm:text-base"
-                  />
-                  <p className="text-[10px] sm:text-xs text-gray-400">
-                    {seoDescription.length}/160 characters {seoDescription.length > 160 && <span className="text-amber-500">• Recommended: under 160</span>}
+                  <p className="mt-0.5 truncate text-[16px] leading-6 text-[#1a0dab]">{seoTitle || title || "Product title"}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-[#4d5156]">
+                    {plainSearchPreviewDescription || "Add a description and it shows here."}
                   </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="productUrl" className="text-xs sm:text-sm font-medium text-gray-700">
-                    Product URL
-                  </Label>
-                  {/* In the side column (lg) there is no room for the address in front of the slug; the search preview under it shows it whole. */}
-                  <div className="flex items-center gap-0">
-                    <div className="h-11 px-3 bg-gray-100 border border-r-0 border-gray-200 rounded-l-lg flex items-center lg:hidden">
-                      <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
-                        {/* The address every link uses: storelib.com/<handle>/<slug> (lib/url-helpers getProductShareUrl). */}
-                        storelib.com/{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/
-                      </span>
-                    </div>
-                    <Input
-                      id="productUrl"
-                      placeholder="product-url"
-                      value={slug}
-                      onChange={(e) => {
-                        // Only allow lowercase letters, numbers, and hyphens
-                        const newSlug = e.target.value
-                          .toLowerCase()
-                          .replace(/[^a-z0-9-]/g, '-')
-                          .replace(/--+/g, '-')
-                          .replace(/^-|-$/g, '')
-                        setSlug(newSlug)
-                      }}
-                      className="h-11 border-gray-200 rounded-l-none text-sm sm:text-base flex-1 lg:rounded-l-md"
-                    />
-                  </div>
-                  <p className="text-[10px] sm:text-xs text-gray-400">
-                    Customize your product's URL. Use lowercase letters, numbers, and hyphens only.
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs sm:text-sm font-medium text-gray-700">
-                    Search preview
-                  </Label>
-                  <div className="p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-blue-700 text-sm sm:text-base font-medium truncate">
-                      {seoTitle || title || "Product title"}
-                    </p>
-                    <p className="text-green-700 text-xs sm:text-sm truncate">
-                      storelib.com/{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/{slug || "product-url"}
-                    </p>
-                    <p className="text-gray-600 text-xs sm:text-sm line-clamp-2 mt-0.5">
-                      {plainSearchPreviewDescription || "Product description will appear here..."}
-                    </p>
-                  </div>
                 </div>
               </div>
           </div>
@@ -3140,6 +3126,164 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       </div>
 
       {/* CTA Bottom Sheet */}
+      {/* The search engine listing's fields: the editor's sheet on a phone, a dialog on a computer. */}
+      {isMobileViewport ? (
+        <MobileSheet isOpen={seoOpen} onClose={() => setSeoOpen(false)} maxHeight="88dvh">
+          <div className="space-y-4 px-4 pb-5 pt-1">
+            <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Search engine listing</h2>
+                <div className="space-y-1.5">
+              <Label htmlFor="seoTitle" className="text-xs sm:text-sm font-medium text-gray-700">
+                SEO title
+              </Label>
+              <Input
+                id="seoTitle"
+                placeholder="Product title for search engines"
+                value={seoTitle}
+                onChange={(e) => setSeoTitle(e.target.value)}
+                className="h-11 border-gray-200 text-sm sm:text-base"
+              />
+              <p className="text-[10px] sm:text-xs text-gray-400">
+                {seoTitle.length}/60 characters
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="seoDescription" className="text-xs sm:text-sm font-medium text-gray-700">
+                SEO description
+              </Label>
+              <Textarea
+                id="seoDescription"
+                placeholder="Auto-generated from your product description"
+                value={seoDescription}
+                onChange={(e) => {
+                  seoManuallyEditedRef.current = true // Track that user manually edited
+                  setSeoDescription(e.target.value)
+                }}
+                className="border-gray-200 min-h-[80px] sm:min-h-[100px] text-sm sm:text-base"
+              />
+              <p className="text-[10px] sm:text-xs text-gray-400">
+                {seoDescription.length}/160 characters {seoDescription.length > 160 && <span className="text-amber-500">• Recommended: under 160</span>}
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="productUrl" className="text-xs sm:text-sm font-medium text-gray-700">
+                Product URL
+              </Label>
+              {/* The address in front of the slug, the way every link to it reads. */}
+              <div className="flex items-center gap-0">
+                <div className="h-11 px-3 bg-gray-100 border border-r-0 border-gray-200 rounded-l-lg flex items-center">
+                  <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
+                    {/* The address every link uses: storelib.com/<handle>/<slug> (lib/url-helpers getProductShareUrl). */}
+                    storelib.com/{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/
+                  </span>
+                </div>
+                <Input
+                  id="productUrl"
+                  placeholder="product-url"
+                  value={slug}
+                  onChange={(e) => {
+                    // Only allow lowercase letters, numbers, and hyphens
+                    const newSlug = e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]/g, '-')
+                      .replace(/--+/g, '-')
+                      .replace(/^-|-$/g, '')
+                    setSlug(newSlug)
+                  }}
+                  className="h-11 border-gray-200 rounded-l-none text-sm sm:text-base flex-1"
+                />
+              </div>
+              <p className="text-[10px] sm:text-xs text-gray-400">
+                Customize your product's URL. Use lowercase letters, numbers, and hyphens only.
+              </p>
+            </div>
+
+            <button type="button" onClick={() => setSeoOpen(false)} className={cn(secondaryDepth, "h-11 w-full rounded-xl text-[15px]")}>
+              Done
+            </button>
+          </div>
+        </MobileSheet>
+      ) : (
+        <Dialog open={seoOpen} onOpenChange={setSeoOpen}>
+          <DialogContent className="max-w-[520px] gap-4 rounded-2xl p-6">
+            <DialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">Search engine listing</DialogTitle>
+                <div className="space-y-1.5">
+              <Label htmlFor="seoTitle" className="text-xs sm:text-sm font-medium text-gray-700">
+                SEO title
+              </Label>
+              <Input
+                id="seoTitle"
+                placeholder="Product title for search engines"
+                value={seoTitle}
+                onChange={(e) => setSeoTitle(e.target.value)}
+                className="h-11 border-gray-200 text-sm sm:text-base"
+              />
+              <p className="text-[10px] sm:text-xs text-gray-400">
+                {seoTitle.length}/60 characters
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="seoDescription" className="text-xs sm:text-sm font-medium text-gray-700">
+                SEO description
+              </Label>
+              <Textarea
+                id="seoDescription"
+                placeholder="Auto-generated from your product description"
+                value={seoDescription}
+                onChange={(e) => {
+                  seoManuallyEditedRef.current = true // Track that user manually edited
+                  setSeoDescription(e.target.value)
+                }}
+                className="border-gray-200 min-h-[80px] sm:min-h-[100px] text-sm sm:text-base"
+              />
+              <p className="text-[10px] sm:text-xs text-gray-400">
+                {seoDescription.length}/160 characters {seoDescription.length > 160 && <span className="text-amber-500">• Recommended: under 160</span>}
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="productUrl" className="text-xs sm:text-sm font-medium text-gray-700">
+                Product URL
+              </Label>
+              {/* The address in front of the slug, the way every link to it reads. */}
+              <div className="flex items-center gap-0">
+                <div className="h-11 px-3 bg-gray-100 border border-r-0 border-gray-200 rounded-l-lg flex items-center">
+                  <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
+                    {/* The address every link uses: storelib.com/<handle>/<slug> (lib/url-helpers getProductShareUrl). */}
+                    storelib.com/{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/
+                  </span>
+                </div>
+                <Input
+                  id="productUrl"
+                  placeholder="product-url"
+                  value={slug}
+                  onChange={(e) => {
+                    // Only allow lowercase letters, numbers, and hyphens
+                    const newSlug = e.target.value
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]/g, '-')
+                      .replace(/--+/g, '-')
+                      .replace(/^-|-$/g, '')
+                    setSlug(newSlug)
+                  }}
+                  className="h-11 border-gray-200 rounded-l-none text-sm sm:text-base flex-1"
+                />
+              </div>
+              <p className="text-[10px] sm:text-xs text-gray-400">
+                Customize your product's URL. Use lowercase letters, numbers, and hyphens only.
+              </p>
+            </div>
+
+            <div className="flex justify-end">
+              <button type="button" onClick={() => setSeoOpen(false)} className={cn(secondaryDepth, "h-9 rounded-lg px-4 text-[14px]")}>
+                Done
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
       <MobileSheet isOpen={showCtaSheet} onClose={() => setShowCtaSheet(false)} kept={isMobileViewport}>
         <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
           <h3 className="text-base font-semibold text-gray-900 mb-3">Call to Action</h3>

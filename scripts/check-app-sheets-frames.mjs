@@ -34,6 +34,8 @@
  *   RUNS=3 COMPARE=../base node scripts/check-app-sheets-frames.mjs   (that commit and this one, in turns)
  *   TRACE='<pattern>' node scripts/check-app-sheets-frames.mjs   (where the main thread's time went)
  *   DROP_RULES='<regex>' node scripts/check-app-sheets-frames.mjs   (what the style rules whose selector matches cost)
+ *   NATIVE=1 node scripts/check-app-sheets-frames.mjs   (as the Android app draws it: <html class="capacitor"> from the first paint,
+ *                                                        which the root layout's head script sets, so every html.capacitor rule applies)
  */
 import { execFileSync } from "node:child_process"
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
@@ -115,7 +117,7 @@ execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-app-s
   "--loader:.jsx=jsx", `--alias:@=${from}`, "--loader:.css=empty"],
   { stdio: ["ignore", "ignore", "inherit"], env: { ...process.env, NODE_PATH: join(root, "node_modules") } })
 const file = join(out, `${name}.html`)
-writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+writeFileSync(file, `<!doctype html><html${process.env.NATIVE ? ' class="capacitor"' : ""}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
   `<style>${await appCss(from)}</style><style>body{margin:0;background:#f8f9fa}</style>` +
   `</head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}};window.__err=[];addEventListener("error",e=>__err.push(String(e.message)))</script>` +
   `<script>${readFileSync(join(out, `${name}.js`), "utf8")}</script></body></html>`)

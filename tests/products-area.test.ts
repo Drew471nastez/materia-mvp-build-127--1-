@@ -8,12 +8,14 @@
  * 2. A coupon is checked on the server by readCouponInput and placed in a
  *    view by couponState (lib/checkout/coupons.ts). Both are pure.
  * 3. The shape of the pages: the Products list as a shelf of pictures in
- *    one white card on a phone (its toolbar as the card's first row: the
- *    view, a search, Download; then 64px rows with a 50px picture and
- *    Preview beside the more button) beside a light table from 768px, 7%
- *    bigger from 1024px, one bar at the top of the editor and none at its
- *    foot, and SQL that pastes.
- *    scripts/check-products-page.mjs measures the list.
+ *    one white card on a phone (Download beside New product in the bar; the
+ *    card's toolbar as its first row: the view, a search, Sort, each of the
+ *    two a sheet of its own; then 64px rows with a 50px picture and Preview
+ *    beside the more button) beside a light table from 768px, 7% and then
+ *    3% bigger from 1024px, one bar at the top of the editor and none at
+ *    its foot, and SQL that pastes.
+ *    scripts/check-products-page.mjs measures the list and
+ *    scripts/check-products-sheets.mjs the phone's two sheets.
  */
 import { readFileSync, existsSync } from "node:fs"
 import { initialForm, snapshotOf, snapshotOfForm, DEFAULT_FAQS, DEFAULT_WHATS_INCLUDED, type LoadedProduct } from "@/app/app/products/new/editor-form"
@@ -115,7 +117,8 @@ check("no page or loading boundary under app/app/products draws an outline of th
   check("and the list still prefetches the editor, data and all, when a row is hovered, touched, pressed or focused",
     /warmEditor\(router, `\/app\/products\/\$\{id\}`\)/.test(listSrc) && /export function warmEditor\(router: Router, href: string\) \{\s*prefetchAppPage\(router, href\)/.test(ret)
       && /router\.prefetch\(href, \{ kind: "full" \} as never\)/.test(read("lib/ui/app-navigation.ts"))
-      && /onPointerDown: \(\) => warm\(id\),\s*onFocus: \(\) => warm\(id\),/.test(listSrc) && /const WARM_REST_MS = 50/.test(listSrc))
+      && (listSrc.match(/onPointerDown=\{\(\) => api\.current\?\.warm\(product\.id\)\}\s*onFocus=\{\(\) => api\.current\?\.warm\(product\.id\)\}/g) ?? []).length === 2
+      && /resting\.current = setTimeout\(\(\) => warm\(id\), WARM_REST_MS\)/.test(listSrc) && /const WARM_REST_MS = 50/.test(listSrc))
   check("and New product and the first three rows are fetched ahead once the list is idle, once per visit",
     /const WARM_AHEAD = 3/.test(listSrc) && /whenIdle\(\(\) => \{\s*warmNew\(\)\s*for \(const id of firstShown\.current\) warm\(id\)/.test(listSrc)
       && /warmEditor\(router, "\/app\/products\/new"\)/.test(listSrc) && /requestIdleCallback\(task, \{ timeout \}\)/.test(ret))
@@ -158,7 +161,7 @@ check("the product itself in the main column: title, pictures, category, descrip
   [at("sectionRefs.current.about = el"), at("sectionRefs.current.media = el"), at("sectionRefs.current.content = el"), at("sectionRefs.current.category = el"), at("<RichTextEditor"), at("What's Included</h2>"), at("sectionRefs.current.files = el"), at("sectionRefs.current.variants = el"), at(">Pricing</h2>"), at(">FAQ</h2>")]
     .every((i, n, all) => i > mainAt && i < sideAt && (n === 0 || i > all[n - 1])))
 check("how it is shown and found beside it: status (lg only), settings, search",
-  [at('data-editor-status=""'), at(">Settings</h2>"), at(">SEO</h2>")].every((i, n, all) => i > sideAt && (n === 0 || i > all[n - 1]))
+  [at('data-editor-status=""'), at(">Settings</h2>"), at(">Search engine listing</h2>")].every((i, n, all) => i > sideAt && (n === 0 || i > all[n - 1]))
     && /data-editor-status="" className=\{cn\(CARD, "hidden lg:block"\)\}/.test(editor))
 /* Changed on purpose: one card fewer (Category is a field in Content now), so ten. */
 check("every card is the /app card, spaced by its column rather than a margin of its own",
@@ -268,79 +271,102 @@ check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g
 console.log("\nThe Products list: a shelf of pictures on a phone, a light table from 768px")
 
 const list = code("app/app/products/products-client.tsx")
-check("a list under 768px inside the card and the table from it, at 13px and 14px from 1024px (the page's 7%)", /<ul aria-label="Products" data-list="" className="md:hidden" hidden=\{pageProducts\.length === 0\}>/.test(list) && /className="hidden w-full table-fixed border-separate border-spacing-0 text-\[13px\] md:table lg:text-\[14px\]"/.test(list))
+check("a list under 768px inside the card and the table from it, at 13px and 14.5px from 1024px (the page's 7% and 3%)", /<ul aria-label="Products" data-list="" className="md:hidden" hidden=\{pageProducts\.length === 0\}>/.test(list) && /className="hidden w-full table-fixed border-separate border-spacing-0 text-\[13px\] md:table lg:text-\[14\.5px\]"/.test(list))
 check("no table forced sideways on a phone", !/min-w-\[500px\]/.test(list) && !/min-w-max/.test(list) && !/sticky left-0/.test(list))
-check("a hover or a finger prefetches the editor in full", /onTouchStart=\{\(\) => warm\(product\.id\)\}/.test(list) && /warmEditor\(/.test(list))
+check("a hover or a finger prefetches the editor in full", /onTouchStart=\{\(\) => api\.current\?\.warm\(product\.id\)\}/.test(list) && /warmEditor\(/.test(list) && /\bwarm,\n/.test(list))
 const couponsList = code("app/app/coupons/coupons-client.tsx")
 check("no Products and Coupons tabs: Coupons is a page of its own again", !existsSync("app/app/products/products-subnav.tsx") && !/ProductsSubnav|products-subnav/.test(list + couponsList))
 check("with its own title", /<h1[^>]*>Coupons<\/h1>/.test(couponsList))
 const sidebar = code("components/app/sidebar.tsx")
 check("and its own place in the menu, under Products, where it was", /href: "\/app\/products",[\s\S]{0,160}children: \[\{ href: "\/app\/coupons", label: "Coupons" \}\]/.test(sidebar))
-check("the Orders bar and gutter, and Orders' 1200px column made 7% wider (1284px, 34px gutters, a 71px bar) from 1024px",
-  /<PaneBar width=\{PAGE_WIDTH\} className=\{cn\(LIST_BAR, PAGE_BAR, PAGE_GUTTER\)\}>/.test(list) && /const PAGE_BAR = "lg:min-h-\[71px\] lg:pb-\[9px\] lg:pt-\[15px\]"/.test(list) && /from "\.\.\/orders\/order-parts"/.test(list)
-    && /const PAGE_WIDTH = "max-w-\[1200px\] lg:max-w-\[1284px\]"/.test(list) && /const PAGE_GUTTER = "lg:px-\[34px\]"/.test(list) && /cn\("@container mx-auto pb-2 md:pb-8", PAGE_WIDTH, GUTTER, PAGE_GUTTER\)/.test(list))
-/* "On desktop larger screens, make the page just 7% bigger, a little bit." Real sizes, never zoom or a transform. */
-check("from 1024px every size is the page's own times 1.07, in real sizes: text, rows, pictures, heading, the bar's buttons, the search, the views, the footer",
-  /const BAR_BUTTON_SIZE = "lg:h-\[34px\] lg:px-\[13px\] lg:text-\[14px\]"/.test(list)
-    && /className="group h-14 cursor-pointer lg:h-\[60px\] xl:h-\[68px\]/.test(list)
-    && /"h-10 w-10 rounded-\[9px\] lg:h-\[43px\] lg:w-\[43px\] lg:rounded-\[10px\] xl:h-\[47px\] xl:w-\[47px\] xl:rounded-\[11px\]"/.test(list)
-    && /text-\[13px\] font-medium text-\[#1a1a2e\] outline-none hover:underline focus-visible:underline lg:text-\[14px\] xl:text-\[15px\]/.test(list)
-    && /h-9 text-left text-\[12px\] text-\[#6b7280\] lg:h-\[39px\] lg:text-\[13px\] xl:h-\[43px\]/.test(list)
-    && /h-8 w-\[calc\(var\(--views\)\*84px\)\] shrink-0 lg:h-\[34px\] lg:w-\[calc\(var\(--views\)\*90px\)\] xl:w-\[calc\(var\(--views\)\*98px\)\]/.test(list)
-    && /lg:@min-\[700px\]:w-\[257px\] xl:@min-\[700px\]:w-\[289px\]/.test(list)
-    && /text-\[22px\] font-bold leading-7 text-\[#1a1a2e\] sm:text-\[25px\] sm:leading-8 lg:text-\[27px\] lg:leading-\[34px\]/.test(list)
-    && /lg:h-\[43px\] lg:px-\[17px\] xl:h-\[47px\] xl:px-\[21px\]/.test(list)
+check("the Orders bar and gutter, and Orders' 1200px column made 7% and then 3% wider (1323px, 35px gutters, a 73px bar) from 1024px",
+  /<PaneBar width=\{PAGE_WIDTH\} className=\{cn\(LIST_BAR, PAGE_BAR, PAGE_GUTTER\)\}>/.test(list) && /const PAGE_BAR = "lg:min-h-\[73px\] lg:pb-\[9px\] lg:pt-\[15px\]"/.test(list) && /from "\.\.\/orders\/order-parts"/.test(list)
+    && /const PAGE_WIDTH = "max-w-\[1200px\] lg:max-w-\[1323px\]"/.test(list) && /const PAGE_GUTTER = "lg:px-\[35px\]"/.test(list) && /cn\("@container mx-auto pb-2 md:pb-8", PAGE_WIDTH, GUTTER, PAGE_GUTTER\)/.test(list))
+/* "On desktop larger screens, make the page just 7% bigger, a little bit." Then: "just make the products page 3% bigger". Real sizes, never zoom or a transform. */
+check("from 1024px every size is the page's own times 1.07 and then 1.03, in real sizes (boxes to the pixel, text to the half pixel): text, rows, pictures, heading, the bar's buttons, the search, the views, the footer",
+  /const BAR_BUTTON_SIZE = "lg:h-\[35px\] lg:px-\[13px\] lg:text-\[14\.5px\]"/.test(list)
+    && /className="group h-14 cursor-pointer lg:h-\[62px\] xl:h-\[70px\]/.test(list)
+    && /"h-10 w-10 rounded-\[9px\] lg:h-\[44px\] lg:w-\[44px\] lg:rounded-\[10px\] xl:h-\[48px\] xl:w-\[48px\] xl:rounded-\[11px\]"/.test(list)
+    && /text-\[13px\] font-medium text-\[#1a1a2e\] outline-none hover:underline focus-visible:underline lg:text-\[14\.5px\] xl:text-\[15\.5px\]/.test(list)
+    && /h-9 text-left text-\[12px\] text-\[#6b7280\] lg:h-\[40px\] lg:text-\[13\.5px\] xl:h-\[44px\]/.test(list)
+    && /h-8 w-\[calc\(var\(--views\)\*84px\)\] shrink-0 lg:h-\[35px\] lg:w-\[calc\(var\(--views\)\*93px\)\] xl:w-\[calc\(var\(--views\)\*101px\)\]/.test(list)
+    && /lg:@min-\[700px\]:w-\[265px\] xl:@min-\[700px\]:w-\[298px\]/.test(list)
+    && /text-\[22px\] font-bold leading-7 text-\[#1a1a2e\] sm:text-\[25px\] sm:leading-8 lg:text-\[28px\] lg:leading-\[35px\]/.test(list)
+    && /lg:h-\[44px\] lg:px-\[18px\] xl:h-\[48px\] xl:px-\[22px\]/.test(list)
+    && /lg:h-\[35px\] lg:w-\[35px\]"/.test(list) && /lg:h-\[31px\] lg:w-\[35px\]/.test(list)
+    && !/lg:[a-z-]*\[(34|43|47|60|68|71|257|289|1284)px\]/.test(list)
     && !/zoom:|\[zoom|scale-\[1\.0|scale\(1\.0/.test(list))
 /* "In the Products page the New product button at the top should be purple." */
-check("New product is the one violet button, the editor's Save's colour and depth (primaryDepth, not a copy), with no icon, 32px (34 from 1024px), and a 44px press on a phone",
+check("New product is the one violet button, the editor's Save's colour and depth (primaryDepth, not a copy), with no icon, 32px (35 from 1024px), and a 44px press on a phone",
   /const NEW_LOOK = cn\(primaryDepth, PRESS, "h-8 gap-1\.5 rounded-lg px-3 text-\[13px\]", BAR_BUTTON_SIZE\)/.test(list) && /data-new-product=""[\s\S]{0,280}className=\{NEW_LOOK\}\s*>\s*\{t\("products\.newProduct"\)\}\s*<\/Link>/.test(list)
     && /import \{ primaryDepth, quietDepth \} from "\.\/new\/editor-buttons"/.test(list) && !/buttonAccent|buttonPrimary/.test(list) && !/bg-\[#8b5cf6\]/.test(list) && /max-md:after:-inset-1\.5/.test(list))
 /* "Make sure the three dots button in the products page has the same depth as the three dots button in the edit product page." */
 /* "Reduce the products page's overall scale by about 10%": the more button came down with it, the depth stayed. Then Preview joined it at the same size. */
 /* "The three dots button has too much depth, reduce it a little": the editor's and the list's together, so they still match. */
-check("a row's more button wears the editor's quieter icon depth (quietDepth), 32px with a 44px press on a phone (beside Preview), 28px in the table and 30px from 1024px",
+check("a row's more button wears the editor's quieter icon depth (quietDepth), 32px with a 44px press on a phone (beside Preview), 28px in the table and 31px from 1024px",
   /const ROW_BUTTON_PHONE = "relative z-\[1\] h-8 w-8 rounded-lg text-\[#4b5563\] after:absolute after:-inset-1\.5 after:content-\[''\]"/.test(list)
-    && /const ROW_BUTTON_TABLE = "h-7 w-7 rounded-\[7px\] text-\[#4b5563\] lg:h-\[30px\] lg:w-\[30px\] lg:\[&>svg\]:h-\[17px\] lg:\[&>svg\]:w-\[17px\]"/.test(list)
+    && /const ROW_BUTTON_TABLE = "h-7 w-7 rounded-\[7px\] text-\[#4b5563\] lg:h-\[31px\] lg:w-\[31px\] lg:\[&>svg\]:h-\[18px\] lg:\[&>svg\]:w-\[18px\]"/.test(list)
     && /const ROW_MENU_PHONE = cn\(quietDepth, ROW_BUTTON_PHONE\)/.test(list) && /const ROW_MENU_TABLE = cn\(quietDepth, ROW_BUTTON_TABLE\)/.test(list)
     && /className=\{ROW_MENU_PHONE\}/.test(list) && /className=\{ROW_MENU_TABLE\}/.test(list) && !/shadow-\[inset_0_-1px_0/.test(list))
 /* "The eye in the products page should be a View button, text, left of the ... button" on a computer; "on a phone get rid of the eye, just the three dots". */
 check("in the table each row has View, a word, beside the more button at its height and depth; a phone row has only the more button",
-  /const VIEW_TABLE = cn\(EYE_DEPTH, "inline-flex h-7 items-center rounded-\[7px\] px-2\.5 text-\[13px\] font-medium text-\[#4b5563\] lg:h-\[30px\] lg:px-3"\)/.test(list)
-    && /\{opening === product\.id \? openingMark\("phone"\) : null\}\s*<ResponsiveActionMenu/.test(list) && /\{opening === product\.id \? openingMark\("table"\) : previewButton\(product, VIEW_TABLE\)\}\s*<ResponsiveActionMenu/.test(list)
+  /const VIEW_TABLE = cn\(EYE_DEPTH, "inline-flex h-7 items-center rounded-\[7px\] px-2\.5 text-\[13px\] font-medium text-\[#4b5563\] lg:h-\[31px\] lg:px-3 lg:text-\[13\.5px\]"\)/.test(list)
+    && /\{opening \? <OpeningMark size="phone" \/> : null\}\s*<ResponsiveActionMenu/.test(list)
+    && /\{opening \? <OpeningMark size="table" \/> : <Preview product=\{product\} username=\{username\} look=\{VIEW_TABLE\} api=\{api\} \/>\}\s*<ResponsiveActionMenu/.test(list)
     && !/\bEye\b/.test(list))
+/* A pressed row answers at once: its tint held, a spinner where View was; only that row is drawn again (a prop of the memoised row). */
+check("a pressed row holds its tint with a spinner where View was, and only that row is drawn again",
+  /opening=\{opening === product\.id\}/.test(list) && (list.match(/data-opening=\{opening \? "" : undefined\}/g) ?? []).length === 2
+    && /function OpeningMark\(\{ size \}: \{ size: "phone" \| "table" \}\)/.test(list) && /openRow: open,/.test(list))
 check("View opens the product's own page, the address the menu's View opens, in a new tab with noopener noreferrer, labelled with the name",
-  /const url = getProductUrl\(creatorUsername, product\.slug\)/.test(list) && /label: t\("common\.view"\), href: getProductUrl\(creatorUsername, product\.slug\), target: "_blank"/.test(list)
-    && /<a href=\{url\} target="_blank" rel="noopener noreferrer" data-preview="" aria-label=\{`View \$\{product\.title\}`\} onClick=\{openPreview\(url\)\}/.test(list))
+  /const url = getProductUrl\(username, product\.slug\)/.test(list) && /label: labels\.view, href: getProductUrl\(username, product\.slug\), target: "_blank"/.test(list) && /view: t\("common\.view"\)/.test(list)
+    && /<a href=\{url\} target="_blank" rel="noopener noreferrer" data-preview="" aria-label=\{`View \$\{product\.title\}`\} onClick=\{\(e\) => api\.current\?\.openPreview\(url\)\(e\)\}/.test(list))
 check("it never opens the editor too, and in the app it goes through openExternal to the phone's browser",
   /const openPreview = \(url: string\) => \(e: ReactMouseEvent<HTMLAnchorElement>\) => \{\s*e\.stopPropagation\(\)\s*if \(isNativeApp\(\)\) \{\s*e\.preventDefault\(\)\s*openExternal\(url\)/.test(list)
     && /import \{ isNativeApp, openExternal \} from "@\/lib\/native-bridge"/.test(list) && /target\.closest\("a,button,input,label"\)\) return/.test(list))
 check("a product with no public page (a draft, an archived one) draws View off, Publish to view on a pointer",
-  /const previewable = \(product: Product\) => statusOf\(product\) === "live"/.test(list) && /aria-disabled="true" aria-label=\{`View \$\{product\.title\}`\} onClick=\{previewOff\}/.test(list)
+  /const on = productStatus\(product\) === "live"/.test(list) && /aria-disabled="true" aria-label=\{`View \$\{product\.title\}`\} onClick=\{\(e\) => api\.current\?\.previewOff\(e\)\}/.test(list)
     && /Publish to view\s*<\/TooltipContent>/.test(list) && /showNotification\("Publish to view"\)/.test(list))
 check("its name on a pointer is the Website page's tooltip: near black, no arrow, a moment's delay",
   /const TOOLTIP = "rounded-md bg-\[#1a1a2e\] px-2 py-1 text-\[12px\] font-medium text-white shadow-\[0_2px_8px_rgba\(15,23,42,0\.18\)\] \[&_svg\]:hidden!"/.test(list)
     && /<Tooltip delayDuration=\{400\}>\s*<TooltipTrigger asChild>\{button\}<\/TooltipTrigger>\s*<TooltipContent side="top" sideOffset=\{6\} className=\{TOOLTIP\}>/.test(list))
-check("Export is the word in the bar from 768px and Download in the phone's toolbar, and neither it nor New product is in the bar of an empty shop",
-  /aria-label="Export products" className="max-md:hidden" look=\{EXPORT_LOOK\}/.test(list) && /aria-label="Export products" data-download="" look=\{DOWNLOAD_LOOK\}/.test(list)
-    && /\{products\.length > 0 \? \(\s*<div className="flex shrink-0 items-center gap-2 lg:gap-\[9px\]">\s*<ResponsiveActionMenu/.test(list))
+/* "The download icon should be next to the New product button." */
+check("Export is the word in the bar from 768px and on a phone Download, the quiet icon, beside New product (presses meeting, 12px apart); neither it nor New product is in the bar of an empty shop",
+  /aria-label="Export products" className="max-md:hidden" look=\{EXPORT_LOOK\}/.test(list) && /aria-label="Export products" data-download="" className="md:hidden" look=\{DOWNLOAD_LOOK\}/.test(list)
+    && /\{products\.length > 0 \? \(\s*<div className="flex shrink-0 items-center gap-1\.5 md:gap-2 lg:gap-\[9px\]">\s*<ResponsiveActionMenu/.test(list)
+    && list.indexOf('data-download=""') < list.indexOf('data-new-product=""') && list.indexOf('data-download=""') > list.indexOf("<PaneBar"))
 /* "Around the download icon add an extremely small, subtle border to make it like a button, but extremely subtle." */
 check("Download has the faintest border: 1px #eef0f2, 8px round, white, no shadow, a step darker when pressed",
   /const DOWNLOAD_LOOK =\s*"inline-flex h-8 w-8 items-center justify-center rounded-lg border border-\[#eef0f2\] bg-white text-\[#4b5563\][^"]*group-active\/press:bg-\[#f1f2f4\]"/.test(list) && !/const DOWNLOAD_LOOK =[^\n]*\n?[^\n]*shadow-/.test(list))
 check("nothing floats: no fixed New product over the list or the navigation pill", !/fixed[^"]*bottom-/.test(list.slice(list.indexOf("<PaneBar"), list.indexOf("deleteModalOpen && productToDelete"))))
 check("search is a real field that is always there once there are products, not a button that opens one: in the phone's toolbar and above the table",
   /<label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center gap-2 pl-1\.5">/.test(list) && /placeholder="Search and filter"/.test(list) && /className="h-11 min-w-0 flex-1 bg-transparent text-\[16px\]/.test(list)
-    && /<label data-search="" className="flex h-8 min-w-0 flex-1 cursor-text items-center lg:h-\[34px\] @min-\[700px\]:w-\[240px\]/.test(list) && /placeholder="Search products"/.test(list)
+    && /<label data-search="" className="flex h-8 min-w-0 flex-1 cursor-text items-center lg:h-\[35px\] @min-\[700px\]:w-\[240px\]/.test(list) && /placeholder="Search products"/.test(list)
     && (list.match(/\{\.\.\.searchField\}/g) ?? []).length === 2 && !/isSearchOpen|setIsSearchOpen/.test(list))
 /* "The actual products should not have that thing with search products there. It should be integrated in the rows there." */
-check("on a phone the list is one card whose first row is its toolbar: the view with an up and down chevron, the search, a divider, Download; nothing above it",
+check("on a phone the list is one card whose first row is its toolbar: the view with an up and down chevron, the search, a divider, Sort where Download was; nothing above it",
   /data-controls="" className="hidden flex-col gap-2 pt-1 md:flex/.test(list)
     && /className="relative mt-1 overflow-hidden rounded-2xl border border-\[#e5e7eb\]\/60 bg-white shadow-\[0_1px_3px_rgba\(0,0,0,0\.04\)\] md:mt-2\.5 lg:mt-\[11px\]"/.test(list)
     && /<div data-toolbar="" className="flex h-12 items-center gap-1 border-b border-\[#eef0f2\] pl-0\.5 pr-1\.5">/.test(list)
-    && list.indexOf('data-toolbar=""') > list.indexOf('aria-label="Products"\n') && list.indexOf("data-view-select") < list.indexOf('placeholder="Search and filter"') && list.indexOf('placeholder="Search and filter"') < list.indexOf('data-divider=""') && list.indexOf('data-divider=""') < list.indexOf("DOWNLOAD_LOOK}>")
+    && list.indexOf('data-toolbar=""') > list.indexOf('aria-label="Products"\n') && list.indexOf("data-view-select") < list.indexOf('placeholder="Search and filter"') && list.indexOf('placeholder="Search and filter"') < list.indexOf('data-divider=""') && list.indexOf('data-divider=""') < list.indexOf('aria-label="Sort" data-sort=""')
+    && /<Press aria-label="Sort" data-sort="" look=\{cn\(DOWNLOAD_LOOK, sort !== "newest" && SORT_ON\)\}>\s*<ArrowUpDown className="h-4 w-4" \/>/.test(list)
+    && !list.slice(list.indexOf('data-toolbar=""'), list.indexOf('data-list-head=""')).includes("Export products")
     && /\{viewLabel\}\s*<ChevronsUpDown/.test(list))
-check("the view's sheet holds the views and, under Sort by, the orders; the column's name under the toolbar, with no checkbox (nothing to select)",
-  /items=\{viewAndSortItems\}/.test(list) && /\.\.\.sortItems\.map\(\(item, i\) => \(i === 0 \? \{ \.\.\.item, section: "Sort by" \} : item\)\)/.test(list) && /onClick: \(\) => showView\(v\.value\)/.test(list)
+/* "Instead of the download icon where it currently is, put the sort by icon, which opens the mobile bottom sheet with only the sort by options. The view (All, Active, Draft, Archived) bottom sheet ... opens a bottom sheet with only the view options." */
+const pickSheet = code("app/app/products/pick-sheet.tsx")
+check("the view opens a sheet of the views alone and Sort a sheet of the orders alone; the column's name under the toolbar, with no checkbox (nothing to select)",
+  /<PickSheet\s+name="views"\s+title="View"\s+options=\{views\}\s+value=\{view\}\s+onPick=\{pickView\}/.test(list) && /<PickSheet\s+name="sort"\s+title="Sort by"\s+options=\{SORTS\}\s+value=\{sort\}\s+onPick=\{pickSort\}/.test(list)
+    && /const pickView = \(next: string\) => showView\(next as View\)/.test(list) && /const pickSort = \(next: string\) => sortBy\(next as Sort\)/.test(list)
+    && !/viewAndSortItems|section: "Sort by"/.test(list)
     && /data-list-head="" aria-hidden hidden=\{pageProducts\.length === 0\}[^>]*>\s*Product\s*<\/div>/.test(list) && !/type="checkbox"/.test(list))
+check("both are the shared bottom sheet, drawn up to 768px, the one on marked with a check and in semibold, 48px rows",
+  /import \{ BottomSheet \} from "@\/components\/ui\/bottom-sheet"/.test(pickSheet) && /<BottomSheet\s[\s\S]*hideFrom="md"/.test(pickSheet)
+    && /role="option"\s+aria-selected=\{on\}/.test(pickSheet) && /\{on \? <Check className="h-4 w-4" strokeWidth=\{2\.25\} \/> : null\}/.test(pickSheet) && /on && "font-semibold"/.test(pickSheet) && /min-h-\[48px\]/.test(pickSheet))
+check("the press only flips the sheet's own state, and a pick reaches the page once the sheet has gone, and only for a change",
+  /const \[open, setOpen\] = React\.useState\(false\)/.test(pickSheet) && /hapticTap\("soft"\)\s*setOpen\(true\)/.test(pickSheet)
+    && /picked\.current = next === current \? null : next\s*setOpen\(false\)/.test(pickSheet)
+    && /onClosed=\{\(\) => \{\s*const next = picked\.current\s*picked\.current = null\s*if \(next !== null\) onPickRef\.current\(next\)/.test(pickSheet)
+    && /export const PickSheet = React\.memo\(/.test(pickSheet) && /const PickRows = React\.memo\(/.test(pickSheet))
 check("Escape clears the field, and so does its clear button", /e\.key === "Escape" && searchQuery/.test(list) && /aria-label="Clear search"[\s\S]{0,400}onClick=\{clearSearch\}/.test(list))
 check("the field and Sort stack over the views until the column is 700px wide, by container query, not the window",
   /"@container mx-auto pb-2 md:pb-8"/.test(list) && /@min-\[700px\]:flex-row-reverse/.test(list))
@@ -350,25 +376,33 @@ check("as one segmented control whose white segment slides on transform alone, d
 check("sort by newest, oldest, title, price and sales", ["newest", "oldest", "title_asc", "title_desc", "price_desc", "price_asc", "sales"].every((s) => list.includes(`value: "${s}"`)) && /\.sort\(compare\(sort\)\)/.test(list))
 /* A tenth smaller: 72 to 64px rows, a 56 to 50px picture, 15 to 14px names. A phone keeps those; the 7% is from 1024px only. */
 check("phone rows are 64px with a 50px picture inside the card, the name on one 14px line, the press tint only from the row's own link",
-  /className="relative flex h-16 items-center gap-3 px-3 has-\[a\[data-row-link\]:active\]:bg-\[#eef0f2\]/.test(list) && /phone \? "h-\[50px\] w-\[50px\] rounded-\[11px\]"/.test(list) && /block truncate text-\[14px\] font-medium leading-\[18px\]/.test(list) && /before:left-\[74px\]/.test(list))
+  /className="relative flex h-16 items-center gap-3 px-3 \[content-visibility:auto\] has-\[a\[data-row-link\]:active\]:bg-\[#eef0f2\]/.test(list) && /phone \? "h-\[50px\] w-\[50px\] rounded-\[11px\]"/.test(list) && /block truncate text-\[14px\] font-medium leading-\[18px\]/.test(list) && /before:left-\[74px\]/.test(list))
 check("price and sales are quiet grey 12px text under the name, ending in an ellipsis when they do not fit, and a free product says Free", /data-meta="" className="mt-1 block h-4 truncate text-\[12px\][^"]*text-\[#6b7280\]"/.test(list) && /cents > 0 \? formatMoney\(cents\) : "Free"/.test(list) && /\{product\.sales_count \? \(/.test(list))
 check("a phone row names its status only when it is not on sale, as a dot and a word, not a badge",
   /view === "all" && status !== "live"/.test(list) && /function StatusMark/.test(list) && !/StatusBadge/.test(list) && /bg-\[#e0a100\]/.test(list))
 check("a product with no picture shows its first letter, not a box icon", /Array\.from\(title\.trim\(\)\)\[0\]/.test(list) && !/<Package/.test(list))
-check("table rows are 56px (60 from 1024px, 68 from 1280px), the whole row opens the product, and nothing from a menu's portal does", /className="group h-14 cursor-pointer lg:h-\[60px\] xl:h-\[68px\] /.test(list) && /if \(!e\.currentTarget\.contains\(target\) \|\| target\.closest\("a,button,input,label"\)\) return\s*open\(product\.id\)/.test(list) && /requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) => openEditor\(router, href\)\)\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
-check("no grey heading band in the table", !/bg-\[#f7f7f8\] pl-4/.test(list) && /<th scope="col" className="border-b border-\[#eef0f2\] pl-4 pr-3 font-medium lg:pl-\[17px\] lg:pr-\[13px\] xl:pl-\[21px\]">Product<\/th>/.test(list))
-check("numbers right aligned in figures of one width, Sales from 1024px", /text-right font-medium tabular-nums text-\[#1a1a2e\]/.test(list) && /hidden w-\[94px\] border-b border-\[#eef0f2\] px-3 text-right font-medium lg:table-cell lg:px-\[13px\] xl:w-\[107px\]">Sales/.test(list))
+check("table rows are 56px (62 from 1024px, 70 from 1280px), the whole row opens the product, and nothing from a menu's portal does", /className="group h-14 cursor-pointer lg:h-\[62px\] xl:h-\[70px\] /.test(list) && /openRow: open,/.test(list) && /api\.current\?\.openRow\(product\.id\)/.test(list) && /requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) => openEditor\(router, href\)\)\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
+check("no grey heading band in the table", !/bg-\[#f7f7f8\] pl-4/.test(list) && /<th scope="col" className="border-b border-\[#eef0f2\] pl-4 pr-3 font-medium lg:pl-\[18px\] lg:pr-\[13px\] xl:pl-\[22px\]">Product<\/th>/.test(list))
+check("numbers right aligned in figures of one width, Sales from 1024px", /text-right font-medium tabular-nums text-\[#1a1a2e\]/.test(list) && /hidden w-\[97px\] border-b border-\[#eef0f2\] px-3 text-right font-medium lg:table-cell lg:px-\[13px\] xl:w-\[110px\]">Sales/.test(list))
 check("fifty to a page, with the footer's count and arrows, the count left off a phone with one page", /const PAGE_SIZE = 50/.test(list) && /data-footer=""/.test(list) && /aria-label="Next page"/.test(list) && /pages === 1 && "max-md:hidden"/.test(list))
 check("every phone press is 44px however small it is drawn", /max-md:min-h-11 max-md:min-w-11/.test(list) && /max-md:after:-inset-1\.5/.test(list) && /trigger=\{<RowMenuButton label=\{`Actions for \$\{product\.title\}`\} className=\{ROW_MENU_PHONE\} \/>\}/.test(list)
   && /data-view-select=""[\s\S]{0,200}className="flex h-11 /.test(list) && /aria-label="Clear search" className="flex h-11 w-11/.test(list))
-check("the product actions are all still there: view, share, archive or restore, duplicate, delete", /t\("common\.view"\)/.test(list) && /handleShare\(product\)/.test(list) && /handleArchive\(product\)/.test(list) && /handleDuplicate\(product\)/.test(list) && /handleDeleteClick\(product\)/.test(list) && /generateProductsCSV/.test(list) && /generateProductsPDF/.test(list))
+check("the product actions are all still there: view, share, archive or restore, duplicate, delete", /t\("common\.view"\)/.test(list) && /api\.current\?\.share\(product\)/.test(list) && /api\.current\?\.archive\(product\)/.test(list) && /api\.current\?\.duplicate\(product\)/.test(list) && /api\.current\?\.remove\(product\)/.test(list)
+  && /share: handleShare,\s*archive: handleArchive,\s*duplicate: handleDuplicate,\s*remove: handleDeleteClick,/.test(list) && /generateProductsCSV/.test(list) && /generateProductsPDF/.test(list))
+/* The phone's sheets: "fast loading, 200 fps smooth, not laggy at all". A sort or a new view moves the rows the page has; it does not draw them again. */
+check("a row is drawn once: the phone's and the table's rows are memoised, and reach the page through rowApi, kept current after each render",
+  /const PhoneRow = memo\(function PhoneRow/.test(list) && /const TableRow = memo\(function TableRow/.test(list) && /import \{ forwardRef, memo,/.test(list)
+    && /const rowApi = useRef<RowApi \| null>\(null\)\s*useLayoutEffect\(\(\) => \{\s*rowApi\.current = \{/.test(list) && /const rowLabels = useMemo<RowLabels>\(/.test(list)
+    && /function useRowActions\(product: Product, username: string, labels: RowLabels, api: RowApiRef\) \{\s*return useMemo\(/.test(list))
+check("a phone row off the screen skips its contents (content-visibility), and is 64px either way", /\[content-visibility:auto\]/.test(list) && /relative flex h-16 items-center/.test(list))
 check("the phone pane leaves the pill's room to the shared page-scroll rule, not a second padding of its own", /className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll/.test(list) && !/pb-24 md:pb-8/.test(list))
 console.log("\nSwitching views, and the way to a product and back")
 
 /* "When I switch between All / Draft / Active / Archived, it should feel smoother." "The image thumbnails should not glitch or flash." */
 check("a row once drawn keeps its element: every product shown since the page opened is drawn, the ones out of view hidden, keyed by id",
   /const drawn = useMemo\(\s*\(\) => \[\.\.\.products\]\.sort\(compare\(sort\)\)\.filter\(\(p\) => shownIds\.has\(p\.id\) \|\| kept\.has\(p\.id\)\)/.test(list)
-    && (list.match(/\{drawn\.map\(\(product\) => \{/g) ?? []).length === 2 && (list.match(/key=\{product\.id\}\s*data-row=\{product\.id\}\s*hidden=\{!shownIds\.has\(product\.id\)\}/g) ?? []).length === 2
+    && (list.match(/\{drawn\.map\(\(product\) => /g) ?? []).length === 2 && (list.match(/<(PhoneRow|TableRow)\s+key=\{product\.id\}\s+product=\{product\}\s+hidden=\{!shownIds\.has\(product\.id\)\}/g) ?? []).length === 2
+    && (list.match(/data-row=\{product\.id\}\s*hidden=\{hidden\}/g) ?? []).length === 2
     && !/pageProducts\.map\(\(product\)/.test(list))
 check("an empty view hides the lists rather than unmounting them", /\{drawn\.length > 0 \? \(/.test(list) && /\{pageProducts\.length === 0 \? \(\s*<div data-empty=""/.test(list))
 check("the hairlines follow the rows shown, not the rows in the page", /\[li:not\(\[hidden\]\)~&\]:before:h-px/.test(list) && /\[tr:not\(\[hidden\]\)~&>td\]:border-t/.test(list) && !/\[&\+li\]|\[&\+tr>td\]/.test(list))
@@ -384,14 +418,14 @@ const animated = [...motion.matchAll(/\.animate\(\s*\[\s*\{ (\w+):/g)].map((m) =
 check("nothing moves under reduced motion, and nothing in it animates layout: opacity, transform and the card's clip only",
   /if \(!section \|\| reducedMotion\(\) \|\| typeof section\.animate !== "function"\) return null/.test(motion) && animated.length >= 5 && animated.every((k) => ["opacity", "transform", "clipPath"].includes(k)), animated)
 /* "Product thumbnail quality dropped too much with the optimisation." Each size offers its 1x, 2x and 3x files at q88 (in next.config's list), not next/image's 1x and 2x at 75. */
-check("each picture is its own size, decoded off the main thread, on grey", /width=\{THUMB_BOX\[size\]\}\s*height=\{THUMB_BOX\[size\]\}\s*loading="lazy"\s*decoding="async"/.test(list) && /const THUMB_BOX: Record<ThumbSize, number> = \{ phone: 50, table: 47 \}/.test(list) && !/<Image[^>]*\bfill\b/.test(list) && /bg-\[#eceef1\]/.test(list))
+check("each picture is its own size, decoded off the main thread, on grey", /width=\{THUMB_BOX\[size\]\}\s*height=\{THUMB_BOX\[size\]\}\s*loading="lazy"\s*decoding="async"/.test(list) && /const THUMB_BOX: Record<ThumbSize, number> = \{ phone: 50, table: 48 \}/.test(list) && !/<Image[^>]*\bfill\b/.test(list) && /bg-\[#eceef1\]/.test(list))
 {
   const config = read("next.config.mjs")
   const q = /const THUMB_QUALITY = PORTRAIT_QUALITY/.test(list) ? Number(/export const PORTRAIT_QUALITY = (\d+)/.exec(read("lib/images/optimized-url.ts"))?.[1]) : 0
   const listed = (/qualities: \[([^\]]*)\]/.exec(config)?.[1] ?? "").split(",").map((x) => Number(x.trim()))
-  check("and sharp: the files a 50px box and a 40/43/47px box need, with honest sizes for each step, at a quality next.config serves",
-    q > 75 && listed.includes(q) && /phone: \[64, 128, 256\], table: \[48, 96, 128\]/.test(list) && /table: "\(min-width: 1280px\) 47px, \(min-width: 1024px\) 43px, 40px"/.test(list)
-      && /"h-10 w-10 rounded-\[9px\] lg:h-\[43px\] lg:w-\[43px\] lg:rounded-\[10px\] xl:h-\[47px\] xl:w-\[47px\] xl:rounded-\[11px\]"/.test(list) && /sizes=\{THUMB_SIZES\[size\]\}/.test(list)
+  check("and sharp: the files a 50px box and a 40/44/48px box need, with honest sizes for each step, at a quality next.config serves",
+    q > 75 && listed.includes(q) && /phone: \[64, 128, 256\], table: \[48, 96, 128\]/.test(list) && /table: "\(min-width: 1280px\) 48px, \(min-width: 1024px\) 44px, 40px"/.test(list)
+      && /"h-10 w-10 rounded-\[9px\] lg:h-\[44px\] lg:w-\[44px\] lg:rounded-\[10px\] xl:h-\[48px\] xl:w-\[48px\] xl:rounded-\[11px\]"/.test(list) && /sizes=\{THUMB_SIZES\[size\]\}/.test(list)
       && /srcSet=\{srcSet \|\| undefined\}/.test(list) && /optimizedSrcSet\(src, THUMB_FILES\[size\], THUMB_QUALITY\)/.test(list) && !/from "next\/image"/.test(list), { q, listed })
 }
 check("the list comes back as it was left: its view, order, search and page, kept for the tab", /let leftAt: \{ view: View; sort: Sort; search: string; page: number \} \| null = null/.test(list) && /leftAt = \{ view, sort, search: searchQuery, page \}/.test(list))
@@ -402,7 +436,8 @@ check("but only on a return: a fresh visit from the sidebar or the pill starts a
     && !/leftAt\?\./.test(list) && /listShown\(\)/.test(list))
 check("the row you came back from is tinted as the list comes back, after the layer's move", /const id = takeEdited\(\)/.test(list) && /delay: LAYER_MOTION_MS/.test(list))
 check("rows and New product open the editor with the layer's move; a press with a modifier is left to the link",
-  /openEditor\(router, href\)/.test(list) && /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(list) && (list.match(/onClick=\{openFromLink\(/g) ?? []).length >= 3)
+  /openEditor\(router, href\)/.test(list) && /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(list) && (list.match(/onClick=\{openFromLink\(/g) ?? []).length >= 2
+    && (list.match(/onClick=\{\(e\) => api\.current\?\.open\(product\.id\)\(e\)\}/g) ?? []).length === 2 && /open: openFromLink,/.test(list))
 
 const layer = code("components/app/page-layer.tsx")
 check("the editor comes and goes as one view transition, waiting only for the router's commit, capped at LAYER_WAIT_MS",
@@ -418,7 +453,8 @@ check("on a phone the layer slides in from the right edge and back out to it; th
     && /html\[data-layer-motion="leave"\]::view-transition-new\(root\) \{\s*animation: none;/.test(css) && /html\[data-layer-motion="leave"\]::view-transition-old\(root\) \{\s*z-index: 1;/.test(css)
     && /animation: layer-sink-out var\(--layer-motion-ms, 300ms\) var\(--layer-motion-ease, ease-out\) both/.test(css) && /mix-blend-mode: normal/.test(css))
 check("the pill keeps its place while a layer moves under it", /html\[data-layer-motion\] \[data-app-nav-pill\] \{\s*view-transition-name: app-nav-pill;/.test(css))
-check("the stage plays no landing of its own under a layer's move", /if \(document\.documentElement\.dataset\.layerMotion\) return\s*playEntrance\(s\.outer/.test(code("components/app/app-stage.tsx")))
+check("the stage plays no landing of its own under a layer's move (the mark read on the commit, and again on the frame the landing would start)",
+  /const layered = !!document\.documentElement\.dataset\.layerMotion\s*requestAnimationFrame\(\(\) => \{\s*const s = scrollers\(\)\s*if \(!s \|\| layered \|\| document\.documentElement\.dataset\.layerMotion\) return\s*playEntrance\(s\.outer/.test(code("components/app/app-stage.tsx")))
 const ret = code("app/app/products/list-return.ts")
 /* "Exit must not leave the editor in the browser's forward/back stack in a surprising way." */
 check("an editor the list opened goes back in history; one opened any other way is replaced by the list, and neither pushes a new entry",

@@ -95,6 +95,9 @@ the page, the server, another section, or anything not handed to it.
 | `page.template` | `"index"`, `"product"`, `"page.about"` |
 | `page.in_editor` | true only while the builder is drawing |
 | `forloop` | inside a `{% for %}`: `.index`, `.index0`, `.first`, `.last`, `.length` |
+| `shop` | this site: `shop.name`, `shop.description`, `shop.url`, `shop.product_count` |
+| `creator` | the creator's public profile: `creator.name`, `creator.headline`, `creator.bio`, `creator.avatar` |
+| `product` | on the product page only, the product it is showing: `product.title`, `.price`, `.compare_price`, `.description` (words), `.description_html` (cleaned markup, print with `raw`), `.image`, `.images`, `.url`, `.includes`, `.id`. Empty everywhere else, so `{% if product %}` tells a section where it is. |
 
 #### Drawing the shop
 
@@ -180,12 +183,17 @@ read the ends of a list or a string.
 | `size` `first` `last` `join: ", "` | lists |
 | `plus` `minus` `times` `divided_by` `round` | numbers |
 | `json` | the value as JSON, for a data attribute |
+| `date: "short"` | a `datetime` for people to read: `long`, `short`, `time`, `long_time`, `iso` |
+| `strip_html` | the words of some markup, for an alt text made from rich text |
+| `lines` | a `textarea` typed one item per line, as a list to loop over |
 | `escape` | escape again; output is already escaped |
-| `raw` | do NOT escape. Richtext settings only |
+| `raw` | do NOT escape. `richtext`, `inline_richtext` and `html` settings, and `product.description_html`, only |
 
 `raw` is the one that can put markup on a page, so it is the one to be
-deliberate about. It exists for `richtext` settings, which are sanitised when
-they are saved.
+deliberate about. It exists for the settings that hold markup, which are
+cleaned against an allow list when they are saved and again when they are
+read, and for a product's description, which is cleaned the same way before
+a template is given it.
 
 ### `<iframe>`
 
@@ -242,13 +250,29 @@ retired without breaking the pages already using it.
 
 Values somebody types or picks:
 
-`text` `textarea` `richtext` `number` `toggle` `checkbox` `select` `radio`
-`range` `color` `color_scheme` `font_picker` `alignment`
+`text` `textarea` `richtext` `inline_richtext` `html` `number` `toggle`
+`checkbox` `select` `radio` `range` `color` `color_background`
+`color_scheme` `font_picker` `alignment` `datetime` `focal_point`
 
 Values that are references to something else:
 
-`image_picker` `image_gallery` `video_picker` `file_picker` `icon_picker`
-`url` `page_picker` `product_picker` `community_picker`
+`image_picker` `image_gallery` `video_picker` `video_url` `file_picker`
+`icon_picker` `url` `page_picker` `product_picker` `product_list`
+`link_list` `community_picker`
+
+A `product_picker` prints as the product's address, as it always has, and
+also carries the product: `settings.product.title`, `.price`, `.image`. A
+`product_list` arrives as a list shaped like `products`, so one card body
+serves both. A `link_list` arrives as `{ handle, title, links }`.
+
+Every value is checked against its type as the section is drawn. A saved
+value the type does not allow, such as a word in a `range` or an option a
+`select` does not list, is drawn as the setting's default; the stored value
+is kept as it was.
+
+A text setting may hold a dynamic source, `{{ product.title }}`, which the
+page fills in on the server before the section is drawn. See the schema
+page of the Developer Hub for the list.
 
 Presentational, holding no value:
 

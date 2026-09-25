@@ -14,7 +14,22 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 const LANGUAGE_STORAGE_KEY = "storelib_language"
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
+export function LanguageProvider({
+  children,
+  fallback = null,
+}: {
+  children: ReactNode
+  /**
+   * What stands where the children will be until the language is known:
+   * on the server, and on the first client render. Nothing by default. The
+   * /app shell passes its own frame with the spinner (app/app/cold-start),
+   * so a page that arrives as a document (a reload, a cold start, a link
+   * the router could not follow) is never a white screen until the script
+   * has run: "that loading freezes, makes the entire page white, blank,
+   * empty, and then takes me to the website builder page."
+   */
+  fallback?: ReactNode
+}) {
   const [language, setLanguageState] = useState<LanguageCode>("en")
   const [isHydrated, setIsHydrated] = useState(false)
 
@@ -49,7 +64,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   // Prevent hydration mismatch by rendering children only after hydration
   if (!isHydrated) {
-    return null
+    /* In a fragment: a component has to return an element, and the fallback may be any node. */
+    return <>{fallback}</>
   }
 
   return (

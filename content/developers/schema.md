@@ -55,8 +55,29 @@ A key the engine does not recognise is kept in the schema, not stripped.
 | `min`, `max`, `step`, `unit` | For `range` and `number`. A range needs `min` and `max`, with `min` below `max`. `step` is above 0, and `unit` is at most 8 characters, such as `px`. |
 | `responsive` | `true`, on a `number`, `range` or `alignment`, makes the value `{ desktop, tablet, mobile }` and puts a Desktop, Tablet, Phone switch above the control. |
 | `content` | For `paragraph`: the line of help it shows. |
+| `visible_if` | When the panel shows the setting, such as `"{{ section.settings.source == 'chosen' }}"`. See [Showing a setting only when it matters](#showing-a-setting-only-when-it-matters). |
+| `limit` | For `product_list`: how many products it holds, 1 to 24. 12 unless set. |
+| `accept` | For `video_url`: the hosts it takes, from `["youtube", "vimeo"]`. Both unless set. |
+| `image` | For `focal_point`: the id of the `image_picker` beside it, which the creator taps to choose the spot. |
 
 `header`, `paragraph` and `divider` draw in the panel and hold no value. They still need an `id`, and take no default. An id starting `hdr_` is how the library names its headers.
+
+### Showing a setting only when it matters
+
+A setting that only means something in one mode can say so, and the panel leaves it out until the section is in that mode:
+
+```json
+{ "type": "select", "id": "source", "label": "Products", "default": "picked",
+  "options": [{ "label": "Cards I fill in", "value": "picked" }, { "label": "Products I choose", "value": "chosen" }] },
+{ "type": "product_list", "id": "chosen", "label": "Products to show",
+  "visible_if": "{{ section.settings.source == 'chosen' }}" }
+```
+
+- The condition is an expression of the template language inside `{{ }}`, the same one an `{% if %}` takes: `==`, `!=`, `<`, `>`, `<=`, `>=`, `contains`, `and`, `or` and `not`.
+- A section's setting may read `section.settings.<id>`. A block's setting may read its own block's `block.settings.<id>` and the section's `section.settings.<id>`.
+- Each setting is read as the page would draw it: the saved value, or the default when nothing was saved. A condition on a toggle that is on by default holds until somebody turns it off.
+- It decides what the panel shows and nothing else. A hidden setting keeps its value, and the template still reads it.
+- The validator refuses a condition that does not parse, one that reads a setting the section or block does not declare, and one that reads its own setting.
 
 ## Every control type
 
@@ -91,6 +112,58 @@ read:   { "columns": { "desktop": 4, "tablet": 4, "mobile": 1 } }
 
 The builder stores a single value while all three are the same and the object the moment they differ. Read one breakpoint in the template as `{{ settings.columns.desktop }}`, or pass all three to CSS as custom properties and choose with container queries.
 
+**Every value is held to its type.** A saved value the control does not allow is drawn as the default, as if it had never been set: a word in a `range`, an option a `select` does not list, a `color` that is not a colour, a link to `javascript:`, a date that is not a date. The stored value is left as it was, so nothing a creator typed is thrown away, and a schema change that makes an old value valid again brings it back.
+
+## Settings that name the shop's own things
+
+A `product_picker`, a `product_list` and a `link_list` each store a name, and each arrives in the template as the thing it names.
+
+**A `product_picker`** stores a product's address or id. It prints as the address, so `href="{{ settings.product | url }}"` works as it always has, and it carries the product's own fields: `title`, `price`, `compare_price`, `image`, `url` and `tag`.
+
+```storelib
+<a class="pick" href="{{ settings.product | url }}">
+  {% if settings.product.image %}<img src="{{ settings.product.image }}" alt="{{ settings.product.title }}">{% endif %}
+  <span>{{ settings.product.title }}</span> <span>{{ settings.product.price }}</span>
+</a>
+```
+
+A product that is unpublished, deleted or somebody else's is an address with no fields, so `{% if settings.product.title %}` tells a section whether it has one. A price typed into the section can fall back to the product's with `default`: `{{ block.settings.price | default: block.settings.product.price }}`.
+
+**A `product_list`** stores up to `limit` products and arrives shaped like `products`, so one card body serves the chosen products and the whole shop:
+
+```storelib
+{% for block in settings.chosen %}
+  <a href="{{ block.settings.url | url }}">{{ block.settings.title }} {{ block.settings.price }}</a>
+{% endfor %}
+```
+
+They come in the order the creator chose them, each once. One that has since been unpublished or deleted is left out rather than drawn empty.
+
+**A `link_list`** stores a menu's handle and arrives as `{ handle, title, links }`, each link `{ title, url, links }` with one level of links under it:
+
+```storelib
+<nav>
+  {% for link in settings.menu.links %}
+    <a href="{{ link.url | url }}">{{ link.title }}</a>
+    {% for child in link.links %}<a href="{{ child.url | url }}">{{ child.title }}</a>{% endfor %}
+  {% endfor %}
+</nav>
+```
+
+A creator makes menus in Theme settings, Menus. `main-menu` is always there and is the header's own links, so a section showing the main menu never has them typed twice. A handle with no menu behind it is an empty menu, never an error.
+
+## Shop data in a setting
+
+A creator can put a fact about the shop into a setting rather than typing it: `{{ shop.name }}` in a heading, `{{ creator.avatar }}` in a picture, `© {{ date.year }}` in a footer. The page fills it in on the server before the section is drawn, so the template reads a finished value and needs nothing special. In the builder, **Insert shop data** under a setting offers the ones that fit it.
+
+@[dynamic-sources]
+
+- Text takes any number of placeholders among other words. A link or a picture takes one, as its whole value.
+- Each value is made safe for where it goes: words in text, cleaned markup only in a rich text setting, and only an address that passes the `url` rules in a link.
+- The list is closed. A name that is not on it is left exactly as typed, so `{{ product.cost }}` in a heading is shown as written rather than filled with something it should not show.
+- Nothing filled in is stored. The setting keeps its placeholder, so the page stays right when the shop's name or a price changes.
+- A section's own template reads the same facts directly, as `shop`, `creator` and `product`. See [Sections](/developers/sections).
+
 ## Media
 
 An `image_picker`, `video_picker` or `file_picker` setting holds the file's **public URL**, and an `image_gallery` a list of them. An upload goes to the creator's storage and the setting is its address; a pasted link is kept as it was typed. A template prints it directly:
@@ -113,7 +186,7 @@ Setting ids and block types are the contract between a section file and every pa
 - change defaults; instances that do not store the setting follow,
 - change markup and CSS.
 
-**Renaming or removing an id loses what was stored under it**, from the section's point of view. The value stays on each page under the old id, where the template cannot read it, and the new id starts at its default. Putting the old id back brings the value back. `migrations`, a list of `{ "from", "to", "since" }` renames, is accepted and kept, and nothing applies it yet: do not rely on it. To change what a setting is called in the panel, change its `label`; the `id` can stay.
+**Renaming or removing an id loses what was stored under it**, from the section's point of view. The value stays on each page under the old id, where the template cannot read it, and the new id starts at its default. Putting the old id back brings the value back. Declare the rename in `migrations`, a list of `{ "from", "to", "since" }`, and a section's own setting stored under `from` is read under `to` whenever `to` holds nothing, as the section is drawn. It applies to the section's settings, not to its blocks' settings, and the stored page is not rewritten. To change what a setting is called in the panel, change its `label`; the `id` can stay.
 
 ## What the validator refuses
 
@@ -129,5 +202,7 @@ Each refusal names the path, such as `settings[3].default`, and the line in the 
 - a block type declared twice, a block `limit` that is not a positive whole number, or `max_blocks` over 50,
 - a preset that sets a setting or adds a block the section does not declare,
 - both `allowed_templates` and `disabled_templates`,
+- a `visible_if` that does not parse, or reads a setting that is not declared,
+- a `product_list` whose `limit` is not a whole number from 1 to 24, a `video_url` that accepts a host Storelib does not play, or a `focal_point` whose `image` is not an `image_picker` beside it,
 - a `schema_version` or `language_version` newer than the engine,
 - more than 120 settings.

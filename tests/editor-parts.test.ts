@@ -91,7 +91,9 @@ const groups = code("lib/products/category-groups.ts")
 /* Changed on purpose: the field takes onClear (its x) and the choice goes through chooseCategory, which ends the preselected suggestion. */
 check("the editor draws the field, with its own reading of the width", /<CategoryPicker\s+value=\{selectedCategory\}\s+onChange=\{chooseCategory\}\s+onClear=\{clearCategory\}\s+suggested=\{suggestedCategory\}\s+isPhone=\{isMobileViewport\}/.test(editor))
 check("the old dialog, its swipe code, the gradient badge and the dots are gone",
-  !/<Dialog|DialogContent|handleSheetTouchStart|dismissingSheet|expandedGroups|CATEGORY_GROUPS/.test(editor) && !/AI Suggested|✨|from-violet-500 to-purple-500/.test(editor) && !/w-1\.5 h-1\.5 rounded-full/.test(editor + picker) && !/icon: "•"/.test(editor + picker))
+  /* The one Dialog left is the search engine listing's fields (a computer's; a phone gets the sheet). */
+  (editor.match(/<Dialog\b/g) ?? []).length === 1 && /<Dialog open=\{seoOpen\} onOpenChange=\{setSeoOpen\}>/.test(editor)
+    && !/handleSheetTouchStart|dismissingSheet|expandedGroups|CATEGORY_GROUPS/.test(editor) && !/AI Suggested|✨|from-violet-500 to-purple-500/.test(editor) && !/w-1\.5 h-1\.5 rounded-full/.test(editor + picker) && !/icon: "•"/.test(editor + picker))
 /* Changed on purpose: "move the category field into the main column, above the description, at every width". */
 check("a field of the product, in the main column above the description, and no Category card beside it",
   editor.indexOf("data-editor-category") > editor.indexOf("sectionRefs.current.content = el") && editor.indexOf("data-editor-category") < editor.indexOf("<RichTextEditor") && editor.indexOf("data-editor-category") < editor.indexOf('data-editor-side=""')

@@ -306,6 +306,96 @@ try {
     }
 
     /*
+      10. A SLOW ANSWER SAYS SO. "It takes too much to load the data in
+      analytics, without showing some feedback to the user." A new period
+      whose answer takes 4.2s: nothing extra for the first 300ms, then the
+      slim progress line along the top of the figures' card, running; the
+      figures stay on screen, blurred; at 2.5s a quiet line over the chart,
+      Counting visits for this range, that moves nothing; when the answer
+      lands the note goes and the line runs to the end and fades. Every
+      frame is read. A quick answer, and the minute's refresh, show neither.
+    */
+    {
+      const sampleWait = async (pick, ms, delay) => {
+        await p.evaluate((d, ms) => { window.__delay = d; window.__waitMs = ms }, delay, ms)
+        await p.evaluate(() => {
+          window.__waitFrames = []
+          const t0 = performance.now()
+          window.__waitT0 = t0
+          const tick = () => {
+            const line = document.querySelector("[data-loading-line]")
+            const note = document.querySelector("[data-counting-note]")
+            const cs = line ? getComputedStyle(line) : null
+            window.__waitFrames.push({
+              t: Math.round(performance.now() - t0),
+              line: cs ? +Number(cs.opacity).toFixed(2) : null,
+              scale: cs && cs.transform !== "none" ? +new DOMMatrixReadOnly(cs.transform).a.toFixed(3) : 0,
+              note: note ? +Number(getComputedStyle(note).opacity).toFixed(2) : null,
+              noteText: note ? note.textContent.trim() : null,
+              soft: document.querySelectorAll("[role=tablist][aria-label=Metric] .blur-\\[2px\\]").length,
+            })
+            if (performance.now() - t0 < window.__waitMs) requestAnimationFrame(tick)
+          }
+          requestAnimationFrame(tick)
+        })
+        await pick()
+        await sleep(ms + 200)
+        await p.evaluate(() => { window.__delay = 120 })
+        return p.evaluate(() => window.__waitFrames)
+      }
+      const choose = (from, to) => async () => {
+        await p.evaluate((re) => [...document.querySelectorAll("button[aria-haspopup=dialog]")].find((b) => new RegExp(re).test(b.textContent)).click(), from)
+        await sleep(450)
+        await p.evaluate((row) => document.querySelector(`[data-row="${row}"]`).click(), to)
+      }
+      const before = await state(p)
+      /* The picker's own sheet or popover takes 450ms to open; the wait is timed from the pick. */
+      const frames = await sampleWait(choose("Last 30 days", "last_12_months"), 5600, 4200)
+      const pickedAt = frames.find((f) => f.soft > 0)?.t ?? 0
+      const at = (ms) => frames.filter((f) => f.t >= pickedAt + ms)[0] || {}
+      const lineOnAt = frames.find((f) => f.t >= pickedAt && f.line > 0.5)?.t
+      const noteOnAt = frames.find((f) => f.t >= pickedAt && f.note > 0.5)?.t
+      const landed = frames.find((f) => f.t > pickedAt + 300 && f.soft === 0)?.t
+      const after = landed ? frames.filter((f) => f.t > landed) : []
+      const lineGoneAt = after.find((f) => f.line === 0)?.t
+      const running = frames.filter((f) => f.t > (lineOnAt ?? Infinity) && f.t < (landed ?? 0)).map((f) => f.scale)
+      const d = delta(before, await state(p))
+      /* What moved while it waited, if anything did: never the line or the note, which lie over the page. */
+      const moved = await why(p, before)
+      const slow = {
+        lineOnAfter: lineOnAt !== undefined ? lineOnAt - pickedAt : null, noteOnAfter: noteOnAt !== undefined ? noteOnAt - pickedAt : null, landedAfter: landed !== undefined ? landed - pickedAt : null,
+        lineGoneAfterLanding: lineGoneAt !== undefined && landed !== undefined ? lineGoneAt - landed : null, noteAfterLanding: after.filter((f) => f.note !== null).length,
+        scale: running.length ? [running[0], running[Math.floor(running.length / 2)], running[running.length - 1]] : [], text: frames.find((f) => f.noteText)?.noteText, blurredWhileWaiting: at(1000).soft, cls: d.cls, moved,
+      }
+      console.log("  a slow answer:", JSON.stringify(slow))
+      expect(slow.lineOnAfter !== null && slow.lineOnAfter >= 280 && slow.lineOnAfter <= 480, "nothing for the first 300ms, then the slim line along the top of the figures", slow.lineOnAfter)
+      expect(running.length > 20 && running.every((x, i) => i === 0 || x >= running[i - 1] - 0.001) && running[running.length - 1] <= 0.9 && running[running.length - 1] > 0.6, "it runs forward and never past 90% while it waits", slow.scale)
+      expect(slow.blurredWhileWaiting === 4, "the figures stay on screen, blurred, while it waits", slow.blurredWhileWaiting)
+      expect(slow.noteOnAfter !== null && slow.noteOnAfter >= 2450 && slow.noteOnAfter <= 2900 && slow.text === "Counting visits for this range", "after 2.5s a quiet line over the chart: Counting visits for this range", [slow.noteOnAfter, slow.text])
+      expect(slow.landedAfter !== null && slow.noteAfterLanding === 0, "gone the moment the figures land", slow.noteAfterLanding)
+      expect(slow.lineGoneAfterLanding !== null && slow.lineGoneAfterLanding >= 150 && slow.lineGoneAfterLanding <= 700, "and the line runs to the end and fades", slow.lineGoneAfterLanding)
+      expect(!moved.some((m) => /counting|loading-line|Counting visits/i.test(m)), "neither the line nor the note moves anything: both lie over the page", moved)
+      const layers = await p.evaluate(() => [document.querySelector("[data-loading-line]"), document.querySelector("[data-counting-note]")].filter(Boolean).map((el) => getComputedStyle(el).position))
+      expect(layers.length >= 1 && layers.every((x) => x === "absolute"), "they are drawn out of the page's flow", layers)
+      if (process.env.SHOTS) {
+        /* The same wait again, stopped at three seconds, for the eye. */
+        await p.evaluate(() => { window.__delay = 4200 })
+        await choose("Last 12 months", "month_to_date")()
+        await sleep(3200)
+        mkdirSync(process.env.SHOTS, { recursive: true })
+        await p.screenshot({ path: join(process.env.SHOTS, `analytics-counting-${vp.hasTouch ? "phone" : "desktop"}.png`) })
+        await sleep(1600)
+        await p.evaluate(() => { window.__delay = 120 })
+      }
+      /* A quick answer: neither. */
+      const quick = await sampleWait(choose(process.env.SHOTS ? "Month to date" : "Last 12 months", "last_30_days"), 1200, 120)
+      expect(quick.every((f) => !f.line) && quick.every((f) => !f.note), "a quick answer draws neither the line nor the note", { line: Math.max(...quick.map((f) => f.line || 0)), note: quick.some((f) => f.note) })
+      /* The minute: neither. */
+      const minute = await sampleWait(() => p.evaluate(() => window.__tick && window.__tick()), 1200, 900)
+      expect(minute.every((f) => !f.line) && minute.every((f) => !f.note), "the minute's refresh draws neither", { line: Math.max(...minute.map((f) => f.line || 0)), note: minute.some((f) => f.note) })
+    }
+
+    /*
       8. FIGURES FIRST. "It takes too long, and it gives users the idea that
       it's not loading." The server sends the figures as soon as it has
       counted them and the lists after (app/api/analytics/reports stream=1).
@@ -515,7 +605,8 @@ try {
           s.remove()
           return z
         })
-        expect(pill === "0", "and an open sheet puts the nav pill under it", pill)
+        /* It steps under the lowest overlay layer (40), not to 0, where the page's own boxes painted over it (app/globals.css). */
+        expect(pill === "39", "and an open sheet puts the nav pill under it, still over the page", pill)
       }
       const before = await state(p)
       await p.evaluate(() => document.querySelector('[data-row="p2"]').click())

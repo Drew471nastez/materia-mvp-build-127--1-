@@ -38,29 +38,17 @@ import { drivePage } from "./editor-probe-harness.mjs"
  */
 const FETCH_STUB = `
 <script>
-(function () {
-  var real = window.fetch
-  var HOME = ["hero_centered", "features_grid", "footer"]
-  var ABOUT = ["about_image", "about_timeline", "footer"]
-  function sections(list) {
-    return list.map(function (type, i) {
-      return { id: type + "-" + i, type: type, name: type, settings: {}, blocks: [], hidden: false }
-    })
-  }
-  window.fetch = function (input, init) {
-    var url = String(typeof input === "string" ? input : (input && input.url) || "")
-    if (url.indexOf("/sections?page=") !== -1) {
-      var page = url.split("page=")[1].split("&")[0]
-      var body = { sections: sections(page === "home" ? HOME : ABOUT), has_draft: false }
-      return new Promise(function (resolve) {
-        setTimeout(function () {
-          resolve(new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } }))
-        }, 450)
-      })
-    }
-    return real.apply(this, arguments)
-  }
-})()
+/* The editor probe (scripts/render-editor-probe.tsx) answers every /api/ call
+   itself, so a fetch stub here was never reached once it did: each page came
+   back as the same page and the switch changed nothing. It is told instead:
+   each page's own sections, answered 450ms late. */
+window.PROBE_PAGES = {
+  home: ["hero_centered", "features_grid", "footer"],
+  about: ["about_image", "about_timeline", "footer"],
+  contact: ["about_image", "about_timeline", "footer"],
+  products: ["about_image", "about_timeline", "footer"],
+}
+window.PROBE_PAGE_DELAY_MS = 450
 </script>`
 
 
@@ -164,11 +152,17 @@ const DRIVE = `
     opener.click()
     await sleep(500)
 
-    var target = null
+    /* A page's row says which page it is (components/website-builder/page-switcher.tsx),
+       so the Add section library's own "About" and "Products" category
+       buttons, mounted behind its closed dialog, cannot be taken for one. */
+    var target = document.querySelector("[data-page-row='about']") || document.querySelector("[data-page-row='contact']")
     var rows = document.querySelectorAll("button, [role=button]")
-    for (var j = 0; j < rows.length; j++) {
+    for (var j = 0; !target && j < rows.length; j++) {
       var t2 = (rows[j].textContent || "").trim()
-      if (/^\\/?(about|contact|product)/i.test(t2) && t2.length < 30) { target = rows[j]; break }
+      /* A page's row is its path. The slash is required since the Add section
+         library stays mounted behind its closed dialog (acc43f33), whose
+         "Products" and "About" category buttons came first without it. */
+      if (/^\\/(about|contact|product)/i.test(t2) && t2.length < 30) { target = rows[j]; break }
     }
     steps.push({ label: "another page to open", found: !!target, text: target ? (target.textContent || "").trim() : "" })
     if (!target) return

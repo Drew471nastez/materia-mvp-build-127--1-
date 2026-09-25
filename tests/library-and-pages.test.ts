@@ -33,7 +33,7 @@ import {
   pageGroupOf,
   pageMatches,
 } from "@/lib/website-builder/page-groups"
-import { BUILT_IN_PAGE_KEYS, pagePath } from "@/lib/website-builder/site-pages"
+import { BUILT_IN_PAGE_KEYS, NOT_FOUND_PAGE_KEY, pagePath } from "@/lib/website-builder/site-pages"
 import { POLICY_PAGES } from "@/lib/website-builder/policy-pages"
 import { ACCOUNT_PAGE_PATHS } from "@/lib/website-builder/account-pages"
 import { afterAddSettles, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
@@ -81,9 +81,9 @@ async function main() {
     ]
     const groups = groupPages(pages)
     const keysOf = (g: string) => groups.find((x) => x.key === g)?.pages.map((p) => p.key) ?? []
-    check("the groups are the ones a shop has, in order", groups.map((g) => g.key).join(",") === "home,shop,products,pages,accounts,contact,policies", groups.map((g) => g.key).join(","))
-    check("named plainly: Home, Shop, Products, Pages, Customer accounts, Contact, Policies",
-      PAGE_GROUP_ORDER.map((g) => PAGE_GROUP_LABELS[g]).join(", ") === "Home, Shop, Products, Pages, Customer accounts, Contact, Policies")
+    check("the groups are the ones a shop has, in order", groups.map((g) => g.key).join(",") === "home,shop,products,pages,accounts,contact,policies,other", groups.map((g) => g.key).join(","))
+    check("named plainly: Home, Shop, Products, Pages, Customer accounts, Contact, Policies, Other",
+      PAGE_GROUP_ORDER.map((g) => PAGE_GROUP_LABELS[g]).join(", ") === "Home, Shop, Products, Pages, Customer accounts, Contact, Policies, Other")
     check("home on its own", keysOf("home").join(",") === "home")
     check("the shop, then its search", keysOf("shop").join(",") === "products,search")
     check("the product page under Products", keysOf("products").join(",") === "product")
@@ -94,6 +94,10 @@ async function main() {
     check("the three policies in the footer's order", keysOf("policies").join(",") === POLICY_PAGES.map((p) => p.key).join(","))
     check("no page is left out or listed twice", groups.reduce((n, g) => n + g.pages.length, 0) === pages.length)
     check("a key nobody knows is one of the creator's pages", pageGroupOf("size-guide") === "pages")
+    /* Every site draws a page for an address it does not have (main's e85caf74), and the builder opens it. */
+    check("the 404 page is a page of its own, under Other, at the end", keysOf("other").join(",") === NOT_FOUND_PAGE_KEY && groups[groups.length - 1].key === "other")
+    check("the visitor's pages are exactly the ones account-pages.ts serves, contact aside",
+      keysOf("accounts").join(",") === Object.keys(ACCOUNT_PAGE_PATHS).filter((k) => k !== "contact").join(","))
     check("an empty group is not there", groupPages([{ key: "home", name: "Home", path: "/" }]).length === 1)
 
     check("a search matches a name or an address, any case, every word", pageMatches({ name: "Sign in", path: "/account/login" }, "LOGIN") && pageMatches({ name: "Refund Policy", path: "/refund-policy" }, "refund pol") && !pageMatches({ name: "Wishlist", path: "/wishlist" }, "cart"))

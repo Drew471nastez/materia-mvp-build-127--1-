@@ -114,12 +114,18 @@ function main() {
 
   check("the editor defers the canvas's copy of the theme", /const canvasThemeSettings = useDeferredValue\(activeThemeSettings\)/.test(editor))
   /* With Ask AI's placeholder laid over the deferred copy, never over the live one. */
-  check("and of the sections",
-    /const deferredSections = useDeferredValue\(sections\)/.test(editor)
+  /* The deferred copy is keyed by the page it belongs to, and a page's first
+     render takes its sections at once: deferring them across a page change
+     drew the page being left under the page being opened for a frame or two
+     (scripts/check-page-switch.mjs). */
+  check("and of the sections, while they belong to the page on screen",
+    /const deferredOnPage = useDeferredValue\(sectionsOnPage\)/.test(editor)
+      && /const deferredSections = deferredOnPage\.page === sectionsOnPage\.page \? deferredOnPage\.sections : sections/.test(editor)
       && /withWritingPlaceholder\(deferredSections, [^)]*\) : deferredSections\)/.test(editor))
   check(
     "and hands the canvas those, not the live ones",
-    /theme=\{canvasThemeSettings\}/.test(editor) && /sections=\{canvasSections\}/.test(editor),
+    /theme=\{canvasThemeSettings\}/.test(editor)
+      && (/sections=\{canvasSections\}/.test(editor) || (/sections=\{drawnSections\}/.test(editor) && /withDynamicSources\(canvasSections,/.test(editor))),
   )
   check(
     "the canvas is memoised, so an unchanged deferred value costs nothing",

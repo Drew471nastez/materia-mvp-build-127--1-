@@ -35,6 +35,7 @@
  * goes in the section's own <script> block, where it is checked and scoped.
  */
 import type { RenderContext, Result, ThemeError } from "../types"
+import { Linked, formatDatetime, plainText, safeHref } from "../values"
 import { guardRawHtml, isScriptScheme } from "./raw-html"
 
 // ── AST ─────────────────────────────────────────────────────────────────────
@@ -515,6 +516,11 @@ function lookup(scope: Record<string, unknown>, segs: string[]): unknown {
     if (BLOCKED_KEYS.has(s)) return undefined
     if (cur === null || cur === undefined) return undefined
     if (typeof cur === "function") return undefined
+    /* A product picker that knows its product: the path reads the product. */
+    if (cur instanceof Linked) {
+      cur = Object.prototype.hasOwnProperty.call(cur.fields, s) ? cur.fields[s] : undefined
+      continue
+    }
     if (Array.isArray(cur)) {
       if (s === "size" || s === "length") { cur = cur.length; continue }
       if (s === "first") { cur = cur[0]; continue }
@@ -535,6 +541,7 @@ function lookup(scope: Record<string, unknown>, segs: string[]): unknown {
 
 function truthy(v: unknown): boolean {
   if (v instanceof Safe) return v.html !== ""
+  if (v instanceof Linked) return v.href !== ""
   if (Array.isArray(v)) return v.length > 0
   return v !== undefined && v !== null && v !== false && v !== "" && !(typeof v === "number" && Number.isNaN(v))
 }
@@ -542,6 +549,7 @@ function truthy(v: unknown): boolean {
 function str(v: unknown): string {
   if (v === undefined || v === null || v === false) return ""
   if (v instanceof Safe) return v.html
+  if (v instanceof Linked) return v.href
   if (typeof v === "object") return JSON.stringify(v)
   return String(v)
 }
@@ -580,12 +588,26 @@ const FILTERS: Record<string, Filter> = {
    * emits is looked at again as it is drawn: storelib/raw-html.ts.
    */
   raw: (v) => new Safe(str(v)),
-  /** An href that is one of ours or an http(s)/mailto/tel address; anything else becomes "#". */
-  url: (v) => { const s = str(v).trim(); return /^(\/(?!\/)|https?:\/\/|mailto:|tel:|#)/i.test(s) ? s : s === "" ? "" : "#" },
+  /**
+   * An href that is one of ours or an http(s)/mailto/tel address; anything
+   * else becomes "#". `/\other.site` is another site to a browser, which
+   * reads the backslash as a slash, so it is not "one of ours".
+   */
+  url: (v) => safeHref(str(v)),
   /** A player address, or nothing. See EMBED_HOSTS. */
   embed: (v) => embedUrl(v),
   /** asset://… → the URL this account serves it from; a plain URL passes through. */
   asset: (v, _a, ctx) => { const s = str(v); return s.startsWith("asset://") ? (ctx.assets[s] ?? "") : s },
+  /** A `datetime` for people to read: "long" (the default), "short", "time", "long_time" or "iso". */
+  date: (v, [style]) => formatDatetime(str(v), style ?? "long"),
+  /** The words of some markup, for an alt text or a title made from rich text. */
+  strip_html: (v) => plainText(str(v)),
+  /**
+   * Each line with something on it, trimmed, as a list: a textarea somebody
+   * typed one item per line. At most 100, so a pasted essay is not a loop of
+   * ten thousand.
+   */
+  lines: (v) => str(v).split(/\r?\n/).map((l) => l.trim()).filter((l) => l !== "").slice(0, 100),
   /** A colour with alpha, for overlays: {{ settings.color | alpha: 0.4 }} */
   alpha: (v, [a]) => {
     const m = str(v).match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)
@@ -599,6 +621,67 @@ const FILTERS: Record<string, Filter> = {
 
 export const FILTER_NAMES = Object.keys(FILTERS)
 
+/* ── conditions: `visible_if` ─────────────────────────────────────────── */
+
+export type ParsedCondition = { ok: true; expr: Expr; paths: string[][] } | { ok: false; message: string }
+
+const conditionCache = new Map<string, ParsedCondition>()
+
+/**
+ * A setting's `visible_if`, written the way Shopify writes it:
+ * `{{ section.settings.source == 'chosen' }}`. Parsed with this language's
+ * own expression grammar, so a condition can say what an `{% if %}` can and
+ * nothing more, and a theme author learns one syntax rather than two.
+ */
+export function parseCondition(source: string): ParsedCondition {
+  const hit = conditionCache.get(source)
+  if (hit) return hit
+  let out: ParsedCondition
+  const m = source.trim().match(/^\{\{([\s\S]*)\}\}$/)
+  if (!m || m[1].trim() === "") {
+    out = { ok: false, message: `write it as {{ … }}, for example "{{ section.settings.layout == 'grid' }}"` }
+  } else {
+    try {
+      const expr = parseExpr(m[1].trim(), 1)
+      const paths: string[][] = []
+      const walk = (e: Expr) => {
+        switch (e.t) {
+          case "path": paths.push(e.segs); break
+          case "not": walk(e.e); break
+          case "bin": walk(e.l); walk(e.r); break
+          case "filter": walk(e.e); e.args.forEach(walk); break
+        }
+      }
+      walk(expr)
+      out = { ok: true, expr, paths }
+    } catch (e) {
+      out = { ok: false, message: e instanceof Error ? e.message : String(e) }
+    }
+  }
+  /* Conditions come from a handful of schemas; the cap only stops a
+     generated one per keystroke from growing this without end. */
+  if (conditionCache.size > 500) conditionCache.clear()
+  conditionCache.set(source, out)
+  return out
+}
+
+const CONDITION_CONTEXT = { settings: {}, blocks: [], theme: {}, scheme: {}, assets: {} } as unknown as RenderContext
+
+/**
+ * Does the condition hold for these values? A condition that does not parse
+ * holds: showing a setting that should have been hidden costs a line in a
+ * panel, and hiding one that should show makes it impossible to change.
+ */
+export function conditionHolds(source: string, scope: Record<string, unknown>): boolean {
+  const parsed = parseCondition(source)
+  if (!parsed.ok) return true
+  try {
+    return truthy(evaluate(parsed.expr, scope, CONDITION_CONTEXT))
+  } catch {
+    return true
+  }
+}
+
 function evaluate(e: Expr, scope: Record<string, unknown>, ctx: RenderContext): unknown {
   switch (e.t) {
     case "lit": return e.v
@@ -607,8 +690,11 @@ function evaluate(e: Expr, scope: Record<string, unknown>, ctx: RenderContext): 
     case "bin": {
       if (e.op === "and") return truthy(evaluate(e.l, scope, ctx)) && truthy(evaluate(e.r, scope, ctx))
       if (e.op === "or") return truthy(evaluate(e.l, scope, ctx)) || truthy(evaluate(e.r, scope, ctx))
-      const l = evaluate(e.l, scope, ctx)
-      const r = evaluate(e.r, scope, ctx)
+      /* A Linked value compares as the address it prints as. */
+      const lv = evaluate(e.l, scope, ctx)
+      const rv = evaluate(e.r, scope, ctx)
+      const l = lv instanceof Linked ? lv.href : lv
+      const r = rv instanceof Linked ? rv.href : rv
       switch (e.op) {
         case "==": return l === r || (l == null && r == null) || (typeof l !== "object" && typeof r !== "object" && String(l) === String(r))
         case "!=": return !(l === r || (l == null && r == null) || (typeof l !== "object" && typeof r !== "object" && String(l) === String(r)))
@@ -672,11 +758,14 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
     scheme: ctx.scheme,
     page: ctx.page,
     section: { ...ctx.section, settings: ctx.settings, blocks: ctx.blocks },
-    /* The store, its addresses, and the visitor: lib/storelib-theme/globals.ts. */
+    /* The store, its addresses, and the visitor: lib/storelib-theme/globals.ts.
+       And what the storefront knows about itself: see RenderContext. */
     shop: ctx.shop ?? {},
     routes: ctx.routes ?? {},
     customer: ctx.customer ?? null,
     wishlist: ctx.wishlist ?? null,
+    creator: ctx.creator ?? {},
+    product: ctx.product ?? null,
   }
   const walk = (nodes: Node[], scope: Record<string, unknown>) => {
     for (const n of nodes) {

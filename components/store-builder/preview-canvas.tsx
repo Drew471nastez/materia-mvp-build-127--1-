@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import type { ShopHeaderSettings, ProductHeaderSettings } from "@/lib/store-builder/types"
 import { Skeleton } from "@/components/ui/skeleton"
+import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
+import { getThemeSkeletonColors } from "@/lib/theme-skeleton-colors"
 import { StorefrontTabs, EmptyTabPanel, type StorefrontTab } from "@/components/storefront/storefront-tabs"
 import { AllProductsGrid } from "@/components/storefront/all-products-grid"
 import {
@@ -417,14 +419,14 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
   // Get theme preset for skeleton loading colors
   const themePreset = draftConfig.globalSettings?.themePreset || "default"
-  const isDarkTheme = themePreset === "astrid"
+  /* Dark by the scheme's page colour, never its name (lib/store-builder/scheme-tone). */
+  const isDarkTheme = isDarkScheme(themePreset)
 
   if (isLoading) {
     // Get theme-specific background colors for loading state
     const getLoadingBackground = () => {
+      if (isDarkTheme) return getThemeSkeletonColors(themePreset).backgroundColor
       switch (themePreset) {
-        case 'astrid':
-          return '#0a0a0a'
         case 'cream':
           return '#FAF4E8'
         case 'bubble':
@@ -439,7 +441,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     }
 
     const getBorderColor = () => {
-      return themePreset === 'astrid' ? '#2a2a2a' : '#e5e7eb'
+      return isDarkTheme ? '#2a2a2a' : '#e5e7eb'
     }
 
     // Product page skeleton
@@ -460,7 +462,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
             <div
               className="h-14 border-b flex items-center justify-between px-4"
               style={{
-                backgroundColor: themePreset === 'astrid' ? '#1a1a1a' : getLoadingBackground(),
+                backgroundColor: isDarkTheme ? '#1a1a1a' : getLoadingBackground(),
                 borderColor: getBorderColor()
               }}
             >
@@ -494,7 +496,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               {isMobile && (
                 <div
                   className="mt-4 rounded-xl border p-4 space-y-3"
-                  style={{ borderColor: getBorderColor(), backgroundColor: themePreset === 'astrid' ? '#1a1a1a' : getLoadingBackground() }}
+                  style={{ borderColor: getBorderColor(), backgroundColor: isDarkTheme ? '#1a1a1a' : getLoadingBackground() }}
                 >
                   <Skeleton themePreset={themePreset} className="h-8 w-24" />
                   <Skeleton themePreset={themePreset} className="h-12 w-full rounded-lg" />
@@ -539,7 +541,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
           {/* Subscribe Bar Skeleton */}
           <div
             className={cn("py-3 px-4 flex items-center justify-center gap-4 border-b", isMobile ? "flex-col gap-2" : "")}
-            style={{ borderColor: getBorderColor(), backgroundColor: themePreset === 'astrid' ? '#1a1a1a' : getLoadingBackground() }}
+            style={{ borderColor: getBorderColor(), backgroundColor: isDarkTheme ? '#1a1a1a' : getLoadingBackground() }}
           >
             <div className="flex items-center gap-3">
               <Skeleton themePreset={themePreset} className="h-8 w-8 rounded-full" />
@@ -590,7 +592,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                 <div
                   key={i}
                   className="rounded-lg border overflow-hidden"
-                  style={{ borderColor: getBorderColor(), backgroundColor: themePreset === 'astrid' ? '#1a1a1a' : getLoadingBackground() }}
+                  style={{ borderColor: getBorderColor(), backgroundColor: isDarkTheme ? '#1a1a1a' : getLoadingBackground() }}
                 >
                   <Skeleton themePreset={themePreset} className="aspect-video w-full" />
                   <div className="p-4 space-y-2">
