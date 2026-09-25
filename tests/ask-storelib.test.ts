@@ -298,7 +298,7 @@ section("The database")
     )
   }
   check("99 has a column for it", /as p24_theme_chat_conversations/.test(after) && /theme_chat_conversations/.test(after))
-  check("and the README lists it", /\| `24_theme_chat_conversations\.sql` \|/.test(readme) && /Parts `01` to `22`/.test(readme))
+  check("and the README lists it", /\| `24_theme_chat_conversations\.sql` \|/.test(readme) && /Parts `01` to `24`/.test(readme))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

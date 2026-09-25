@@ -170,7 +170,7 @@ export function ChoiceSearch({
         autoFocus={autoFocus}
         data-choice-search=""
         className={cn(
-          "w-full min-w-0 rounded-lg border border-[#d5d7dd] bg-white pl-9 pr-3 text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.10)] [&::-webkit-search-cancel-button]:hidden",
+          "w-full min-w-0 rounded-lg border border-[#d5d7dd] bg-white pl-9 pr-3 text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] [&::-webkit-search-cancel-button]:hidden",
           /* 16px on a phone: anything smaller and iOS zooms the page to type. */
           compact ? "h-11 text-[16px]" : "h-9 text-[13px]",
         )}
