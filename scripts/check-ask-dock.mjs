@@ -422,6 +422,14 @@ async function states(browser) {
   await sleep(400)
   const chips = await p.$$eval("[data-ask-suggestion]", (c) => c.map((x) => x.textContent))
   expect(chips.length >= 2 && chips.length <= 3 && chips.some((c) => /heading shorter|button/i.test(c)), "with the hero selected, the suggestions are about the hero", chips)
+  await p.screenshot({ path: join(shots, `${P}states-empty.png`) })
+  /* Nothing selected: the page's own gaps. */
+  await p.evaluate(() => window.__setSelected(undefined))
+  await sleep(250)
+  const pageChips = await p.$$eval("[data-ask-suggestion]", (c) => c.map((x) => x.textContent))
+  expect(pageChips.join() !== chips.join() && pageChips.some((c) => /newest products|buyers say|newsletter/i.test(c)), "with nothing selected they follow the page: its products, what it lacks", pageChips)
+  await p.evaluate(() => window.__setSelected("s2"))
+  await sleep(250)
   await p.evaluate(() => { window.__long = []; window.__frames = []; let last = performance.now(); const tick = (t) => { window.__frames.push(t - last); last = t; if (window.__frames.length < 2000) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
   await p.type("[data-ask-pill] textarea", "Add testimonials under the hero")
   await p.keyboard.press("Enter")
@@ -531,6 +539,7 @@ async function history(browser, vp, hash) {
   await sleep(600)
   const opened = await p.evaluate(() => ({ title: document.querySelector("[data-ask-title]").textContent, prompts: [...document.querySelectorAll("[data-ask-prompt]")].map((x) => x.textContent), count: document.querySelector("[data-ask-count]")?.textContent }))
   expect(opened.title === "Add a newsletter under the FAQ" && opened.prompts[0] === "Add a newsletter under the FAQ" && opened.count === "1 section changed", "opening one shows it, with what it changed counted", opened)
+  await p.screenshot({ path: join(shots, `${P}${label}-opened.png`) })
   const field = hash === "#desktop" ? "[data-ask-pill] textarea" : "[data-chat-composer] textarea"
   await p.type(field, "Make it narrower")
   await p.keyboard.press("Enter")
@@ -846,7 +855,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null
     const want = (name) => !only || only.includes(name)
-    if (want("fade")) { await fade(browser, { width: 1440, height: 900 }); await fade(browser, { width: 1280, height: 800 }) }
+    if (want("fade")) for (const vp of [{ width: 1920, height: 1080 }, { width: 1440, height: 900 }, { width: 1280, height: 800 }]) await fade(browser, vp)
     if (want("labels")) for (const w of [360, 390, 430]) await labels(browser, w)
     if (want("states")) await states(browser)
     if (want("history")) { await history(browser, { width: 1440, height: 900 }, "#desktop"); await history(browser, { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, "#phone") }

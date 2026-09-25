@@ -2730,7 +2730,7 @@ section("The panel says the true thing, and does not make you wait to type")
   )
   check(
     "the not-set-up message does not claim anything is broken: it says what turns it on",
-    /History turns on once the database update is run\. Until then only this chat is kept\./.test(chat) &&
+    /History turns on once the database update is run\. Until then your messages here are kept as one chat\./.test(chat) &&
       /History turns on once the database update is run\./.test(readFileSync(join(root, "components/website-builder/ask-history.tsx"), "utf8")),
   )
 

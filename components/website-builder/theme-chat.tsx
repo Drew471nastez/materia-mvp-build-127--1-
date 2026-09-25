@@ -2011,7 +2011,7 @@ function ThemeChatPanel({
         <div className={cn("flex min-h-full min-w-0 flex-col", dock && maximized && "mx-auto max-w-[720px]")}>
           {historyError === "not_set_up" && (
             <p data-ask-not-set-up="" className="mb-3 text-[12.5px] leading-snug text-[#6b7280]">
-              History turns on once the database update is run. Until then only this chat is kept.
+              History turns on once the database update is run. Until then your messages here are kept as one chat.
             </p>
           )}
           {loadingHistory ? (

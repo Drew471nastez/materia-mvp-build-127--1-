@@ -237,7 +237,7 @@ export function AskHistory({
       ) : problem === "not_set_up" ? (
         <div data-history-not-set-up="" className="px-3 py-3">
           <p className="text-[13px] leading-relaxed text-[#1a1a2e]">History turns on once the database update is run.</p>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-[#6b7280]">Until then only this chat is kept, and a new chat replaces it.</p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-[#6b7280]">Until then your messages on this website are kept as one chat.</p>
           <div className="mt-3 flex items-center gap-2">
             {confirming === "all" ? (
               <>
