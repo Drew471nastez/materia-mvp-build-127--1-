@@ -199,10 +199,15 @@ export function ShimmerSwap({
     return () => window.clearTimeout(t)
   }, [leaving])
 
+  /* The skeleton's box is a formatting context of its own (flow-root) while
+     it is in the flow, as it is once it is laid over the content (absolute):
+     a skeleton whose first block has a top margin (Analytics' donut, mt-2)
+     otherwise lets that margin through, and its box moved up by it on the
+     swap, a layout shift (scripts/check-analytics-reports.mjs, on a phone). */
   return (
     <div data-shimmer-swap={loading ? "loading" : leaving ? "leaving" : "done"} className={cn("relative", className)}>
       {held ? (
-        <div key="skeleton" className={leaving ? "shimmer-leave pointer-events-none absolute inset-0 overflow-hidden" : "h-full"}>
+        <div key="skeleton" className={leaving ? "shimmer-leave pointer-events-none absolute inset-0 overflow-hidden" : "h-full flow-root"}>
           {skeleton}
         </div>
       ) : null}
