@@ -1,7 +1,7 @@
 "use client"
 
 import { useOnePage, OnePageProvider } from "@/lib/onepage/context"
-import { bottomAboveKeyboard, sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
+import { bottomAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import { PhonePreview, MobilePreviewContent } from "./phone-preview"
 import { DesignTab } from "./tabs/design-tab"
 import { LinksTab } from "./tabs/links-tab"
@@ -25,8 +25,14 @@ import {
   Globe,
   Zap,
   AlertCircle,
+  ArrowLeft,
 } from "lucide-react"
 import { useState, useEffect, useCallback, useRef } from "react"
+import { useRouter } from "next/navigation"
+import { BuilderLoader, useLinger } from "@/components/website-builder/builder-loader"
+import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
+import { HtmlClass } from "@/components/platform/html-class"
+import { iconDepth } from "@/components/ui/depth-button"
 import type { OnePage } from "@/lib/onepage/types"
 import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
 import { creatorPageHostFrom } from "@/lib/custom-domains/client"
@@ -40,6 +46,7 @@ import {
 import { OnboardingModal } from "./onboarding-modal"
 import { createClient } from "@/lib/supabase/client"
 import { SaveNotification } from "@/components/ui/save-notification"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 
 // Settings Filter Icon SVG Component
 const SettingsFilterIcon = ({ className }: { className?: string }) => (
@@ -62,7 +69,60 @@ export function OnePageEditor({ initialOnePage }: OnePageEditorProps) {
 
 type TabType = "design" | "links" | "products" | "settings"
 
-// Unsaved Changes Dialog Component — mobile bottom sheet, desktop centered modal
+/*
+  THE EDITOR'S TWO QUESTIONS, ON THE APP'S OWN SHEET ON A PHONE.
+
+  Both used to be a centred dialog pushed to the bottom by hand, with the drag
+  written into React state on every touchmove (a re-render per finger event)
+  and a close that simply unmounted, so a tap on a button made the sheet
+  vanish rather than slide away. Under 768px they are now the shared
+  BottomSheet (components/ui/bottom-sheet.tsx): dragged on the compositor,
+  let go with the finger's real speed, and closed with the same slide down
+  every other sheet in /app has. From 768px they stay a centred dialog.
+*/
+function useIsPhone() {
+  const [isPhone, setIsPhone] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)")
+    const check = () => setIsPhone(mq.matches)
+    check()
+    mq.addEventListener("change", check)
+    return () => mq.removeEventListener("change", check)
+  }, [])
+  return isPhone
+}
+
+function EditorQuestion({
+  open,
+  onClose,
+  label,
+  desktopWidth,
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  label: string
+  desktopWidth: string
+  children: React.ReactNode
+}) {
+  const isPhone = useIsPhone()
+  if (isPhone) {
+    return (
+      <BottomSheet isOpen={open} onClose={onClose} label={label} hideFrom="md">
+        <div className="pb-[max(env(safe-area-inset-bottom),12px)]">{children}</div>
+      </BottomSheet>
+    )
+  }
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogContent className={cn("p-0 gap-0 overflow-hidden w-[calc(100%-32px)] max-w-sm rounded-2xl mx-auto", desktopWidth)}>
+        <DialogTitle className="sr-only">{label}</DialogTitle>
+        {children}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function UnsavedChangesDialog({
   open,
   onClose,
@@ -76,134 +136,53 @@ function UnsavedChangesDialog({
   onDiscard: () => void
   isSaving: boolean
 }) {
-  const [isMobileSheet, setIsMobileSheet] = useState(false)
-  const [isPresented, setIsPresented] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const dragStartY = useRef(0)
-  const dragCurrentY = useRef(0)
-
-  useEffect(() => {
-    const check = () => setIsMobileSheet(window.innerWidth < 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
-
-  useEffect(() => {
-    if (open && isMobileSheet) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setIsPresented(true))
-      })
-    } else {
-      setIsPresented(false)
-      setDragY(0)
-    }
-  }, [open, isMobileSheet])
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    setIsDragging(true)
-    dragStartY.current = e.touches[0].clientY
-    dragCurrentY.current = e.touches[0].clientY
-  }, [])
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    dragCurrentY.current = e.touches[0].clientY
-    const delta = Math.max(0, dragCurrentY.current - dragStartY.current)
-    setDragY(delta)
-  }, [])
-
-  const handleTouchEnd = useCallback(() => {
-    setIsDragging(false)
-    const delta = dragCurrentY.current - dragStartY.current
-    const velocity = delta > 0 ? delta / 300 : 0
-    if (delta > 80 || velocity > 0.5) {
-      setIsPresented(false)
-      setTimeout(() => { onClose(); setDragY(0) }, 400)
-    } else {
-      setDragY(0)
-    }
-  }, [onClose])
-
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent
-        showCloseButton={!isMobileSheet}
-        disableDefaultAnimations={isMobileSheet}
-        disableOverlayDefaultAnimations={isMobileSheet}
-        overlayClassName={isMobileSheet ? cn(
-          "bg-black/40 scrim-graduated transition-opacity duration-400",
-          isPresented ? "opacity-100" : "opacity-0"
-        ) : undefined}
-        onTouchStart={isMobileSheet ? handleTouchStart : undefined}
-        onTouchMove={isMobileSheet ? handleTouchMove : undefined}
-        onTouchEnd={isMobileSheet ? handleTouchEnd : undefined}
-        className={cn(
-          "p-0 gap-0 overflow-hidden",
-          isMobileSheet
-            ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
-            : "w-[calc(100%-32px)] max-w-sm md:max-w-[340px] rounded-2xl mx-auto"
-        )}
-        style={isMobileSheet ? {
-          position: 'fixed',
-          top: 'auto', left: 0, right: 0,
-          ...sheetAboveKeyboard(0.85),
-          transform: isPresented ? `translate3d(0, ${dragY}px, 0)` : 'translate3d(0, 100%, 0)',
-          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-        } : undefined}
-      >
-        {/* Mobile drag handle */}
-        {isMobileSheet && (
-          <div className="pt-3 pb-1 flex justify-center">
-            <div className="h-1.5 w-10 rounded-full bg-gray-300" />
-          </div>
-        )}
+    <EditorQuestion open={open} onClose={onClose} label="Save changes?" desktopWidth="md:max-w-[340px]">
+      <div className="px-6 pt-5 pb-5 text-center md:pt-6">
+        <h2 className="text-[17px] font-semibold text-[#1a1a2e] mb-1.5">Save changes?</h2>
+        <p className="text-sm text-[#6b7280]">
+          Once saved, they'll appear on your OnePage.
+        </p>
+      </div>
 
-        <div className="p-6 text-center">
-          <h2 className="text-lg font-semibold mb-2">Save changes?</h2>
-          <p className="text-sm text-muted-foreground">
-            Once saved, they'll appear on your OnePage.
-          </p>
-        </div>
+      <div className="px-5 pb-5 space-y-2.5 md:px-6 md:pb-6">
+        <button
+          onClick={onSave}
+          disabled={isSaving}
+          data-unsaved-save=""
+          className="w-full h-12 px-4 bg-[#1a1a2e] text-white font-medium rounded-xl hover:bg-[#2a2a40] active:bg-[#0f0f1c] transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.25)]"
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving
+            </>
+          ) : (
+            'Save changes'
+          )}
+        </button>
 
-        <div className="px-6 pb-6 space-y-3">
-          <button
-            onClick={onSave}
-            disabled={isSaving}
-            className="w-full py-3 px-4 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save changes'
-            )}
-          </button>
+        <button
+          onClick={onDiscard}
+          disabled={isSaving}
+          data-unsaved-discard=""
+          className="w-full h-12 px-4 bg-white text-[#c4290c] font-medium rounded-xl border border-[#e5e7eb] hover:bg-[#fafafa] transition-colors disabled:opacity-50"
+        >
+          Discard changes
+        </button>
 
-          <button
-            onClick={onDiscard}
-            disabled={isSaving}
-            className="w-full py-3 px-4 bg-white text-red-600 font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
-          >
-            Discard changes
-          </button>
-
-          <button
-            onClick={onClose}
-            disabled={isSaving}
-            className="w-full py-3 px-4 bg-white text-gray-700 font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
-          >
-            Keep editing
-          </button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        <button
+          onClick={onClose}
+          disabled={isSaving}
+          className="w-full h-11 px-4 text-[#6b7280] font-medium rounded-xl hover:bg-[#f3f4f6] hover:text-[#1a1a2e] transition-colors disabled:opacity-50"
+        >
+          Keep editing
+        </button>
+      </div>
+    </EditorQuestion>
   )
 }
 
-// Pro Upgrade Dialog — mobile bottom sheet on small screens, centered modal on desktop
 function ProUpgradeDialog({
   open,
   onClose,
@@ -217,124 +196,41 @@ function ProUpgradeDialog({
   onDiscard: () => void
   onKeepEditing: () => void
 }) {
-  const [isMobileSheet, setIsMobileSheet] = useState(false)
-  const [isPresented, setIsPresented] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const dragStartY = useRef(0)
-  const dragCurrentY = useRef(0)
-
-  useEffect(() => {
-    const check = () => setIsMobileSheet(window.innerWidth < 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
-
-  useEffect(() => {
-    if (open && isMobileSheet) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setIsPresented(true))
-      })
-    } else {
-      setIsPresented(false)
-      setDragY(0)
-    }
-  }, [open, isMobileSheet])
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    setIsDragging(true)
-    dragStartY.current = e.touches[0].clientY
-    dragCurrentY.current = e.touches[0].clientY
-  }, [])
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    dragCurrentY.current = e.touches[0].clientY
-    const delta = Math.max(0, dragCurrentY.current - dragStartY.current)
-    setDragY(delta)
-  }, [])
-
-  const handleTouchEnd = useCallback(() => {
-    setIsDragging(false)
-    const delta = dragCurrentY.current - dragStartY.current
-    if (delta > 80) {
-      setIsPresented(false)
-      setTimeout(() => { onClose(); setDragY(0) }, 400)
-    } else {
-      setDragY(0)
-    }
-  }, [onClose])
-
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent
-        showCloseButton={!isMobileSheet}
-        disableDefaultAnimations={isMobileSheet}
-        disableOverlayDefaultAnimations={isMobileSheet}
-        overlayClassName={isMobileSheet ? cn(
-          "bg-black/40 scrim-graduated transition-opacity duration-400",
-          isPresented ? "opacity-100" : "opacity-0"
-        ) : undefined}
-        onTouchStart={isMobileSheet ? handleTouchStart : undefined}
-        onTouchMove={isMobileSheet ? handleTouchMove : undefined}
-        onTouchEnd={isMobileSheet ? handleTouchEnd : undefined}
-        className={cn(
-          "p-0 gap-0 overflow-hidden",
-          isMobileSheet
-            ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
-            : "w-[calc(100%-32px)] max-w-sm md:max-w-[450px] rounded-2xl mx-auto"
-        )}
-        style={isMobileSheet ? {
-          position: 'fixed',
-          top: 'auto', left: 0, right: 0,
-          ...sheetAboveKeyboard(0.85),
-          transform: isPresented ? `translate3d(0, ${dragY}px, 0)` : 'translate3d(0, 100%, 0)',
-          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-        } : undefined}
-      >
-        {/* Mobile drag handle */}
-        {isMobileSheet && (
-          <div className="pt-3 pb-1 flex justify-center">
-            <div className="h-1.5 w-10 rounded-full bg-gray-300" />
-          </div>
-        )}
+    <EditorQuestion open={open} onClose={onClose} label="Upgrade to Pro?" desktopWidth="md:max-w-[420px]">
+      <div className="px-6 pt-5 pb-5 text-center md:pt-6">
+        <h2 className="text-[17px] font-semibold text-[#1a1a2e] mb-1.5">Upgrade to Pro?</h2>
+        <p className="text-sm text-[#6b7280] leading-relaxed">
+          The verified badge and hiding Storelib branding are part of Pro. Upgrade to save these changes.
+        </p>
+      </div>
 
-        <div className="p-6 text-center">
-          <h2 className="text-lg font-semibold mb-2">Upgrade to Pro?</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            The verified badge and hiding Storelib branding are part of Pro. Upgrade to save these changes.
-          </p>
-        </div>
+      <div className="px-5 pb-5 space-y-2.5 md:px-6 md:pb-6">
+        <button
+          onClick={onUpgrade}
+          className="w-full h-12 px-5 bg-[#8b5cf6] text-white font-semibold rounded-xl hover:bg-[#7c4fe6] active:bg-[#6d42d4] transition-colors flex items-center justify-center gap-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(76,29,149,0.22)]"
+        >
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+          </svg>
+          Upgrade to Pro
+        </button>
 
-        <div className="px-6 pb-6 space-y-3">
-          <button
-            onClick={onUpgrade}
-            className="w-full py-3 px-5 bg-violet-600 text-white font-semibold rounded-xl hover:bg-violet-700 transition-all shadow-md flex items-center justify-center gap-3"
-          >
-            <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-              <svg className="w-3.5 h-3.5 text-violet-600" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-              </svg>
-            </span>
-            Upgrade Now
-          </button>
+        <button
+          onClick={onDiscard}
+          className="w-full h-12 px-4 bg-white text-[#374151] font-medium rounded-xl border border-[#e5e7eb] hover:bg-[#fafafa] transition-colors"
+        >
+          Discard changes
+        </button>
 
-          <button
-            onClick={onDiscard}
-            className="w-full py-3 px-4 bg-white text-gray-700 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
-          >
-            Discard changes
-          </button>
-
-          <button
-            onClick={onKeepEditing}
-            className="w-full py-3 px-4 bg-white text-gray-500 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
-          >
-            Keep editing
-          </button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        <button
+          onClick={onKeepEditing}
+          className="w-full h-11 px-4 text-[#6b7280] font-medium rounded-xl hover:bg-[#f3f4f6] hover:text-[#1a1a2e] transition-colors"
+        >
+          Keep editing
+        </button>
+      </div>
+    </EditorQuestion>
   )
 }
 
@@ -351,6 +247,66 @@ function EditorLayout() {
     saveError,
     updateSettings,
   } = useOnePage()
+
+  /*
+    THE WAY OUT, THE SAME AS THE CREATOR PAGE AND THE WEBSITE BUILDER. The
+    dark glass with "Going back" goes up, stays long enough to be read, and
+    then /app is pushed, with a ceiling so a slow route cannot hang it (see
+    components/app/creator-page-workspace.tsx, which this copies on purpose).
+    `leavingRef` also stands the beforeunload prompt down: a creator who
+    already chose Save or Discard has answered it.
+  */
+  const router = useRouter()
+  const [leaving, setLeaving] = useState(false)
+  const leavingRef = useRef(false)
+  const cancelCeiling = useRef<(() => void) | null>(null)
+  const leave = useCallback(() => {
+    if (leavingRef.current) return
+    leavingRef.current = true
+    setLeaving(true)
+    cancelCeiling.current?.()
+    const start = window.setTimeout(() => {
+      cancelCeiling.current = navigateWithCeiling(
+        () => router.push("/app"),
+        () => window.location.assign("/app"),
+        (cb, ms) => window.setTimeout(cb, ms),
+        (id) => window.clearTimeout(id),
+      )
+    }, LEAVING_SEEN_MS)
+    cancelCeiling.current = () => window.clearTimeout(start)
+  }, [router])
+  useEffect(() => {
+    if (!leaving) return
+    const revive = () => {
+      leavingRef.current = false
+      setLeaving(false)
+    }
+    const onPageShow = (e: PageTransitionEvent) => { if (e.persisted) revive() }
+    window.addEventListener("pageshow", onPageShow)
+    window.addEventListener("popstate", revive)
+    const watchdog = window.setTimeout(revive, 6000)
+    return () => {
+      window.removeEventListener("pageshow", onPageShow)
+      window.removeEventListener("popstate", revive)
+      window.clearTimeout(watchdog)
+      cancelCeiling.current?.()
+    }
+  }, [leaving])
+  useEffect(() => {
+    try {
+      router.prefetch("/app")
+    } catch {
+      /* A router that will not prefetch still navigates. */
+    }
+  }, [router])
+
+  /* The way in: the light loader over the editor for a beat, then it fades off what arrived. */
+  const [arrived, setArrived] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setArrived(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+  const loaderVisible = useLinger(!arrived, 320)
 
   // --- Hash-based tab navigation ---
   const HASH_TO_TAB: Record<string, TabType> = {
@@ -599,7 +555,7 @@ function EditorLayout() {
   // Handle browser back/forward and page unload
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirty) {
+      if (isDirty && !leavingRef.current) {
         e.preventDefault()
         e.returnValue = ''
         return ''
@@ -696,25 +652,29 @@ function EditorLayout() {
       setIsSavingForNav(false)
     }
     setShowUnsavedDialog(false)
-    if (pendingNavigation && pendingNavigation !== 'back') {
+    if (pendingNavigation === "/app") {
+      leave()
+    } else if (pendingNavigation && pendingNavigation !== 'back') {
       window.location.href = pendingNavigation
     } else if (pendingNavigation === 'back') {
       // Actually go back now
       window.history.go(-2) // Go back 2 because we pushed a state
     }
     setPendingNavigation(null)
-  }, [save, pendingNavigation, hasProFeaturesEnabled, activeTab, userPlan, showSaveFailure])
+  }, [save, pendingNavigation, hasProFeaturesEnabled, activeTab, userPlan, showSaveFailure, leave])
 
   const handleDiscardAndNavigate = useCallback(() => {
     setShowUnsavedDialog(false)
-    if (pendingNavigation && pendingNavigation !== 'back') {
+    if (pendingNavigation === "/app") {
+      leave()
+    } else if (pendingNavigation && pendingNavigation !== 'back') {
       window.location.href = pendingNavigation
     } else if (pendingNavigation === 'back') {
       // Actually go back now
       window.history.go(-2) // Go back 2 because we pushed a state
     }
     setPendingNavigation(null)
-  }, [pendingNavigation])
+  }, [pendingNavigation, leave])
 
   // Handle onboarding completion
   // Note: The onboarding modal already saves everything to the database and calls save()
@@ -806,6 +766,16 @@ function EditorLayout() {
 
   const isSaveDisabled = saveState === "saving" || (saveState === "saved" && !isDirty) || !isDirty
 
+  /* Back to Storelib, asking first when there is work that is not saved. */
+  const handleExit = () => {
+    if (isDirty) {
+      setPendingNavigation("/app")
+      setShowUnsavedDialog(true)
+      return
+    }
+    leave()
+  }
+
   const handleUndoClick = () => {
     undo()
     setHistoryToastMessage("Undone")
@@ -820,11 +790,23 @@ function EditorLayout() {
 
   return (
     <div
-      className="flex flex-col bg-gray-50/50 fixed left-0 right-0 top-[calc(68px+env(safe-area-inset-top))] md:left-[240px] md:top-[58px]"
+      className="flex flex-col bg-gray-50/50 fixed left-0 right-0 top-0 md:left-[240px] md:top-[58px]"
       /* The bottom edge is the keyboard's top when one is up, and the
          screen's bottom when none is: see bottomAboveKeyboard. */
       style={{ zIndex: 30, ...bottomAboveKeyboard() }}
+      data-onepage-editor=""
     >
+      {/*
+        FULL SCREEN ON A PHONE. The editor used to start under the app's black
+        header, 68px down, with a black band under the clock above it. Now it
+        starts at the top of the screen and its own white bar pads itself into
+        the safe area. `with-op-editor` tells app/globals.css to stop painting
+        the black header and the native shield under 768px, where this bar
+        replaces them. From 768px nothing changes: header, rail, editor beside.
+        Hidden rather than covered, so the editor keeps z 30 and every dialog
+        and sheet it opens (z 50) still sits over it.
+      */}
+      <HtmlClass name="with-op-editor" />
       <SaveNotification
         key={saveToastSequence}
         show={saveToastSequence > 0}
@@ -845,32 +827,43 @@ function EditorLayout() {
         icon={<AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" strokeWidth={2.5} />}
       />
       {/* Header - ALWAYS visible with solid background */}
-      <header className="flex items-center border-b bg-white h-[56px] sm:h-[60px] shrink-0 relative z-30 overflow-hidden">
+      <header className="box-content flex items-center border-b bg-white h-[56px] sm:h-[60px] pt-[env(safe-area-inset-top)] md:pt-0 shrink-0 relative z-30 overflow-hidden">
         {/* Left controls area - flex-1 matches editor panel below */}
         <div className="flex-1 min-w-0 h-full px-3 sm:px-4 md:px-0">
           <div className="flex items-center gap-2 sm:gap-3 h-full w-full md:max-w-xl md:mx-auto md:px-6">
-            {/* Undo/Redo Buttons */}
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 cursor-pointer hover:bg-gray-100 transition-colors"
+            {/* The way out on a phone, where the app's header is not drawn. */}
+            <button
+              type="button"
+              onClick={handleExit}
+              aria-label="Back to Storelib"
+              title="Back to Storelib"
+              data-onepage-exit=""
+              className="md:hidden -ml-1 inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e] active:bg-[#eceef1] [-webkit-tap-highlight-color:transparent]"
+            >
+              <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            </button>
+            {/* Undo/Redo: the icon squares from the rest of /app, a hairline and a soft foot */}
+            <div className="flex items-center gap-1.5" data-onepage-history="">
+              <button
+                type="button"
+                className={cn(iconDepth, "h-8 w-8 rounded-[9px] text-[#374151]")}
                 onClick={handleUndoClick}
                 disabled={!canUndo}
                 title="Undo"
+                aria-label="Undo"
               >
-                <Undo2 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 cursor-pointer hover:bg-gray-100 transition-colors"
+                <Undo2 className="h-4 w-4" strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                className={cn(iconDepth, "h-8 w-8 rounded-[9px] text-[#374151]")}
                 onClick={handleRedoClick}
                 disabled={!canRedo}
                 title="Redo"
+                aria-label="Redo"
               >
-                <Redo2 className="h-4 w-4" />
-              </Button>
+                <Redo2 className="h-4 w-4" strokeWidth={2} />
+              </button>
             </div>
 
             {/* Tab Navigation - Desktop - Pill shaped tabs */}
@@ -1268,6 +1261,25 @@ function EditorLayout() {
         onDiscard={handleDiscardProChanges}
         onKeepEditing={handleKeepEditing}
       />
+
+      {/* The way in: the same light loader the creator page shows, faded off the editor once it is drawn. */}
+      {loaderVisible && (
+        <div
+          className="wb-canvas-loader absolute inset-0 z-40 flex items-center justify-center bg-white"
+          data-leaving={arrived}
+          data-onepage-loader=""
+          aria-hidden={arrived}
+        >
+          <BuilderLoader tone="light" lines={["Loading your page"]} />
+        </div>
+      )}
+
+      {/* The way out, the same dark glass as the creator page and the website builder. */}
+      {leaving && (
+        <div className="wb-leaving" role="status" aria-live="polite" aria-label="Going back" data-onepage-leaving="">
+          <BuilderLoader className="wb-leaving-content" tone="dark" lines={["Going back", "Almost there"]} />
+        </div>
+      )}
 
       {/* Onboarding Modal - shown on first visit only, after database check */}
       {onboardingChecked && !completedThisSessionRef.current && (
