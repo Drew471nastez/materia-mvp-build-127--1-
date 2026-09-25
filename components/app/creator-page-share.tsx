@@ -40,7 +40,7 @@ import { Check, Copy, ExternalLink, Globe, ShieldCheck } from "lucide-react"
 
 import { InlinePanel } from "@/components/app/inline-panel"
 import { creatorPageHostFrom } from "@/lib/custom-domains/client"
-import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 
 interface Domain {
   domain?: string | null
@@ -208,28 +208,23 @@ export function CreatorPageShare({
   if (isPhone) {
     return (
       /*
-        The sheet paints itself `bg-background`, which on /app is white. This
-        card is the builder's near-black, so it brings its own surface and
-        fills the sheet edge to edge rather than sitting as a dark rectangle
-        on a white one.
+        THE APP'S OWN SHEET, not the website builder's. The builder's sheet is
+        a whole editing surface (detents, a peek, keyboard insets, a canvas it
+        resizes) and this is a card with an address on it; closing it went
+        through all of that machinery and lagged. components/ui/bottom-sheet
+        opens and closes on the compositor, follows the finger, and is closed
+        out of the document, so nothing peeks. It is painted the builder's
+        near-black, and its skirt inherits that.
       */
-      <MobileEditorSheet
-        open={open}
-        onOpenChange={(o) => { if (!o) onClose() }}
-        fit
+      <BottomSheet
+        isOpen={open}
+        onClose={onClose}
+        label="Your creator page"
+        hideFrom={null}
         className="bg-[#1f1f1f]"
-        /*
-          NOT THE BUILDER'S BASE SHEET. The default peeks 72px above the
-          bottom edge when closed, because the builder's tab row lives in it.
-          This card is not that: left at the default it sat as a permanent
-          dark strip across the bottom of the page — "your page is live is
-          always at the bottom". No peek, and raised above anything else.
-        */
-        peekHeight={0}
-        layer="raised"
       >
         {body}
-      </MobileEditorSheet>
+      </BottomSheet>
     )
   }
 
@@ -243,7 +238,15 @@ export function CreatorPageShare({
       onClose={onClose}
       label="Your creator page"
       className="right-3 top-[56px] w-[420px] max-w-[calc(100vw-16px)]"
-      surfaceClassName="border border-white/10 bg-[#1f1f1f] shadow-[0_24px_80px_-16px_rgba(0,0,0,0.7)]"
+      surfaceClassName="border border-white/10 bg-[#1f1f1f] shadow-[0_24px_80px_-16px_rgba(0,0,0,0.7)] [will-change:transform,opacity]"
+      /*
+        IT LEAVES ON THE PRESS. The shared exit eases in, so for its first four
+        frames the card barely moved and the close read as lag. This one
+        starts at speed and settles, over the same 160ms. The layer is kept
+        ready while the card is up (`will-change`), so the first frame of the
+        exit is not spent rasterising an 80px shadow.
+      */
+      exitClassName="cp-panel-out"
     >
       {body}
     </InlinePanel>

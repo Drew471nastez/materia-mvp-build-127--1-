@@ -1309,6 +1309,14 @@ html.capacitor body {
     from { opacity: 1; transform: none; }
     to { opacity: 0; transform: translateY(6px) scale(0.99); }
   }
+  /**
+   * The workspace's share card leaves at speed and settles, rather than
+   * easing in: a close is an answer to a press, and a curve that barely
+   * moves for its first four frames reads as the press not landing.
+   */
+  .cp-panel-out {
+    animation: wb-settings-out 160ms cubic-bezier(0.2, 0, 0, 1) both;
+  }
   /** The dimmed page behind a panel, which has to go the same way it came. */
   .wb-scrim-in { animation: wb-scrim-in 220ms ease-out both; }
   .wb-scrim-out { animation: wb-scrim-in 160ms ease-in both reverse; }
@@ -1335,6 +1343,7 @@ html.capacitor body {
     .wb-settings-in,
     .wb-settings-swap,
     .wb-settings-out,
+    .cp-panel-out,
     .wb-scrim-in,
     .wb-scrim-out,
     .creator-frame-in,

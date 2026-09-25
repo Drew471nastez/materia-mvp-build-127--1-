@@ -30,29 +30,40 @@ const EXIT_MS = 160
 export function useInlinePresence(open: boolean): { render: boolean; leaving: boolean } {
   const [render, setRender] = useState(open)
   const [leaving, setLeaving] = useState(false)
-  const rendered = useRef(open)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /**
+   * DECIDED IN THE RENDER THAT CLOSES IT, not in an effect after it. The
+   * effect version committed a render with the panel still in its "in"
+   * state, then set `leaving` from a passive effect and rendered again, so
+   * the exit class landed two commits and a frame or three after the press:
+   * the "lags when closed" of the share card. Adjusting state while
+   * rendering, on the change of a prop, is React's own pattern for exactly
+   * this, and the class is on the very first commit after the press.
+   */
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
+    if (open) {
+      setRender(true)
+      setLeaving(false)
+    } else if (render) {
+      setLeaving(true)
+    }
+  }
 
   useEffect(() => {
     if (timer.current) {
       clearTimeout(timer.current)
       timer.current = null
     }
-    if (open) {
-      rendered.current = true
-      setRender(true)
-      setLeaving(false)
-      return
-    }
-    /* Nothing to animate out of if it was never in. */
-    if (!rendered.current) return
-    setLeaving(true)
+    /* Opened again mid-exit: the timer is gone and it simply stays. */
+    if (!leaving) return
     timer.current = setTimeout(() => {
-      rendered.current = false
+      timer.current = null
       setRender(false)
       setLeaving(false)
     }, EXIT_MS)
-  }, [open])
+  }, [leaving])
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
 
@@ -77,6 +88,7 @@ export function InlinePanel({
    * they are written in.
    */
   surfaceClassName = "border border-[#e5e7eb] bg-white shadow-[0_24px_60px_-24px_rgba(0,0,0,0.35)]",
+  exitClassName = "wb-settings-out",
   children,
 }: {
   open: boolean
@@ -84,6 +96,8 @@ export function InlinePanel({
   className?: string
   label?: string
   surfaceClassName?: string
+  /** The panel's exit, when it should not be the shared one. Must last EXIT_MS or less. */
+  exitClassName?: string
   children: React.ReactNode
 }) {
   const { render, leaving } = useInlinePresence(open)
@@ -110,7 +124,7 @@ export function InlinePanel({
         aria-label={label}
         aria-modal="true"
         className={cn(
-          leaving ? "wb-settings-out" : "wb-settings-in",
+          leaving ? exitClassName : "wb-settings-in",
           "absolute z-30 overflow-hidden rounded-2xl",
           surfaceClassName,
           className,
