@@ -20,6 +20,7 @@
  */
 
 import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/loop"
+import { activityLine, changeCount, EMPTY_ACTIVITY, finishedSteps, reduceActivity } from "@/lib/website-builder/ask-activity"
 import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import type { AgentProvider, ProviderTurn, ToolCall } from "@/lib/sites/agent/types"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -256,30 +257,31 @@ section("The panel shows the run and does not invent one")
 // ---------------------------------------------------------------------------
 
 {
-  const panel = read("components/website-builder/work-panel.tsx")
+  /*
+    The chat shows a run as one line that changes, the finished steps folded
+    under a toggle, and the answer (lib/website-builder/ask-activity.ts reads
+    the stream, components/website-builder/ask-activity.tsx draws it). The
+    old panel, with its spinner, "Working" and ticks, is gone.
+  */
+  const lib = read("lib/website-builder/ask-activity.ts")
+  const view = read("components/website-builder/ask-activity.tsx")
+  let a = EMPTY_ACTIVITY
+  a = reduceActivity(a, { type: "step", id: "c1", label: "Reading the FAQ", state: "running" })
+  a = reduceActivity(a, { type: "step", id: "c1", label: "Reading the FAQ", state: "done" })
+  check("the same id replaces its line instead of adding a second", a.steps.length === 1 && a.steps[0].state === "done", JSON.stringify(a.steps))
+  check("while it runs, the line is the step it is on", activityLine(reduceActivity(EMPTY_ACTIVITY, { type: "step", id: "c2", label: "Changing the Hero", state: "running" }), 0) === "Changing the Hero")
+  check("an empty run has nothing to fold away", finishedSteps(EMPTY_ACTIVITY).length === 0 && changeCount(EMPTY_ACTIVITY) === null)
   check(
-    "the same id replaces its line instead of adding a second",
-    /steps\.findIndex\(\(step\) => step\.id === id\)/.test(read("components/website-builder/theme-chat.tsx")),
+    "there is no timer in the reading of it, so nothing can be paced to look busy",
+    !/setInterval|setTimeout/.test(lib),
   )
   check(
-    "it opens while the run is going and shuts itself when it ends",
-    /if \(!running && !touched\.current\) setOpen\(false\)/.test(panel),
-  )
-  check(
-    "a panel somebody opened by hand stays the way they left it",
-    /touched\.current = true/.test(panel),
-  )
-  check(
-    "an empty run draws nothing at all",
-    /if \(!plan && steps\.length === 0 && code\.length === 0\) return null/.test(panel),
-  )
-  check(
-    "there is no timer anywhere in it, so nothing can be paced to look busy",
-    !/setInterval|setTimeout/.test(panel),
+    "the finished steps are a plain list: no ticks, no spinner, no counter",
+    !/Loader2|<Check /.test(view.slice(view.indexOf("export function StepsList"), view.indexOf("export function CodePreview"))) && !/\/\{steps\.length\}|done\}\/\{/.test(view),
   )
   check(
     "code it wrote is capped in height rather than filling the thread",
-    /max-h-56 overflow-auto/.test(panel),
+    /max-h-44 max-w-full overflow-auto/.test(view),
   )
 }
 

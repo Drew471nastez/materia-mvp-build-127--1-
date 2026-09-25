@@ -86,10 +86,26 @@ section("The computer's pill")
       /onClose=\{closeAiDock\}/.test(editor) && /onOpenCodeEditor=\{openAiCodeFromDock\}/.test(editor) &&
       !/onClose=\{\(\) => setAiOpen\(false\)\}/.test(editor),
   )
+  /*
+    "The blur around the Ask Storelib AI thing is really weird, because it's
+    a straight line cut, a container rectangle." The halo was a blurred band
+    that relied on a mask to fade, and where the mask was not honoured it
+    was a hard rectangle. Now the frosted blur is the pill's own, inside its
+    rounded shape, and the glow round it is a shadow: nothing to drop, so no
+    edge anywhere (scripts/check-ask-dock.mjs measures its opacity pixel by
+    pixel). The open conversation is solid, with no backdrop filter to
+    repaint on every scroll of the canvas under it.
+  */
   check(
-    "the pill is frosted: a blur, a whitish fill, a hairline, and a soft halo round it that fades out",
+    "the pill is frosted inside its own shape, and the glow round it is a shadow: no backdrop filter and no mask to drop",
     /data-ask-glass=""[\s\S]{0,120}className="[^"]*bg-white\/70[^"]*backdrop-blur-xl backdrop-saturate-150/.test(chat) &&
-      /backdropFilter: "blur\(6px\)"/.test(chat) && /maskImage: "radial-gradient\(closest-side/.test(chat),
+      /data-ask-halo=""[\s\S]{0,500}boxShadow: "0 6px 44px 14px rgba\(248, 249, 250, 0\.5\)"/.test(chat) &&
+      !/backdropFilter:/.test(chat) && !/maskImage/.test(chat),
+  )
+  check(
+    "the open conversation is solid white, with no backdrop filter",
+    /data-ask-surface=""\s*\n\s*className="[^"]*\bbg-white\b[^"]*"/.test(chat) &&
+      !/data-ask-surface=""\s*\n\s*className="[^"]*backdrop-blur/.test(chat),
   )
   check(
     "opening and closing move on transform and opacity only, on the iOS curve",
@@ -132,10 +148,23 @@ section("The header, on both")
     check(`it has ${label}`, chat.includes(`aria-label="${label}"`))
   }
   check("and maximize, which says what it will do", /aria-label=\{isMax \? "Restore size" : "Maximize"\}/.test(chat))
+  /*
+    "Instead of only the maximize button, have a thing like Connect AI, with
+    the icons of Claude and OpenAI." Maximize stays on a computer, where the
+    conversation can grow to most of the canvas; a phone's sheet is resized
+    by its own handle, so its top row gives that room to Connect AI.
+  */
   check(
-    "on a phone maximize moves the sheet between its tallest stop and the one below",
-    /if \(sheetStop\.tallest\) sheetStop\.toMiddle\(\)\s*\n\s*else sheetStop\.toTallest\(\)/.test(chat) &&
-      /export function useSheetStop\(\)/.test(sheet) && /toTallest: \(\) => setRestIndex\(0\)/.test(sheet),
+    "maximize is the computer's; a phone's sheet is resized by its handle",
+    /\{dock && \(\s*<button\s*type="button"\s*data-ask-maximize=""/.test(chat) && /export function useSheetStop\(\)/.test(sheet),
+  )
+  check(
+    "Connect AI is in the top row, with Claude's and OpenAI's own marks, and opens Connections",
+    /<ConnectAiButton phone=\{phone\} onClick=\{onConnectAi\} \/>/.test(chat) &&
+      /<ClaudeMark className="h-3 w-3 text-\[#D97757\]" \/>/.test(read("components/website-builder/ask-parts.tsx")) &&
+      /<OpenAIMark className="h-3 w-3 text-black" \/>/.test(read("components/website-builder/ask-parts.tsx")) &&
+      (editor.match(/onConnectAi=\{connectAiFromChat\}/g) ?? []).length === 2 &&
+      /const connectAiFromChat = useCallback\(\(\) => actionCalls\.current\.openConnections\(\), \[\]\)/.test(editor),
   )
   check(
     "a new chat cannot start in the middle of a change, and the one on screen stays in the history",
@@ -158,7 +187,12 @@ section("The header, on both")
 section("Pictures")
 // ---------------------------------------------------------------------------
 {
-  check("a picture holds its place while it is read and shrunk", /setPreparing\(\(n\) => n \+ picked\.length\)/.test(chat) && /data-ask-preparing=""/.test(chat))
+  check(
+    "a picture is a thumbnail the moment it is chosen, drawn from the file, with a ring while it is made ready",
+    /\{ id, name: file\.name, state: "preparing", progress: 0, mediaType: "image\/jpeg", data: "", url, source: file \}/.test(chat) &&
+      /url = URL\.createObjectURL\(file\)/.test(chat) &&
+      /data-ask-preparing=""/.test(read("components/website-builder/ask-attachments.tsx")),
+  )
   check(
     "a sent picture says it is sending until the route has read the request",
     /patch\(\(e\) => \(\{ \.\.\.e, sent: true \}\)\)/.test(chat) && /exchange\.running && !exchange\.sent && \(/.test(chat),
@@ -171,7 +205,17 @@ section("Pictures")
 section("Voice")
 // ---------------------------------------------------------------------------
 {
-  check("the words go into the box and are never sent by themselves", /setDraft\(base \? `\$\{base\} \$\{text\}` : text\)/.test(chat) && !/submit\(/.test(voice))
+  check(
+    "the words go into the box, typing themselves in a few characters a frame, and are never sent by themselves",
+    /voiceTarget\.current = withSpoken\(voiceBase\.current, text\)/.test(chat) &&
+      /const next = typeToward\(draftRef\.current, target\)/.test(chat) &&
+      /if \(next !== target\) typingFrame\.current = requestAnimationFrame\(typeFrame\)/.test(chat) &&
+      !/submit\(/.test(voice),
+  )
+  check(
+    "when the recording ends the box holds exactly what was heard",
+    /if \(target !== null\) setDraft\(target\)/.test(chat),
+  )
   check(
     "the browser's recogniser first, with the words appearing while they are said",
     /rec\.interimResults = true/.test(voice) && /w\.SpeechRecognition \?\? w\.webkitSpeechRecognition/.test(voice),

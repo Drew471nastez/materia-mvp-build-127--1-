@@ -400,3 +400,256 @@ export async function completeThemeExchange(input: {
     // Same reason: the edit already happened and is on the creator's screen.
   }
 }
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   DELETING A CONVERSATION, AND REPORTING AN ANSWER
+  ═══════════════════════════════════════════════════════════════════════════
+  "I can delete the chat history." Both are writes, so both go the way every
+  write in this module goes: the route proves the signed in creator owns the
+  install (ownThemeInstall), and then what may be touched is read through the
+  creator's OWN client, where RLS decides. Only what that read returned is
+  deleted, with the service role, and every delete is also filtered to the
+  install. No client can write these tables directly; the policies stay read
+  only (tests/ask-storelib.test.ts holds them to it).
+
+  The clients are injected so tests/ask-conversations.test.ts can hand in a
+  fake database that applies the same ownership rule RLS does. The routes
+  pass nothing and get the real ones.
+*/
+
+/** As much of a supabase-js client as these functions use. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ChatDb = { from: (table: string) => any; storage?: { from: (bucket: string) => any } }
+
+export interface ChatClients {
+  /** The signed in creator's own client. RLS applies. */
+  user: ChatDb
+  /** The service role. Used only on rows the user's client already returned. */
+  admin: ChatDb
+}
+
+async function realClients(): Promise<ChatClients> {
+  return {
+    user: (await createClient()) as unknown as ChatDb,
+    admin: createAdminClient() as unknown as ChatDb,
+  }
+}
+
+/**
+ * The private bucket a conversation's pictures are kept in: the same name as
+ * lib/website-builder/agent/attachment-store.ts, and a test holds the two
+ * together.
+ */
+export const CHAT_PICTURES_BUCKET = "theme-chat-attachments"
+
+/** What a delete is for: one conversation, the messages from before conversations, or every one. */
+export type DeleteTarget = { kind: "one"; id: string } | { kind: "earlier" } | { kind: "all" }
+
+export type DeleteResult =
+  | { ok: true; conversations: number; messages: number }
+  | { ok: false; status: 404 | 503; reason: "not_found" | "not_set_up" | "failed" }
+
+type DbError = { code?: string; message?: string } | null
+
+function unavailable(error: DbError): { ok: false; status: 503; reason: "not_set_up" | "failed" } {
+  return { ok: false, status: 503, reason: isMissingTable(error) ? "not_set_up" : "failed" }
+}
+
+/**
+ * THE PICTURES GO FIRST. A message's pictures are rows pointing at bytes in a
+ * private bucket, and a row goes with its message (on delete cascade). A
+ * message deleted first would leave bytes no row names, which the nightly
+ * collector can never find because it reads rows. So: the bytes, then the
+ * rows. When the bytes cannot be removed right now, the rows are let go of
+ * their messages and marked due, and the collector takes both next run.
+ */
+async function forgetPictures(admin: ChatDb, installId: string, messageIds: string[] | "all"): Promise<void> {
+  if (messageIds !== "all" && messageIds.length === 0) return
+  /* A long list goes in parts: every id is in the request's address. */
+  const groups: (string[] | "all")[] = messageIds === "all" ? ["all"] : chunks(messageIds, 150)
+  for (const group of groups) {
+    try {
+      let query = admin.from("theme_chat_attachments").select("id, storage_path").eq("install_id", installId)
+      if (group !== "all") query = query.in("message_id", group)
+      const { data, error } = await query.limit(2000)
+      if (error || !data) continue
+      const rows = data as { id: string; storage_path: string }[]
+      if (rows.length === 0) continue
+      const ids = rows.map((row) => row.id)
+      const removed = admin.storage
+        ? await admin.storage.from(CHAT_PICTURES_BUCKET).remove(rows.map((row) => row.storage_path))
+        : { error: { message: "no storage" } }
+      if (!removed?.error) {
+        await admin.from("theme_chat_attachments").delete().in("id", ids).eq("install_id", installId)
+        continue
+      }
+      await admin
+        .from("theme_chat_attachments")
+        .update({ message_id: null, expires_at: new Date().toISOString() })
+        .in("id", ids)
+        .eq("install_id", installId)
+    } catch {
+      /* The words are what was asked to go; a picture left for the collector is no reason to refuse. */
+    }
+  }
+}
+
+function chunks<T>(list: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let at = 0; at < list.length; at += size) out.push(list.slice(at, at + size))
+  return out
+}
+
+/**
+ * Deletes one conversation, the earlier messages, or all of them, on one
+ * install. Call only after ownThemeInstall(installId) has said yes.
+ *
+ * `not_set_up` for one conversation means the conversations table is not
+ * there yet. Deleting ALL still works then: a database without
+ * conversations has one thread per website, and that thread is deleted.
+ */
+export async function deleteThemeChat(installId: string, target: DeleteTarget, clients?: ChatClients): Promise<DeleteResult> {
+  if (target.kind === "one" && !isConversationId(target.id)) return { ok: false, status: 404, reason: "not_found" }
+  const { user, admin } = clients ?? (await realClients())
+
+  /* 1. WHAT THIS CREATOR CAN SEE, through their own client. */
+  let conversationIds: string[] = []
+  let conversationsTable = true
+  if (target.kind === "one") {
+    const { data, error } = await user
+      .from("theme_chat_conversations")
+      .select("id")
+      .eq("id", target.id)
+      .eq("install_id", installId)
+      .maybeSingle()
+    if (error) return unavailable(error)
+    /* Not on this website, or not this creator's: the same answer. */
+    if (!data) return { ok: false, status: 404, reason: "not_found" }
+    conversationIds = [(data as { id: string }).id]
+  } else if (target.kind === "all") {
+    const { data, error } = await user.from("theme_chat_conversations").select("id").eq("install_id", installId).limit(1000)
+    if (error) {
+      if (!isMissingTable(error)) return unavailable(error)
+      conversationsTable = false
+    } else {
+      conversationIds = ((data as { id: string }[] | null) ?? []).map((row) => row.id)
+    }
+  }
+
+  /* 2. The messages that go with it, read the same way. */
+  let messages = user.from("theme_chat_messages").select("id").eq("install_id", installId)
+  if (target.kind === "one") messages = messages.eq("conversation_id", target.id)
+  else if (target.kind === "earlier") messages = messages.is("conversation_id", null)
+  const { data: found, error: readError } = await messages.limit(5000)
+  if (readError) return unavailable(readError)
+  const messageIds = ((found as { id: string }[] | null) ?? []).map((row) => row.id)
+  if (target.kind === "earlier" && messageIds.length === 0) return { ok: false, status: 404, reason: "not_found" }
+  /*
+    NOTHING SEEN, NOTHING TOUCHED. The service role below deletes by the
+    install, so it acts only once the creator's own client has shown a row
+    on it: the policy is the install's ownership chain, so one visible row
+    is the database agreeing the install is theirs. A website that is not
+    theirs shows none, and "delete all" there is a no-op, whatever the
+    route above did or did not check.
+  */
+  if (target.kind === "all" && conversationIds.length === 0 && messageIds.length === 0) {
+    return { ok: true, conversations: 0, messages: 0 }
+  }
+
+  /* 3. The pictures, bytes before rows. */
+  await forgetPictures(admin, installId, target.kind === "all" ? "all" : messageIds)
+
+  /* 4. The rows, each delete filtered to this install whatever else it names. */
+  let drop = admin.from("theme_chat_messages").delete().eq("install_id", installId)
+  if (target.kind === "one") drop = drop.eq("conversation_id", target.id)
+  else if (target.kind === "earlier") drop = drop.is("conversation_id", null)
+  const { error: dropError } = await drop
+  if (dropError) return unavailable(dropError)
+
+  if (target.kind !== "earlier" && conversationsTable && conversationIds.length > 0) {
+    let gone = admin.from("theme_chat_conversations").delete().eq("install_id", installId)
+    if (target.kind === "one") gone = gone.eq("id", target.id)
+    const { error: goneError } = await gone
+    if (goneError) return unavailable(goneError)
+  }
+  return { ok: true, conversations: conversationIds.length, messages: messageIds.length }
+}
+
+/** The model names a report may carry: the switch's own ids, nothing else. */
+export const REPORTABLE_ENGINES = ["claude", "claude-opus", "openai"] as const
+
+export type ReportResult =
+  | { ok: true }
+  | { ok: false; status: 404 | 503; reason: "not_found" | "not_set_up" | "failed" }
+
+export const REPORT_REASON_MAX = 500
+const REPORT_PROMPT_MAX = 2000
+const REPORT_REPLY_MAX = 4000
+
+function clip(text: unknown, max: number): string {
+  return typeof text === "string" ? text.trim().slice(0, max) : ""
+}
+
+/**
+ * "I can report the prompt." One exchange, flagged by the creator who had it.
+ *
+ * The message is found through the creator's own client, so an id from
+ * somebody else's conversation is simply not found, and so is the other half
+ * of the exchange (the reply to a question, or the question behind a reply).
+ * Stored: both message ids, the conversation, the optional reason, and the
+ * words of both halves, so a report can still be read after the creator
+ * deletes the conversation it came from. One report per question; a second
+ * replaces the reason. Nothing of it is logged.
+ */
+export async function reportThemeExchange(
+  input: { installId: string; creatorId: string; messageId: string; reason?: string | null; engine?: string | null },
+  clients?: ChatClients,
+): Promise<ReportResult> {
+  if (!isConversationId(input.messageId)) return { ok: false, status: 404, reason: "not_found" }
+  const { user, admin } = clients ?? (await realClients())
+
+  type Row = { id: string; role: "user" | "assistant"; content: string; conversation_id: string | null; created_at: string }
+  const { data: found, error } = await user
+    .from("theme_chat_messages")
+    .select("id, role, content, conversation_id, created_at")
+    .eq("id", input.messageId)
+    .eq("install_id", input.installId)
+    .maybeSingle()
+  if (error) return unavailable(error)
+  if (!found) return { ok: false, status: 404, reason: "not_found" }
+  const message = found as Row
+
+  let other = user
+    .from("theme_chat_messages")
+    .select("id, role, content, conversation_id, created_at")
+    .eq("install_id", input.installId)
+  other = message.conversation_id ? other.eq("conversation_id", message.conversation_id) : other.is("conversation_id", null)
+  other =
+    message.role === "user"
+      ? other.eq("role", "assistant").gt("created_at", message.created_at).order("created_at", { ascending: true })
+      : other.eq("role", "user").lt("created_at", message.created_at).order("created_at", { ascending: false })
+  const { data: pair } = await other.limit(1)
+  const partner = ((pair as Row[] | null) ?? [])[0] ?? null
+
+  const prompt = message.role === "user" ? message : partner
+  const reply = message.role === "user" ? partner : message
+  const engine = (REPORTABLE_ENGINES as readonly string[]).includes(input.engine ?? "") ? input.engine : null
+
+  const { error: writeError } = await admin.from("theme_chat_reports").upsert(
+    {
+      install_id: input.installId,
+      creator_id: input.creatorId,
+      conversation_id: message.conversation_id,
+      message_id: prompt?.id ?? message.id,
+      reply_message_id: reply?.id ?? null,
+      reason: clip(input.reason, REPORT_REASON_MAX) || null,
+      prompt: clip(prompt?.content, REPORT_PROMPT_MAX),
+      reply: clip(reply?.content, REPORT_REPLY_MAX),
+      engine,
+    },
+    { onConflict: "message_id" },
+  )
+  if (writeError) return unavailable(writeError)
+  return { ok: true }
+}

@@ -68,6 +68,12 @@ function eitherSignal(a: AbortSignal, b: AbortSignal): AbortSignal {
 
 const MAX_PROMPT = 2_000
 
+/**
+ * The route's own line on the stream, beside the agent's: the id the question
+ * was kept under (startThemeExchange), which the panel's Report sends back.
+ */
+type RecordedEvent = { type: "recorded"; messageId: string }
+
 const BlockSchema = z.object({
   id: z.string().min(1).max(128),
   type: z.string().min(1).max(64),
@@ -231,7 +237,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
        * we stop talking rather than letting that throw end the run.
        */
       let listening = true
-      const send = (event: ThemeAgentEvent) => {
+      const send = (event: ThemeAgentEvent | RecordedEvent) => {
         if (!listening) return
         try {
           controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"))
@@ -242,6 +248,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
 
       /* First, so the panel knows which conversation this run is in before anything else arrives. */
       if (conversation) send({ type: "conversation", id: conversation.id, title: conversation.title })
+      /* And which message the question was kept as, so its answer can be reported. */
+      if (messageId) send({ type: "recorded", messageId })
 
       try {
         /**
