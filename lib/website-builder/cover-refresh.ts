@@ -113,8 +113,7 @@ export function requestCover(installId: string): Promise<Cover | null> {
       })
       if (!res.ok) return null
       const cover = (await res.json()) as Cover
-      const known = covers.get(installId)
-      if (cover?.url && (!known || Date.parse(cover.updated_at) >= Date.parse(known.updated_at))) covers.set(installId, cover)
+      remember(installId, cover)
       return cover
     } catch {
       return null
@@ -124,4 +123,70 @@ export function requestCover(installId: string): Promise<Cover | null> {
   })()
   inflight.set(installId, ask)
   return ask
+}
+
+/** Kept for the tab when it is newer than what the tab has. */
+function remember(installId: string, cover: Cover | null | undefined) {
+  if (!cover?.url) return
+  const known = covers.get(installId)
+  if (!known || Date.parse(cover.updated_at) >= Date.parse(known.updated_at)) covers.set(installId, cover)
+}
+
+/**
+ * A cover the answer that made the website brought with it (import, add,
+ * duplicate): known to the tab at once, so the row shows it on its first
+ * frame, and a copy of the page handed back from the router's memory later
+ * shows it too.
+ */
+export function seedCover(installId: string, cover: Cover | null | undefined) {
+  remember(installId, cover)
+}
+
+/**
+ * ===========================================================================
+ *  WAITING FOR A PHOTOGRAPH THAT IS ALREADY BEING TAKEN
+ * ===========================================================================
+ * A new website whose photograph did not fit in its answer is being taken
+ * on the server after it (lib/website-builder/cover-take.ts coverWithin).
+ * Asking the cover route to take another would launch a second browser for
+ * the same picture, so the page only LOOKS: GET on the same route is one
+ * storage listing. Every 2 seconds at first, then a little less often, for
+ * about 30 seconds in all; the moment a picture is there it is returned.
+ * Null when none came in that time, and the caller can ask for one then.
+ */
+export const WATCH_STEPS_MS = [2000, 2000, 2000, 3000, 3000, 4000, 4000, 5000, 5000]
+
+const watching = new Map<string, Promise<Cover | null>>()
+
+/** The look already underway for this site (started where it was made), or null. */
+export function coverBeingWatched(installId: string): Promise<Cover | null> | null {
+  return watching.get(installId) ?? null
+}
+
+export function watchCover(installId: string, steps: readonly number[] = WATCH_STEPS_MS): Promise<Cover | null> {
+  const running = watching.get(installId)
+  if (running) return running
+  const look = (async () => {
+    try {
+      for (const wait of steps) {
+        await new Promise((r) => setTimeout(r, wait))
+        try {
+          const res = await fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/cover`, { cache: "no-store" })
+          if (!res.ok) continue
+          const cover = (await res.json()) as Cover | { url: null }
+          if (cover?.url) {
+            remember(installId, cover as Cover)
+            return cover as Cover
+          }
+        } catch {
+          /* a dropped look is followed by the next one */
+        }
+      }
+      return null
+    } finally {
+      watching.delete(installId)
+    }
+  })()
+  watching.set(installId, look)
+  return look
 }

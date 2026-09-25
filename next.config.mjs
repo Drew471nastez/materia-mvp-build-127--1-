@@ -5,8 +5,13 @@ const nextConfig = {
    * of its own bin/ folder at run time, and puppeteer-core loads it with
    * dynamic requires — neither survives being bundled, so both are in the
    * serverExternalPackages list below. The binary is read by path, not imported,
-   * which the build's file tracing cannot see, so it is named for the one
-   * route that launches it (lib/website-builder/cover-shot.ts).
+   * which the build's file tracing cannot see, so it is named for every
+   * route that launches it (lib/website-builder/cover-shot.ts): the cover
+   * route, and the routes that make a website or export one, which take its
+   * first photograph themselves (lib/website-builder/cover-take.ts). Named for
+   * the cover route alone, every photograph those routes took failed in
+   * production ("the input directory ... does not exist"), and an imported
+   * website showed a drawing until the Website page asked the cover route.
    */
   outputFileTracingIncludes: {
     /*
@@ -24,6 +29,18 @@ const nextConfig = {
       copy of the same 67MB into the function, for nothing.
     */
     '/api/website-builder/themes/*/cover': [
+      './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**',
+    ],
+    '/api/website-builder/themes/add': [
+      './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**',
+    ],
+    '/api/website-builder/themes/import': [
+      './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**',
+    ],
+    '/api/website-builder/themes/*/duplicate': [
+      './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**',
+    ],
+    '/api/website-builder/themes/*/export': [
       './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**',
     ],
     /*

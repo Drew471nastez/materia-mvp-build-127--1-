@@ -8,20 +8,24 @@
  * state — mounted three times over to draw three thumbnails, and it looked
  * like what it was: a live page in a small box, sticky bar and all.
  *
- * A cover is an image. For a saved website it is the snapshot the editor took
- * on the last save (`snapshot_url`, see `lib/website-builder/snapshot-capture.ts`).
- * For everything else — a theme in the marketplace, an install that has not
- * been opened since snapshots shipped — it is THIS: a deterministic SVG of a
- * storefront built from the theme's palette, fonts and sample copy. One
- * `<svg>`, no JavaScript, no requests, scales to any size, and it is
- * recognisably the theme because it is drawn from the same colours the theme
- * paints with.
+ * A cover is an image. For a saved website it is a photograph of its home
+ * page taken on the server (`snapshot_url`, lib/website-builder/cover-take.ts).
+ * For a theme in the catalogue it is THIS: a deterministic SVG of the theme's
+ * own demo shop, built from its palette, fonts and sample copy. One `<svg>`,
+ * no JavaScript, no requests, scales to any size, and it is recognisably the
+ * theme because it is drawn from the same colours the theme paints with.
+ *
+ * NOT FOR A SAVED WEBSITE. A website with no photograph yet was drawn from
+ * its settings (coverSpecFromSettings, removed): its tagline as a headline,
+ * its primary colour on a button, product tiles it may not have. An imported
+ * site with a black hero showed as a pink storefront until its photograph
+ * came. It shows its name on a plain surface now (app/app/website-builder,
+ * PendingCover), which says there is no picture yet rather than inventing one.
  *
  * ViewBox is 1200×750 (16:10). Everything inside is proportional to that.
  */
 
 import type { CSSProperties } from "react"
-import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 import {
   contrastText,
   isDark,
@@ -68,75 +72,6 @@ export function coverSpecFromDefinition(def: ThemeDefinition): ThemeCoverSpec {
     fontBody: def.fonts.body,
     buttonStyle: def.buttonStyle,
     layout: def.coverLayout,
-  }
-}
-
-/**
- * A saved website without a snapshot yet: draw it from its own settings, so
- * the card at least wears the colours the creator chose. The theme definition
- * (when the install came from the registry) fills in what settings do not
- * carry — sample copy, hero layout.
- */
-export function coverSpecFromSettings(
-  settings: ThemeSettingsValues | null | undefined,
-  def: ThemeDefinition | null,
-  name: string,
-): ThemeCoverSpec {
-  const base: ThemeCoverSpec = def
-    ? coverSpecFromDefinition(def)
-    : {
-        brand: name,
-        headline: "Welcome to the store",
-        sub: "Digital products, courses and downloads.",
-        cta: "Shop now",
-        primary: "#6366f1",
-        bg: "#ffffff",
-        surface: "#f8fafc",
-        text: "#0f172a",
-        textSecondary: "#64748b",
-        border: "#e2e8f0",
-        heroBg: "#0f172a",
-        heroText: "#ffffff",
-        fontHeading: "Inter",
-        fontBody: "Inter",
-        buttonStyle: "rounded",
-        layout: "center",
-      }
-  const s = settings ?? {}
-  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v : undefined)
-  const bg = str(s.background_color) ?? base.bg
-  const primary = str(s.primary_color) ?? base.primary
-  const text = str(s.text_color) ?? base.text
-  const heroBg = def ? base.heroBg : isDark(bg) ? bg : text
-  /*
-    THE WEBSITE'S OWN WORDS, where it has any. The theme's sample copy
-    ("Northwind", "Presets that hit different") belongs to the theme's demo
-    shop, and a card for somebody's website drawn with it looks like
-    somebody else's website. So the headline and line under it come from
-    the site's own tagline and SEO text when it has set them, and a site
-    that renamed its brand gets its brand as the headline rather than the
-    sample's. This is only ever the picture shown until the photograph of
-    the real site arrives, a few seconds after it is created.
-  */
-  const brand = str(s.brand_name) ?? (def ? name : base.brand)
-  const ownHeadline = str(s.tagline) ?? str(s.seo_title)
-  const renamed = !!def && brand !== base.brand
-  return {
-    ...base,
-    brand,
-    headline: ownHeadline ?? (renamed ? brand : base.headline),
-    sub: str(s.seo_description) ?? (renamed ? "" : base.sub),
-    primary,
-    bg,
-    surface: str(s.surface_color) ?? base.surface,
-    text,
-    textSecondary: str(s.text_secondary_color) ?? base.textSecondary,
-    border: str(s.border_color) ?? base.border,
-    heroBg,
-    heroText: def ? base.heroText : contrastText(heroBg),
-    fontHeading: str(s.font_heading) ?? base.fontHeading,
-    fontBody: str(s.font_body) ?? base.fontBody,
-    buttonStyle: (s.button_style as ThemeCoverSpec["buttonStyle"]) ?? base.buttonStyle,
   }
 }
 

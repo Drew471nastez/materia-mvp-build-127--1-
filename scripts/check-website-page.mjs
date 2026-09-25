@@ -194,7 +194,7 @@ function staticPage(W) {
 <style>*{box-sizing:border-box}body{margin:0;width:${W}px;background:#f8f9fa;font-family:Inter,system-ui,sans-serif}</style>
 </head><body><div data-probe-shell style="width:${W}px">${body}</div>${PROBE(W)}</body></html>`
   const html = join(out, `page-${W}.html`)
-  writeFileSync(html, page.replace('class="app-page-enter', 'data-probe-inner class="app-page-enter'))
+  writeFileSync(html, page.replace('data-wb-page=""', 'data-wb-page="" data-probe-inner'))
 
   const dom = execFileSync(
     CHROMIUM,
@@ -292,9 +292,24 @@ window.fetch = (input, init) => {
     window.__requests.push("POST " + url + " " + (init && init.body))
     if (window.__xhrMode === "ok") {
       window.__probeNext = { id: "new-1", name: "Summer shop" }
-      return json(200, { ok: true, install_id: "new-1", name: "Summer shop", media: "nothing" }, 700)
+      /* __coverMode: "packaged" answers with the package's cover, "pending" with none yet and a photograph on its way. */
+      const cover = window.__coverMode === "packaged"
+        ? { cover: { url: "/pkg-cover.svg", mobile_url: null, updated_at: new Date().toISOString() }, cover_pending: false }
+        : window.__coverMode === "pending" ? { cover: null, cover_pending: true } : {}
+      return json(200, { ok: true, install_id: "new-1", name: "Summer shop", media: "nothing", ...cover }, 700)
     }
     return json(400, { error: "Invalid zip file" }, 700)
+  }
+  /* The cover route: GET looks (the photograph lands on the second look), POST would take one. */
+  if (url === "/api/website-builder/themes/new-1/cover") {
+    const method = (init && init.method) || "GET"
+    window.__coverCalls = window.__coverCalls || []
+    window.__coverCalls.push(method)
+    if (method === "GET") {
+      const looks = window.__coverCalls.filter((m) => m === "GET").length
+      return json(200, looks >= 2 ? { url: "/real-cover.svg", mobile_url: null, updated_at: new Date().toISOString() } : { url: null }, 30)
+    }
+    return json(502, { error: "The cover could not be taken" }, 30)
   }
   return realFetch(input, init)
 }
@@ -355,6 +370,11 @@ const server = createServer((req, res) => {
   if (req.url.startsWith("/slow-cover.svg")) {
     /* The live card's picture, late: the cover's box has to be there before it. */
     return setTimeout(() => { res.writeHead(200, { "content-type": "image/svg+xml" }); res.end(SLOW_COVER) }, 900)
+  }
+  /* A package's cover, and the photograph taken after: both a black hero, the way the imported site looks. Answered late, so a picture drawn before it is decoded would show. */
+  if (req.url.startsWith("/pkg-cover.svg") || req.url.startsWith("/real-cover.svg")) {
+    const label = req.url.startsWith("/pkg") ? "package" : "photograph"
+    return setTimeout(() => { res.writeHead(200, { "content-type": "image/svg+xml" }); res.end(SLOW_COVER.replace("</svg>", `<text x="120" y="300" font-size="64" fill="#fff">${label}</text></svg>`)) }, 400)
   }
   if (req.url.startsWith("/api/")) { res.writeHead(404, { "content-type": "application/json" }); return res.end("{}") }
   res.writeHead(200, { "content-type": "text/html" })
@@ -524,7 +544,7 @@ async function livePage(W) {
    * 44px square on a phone and says its name on a laptop; the picture's box
    * is the cover area's box, and the cover area is flush with the card; and
    * nothing that drew a stage, a browser window or a phone is inside it.
-   * Once with a real picture of the site, once with the drawn one.
+   * Once with a real picture of the site, once with none yet (the site's name on a plain surface).
    */
   for (const withPicture of [true, false]) {
     const { p, errors, phone } = await open(W, "room", withPicture ? "&snapshot=1" : "")
@@ -537,7 +557,7 @@ async function livePage(W) {
       const cover = document.querySelector("[data-cover]")
       const frame = cover && cover.closest(".rounded-2xl")
       const coverCs = cover && getComputedStyle(cover)
-      const pics = cover ? [...cover.querySelectorAll("img, svg")].filter((el) => !el.parentElement.closest("svg")) : []
+      const pics = cover ? [...cover.querySelectorAll("img, svg, [data-cover-pending]")].filter((el) => !el.parentElement.closest("svg")) : []
       const pic = pics[0]
       const scroller = document.querySelector("[data-probe-shell] .page-scroll")
       const cs = settings && getComputedStyle(settings)
@@ -555,7 +575,7 @@ async function livePage(W) {
         overflow: scroller ? Math.max(0, scroller.scrollWidth - scroller.clientWidth) : null,
       }
     })
-    const tag = withPicture ? "with a picture of the site" : "with the drawn cover"
+    const tag = withPicture ? "with a picture of the site" : "with no picture yet"
     console.log(`\n  the live card, ${tag}\n`)
     if (withPicture) {
       const b = card.buttons
@@ -907,10 +927,276 @@ async function livePage(W) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+//  3. ARRIVING ON THE PAGE AS A DOCUMENT, EVERY FRAME
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * "It shows the iOS loading spinner, which is great, but then it blanks the
+ * whole page white, and then the website builder page appears."
+ *
+ * The page arrives as a whole document more often than any other /app page:
+ * the sidebar's Website row loaded it with `window.location` on the web, and
+ * a cold start, a reload and the session recovery all load a document too.
+ * A document is painted from the server's HTML before React has run, and the
+ * class that switched the old `.app-page-enter` fade off inside the shell
+ * (`html.app-layout`) is added by an effect after hydration. So the first
+ * painted frames held the page at opacity 0: the spinner went, the content
+ * area was flat #f8f9fa, and then the page came up.
+ *
+ * Reproduced here as it happens: a document with the slow page's spinner up
+ * (the real PageSpinner markup) moves to /wb; the server holds /wb for
+ * 1200ms and then answers with the Website page's server markup in the
+ * shell, with `app-layout` added 450ms later, as hydration does. Every frame
+ * is recorded twice: the compositor's own frames (a screencast, decoded and
+ * read pixel by pixel over the content area), and one DOM reading per
+ * animation frame from the first script of the new document. A frame is
+ * blank when the content area is one flat colour with no spinner in it; none
+ * may follow the spinner.
+ */
+async function landing(W) {
+  const phone = W <= 640
+  const H = phone ? 844 : 900
+  const HEADER = phone ? 68 : 58
+  const RAIL = phone ? 0 : 240
+  const HYDRATE_MS = 450
+  const SERVER_MS = 1200
+  const spinner = readFileSync(join(out, "spinner.html"), "utf8")
+  const frame = (content, { layout, extraHead = "", extraBody = "" }) => `<!doctype html><html class="light${layout ? " app-layout" : ""}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">${extraHead}<style>${css}</style><style>body{margin:0;background:#111111;font-family:Inter,system-ui,sans-serif}</style></head><body>
+<div class="h-svh overflow-hidden bg-[#111111] md:bg-[#131316]">
+  <div style="position:fixed;left:0;top:0;right:0;height:${HEADER}px;background:#111111;z-index:40"></div>
+  ${phone ? "" : `<div style="position:fixed;left:0;top:${HEADER}px;bottom:0;width:${RAIL}px;background:#131316;z-index:40"></div>`}
+  <main class="h-svh pt-[68px] md:pt-[58px] md:pl-[240px] bg-[#f8f9fa] md:bg-white rounded-t-[20px] md:rounded-none overflow-hidden app-main-content">
+    <div class="h-[calc(100svh_-_68px)] md:h-[calc(100svh-58px)] overflow-y-auto app-content-scroll">${content}</div>
+  </main>
+</div>${extraBody}</body></html>`
+  /* The page you were on: a few cards on the page's grey, under the spinner once it is slow. */
+  const before = frame(
+    `<div class="h-full overflow-y-auto page-scroll bg-[#f8f9fa]"><div class="mx-auto max-w-[1200px] space-y-4 px-4 py-6 sm:px-6 lg:px-8">${'<div class="h-40 rounded-2xl border border-[#e5e7eb] bg-white"></div>'.repeat(3)}</div></div>`,
+    {
+      layout: true,
+      extraBody: `<div id="slow" hidden data-app-slow-page="" class="pointer-events-none fixed inset-x-0 bottom-0 top-[68px] z-[38] bg-[#111111] md:left-[240px] md:top-[58px] md:bg-transparent"><div class="h-full overflow-hidden rounded-t-[20px] bg-[#f8f9fa] md:rounded-none">${spinner}</div></div>
+<script>setTimeout(() => { document.getElementById("slow").hidden = false }, 250); setTimeout(() => { location.href = "/wb" }, 700)</script>`,
+    },
+  )
+  const RECORD = `<script>
+    window.__frames = []
+    const t0 = performance.now()
+    const read = () => {
+      const inner = document.querySelector("[data-probe-inner]")
+      window.__frames.push({ t: Math.round(performance.now() - t0), there: !!inner, opacity: inner ? Number(getComputedStyle(inner).opacity) : null, layout: document.documentElement.classList.contains("app-layout") })
+      if (performance.now() - t0 < 1500) requestAnimationFrame(read)
+    }
+    requestAnimationFrame(read)
+  </script>`
+  /* The page's content box: the first box inside its own scroller, whatever classes it carries. */
+  const marked = body.replace(/^(<div[^>]*>)(<div )/, "$1$2data-probe-inner ")
+  const after = frame(marked, {
+    layout: false,
+    extraHead: RECORD,
+    /* Hydration: the shell's effect adds the class a moment after the first paint. */
+    extraBody: `<script>setTimeout(() => document.documentElement.classList.add("app-layout"), ${HYDRATE_MS})</script>`,
+  })
+
+  const srv = createServer((req, res) => {
+    if (req.url.startsWith("/wb")) return setTimeout(() => { res.writeHead(200, { "content-type": "text/html" }); res.end(after) }, SERVER_MS)
+    res.writeHead(200, { "content-type": "text/html" })
+    res.end(before)
+  })
+  await new Promise((r) => srv.listen(0, "127.0.0.1", r))
+  const base = `http://127.0.0.1:${srv.address().port}`
+  const p = await browser.newPage()
+  await p.setViewport({ width: W, height: H, deviceScaleFactor: 1, isMobile: phone, hasTouch: phone })
+  await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "no-preference" }])
+  const cdp = await p.createCDPSession()
+  const shots = []
+  cdp.on("Page.screencastFrame", (f) => {
+    shots.push({ at: f.metadata.timestamp, data: f.data })
+    cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {})
+  })
+  await p.goto(`${base}/from`, { waitUntil: "load" })
+  await cdp.send("Page.startScreencast", { format: "png", everyNthFrame: 1 })
+  await p.waitForFunction(() => location.pathname === "/wb" && document.readyState === "complete", { timeout: 8000, polling: 50 })
+  await sleep(1400)
+  const dom = await p.evaluate(() => window.__frames || [])
+  await cdp.send("Page.stopScreencast")
+  srv.close()
+
+  /* Each frame, read over the content area: how much of it is not the page's grey, and whether the spinner is in it.
+     Decoded by a canvas in a blank page, so the probe needs no image library of its own. */
+  const reader = await browser.newPage()
+  const classes = []
+  for (const s of shots) {
+    const r = await reader.evaluate(async (png, RAIL, HEADER) => {
+      const img = new Image()
+      img.src = `data:image/png;base64,${png}`
+      await img.decode()
+      const c = document.createElement("canvas")
+      c.width = img.naturalWidth
+      c.height = img.naturalHeight
+      const g = c.getContext("2d", { willReadFrequently: true })
+      g.drawImage(img, 0, 0)
+      const { data, width, height } = g.getImageData(0, 0, c.width, c.height)
+      const x0 = RAIL, y0 = HEADER + 24
+      const cx = Math.round((x0 + width) / 2), cy = Math.round(HEADER + (height - HEADER) * 0.4)
+      let ink = 0, total = 0, spin = 0
+      for (let y = y0; y < height; y += 2) {
+        for (let x = x0; x < width; x += 2) {
+          const i = (y * width + x) * 4
+          total++
+          if (Math.abs(data[i] - 248) <= 3 && Math.abs(data[i + 1] - 249) <= 3 && Math.abs(data[i + 2] - 250) <= 3) continue
+          ink++
+          if (Math.abs(x - cx) <= 24 && Math.abs(y - cy) <= 24) spin++
+        }
+      }
+      return { ink, total, spin }
+    }, s.data, RAIL, HEADER)
+    const share = r.ink / r.total
+    classes.push({ at: s.at, share, kind: r.spin > 0 && r.ink - r.spin < 40 ? "spinner" : share < 0.0005 ? "blank" : "page" })
+  }
+  await reader.close()
+  const t0 = classes[0]?.at ?? 0
+  const firstSpinner = classes.findIndex((c) => c.kind === "spinner")
+  const afterSpinner = firstSpinner === -1 ? [] : classes.slice(firstSpinner)
+  const blanks = afterSpinner.filter((c) => c.kind === "blank")
+  const runs = []
+  for (let i = 0; i < afterSpinner.length; i++) {
+    if (afterSpinner[i].kind !== "blank") continue
+    let j = i
+    while (j + 1 < afterSpinner.length && afterSpinner[j + 1].kind === "blank") j++
+    const end = afterSpinner[j + 1] ? afterSpinner[j + 1].at : afterSpinner[j].at
+    runs.push(Math.round((end - afterSpinner[i].at) * 1000))
+    i = j
+  }
+  /* From the first frame the page's box is parsed (a frame before that is the old document still on the glass). */
+  const parsed = dom.slice(Math.max(0, dom.findIndex((f) => f.there)))
+  const hidden = parsed.filter((f) => !f.there || f.opacity < 0.05)
+  const faint = parsed.filter((f) => !f.there || f.opacity < 0.95)
+  const firstDom = parsed[0]
+  const seq = []
+  for (const c of classes) if (seq[seq.length - 1]?.kind !== c.kind) seq.push({ kind: c.kind, at: Math.round((c.at - t0) * 1000) })
+  console.log(`\narriving on the page as a document, every frame, at ${W}px\n`)
+  expect(firstSpinner !== -1, `the spinner is up before the page (${classes.length} frames: ${seq.map((x) => `${x.kind} from ${x.at}ms`).join(", ")})`)
+  expect(blanks.length === 0, `  no frame after the spinner is a flat, empty content area: ${blanks.length} blank frame${blanks.length === 1 ? "" : "s"}${runs.length ? `, ${runs.map((r) => `${r}ms`).join(" and ")} of it` : ""}`)
+  expect(!!firstDom && firstDom.there && firstDom.opacity > 0.95 && faint.length === 0,
+    `  the new document's first frame, before hydration, already shows the page: opacity ${firstDom?.opacity != null ? firstDom.opacity.toFixed(2) : "-"} on its first frame; ${hidden.length} of ${parsed.length} frames under 0.05, ${faint.length} under 0.95`)
+  const marks = dom.find((f) => f.layout)
+  expect(!!marks, `  hydration marks the shell ${marks ? `at ${marks.t}ms` : "(never)"}, and the page does not wait for it to be seen`)
+  if (process.env.SHOTS && shots.length) {
+    mkdirSync(process.env.SHOTS, { recursive: true })
+    const i = classes.findIndex((c, k) => k > firstSpinner && c.kind !== "spinner")
+    writeFileSync(join(process.env.SHOTS, `wbpage-landing-first-frame-${W}.png`), Buffer.from(shots[i === -1 ? shots.length - 1 : i].data, "base64"))
+  }
+  await p.close()
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  4. AN IMPORTED WEBSITE'S COVER, FROM ITS ROW'S FIRST FRAME
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * "When I import a theme, the first cover in the library doesn't represent
+ * the actual look of the website. After 10 to 15 seconds the actual cover
+ * appears."
+ *
+ * Two imports, with the routes stubbed and the pictures served 400ms late:
+ *
+ *   A PACKAGE WITH A COVER. The answer carries it; the new row's first frame
+ *   is that picture, already decoded, and the row never shows anything else.
+ *
+ *   A PACKAGE WITHOUT ONE. The answer says a photograph is on its way. The
+ *   row's first frame is the site's name on a plain surface, with no drawn
+ *   page in it (no headline, no button, no tiles: the cover holds no <svg>
+ *   and no text but the name). The page looks for the photograph with GET
+ *   (never a second POST, which would launch a second browser) and, the
+ *   moment it is there, fades it in over the placeholder: every frame shows
+ *   one or the other, never neither.
+ *
+ * Read on every animation frame from the upload until the photograph is in.
+ */
+async function coversPart(W) {
+  console.log(`\nan imported website's cover, at ${W}px\n`)
+  const shots = process.env.SHOTS
+  for (const mode of ["packaged", "pending"]) {
+    const { p, errors } = await open(W, "room")
+    await p.evaluate((mode) => {
+      window.__coverMode = mode
+      window.__coverFrames = []
+      const t0 = performance.now()
+      const tick = () => {
+        const row = document.querySelector('[data-install-row="new-1"]')
+        if (row) {
+          const box = row.querySelector("td:first-child button > span:first-child")
+          const imgs = [...box.querySelectorAll("img")]
+          const shown = imgs.filter((i) => Number(getComputedStyle(i.parentElement).opacity) > 0)
+          const pending = box.querySelector("[data-cover-pending]")
+          window.__coverFrames.push({
+            t: Math.round(performance.now() - t0),
+            imgs: imgs.map((i) => ({ src: i.getAttribute("src"), ready: i.complete && i.naturalWidth > 0 })),
+            visibleReady: shown.some((i) => i.complete && i.naturalWidth > 0),
+            pending: pending ? pending.getAttribute("data-cover-pending") : null,
+            pendingText: pending ? pending.innerText.trim() : null,
+            drawn: box.querySelectorAll("svg text, svg rect").length,
+            fading: !!box.querySelector(".wb-cover-in"),
+          })
+        }
+        if (performance.now() - t0 < 12000) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    }, mode)
+    const input = await p.$('input[type="file"]')
+    await input.uploadFile(zip)
+    if (mode === "packaged") {
+      await p.waitForFunction(() => document.querySelector('[data-install-row="new-1"]'), { timeout: 6000 }).catch(() => null)
+      await sleep(900)
+      if (shots) await p.screenshot({ path: join(shots, `wbpage-import-packaged-${W}.png`) })
+      const f = await p.evaluate(() => window.__coverFrames)
+      const first = f[0]
+      const others = f.filter((x) => x.pending !== null || !x.imgs.some((i) => i.src === "/pkg-cover.svg"))
+      expect(!!first && first.imgs.length === 1 && first.imgs[0].src === "/pkg-cover.svg" && first.imgs[0].ready && first.pending === null && first.drawn === 0,
+        `a package with a cover: the new row's first frame is that picture, decoded (${first ? JSON.stringify({ imgs: first.imgs, pending: first.pending, drawn: first.drawn }) : "the row never landed"})`)
+      expect(f.length > 0 && others.length === 0, `  and it shows nothing else on any of its ${f.length} frames (${others.length} other)`)
+      const calls = await p.evaluate(() => window.__coverCalls || [])
+      expect(calls.length === 0, `  and the page asks the cover route for nothing (${calls.join(", ") || "no calls"})`)
+    } else {
+      await p.waitForFunction(() => document.querySelector('[data-install-row="new-1"]'), { timeout: 6000 }).catch(() => null)
+      await sleep(300)
+      if (shots) await p.screenshot({ path: join(shots, `wbpage-import-pending-${W}.png`) })
+      await p.waitForFunction(() => document.querySelector('[data-install-row="new-1"] img[src="/real-cover.svg"]'), { timeout: 12000 }).catch(() => null)
+      await sleep(700)
+      if (shots) await p.screenshot({ path: join(shots, `wbpage-import-photographed-${W}.png`) })
+      const f = await p.evaluate(() => window.__coverFrames)
+      const first = f[0]
+      expect(!!first && first.pending === "preparing" && first.pendingText === "Summer shop" && first.drawn === 0 && first.imgs.length === 0,
+        `a package without one: the new row's first frame is the site's name on a plain surface, breathing (${first ? `"${first.pendingText}", ${first.pending}, ${first.drawn} drawn shapes, ${first.imgs.length} pictures` : "the row never landed"})`)
+      const drawnAt = f.filter((x) => x.drawn > 0)
+      expect(drawnAt.length === 0, `  no drawn page with a headline and colours on any frame (${drawnAt.length} frames with one)`)
+      const arrived = f.findIndex((x) => x.imgs.some((i) => i.src === "/real-cover.svg"))
+      const at = arrived === -1 ? null : f[arrived]
+      expect(!!at && at.imgs.find((i) => i.src === "/real-cover.svg").ready,
+        `  the photograph comes in ${at ? `${at.t - first.t}ms after the row` : "never"}, decoded on its first frame`)
+      const neither = f.filter((x) => x.pending === null && !x.visibleReady)
+      expect(neither.length === 0, `  every frame shows the placeholder or a decoded picture, never neither (${neither.length} of ${f.length} with neither)`)
+      expect(f.some((x) => x.fading && x.pending !== null), `  and it fades in over the placeholder rather than cutting to it`)
+      const end = f[f.length - 1]
+      expect(!!end && end.pending === null && end.imgs.length === 1, `  which is then let go: ${end ? `${end.imgs.length} picture, placeholder ${end.pending ?? "gone"}` : "-"}`)
+      const calls = await p.evaluate(() => window.__coverCalls || [])
+      expect(calls.length >= 1 && calls.every((m) => m === "GET"), `  found by looking (GET x${calls.filter((m) => m === "GET").length}), never by taking a second one (POST x${calls.filter((m) => m === "POST").length})`)
+    }
+    expect(errors.length === 0, "  no errors on the page", errors.slice(0, 2).join(" / "))
+    await p.close()
+  }
+}
+
+/* PARTS=static,live,landing,covers runs some of them; all by default. */
+const PARTS = new Set((process.env.PARTS || "static,live,landing,covers").split(","))
+
 try {
   for (const W of WIDTHS) {
-    staticPage(W)
-    await livePage(W)
+    if (PARTS.has("static")) staticPage(W)
+    if (PARTS.has("live")) await livePage(W)
+    if (PARTS.has("landing")) await landing(W)
+    if (PARTS.has("covers")) await coversPart(W)
   }
   console.log(broken === 0 ? "\nall measured, nothing out\n" : `\n${broken} measurement(s) out\n`)
 } finally {

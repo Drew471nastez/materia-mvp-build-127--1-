@@ -1,4 +1,5 @@
 import "server-only"
+import { after } from "next/server"
 
 /**
  * ===========================================================================
@@ -12,11 +13,21 @@ import "server-only"
  * nothing to do with the website.
  *
  * So the photographing lives here, and every route that creates a website
- * calls it once the website exists: add, import and duplicate, from
- * `after()`, so the answer is not held up by a browser. A copy starts from
- * its source's picture at once (copyCover), and an import starts from the
- * picture its package carried; both are replaced by a real photograph of
- * the new website a few seconds later.
+ * calls it once the website exists: add, import and duplicate, through
+ * coverForNewWebsite below. A copy starts from its source's picture
+ * (copyCover) and an import from the picture its package carried, stored
+ * inside the request and handed back in its answer, so the new row shows
+ * the site from its first frame. Without one, the photograph itself is
+ * waited for, up to QUICK_COVER_MS; past that the answer says it is still
+ * coming and the page asks for it until it is there.
+ *
+ * THE BROWSER HAS TO BE IN THE FUNCTION. @sparticuz/chromium reads its
+ * binary from its own bin/ folder by path, which the build's tracing cannot
+ * see, so next.config.mjs names every route that launches it. For a while
+ * it named only the cover route, and every photograph taken here failed in
+ * production with "the input directory does not exist": an import showed a
+ * drawing until the Website page asked the cover route itself, a cold
+ * browser launch and two page loads later. That was the 10 to 15 seconds.
  *
  * SCOPE. Callers have already proved the signed-in creator owns the install
  * and pass their own user and creator ids. The browser is only ever sent to
@@ -146,26 +157,110 @@ export async function takeCover(owner: CoverOwner, origin: string, opts: { force
  * it appears. Both installs belong to the same user, so both folders are
  * under that user's own prefix.
  */
-export async function copyCover(userId: string, fromInstallId: string, to: CoverOwner): Promise<boolean> {
+export async function copyCover(userId: string, fromInstallId: string, to: CoverOwner): Promise<CoverResult | null> {
   try {
     const bucket = bucketOf()
     const from = snapshotFolder(userId, fromInstallId)
     const { data } = await bucket.list(from, { limit: 100 })
     const names = (data ?? []).map((f) => f.name)
     const newest = snapshotsNewestFirst(names)[0]
-    if (!newest) return false
+    if (!newest) return null
     const phone = mobilePartner(newest, names)
     const read = async (name: string) => {
       const { data: blob } = await bucket.download(`${from}/${name}`)
       return blob ? Buffer.from(await blob.arrayBuffer()) : null
     }
     const desktop = await read(newest)
-    if (!desktop) return false
-    await storeCover(to, desktop, phone ? await read(phone) : null)
-    return true
+    if (!desktop) return null
+    return await storeCover(to, desktop, phone ? await read(phone) : null)
   } catch {
-    return false
+    return null
   }
+}
+
+/** The install's newest cover as it is in its folder, without taking one. Null when it has none yet. */
+export async function newestCover(owner: Pick<CoverOwner, "userId" | "installId">): Promise<CoverResult | null> {
+  const bucket = bucketOf()
+  const folder = snapshotFolder(owner.userId, owner.installId)
+  const { data } = await bucket.list(folder, { limit: 100 })
+  const names = (data ?? []).map((f) => f.name)
+  const newest = snapshotsNewestFirst(names)[0]
+  if (!newest) return null
+  const phone = mobilePartner(newest, names)
+  return {
+    url: bucket.getPublicUrl(`${folder}/${newest}`).data.publicUrl,
+    mobile_url: phone ? bucket.getPublicUrl(`${folder}/${phone}`).data.publicUrl : null,
+    updated_at: snapshotTakenAt(newest),
+    fresh: false,
+  }
+}
+
+/**
+ * How long a request that makes a website waits for its first photograph.
+ * Long enough for a warm browser and two page loads; a cold one that takes
+ * longer finishes after the answer, and the page asks until it is there.
+ */
+export const QUICK_COVER_MS = 8_000
+
+/** What an answer that made a website says about its picture. */
+export interface NewWebsiteCover {
+  /** The picture to show from the row's first frame, when there is one. */
+  cover: { url: string; mobile_url: string | null; updated_at: string } | null
+  /** No picture yet, and one is being taken: the page asks for it until it arrives. */
+  cover_pending: boolean
+}
+
+/**
+ * Photograph the new website, waiting up to `ms` for it. When it is slower
+ * than that, the rest of it runs after the answer (`after`), and the answer
+ * says the picture is on its way. A photograph that fails is logged, never
+ * thrown: the website was made either way.
+ */
+export async function coverWithin(owner: CoverOwner, origin: string, label: string, ms = QUICK_COVER_MS): Promise<NewWebsiteCover> {
+  const fail = (e: unknown) => {
+    console.error(`[cover] ${label}: could not take the cover:`, e instanceof Error ? e.message : e)
+    return null
+  }
+  const shot = takeCover(owner, origin, { force: true }).then((c) => c, fail)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const late = new Promise<"late">((resolve) => {
+    timer = setTimeout(() => resolve("late"), ms)
+  })
+  const first = await Promise.race([shot, late])
+  clearTimeout(timer)
+  if (first === "late") {
+    after(() => shot.then(() => undefined))
+    return { cover: null, cover_pending: true }
+  }
+  return { cover: answerOf(first), cover_pending: false }
+}
+
+function answerOf(c: CoverResult | null): NewWebsiteCover["cover"] {
+  return c?.url ? { url: c.url, mobile_url: c.mobile_url, updated_at: c.updated_at ?? new Date().toISOString() } : null
+}
+
+/**
+ * ===========================================================================
+ *  A NEW WEBSITE'S FIRST PICTURE, IN THE ANSWER THAT MADE IT
+ * ===========================================================================
+ * In order of what looks most like the site from its first frame:
+ *
+ *   1. the picture it came with (a package's cover, a copy's source), stored
+ *      in the request by the caller and passed in as `start`; a photograph of
+ *      the new website itself follows after the answer;
+ *   2. otherwise a photograph taken now, when it takes under QUICK_COVER_MS;
+ *   3. otherwise nothing yet, said as `cover_pending`, and the page shows the
+ *      site's name on a plain surface until the photograph arrives.
+ *
+ * Never a drawing of a page with a headline and colours the site does not
+ * have.
+ */
+export async function coverForNewWebsite(owner: CoverOwner, origin: string, label: string, start: CoverResult | null): Promise<NewWebsiteCover> {
+  if (start?.url) {
+    after(() => coverAfterCreate(owner, origin, label))
+    return { cover: answerOf(start), cover_pending: false }
+  }
+  return coverWithin(owner, origin, label)
 }
 
 /**

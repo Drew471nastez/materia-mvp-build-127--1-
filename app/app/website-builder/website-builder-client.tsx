@@ -85,9 +85,9 @@ import {
   getThemeDefinition,
   type ThemeDefinition,
 } from "@/lib/website-builder/theme-registry"
-import { ThemeCover, coverSpecFromDefinition, coverSpecFromSettings } from "@/components/website-builder/theme-cover"
+import { ThemeCover, coverSpecFromDefinition } from "@/components/website-builder/theme-cover"
 import { relativeTime } from "@/lib/website-builder/relative-time"
-import { latestCover, requestCover, savedAt } from "@/lib/website-builder/cover-refresh"
+import { type Cover, coverBeingWatched, latestCover, requestCover, savedAt, seedCover, watchCover } from "@/lib/website-builder/cover-refresh"
 import { HelpLabel } from "@/components/app/help-label"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
 import { LIBRARY_FULL_CODE, LIBRARY_RULE, LIBRARY_RULE_TITLE } from "@/lib/website-builder/library-limit"
@@ -223,11 +223,11 @@ function DraftBadge({ offline = false }: { offline?: boolean }) {
  * today's, a moment after landing. That cut is the flash on arriving here.
  *
  * So the cover on screen stays underneath, and the new one fades in over it,
- * then the old one is let go. The first cover a card shows is not faded: the
- * page itself already arrives on its own fade (`app-page-enter`).
+ * then the old one is let go. The first cover a card shows is not faded: it
+ * is there on the page's first frame, which the shell's landing brings in.
  */
-function WebsiteCover(props: { install: WebsiteSummary; eager?: boolean }) {
-  const id = props.install.snapshot_url ?? `drawn:${props.install.theme_id}:${props.install.name}`
+function WebsiteCover(props: { install: WebsiteSummary; eager?: boolean; preparing?: boolean }) {
+  const id = props.install.snapshot_url ?? `pending:${props.install.id}`
   const [shownId, setShownId] = React.useState(id)
   const [previous, setPrevious] = React.useState<{ id: string; props: typeof props } | null>(null)
   /* What the cover on screen was drawn from, as of the last commit. */
@@ -260,15 +260,29 @@ function WebsiteCover(props: { install: WebsiteSummary; eager?: boolean }) {
 const COVER_FADE_MS = 420
 
 /**
- * The website's picture: the desktop screenshot the server took on the last
- * save, or until there is one the cover drawn from the site's own settings.
- * Either one fills the box it is given, cut from the top so the site's header
- * and hero are what shows. Plain `<img>`: the snapshot is already 1440px
- * WebP, sized once at capture, so there is nothing for an optimiser to do and
- * nothing to pay per view.
+ * Pictures this tab has already fetched and decoded (decodedFirst). One of
+ * these is drawn eagerly and decoded in step with the frame, so a row that
+ * arrives with it shows it on that row's first frame, not a frame later.
  */
-function CoverPicture({ install, eager = false }: { install: WebsiteSummary; eager?: boolean }) {
+const DECODED = new Set<string>()
+
+/**
+ * The website's picture: the desktop screenshot the server took on the last
+ * save, cut from the top so the site's header and hero are what shows. Plain
+ * `<img>`: the snapshot is already 1440px WebP, sized once at capture, so
+ * there is nothing for an optimiser to do and nothing to pay per view.
+ *
+ * NO PICTURE YET IS SAID, NOT DRAWN. Until there is a screenshot the card
+ * used to draw a page from the site's settings: a headline, a button in its
+ * primary colour, a row of product tiles. An imported site with a black hero
+ * was shown for its first seconds as a pink storefront saying "Thoughtful
+ * themes for better storefronts", which is not what it looks like. Now it is
+ * the site's name on the plain grey the placeholder row had, breathing while
+ * a photograph is on its way (PendingCover).
+ */
+function CoverPicture({ install, eager = false, preparing = false }: { install: WebsiteSummary; eager?: boolean; preparing?: boolean }) {
   if (install.snapshot_url) {
+    const ready = eager || DECODED.has(install.snapshot_url)
     return (
       /* eslint-disable-next-line @next/next/no-img-element */
       <img
@@ -276,20 +290,44 @@ function CoverPicture({ install, eager = false }: { install: WebsiteSummary; eag
         alt=""
         width={1440}
         height={900}
-        loading={eager ? "eager" : "lazy"}
+        loading={ready ? "eager" : "lazy"}
         fetchPriority={eager ? "high" : "auto"}
-        decoding="async"
+        decoding={DECODED.has(install.snapshot_url) ? "sync" : "async"}
         draggable={false}
         data-cover-picture=""
         className="block h-full w-full object-cover object-top"
       />
     )
   }
+  return <PendingCover name={install.name} preparing={preparing} />
+}
+
+/**
+ * A website without a photograph yet: its name, centred on the grey of the
+ * placeholder row it replaces, so the row that lands looks like the one that
+ * was there. While a photograph is being taken the grey breathes (the same
+ * `wb-incoming-pulse`, opacity only), and on a cover wide enough to read it,
+ * the live card's, it says so. Sized to its box (container units), so the
+ * name reads at a thumbnail's 96px and at the live card's full width.
+ */
+function PendingCover({ name, preparing }: { name: string; preparing: boolean }) {
   return (
-    <ThemeCover
-      spec={coverSpecFromSettings(install.settings, getThemeDefinition(install.theme_id), install.name)}
-      className="block h-full w-full"
-    />
+    <span
+      data-cover-pending={preparing ? "preparing" : "waiting"}
+      role="img"
+      aria-label={preparing ? `${name}, preparing preview` : name}
+      className="@container relative flex h-full w-full flex-col items-center justify-center bg-[#f3f4f6] px-[8%] text-center"
+    >
+      {preparing && <span aria-hidden className="wb-incoming-pulse absolute inset-0 bg-[#e6e8ec]" />}
+      <span aria-hidden className="relative block max-w-full truncate text-[length:clamp(9px,7.5cqi,20px)] font-semibold leading-tight tracking-tight text-[#4b5563]">
+        {name}
+      </span>
+      {preparing && (
+        <span aria-hidden className="relative mt-1.5 hidden text-[12.5px] text-[#6b7280] @min-[260px]:block">
+          Preparing preview
+        </span>
+      )}
+    </span>
   )
 }
 
@@ -416,17 +454,24 @@ function SectionHeading({
 
 // ── The page ───────────────────────────────────────────────────────────────
 
-/** Resolves once every picture has been fetched and decoded, or failed to. */
-async function decodedFirst(urls: (string | null)[]): Promise<void> {
-  await Promise.all(
+/**
+ * Resolves once every picture has been fetched and decoded, or failed to,
+ * or `within` ms have passed: a slow picture never holds up what waits on it
+ * for longer than that, it just draws a moment later.
+ */
+async function decodedFirst(urls: (string | null)[], within = 10_000): Promise<void> {
+  const all = Promise.all(
     urls.map((url) => {
       if (!url) return null
       const img = new Image()
       img.decoding = "async"
       img.src = url
-      return img.decode().catch(() => null)
+      return img.decode().then(() => void DECODED.add(url), () => null)
     }),
   )
+  let timer: number | undefined
+  await Promise.race([all, new Promise<void>((r) => { timer = window.setTimeout(r, within) })])
+  window.clearTimeout(timer)
 }
 
 /**
@@ -470,6 +515,22 @@ export function WebsiteBuilderClient({
   const router = useRouter()
   const [fresh, setFresh] = React.useState<Record<string, { url: string; mobile_url: string | null; updated_at: string }>>({})
   const asked = React.useRef(new Set<string>())
+  /** Sites whose photograph is being taken or waited for right now: a card with no picture breathes while it is. */
+  const [preparing, setPreparing] = React.useState<Record<string, true>>({})
+  const markPreparing = React.useCallback((id: string, on: boolean) => {
+    setPreparing((prev) => {
+      if (!!prev[id] === on) return prev
+      const next = { ...prev }
+      if (on) next[id] = true
+      else delete next[id]
+      return next
+    })
+  }, [])
+  /** A new picture, decoded before it is handed to the card, which then crossfades to it. */
+  const showCover = React.useCallback(async (id: string, cover: Cover) => {
+    await decodedFirst([cover.url, cover.mobile_url])
+    setFresh((prev) => ({ ...prev, [id]: cover }))
+  }, [])
   const installs = React.useMemo(
     () =>
       given.map((i) => {
@@ -516,7 +577,9 @@ export function WebsiteBuilderClient({
       for (const i of queue) {
         if (cancelled) return
         asked.current.add(i.id)
-        let got = await requestCover(i.id)
+        markPreparing(i.id, true)
+        /* A site added on Browse themes a moment ago is already being looked for: that answer first, a new photograph only if it brings none. */
+        let got = (await coverBeingWatched(i.id)) ?? (await requestCover(i.id))
         /* One more try a little later: a browser that failed to start once
            usually starts the second time, and a card left on a stale picture
            for the whole visit is what this is here to prevent. */
@@ -535,12 +598,13 @@ export function WebsiteBuilderClient({
           await decodedFirst([cover.url, cover.mobile_url])
           setFresh((prev) => ({ ...prev, [i.id]: cover }))
         }
+        markPreparing(i.id, false)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [given])
+  }, [given, markPreparing])
 
   const { toast } = useToast()
   const [isRefreshing, startRefresh] = React.useTransition()
@@ -694,6 +758,30 @@ export function WebsiteBuilderClient({
       const install = data.install as { id?: string } | undefined
       const id = (typeof data.install_id === "string" ? data.install_id : install?.id) ?? null
       if (ok && id) {
+        /*
+          ITS PICTURE ON ITS FIRST FRAME. The answer carries the new
+          website's cover when it has one (a package's, a copy's source's, or
+          a photograph that was quick enough): the tab keeps it and decodes
+          it BEFORE the page is refreshed, so the row that replaces the
+          placeholder is drawn with it. With none yet, the server is still
+          taking it, so this page only looks for it (watchCover) instead of
+          starting a second browser, and the row shows the site's name until
+          it lands; if nothing lands in about 30s, it asks for one.
+        */
+        const cover = data.cover as Cover | null | undefined
+        asked.current.add(id)
+        if (cover?.url) {
+          seedCover(id, cover)
+          await decodedFirst([cover.url], 2500)
+          setFresh((prev) => ({ ...prev, [id]: cover }))
+        } else {
+          markPreparing(id, true)
+          void (async () => {
+            const got = (data.cover_pending ? await watchCover(id) : null) ?? (await requestCover(id))
+            if (got?.url) await showCover(id, got)
+            markPreparing(id, false)
+          })()
+        }
         toast({ title: done(data) })
         if (!mounted.current) return
         setIncoming((c) => (c ? { ...c, phase: "working", installId: id } : c))
@@ -712,7 +800,7 @@ export function WebsiteBuilderClient({
       toast({ title: message, variant: "destructive" })
       setIncoming((c) => (c ? { ...c, phase: "error", error: message } : c))
     },
-    [refresh, toast],
+    [refresh, toast, markPreparing, showCover],
   )
 
   /*
@@ -919,9 +1007,19 @@ export function WebsiteBuilderClient({
   /* The themes Browse themes offers (one, for now), whether or not they are in the library already. */
   const explore = BROWSABLE_THEMES
 
+  /*
+    NO FADE OF ITS OWN. This box carried `.app-page-enter`, a fade from
+    opacity 0, which the shell switches off with `html.app-layout`. That class
+    is added by an effect after hydration, so a page that arrives as a
+    document (the sidebar's Website row on the web, a reload, a cold start,
+    the session's recovery) was painted at opacity 0 first: the spinner went,
+    the content area was flat grey, then the page came up. The shell's
+    landing (components/app/app-stage.tsx) is the only arrival an /app page
+    needs, and a document is whole on its first frame.
+  */
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
-      <div className="app-page-enter mx-auto max-w-[1200px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
+      <div data-wb-page="" className="mx-auto max-w-[1200px] space-y-7 px-4 py-6 sm:px-6 lg:px-8">
         {/* ── Header ─────────────────────────────────────────────────
             The title, the address under it, and on the title's line the two
             things you do to the site as a whole, as white secondary buttons:
@@ -999,7 +1097,7 @@ export function WebsiteBuilderClient({
                       data-cover=""
                       className={COVER_FRAME}
                     >
-                      <WebsiteCover install={live} eager />
+                      <WebsiteCover install={live} eager preparing={!!preparing[live.id]} />
                     </button>
                   </div>
                   <div className="flex min-w-0 flex-col px-4 pb-4 pt-2 lg:p-6 lg:pl-4">
@@ -1226,7 +1324,7 @@ export function WebsiteBuilderClient({
                           >
                             <span className="relative block w-24 shrink-0 overflow-hidden rounded-lg border border-[#e5e7eb] bg-[#f3f4f6] sm:w-28">
                               <span className="block aspect-[16/10]">
-                                <WebsiteCover install={i} />
+                                <WebsiteCover install={i} preparing={!!preparing[i.id]} />
                               </span>
                             </span>
                             <span className="min-w-0 flex-1">

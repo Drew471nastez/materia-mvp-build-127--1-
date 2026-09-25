@@ -242,8 +242,9 @@ export const AppSearch = memo(
           return
         }
         /* These leave the /app router tree; in the app a full load would
-           lose the session, which lives in Preferences, not a cookie. */
-        if (!isNativePlatform() && (href.startsWith("/creator-page") || href.startsWith("/app/onepage") || href.startsWith("/app/website-builder"))) {
+           lose the session, which lives in Preferences, not a cookie. The
+           Website page is not one of them: it is a page in the shell. */
+        if (!isNativePlatform() && (href.startsWith("/creator-page") || href.startsWith("/app/onepage"))) {
           startNavigationLoading(href)
           window.location.href = href
           return

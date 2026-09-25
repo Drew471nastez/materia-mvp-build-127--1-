@@ -28,7 +28,7 @@ const items: NavItemData[] = [
   { href: "/app/orders", label: "Orders", icon: NAV_ICONS.orders },
   { href: "/app/onepage", label: "OnePage", icon: NAV_ICONS.onepage, forceNavigation: true },
   { href: "/store-builder", label: "Store Builder", icon: NAV_ICONS.storeBuilder, forceNavigation: true },
-  { href: "/app/website-builder", label: "Website", icon: NAV_ICONS.websiteBuilder, forceNavigation: true },
+  { href: "/app/website-builder", label: "Website", icon: NAV_ICONS.websiteBuilder },
   { href: "/app/emails", label: "Emails", icon: NAV_ICONS.emails },
   { href: "/app/payouts", label: "Payouts", icon: NAV_ICONS.payouts },
 ]

@@ -398,8 +398,19 @@ html.capacitor body {
     rise, 180ms), started before the new page is painted. A page that still
     carries .app-page-enter would fade a second time on top of it, from 0
     over 380ms, so inside the shell's scroller the class does nothing.
+
+    FROM THE FIRST PAINT, NOT FROM HYDRATION. This read
+    `html.app-layout .app-content-scroll .app-page-enter`, and `app-layout`
+    is put on <html> by an effect (components/app/app-layout-wrapper.tsx),
+    after hydration. A page loaded as a document (a reload, a cold start, the
+    session's recovery, a sidebar row that loads the page for real) was
+    painted from the server's HTML before that, with the fade running from
+    0: the spinner went and the content area was flat #f8f9fa for its first
+    frames, then the page came up. Measured by scripts/check-website-page.mjs
+    ("arriving on the page as a document"). `.app-content-scroll` exists
+    only in the /app shell, so it says the same thing without waiting.
   */
-  html.app-layout .app-content-scroll .app-page-enter {
+  .app-content-scroll .app-page-enter {
     animation: none;
   }
 
