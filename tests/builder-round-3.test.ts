@@ -217,8 +217,11 @@ async function main() {
       /\(schema\?\.name \?\? section\.type\) !== sectionDisplayName\(section, librarySchemas\) && \(/.test(editor))
     check("so a section with a schema is named once",
       !/<p className="text-\[11px\] text-muted-foreground">\{schema\?\.name \?\? section\.type\}<\/p>/.test(editor))
+    /* The bar is the shared Back row now (components/website-builder/panel-back.tsx):
+       one line, a floor of 52px on a phone and 44 from md, never a tall pad. */
     check("and the bar is one line tall, with a floor rather than a tall pad",
-      /className="px-4 py-2 border-b border-border flex items-center gap-2 shrink-0 min-h-\[44px\]"/.test(editor))
+      /<PanelBack onBack=\{\(\) => setSelectedPanel\(\{ type: "pages" \}\)\}>\s*<p className="truncate text-\[15px\] font-semibold md:text-sm">\{sectionDisplayName\(section, librarySchemas\)\}<\/p>/.test(editor) &&
+        /min-h-\[52px\] shrink-0 items-center[^"]*md:min-h-\[44px\]/.test(read("components/website-builder/panel-back.tsx")))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

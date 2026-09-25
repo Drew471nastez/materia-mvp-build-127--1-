@@ -995,16 +995,52 @@ html.capacitor body {
       fill 260ms cubic-bezier(0.32, 0.72, 0, 1),
       filter 260ms cubic-bezier(0.32, 0.72, 0, 1);
   }
+  /* The press. `scale`, not `transform`: this transition named `transform`
+     while the press was Tailwind's `active:scale-90`, which sets the `scale`
+     property, so the button snapped down and snapped back. A step of 8%,
+     and it never moves anything around it. */
   .wb-inspector {
+    -webkit-tap-highlight-color: transparent;
     transition:
-      transform 180ms cubic-bezier(0.32, 0.72, 0, 1),
+      scale 160ms cubic-bezier(0.32, 0.72, 0, 1),
       color 260ms cubic-bezier(0.32, 0.72, 0, 1),
       box-shadow 260ms cubic-bezier(0.32, 0.72, 0, 1),
       background-color 200ms ease;
   }
+  .wb-inspector:active:not(:disabled) { scale: 0.92; }
   .wb-inspector-on svg {
     fill: currentColor;
     filter: drop-shadow(0 0 6px rgba(139, 86, 250, 0.9));
+  }
+  /* And the icon answers the switch: a small lift as it lights, a small dip
+     as it goes out. Two keyframes rather than one, so each change starts its
+     own; transform only, on the icon alone. Only once it has been pressed
+     (`data-toggled`), so the editor opening does not play it. */
+  .wb-inspector[data-toggled] svg { animation: wb-inspector-off 260ms cubic-bezier(0.32, 0.72, 0, 1); }
+  .wb-inspector-on[data-toggled] svg { animation: wb-inspector-on 300ms cubic-bezier(0.32, 0.72, 0, 1); }
+  @keyframes wb-inspector-on {
+    0% { transform: scale(0.86); }
+    55% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  @keyframes wb-inspector-off {
+    0% { transform: scale(1.06); }
+    100% { transform: scale(1); }
+  }
+  /*
+   * THE CANVAS FOLLOWS THE SWITCH (editor page.tsx, toggleInspector). The
+   * rings, the Selected badge and the section toolbar fade out where they are
+   * before the canvas is drawn without them, and fade up after it is drawn
+   * with them. 200ms, INSPECT_FADE_MS in the editor. Opacity only.
+   */
+  [data-wb-inspect] .wb-ring { transition: opacity 200ms cubic-bezier(0.4, 0, 0.2, 1); }
+  [data-wb-inspect="leaving"] .wb-ring,
+  [data-wb-inspect="off"] .wb-ring { opacity: 0 !important; }
+  [data-wb-inspect="entering"] .wb-ring { animation: wb-ring-in 200ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+  @keyframes wb-ring-in { from { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .wb-inspector, .wb-inspector svg { animation: none; transition: none; }
+    [data-wb-inspect] .wb-ring { transition: none; animation: none; }
   }
   .wb-inspector-on {
     /* Storelib purple, the colour of the mark two buttons over. One accent
@@ -1125,6 +1161,11 @@ html.capacitor body {
   @keyframes wb-settings-swap {
     from { opacity: 0; }
     to { opacity: 1; }
+  }
+  /* On a phone a subject is pushed in over the list (project-settings.tsx),
+     and a fade on top of the push is two motions for one step. */
+  @media (max-width: 767px) {
+    [data-settings-page] > .wb-settings-swap { animation: none; }
   }
   @keyframes wb-settings-in {
     from { opacity: 0; transform: translateY(8px) scale(0.985); }

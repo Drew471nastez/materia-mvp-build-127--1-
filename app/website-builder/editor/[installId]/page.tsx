@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, type CSSProperties } from "react"
+import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
@@ -39,7 +39,7 @@ import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sh
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { useEchoedValue } from "@/components/website-builder/echo-field"
-import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
 import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-builder/builder-loader"
 import { CanvasScrollbar } from "@/components/website-builder/canvas-scrollbar"
@@ -61,6 +61,7 @@ import { ProjectSettings } from "@/components/website-builder/project-settings"
 import { settingsSectionFrom, type ConnectVia, type SettingsSection } from "@/components/website-builder/website-settings/types"
 import { ConnectionButton, LiveChangeNotice, addToBatch, useSiteActivity, type LiveBatch, type LiveChange } from "@/components/website-builder/site-connections"
 import { ConnectionMarkIcon } from "@/components/website-builder/connection-marks"
+import { PanelBack } from "@/components/website-builder/panel-back"
 import { describeChange, pageEventPlan, pickConnection, sectionTypeOf, type ActivityEvent } from "@/lib/agent-access/connection-mark"
 import { createClient } from "@/lib/supabase/client"
 import { GradientEditor } from "@/components/website-builder/editor/gradient-editor"
@@ -2922,16 +2923,9 @@ function HeaderSectionSettings({
     const currentMobileLayout = (typeof s.mobile_header_layout === "string" ? s.mobile_header_layout : "logo_center_hamburger_left")
     return (
       <div className="flex flex-col h-full">
-        <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
-          <button
-            className="text-muted-foreground hover:text-foreground transition-colors"
-            onClick={() => setMobileLayoutPickerOpen(false)}
-            aria-label="Back"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <span className="text-sm font-semibold">Choose mobile header layout</span>
-        </div>
+        <PanelBack onBack={() => setMobileLayoutPickerOpen(false)}>
+          <span className="text-[15px] font-semibold md:text-sm">Choose mobile header layout</span>
+        </PanelBack>
         <div className="flex-1 overflow-y-auto wb-slim-scroll px-5 py-4 space-y-3">
           {mobileLayoutOptions.map(opt => {
             const active = currentMobileLayout === opt.id
@@ -3046,16 +3040,9 @@ function HeaderSectionSettings({
 
     return (
       <div className="flex flex-col h-full">
-        <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
-          <button
-            className="text-muted-foreground hover:text-foreground transition-colors"
-            onClick={() => setLayoutPickerOpen(false)}
-            aria-label="Back"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <span className="text-sm font-semibold">Choose header layout</span>
-        </div>
+        <PanelBack onBack={() => setLayoutPickerOpen(false)}>
+          <span className="text-[15px] font-semibold md:text-sm">Choose header layout</span>
+        </PanelBack>
         <div className="flex-1 overflow-y-auto wb-slim-scroll px-5 py-4 space-y-3">
           {layoutOptions.map(opt => {
             const active = currentLayout === opt.id
@@ -3099,16 +3086,9 @@ function HeaderSectionSettings({
         key={`sub-${activeTab}`}
         className="flex flex-col h-full"
       >
-        <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
-          <button
-            className="text-muted-foreground hover:text-foreground transition-colors"
-            onClick={() => setActiveTab(null)}
-            aria-label="Back"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <span className="text-sm font-semibold">{tab.label}</span>
-        </div>
+        <PanelBack onBack={() => setActiveTab(null)}>
+          <span className="text-[15px] font-semibold md:text-sm">{tab.label}</span>
+        </PanelBack>
         <div className="flex-1 overflow-y-auto wb-slim-scroll px-5 py-4">
           {renderSubPanel(activeTab)}
         </div>
@@ -3119,12 +3099,9 @@ function HeaderSectionSettings({
   // ── Main tab list ──────────────────────────────────────────
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
-        <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={onBack} aria-label="Back">
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <span className="text-sm font-semibold">Header Settings</span>
-      </div>
+      <PanelBack onBack={onBack}>
+        <span className="text-[15px] font-semibold md:text-sm">Header Settings</span>
+      </PanelBack>
 
       <div className="flex-1 overflow-y-auto wb-slim-scroll">
         {tabs.map(tab => (
@@ -3195,6 +3172,9 @@ function newBlockId(): string {
   return `block-${Date.now().toString(36)}-${blockSeq}-${Math.random().toString(36).slice(2, 7)}`
 }
 
+/** How long the inspector's rings take to fade, either way. globals.css fades `.wb-ring` over the same. */
+const INSPECT_FADE_MS = 200
+
 export default function StoreEditorPage({ params }: { params: Promise<{ installId: string }> }) {
   const { installId } = use(params)
   const router = useRouter()
@@ -3224,6 +3204,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // behaves like a plain preview (no outlines, no section-click interception).
   // Defaults to ON so first-time users see the editing affordances.
   const [inspectorEnabled, setInspectorEnabled] = useState<boolean>(true)
+  /**
+   * What the canvas draws, which trails the switch by one fade. The switch
+   * (`inspectorEnabled`) answers at once: the button, the haptic, whether a
+   * tap selects. The canvas's rings and toolbar fade out first and are taken
+   * away after (`toggleInspector`), and on the way back they are put in and
+   * fade up, so neither direction is a pop.
+   */
+  const [canvasInspecting, setCanvasInspecting] = useState<boolean>(true)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
@@ -4579,6 +4567,56 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   inspectorRef.current = inspectorEnabled
 
   /**
+   * ===========================================================================
+   *  THE INSPECTOR, ON AND OFF, WITHOUT A POP
+   * ===========================================================================
+   * "When I click the inspector it should feel smooth; when I unclick it,
+   * smooth." It flipped every section's outline, its Selected badge and the
+   * section toolbar on the same frame as the press, and the frame carried a
+   * render of the whole canvas.
+   *
+   * Now the press is felt and seen first: a tick under the finger and the
+   * button's own change, which is CSS (`.wb-inspector` in globals.css). The
+   * canvas follows through `data-wb-inspect` on the canvas's <main>:
+   *
+   *   off   the rings fade to nothing where they are ("leaving"), and only
+   *         when they are invisible is the canvas drawn without them, as a
+   *         transition so it never holds up a frame;
+   *   on    the canvas is drawn with them as a transition, and they fade up
+   *         once they are there ("entering").
+   *
+   * The attribute is written straight to the element: it is a styling hook,
+   * and a render of this editor to change one attribute is the cost this is
+   * getting rid of. INSPECT_FADE_MS is the one number the CSS fades over.
+   */
+  const canvasMainRef = useRef<HTMLElement | null>(null)
+  const inspectTimer = useRef(0)
+  const setInspectPhase = (phase: "on" | "off" | "entering" | "leaving") => {
+    canvasMainRef.current?.setAttribute("data-wb-inspect", phase)
+  }
+  const toggleInspector = useCallback((e?: React.MouseEvent<HTMLElement>) => {
+    const next = !inspectorRef.current
+    hapticTap("soft")
+    /* From now on the icon answers each change (`.wb-inspector[data-toggled]`). */
+    e?.currentTarget.setAttribute("data-toggled", "")
+    window.clearTimeout(inspectTimer.current)
+    setInspectorEnabled(next)
+    const still = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    if (next) {
+      setInspectPhase("entering")
+      startTransition(() => setCanvasInspecting(true))
+      inspectTimer.current = window.setTimeout(() => setInspectPhase("on"), still ? 0 : INSPECT_FADE_MS + 80)
+    } else {
+      setInspectPhase(still ? "off" : "leaving")
+      inspectTimer.current = window.setTimeout(() => {
+        setInspectPhase("off")
+        startTransition(() => setCanvasInspecting(false))
+      }, still ? 0 : INSPECT_FADE_MS)
+    }
+  }, [])
+  useEffect(() => () => window.clearTimeout(inspectTimer.current), [])
+
+  /**
    * A finger on the canvas releases either of the two pins below: the one
    * taken when a section is selected, and the one taken while a page is
    * opening. A hold that fights a deliberate scroll is worse than whatever
@@ -5419,6 +5457,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const selectSectionFromCanvas = useCallback(
     (sectionId: string, blockId?: string | null) => {
+      /* Switched off, and the rings are still fading: a tap now is a preview's tap. */
+      if (!inspectorRef.current) return
       const el = document.getElementById("wb-preview-root")
       if (el) {
         /**
@@ -5709,7 +5749,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     flush()
   }
-  const { brief: connectionsBrief, following: agentConnected } = useSiteActivity({
+  const { brief: connectionsBrief, following: agentConnected, settled: connectionsSettled } = useSiteActivity({
     installId,
     recheck: projectSettingsOpen,
     onEvents: handleAgentEvents,
@@ -6379,21 +6419,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             * over the canvas and every row of chrome is a row of settings
             * nobody can see.
             */}
-          <div className="px-4 py-2 border-b border-border flex items-center gap-2 shrink-0 min-h-[44px]">
-            <button
-              className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
-              onClick={() => setSelectedPanel({ type: "pages" })}
-              aria-label="Back"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate">{sectionDisplayName(section, librarySchemas)}</p>
-              {(schema?.name ?? section.type) !== sectionDisplayName(section, librarySchemas) && (
-                <p className="text-[11px] text-muted-foreground truncate">{schema?.name ?? section.type}</p>
-              )}
-            </div>
-          </div>
+          {/* Back is the whole left of the row, the name included, on a
+              quiet tile: components/website-builder/panel-back.tsx. */}
+          <PanelBack onBack={() => setSelectedPanel({ type: "pages" })}>
+            <p className="truncate text-[15px] font-semibold md:text-sm">{sectionDisplayName(section, librarySchemas)}</p>
+            {(schema?.name ?? section.type) !== sectionDisplayName(section, librarySchemas) && (
+              <p className="text-[11px] text-muted-foreground truncate">{schema?.name ?? section.type}</p>
+            )}
+          </PanelBack>
 
           <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll">
             {/* The section's design: its scheme, Customize, heading and body style */}
@@ -6628,12 +6661,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (selectedPanel.type === "theme_settings") {
       return (
         <div className="flex flex-col h-full">
-          <div className="px-4 py-3 border-b border-border flex items-center gap-2 shrink-0">
-            <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setSelectedPanel({ type: "pages" })}>
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <span className="text-sm font-semibold">Theme settings</span>
-          </div>
+          <PanelBack onBack={() => setSelectedPanel({ type: "pages" })}>
+            <span className="text-[15px] font-semibold md:text-sm">Theme settings</span>
+          </PanelBack>
           <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-3">
             {THEME_SETTINGS_GROUPS.map(group => (
               <div key={group.id} className="mb-1">
@@ -7149,6 +7179,125 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [isDirty, codeDirty, saving, publishing, leaveFor],
   )
 
+  /**
+   * ===========================================================================
+   *  THE ACTIONS MENU, BUILT ONLY WHEN WHAT IT SAYS CHANGES
+   * ===========================================================================
+   * Its rows were an array literal in the bar, so every render of this
+   * editor (an autosave, a poll, a keystroke in a field) handed the menu a
+   * new list and a new trigger, and an open phone sheet redrew its rows
+   * underneath a finger that was dragging it. The rows depend on five facts;
+   * the functions they call are read at the moment of the press, through a
+   * ref, so they can be as new as they like without the list changing.
+   */
+  const calls = {
+    openCode,
+    setPreviewMode,
+    openThemeSettings: () => {
+      setSidebarMode("settings")
+      setPageBrowserOpen(false)
+      setSelectedPanel({ type: "theme_settings" })
+      if (isMobileView) setMobileSidebarOpen(true)
+    },
+    openSettings: () => {
+      setPreviewMode("settings")
+      setProjectSettingsOpen(true)
+      setMobileSidebarOpen(false)
+      setAiOpen(false)
+    },
+    openConnections,
+    openConnection,
+    handleUndo,
+    handleRedo,
+    requestExit,
+  }
+  const actionCalls = useRef(calls)
+  actionCalls.current = calls
+  const inCode = previewMode === "code"
+  const actionItems = useMemo<ActionMenuItem[]>(() => {
+    return [
+      {
+        label: inCode ? "Back to preview" : "View code",
+        icon: <Code2 className="h-4 w-4" />,
+        onClick: () => {
+          if (inCode) actionCalls.current.setPreviewMode("preview")
+          else void actionCalls.current.openCode()
+        },
+      },
+      {
+        label: "Theme settings",
+        icon: <Settings className="h-4 w-4" />,
+        onClick: () => actionCalls.current.openThemeSettings(),
+      },
+      {
+        // The desktop pill has a Website Settings segment. A phone has
+        // no pill, so this is the phone's way in; on a desktop it is
+        // the same page from a second door.
+        label: "Website settings",
+        icon: <SlidersHorizontal className="h-4 w-4" />,
+        onClick: () => actionCalls.current.openSettings(),
+      },
+      {
+        label: "Connect Claude Code or Codex",
+        icon: <Plug className="h-4 w-4" />,
+        onClick: () => actionCalls.current.openConnections(),
+      },
+      /* The bar's connection mark, for a phone, whose bar has no room. */
+      ...(isMobileView
+        ? [{
+            label: connection.online ? connection.label : "GitHub",
+            icon: <ConnectionMarkIcon kind={connection.kind} className="h-4 w-4" />,
+            onClick: () => actionCalls.current.openConnection(),
+          }]
+        : []),
+      {
+        label: "Undo",
+        icon: <Undo2 className="h-4 w-4" />,
+        onClick: () => actionCalls.current.handleUndo(),
+        separatorBefore: true,
+      },
+      {
+        label: "Redo",
+        icon: <Redo2 className="h-4 w-4" />,
+        onClick: () => actionCalls.current.handleRedo(),
+      },
+      ...(websiteUrl
+        ? [{
+            label: "View live site",
+            icon: <ExternalLink className="h-4 w-4" />,
+            href: websiteUrl,
+            target: "_blank" as const,
+            separatorBefore: true,
+          }]
+        : []),
+      {
+        label: "Back to Dashboard",
+        icon: <ArrowLeft className="h-4 w-4" />,
+        onClick: () => actionCalls.current.requestExit("/app"),
+        separatorBefore: !websiteUrl,
+      },
+    ]
+  }, [inCode, isMobileView, connection.online, connection.label, connection.kind, websiteUrl])
+  /**
+   * The three dots. 32px drawn, and on a phone a 44px press area around it
+   * (an invisible band, so the bar does not move). It presses in the way the
+   * bar's other buttons do: a step smaller, on `scale`, which is what the
+   * transition names.
+   */
+  const actionsTrigger = useMemo(
+    () => (
+      <button
+        type="button"
+        className="relative h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-3)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] active:scale-[0.92] active:bg-[var(--wb-chrome-active)] transition-[background-color,scale,color] duration-150 shrink-0 after:absolute after:-inset-1.5 after:content-[''] md:after:hidden [-webkit-tap-highlight-color:transparent]"
+        title="Theme options"
+        aria-label="Actions"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+    ),
+    [],
+  )
+
   // ── Main editor layout ─────────────────────────────────────
   return (
     <div
@@ -7251,87 +7400,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <TooltipContent side="bottom">Site is live</TooltipContent>
             </Tooltip>
           )}
+          {/* Built once per state of what it lists (see `actionItems`), so the
+              builder re-rendering under an open sheet does not rebuild it. */}
           <ResponsiveActionMenu
             title="Actions"
             align="center"
             menuWidth="w-52"
-            trigger={
-              <button className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-3)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] transition-colors shrink-0" title="Theme options">
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
-            }
-            items={[
-              {
-                label: previewMode === "code" ? "Back to preview" : "View code",
-                icon: <Code2 className="h-4 w-4" />,
-                onClick: () => {
-                  if (previewMode === "code") setPreviewMode("preview")
-                  else void openCode()
-                },
-              },
-              {
-                label: "Theme settings",
-                icon: <Settings className="h-4 w-4" />,
-                onClick: () => {
-                  setSidebarMode("settings")
-                  setPageBrowserOpen(false)
-                  setSelectedPanel({ type: "theme_settings" })
-                  if (isMobileView) setMobileSidebarOpen(true)
-                },
-              },
-              {
-                // The desktop pill has a Website Settings segment. A phone has
-                // no pill, so this is the phone's way in; on a desktop it is
-                // the same page from a second door.
-                label: "Website settings",
-                icon: <SlidersHorizontal className="h-4 w-4" />,
-                onClick: () => {
-                  setPreviewMode("settings")
-                  setProjectSettingsOpen(true)
-                  setMobileSidebarOpen(false)
-                  setAiOpen(false)
-                },
-              },
-              {
-                label: "Connect Claude Code or Codex",
-                icon: <Plug className="h-4 w-4" />,
-                onClick: openConnections,
-              },
-              /* The bar's connection mark, for a phone, whose bar has no room. */
-              ...(isMobileView
-                ? [{
-                    label: connection.online ? connection.label : "GitHub",
-                    icon: <ConnectionMarkIcon kind={connection.kind} className="h-4 w-4" />,
-                    onClick: openConnection,
-                  }]
-                : []),
-              {
-                label: "Undo",
-                icon: <Undo2 className="h-4 w-4" />,
-                onClick: handleUndo,
-                separatorBefore: true,
-              },
-              {
-                label: "Redo",
-                icon: <Redo2 className="h-4 w-4" />,
-                onClick: handleRedo,
-              },
-              ...(websiteUrl
-                ? [{
-                    label: "View live site",
-                    icon: <ExternalLink className="h-4 w-4" />,
-                    href: websiteUrl,
-                    target: "_blank" as const,
-                    separatorBefore: true,
-                  }]
-                : []),
-              {
-                label: "Back to Dashboard",
-                icon: <ArrowLeft className="h-4 w-4" />,
-                onClick: () => requestExit("/app"),
-                separatorBefore: !websiteUrl,
-              },
-            ]}
+            trigger={actionsTrigger}
+            items={actionItems}
           />
           {/* A phone puts undo and redo here, straight after the menu, rather
               than in the middle of the bar. Centred, they were an island
@@ -7470,10 +7546,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <button
                 type="button"
                 className={cn(
-                  "wb-depth wb-inspector h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:text-[var(--wb-chrome-fg)] shrink-0 active:scale-90",
+                  "wb-depth wb-inspector h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:text-[var(--wb-chrome-fg)] shrink-0",
                   inspectorEnabled && "wb-inspector-on",
                 )}
-                onClick={() => setInspectorEnabled(v => !v)}
+                onClick={toggleInspector}
                 aria-label={inspectorEnabled ? "Disable section inspector" : "Enable section inspector"}
                 aria-pressed={inspectorEnabled}
               >
@@ -7594,6 +7670,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   websiteUrlDisplay={websiteUrlDisplay}
                   busy={busyNow}
                   onPublish={() => { void handleSave() }}
+                  /* The phone's sheet ends with what is connected, from the
+                     same read as the bar's mark. Something connected opens
+                     where the mark does; nothing yet opens Connections on
+                     its first path, where Claude Code and Codex connect. */
+                  connections={connectionsBrief}
+                  connectionsSettled={connectionsSettled}
+                  onConnections={() => {
+                    setPublishOpen(false)
+                    if (connection.online) openConnection()
+                    else openConnections()
+                  }}
                 />
               </div>
             )
@@ -7963,6 +8050,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 rounded corners into the editor topbar.
         */}
         <main
+          ref={canvasMainRef}
           className={cn(
             // `relative` so the code pane and the mode switch can sit over
             // the canvas without leaving the flex layout.
@@ -8422,7 +8510,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 pageTemplate={templateForPage(currentPage)}
                 sections={canvasSections}
                 arrivedId={arrivedId}
-                inspectorEnabled={inspectorEnabled}
+                inspectorEnabled={canvasInspecting}
                 selectedSectionId={selectedSectionId}
                 device={device}
                 /**
@@ -8460,7 +8548,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           {/* The selected section's own toolbar, over the canvas. Only with
               the inspector on: with it off the canvas is a plain preview and
               nothing in it is selectable. */}
-          {inspectorEnabled && !isMobileView && previewMode === "preview" && (() => {
+          {canvasInspecting && !isMobileView && previewMode === "preview" && (() => {
             const body = sections.filter((x) => x.type !== "header" && x.type !== "footer")
             const idx = body.findIndex((x) => x.id === selectedSectionId)
             const current = sections.find((x) => x.id === selectedSectionId)
@@ -8910,7 +8998,7 @@ function SectionToolbar({
          * and under every piece of chrome. A tooltip cannot cover the panel
          * either once the button it belongs to is behind it.
          */
-        "wb-section-toolbar absolute z-30 flex items-center gap-0.5 rounded-xl border border-neutral-200/80 bg-white/95 p-1 shadow-[0_8px_28px_-10px_rgba(15,23,42,0.35)] backdrop-blur",
+        "wb-section-toolbar wb-ring absolute z-30 flex items-center gap-0.5 rounded-xl border border-neutral-200/80 bg-white/95 p-1 shadow-[0_8px_28px_-10px_rgba(15,23,42,0.35)] backdrop-blur",
         /**
          * Opacity and transform only, and NOT `top`. It tracks its section
          * on every scrolled frame, so a transition on the position would

@@ -1,8 +1,8 @@
 "use client"
 
-import { Fragment, useEffect, useRef, useState } from "react"
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { ArrowLeft, ChevronRight } from "lucide-react"
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 import { ConnectionsSettings } from "@/components/website-builder/website-settings/connections"
@@ -52,7 +52,20 @@ export type { SettingsSection } from "@/components/website-builder/website-setti
  * own Back. They used to be a row of chips scrolling sideways across the top,
  * and the last ones, Connections among them, were off the edge of the screen
  * where nobody found them.
+ *
+ * AND IT MOVES LIKE A PHONE'S OWN SETTINGS. A subject is pushed in from the
+ * right over the list, and Back slides it away again, on transform only (see
+ * PUSH_MS below). The list is never taken out of the layout while a subject
+ * is open, only hidden, so it comes back scrolled exactly where it was left.
  */
+
+/** A subject sliding in over the list, and back out: iOS's own push curve. */
+const PUSH_MS = 340
+const POP_MS = 280
+const PUSH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+const POP_EASE = "cubic-bezier(0.4, 0, 0.2, 1)"
+/** The width below which the subjects are a list with a page pushed over it. Tailwind's md. */
+const PHONE_QUERY = "(max-width: 767px)"
 
 export function ProjectSettings({
   open,
@@ -115,7 +128,15 @@ export function ProjectSettings({
   const [section, setSection] = useState<SettingsSection>("general")
   /** A phone shows the list until a subject is picked. */
   const [picked, setPicked] = useState(false)
+  /**
+   * A push or a pop in flight on a phone. Both the list and the page stay
+   * drawn until it lands; after a push the list is hidden (not removed, so
+   * it keeps its scroll), after a pop the page is.
+   */
+  const [moving, setMoving] = useState<null | "push" | "pop">(null)
   const panelRef = useRef<HTMLElement | null>(null)
+  const listRef = useRef<HTMLElement | null>(null)
+  const motion = useRef<Animation[]>([])
 
   /* Reset while rendering, not in an effect: an effect runs after paint,
      so a reopened Settings showed the last subject for a frame first (and
@@ -144,12 +165,68 @@ export function ProjectSettings({
     panelRef.current?.scrollTo({ top: 0 })
   }, [section])
 
+  /**
+   * THE PUSH AND THE POP. Started before the frame that shows the new state
+   * is painted, so the page's first frame is already off to the right; on
+   * the compositor, so a subject that is heavy to draw does not stutter it.
+   * Only the page and the list move: `transform`, and the list's dimming,
+   * nothing that lays anything out.
+   */
+  useLayoutEffect(() => {
+    /* A move that has landed holds its last frame (`fill`) until the render
+       that hides the list or the page has been committed, which is now:
+       letting go of it earlier showed the page over the list for one frame
+       at the end of every Back. */
+    for (const a of motion.current) a.cancel()
+    motion.current = []
+    if (!moving) return
+    const page = panelRef.current
+    const list = listRef.current
+    if (!page || typeof page.animate !== "function") {
+      setMoving(null)
+      return
+    }
+    const push = moving === "push"
+    const timing: KeyframeAnimationOptions = { duration: push ? PUSH_MS : POP_MS, easing: push ? PUSH_EASE : POP_EASE, fill: "both" }
+    const off = "translate3d(100%, 0, 0)"
+    const at = "translate3d(0, 0, 0)"
+    const a = page.animate(push ? [{ transform: off }, { transform: at }] : [{ transform: at }, { transform: off }], timing)
+    motion.current = [a]
+    if (list) {
+      /* The list gives way by a quarter of its width and dims, as a phone's does. */
+      const back = { transform: "translate3d(-24%, 0, 0)", opacity: 0.5 }
+      const front = { transform: at, opacity: 1 }
+      motion.current.push(list.animate(push ? [front, back] : [back, front], timing))
+    }
+    a.onfinish = () => {
+      if (motion.current[0] === a) setMoving(null)
+    }
+    /* However it ends, or if it never runs (a tab in the background), it lands. */
+    const late = window.setTimeout(() => setMoving(null), (push ? PUSH_MS : POP_MS) + 200)
+    return () => window.clearTimeout(late)
+  }, [moving])
+  useEffect(() => () => { for (const a of motion.current) a.cancel() }, [])
+
   if (!open) return null
   if (typeof document === "undefined") return null
 
+  /** Whether this screen is the phone's list-then-page, and should move. */
+  const phoneMotion = () =>
+    typeof window !== "undefined" &&
+    !!window.matchMedia?.(PHONE_QUERY).matches &&
+    !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+
   const go = (next: SettingsSection) => {
     setSection(next)
+    /* From the list, on a phone: pushed in. Between subjects on a desktop, or
+       from inside one (a link to Publishing), the page is already there. */
+    if (!picked && phoneMotion()) setMoving("push")
+    else if (moving) setMoving(null)
     setPicked(true)
+  }
+  const backToList = () => {
+    setMoving(phoneMotion() ? "pop" : null)
+    setPicked(false)
   }
   /** Leaves settings for the builder, and then does the thing. */
   const thenClose = (fn: () => void) => () => {
@@ -206,26 +283,32 @@ export function ProjectSettings({
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
+      {/* The list and the page share this box. On a phone they are stacked in
+          it, the page over the list; from md they are two columns. */}
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden md:flex-row">
       {/* ── The subjects ──────────────────────────────────────────────── */}
       <aside
+        ref={listRef}
         className={cn(
-          /* flex-1 fills a phone with the list; md:flex-none gives the
+          /* The whole box on a phone, under the page; md:flex-none gives the
              desktop column its own width back, whatever is open. */
-          "min-h-0 shrink-0 flex-col overflow-y-auto md:flex md:w-[264px] md:flex-none md:border-r md:border-white/10",
-          picked ? "hidden" : "flex flex-1",
+          "wb-slim-scroll flex min-h-0 flex-col overflow-y-auto overscroll-contain max-md:absolute max-md:inset-0 md:w-[264px] md:flex-none md:border-r md:border-white/10",
+          /* Hidden under a page, never removed: it keeps its scroll for Back. */
+          picked && moving !== "push" && "max-md:invisible",
         )}
+        aria-hidden={picked && moving !== "push" ? true : undefined}
       >
-        <div className="px-5 pt-5 md:px-6 md:pt-7">
+        <div className="px-3 pt-3 md:px-6 md:pt-7">
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 items-center gap-2 rounded-lg text-[15px] font-medium text-white/80 transition-colors hover:text-white"
+            className="flex h-11 items-center gap-2 rounded-lg px-2 text-[15px] font-medium text-white/80 transition-colors hover:text-white active:bg-white/[0.06] md:-ml-2 md:h-9 [-webkit-tap-highlight-color:transparent]"
           >
-            <ArrowLeft className="h-4 w-4" strokeWidth={2} />
+            <ArrowLeft className="h-[18px] w-[18px] md:h-4 md:w-4" strokeWidth={2} />
             Back to editor
           </button>
         </div>
-        <p className="px-5 pb-2 pt-6 text-[12px] font-medium uppercase tracking-wider text-white/40 md:px-6">Website Settings</p>
+        <p className="px-5 pb-2 pt-5 text-[12px] font-medium uppercase tracking-wider text-white/40 md:px-6 md:pt-6">Website Settings</p>
         <nav aria-label="Website settings" className="flex flex-col px-3 pb-6">
           {SETTINGS_SECTIONS.map(({ id, label, group }, i) => {
             const active = section === id
@@ -242,14 +325,16 @@ export function ProjectSettings({
                 onClick={() => go(id)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center justify-between rounded-lg px-3 text-left text-[15px] transition-colors duration-150",
-                  "h-12 md:h-10",
+                  "flex items-center justify-between rounded-lg px-3 text-left transition-colors duration-150 [-webkit-tap-highlight-color:transparent]",
+                  /* A phone's row: 52px and 16px words, the size of the list it is. */
+                  "h-[52px] text-[16px] active:bg-white/[0.06] md:h-10 md:text-[15px]",
                   active ? "md:bg-white/[0.08] md:text-white" : "",
-                  active ? "text-white" : "text-white/70 hover:bg-white/[0.05] hover:text-white",
+                  /* On a phone every row reads the same: which one was open last is not news. */
+                  active ? "text-white/90 md:text-white" : "text-white/90 md:text-white/70 md:hover:bg-white/[0.05] md:hover:text-white",
                 )}
               >
                 <span>{label}</span>
-                <ChevronRight className="h-4 w-4 text-white/30 md:hidden" />
+                <ChevronRight className="h-[18px] w-[18px] text-white/30 md:hidden" />
               </button>
               </Fragment>
             )
@@ -258,21 +343,32 @@ export function ProjectSettings({
       </aside>
 
       {/* ── One subject ───────────────────────────────────────────────── */}
-      <main ref={panelRef} className={cn("wb-slim-scroll min-h-0 flex-1 overflow-y-auto", !picked && "hidden md:block")}>
-        {/* A phone's own Back, to the list. */}
-        <div className="sticky top-0 z-10 flex h-12 items-center border-b border-white/10 bg-[#0f0f0f]/95 px-3 backdrop-blur md:hidden">
+      <main
+        ref={panelRef}
+        data-settings-page=""
+        className={cn(
+          "wb-slim-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#0f0f0f] max-md:absolute max-md:inset-0 max-md:shadow-[-12px_0_32px_-12px_rgba(0,0,0,0.6)]",
+          !picked && moving !== "pop" && "max-md:hidden",
+        )}
+      >
+        {/* A phone's own Back, to the list. Solid, not blurred: a blur on a
+            bar that the page scrolls under is redrawn on every frame of the
+            scroll. */}
+        <div data-settings-bar="" className="sticky top-0 z-10 flex h-12 items-center border-b border-white/10 bg-[#0f0f0f] px-1.5 md:hidden">
           <button
             type="button"
-            onClick={() => setPicked(false)}
-            className="flex h-10 items-center gap-1.5 rounded-lg px-2 text-[15px] font-medium text-white/80"
+            onClick={backToList}
+            className="flex h-11 items-center gap-0.5 rounded-lg pl-1 pr-2.5 text-[16px] font-medium text-white/85 transition-colors active:bg-white/[0.06] [-webkit-tap-highlight-color:transparent]"
           >
-            <ArrowLeft className="h-4 w-4" strokeWidth={2} />
+            <ChevronLeft className="h-6 w-6" strokeWidth={2} />
             Website Settings
           </button>
         </div>
         {/* A new subject fades in where it is: no rise, no scale. It rose 8px
-            and grew from 98.5%, which on every switch read as a bump. */}
-        <div key={section} className="wb-settings-swap mx-auto w-full max-w-[860px] px-5 pb-16 pt-6 md:px-12 md:pb-14 md:pt-12" aria-label={current?.label}>
+            and grew from 98.5%, which on every switch read as a bump. On a
+            phone the push is the motion, and the fade is left out
+            (`[data-settings-page] .wb-settings-swap` in globals.css). */}
+        <div key={section} className="wb-settings-swap mx-auto w-full max-w-[860px] px-4 pb-[max(64px,calc(env(safe-area-inset-bottom)+32px))] pt-5 md:px-12 md:pb-14 md:pt-12" aria-label={current?.label}>
           {section === "general" && <GeneralSettings ctx={ctx} />}
           {section === "domains" && <DomainSettings ctx={ctx} />}
           {section === "seo" && <SeoSettings ctx={ctx} />}
@@ -284,6 +380,7 @@ export function ProjectSettings({
           {section === "connections" && <ConnectionsSettings ctx={ctx} />}
         </div>
       </main>
+      </div>
     </div>,
     document.body,
   )
