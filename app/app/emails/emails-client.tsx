@@ -64,7 +64,7 @@ function writeAddress(mutate: (p: URLSearchParams) => void, mode: "push" | "repl
 
 async function postJson(url: string, body?: unknown): Promise<{ ok: boolean; data: Record<string, unknown> }> {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }).catch(() => null)
-  const data = res ? await res.json().catch(() => ({})) : { error: "You seem to be offline. Check your connection and try again." }
+  const data = res ? await res.json().catch(() => ({})) : { error: "You seem to be offline. Try again." }
   return { ok: !!res?.ok, data }
 }
 
@@ -328,7 +328,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const deleteFlow = async (id: string) => {
     /* Through the server, which takes everyone out of it first. */
     const res = await fetch(`/api/automations/flows/${id}`, { method: "DELETE" }).catch(() => null)
-    if (!res || !res.ok) return onNotice("The automation was not deleted. Try again.")
+    if (!res || !res.ok) return onNotice("Not deleted. Try again.")
     write<FlowRow[]>(keyFor("flows"), (prev) => (prev ?? []).filter((f) => f.id !== id))
     onNotice("Automation deleted")
   }
@@ -355,10 +355,10 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     refresh(keyFor("flows"))
     onNotice(
       on
-        ? "On. It starts for people who trigger it from now on."
+        ? "On. New people start it from now."
         : out.stopped > 0
-          ? `Off. ${out.stopped} ${out.stopped === 1 ? "person" : "people"} partway through will get nothing more.`
-          : "Off. Nobody new starts it. Sign-ups and orders are still recorded.",
+          ? `Off. ${out.stopped} ${out.stopped === 1 ? "person" : "people"} stopped partway.`
+          : "Off. Sign-ups are still recorded.",
     )
   }
 

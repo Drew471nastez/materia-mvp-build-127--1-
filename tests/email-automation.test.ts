@@ -240,7 +240,7 @@ async function main() {
     /onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*<Switch checked=\{on\} onCheckedChange=\{\(\) => props\.onToggleFlow\(f\)\}/.test(home))
   check("the list's switch goes through the same server check",
     /fetch\(`\/api\/automations\/flows\/\$\{flow\.id\}\/status`/.test(page))
-  check("turning it off says sign-ups are still collected", /Sign-ups and orders are still recorded\./.test(page))
+  check("turning it off says sign-ups are still collected", /"Off\. Sign-ups are still recorded\."/.test(page))
   check("and turning it off stops the people partway through, said before it happens",
     /await stopFlowRuns\(id, "The flow was turned off\."\)/.test(statusRoute) && /partway through\. Turning it off stops them where they are/.test(builder))
   check("and only an active automation ever sends",
