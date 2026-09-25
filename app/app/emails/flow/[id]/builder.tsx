@@ -70,10 +70,10 @@ import {
 } from "@/lib/automations/flow-model"
 import { fieldsFor } from "@/lib/automations/merge-fields"
 import { joinedSentence } from "@/lib/contacts/contact-source"
-import { PaneBar, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../../../orders/order-parts"
+import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "../../../orders/order-parts"
 import { RUN_STATUS } from "../../contact-detail"
 import { BodyEditor } from "../body-editor"
-import { StepMark } from "../flow-parts"
+import { FlowTopBar, StepMark, backButton } from "../flow-parts"
 
 export interface StepStats {
   sent: number
@@ -118,9 +118,16 @@ interface Draft {
 
 type Selection = "trigger" | string | null
 
-/** The bar and the body share one width, so the back arrow, the column and the panel line up. */
-const FLOW_WIDTH = "max-w-[704px] lg:max-w-[1040px]"
+/**
+ * The header and the body share one width, so the back arrow, the column and
+ * the panel line up: the product editor's, 760px below lg and the 1200px
+ * page container from lg.
+ */
+const FLOW_WIDTH = "max-w-[760px] lg:max-w-[1200px]"
 const FLOW_GUTTER = "px-4 sm:px-6 lg:px-8"
+
+/** The name, where it is edited: the bar's size on a phone, the page title's from 768px. */
+const nameText = "text-[17px] font-semibold text-[#1a1a2e] md:text-[24px] md:font-bold lg:text-[28px]"
 
 const EMAILS = "/app/emails?tab=flows"
 
@@ -264,6 +271,21 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
     }
   }
 
+  /* Cmd or Ctrl and S saves, as it does in the product editor. The latest save is read through a ref, so the listener is added once per change of state. */
+  const saveRef = React.useRef(save)
+  React.useLayoutEffect(() => {
+    saveRef.current = save
+  })
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "s") return
+      e.preventDefault()
+      if (dirty && !saving) void saveRef.current()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [dirty, saving])
+
   const setOn = async (next: boolean) => {
     if (next && problems.length > 0) {
       setFlagged(true)
@@ -333,11 +355,18 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
     { label: "Delete automation", variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirmDelete(true) },
   ]
   const busy = saving || switching || deleting
+  /* The bar's one action. Save is the phone's: from 768px it is in the foot bar. */
   const primary = dirty
-    ? { label: saving ? "Saving" : "Save", run: () => void save() }
+    ? { label: saving ? "Saving" : "Save", run: () => void save(), phoneOnly: true }
     : !on
-      ? { label: switching ? "Turning on" : "Turn on", run: () => void setOn(true) }
+      ? { label: switching ? "Turning on" : "Turn on", run: () => void setOn(true), phoneOnly: false }
       : null
+  /* Back to what was last saved, from the foot bar. */
+  const discard = () => {
+    setDraft(JSON.parse(savedJson) as Draft)
+    setSelected(null)
+    setFlagged(false)
+  }
   const state = stateOf(status)
   const subtitle = `${TRIGGERS[draft.trigger].sentence} · ${entryText(draft.trigger, entryRule(draft.trigger, draft.config))}`
 
@@ -363,45 +392,58 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
     ) : null
 
   return (
-    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
-      <PaneBar width={FLOW_WIDTH} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 pb-2.5 pt-2">
-        <button
-          type="button"
-          aria-label="Back to automations"
-          className="-ml-0.5 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[#e3e4e8] bg-white text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]"
-          onClick={back}
-        >
-          <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.2} />
+    <div className="orders-pane page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa] app-page-enter md:flex md:flex-col">
+      {/*
+        THE HEADER. On a phone the page's own bar over the whole screen
+        (../layout.tsx): Back, the name, the one action and the menu, stuck to
+        the top. From 768px the page's header, 24px under the app's black bar
+        like the product editor's: Back, the name at the page title's size,
+        its state and what starts it under it, and Turn on and the menu at
+        the end. Save is at the foot from 768px (below), where it stays in
+        reach however far down the flow the edit was.
+      */}
+      <FlowTopBar width={FLOW_WIDTH} className="flex h-14 items-center gap-1.5 md:h-auto md:items-start md:gap-2 md:pt-6">
+        <button type="button" aria-label="Back to automations" title="Automations" className={cn(backButton, "-ml-2.5 md:-ml-1.5")} onClick={back}>
+          <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="flex min-h-9 min-w-0 items-center gap-2">
-          {/* As wide as the name, so the badge sits right after it: an
-              invisible copy of the text sizes the cell the field fills.
-              `size={1}`, or the field's own default width (twenty
-              characters) sizes the cell instead and the badge floats off. */}
-          <span className="-ml-1.5 inline-grid min-w-0 grid-cols-[minmax(0,auto)]">
-            <span aria-hidden className="invisible col-start-1 row-start-1 overflow-hidden whitespace-pre px-1.5 text-[18px] font-bold sm:text-[20px]">
-              {draft.name || "Name"}
+        <div className="min-w-0 flex-1">
+          <div className="flex min-h-9 min-w-0 items-center gap-2">
+            {/* As wide as the name, so the badge sits right after it: an
+                invisible copy of the text sizes the cell the field fills.
+                `size={1}`, or the field's own default width (twenty
+                characters) sizes the cell instead and the badge floats off. */}
+            <span className="-ml-1.5 inline-grid min-w-0 grid-cols-[minmax(0,auto)]">
+              <span aria-hidden className={cn(nameText, "invisible col-start-1 row-start-1 overflow-hidden whitespace-pre px-1.5")}>
+                {draft.name || "Name"}
+              </span>
+              <input
+                aria-label="Name"
+                size={1}
+                value={draft.name}
+                maxLength={80}
+                placeholder="Name"
+                onChange={(e) => update({ name: e.target.value })}
+                className={cn(
+                  nameText,
+                  "col-start-1 row-start-1 h-9 w-full min-w-[4ch] truncate rounded-lg bg-transparent px-1.5 outline-none transition-colors hover:bg-[#eef0f2] focus:bg-white focus:shadow-[0_0_0_1px_#1a1a2e] md:h-10",
+                )}
+              />
             </span>
-            <input
-              aria-label="Name"
-              size={1}
-              value={draft.name}
-              maxLength={80}
-              placeholder="Name"
-              onChange={(e) => update({ name: e.target.value })}
-              className="col-start-1 row-start-1 h-9 w-full min-w-[4ch] truncate rounded-lg bg-transparent px-1.5 text-[18px] font-bold text-[#1a1a2e] outline-none transition-colors hover:bg-[#eef0f2] focus:bg-white focus:shadow-[0_0_0_1px_#1a1a2e] sm:text-[20px]"
-            />
-          </span>
-          <StatusBadge tone={state.tone} className="hidden sm:inline-flex">
-            {state.label}
-          </StatusBadge>
+            <StatusBadge tone={state.tone} className="hidden md:inline-flex">
+              {state.label}
+            </StatusBadge>
+          </div>
+          <p className="hidden min-w-0 truncate text-[13px] leading-5 text-[#6b7280] md:block">{subtitle}</p>
         </div>
-        <div className="flex min-h-9 shrink-0 items-center gap-1.5">
-          <span className="hidden text-[12px] text-[#6b7280] md:inline" aria-live="polite">
-            {saving ? "Saving" : dirty ? "Unsaved changes" : ""}
-          </span>
+        <div className="flex min-h-9 shrink-0 items-center gap-1.5 md:min-h-10">
           {primary ? (
-            <button type="button" className={cn(buttonAccent, "h-9 px-3.5")} disabled={busy} onClick={primary.run}>
+            <button
+              type="button"
+              data-primary=""
+              className={cn(buttonPrimary, "h-10 rounded-[10px] px-4 text-[15px] md:h-9 md:rounded-lg md:px-3.5 md:text-[13px]", primary.phoneOnly && "md:hidden")}
+              disabled={busy}
+              onClick={primary.run}
+            >
               {primary.label}
             </button>
           ) : null}
@@ -409,21 +451,20 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
             title={draft.name || "Automation"}
             items={menu}
             trigger={
-              <button type="button" aria-label="More actions" className={cn(iconButton, "h-9 w-9")} disabled={deleting}>
+              <button type="button" aria-label="More actions" className={cn(backButton, "-mr-2 text-[#4b5563] md:mr-0")} disabled={deleting}>
                 <Ellipsis className="h-5 w-5" />
               </button>
             }
           />
         </div>
-        <div className="col-span-2 col-start-2 -mt-0.5 flex min-w-0 items-center gap-2 text-[13px] leading-5 text-[#6b7280]">
-          <StatusBadge tone={state.tone} className="sm:hidden">
-            {state.label}
-          </StatusBadge>
-          <span className="min-w-0 truncate">{subtitle}</span>
-        </div>
-      </PaneBar>
+      </FlowTopBar>
+      {/* On a phone the state and what starts it are under the bar, and scroll with the page. */}
+      <div className={cn("mx-auto flex w-full min-w-0 items-center gap-2 pt-1 text-[13px] leading-5 text-[#6b7280] md:hidden", FLOW_WIDTH, FLOW_GUTTER)}>
+        <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
+        <span className="min-w-0 truncate">{subtitle}</span>
+      </div>
 
-      <div className={cn("mx-auto pb-28 pt-3 md:pb-10", FLOW_WIDTH, FLOW_GUTTER)}>
+      <div className={cn("mx-auto w-full pb-8 pt-3 md:pt-5", FLOW_WIDTH, FLOW_GUTTER)}>
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="min-w-0">
             <StateLine
@@ -453,15 +494,51 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
             <Activity data={data} on={on} steps={draft.steps} />
           </div>
           {wide !== false ? (
-            /* Sticky at exactly where it rests (the bar's 72px and the 12px
-               above the column), so it never starts lower than the column
-               beside it and never moves when the page begins to scroll. */
-            <aside className="sticky top-[84px] hidden lg:block">
-              <div className={cn(card, "max-h-[calc(100dvh-100px)] overflow-y-auto")}>
+            /* Sticky 24px from the top of the pane. Never taller than the
+               window less the black bar, the header above it where it rests
+               and the foot bar, so its foot is never under the Save bar,
+               before the page is scrolled or after. */
+            <aside className="sticky top-6 hidden lg:block">
+              <div className={cn(card, "max-h-[calc(100dvh-58px-env(safe-area-inset-top,0px)-200px)] overflow-y-auto")}>
                 {(wide ? panel : null) ?? <Summary draft={draft} problems={problems} onPick={(id) => setSelected(id ?? "trigger")} bare />}
               </div>
             </aside>
           ) : null}
+        </div>
+      </div>
+
+      {/*
+        THE FOOT BAR, FROM 768px: Discard and Save, while there is something
+        to save. The product editor keeps its Save at the foot of the pane on
+        a computer; this one is there only when it has a job, so a flow with
+        nothing unsaved has no bar at all. It is always in the layout (its
+        64px are at the end of the page either way) and only shows and hides,
+        on opacity and translate, so nothing on the page moves when it comes.
+        Cmd or Ctrl and S saves from anywhere.
+      */}
+      <div
+        data-flow-foot=""
+        data-shown={dirty ? "" : undefined}
+        inert={!dirty}
+        className={cn(
+          "sticky bottom-0 z-20 mt-auto hidden shrink-0 transition-[opacity,translate] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:block",
+          dirty ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0",
+        )}
+      >
+        <div className="border-t border-[#e5e7eb] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_-8px_rgba(17,24,39,0.10)]">
+          <div className={cn("mx-auto flex h-16 items-center justify-between gap-4", FLOW_WIDTH, FLOW_GUTTER)}>
+            <p className="text-[13px] font-medium text-[#1a1a2e]" aria-live="polite">
+              {saving ? "Saving" : dirty ? "Unsaved changes" : ""}
+            </p>
+            <div className="flex items-center gap-2">
+              <button type="button" className={cn(buttonSecondary, "h-9 px-3.5")} disabled={busy} onClick={discard}>
+                Discard
+              </button>
+              <button type="button" className={cn(buttonPrimary, "h-9 min-w-[64px] px-3.5")} disabled={busy} onClick={() => void save()}>
+                {saving ? "Saving" : "Save"}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -513,7 +590,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
             </button>
             <button
               type="button"
-              className={buttonAccent}
+              className={buttonPrimary}
               onClick={async () => {
                 if (await save()) {
                   setConfirmLeave(false)

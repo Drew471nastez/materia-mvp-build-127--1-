@@ -6,9 +6,14 @@
  * ===========================================================================
  * One list, in the order a person meets a creator: joining the list, a
  * checkout left behind, then everything after an order. Each row is what the
- * automation is (a plain line drawing of what it is about, on a neutral
- * tile), its name, one line on what it does, and its steps in words:
- * "Email, wait 3 days, email". Nothing to decode, nothing in violet.
+ * automation is (a drawing of what it is about, made for this page, on a
+ * small white tile: ../flow-parts.tsx), its name, one line on what it does,
+ * and its steps in words: "Email, wait 3 days, email". Nothing to decode,
+ * nothing in violet.
+ *
+ * On a phone it is a page of its own over the whole screen, with its own bar
+ * (../layout.tsx); from 768px a page in the shell, its header 24px under the
+ * black bar, 1200px wide from lg, the product editor's frame.
  *
  * Only automations the platform can actually start are offered
  * (lib/automations/templates.ts). A template you already made opens yours
@@ -24,11 +29,16 @@ import { cn } from "@/lib/utils"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { TRIGGERS, TRIGGER_ORDER, audienceOf, normalizeSteps, stepsText, type TriggerType } from "@/lib/automations/flow-model"
 import { BLANK_TEMPLATE, TEMPLATES, type FlowTemplate } from "@/lib/automations/templates"
-import { PaneBar, StatusBadge, iconButton } from "../../../orders/order-parts"
-import { ListIcon, TEMPLATE_ICON } from "../flow-parts"
+import { StatusBadge } from "../../../orders/order-parts"
+import { FlowTopBar, ListIcon, TEMPLATE_ICON, backButton } from "../flow-parts"
+import { canReturnTo } from "@/lib/navigation/in-app-history"
 
-/** Narrower than a list page: rows of words read better at this measure. */
-const WIDTH = "max-w-[760px]"
+/**
+ * The page's width: the 1200px every /app page uses from lg, the product
+ * editor's (app/app/products/new/product-editor.tsx). Below lg a column of
+ * 760px at most, the product editor's too.
+ */
+const WIDTH = "max-w-[760px] lg:max-w-[1200px]"
 
 const GROUPS: Array<{ title: string; triggers: TriggerType[] }> = [
   { title: "When someone joins your list", triggers: ["new_subscriber"] },
@@ -36,8 +46,15 @@ const GROUPS: Array<{ title: string; triggers: TriggerType[] }> = [
   { title: "After an order", triggers: ["first_purchase", "purchase"] },
 ]
 
+/**
+ * A row: the drawing, the name and what it does, its steps, and where it
+ * goes. On a phone and a tablet the steps are a line under the words; from
+ * lg, where the page is 1200px wide, they are a column of their own, so a
+ * row reads across the width like a line in an index rather than a short
+ * paragraph with a long gap after it.
+ */
 const row =
-  "group flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors duration-100 hover:bg-[#fafbfb] active:bg-[#f4f4f6] focus-visible:bg-[#f4f4f6] focus-visible:outline-none disabled:cursor-wait sm:gap-3.5 sm:px-5"
+  "group grid w-full grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-x-3 px-4 py-3.5 text-left transition-colors duration-100 hover:bg-[#fafbfb] active:bg-[#f4f4f6] focus-visible:bg-[#f4f4f6] focus-visible:outline-none disabled:cursor-wait sm:gap-x-3.5 sm:px-5 lg:grid-cols-[40px_minmax(0,1fr)_minmax(0,320px)_120px] lg:items-center lg:gap-x-5 lg:px-6 lg:py-4"
 
 export function FlowChooser({ existing }: { existing: Record<string, string> }) {
   const router = useRouter()
@@ -64,25 +81,31 @@ export function FlowChooser({ existing }: { existing: Record<string, string> }) 
     }
   }
 
+  /* Back returns: the browser's own back when the page behind is Emails, instant and where it was scrolled. */
+  const back = () => {
+    if (canReturnTo("/app/emails")) router.back()
+    else router.push("/app/emails?tab=flows")
+  }
+
   return (
-    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
-      <PaneBar width={WIDTH} className="flex min-h-[60px] items-center gap-2 py-2">
-        <button type="button" aria-label="Back to Emails" className={cn(iconButton, "-ml-1.5 h-9 w-9")} onClick={() => router.push("/app/emails?tab=flows")}>
+    <div className="orders-pane page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa] app-page-enter">
+      <FlowTopBar width={WIDTH} className="flex h-14 items-center gap-1.5 md:h-auto md:gap-2 md:pt-6">
+        <button type="button" aria-label="Back to Emails" title="Emails" className={cn(backButton, "-ml-2.5 md:-ml-1.5")} onClick={back}>
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">New automation</h1>
-      </PaneBar>
+        <h1 className="min-w-0 truncate text-[17px] font-semibold leading-6 text-[#1a1a2e] md:text-[24px] md:font-bold md:leading-9 lg:text-[28px]">New automation</h1>
+      </FlowTopBar>
 
-      <div className={cn("mx-auto px-4 pb-24 sm:px-6 md:pb-10 lg:px-8", WIDTH)}>
+      <div className={cn("mx-auto w-full px-4 pb-6 pt-1 sm:px-6 md:pb-10 md:pt-2 lg:px-8", WIDTH)}>
         <p className="text-[14px] leading-5 text-[#6b7280]">Pick one to start from. You can change every step, and nothing is sent until you turn it on.</p>
 
-        <div className="mt-5 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div className="mt-4 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-5">
           <ul aria-label="Starting points">
             {GROUPS.map((g, gi) => {
               const list = TEMPLATES.filter((t) => g.triggers.includes(t.trigger))
               return (
                 <React.Fragment key={g.title}>
-                  <li aria-hidden className={cn("flex h-9 items-center bg-[#fafbfb] px-4 text-[12px] font-medium text-[#6b7280] sm:px-5", gi > 0 && "border-t border-[#eef0f2]", "border-b border-[#eef0f2]")}>
+                  <li aria-hidden className={cn(groupHead, gi > 0 && "border-t border-[#eef0f2]")}>
                     {g.title}
                   </li>
                   {list.map((t, i) => (
@@ -93,7 +116,7 @@ export function FlowChooser({ existing }: { existing: Record<string, string> }) 
                 </React.Fragment>
               )
             })}
-            <li aria-hidden className="flex h-9 items-center border-y border-[#eef0f2] bg-[#fafbfb] px-4 text-[12px] font-medium text-[#6b7280] sm:px-5">
+            <li aria-hidden className={cn(groupHead, "border-t border-[#eef0f2]")}>
               Or build your own
             </li>
             <li>
@@ -104,11 +127,12 @@ export function FlowChooser({ existing }: { existing: Record<string, string> }) 
                 items={TRIGGER_ORDER.map((trigger) => ({ label: TRIGGERS[trigger].sentence, onClick: () => void start(`blank:${trigger}`, { template: BLANK_TEMPLATE, trigger }) }))}
                 trigger={
                   <button type="button" className={row} disabled={busy !== null} aria-label="Start from scratch">
-                    <ListIcon icon={TEMPLATE_ICON.blank} className="mt-0.5" />
-                    <span className="min-w-0 flex-1">
+                    <ListIcon icon={TEMPLATE_ICON.blank} dashed />
+                    <span className="min-w-0 self-center">
                       <span className="block text-[14px] font-semibold leading-5 text-[#1a1a2e]">Start from scratch</span>
                       <span className="block text-[13px] leading-5 text-[#6b7280]">Choose what starts it, then add your own steps.</span>
                     </span>
+                    <span aria-hidden className="hidden lg:block" />
                     <RowEnd busy={busy?.startsWith("blank:") ?? false} label="Start" />
                   </button>
                 }
@@ -121,9 +145,11 @@ export function FlowChooser({ existing }: { existing: Record<string, string> }) 
   )
 }
 
+const groupHead = "flex h-9 items-center border-b border-[#eef0f2] bg-[#fafbfb] px-4 text-[12px] font-medium text-[#6b7280] sm:px-5 lg:px-6"
+
 function RowEnd({ busy, label }: { busy: boolean; label: string }) {
   return (
-    <span className="ml-1 flex min-h-10 shrink-0 items-center gap-1 self-center text-[13px] font-medium text-[#1a1a2e]">
+    <span className="ml-1 flex min-h-10 shrink-0 items-center gap-1 self-center text-[13px] font-medium text-[#1a1a2e] lg:ml-0 lg:justify-end">
       <span className="hidden sm:inline">{busy ? "Opening" : label}</span>
       <ChevronRight aria-hidden className="h-4 w-4 text-[#9ca3af] transition-[translate,color] duration-150 group-hover:translate-x-0.5 group-hover:text-[#4b5563]" />
     </span>
@@ -135,17 +161,22 @@ function TemplateRow({ template, mine, busy, disabled, onPick }: { template: Flo
   const forNews = audienceOf(template.trigger, { template: template.id, audience: template.audience }) === "subscribers"
   return (
     <button type="button" disabled={disabled} onClick={onPick} className={cn(row, disabled && !busy && "opacity-60")}>
-      <ListIcon icon={TEMPLATE_ICON[template.id] ?? TEMPLATE_ICON.blank} className="mt-0.5" />
-      <span className="min-w-0 flex-1">
+      <ListIcon icon={TEMPLATE_ICON[template.id] ?? TEMPLATE_ICON.blank} />
+      <span className="min-w-0">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="text-[14px] font-semibold leading-5 text-[#1a1a2e]">{template.name}</span>
           {mine ? <StatusBadge tone="neutral">You have this</StatusBadge> : null}
         </span>
         <span className="block text-[13px] leading-5 text-[#6b7280]">{template.purpose}</span>
-        <span className="mt-1 block text-[12px] leading-4 text-[#6b7280]">
+        <span className="mt-1 block text-[12px] leading-4 text-[#6b7280] lg:hidden">
           <span className="text-[#4b5563]">{steps}</span>
           {forNews ? <span> · Only to people who asked for your news</span> : null}
         </span>
+      </span>
+      {/* From lg, the steps in a column of their own. */}
+      <span className="hidden min-w-0 text-[13px] leading-5 lg:block">
+        <span className="block text-[#374151]">{steps}</span>
+        {forNews ? <span className="block text-[12px] leading-4 text-[#6b7280]">Only to people who asked for your news</span> : null}
       </span>
       <RowEnd busy={busy} label={mine ? "Open yours" : "Use"} />
     </button>

@@ -246,6 +246,28 @@ async function main() {
   check("and only an active automation ever sends",
     /\.eq\("status", "active"\)/.test(flows) && /\.eq\("status", "active"\)/.test(read("lib/automations/supabase-store.ts")))
 
+  console.log("\nThe automation pages wear the product editor's frame")
+
+  /* Measured at 360, 390, 430, 1440 and 1920 by scripts/check-automations.mjs. */
+  const flowLayout = read("app/app/emails/flow/layout.tsx")
+  const parts = read("app/app/emails/flow/flow-parts.tsx")
+  check("on a phone both pages are a layer over the whole screen, the product editor's, with the nav pill kept",
+    /<PageLayer pill inset="bar" phoneOnly>/.test(flowLayout) && /<PageLayer pill inset="bar" phoneOnly>/.test(read("app/app/products/new/layout.tsx")))
+  check("their bar clears the status bar itself and sticks only on a phone; from 768px it is a header in the page",
+    /max-md:\[\[data-page-layer\]_&\]:pt-\[env\(safe-area-inset-top\)\]/.test(parts) && /"md:static md:bg-transparent"/.test(parts)
+      && /<FlowTopBar width=\{FLOW_WIDTH\}[^>]*md:pt-6/.test(builder) && /<FlowTopBar width=\{WIDTH\}[^>]*md:pt-6/.test(chooser))
+  check("the 1200px page container from lg, as the product editor's page is",
+    /const FLOW_WIDTH = "max-w-\[760px\] lg:max-w-\[1200px\]"/.test(builder) && /const WIDTH = "max-w-\[760px\] lg:max-w-\[1200px\]"/.test(chooser))
+  check("Back is the app's back button, an arrow with no border, on both pages",
+    /className=\{cn\(backButton, "-ml-2\.5 md:-ml-1\.5"\)\}/.test(builder) && /className=\{cn\(backButton, "-ml-2\.5 md:-ml-1\.5"\)\}/.test(chooser)
+      && !/border border-\[#e3e4e8\][^"]*"\s*onClick=\{back\}/.test(builder) && !/\bborder\b/.test(parts.slice(parts.indexOf("export const backButton"))))
+  check("the flow's actions are near black, not violet", !/buttonAccent/.test(builder) && /buttonPrimary/.test(builder))
+  check("from 768px Save is in a foot bar that only shows while there is something to save, and Cmd or Ctrl and S saves",
+    /data-flow-foot=""/.test(builder) && /inert=\{!dirty\}/.test(builder) && /primary\.phoneOnly && "md:hidden"/.test(builder) && /e\.metaKey \|\| e\.ctrlKey/.test(builder))
+  check("the starting points are drawn for these pages, not taken from an icon set",
+    !/from "lucide-react"[\s\S]{0,40}UserRoundPlus|ShoppingCart|BookOpen|CalendarClock/.test(parts) && (parts.match(/= drawing\(/g) ?? []).length >= 9
+      && /welcome: JoinIcon/.test(parts) && /blank: PlusIcon/.test(parts))
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }

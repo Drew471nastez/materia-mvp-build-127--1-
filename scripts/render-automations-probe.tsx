@@ -8,7 +8,9 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { FlowChooser } from "@/app/app/emails/flow/new/chooser"
 import { FlowBuilder, type BuilderData } from "@/app/app/emails/flow/[id]/builder"
-import { EmailsHome, type EmailsTab } from "@/app/app/emails/emails-home"
+import { EmailsHome, type EmailsTab, type SubscriberRow } from "@/app/app/emails/emails-home"
+import { ContactPage } from "@/app/app/emails/contact-detail"
+import { PageLayer } from "@/components/app/page-layer"
 import { Toaster } from "@/components/ui/toaster"
 import { resolveValue, todayIn } from "@/lib/date-range/range"
 import { TEMPLATES } from "@/lib/automations/templates"
@@ -122,11 +124,21 @@ const subscribers = Array.from({ length: 64 }, (_, i) => {
 
 function Subscribers() {
   const [tab, setTab] = React.useState<EmailsTab>("subscribers")
+  const [contact, setContact] = React.useState<SubscriberRow | null>(null)
   const [search, setSearch] = React.useState("")
   const [period, setPeriod] = React.useState(() => resolveValue({ preset: "last_30_days" }, today, "last_30_days"))
+  /* A contact opens as its own page over the list, as emails-client.tsx does it. */
+  if (contact) {
+    return (
+      <div data-contact-page="" className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]">
+        <ContactPage contact={contact} onBack={() => setContact(null)} onCopy={() => {}} onRemove={() => {}} />
+      </div>
+    )
+  }
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]">
       <EmailsHome
+        onOpenContact={setContact}
         tab={tab}
         onTab={setTab}
         loading={false}
@@ -158,17 +170,35 @@ function Subscribers() {
   )
 }
 
+/**
+ * The shell as app/app/layout.tsx draws it, reduced to what the pages sit
+ * in: the black bar (68px on a phone, 58px from 768px, marked as the shell's
+ * chrome so the real stylesheet hides it under a phone layer) and the
+ * content area under it. The flow pages are inside their real layout
+ * (app/app/emails/flow/layout.tsx: PageLayer), the way the router puts them.
+ */
+function Shell({ layer, children }: { layer: boolean; children: React.ReactNode }) {
+  return (
+    <div id="shell" style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column" }}>
+      <div data-shell-chrome="" data-probe-topbar="" className="h-[68px] shrink-0 bg-[#111113] md:h-[58px]" />
+      <div className="app-content-scroll relative min-h-0 flex-1">{layer ? <PageLayer pill inset="bar" phoneOnly>{children}</PageLayer> : children}</div>
+    </div>
+  )
+}
+
 function App() {
   return (
-    <div id="shell" style={{ position: "fixed", inset: 0 }}>
-      {view === "chooser" ? <FlowChooser existing={{ thank_you: "f9" }} /> : null}
-      {view === "builder" ? <FlowBuilder data={builderData(false)} /> : null}
-      {view === "broken" ? <FlowBuilder data={builderData(true)} /> : null}
-      {view === "scratch" ? <FlowBuilder data={scratchData()} /> : null}
-      {view === "reminder" ? <FlowBuilder data={reminderData()} /> : null}
-      {view === "subscribers" ? <Subscribers /> : null}
+    <>
+      <Shell layer={view !== "subscribers"}>
+        {view === "chooser" ? <FlowChooser existing={{ thank_you: "f9" }} /> : null}
+        {view === "builder" ? <FlowBuilder data={builderData(false)} /> : null}
+        {view === "broken" ? <FlowBuilder data={builderData(true)} /> : null}
+        {view === "scratch" ? <FlowBuilder data={scratchData()} /> : null}
+        {view === "reminder" ? <FlowBuilder data={reminderData()} /> : null}
+        {view === "subscribers" ? <Subscribers /> : null}
+      </Shell>
       <Toaster />
-    </div>
+    </>
   )
 }
 createRoot(document.getElementById("app")!).render(<App />)
