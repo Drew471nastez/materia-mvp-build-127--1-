@@ -28,6 +28,8 @@ export interface StorefrontCardProduct {
   thumbnail_url?: string | null
   price_cents: number
   compare_at_cents?: number | null
+  pay_what_you_want?: boolean | null
+  pwyw_min_price_cents?: number | null
   type?: string
   categories?: Array<{ id?: string; name: string; slug?: string; type?: string | null }> | null
   reviews_count?: number | null
@@ -76,6 +78,8 @@ export function StorefrontProductCard({
         slug: product.slug || "",
         price_cents: product.price_cents,
         compare_at_cents: product.compare_at_cents ?? null,
+        pay_what_you_want: product.pay_what_you_want ?? null,
+        pwyw_min_price_cents: product.pwyw_min_price_cents ?? null,
         thumbnail_url: product.thumbnail_url ?? null,
         type: product.type || "digital",
         reviews_count: product.reviews_count ?? null,

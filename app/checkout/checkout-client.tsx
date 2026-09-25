@@ -42,6 +42,7 @@ import { BusinessFields } from "./parts/business-fields"
 import { EMPTY_CARD, NativeCardFields, nativeCardComplete, type NativeCard } from "./parts/native-card"
 import { PaidOverlay } from "./parts/success"
 import { StripePay, type IntentResult } from "./parts/stripe-pay"
+import { HtmlClass } from "@/components/platform/html-class"
 
 interface CheckoutPageClientProps {
   product: {
@@ -692,6 +693,7 @@ export default function CheckoutPageClient({
       inert={!!paid}
       className="min-h-screen bg-white lg:bg-[linear-gradient(to_right,#ffffff_calc(50%-0.5px),#e5e7eb_calc(50%-0.5px),#e5e7eb_calc(50%+0.5px),#f8f9fa_calc(50%+0.5px))]"
     >
+      <HtmlClass name="with-page-checkout" />
       <header className="border-b border-[#e5e7eb] bg-white pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-[1100px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
           <ReturnLink href={productUrl} className="flex min-h-[44px] min-w-0 items-center gap-2 text-[14px] text-[#6b7280] transition-colors hover:text-[#1a1a2e]">

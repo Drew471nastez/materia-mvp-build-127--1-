@@ -2,337 +2,254 @@
 
 /**
  * ===========================================================================
- *  THE GLOBE IN THE PRO PLAN BANNER
+ *  THE GLOBE IN HOME'S BANNER
  * ===========================================================================
- * A dotted Earth in the banner's right corner that turns on its own, and that
- * a mouse or a finger can grab and spin, the way Shopify's does. Sales fly
- * between cities as arcs, which is what a store on Storelib is: somebody
- * somewhere buying from somebody somewhere else.
+ * A dotted Earth that turns on its own, that a finger or a mouse can grab and
+ * spin, and over which sales fly between cities as arcs: somebody somewhere
+ * buying from somebody somewhere else, which is what a store on Storelib is.
+ * Tap it and a sale lands where you tapped.
  *
- * ONE CANVAS, ONE DRAW A FRAME, NOTHING ELSE. Every frame is the dots turned
- * by two angles and dropped onto the canvas in six batches (one per shade),
- * about 1,500 circles and six fills: well under a millisecond, so it keeps
- * up with whatever the screen refreshes at, 60, 120 or more. React renders
- * the canvas once and never again; the angles, the speed and the drag live
- * in this effect, not in state, so turning the globe re-renders nothing.
+ * DRAWN BY THE GRAPHICS CARD (globe-gl.ts), or with the 2D canvas where
+ * WebGL would run on the processor (globe-2d.ts); what both draw is
+ * globe-scene.ts. The ball itself looks the same however it is turned, so
+ * it is painted once per size into a still canvas; each frame draws only
+ * the dots, the pins and the arcs over it. A frame on the page's thread is
+ * one matrix and a few dozen points in arrays made once: nothing is
+ * allocated per frame, and React renders this once and never again (the
+ * angles, the speed and the drag live in the effect, not in state).
  *
- * IT STOPS WHEN NOBODY CAN SEE IT. Scrolled away or on a hidden tab, the
- * frame loop is not scheduled at all (IntersectionObserver and
- * visibilitychange), so Home costs nothing while the globe is off screen.
+ * IT ONLY RUNS WHEN IT CAN BE SEEN, AND NOT WHILE THE PAGE SCROLLS. Off
+ * screen (IntersectionObserver), on a hidden tab (visibilitychange), or
+ * while the page under it is scrolling, no frame is asked for at all. The
+ * last one stays on screen; a turn of one degree a second is not missed in
+ * the moment a swipe takes, and the swipe gets the whole thread
+ * (scripts/check-home-scroll.mjs measured the old globe's frames starving
+ * the page's scroll).
  *
- * THE DRAG. Grabbing it stops it under the pointer, the way a real globe
- * stops under a hand, and a point on the surface follows the pointer across.
- * Let go and it keeps the speed it was thrown at, then settles back to its
- * own slow turn over a second or so: a harder flick, a faster spin. A
- * mouse can also tip it up and down. A finger only turns it sideways,
- * because `touch-action: pan-y` leaves an up or down swipe to the page, so
- * the globe never traps a scroll on a phone.
+ * THE DRAG. Only the ball itself is grabbable: a round grip over it, with
+ * `touch-action: none`, so a finger that lands on the globe turns it, in any
+ * direction, and never scrolls the page, while a finger anywhere else on the
+ * banner scrolls as usual. Grabbing stops it under the finger the way a real
+ * globe stops under a hand; let go and it keeps the speed it was thrown at,
+ * then eases back to its own slow turn, and its tilt drifts back to rest.
+ * Held still before letting go, it was put down, not thrown.
  *
- * With reduced motion it does not turn on its own and no arcs fly, but it
- * still turns when dragged.
+ * With reduced motion it does not turn on its own, no sales fly and the
+ * cities do not pulse; it still turns when dragged.
  */
 import { useEffect, useRef } from "react"
-import { landDots, toSphere } from "./globe-land"
-
-let LAND: Float32Array | null = null
-const land = () => (LAND ??= landDots())
-
-/** Where the sales fly between. Bucharest is where Storelib is made. */
-const CITIES: [number, number][] = [
-  [44.43, 26.1], [40.71, -74.0], [51.5, -0.12], [48.85, 2.35], [52.52, 13.4],
-  [59.33, 18.07], [41.9, 12.5], [40.42, -3.7], [34.05, -118.24], [37.77, -122.42],
-  [43.65, -79.38], [19.43, -99.13], [-23.55, -46.63], [-34.6, -58.38], [6.52, 3.37],
-  [-26.2, 28.04], [30.04, 31.24], [25.2, 55.27], [19.07, 72.88], [1.35, 103.82],
-  [35.68, 139.69], [37.57, 126.98], [-33.87, 151.2], [22.32, 114.17],
-]
+import { create2dRenderer } from "./globe-2d"
+import { createGlRenderer, type GlobeRenderer } from "./globe-gl"
+import {
+  CITIES, DOT_RADIUS, GLOBE_RADIUS, MAX_DPR, buildOverlay, makeArcs, makeOverlay, makeRipples, rotation,
+  type Arc, type OverlayInput,
+} from "./globe-scene"
 
 const TAU = Math.PI * 2
-/** One turn in forty seconds. */
-const BASE_SPEED = TAU / 40000
-/** The fastest a flick can spin it, in radians a millisecond (about a turn every quarter second). */
-const MAX_SPEED = 0.025
-/** How long a flick takes to settle back to the base speed. */
-const SETTLE_MS = 1000
+/** One turn in forty two seconds. */
+const BASE_SPEED = TAU / 42000
+/** The fastest a flick can spin it, in radians a millisecond (about a turn every third of a second). */
+const MAX_SPEED = 0.02
+/** How long a flick takes to ease back to the base speed. */
+const SETTLE_MS = 1100
 /** Tipped towards the viewer so the northern half, where most sales are, faces the screen. */
-const REST_TILT = 0.36
-const SHADES = 6
-
-type Arc = { from: [number, number, number]; to: [number, number, number]; lift: number; born: number; life: number; landed: boolean }
-type Ripple = { at: [number, number, number]; born: number }
+const REST_TILT = 0.34
+const TILT_MIN = -0.5
+const TILT_MAX = 1.1
+/** A tilt thrown up or down glides this long, and drifts back to rest over this. */
+const TILT_GLIDE_MS = 220
+const TILT_RETURN_MS = 1200
+const MAX_TILT_SPEED = 0.01
+/** A drag's speed is averaged over about this long, so one jittery event does not decide a throw. */
+const VELOCITY_MS = 45
+/** Held still this long before letting go: put down, not thrown. */
+const HELD_MS = 80
+/** A page scroll this long ago is over, and the globe turns again. */
+const SCROLL_REST_MS = 140
+/** The grip is a little wider than the ball, so its edge is easy to catch. */
+const GRIP = GLOBE_RADIUS * 1.06
 
 export function BannerGlobe({ className }: { className?: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const boxRef = useRef<HTMLDivElement>(null)
+  const gripRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    const ctx = canvas?.getContext("2d")
-    if (!canvas || !ctx) return
+    const box = boxRef.current
+    const grip = gripRef.current
+    if (!box || !grip) return
 
-    const dots = land()
-    const count = dots.length / 3
-    const cities = CITIES.map(([lat, lon]) => toSphere(lat, lon))
-    /* Where each dot lands this frame, sorted into shades, reused every frame. */
-    const px = new Float32Array(count)
-    const py = new Float32Array(count)
-    const shadeOf = new Uint8Array(count)
+    /*
+      The canvases are made here, not by React: a canvas that has had a WebGL
+      context cannot give a 2D one, so falling back means a new canvas. Two
+      of them: the still ball, painted once per size, and over it the one
+      drawn every frame (the dots, the pins, the arcs), clear everywhere else.
+    */
+    let canvas: HTMLCanvasElement | null = null
+    let ball: HTMLCanvasElement | null = null
+    let renderer: GlobeRenderer | null = null
+    const layer = (attribute: string) => {
+      const c = document.createElement("canvas")
+      c.setAttribute(attribute, "")
+      c.setAttribute("aria-hidden", "true")
+      c.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none"
+      box.insertBefore(c, grip)
+      return c
+    }
+    const mount = (allowGl: boolean) => {
+      canvas?.remove()
+      ball?.remove()
+      ball = layer("data-home-globe-ball")
+      canvas = layer("data-home-globe")
+      renderer = allowGl ? createGlRenderer(canvas, ball) : null
+      if (!renderer) {
+        /* A failed WebGL start may still have taken the canvas: a fresh one for the 2D context. */
+        if (allowGl) {
+          canvas.remove()
+          canvas = layer("data-home-globe")
+        }
+        renderer = create2dRenderer(canvas, ball)
+      }
+      box.dataset.renderer = renderer?.kind ?? "none"
+      canvas.addEventListener("webglcontextlost", onLost)
+      canvas.addEventListener("webglcontextrestored", onRestored)
+    }
 
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)")
-    let w = 0
-    let h = 0
-    let dpr = 1
-    let R = 0
-    let cx = 0
-    let cy = 0
-    let backdrop: HTMLCanvasElement | null = null
+    let reduced = reduce.matches
 
+    const m = new Float32Array(9)
+    const arcs = makeArcs()
+    const ripples = makeRipples()
+    const overlay = makeOverlay()
+    const input: OverlayInput = { m, now: 0, arcs, ripples, pulse: !reduced, dot: DOT_RADIUS }
+    /* Which cities face the viewer, reused by every launch. */
+    const facing = new Int32Array(CITIES.length)
+
+    let size = 0
+    let dpr = 1
     /* Longitude 10°E faces the viewer first: Europe and Africa, with the Americas turning in from the left. */
     let yaw = (-10 * Math.PI) / 180
     let tilt = REST_TILT
-    let speed = reduce.matches ? 0 : BASE_SPEED
+    let yawVel = reduced ? 0 : BASE_SPEED
+    let tiltVel = 0
 
     let dragging = false
     let pointerId = -1
     let lastX = 0
     let lastY = 0
     let lastT = 0
-    let lastMoveT = 0
-    let isMouse = false
-
-    const arcs: Arc[] = []
-    const ripples: Ripple[] = []
-    let nextArc = 0
+    let moveT = 0
+    let downX = 0
+    let downY = 0
+    let downT = 0
+    let estYaw = 0
+    let estTilt = 0
 
     let frame = 0
     let last = 0
+    let clock = 0
+    let nextArc = 0
     let onScreen = false
+    let scrolling = false
+    let scrollTimer = 0
+    let lost = false
 
-    /** The sphere, its light and its halo: the same every frame, so drawn once per size. */
-    const paintBackdrop = () => {
-      backdrop = document.createElement("canvas")
-      backdrop.width = Math.max(1, Math.round(w * dpr))
-      backdrop.height = Math.max(1, Math.round(h * dpr))
-      const b = backdrop.getContext("2d")
-      if (!b) return
-      b.scale(dpr, dpr)
-      const halo = b.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 1.16)
-      halo.addColorStop(0, "rgba(167,139,250,0.34)")
-      halo.addColorStop(0.35, "rgba(139,92,246,0.14)")
-      halo.addColorStop(1, "rgba(139,92,246,0)")
-      b.fillStyle = halo
-      b.beginPath()
-      b.arc(cx, cy, R * 1.16, 0, TAU)
-      b.fill()
-      const body = b.createRadialGradient(cx - R * 0.38, cy - R * 0.42, R * 0.05, cx, cy, R)
-      body.addColorStop(0, "rgba(58,46,96,0.92)")
-      body.addColorStop(0.55, "rgba(24,20,44,0.94)")
-      body.addColorStop(1, "rgba(10,9,20,0.96)")
-      b.fillStyle = body
-      b.beginPath()
-      b.arc(cx, cy, R, 0, TAU)
-      b.fill()
-      b.strokeStyle = "rgba(196,181,253,0.28)"
-      b.lineWidth = 1
-      b.beginPath()
-      b.arc(cx, cy, R - 0.5, 0, TAU)
-      b.stroke()
+    const landed = (arc: Arc) => {
+      for (let i = 0; i < ripples.length; i++) {
+        const r = ripples[i]
+        if (r.active) continue
+        r.active = true
+        r.at = arc.to
+        r.born = clock
+        return
+      }
     }
 
-    const resize = () => {
-      const rect = canvas.getBoundingClientRect()
-      w = rect.width
-      h = rect.height
-      dpr = Math.min(window.devicePixelRatio || 1, 2)
-      canvas.width = Math.max(1, Math.round(w * dpr))
-      canvas.height = Math.max(1, Math.round(h * dpr))
-      R = (Math.min(w, h) / 2) * 0.84
-      cx = w / 2
-      cy = h / 2
-      paintBackdrop()
-      draw(performance.now())
+    const paint = () => {
+      if (!renderer || lost || !size) return
+      rotation(yaw, tilt, m)
+      input.now = clock
+      input.pulse = !reduced
+      buildOverlay(overlay, input, landed)
+      renderer.draw(m, overlay)
     }
 
-    /** A point on (or above) the sphere, turned to where it is this frame. */
-    const turn = (x: number, y: number, z: number, cyaw: number, syaw: number, ct: number, st: number) => {
-      const x1 = x * cyaw + z * syaw
-      const z1 = z * cyaw - x * syaw
-      return [x1, y * ct - z1 * st, y * st + z1 * ct] as const
+    const busy = () => {
+      /* Still compiling: frames keep coming until the land can be drawn, reduced motion or not. */
+      if (renderer?.pending()) return true
+      if (dragging || Math.abs(tiltVel) > 1e-6 || Math.abs(REST_TILT - tilt) > 1e-3) return true
+      if (Math.abs(yawVel - (reduced ? 0 : BASE_SPEED)) > 1e-6) return true
+      for (let i = 0; i < arcs.length; i++) if (arcs[i].active) return true
+      for (let i = 0; i < ripples.length; i++) if (ripples[i].active) return true
+      return false
     }
+    const canRun = () => onScreen && !lost && document.visibilityState === "visible" && (dragging || !scrolling)
 
-    const draw = (now: number) => {
-      if (!w || !h) return
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      ctx.clearRect(0, 0, w, h)
-      if (backdrop) ctx.drawImage(backdrop, 0, 0, w, h)
-
-      const cyaw = Math.cos(yaw)
-      const syaw = Math.sin(yaw)
-      const ct = Math.cos(tilt)
-      const st = Math.sin(tilt)
-
-      /* Dots: the half facing the screen, shaded by how squarely each faces it. */
+    /** A sale between two cities facing the viewer, far enough apart to curve, or into `to` when a tap asks for one. */
+    const launch = (now: number, to: number = -1) => {
+      let slot: Arc | null = null
+      for (let i = 0; i < arcs.length && !slot; i++) if (!arcs[i].active) slot = arcs[i]
+      if (!slot) return
       let n = 0
-      for (let i = 0; i < count; i++) {
-        const x = dots[i * 3]
-        const y = dots[i * 3 + 1]
-        const z = dots[i * 3 + 2]
-        const x1 = x * cyaw + z * syaw
-        const z1 = z * cyaw - x * syaw
-        const zz = y * st + z1 * ct
-        if (zz <= 0.02) continue
-        px[n] = cx + x1 * R
-        py[n] = cy - (y * ct - z1 * st) * R
-        shadeOf[n] = Math.min(SHADES - 1, Math.floor(Math.sqrt(zz) * SHADES))
-        n++
+      for (let i = 0; i < CITIES.length; i++) {
+        const p = CITIES[i]
+        if (m[2] * p[0] + m[5] * p[1] + m[8] * p[2] > 0.25) facing[n++] = i
       }
-      const base = Math.max(0.75, R * 0.0118)
-      for (let s = 0; s < SHADES; s++) {
-        const depth = (s + 0.5) / SHADES
-        const r = base * (0.6 + 0.4 * depth)
-        ctx.beginPath()
-        for (let i = 0; i < n; i++) {
-          if (shadeOf[i] !== s) continue
-          ctx.moveTo(px[i] + r, py[i])
-          ctx.arc(px[i], py[i], r, 0, TAU)
-        }
-        ctx.fillStyle = `rgba(255,255,255,${(0.16 + 0.8 * depth * depth).toFixed(3)})`
-        ctx.fill()
-      }
-
-      /* The cities, each with a slow pulse of its own. */
-      for (let i = 0; i < cities.length; i++) {
-        const [x, y, z] = cities[i]
-        const [x1, y1, z1] = turn(x, y, z, cyaw, syaw, ct, st)
-        if (z1 <= 0.05) continue
-        const sx = cx + x1 * R
-        const sy = cy - y1 * R
-        const phase = ((now / 2600 + i * 0.37) % 1 + 1) % 1
-        ctx.strokeStyle = `rgba(196,181,253,${(0.55 * (1 - phase) * z1).toFixed(3)})`
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.arc(sx, sy, base * (1.4 + phase * 4.5), 0, TAU)
-        ctx.stroke()
-        ctx.fillStyle = `rgba(221,214,254,${(0.35 + 0.65 * z1).toFixed(3)})`
-        ctx.beginPath()
-        ctx.arc(sx, sy, base * 1.35, 0, TAU)
-        ctx.fill()
-      }
-
-      /* Sales in flight: a curve from one city to another, drawn out and then let go. */
-      for (let a = arcs.length - 1; a >= 0; a--) {
-        const arc = arcs[a]
-        const u = (now - arc.born) / arc.life
-        if (u >= 1) {
-          arcs.splice(a, 1)
-          continue
-        }
-        const head = Math.min(1, u / 0.6)
-        const tail = Math.max(0, (u - 0.35) / 0.65)
-        const eased = (t: number) => 1 - Math.pow(1 - t, 3)
-        const h0 = eased(tail)
-        const h1 = eased(head)
-        const [ax, ay, az] = arc.from
-        const [bx, by, bz] = arc.to
-        const dot = Math.max(-1, Math.min(1, ax * bx + ay * by + az * bz))
-        const omega = Math.acos(dot)
-        const so = Math.sin(omega) || 1
-        ctx.beginPath()
-        let pen = false
-        const steps = 28
-        for (let k = 0; k <= steps; k++) {
-          const t = h0 + ((h1 - h0) * k) / steps
-          const fa = Math.sin((1 - t) * omega) / so
-          const fb = Math.sin(t * omega) / so
-          const lift = 1 + arc.lift * Math.sin(Math.PI * t)
-          const [x1, y1, z1] = turn(
-            (ax * fa + bx * fb) * lift,
-            (ay * fa + by * fb) * lift,
-            (az * fa + bz * fb) * lift,
-            cyaw, syaw, ct, st,
-          )
-          /* Behind the globe only if it is both on the far side and inside its outline. */
-          const hidden = z1 < 0 && x1 * x1 + y1 * y1 < 1
-          if (hidden) {
-            pen = false
-            continue
-          }
-          const sx = cx + x1 * R
-          const sy = cy - y1 * R
-          if (pen) ctx.lineTo(sx, sy)
-          else ctx.moveTo(sx, sy)
-          pen = true
-        }
-        const fade = u > 0.8 ? (1 - u) / 0.2 : 1
-        ctx.strokeStyle = `rgba(196,181,253,${(0.9 * fade).toFixed(3)})`
-        ctx.lineWidth = Math.max(1, R * 0.011)
-        ctx.lineCap = "round"
-        ctx.stroke()
-        if (head >= 1 && !arc.landed) {
-          arc.landed = true
-          ripples.push({ at: arc.to, born: now })
-        }
-      }
-
-      /* Where a sale lands, a ring. */
-      for (let r = ripples.length - 1; r >= 0; r--) {
-        const rip = ripples[r]
-        const u = (now - rip.born) / 900
-        if (u >= 1) {
-          ripples.splice(r, 1)
-          continue
-        }
-        const [x1, y1, z1] = turn(rip.at[0], rip.at[1], rip.at[2], cyaw, syaw, ct, st)
-        if (z1 <= 0.05) continue
-        ctx.strokeStyle = `rgba(237,233,254,${(0.8 * (1 - u)).toFixed(3)})`
-        ctx.lineWidth = 1.2
-        ctx.beginPath()
-        ctx.arc(cx + x1 * R, cy - y1 * R, base * (1.5 + u * 7), 0, TAU)
-        ctx.stroke()
-      }
-    }
-
-    /** A new sale between two cities that are both facing the screen, far enough apart to curve. */
-    const launch = (now: number) => {
-      if (arcs.length >= 3) return
-      const cyaw = Math.cos(yaw)
-      const syaw = Math.sin(yaw)
-      const ct = Math.cos(tilt)
-      const st = Math.sin(tilt)
-      const facing = cities.filter(([x, y, z]) => turn(x, y, z, cyaw, syaw, ct, st)[2] > 0.25)
-      if (facing.length < 2) return
-      for (let tries = 0; tries < 8; tries++) {
-        const from = facing[Math.floor(Math.random() * facing.length)]
-        const to = facing[Math.floor(Math.random() * facing.length)]
-        const angle = Math.acos(Math.max(-1, Math.min(1, from[0] * to[0] + from[1] * to[1] + from[2] * to[2])))
-        if (angle < 0.35 || angle > 1.9) continue
-        arcs.push({ from, to, lift: 0.08 + angle * 0.12, born: now, life: 1500 + angle * 700, landed: false })
+      if (n < 2) return
+      for (let tries = 0; tries < 10; tries++) {
+        const a = CITIES[facing[Math.floor(Math.random() * n)]]
+        const b = CITIES[to >= 0 ? to : facing[Math.floor(Math.random() * n)]]
+        const angle = Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2])))
+        if (angle < 0.3 || angle > 1.9) continue
+        slot.active = true
+        slot.from = a
+        slot.to = b
+        slot.omega = angle
+        slot.sinOmega = Math.sin(angle) || 1
+        slot.lift = 0.05 + angle * 0.07
+        slot.born = now
+        slot.life = 1500 + angle * 650
+        slot.landed = false
         return
       }
     }
 
     const tick = (now: number) => {
       frame = 0
-      const dt = last ? Math.min(50, now - last) : 16
+      const dt = last ? Math.min(48, now - last) : 16
       last = now
+      clock = now
       if (!dragging) {
-        const target = reduce.matches ? 0 : BASE_SPEED
-        speed += (target - speed) * (1 - Math.exp(-dt / SETTLE_MS))
-        yaw += speed * dt
-        tilt += (REST_TILT - tilt) * (1 - Math.exp(-dt / 1400))
+        const target = reduced ? 0 : BASE_SPEED
+        yawVel += (target - yawVel) * (1 - Math.exp(-dt / SETTLE_MS))
+        yaw += yawVel * dt
+        tiltVel *= Math.exp(-dt / TILT_GLIDE_MS)
+        tilt += tiltVel * dt
+        tilt += (REST_TILT - tilt) * (1 - Math.exp(-dt / TILT_RETURN_MS))
+        if (tilt < TILT_MIN || tilt > TILT_MAX) {
+          tilt = Math.max(TILT_MIN, Math.min(TILT_MAX, tilt))
+          tiltVel = 0
+        }
+        if (Math.abs(yawVel - target) < 1e-7) yawVel = target
+        if (Math.abs(REST_TILT - tilt) < 5e-4 && Math.abs(tiltVel) < 1e-6) {
+          tilt = REST_TILT
+          tiltVel = 0
+        }
       }
-      if (!reduce.matches && now >= nextArc) {
+      if (yaw > TAU || yaw < -TAU) yaw %= TAU
+      if (!reduced && now >= nextArc) {
         launch(now)
-        nextArc = now + 900 + Math.random() * 900
+        nextArc = now + 1100 + Math.random() * 1300
       }
-      draw(now)
-      /* With reduced motion it only runs while it is still moving from a drag. */
-      const moving = dragging || Math.abs(speed) > 1e-5 || Math.abs(REST_TILT - tilt) > 1e-3 || arcs.length > 0 || ripples.length > 0
-      if (onScreen && document.visibilityState === "visible" && (!reduce.matches || moving)) {
-        frame = requestAnimationFrame(tick)
-      }
+      paint()
+      /* The graphics card could not build the globe's programs: the 2D canvas takes over, as if WebGL had never been there. */
+      if (renderer?.failed()) fallBack()
+      if (canRun() && (!reduced || busy())) frame = requestAnimationFrame(tick)
     }
 
     const wake = () => {
-      if (frame || !onScreen || document.visibilityState !== "visible") return
+      if (frame || !canRun()) return
+      if (reduced && !busy()) return
       last = 0
       frame = requestAnimationFrame(tick)
     }
@@ -341,115 +258,237 @@ export function BannerGlobe({ className }: { className?: string }) {
       frame = 0
     }
 
-    const local = (e: PointerEvent) => {
-      const rect = canvas.getBoundingClientRect()
-      return { x: e.clientX - rect.left, y: e.clientY - rect.top }
-    }
-    const onGlobe = (e: PointerEvent) => {
-      const { x, y } = local(e)
-      return Math.hypot(x - cx, y - cy) <= R * 1.04
+    const resize = () => {
+      const w = box.clientWidth
+      const h = box.clientHeight
+      const next = Math.min(w, h)
+      const ratio = Math.min(window.devicePixelRatio || 1, MAX_DPR)
+      if (!next || !renderer || (next === size && ratio === dpr)) return
+      size = next
+      dpr = ratio
+      renderer.resize(size, dpr)
+      if (!clock) clock = performance.now()
+      /* Not while the shaders compile: that would make this call wait for them. The frame loop draws it once they are done. */
+      if (!renderer.pending()) paint()
     }
 
+    /* ── The drag ─────────────────────────────────────────────────────── */
+
     const onDown = (e: PointerEvent) => {
-      if (e.pointerType === "mouse" && e.button !== 0) return
-      if (!onGlobe(e)) return
+      if (dragging || (e.pointerType === "mouse" && e.button !== 0)) return
       dragging = true
-      isMouse = e.pointerType === "mouse"
       pointerId = e.pointerId
-      lastX = e.clientX
-      lastY = e.clientY
-      lastT = e.timeStamp
-      lastMoveT = e.timeStamp
-      speed = 0
+      lastX = downX = e.clientX
+      lastY = downY = e.clientY
+      lastT = downT = moveT = e.timeStamp
+      yawVel = 0
+      tiltVel = 0
+      estYaw = 0
+      estTilt = 0
       try {
-        canvas.setPointerCapture(e.pointerId)
+        grip.setPointerCapture(e.pointerId)
       } catch {
-        /* a pointer that is already gone: the drag simply ends on the next event */
+        /* a pointer that is already gone: the drag ends on its next event */
       }
-      canvas.style.cursor = "grabbing"
-      if (isMouse) e.preventDefault()
+      grip.style.cursor = "grabbing"
+      box.setAttribute("data-dragging", "")
+      /* No text selection starting under a mouse drag. */
+      if (e.pointerType === "mouse") e.preventDefault()
+      scrolling = false
       wake()
     }
     const onMove = (e: PointerEvent) => {
-      if (!dragging) {
-        if (e.pointerType === "mouse") canvas.style.cursor = onGlobe(e) ? "grab" : ""
-        return
-      }
-      if (e.pointerId !== pointerId) return
+      if (!dragging || e.pointerId !== pointerId) return
       const dx = e.clientX - lastX
       const dy = e.clientY - lastY
+      if (dx === 0 && dy === 0) return
       const dt = Math.max(1, e.timeStamp - lastT)
-      yaw += dx / R
-      if (isMouse) tilt = Math.max(-0.25, Math.min(1.05, tilt + dy / R))
-      /* The throw speed, smoothed over the last few moves so one jittery event does not decide it. */
-      const sample = dx / R / dt
-      speed = speed * 0.55 + sample * 0.45
+      const r = Math.max(1, size * GLOBE_RADIUS)
+      /* A point on the surface follows the finger across. */
+      yaw += dx / r
+      tilt = Math.max(TILT_MIN, Math.min(TILT_MAX, tilt + dy / r))
+      const k = 1 - Math.exp(-dt / VELOCITY_MS)
+      estYaw += (dx / r / dt - estYaw) * k
+      estTilt += (dy / r / dt - estTilt) * k
       lastX = e.clientX
       lastY = e.clientY
-      lastT = e.timeStamp
-      lastMoveT = e.timeStamp
+      lastT = moveT = e.timeStamp
       wake()
     }
-    const onUp = (e: PointerEvent) => {
+    const end = (e: PointerEvent, thrown: boolean) => {
       if (!dragging || e.pointerId !== pointerId) return
       dragging = false
       pointerId = -1
-      /* Held still before letting go: it was put down, not thrown. */
-      if (e.type === "pointerup" && e.timeStamp - lastMoveT > 90) speed = 0
-      speed = Math.max(-MAX_SPEED, Math.min(MAX_SPEED, speed))
+      const held = e.timeStamp - moveT > HELD_MS
+      yawVel = thrown && !held ? Math.max(-MAX_SPEED, Math.min(MAX_SPEED, estYaw)) : 0
+      tiltVel = thrown && !held ? Math.max(-MAX_TILT_SPEED, Math.min(MAX_TILT_SPEED, estTilt)) : 0
+      /* A tap: a sale lands on the city nearest to it. */
+      if (thrown && Math.hypot(e.clientX - downX, e.clientY - downY) < 6 && e.timeStamp - downT < 350) tapAt(e.clientX, e.clientY)
       try {
-        canvas.releasePointerCapture(e.pointerId)
+        grip.releasePointerCapture(e.pointerId)
       } catch {
         /* already released */
       }
-      canvas.style.cursor = e.pointerType === "mouse" && onGlobe(e) ? "grab" : ""
+      grip.style.cursor = ""
+      box.removeAttribute("data-dragging")
       wake()
     }
-    const onLeave = () => {
-      if (!dragging) canvas.style.cursor = ""
-    }
-    /* A sideways drag on a phone is the globe's, not the page's pull to refresh. */
-    const onTouchMove = (e: TouchEvent) => {
-      if (dragging) e.stopPropagation()
+    const onUp = (e: PointerEvent) => end(e, true)
+    const onCancel = (e: PointerEvent) => end(e, false)
+
+    const tapAt = (clientX: number, clientY: number) => {
+      if (reduced) return
+      const rect = box.getBoundingClientRect()
+      const r = size * GLOBE_RADIUS
+      const u = (clientX - rect.left - rect.width / 2) / r
+      const v = -(clientY - rect.top - rect.height / 2) / r
+      const d = u * u + v * v
+      if (d > 1) return
+      const w = Math.sqrt(1 - d)
+      /* Back from the screen to the globe: the turn's transpose. */
+      const x = m[0] * u + m[1] * v + m[2] * w
+      const y = m[3] * u + m[4] * v + m[5] * w
+      const z = m[6] * u + m[7] * v + m[8] * w
+      let best = -1
+      let bestDot = 0.9
+      for (let i = 0; i < CITIES.length; i++) {
+        const c = CITIES[i]
+        const dot = c[0] * x + c[1] * y + c[2] * z
+        if (dot > bestDot) {
+          bestDot = dot
+          best = i
+        }
+      }
+      if (best >= 0) launch(clock || performance.now(), best)
+      nextArc = (clock || performance.now()) + 1600
     }
 
-    canvas.addEventListener("pointerdown", onDown)
-    canvas.addEventListener("pointermove", onMove)
-    canvas.addEventListener("pointerup", onUp)
-    canvas.addEventListener("pointercancel", onUp)
-    canvas.addEventListener("pointerleave", onLeave)
-    canvas.addEventListener("touchmove", onTouchMove, { passive: true })
+    /* Touches on the grip are the globe's: the page's pull to refresh (and anything else on the way up) never sees them. */
+    const keep = (e: TouchEvent) => e.stopPropagation()
 
-    const ro = new ResizeObserver(resize)
-    ro.observe(canvas)
-    const io = new IntersectionObserver(([entry]) => {
+    /* ── When it runs ─────────────────────────────────────────────────── */
+
+    const onScroll = (e: Event) => {
+      if (dragging) return
+      /* Only a scroll that moves the globe on the screen: a sideways strip elsewhere on the page is not that. */
+      const t = e.target
+      if (t !== document && !(t instanceof Node && t.contains(box))) return
+      scrolling = true
+      sleep()
+      window.clearTimeout(scrollTimer)
+      scrollTimer = window.setTimeout(() => {
+        scrolling = false
+        wake()
+      }, SCROLL_REST_MS)
+    }
+    const onVisibility = () => (document.visibilityState === "visible" ? wake() : sleep())
+    const onMotion = () => {
+      reduced = reduce.matches
+      wake()
+    }
+    function onLost(e: Event) {
+      e.preventDefault()
+      lost = true
+      sleep()
+    }
+    function fallBack() {
+      renderer?.dispose()
+      lost = false
+      mount(false)
+      size = 0
+      resize()
+      wake()
+    }
+    function onRestored() {
+      if (renderer?.restore()) {
+        lost = false
+        renderer.resize(size, dpr)
+        wake()
+        return
+      }
+      /* It came back unable to draw: the 2D canvas from here on. */
+      fallBack()
+    }
+
+    /*
+      STARTED AFTER THE PAGE HAS PAINTED, in a task of its own. Creating a
+      WebGL context and starting its programs is tens of milliseconds on a
+      slow phone; inside React's commit it was added to the task that puts
+      Home on the screen. A frame, then a task: Home paints first, the globe
+      a moment later.
+    */
+    let ro: ResizeObserver | null = null
+    let io: IntersectionObserver | null = null
+    let startTimer = 0
+    const start = () => {
+      mount(true)
+      if (!renderer) return
+      listen()
+    }
+    const firstFrame = requestAnimationFrame(() => {
+      startTimer = window.setTimeout(start, 0)
+    })
+
+    const listen = () => {
+    grip.addEventListener("pointerdown", onDown)
+    grip.addEventListener("pointermove", onMove)
+    grip.addEventListener("pointerup", onUp)
+    grip.addEventListener("pointercancel", onCancel)
+    grip.addEventListener("lostpointercapture", onCancel)
+    grip.addEventListener("touchstart", keep, { passive: true })
+    grip.addEventListener("touchmove", keep, { passive: true })
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true })
+    document.addEventListener("visibilitychange", onVisibility)
+    reduce.addEventListener?.("change", onMotion)
+    ro = new ResizeObserver(resize)
+    ro.observe(box)
+    window.addEventListener("resize", resize)
+    io = new IntersectionObserver(([entry]) => {
       onScreen = entry.isIntersecting
       if (onScreen) wake()
       else sleep()
     })
-    io.observe(canvas)
-    const onVisibility = () => (document.visibilityState === "visible" ? wake() : sleep())
-    document.addEventListener("visibilitychange", onVisibility)
-    const onMotion = () => {
-      if (!reduce.matches) wake()
-    }
-    reduce.addEventListener?.("change", onMotion)
+    io.observe(box)
     resize()
+    }
 
     return () => {
+      cancelAnimationFrame(firstFrame)
+      window.clearTimeout(startTimer)
       sleep()
-      ro.disconnect()
-      io.disconnect()
+      window.clearTimeout(scrollTimer)
+      ro?.disconnect()
+      io?.disconnect()
+      window.removeEventListener("resize", resize)
+      document.removeEventListener("scroll", onScroll, { capture: true })
       document.removeEventListener("visibilitychange", onVisibility)
       reduce.removeEventListener?.("change", onMotion)
-      canvas.removeEventListener("pointerdown", onDown)
-      canvas.removeEventListener("pointermove", onMove)
-      canvas.removeEventListener("pointerup", onUp)
-      canvas.removeEventListener("pointercancel", onUp)
-      canvas.removeEventListener("pointerleave", onLeave)
-      canvas.removeEventListener("touchmove", onTouchMove)
+      grip.removeEventListener("pointerdown", onDown)
+      grip.removeEventListener("pointermove", onMove)
+      grip.removeEventListener("pointerup", onUp)
+      grip.removeEventListener("pointercancel", onCancel)
+      grip.removeEventListener("lostpointercapture", onCancel)
+      grip.removeEventListener("touchstart", keep)
+      grip.removeEventListener("touchmove", keep)
+      canvas?.removeEventListener("webglcontextlost", onLost)
+      canvas?.removeEventListener("webglcontextrestored", onRestored)
+      renderer?.dispose()
+      canvas?.remove()
+      ball?.remove()
+      box.removeAttribute("data-renderer")
     }
   }, [])
 
-  return <canvas ref={canvasRef} data-home-globe aria-hidden="true" className={className} style={{ touchAction: "pan-y" }} />
+  const inset = `${(0.5 - GRIP) * 100}%`
+  return (
+    <div ref={boxRef} data-home-globe-box="" className={className}>
+      <div
+        ref={gripRef}
+        data-home-globe-grip=""
+        aria-hidden="true"
+        className="absolute cursor-grab rounded-full select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
+        style={{ left: inset, top: inset, right: inset, bottom: inset, touchAction: "none" }}
+      />
+    </div>
+  )
 }
