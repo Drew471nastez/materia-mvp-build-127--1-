@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AlertCircle, Check } from "lucide-react"
+import { CircleAlert, CircleCheck } from "lucide-react"
 import {
   Toast,
   ToastClose,
@@ -40,18 +40,13 @@ export function Toaster() {
   return (
     <ToastProvider duration={2800} swipeDirection={swipeDirection}>
       {toasts.map(function ({ id, title, description, action, variant, ...props }) {
-        const Icon = variant === "destructive" ? AlertCircle : Check
+        /* A white mark on the dark box, drawn in the words' own colour: a
+           circled check when something was done, a circled bar when it was
+           not. Never a green dot, never a red box. */
+        const Icon = variant === "destructive" ? CircleAlert : CircleCheck
         return (
           <Toast key={id} variant={variant} data-toast="" {...props}>
-            <span
-              className={
-                variant === "destructive"
-                  ? "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30 md:h-5 md:w-5"
-                  : "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-emerald-500 md:h-5 md:w-5"
-              }
-            >
-              <Icon className="h-3 w-3 text-white" strokeWidth={3.5} />
-            </span>
+            <Icon aria-hidden data-toast-icon="" className="h-[18px] w-[18px] shrink-0 text-white md:h-5 md:w-5" strokeWidth={2} />
             <div className="flex min-w-0 flex-1 flex-col justify-center">
               {title && <ToastTitle>{title}</ToastTitle>}
               {description && <ToastDescription>{description}</ToastDescription>}

@@ -65,7 +65,7 @@ ToastViewport.displayName = ToastPrimitives.Viewport.displayName
 const toastVariants = cva(
   [
     'group pointer-events-auto relative flex max-w-full items-center gap-2.5 overflow-hidden rounded-xl px-3.5 py-2.5 md:gap-3 md:px-4 md:py-3',
-    'shadow-[0_10px_30px_-10px_rgba(0,0,0,0.35)] will-change-transform',
+    'shadow-[0_1px_2px_rgba(0,0,0,0.18),0_4px_10px_-2px_rgba(0,0,0,0.16),0_14px_32px_-12px_rgba(0,0,0,0.42)] will-change-transform',
     'transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
     'data-[swipe=cancel]:translate-x-0 data-[swipe=cancel]:translate-y-0',
     'data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=end]:translate-y-[var(--radix-toast-swipe-end-y)]',
@@ -78,9 +78,12 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        default: 'border border-white/10 bg-[#1a1a2e] text-white',
-        destructive:
-          'destructive group border border-red-400/30 bg-red-600 text-white',
+        /* One dark box for both, the app's #111113 with white words and a
+           white mark: a toast says what happened, it is not a traffic light.
+           What went wrong is said by the words and the mark (a circle with a
+           bar in it), not by painting the box red or the mark green. */
+        default: 'border border-white/10 bg-[#111113] text-white',
+        destructive: 'destructive group border border-white/10 bg-[#111113] text-white',
       },
     },
     defaultVariants: {

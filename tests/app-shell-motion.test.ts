@@ -563,6 +563,9 @@ section("Toasts on a phone")
   check("a swipe moves it on either axis, so up works as well as right",
     /data-\[swipe=move\]:translate-y-\[var\(--radix-toast-swipe-move-y\)\]/.test(box) && /data-\[swipe=end\]:translate-y-\[var\(--radix-toast-swipe-end-y\)\]/.test(box))
   const toaster = code("components/ui/toaster.tsx")
+  check("every toast is the dark #111113 box with a white mark, never a green check or a red box",
+    /default: 'border border-white\/10 bg-\[#111113\] text-white'/.test(box) && /destructive: 'destructive group border border-white\/10 bg-\[#111113\] text-white'/.test(box)
+      && !/bg-red-600|bg-emerald|bg-green/.test(box + toaster) && /data-toast-icon="" className="[^"]*text-white/.test(toaster))
   check("and it is swiped up on a phone, to the right on a computer",
     /const PHONE = "\(max-width: 767px\)"/.test(toaster) && /return phone \? "up" : "right"/.test(toaster) && /swipeDirection=\{swipeDirection\}/.test(toaster))
   const sonner = code("components/ui/editor-toaster.tsx")
