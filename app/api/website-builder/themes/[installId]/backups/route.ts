@@ -56,8 +56,18 @@ export async function GET(_req: Request, { params }: Params) {
   return NextResponse.json({ backups: data ?? [] })
 }
 
+/**
+ * The editor labels the backup it takes after an AI task with the prompt,
+ * which may be 2000 characters, and this used to refuse anything over 400:
+ * the backup was never taken and nothing said so, because the editor does
+ * not wait for the answer. A long label is shortened instead (takeBackup
+ * trims it further for display), by characters, so an emoji is not cut in
+ * half.
+ */
+const LABEL_MAX = 400
+
 const PostSchema = z.object({
-  label: z.string().max(400).optional(),
+  label: z.string().transform((s) => Array.from(s).slice(0, LABEL_MAX).join("")).optional(),
   source: z.enum(["ai", "manual"]).optional(),
 })
 

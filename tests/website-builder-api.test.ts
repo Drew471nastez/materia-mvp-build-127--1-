@@ -76,6 +76,21 @@ function main() {
     check("and neither is a draft that was not saved", /if \(draftErr\) return NextResponse\.json\(/.test(route.slice(route.indexOf('if (action === "save_draft")'))))
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  section("The backup taken after an AI task")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const backups = read(`${ROUTES}/backups/route.ts`)
+    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    const agent = read(`${ROUTES}/agent/route.ts`)
+    const prompt = Number(agent.match(/const MAX_PROMPT = ([\d_]+)/)?.[1].replace(/_/g, "") ?? 0)
+    const kept = Number(backups.match(/const LABEL_MAX = (\d+)/)?.[1] ?? 0)
+    check("the editor labels it with the prompt, which can be longer than a label", /source: "ai", label: prompt/.test(editor) && prompt > kept && kept > 0)
+    check("so a long label is shortened, not refused",
+      /label: z\.string\(\)\.transform\(\(s\) => Array\.from\(s\)\.slice\(0, LABEL_MAX\)\.join\(""\)\)\.optional\(\)/.test(backups)
+        && !/label: z\.string\(\)\.max\(/.test(backups))
+  }
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
