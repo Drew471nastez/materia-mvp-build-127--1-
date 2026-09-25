@@ -10,6 +10,14 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { PAGE_DESCRIPTION_MAX, PAGE_TITLE_MAX, hiddenPages, pageSeoOf, typedPageSeo, withPageSeo } from "@/lib/website-builder/page-seo"
+import { onePageIndexable } from "@/lib/seo/indexing"
+import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
+import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
+import { soldOut, toCard } from "@/lib/website-builder/shop-products"
+import { DB_CATEGORY_TO_ID, categoryPath } from "@/lib/marketplace/categories"
+import { hasCategoryPage } from "@/lib/explore/category-pages"
+import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
+import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 
 let passed = 0
 let failed = 0
@@ -69,6 +77,142 @@ console.log("\nA domain, added in place")
   check("a waiting domain shows the records to set and can be checked", /216\.150\.1\.1/.test(domains) && /cname\.vercel-dns\.com/.test(domains) && /\/api\/domains\/verify/.test(domains))
   const route = read("app/api/domains/route.ts")
   check("and the route is the signed-in creator's own", /auth\.getUser\(\)/.test(route) && /creator_id/.test(route))
+}
+
+/* The page's source with its comments taken out, so a check reads code only. */
+const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+
+console.log("\nA OnePage says where it lives and who it is about")
+{
+  check("it is canonical under the handle, or at /links on a connected domain",
+    getLinksShareUrl("Mara") === "https://storelib.com/mara/links" && getLinksUrlWithCustomDomain("mara", "marashop.com") === "https://www.marashop.com/links")
+  check("it is listed by the sitemap's rule: published, with something published, under a handle that is not a farm's",
+    onePageIndexable({ status: "published", publishedProducts: 2, handle: "mariapopescu" }) &&
+      !onePageIndexable({ status: "draft", publishedProducts: 2, handle: "mariapopescu" }) &&
+      !onePageIndexable({ status: "published", publishedProducts: 0, handle: "mariapopescu" }) &&
+      !onePageIndexable({ status: "published", publishedProducts: 2, handle: "powerokebos999" }) &&
+      !onePageIndexable({ status: "published", publishedProducts: 2, handle: null }))
+  const same = onePageSameAs({ instagram: "@mara.studio", youtube: "https://youtube.com/@mara", email: "mara@example.com", whatsapp: "+15550100", tiktok: "", twitter: "javascript:alert(1)" })
+  check("its social links become sameAs addresses, a handle made whole the way the page draws it",
+    same.includes("https://instagram.com/mara.studio") && same.includes("https://youtube.com/@mara"), JSON.stringify(same))
+  check("and an email, a phone number, an empty field or a script is not who somebody is",
+    same.length === 2 && !same.some((u) => /mailto|wa\.me|javascript/.test(u)), JSON.stringify(same))
+  const ld = profilePageJsonLd({ url: "https://storelib.com/mara/links", name: "Mara", image: "https://cdn.example.com/m.png", description: "<p>Film &amp; photo</p>", sameAs: same }) as {
+    "@type": string
+    mainEntity: { "@type": string; name: string; image?: string; description?: string; sameAs?: string[] }
+  }
+  check("its structured data is a ProfilePage about a Person, with a picture, a plain description and sameAs",
+    ld["@type"] === "ProfilePage" && ld.mainEntity["@type"] === "Person" && ld.mainEntity.name === "Mara" &&
+      ld.mainEntity.image === "https://cdn.example.com/m.png" && ld.mainEntity.description === "Film & photo" && ld.mainEntity.sameAs?.length === 2)
+  check("a picture that is not a full address is left out rather than guessed", !("image" in (profilePageJsonLd({ url: "u", name: "n", image: "/placeholder.svg" }) as { mainEntity: object }).mainEntity))
+
+  const page = code("app/(marketing)/l/[slug]/page.tsx")
+  check("the page names its canonical, and the share card its address and kind",
+    /const pageAddress = owner\.canonical \?\? getLinksShareUrl\(slug, pageHost\)/.test(page) &&
+      /alternates: \{ canonical: pageAddress \}/.test(page) && /type: "profile"/.test(page) && /url: pageAddress/.test(page))
+  check("its robots tag is the sitemap's rule, and noindex means nofollow too",
+    /const indexable = !owner\.banned && onePageIndexable\(\{ status: onepage\.status, publishedProducts: owner\.publishedProducts, handle: owner\.handle \}\)/.test(page) &&
+      /robots: indexable\s*\?[^:]*index: true[\s\S]{0,200}: \{ index: false, follow: false/.test(page))
+  check("its structured data is printed only when it may be listed, and escaped",
+    /owner\.canonical && onePageIndexable\(/.test(page) && /jsonLdScript\(\s*profilePageJsonLd\(/.test(page) && /sameAs: onePageSameAs\(transformedOnepage\.social_links\)/.test(page))
+  check("and a page published before the published columns existed still draws its draft content",
+    /blocks: publishedBlocks \|\| onepage\.draft_blocks \|\| \[\]/.test(page) && /social_links: onepage\.published_social_links \|\| onepage\.social_links/.test(page))
+  check("the handle and the counts are asked once per request, for the metadata and the page",
+    /const onePageOwner = cache\(async/.test(page) && (page.match(/await onePageOwner\(/g) ?? []).length === 2)
+}
+
+console.log("\nThe creator page is one address, described in the creator's own words")
+{
+  const page = code("app/(marketing)/u/[username]/page.tsx")
+  const meta = page.slice(page.indexOf("export async function generateMetadata"), page.indexOf("export default async function StorefrontPage"))
+  check("its metadata finds the profile the way the page does, so /Andrew is Andrew's page",
+    /const profile = await loadProfileByUsername\(username\)/.test(meta) && !/\.eq\("username", username\)/.test(meta) && /const creator = await loadCreatorForUser\(profile\.id\)/.test(meta))
+  check("and every address in it is the stored username's, the share card's included",
+    /const handle: string = profile\.username \|\| username/.test(meta) && /canonical: pageUrl,/.test(meta) &&
+      /const pageUrl = pageHost \? `https:\/\/\$\{pageHost\}\/` : `https:\/\/storelib\.com\/\$\{handle\}`/.test(meta) && /url: pageUrl/.test(meta) && !/\.storelib\.com`/.test(meta) &&
+      /url: pageAddress,/.test(page) && /getProductShareUrl\(pageHandle, p\.slug, pageHost\)/.test(page))
+  check("the description is the creator's own before anything generic: override, SEO tab, headline or bio, then the sentence",
+    /seoOverride\?\.seo_description \|\|\s*ownDescription \|\|\s*plainSummary\(creator\?\.headline \|\| headerBio \|\| creator\?\.bio \|\| "", 200\) \|\|\s*defaultDescription/.test(meta) &&
+      /ownDescription = globalSettings\?\.seoDescription\?\.trim\(\)/.test(meta) && /ownTitle = globalSettings\?\.seoTitle\?\.trim\(\)/.test(meta))
+  check("its robots rule judges the stored handle", /deservesIndexing\(\{ publishedProducts, handle \}\)/.test(meta) && /deservesIndexing\(\{ publishedProducts: products\?\.length \?\? 0, handle: pageHandle \}\)/.test(page))
+  check("its structured data carries sameAs and the products, in both branches, behind the same gate",
+    /sameAs: sameAsUrls\(Object\.values\(shopHeader\?\.socialLinks \?\? \{\}\)/.test(page) && /\.slice\(0, MAX_LISTED_PRODUCTS\)/.test(page) &&
+      (page.match(/jsonLdScript\(profileJsonLd\)/g) ?? []).length === 2)
+  const products = Array.from({ length: 25 }, (_, i) => ({ name: `Pack ${i + 1}`, url: `https://storelib.com/mara/pack-${i + 1}` }))
+  const ld = profilePageJsonLd({ url: "https://storelib.com/mara", name: "Mara", sameAs: ["https://x.com/mara"], products }) as {
+    "@graph": Array<{ "@type": string; mainEntity?: { sameAs?: string[] }; itemListElement?: Array<{ position: number; url: string }> }>
+  }
+  const list = ld["@graph"]?.find((n) => n["@type"] === "ItemList")
+  check("the products are an ItemList of at most twenty, in order, beside the ProfilePage",
+    ld["@graph"]?.[0]["@type"] === "ProfilePage" && ld["@graph"][0].mainEntity?.sameAs?.[0] === "https://x.com/mara" &&
+      list?.itemListElement?.length === 20 && list.itemListElement[0].position === 1 && list.itemListElement[19].url.endsWith("pack-20"))
+}
+
+console.log("\nA product is described in its creator's words, with its real availability and category")
+{
+  check("sold out means stock is counted and none is left; stock nobody counts never runs out",
+    soldOut({ inventory_count: 0 }) && soldOut({ inventory_count: -1 }) && !soldOut({ inventory_count: 3 }) && !soldOut({ inventory_count: null }) && !soldOut({}))
+  check("the shop's card says so by the same rule", toCard({ id: "p", title: "Pack", slug: "pack", price_cents: 1200, compare_at_cents: null, thumbnail_url: null, status: "published", inventory_count: 0 }).settings.tag === "Sold out")
+  check("a product's category is the Explore page the sitemap lists",
+    DB_CATEGORY_TO_ID["lightroom presets"] === "photography" && hasCategoryPage("photography") && categoryPath("photography") === "/explore/photography" && !hasCategoryPage("for-you"))
+
+  const page = code("app/(marketing)/p/[slug]/page.tsx")
+  const meta = page.slice(page.indexOf("export async function generateMetadata"), page.indexOf("export default async function ProductPage"))
+  check("its title and description are the ones its creator wrote in the editor, when they wrote them",
+    /const ownTitle = typeof product\.seo_title === "string"/.test(meta) && /const tabTitle = ownTitle \|\|/.test(meta) && /const ogTitle = ownTitle \|\|/.test(meta) &&
+      /const pageDescription = ownDescription \|\| plainSummary\(product\.description\)/.test(meta) && /product\.seo_description/.test(meta))
+  check("its structured data says sold out when it is, and its trail points at a page that exists",
+    /availability: soldOut\(product\) \? "https:\/\/schema\.org\/OutOfStock" : "https:\/\/schema\.org\/InStock"/.test(page) &&
+      /item: `https:\/\/storelib\.com\$\{categoryPath\(exploreCategory\)\}`/.test(page) && !/explore\?category=/.test(page) && /hasCategoryPage\(id\)/.test(page))
+  check("and both layouts print it, not only the one nobody arranged",
+    (page.match(/jsonLdScript\(productJsonLd\)/g) ?? []).length === 2 && (page.match(/jsonLdScript\(breadcrumbJsonLd\)/g) ?? []).length === 2 &&
+      page.indexOf("const productJsonLd = {") < page.indexOf("if (themedSections && themedSections.length > 0 && productPageConfig)"))
+  const site = code("components/website-builder/theme/render-product.tsx")
+  check("a website's product page says sold out by the same rule, reading the row whole so a missing column cannot fail it",
+    /inStock: !soldOut\(product\)/.test(site) && !/inStock: true/.test(site) && /\.from\("products"\)\s*\.select\("\*"\)/.test(site) && /products!inner \( \* \)/.test(site))
+  check("and is described in the creator's words there too",
+    /const ownTitle = typeof product\.seo_title === "string"/.test(site) && /plainSummary\(product\.seo_description \?\? "", 300\) \|\| plainSummary\(product\.description\)/.test(site))
+}
+
+console.log("\nA picture that means something says what it is")
+{
+  const onepage = read("components/onepage/public-onepage.tsx")
+  check("a OnePage names every product, link and file thumbnail by its title, and the avatar by the name",
+    !/alt=""/.test(onepage) && (onepage.match(/alt=\{data\.label \|\| ""\}/g) ?? []).length === 4 &&
+      (onepage.match(/alt=\{data\.product_title \|\| ""\}/g) ?? []).length === 3 && (onepage.match(/alt=\{data\.title \|\| ""\}/g) ?? []).length === 3 &&
+      /alt=\{quickCheckoutModalData\.productTitle\}/.test(onepage) && /alt=\{profile\.title \|\| ""\}/.test(onepage) && /alt=\{data\.headline \|\| ""\}/.test(onepage))
+  const product = read("components/website-builder/sections/renderers/ProductSection.tsx")
+  check("a website's product gallery names each thumbnail button by the product", !/alt=""/.test(product) && /alt=\{`\$\{title\} thumbnail \$\{i \+ 1\}`\}/.test(product))
+  check("the reference hero names the picture beside its heading", /alt=\{str\(s\.heading\)\}/.test(read("components/website-builder/sections/renderers/HeroSection.tsx")))
+  const hero = renderStorelibSection(
+    { id: "h1", type: "hero", name: "Hero", settings: { layout: "split", heading: "Film presets", hero_image: "https://cdn.example.com/hero.jpg" }, blocks: [] },
+    {} as ThemeSettingsValues,
+    { template: "index" },
+    {},
+  )
+  check("and the live hero does, drawn from the theme's own file", hero.ok === true && /<img src="https:\/\/cdn\.example\.com\/hero\.jpg" alt="Film presets"/.test(hero.html), hero.ok ? hero.html.slice(0, 200) : "did not render")
+  const split = renderStorelibSection(
+    { id: "h2", type: "hero_split", name: "Hero", settings: { heading: "Film presets", image: "https://cdn.example.com/split.jpg", image_alt: "" }, blocks: [] },
+    {} as ThemeSettingsValues,
+    { template: "index" },
+    {},
+  )
+  check("a split hero uses its own alt text, and its heading when that is empty", split.ok === true && /alt="Film presets"/.test(split.html))
+  check("a backdrop behind the text stays decorative", /class="hero__media" src="\{\{ settings\.bg_image \| asset \}\}" alt=""/.test(read("themes/default/sections/hero.storelib")))
+}
+
+console.log("\nAn old address moved for good says so")
+{
+  /* A 307 keeps a search engine on the old address; a 308 moves what it knows to the new one. */
+  check("a renamed creator's page", /permanentRedirect\(`\/\$\{historyRecord\.new_username\}`\)/.test(code("app/(marketing)/u/[username]/page.tsx")) && !/\bredirect\(`\/\$\{historyRecord/.test(code("app/(marketing)/u/[username]/page.tsx")))
+  check("their OnePage", /permanentRedirect\(getLinksInternalPath\(historyRecord\.new_username\)\)/.test(code("app/(marketing)/l/[slug]/page.tsx")))
+  check("a renamed product", /permanentRedirect\(`\/p\/\$\{product\.slug\}`\)/.test(code("app/(marketing)/p/[slug]/page.tsx")))
+  const c = code("app/(marketing)/c/[slug]/page.tsx")
+  check("the old /c/ address, while a guess with nothing behind it stays temporary",
+    /permanentRedirect\(`\/\$\{creator\.profile\.username\}`\)/.test(c) && /\bredirect\(`\/\$\{slug\}`\)/.test(c))
+  check("a renamed creator's website, to the same page, and its shop",
+    /found\.kind === "renamed"\) permanentRedirect\(pageUrl\(/.test(code("app/(site)/w/[username]/render-site.tsx")) &&
+      /found\.kind === "renamed"\) permanentRedirect\(`https:\/\/\$\{found\.to\}\.\$\{getMainDomain\(\)\}\/products`\)/.test(code("app/(site)/w/[username]/products/page.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

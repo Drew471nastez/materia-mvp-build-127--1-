@@ -1,6 +1,11 @@
-import { notFound, redirect } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import { plainSummary } from "@/lib/html-entities"
 import { productIndexable } from "@/lib/seo/indexing"
+import { jsonLdScript } from "@/lib/seo/json-ld"
+import { isBanned } from "@/lib/seo/bans"
+import { soldOut } from "@/lib/website-builder/shop-products"
+import { DB_CATEGORY_TO_ID, categoryLabel, categoryPath } from "@/lib/marketplace/categories"
+import { hasCategoryPage } from "@/lib/explore/category-pages"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { startPhaseTimer } from "@/lib/perf/phase-timer"
@@ -113,6 +118,8 @@ export async function generateMetadata({ params }: ProductPageProps) {
   let sellerName: string | undefined
   let faviconUrl: string | undefined
   let sellerHandle: string | undefined
+  /* Read from the creator row the page loads whole, so it costs no query. */
+  let sellerBanned = false
   if (product.creator_id) {
     /*
       THE NAME AND THE FAVICON, from rows the page needs anyway.
@@ -128,6 +135,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
     ])
 
     if (creator) {
+      sellerBanned = isBanned(creator)
       sellerName = creator.display_name || undefined
       /**
        * THE HANDLE IS NEEDED WHETHER OR NOT THE NAME WAS, because the
@@ -152,9 +160,18 @@ export async function generateMetadata({ params }: ProductPageProps) {
   const galleryUrls = product.gallery_urls as string[] | null
   const socialImage = galleryUrls?.[0] || product.thumbnail_url || undefined
 
+  /*
+    THE PRODUCT'S OWN SEARCH RESULT, when its creator wrote one. The editor
+    has always saved an SEO title and description (app/app/products/new/
+    product-editor.tsx) and nothing read them. A typed title loses a trailing
+    "| Storelib", which the root layout adds itself.
+  */
+  const ownTitle = typeof product.seo_title === "string" ? product.seo_title.trim().replace(/ \| Storelib$/i, "") : ""
+  const ownDescription = typeof product.seo_description === "string" ? plainSummary(product.seo_description, 300) : ""
+
   // Title: "Product Name | Seller Name" (template adds "| Storelib")
-  const tabTitle = sellerName ? `${product.title} | ${sellerName}` : product.title
-  const ogTitle = `${product.title} | ${sellerName || "Storelib"}`
+  const tabTitle = ownTitle || (sellerName ? `${product.title} | ${sellerName}` : product.title)
+  const ogTitle = ownTitle || `${product.title} | ${sellerName || "Storelib"}`
   /**
    * PLAIN TEXT, BECAUSE A META DESCRIPTION IS PLAIN TEXT. The description is
    * rich text stored as HTML, and this handed it over untouched: a product
@@ -162,7 +179,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
    * data-slate-node="element"…` and nothing else, because every reader of a
    * meta description prints exactly what it is given.
    */
-  const pageDescription = plainSummary(product.description) || "Check out this product on Storelib"
+  const pageDescription = ownDescription || plainSummary(product.description) || "Check out this product on Storelib"
 
   /**
    * ONE ADDRESS WINS, AND IT IS THE ONE EVERY LINK USES.
@@ -203,11 +220,12 @@ export async function generateMetadata({ params }: ProductPageProps) {
       canonical: productUrl,
     },
     /* Listed and indexed by one rule (lib/seo/indexing productIndexable):
-       a published product, unless its seller's handle is a link farm's. */
+       a published product, unless its seller's handle is a link farm's, or
+       its seller was banned and put it back up (the sitemap leaves it out). */
     robots: {
-      index: productIndexable(product, sellerHandle ?? null),
+      index: productIndexable(product, sellerHandle ?? null) && !sellerBanned,
       follow: true,
-      googleBot: { index: productIndexable(product, sellerHandle ?? null), follow: true, "max-image-preview": "large" as const },
+      googleBot: { index: productIndexable(product, sellerHandle ?? null) && !sellerBanned, follow: true, "max-image-preview": "large" as const },
     },
     ...(faviconUrl && {
       icons: {
@@ -235,8 +253,12 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const { product, viaHistory } = await loadProductBySlug(slug)
 
   // The slug in the URL is an old one: send them to the current address.
+  // Permanent (308): the old slug is not coming back, and a search engine
+  // moves what it knows only for a permanent move. /p/<slug> rather than
+  // /<handle>/<slug> because it answers on every host, a connected domain's
+  // included, and names the nested address as its canonical.
   if (product && viaHistory) {
-    redirect(`/p/${product.slug}`)
+    permanentRedirect(`/p/${product.slug}`)
   }
 
   if (!product) {
@@ -1561,6 +1583,106 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   )
 
   // ---------------------------------------------------------------------------
+  // JSON-LD Structured Data
+  // ---------------------------------------------------------------------------
+  /* Built before either layout is chosen: a product whose creator arranged its
+     page was drawn with no structured data at all, so it could never show a
+     price or a rating in a search result. Both layouts print it now. */
+  /* The same address the canonical tag declares, so the structured data and
+     the <link> cannot disagree about which URL this product lives at. */
+  const canonicalUrl = getProductShareUrl(creatorUsername, product.slug, pageHost)
+  const sellerDisplayName = creatorProfile?.display_name || creator?.name || "Creator"
+
+  /*
+    THE CATEGORY PAGE THE PRODUCT IS LISTED ON. The breadcrumb pointed at
+    /explore?category=<a slug of the old categories table>, an address no page
+    answers; /explore/<id> is the page, the one the sitemap lists. The id is
+    the product's category as Explore reads it (lib/marketplace/categories),
+    and a category with no page of its own is left out of the trail.
+  */
+  const primaryCategory = productCategories[0] || null
+  const exploreIdOf = (value: unknown): string | null => {
+    const key = typeof value === "string" ? value.toLowerCase().trim() : ""
+    const id = DB_CATEGORY_TO_ID[key] ?? key
+    return hasCategoryPage(id) ? id : null
+  }
+  const exploreCategory = exploreIdOf(product.category) ?? exploreIdOf(primaryCategory?.slug)
+
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.title,
+    /* Schema.org's description is plain text too, and this one is read by
+       the thing that draws a search result. */
+    description: plainSummary(product.description, 5000) || undefined,
+    sku: product.id,
+    image: product.gallery_urls?.length
+      ? product.gallery_urls
+      : product.thumbnail_url
+        ? [product.thumbnail_url]
+        : undefined,
+    url: canonicalUrl,
+    inLanguage: "en",
+    brand: {
+      "@type": "Brand",
+      name: sellerDisplayName,
+    },
+    ...(reviewsCount > 0 && {
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: reviewsAverage.toFixed(1),
+        reviewCount: reviewsCount,
+      },
+    }),
+    offers: {
+      "@type": "Offer",
+      price: product.price_cents === 0 ? "0" : (product.price_cents / 100).toFixed(2),
+      priceCurrency: "USD",
+      /* Sold out when its stock is counted and none is left: the shop's own rule. */
+      availability: soldOut(product) ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+      url: canonicalUrl,
+      seller: {
+        "@type": "Person",
+        name: sellerDisplayName,
+      },
+    },
+  }
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Explore",
+        item: "https://storelib.com/explore",
+      },
+      ...(exploreCategory
+        ? [
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: categoryLabel(exploreCategory),
+              item: `https://storelib.com${categoryPath(exploreCategory)}`,
+            },
+            {
+              "@type": "ListItem",
+              position: 3,
+              name: product.title,
+            },
+          ]
+        : [
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: product.title,
+            },
+          ]),
+    ],
+  }
+
+  // ---------------------------------------------------------------------------
   // Render with custom config if it exists
   // ---------------------------------------------------------------------------
   if (themedSections && themedSections.length > 0 && productPageConfig) {
@@ -1641,6 +1763,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           color: pageTextColor || "var(--foreground)",
         }}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(productJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }}
+        />
         <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
         <DynamicFavicon
           avatarUrl={creatorAvatarUrl}
@@ -1783,89 +1913,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const defaultPageBackgroundColor = themeConfig?.colors?.background || productPageConfig?.globalColors?.backgroundColor
   const defaultPageTextColor = themeColors.textColor
 
-  // ---------------------------------------------------------------------------
-  // JSON-LD Structured Data
-  // ---------------------------------------------------------------------------
-  /* The same address the canonical tag declares, so the structured data and
-     the <link> cannot disagree about which URL this product lives at. */
-  const canonicalUrl = getProductShareUrl(creatorUsername, product.slug, pageHost)
-  const sellerDisplayName = creatorProfile?.display_name || creator?.name || "Creator"
-
-  const primaryCategory = productCategories[0] || null
-
-  const productJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: product.title,
-    /* Schema.org's description is plain text too, and this one is read by
-       the thing that draws a search result. */
-    description: plainSummary(product.description, 5000) || undefined,
-    sku: product.id,
-    image: product.gallery_urls?.length
-      ? product.gallery_urls
-      : product.thumbnail_url
-        ? [product.thumbnail_url]
-        : undefined,
-    url: canonicalUrl,
-    inLanguage: "en",
-    brand: {
-      "@type": "Brand",
-      name: sellerDisplayName,
-    },
-    ...(reviewsCount > 0 && {
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue: reviewsAverage.toFixed(1),
-        reviewCount: reviewsCount,
-      },
-    }),
-    offers: {
-      "@type": "Offer",
-      price: product.price_cents === 0 ? "0" : (product.price_cents / 100).toFixed(2),
-      priceCurrency: "USD",
-      availability: "https://schema.org/InStock",
-      url: canonicalUrl,
-      seller: {
-        "@type": "Person",
-        name: sellerDisplayName,
-      },
-    },
-  }
-
-  const breadcrumbJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      {
-        "@type": "ListItem",
-        position: 1,
-        name: "Explore",
-        item: "https://storelib.com/explore",
-      },
-      ...(primaryCategory
-        ? [
-            {
-              "@type": "ListItem",
-              position: 2,
-              name: primaryCategory.name,
-              item: `https://storelib.com/explore?category=${primaryCategory.slug}`,
-            },
-            {
-              "@type": "ListItem",
-              position: 3,
-              name: product.title,
-            },
-          ]
-        : [
-            {
-              "@type": "ListItem",
-              position: 2,
-              name: product.title,
-            },
-          ]),
-    ],
-  }
-
   return (
     <div
       /* No arrival fade; see the note on the other root above. */
@@ -1891,11 +1938,11 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       )}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(productJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }}
       />
       <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
       {creatorAvatarPreload && (

@@ -3,6 +3,7 @@ import "server-only"
 import type Stripe from "stripe"
 import { sendRefundEmails } from "@/lib/email"
 import { allocateRefund, feeShare, type RefundLine } from "./refund-allocation"
+import { ownerAddress } from "@/lib/businesses/email-alias"
 
 /**
  * ===========================================================================
@@ -305,7 +306,7 @@ async function emailRefund(db: Db, touched: Array<{ row: OrderRow; cents: number
   let sellerEmail: string | undefined
   if (creator?.user_id) {
     const { data: profile } = await db.from("profiles").select("email").eq("id", creator.user_id).maybeSingle()
-    sellerEmail = profile?.email || undefined
+    sellerEmail = ownerAddress(profile?.email) || undefined
   }
   const title = touched.length === 1 ? (product as any)?.title || "Your purchase" : `${touched.length} items`
   await sendRefundEmails({
