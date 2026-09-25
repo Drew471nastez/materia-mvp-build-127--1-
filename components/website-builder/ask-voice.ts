@@ -60,11 +60,26 @@ function recogniser(): RecognitionCtor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null
 }
 
+type Bridge = { isNativePlatform?: () => boolean; getPlatform?: () => string }
+function bridge(): Bridge | undefined {
+  if (typeof window === "undefined") return undefined
+  return (window as unknown as { Capacitor?: Bridge }).Capacitor
+}
+
 /** Inside the iOS or Android app, from the Capacitor bridge itself. */
 function inNativeShell(): boolean {
-  if (typeof window === "undefined") return false
-  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
-  return cap?.isNativePlatform?.() === true
+  return bridge()?.isNativePlatform?.() === true
+}
+
+/**
+ * THE ANDROID APP CANNOT HEAR YET. Its manifest does not declare
+ * RECORD_AUDIO, so its WebView refuses the microphone before anybody is
+ * asked, and a button that can only ever say "access is off" is a broken
+ * button. Drawn again once an app release declares the permission and this
+ * line goes. iOS declares its microphone and records.
+ */
+function nativeWithoutMicrophone(): boolean {
+  return inNativeShell() && bridge()?.getPlatform?.() === "android"
 }
 
 function canRecord(): boolean {
@@ -135,6 +150,7 @@ export function useVoiceInput({
   /* Which engine, once, after mount: none of this exists on the server. */
   React.useEffect(() => {
     let live = true
+    if (nativeWithoutMicrophone()) return
     if (!inNativeShell() && recogniser()) {
       setEngine("speech")
       return

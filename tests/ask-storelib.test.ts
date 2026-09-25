@@ -178,13 +178,18 @@ section("Voice")
   )
   check(
     "not in the iOS and Android apps, whose web views have no recogniser to trust; they record instead",
-    /if \(!inNativeShell\(\) && recogniser\(\)\)/.test(voice) && /cap\?\.isNativePlatform\?\.\(\) === true/.test(voice) && !/userAgent/.test(voice),
+    /if \(!inNativeShell\(\) && recogniser\(\)\)/.test(voice) && /bridge\(\)\?\.isNativePlatform\?\.\(\) === true/.test(voice) && !/userAgent/.test(voice),
   )
   check(
     "recording is offered only where the server says it can turn it into text",
     /body\.available\) setEngine\("record"\)/.test(voice) && /available: !!creatorId && !!process\.env\.OPENAI_API_KEY/.test(transcribe),
   )
   check("with neither, no microphone is drawn at all", /const micButton = voice\.supported && \(/.test(chat))
+  check(
+    "nor in the Android app, whose manifest does not declare the microphone yet",
+    /if \(nativeWithoutMicrophone\(\)\) return/.test(voice) && /bridge\(\)\?\.getPlatform\?\.\(\) === "android"/.test(voice) &&
+      !/RECORD_AUDIO"/.test(read("android/app/src/main/AndroidManifest.xml")),
+  )
   check("a permission refused is said in plain words", /Microphone access is off for Storelib/.test(voice))
   check("a microphone left on stops by itself after a minute", /VOICE_LIMIT_SECONDS = 60/.test(voice) && /if \(elapsed >= VOICE_LIMIT_SECONDS\) stop\(\)/.test(voice))
   check("and is let go when the chat goes", /React\.useEffect\(\(\) => \(\) => cancel\(\), \[cancel\]\)/.test(voice))
