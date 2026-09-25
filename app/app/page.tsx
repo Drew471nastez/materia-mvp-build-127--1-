@@ -7,6 +7,7 @@ import type { Metadata } from "next"
 import { cookies, headers } from "next/headers"
 import { dayPart, greetingZone } from "@/lib/greeting"
 import { TIME_ZONE_COOKIE } from "@/lib/orders/time-zone"
+import { accountTimeZone } from "@/lib/account/time-zone"
 import { homeTotals } from "@/lib/analytics/home-figures"
 import { pageUser } from "@/lib/auth/page-user"
 import { connectedBioPlatforms } from "@/components/app/share/share-data"
@@ -239,7 +240,7 @@ export default async function AppDashboard() {
 
   const displayName = profile?.display_name || creator.display_name || "there"
   const [jar, head] = await Promise.all([cookies(), headers()])
-  const greetingTimeZone = greetingZone(jar.get(TIME_ZONE_COOKIE)?.value, head.get("x-vercel-ip-timezone"))
+  const greetingTimeZone = greetingZone(jar.get(TIME_ZONE_COOKIE)?.value, head.get("x-vercel-ip-timezone"), accountTimeZone(null, user.user_metadata))
 
   return (
     <DashboardClient

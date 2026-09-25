@@ -154,7 +154,7 @@ function main() {
   check("the editor failing to place it is not reported as the write failing",
     /\.catch\(\(\) => false\)/.test(writeOne))
   check("the request reads the settings and sections of now, not of the first render",
-    /\[installId, settings, sections, onWriteStart, onWriteDone, onWriteFailed\]/.test(writeOne))
+    /\[installId, settings, sections, onWriteStart, onWriteDone, onWriteFailed, dock\]/.test(writeOne))
   check("the message says where it went",
     /is on the page/.test(chat) && /Add it from Add Section, under Created by you/.test(chat))
   check("and no longer tells the creator to go and find it",

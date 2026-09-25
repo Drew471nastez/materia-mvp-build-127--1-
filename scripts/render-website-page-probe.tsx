@@ -10,6 +10,7 @@ import { writeFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { PageSpinner } from "@/components/ui/activity-spinner"
 import { WebsiteBuilderClient, type WebsiteSummary } from "@/app/app/website-builder/website-builder-client"
 
 const OUT = process.env.OUT_DIR!
@@ -58,4 +59,6 @@ const html = renderToStaticMarkup(
   ),
 )
 writeFileSync(join(OUT, "page.html"), html)
+/* The slow page's spinner, for the landing probe's "before" document. */
+writeFileSync(join(OUT, "spinner.html"), renderToStaticMarkup(createElement(PageSpinner)))
 void now

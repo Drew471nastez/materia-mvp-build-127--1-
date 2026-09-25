@@ -162,6 +162,11 @@ console.log("\nThe panel")
   check("tooltips on a computer only, on hover or keyboard focus", /hidden[^"]*md:block md:group-hover:opacity-100 md:group-focus-visible:opacity-100/.test(panel))
   check("buttons 32px on a computer, a 44px target on a phone, drawn 32px", /h-11 w-11[^"]*md:h-8 md:w-8/.test(panel) && /data-face=""\s*className=\{cn\(\s*"flex h-8 w-8/.test(panel))
   check('"No unread notifications" when the filter leaves nothing', /No unread notifications/.test(panel))
+  /* "The icon of 'No notifications yet' should be smaller and less AI." */
+  check("the empty list is a small muted bell and one line, no disc behind it and no second sentence",
+    /<Bell aria-hidden className="h-5 w-5 text-\[#9ca3af\]" strokeWidth=\{1\.75\} \/>/.test(panel)
+      && /\{unreadOnly \? "No unread notifications" : t\("notifications\.empty"\)\}/.test(panel)
+      && !/w-14 h-14 rounded-full/.test(panel) && !/w-7 h-7/.test(panel) && !/notifications\.emptyDesc/.test(panel))
   check("both bells read the live count", (readCode("components/app/sidebar.tsx").match(/<LiveNotificationBadge \{\.\.\.badgeProps\} \/>/g) ?? []).length === 2)
   /* "Remove the X close button. Replace the purple unread dot with a more refined modern circle. Switching between All / Updates / Messages / Opportunities must be smooth." */
   check("no close button: outside, Escape or a drag down closes it", !/label="Close"/.test(panel) && !/\bX\b[^"]*from "lucide-react"/.test(panel) && /onClose=\{closeSheet\}/.test(panel) && /if \(e\.key === "Escape"\) onOpenChange\(false\)/.test(panel))

@@ -467,18 +467,16 @@ export function NotificationsModal({
              same height the empty words take, so nothing moves when it lands. */
           <div className="h-full min-h-[180px]" aria-busy="true" aria-label={t("notifications.loading")} />
         ) : filteredNotifications.length === 0 ? (
-          <div key={activeTab} className="flex flex-1 flex-col items-center justify-center py-12 px-4 animate-in fade-in-0 duration-200 motion-reduce:animate-none" data-notifications-empty="">
-            <div className="w-14 h-14 rounded-full bg-[#f3f4f6] flex items-center justify-center mb-4">
-              <Bell className="w-7 h-7 text-[#6b7280]" strokeWidth={1.75} />
-            </div>
-            {unreadOnly ? (
-              <h3 className="text-[16px] font-semibold text-[#1a1a2e]">No unread notifications</h3>
-            ) : (
-              <>
-                <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">{t("notifications.empty")}</h3>
-                <p className="text-[14px] text-[#6b7280] text-center max-w-[240px]">{t("notifications.emptyDesc")}</p>
-              </>
-            )}
+          /* A small bell and one line, both muted. It was a 56px grey disc
+             with a 28px bell, a 16px heading and a sentence under it: an
+             illustration for a list with nothing in it. "Smaller and less
+             AI." The height stays the loading block's 180px, so nothing
+             moves when the first read lands. */
+          <div key={activeTab} className="flex h-full min-h-[180px] flex-col items-center justify-center gap-2 px-4 py-10 animate-in fade-in-0 duration-200 motion-reduce:animate-none" data-notifications-empty="">
+            <Bell aria-hidden className="h-5 w-5 text-[#9ca3af]" strokeWidth={1.75} />
+            <p className="text-center text-[14px] leading-5 text-[#6b7280]">
+              {unreadOnly ? "No unread notifications" : t("notifications.empty")}
+            </p>
           </div>
         ) : (
           <div key={activeTab} data-notifications-view={activeTab} className="divide-y divide-[#f1f2f4] animate-in fade-in-0 duration-200 motion-reduce:animate-none">

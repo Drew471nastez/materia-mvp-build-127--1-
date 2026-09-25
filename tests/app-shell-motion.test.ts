@@ -445,7 +445,7 @@ section("One scrollbar track on a computer, always there, never moving")
     const HALO_WITHIN = /focus-within:border-\[#c9ccd3\] focus-within:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
     const HALO = /focus:border-\[#c9ccd3\] focus:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
     const within = ["app/app/orders/orders-list.tsx", "app/app/emails/emails-home.tsx", "app/app/products/products-client.tsx"]
-    const direct = ["components/app/product-picker.tsx", "components/app/time-zone-picker.tsx", "components/app/settings-form-new.tsx"]
+    const direct = ["components/app/product-picker.tsx", "components/ui/choice-list.tsx", "components/app/settings-form-new.tsx"]
     const heavy = /focus-within:border-\[#1a1a2e\] focus-within:shadow-\[0_0_0_1px_#1a1a2e\]/
     check("every /app search field focuses with a light grey hairline and a soft halo, never a black 2px edge or a violet ring",
       within.every((f) => HALO_WITHIN.test(code(f)) && !heavy.test(code(f))) && direct.every((f) => HALO.test(code(f)))
@@ -538,8 +538,26 @@ section("Navigation")
     /const saved = traversal \? recalledScroll\(key\) : null/.test(stage) && /s\.outer\.scrollTop = saved\?\.outer \?\? 0/.test(stage))
   check("the shell's own after paint scroll reset is gone", !/scrollEl\.scrollTop = 0/.test(code("components/app/app-layout-wrapper.tsx")))
   check("the shell mounts the stage", /<AppStage \/>/.test(read("components/app/app-layout-wrapper.tsx")))
-  check("inside the shell a page does not fade a second time on its own class",
-    /html\.app-layout \.app-content-scroll \.app-page-enter \{\s*animation: none;/.test(read("app/globals.css")))
+  /*
+    FROM THE FIRST PAINT. The rule used to wait for `html.app-layout`, a
+    class an effect adds after hydration, so a page loaded as a document was
+    painted at opacity 0 first: spinner, a flat grey content area, then the
+    page. scripts/check-website-page.mjs films that landing frame by frame.
+  */
+  const shellCss = read("app/globals.css").replace(/\/\*[\s\S]*?\*\//g, "")
+  check("inside the shell a page does not fade a second time on its own class, from the document's first paint",
+    /\n\s*\.app-content-scroll \.app-page-enter \{\s*animation: none;/.test(shellCss) && !/html\.app-layout \.app-content-scroll \.app-page-enter/.test(shellCss))
+  check("  and the Website page, which arrives as a document most often, carries no fade of its own",
+    !/app-page-enter/.test(code("app/app/website-builder/website-builder-client.tsx")))
+  /*
+    THE WEBSITE ROW IS AN ORDINARY /app PAGE. It was marked forceNavigation
+    when the page lived outside the /app tree, so on the web the sidebar and
+    the search loaded it with window.location: the spinner, then a whole new
+    document. It is a page in the shell now and arrives like the others.
+  */
+  check("  and the sidebar and the search reach it by the router, not by loading a document",
+    /\{ href: "\/app\/website-builder", label: t\("nav\.websiteBuilder"\), icon: NAV_ICONS\.websiteBuilder \}/.test(code("components/app/sidebar.tsx")) &&
+      !/href\.startsWith\("\/app\/website-builder"\)/.test(code("components/app/app-search.tsx")))
   const bar = code("components/app/navigation-loading-bar.tsx")
   check("the bar waits before it shows, and back and forward are seen as navigations",
     /NAV_BAR_AFTER_MS - \(performance\.now\(\) - nav\.startedAt\)/.test(bar) && /window\.addEventListener\("popstate", onPop\)/.test(bar))

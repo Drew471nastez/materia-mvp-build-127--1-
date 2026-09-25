@@ -356,7 +356,14 @@ section("The switch, where somebody can reach it")
    * A menu you can only close by choosing something is a menu people close by
    * choosing the wrong thing.
    */
-  check("the menu can be dismissed without picking", /onClick=\{\(\) => setEngineOpen\(false\)\}/.test(chat))
+  /* A press anywhere outside it, listened for on the document: a fixed
+     click-away layer cannot cover the window from inside the frosted dock,
+     whose backdrop filter makes it the layer's containing block. */
+  check(
+    "the menu can be dismissed without picking",
+    /if \(!engineRef\.current\?\.contains\(event\.target as Node\)\) setEngineOpen\(false\)/.test(chat) &&
+      /document\.addEventListener\("pointerdown", away, true\)/.test(chat),
+  )
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

@@ -24,6 +24,7 @@ import { useRouter } from "next/navigation"
 import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react"
 // Sheet removed — mobile sidebar now uses pure CSS transitions for reliable close animation
 import { AppAvatar } from "@/components/app/app-avatar"
+import { useShellAvatar } from "@/lib/account/avatar-store"
 import { MobileAccountMenu } from "@/components/app/mobile-account-menu"
 import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
 import type { NavIconPair } from "@/components/app/sidebar-desktop-nav"
@@ -34,7 +35,7 @@ import { CompassIcon as ExploreIcon } from "@solar-icons/react/linear/compass"
 import { NotificationsModal, LiveNotificationBadge } from "./notifications-modal"
 import { AppSearch, type AppSearchHandle } from "@/components/app/app-search"
 import { useLanguage } from "@/lib/i18n"
-import { LanguageModal } from "@/components/platform/language-modal"
+import { AppLanguageModal } from "@/components/app/language-picker"
 import { toOriginalImageUrl } from "@/lib/storage/image-url"
 import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
@@ -122,9 +123,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   /**
    * The language picker, opened from either account menu in this sidebar.
    *
-   * The modal drives LocaleProvider while this sidebar reads LanguageProvider --
-   * two providers, but ONE localStorage key ("storelib_language"), which is what
-   * keeps /app and the marketing side agreeing about the chosen language.
+   * It sets both providers, LanguageProvider (this sidebar's words, so they
+   * change at once) and LocaleProvider, which share ONE localStorage key
+   * ("storelib_language"): components/app/language-picker.
    */
   const [languageOpen, setLanguageOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -242,7 +243,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
      * because they are the same kind of decision.
      */
     { href: "/creator-page", label: t("nav.creatorPage"), icon: NAV_ICONS.storeBuilder },
-    { href: "/app/website-builder", label: t("nav.websiteBuilder"), icon: NAV_ICONS.websiteBuilder, forceNavigation: true },
+    /* A page in the shell like the others, so the router brings it: a whole
+       document load was the spinner, a blank frame, then the page. */
+    { href: "/app/website-builder", label: t("nav.websiteBuilder"), icon: NAV_ICONS.websiteBuilder },
     { href: "/app/onepage", label: t("nav.onepage"), icon: NAV_ICONS.onepage, forceNavigation: true },
     /*
       Storelib AI is NOT LISTED HERE ANY MORE.
@@ -310,7 +313,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
    * and the parameter only ever bought the bill. tests/no-image-transforms
    * fails the build if a transform URL comes back anywhere.
    */
-  const avatarSrc = toOriginalImageUrl(avatarUrl)
+  /* The profile's photo, or the one Settings has just saved or removed
+     (lib/account/avatar-store), so the header changes with Settings at once. */
+  const avatarSrc = toOriginalImageUrl(useShellAvatar(avatarUrl))
 
   const storeUrl = username || creatorSlug
   const userDisplayName = displayName || username || creatorSlug || "User"
@@ -913,7 +918,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
       {/* Outside both account menus: each closes itself on the click that opens
           this, so it cannot be a child of either. */}
-      <LanguageModal open={languageOpen} onOpenChange={setLanguageOpen} />
+      <AppLanguageModal open={languageOpen} onOpenChange={setLanguageOpen} />
     </>
   )
 }

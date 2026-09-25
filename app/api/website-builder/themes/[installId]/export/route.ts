@@ -30,9 +30,12 @@ import {
 } from "@/lib/storelib-theme/media"
 import { THEME_FORMAT, THEME_FORMAT_VERSION } from "@/lib/storelib-theme/types"
 import { MAX_BYTES as SNAPSHOT_MAX_BYTES, SNAPSHOT_BUCKET, mobilePartner, snapshotFolder, snapshotsNewestFirst } from "@/lib/website-builder/snapshot"
-import { isPackagedCover } from "@/lib/website-builder/cover-take"
+import { isPackagedCover, renderOrigin, takeCover } from "@/lib/website-builder/cover-take"
 
 type Params = { params: Promise<{ installId: string }> }
+
+/** A site with no cover yet is photographed before it is packaged: a browser launch and two page loads. */
+export const maxDuration = 60
 
 // Walk an arbitrary JSON value and collect every URL that points to an image.
 /* Extensions, sizes and mime types all live in lib/storelib-theme/media.ts now,
@@ -276,8 +279,23 @@ export async function GET(_req: Request, { params }: Params) {
     this website on the card from the first moment, not a drawing of a
     theme's sample shop. The import photographs the new website as well, so
     this picture is only ever the first one.
+
+    ALWAYS, NOT WHEN THERE HAPPENS TO BE ONE. A site nobody had photographed
+    yet (or whose newest picture is an older PNG capture, which a package
+    does not carry) used to export with no cover, and its import showed a
+    drawing until a photograph was taken. So one is taken here first. A
+    photograph that fails leaves the package without one; the export itself
+    never fails for a picture.
   */
-  const cover = await packagedCover(user.id, installId)
+  let cover = await packagedCover(user.id, installId)
+  if (!cover.ref) {
+    try {
+      await takeCover({ installId, userId: user.id, creatorId: creator.id as string }, renderOrigin(_req.url), { force: true })
+      cover = await packagedCover(user.id, installId)
+    } catch (e) {
+      console.error("[cover] export: could not take a cover to package:", e instanceof Error ? e.message : e)
+    }
+  }
   for (const c of cover.assets) assets[c.hash] = c.asset
 
   const pkg = await buildPackage({

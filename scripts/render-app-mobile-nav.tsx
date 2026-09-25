@@ -23,7 +23,7 @@ const ITEMS: NavItemData[] = [
   { href: "/app/analytics", label: "Analytics", icon: NAV_ICONS.analytics },
   { href: "/app/orders", label: "Sales", icon: NAV_ICONS.orders },
   { href: "/creator-page", label: "Creator page", icon: NAV_ICONS.storeBuilder },
-  { href: "/app/website-builder", label: "Website", icon: NAV_ICONS.websiteBuilder, forceNavigation: true },
+  { href: "/app/website-builder", label: "Website", icon: NAV_ICONS.websiteBuilder },
   { href: "/app/onepage", label: "OnePage", icon: NAV_ICONS.onepage, forceNavigation: true },
   { href: "/app/emails", label: "Emails", icon: NAV_ICONS.emails },
   { href: "/app/payouts", label: "Payouts", icon: NAV_ICONS.payouts },

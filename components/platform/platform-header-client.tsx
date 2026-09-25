@@ -751,10 +751,12 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
           setProfile(pd)
           // Persist avatar so the next render (or next page load) shows it immediately
           const freshAvatar = pd?.avatar_url || null
-          if (freshAvatar) {
-            setCachedAvatarUrl(freshAvatar)
-            try { localStorage.setItem("_sl_avatar", freshAvatar) } catch {}
-          }
+          setCachedAvatarUrl(freshAvatar)
+          try {
+            /* A removed photo is forgotten here too, or the next page would open on it. */
+            if (freshAvatar) localStorage.setItem("_sl_avatar", freshAvatar)
+            else localStorage.removeItem("_sl_avatar")
+          } catch {}
           const isSellerByState = !!creatorData?.onboarding_completed
           setIsCreator(isSellerByState)
           setHasCompletedSellerOnboarding(isSellerByState)
@@ -809,13 +811,11 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
     return user ? "/library/wishlist" : "/wishlist"
   }, [user])
 
-  // profiles.avatar_url is the single source of truth.
-  // Both /app/settings and Store Builder sync to it. No cache-busting params needed.
-  const googleAvatarUrl = (user?.user_metadata as any)?.avatar_url || (user?.user_metadata as any)?.picture || null
-
+  // profiles.avatar_url is the single source of truth (lib/account/avatar): no
+  // fallback to the Google picture, so a photo removed in Settings stays removed.
   // cachedAvatarUrl seeds from localStorage so the correct avatar shows on the FIRST render
   // (before the async profile fetch resolves), preventing the placeholder flash.
-  const avatarUrl = profile?.avatar_url || googleAvatarUrl || cachedAvatarUrl || undefined
+  const avatarUrl = (profile ? profile.avatar_url : cachedAvatarUrl) || undefined
 
   const displayName =
     profile?.display_name ||

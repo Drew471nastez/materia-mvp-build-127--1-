@@ -1,11 +1,11 @@
-import { NextResponse, after } from "next/server"
+import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
-import { copyCover, coverAfterCreate, renderOrigin } from "@/lib/website-builder/cover-take"
+import { copyCover, coverForNewWebsite, renderOrigin } from "@/lib/website-builder/cover-take"
 
 export const runtime = "nodejs"
-/** The copy answers at once; its photograph is taken after, which needs a browser launch and two page loads. */
+/** The copy answers with its source's picture; its own photograph is taken after, a browser launch and two page loads. */
 export const maxDuration = 60
 
 type Params = { params: Promise<{ installId: string }> }
@@ -126,12 +126,12 @@ export async function POST(req: Request, { params }: Params) {
   }
 
   /*
-    ITS COVER FROM THE START: the source's picture at once, so the card is
-    right the moment it appears, then a photograph of the copy itself.
+    ITS COVER FROM THE START: the source's picture at once, handed back in
+    the answer so the card is right the moment it appears, then a photograph
+    of the copy itself. A source with no picture yet is photographed now.
   */
   const owner = { installId: newInstall.id as string, userId: user.id, creatorId: creator.id as string }
-  await copyCover(user.id, installId, owner)
-  after(() => coverAfterCreate(owner, renderOrigin(req.url), "duplicate"))
+  const first = await coverForNewWebsite(owner, renderOrigin(req.url), "duplicate", await copyCover(user.id, installId, owner))
 
-  return NextResponse.json({ install: newInstall })
+  return NextResponse.json({ install: newInstall, ...first })
 }

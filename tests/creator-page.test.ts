@@ -482,7 +482,7 @@ function main() {
     const entries: Array<[string, string]> = [
       ["components/app/sidebar.tsx", '"/creator-page"'],
       ["components/storefront/owner-menu.tsx", '"/creator-page"'],
-      ["components/app/settings-form-new.tsx", '"/creator-page"'],
+      /* Settings' Stores tab, which linked here, is gone: the sidebar is the way in. */
     ]
     for (const [file, href] of entries) {
       check(`${file} points at the workspace`, read(file).includes(href))

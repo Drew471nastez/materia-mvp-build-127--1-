@@ -75,7 +75,18 @@ const read = (p) =>
       mark: button("[data-notifications-mark-all]"),
       items: items.length,
       unread: items.filter((i) => i.hasAttribute("data-unread")).length,
-      empty: list?.querySelector("[data-notifications-empty] h3")?.textContent.trim() ?? null,
+      empty: list?.querySelector("[data-notifications-empty] p")?.textContent.trim() ?? null,
+      emptyLook: (() => {
+        const e = list?.querySelector("[data-notifications-empty]")
+        if (!e) return null
+        const icon = e.querySelector("svg").getBoundingClientRect()
+        const text = e.querySelector("p")
+        return {
+          icon: `${Math.round(icon.width)}x${Math.round(icon.height)}`, iconColor: getComputedStyle(e.querySelector("svg")).color,
+          parts: e.children.length, lines: Math.round(text.getBoundingClientRect().height / parseFloat(getComputedStyle(text).lineHeight)),
+          textSize: getComputedStyle(text).fontSize, textColor: getComputedStyle(text).color, h: Math.round(e.getBoundingClientRect().height),
+        }
+      })(),
       badge: badge ? badge.textContent.trim() : null,
       alert: document.querySelector("[data-notifications-list]")?.parentElement?.querySelector("[role=alert]")?.textContent.trim() ?? null,
       saved: localStorage.getItem("storelib_notifications_unread_only"),
@@ -255,6 +266,12 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
     r = await read(p)
     expect(r.badge === null, "the bell empties at once, before the server answers", r.badge)
     expect(r.items === 0 && r.empty === "No unread notifications", '"No unread notifications" with the filter on', { items: r.items, empty: r.empty })
+    /* "Smaller and less AI": a 20px bell in the muted grey, one line of
+       14px text, nothing else. */
+    const look = r.emptyLook
+    expect(look && look.icon === "20x20" && look.iconColor === "rgb(156, 163, 175)" && look.parts === 2 && look.lines === 1
+      && look.textSize === "14px" && look.textColor === "rgb(107, 114, 128)", "  a 20px muted bell and one 14px line, nothing more", look)
+    await p.screenshot({ path: join(shots, `${label}-notifications-empty.png`) })
     expect(r.mark?.disabled === true, "Mark all as read is disabled while it works", r.mark?.disabled)
     await sleep(600)
     r = await read(p)

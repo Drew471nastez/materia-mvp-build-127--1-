@@ -44,6 +44,7 @@ import { execFileSync, spawn } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { appCss } from "./probe-css.mjs"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const root = process.cwd()
@@ -53,9 +54,8 @@ const srcRoot = process.env.PROBE_SRC_ROOT ?? root
 const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
-const cssDir = join(root, ".next/static/chunks")
-if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first.")
-const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
+/* The build's stylesheet, or the same one compiled from source (PROBE_CSS=source). */
+const css = await appCss(root)
 
 /* The fixture's sheet has to be the editor's AI sheet. */
 const editor = readFileSync(join(srcRoot, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
@@ -238,9 +238,10 @@ const READ = `(() => {
   const field = sheet.querySelector("textarea")
   const thread = document.querySelector("[data-chat-thread]") || [...sheet.querySelectorAll("div")].find((d) => /overflow-y-auto/.test(d.className) && d.querySelector("ul, p"))
   const composer = document.querySelector("[data-chat-composer]") || (field && field.parentElement)
-  const column = thread && thread.parentElement
+  /* The chat column: the sheet variant's root, which holds the composer's row and its padding. */
+  const column = thread && (thread.closest("[data-ask-sheet]") || thread.parentElement)
   const header = [...document.querySelectorAll("span")].find((s) => s.textContent.trim() === "Ask Storelib")
-  const headerRow = header && header.parentElement
+  const headerRow = document.querySelector("[data-ask-header]") || (header && header.parentElement)
   const vv = window.visualViewport
   const publish = document.getElementById("publish").getBoundingClientRect()
   const pre = document.querySelector("[data-code-scroll]") || sheet.querySelector("pre")
@@ -407,7 +408,7 @@ await sleep(900)
 r.desktop = JSON.parse(await js(`(() => {
   const field = document.querySelector("textarea")
   const thread = document.querySelector("[data-chat-thread]") || [...document.querySelectorAll("div")].find((d) => /overflow-y-auto/.test(d.className) && d.querySelector("ul, p"))
-  const column = thread.parentElement
+  const column = thread.closest("[data-ask-sheet]") || thread.parentElement
   const pre = document.querySelector("[data-code-scroll]") || document.querySelector("pre")
   thread.scrollLeft = 400
   return JSON.stringify({ threadSW: thread.scrollWidth, threadCW: thread.clientWidth, columnSW: column.scrollWidth, columnCW: column.clientWidth, left: thread.scrollLeft, preSW: pre ? pre.scrollWidth : null, preCW: pre ? pre.clientWidth : null })

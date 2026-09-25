@@ -3,6 +3,7 @@ import admin from "@/lib/firebase/admin"
 import { createAdminClient } from "@/lib/supabase/admin"
 import webpush from "web-push"
 import { vapidKeys } from "./web-vapid"
+import { endpointOf, forgetOnAccount, readKept, tokenOf } from "./web-subscriptions"
 
 export interface PushPayload {
   title: string
@@ -65,8 +66,20 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
     return
   }
 
+  /* Browsers kept on the account while push_tokens could not take them
+     (lib/push/web-subscriptions), each once. */
+  const inTable = new Set((tokens ?? []).filter((t: { platform: string }) => t.platform === "web").map((t: { token: string }) => endpointOf(t.token)))
+  const kept = (await readKept(supabase, userId)).filter((s) => !inTable.has(s.endpoint))
+  const goneKept: string[] = []
+  await Promise.all(
+    kept.map(async (s) => {
+      if ((await sendToBrowser(tokenOf(s), payload)) === "gone") goneKept.push(s.endpoint)
+    }),
+  )
+  if (goneKept.length > 0) await forgetOnAccount(supabase, userId, goneKept).catch(() => undefined)
+
   if (!tokens || tokens.length === 0) {
-    console.log(`[push] No tokens for user ${userId}`)
+    if (kept.length === 0) console.log(`[push] No tokens for user ${userId}`)
     return
   }
 

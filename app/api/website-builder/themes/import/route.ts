@@ -8,8 +8,8 @@
 //   the newly uploaded URLs
 // • creates a fresh store_theme_installs row + settings + pages
 // ============================================================
-import { NextResponse, after } from "next/server"
-import { coverAfterCreate, isPackagedCover, renderOrigin, storeCover } from "@/lib/website-builder/cover-take"
+import { NextResponse } from "next/server"
+import { type CoverResult, coverForNewWebsite, isPackagedCover, renderOrigin, storeCover } from "@/lib/website-builder/cover-take"
 import { MAX_BYTES as SNAPSHOT_MAX_BYTES } from "@/lib/website-builder/snapshot"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -53,7 +53,7 @@ function rewriteUrls(node: unknown, urlMap: Record<string, string>): unknown {
 
 // POST /api/website-builder/themes/import
 // multipart/form-data with `file` field containing the zip
-/** A package is read and written at once; the new website's photograph is taken after, which needs a browser launch. */
+/** A package is read and written at once, then its first picture: the package's own, or a photograph of up to QUICK_COVER_MS. */
 export const maxDuration = 60
 
 export async function POST(req: Request) {
@@ -275,21 +275,24 @@ export async function POST(req: Request) {
     if (filled) return filled
 
     /*
-      ITS COVER FROM THE START. The picture the package carried, straight
-      away, so the card shows this website and not a drawing of a theme's
-      sample shop; then a photograph of the imported website itself.
+      ITS COVER FROM THE START. The picture the package carried, stored in
+      this request and handed back in the answer, so the new row shows this
+      website from its first frame; then a photograph of the imported website
+      itself. A package without one (an export from before exports carried
+      it) is photographed now instead (lib/website-builder/cover-take.ts).
     */
     const owner = { installId: created.id as string, userId: user.id, creatorId: creator.id as string }
     const desktop = typeof coverRef.desktop === "string" ? pkg.assets[coverRef.desktop]?.bytes : undefined
     const phone = typeof coverRef.phone === "string" ? pkg.assets[coverRef.phone]?.bytes : undefined
+    let packaged: CoverResult | null = null
     if (desktop && isPackagedCover(desktop, SNAPSHOT_MAX_BYTES)) {
       try {
-        await storeCover(owner, Buffer.from(desktop), phone && isPackagedCover(phone, SNAPSHOT_MAX_BYTES) ? Buffer.from(phone) : null)
-      } catch {
-        /* the photograph below still comes */
+        packaged = await storeCover(owner, Buffer.from(desktop), phone && isPackagedCover(phone, SNAPSHOT_MAX_BYTES) ? Buffer.from(phone) : null)
+      } catch (e) {
+        console.error("[cover] import: could not store the package's cover:", e instanceof Error ? e.message : e)
       }
     }
-    after(() => coverAfterCreate(owner, renderOrigin(req.url), "import"))
+    const first = await coverForNewWebsite(owner, renderOrigin(req.url), "import", packaged)
 
     return NextResponse.json({
       ok: true,
@@ -298,6 +301,7 @@ export async function POST(req: Request) {
       migrated: pkg.legacy,
       /** What came with it, so the reply can say so rather than leaving somebody to scroll the page looking. */
       media: describeMedia(imported),
+      ...first,
     })
   }
 
@@ -395,10 +399,10 @@ export async function POST(req: Request) {
   const filled = await fillInstall(admin, newInstall.id, importedSettings, importedPages, [])
   if (filled) return filled
 
-  /* Photographed from the start, like every other way a website is made. */
-  after(() => coverAfterCreate({ installId: newInstall.id as string, userId: user.id, creatorId: creator.id as string }, renderOrigin(req.url), "import"))
+  /* Photographed from the start, like every other way a website is made. The older format carries no cover. */
+  const first = await coverForNewWebsite({ installId: newInstall.id as string, userId: user.id, creatorId: creator.id as string }, renderOrigin(req.url), "import", null)
 
-  return NextResponse.json({ ok: true, install_id: newInstall.id, name: installName })
+  return NextResponse.json({ ok: true, install_id: newInstall.id, name: installName, ...first })
 }
 
 type Admin = ReturnType<typeof createAdminClient>

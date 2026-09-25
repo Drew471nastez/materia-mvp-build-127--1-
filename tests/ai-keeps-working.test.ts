@@ -21,8 +21,13 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const editor = read("app/website-builder/editor/[installId]/page.tsx")
 const chat = read("components/website-builder/theme-chat.tsx")
 
-check("the desktop panel stays mounted once opened, and is hidden when closed",
-  /\{!isMobileView && aiMounted && \(\s*<div className=\{cn\("relative flex-shrink-0", !aiOpen && "hidden"\)\}/.test(editor) && !/\{!isMobileView && aiOpen && \(/.test(editor))
+/* On a computer Ask Storelib is a pill over the canvas now (variant "dock"),
+   not a column: still mounted once shown, and closing it hides it. */
+check("the desktop dock stays mounted once opened, and is hidden when closed",
+  /\{!isMobileView && aiMounted && \(\s*<ThemeChat\s*\n\s*variant="dock"\s*\n\s*hidden=\{!aiOpen\}/.test(editor) && !/\{!isMobileView && aiOpen && \(/.test(editor))
+check("and while the canvas shows the code or the settings it folds away, still mounted",
+  /suspended=\{previewMode !== "preview" \|\| projectSettingsOpen\}/.test(editor) &&
+    /if \(!hidden && !suspended\) return\s*\n\s*setExpanded\(false\)/.test(chat))
 check("so does the phone's sheet", /\{isMobileView && aiMounted && \(\s*<MobileEditorSheet open=\{aiOpen\}/.test(editor))
 check("closing the panel only hides it; nothing in the chat stops a run on close", !/onClose[^\n]*abort/.test(chat) && !/return \(\) => [^\n]*abortRef/.test(chat))
 check("the chat says when it is working, and the button shows it with the panel closed",

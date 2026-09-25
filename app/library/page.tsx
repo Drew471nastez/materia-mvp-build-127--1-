@@ -63,7 +63,8 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   ])
 
   const displayName = profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || "User"
-  const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+  /* The profile's photo only (lib/account/avatar): a removed photo stays removed. */
+  const avatarUrl = profile?.avatar_url || null
   const email = user.email || ""
 
   return (

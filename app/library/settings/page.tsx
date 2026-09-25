@@ -19,7 +19,8 @@ export default async function LibrarySettingsPage() {
     .maybeSingle()
 
   const displayName = profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0] || ""
-  const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+  /* The profile's photo only (lib/account/avatar): a removed photo stays removed. */
+  const avatarUrl = profile?.avatar_url || null
   const username = profile?.username || ""
 
   return (

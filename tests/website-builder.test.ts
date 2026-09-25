@@ -55,7 +55,7 @@ import {
 } from "@/lib/website-builder/snapshot"
 import { coverIsStale } from "@/app/app/website-builder/website-builder-client"
 import { mintCoverPass, readCoverPass } from "@/lib/website-builder/cover-pass"
-import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition, coverSpecFromSettings } from "@/components/website-builder/theme-cover"
+import { ThemeCover, ThemePhoneCover, coverSpecFromDefinition } from "@/components/website-builder/theme-cover"
 import { editorHref } from "@/app/app/website-builder/website-builder-client"
 import { CUSTOM_SECTION_CATEGORY, STORELIB_SCHEMAS, STORELIB_SECTION_TYPES, addableSections, customAddableSections, customSectionSchemas, schemaFromStorelib } from "@/lib/website-builder/storelib-schemas"
 import { ADDABLE_SECTIONS, RETIRED_SECTIONS, SECTION_CATEGORIES, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
@@ -250,11 +250,23 @@ section("The cover")
   check("the phone cover is a second drawing of the same theme", phone.startsWith("<svg") && phone.includes('viewBox="0 0 390 780"') && phone.includes(THEME_REGISTRY[0].sample.brand))
 }
 {
-  const spec = coverSpecFromSettings({ brand_name: "Acme", primary_color: "#ff0000", background_color: "#111111" }, null, "Fallback")
-  const html = renderToStaticMarkup(createElement(ThemeCover, { spec }))
-  check("an install without a snapshot is drawn from its own settings", html.includes("Acme") && html.includes("#ff0000") && html.includes("#111111"))
-  const dark = coverSpecFromSettings({ background_color: "#000000" }, null, "x")
-  check("a dark page gets readable hero text", dark.heroText === "#ffffff")
+  /*
+    A SAVED WEBSITE IS NEVER DRAWN. Its cover used to be drawn from its
+    settings until a photograph came: its tagline as a headline, its primary
+    colour on a button. An imported site with a black hero showed as a pink
+    storefront reading "Thoughtful themes for better storefronts" for its
+    first seconds. The drawing is only a catalogue theme's now, and a website
+    with no photograph yet shows its name on a plain surface.
+  */
+  const coverSrc = stripComments(read("components/website-builder/theme-cover.tsx"))
+  const client = stripComments(read("app/app/website-builder/website-builder-client.tsx"))
+  check("no website is drawn from its settings: the drawing is a catalogue theme's alone",
+    !/coverSpecFromSettings/.test(coverSrc) && !/coverSpecFromSettings/.test(client) && !/ThemeSettingsValues/.test(coverSrc))
+  check("  a website with no photograph yet is its name on a plain surface, breathing while one is taken",
+    /return <PendingCover name=\{install\.name\} preparing=\{preparing\} \/>/.test(client) &&
+      /data-cover-pending=\{preparing \? "preparing" : "waiting"\}/.test(client) &&
+      /\{preparing && <span aria-hidden className="wb-incoming-pulse absolute inset-0 bg-\[#e6e8ec\]" \/>\}/.test(client) &&
+      /Preparing preview/.test(client))
 }
 
 // ── 4. The page ─────────────────────────────────────────────────────────
@@ -281,9 +293,11 @@ section("The page")
     "no live storefront is mounted on the page: no SectionRenderer, no ThemePage, no CSS zoom",
     !/SectionRenderer|ThemePage|zoom:/.test(client) && !/RENDER_WIDTH/.test(client),
   )
-  check("the cover is the snapshot when there is one, and the drawn cover otherwise", /snapshot_url/.test(client) && /ThemeCover/.test(client) && /coverSpecFromSettings/.test(client))
+  check("the cover is the snapshot when there is one, and the site's name on a plain surface otherwise", /snapshot_url/.test(client) && /<PendingCover /.test(client) && !/coverSpecFromSettings/.test(client))
   check("the snapshot is a plain <img>, not an optimiser round-trip", /<img/.test(client) && !/from "next\/image"/.test(client))
-  check("the live cover loads eagerly with high priority; library thumbnails lazily", /fetchPriority=\{eager \? "high"/.test(client) && /loading=\{eager \? "eager" : "lazy"\}/.test(client))
+  check("the live cover loads eagerly with high priority; library thumbnails lazily, unless the tab has already decoded the picture",
+    /fetchPriority=\{eager \? "high"/.test(client) && /const ready = eager \|\| DECODED\.has\(install\.snapshot_url\)/.test(client) &&
+      /loading=\{ready \? "eager" : "lazy"\}/.test(client) && /decoding=\{DECODED\.has\(install\.snapshot_url\) \? "sync" : "async"\}/.test(client))
   check("there is no skeleton inside the component", !/animate-pulse|skeleton/.test(client))
   /*
     NO SKELETON, NOT A DEFERRED ONE. The route's skeleton.tsx was left behind
@@ -402,7 +416,7 @@ section("The page")
       !/(^|\s)group(\s|$)/.test(frame) && /pointer-fine:hover:before:bg-\[#1a1a2e\]\/\[0\.04\]/.test(frame) &&
         /focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2/.test(frame) && !/group-hover|group-focus/.test(live.slice(live.indexOf("data-cover"), live.indexOf("</button>", live.indexOf("data-cover")))))
     check("  and it is one picture: no stage, no browser window, no phone, anywhere on the page",
-      /<WebsiteCover install=\{live\} eager \/>/.test(live) && !/CoverStage|PHONE_FRAME|ThemeCoverPair|ThemePhoneCover|snapshot_mobile_url \?/.test(client) &&
+      /<WebsiteCover install=\{live\} eager preparing=\{!!preparing\[live\.id\]\} \/>/.test(live) && !/CoverStage|PHONE_FRAME|ThemeCoverPair|ThemePhoneCover|snapshot_mobile_url \?/.test(client) &&
         !/export function CoverStage|export const PHONE_FRAME|export function ThemeCoverPair|data-cover-stage|data-cover-window|data-cover-phone/.test(read("components/website-builder/theme-cover.tsx")))
     check("  the screenshot is cut from the top, so the site's header and hero are what shows",
       /data-cover-picture=""\s*className="block h-full w-full object-cover object-top"/.test(src))
@@ -420,7 +434,7 @@ section("The page")
       !/window\.open\(siteUrl/.test(client))
   check("every cover on the page is the desktop picture alone: the live card, the library rows and Browse themes",
     !/ThemeCoverPair|ThemePhoneCover/.test(client) && /<ThemeCover spec=\{coverSpecFromDefinition\(def\)\} className="block h-full w-full" \/>/.test(client) &&
-      /<WebsiteCover install=\{i\} \/>/.test(client))
+      /<WebsiteCover install=\{i\} preparing=\{!!preparing\[i\.id\]\} \/>/.test(client))
   check("publishing over a live website asks first and says what happens to the old one", /Publish “\{publishing\?\.name\}”\?/.test(client) && /It replaces “\{live\.name\}”/.test(client))
   check("every install action is still here: rename, duplicate, code, settings, export, publish, unpublish, delete, import, add", [
     // The file is a .storelib-theme package now, so the two labels name the
@@ -699,15 +713,53 @@ section("The cover")
     theme just added, imported or copied used to sit under a drawing of the
     theme's sample shop until somebody opened it and saved.
   */
-  for (const [label, file] of [
-    ["added", "app/api/website-builder/themes/add/route.ts"],
-    ["imported", "app/api/website-builder/themes/import/route.ts"],
-    ["copied", "app/api/website-builder/themes/[installId]/duplicate/route.ts"],
+  /*
+    AND ITS FIRST PICTURE IS IN THE ANSWER THAT MADE IT. The picture it came
+    with (a package's, a copy's source's), else a photograph when it takes
+    under QUICK_COVER_MS, else `cover_pending` and the page looks for it.
+    The photograph after the answer used to be the only one, and it failed
+    in production every time (the browser's binary was traced into the cover
+    route alone), so an import sat under a drawing until the Website page
+    asked the cover route itself: the 10 to 15 seconds.
+  */
+  for (const [label, file, start] of [
+    ["added", "app/api/website-builder/themes/add/route.ts", "null"],
+    ["imported", "app/api/website-builder/themes/import/route.ts", "packaged"],
+    ["copied", "app/api/website-builder/themes/[installId]/duplicate/route.ts", "await copyCover(user.id, installId, owner)"],
   ] as const) {
     const src = stripComments(read(file))
-    check(`a website ${label} is photographed as soon as it exists, after the answer`, /after\(\(\) => coverAfterCreate\(/.test(src) && /export const maxDuration = \d+/.test(src))
+    check(`a website ${label} has its first picture in the answer that made it`,
+      src.includes(`coverForNewWebsite(`) && src.includes(`"${label === "added" ? "add" : label === "imported" ? "import" : "duplicate"}", ${start})`) &&
+        /\.\.\.first/.test(src) && /export const maxDuration = \d+/.test(src) && !/after\(/.test(src))
   }
+  check("  in that order: what it came with, else a photograph within QUICK_COVER_MS, else pending and taken after the answer",
+    /export const QUICK_COVER_MS = 8_000/.test(take) &&
+      /if \(start\?\.url\) \{\s*after\(\(\) => coverAfterCreate\(owner, origin, label\)\)/.test(take) &&
+      /const first = await Promise\.race\(\[shot, late\]\)/.test(take) &&
+      /if \(first === "late"\) \{\s*after\(\(\) => shot\.then\(\(\) => undefined\)\)\s*return \{ cover: null, cover_pending: true \}/.test(take))
+  check("  a package's cover is stored inside the request, not after it",
+    /packaged = await storeCover\(owner, Buffer\.from\(desktop\)/.test(stripComments(read("app/api/website-builder/themes/import/route.ts"))))
   check("  a copy starts from its source's picture", /await copyCover\(user\.id, installId, owner\)/.test(stripComments(read("app/api/website-builder/themes/[installId]/duplicate/route.ts"))))
+  check("  every route that launches the browser has it in its function",
+    ["/api/website-builder/themes/*/cover", "/api/website-builder/themes/add", "/api/website-builder/themes/import", "/api/website-builder/themes/*/duplicate", "/api/website-builder/themes/*/export"]
+      .every((r) => new RegExp(`'${r.replace(/[*/]/g, (c) => `\\${c}`)}': \\[\\s*'\\./node_modules/\\.pnpm/@sparticuz\\+chromium@\\*/node_modules/@sparticuz/chromium/bin/\\*\\*',\\s*\\]`).test(read("next.config.mjs"))))
+  check("  an export always carries a cover: one is taken when the site has none it can package",
+    /if \(!cover\.ref\) \{\s*try \{\s*await takeCover\(/.test(stripComments(read("app/api/website-builder/themes/[installId]/export/route.ts"))) &&
+      /export const maxDuration = 60/.test(read("app/api/website-builder/themes/[installId]/export/route.ts")))
+  check("  the cover route answers GET with the cover as it is, without taking one",
+    /export async function GET\(/.test(route) && /newestCover\(\{ installId, userId: who\.userId \}\)/.test(route) && /"Cache-Control": "no-store"/.test(route))
+  {
+    const refresh = read("lib/website-builder/cover-refresh.ts")
+    const client = stripComments(read("app/app/website-builder/website-builder-client.tsx"))
+    check("  the page keeps the answer's cover and decodes it before the refresh, so the new row's first frame is the picture",
+      /seedCover\(id, cover\)\s*await decodedFirst\(\[cover\.url\], 2500\)\s*setFresh/.test(client) &&
+        client.indexOf("seedCover(id, cover)") < client.indexOf("setIncoming((c) => (c ? { ...c, phase: \"working\", installId: id } : c))"))
+    check("  a pending one is looked for (GET, every 2s, backing off, about 30s) rather than taken twice, then asked for if it never came",
+      /export const WATCH_STEPS_MS = \[2000, 2000, 2000, 3000, 3000, 4000, 4000, 5000, 5000\]/.test(refresh) &&
+        /await fetch\(`\/api\/website-builder\/themes\/\$\{encodeURIComponent\(installId\)\}\/cover`, \{ cache: "no-store" \}\)/.test(refresh) &&
+        /\(data\.cover_pending \? await watchCover\(id\) : null\) \?\? \(await requestCover\(id\)\)/.test(client) && /asked\.current\.add\(id\)/.test(client))
+    check("  and crossfades to it once decoded", /if \(got\?\.url\) await showCover\(id, got\)/.test(client) && /await decodedFirst\(\[cover\.url, cover\.mobile_url\]\)\s*setFresh/.test(client))
+  }
   check("  a copy is the whole website: drafts, live values and section files",
     /draft_settings: srcSettings\?\.draft_settings/.test(read("app/api/website-builder/themes/[installId]/duplicate/route.ts")) &&
       /draft_sections: p\.draft_sections/.test(read("app/api/website-builder/themes/[installId]/duplicate/route.ts")) &&
@@ -1257,8 +1309,8 @@ section("A form that says it worked, did")
 {
   console.log("\n  Storelib AI does not lose half of itself after one message")
   const chat = read("components/website-builder/theme-chat.tsx")
-  const empty = chat.slice(chat.indexOf("exchanges.length === 0 ? ("), chat.indexOf('<div className="min-w-0 shrink-0 border-t border-border p-2.5 [overflow-wrap:anywhere]">'))
-  const composer = chat.slice(chat.indexOf('<div className="min-w-0 shrink-0 border-t border-border p-2.5 [overflow-wrap:anywhere]">'))
+  const empty = chat.slice(chat.indexOf("exchanges.length === 0 ? ("), chat.indexOf('data-ask-tray=""'))
+  const composer = chat.slice(chat.indexOf('data-ask-tray=""'))
 
   check("the mode row is with the box you type into", /\["change", "Change this page"\]/.test(composer))
   check("and not only in the empty state", !/\["change", "Change this page"\]/.test(empty))

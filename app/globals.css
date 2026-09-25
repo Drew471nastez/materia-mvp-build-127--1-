@@ -398,8 +398,19 @@ html.capacitor body {
     rise, 180ms), started before the new page is painted. A page that still
     carries .app-page-enter would fade a second time on top of it, from 0
     over 380ms, so inside the shell's scroller the class does nothing.
+
+    FROM THE FIRST PAINT, NOT FROM HYDRATION. This read
+    `html.app-layout .app-content-scroll .app-page-enter`, and `app-layout`
+    is put on <html> by an effect (components/app/app-layout-wrapper.tsx),
+    after hydration. A page loaded as a document (a reload, a cold start, the
+    session's recovery, a sidebar row that loads the page for real) was
+    painted from the server's HTML before that, with the fade running from
+    0: the spinner went and the content area was flat #f8f9fa for its first
+    frames, then the page came up. Measured by scripts/check-website-page.mjs
+    ("arriving on the page as a document"). `.app-content-scroll` exists
+    only in the /app shell, so it says the same thing without waiting.
   */
-  html.app-layout .app-content-scroll .app-page-enter {
+  .app-content-scroll .app-page-enter {
     animation: none;
   }
 
@@ -5490,6 +5501,25 @@ html.pop-in-flight #platform-header-root {
     color: var(--muted-foreground);
   }
   .ai-status-dot { animation: none; opacity: 0.6; }
+}
+
+/* Ask Storelib's microphone while it listens: a ring breathing out from the
+   button, on transform and opacity only. Still, under reduced motion; the
+   filled button and the running clock say it is listening either way. */
+@keyframes ask-listen {
+  0% { transform: scale(1); opacity: 0.45; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+.ask-listen-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: #1a1a2e;
+  pointer-events: none;
+  animation: ask-listen 1.4s cubic-bezier(0.32, 0.72, 0, 1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ask-listen-ring { animation: none; opacity: 0; }
 }
 
 /* ─── Checkout ──────────────────────────────────────────────────────────

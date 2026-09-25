@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { isThemeId } from "@/lib/website-builder/theme-registry"
-import { renderOrigin, takeCover } from "@/lib/website-builder/cover-take"
+import { newestCover, renderOrigin, takeCover } from "@/lib/website-builder/cover-take"
 
 /**
  * ===========================================================================
@@ -32,8 +32,8 @@ export const maxDuration = 60
 
 type Params = { params: Promise<{ installId: string }> }
 
-export async function POST(req: Request, { params }: Params) {
-  const { installId } = await params
+/** The signed-in user and their creator, when that creator owns the install; otherwise the answer to send. */
+async function owned(installId: string): Promise<{ userId: string; creatorId: string } | NextResponse> {
   if (!isThemeId(installId)) return NextResponse.json({ error: "Invalid install id" }, { status: 400 })
 
   const supabase = await createClient()
@@ -50,11 +50,36 @@ export async function POST(req: Request, { params }: Params) {
     .eq("creator_id", (creator as { id: string }).id)
     .maybeSingle()
   if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
+  return { userId: user.id, creatorId: (creator as { id: string }).id }
+}
+
+/**
+ * GET: the cover as it is, without taking one. One storage listing, so the
+ * Website page can ask every couple of seconds while a new website's
+ * photograph is being taken after its answer, and swap it in the moment it
+ * lands. `{ url: null }` until there is one.
+ */
+export async function GET(_req: Request, { params }: Params) {
+  const { installId } = await params
+  const who = await owned(installId)
+  if (who instanceof NextResponse) return who
+  try {
+    const cover = await newestCover({ installId, userId: who.userId })
+    return NextResponse.json(cover ?? { url: null }, { headers: { "Cache-Control": "no-store" } })
+  } catch {
+    return NextResponse.json({ url: null }, { headers: { "Cache-Control": "no-store" } })
+  }
+}
+
+export async function POST(req: Request, { params }: Params) {
+  const { installId } = await params
+  const who = await owned(installId)
+  if (who instanceof NextResponse) return who
 
   /* The photographing is shared with the routes that create a website: lib/website-builder/cover-take.ts */
   try {
     const cover = await takeCover(
-      { installId, userId: user.id, creatorId: (creator as { id: string }).id },
+      { installId, userId: who.userId, creatorId: who.creatorId },
       renderOrigin(req.url),
     )
     return NextResponse.json(cover)

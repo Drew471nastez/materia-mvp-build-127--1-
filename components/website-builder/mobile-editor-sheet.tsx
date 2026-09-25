@@ -381,6 +381,22 @@ export function useSheetExpand(): SheetExpandHost | null {
   return React.useContext(SheetExpandContext)
 }
 
+/** Where the sheet rests, for a panel with its own maximize button. */
+interface SheetStopHost {
+  /** Open and resting at the tallest stop. */
+  tallest: boolean
+  toTallest: () => void
+  /** The stop below the tallest, where a dragged down sheet rests. */
+  toMiddle: () => void
+}
+
+const SheetStopContext = React.createContext<SheetStopHost | null>(null)
+
+/** Null outside a sheet. */
+export function useSheetStop(): SheetStopHost | null {
+  return React.useContext(SheetStopContext)
+}
+
 /**
  * How far up the screen each stop sits, as a fraction of what is visible.
  * The largest is the sheet's actual height; the others are it, pushed down.
@@ -940,6 +956,22 @@ export function MobileEditorSheet({
       : restIndex !== null && restIndex < offsets.length
         ? offsets[restIndex]
         : openY
+
+  /**
+   * WHETHER THE SHEET IS AT ITS TALLEST, and a way to move it there and back,
+   * for a panel that offers its own maximize (Ask Storelib's header). It
+   * sets the same resting stop a drag does, so a drag afterwards is a drag
+   * from there, and the sync effect below moves it on the usual curve.
+   */
+  const tallest = open && settledY === offsets[0]
+  const stopApi = React.useMemo<SheetStopHost>(
+    () => ({
+      tallest,
+      toTallest: () => setRestIndex(0),
+      toMiddle: () => setRestIndex(stops.length > 1 ? 1 : 0),
+    }),
+    [tallest, stops.length],
+  )
 
   const openRef = React.useRef(open)
   openRef.current = open
@@ -2143,13 +2175,15 @@ export function MobileEditorSheet({
             sheet happened to give it. min-h-0 lets it shrink under the cap,
             and the scrollable region inside takes the rest. */}
         <SheetExpandContext.Provider value={expandApi}>
-          {fit ? (
-            <div ref={contentRef} className="flex min-h-0 flex-col">
-              {children}
-            </div>
-          ) : (
-            children
-          )}
+          <SheetStopContext.Provider value={stopApi}>
+            {fit ? (
+              <div ref={contentRef} className="flex min-h-0 flex-col">
+                {children}
+              </div>
+            ) : (
+              children
+            )}
+          </SheetStopContext.Provider>
         </SheetExpandContext.Provider>
       </div>
     </>,

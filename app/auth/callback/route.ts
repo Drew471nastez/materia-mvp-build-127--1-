@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
+import { AVATAR_CHOSEN, copyProviderAvatar } from "@/lib/account/avatar"
 
 /**
  * GET /auth/callback?code=<code>
@@ -98,6 +99,9 @@ export async function GET(request: Request) {
   const { avatar_url, full_name, name, picture } = data.user.user_metadata ?? {}
   const displayName = full_name || name || data.user.email?.split("@")[0] || "User"
   const avatarUrl = avatar_url || picture || null
+  const createdAt = Date.parse(data.user.created_at ?? "")
+  const accountAgeMs = Number.isFinite(createdAt) ? Date.now() - createdAt : Number.POSITIVE_INFINITY
+  const avatarChosen = data.user.user_metadata?.[AVATAR_CHOSEN] === true
 
   const { data: existingProfile } = await admin
     .from("profiles")
@@ -110,7 +114,7 @@ export async function GET(request: Request) {
       id: data.user.id,
       email: data.user.email,
       display_name: displayName,
-      avatar_url: avatarUrl,
+      avatar_url: copyProviderAvatar({ profileExists: false, profileAvatar: null, providerAvatar: avatarUrl, chosen: avatarChosen, accountAgeMs }) ? avatarUrl : null,
       is_creator: false,
       welcome_completed: false,
       email_verified: true,
@@ -118,7 +122,12 @@ export async function GET(request: Request) {
     })
   } else {
     const updates: Record<string, unknown> = {}
-    if (!existingProfile.avatar_url && avatarUrl) updates.avatar_url = avatarUrl
+    /* The Google picture goes in at sign up only (a profile the database
+       trigger has just made), never over a photo that was removed later:
+       lib/account/avatar. */
+    if (copyProviderAvatar({ profileExists: true, profileAvatar: existingProfile.avatar_url, providerAvatar: avatarUrl, chosen: avatarChosen, accountAgeMs })) {
+      updates.avatar_url = avatarUrl
+    }
     if (!existingProfile.email_verified) {
       updates.email_verified = true
       updates.email_verified_at = new Date().toISOString()

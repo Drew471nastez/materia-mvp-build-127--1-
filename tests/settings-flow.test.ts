@@ -312,9 +312,9 @@ check(
   /<YAxis/.test(read("app/app/payouts/payouts-client.tsx")),
 )
 check(
-  "the Website glyph is one plain screen, like the envelope and the card beside it",
-  /from "@solar-icons\/react\/linear\/monitor"/.test(read("components/app/sidebar-desktop-nav.tsx")) &&
-    !/linear\/monitor-smartphone/.test(read("components/app/sidebar-desktop-nav.tsx")),
+  "the Website glyph is one browser window, drawn once, like the envelope and the banknote beside it",
+  /from "@solar-icons\/react\/linear\/window-frame"/.test(read("components/app/sidebar-desktop-nav.tsx")) &&
+    !/linear\/monitor/.test(read("components/app/sidebar-desktop-nav.tsx")),
 )
 
 // ---------------------------------------------------------------------------

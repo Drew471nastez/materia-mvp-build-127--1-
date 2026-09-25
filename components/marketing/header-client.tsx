@@ -116,8 +116,8 @@ export function MarketingHeaderClient() {
 
         const isSeller = !!creatorData?.onboarding_completed
 
-        const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
-        const finalAvatar = profileData?.avatar_url || googleAvatar || null
+        /* The profile's photo only (lib/account/avatar): no Google fallback. */
+        const finalAvatar = profileData?.avatar_url || null
 
         setProfile(profileData)
         setIsCreator(isSeller)

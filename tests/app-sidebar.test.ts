@@ -356,6 +356,33 @@ section("A row is the same size in every state")
       !/drawn\??:/.test(navSource),
   )
   check(
+    "Website is a browser window, OnePage a phone of buttons, Payouts a banknote",
+    /**
+     * "Change the Website icon... what does a globe have to do with OnePage?
+     * OnePage is basically Linktree... Payouts: what is a wallet? It should
+     * be more money related."
+     *
+     * Website: Solar's window-frame, a title bar and a page split in two.
+     * Payouts: Solar's banknote, cash with its round seal, where a bank card
+     * read as a way to pay. OnePage: drawn on Solar's own smartphone outline
+     * with three solid pills in it, the stacked buttons of a link in bio;
+     * the fill is the same phone with the pills cut out through one evenodd
+     * path, as Home's is. No globe, no monitor, no card is left in the rail.
+     * scripts/check-nav-icons.mjs rasterises all of them side by side.
+     */
+    /websiteBuilder: \{ line: WebsiteBuilderLinear, fill: WebsiteBuilderBold \}/.test(navSource) &&
+      /import \{ WindowFrameIcon as WebsiteBuilderLinear \} from "@solar-icons\/react\/linear\/window-frame"/.test(navSource) &&
+      /import \{ WindowFrameIcon as WebsiteBuilderBold \} from "@solar-icons\/react\/bold\/window-frame"/.test(navSource) &&
+      /payouts: \{ line: PayoutsLinear, fill: PayoutsBold \}/.test(navSource) &&
+      /import \{ BanknoteIcon as PayoutsLinear \} from "@solar-icons\/react\/linear\/banknote"/.test(navSource) &&
+      /import \{ BanknoteIcon as PayoutsBold \} from "@solar-icons\/react\/bold\/banknote"/.test(navSource) &&
+      /onepage: \{ line: OnePageLineIcon, fill: OnePageFillIcon \}/.test(navSource) &&
+      /const ONEPAGE_PHONE_D =\s*"M4 10C4 6\.22876/.test(navSource) &&
+      /<path d=\{ONEPAGE_PHONE_D\} stroke="currentColor" strokeWidth=\{strokeWidth\} \/>/.test(navSource) &&
+      /<path d=\{`\$\{ONEPAGE_PHONE_D\} \$\{ONEPAGE_BUTTONS_D\}`\} \/>/.test(navSource) &&
+      !/react\/(linear|bold)\/(global|monitor|card|wallet)"/.test(navSource),
+  )
+  check(
     "icon weight is one number, applied uniformly, not a stroke painted over a fill",
     /**
      * Phosphor and Remix both drew a "line" icon as a FILLED PATH shaped like
