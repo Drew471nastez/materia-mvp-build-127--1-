@@ -15,7 +15,6 @@ import {
   Bell,
   Sparkles,
   Store,
-  Search,
   Globe,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -409,10 +408,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   )
 
   /* The search is its own component (components/app/app-search.tsx) with its
-     own open state, opened by reference like the notifications, so a key
-     typed in it does not render this whole sidebar again. */
+     own open state, so a key typed in it does not render this whole sidebar
+     again. The handle stays wired for opening it from elsewhere; on a phone
+     nothing does, because the bar up there carries no search button. */
   const searchRef = useRef<AppSearchHandle>(null)
-  const openSearch = useCallback(() => searchRef.current?.open(), [])
   const headerProfileRef = useRef<HTMLDivElement>(null)
   const [headerProfileOpen, setHeaderProfileOpen] = useState(false)
 
@@ -676,17 +675,15 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
           {/* Right side: Explore, then Notifications */}
           <div className="flex items-center gap-0.5">
-            {/* The same search as the header's on a computer, as the whole screen. */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10"
-              aria-label="Search"
-              aria-haspopup="dialog"
-              onClick={openSearch}
-            >
-              <Search className="h-5 w-5" strokeWidth={1.75} />
-            </Button>
+            {/*
+              SEARCH IS NOT UP HERE ANY MORE.
+
+              It was a magnifying glass beside Explore that opened the search
+              over the whole screen. On a phone this row is for who you are and
+              what is waiting for you, and a third icon crowded both. The search
+              still lives in the middle of the header on a computer, where there
+              is room for the bar itself rather than a button standing in for it.
+            */}
             {/*
               EXPLORE IS NOT ONE OF THIS PERSON'S PLACES.
 

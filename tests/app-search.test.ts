@@ -334,7 +334,12 @@ async function main() {
   const shell = readCode("components/app/sidebar.tsx")
   check("the header mounts the one search component", /<AppSearch ref=\{searchRef\} \/>/.test(shell))
   check("the old pages-only modal is gone from the sidebar", !/allSearchItems|searchShortcuts|setSearchOpen/.test(shell))
-  check("a phone has a way in: a Search button in its header", /aria-label="Search"[\s\S]{0,80}onClick=\{openSearch\}/.test(shell))
+  /* The phone's header carried a magnifying glass beside Explore. That row is
+     for who you are and what is waiting for you, and a third icon crowded
+     both, so the button is gone and the search stays on the computer's header
+     where the bar itself fits. This asserts the absence so it does not come
+     back by accident. */
+  check("no search button in the phone's header", !/aria-label="Search"/.test(shell))
   check("it asks the search route by POST", /fetch\("\/api\/app\/search", \{\s*method: "POST"/.test(box))
   check("after a pause, and cancels the request before", /setTimeout\([\s\S]*SEARCH_DEBOUNCE_MS\)/.test(box) && /controller\.abort\(\)/.test(box) && /signal: controller\.signal/.test(box))
   check("the field is 16px on a phone", /text-\[16px\]/.test(box))
