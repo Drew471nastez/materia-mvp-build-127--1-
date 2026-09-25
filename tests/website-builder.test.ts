@@ -263,7 +263,7 @@ section("The cover")
   check("no website is drawn from its settings: the drawing is a catalogue theme's alone",
     !/coverSpecFromSettings/.test(coverSrc) && !/coverSpecFromSettings/.test(client) && !/ThemeSettingsValues/.test(coverSrc))
   check("  a website with no photograph yet is its name on a plain surface, breathing while one is taken",
-    /return <PendingCover name=\{install\.name\} preparing=\{preparing\} \/>/.test(client) &&
+    /: <PendingCover name=\{install\.name\} preparing=\{preparing\} \/>/.test(client) &&
       /data-cover-pending=\{preparing \? "preparing" : "waiting"\}/.test(client) &&
       /\{preparing && <span aria-hidden className="wb-incoming-pulse absolute inset-0 bg-\[#e6e8ec\]" \/>\}/.test(client) &&
       /Preparing preview/.test(client))
@@ -295,9 +295,12 @@ section("The page")
   )
   check("the cover is the snapshot when there is one, and the site's name on a plain surface otherwise", /snapshot_url/.test(client) && /<PendingCover /.test(client) && !/coverSpecFromSettings/.test(client))
   check("the snapshot is a plain <img>, not an optimiser round-trip", /<img/.test(client) && !/from "next\/image"/.test(client))
-  check("the live cover loads eagerly with high priority; library thumbnails lazily, unless the tab has already decoded the picture",
-    /fetchPriority=\{eager \? "high"/.test(client) && /const ready = eager \|\| DECODED\.has\(install\.snapshot_url\)/.test(client) &&
-      /loading=\{ready \? "eager" : "lazy"\}/.test(client) && /decoding=\{DECODED\.has\(install\.snapshot_url\) \? "sync" : "async"\}/.test(client))
+  check("the live cover loads eagerly with high priority; library thumbnails lazily, unless the tab has already shown or decoded the picture",
+    /fetchPriority=\{eager \? "high"/.test(client) && /const known = isDecoded\(url\) \|\| shownCover\(installId\) === url/.test(client) &&
+      /loading=\{eager \|\| known \? "eager" : "lazy"\}/.test(client) && /decoding=\{known \? "sync" : "async"\}/.test(client))
+  check("  a picture the tab has not shown fades in once loaded; one it has is drawn at full strength at once",
+    /const fade = useCoverFade\(known\)/.test(client) && /style: known \? undefined : \(\{ opacity: 0 \} as React\.CSSProperties\)/.test(client)
+      && /rememberCover\(installId, url\)\s*fade\.onLoad\(e\)/.test(client))
   check("there is no skeleton inside the component", !/animate-pulse|skeleton/.test(client))
   /*
     NO SKELETON, NOT A DEFERRED ONE. The route's skeleton.tsx was left behind
@@ -752,13 +755,13 @@ section("The cover")
     const refresh = read("lib/website-builder/cover-refresh.ts")
     const client = stripComments(read("app/app/website-builder/website-builder-client.tsx"))
     check("  the page keeps the answer's cover and decodes it before the refresh, so the new row's first frame is the picture",
-      /seedCover\(id, cover\)\s*await decodedFirst\(\[cover\.url\], 2500\)\s*setFresh/.test(client) &&
+      /seedCover\(id, cover\)\s*await decodedFirst\(cover\.url, 2500\)\s*setFresh/.test(client) &&
         client.indexOf("seedCover(id, cover)") < client.indexOf("setIncoming((c) => (c ? { ...c, phase: \"working\", installId: id } : c))"))
     check("  a pending one is looked for (GET, every 2s, backing off, about 30s) rather than taken twice, then asked for if it never came",
       /export const WATCH_STEPS_MS = \[2000, 2000, 2000, 3000, 3000, 4000, 4000, 5000, 5000\]/.test(refresh) &&
         /await fetch\(`\/api\/website-builder\/themes\/\$\{encodeURIComponent\(installId\)\}\/cover`, \{ cache: "no-store" \}\)/.test(refresh) &&
         /\(data\.cover_pending \? await watchCover\(id\) : null\) \?\? \(await requestCover\(id\)\)/.test(client) && /asked\.current\.add\(id\)/.test(client))
-    check("  and crossfades to it once decoded", /if \(got\?\.url\) await showCover\(id, got\)/.test(client) && /await decodedFirst\(\[cover\.url, cover\.mobile_url\]\)\s*setFresh/.test(client))
+    check("  and crossfades to it once decoded", /if \(got\?\.url\) await showCover\(id, got\)/.test(client) && /await decodedFirst\(cover\.url\)\s*setFresh/.test(client))
   }
   check("  a copy is the whole website: drafts, live values and section files",
     /draft_settings: srcSettings\?\.draft_settings/.test(read("app/api/website-builder/themes/[installId]/duplicate/route.ts")) &&
@@ -906,9 +909,10 @@ section("The cover")
   check("'last edited' is the pages and the settings, never the row a cover is recorded on",
     /const editedAt = newest\(settings\?\.updated_at, \.\.\.\(row\.pages \?\? \[\]\)\.map\(\(p\) => p\.updated_at\), row\.created_at\)/.test(page) &&
       !/saved_at: newest\(row\.updated_at/.test(page))
-  /* The phone picture is still taken and still decoded before a swap, but the card no longer draws it: the cover is the desktop site, edge to edge. */
-  check("the card draws the desktop picture alone, with no phone in front of it",
-    !/src=\{install\.snapshot_mobile_url\}/.test(client) && !/aspect-\[390\/780\]/.test(client) && /decodedFirst\(\[cover\.url, cover\.mobile_url\]\)/.test(client))
+  /* The phone picture is still taken, but the card does not draw it: the cover is the desktop site, edge to edge, and only that is decoded before a swap. */
+  check("the card draws the desktop picture alone, with no phone in front of it, and decodes only that",
+    !/src=\{install\.snapshot_mobile_url\}/.test(client) && !/aspect-\[390\/780\]/.test(client) && /decodedFirst\(cover\.url\)/.test(client)
+      && !/cover\.mobile_url\]\)/.test(client))
   check("the page finds the phone picture in the folder", /mobilePartner\(newest, names\)/.test(page))
   check("the editor opens on the pane the website page asked for", /get\("view"\)/.test(editor) && /v === "code" \|\| v === "settings"/.test(editor))
 }
@@ -1614,6 +1618,40 @@ section("Two at once still make five, and an import that says what went wrong")
     !/backdrop-blur/.test(settings) && /onClick=\{backToList\}\s*className="flex h-11 /.test(settings))
   check("  fields are 16px on a phone, so iOS does not zoom into them", /text-\[16px\][^"]*md:text-\[14\.5px\]/.test(parts.slice(parts.indexOf("export const inputClass"), parts.indexOf("export const buttonClass"))))
   check("  and its buttons, switches and links are 44px on a phone", /"inline-flex h-11 shrink-0 select-none[^"]*md:h-9/.test(parts) && /after:-inset-y-2\.5 after:content-\[''\]/.test(parts) && /after:-inset-y-\[13px\]/.test(parts))
+}
+
+{
+  /* "Back from the editor the cover is gray, then it shows, late, and glitches"; "clicking Website: the spinner freezes, white, then the page". scripts/check-website-arrival.mjs films both. */
+  const client = read("app/app/website-builder/website-builder-client.tsx")
+  const memory = read("lib/website-builder/cover-memory.ts")
+  const page = read("app/app/website-builder/page.tsx")
+  check("the Website page draws each website's last whole cover first (cover-memory), in the box it reserves",
+    /function firstFace\(installId: string, current: string \| null\): Face/.test(client) && /const last = shownCover\(installId\)/.test(client)
+      && /onLoad=\{\(e\) => \{\s*rememberCover\(installId, url\)/.test(client))
+  check("  and a new address is fetched and decoded aside, then swapped in once, never before",
+    /if \(isDecoded\(current\)\) swap\(\)\s*else void decodeCover\(current\)\.then\(\(ok\) => \{ if \(ok\) swap\(\) \}\)/.test(client) && !/const DECODED = new Set/.test(client))
+  check("  a picture it has drawn is drawn again on its first frame: eager and decoded in step",
+    /const known = isDecoded\(url\) \|\| shownCover\(installId\) === url/.test(client) && /decoding=\{known \? "sync" : "async"\}/.test(client))
+  check("  kept for the tab and across a reload, a handful per tab, and never trusted blindly",
+    /const STORE = "storelib\.website\.covers\.v1"/.test(memory) && /sessionStorage\.setItem\(STORE/.test(memory) && /const MAX_KEPT = 24/.test(memory)
+      && /catch \{/.test(memory))
+  check("  the Website row warms them under the pointer or finger, with the page's data",
+    /if \(href === "\/app\/website-builder"\) \{\s*import\("@\/lib\/website-builder\/cover-memory"\)\.then\(\(m\) => m\.warmCovers\(\)\)/.test(read("lib/ui/app-navigation.ts")))
+  check("the server asks for the website's name beside its installs, not after its covers",
+    /const handle = websiteHandleOf\(creator\.id\)\s*let \{ data: rows \} = await load\(\)/.test(page) && /const siteHandle = await handle/.test(page))
+  check("  and lists the storage folder only for websites the column says nothing about",
+    /const missing = installs\.filter\(\(i\) => !i\.snapshot_url\)\s*if \(missing\.length === 0\) return installs/.test(page))
+  check("Browse themes waits for the page's first frame on a phone, as an attribute, with no render of the page for it",
+    /max-md:\[content-visibility:hidden\] max-md:data-shown:\[content-visibility:auto\]/.test(client)
+      && /requestAnimationFrame\(\(\) => exploreSection\.current\?\.setAttribute\("data-shown", ""\)\)/.test(client))
+  check("an /app page's HTML is the shell's frame and spinner until its script has run, rail and all from md",
+    /<LanguageProvider fallback=\{<AppColdStart \/>\}>/.test(read("components/app/app-layout-wrapper.tsx"))
+      && /hidden w-\[240px\] border-r border-neutral-200\/60 bg-white md:block/.test(read("app/app/cold-start.tsx"))
+      && /md:left-\[240px\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:rounded-none/.test(read("app/app/cold-start.tsx")))
+  const stage = read("components/app/app-stage.tsx")
+  check("the stage measures nothing in React's commit that can wait: the landing starts on the frame that paints the page",
+    /const layered = !!document\.documentElement\.dataset\.layerMotion\s*requestAnimationFrame\(\(\) => \{/.test(stage)
+      && /if \(saved \|\| traversal \|\| anyAwayFromTop\(\)\) \{/.test(stage))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

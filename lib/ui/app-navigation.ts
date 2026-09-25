@@ -309,6 +309,12 @@ export function prefetchAppPage(router: { prefetch: (href: string, options?: nev
   if (href === "/app/analytics" || href.startsWith("/app/analytics?")) {
     import("@/lib/analytics/report-cache").then((m) => m.warmAnalytics()).catch(() => {})
   }
+  /* The Website page's data comes with the full prefetch above; its covers
+     are pictures, fetched and decoded ahead from the last ones this tab
+     showed (lib/website-builder/cover-memory), so the page lands with them. */
+  if (href === "/app/website-builder") {
+    import("@/lib/website-builder/cover-memory").then((m) => m.warmCovers()).catch(() => {})
+  }
 }
 
 /* ── Where the reader was, per address ─────────────────────────────────── */
