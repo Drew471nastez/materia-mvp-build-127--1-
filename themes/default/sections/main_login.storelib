@@ -13,9 +13,7 @@
         <a class="s__btn s__btn--secondary" href="{{ routes.account_register_url }}">{{ settings.register_label }}</a>
       {% endif %}
     </div>
-    {% if settings.show_note %}
-      <p class="login__note">{% if shop.name %}{{ shop.name }} uses{% else %}This store uses{% endif %} Storelib accounts. You come back here once you are signed in.</p>
-    {% endif %}
+    {% if settings.note %}<p class="login__note">{{ settings.note }}</p>{% endif %}
   </div>
 </section>
 </template>
@@ -75,7 +73,7 @@
     { "type": "text", "id": "signin_label", "label": "Sign in button", "default": "Sign in" },
     { "type": "toggle", "id": "show_register", "label": "Show Create account", "default": true },
     { "type": "text", "id": "register_label", "label": "Create account button", "default": "Create account" },
-    { "type": "toggle", "id": "show_note", "label": "Say that accounts are Storelib accounts", "default": true },
+    { "type": "textarea", "id": "note", "label": "Small print", "default": "Accounts here are Storelib accounts. You come back to this page once you are signed in.", "info": "Empty hides it." },
     { "type": "header", "id": "hdr_style", "label": "Style" },
     { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "white" },
     { "type": "range", "id": "padding_top", "label": "Top padding", "default": 72, "min": 0, "max": 160, "step": 4, "unit": "px" },

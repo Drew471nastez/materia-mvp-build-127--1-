@@ -79,7 +79,7 @@ function main() {
     check("a heading and the two ways in", /<h1 class="s__h">Sign in<\/h1>/.test(html) && html.includes(`href="${SITE_ROUTES.account_signin_url}"`) && html.includes(`href="${SITE_ROUTES.account_register_url.replace(/&/g, "&amp;")}"`), html)
     check("no password field: the website never sees one", !/type="password"/.test(html))
     check("the reason the last sign in stopped, as a fixed sentence", /role="alert">That sign in took too long\. Sign in again\.<\/p>/.test(html))
-    check("says whose store, from shop", /Maralind uses Storelib accounts/.test(html))
+    check("says the account is a Storelib account, in words the creator can change", /Accounts here are Storelib accounts\./.test(html) && !/login__note/.test(draw("main_login", { note: "" }, { template: "page.login" })))
     check("reasons are fixed words for fixed codes, and nothing else is printed", signInNotice("expired") !== null && signInNotice("<script>") === null)
     check("Create account can be turned off", !/Create account/.test(draw("main_login", { show_register: false }, { template: "page.login" })))
   }

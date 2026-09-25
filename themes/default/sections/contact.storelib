@@ -3,7 +3,9 @@
   <div class="s__in s__in--{{ settings.max_width }} cf cf--{{ settings.layout }}">
     <div class="cf__intro">
       {# The store's own name when the heading is left empty, so a new
-         contact page says who it is for without anybody typing it. #}
+         contact page says who it is for without anybody typing it. The same
+         for the box's label below: the words in quotes are only the fallback
+         for a setting the creator can change. #}
       <h2 class="s__h">{% if settings.heading %}{{ settings.heading }}{% elsif shop.name %}Contact {{ shop.name }}{% else %}Contact{% endif %}</h2>
       {% if settings.text %}<p class="s__sub">{{ settings.text }}</p>{% endif %}
 
@@ -36,7 +38,7 @@
       <label class="cf__field"><span class="cf__label">{{ settings.message_label }}</span><textarea class="cf__input cf__area" name="message" rows="6" maxlength="5000" required></textarea></label>
       <div class="cf__trap" aria-hidden="true"><label>Company <input name="company" type="text" tabindex="-1" autocomplete="off"></label></div>
       {% if settings.show_consent %}
-        <label class="cf__check"><input class="cf__box" type="checkbox" name="consent" value="yes"><span>{% if settings.consent_label %}{{ settings.consent_label }}{% elsif shop.name %}Email me news from {{ shop.name }}{% else %}Email me news from this store{% endif %}</span></label>
+        <label class="cf__check"><input class="cf__box" type="checkbox" name="consent" value="yes"><span>{% if settings.consent_label %}{{ settings.consent_label }}{% elsif shop.name %}{{ 'Email me news from ' | append: shop.name }}{% else %}{{ 'Email me news from this store' }}{% endif %}</span></label>
       {% endif %}
       <button class="cf__send" type="submit">{{ settings.button_text }}</button>
       <p class="cf__done" data-storelib-success hidden>{{ settings.success_message }}</p>
@@ -104,7 +106,6 @@
 .cf__send:disabled { opacity: 0.6; cursor: default; }
 .cf__send:focus-visible { outline: 2px solid var(--s-heading); outline-offset: 2px; }
 .cf__done { margin: 0; font-size: 16px; line-height: 1.6; color: var(--s-heading); }
-.cf__form[data-state="error"] .cf__input:invalid { border-color: #b91c1c; }
 @container (max-width: 559px) { .cf__send { justify-self: stretch; } }
 </style>
 
