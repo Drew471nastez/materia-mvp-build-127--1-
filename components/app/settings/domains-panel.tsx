@@ -10,12 +10,15 @@
  *   Creator page   storelib.com/<handle>, its products at /<product>, and
  *                  the OnePage at /links
  *
- * One card to connect a domain (what it is for, then the name), and one card
- * per purpose listing its domains. A domain that is not live yet shows the
- * records to add where it was bought, exactly as Vercel reported them, and
- * Check again. The primary domain of a purpose is the address canonicals and
- * share links name; any other redirects to it (proxy.ts). Remove asks first,
- * in the row, and says where visitors will go.
+ * One card to connect a domain (what it is for, then the name, and where to
+ * buy one), one card per purpose listing its domains, and four lines on how
+ * a domain behaves (components/domains/how-it-works.tsx). A domain that is
+ * not live yet shows its DNS set up in three steps (components/domains/
+ * dns-setup.tsx): the records exactly as Vercel reported them, in the words
+ * of the provider it was bought at, a status per record after a check, and
+ * the fixes when that check did not pass. The primary domain of a purpose is
+ * the address canonicals and share links name; any other redirects to it
+ * (proxy.ts). Remove asks first, in the row, and says where visitors will go.
  *
  * Everything goes through app/api/domains, which checks the session and
  * holds the Vercel token. This file only draws and asks. The list itself is
@@ -27,14 +30,17 @@
  * and the shared action list (a menu on a computer, a sheet on a phone).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Check, Copy, ExternalLink, Loader2, MoreHorizontal, Star, Trash2 } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { Copy, ExternalLink, Loader2, MoreHorizontal, Star, Trash2 } from "lucide-react"
 
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { secondaryDepth } from "@/components/ui/depth-button"
+import { DnsSetup } from "@/components/domains/dns-setup"
+import { HowItWorks } from "@/components/domains/how-it-works"
 import { toast } from "@/hooks/use-toast"
 import { copyText } from "@/lib/platform/copy-text"
-import { HOSTNAME_PROBLEM_TEXT, cleanHostname, hostnameProblem, isApexHost, servingHost, type DnsRecord, type DomainPurpose } from "@/lib/custom-domains/hostname"
+import { HOSTNAME_PROBLEM_TEXT, cleanHostname, hostnameProblem, isApexHost, recordsFor, servingHost, type DnsRecord, type DomainPurpose } from "@/lib/custom-domains/hostname"
+import type { RecordCheck } from "@/lib/custom-domains/dns-help"
 import { cn } from "@/lib/utils"
 
 export interface DomainItem {
@@ -60,7 +66,16 @@ export interface DomainsData {
   registered?: boolean
 }
 
-type CheckResult = { tone: "ok" | "wait" | "bad"; message: string; issues: string[]; warnings: string[] }
+type CheckResult = {
+  tone: "ok" | "wait" | "bad"
+  message: string
+  issues: string[]
+  warnings: string[]
+  /** One per record, when the check read them (app/api/domains/verify). */
+  checks: RecordCheck[] | null
+  /** What to do, in plain lines; issues and warnings when the route did not send them. */
+  fixes: string[]
+}
 
 const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
 const INK =
@@ -108,6 +123,48 @@ function ago(iso: string | null | undefined): string | null {
   if (h < 24) return `${h} h ago`
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
 }
+
+function addedOn(iso: string | null | undefined): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: d.getFullYear() === new Date().getFullYear() ? undefined : "numeric" })
+}
+
+/**
+ * Where to buy a domain, for a creator who has none yet. The three
+ * registrars Settings has always pointed to, drawn as their marks with
+ * their names, each opening its own search.
+ */
+const SHOPS: { name: string; href: string; mark: ReactNode }[] = [
+  {
+    name: "GoDaddy",
+    href: "https://www.godaddy.com/en/domains",
+    mark: (
+      <svg width="16" height="16" viewBox="0 0 1534 1368" fill="currentColor" aria-hidden>
+        <path fillRule="evenodd" d="M1391.5 968.9C1233.6 1221.8 986.7 1370 767 1367.2c-219.8 2.8-466.6-145.4-624.5-398.4C-71.6 625.8-41 220 210.9 62.4c159.2-99.5 369.2-75.9 555.8 41.8 187.2-117.8 397.1-141.3 556.5-41.8 251.9 157.6 282.2 563.4 68.3 906.5M280.3 929.8q11.3 16.5 23.4 32.3 12.2 15.9 25 31.1 12.8 15.3 26.4 30c-45.4-184.8-5.7-416.6 124.3-624.9Q497 370 516.5 343q19.5-27.1 40.8-52.7t44.3-49.7 47.7-46.6c-17.2-9-34.8-17.1-52.8-24.4-118.2-46.9-229.3-43.9-313.3 8.7-84 52.7-135.5 151.4-145.1 278.1q-1.8 26.9-1.3 53.8.4 27 3.1 53.8 2.7 26.9 7.6 53.4 5 26.5 12.1 52.5 7.9 30 18.2 59.3 10.2 29.3 22.6 57.8 12.4 28.4 26.9 55.8 14.6 27.5 31.1 53.7 10.5 16.9 21.9 33.3m1106.3-312.4q4.8-26.5 7.4-53.3 2.7-26.8 3.1-53.7t-1.4-53.8c-9.6-126.7-61-225.4-145.1-278-84-52.6-195.3-55.7-313.3-8.7q-24.9 10.2-48.8 22.4-24 12.3-46.9 26.5T797.1 249q-21.6 16.1-41.8 33.8c-31.1 27.3-60.2 56.8-86.9 88.2-26.8 31.5-51.2 65-73.1 100-21.9 35.1-41.2 71.7-57.8 109.6-16.5 37.9-30.2 77-41.1 116.9C477.5 767 470.3 839.2 475 911c9.5 126.8 61.1 225.6 145.1 278.1 10.8 6.7 22 12.5 33.5 17.6 11.6 5.1 23.5 9.5 35.6 13s24.5 6.2 37 8.1c12.5 1.8 25.1 2.8 37.7 3h6.5c12.6-.2 25.2-1.2 37.7-3.1 12.5-1.8 24.8-4.5 37-8 12.1-3.6 24-7.9 35.5-13 11.6-5.1 22.8-11 33.6-17.6 83.9-52.5 135.5-151.3 145-278 4.8-71.9-2.4-144.1-21.4-213.6-4.9-19.8-11.4-39-17.9-58.6l-201 125.7c-2.8 1.8-6 3-9.2 3.6-3.3.5-6.7.4-9.9-.3-3.3-.8-6.4-2.2-9.1-4.1-2.7-2-5-4.4-6.7-7.2l-45.5-72.9c-1.8-2.8-3-5.9-3.5-9.2-.6-3.3-.5-6.7.3-9.9.7-3.3 2.1-6.3 4-9 2-2.8 4.4-5.1 7.2-6.8l310.2-194c2.9-1.9 6.2-3.2 9.7-3.7 3.5-.6 7-.4 10.4.5 3.4 1 6.6 2.6 9.3 4.8s4.9 5 6.5 8.2c99.5 190.3 127.1 393.2 86.5 558.8q13.5-14.7 26.4-30 12.8-15.3 24.9-31.2t23.5-32.3q11.3-16.5 21.9-33.4 16.5-26.3 31-53.7 14.6-27.4 27-55.9 12.4-28.4 22.6-57.7t18.2-59.3q7.1-26 12-52.5" />
+      </svg>
+    ),
+  },
+  {
+    name: "Namecheap",
+    href: "https://www.namecheap.com/domains/",
+    mark: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="M17.295 17.484c.227.403.57.728.985.931-.309.15-.647.229-.99.232h-3.068a2.26 2.26 0 0 1-1.957-1.143L6.705 6.511a2.27 2.27 0 0 0-.974-.922c.309-.153.652-.233.997-.232h3.05c.81.003 1.558.438 1.959 1.143zm-9.329-7.392L6.269 6.755c-.209-.392-.582-.657-.984-.829-.204.165-.391.35-.522.581-.184.349-4.391 8.648-4.569 8.987a2.245 2.245 0 0 0 4.016 1.999zm15.846-1.593a2.245 2.245 0 0 0-1.162-2.955v-.001a2.2 2.2 0 0 0-.892-.187l-.003-.011c-.816 0-1.569.443-1.965 1.157l-3.749 7.414 1.689 3.323c.213.399.59.664.998.839.252-.2.473-.444.605-.742z" />
+      </svg>
+    ),
+  },
+  {
+    name: "Hostinger",
+    href: "https://www.hostinger.com/domain-name-search",
+    mark: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <path d="M16.415 0v7.16l5.785 3.384V2.949zM1.8 0v11.237h18.815L14.89 8.09l-7.457-.003V3.024zm14.615 20.894v-5.019l-7.514-.005c.007.033-5.82-3.197-5.82-3.197l19.119.091V24zM1.8 13.551v7.343l5.633 2.949v-6.988z" />
+      </svg>
+    ),
+  },
+]
 
 export function DomainsPanel({
   data,
@@ -206,6 +263,8 @@ export function DomainsPanel({
           records?: DnsRecord[]
           issues?: string[]
           warnings?: string[]
+          checks?: RecordCheck[]
+          fixes?: string[]
         }
         if (!res.ok) throw new Error(r.error || "Could not check the records just now.")
         const status = r.status || (r.verified ? (r.sslPending ? "ssl_provisioning" : "active") : "pending")
@@ -215,15 +274,20 @@ export function DomainsPanel({
           last_checked_at: new Date().toISOString(),
           ...(status === "active" ? { ssl_status: "active", verified_at: d.verified_at || new Date().toISOString() } : {}),
         })
+        const tone: CheckResult["tone"] = status === "active" ? "ok" : r.verified ? "wait" : "bad"
         setResults((all) => ({
           ...all,
           [d.id]: {
-            tone: status === "active" ? "ok" : r.verified ? "wait" : "bad",
+            tone,
             message: r.message || "",
             issues: r.issues ?? [],
             warnings: r.warnings ?? [],
+            checks: Array.isArray(r.checks) ? r.checks : null,
+            fixes: Array.isArray(r.fixes) ? r.fixes : [...(r.issues ?? []), ...(r.warnings ?? [])],
           },
         }))
+        /* A check that did not pass opens the set up, where its fixes are. */
+        if (!quiet && tone === "bad") setOpenRecords((o) => ({ ...o, [d.id]: true }))
         if (status === "active" && d.status !== "active") {
           toast({ title: `${d.host || d.domain} is connected` })
           /* The primary host per purpose moved; the server knows it. */
@@ -231,7 +295,7 @@ export function DomainsPanel({
           if (list) onData(list)
         }
       } catch (e) {
-        if (!quiet) setResults((all) => ({ ...all, [d.id]: { tone: "bad", message: e instanceof Error ? e.message : "Could not check the records.", issues: [], warnings: [] } }))
+        if (!quiet) setResults((all) => ({ ...all, [d.id]: { tone: "bad", message: e instanceof Error ? e.message : "Could not check the records.", issues: [], warnings: [], checks: null, fixes: [] } }))
       } finally {
         if (!quiet) setChecking(null)
       }
@@ -302,7 +366,7 @@ export function DomainsPanel({
       {!planLoading && locked && (
         <div className={cn(CARD, "flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5")} data-domains-upgrade="">
           <div className="min-w-0">
-            <p className="text-[14px] font-semibold text-[#1a1a2e]">Your own domain is on Growth and Pro</p>
+            <p className="text-[14px] font-semibold text-[#1a1a2e]">Your own domain is on Pro</p>
             <p className="mt-0.5 text-[13px] text-[#6b7280]">Your pages stay at their storelib.com addresses on every plan.</p>
           </div>
           <a href="/app/settings/billing/upgrade" className={cn(INK, "no-underline")}>
@@ -391,6 +455,25 @@ export function DomainsPanel({
                 ? `Your creator page will open at ${previewHost}, and your OnePage at ${previewHost}/links.`
                 : "Shows your creator page, your products under it, and your OnePage at /links."}
         </p>
+
+        {/* No domain yet: where to buy one. */}
+        <div className="mt-3 flex flex-col border-t border-[#f0f1f3] pt-3 sm:flex-row sm:items-center sm:gap-2" data-domains-shops="">
+          <span className="text-[13px] text-[#6b7280]">Get a domain</span>
+          <div className="-mx-2 flex flex-wrap items-center sm:mx-0">
+            {SHOPS.map((shop) => (
+              <a
+                key={shop.name}
+                href={shop.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-11 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-[#374151] no-underline transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e] sm:h-8"
+              >
+                {shop.mark}
+                {shop.name}
+              </a>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* One card per purpose */}
@@ -444,6 +527,13 @@ export function DomainsPanel({
       {!creatorPageOn && data && (
         <p className="px-1 text-[13px] text-[#6b7280]">Domains for your creator page are coming to this account soon. A website domain works now.</p>
       )}
+
+      <section className={cn(CARD, "p-4 sm:p-6")} aria-labelledby="domains-how">
+        <h3 id="domains-how" className="mb-3 text-[15px] font-semibold text-[#1a1a2e]">
+          How custom domains work
+        </h3>
+        <HowItWorks example={domains.find((d) => d.apex ?? isApexHost(d.domain))?.domain ?? null} />
+      </section>
     </div>
   )
 }
@@ -489,6 +579,7 @@ function DomainRow({
   const live = d.status === "active"
   const redirecting = live && many && !d.is_primary && primaryHost
   const checked = ago(d.last_checked_at)
+  const added = addedOn(d.created_at)
 
   const items: ActionMenuItem[] = [
     ...(live ? [{ label: "Open", icon: <ExternalLink />, href: `https://${host}`, target: "_blank" as const }] : []),
@@ -511,7 +602,9 @@ function DomainRow({
         : "Live with HTTPS"
     : d.status === "ssl_provisioning"
       ? "The DNS is right. The certificate is being issued, usually in a few minutes."
-      : "Add the records below where you bought the domain, then check again."
+      : added
+        ? `Added ${added}. Set up its DNS below.`
+        : "Set up its DNS below."
 
   return (
     <li className="px-4 py-3.5 sm:px-6" data-domain-row={d.domain}>
@@ -581,23 +674,56 @@ function DomainRow({
         </div>
       )}
 
-      {!live && (
-        <div className="mt-3">
-          {recordsOpen && d.records && d.records.length > 0 && <Records records={d.records} />}
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <button type="button" onClick={onCheck} disabled={checking || locked} className={SECONDARY}>
-              {checking && <Loader2 className="h-4 w-4 animate-spin" />}
-              Check again
-            </button>
-            <button type="button" onClick={onToggleRecords} className="h-10 cursor-pointer text-[13px] font-medium text-[#4b5563] underline-offset-4 hover:text-[#1a1a2e] hover:underline sm:h-8">
-              {recordsOpen ? "Hide records" : "Show records"}
-            </button>
-            {checked && <span className="text-[12.5px] text-[#9ca3af]">Checked {checked}</span>}
+      {!live && (() => {
+        const toggle = (
+          <button type="button" onClick={onToggleRecords} className="h-11 cursor-pointer text-[13px] font-medium text-[#4b5563] underline-offset-4 hover:text-[#1a1a2e] hover:underline sm:h-8">
+            {recordsOpen ? "Hide DNS setup" : "Show DNS setup"}
+          </button>
+        )
+        const when = checked && <span className="text-[12.5px] text-[#9ca3af]">Checked {checked}</span>
+        const label = checked || result ? "Check again" : "Check DNS"
+        return recordsOpen ? (
+          <div className="mt-4 border-t border-[#f0f1f3] pt-4" data-domain-setup={d.domain}>
+            <DnsSetup
+              domain={d.domain}
+              records={d.records && d.records.length > 0 ? d.records : recordsFor(d.domain)}
+              checks={result?.checks ?? null}
+              status={d.status}
+              checking={checking}
+              onCheck={onCheck}
+              checkLabel={label}
+              disabled={locked}
+              result={result ? { tone: result.tone, message: result.message } : null}
+              fixes={result?.fixes ?? []}
+              aside={
+                <>
+                  {toggle}
+                  {when}
+                </>
+              }
+              tone="light"
+            />
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="mt-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <button type="button" onClick={onCheck} disabled={checking || locked} className={SECONDARY}>
+                {checking && <Loader2 className="h-4 w-4 animate-spin" />}
+                {label}
+              </button>
+              {toggle}
+              {when}
+            </div>
+            {result?.message && (
+              <p aria-live="polite" className={cn("mt-2 text-[13px] leading-snug", result.tone === "ok" ? "text-[#15803d]" : result.tone === "wait" ? "text-[#4b5563]" : "text-[#b45309]")}>
+                {result.message}
+              </p>
+            )}
+          </div>
+        )
+      })()}
 
-      {result && (result.message || result.issues.length > 0 || result.warnings.length > 0) && (
+      {live && result && (result.message || result.issues.length > 0 || result.warnings.length > 0) && (
         <div className="mt-3 space-y-2" aria-live="polite">
           {result.message && (
             <p className={cn("text-[13px] leading-snug", result.tone === "ok" ? "text-[#15803d]" : result.tone === "wait" ? "text-[#4b5563]" : "text-[#b45309]")}>{result.message}</p>
@@ -611,55 +737,5 @@ function DomainRow({
         </div>
       )}
     </li>
-  )
-}
-
-/** The records to add, each value one press from the clipboard. */
-function Records({ records }: { records: DnsRecord[] }) {
-  return (
-    <div data-dns-records="">
-      <div className="overflow-hidden rounded-xl border border-[#e5e7eb]">
-        <div className="hidden grid-cols-[72px_120px_minmax(0,1fr)_40px] gap-3 border-b border-[#f0f1f3] bg-[#f9fafb] px-3.5 py-2 text-[12px] font-medium text-[#6b7280] sm:grid">
-          <span>Type</span>
-          <span>Name</span>
-          <span>Value</span>
-          <span className="sr-only">Copy</span>
-        </div>
-        {records.map((r) => (
-          <RecordRow key={`${r.type}-${r.name}-${r.value}`} r={r} />
-        ))}
-      </div>
-      <p className="mt-2 text-[12.5px] leading-snug text-[#6b7280]">
-        On Cloudflare, set them to DNS only (the grey cloud). Changes usually show within minutes and can take up to a day.
-      </p>
-    </div>
-  )
-}
-
-function RecordRow({ r }: { r: DnsRecord }) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <div className="grid grid-cols-[minmax(0,1fr)_40px] items-center gap-x-3 gap-y-0.5 border-b border-[#f0f1f3] px-3.5 py-2.5 last:border-b-0 sm:grid-cols-[72px_120px_minmax(0,1fr)_40px] sm:py-2">
-      <span className="text-[12.5px] text-[#6b7280] sm:contents">
-        <span className="font-mono text-[12.5px] text-[#1a1a2e] sm:text-[13px]">{r.type}</span>
-        <span className="sm:hidden"> · </span>
-        <span className="font-mono text-[12.5px] text-[#1a1a2e] sm:text-[13px]">{r.name}</span>
-      </span>
-      <span className="col-start-1 row-start-2 min-w-0 break-all font-mono text-[13px] text-[#1a1a2e] sm:col-start-auto sm:row-start-auto">{r.value}</span>
-      <button
-        type="button"
-        aria-label={copied ? `${r.type} value copied` : `Copy the ${r.type} value`}
-        title={copied ? "Copied" : "Copy"}
-        onClick={async () => {
-          if (await copyText(r.value)) {
-            setCopied(true)
-            window.setTimeout(() => setCopied(false), 1400)
-          }
-        }}
-        className={cn(ICON_BUTTON, "col-start-2 row-span-2 row-start-1 self-center justify-self-end sm:col-start-auto sm:row-span-1 sm:row-start-auto")}
-      >
-        {copied ? <Check className="h-4 w-4 text-[#15803d]" /> : <Copy className="h-4 w-4" />}
-      </button>
-    </div>
   )
 }
