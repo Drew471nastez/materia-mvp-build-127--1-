@@ -85,10 +85,26 @@ export async function GET(request: NextRequest) {
   )
 }
 
-// POST - Handle programmatic unsubscribe/resubscribe
+/*
+  POST: the unsubscribe page's own request ({ token, action } as JSON), and
+  the ONE-CLICK unsubscribe mail clients send from the List-Unsubscribe
+  header (RFC 8058): a form body "List-Unsubscribe=One-Click" posted to the
+  URL in the header, token in the query string. Gmail and Yahoo require that
+  second one of bulk senders; campaigns point their header here.
+*/
 export async function POST(request: NextRequest) {
   try {
-    const { token, action } = await request.json()
+    let token: string | null = request.nextUrl.searchParams.get("token")
+    let action: string | undefined
+    if ((request.headers.get("content-type") || "").includes("application/json")) {
+      const body = await request.json().catch(() => ({}))
+      token = typeof body?.token === "string" ? body.token : token
+      action = typeof body?.action === "string" ? body.action : undefined
+    } else {
+      const form = new URLSearchParams(await request.text().catch(() => ""))
+      /* A one-click request can only ever unsubscribe. */
+      if (form.get("List-Unsubscribe") === "One-Click") action = "unsubscribe"
+    }
 
     if (!token) {
       return NextResponse.json({ error: "Missing token" }, { status: 400 })

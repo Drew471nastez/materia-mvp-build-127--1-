@@ -281,7 +281,9 @@ section("No page draws a picture of itself while it loads, inside or out")
   check("Emails' tables wait as their own header and rows, crossfading into the rows, and its figures as shapes, not dashes",
     /function Loading\(\) \{\s*return <ShimmerRows rows=\{5\} header/.test(emails) && !/WaitingArea/.test(emails)
       && (emails.match(/<ShimmerSwap loading=\{props\.loading\} skeleton=\{<Loading \/>\}>/g) ?? []).length === 3
-      && !/props\.loading \? "–"/.test(emails) && /if \(p\.tab === "published" && \(p\.overview \|\| p\.loading\)\)/.test(emails))
+      && !/props\.loading \? "–"/.test(emails) && /\{props\.loading \? \(\s*<ShimmerBlock /.test(emails)
+      /* The Sent tab's strip is there on every render, its figures shapes while they come, so the table under it never moves. */
+      && /if \(p\.tab === "published"\) \{/.test(emails) && /value: o \? n\(o\.total_sent\) : "–"/.test(emails))
   check("the coupon pages draw nothing under the gate rather than an outline",
     !existsSync(join(root, "app/app/coupons/skeleton.tsx")) && !existsSync(join(root, "app/app/coupons/new/skeleton.tsx"))
       && ["app/app/coupons/page.tsx", "app/app/coupons/new/page.tsx", "app/app/coupons/[id]/page.tsx"].every((f) => /if \(load\.state === "signed-out"\) return null/.test(code(f))))

@@ -6,14 +6,19 @@ import { requireBearerSecret } from "@/lib/api/require-secret"
 import { automationEmail, standingOf } from "@/lib/email-automation"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { runDueJobs } from "@/lib/automations/run"
+import { runCampaignQueue } from "@/lib/email-campaigns/queue"
 import { runAbandonedSweep } from "@/lib/automations/abandoned-run"
 
 /**
  * ===========================================================================
  *  THE HOURLY RUN OF EVERY AUTOMATION
  * ===========================================================================
- * Two queues, one after the other, inside the function's time:
+ * Three queues, one after the other, inside the function's time:
  *
+ *   campaigns    scheduled campaigns that are due, and any campaign send
+ *                whose worker ran out of time (lib/email-campaigns/queue.ts).
+ *                Each recipient row is claimed before it is sent, so this
+ *                and the worker the Send button started never both send it.
  *   the engine   email_flow_jobs, claimed a few at a time with a lease, so
  *                this and any other worker (the `after()` that runs straight
  *                after a trigger) never take the same step. See
@@ -34,8 +39,9 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 300 // 5 minutes max
 
 /** Stop claiming new work with time left to finish what was claimed. */
-const ENGINE_BUDGET_MS = 180_000
-const LEGACY_BUDGET_MS = 60_000
+const CAMPAIGN_BUDGET_MS = 90_000
+const ENGINE_BUDGET_MS = 130_000
+const LEGACY_BUDGET_MS = 45_000
 const LEGACY_ATTEMPTS = 3
 
 // Create admin client
@@ -121,6 +127,9 @@ export async function GET(request: Request) {
   }
 
   const started = Date.now()
+  /* Never throws: a campaign cannot hold up the automations after it. */
+  const campaigns = await runCampaignQueue(supabaseAdmin, started + CAMPAIGN_BUDGET_MS)
+
   /* Checkouts left an hour ago enter the creators' reminders first, so the
      engine below sends their first email in this same run. */
   let abandoned: Awaited<ReturnType<typeof runAbandonedSweep>> | { available: false; error: true } = { available: false, error: true }
@@ -137,15 +146,16 @@ export async function GET(request: Request) {
     console.error("[cron/scheduled-emails] Engine run failed:", errorText(err))
   }
 
-  const legacy = await drainLegacyQueue(started + ENGINE_BUDGET_MS + LEGACY_BUDGET_MS)
+  const legacy = await drainLegacyQueue(Date.now() + LEGACY_BUDGET_MS)
 
   const { data: health } = await supabaseAdmin.rpc("email_flow_health").then(
     (r: { data: unknown }) => r,
     () => ({ data: null }),
   )
 
-  console.log("[cron/scheduled-emails] Done:", { abandoned, engine, legacy })
+  console.log("[cron/scheduled-emails] Done:", { campaigns, abandoned, engine, legacy })
   return NextResponse.json({
+    campaigns,
     abandoned,
     engine,
     legacy,

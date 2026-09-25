@@ -1,0 +1,987 @@
+"use client"
+
+/**
+ * ===========================================================================
+ *  WRITE AND SEND AN EMAIL: /app/emails/new and /app/emails/edit/<id>
+ * ===========================================================================
+ * Drawn in the Emails list's language (app/app/emails/emails-home.tsx) and
+ * the Orders page's parts: the pane's bar with back, title, status and the
+ * actions; under it the envelope (who it goes to, who it is from, subject,
+ * preview text), the editor, and the email as it will arrive beside them on
+ * a wide screen or one tap away on a narrow one.
+ *
+ * NOTHING HERE WRITES TO THE DATABASE DIRECTLY. Every save goes through
+ * /api/email/campaigns, which cleans the body and refuses a save when
+ * somebody else saved in between (the version is the row's updated_at), and
+ * every send through /api/email/send, which decides on the server whether
+ * this click is the one that sends. The page shows what the server says: a
+ * status read back after every action and while a send runs, never a guess.
+ *
+ * Saving is automatic, a second after the typing stops. There is no Save
+ * button to forget and no "unsaved changes" dialog on the way out.
+ */
+import * as React from "react"
+import { ArrowLeft, MoreHorizontal } from "lucide-react"
+import { PaneBar, LIST_WIDTH, GUTTER } from "@/app/app/orders/order-parts"
+import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
+import { createClient } from "@/lib/supabase/client"
+import { cn } from "@/lib/utils"
+import { Switch } from "@/components/ui/switch"
+import { blockIssues, hasRealContent, newBlock, renderBlocks, storeBlocks } from "@/lib/email-campaigns/blocks"
+import { DEFAULT_BRAND, brandName, themeOf, type Brand } from "@/lib/email-campaigns/brand"
+import { readStoredBody } from "@/lib/email-campaigns/stored"
+import { buildEmail, personalizeHtml, personalizeSubject, unknownMergeFields } from "@/lib/email-campaigns/template"
+import { byteLength, checkContent, PREVIEW_MAX, SUBJECT_MAX, SUBJECT_SHORT, type Problem } from "@/lib/email-campaigns/validate"
+import { STATUS_LABEL, readStatus, type CampaignStatus, type RecipientCounts } from "@/lib/email-campaigns/state"
+import { BlockEditor } from "./block-editor"
+import { EmailPreview, type PreviewMode } from "./email-preview"
+import { AudiencePicker, audienceLabel, type Audience, type AudienceOption, type SegmentOption } from "./audience-picker"
+import { useDoc } from "./use-doc"
+import { campaignKey, takeFresh } from "@/components/email/emails-cache"
+import { ComposeDialog, Segmented, StatusBadge, buttonAccent, buttonPrimary, buttonSecondary, card, errorClass, helpClass, iconButton } from "./ui"
+import { SendStatus } from "./send-status"
+
+export interface ComposerProps {
+  campaignId: string | null
+  /** Leave the page; the list opens on the tab that now holds this email. */
+  onExit: (tab?: "drafts" | "scheduled" | "published") => void
+}
+
+interface Loaded {
+  id: string
+  status: CampaignStatus
+  version: string
+  scheduledAt: string | null
+  sentAt: string | null
+  lastError: string | null
+  counts: RecipientCounts | null
+}
+
+type SaveState = "idle" | "pending" | "saving" | "saved" | "error" | "conflict"
+
+interface Me {
+  creatorId: string | null
+  name: string
+  username: string | null
+  avatarUrl: string | null
+  email: string | null
+  replyTo: string | null
+}
+
+const EDITABLE: CampaignStatus[] = ["draft", "scheduled"]
+
+function uuid(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID()
+  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (Number(c) ^ (Math.random() * 16) >> (Number(c) / 4)).toString(16))
+}
+
+function when(iso: string | null): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  return d.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+}
+
+async function api<T>(url: string, init?: RequestInit): Promise<{ ok: boolean; status: number; data: T & { error?: string; errors?: Problem[] } }> {
+  try {
+    const res = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) }, cache: "no-store" })
+    const data = await res.json().catch(() => ({}))
+    return { ok: res.ok, status: res.status, data }
+  } catch {
+    return { ok: false, status: 0, data: { error: "You seem to be offline. Check your connection and try again." } as T & { error: string } }
+  }
+}
+
+export function EmailComposer({ campaignId, onExit }: ComposerProps) {
+  const [loading, setLoading] = React.useState(!!campaignId)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
+  const [me, setMe] = React.useState<Me>({ creatorId: null, name: "", username: null, avatarUrl: null, email: null, replyTo: null })
+  const [loaded, setLoaded] = React.useState<Loaded | null>(null)
+  const [subject, setSubject] = React.useState("")
+  const [previewText, setPreviewText] = React.useState("")
+  const [audience, setAudience] = React.useState<Audience>({ type: "all", segmentId: null })
+  const doc = useDoc([newBlock("rich")])
+  const [options, setOptions] = React.useState<AudienceOption[]>([])
+  const [segments, setSegments] = React.useState<SegmentOption[]>([])
+  const [plan, setPlan] = React.useState<{ limit: number; used: number } | null>(null)
+  /* The look the email is sent in, read by the server as it is now (lib/email-campaigns/brand-server). */
+  const [brand, setBrand] = React.useState<(Brand & { avatarUrl?: string | null }) | null>(null)
+  /* Counting opens is a setting only once the database has the column for it. */
+  const [trackOpens, setTrackOpens] = React.useState(true)
+  const [canSetOpens, setCanSetOpens] = React.useState(false)
+  const [save, setSave] = React.useState<SaveState>("idle")
+  const [saveError, setSaveError] = React.useState<string | null>(null)
+  const [fieldError, setFieldError] = React.useState<Partial<Record<Problem["field"], string>>>({})
+  const [showIssues, setShowIssues] = React.useState(false)
+  const [tab, setTab] = React.useState<"write" | "preview">("write")
+  /* A phone at life size reads at the width of the preview column; a computer is shown scaled. */
+  const [previewMode, setPreviewMode] = React.useState<PreviewMode>("mobile")
+  const [dialog, setDialog] = React.useState<null | "send" | "schedule" | "test" | "leave">(null)
+
+  const paneRef = React.useRef<HTMLDivElement>(null)
+  const clientId = React.useRef<string>(campaignId ?? uuid())
+  const ready = React.useRef(!campaignId)
+
+  /* ─── Who is writing ─── */
+
+  React.useEffect(() => {
+    let live = true
+    ;(async () => {
+      const supabase = createClient()
+      const { data: auth } = await supabase.auth.getUser()
+      const user = auth.user
+      if (!user || !live) return
+      const [{ data: profile }, { data: creator }] = await Promise.all([
+        supabase.from("profiles").select("display_name, username, avatar_url, email").eq("id", user.id).maybeSingle(),
+        supabase.from("creators").select("id, support_email").eq("user_id", user.id).maybeSingle(),
+      ])
+      if (!live) return
+      setMe({
+        creatorId: creator?.id ?? null,
+        name: (profile?.display_name || profile?.username || "").trim() || "You",
+        username: profile?.username ?? null,
+        avatarUrl: profile?.avatar_url ?? null,
+        email: user.email ?? profile?.email ?? null,
+        replyTo: (creator?.support_email || profile?.email || user.email || "").trim().toLowerCase() || null,
+      })
+    })()
+    fetch("/api/email/audience", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!live || !d) return
+        setOptions(d.options ?? [])
+        setSegments(d.segments ?? [])
+        setPlan(d.plan ?? null)
+        setBrand(d.brand ?? null)
+        setCanSetOpens(d.upgraded === true)
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [])
+
+  /* ─── The email itself ─── */
+
+  const applyCampaign = React.useCallback(
+    (c: Record<string, unknown>, counts: RecipientCounts | null) => {
+      const status = readStatus(c.status)
+      setLoaded({
+        id: String(c.id),
+        status,
+        version: String(c.updated_at ?? ""),
+        scheduledAt: (c.scheduled_at as string) ?? null,
+        sentAt: (c.sent_at as string) ?? null,
+        lastError: (c.last_error as string) ?? null,
+        counts,
+      })
+      return status
+    },
+    [],
+  )
+
+  const load = React.useCallback(
+    async (id: string) => {
+      setLoading(true)
+      /* A draft's row reads it ahead on hover or touch; that copy is used if it is a few seconds old at most. */
+      type Answer = { campaign: Record<string, unknown>; counts: RecipientCounts | null; upgraded?: boolean }
+      const ahead = await takeFresh<Answer>(campaignKey(id), 5_000).catch(() => undefined)
+      const r = ahead?.campaign ? { ok: true, status: 200, data: ahead as Answer & { error?: string } } : await api<Answer>(`/api/email/campaigns/${id}`)
+      if (!r.ok) {
+        setLoadError(r.data.error ?? "This email could not be opened.")
+        setLoading(false)
+        return
+      }
+      const c = r.data.campaign
+      applyCampaign(c, r.data.counts)
+      ready.current = false
+      setSubject(String(c.subject ?? ""))
+      setPreviewText(String(c.preview_text ?? ""))
+      setAudience({ type: String(c.audience_type ?? "all"), segmentId: (c.segment_id as string) ?? null })
+      setTrackOpens(c.track_opens !== false)
+      if (r.data.upgraded === true) setCanSetOpens(true)
+      doc.reset(readStoredBody(String(c.body ?? "")).blocks)
+      lastSaved.current = null
+      setSave("saved")
+      setLoading(false)
+      window.setTimeout(() => (ready.current = true), 0)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [applyCampaign],
+  )
+
+  React.useEffect(() => {
+    if (campaignId) void load(campaignId)
+  }, [campaignId, load])
+
+  const status: CampaignStatus = loaded?.status ?? "draft"
+  const editable = EDITABLE.includes(status) || (status === "failed" && !(loaded?.counts && loaded.counts.sent + loaded.counts.delivered + loaded.counts.bounced > 0))
+
+  /* ─── What would be saved, and what would be sent ─── */
+
+  /* An empty text block at the end is where the caret waits, not part of the email. */
+  const clean = React.useMemo(() => {
+    const all = doc.blocks
+    let end = all.length
+    while (end > 1 && all[end - 1].type === "rich" && !hasRealContent([all[end - 1]])) end--
+    return all.slice(0, end)
+  }, [doc.blocks])
+  /* What is saved: the blocks, each marked, text as the editor wrote it. */
+  const bodyHtml = React.useMemo(() => storeBlocks(clean), [clean])
+  const look: Brand = React.useMemo(() => brand ?? { ...DEFAULT_BRAND, name: brandName(me.name) }, [brand, me.name])
+  const theme = React.useMemo(() => themeOf(look), [look])
+  /* What is sent: the same blocks rendered in the brand, exactly as the server will. */
+  const sentBody = React.useMemo(() => renderBlocks(clean, theme), [clean, theme])
+  const issues = React.useMemo(() => blockIssues(clean), [clean])
+
+  const verdict = React.useMemo(() => {
+    const div = typeof document !== "undefined" ? document.createElement("div") : null
+    if (div) div.innerHTML = sentBody
+    const text = div ? (div.textContent ?? "") : ""
+    return checkContent({
+      subject,
+      previewText,
+      text: hasRealContent(clean) ? text || "content" : "",
+      images: clean.filter((b) => b.type === "image" && b.src).length,
+      bytes: byteLength(sentBody),
+      unknownFields: unknownMergeFields(subject, previewText, sentBody),
+    })
+  }, [subject, previewText, sentBody, clean])
+
+  const previewHtml = React.useMemo(() => {
+    const reader = { name: me.name, email: me.email }
+    return buildEmail({
+      subject: personalizeSubject(subject, reader),
+      previewText: personalizeSubject(previewText, reader),
+      bodyHtml: personalizeHtml(sentBody, reader).replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, "#"),
+      brand: look,
+      avatarUrl: brand?.avatarUrl ?? me.avatarUrl,
+      kind: "marketing",
+      unsubscribeUrl: "#",
+    })
+  }, [subject, previewText, sentBody, me.name, me.email, me.avatarUrl, look, brand])
+
+  /* ─── Saving ─── */
+
+  const lastSaved = React.useRef<string | null>(null)
+  const inFlight = React.useRef<Promise<boolean> | null>(null)
+  const latest = React.useRef({ subject, previewText, audience, bodyHtml, loaded, clean, trackOpens, canSetOpens })
+  latest.current = { subject, previewText, audience, bodyHtml, loaded, clean, trackOpens, canSetOpens }
+
+  const snapshot = () => JSON.stringify([latest.current.subject, latest.current.previewText, latest.current.audience, latest.current.bodyHtml, latest.current.canSetOpens ? latest.current.trackOpens : null])
+
+  const saveNow = React.useCallback(
+    async (force = false): Promise<boolean> => {
+      if (inFlight.current) {
+        await inFlight.current
+      }
+      const snap = snapshot()
+      const l = latest.current
+      if (!force && snap === lastSaved.current) return true
+      const meaningful = l.subject.trim() || hasRealContent(l.clean)
+      if (!l.loaded && !meaningful && !force) return true
+
+      const run = (async () => {
+        setSave("saving")
+        const body = {
+          subject: l.subject,
+          preview_text: l.previewText,
+          body: l.bodyHtml,
+          audience_type: l.audience.type,
+          segment_id: l.audience.type === "segment" ? l.audience.segmentId : null,
+          ...(l.canSetOpens ? { track_opens: l.trackOpens } : {}),
+        }
+        const r = l.loaded
+          ? await api<{ campaign: Record<string, unknown> }>(`/api/email/campaigns/${l.loaded.id}`, { method: "PATCH", body: JSON.stringify({ ...body, expected_updated_at: l.loaded.version }) })
+          : await api<{ campaign: Record<string, unknown> }>(`/api/email/campaigns`, { method: "POST", body: JSON.stringify({ ...body, id: clientId.current }) })
+        if (r.ok) {
+          const c = r.data.campaign
+          setLoaded((prev) => ({
+            id: String(c.id),
+            status: readStatus(c.status),
+            version: String(c.updated_at),
+            scheduledAt: (c.scheduled_at as string) ?? prev?.scheduledAt ?? null,
+            sentAt: prev?.sentAt ?? null,
+            lastError: readStatus(c.status) === "draft" ? null : prev?.lastError ?? null,
+            counts: prev?.counts ?? null,
+          }))
+          latest.current.loaded = { ...(latest.current.loaded ?? ({} as Loaded)), id: String(c.id), version: String(c.updated_at), status: readStatus(c.status) } as Loaded
+          lastSaved.current = snap
+          setSaveError(null)
+          setFieldError((f) => ({ ...f, audience: undefined }))
+          setSave(snapshot() === snap ? "saved" : "pending")
+          if (!campaignId && typeof window !== "undefined" && !window.location.pathname.endsWith(String(c.id))) {
+            /* So a reload opens this draft. Only a nicety: never worth failing a save over. */
+            try {
+              window.history.replaceState(window.history.state, "", `/app/emails/edit/${c.id}`)
+            } catch {}
+          }
+          return true
+        }
+        if (r.status === 409) {
+          const s = readStatus((r.data as { status?: string }).status)
+          if (!EDITABLE.includes(s) && l.loaded) {
+            await load(l.loaded.id)
+            return false
+          }
+          setSave("conflict")
+          setSaveError(r.data.error ?? "This email was changed somewhere else.")
+          return false
+        }
+        if ((r.data as { field?: string }).field === "audience") setFieldError((f) => ({ ...f, audience: r.data.error }))
+        setSave("error")
+        setSaveError(r.data.error ?? "Not saved. Check your connection.")
+        return false
+      })()
+      inFlight.current = run
+      try {
+        return await run
+      } finally {
+        inFlight.current = null
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [campaignId, load],
+  )
+
+  /* A second after the last change. */
+  React.useEffect(() => {
+    if (!ready.current || !editable || loading) return
+    if (snapshot() === lastSaved.current) return
+    /* A new email with nothing in it yet is not "unsaved". */
+    if (!latest.current.loaded && !subject.trim() && !hasRealContent(clean)) return
+    if (save !== "conflict") setSave("pending")
+    const t = window.setTimeout(() => {
+      if (save !== "conflict") void saveNow()
+    }, 1000)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject, previewText, audience, bodyHtml, trackOpens])
+
+  /* Leaving with something unsaved asks the browser to check first. */
+  React.useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => {
+      if (save === "pending" || save === "saving" || save === "error") {
+        e.preventDefault()
+        e.returnValue = ""
+      }
+    }
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [save])
+
+  const back = async () => {
+    if (editable && (save === "pending" || save === "saving")) {
+      const ok = await saveNow()
+      if (!ok) return setDialog("leave")
+    } else if (save === "error" || save === "conflict") {
+      return setDialog("leave")
+    }
+    onExit(status === "scheduled" ? "scheduled" : EDITABLE.includes(status) ? "drafts" : "published")
+  }
+
+  /* ─── Checking before a send or a schedule ─── */
+
+  const firstProblem = (): boolean => {
+    setShowIssues(true)
+    const f: Partial<Record<Problem["field"], string>> = {}
+    for (const e of verdict.errors) if (!f[e.field]) f[e.field] = e.message
+    setFieldError(f)
+    const blockError = issues.find((i) => i.level === "error")
+    const target = f.subject ? "#compose-subject" : f.previewText ? "#compose-preview" : blockError ? `[data-block-id="${blockError.id}"]` : f.body ? "[data-email-editor]" : null
+    if (target) {
+      setTab("write")
+      window.setTimeout(() => {
+        const el = document.querySelector<HTMLElement>(target)
+        el?.scrollIntoView({ block: "center", behavior: "smooth" })
+        if (el instanceof HTMLInputElement) el.focus({ preventScroll: true })
+      }, 30)
+      return true
+    }
+    return false
+  }
+
+  const beginSend = async (kind: "send" | "schedule") => {
+    if (firstProblem()) return
+    const ok = await saveNow(!loaded || status === "failed")
+    if (!ok) return
+    setDialog(kind)
+  }
+
+  /* ─── Sending ─── */
+
+  const [confirm, setConfirm] = React.useState<{ loading: boolean; error: string | null; recipients?: number; excluded?: number; warnings?: Problem[]; sender?: { name: string; from: string; replyTo: string; address?: string | null } }>({ loading: false, error: null })
+  const sendKey = React.useRef<string>(uuid())
+  const [sending, setSending] = React.useState(false)
+
+  React.useEffect(() => {
+    if (dialog !== "send" || !latest.current.loaded) return
+    sendKey.current = uuid()
+    setConfirm({ loading: true, error: null })
+    void api<{ recipients: number; excluded: number; warnings: Problem[]; sender: { name: string; from: string; replyTo: string; address: string | null } }>("/api/email/send", {
+      method: "POST",
+      body: JSON.stringify({ campaign_id: latest.current.loaded.id, dry_run: true, expected_updated_at: latest.current.loaded.version }),
+    }).then((r) => {
+      if (r.ok) setConfirm({ loading: false, error: null, recipients: r.data.recipients, excluded: r.data.excluded, warnings: r.data.warnings, sender: r.data.sender })
+      else setConfirm({ loading: false, error: r.data.error ?? "This email cannot be sent yet." })
+    })
+  }, [dialog])
+
+  const sendNow = async () => {
+    const l = latest.current.loaded
+    if (!l || sending) return
+    setSending(true)
+    const r = await api<{ status: CampaignStatus; recipients?: number; already?: boolean }>("/api/email/send", {
+      method: "POST",
+      body: JSON.stringify({ campaign_id: l.id, idempotency_key: sendKey.current, expected_updated_at: l.version }),
+    })
+    setSending(false)
+    if (!r.ok) {
+      setConfirm((c) => ({ ...c, error: r.data.error ?? "Not sent. Try again." }))
+      return
+    }
+    setDialog(null)
+    await load(l.id)
+  }
+
+  /* While a send runs, ask the server how far it has got. */
+  React.useEffect(() => {
+    if (!loaded || (loaded.status !== "queued" && loaded.status !== "sending")) return
+    const t = window.setInterval(async () => {
+      const r = await api<{ campaign: Record<string, unknown>; counts: RecipientCounts | null }>(`/api/email/campaigns/${loaded.id}`)
+      if (r.ok) applyCampaign(r.data.campaign, r.data.counts)
+    }, 2500)
+    return () => window.clearInterval(t)
+  }, [loaded, applyCampaign])
+
+  const stop = async () => {
+    if (!loaded) return
+    const r = await api<{ status: CampaignStatus }>(`/api/email/campaigns/${loaded.id}/stop`, { method: "POST" })
+    if (!r.ok) setSaveError(r.data.error ?? "Could not stop it.")
+    await load(loaded.id)
+  }
+
+  const retry = async () => {
+    if (!loaded) return
+    const r = await api<{ status: CampaignStatus }>("/api/email/send", { method: "POST", body: JSON.stringify({ campaign_id: loaded.id, retry_failed: true }) })
+    if (!r.ok) setSaveError(r.data.error ?? "Could not send again.")
+    await load(loaded.id)
+  }
+
+  /* ─── Scheduling ─── */
+
+  const [scheduleError, setScheduleError] = React.useState<string | null>(null)
+  const [scheduleBusy, setScheduleBusy] = React.useState(false)
+  const schedule = async (at: Date | null) => {
+    const l = latest.current.loaded
+    if (!l) return
+    setScheduleBusy(true)
+    setScheduleError(null)
+    const r = await api<{ campaign: Record<string, unknown> }>(`/api/email/campaigns/${l.id}/schedule`, {
+      method: "POST",
+      body: JSON.stringify({ scheduled_at: at ? at.toISOString() : null, expected_updated_at: l.version }),
+    })
+    setScheduleBusy(false)
+    if (!r.ok) {
+      if (at) setScheduleError(r.data.error ?? "Not scheduled. Try again.")
+      else setSaveError(r.data.error ?? "Could not unschedule.")
+      return
+    }
+    const c = r.data.campaign
+    setLoaded((prev) => (prev ? { ...prev, status: readStatus(c.status), version: String(c.updated_at), scheduledAt: (c.scheduled_at as string) ?? null } : prev))
+    setDialog(null)
+  }
+
+  /* ─── Test ─── */
+
+  const [test, setTest] = React.useState<{ busy: boolean; done: string | null; error: string | null }>({ busy: false, done: null, error: null })
+  const sendTest = async () => {
+    setTest({ busy: true, done: null, error: null })
+    const r = await api<{ sent_to: string }>("/api/email/send-test", { method: "POST", body: JSON.stringify({ subject, preview_text: previewText, body: bodyHtml }) })
+    setTest({ busy: false, done: r.ok ? r.data.sent_to : null, error: r.ok ? null : r.data.error ?? "The test was not sent." })
+  }
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const form = new FormData()
+    form.append("file", file)
+    const res = await fetch("/api/email/upload-image", { method: "POST", body: form })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || typeof data.url !== "string") throw new Error(data.error || "The image did not upload. Try again.")
+    return data.url
+  }
+
+  /* ─── One number for the layout: the bar's height, shared with what sticks under it ─── */
+
+  React.useLayoutEffect(() => {
+    const pane = paneRef.current
+    const bar = pane?.querySelector<HTMLElement>("[data-orders-bar]")
+    if (!pane || !bar) return
+    const write = () => {
+      pane.style.setProperty("--compose-bar", `${bar.offsetHeight}px`)
+      pane.style.setProperty("--compose-room", `${Math.max(320, pane.clientHeight - bar.offsetHeight - 32)}px`)
+    }
+    write()
+    const ro = new ResizeObserver(write)
+    ro.observe(bar)
+    ro.observe(pane)
+    return () => ro.disconnect()
+  }, [loading])
+
+  /* ─── Drawing ─── */
+
+  const title = subject.trim() || (loaded ? "Untitled email" : "New email")
+  const tone = status === "failed" ? "critical" : status === "partially_failed" ? "critical" : status === "sending" || status === "queued" || status === "scheduled" ? "attention" : status === "sent" ? "success" : "neutral"
+  const sub =
+    status === "scheduled"
+      ? `Goes out ${when(loaded?.scheduledAt ?? null)}`
+      : !editable
+        ? loaded?.sentAt
+          ? `Sent ${when(loaded.sentAt)}`
+          : ""
+        : save === "saving"
+          ? "Saving…"
+          : save === "pending"
+            ? "Unsaved changes"
+            : save === "error"
+              ? "Not saved"
+              : save === "conflict"
+                ? "Changed somewhere else"
+                : loaded
+                  ? "Saved"
+                  : "Not saved yet"
+  const aud = audienceLabel(audience, options, segments)
+
+  const moreItems: ActionMenuItem[] = [
+    { label: "Send a test to yourself", onClick: () => { setTest({ busy: false, done: null, error: null }); setDialog("test") } },
+    status === "scheduled"
+      ? { label: "Unschedule", onClick: () => void schedule(null) }
+      : { label: "Schedule", onClick: () => void beginSend("schedule") },
+  ]
+
+  if (loadError) {
+    return (
+      <div ref={paneRef} className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]">
+        <div className={cn("mx-auto pt-16 text-center", LIST_WIDTH, GUTTER)}>
+          <p className="text-[15px] font-semibold text-[#1a1a2e]">{loadError}</p>
+          <button type="button" className={cn(buttonSecondary, "mt-4")} onClick={() => onExit()}>
+            Back to emails
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div ref={paneRef} data-compose="" className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
+      <PaneBar width={LIST_WIDTH} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 pb-2.5 pt-2">
+        <div className="-ml-1.5 flex h-9 w-9 items-center justify-center">
+          <button type="button" onClick={back} aria-label="Back to emails" className={cn(iconButton, "h-9 w-9")}>
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex min-h-9 min-w-0 items-center gap-2.5">
+          <h1 className="min-w-0 truncate text-[18px] font-bold leading-7 text-[#1a1a2e] sm:text-[20px]">{loading ? "" : title}</h1>
+          {!loading && loaded ? <StatusBadge tone={tone}>{STATUS_LABEL[status]}</StatusBadge> : null}
+        </div>
+        <div className="flex min-h-9 shrink-0 items-center gap-1.5">
+          {editable && !loading ? (
+            <>
+              <button type="button" className={cn(buttonSecondary, "hidden md:inline-flex")} onClick={() => { setTest({ busy: false, done: null, error: null }); setDialog("test") }}>
+                Send test
+              </button>
+              {status === "scheduled" ? (
+                <button type="button" className={cn(buttonSecondary, "hidden md:inline-flex")} onClick={() => void schedule(null)}>
+                  Unschedule
+                </button>
+              ) : (
+                <button type="button" className={cn(buttonSecondary, "hidden md:inline-flex")} onClick={() => void beginSend("schedule")}>
+                  Schedule
+                </button>
+              )}
+              <ResponsiveActionMenu
+                title="Email"
+                align="end"
+                items={moreItems}
+                trigger={
+                  <button type="button" className={cn(buttonSecondary, "px-2 md:hidden")} aria-label="More actions">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </button>
+                }
+              />
+              <button type="button" className={buttonAccent} onClick={() => void beginSend("send")} data-send-button="">
+                {status === "scheduled" ? "Send now" : "Send"}
+              </button>
+            </>
+          ) : null}
+        </div>
+        <div className="col-span-2 col-start-2 -mt-0.5 min-w-0 truncate text-[13px] leading-5 text-[#6b7280]" aria-live="polite">
+          {loading ? "" : sub}
+        </div>
+      </PaneBar>
+
+      {loading ? (
+        <ComposeSkeleton />
+      ) : (
+        <div className={cn("mx-auto pb-28 pt-4 md:pb-10", LIST_WIDTH, GUTTER)}>
+          {editable ? (
+            <div className="mb-3 lg:hidden">
+              <Segmented
+                label="View"
+                className="w-full [&>button]:flex-1"
+                value={tab}
+                onChange={setTab}
+                options={[
+                  { value: "write", label: "Write" },
+                  { value: "preview", label: "Preview" },
+                ]}
+              />
+            </div>
+          ) : null}
+
+          {save === "conflict" || save === "error" ? (
+            <div role="alert" className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#f3c1b9] bg-[#fdf1ef] px-4 py-3">
+              <p className="text-[13px] text-[#8a1c0f]">{saveError}</p>
+              <div className="flex gap-2">
+                {save === "conflict" && loaded ? (
+                  <>
+                    <button type="button" className={buttonSecondary} onClick={() => void load(loaded.id)}>
+                      Load that version
+                    </button>
+                    <button
+                      type="button"
+                      className={buttonPrimary}
+                      onClick={async () => {
+                        const r = await api<{ campaign: Record<string, unknown> }>(`/api/email/campaigns/${loaded.id}`)
+                        if (r.ok) {
+                          latest.current.loaded = { ...loaded, version: String(r.data.campaign.updated_at) }
+                          setLoaded((p) => (p ? { ...p, version: String(r.data.campaign.updated_at) } : p))
+                          void saveNow(true)
+                        }
+                      }}
+                    >
+                      Keep mine
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className={buttonSecondary} onClick={() => void saveNow(true)}>
+                    Try again
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {status === "failed" && editable && loaded?.lastError ? (
+            <div role="status" className="mb-3 rounded-xl border border-[#f3c1b9] bg-[#fdf1ef] px-4 py-3 text-[13px] text-[#8a1c0f]">
+              This email was not sent. {loaded.lastError} Fix it and send it again.
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+            <div className={cn("min-w-0 space-y-4", editable && tab === "preview" && "hidden lg:block")}>
+              {editable ? (
+                <>
+                  <section aria-label="Envelope" className={cn(card, "divide-y divide-[#eef0f2]")}>
+                    <Row label="To" htmlFor="compose-to" error={fieldError.audience}>
+                      <AudiencePicker id="compose-to" value={audience} options={options} segments={segments} onChange={setAudience} />
+                    </Row>
+                    <Row label="From">
+                      <p className="flex h-11 min-w-0 items-center truncate text-[16px] text-[#1a1a2e] sm:h-9 sm:text-[14px]">
+                        <span className="truncate">
+                          {me.name}
+                          {me.replyTo ? <span className="text-[#6b7280]"> · replies go to {me.replyTo}</span> : null}
+                        </span>
+                      </p>
+                    </Row>
+                    <Row
+                      label="Subject"
+                      htmlFor="compose-subject"
+                      error={fieldError.subject}
+                      counter={subject.length > SUBJECT_SHORT - 10 ? `${subject.length}/${SUBJECT_MAX}` : null}
+                      hint={!fieldError.subject && subject.trim().length > SUBJECT_SHORT ? "Phones cut subjects past about 60 characters." : null}
+                    >
+                      <input
+                        id="compose-subject"
+                        value={subject}
+                        maxLength={SUBJECT_MAX + 50}
+                        onChange={(e) => {
+                          setSubject(e.target.value)
+                          if (fieldError.subject) setFieldError((f) => ({ ...f, subject: undefined }))
+                        }}
+                        placeholder="What is this email about?"
+                        aria-invalid={!!fieldError.subject}
+                        className="h-11 w-full min-w-0 bg-transparent text-[16px] font-medium text-[#1a1a2e] outline-none placeholder:font-normal placeholder:text-[#9ca3af] sm:h-9 sm:text-[14px]"
+                      />
+                    </Row>
+                    <Row
+                      label="Preview"
+                      htmlFor="compose-preview"
+                      error={fieldError.previewText}
+                      counter={previewText.length > 100 ? `${previewText.length}/${PREVIEW_MAX}` : null}
+                    >
+                      <input
+                        id="compose-preview"
+                        value={previewText}
+                        maxLength={PREVIEW_MAX + 50}
+                        onChange={(e) => {
+                          setPreviewText(e.target.value)
+                          if (fieldError.previewText) setFieldError((f) => ({ ...f, previewText: undefined }))
+                        }}
+                        placeholder="The line shown after the subject in the inbox"
+                        className="h-11 w-full min-w-0 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:h-9 sm:text-[14px]"
+                      />
+                    </Row>
+                    {canSetOpens ? (
+                      <Row label="Opens" htmlFor="compose-opens">
+                        <label className="flex h-11 min-w-0 cursor-pointer items-center justify-between gap-3 sm:h-9">
+                          <span className="truncate text-[14px] text-[#4b5563]">{trackOpens ? "Counted, with an invisible picture" : "Not counted"}</span>
+                          <Switch id="compose-opens" checked={trackOpens} onCheckedChange={setTrackOpens} aria-label="Count opens" />
+                        </label>
+                      </Row>
+                    ) : null}
+                  </section>
+
+                  <section aria-label="Email" className={cn(card, fieldError.body && "shadow-[0_0_0_2px_#d72c0d]")}>
+                    <BlockEditor doc={doc} creatorId={me.creatorId} username={me.username} issues={issues} showIssues={showIssues} theme={theme} onUploadImage={uploadImage} />
+                  </section>
+                  {fieldError.body ? <p className={errorClass}>{fieldError.body}</p> : null}
+                  {plan ? (
+                    <p className={cn(helpClass, "px-1")}>
+                      {plan.used.toLocaleString("en-US")} of {plan.limit.toLocaleString("en-US")} emails used this month
+                      {aud.count !== null ? ` · this one goes to about ${aud.count.toLocaleString("en-US")}` : ""}
+                    </p>
+                  ) : null}
+                </>
+              ) : loaded ? (
+                <SendStatus status={status} counts={loaded.counts} lastError={loaded.lastError} audienceLabel={aud.label} onStop={stop} onRetry={retry} onBack={() => onExit("published")} />
+              ) : null}
+            </div>
+
+            <aside
+              aria-label="Preview"
+              className={cn("min-w-0 lg:sticky", editable && tab === "write" && "hidden lg:block")}
+              style={{ top: "calc(var(--compose-bar, 60px) + 16px)" }}
+            >
+              <div className={cn(card, "overflow-hidden lg:max-h-[var(--compose-room)] lg:overflow-y-auto")}>
+                <EmailPreview html={previewHtml} senderName={me.name || "You"} subject={personalizeSubject(subject, { name: me.name })} previewText={previewText} mode={previewMode} onMode={setPreviewMode} />
+              </div>
+            </aside>
+          </div>
+        </div>
+      )}
+
+      <ComposeDialog
+        open={dialog === "send"}
+        onClose={() => setDialog(null)}
+        title={status === "scheduled" ? "Send it now?" : "Send this email?"}
+        footer={
+          <>
+            <button type="button" className={buttonSecondary} onClick={() => setDialog(null)}>
+              Cancel
+            </button>
+            <button type="button" className={buttonAccent} disabled={confirm.loading || !!confirm.error || sending} onClick={() => void sendNow()} data-confirm-send="">
+              {sending ? "Sending…" : confirm.recipients ? `Send to ${confirm.recipients.toLocaleString("en-US")}` : "Send"}
+            </button>
+          </>
+        }
+      >
+        {confirm.loading ? (
+          <p className="py-4 text-[14px] text-[#6b7280]">Counting who it goes to…</p>
+        ) : confirm.error ? (
+          <p className="py-2 text-[14px] text-[#b42318]">{confirm.error}</p>
+        ) : (
+          <dl className="grid gap-3 text-[14px]">
+            <div>
+              <dt className="text-[12px] font-medium text-[#6b7280]">To</dt>
+              <dd className="text-[#1a1a2e]">
+                <span className="font-semibold tabular-nums">{(confirm.recipients ?? 0).toLocaleString("en-US")}</span> {confirm.recipients === 1 ? "person" : "people"} in {aud.label.toLowerCase()}
+                {confirm.excluded ? (
+                  <span className="block text-[13px] text-[#6b7280]">
+                    {confirm.excluded.toLocaleString("en-US")} left out: unsubscribed, bounced, or not a working address.
+                  </span>
+                ) : null}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[12px] font-medium text-[#6b7280]">From</dt>
+              <dd className="break-words text-[#1a1a2e]">{confirm.sender?.from}</dd>
+              <dd className="break-words text-[13px] text-[#6b7280]">Replies go to {confirm.sender?.replyTo}</dd>
+              {confirm.sender && !confirm.sender.address ? (
+                <dd className="mt-1 text-[13px] text-[#5c4300]">
+                  No postal address in the footer. Marketing email must carry one in the US and many other places: add it under Settings, Address.
+                </dd>
+              ) : null}
+            </div>
+            <div>
+              <dt className="text-[12px] font-medium text-[#6b7280]">Subject</dt>
+              <dd className="break-words text-[#1a1a2e]">{subject}</dd>
+            </div>
+            {confirm.warnings?.length ? (
+              <div className="rounded-lg bg-[#fff8e6] px-3 py-2 text-[13px] text-[#5c4300]">
+                {confirm.warnings.map((w) => (
+                  <p key={w.message}>{w.message}</p>
+                ))}
+              </div>
+            ) : null}
+            <p className="text-[13px] text-[#6b7280]">Once it starts it cannot be taken back. You can stop the ones not yet sent.</p>
+          </dl>
+        )}
+      </ComposeDialog>
+
+      <ScheduleDialog open={dialog === "schedule"} onClose={() => setDialog(null)} busy={scheduleBusy} error={scheduleError} onSchedule={(d) => void schedule(d)} />
+
+      <ComposeDialog
+        open={dialog === "test"}
+        onClose={() => setDialog(null)}
+        title="Send a test"
+        footer={
+          <>
+            <button type="button" className={buttonSecondary} onClick={() => setDialog(null)}>
+              {test.done ? "Done" : "Cancel"}
+            </button>
+            {!test.done ? (
+              <button type="button" className={buttonPrimary} disabled={test.busy || !subject.trim()} onClick={() => void sendTest()}>
+                {test.busy ? "Sending…" : "Send test"}
+              </button>
+            ) : null}
+          </>
+        }
+      >
+        <p className="text-[14px] text-[#1a1a2e]">
+          {test.done ? (
+            <>Sent to {test.done}. It can take a minute to arrive.</>
+          ) : (
+            <>
+              The email as your subscribers will get it, with your name filled in, to <span className="font-medium">{me.email ?? "your account's email"}</span>.
+            </>
+          )}
+        </p>
+        {!subject.trim() ? <p className={cn(helpClass, "mt-2")}>Add a subject first.</p> : null}
+        {test.error ? <p className={cn(errorClass, "mt-2 text-[13px]")}>{test.error}</p> : null}
+      </ComposeDialog>
+
+      <ComposeDialog
+        open={dialog === "leave"}
+        onClose={() => setDialog(null)}
+        title="Leave without saving?"
+        footer={
+          <>
+            <button type="button" className={buttonSecondary} onClick={() => setDialog(null)}>
+              Stay
+            </button>
+            <button type="button" className={buttonPrimary} onClick={() => onExit("drafts")}>
+              Leave
+            </button>
+          </>
+        }
+      >
+        <p className="text-[14px] text-[#1a1a2e]">Your latest changes are not saved. {saveError}</p>
+      </ComposeDialog>
+    </div>
+  )
+}
+
+function Row({
+  label,
+  htmlFor,
+  error,
+  hint,
+  counter,
+  children,
+}: {
+  label: string
+  htmlFor?: string
+  error?: string | null
+  hint?: string | null
+  counter?: string | null
+  children: React.ReactNode
+}) {
+  return (
+    <div className="px-4 py-1.5 transition-colors duration-100 focus-within:bg-[#fafbfb] first:rounded-t-2xl last:rounded-b-2xl sm:px-5">
+      <div className="grid grid-cols-[60px_minmax(0,1fr)_auto] items-center gap-x-2 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:gap-x-3">
+        <label htmlFor={htmlFor} className="text-[13px] font-medium text-[#6b7280]">
+          {label}
+        </label>
+        <div className="min-w-0">{children}</div>
+        {counter ? <span className="text-[12px] tabular-nums text-[#6b7280]">{counter}</span> : null}
+      </div>
+      {error ? <p className={cn(errorClass, "pb-1 pl-[68px] sm:pl-[84px]")}>{error}</p> : hint ? <p className={cn(helpClass, "pb-1 pl-[68px] sm:pl-[84px]")}>{hint}</p> : null}
+    </div>
+  )
+}
+
+/* ─── Scheduling: a day, and a whole hour, because the queue runs on the hour ─── */
+
+function ScheduleDialog({ open, onClose, busy, error, onSchedule }: { open: boolean; onClose: () => void; busy: boolean; error: string | null; onSchedule: (d: Date) => void }) {
+  const tz = React.useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
+  const next = React.useMemo(() => {
+    const d = new Date()
+    d.setMinutes(0, 0, 0)
+    d.setHours(d.getHours() + (open ? 2 : 2))
+    return d
+  }, [open])
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+  const [day, setDay] = React.useState(ymd(next))
+  const [hour, setHour] = React.useState(next.getHours())
+  React.useEffect(() => {
+    if (open) {
+      setDay(ymd(next))
+      setHour(next.getHours())
+    }
+  }, [open, next])
+  const [y, m, d] = day.split("-").map(Number)
+  const at = new Date(y, (m || 1) - 1, d || 1, hour, 0, 0, 0)
+  const past = at.getTime() < Date.now() + 5 * 60_000
+  const hours = Array.from({ length: 24 }, (_, h) => ({ h, label: new Date(2000, 0, 1, h).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) }))
+  const field = "h-11 w-full min-w-0 rounded-lg border border-[#d5d7dd] bg-white px-3 text-[16px] text-[#1a1a2e] outline-none focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.10)] sm:h-9 sm:text-[14px]"
+  return (
+    <ComposeDialog
+      open={open}
+      onClose={onClose}
+      title="Schedule"
+      footer={
+        <>
+          <button type="button" className={buttonSecondary} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className={buttonPrimary} disabled={busy || past} onClick={() => onSchedule(at)}>
+            {busy ? "Scheduling…" : "Schedule"}
+          </button>
+        </>
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-1.5">
+          <span className="text-[13px] font-medium text-[#1a1a2e]">Day</span>
+          <input type="date" className={field} value={day} min={ymd(new Date())} onChange={(e) => setDay(e.target.value)} />
+        </label>
+        <label className="grid gap-1.5">
+          <span className="text-[13px] font-medium text-[#1a1a2e]">Time</span>
+          <select className={field} value={hour} onChange={(e) => setHour(Number(e.target.value))}>
+            {hours.map((o) => (
+              <option key={o.h} value={o.h}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <p className={cn("mt-3 text-[13px]", past ? "text-[#b42318]" : "text-[#6b7280]")}>
+        {past ? "Choose a time later than now." : `Goes out ${when(at.toISOString())}, your time (${tz.replace(/_/g, " ")}).`}
+      </p>
+      {error ? <p className={cn(errorClass, "mt-2 text-[13px]")}>{error}</p> : null}
+    </ComposeDialog>
+  )
+}
+
+function ComposeSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Loading" className={cn("skeleton-deferred mx-auto grid gap-4 pt-4 lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]", LIST_WIDTH, GUTTER)}>
+      <div className="space-y-4">
+        <div className={cn(card, "h-[168px]")} />
+        <div className={cn(card, "h-[420px]")} />
+      </div>
+      <div className={cn(card, "hidden h-[520px] lg:block")} />
+    </div>
+  )
+}

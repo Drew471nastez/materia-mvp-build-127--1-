@@ -169,6 +169,20 @@ export interface RichTextEditorProps {
   checkSize?: (html: string) => string | null
   /** Height of the text area before it starts to grow, in px. */
   minHeight?: number
+  /**
+   * The text grows with what is written and never scrolls inside itself:
+   * for a field that is one part of a longer page (a block of an email),
+   * where the page is what scrolls. Pair it with `stickyToolbar`.
+   */
+  grow?: boolean
+  /**
+   * The toolbar holds still at this distance from the top of whatever
+   * scrolls the page (a CSS length), so it stays in reach while a long text
+   * scrolls under it, on a phone too.
+   */
+  stickyToolbar?: string
+  /** Controls at the toolbar's far end that never scroll out of view (the block's own menu). */
+  toolbarEnd?: React.ReactNode
   className?: string
   id?: string
 }
@@ -212,11 +226,15 @@ export function RichTextEditor({
   uploadImage,
   checkSize,
   minHeight = 168,
+  grow = false,
+  stickyToolbar,
+  toolbarEnd,
   className,
   id,
 }: RichTextEditorProps) {
   const rootRef = React.useRef<HTMLDivElement>(null)
   const toolbarRef = React.useRef<HTMLDivElement>(null)
+  const stripRef = React.useRef<HTMLDivElement>(null)
   const savedRange = React.useRef<Range | null>(null)
   const linkTarget = React.useRef<HTMLAnchorElement | null>(null)
   /** The value the DOM is showing: the last one written in, or the last one handed up. */
@@ -748,6 +766,26 @@ export function RichTextEditor({
     if (apiRef) apiRef.current = api
   })
 
+  /* On a phone the toolbar is one row that scrolls sideways. While more of it
+     is off to the right its edge fades, so the rest is found. Written straight
+     onto the element, so scrolling the row never renders anything. */
+  React.useEffect(() => {
+    const strip = stripRef.current
+    if (!strip) return
+    const read = () => {
+      const more = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 2
+      if (strip.dataset.more !== String(more)) strip.dataset.more = String(more)
+    }
+    read()
+    strip.addEventListener("scroll", read, { passive: true })
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(read) : null
+    ro?.observe(strip)
+    return () => {
+      strip.removeEventListener("scroll", read)
+      ro?.disconnect()
+    }
+  }, [])
+
   const visible = GROUPS.map((group) => group.filter((t) => tools.includes(t) && (t !== "image" || !!uploadImage))).filter((group) => group.length)
   /* One stop for Tab: the first control. Arrow keys do the rest. */
   const firstTool = visible[0]?.[0]
@@ -755,7 +793,11 @@ export function RichTextEditor({
   return (
     <div
       className={cn(
-        "rich-text-field overflow-hidden rounded-xl border border-[#e5e7eb] bg-white transition-[border-color,box-shadow] duration-150",
+        "rich-text-field rounded-xl border border-[#e5e7eb] bg-white transition-[border-color,box-shadow] duration-150",
+        /* A sticky toolbar needs a box that clips without scrolling: `hidden`
+           would make the field the toolbar's scroller, and it would never
+           stick to the page. */
+        stickyToolbar ? "overflow-clip" : "overflow-hidden",
         /* The ring the other inputs draw, while the text has the focus. The
            link form's own fields draw theirs, so the two never stack. */
         "has-[.rich-text-content:focus]:border-ring has-[.rich-text-content:focus]:ring-[3px] has-[.rich-text-content:focus]:ring-ring/50",
@@ -768,8 +810,14 @@ export function RichTextEditor({
         aria-label={`${label} formatting`}
         aria-controls={id}
         onKeyDown={onToolbarKey}
-        className="rich-text-toolbar flex items-center gap-0.5 overflow-x-auto overscroll-x-contain border-b border-[#eef0f2] px-1 py-1 sm:flex-wrap sm:px-1.5"
+        className={cn("rich-text-toolbar flex items-center border-b border-[#eef0f2] bg-white", stickyToolbar && "sticky z-[5]")}
+        style={stickyToolbar ? { top: stickyToolbar } : undefined}
       >
+        <div
+          ref={stripRef}
+          data-more="false"
+          className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overscroll-x-contain px-1 py-1 [scrollbar-width:none] sm:flex-wrap sm:px-1.5 [&::-webkit-scrollbar]:hidden max-sm:data-[more=true]:[mask-image:linear-gradient(to_right,#000_calc(100%-32px),transparent)]"
+        >
         {visible.map((group, g) => (
           <React.Fragment key={group.join("-")}>
             {g > 0 ? <span aria-hidden className="mx-0.5 h-5 w-px shrink-0 bg-[#e5e7eb]" /> : null}
@@ -808,6 +856,8 @@ export function RichTextEditor({
             {extraTools(api)}
           </>
         ) : null}
+        </div>
+        {toolbarEnd ? <div className="flex shrink-0 items-center self-stretch border-l border-[#eef0f2] px-1">{toolbarEnd}</div> : null}
       </div>
 
       {link ? (
@@ -977,10 +1027,11 @@ export function RichTextEditor({
           onDrop={onDrop}
           onClick={onFieldClick}
           className={cn(
-            "rich-text-content storelib-prose overflow-y-auto overscroll-contain px-3.5 py-3 text-[16px] leading-[1.6] text-[#1a1a2e] outline-none sm:text-[15px]",
+            "rich-text-content storelib-prose px-3.5 py-3 text-[16px] leading-[1.6] text-[#1a1a2e] outline-none sm:text-[15px]",
             /* Tall enough to write in; short enough that on a phone the
-               toolbar and the caret both stay above the keyboard. */
-            "max-h-[320px] sm:max-h-[480px]",
+               toolbar and the caret both stay above the keyboard. A field
+               that grows leaves the scrolling to the page. */
+            grow ? null : "max-h-[320px] overflow-y-auto overscroll-contain sm:max-h-[480px]",
             "[overflow-wrap:anywhere] [-webkit-user-select:text] [user-select:text]",
           )}
           style={{ minHeight }}

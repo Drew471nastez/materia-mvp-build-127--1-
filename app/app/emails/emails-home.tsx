@@ -5,18 +5,29 @@
  *  EMAILS, IN THE SAME LANGUAGE AS ORDERS AND ANALYTICS
  * ===========================================================================
  * The list screen of /app/emails: subscribers, automations and the emails
- * sent, scheduled and drafted. It was its own dialect: pill tabs with an
- * icon each, a grid of stat boxes, a card per automation, a stack of rows
- * for emails. Everything here is drawn with the Orders page's parts
- * (app/app/orders/order-parts.tsx): the pane's bar, one card with the views
- * as tabs and a search in its toolbar, a dense table whose first column
- * stays put on a phone, a metrics strip above it, and each row's actions in
+ * sent, scheduled and drafted, drawn with the Orders page's parts
+ * (app/app/orders/order-parts.tsx): the pane's bar, a metrics strip, a dense
+ * table whose first column stays put on a phone, and each row's actions in
  * the menu that is a dropdown on a desktop and a sheet on a phone.
  *
- * It owns nothing. The data, the loading and every action stay in page.tsx,
- * which also draws the editors this screen opens.
+ * THE BAR HOLDS STILL. The title, New automation and New email, and the
+ * five tabs are all in the pane's bar, which is never unmounted and never
+ * changes height, so switching tabs moves nothing above the content: the
+ * tab row keeps its own sideways scroll on a phone, and only what is under
+ * the bar changes.
+ *
+ * A ROW ANSWERS THE FINGER. Every row that opens something darkens while it
+ * is pressed, and starts reading what it opens as the pointer arrives on it
+ * (or the finger touches it), so the page is ready by the time the click
+ * lands: an email's page (read ahead into the cache), a draft or an
+ * automation (the route prefetched).
+ *
+ * It owns no data. The reads, the cache and every action are in
+ * app/app/emails/emails-client.tsx.
  */
 import * as React from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { ChevronDown, Download, Plus, Search, X } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { DateRangePicker } from "@/components/app/date-range-picker"
@@ -25,12 +36,13 @@ import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/respo
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { NOT_RECORDED, sourceView } from "@/lib/contacts/contact-source"
 import { TRIGGERS, isTriggerType, normalizeSteps, stepSummary } from "@/lib/automations/flow-model"
-import { ContactDetail, contactReady, prefetchContact } from "./contact-detail"
+import { ContactDetail, contactReady, contactStatusLabel, prefetchContact } from "./contact-detail"
 import type { RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
 import { ShimmerBlock, ShimmerRows, ShimmerSwap } from "@/components/ui/shimmer"
 import { ScrollEdge } from "@/components/app/scroll-edge"
 import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
+import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
 
 export type EmailsTab = "subscribers" | "flows" | "published" | "scheduled" | "drafts"
 
@@ -69,9 +81,12 @@ export interface FlowRow {
 export interface CampaignRow {
   id: string
   subject: string
+  /** Where its send is: queued, sending, sent, partially_failed, failed, cancelled. */
+  status?: string
   sent_at?: string
   scheduled_at?: string
   created_at: string
+  updated_at?: string
   recipient_count?: number
   audience_count?: number
   unique_opens?: number
@@ -90,8 +105,10 @@ export interface OverviewStats {
 export interface EmailsHomeProps {
   tab: EmailsTab
   onTab: (tab: EmailsTab) => void
+  /** A pointer resting on a tab: its data can be read ahead. */
+  onTabIntent?: (tab: EmailsTab) => void
+  /** Nothing to show for this tab yet. */
   loading: boolean
-  onNewEmail: () => void
 
   subscribers: SubscriberRow[]
   /** Buyers who are not on the list, counted as reachable from the store. */
@@ -103,18 +120,16 @@ export interface EmailsHomeProps {
   onRemoveSubscriber: (id: string) => void
 
   flows: FlowRow[]
-  onCreateFlow: () => void
-  onEditFlow: (flow: FlowRow) => void
   onToggleFlow: (flow: FlowRow) => void
   onDeleteFlow: (id: string) => void
 
   campaigns: CampaignRow[]
+  /** Opens a sent or scheduled email's page over the list. */
   onOpenCampaign: (campaign: CampaignRow) => void
-  onViewStats: (campaign: CampaignRow) => void
-  onResend: (campaign: CampaignRow) => void
-  onEditCampaign: (campaign: CampaignRow) => void
+  /** A pointer arriving on a row, or a finger touching it: read what it opens. */
+  onCampaignIntent: (campaign: CampaignRow) => void
+  onDuplicateCampaign: (campaign: CampaignRow) => void
   onDeleteCampaign: (id: string) => void
-  isSending: boolean
 
   overview: OverviewStats | null
   usage: { sent: number; limit: number }
@@ -123,7 +138,7 @@ export interface EmailsHomeProps {
   today: string
 }
 
-const TABS: { id: EmailsTab; label: string }[] = [
+export const TABS: { id: EmailsTab; label: string }[] = [
   { id: "subscribers", label: "Subscribers" },
   { id: "flows", label: "Automations" },
   { id: "published", label: "Sent" },
@@ -153,36 +168,67 @@ function rate(part: number, whole: number): string {
   return `${Math.round((part / whole) * 1000) / 10}%`
 }
 
+/**
+ * A row that opens something: darker while pressed, by mouse or finger.
+ * `data-pressed` covers a quick tap that :active alone can miss on iOS, and
+ * is cleared when the finger lifts, slides off or scrolls the list.
+ */
+function usePress() {
+  const [pressed, setPressed] = React.useState<string | null>(null)
+  const hover = React.useRef(0)
+  const bind = (id: string, intent?: () => void) => ({
+    "data-pressed": pressed === id ? "true" : undefined,
+    onPointerDown: (e: React.PointerEvent) => {
+      intent?.()
+      if ((e.target as HTMLElement).closest("button, input, [role=switch], [role=menu]")) return
+      setPressed(id)
+    },
+    onPointerUp: () => setPressed(null),
+    onPointerLeave: () => {
+      window.clearTimeout(hover.current)
+      setPressed(null)
+    },
+    onPointerCancel: () => setPressed(null),
+    /* A pointer resting on the row, as on Orders' rows: passing over it asks for nothing. */
+    onPointerEnter: (e: React.PointerEvent) => {
+      if (!intent || e.pointerType !== "mouse") return
+      window.clearTimeout(hover.current)
+      hover.current = window.setTimeout(intent, HOVER_PREFETCH_MS)
+    },
+    onTouchStart: intent,
+    onFocus: intent,
+  })
+  return bind
+}
+
+const pressable = "group cursor-pointer transition-colors duration-75 hover:bg-[#fafbfb] active:bg-[#f4f5f7] data-[pressed=true]:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]"
+
 export function EmailsHome(props: EmailsHomeProps) {
   const { tab } = props
   return (
     <>
-      <PaneBar width={LIST_WIDTH} className="flex min-h-[60px] items-center justify-between gap-3 py-2">
-        <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Emails</h1>
-        <div className="flex items-center gap-2">
-          {tab === "flows" ? (
-            <button type="button" className={buttonSecondary} onClick={props.onCreateFlow}>
-              <Plus className="h-4 w-4" />
-              Automation
-            </button>
-          ) : null}
-          <button type="button" className={buttonAccent} onClick={props.onNewEmail}>
-            <Plus className="h-4 w-4" />
-            New email
-          </button>
+      <PaneBar width={LIST_WIDTH} className="pb-1 pt-2">
+        <div className="flex min-h-[48px] items-center justify-between gap-2">
+          <h1 className="shrink-0 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Emails</h1>
+          <div className="flex min-w-0 items-center gap-2">
+            <Link href="/app/emails/flow/new" prefetch className={cn(buttonSecondary, "px-2.5 sm:px-3")} data-new-automation="">
+              <Plus className="hidden h-4 w-4 shrink-0 sm:block" />
+              <span className="sm:hidden">Automation</span>
+              <span className="hidden sm:inline">New automation</span>
+            </Link>
+            <Link href="/app/emails/new" prefetch className={cn(buttonAccent, "px-2.5 sm:px-3")} data-new-email="">
+              <Plus className="h-4 w-4 shrink-0" />
+              New email
+            </Link>
+          </div>
         </div>
+        <Tabs tab={tab} onTab={props.onTab} onIntent={props.onTabIntent} />
       </PaneBar>
 
-      <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
-        {tab === "published" ? (
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <DateRangePicker value={props.period} onChange={props.onPeriod} today={props.today} />
-          </div>
-        ) : null}
-
+      <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER)} data-tab-content={tab}>
         <Metrics {...props} />
 
-        <section aria-label="Emails" className={cn(card, "mt-4 overflow-hidden")}>
+        <section aria-label={TABS.find((t) => t.id === tab)?.label ?? "Emails"} className={cn(card, "mt-4 overflow-hidden")}>
           {tab === "subscribers" ? <SubscribersTable {...props} /> : null}
           {tab === "flows" ? <FlowsTable {...props} /> : null}
           {tab === "published" || tab === "scheduled" || tab === "drafts" ? <CampaignsTable {...props} /> : null}
@@ -192,11 +238,21 @@ export function EmailsHome(props: EmailsHomeProps) {
   )
 }
 
-/* ─── The views, as the Orders page draws them ───────────────────────── */
+/* ─── The tabs, in the bar ───────────────────────────────────────────── */
 
-function Tabs({ tab, onTab }: Pick<EmailsHomeProps, "tab" | "onTab">) {
+function Tabs({ tab, onTab, onIntent }: { tab: EmailsTab; onTab: (t: EmailsTab) => void; onIntent?: (t: EmailsTab) => void }) {
+  const stripRef = React.useRef<HTMLDivElement>(null)
+  /* The chosen tab scrolled into view on a phone, without moving the page. */
+  React.useLayoutEffect(() => {
+    const strip = stripRef.current
+    const el = strip?.querySelector<HTMLElement>(`[data-tab="${tab}"]`)
+    if (!strip || !el) return
+    const left = el.offsetLeft - strip.offsetLeft
+    if (left < strip.scrollLeft) strip.scrollLeft = left - 8
+    else if (left + el.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = left + el.offsetWidth - strip.clientWidth + 8
+  }, [tab])
   return (
-    <div role="tablist" aria-label="Views" className="orders-strip -my-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto py-2">
+    <div ref={stripRef} role="tablist" aria-label="Views" className="orders-strip -mx-1 flex h-11 items-center gap-0.5 overflow-x-auto px-1" data-email-tabs="">
       {TABS.map((t) => {
         const active = t.id === tab
         return (
@@ -204,27 +260,20 @@ function Tabs({ tab, onTab }: Pick<EmailsHomeProps, "tab" | "onTab">) {
             key={t.id}
             type="button"
             role="tab"
+            data-tab={t.id}
             aria-selected={active}
             onClick={() => onTab(t.id)}
+            onPointerEnter={() => onIntent?.(t.id)}
+            onTouchStart={() => onIntent?.(t.id)}
             className={cn(
-              "h-8 shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100",
-              active ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
+              "h-8 shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100 [-webkit-tap-highlight-color:transparent]",
+              active ? "bg-[#e8e9ec] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#eef0f2] active:bg-[#e8e9ec]",
             )}
           >
             {t.label}
           </button>
         )
       })}
-    </div>
-  )
-}
-
-/** The card's top row: the views, and whatever this view can do. */
-function Toolbar({ children, ...tabs }: Pick<EmailsHomeProps, "tab" | "onTab"> & { children?: React.ReactNode }) {
-  return (
-    <div className="flex h-12 items-center gap-2 border-b border-[#eef0f2] px-2">
-      <Tabs {...tabs} />
-      {children}
     </div>
   )
 }
@@ -238,27 +287,42 @@ interface Reading {
   note?: string
 }
 
+/**
+ * ONE STRIP, THE SAME HEIGHT ON EVERY TAB, so the table under it starts at
+ * the same place whichever tab is open and nothing below the bar moves
+ * because of a tab switch alone. The Sent tab's period is the strip's first
+ * cell, not a row of its own above it.
+ */
 function Metrics(props: EmailsHomeProps) {
   const readings = readingsFor(props)
-  /* Whether the figures were waited for, so they fade in when they come. */
-  const [waited, setWaited] = React.useState(props.loading)
-  if (props.loading && !waited) setWaited(true)
-  if (readings.length === 0) return null
+  /* Figures that were waited for fade in when they come; a tab read from
+     the cache draws its figures at once. */
+  const [waitedOn, setWaitedOn] = React.useState<EmailsTab | null>(props.loading ? props.tab : null)
+  if (props.loading && waitedOn !== props.tab) setWaitedOn(props.tab)
+  if (!props.loading && waitedOn !== null && waitedOn !== props.tab) setWaitedOn(null)
+  const waited = waitedOn === props.tab
   return (
     <section aria-label="Email metrics" className={cn(card, "mt-4 overflow-hidden")}>
       <div className="orders-strip flex overflow-x-auto">
+        {props.tab === "published" ? (
+          <div className="flex min-w-[150px] shrink-0 flex-col px-4 py-3">
+            <span className="text-[12px] font-medium text-[#4b5563]">Period</span>
+            <div className="mt-1 flex h-6 items-center">
+              <DateRangePicker value={props.period} onChange={props.onPeriod} today={props.today} className="-ml-1.5 h-7 px-1.5" />
+            </div>
+          </div>
+        ) : null}
         {readings.map((r, i) => (
-          <div key={r.label} className={cn("flex min-w-[140px] flex-1 shrink-0 flex-col px-4 py-3", i > 0 && "border-l border-[#eef0f2]")}>
-            <HelpLabel label={r.label} description={r.help} className="text-[12px] font-medium text-[#4b5563]" />
+          <div key={r.label} className={cn("flex min-w-[140px] flex-1 shrink-0 flex-col px-4 py-3", (i > 0 || props.tab === "published") && "border-l border-[#eef0f2]")}>
+            <HelpLabel label={r.label} description={r.help} className="whitespace-nowrap text-[12px] font-medium text-[#4b5563]" />
             <div className="mt-1 flex h-6 items-baseline gap-2">
-              {/* A light gray shape until the figure is in, where a dash stood
-                  and then turned into the number. */}
+              {/* A light gray shape until the figure is in. */}
               {props.loading ? (
                 <ShimmerBlock className="shimmer-wait h-3.5 w-12 self-center rounded-full" />
               ) : (
-                <span className={cn("text-[16px] font-semibold tabular-nums text-[#1a1a2e]", waited && "shimmer-enter")}>{r.value}</span>
+                <span className={cn("truncate text-[16px] font-semibold tabular-nums text-[#1a1a2e]", waited && "shimmer-enter")}>{r.value}</span>
               )}
-              {r.note && !props.loading ? <span className="text-[12px] tabular-nums text-[#6b7280]">{r.note}</span> : null}
+              {r.note && !props.loading ? <span className={cn("truncate text-[12px] tabular-nums text-[#6b7280]", waited && "shimmer-enter")}>{r.note}</span> : null}
             </div>
           </div>
         ))}
@@ -278,11 +342,15 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
     const fromSites = on.filter((s) => surface(s) === "website").length
     const fromStorelib = on.filter((s) => ["profile", "product", "onepage"].includes(surface(s))).length
     const fromCheckout = on.filter((s) => surface(s) === "checkout").length
+    /* Buyers who never asked for news: the ones kept as contacts, and the
+       ones who bought before contacts were kept (checkoutBuyersCount). */
+    const customers = p.subscribers.filter((s) => s.status === "customer").length + p.checkoutBuyersCount
     return [
-      { label: "Subscribers", help: "Everyone who gets your emails: people who signed up, and buyers.", value: n(on.length + p.checkoutBuyersCount) },
+      { label: "Subscribers", help: "People on your list. Your emails go to them.", value: n(on.length) },
       { label: "From your website", help: "People who signed up on a website you built with Storelib.", value: n(fromSites) },
       { label: "From Storelib", help: "People who signed up on your Storelib profile, a product page or your OnePage.", value: n(fromStorelib) },
       { label: "At checkout", help: "Buyers who asked to hear from you when they paid.", value: n(fromCheckout) },
+      { label: "Customers", help: "Buyers who did not ask for news. They get emails about what they bought, never one you send to your list.", value: n(customers) },
       { label: "Unsubscribed", help: "People who asked to stop getting your emails. They are never sent another.", value: n(p.subscribers.filter((s) => s.status === "unsubscribed").length) },
     ]
   }
@@ -296,21 +364,33 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
       { label: "Open rate", help: "Of the emails your automations sent, how many were opened. Some mail apps hide opens, so this is a floor.", value: sent ? `${Math.round((sum("opened") / sent) * 1000) / 10}%` : "–" },
     ]
   }
-  /* While the first answer is on its way the row is there already, its
-     figures in light gray, so it does not arrive with them and push the
-     table down. */
-  if (p.tab === "published" && (p.overview || p.loading)) {
-    const o = p.overview ?? { total_sent: 0, open_rate: 0, total_opened: 0, click_rate: 0, total_clicked: 0, total_unsubscribed: 0 }
+  if (p.tab === "published") {
+    /* While the answer is on its way the figures are light gray shapes
+       (Metrics). An answer without them says so with a dash, never a zero
+       that was not counted. */
+    const o = p.overview
     const used = p.usage.limit > 0 ? Math.min(100, Math.round((p.usage.sent / p.usage.limit) * 100)) : 0
     return [
-      { label: "Sent", help: "Emails delivered to subscribers in this period.", value: n(o.total_sent) },
-      { label: "Open rate", help: "Of the emails sent in this period, how many were opened.", value: `${o.open_rate}%`, note: n(o.total_opened) },
-      { label: "Click rate", help: "Of the emails sent in this period, how many had a link clicked.", value: `${o.click_rate}%`, note: n(o.total_clicked) },
-      { label: "Unsubscribed", help: "People who unsubscribed from an email sent in this period.", value: n(o.total_unsubscribed) },
+      { label: "Sent", help: "Emails delivered to subscribers in this period.", value: o ? n(o.total_sent) : "–" },
+      { label: "Open rate", help: "Of the emails sent in this period, how many were opened.", value: o ? `${o.open_rate}%` : "–", note: o ? n(o.total_opened) : undefined },
+      { label: "Click rate", help: "Of the emails sent in this period, how many had a link clicked.", value: o ? `${o.click_rate}%` : "–", note: o ? n(o.total_clicked) : undefined },
+      { label: "Unsubscribed", help: "People who unsubscribed from an email sent in this period.", value: o ? n(o.total_unsubscribed) : "–" },
       { label: "This month", help: "Emails sent this calendar month, against your plan's monthly limit.", value: n(p.usage.sent), note: `of ${n(p.usage.limit)} · ${used}%` },
     ]
   }
-  return []
+  if (p.tab === "scheduled") {
+    const next = p.campaigns.map((c) => c.scheduled_at).filter((x): x is string => !!x).sort()[0]
+    return [
+      { label: "Scheduled", help: "Emails waiting to go out.", value: n(p.campaigns.length) },
+      { label: "Next goes out", help: "When the next scheduled email is sent.", value: next ? formatWhen(next) : "–" },
+      { label: "Recipients", help: "About how many people the scheduled emails go to, counted when each was scheduled.", value: n(p.campaigns.reduce((t, c) => t + (c.audience_count ?? 0), 0)) },
+    ]
+  }
+  const last = p.campaigns.map((c) => c.updated_at ?? c.created_at).filter(Boolean).sort().at(-1)
+  return [
+    { label: "Drafts", help: "Emails you started and have not sent.", value: n(p.campaigns.length) },
+    { label: "Last edited", help: "When a draft was last changed.", value: last ? formatDay(last) : "–" },
+  ]
 }
 
 /* ─── Tables ─────────────────────────────────────────────────────────── */
@@ -319,11 +399,12 @@ const th = "h-9 whitespace-nowrap px-3 text-left text-[12px] font-medium text-[#
 const td = "h-12 whitespace-nowrap px-3 text-[13px] text-[#1a1a2e]"
 /**
  * The first column holds still while the rest scrolls under it, on a phone,
- * on the row's own opaque colour (hover included) so nothing shows through
- * it. Its cells carry `data-scroll-edge`: the table's frame draws the shadow
- * at their right side once the rows have moved (components/app/scroll-edge).
+ * on the row's own opaque colour (hover and press included) so nothing shows
+ * through it. Its cells carry `data-scroll-edge`: the table's frame draws the
+ * shadow at their right side once the rows have moved
+ * (components/app/scroll-edge).
  */
-const sticky = "sticky left-0 z-[1] bg-white group-hover:bg-[#fafbfb] group-active:bg-[#f4f5f7]"
+const sticky = "orders-sticky sticky left-0 z-[1] bg-white transition-colors duration-75 group-hover:bg-[#fafbfb] group-active:bg-[#f4f5f7] group-data-[pressed=true]:bg-[#f4f5f7]"
 const stickyHead = "sticky left-0 z-[1] bg-[#fafbfb]"
 
 function Empty({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
@@ -366,11 +447,26 @@ function Pager({ page, pages, total, onPage }: { page: number; pages: number; to
   )
 }
 
-function SubscriberStatus({ s }: { s: SubscriberRow }) {
-  if (s.status === "subscribed" && s.unsubscribed_at) return <StatusBadge tone="attention">Resubscribed</StatusBadge>
-  if (s.status === "subscribed") return <StatusBadge tone="success">Subscribed</StatusBadge>
-  return <StatusBadge tone="neutral">Unsubscribed</StatusBadge>
+/** A send that is not simply done says so, in the tone of how much it needs the creator. */
+function SendBadge({ status }: { status?: string }) {
+  if (status === "queued" || status === "sending") return <StatusBadge tone="attention">Sending</StatusBadge>
+  if (status === "partially_failed") return <StatusBadge tone="critical">Partly sent</StatusBadge>
+  if (status === "failed") return <StatusBadge tone="critical">Not sent</StatusBadge>
+  if (status === "cancelled") return <StatusBadge tone="neutral">Stopped</StatusBadge>
+  return null
 }
+
+function SubscriberStatus({ s }: { s: SubscriberRow }) {
+  const label = contactStatusLabel(s)
+  return <StatusBadge tone={label === "Resubscribed" ? "attention" : label === "Subscribed" ? "success" : "neutral"}>{label}</StatusBadge>
+}
+
+/** The Status filter's groups: a customer is its own, bounced and spam go with the ones who left. */
+const STATUS_GROUPS: Array<{ value: string; label: string; match: (status: string) => boolean }> = [
+  { value: "subscribed", label: "Subscribed", match: (s) => s === "subscribed" },
+  { value: "customer", label: "Customers", match: (s) => s === "customer" },
+  { value: "unsubscribed", label: "Unsubscribed", match: (s) => s !== "subscribed" && s !== "customer" },
+]
 
 /** A filter as a chip in the table's toolbar, the way Orders draws its own. */
 function FilterChip({
@@ -432,18 +528,24 @@ function SubscribersTable(props: EmailsHomeProps) {
   const [searching, setSearching] = React.useState(props.search !== "")
   const [page, setPage] = React.useState(1)
   const [source, setSource] = React.useState("")
+  const [status, setStatus] = React.useState("")
   const [open, setOpen] = React.useState<SubscriberRow | null>(null)
+  const press = usePress()
   /*
     A contact's sheet rises with its content already in it: the tap waits
     for the contact's automation runs (asked for when the finger landed), at
-    most a moment, and then opens it (./contact-detail). The latest tap wins.
+    most a moment, and then opens it (./contact-detail). The row stays
+    pressed while it waits. The latest tap wins.
   */
   const opening = React.useRef<SubscriberRow | null>(null)
+  const [waiting, setWaiting] = React.useState<string | null>(null)
   const openContact = (s: SubscriberRow) => {
     opening.current = s
+    setWaiting(s.id)
     void contactReady(s.email).then(() => {
       if (opening.current !== s) return
       opening.current = null
+      setWaiting(null)
       setOpen(s)
     })
   }
@@ -469,66 +571,81 @@ function SubscribersTable(props: EmailsHomeProps) {
       props.subscribers.filter(
         (s) =>
           (!q || s.email.toLowerCase().includes(q) || (s.name ?? "").toLowerCase().includes(q)) &&
-          (!source || views.get(s.id)?.key === source),
+          (!source || views.get(s.id)?.key === source) &&
+          (!status || !!STATUS_GROUPS.find((g) => g.value === status)?.match(s.status)),
       ),
-    [props.subscribers, q, source, views],
+    [props.subscribers, q, source, status, views],
   )
-  React.useEffect(() => setPage(1), [q, source])
+  React.useEffect(() => setPage(1), [q, source, status])
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
   const shown = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const sourceName = source ? sources.find((o) => o.value === source)?.label ?? null : null
+  const statuses = React.useMemo(
+    () =>
+      STATUS_GROUPS.map((g) => {
+        const n = props.subscribers.filter((s) => g.match(s.status)).length
+        return { value: g.value, label: g.label, hint: `${n.toLocaleString("en-US")} ${n === 1 ? "contact" : "contacts"}` }
+      }),
+    [props.subscribers],
+  )
+  const statusName = status ? STATUS_GROUPS.find((g) => g.value === status)?.label ?? null : null
 
   return (
     <>
-      {searching ? (
-        <div className="flex h-12 items-center gap-2 border-b border-[#eef0f2] px-2">
-          <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#d5d7dd] bg-white px-2.5 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e]">
-            <Search className="h-4 w-4 shrink-0 text-[#6b7280]" />
-            <input
-              autoFocus
-              type="search"
-              value={props.search}
-              onChange={(e) => props.onSearch(e.target.value)}
-              placeholder="Search by email or name"
-              className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:text-[13px] [&::-webkit-search-cancel-button]:hidden"
-            />
-            {props.search ? (
-              <button type="button" aria-label="Clear search" className="text-[#9ca3af] hover:text-[#4b5563]" onClick={() => props.onSearch("")}>
-                <X className="h-4 w-4" />
-              </button>
-            ) : null}
-          </label>
-          <button
-            type="button"
-            className="h-8 shrink-0 rounded-lg px-2.5 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4]"
-            onClick={() => {
-              props.onSearch("")
-              setSearching(false)
-            }}
-          >
-            Cancel
-          </button>
-        </div>
-      ) : (
-        <Toolbar tab={props.tab} onTab={props.onTab}>
-          <button type="button" aria-label="Search subscribers" className={iconButton} onClick={() => setSearching(true)}>
-            <Search className="h-4 w-4" />
-          </button>
-          <button type="button" aria-label="Export subscribers" className={iconButton} onClick={props.onExportSubscribers}>
-            <Download className="h-4 w-4" />
-          </button>
-        </Toolbar>
-      )}
-
-      {props.subscribers.length > 0 ? (
-        <div className="orders-strip flex items-center gap-2 overflow-x-auto border-b border-[#eef0f2] px-3 py-2">
-          <FilterChip label="Source" value={sourceName} options={[{ value: "", label: "Any source" }, ...sources]} selected={source} onSelect={setSource} />
-        </div>
-      ) : null}
+      {/* One toolbar row, always the same height: the source filter and the tools, or the search. */}
+      <div className="flex h-12 items-center gap-2 border-b border-[#eef0f2] px-2">
+        {searching ? (
+          <>
+            <label className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#d5d7dd] bg-white px-2.5 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_1px_#1a1a2e]">
+              <Search className="h-4 w-4 shrink-0 text-[#6b7280]" />
+              <input
+                autoFocus
+                type="search"
+                value={props.search}
+                onChange={(e) => props.onSearch(e.target.value)}
+                placeholder="Search by email or name"
+                className="min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:text-[13px] [&::-webkit-search-cancel-button]:hidden"
+              />
+              {props.search ? (
+                <button type="button" aria-label="Clear search" className="text-[#9ca3af] hover:text-[#4b5563]" onClick={() => props.onSearch("")}>
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </label>
+            <button
+              type="button"
+              className="h-8 shrink-0 rounded-lg px-2.5 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4]"
+              onClick={() => {
+                props.onSearch("")
+                setSearching(false)
+              }}
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="orders-strip flex min-w-0 flex-1 items-center gap-2 overflow-x-auto px-1">
+              {props.subscribers.length > 0 ? (
+                <>
+                  <FilterChip label="Status" value={statusName} options={[{ value: "", label: "Any status" }, ...statuses]} selected={status} onSelect={setStatus} />
+                  <FilterChip label="Source" value={sourceName} options={[{ value: "", label: "Any source" }, ...sources]} selected={source} onSelect={setSource} />
+                </>
+              ) : null}
+            </div>
+            <button type="button" aria-label="Search subscribers" className={iconButton} onClick={() => setSearching(true)}>
+              <Search className="h-4 w-4" />
+            </button>
+            <button type="button" aria-label="Export subscribers" className={iconButton} onClick={props.onExportSubscribers}>
+              <Download className="h-4 w-4" />
+            </button>
+          </>
+        )}
+      </div>
 
       <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
         {props.loading ? null : rows.length === 0 ? (
-          q || source ? (
+          q || source || status ? (
             <Empty title="No subscribers match" body="Try another email or name, or another source." />
           ) : (
             <Empty title="No subscribers yet" body="People who sign up on your website, your Storelib profile or your OnePage show up here, and so do buyers who ask to hear from you." />
@@ -542,7 +659,7 @@ function SubscribersTable(props: EmailsHomeProps) {
                   <th className={th}>Name</th>
                   <th className={th}>Source</th>
                   <th className={th}>Status</th>
-                  <th className={th}>Subscribed</th>
+                  <th className={th}>Added</th>
                   <th className={cn(th, "w-12")} aria-label="Actions" />
                 </tr>
               </thead>
@@ -553,16 +670,10 @@ function SubscribersTable(props: EmailsHomeProps) {
                     <tr
                       key={s.id}
                       data-contact-row=""
-                      className="group cursor-pointer hover:bg-[#fafbfb] active:bg-[#f4f5f7]"
-                      onPointerDown={() => prefetchContact(s.email)}
-                      onPointerEnter={(e) => {
-                        if (e.pointerType !== "mouse") return
-                        const row = e.currentTarget
-                        window.clearTimeout(Number(row.dataset.prefetch))
-                        row.dataset.prefetch = String(window.setTimeout(() => prefetchContact(s.email), 80))
-                      }}
-                      onPointerLeave={(e) => window.clearTimeout(Number(e.currentTarget.dataset.prefetch))}
+                      className={pressable}
                       onClick={() => openContact(s)}
+                      {...press(s.id, () => prefetchContact(s.email))}
+                      {...(waiting === s.id ? { "data-pressed": "true" } : null)}
                     >
                       <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}><span className="block max-w-[180px] truncate sm:max-w-[260px]">{s.email}</span></td>
                       <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[180px] truncate">{s.name || "–"}</span></td>
@@ -605,19 +716,21 @@ function SubscribersTable(props: EmailsHomeProps) {
 }
 
 function FlowsTable(props: EmailsHomeProps) {
+  const router = useRouter()
+  const press = usePress()
+  const href = (f: FlowRow) => `/app/emails/flow/${f.id}`
   return (
     <>
-      <Toolbar tab={props.tab} onTab={props.onTab} />
       <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
         {props.loading ? null : props.flows.length === 0 ? (
           <Empty
             title="No automations yet"
             body="Start from a welcome series, a thank you after a purchase, or your own. Each one is off until you turn it on."
             action={
-              <button type="button" className={buttonAccent} onClick={props.onCreateFlow}>
+              <Link href="/app/emails/flow/new" prefetch className={buttonAccent}>
                 <Plus className="h-4 w-4" />
                 Create an automation
-              </button>
+              </Link>
             }
           />
         ) : (
@@ -641,10 +754,12 @@ function FlowsTable(props: EmailsHomeProps) {
                   const on = f.status === "active"
                   const t = f.totals
                   return (
-                    <tr key={f.id} className="group cursor-pointer hover:bg-[#fafbfb] active:bg-[#f4f5f7]" onClick={() => props.onEditFlow(f)}>
+                    <tr key={f.id} className={pressable} data-flow-row={f.id} onClick={() => router.push(href(f))} {...press(f.id, () => router.prefetch(href(f)))}>
                       <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}>
                         <span className="flex max-w-[180px] items-center gap-2 sm:max-w-[260px]">
-                          <span className="truncate">{f.name}</span>
+                          <Link href={href(f)} prefetch={false} className="truncate outline-none focus-visible:underline" onClick={(e) => e.stopPropagation()}>
+                            {f.name}
+                          </Link>
                           {t && t.failed > 0 ? <StatusBadge tone="critical">{t.failed} failed</StatusBadge> : null}
                         </span>
                       </td>
@@ -662,7 +777,7 @@ function FlowsTable(props: EmailsHomeProps) {
                           align="end"
                           trigger={<RowMenuButton label={`Actions for ${f.name}`} />}
                           items={[
-                            { label: "Edit", onClick: () => props.onEditFlow(f) },
+                            { label: "Edit", onClick: () => router.push(href(f)) },
                             { label: on ? "Turn off" : "Turn on", onClick: () => props.onToggleFlow(f) },
                             { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteFlow(f.id) },
                           ]}
@@ -682,7 +797,10 @@ function FlowsTable(props: EmailsHomeProps) {
 
 function CampaignsTable(props: EmailsHomeProps) {
   const { tab } = props
+  const router = useRouter()
+  const press = usePress()
   const sent = tab === "published"
+  const drafts = tab === "drafts"
   const [page, setPage] = React.useState(1)
   React.useEffect(() => setPage(1), [tab])
   const pages = Math.max(1, Math.ceil(props.campaigns.length / PAGE_SIZE))
@@ -693,19 +811,19 @@ function CampaignsTable(props: EmailsHomeProps) {
       : tab === "scheduled"
         ? { title: "Nothing scheduled", body: "Write an email and choose when it goes out, and it waits here until then." }
         : { title: "No drafts", body: "An email you start and do not send yet is kept here." }
+  const open = (c: CampaignRow) => (drafts ? router.push(`/app/emails/edit/${c.id}`) : props.onOpenCampaign(c))
 
   return (
     <>
-      <Toolbar tab={tab} onTab={props.onTab} />
       <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
         {props.loading ? null : props.campaigns.length === 0 ? (
           <Empty
             {...empty}
             action={
-              <button type="button" className={buttonSecondary} onClick={props.onNewEmail}>
+              <Link href="/app/emails/new" prefetch className={buttonSecondary}>
                 <Plus className="h-4 w-4" />
                 New email
-              </button>
+              </Link>
             }
           />
         ) : (
@@ -714,7 +832,7 @@ function CampaignsTable(props: EmailsHomeProps) {
               <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
                 <tr>
                   <th data-scroll-edge="" className={cn(th, stickyHead)}>Subject</th>
-                  <th className={th}>{sent ? "Sent" : tab === "scheduled" ? "Goes out" : "Started"}</th>
+                  <th className={th}>{sent ? "Sent" : tab === "scheduled" ? "Goes out" : "Edited"}</th>
                   <th className={cn(th, "text-right")}>Recipients</th>
                   {sent ? <th className={cn(th, "text-right")}>Opened</th> : null}
                   {sent ? <th className={cn(th, "text-right")}>Clicked</th> : null}
@@ -725,34 +843,38 @@ function CampaignsTable(props: EmailsHomeProps) {
                 {shown.map((c) => {
                   const recipients = c.recipient_count || c.audience_count || 0
                   const resent = /\(Resend\)/.test(c.subject ?? "")
-                  const items: ActionMenuItem[] = sent
+                  const title = (c.subject ?? "").replace(/\s*\(Resend\)\s*$/, "") || "Untitled"
+                  const items: ActionMenuItem[] = drafts
                     ? [
-                        { label: "View results", onClick: () => props.onViewStats(c) },
-                        { label: props.isSending ? "Sending…" : "Send again", onClick: () => { if (!props.isSending) props.onResend(c) } },
+                        { label: "Edit", onClick: () => open(c) },
+                        { label: "Duplicate", onClick: () => props.onDuplicateCampaign(c) },
                         { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) },
                       ]
                     : [
-                        { label: "Edit", onClick: () => props.onEditCampaign(c) },
-                        { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) },
+                        { label: sent ? "View results" : "Open", onClick: () => open(c) },
+                        ...(tab === "scheduled" ? [{ label: "Edit", onClick: () => router.push(`/app/emails/edit/${c.id}`) }] : []),
+                        { label: "Duplicate", onClick: () => props.onDuplicateCampaign(c) },
+                        ...(c.status === "queued" || c.status === "sending" ? [] : [{ label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) }]),
                       ]
                   return (
-                    <tr key={c.id} className="group cursor-pointer hover:bg-[#fafbfb] active:bg-[#f4f5f7]" onClick={() => props.onOpenCampaign(c)}>
+                    <tr key={c.id} className={cn("orders-row", pressable)} data-campaign-row={c.id} data-order-id={c.id} onClick={() => open(c)} {...press(c.id, () => props.onCampaignIntent(c))}>
                       <td data-scroll-edge="" className={cn(td, sticky)}>
                         {/* The limit is on the span: a table cell's own max-width is ignored.
                             Narrow on a phone, so the columns scrolling under it still show. */}
                         <span className="flex min-w-0 max-w-[180px] items-center gap-2 sm:max-w-[320px]">
-                          <span className="truncate font-medium">{(c.subject ?? "").replace(/\s*\(Resend\)\s*$/, "") || "Untitled"}</span>
+                          <span className="truncate font-medium">{title}</span>
                           {resent ? <StatusBadge tone="neutral">Sent again</StatusBadge> : null}
+                          {sent ? <SendBadge status={c.status} /> : null}
                         </span>
                       </td>
                       <td className={cn(td, "tabular-nums text-[#4b5563]")}>
-                        {sent ? formatDay(c.sent_at) : tab === "scheduled" ? formatWhen(c.scheduled_at) : formatDay(c.created_at)}
+                        {sent ? formatDay(c.sent_at) : tab === "scheduled" ? formatWhen(c.scheduled_at) : formatDay(c.updated_at ?? c.created_at)}
                       </td>
                       <td className={cn(td, "text-right tabular-nums")}>{recipients ? recipients.toLocaleString("en-US") : "–"}</td>
                       {sent ? <td className={cn(td, "text-right tabular-nums")}>{rate(c.unique_opens ?? 0, recipients)}</td> : null}
                       {sent ? <td className={cn(td, "text-right tabular-nums")}>{rate(c.unique_clicks ?? 0, recipients)}</td> : null}
                       <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
-                        <ResponsiveActionMenu title={c.subject} align="end" trigger={<RowMenuButton label={`Actions for ${c.subject}`} />} items={items} />
+                        <ResponsiveActionMenu title={title} align="end" trigger={<RowMenuButton label={`Actions for ${title}`} />} items={items} />
                       </td>
                     </tr>
                   )

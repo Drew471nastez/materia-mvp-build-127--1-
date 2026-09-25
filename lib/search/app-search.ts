@@ -310,8 +310,19 @@ async function readEmails(db: Db, creatorId: string, q: string): Promise<SearchH
     id: text(r.id),
     title: text(r.subject) || "No subject",
     detail: sentenceCase(text(r.status)) || "Email",
-    href: `/app/emails/edit/${encodeURIComponent(text(r.id))}`,
+    href: emailHref(text(r.id), text(r.status)),
   }))
+}
+
+/**
+ * Where an email opens: a draft in the composer, anything scheduled or sent
+ * on its own page over the list it belongs to (app/app/emails/emails-client.tsx),
+ * the way a row on the Emails page opens it.
+ */
+export function emailHref(id: string, status: string): string {
+  const key = encodeURIComponent(id)
+  if (status === "draft" || status === "") return `/app/emails/edit/${key}`
+  return `/app/emails?tab=${status === "scheduled" ? "scheduled" : "published"}&email=${key}`
 }
 
 const FLOW_STATE: Record<string, string> = { active: "On", paused: "Paused", draft: "Draft" }

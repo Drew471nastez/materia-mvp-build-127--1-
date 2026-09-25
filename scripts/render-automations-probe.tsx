@@ -130,7 +130,6 @@ function Subscribers() {
         tab={tab}
         onTab={setTab}
         loading={false}
-        onNewEmail={() => {}}
         subscribers={subscribers}
         checkoutBuyersCount={3}
         search={search}
@@ -142,17 +141,13 @@ function Subscribers() {
           { id: "f1", name: "Welcome series", trigger_type: "new_subscriber", status: "active", steps: welcome.steps, totals: { sent: 792, opened: 441, clicked: 80, failed: 2, in_progress: 14 } },
           { id: "f2", name: "Bring buyers back", trigger_type: "purchase", status: "paused", steps: winBack.steps, totals: null },
         ]}
-        onCreateFlow={() => {}}
-        onEditFlow={() => {}}
         onToggleFlow={() => {}}
         onDeleteFlow={() => {}}
         campaigns={[]}
         onOpenCampaign={() => {}}
-        onViewStats={() => {}}
-        onResend={() => {}}
-        onEditCampaign={() => {}}
+        onCampaignIntent={() => {}}
+        onDuplicateCampaign={() => {}}
         onDeleteCampaign={() => {}}
-        isSending={false}
         overview={null}
         usage={{ sent: 0, limit: 3000 }}
         period={period}

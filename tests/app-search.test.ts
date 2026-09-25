@@ -20,6 +20,7 @@ import {
   GROUP_LIMIT,
   containsPattern,
   customerHref,
+  emailHref,
   escapeLike,
   isSearchable,
   normalizeQuery,
@@ -283,7 +284,9 @@ async function main() {
   {
     const r = await searchCreator(fakeDb(world()), A, "launch")
     check("the product opens its editor", r.groups.products[0]?.href === "/app/products/pa1" && r.groups.products[0]?.detail === "Published · $29.00", r.groups.products[0])
-    check("the email opens in the editor", r.groups.emails[0]?.href === "/app/emails/edit/ea1" && r.groups.emails[0]?.detail === "Sent", r.groups.emails[0])
+    check("a sent email opens on its own page over the Sent list", r.groups.emails[0]?.href === "/app/emails?tab=published&email=ea1" && r.groups.emails[0]?.detail === "Sent", r.groups.emails[0])
+    check("a draft opens in the composer, a scheduled one over the Scheduled list",
+      emailHref("ea2", "draft") === "/app/emails/edit/ea2" && emailHref("es1", "scheduled") === "/app/emails?tab=scheduled&email=es1" && emailHref("ex1", "partially_failed") === "/app/emails?tab=published&email=ex1")
     check("the automation opens its builder", r.groups.automations[0]?.href === "/app/emails/flow/fa1" && r.groups.automations[0]?.detail === "On", r.groups.automations[0])
     const free = await searchCreator(fakeDb(world()), A, "preset pack")
     check("a free draft says so", free.groups.products[0]?.detail === "Draft · Free", free.groups.products[0])
