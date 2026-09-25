@@ -326,6 +326,19 @@ async function main() {
   check("no log line carries the query", logs.length > 0 && logs.every((l) => !/\bq\b|query|rawQuery|body/.test(l)), logs)
   check("no database error text goes back to the browser", !/error\.message|\.message\s*\}/.test(route))
 
+  console.log("\nThe search box")
+  const box = readCode("components/app/app-search.tsx")
+  const shell = readCode("components/app/sidebar.tsx")
+  check("the header mounts the one search component", /<AppSearch ref=\{searchRef\} \/>/.test(shell))
+  check("the old pages-only modal is gone from the sidebar", !/allSearchItems|searchShortcuts|setSearchOpen/.test(shell))
+  check("a phone has a way in: a Search button in its header", /aria-label="Search"[\s\S]{0,80}onClick=\{openSearch\}/.test(shell))
+  check("it asks the search route by POST", /fetch\("\/api\/app\/search", \{\s*method: "POST"/.test(box))
+  check("after a pause, and cancels the request before", /setTimeout\([\s\S]*SEARCH_DEBOUNCE_MS\)/.test(box) && /controller\.abort\(\)/.test(box) && /signal: controller\.signal/.test(box))
+  check("the field is 16px on a phone", /text-\[16px\]/.test(box))
+  check("a combobox over a listbox, for screen readers and the keys", /role="combobox"/.test(box) && /role="listbox"/.test(box) && /aria-activedescendant=/.test(box))
+  check("up, down, Enter and Escape", /"ArrowDown"/.test(box) && /"ArrowUp"/.test(box) && /"Enter"/.test(box) && /"Escape"/.test(box))
+  check("the query is never logged in the browser either", !/console\./.test(box))
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
