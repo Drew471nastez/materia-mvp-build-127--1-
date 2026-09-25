@@ -639,6 +639,7 @@ function FieldEditor({
         max={field.max ?? 100}
         step={field.step ?? 1}
         unit={field.unit ?? ""}
+        label={field.label}
       />
     )
   }
@@ -1873,6 +1874,7 @@ function WbSlider({
         max={max}
         step={step}
         unit={unit}
+        label={label}
       />
     </div>
   )

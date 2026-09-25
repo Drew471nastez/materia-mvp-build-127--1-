@@ -4204,55 +4204,57 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
   background-color: #ffffff;
 }
 
-/* ── Website-builder black slider (SliderNumberControl) ──
-   Overrides the shared shadcn Slider look: filled black range,
-   black thumb with subtle halo on hover/drag, bigger hit area for
-   smooth drag on mobile + desktop.
-
-   IMPORTANT: hide ticks via `:not([data-slot])` instead of `> div`.
-   The base Slider renders SliderPrimitive.Range as a direct <div> child
-   of Track (with data-slot="slider-range"), so `> div` would also hide
-   the filled range — leaving only a blank track. Targeting only
-   divs WITHOUT a data-slot isolates the tick markers cleanly. */
-.wb-black-slider [data-slot="slider-track"] {
-  background-color: #ececec !important;
-  height: 6px !important;
-  border-radius: 999px !important;
-  overflow: hidden !important;
+/* ── The builder's slider (components/website-builder/editor/slider-number-control) ──
+   Drawn from three elements the drag moves by transform alone: the fill
+   (scaleX from the left), the thumb (on a rail one thumb shorter than the
+   track) and the number. Nothing here is laid out again while a finger is
+   down. `--wb-thumb` is the one size both the rail and the thumb read, so
+   the phone sheet can make the thumb bigger in one place (see the sheet's
+   block further down) and the far end is still the far end. */
+.wb-slider {
+  --wb-thumb: 18px;
 }
-.wb-black-slider [data-slot="slider-track"] > div:not([data-slot]) {
-  /* Hide the tick dots Slider adds so the filled range reads cleanly */
-  display: none !important;
+.wb-slider-track {
+  height: 4px;
 }
-.wb-black-slider [data-slot="slider-range"] {
-  background-color: #111111 !important;
-  border-radius: 999px !important;
-  display: block !important;
+/* The fill runs from under the thumb's centre at the left end, so at the
+   start it is hidden by the thumb rather than peeking out behind it. */
+.wb-slider-track::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: calc(var(--wb-thumb) / 2 + 1px);
+  background: #1a1a2e;
 }
-.wb-black-slider [data-slot="slider-thumb"] {
-  width: 20px !important;
-  height: 20px !important;
-  background-color: #111111 !important;
-  border: 3px solid #ffffff !important;
-  border-radius: 9999px !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.06) !important;
-  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1), box-shadow 180ms ease !important;
-  cursor: grab !important;
+.wb-slider-fill {
+  left: calc(var(--wb-thumb) / 2);
+  width: calc(100% - var(--wb-thumb));
+  border-radius: 0;
 }
-.wb-black-slider [data-slot="slider-thumb"]:hover {
-  transform: scale(1.12) !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 6px rgba(0,0,0,0.06) !important;
+.wb-slider-rail {
+  right: var(--wb-thumb);
 }
-.wb-black-slider [data-slot="slider-thumb"]:active,
-.wb-black-slider [data-slot="slider-thumb"][data-state="active"] {
-  transform: scale(1.18) !important;
-  cursor: grabbing !important;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.3), 0 0 0 8px rgba(0,0,0,0.08) !important;
-  transition-duration: 90ms !important;
+.wb-slider-thumb {
+  width: var(--wb-thumb);
+  height: var(--wb-thumb);
+  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.16), 0 1px 3px rgba(17, 24, 39, 0.22);
+  transition: scale 160ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 160ms ease-out;
+  cursor: grab;
 }
-.wb-black-slider [data-slot="slider-thumb"]:focus-visible {
-  outline: none !important;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 6px rgba(0,0,0,0.06) !important;
+.wb-slider [data-slot="slider"]:hover .wb-slider-thumb {
+  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.2), 0 1px 3px rgba(17, 24, 39, 0.22), 0 0 0 5px rgba(26, 26, 46, 0.06);
+}
+.wb-slider[data-dragging] .wb-slider-thumb {
+  scale: 1.12;
+  cursor: grabbing;
+  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.2), 0 2px 6px rgba(17, 24, 39, 0.24), 0 0 0 6px rgba(26, 26, 46, 0.08);
+}
+.wb-slider-thumb:focus-visible {
+  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.2), 0 1px 3px rgba(17, 24, 39, 0.22), 0 0 0 4px rgba(26, 26, 46, 0.18);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-slider-thumb { transition: none; }
 }
 
 /* ── Website-builder Add-Section modal close animation ──
@@ -4834,6 +4836,11 @@ html.pop-in-flight #platform-header-root {
   [data-mobile-bottom-sheet] [data-slot="slider-thumb"] {
     width: 28px;
     height: 28px;
+  }
+  /* The rail the thumb rides is one thumb shorter than the track, so it has
+     to know the thumb grew: the same 28, through the variable it reads. */
+  [data-mobile-bottom-sheet] .wb-slider {
+    --wb-thumb: 28px;
   }
 
   /*
