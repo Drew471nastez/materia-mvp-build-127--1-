@@ -46,7 +46,8 @@
  *   AUDIT=1 node scripts/check-scrollbar-stable.mjs   (the table: every page,
  *     short and long, at 1280, 1440 and 1920: what scrolls it, its gutter, its box)
  *   WIDTHS=1440 ...         one width only
- *   STAGE=<file> ...        measure another copy of components/app/app-stage.tsx
+ *   SWAP=@/components/app/app-stage=<file>,... ...   measure other copies of
+ *     modules (an older commit's) in place of this checkout's
  *   STYLESHEET=<file> ...   measure another copy of app/globals.css (an older
  *     commit's) over this checkout's components
  */
@@ -162,7 +163,7 @@ try {
     `--alias:@/lib/supabase/admin=${join(dir, "admin.js")}`,
     `--alias:@/lib/auth/request-scope=${join(dir, "request-scope.js")}`,
     `--alias:server-only=${join(dir, "admin.js")}`,
-    ...(process.env.STAGE ? [`--alias:@/components/app/app-stage=${process.env.STAGE}`] : []),
+    ...(process.env.SWAP ? process.env.SWAP.split(",").map((pair) => `--alias:${pair}`) : []),
     `--alias:@=${root}`, "--loader:.jsx=jsx", "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
     { stdio: ["ignore", "ignore", "inherit"], env: { ...process.env, NODE_PATH: join(root, "node_modules") } })
 } catch { rmSync(dir, { recursive: true, force: true }); fail("the probe did not bundle") }
