@@ -495,9 +495,8 @@ export function SectionDesignPanel({
               >
                 <span className="shrink-0 whitespace-nowrap font-medium text-foreground">Advanced colors</span>
                 <span className="flex min-w-0 items-center gap-2 text-[12px] text-muted-foreground">
-                  <span className="truncate">
-                    {overridden > 0 ? `${overridden} customized` : "Using scheme"}
-                  </span>
+                  {/* Said only when there is something to say: the scheme is what a section uses unless told otherwise. */}
+                  {overridden > 0 && <span className="truncate">{overridden} changed</span>}
                   <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", customizeOpen && "rotate-180")} />
                 </span>
               </button>

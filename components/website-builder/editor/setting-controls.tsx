@@ -29,7 +29,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type 
 import { AlignCenter, AlignLeft, AlignRight, Check, ChevronDown, PanelBottom, PanelLeft, PanelRight, PanelTop } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useSheetExpand } from "@/components/website-builder/mobile-editor-sheet"
-import { Collapse } from "./collapse"
+import { COLLAPSE_OPEN_MS, Collapse } from "./collapse"
 
 export interface SettingOption {
   label: string
@@ -104,8 +104,14 @@ export function SettingSelect({
     const el = list.current
     const chosen = el?.querySelector<HTMLElement>('[aria-selected="true"]') ?? el?.querySelector<HTMLElement>("[role=option]")
     chosen?.focus({ preventScroll: true })
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => revealInScroller(list.current)))
-    return () => cancelAnimationFrame(id)
+    /*
+      Once it has finished opening, so its height is its real one; and the
+      whole control, trigger and list, so what was pressed stays in view
+      above what it opened (revealInScroller never takes the top past the
+      top of the scroller).
+    */
+    const id = window.setTimeout(() => revealInScroller(root.current), COLLAPSE_OPEN_MS + 20)
+    return () => window.clearTimeout(id)
   }, [open])
 
   const close = useCallback((refocus = true) => {
