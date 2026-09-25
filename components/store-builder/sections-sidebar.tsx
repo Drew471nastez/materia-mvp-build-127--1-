@@ -104,6 +104,7 @@ import type {
   FooterColumnType,
 } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
+import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
 import {
   DndContext,
   closestCenter,
@@ -1158,7 +1159,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
 
                   // Determine if this is a dark/gradient theme based on background or foreground color
                   const isDarkOrGradientTheme =
-                    preset === "astrid" ||
+                    isDarkScheme(preset) ||
                     preset === "royal" ||
                     preset === "ocean" ||
                     preset === "sunset" ||

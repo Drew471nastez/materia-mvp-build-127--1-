@@ -31,6 +31,8 @@ import { join } from "node:path"
 
 import { themePresets } from "../lib/store-builder/defaults"
 import { cardAccents, resolveStorefrontChrome } from "../lib/store-builder/storefront-chrome"
+import { isDarkScheme } from "../lib/store-builder/scheme-tone"
+import { productPageTone } from "../lib/store-builder/product-page-tone"
 import { canvasRefusesHref, embeddedHref } from "../lib/store-builder/editor-channel"
 import { contrastRatio, parseColor } from "../lib/storelib-theme/contrast"
 
@@ -245,9 +247,11 @@ function main() {
     check("the colour scheme is in Edit profile", profile.includes("<SchemePicker") || (profile.includes("<MemoSchemePicker") && profile.includes("React.memo(SchemePicker)")))
     check("and it saves with the rest of it", profile.includes("themePreset: scheme"))
     /* Eight since sage, harbor and clay joined; the list moved to lib/store-builder/scheme-preview
-       because the server prepares each one's paint for the instant preview. */
+       because the server prepares each one's paint for the instant preview.
+       Nine since graphite joined: a second dark scheme, which could be offered
+       once "dark" was decided by a scheme's colours rather than by its name. */
     const offered = read("lib/store-builder/scheme-preview.ts")
-    check("eight schemes are offered", (offered.match(/"(default|blacks|cream|sage|harbor|clay|pink|astrid)"/g) ?? []).length === 8 && picker.includes("OFFERED_SCHEMES.map"))
+    check("nine schemes are offered", (offered.match(/"(default|blacks|cream|sage|harbor|clay|pink|astrid|graphite)"/g) ?? []).length === 9 && picker.includes("OFFERED_SCHEMES.map"))
     /* The spread is a transform now (translateX), so a choice moves nothing in layout. */
     check("drawn as overlapping discs, not stripes or a tiny page", picker.includes("rounded-full") && picker.includes("translateX(${i * step}px)"))
     /** A picker whose only change is which border is dark reads as a radio button. */
@@ -895,7 +899,7 @@ function main() {
     const r = (fg: string, bg: string) => contrastRatio(parseColor(fg)!, parseColor(bg)!)
     const PAGE_FIELD = "#f7f7f8"
     const white = (c: string) => /^#(fff|ffffff)$/i.test(c.trim())
-    for (const key of ["default", "blacks", "cream", "sage", "harbor", "clay", "pink", "astrid"] as const) {
+    for (const key of ["default", "blacks", "cream", "sage", "harbor", "clay", "pink", "astrid", "graphite"] as const) {
       const t = themePresets[key]
       const pageBg = white(t.sections.pageBackgroundColor) ? PAGE_FIELD : t.sections.pageBackgroundColor
       const pairs: Array<[string, string, string, number]> = [
@@ -927,7 +931,7 @@ function main() {
      * browser with the real stylesheet and measures the same numbers off the
      * pixels. This is the cheap copy that runs on every push.
      */
-    for (const key of ["default", "blacks", "cream", "pink", "astrid"] as const) {
+    for (const key of ["default", "blacks", "cream", "pink", "astrid", "graphite"] as const) {
       const t = themePresets[key]
       const chrome = resolveStorefrontChrome(key, {
         pageBackground: undefined,
@@ -960,6 +964,58 @@ function main() {
         `${chrome.text} on ${chrome.pageBackground}`,
       )
     }
+  }
+
+  /*
+   * DARK IS A COLOUR, NOT A NAME. The product page, its skeletons and the
+   * builder's loading states asked `themePreset === "astrid"`, so no other
+   * dark scheme could be offered: the creator page went dark by its colours
+   * and the product page it opened stayed light. Every scheme keeps the
+   * answer it had (astrid dark, the light ones light); fusion, whose page is
+   * #0f0f1a, is dark now too, where its product page drew black stars and
+   * black type on it.
+   */
+  {
+    const expectDark: Record<string, boolean> = {
+      default: false, air: false, bubble: false, pink: false, cream: false, sage: false, harbor: false, clay: false, blacks: false,
+      astrid: true, fusion: true, graphite: true,
+    }
+    for (const key of Object.keys(themePresets)) {
+      check(`${key} is ${expectDark[key] ? "dark" : "light"} by its own page colour`, key in expectDark && isDarkScheme(key) === expectDark[key], `${key}: ${isDarkScheme(key)}`)
+    }
+    check("a page stored on a retired dark scheme stays dark; an unknown name is light", isDarkScheme("midnight") && !isDarkScheme("nonsense") && !isDarkScheme(undefined))
+    /* The product page as it was on every light scheme: its stored colour, as stored. */
+    for (const key of Object.keys(themePresets)) {
+      if (expectDark[key]) continue
+      for (const stored of ["#ffffff", "#FAF4E8", undefined]) {
+        const tone = productPageTone({ globalSettings: { themePreset: key }, globalColors: { backgroundColor: stored } })
+        check(`${key}: the product page paints what it did (${stored ?? "nothing stored"})`, !tone.isDarkTheme && tone.pageBackgroundColor === stored && tone.ratingStarColor === "#000000", tone.pageBackgroundColor)
+      }
+    }
+    const astridOnWhite = productPageTone({ globalSettings: { themePreset: "astrid" }, globalColors: { backgroundColor: "#ffffff" } })
+    const astridChosen = productPageTone({ globalSettings: { themePreset: "astrid" }, globalColors: { backgroundColor: "#111113" } })
+    check("astrid's product page is dark, on its own #111113 even where the builder's white was left stored",
+      astridOnWhite.isDarkTheme && astridOnWhite.pageBackgroundColor?.toLowerCase() === "#111113" && astridChosen.pageBackgroundColor === "#111113"
+        && astridOnWhite.ratingStarColor === "#fafafa" && astridOnWhite.categoryBadgeStyle?.backgroundColor === "#2a2a2a", astridOnWhite.pageBackgroundColor)
+    const decided = [
+      "app/(marketing)/p/[slug]/page.tsx",
+      "app/(marketing)/p/[slug]/layout.tsx",
+      "app/(marketing)/u/[username]/layout.tsx",
+      "components/store-builder/public-page-skeleton.tsx",
+      "components/store-builder/preview-canvas.tsx",
+      "components/store-builder/unified-section-renderer.tsx",
+      "components/store-builder/sections-sidebar.tsx",
+      "components/product/refund-policy-display.tsx",
+    ]
+    for (const f of decided) {
+      check(`${f} asks the scheme's colours, not its name, whether it is dark`, !/["']astrid["']/.test(read(f)) && !/DARK_PRESETS/.test(read(f)))
+    }
+    check("the product page's dark is the scheme's, from the one function the chrome probe measures",
+      /productPageTone\(productPageConfig\)/.test(read("app/(marketing)/p/[slug]/page.tsx"))
+        && /const isDarkTheme = isDarkScheme\(themePreset\)/.test(read("lib/store-builder/product-page-tone.ts")))
+    check("and on a dark scheme its own colour is the scheme's unless one was chosen, not the builder's inherited white",
+      /const pageBackgroundColor = tonePageBackground/.test(read("app/(marketing)/p/[slug]/page.tsx"))
+        && /isDarkTheme\s*\?\s*resolveStorefrontChrome\(themePreset, \{ pageBackground: stored \}\)\.pageBackground\s*:\s*stored/.test(read("lib/store-builder/product-page-tone.ts")))
   }
 
   // ── 12. The rest of the round ──────────────────────────────────────────
