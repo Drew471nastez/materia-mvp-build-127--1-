@@ -124,7 +124,7 @@ console.log("\nWired")
 {
   const proxy = read("proxy.ts")
   check("a subdomain's robots.txt and sitemap.xml go to its website", /const seoFile = pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"/.test(proxy) && /const isWebsite = \(!looksLikeFile \|\| seoFile\) && !\(await hasLiveAiSite\(subdomain\)\)/.test(proxy))
-  check("and a connected domain's do too, before the reserved-path rule sends them to Storelib's", /isCustomDomain &&\s*\n\s*(?:domainPurpose === "website" &&\s*\n\s*)?\(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\)/.test(proxy) && proxy.indexOf("seoUrl.pathname = `/w/${username}${pathname}`") < proxy.indexOf("if (username && !isReservedPath(pathname))"))
+  check("and a connected domain's do too, before the reserved-path rule sends them to Storelib's", /isCustomDomain &&\s*\n\s*(?:domainPurpose === "website" &&\s*\n\s*)?\(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\)/.test(proxy) && proxy.indexOf("seoUrl.pathname = `/w/${username}${pathname}`") < proxy.search(/if \(username && \(?!isReservedPath\(pathname\)/))
   check("both routes exist", /robotsTxt\(seo\.origin, seo\.indexable\)/.test(read("app/(site)/w/[username]/robots.txt/route.ts")) && /sitemapXml\(seo\.entries\)/.test(read("app/(site)/w/[username]/sitemap.xml/route.ts")))
   const render = read("app/(site)/w/[username]/render-site.tsx")
   check("every page names its canonical address on the site's own domain", /alternates: \{ canonical: url \}/.test(render) && /themeMetadata\(settings, \{ title: rawTitle, description, url, image: shareImage \}\)/.test(render))

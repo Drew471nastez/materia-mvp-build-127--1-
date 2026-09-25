@@ -18,7 +18,7 @@ import { shopSections } from "@/lib/website-builder/shop-page"
 import { buildThemePreset, getThemeBySlug } from "@/lib/website-builder/theme-registry"
 import { templateForPage } from "@/lib/website-builder/site-pages"
 import { wishlistObject, type StorefrontGlobals } from "@/lib/storelib-theme/globals"
-import type { ProductCard } from "@/lib/website-builder/shop-products"
+import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 const OUT = process.env.OUT_DIR!
@@ -31,16 +31,24 @@ function picture(a: string, b: string): string {
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`
 }
 
+/* Cards made by the same function the live site makes them with, from rows shaped like the products table's. */
 const PRODUCTS: ProductCard[] = [
-  ["10000000-0000-4000-8000-000000000001", "Linen apron", "$64.00", "#d6cfc4", "#b8ad9e"],
-  ["10000000-0000-4000-8000-000000000002", "Card wallet", "$29.00", "#c9d3d0", "#a9b6b2"],
-  ["10000000-0000-4000-8000-000000000003", "Everyday tote", "$48.00", "#e0d6c8", "#c2b39d"],
-  ["10000000-0000-4000-8000-000000000004", "Wash bag", "$38.00", "#d3d0dc", "#b3aec2"],
-].map(([id, title, price, a, b]) => ({
-  id,
-  type: "product" as const,
-  settings: { title, price, compare_price: "", image: picture(a, b), url: `/products/${title.toLowerCase().replace(/\s+/g, "-")}`, tag: "" },
-}))
+  { id: "10000000-0000-4000-8000-000000000001", title: "Linen apron", cents: 6400, a: "#d6cfc4", b: "#b8ad9e" },
+  { id: "10000000-0000-4000-8000-000000000002", title: "Card wallet", cents: 2900, a: "#c9d3d0", b: "#a9b6b2" },
+  { id: "10000000-0000-4000-8000-000000000003", title: "Everyday tote", cents: 4800, a: "#e0d6c8", b: "#c2b39d" },
+  { id: "10000000-0000-4000-8000-000000000004", title: "Wash bag", cents: 3800, a: "#d3d0dc", b: "#b3aec2" },
+].map((p) =>
+  toCard({
+    id: p.id,
+    title: p.title,
+    slug: p.title.toLowerCase().replace(/\s+/g, "-"),
+    price_cents: p.cents,
+    compare_at_cents: null,
+    thumbnail_url: picture(p.a, p.b),
+    status: "published",
+    type: "digital",
+  }),
+)
 
 const SAVED = PRODUCTS.slice(0, 3)
 

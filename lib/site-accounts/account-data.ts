@@ -82,17 +82,25 @@ export async function siteCustomer(
 ): Promise<CustomerObject | null> {
   if (!UUID.test(scope.userId) || !UUID.test(scope.creatorId)) return null
 
-  const [profileRes, entRes, orderRes] = await Promise.all([
-    db.from("profiles").select("display_name, email, username").eq("id", scope.userId).maybeSingle(),
-    db.from("entitlements").select("product_id, created_at").eq("buyer_id", scope.userId).order("created_at", { ascending: false }).limit(200),
-    db
-      .from("orders")
-      .select("id, product_id, created_at, receipt_token, amount_cents")
-      .eq("buyer_id", scope.userId)
-      .eq("status", "completed")
-      .order("created_at", { ascending: false })
-      .limit(200),
-  ]).catch(() => [{ data: null }, { data: null }, { data: null }] as const)
+  /* A read that fails is an account with nothing in it yet, never an error page. */
+  let profileRes: { data: unknown } | null = null
+  let entRes: { data: unknown } | null = null
+  let orderRes: { data: unknown } | null = null
+  try {
+    ;[profileRes, entRes, orderRes] = await Promise.all([
+      db.from("profiles").select("display_name, email, username").eq("id", scope.userId).maybeSingle(),
+      db.from("entitlements").select("product_id, created_at").eq("buyer_id", scope.userId).order("created_at", { ascending: false }).limit(200),
+      db
+        .from("orders")
+        .select("id, product_id, created_at, receipt_token, amount_cents")
+        .eq("buyer_id", scope.userId)
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(200),
+    ])
+  } catch {
+    profileRes = entRes = orderRes = null
+  }
 
   const profile = (profileRes?.data ?? null) as { display_name?: string | null; email?: string | null; username?: string | null } | null
   const name = (profile?.display_name || profile?.username || "").trim()

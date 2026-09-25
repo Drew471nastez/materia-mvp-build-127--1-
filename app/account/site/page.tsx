@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
-import { redirect } from "next/navigation"
 import { AuthLogo } from "@/components/auth/auth-logo"
-import { createClient } from "@/lib/supabase/server"
+import { SessionRecovery } from "@/components/auth/session-recovery"
+import { pageUser } from "@/lib/auth/page-user"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { parseReturnUrl, siteOwnerOfHost } from "@/lib/site-accounts/hosts"
 import { formProof, isState } from "@/lib/site-accounts/token"
@@ -53,17 +53,16 @@ export default async function SiteSignInPage({
   const owner = target && state ? await siteOwnerOfHost(admin, target.host) : null
   if (!target || !state || !owner) return <Refused />
 
-  let user: { id: string; email?: string | null } | null = null
-  try {
-    const supabase = await createClient()
-    const { data } = await supabase.auth.getUser()
-    user = data.user ? { id: data.user.id, email: data.user.email } : null
-  } catch {
-    user = null
-  }
-
+  /*
+    The session the way every other page reads it (lib/auth/page-user.ts):
+    the login form only for somebody who is definitely signed out, never on a
+    slow answer from Supabase, which would send a signed in buyer round the
+    login page for nothing. Could not tell: the recovery reads the session in
+    the browser and reloads this page.
+  */
   const self = `/account/site?${new URLSearchParams({ return: target.href, state }).toString()}`
-  if (!user) redirect(`${signup ? "/signup" : "/login"}?next=${encodeURIComponent(self)}`)
+  const user = await pageUser(`${signup ? "/signup" : "/login"}?next=${encodeURIComponent(self)}`)
+  if (!user) return <SessionRecovery />
 
   const store = await siteBrandName(admin, owner.creatorId)
   const proof = formProof({ userId: user.id, returnUrl: target.href, state })
