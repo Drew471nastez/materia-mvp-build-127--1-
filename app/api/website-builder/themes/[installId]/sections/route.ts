@@ -1,4 +1,5 @@
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
+import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
 import { GENERATED_PAGE_KEYS } from "@/lib/website-builder/site-pages"
 import { searchSections, shopSections } from "@/lib/website-builder/shop-page"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -71,7 +72,11 @@ export async function GET(req: Request, { params }: Params) {
     .eq("page_key", pageKey)
     .maybeSingle()
 
-  if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 })
+  /* The database's own words go to the log, never to the browser. */
+  if (fetchErr) {
+    console.error("[sections] read failed", { code: fetchErr.code })
+    return NextResponse.json({ error: "Could not load this page. Try again." }, { status: 500 })
+  }
 
   // Return draft_sections if present, else sections
   const sections = (data?.draft_sections ?? data?.sections) as SectionInstance[] | null
@@ -131,12 +136,18 @@ export async function GET(req: Request, { params }: Params) {
    * `sanitizeSections` returns the same array when nothing was unsafe, so
    * the ordinary case costs a walk and allocates nothing.
    */
-  const clean = sanitizeSections(sections ?? [])
+  /* A section the creator wrote is cleaned by its own schema, not only by
+     the built-in ones: lib/website-builder/custom-schemas.ts. */
+  const lookup = await customSchemaLookup(supabase as never, installId, [
+    ...((data?.sections as SectionInstance[] | null) ?? []),
+    ...((data?.draft_sections as SectionInstance[] | null) ?? []),
+  ], { draft: true })
+  const clean = sanitizeSections(sections ?? [], lookup)
   const page = data
     ? {
         ...data,
-        sections: data.sections ? sanitizeSections(data.sections as SectionInstance[]) : data.sections,
-        draft_sections: data.draft_sections ? sanitizeSections(data.draft_sections as SectionInstance[]) : data.draft_sections,
+        sections: data.sections ? sanitizeSections(data.sections as SectionInstance[], lookup) : data.sections,
+        draft_sections: data.draft_sections ? sanitizeSections(data.draft_sections as SectionInstance[], lookup) : data.draft_sections,
       }
     : data
 
@@ -187,7 +198,11 @@ export async function PUT(req: Request, { params }: Params) {
    * enters the database cannot be missed by a read path somebody adds later.
    * See lib/website-builder/sanitize.ts for the allow lists.
    */
-  const sections = sanitizeSections(raw)
+  /*
+    A section the creator wrote declares its own rich text, and is cleaned by
+    that declaration too. Only the files this page's types have are read.
+  */
+  const sections = sanitizeSections(raw, await customSchemaLookup(supabase as never, installId, raw, { draft: true }))
 
   /**
    * ===========================================================================
@@ -236,7 +251,10 @@ export async function PUT(req: Request, { params }: Params) {
       .eq("id", existing.id)
       .select()
       .single()
-    if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
+    if (updateErr) {
+      console.error("[sections] save failed", { code: updateErr.code })
+      return NextResponse.json({ error: "Could not save this page. Try again." }, { status: 500 })
+    }
     result = data
   } else {
     const insertData =
@@ -249,7 +267,10 @@ export async function PUT(req: Request, { params }: Params) {
       .insert(insertData)
       .select()
       .single()
-    if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
+    if (insertErr) {
+      console.error("[sections] create failed", { code: insertErr.code })
+      return NextResponse.json({ error: "Could not save this page. Try again." }, { status: 500 })
+    }
     result = data
   }
 
@@ -295,7 +316,10 @@ export async function DELETE(req: Request, { params }: Params) {
     .eq("install_id", installId)
     .eq("page_key", pageKey)
 
-  if (deleteErr) return NextResponse.json({ error: deleteErr.message }, { status: 500 })
+  if (deleteErr) {
+    console.error("[sections] delete failed", { code: deleteErr.code })
+    return NextResponse.json({ error: "Could not delete this page. Try again." }, { status: 500 })
+  }
 
   if (creatorId) await revalidatePublishedSite(creatorId)
 

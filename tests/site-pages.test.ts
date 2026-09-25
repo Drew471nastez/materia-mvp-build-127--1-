@@ -86,7 +86,8 @@ function main() {
     const build = cache.slice(cache.indexOf("async function buildSite"), cache.indexOf("export async function publishedSiteByName"))
     check("it no longer asks for one page by name", !/\.eq\("page_key", "home"\)/.test(build))
     check("it reads the install's pages", /\.from\("store_theme_pages"\)[\s\S]{0,120}\.eq\("install_id", row\.id\)/.test(build))
-    check("and keeps them by key", /pages\[r\.page_key\] = sanitizeSections\(published\)/.test(build))
+    /* Cleaned by the built-in schemas and by the ones the creator's own section files declare. */
+    check("and keeps them by key", /pages\[r\.page_key\] = sanitizeSections\(published, ownSchemas\)/.test(build))
 
     /**
      * A page with no published sections is a page that has been made and not
@@ -99,7 +100,7 @@ function main() {
     const shape = cache.slice(cache.indexOf("export interface PublishedSite"), cache.indexOf("export type SiteLookup"))
     check("the pages are part of the declared shape", /pages: Record<string, SectionInstance\[\]>/.test(shape))
     check("and no draft came with them", !/draft_sections/.test(shape))
-    check("what came out of the database is still cleaned on the way in", /sanitizeSections\(published\)/.test(build))
+    check("what came out of the database is still cleaned on the way in", /sanitizeSections\(published, ownSchemas\)/.test(build) && /const ownSchemas = schemaLookupFrom\(sources\)/.test(build))
 
     check("the lookup takes the page being asked for", /export async function publishedSiteByName\(name: string, pageKey = "home"\)/.test(cache))
     /* `stored` rather than `sections` since the chrome repair runs between the

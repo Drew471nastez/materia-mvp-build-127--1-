@@ -13,9 +13,18 @@
  */
 import { SECTION_SCHEMAS } from "./section-schemas"
 import { htmlFieldsOf, sanitizeSettings, type HtmlFieldMap } from "./sanitize"
-import type { SectionInstance } from "./types"
+import type { SectionInstance, SectionSchema } from "./types"
 
 const cache = new Map<string, HtmlFieldMap>()
+
+/**
+ * Where a type's schema comes from when the built-in registry is not the
+ * whole truth: a section the creator wrote in the code editor, or their
+ * copy of one the theme ships. Its rich text is cleaned by its own schema,
+ * not only by the id list, or a creator's `intro` richtext setting would
+ * reach the page as it was typed.
+ */
+export type SchemaLookup = (type: string) => SectionSchema | undefined
 
 /**
  * Which of a section type's settings hold HTML. A type the registry does not
@@ -47,13 +56,17 @@ interface LooseSection {
 }
 
 /** One section, settings and blocks. The same object back when nothing changed. */
-export function sanitizeSection<T extends LooseSection>(section: T): T {
-  const settings = sanitizeSettings(section.settings, fieldsFor(section.type))
+export function sanitizeSection<T extends LooseSection>(section: T, schemaOf?: SchemaLookup): T {
+  const own = schemaOf?.(section.type)
+  const settings = sanitizeSettings(section.settings, own ? htmlFieldsOf(own.fields) : fieldsFor(section.type))
   let blocks = section.blocks
   if (blocks?.length) {
     let touched = false
     const next = blocks.map((b) => {
-      const s = sanitizeSettings(b.settings, blockFieldsFor(section.type, b.type))
+      const s = sanitizeSettings(
+        b.settings,
+        own ? htmlFieldsOf(own.blocks?.find((d) => d.type === b.type)?.fields) : blockFieldsFor(section.type, b.type),
+      )
       if (s === b.settings) return b
       touched = true
       return { ...b, settings: s }
@@ -65,11 +78,11 @@ export function sanitizeSection<T extends LooseSection>(section: T): T {
 }
 
 /** A page. The same array back when nothing in it changed. */
-export function sanitizeSections<T extends SectionInstance>(sections: T[] | null | undefined): T[] {
+export function sanitizeSections<T extends SectionInstance>(sections: T[] | null | undefined, schemaOf?: SchemaLookup): T[] {
   if (!Array.isArray(sections)) return []
   let touched = false
   const out = sections.map((s) => {
-    const next = sanitizeSection(s as unknown as LooseSection) as unknown as T
+    const next = sanitizeSection(s as unknown as LooseSection, schemaOf) as unknown as T
     if (next !== (s as unknown)) touched = true
     return next
   })

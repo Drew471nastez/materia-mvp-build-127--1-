@@ -19,11 +19,10 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
-import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
+import { renderWithSources } from "@/lib/website-builder/storefront-render"
 import { mayPreview, pageSections, previewTokenFrom, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
-import { publishedSiteByName } from "@/lib/website-builder/published-site"
+import { dressPage, ownerOf, publishedSiteByName } from "@/lib/website-builder/published-site"
 import { SiteNotPublished } from "./not-published"
-import { shopProducts } from "@/lib/website-builder/shop-products"
 import { chromeOf, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
 import { getMainDomain } from "@/lib/url-helpers"
 import { themeMetadata } from "@/lib/website-builder/theme-metadata"
@@ -310,15 +309,18 @@ async function previewPage(username: string, token: string, pageKey: string) {
     sanitizeSections(pageSections<SectionInstance[]>(pageData as never, preview) ?? []),
     chrome,
   )
-  const products = await shopProducts(admin as never, creatorId)
   const template = templateForPage(pageKey)
-  const prerendered = await prerenderStorelibSections(admin as never, installId, sections, themeSettings, template, products)
+  /* The shop, the creator's profile and the saved section files, read
+     directly: a preview is one person's view and never shares a cache. */
+  const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings)
+  const dressed = await dressPage(owner, sections, products, productCount, template, pageTitleFromKey(pageKey), undefined, { cached: false })
+  const prerendered = renderWithSources(owner.sources, dressed.sections, themeSettings, template, products, undefined, dressed.data)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template }}>
       <ThemePage
         theme={themeSettings}
-        sections={sections}
+        sections={dressed.sections}
         // Whose site this is, for the sections that send something somewhere.
         storefront={{ creatorId, installId }}
         emptyDetail="Check back soon!"
@@ -367,15 +369,16 @@ export async function coverPage(installId: string) {
     .maybeSingle()
 
   const sections = withUniversalChrome(sanitizeSections(pageSections<SectionInstance[]>(pageData as never, true) ?? []), {})
-  const products = await shopProducts(admin as never, row.creator_id)
-  const prerendered = await prerenderStorelibSections(admin as never, installId, sections, themeSettings, "index", products)
+  const { owner, products, productCount } = await ownerOf(row.creator_id, installId, themeSettings)
+  const dressed = await dressPage(owner, sections, products, productCount, "index", pageTitleFromKey("home"), undefined, { cached: false })
+  const prerendered = renderWithSources(owner.sources, dressed.sections, themeSettings, "index", products, undefined, dressed.data)
 
   return (
     <div data-snapshot-stage="">
       <StorelibSourcesProvider prerendered={prerendered} page={{ template: "index" }}>
         <ThemePage
           theme={themeSettings}
-          sections={sections}
+          sections={dressed.sections}
           /* No creator: the newsletter and contact form must never send
              anything from a screenshot. */
           storefront={{ installId }}

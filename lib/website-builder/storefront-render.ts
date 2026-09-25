@@ -2,6 +2,7 @@ import { isStorelibSection, renderStorelibSection } from "@/lib/website-builder/
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import type { ProductCard } from "@/lib/website-builder/shop-products"
+import type { StorefrontData } from "@/lib/storelib-theme/types"
 
 /**
  * ===========================================================================
@@ -45,6 +46,8 @@ export async function prerenderStorelibSections(
    * section exactly as before, and a section asking for products draws none.
    */
   products?: ProductCard[],
+  /** The shop's own facts; see lib/website-builder/storefront-data.ts. */
+  data?: StorefrontData,
 ): Promise<Record<string, RenderedSection>> {
   const prerendered: Record<string, RenderedSection> = {}
   /**
@@ -62,7 +65,7 @@ export async function prerenderStorelibSections(
    * edited one.
    */
   const sources = await sectionSources(db, installId)
-  return renderWithSources(sources, sections, theme, template, products)
+  return renderWithSources(sources, sections, theme, template, products, undefined, data)
 }
 
 /**
@@ -116,11 +119,13 @@ export function renderWithSources(
    * read on its own.
    */
   pageExtras?: Record<string, unknown>,
+  /** The shop's own facts; see lib/website-builder/storefront-data.ts. */
+  data?: StorefrontData,
 ): Record<string, RenderedSection> {
   const prerendered: Record<string, RenderedSection> = {}
   for (const section of sections) {
     if (!isStorelibSection(section.type, sources)) continue
-    const out = renderStorelibSection(section, theme, { ...pageExtras, template }, sources, products)
+    const out = renderStorelibSection(section, theme, { ...pageExtras, template }, sources, products, data)
     if (out.ok) {
       prerendered[section.id] = { html: out.html, css: out.css, script: out.script, capabilities: out.capabilities }
     }

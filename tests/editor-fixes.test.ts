@@ -67,7 +67,7 @@ function main() {
     )
     check("a renamed creator's site follows them to the new subdomain", /found\.kind === "renamed"\) redirect\(`https:\/\/\$\{found\.to\}\.\$\{getMainDomain\(\)\}`\)/.test(w))
     check("its metadata reads published settings only", /const settings: ThemeSettingsValues = settingsRow\.settings \?\? \{\}/.test(w) && !/settingsRow\.draft_settings/.test(w))
-    check("the preview path draws the shop too", /shopProducts\(admin as never, creatorId\)/.test(w))
+    check("the preview path draws the shop too", /const \{ owner, products, productCount \} = await ownerOf\(creatorId, installId, themeSettings\)/.test(w) && /renderWithSources\(owner\.sources, dressed\.sections, themeSettings, template, products,/.test(w))
 
     for (const f of ["app/(site)/w/[username]/render-site.tsx", "app/(marketing)/[sellername]/page.tsx", "components/website-builder/theme/render-product.tsx"]) {
       check(`${f.split("/").slice(-2, -1)[0]}: no "Coming Soon"`, !/Coming Soon/.test(read(f)))

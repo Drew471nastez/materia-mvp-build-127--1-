@@ -142,6 +142,7 @@ const SUITES = [
   "tests/sitemaps.test.ts",
   "tests/storelib-theme.test.ts",
   "tests/theme-setting-types.test.ts",
+  "tests/storefront-data.test.ts",
   "tests/storelib-package.test.ts",
   "tests/storelib-hardening.test.ts",
   "tests/agent-own-sections.test.ts",

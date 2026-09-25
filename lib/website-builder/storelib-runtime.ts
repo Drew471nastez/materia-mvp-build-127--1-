@@ -26,7 +26,7 @@
  */
 import { COMPILE_CACHE_LIMIT, compileSection, createLru } from "@/lib/storelib-theme/storelib/compile"
 import { renderSection } from "@/lib/storelib-theme/render"
-import type { CompiledSection, RenderContext, SectionInstanceData, ThemeError } from "@/lib/storelib-theme/types"
+import type { CompiledSection, RenderContext, SectionInstanceData, StorefrontData, ThemeError } from "@/lib/storelib-theme/types"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import type { SectionInstance, ThemeSettingsValues } from "./types"
 
@@ -121,6 +121,12 @@ export function renderStorelibSection(
    * products draws none — which is what the export and a thumbnail want.
    */
   products?: RenderContext["products"],
+  /**
+   * The shop's own facts: the catalogue pickers name, the menus, the shop,
+   * the creator and on a product page the product. Built by
+   * lib/website-builder/storefront-data.ts; absent means none of them.
+   */
+  data?: StorefrontData,
 ): StorelibRendered {
   const c = compiledSection(section.type, overrides)
   if (c.ok === false) return c
@@ -131,6 +137,7 @@ export function renderStorelibSection(
     theme: theme as unknown as Record<string, unknown>,
     page,
     products,
+    data,
   })
   return {
     ok: true,

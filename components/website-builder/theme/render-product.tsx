@@ -22,7 +22,10 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
-import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
+import { renderWithSources } from "@/lib/website-builder/storefront-render"
+import { dressPage, ownerOf } from "@/lib/website-builder/published-site"
+import { productFacts } from "@/lib/website-builder/storefront-data"
+import { withMainProduct } from "@/lib/website-builder/product-page"
 import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
@@ -256,7 +259,9 @@ export async function renderProduct(
     slug: product.slug ?? slug,
   }
 
-  const sections: SectionInstance[] = rawSections.map(s =>
+  /* A template saved before the presets carried a product section gets
+     one, where the untouched "Product name" placeholder was: product-page.ts. */
+  const sections: SectionInstance[] = withMainProduct(rawSections).map(s =>
     s.type === "product"
       ? { ...s, settings: { ...s.settings, _product_data: productData } }
       : s
@@ -282,19 +287,26 @@ export async function renderProduct(
    * A section reads that as `page.template` and `allowed_templates` is
    * written against it, so the wrong word here hides the right sections.
    */
-  const prerendered = await prerenderStorelibSections(
-    admin as never,
-    install.id,
-    page,
-    themeSettings,
-    "product",
-  )
+  /**
+   * THE PRODUCT, TO EVERY SECTION ON ITS PAGE. A `.storelib` section reads
+   * it as `product`, a setting holding `{{ product.title }}` is filled from
+   * it, and the shop a "You may also like" grid draws is every other
+   * product: the one on the page is not a suggestion for itself. Held with
+   * the published site's shop when this is the live page, read directly for
+   * a preview.
+   */
+  const cached = !previewToken
+  const { owner: shop, products, productCount } = await ownerOf(product.creator_id, install.id, themeSettings, { cached })
+  const facts = productFacts(product)
+  const others = products.filter((p) => p.id !== product.id)
+  const dressed = await dressPage(shop, page, products, productCount, "product", product.title ?? "Product", facts, { cached })
+  const prerendered = renderWithSources(shop.sources, dressed.sections, themeSettings, "product", others, undefined, dressed.data)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "product" }}>
       <ThemePage
         theme={themeSettings}
-        sections={page}
+        sections={dressed.sections}
         // Whose site this is, for the sections that send something somewhere.
         storefront={{ creatorId: product.creator_id ?? undefined, installId: install.id }}
         className="min-h-screen"
