@@ -96,7 +96,7 @@ export function EditProfileButton({
   themePreset = "default",
   schemeRoots,
 }: EditProfileButtonProps) {
-  const { markSaved, onClosed } = useSaveThenRefresh()
+  const { markSaved, onClosed, toast } = useSaveThenRefresh()
   /* The page behind the sheet shows the scheme being tried; Save keeps it, anything else puts it back. */
   const preview = useSchemePreview(themePreset, schemeRoots)
   const [open, setOpen] = React.useState(false)
@@ -494,6 +494,8 @@ export function EditProfileButton({
               </p>
             </div>
       </EditorSheet>
+      {/* "Saved", once the sheet has gone (useSaveThenRefresh). */}
+      {toast}
     </>
   )
 }

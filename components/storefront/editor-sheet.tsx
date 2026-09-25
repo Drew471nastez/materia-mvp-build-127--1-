@@ -52,8 +52,6 @@
 
 import * as React from "react"
 
-import { Loader2 } from "lucide-react"
-
 import { Button } from "@/components/ui/button"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -61,7 +59,8 @@ import { OverlayScroll } from "@/components/storefront/overlay-scroll"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
 import { useRouter } from "next/navigation"
 
-import { notifyEditorSaved } from "@/lib/store-builder/editor-channel"
+import { isInEditorFrame, notifyEditorSaved } from "@/lib/store-builder/editor-channel"
+import { SaveNotification } from "@/components/ui/save-notification"
 import { cn } from "@/lib/utils"
 
 export function EditorField({
@@ -156,8 +155,17 @@ export const PHONE_EDITOR_MAX_HEIGHT = "calc(100dvh - env(safe-area-inset-top, 0
 export function useSaveThenRefresh() {
   const router = useRouter()
   const pending = React.useRef(false)
+  /**
+   * AND IT SAYS SO. A save used to end with the sheet leaving and the page
+   * changing under it, with nothing that said the change had been kept. A
+   * dark pill says "Saved" once the sheet has gone. Inside the workspace the
+   * workspace says it (this frame is about to be replaced by the reloaded
+   * page, and a toast in it would go with it); at the page's own address
+   * this does.
+   */
+  const [toastSeq, setToastSeq] = React.useState(0)
 
-  return React.useMemo(
+  const actions = React.useMemo(
     () => ({
       markSaved: () => {
         pending.current = true
@@ -168,11 +176,14 @@ export function useSaveThenRefresh() {
         /* Inside the workspace the frame around this reloads the page; at its
            own address the refresh is the only thing that can show the save. */
         notifyEditorSaved()
+        if (!isInEditorFrame()) setToastSeq((n) => n + 1)
         router.refresh()
       },
     }),
     [router],
   )
+  const toast = <SaveNotification key={toastSeq} show={toastSeq > 0} message="Saved" duration={2200} />
+  return { ...actions, toast }
 }
 
 export function EditorSheet({
@@ -354,6 +365,13 @@ export function EditorSheet({
 
         A Save with nothing to save still dims, which is the one case where
         the dimming means what it looks like.
+
+        AND NO SPINNER. A spinner in the corner of the one button a creator is
+        watching is the loudest thing on the sheet for the length of the
+        request. The word eases into "Saving" with three soft dots, in the
+        same grid cell as "Save", so the cell is as wide as the wider of the
+        two and nothing beside it moves. Opacity and transform only.
+        Near-black, the product's primary action, not the design system blue.
       */}
       <Button
         type="button"
@@ -375,7 +393,7 @@ export function EditorSheet({
          * where it can actually be read. `aria-disabled` and `aria-busy` tell
          * assistive technology the truth without touching a single style.
          */
-        className="relative w-full"
+        className="relative w-full bg-[#111113] text-white hover:bg-[#1a1a2e]"
         onClick={() => {
           if (busy || saveDisabled) return
           onSave()
@@ -383,13 +401,28 @@ export function EditorSheet({
         disabled={saveDisabled}
         aria-disabled={busy || saveDisabled || undefined}
       >
-        {busy && (
-          <Loader2
-            className="absolute left-4 h-4 w-4 animate-spin"
-            aria-hidden
-          />
-        )}
-        {saveLabel}
+        <span className="grid place-items-center">
+          <span
+            className={cn(
+              "col-start-1 row-start-1 transition-[opacity,translate] duration-200 ease-out motion-reduce:transition-none",
+              busy ? "-translate-y-1 opacity-0" : "translate-y-0 opacity-100",
+            )}
+          >
+            {saveLabel}
+          </span>
+          <span
+            aria-hidden={!busy || undefined}
+            className={cn(
+              "col-start-1 row-start-1 inline-flex items-center gap-[3px] transition-[opacity,translate] duration-200 ease-out motion-reduce:transition-none",
+              busy ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0",
+            )}
+          >
+            Saving
+            <span className="cp-saving-dots ml-0.5 inline-flex gap-[3px]" aria-hidden>
+              <i /><i /><i />
+            </span>
+          </span>
+        </span>
       </Button>
     </div>
   )

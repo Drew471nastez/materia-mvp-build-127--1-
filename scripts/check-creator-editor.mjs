@@ -522,6 +522,38 @@ for (const vp of ONLY && ONLY !== "upload" ? [] : [
 }
 
 /* ======================================================================
+   5. SAVING: the button keeps its size and says "Saving", then "Saved" shows
+   ====================================================================== */
+for (const vp of ONLY && ONLY !== "save" ? [] : [
+  { name: "1280", width: 1280, height: 800, phone: false },
+  { name: "390", width: 390, height: 844, phone: true },
+]) {
+  const p = await page({ ...vp, hash: "profile" })
+  const pencil = JSON.parse(await p.js(`JSON.stringify(document.querySelector("[aria-label='Edit profile']").getBoundingClientRect())`))
+  await p.tap(pencil.x + pencil.width / 2, pencil.y + pencil.height / 2)
+  await sleep(900)
+  const saveBox = `(() => { const b = [...document.querySelectorAll("button[aria-disabled], button")].find((x) => /^(Save|Saving)/.test(x.textContent.trim()) && x.closest("[data-sheet-pin-bottom]")); const r = b.getBoundingClientRect()
+    const label = [...b.querySelectorAll("span")].filter((x) => getComputedStyle(x).opacity === "1").map((x) => x.textContent.trim()).filter(Boolean)
+    return JSON.stringify({ x: r.x, y: r.y, w: r.width, h: r.height, bg: getComputedStyle(b).backgroundColor, label, busy: b.getAttribute("aria-busy"), opacity: getComputedStyle(b).opacity }) })()`
+  const before = JSON.parse(await p.js(saveBox))
+  await p.js("window.__hold = true")
+  await p.tap(before.x + before.w / 2, before.y + before.h / 2)
+  await sleep(400)
+  const during = JSON.parse(await p.js(saveBox))
+  await p.shot(`saving-${vp.name}`)
+  await p.js("window.__release && window.__release()")
+  await sleep(vp.phone ? 700 : 500)
+  const toast = JSON.parse(await p.js(`JSON.stringify([...document.querySelectorAll("span")].filter((x) => x.textContent === "Saved").map((x) => { const pill = x.parentElement, cs = getComputedStyle(pill); return { bg: cs.backgroundColor, color: getComputedStyle(x).color } }))`))
+  await p.shot(`saved-${vp.name}`)
+  report[`saving @${vp.name}`] = `Save ${Math.round(before.w)}x${Math.round(before.h)} ${before.bg}; while saving ${Math.round(during.w)}x${Math.round(during.h)}, aria-busy ${during.busy}, opacity ${during.opacity}, showing ${JSON.stringify(during.label)}; then ${toast.length ? `a "Saved" pill ${JSON.stringify(toast[0])}` : "no toast"}`
+  if (Math.abs(before.w - during.w) > 0.5 || Math.abs(before.x - during.x) > 0.5) problems.push(`${vp.name}: the Save button moved or resized while saving`)
+  if (!during.label.some((l) => /^Saving/.test(l))) problems.push(`${vp.name}: a save in flight does not say so (${JSON.stringify(during.label)})`)
+  if (during.opacity !== "1") problems.push(`${vp.name}: the Save button faded while saving`)
+  if (!toast.length) problems.push(`${vp.name}: nothing said the save was kept`)
+  await p.close()
+}
+
+/* ======================================================================
    3. "YOUR PAGE IS LIVE": how soon a close shows, and whether it drops frames
    ====================================================================== */
 for (const vp of ONLY && ONLY !== "share" ? [] : [
