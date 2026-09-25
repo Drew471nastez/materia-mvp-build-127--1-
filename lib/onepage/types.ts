@@ -534,6 +534,8 @@ export const buttonPresetLabels: Record<EmailCaptureButtonPreset, string> = {
   get_access: 'Get Access',
   download: 'Download',
   sign_up: 'Sign Up',
+  unlock: 'Unlock Now',
+  custom: 'Custom',
 }
 
 // Default values

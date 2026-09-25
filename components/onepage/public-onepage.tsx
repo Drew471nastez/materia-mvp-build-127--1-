@@ -28,6 +28,7 @@ import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, L
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { ExtraBlock, SensitiveLinkQuestion } from "@/components/onepage/extra-blocks"
+import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { extraBlockHasContent, isScheduledNow } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 
@@ -2167,6 +2168,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       <OnePageDynamicFavicon avatarUrl={avatar_url} videoUrl={avatar_video_url} sellerId={seller_id} />
       {/* Asks before a link marked sensitive opens (data-sensitive-label on its box) */}
       <SensitiveLinkQuestion />
+      {/* The theme's body and title fonts, the same links the editor's preview renders */}
+      <OnePageFonts theme={safeTheme} />
 
       {/*
         THE DEBLUR IS GONE ON PURPOSE.

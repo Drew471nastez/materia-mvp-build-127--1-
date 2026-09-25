@@ -29,6 +29,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContex
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { ExtraBlock } from "@/components/onepage/extra-blocks"
+import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { extraBlockHasContent, isScheduledNow } from "@/lib/onepage/extra-blocks"
 
 const stripHtmlToPlainText = (value?: string | null) => {
@@ -1442,6 +1443,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
     <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
     <PDFModalContext.Provider value={pdfModalContextValue}>
     <CalendlyModalContext.Provider value={calendlyModalContextValue}>
+      <OnePageFonts theme={theme} />
       <div
         className={cn("relative flex-shrink-0", className)}
         style={{
@@ -2364,6 +2366,7 @@ export function MobilePreviewContent() {
     <AppleMusicModalContext.Provider value={appleMusicModalContextValue}>
     <PDFModalContext.Provider value={pdfModalContextValue}>
     <CalendlyModalContext.Provider value={calendlyModalContextValue}>
+      <OnePageFonts theme={theme} />
       {/* Animation keyframes */}
       <style
         dangerouslySetInnerHTML={{

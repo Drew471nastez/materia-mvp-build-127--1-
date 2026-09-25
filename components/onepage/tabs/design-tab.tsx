@@ -37,6 +37,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import type { OnePageTheme } from "@/lib/onepage/types"
+import { onePageFontSampleHref } from "@/lib/onepage/fonts"
 
 type DesignSection = "header" | "theme" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
 
@@ -172,6 +173,9 @@ const TITLE_FONTS = [
   { name: "Space Grotesk", value: "'Space Grotesk', sans-serif" },
   { name: "Sora", value: "'Sora', sans-serif" },
 ]
+
+/* Every name in the two lists above, drawn in its own face: one small request cut to the letters of the names (lib/onepage/fonts). */
+const FONT_SAMPLE_HREF = onePageFontSampleHref([...FONTS.map((f) => f.name), ...TITLE_FONTS.map((f) => f.name)])
 
 const FONT_CATEGORIES = [
   { id: "all", label: "All Fonts" },
@@ -3888,6 +3892,7 @@ function TextSection() {
 
   return (
     <div className="space-y-6 md:space-y-8">
+      {FONT_SAMPLE_HREF ? <link rel="stylesheet" href={FONT_SAMPLE_HREF} /> : null}
       <h2 className="text-lg md:text-xl font-semibold">Text</h2>
       <div className="space-y-3">
         <Label className="text-sm font-medium">Font</Label>
