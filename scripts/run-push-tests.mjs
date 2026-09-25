@@ -212,6 +212,7 @@ const SUITES = [
   "tests/app-search.test.ts",
   "tests/notifications-panel.test.ts",
   "tests/notification-rules.test.ts",
+  "tests/notification-snapshot.test.ts",
   "tests/rich-text.test.ts",
   "tests/upload-security.test.ts",
   "tests/direct-uploader.test.ts",
