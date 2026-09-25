@@ -38,7 +38,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { hapticTap } from "@/lib/native-bridge"
 import { UpgradeBolt } from "@/components/app/upgrade-bolt"
-import { APP_PAGE_KEPT_MS, pendingPath, prefetchAppPage, useAppNavigation, useShownPath } from "@/lib/ui/app-navigation"
+import { APP_PAGE_KEPT_MS, isPlainClick, pendingPath, prefetchAppPage, useAppNavigation, useShownPath } from "@/lib/ui/app-navigation"
 import {
   isRouteActive,
   type NavIconPair,
@@ -305,8 +305,8 @@ function MobileSubNavItem({
   return (
     <Link
       href={child.href}
-      onClick={() => {
-        onNavigate?.(child.href)
+      onClick={(e) => {
+        if (isPlainClick(e.nativeEvent)) onNavigate?.(child.href)
         onClose()
       }}
       {...handlers}
@@ -397,8 +397,8 @@ export function MobileNavItem({
         <div className="flex items-center gap-1">
           <Link
             href={item.href}
-            onClick={() => {
-              onNavigate?.(item.href)
+            onClick={(e) => {
+              if (isPlainClick(e.nativeEvent)) onNavigate?.(item.href)
               onClose()
             }}
             {...handlers}
@@ -432,8 +432,8 @@ export function MobileNavItem({
   return (
     <Link
       href={item.href}
-      onClick={() => {
-        onNavigate?.(item.href)
+      onClick={(e) => {
+        if (isPlainClick(e.nativeEvent)) onNavigate?.(item.href)
         onClose()
       }}
       {...handlers}
@@ -573,24 +573,26 @@ export function MobileMenuPage({
 
         {setupSlot}
 
-        {/* The desktop card's quiet surface (white on this grey page, a
-            hairline, no shadow) and its navigation: fetched on the press,
-            recorded on the tap, like every row above. */}
+        {/* The card as this menu had it until 09-25 (white on this grey page,
+            a violet hairline, 14px and 12px words, "Unlock more benefits"),
+            with the rail's white bolt on violet at its old 32px
+            (components/app/upgrade-bolt). Fetched on the press, recorded on
+            the tap, like every row above. */}
         <Link
           href={UPGRADE_HREF}
           data-upgrade-card=""
-          onClick={() => {
-            onNavigate?.(UPGRADE_HREF)
+          onClick={(e) => {
+            if (isPlainClick(e.nativeEvent)) onNavigate?.(UPGRADE_HREF)
             onClose()
           }}
           onPointerDown={() => prefetchAppPage(router, UPGRADE_HREF)}
-          className="mt-4 flex items-center justify-between gap-3 rounded-[16px] border border-[#ececef] bg-white py-3.5 pl-4 pr-3.5 transition-colors duration-100 active:bg-[#f4f4f5]"
+          className="group/upgrade mt-4 flex items-center justify-between gap-3 rounded-[16px] border border-violet-100/70 bg-white px-4 py-3.5 transition-colors duration-100 active:bg-violet-50/60"
         >
           <span className="block min-w-0">
             <span className="block truncate text-[14px] font-semibold" style={{ color: ACTIVE_TEXT }}>{upgradeTitle}</span>
-            <span className="block truncate text-[12.5px]" style={{ color: REST_TEXT }}>{upgradeSubtitle}</span>
+            <span className="block truncate text-[12px]" style={{ color: REST_TEXT }}>{upgradeSubtitle}</span>
           </span>
-          <UpgradeBolt size={30} />
+          <UpgradeBolt size={32} />
         </Link>
       </nav>
     </div>

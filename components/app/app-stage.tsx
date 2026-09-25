@@ -18,6 +18,7 @@ import {
   spinnerDelay,
   takeTraversal,
   useAppNavigation,
+  watchRouterAnswers,
   watchRouterCommits,
   type AppNavigation,
 } from "@/lib/ui/app-navigation"
@@ -228,8 +229,13 @@ export function AppStage() {
   const prevPathRef = useRef(pathname)
 
   /* A commit at the address already showing ends the navigation too
-     (lib/ui/app-navigation watchRouterCommits). Once, for the tab. */
-  useEffect(() => { watchRouterCommits() }, [])
+     (lib/ui/app-navigation watchRouterCommits), and a navigation whose
+     answer came back without its page landing is finished as a document
+     load (watchRouterAnswers). Once, for the tab. */
+  useEffect(() => {
+    watchRouterCommits()
+    watchRouterAnswers()
+  }, [])
 
   /* Where the reader is, recorded as they scroll, for the way back. */
   useEffect(() => {

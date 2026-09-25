@@ -1072,9 +1072,9 @@ export function DashboardClient({
   }, [creatorHandle, connectedDomain, websiteDomain, websitePublished, onePageLive])
 
   /**
-   * GETTING STARTED (components/app/home/home-cards): the eight steps of
+   * GETTING STARTED (components/app/home/home-cards): the seven steps of
    * lib/home/progress, and once every one is done, the challenges. The
-   * purple bar's "steps remaining" counts the same eight. The first sale
+   * purple bar's "steps remaining" counts the same seven. The first sale
    * (and the ten sales after it) open the share panel while there is an
    * address to share, because sharing it is how a sale comes.
    */

@@ -31,6 +31,9 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { BuilderLoader, useLinger } from "@/components/website-builder/builder-loader"
 import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
+import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+import { isPlainClick } from "@/lib/ui/app-navigation"
+import { setLeaveGuard } from "@/lib/ui/leave-guard"
 import { HtmlClass } from "@/components/platform/html-class"
 import { iconDepth } from "@/components/ui/depth-button"
 import type { OnePage } from "@/lib/onepage/types"
@@ -68,6 +71,9 @@ export function OnePageEditor({ initialOnePage }: OnePageEditorProps) {
 }
 
 type TabType = "design" | "links" | "products" | "settings"
+
+/** Leaving was answered but the editor is still here this long after: it holds Back again. */
+const LEAVE_REVIVE_MS = 12_000
 
 /*
   THE EDITOR'S TWO QUESTIONS, ON THE APP'S OWN SHEET ON A PHONE.
@@ -259,10 +265,13 @@ function EditorLayout() {
   const router = useRouter()
   const [leaving, setLeaving] = useState(false)
   const leavingRef = useRef(false)
+  /* Puts the Back hold on or takes it off for what the page holds now (set below, by the hold itself). */
+  const refreshLeaveGuard = useRef<() => void>(() => {})
   const cancelCeiling = useRef<(() => void) | null>(null)
   const leave = useCallback(() => {
     if (leavingRef.current) return
     leavingRef.current = true
+    setLeaveGuard(null)
     setLeaving(true)
     cancelCeiling.current?.()
     const start = window.setTimeout(() => {
@@ -280,6 +289,7 @@ function EditorLayout() {
     const revive = () => {
       leavingRef.current = false
       setLeaving(false)
+      refreshLeaveGuard.current()
     }
     const onPageShow = (e: PageTransitionEvent) => { if (e.persisted) revive() }
     window.addEventListener("pageshow", onPageShow)
@@ -336,8 +346,21 @@ function EditorLayout() {
       settingsTabRef.current?.saveAllSettings().catch(() => {})
     }
     setActiveTab(tab)
+    /*
+      THE TAB IS IN THE ADDRESS, NOT IN THE HISTORY. Each tab used to push an
+      entry of its own, `pushState(null, "", "#settings")`: Back walked back
+      through every tab before it left the editor, and the null state went
+      through the router's own history patch, which filled it in from
+      whatever the entry before it held and started a navigation of its own
+      to the new address on every click. Now the tab replaces the address of
+      the entry the editor is on, with that entry's own state, which carries
+      the router's marker, so the router lets it through and does nothing:
+      one entry for the editor, whatever tab it is on, and a reload keeps the
+      tab.
+    */
     if (typeof window !== "undefined") {
-      window.history.pushState(null, "", `#${tab}`)
+      window.history.replaceState(window.history.state, "", `#${tab}`)
+      refreshLeaveGuard.current()
     }
   }, [])
 
@@ -543,8 +566,6 @@ function EditorLayout() {
     setShowProUpgradeDialog(false)
   }, [])
 
-  // Ref to track if we pushed state for back button interception
-  const hasSetupBackInterceptionRef = useRef(false)
   const isDirtyRef = useRef(isDirty)
   
   // Keep isDirtyRef in sync with isDirty
@@ -569,58 +590,108 @@ function EditorLayout() {
     }
   }, [isDirty])
   
-  // Handle browser back button with popstate
-  useEffect(() => {
-    // Push a state entry so we can intercept back button
-    if (!hasSetupBackInterceptionRef.current) {
-      window.history.pushState({ onepageEditor: true }, '', window.location.href)
-      hasSetupBackInterceptionRef.current = true
+  /*
+    BACK ASKS ONLY WHEN THERE IS SOMETHING TO LOSE, AND NEEDS NO ENTRY OF ITS
+    OWN. The editor used to push an entry on arrival so that Back had
+    something to pop: every visit then took an extra Back to leave (two, and
+    one more per tab), "Discard" went back by counting entries, and on a
+    first load the entry was pushed before the router had patched the
+    history, so it carried none of the router's state. Now Back is held only
+    while there is unsaved work, through the one listener that runs before
+    the router's (lib/ui/leave-guard.ts), and the dialog asks. With nothing
+    unsaved, Back is the browser's own and leaves in one press.
+  */
+  const leaveTimer = useRef(0)
+  const armLeaveGuard = useCallback(() => {
+    if (!isDirtyRef.current || leavingRef.current) {
+      setLeaveGuard(null)
+      return
     }
-    
-    const handlePopState = (e: PopStateEvent) => {
-      // Check if user has unsaved changes
-      if (isDirtyRef.current) {
-        // Push state back to prevent navigation
-        window.history.pushState({ onepageEditor: true }, '', window.location.href)
-        // Show unsaved changes dialog
+    setLeaveGuard({
+      url: window.location.href,
+      state: window.history.state,
+      onHeld: () => {
+        setPendingNavigation("back")
         setShowUnsavedDialog(true)
-        setPendingNavigation('back')
-      }
-      // If no unsaved changes, allow normal back navigation
-      // The browser will handle it naturally
-    }
-
-    window.addEventListener('popstate', handlePopState)
-    
-    return () => {
-      window.removeEventListener('popstate', handlePopState)
-    }
+      },
+    })
+  }, [])
+  refreshLeaveGuard.current = armLeaveGuard
+  useEffect(() => {
+    armLeaveGuard()
+  }, [isDirty, armLeaveGuard])
+  useEffect(() => () => {
+    window.clearTimeout(leaveTimer.current)
+    setLeaveGuard(null)
   }, [])
 
-  // Handle link clicks when dirty - intercept ALL navigation including Next.js client-side routing
+  /*
+    A LINK OUT, WITH WORK UNSAVED, ASKS FIRST, AND ONLY THEN DOES ANYTHING
+    START. The press is stopped before the link, the rail or the shell sees it,
+    so no bar runs and no page is hidden for a navigation that may not
+    happen. Only a press that would leave this tab: a new tab or window, a
+    download, or a place on this same page leaves nothing behind.
+  */
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (!isDirtyRef.current) return
-
-      const target = e.target as HTMLElement
-      const anchor = target.closest('a')
-
-      if (anchor) {
-        const href = anchor.getAttribute('href')
-        // Intercept internal navigation links (not external links opened in new tab or hash links)
-        if (href && !href.startsWith('#') && !anchor.getAttribute('target')) {
-          e.preventDefault()
-          e.stopPropagation()
-          e.stopImmediatePropagation()
-          setShowUnsavedDialog(true)
-          setPendingNavigation(href.startsWith('http') ? href : href)
-        }
+      if (!isDirtyRef.current || leavingRef.current || !isPlainClick(e)) return
+      const anchor = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null
+      if (!anchor || anchor.hasAttribute("download")) return
+      if (anchor.target && anchor.target !== "_self") return
+      let url: URL
+      try {
+        url = new URL(anchor.href, window.location.href)
+      } catch {
+        return
       }
+      if (url.origin === window.location.origin && url.pathname === window.location.pathname && url.search === window.location.search) return
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation()
+      setPendingNavigation(url.href)
+      setShowUnsavedDialog(true)
     }
 
     document.addEventListener('click', handleClick, true)
     return () => document.removeEventListener('click', handleClick, true)
   }, [])
+
+  /*
+    ANSWERED: GO WHERE THE PRESS WAS GOING. A link out is followed the way the
+    rail follows it, by the router, with the shell told on the same press
+    (the row lights, the bar and the spinner answer a slow page). It used to
+    be a whole document load, whose stale "unsaved changes" handler then
+    asked the browser's own question on top of this one. A held Back goes
+    back one entry, from the one the hold put back to the one Back was going
+    to. If nothing has taken the editor away in LEAVE_REVIVE_MS, it holds
+    Back again: the work is still here.
+  */
+  const leaveTo = useCallback((target: string) => {
+    leavingRef.current = true
+    setLeaveGuard(null)
+    window.clearTimeout(leaveTimer.current)
+    leaveTimer.current = window.setTimeout(() => {
+      leavingRef.current = false
+      refreshLeaveGuard.current()
+    }, LEAVE_REVIVE_MS)
+    if (target === "back") {
+      window.history.back()
+      return
+    }
+    let url: URL
+    try {
+      url = new URL(target, window.location.href)
+    } catch {
+      return
+    }
+    if (url.origin !== window.location.origin) {
+      window.location.assign(url.href)
+      return
+    }
+    const href = url.pathname + url.search + url.hash
+    startNavigationLoading(href)
+    router.push(href)
+  }, [router])
 
   const handleSaveAndNavigate = useCallback(async () => {
     const userHasPro = userPlan === "growth" || userPlan === "pro"
@@ -652,29 +723,24 @@ function EditorLayout() {
       setIsSavingForNav(false)
     }
     setShowUnsavedDialog(false)
+    /* "/app" is the phone's way out (handleExit), through the glass; "back" a held Back; anything else a link's address. */
     if (pendingNavigation === "/app") {
       leave()
-    } else if (pendingNavigation && pendingNavigation !== 'back') {
-      window.location.href = pendingNavigation
-    } else if (pendingNavigation === 'back') {
-      // Actually go back now
-      window.history.go(-2) // Go back 2 because we pushed a state
+    } else if (pendingNavigation) {
+      leaveTo(pendingNavigation)
     }
     setPendingNavigation(null)
-  }, [save, pendingNavigation, hasProFeaturesEnabled, activeTab, userPlan, showSaveFailure, leave])
+  }, [save, pendingNavigation, hasProFeaturesEnabled, activeTab, userPlan, showSaveFailure, leave, leaveTo])
 
   const handleDiscardAndNavigate = useCallback(() => {
     setShowUnsavedDialog(false)
     if (pendingNavigation === "/app") {
       leave()
-    } else if (pendingNavigation && pendingNavigation !== 'back') {
-      window.location.href = pendingNavigation
-    } else if (pendingNavigation === 'back') {
-      // Actually go back now
-      window.history.go(-2) // Go back 2 because we pushed a state
+    } else if (pendingNavigation) {
+      leaveTo(pendingNavigation)
     }
     setPendingNavigation(null)
-  }, [pendingNavigation, leave])
+  }, [pendingNavigation, leave, leaveTo])
 
   // Handle onboarding completion
   // Note: The onboarding modal already saves everything to the database and calls save()

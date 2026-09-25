@@ -171,7 +171,7 @@ export const dashboardDict: Record<"ro" | "en", Record<string, string>> = {
     "nav.storeBuilder": "Store Builder",
     "nav.creatorPage": "Creator Page",
     "nav.websiteBuilder": "Website",
-    "nav.unlockBenefits": "Lower fees, your own domain",
+    "nav.unlockBenefits": "Unlock more benefits",
     "nav.upgradeToPro": "Upgrade to Pro",
     // Settings entries surfaced in the sidebar
     "settings.billing": "Billing",
