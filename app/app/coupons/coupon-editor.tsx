@@ -36,9 +36,10 @@ import { returnToCoupons, useCouponListOrigin, warmCoupons } from "./list-return
 const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6"
 const CARD_TITLE = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
 const HINT = "text-[13px] leading-5 text-[#6b7280]"
+/* Focused, a field takes the app's calm edge (the description editor's, and every /app search field's): a light hairline and a soft halo, not a black ring. */
 const FIELD =
-  "h-11 w-full rounded-[10px] border border-[#e5e7eb] bg-white px-3.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-100 placeholder:text-[#9ca3af] focus:border-[#111113] focus:shadow-[0_0_0_1px_#111113] sm:h-10 sm:rounded-lg sm:text-[14px]"
-const FIELD_WRONG = "border-[#c4290c] focus:border-[#c4290c] focus:shadow-[0_0_0_1px_#c4290c]"
+  "h-11 w-full rounded-[10px] border border-[#e3e5e8] bg-white px-3.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-10 sm:rounded-lg sm:text-[14px]"
+const FIELD_WRONG = "border-[#c4290c] focus:border-[#c4290c] focus:shadow-[0_0_0_3px_rgba(196,41,12,0.1)]"
 /* The adornment inside a field: $ before an amount, % after a percentage. */
 const ADORN = "pointer-events-none absolute top-1/2 -translate-y-1/2 text-[16px] text-[#9ca3af] sm:text-[14px]"
 
@@ -661,7 +662,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
               <h2 id="coupon-summary-title" className={CARD_TITLE}>
                 Summary
               </h2>
-              <p className={cn("truncate font-mono text-[15px] font-semibold tracking-wide", form.code ? "text-[#1a1a2e]" : "text-[#9ca3af]")}>{form.code || "No code yet"}</p>
+              <p className={cn("truncate text-[15px]", form.code ? "font-mono font-semibold tracking-wide text-[#1a1a2e]" : "text-[#9ca3af]")}>{form.code || "No code yet"}</p>
               <ul className="space-y-1.5">
                 {summary.map((line) => (
                   <li key={line} className="flex gap-2 text-[14px] leading-5 text-[#4b5563]">
