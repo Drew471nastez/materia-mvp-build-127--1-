@@ -12,6 +12,7 @@ import { pageUser } from "@/lib/auth/page-user"
 import { creatorPageHostFromRows, websiteHostFromRows } from "@/lib/custom-domains/client"
 import { factsFromRows, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
 import { readChallengeCounts } from "@/lib/home/progress-server"
+import { creatorSalesTotals } from "@/lib/analytics/creator-orders"
 
 /*
   WHO IS ASKING, AND THEIR TWO ROWS, ONCE PER REQUEST. The title and the page
@@ -75,12 +76,20 @@ export default async function AppDashboard() {
   /*
     THREE TRIPS, WHERE THERE WERE FOUR. The creator row, the profile and the
     OnePage need only the user, so they go together. Everything else needs
-    the creator's id and goes together after it, the orders included: they
-    are read by their product's creator (`products!inner`, the relationship
-    the Customers page and the checkout already use) rather than by a list
-    of product ids that had to come back first. Same rows: an order of a
-    product this creator owns. All on the service role, as before, and every
-    filter is the signed in user's id or the creator row found by it.
+    the creator's id and goes together after it. All on the service role, as
+    before, and every filter is the signed in user's id or the creator row
+    found by it.
+
+    NO ORDER ROWS ARE READ HERE. Home's figures are the Analytics answer,
+    asked for in the browser (components/app/dashboard-client, app/api/
+    analytics/reports), counted on the server from every row. This page used
+    to read every order the creator had and count them itself, and a read
+    stops at 1,000 rows: past its thousandth order a store's figures, its
+    sales count and its revenue challenge were wrong. Getting started and
+    the challenges need only the sales and what they made, which are
+    counted over every order (lib/analytics/creator-orders
+    creatorSalesTotals, by the database when it can), by the order's own
+    creator, so a deleted product's sale still counts.
   */
   const [creator, profile, { data: onepage }] = await Promise.all([
     homeCreator(user.id),
@@ -101,7 +110,7 @@ export default async function AppDashboard() {
     { data: products },
     { data: activeDomains },
     { data: publishedSite },
-    { data: ordersData },
+    salesTotals,
     challengeCounts,
   ] = await Promise.all([
     /* Every product and whether it is published: Getting started asks for one, the challenges for five published. */
@@ -138,11 +147,7 @@ export default async function AppDashboard() {
       .eq("status", WEBSITE_LIVE_STATUS)
       .limit(1)
       .maybeSingle(),
-    adminSupabase
-      .from("orders")
-      .select("id, product_id, amount_cents, status, created_at, stripe_session_id, refund_amount_cents, products!inner(creator_id)")
-      .eq("products.creator_id", creator.id)
-      .order("created_at", { ascending: false }),
+    creatorSalesTotals(adminSupabase, creator.id),
     /* Subscribers, emails sent, automations on and coupons used, for the
        challenges after Getting started (lib/home/progress-server): head
        counts, each 0 on a database without its table. */
@@ -151,26 +156,21 @@ export default async function AppDashboard() {
 
   const productIds = products?.map((p: any) => p.id) || []
 
-  /* The rows the client is handed, without the embedded product, which was
-     only the filter. The Stripe session groups a basket into one order and
-     the refund amount takes a partial refund off, as Analytics counts them
-     (lib/analytics/home-figures). */
-  const allOrders: any[] = (ordersData || []).map(({ products: _owner, ...order }: any) => order)
-
   /**
    * WHAT THE ACCOUNT HAS DONE, by the rules in lib/home/progress: Getting
    * started's eight steps and the challenges after them are worked out from
    * these, on the server, and asked for again by Home when it is landed on
-   * from another page (GET /api/home/progress). The orders are counted as
-   * sales by the rule every figure uses (homeTotals), so "Make your first
-   * sale" and the Orders tab's all time count can never disagree.
+   * from another page (GET /api/home/progress). The sales are counted by
+   * the rule every figure uses, over every order (creatorSalesTotals), so
+   * "Make your first sale" and the Orders tab's all time count can never
+   * disagree.
    */
   const progressFacts = factsFromRows({
     creator,
     products: products ?? [],
     domains: activeDomains ?? [],
     websiteLive: !!publishedSite,
-    orders: allOrders,
+    sales: salesTotals,
     userMetadata: user.user_metadata ?? null,
     counts: challengeCounts,
   })
@@ -186,7 +186,7 @@ export default async function AppDashboard() {
       initialDayPart={dayPart(Date.now(), greetingTimeZone)}
       initialProgress={progressFacts}
       productIds={productIds}
-      initialOrders={allOrders}
+      viewerId={user.id}
       creatorHandle={profile?.username || creator.slug || ""}
       connectedDomain={creatorPageHostFromRows(activeDomains)}
       websiteDomain={websiteHostFromRows(activeDomains)}

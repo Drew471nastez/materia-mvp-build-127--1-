@@ -1,6 +1,12 @@
 import "server-only"
 
 import type { createAdminClient } from "@/lib/supabase/admin"
+import type { OrderRow } from "@/lib/orders/order-view"
+import { homeTotals } from "./home-figures"
+import { KEYSET_PAGE, keysetFrom, readByKeyset } from "./keyset"
+
+/* What a sale and its money are counted from (lib/orders/order-view, reports.ts moneyOf). */
+const SALE_COLUMNS = "id, product_id, amount_cents, status, created_at, stripe_session_id, refund_amount_cents"
 
 /**
  * THE CREATOR'S ORDERS, BY THE CREATOR, NEVER BY A LIST OF PRODUCT IDS.
@@ -51,20 +57,41 @@ export const ownRows = <T,>(rows: T[]): T[] => rows.map((row) => {
 
 
 /**
- * Has the creator ever been paid: one paid row is enough (a completed one,
- * or one refunded since), so Home's "Make your first sale" is one row read,
- * not every order the creator has. Home used to read every order for this,
- * and a read stops at 1,000 rows.
+ * EVERY SALE THE CREATOR HAS MADE, AND WHAT THEY MADE, counted by the rule
+ * every figure uses (one payment is one sale; failed, pending and disputed
+ * payments are not; money less refunds). Home's "Make your first sale" and
+ * its sales challenges read this. They used to count the rows of one read
+ * of the orders, and a read stops at 1,000 rows, so a store past its
+ * thousandth order was stuck at a thousand rows' worth.
+ *
+ * Counted by the database when it can (analytics_all_time, the line under
+ * Analytics' figures, run-now parts 25 and 32), else from every order read a
+ * page at a time.
  */
-export async function creatorHasSale(admin: Admin, creatorId: string): Promise<boolean> {
+export async function creatorSalesTotals(admin: Admin, creatorId: string): Promise<{ sales: number; revenueCents: number }> {
   try {
-    return await byCreator(async (scope) => {
-      const { data, error } = await scopedOrders(admin, "id", scope, creatorId, null).in("status", ["completed", "refunded"]).limit(1)
-      if (error) throw new Error(error.message)
-      return Array.isArray(data) && data.length > 0
+    const { data, error } = await admin.rpc("analytics_all_time", { p_creator_id: creatorId, p_product_id: null })
+    if (!error && data) {
+      const d = data as { orders?: number; sales_cents?: number }
+      return { sales: Math.max(0, Number(d.orders) || 0), revenueCents: Math.max(0, Number(d.sales_cents) || 0) }
+    }
+  } catch {
+    /* counted from the rows below */
+  }
+  try {
+    const rows = await byCreator(async (scope) => {
+      const read = await readByKeyset<OrderRow>((after) =>
+        keysetFrom(scopedOrders(admin, SALE_COLUMNS, scope, creatorId, null), "1970-01-01T00:00:00.000Z", after)
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .limit(KEYSET_PAGE),
+      )
+      return ownRows(read.rows)
     })
+    const { totalOrders, totalRevenue } = homeTotals(rows)
+    return { sales: totalOrders, revenueCents: Math.max(0, totalRevenue) }
   } catch (error) {
-    console.error("[creator-orders] first sale not read:", (error as Error).message)
-    return false
+    console.error("[creator-orders] sales not counted:", (error as Error).message)
+    return { sales: 0, revenueCents: 0 }
   }
 }

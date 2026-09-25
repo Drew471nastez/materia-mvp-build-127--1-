@@ -126,12 +126,12 @@ section("Home: three trips, and its title shares them")
   const first = batchAfter(body, /pageUser\(\)/)
   check("the creator row, the profile and the OnePage go together", /homeCreator\(user\.id\)/.test(first) && /homeProfile\(user\.id\)/.test(first) && /\.from\("onepages"\)/.test(first))
   const second = batchAfter(body, /onboarding_completed/)
-  check("then the products, the domain, the live website and the orders go together",
-    /\.from\("products"\)/.test(second) && /\.from\("custom_domains"\)/.test(second) && /\.from\("store_theme_installs"\)/.test(second) && /\.from\("orders"\)/.test(second))
-  check("the orders are the creator's by their product's creator, not by a list of ids that had to come back first",
-    /\.select\("id, product_id, amount_cents, status, created_at, stripe_session_id, refund_amount_cents, products!inner\(creator_id\)"\)\s*\.eq\("products\.creator_id", creator\.id\)/.test(body)
-      && !/\.in\("product_id"/.test(body))
-  check("and the client is handed the rows without the embedded product", /\(ordersData \|\| \[\]\)\.map\(\(\{ products: _owner, \.\.\.order \}: any\) => order\)/.test(body))
+  /* Changed on purpose: Home reads no order rows now. Its figures are the Analytics answer (app/api/analytics/reports),
+     and a read of every order here stopped at 1,000 rows. The sales are counted over every order, in the same batch. */
+  check("then the products, the domain, the live website and the sales count go together",
+    /\.from\("products"\)/.test(second) && /\.from\("custom_domains"\)/.test(second) && /\.from\("store_theme_installs"\)/.test(second) && /creatorSalesTotals\(adminSupabase, creator\.id\)/.test(second))
+  check("no orders are read for the figures, and never by a list of product ids",
+    !/\.from\("orders"\)/.test(body) && !/\.in\("product_id"/.test(body) && !/initialOrders=/.test(body))
   check("still on the service role, as before, never the caller's client swapped in or out", /createAdminClient\(\)/.test(body) && !/createClient\(\)/.test(home))
 }
 

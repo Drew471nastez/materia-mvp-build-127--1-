@@ -133,24 +133,29 @@ console.log("\nHome: views and conversion")
 console.log("\nHome: the page reads it this way")
 {
   const dash = code("components/app/dashboard-client.tsx")
-  check("the figures and the chart come from home-figures, with the viewer's zone",
-    /homeFigures\(\{/.test(dash) && /homeSpans\(period, dashTimeZone, Date\.now\(\)\)/.test(dash) && /homeTotals\(liveOrders/.test(dash))
+  /* Changed on purpose: Home no longer counts from rows it read itself (1,000 at most); it draws the Analytics answer (homeFromReports). */
+  check("the figures and the chart are the Analytics answer for the period, with the viewer's zone",
+    /homeFromReports\(homeAnswer\.reports, clicksByBucket\(/.test(dash) && /homeQuestion\(period, dashTimeZone, reportNow\(/.test(dash) && /askReport\(key, /.test(dash))
+  check("  and all time under each figure is Analytics' all time line", /const totals = homeAllTime\(homeAnswer\?\.allTime\)/.test(dash))
   check("no bucket shapes or comparison of its own are left",
     !/generateTimeBuckets/.test(dash) && !/start\.getTime\(\) - 1/.test(dash) && !/o\.status === "completed"/.test(dash) && !/DASH_LEGACY_TIMEFRAME/.test(dash))
-  check("views are read for the period and its comparison, with the end left out",
-    /spansToRead\(span, previous\)/.test(dash) && /\.lt\("created_at", iso\(s\.end\)\)/.test(dash) && !/\.lte\("created_at"/.test(dash))
-  check("all time views are counted by the database, not the first thousand rows",
-    /\.select\("id", \{ count: "exact", head: true \}\)\s*\.eq\("creator_id", creatorId\)\s*\.eq\("event_type", "view"\)/.test(dash))
+  check("no views or orders are read in the browser, where a read stops at 1,000 rows",
+    !/spansToRead/.test(dash) && !/select\("id, visitor_id, session_id, product_id, created_at"\)/.test(dash) && !/liveOrders/.test(dash) && !/\.from\("orders"\)/.test(dash))
+  check("the link taps are every one of the period's, a page at a time, with the end left out",
+    /readByKeyset<\{ id: string; created_at: string \}>/.test(dash) && /\.eq\("event_type", "click"\)\.lt\("created_at", iso\(span\.end\)\)/.test(dash) && /\.limit\(KEYSET_PAGE\)/.test(dash) && !/\.lte\("created_at"/.test(dash))
+  check("a new order asks again, past what was kept", /setOrdersChanged\(\(n\) => n \+ 1\)/.test(dash) && /\[periodKey, creatorId, ordersChanged\]/.test(dash) && /askPastKept\.current \? NOW_STEP_MS : 0/.test(dash))
   /* "The live pill shows a skeleton block while it loads." It waits as
      itself now: dot, a held "0" and "live", the number fading in. */
   check("the live pill waits as itself, its number fading in on opacity, with no shimmer bar in it",
     !/ShimmerBlock/.test(dash) && (dash.match(/<LivePill count=\{liveVisitors\}/g) ?? []).length === 2
       && /count == null \? "opacity-0" : "opacity-100"/.test(dash) && /\{count \?\? 0\}<\/span> \{label\}/.test(dash))
   const home = code("app/app/page.tsx")
-  /* The first sale is counted by lib/home/progress (salesFrom), which is homeTotals, from these same rows. */
-  check("the page hands over what a basket and a refund need, and counts its first sale the same way",
-    /stripe_session_id, refund_amount_cents, products!inner\(creator_id\)/.test(home) && /orders: allOrders/.test(home)
-      && /homeTotals\(\(orders \?\? \[\]\) as OrderRow\[\]\)/.test(code("lib/home/progress.ts")))
+  /* Changed on purpose: the page reads no order rows now (a read stops at 1,000). The first sale and the sales challenges
+     are counted over every order by the same rule (homeTotals, or analytics_all_time which counts the same), still through lib/home/progress. */
+  check("the page reads no order rows, and counts the sales over every order, the same way",
+    !/\.from\("orders"\)/.test(home) && /creatorSalesTotals\(adminSupabase, creator\.id\)/.test(home) && /sales: salesTotals/.test(home) && /viewerId=\{user\.id\}/.test(home)
+      && /homeTotals\(rows\)/.test(code("lib/analytics/creator-orders.ts")) && /homeTotals\(\(orders \?\? \[\]\) as OrderRow\[\]\)/.test(code("lib/home/progress.ts"))
+      && /rows\.sales \? \{ sales: n\(rows\.sales\.sales\)/.test(code("lib/home/progress.ts")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
