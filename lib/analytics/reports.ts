@@ -86,6 +86,12 @@ export interface BreakdownRow {
 
 export interface Reports {
   grain: Grain
+  /**
+   * The figures and the order cards only: the visit lists and the funnel are
+   * still being counted. The page's first, quick answer (app/api/analytics/
+   * reports streams it ahead of the rest); the lists wait in their shapes.
+   */
+  partial?: boolean
   /** False when the picker says No comparison: every `previous` is then empty. */
   compared: boolean
   /** Page views: every page opened, one per page per visitor per half hour (app/api/track-view). */
@@ -244,21 +250,34 @@ function landingPath(url: string | null | undefined, mainDomain: string): string
 
 /* ─── Breakdowns ──────────────────────────────────────────────────────── */
 
-type Keyer = (s: Session) => { key: string; label: string } | null
+/**
+ * VISITS IN GROUPS. A breakdown reads a few columns of each visit's first
+ * page, so visits that agree on those columns are one group with a count.
+ * Counting a group of twelve adds twelve, exactly as twelve visits one by one
+ * did, and the groups come in the order of their earliest visit, so the
+ * first label a card sees for a key is the one it always saw. The database
+ * can hand over these groups (analytics_visit_tally) instead of every row.
+ */
+export interface VisitGroup {
+  first: ViewRow
+  n: number
+}
 
-function breakdown(current: Session[], previous: Session[], keyer: Keyer, limit = 25): BreakdownRow[] {
+type Keyer = (s: { first: ViewRow }) => { key: string; label: string } | null
+
+function breakdown(current: VisitGroup[], previous: VisitGroup[], keyer: Keyer, limit = 25): BreakdownRow[] {
   const now = new Map<string, { label: string; value: number }>()
   const before = new Map<string, number>()
   for (const s of current) {
     const k = keyer(s)
     if (!k) continue
     const row = now.get(k.key)
-    if (row) row.value++
-    else now.set(k.key, { label: k.label, value: 1 })
+    if (row) row.value += s.n
+    else now.set(k.key, { label: k.label, value: s.n })
   }
   for (const s of previous) {
     const k = keyer(s)
-    if (k) before.set(k.key, (before.get(k.key) ?? 0) + 1)
+    if (k) before.set(k.key, (before.get(k.key) ?? 0) + s.n)
   }
   const total = [...now.values()].reduce((n, r) => n + r.value, 0)
   return [...now.entries()]
@@ -274,7 +293,7 @@ function headline(value: number, previous: number): Headline {
 /* ─── The breakdowns every kind of page shares ─────────────────────────── */
 
 export function referrerKeyer(mainDomain: string): Keyer {
-  return (s: Session) => {
+  return (s) => {
     const d = (s.first.referrer_domain || "").trim().toLowerCase().replace(/^www\./, "")
     if (!d || d === "direct") return null
     /* A whole host, not a suffix: "mystorelib.com" is somebody else's site. */
@@ -288,23 +307,23 @@ const keyCountry: Keyer = (s) =>
     ? { key: s.first.country_code.toUpperCase(), label: countryName(s.first.country_code.toUpperCase(), s.first.country_name) }
     : null
 
-function visitBreakdowns(now: Session[], before: Session[], mainDomain: string) {
+function visitBreakdowns(now: VisitGroups, before: VisitGroups, mainDomain: string) {
   return {
-    source: breakdown(now, before, (s) => {
+    source: breakdown(now.source, before.source, (s) => {
       const g = sourceGroup(s.first.source_category)
       return { key: g, label: SOURCE_LABEL[g] }
     }),
-    referrer: breakdown(now, before, referrerKeyer(mainDomain)),
-    social: breakdown(now, before, (s) => {
+    referrer: breakdown(now.referrer, before.referrer, referrerKeyer(mainDomain)),
+    social: breakdown(now.source, before.source, (s) => {
       const n = socialNetwork(s.first.source_category)
       return n ? { key: n, label: SOCIAL_LABEL[n] ?? (n === "other" ? "Other social" : titleCase(n)) } : null
     }),
-    campaign: breakdown(now, before, (s) => {
+    campaign: breakdown(now.campaign, before.campaign, (s) => {
       const c = (s.first.utm_campaign || "").trim()
       return c ? { key: c.toLowerCase(), label: c } : null
     }),
-    country: breakdown(now, before, keyCountry).map((r) => ({ ...r, extra: { code: r.key } })),
-    city: breakdown(now, before, (s) => {
+    country: breakdown(now.country, before.country, keyCountry).map((r) => ({ ...r, extra: { code: r.key } })),
+    city: breakdown(now.city, before.city, (s) => {
       const c = (s.first.city || "").trim()
       if (!c) return null
       let city = c
@@ -316,19 +335,180 @@ function visitBreakdowns(now: Session[], before: Session[], mainDomain: string) 
       const cc = (s.first.country_code || "").toUpperCase()
       return { key: `${city}|${cc}`, label: cc ? `${city}, ${countryName(cc, s.first.country_name)}` : city }
     }),
-    device: breakdown(now, before, (s) => {
+    device: breakdown(now.device, before.device, (s) => {
       const d = deviceLabel(s.first.device_type)
       return { key: d.toLowerCase(), label: d }
     }),
-    browser: breakdown(now, before, (s) => {
+    browser: breakdown(now.browser, before.browser, (s) => {
       const b = (s.first.browser || "").trim()
       return { key: (b || "unknown").toLowerCase(), label: b ? titleCase(b) : "Unknown" }
     }),
-    os: breakdown(now, before, (s) => {
+    os: breakdown(now.os, before.os, (s) => {
       const o = (s.first.os || "").trim()
       return { key: (o || "unknown").toLowerCase(), label: o || "Unknown" }
     }),
   }
+}
+
+/* ─── Visits, counted ─────────────────────────────────────────────────── */
+
+/** What each breakdown reads of a visit's first page, and nothing else. */
+export const GROUP_COLUMNS = {
+  source: ["source_category"],
+  referrer: ["referrer_domain"],
+  campaign: ["utm_campaign"],
+  country: ["country_code", "country_name"],
+  city: ["city", "country_code", "country_name"],
+  device: ["device_type"],
+  browser: ["browser"],
+  os: ["os"],
+  page: ["page_url"],
+} as const satisfies Record<string, ReadonlyArray<keyof ViewRow>>
+
+export type VisitGroupKind = keyof typeof GROUP_COLUMNS
+export type VisitGroups = Record<VisitGroupKind, VisitGroup[]>
+
+/**
+ * ONE WINDOW'S VISITS, COUNTED: everything the page needs from the view and
+ * step rows. Worked out here from the rows (tallyVisits), or by the database
+ * from the same rows by the same rules (analytics_visit_tally, read back by
+ * talliesFromWire), and either way handed to the same buildReports.
+ */
+export interface VisitTally {
+  /** Page views in the window, and per bucket of the chart. */
+  views: number
+  viewBuckets: number[]
+  /** Visits (sessionsOf) in the window, and per bucket, by when each began. */
+  sessions: number
+  sessionBuckets: number[]
+  /** Visits that pressed Buy, and that reached the checkout. Absent from a quick first answer. */
+  steps?: { buy: number; checkout: number }
+  /** The visits in groups, earliest visit first (groupVisits). Absent from a quick first answer. */
+  groups?: VisitGroups
+}
+
+export interface VisitTallies {
+  cur: VisitTally
+  prev: VisitTally
+}
+
+/** Visits in groups, per breakdown, in the order of each group's earliest visit. */
+export function groupVisits(sessions: Array<{ first: ViewRow }>): VisitGroups {
+  const out = {} as VisitGroups
+  for (const kind of Object.keys(GROUP_COLUMNS) as VisitGroupKind[]) {
+    const cols = GROUP_COLUMNS[kind] as ReadonlyArray<keyof ViewRow>
+    const byTuple = new Map<string, VisitGroup>()
+    for (const s of sessions) {
+      const tuple = cols.length === 1 ? String(s.first[cols[0]] ?? "\u0000") : JSON.stringify(cols.map((c) => s.first[c] ?? null))
+      const g = byTuple.get(tuple)
+      if (g) g.n++
+      else {
+        const first = { created_at: s.first.created_at } as ViewRow
+        for (const c of cols) (first as unknown as Record<string, unknown>)[c] = s.first[c] ?? null
+        byTuple.set(tuple, { first, n: 1 })
+      }
+    }
+    out[kind] = [...byTuple.values()]
+  }
+  return out
+}
+
+/** The step rows' visits: each step counted once per visit. */
+function stepVisits(steps: StepRow[], type: string, w: Span, timeZone: string): number {
+  const keys = new Set<string>()
+  for (const s of steps) {
+    if (s.event_type !== type) continue
+    const at = Date.parse(s.created_at)
+    if (!(at >= w.start && at < w.end)) continue
+    keys.add(sessionKey({ ...s, created_at: s.created_at }, timeZone))
+  }
+  return keys.size
+}
+
+/**
+ * The two windows' visits, counted from the rows, by the rules at the top of
+ * this file. The database's analytics_visit_tally is this function in SQL.
+ */
+export function tallyVisits(input: { views: ViewRow[]; steps: StepRow[]; window: Span; previous?: Span | null; timeZone: string }): VisitTallies {
+  const { views, steps, window: cur, timeZone } = input
+  const { starts, prev, prevStarts, compared } = periodsOf(cur, input.previous, timeZone)
+  const n = starts.length
+  const one = (w: Span, bucketStartsOf: number[]): VisitTally => {
+    const sessions = sessionsOf(views, w, timeZone)
+    const viewTimes: Array<{ at: number }> = []
+    for (const v of views) {
+      const at = Date.parse(v.created_at)
+      if (at >= w.start && at < w.end) viewTimes.push({ at })
+    }
+    return {
+      views: viewTimes.length,
+      viewBuckets: bucketCounts(viewTimes, bucketStartsOf, w, n),
+      sessions: sessions.length,
+      sessionBuckets: bucketCounts(sessions.map((s) => ({ at: s.at })), bucketStartsOf, w, n),
+      steps: { buy: stepVisits(steps, "buy_click", w, timeZone), checkout: stepVisits(steps, "checkout_start", w, timeZone) },
+      groups: groupVisits(sessions),
+    }
+  }
+  return { cur: one(cur, starts), prev: compared ? one(prev, prevStarts) : one(prev, []) }
+}
+
+/**
+ * WHAT THE DATABASE IS ASKED (analytics_visit_tally's arguments): the two
+ * windows and the very bucket starts this file draws, so the database never
+ * works out a calendar of its own.
+ */
+export function tallyArgs(window: Span, previous: Span | null | undefined, timeZone: string) {
+  const { starts, prev, prevStarts } = periodsOf(window, previous, timeZone)
+  return {
+    p_time_zone: timeZone,
+    p_cur_start: window.start,
+    p_cur_end: window.end,
+    p_prev_start: prev.start,
+    p_prev_end: prev.end,
+    p_cur_starts: starts,
+    p_prev_starts: prevStarts,
+  }
+}
+
+type WireGroup = Array<string | number | null>
+interface WireTally {
+  views: number
+  view_buckets: number[]
+  sessions: number
+  session_buckets: number[]
+  steps?: { buy: number; checkout: number } | null
+  groups?: Partial<Record<VisitGroupKind, WireGroup[]>> | null
+}
+
+/**
+ * The database's answer, as the tallies above. Each group comes as its
+ * columns (GROUP_COLUMNS order), its count and the rank of its earliest
+ * visit; sorted by that rank they are in the order tallyVisits makes.
+ */
+export function talliesFromWire(wire: { cur: WireTally; prev: WireTally }, detail: boolean): VisitTallies {
+  const one = (t: WireTally): VisitTally => {
+    const out: VisitTally = {
+      views: Number(t.views) || 0,
+      viewBuckets: (t.view_buckets ?? []).map(Number),
+      sessions: Number(t.sessions) || 0,
+      sessionBuckets: (t.session_buckets ?? []).map(Number),
+    }
+    if (!detail) return out
+    out.steps = { buy: Number(t.steps?.buy) || 0, checkout: Number(t.steps?.checkout) || 0 }
+    const groups = {} as VisitGroups
+    for (const kind of Object.keys(GROUP_COLUMNS) as VisitGroupKind[]) {
+      const cols = GROUP_COLUMNS[kind] as ReadonlyArray<keyof ViewRow>
+      const rows = [...(t.groups?.[kind] ?? [])].sort((a, b) => Number(a[cols.length + 1]) - Number(b[cols.length + 1]))
+      groups[kind] = rows.map((r) => {
+        const first = { created_at: "" } as ViewRow
+        cols.forEach((c, i) => ((first as unknown as Record<string, unknown>)[c] = r[i] ?? null))
+        return { first, n: Number(r[cols.length]) || 0 }
+      })
+    }
+    out.groups = groups
+    return out
+  }
+  return { cur: one(wire.cur), prev: one(wire.prev) }
 }
 
 /* ─── Everything ──────────────────────────────────────────────────────── */
@@ -413,8 +593,10 @@ export function lineMoney(line: OrderRow): { gross: number; refunded: number; ne
 }
 
 export function buildReports(input: {
-  views: ViewRow[]
-  steps: StepRow[]
+  /** The rows, counted here (tallyVisits); or `visits`, already counted by the database. */
+  views?: ViewRow[]
+  steps?: StepRow[]
+  visits?: VisitTallies
   orders: OrderRow[]
   window: Span
   /** What the period is compared with: null for no comparison, left out for the period just before. */
@@ -423,12 +605,16 @@ export function buildReports(input: {
   mainDomain: string
   productTitles: Record<string, string>
 }): Reports {
-  const { views, steps, window: cur, timeZone, mainDomain } = input
+  const { window: cur, timeZone, mainDomain } = input
   const { grain, starts, labels, prev, prevStarts, compared } = periodsOf(cur, input.previous, timeZone)
   const n = starts.length
 
-  const sessionsNow = sessionsOf(views, cur, timeZone)
-  const sessionsBefore = sessionsOf(views, prev, timeZone)
+  /* The visits, counted once: from the rows here, or as the database counted them. */
+  const visits = input.visits ?? tallyVisits({ views: input.views ?? [], steps: input.steps ?? [], window: cur, previous: input.previous, timeZone })
+  const now = visits.cur
+  const then = visits.prev
+  /* A quick first answer has the figures and not yet the visit lists or the funnel. */
+  const partial = !now.groups || !then.groups || !now.steps || !then.steps
 
   /* Orders: one per payment, failed, pending and disputed left out (isSale). */
   const allOrders = groupOrders(input.orders).filter(isSale)
@@ -448,10 +634,14 @@ export function buildReports(input: {
     previous: compared ? bucketCounts(items(prev), prevStarts, prev, n) : [],
   })
 
-  const sessionSeries = series((w) => (w === cur ? sessionsNow : sessionsBefore).map((s) => ({ at: s.at })))
-  const viewsIn = (w: Span) =>
-    views.map((v) => ({ at: Date.parse(v.created_at) })).filter((v) => v.at >= w.start && v.at < w.end)
-  const viewSeries = series(viewsIn)
+  /* Visits and page views per bucket, as tallied: the same counts series() makes from times. */
+  const tallied = (a: VisitTally, b: VisitTally, pick: (t: VisitTally) => number[]): Series => ({
+    labels,
+    current: pick(a),
+    previous: compared ? pick(b) : [],
+  })
+  const sessionSeries = tallied(now, then, (t) => t.sessionBuckets)
+  const viewSeries = tallied(now, then, (t) => t.viewBuckets)
   const orderTimes = (list: Grouped[]) => list.map((o) => ({ at: Date.parse(o.createdAt) }))
   const orderSeries = series((w) => orderTimes(w === cur ? ordersNow : ordersBefore))
   const salesSeries = series((w) => (w === cur ? ordersNow : ordersBefore).map((o) => ({ at: Date.parse(o.createdAt), n: net(o) })))
@@ -553,24 +743,14 @@ export function buildReports(input: {
       .slice(0, 8)
   })()
 
-  /* The funnel, counted in visits: each step once per visit. */
-  const stepSessions = (type: string, w: Span) => {
-    const keys = new Set<string>()
-    for (const s of steps) {
-      if (s.event_type !== type) continue
-      const at = Date.parse(s.created_at)
-      if (!(at >= w.start && at < w.end)) continue
-      keys.add(sessionKey({ ...s, created_at: s.created_at }, timeZone))
-    }
-    return keys.size
-  }
+  /* The funnel, counted in visits: each step once per visit (tallyVisits). */
   const funnelRaw = [
-    { key: "sessions" as const, label: "Sessions", value: sessionsNow.length, previous: sessionsBefore.length },
-    { key: "buy" as const, label: "Pressed Buy", value: stepSessions("buy_click", cur), previous: stepSessions("buy_click", prev) },
-    { key: "checkout" as const, label: "Reached checkout", value: stepSessions("checkout_start", cur), previous: stepSessions("checkout_start", prev) },
+    { key: "sessions" as const, label: "Sessions", value: now.sessions, previous: then.sessions },
+    { key: "buy" as const, label: "Pressed Buy", value: now.steps?.buy ?? 0, previous: then.steps?.buy ?? 0 },
+    { key: "checkout" as const, label: "Reached checkout", value: now.steps?.checkout ?? 0, previous: then.steps?.checkout ?? 0 },
     { key: "orders" as const, label: "Ordered", value: ordersNow.length, previous: ordersBefore.length },
   ]
-  const funnel = funnelRaw.map((f) => ({ ...f, rate: rate(f.value, sessionsNow.length) }))
+  const funnel = partial ? [] : funnelRaw.map((f) => ({ ...f, rate: rate(f.value, now.sessions) }))
 
   /*
     Country: visits, and the orders and money from buyers there.
@@ -580,7 +760,9 @@ export function buildReports(input: {
     came back as a new row saying 0 visits, beside a country that had them.
   */
   const countryRows = (() => {
-    const rows = breakdown(sessionsNow, sessionsBefore, keyCountry, Infinity)
+    /* A quick first answer has no visit lists yet: the card waits for the whole answer. */
+    if (partial || !now.groups || !then.groups) return []
+    const rows = breakdown(now.groups.country, then.groups.country, keyCountry, Infinity)
     const byCode = new Map(rows.map((r) => [r.key, r]))
     for (const o of ordersNow) {
       const code = (o.lines[0].buyer_country_code || "").toUpperCase()
@@ -603,12 +785,17 @@ export function buildReports(input: {
 
   const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
 
+  const noGroups = { source: [], referrer: [], campaign: [], country: [], city: [], device: [], browser: [], os: [], page: [] } satisfies VisitGroups
+  const groupsNow = now.groups ?? noGroups
+  const groupsThen = then.groups ?? noGroups
+
   return {
     grain,
     compared,
-    views: { ...head(viewsIn(cur).length, viewsIn(prev).length), series: viewSeries },
-    sessions: { ...head(sessionsNow.length, sessionsBefore.length), series: sessionSeries },
-    conversion: { ...head(rate(ordersNow.length, sessionsNow.length), rate(ordersBefore.length, sessionsBefore.length)), series: conversionSeries },
+    ...(partial ? { partial: true } : {}),
+    views: { ...head(now.views, then.views), series: viewSeries },
+    sessions: { ...head(now.sessions, then.sessions), series: sessionSeries },
+    conversion: { ...head(rate(ordersNow.length, now.sessions), rate(ordersBefore.length, then.sessions)), series: conversionSeries },
     aov: { ...head(aov(ordersNow), aov(ordersBefore)), series: aovSeries },
     sales: { ...head(sum(ordersNow.map(net)), sum(ordersBefore.map(net))), series: salesSeries },
     orders: { ...head(ordersNow.length, ordersBefore.length), series: orderSeries },
@@ -617,13 +804,13 @@ export function buildReports(input: {
     salesByProduct: productRows,
     funnel,
     breakdowns: {
-      ...visitBreakdowns(sessionsNow, sessionsBefore, mainDomain),
+      ...visitBreakdowns(groupsNow, groupsThen, mainDomain),
       country: countryRows,
-      landing: breakdown(sessionsNow, sessionsBefore, (s) => {
+      landing: breakdown(groupsNow.page, groupsThen.page, (s) => {
         const p = landingPath(s.first.page_url, mainDomain)
         return p ? { key: p, label: p } : null
       }),
-      channel: breakdown(sessionsNow, sessionsBefore, (s) => {
+      channel: breakdown(groupsNow.page, groupsThen.page, (s) => {
         const c = channelOfUrl(s.first.page_url, mainDomain)
         return c ? { key: c, label: c === "website" ? "Website" : "Storelib" } : { key: "unknown", label: "Not recorded" }
       }),
@@ -776,6 +963,6 @@ export function buildOnePageReports(input: {
       series: leadSeries,
     },
     links: linkRows,
-    breakdowns: visitBreakdowns(now, before, input.mainDomain),
+    breakdowns: visitBreakdowns(groupVisits(now), groupVisits(before), input.mainDomain),
   }
 }
