@@ -64,7 +64,8 @@ export function LanguageProvider({
 
   // Prevent hydration mismatch by rendering children only after hydration
   if (!isHydrated) {
-    return fallback
+    /* In a fragment: a component has to return an element, and the fallback may be any node. */
+    return <>{fallback}</>
   }
 
   return (
