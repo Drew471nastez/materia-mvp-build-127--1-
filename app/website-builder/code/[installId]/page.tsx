@@ -1053,7 +1053,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       const d = await res.json().catch(() => ({}))
       if (res.status === 422 && Array.isArray(d.errors)) {
         setCompileErrors(d.errors as ThemeError[])
-        toast.error(`${selectedFile.name} did not compile. Not saved.`)
+        toast.error("Did not compile. Not saved.", { description: selectedFile.name })
       } else if (res.status === 409 && d.conflict) {
         /**
          * Somebody else's save landed while this one was being written.

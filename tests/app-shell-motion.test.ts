@@ -456,10 +456,11 @@ section("Toasts on a phone")
   const toaster = code("components/ui/toaster.tsx")
   check("and it is swiped up on a phone, to the right on a computer",
     /const PHONE = "\(max-width: 767px\)"/.test(toaster) && /return phone \? "up" : "right"/.test(toaster) && /swipeDirection=\{swipeDirection\}/.test(toaster))
-  const sonner = code("app/website-builder/layout.tsx")
+  const sonner = code("components/ui/editor-toaster.tsx")
   check("the website builder's toasts keep clear of the home indicator on a phone and keep to the same lines",
     /mobileOffset=\{\{ left: 16, right: 16, bottom: "calc\(16px \+ env\(safe-area-inset-bottom, 0px\)\)" \}\}/.test(sonner)
-      && /title: "truncate text-\[14px\]"/.test(sonner) && /description: "line-clamp-2 text-\[13px\]"/.test(sonner))
+      && /title: "truncate text-\[14px\]"/.test(sonner) && /description: "line-clamp-2 text-\[13px\]"/.test(sonner) && /toast: "max-\[600px\]:py-3!"/.test(sonner)
+      && /<EditorToaster \/>/.test(code("app/website-builder/layout.tsx")) && !/from "sonner"/.test(code("app/website-builder/layout.tsx")))
 
   /*
     THE WORDS. Every toast written out in these files says one short thing:

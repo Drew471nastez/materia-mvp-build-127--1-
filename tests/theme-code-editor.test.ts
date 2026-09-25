@@ -511,7 +511,7 @@ section("Save compiles, errors carry lines, the canvas finds out")
 
   check("the code editor shows the compiler's errors with their lines", /res\.status === 422 && Array\.isArray\(d\.errors\)/.test(codePage) && /data-compile-errors=""/.test(codePage) && /goToLine\(err\.line\)/.test(codePage))
   check("and marks the line in the gutter", /hasError=\{errorLines\.has\(i \+ 1\)\}/.test(codePage) && /data-error-line=/.test(codePage))
-  check("a broken file is not saved and says so", /did not compile\. Not saved\./.test(codePage) && !/did not compile —/.test(codePage))
+  check("a broken file is not saved and says so, naming the file", /toast\.error\("Did not compile\. Not saved\.", \{ description: selectedFile\.name \}\)/.test(codePage) && !/did not compile —/.test(codePage))
   check("the code editor tells the canvas when a file changed", (codePage.match(/announceFileChange\(/g) ?? []).length >= 5 && /type: "storelib:file-saved"/.test(codePage))
   check("the editor listens and reloads the saved sources", /data\?\.type === "storelib:file-saved"\) void loadStorelibSources\(\)/.test(editor) && /files\?sources=1/.test(editor))
   // The sidebar reads the library, which is the theme's sections and this

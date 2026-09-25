@@ -9,7 +9,9 @@
 import React from "react"
 import { createRoot } from "react-dom/client"
 
+import { Toaster as SonnerToaster, toast as sonnerToast } from "sonner"
 import { Toaster } from "@/components/ui/toaster"
+import { EditorToaster } from "@/components/ui/editor-toaster"
 import { toast } from "@/hooks/use-toast"
 import { MobileNavPill } from "@/components/app/sidebar-mobile-nav"
 import { NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
@@ -52,4 +54,21 @@ function Shell() {
   )
 }
 
-createRoot(document.getElementById("app")!).render(<Shell />)
+/**
+ * ?editor=1: the website builder's editor instead, full screen with no pill,
+ * and its sonner toasts through the real EditorToaster. ?plain=1 as well: the
+ * bare `<Toaster position="bottom-right" />` it had before, for the numbers.
+ */
+function Editor() {
+  const plain = new URLSearchParams(location.search).has("plain")
+  return (
+    <div className="fixed inset-0 overflow-hidden bg-background">
+      <div className="h-12 bg-[#171717]" />
+      <div className="p-4 font-mono text-[13px] text-[#6b7280]">{"{% schema %}"}</div>
+      {plain ? <SonnerToaster position="bottom-right" /> : <EditorToaster />}
+    </div>
+  )
+}
+;(window as unknown as Record<string, unknown>).__sonner = sonnerToast
+
+createRoot(document.getElementById("app")!).render(new URLSearchParams(location.search).has("editor") ? <Editor /> : <Shell />)

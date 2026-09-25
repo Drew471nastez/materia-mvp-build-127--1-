@@ -222,6 +222,77 @@ for (const [label, viewport, inset] of [
   await p.close()
 }
 
+/*
+  THE WEBSITE BUILDER'S EDITORS use sonner (components/ui/editor-toaster.tsx,
+  mounted by app/website-builder/layout.tsx), at the foot of the screen. The
+  longest of the code editor's own toasts, before and now.
+*/
+const FILE = "featured-collection-with-slider.liquid"
+const SONNER = [
+  { at: "code editor (protected source)", before: ["message", "The theme's own code cannot be copied from the editor. Export the theme to keep a copy."], after: ["message", "This code cannot be copied", "Export the theme to keep a copy."] },
+  { at: "code editor (fix not applied)", before: ["message", `You moved off sections/${FILE}, so the fix was not applied.`], after: ["message", "Fix not applied", `You moved off sections/${FILE}.`] },
+  { at: "code editor (did not compile)", before: ["error", `${FILE} did not compile — not saved`], after: ["error", "Did not compile. Not saved.", FILE] },
+  { at: "code editor (copy refused)", before: ["error", "Could not copy. Select the text and copy it instead."], after: ["error", "Could not copy", "Select the text and copy it."] },
+  { at: "code editor (saved as draft)", before: ["success", "Saved. Publish to put it on the site"], after: ["success", "Saved. Publish to go live"] },
+]
+for (const [label, viewport, inset] of [
+  ["390", { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, INSET],
+  ["1440", { width: 1440, height: 900, deviceScaleFactor: 1 }, null],
+]) {
+  const phone = label === "390"
+  const p = await browser.newPage()
+  await p.setViewport(viewport)
+  const cdp = await p.createCDPSession()
+  if (inset) await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: inset })
+  const errors = []
+  p.on("pageerror", (e) => errors.push(String(e)))
+  await p.goto(`${base}/website-builder/code/x?editor=1${BEFORE ? "&plain=1" : ""}`)
+  await wait(400)
+  const rows = []
+  for (const t of SONNER) {
+    const [kind, title, description] = BEFORE ? t.before : t.after
+    await p.evaluate(() => window.__sonner.dismiss())
+    await wait(500)
+    await p.evaluate((kind, title, description) => window.__sonner[kind](title, description ? { description, duration: 60000 } : { duration: 60000 }), kind, title, description ?? null)
+    await wait(700)
+    const m = await p.evaluate(() => {
+      const W = innerWidth, H = innerHeight
+      const r1 = (n) => Math.round(n * 10) / 10
+      const el = [...document.querySelectorAll("[data-sonner-toast]")].find((e) => e.getAttribute("data-removed") !== "true")
+      if (!el) return null
+      const box = el.getBoundingClientRect()
+      const title = el.querySelector("[data-title]")
+      const desc = el.querySelector("[data-description]")
+      const lines = (n) => (n ? Math.round(n.getBoundingClientRect().height / (parseFloat(getComputedStyle(n).lineHeight) || parseFloat(getComputedStyle(n).fontSize) * 1.25)) : 0)
+      const probe = document.createElement("div")
+      probe.style.cssText = "position:fixed;top:0;width:env(safe-area-inset-bottom,0px)"
+      document.body.appendChild(probe)
+      const sab = probe.getBoundingClientRect().width
+      probe.remove()
+      return {
+        box: { x: r1(box.left), y: r1(box.top), w: r1(box.width), h: r1(box.height) },
+        gutters: { left: r1(box.left), right: r1(W - box.right) },
+        title: title ? { px: getComputedStyle(title).fontSize, lines: lines(title), cut: title.scrollWidth > title.clientWidth + 1 } : null,
+        description: desc ? { px: getComputedStyle(desc).fontSize, lines: lines(desc), clamped: desc.scrollHeight > desc.clientHeight + 1 } : null,
+        aboveHomeIndicator: r1(H - sab - box.bottom),
+        overHomeIndicator: r1(Math.max(0, box.bottom - (H - sab)) * box.width),
+      }
+    })
+    if (!m) { problems.push(`sonner ${label} ${t.at}: no toast showed`); continue }
+    if (process.env.TOAST_SHOTS) await p.screenshot({ path: join(process.env.TOAST_SHOTS, `${BEFORE ? "before" : "after"}-sonner-${label}-${SONNER.indexOf(t) + 1}.png`) })
+    rows.push({ at: t.at, title, ...m })
+    if (BEFORE) continue
+    const at = `sonner ${label} ${t.at}:`
+    if (!m.title || m.title.px !== "14px" || m.title.lines !== 1) problems.push(`${at} the title is ${m.title?.px} over ${m.title?.lines} lines, not one line at 14px`)
+    if (m.description && (m.description.px !== "13px" || m.description.lines > 2)) problems.push(`${at} the detail is ${m.description.px} over ${m.description.lines} lines`)
+    if (phone && (m.gutters.left < 16 || m.gutters.right < 16)) problems.push(`${at} the toast is ${m.gutters.left}px and ${m.gutters.right}px from the edges`)
+    if (m.overHomeIndicator > 0) problems.push(`${at} the toast covers ${m.overHomeIndicator}px² of the home indicator`)
+  }
+  if (errors.length) problems.push(`sonner ${label}: the page threw: ${errors[0]}`)
+  report[`sonner ${label}`] = { toasts: rows }
+  await p.close()
+}
+
 await browser.close()
 server.close()
 console.log(JSON.stringify(report, null, 1))
