@@ -80,7 +80,7 @@ export function ThemeMarketplaceClient({
         return
       }
       setAdded((prev) => new Set(prev).add(def.id))
-      toast({ title: `${def.name} added to your library` })
+      toast({ title: `${def.name} added` })
       router.refresh()
     } catch {
       toast({ title: "Could not add theme", variant: "destructive" })

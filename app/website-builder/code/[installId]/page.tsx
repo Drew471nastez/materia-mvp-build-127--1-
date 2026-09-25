@@ -964,7 +964,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       setCopiedErrors(true)
       window.setTimeout(() => setCopiedErrors(false), 1600)
     } catch {
-      toast.error("The clipboard refused that")
+      toast.error("Could not copy")
     }
   }
 
@@ -1000,20 +1000,20 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       })
       const d = (await res.json().catch(() => ({}))) as { source?: string; error?: string }
       if (!res.ok || typeof d.source !== "string") {
-        toast.error(d.error ?? "That could not be fixed automatically")
+        toast.error(d.error ?? "Could not fix it")
         return
       }
       // The file the answer is for may not be the file that is open any more.
       // A slow answer must not land in whatever file is open by then.
       if (openPathRef.current !== path) {
-        toast.message(`You moved off ${path}, so the fix was not applied.`)
+        toast.message("Fix not applied", { description: `You moved off ${path}.` })
         return
       }
       setFileContent(d.source)
       setCompileErrors([])
-      toast.success("Storelib AI fixed it. Read it, then save.")
+      toast.success("Fixed. Check it, then save.")
     } catch {
-      toast.error("The assistant could not be reached")
+      toast.error("Could not reach Storelib AI")
     } finally {
       setSolving(false)
     }
@@ -1047,13 +1047,13 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       setDirtyPaths(prev => { const n = new Set(prev); n.delete(selectedFile.path); return n })
       setCustomizedPaths(prev => new Set([...prev, selectedFile.path]))
       setFileTree(buildThemeFileTree([...customizedPaths, selectedFile.path]))
-      toast.success(saved?.drafted === false ? "Saved and live" : "Saved. Publish to put it on the site")
+      toast.success(saved?.drafted === false ? "Saved and live" : "Saved. Publish to go live")
       announceFileChange(selectedFile.path)
     } else {
       const d = await res.json().catch(() => ({}))
       if (res.status === 422 && Array.isArray(d.errors)) {
         setCompileErrors(d.errors as ThemeError[])
-        toast.error(`${selectedFile.name} did not compile — not saved`)
+        toast.error(`${selectedFile.name} did not compile. Not saved.`)
       } else if (res.status === 409 && d.conflict) {
         /**
          * Somebody else's save landed while this one was being written.
@@ -1062,9 +1062,9 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
          * is how an hour's work disappears with nobody able to say when.
          */
         setConflict({ path: selectedFile.path, theirs: String(d.conflict.content ?? ""), at: String(d.conflict.updated_at ?? "") })
-        toast.error("This file was saved somewhere else while you were editing it")
+        toast.error("This file changed while you edited it")
       } else {
-        toast.error(d.error ?? "Failed to save")
+        toast.error(d.error ?? "Could not save")
       }
     }
     setSaving(false)
@@ -1313,7 +1313,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
   const refuseCopy = (e: React.ClipboardEvent | React.DragEvent) => {
     if (!protectedSource) return
     e.preventDefault()
-    toast("The theme's own code cannot be copied from the editor. Export the theme to keep a copy.", { id: "protected-source" })
+    toast("This code cannot be copied", { id: "protected-source", description: "Export the theme to keep a copy." })
   }
 
   /**
@@ -1452,7 +1452,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1400)
     } catch {
-      toast.error("Could not copy. Select the text and copy it instead.")
+      toast.error("Could not copy", { description: "Select the text and copy it." })
     }
   }
   const downloadFile = () => {
@@ -2342,7 +2342,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                           // the same conflict check as anything typed by hand.
                           handleContentChange(v.content)
                           setHistoryOpen(false)
-                          toast.success("Loaded into the editor. Save it to keep it.")
+                          toast.success("Loaded. Save to keep it.")
                         }}
                         disabled={v.content === fileContent}
                         className="h-7 shrink-0 rounded-md border border-[var(--code-border)] px-2 text-[11px] font-[550] text-[var(--code-text)] transition-colors hover:bg-[var(--code-hover)] disabled:opacity-40 disabled:pointer-events-none"

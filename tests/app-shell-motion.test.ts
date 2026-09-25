@@ -437,6 +437,68 @@ section("Navigation")
   check("a modified click (a new tab) starts nothing", /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(bar))
 }
 
+section("Toasts on a phone")
+{
+  /* Measured at 390 and 1440 by scripts/check-toasts.mjs. */
+  const box = code("components/ui/toast.tsx")
+  check("the viewport runs across the screen between 16px gutters, just under the header, not from the middle (which squeezed every toast into half the screen)",
+    /'pointer-events-none fixed inset-x-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\+8px\)\] z-\[2147483646\] flex max-h-screen flex-col items-center gap-2 px-4 outline-none'/.test(box)
+      && !/left-1\/2 -translate-x-1\/2 top-\[calc\(76px/.test(box))
+  check("from md it sits under the header at the right, 380px at most, not over the account and bell buttons",
+    /md:left-auto md:right-6 md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\+12px\)\] md:w-\[380px\]/.test(box))
+  check("the box is tight and square cornered like the app's other toasts, no pill, no blur behind it",
+    /rounded-xl px-3\.5 py-2\.5/.test(box) && !/rounded-full px-4 py-2\.5/.test(box) && !/backdrop-blur/.test(box))
+  check("one line of 14px title and at most two lines of 13px detail",
+    /'truncate text-\[14px\] font-medium leading-5'/.test(box) && /'line-clamp-2 text-\[13px\] leading-\[18px\] text-white\/75'/.test(box))
+  check("no close button on a phone: it only showed on hover and still took the room", /'hidden shrink-0 rounded-full p-1[^']*md:inline-flex'/.test(box))
+  check("a swipe moves it on either axis, so up works as well as right",
+    /data-\[swipe=move\]:translate-y-\[var\(--radix-toast-swipe-move-y\)\]/.test(box) && /data-\[swipe=end\]:translate-y-\[var\(--radix-toast-swipe-end-y\)\]/.test(box))
+  const toaster = code("components/ui/toaster.tsx")
+  check("and it is swiped up on a phone, to the right on a computer",
+    /const PHONE = "\(max-width: 767px\)"/.test(toaster) && /return phone \? "up" : "right"/.test(toaster) && /swipeDirection=\{swipeDirection\}/.test(toaster))
+  const sonner = code("app/website-builder/layout.tsx")
+  check("the website builder's toasts keep clear of the home indicator on a phone and keep to the same lines",
+    /mobileOffset=\{\{ left: 16, right: 16, bottom: "calc\(16px \+ env\(safe-area-inset-bottom, 0px\)\)" \}\}/.test(sonner)
+      && /title: "truncate text-\[14px\]"/.test(sonner) && /description: "line-clamp-2 text-\[13px\]"/.test(sonner))
+
+  /*
+    THE WORDS. Every toast written out in these files says one short thing:
+    at most 40 characters, no em dash, no "successfully", no "Please". The
+    emails, billing, automations, search and notifications code belongs to
+    other work and is not read here.
+  */
+  const files = [
+    "app/app/payouts/payouts-client.tsx",
+    "app/app/products/products-client.tsx",
+    "app/app/products/new/product-editor.tsx",
+    "app/app/coupons/coupons-client.tsx",
+    "app/app/website-builder/themes/themes-client.tsx",
+    "app/app/website-builder/website-builder-client.tsx",
+    "components/app/dashboard-client.tsx",
+    "components/app/settings-form-new.tsx",
+    "components/onepage/tabs/products-tab.tsx",
+    "app/website-builder/code/[installId]/page.tsx",
+    "components/website-builder/editor/image-picker.tsx",
+  ]
+  const call = /\b(?:toast(?:\.(?:success|error|info|warning|message))?|showNotification|showToast|say)\(\s*(?:\{\s*title:\s*)?(["`])((?:(?!\1)[^\\]|\\.)*)\1/g
+  const long: string[] = []
+  const said: string[] = []
+  for (const f of files) {
+    for (const m of code(f).matchAll(call)) {
+      const text = m[2]
+      said.push(text)
+      /* A name filled in at run time counts as ten characters. */
+      const length = text.replace(/\$\{[^}]*\}/g, "0123456789").length
+      if (length > 40 || /—|successfully|\bPlease\b/.test(text)) long.push(`${f}: "${text}"`)
+    }
+  }
+  check("every toast in the app's own pages is short and plain", said.length >= 40 && long.length === 0, long.join("; ") || `${said.length} read`)
+  check("an upload that failed says so, not the storage error's own words",
+    /toast\.error\("Upload failed\. Try again\."\)/.test(code("components/website-builder/editor/image-picker.tsx")) && !/err\.message/.test(code("components/website-builder/editor/image-picker.tsx")))
+  const addRoute = code("app/api/website-builder/themes/add/route.ts")
+  check("adding a theme never hands the database's error text to the toast", !/seedErr\.message|installErr\?\.message/.test(addRoute) && (addRoute.match(/"Could not add the theme\. Try again\."/g) ?? []).length === 2)
+}
+
 section("Avatars")
 {
   const avatar = code("components/app/app-avatar.tsx")

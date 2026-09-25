@@ -2155,7 +2155,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     if (!currentProductId) {
       // First, we need to save the product to get an ID
       if (!title.trim()) {
-        showToast("Please enter a product title to upload digital product files")
+        showToast("Add a title first")
         scrollToSection("about")
         return
       }
@@ -2357,28 +2357,28 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     if (isLoading || saveInFlight.current) return false
     // Validation 1: Title is required
     if (!title.trim()) {
-      showToast("Please add a product title")
+      showToast("Add a title")
       scrollToSection("about")
       return false
     }
 
     // Validation 2: At least 1 media (photo or video) is required
     if (mediaItems.length === 0) {
-      showToast("Please add at least one photo or video")
+      showToast("Add a photo or video")
       scrollToSection("media")
       return false
     }
 
     // Validation 3: At least 1 digital file is required
     if (digitalFiles.length === 0) {
-      showToast("Please upload at least one digital product file")
+      showToast("Upload a file")
       scrollToSection("content")
       return false
     }
 
     // Validation 4: Category is required
     if (!selectedCategory) {
-      showToast("Please select a category")
+      showToast("Pick a category")
       scrollToSection("category")
       return false
     }
@@ -2388,7 +2388,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       const variantWithoutFiles = variants.find(v => !v.assignedFiles || v.assignedFiles.length === 0)
       if (variantWithoutFiles) {
         const variantName = variantWithoutFiles.name?.trim() || `Variant ${variants.indexOf(variantWithoutFiles) + 1}`
-        showToast(`Please assign a file to "${variantName}"`)
+        showToast(`Assign a file to ${variantName}`)
         scrollToSection("variants")
         return false
       }
@@ -2508,7 +2508,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
       announceChange({ product: productId })
       setIsPublished(!isPublished)
-      setNotificationMessage(isPublished ? "Product unpublished" : "Product is live!")
+      setNotificationMessage(isPublished ? "Product unpublished" : "Product is live")
       setShowNotification(true)
 
       setTimeout(() => {
@@ -2619,18 +2619,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         >
           <div className="flex items-center gap-2.5 px-4 py-3 bg-black rounded-xl shadow-2xl shadow-black/20 backdrop-blur-sm border border-gray-800 max-w-[calc(100vw-2rem)] whitespace-nowrap">
             <AlertCircle className="h-4 w-4 text-white/80 flex-shrink-0" />
-            <span className="text-sm font-medium text-white tracking-tight sm:block hidden">{toast.message}</span>
-            <span className="text-sm font-medium text-white tracking-tight sm:hidden block">
-              {toast.message === "Please enter a product title to upload digital product files"
-                ? "Add a title first"
-                : toast.message === "Please add at least one photo or video"
-                ? "Add a photo or video"
-                : toast.message === "Please upload at least one digital product file"
-                ? "Upload a file"
-                : toast.message.startsWith("Please assign a file")
-                ? "Assign files to variants"
-                : toast.message}
-            </span>
+            {/* One short line at every width: the messages are written short (showToast above). */}
+            <span className="min-w-0 truncate text-sm font-medium text-white tracking-tight">{toast.message}</span>
             <button
               onClick={dismissToast}
               className="ml-1 p-0.5 hover:bg-white/10 rounded transition-colors flex-shrink-0"
