@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation"
+import { permanentRedirect, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 
 interface CreatorPageProps {
@@ -37,10 +37,12 @@ export default async function CreatorPage({ params }: CreatorPageProps) {
     .single()
 
   if (creator?.profile?.username) {
-    redirect(`/${creator.profile.username}`)
+    /* The old address of a creator's page, moved for good: a 308, so a search
+       engine moves what it knows to /<username>. */
+    permanentRedirect(`/${creator.profile.username}`)
   }
 
-  // Fallback to the slug as username
+  // Fallback to the slug as username. A guess, not a known move, so it stays temporary.
   redirect(`/${slug}`)
 
   // Fetch creator with profile

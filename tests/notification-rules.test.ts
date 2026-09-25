@@ -730,7 +730,8 @@ function wiringSuite() {
   check("server only: RLS on, no policies, the function revoked from the public roles", /ENABLE ROW LEVEL SECURITY/.test(part) && !/CREATE POLICY/.test(part) && /REVOKE ALL ON FUNCTION public\.notification_claim_creators\(integer, integer\) FROM PUBLIC, anon, authenticated;/.test(part))
   check("safe twice: IF NOT EXISTS, DROP IF EXISTS, NOT VALID checks", (part.match(/ADD COLUMN IF NOT EXISTS/g) ?? []).length === 8 && /DROP CONSTRAINT IF EXISTS seller_notifications_category_check/.test(part) && (part.match(/NOT VALID;/g) ?? []).length === 2 && /CREATE TABLE IF NOT EXISTS/.test(part))
   check("the type keeps every old kind and takes the categories", /'new_review', 'new_sale', 'new_subscriber', 'payout', 'announcement', 'critical', 'problem', 'next_step', 'opportunity', 'milestone', 'update'/.test(part))
-  check("listed in the README and checked after", /XX_notification_rules\.sql/.test(read("supabase/sql/run-now/README.md")) && /pXX_notification_rules/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  /* Its number, and its column in 99_check_after.sql (which run-four's file 4 must end with), are the lead's to give. */
+  check("listed in the README", /\| `XX_notification_rules\.sql` \|/.test(read("supabase/sql/run-now/README.md")))
   const engine = read("lib/notifications/engine.ts") + read("lib/notifications/plan.ts") + read("lib/notifications/snapshot.ts")
   check("no dedupe, lock or cache kept in memory between calls: nothing mutable at module level", !/^(const|let|var) \w+(: [^=]+)? = new (Map|Set|WeakMap)/m.test(engine) && !/^let /m.test(engine) && !/\bglobalThis\b/.test(engine))
 }

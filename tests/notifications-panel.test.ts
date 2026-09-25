@@ -217,8 +217,12 @@ console.log("\nThe panel")
   check("one resize observer for the row's life, so a switch is never placed again without its move", /placeRef\.current\(false\)/.test(panel) && /ro\.observe\(row\)[\s\S]{0,500}?return \(\) => \{\s*live = false\s*ro\.disconnect\(\)\s*\}\s*\}, \[\]\)/.test(panel) && (panel.match(/new ResizeObserver/g) ?? []).length === 1)
   /* The pill cut into "All" when the typeface landed between the first placing and the observer's first report. */
   check("and placed again, unanimated, once the typeface is in", /document\.fonts\?\.ready\.then\(\(\) => live && placeRef\.current\(false\)\)/.test(panel))
+  /* The rows are kept and a view shows some of them (`hidden`), so a switch builds nothing on the tap
+     (scripts/check-app-sheets-frames.mjs); the view still fades in, on the compositor, and never on reduced motion. */
   check("the new view's rows fade in from the top, and a computer's panel keeps its height until it closes",
-    (panel.match(/key=\{activeTab\}[^>]*animate-in fade-in-0 duration-200 motion-reduce:animate-none/g) ?? []).length === 2 && /if \(listRef\.current\) listRef\.current\.scrollTop = 0/.test(panel)
+    /hidden=\{!shownIds\.has\(notification\.id\)\}/.test(panel) && !/key=\{activeTab\}/.test(panel)
+      && /el\?\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: 200/.test(panel) && /prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(panel)
+      && /if \(listRef\.current\) listRef\.current\.scrollTop = 0/.test(panel)
       && /body\.style\.minHeight = `\$\{Math\.max\(body\.offsetHeight, parseFloat\(body\.style\.minHeight\) \|\| 0\)\}px`/.test(panel))
   check("no glass or gradient on the panel", !/backdrop-blur|bg-gradient/.test(panel))
   const banned = /\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i

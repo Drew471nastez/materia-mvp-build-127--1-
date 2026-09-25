@@ -29,6 +29,51 @@ export function newPreviewToken(): string {
 }
 
 /**
+ * ===========================================================================
+ *  WHERE A PREVIEW LINK MAY POINT
+ * ===========================================================================
+ * The publish panel sends the site's own address and the route adds the
+ * token to it. That address arrives in the request as written, so the server
+ * could be asked to hand back a link with a real token in it pointing
+ * anywhere at all. It is kept only when it is one of ours: storelib.com or a
+ * name under it, the main domain this deployment serves or a name under it,
+ * or the address the request itself came to. Anything else becomes the
+ * canonical origin.
+ *
+ * https, except for the request's own address or the canonical one, which is
+ * how a local build (http://localhost) keeps working.
+ */
+export function previewBase(
+  base: string,
+  allowed: { requestOrigin: string; mainDomain: string; canonical: string },
+): string {
+  const fallback = originOf(allowed.canonical) ?? "https://storelib.com"
+  let url: URL
+  try {
+    url = new URL(base)
+  } catch {
+    return fallback
+  }
+  if (url.username || url.password) return fallback
+  if (url.protocol !== "https:" && url.protocol !== "http:") return fallback
+  const own = url.origin === allowed.requestOrigin || url.origin === fallback
+  if (!own && url.protocol !== "https:") return fallback
+  const host = url.hostname.toLowerCase()
+  const main = allowed.mainDomain.toLowerCase().replace(/:\d+$/, "")
+  const ours = host === "storelib.com" || host.endsWith(".storelib.com") || (main !== "" && (host === main || host.endsWith(`.${main}`)))
+  if (!own && !ours) return fallback
+  return `${url.origin}${url.pathname}${url.search}`
+}
+
+function originOf(address: string): string | null {
+  try {
+    return new URL(address).origin
+  } catch {
+    return null
+  }
+}
+
+/**
  * Recognising a token lives in `preview-token.ts`, which the proxy can import
  * without dragging `node:crypto` into the edge bundle. Re-exported here so
  * every caller that already reads this file keeps working.

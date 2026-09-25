@@ -153,7 +153,7 @@ for (const [label, viewport] of [
   const pulled = { top: await pull(120, false), bottom: await pull(-120, false), topBefore: await pull(120, true), bar }
   if (process.env.UPGRADE_SHOTS) await page.screenshot({ path: join(process.env.UPGRADE_SHOTS, `upgrade-${label}.png`), fullPage: false })
   await page.click("[data-upgrade-back]")
-  const cold = await page.evaluate(() => ({ back: window.__back || 0, pushed: window.__pushed || [] }))
+  const cold = await page.evaluate(() => ({ back: window.__back || 0, pushed: window.__pushed || [], answered: !!document.querySelector("[data-upgrade-back][data-leaving] .animate-spin") }))
   /* With an /app page behind it: Back is the browser's back. */
   await page.goto(`${base}/?history=1`)
   await page.waitForSelector("[data-plan-card]")
@@ -171,6 +171,7 @@ for (const [label, viewport] of [
   if (m.back.h < 44 || m.back.y > 16 || m.back.x > 24) problems.push(`${at} Back is not a full size control at the top left: ${JSON.stringify(m.back)}`)
   if (m.controlsInBar !== 1) problems.push(`${at} the bar has ${m.controlsInBar} controls, it should have only Back`)
   if (cold.back !== 0 || cold.pushed[0] !== "/app/settings?tab=billing") problems.push(`${at} with nothing behind it Back should link to the Billing tab: ${JSON.stringify(cold)}`)
+  if (!cold.answered) problems.push(`${at} Back should answer the press at once, with a spinner in place of its arrow: ${JSON.stringify(cold)}`)
   if (warm.back !== 1 || warm.pushed.length) problems.push(`${at} with an /app page behind it Back should be router.back(): ${JSON.stringify(warm)}`)
   if (m.overflow > 0) problems.push(`${at} the page is ${m.overflow}px wider than the window`)
   if (logo.w !== 28 || logo.h !== 28 || logo.shrink !== "0" || logo.fit !== "contain") problems.push(`${at} the mark is not a fixed 28px square: ${JSON.stringify(logo)}`)

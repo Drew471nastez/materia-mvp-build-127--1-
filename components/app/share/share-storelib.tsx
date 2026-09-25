@@ -171,7 +171,7 @@ function FadeText({ text, className }: { text: string; className?: string }) {
  * a row with the live count and the period, and the address fades out where
  * the room runs out.
  */
-export function SharePill({
+export const SharePill = React.memo(function SharePill({
   display,
   onOpen,
   size = "md",
@@ -190,7 +190,8 @@ export function SharePill({
       type="button"
       onClick={onOpen}
       aria-haspopup="dialog"
-      aria-expanded={expanded}
+      /* data-open, not aria-expanded: see the account trigger (components/app/mobile-account-menu.tsx). */
+      data-open={expanded ? "" : undefined}
       aria-label={`Share ${display}`}
       title={display}
       data-share-pill=""
@@ -198,7 +199,7 @@ export function SharePill({
         "inline-flex h-9 min-w-0 max-w-full cursor-pointer select-none items-center rounded-full bg-[#efeff1] text-[#1f1f23] outline-none",
         "shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(16,24,40,0.06)] ring-1 ring-black/[0.05]",
         "transition-[background-color,box-shadow] duration-150 hover:bg-[#e8e8eb] active:bg-[#e2e2e6] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)]",
-        "aria-expanded:bg-[#e6e6ea]",
+        "data-open:bg-[#e6e6ea]",
         "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]",
         "[-webkit-tap-highlight-color:transparent]",
         md ? "gap-2 pl-3 pr-2.5 text-[13.5px]" : "gap-1.5 pl-2.5 pr-2 text-[12.5px]",
@@ -210,7 +211,7 @@ export function SharePill({
       <Share className={cn("shrink-0 text-[#3a3a40]", md ? "h-4 w-4" : "h-[15px] w-[15px]")} strokeWidth={1.8} aria-hidden />
     </button>
   )
-}
+})
 
 /* ─── Small pieces ────────────────────────────────────────────────────── */
 
@@ -347,14 +348,11 @@ function LinkRow({
         <ArrowUpRight className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
       </button>
       <button type="button" onClick={onCopy} data-share-copy="" className={cn(inkDepth, "h-9 min-w-[70px] rounded-[10px] px-3 text-[14px]")}>
-        {copied ? (
-          <>
-            <Check className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-            Copied
-          </>
-        ) : (
-          "Copy"
-        )}
+        {/* The check is always there and shown or hidden: an element put in
+            or taken out under a sheet is a change the page's :has() rules
+            answer by restyling the whole document (scripts/check-app-sheets-frames.mjs). */}
+        <Check className={cn("h-4 w-4", !copied && "hidden")} strokeWidth={2.25} aria-hidden />
+        {copied ? "Copied" : "Copy"}
       </button>
     </div>
   )
@@ -380,7 +378,7 @@ function SurfaceSwitch({
       <span
         aria-hidden
         data-share-thumb=""
-        className="absolute bottom-1 left-1 top-1 rounded-[9px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_1px_rgba(16,24,40,0.04)] transition-transform duration-300 will-change-transform motion-reduce:transition-none"
+        className="absolute bottom-1 left-1 top-1 rounded-[9px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_1px_rgba(16,24,40,0.04)] transition-transform duration-300 motion-reduce:transition-none"
         style={{
           width: `calc((100% - 8px) / ${addresses.length})`,
           transform: `translateX(${index * 100}%)`,
@@ -576,7 +574,7 @@ type View = { kind: "share" } | { kind: "platform"; key: BioPlatform } | { kind:
 
 const QR_HINT_KEY = "storelib:share-qr-hint-hidden"
 
-function ShareView({
+const ShareView = React.memo(function ShareView({
   addresses,
   current,
   onSurface,
@@ -633,16 +631,14 @@ function ShareView({
         <LinkRow className={addresses.length > 1 ? "mt-2.5" : undefined} address={current} copied={copied} onCopy={onCopy} onOpen={onOpen} />
 
         <EaseIn swapKey={current.surface} className="mt-2 block px-1 text-[12.5px] leading-[1.45] text-[#6b7280]">
-          {live ? (
-            SURFACE_HINT[current.surface]
-          ) : (
-            <>
-              Not live yet. It opens once you publish your OnePage.{" "}
-              <Link href="/app/onepage" className="font-medium text-[#1a1a2e] underline underline-offset-2">
-                Open OnePage
-              </Link>
-            </>
-          )}
+          {/* Both are there, one shown: no element comes or goes when the switch moves (see LinkRow's check). */}
+          <span hidden={!live}>{SURFACE_HINT[current.surface]}</span>
+          <span hidden={live}>
+            Not live yet. It opens once you publish your OnePage.{" "}
+            <Link href="/app/onepage" className="font-medium text-[#1a1a2e] underline underline-offset-2">
+              Open OnePage
+            </Link>
+          </span>
         </EaseIn>
 
         {!phone && !qrHidden && (
@@ -703,9 +699,9 @@ function ShareView({
       </div>
     </>
   )
-}
+})
 
-function PlatformView({
+const PlatformView = React.memo(function PlatformView({
   platform,
   address,
   copied,
@@ -766,9 +762,9 @@ function PlatformView({
       </button>
     </div>
   )
-}
+})
 
-function QrView({ address, phone, copied, onCopy }: { address: ShareAddress; phone: boolean; copied: boolean; onCopy: () => void }) {
+const QrView = React.memo(function QrView({ address, phone, copied, onCopy }: { address: ShareAddress; phone: boolean; copied: boolean; onCopy: () => void }) {
   const [saving, setSaving] = React.useState(false)
   /* A blob download does nothing in the app's web view (lib/platform/save-file), so it is a browser button. */
   const [canDownload] = React.useState(() => typeof window !== "undefined" && !isNativeApp())
@@ -797,13 +793,13 @@ function QrView({ address, phone, copied, onCopy }: { address: ShareAddress; pho
           </button>
         )}
         <button type="button" onClick={onCopy} className={cn(inkDepth, "h-11 rounded-xl text-[15px]")}>
-          {copied ? <Check className="h-4 w-4" strokeWidth={2.25} aria-hidden /> : null}
+          <Check className={cn("h-4 w-4", !copied && "hidden")} strokeWidth={2.25} aria-hidden />
           {copied ? "Copied" : "Copy link"}
         </button>
       </div>
     </div>
   )
-}
+})
 
 /* ─── Moving between views ────────────────────────────────────────────── */
 
@@ -812,21 +808,30 @@ function QrView({ address, phone, copied, onCopy }: { address: ShareAddress; pho
  * content slides in a short way from the side it came from. Both on the Web
  * Animations API, so there are no keyframes to add to globals.css; both
  * skipped when the person has asked for less motion.
+ *
+ * What slides in is the view that is showing: the Pane marked `data-on`.
  */
 function Swap({ viewKey, forward, children }: { viewKey: string; forward: boolean; children: React.ReactNode }) {
   const outer = React.useRef<HTMLDivElement>(null)
-  const inner = React.useRef<HTMLDivElement>(null)
   const last = React.useRef<number | null>(null)
   const first = React.useRef(true)
 
-  React.useLayoutEffect(() => {
+  /*
+    THE HEIGHT ARRIVES, IT IS NOT ASKED FOR. Reading offsetHeight as the view
+    mounted made the browser lay the whole page out in the middle of the
+    sheet's first frame, before the sheet could start to rise: at phone speed
+    the largest part of the pause between the tap and the movement. The
+    observer reports the size once layout has happened anyway, and a view
+    change is always long after that.
+  */
+  React.useEffect(() => {
     const el = outer.current
     if (!el) return
-    const ro = new ResizeObserver(() => {
-      last.current = el.offsetHeight
+    const ro = new ResizeObserver((entries) => {
+      const box = entries[entries.length - 1]?.borderBoxSize?.[0]
+      last.current = box ? box.blockSize : el.offsetHeight
     })
     ro.observe(el)
-    last.current = el.offsetHeight
     return () => ro.disconnect()
   }, [])
 
@@ -836,7 +841,7 @@ function Swap({ viewKey, forward, children }: { viewKey: string; forward: boolea
       return
     }
     const el = outer.current
-    const content = inner.current
+    const content = el?.querySelector<HTMLElement>(":scope > [data-share-pane][data-on]")
     if (!el || !content || reducedMotion()) return
     const from = last.current
     const to = el.offsetHeight
@@ -854,8 +859,36 @@ function Swap({ viewKey, forward, children }: { viewKey: string; forward: boolea
   }, [viewKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div ref={outer} className="overflow-hidden">
-      <div ref={inner}>{children}</div>
+    <div ref={outer} className="relative overflow-hidden">
+      {children}
+    </div>
+  )
+}
+
+/**
+ * ONE VIEW, KEPT WHILE ANOTHER SHOWS (on a phone).
+ *
+ * Every tap that changed the view took the old view out of the page and
+ * built the new one: React rendered it, and the browser styled and laid out
+ * every element in it before the next frame could be drawn. On a phone's
+ * CPU that was 90 to 150ms for a platform's how to, and the same again for
+ * Back (scripts/check-app-sheets-frames.mjs). A view once shown now stays,
+ * out of sight and out of the flow: `visibility`, which the browser hands
+ * down without restyling what is inside, and `content-visibility: hidden`
+ * where the browser has it, which keeps its styles and layout and skips its
+ * rendering until it shows again. Showing it again is those two properties,
+ * and another platform's how to is the same view with other words in it.
+ */
+function Pane({ on, children }: { on: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      data-share-pane=""
+      data-on={on ? "" : undefined}
+      /* No aria-hidden: out of sight is out of the accessibility tree, and an
+         aria-hidden that changed would be a change under the page's :has(). */
+      className={on ? undefined : "pointer-events-none invisible absolute inset-x-0 top-0 [content-visibility:hidden]"}
+    >
+      {children}
     </div>
   )
 }
@@ -897,13 +930,7 @@ function Header({
  * page draws one for computers and one for phones, and whichever is on screen
  * is the one that is tapped.
  */
-export function ShareStorelib({
-  addresses,
-  platforms,
-  size = "md",
-  openSignal = 0,
-  className,
-}: {
+type ShareStorelibProps = {
   /** The creator page first: it is what the pill shows and what is selected on open. */
   addresses: ShareAddress[]
   platforms: ConnectedPlatform[]
@@ -915,7 +942,24 @@ export function ShareStorelib({
    */
   openSignal?: number
   className?: string
-}) {
+}
+
+/* The same platforms, even when the page hands over a fresh array for them (an empty default, say). */
+function samePlatforms(a: ConnectedPlatform[], b: ConnectedPlatform[]) {
+  return a === b || (a.length === b.length && a.every((p, i) => p.key === b[i].key && p.profileUrl === b[i].profileUrl))
+}
+
+/**
+ * Memoised: the page around the pill (the home page's figures and chart,
+ * which redraw on their own) does not draw the pill and its sheet again.
+ */
+export const ShareStorelib = React.memo(function ShareStorelib({
+  addresses,
+  platforms,
+  size = "md",
+  openSignal = 0,
+  className,
+}: ShareStorelibProps) {
   const phone = useIsPhone()
   const [open, setOpen] = React.useState(false)
   const [view, setView] = React.useState<View>({ kind: "share" })
@@ -942,39 +986,86 @@ export function ShareStorelib({
   if (open !== prevOpen) {
     setPrevOpen(open)
     if (open) {
-      setView({ kind: "share" })
+      if (view.kind !== "share") setView({ kind: "share" })
       setForward(true)
       setSurface(addresses[0]?.surface ?? null)
     }
   }
 
   const current = addresses.find((a) => a.surface === surface) ?? addresses[0]
-  if (!current) return null
 
-  const close = () => setOpen(false)
-  const go = (next: View) => {
+  /**
+   * A TAP CHANGES ONE THING. Every handler here is made once and reads the
+   * address in use from a ref, and the views are memoised, so a tap on a
+   * platform renders the header and the view it opens, and the share view
+   * it leaves does not render at all.
+   */
+  const currentRef = React.useRef(current)
+  currentRef.current = current
+  const close = React.useCallback(() => setOpen(false), [])
+  const toggle = React.useCallback(() => setOpen((v) => !v), [])
+  const go = React.useCallback((next: View) => {
     setForward(true)
     setView(next)
-  }
-  const back = () => {
+  }, [])
+  const back = React.useCallback(() => {
     setForward(false)
     setView({ kind: "share" })
-  }
-  const openPage = () => openExternal(current.url)
-  const onTarget = (t: ShareTarget) => {
-    const href = shareTargetUrl(t, current.url)
+  }, [])
+  const copyCurrent = React.useCallback(() => {
+    if (currentRef.current) copy(currentRef.current.url)
+  }, [copy])
+  const openPage = React.useCallback(() => {
+    if (currentRef.current) openExternal(currentRef.current.url)
+  }, [])
+  const onTarget = React.useCallback((t: ShareTarget) => {
+    const url = currentRef.current?.url
+    if (!url) return
+    const href = shareTargetUrl(t, url)
     if (t === "email" && !isNativeApp()) window.location.href = href
     else openExternal(href)
-  }
-  const onNativeShare = () => {
-    navigator.share?.({ url: current.url }).catch(() => {
+  }, [])
+  const onNativeShare = React.useCallback(() => {
+    const url = currentRef.current?.url
+    if (!url) return
+    navigator.share?.({ url }).catch(() => {
       /* dismissed */
     })
-  }
-  const platform =
-    view.kind === "platform"
-      ? platforms.find((p) => p.key === view.key) ?? { key: view.key, profileUrl: null }
-      : null
+  }, [])
+  const onPlatform = React.useCallback((key: BioPlatform) => go({ kind: "platform", key }), [go])
+  const onQr = React.useCallback(() => go({ kind: "qr" }), [go])
+
+  /* On a phone a view once shown is kept (Pane): the last platform's how to, and the QR code. */
+  const [keptPlatform, setKeptPlatform] = React.useState<BioPlatform | null>(null)
+  const [qrKept, setQrKept] = React.useState(false)
+  if (phone && view.kind === "platform" && keptPlatform !== view.key) setKeptPlatform(view.key)
+  if (phone && view.kind === "qr" && !qrKept) setQrKept(true)
+  const platformKey = view.kind === "platform" ? view.key : phone ? keptPlatform : null
+  const platform = React.useMemo(
+    () => (platformKey ? platforms.find((p) => p.key === platformKey) ?? { key: platformKey, profileUrl: null } : null),
+    [platformKey, platforms],
+  )
+
+  /**
+   * THE PHONE'S SHEET IS BUILT AHEAD AND KEPT (BottomSheet keepMounted), so
+   * the tap on the pill only slides it up. Only the pill that is on screen
+   * keeps one: the home page draws a pill for each width, and the one under
+   * display: none has no boxes.
+   */
+  const [onScreen, setOnScreen] = React.useState(false)
+  React.useEffect(() => {
+    const anchor = anchorRef.current
+    setOnScreen(!!anchor && anchor.getClientRects().length > 0)
+  }, [phone])
+  /* It goes back to the start once it is out of sight, so the next open has nothing to change. */
+  const first = addresses[0]?.surface ?? null
+  const onSheetClosed = React.useCallback(() => {
+    setView((v) => (v.kind === "share" ? v : { kind: "share" }))
+    setForward(true)
+    setSurface(first)
+  }, [first])
+
+  if (!current) return null
 
   const title = view.kind === "platform" ? BIO_HOW_TO[view.key].name : view.kind === "qr" ? "QR code" : "Share your Storelib"
   const viewKey = view.kind === "platform" ? `platform:${view.key}` : view.kind
@@ -982,25 +1073,35 @@ export function ShareStorelib({
 
   const body = (
     <Swap viewKey={viewKey} forward={forward}>
-      {view.kind === "share" && (
-        <ShareView
-          addresses={addresses}
-          current={current}
-          onSurface={setSurface}
-          platforms={platforms}
-          phone={phone}
-          copied={isCopied}
-          onCopy={() => copy(current.url)}
-          onOpen={openPage}
-          onPlatform={(key) => go({ kind: "platform", key })}
-          onQr={() => go({ kind: "qr" })}
-          onTarget={onTarget}
-          canNativeShare={canNativeShare}
-          onNativeShare={onNativeShare}
-        />
+      {(phone || view.kind === "share") && (
+        <Pane on={view.kind === "share"}>
+          <ShareView
+            addresses={addresses}
+            current={current}
+            onSurface={setSurface}
+            platforms={platforms}
+            phone={phone}
+            copied={isCopied}
+            onCopy={copyCurrent}
+            onOpen={openPage}
+            onPlatform={onPlatform}
+            onQr={onQr}
+            onTarget={onTarget}
+            canNativeShare={canNativeShare}
+            onNativeShare={onNativeShare}
+          />
+        </Pane>
       )}
-      {platform && <PlatformView platform={platform} address={current} copied={isCopied} onCopy={() => copy(current.url)} />}
-      {view.kind === "qr" && <QrView address={current} phone={phone} copied={isCopied} onCopy={() => copy(current.url)} />}
+      {platform && (
+        <Pane on={view.kind === "platform"}>
+          <PlatformView platform={platform} address={current} copied={isCopied} onCopy={copyCurrent} />
+        </Pane>
+      )}
+      {(view.kind === "qr" || (phone && qrKept)) && (
+        <Pane on={view.kind === "qr"}>
+          <QrView address={current} phone={phone} copied={isCopied} onCopy={copyCurrent} />
+        </Pane>
+      )}
     </Swap>
   )
 
@@ -1012,7 +1113,7 @@ export function ShareStorelib({
       <PopoverPrimitive.Root open={panelOpen} onOpenChange={(next) => !next && close()}>
         <PopoverPrimitive.Anchor asChild>
           <span ref={anchorRef} className={cn("inline-flex min-w-0 max-w-full", className)}>
-            <SharePill size={size} display={addresses[0].display} expanded={open} onOpen={() => setOpen((v) => !v)} />
+            <SharePill size={size} display={addresses[0].display} expanded={open} onOpen={toggle} />
           </span>
         </PopoverPrimitive.Anchor>
         <PopoverPrimitive.Portal>
@@ -1059,6 +1160,8 @@ export function ShareStorelib({
         label={title}
         hideFrom="md"
         scrollKey={viewKey}
+        keepMounted={phone && onScreen}
+        onClosed={onSheetClosed}
         header={<Header title={title} onBack={view.kind === "share" ? undefined : back} />}
       >
         <div data-share-sheet="" data-surface="sheet" data-view={view.kind}>
@@ -1067,4 +1170,4 @@ export function ShareStorelib({
       </BottomSheet>
     </>
   )
-}
+}, (a, b) => a.addresses === b.addresses && samePlatforms(a.platforms, b.platforms) && a.size === b.size && a.openSignal === b.openSignal && a.className === b.className)

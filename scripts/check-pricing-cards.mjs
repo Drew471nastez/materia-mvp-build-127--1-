@@ -383,13 +383,20 @@ try {
         const pill = document.querySelector("[data-billing-interval]")
         const pro = document.querySelector('[data-plan-card="growth"]')
         const button = pro?.querySelector("[data-plan-action]")
+        /* What is on screen: both intervals' lines are laid out in the same place (plan-cards Morph), and only the one in force is shown. */
+        const shown = (el) => {
+          if (!el) return ""
+          const copy = el.cloneNode(true)
+          copy.querySelectorAll('[data-morph="off"]').forEach((n) => n.remove())
+          return copy.textContent.trim()
+        }
         return {
           pill: pill?.getAttribute("data-billing-interval") ?? null,
-          price: pro?.querySelector("[data-plan-header] p")?.textContent?.trim(),
-          yearlyNote: !!pro?.textContent?.includes("billed yearly"),
-          button: button?.textContent?.trim(),
+          price: shown(pro?.querySelector("[data-plan-header] p")),
+          yearlyNote: shown(pro).includes("billed yearly"),
+          button: shown(button),
           disabled: !!button?.hasAttribute("disabled"),
-          settled: /Current plan/.test(button?.textContent ?? ""),
+          settled: /Current plan/.test(shown(button)),
         }
       })
       if (name === "yearly") {

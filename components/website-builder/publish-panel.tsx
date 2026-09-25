@@ -1,13 +1,15 @@
 "use client"
 
 import { relativeTime } from "@/lib/website-builder/relative-time"
-import { useEffect, useRef, useState } from "react"
-import { Check, ChevronRight, Copy, ExternalLink, Eye, Globe, Loader2, ShieldCheck } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { Check, ChevronDown, ChevronRight, Copy, ExternalLink, Eye, Globe, Loader2, ShieldAlert, ShieldCheck, ShieldQuestion } from "lucide-react"
 
 import { AnchoredPanel } from "@/components/website-builder/anchored-panel"
 import { ConnectionMarkIcon } from "@/components/website-builder/connection-marks"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { connectedTools, toolNames, type ConnectionsBrief } from "@/lib/agent-access/connection-mark"
+import type { SecurityIssue } from "@/lib/website-builder/security-scan"
+import { PAGE_META, type PageKey } from "@/lib/website-builder/types"
 import { cn } from "@/lib/utils"
 
 /**
@@ -133,6 +135,111 @@ function ConnectionsRow({
 }
 
 /**
+ * ===========================================================================
+ *  THE SECURITY LINE, WITH A CHECK BEHIND IT
+ * ===========================================================================
+ * It said "No security issues found" whatever the site held. It says what the
+ * check of the draft says now (GET .../security, lib/website-builder/
+ * security-scan.ts). The draft is what Publish is about to put up, so it is
+ * read again each time the panel opens. A check that could not run says so,
+ * and never reads as a clean result.
+ *
+ * ONE LINE TALL, WHATEVER IT SAYS. The phone sheet sizes itself to its card
+ * as it opens, and a line that grew when the answer came back would move the
+ * sheet's top edge mid-slide (SHEET_ARRIVES_MS). What was found opens under
+ * the line on a press, the one time a change of height is expected.
+ */
+type SecurityCheck =
+  | { state: "checking" }
+  | { state: "clear" }
+  | { state: "found"; issues: SecurityIssue[]; truncated: boolean }
+  | { state: "unknown" }
+
+/** Where an issue is, in the words the Pages list uses. */
+function issuePlace(page: string | null): string {
+  if (page === null) return "Theme settings"
+  const known = (PAGE_META as Partial<Record<string, { label: string }>>)[page as PageKey]
+  if (known) return known.label
+  const words = page.replace(/[-_]+/g, " ").trim()
+  return words ? `${words.charAt(0).toUpperCase()}${words.slice(1)} page` : "A page"
+}
+
+function SecurityLine({
+  check,
+  open,
+  onToggle,
+  onRetry,
+}: {
+  check: SecurityCheck
+  open: boolean
+  onToggle: () => void
+  onRetry: () => void
+}) {
+  const line = "flex min-h-6 w-full items-center gap-2.5 text-[14px]"
+  return (
+    <div data-publish-security={check.state}>
+      {check.state === "checking" && (
+        <p className={cn(line, "text-white/55")}>
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-white/40" strokeWidth={1.75} />
+          <span className="min-w-0 flex-1 truncate">Checking for security issues</span>
+        </p>
+      )}
+      {check.state === "clear" && (
+        <p className={cn(line, "text-white/80")}>
+          <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" strokeWidth={1.75} />
+          <span className="min-w-0 flex-1 truncate">No security issues found</span>
+        </p>
+      )}
+      {check.state === "unknown" && (
+        <p className={cn(line, "text-white/60")}>
+          <ShieldQuestion className="h-4 w-4 shrink-0 text-white/40" strokeWidth={1.75} />
+          <span className="min-w-0 flex-1 truncate">Could not check for security issues</span>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="shrink-0 rounded-md px-1.5 font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            Try again
+          </button>
+        </p>
+      )}
+      {check.state === "found" && (
+        <>
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            className={cn(line, "text-left text-amber-200 transition-colors hover:text-amber-100 [-webkit-tap-highlight-color:transparent]")}
+          >
+            <ShieldAlert className="h-4 w-4 shrink-0 text-amber-400" strokeWidth={1.75} />
+            <span className="min-w-0 flex-1 truncate">
+              {check.issues.length}
+              {check.truncated ? "+" : ""} {check.issues.length === 1 && !check.truncated ? "thing" : "things"} to check
+            </span>
+            <ChevronDown
+              aria-hidden
+              className={cn("h-4 w-4 shrink-0 text-white/40 transition-transform duration-200", open && "rotate-180")}
+              strokeWidth={2}
+            />
+          </button>
+          {open && (
+            <ul data-publish-security-issues="" className="mt-3 flex flex-col gap-2">
+              {check.issues.map((issue, i) => (
+                <li key={i} className="rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2.5">
+                  <p className="text-[13px] text-white/50">{issuePlace(issue.page)}</p>
+                  <p className="mt-0.5 text-[14px] leading-snug text-white/85">{issue.message}</p>
+                </li>
+              ))}
+              {check.truncated && <li className="px-1 text-[13px] text-white/50">And more after these.</li>}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
  * "4 minutes ago", and nothing cleverer. A relative time is read once, in
  * passing, and "yesterday at 14:32" is more than anybody asked.
  */
@@ -205,6 +312,35 @@ function Body({
       }
     })()
   }, [active, installId, pinActions])
+
+  const [security, setSecurity] = useState<SecurityCheck>({ state: "checking" })
+  const [issuesOpen, setIssuesOpen] = useState(false)
+  /** Which read is the latest, so an answer that comes back late cannot replace a newer one. */
+  const securityRun = useRef(0)
+  const checkSecurity = useCallback(async () => {
+    const run = ++securityRun.current
+    try {
+      const r = await fetch(`/api/website-builder/themes/${installId}/security`, { cache: "no-store" })
+      const j = (await r.json().catch(() => null)) as { issues?: unknown; truncated?: unknown } | null
+      if (run !== securityRun.current) return
+      const issues = r.ok && j && Array.isArray(j.issues) ? (j.issues as SecurityIssue[]) : null
+      if (!issues) setSecurity({ state: "unknown" })
+      else if (issues.length === 0) setSecurity({ state: "clear" })
+      else setSecurity({ state: "found", issues, truncated: j?.truncated === true })
+    } catch {
+      if (run === securityRun.current) setSecurity({ state: "unknown" })
+    }
+  }, [installId])
+  /* Each time the panel comes on screen: the draft may have changed since the last look. The last answer stays up while the new one is read. */
+  useEffect(() => {
+    if (!active) return
+    setIssuesOpen(false)
+    if (!installId) {
+      setSecurity({ state: "unknown" })
+      return
+    }
+    void checkSecurity()
+  }, [active, installId, checkSecurity])
 
   // A path, not a query: see `withToken` in the preview route for why.
   const previewUrl = previewToken && websiteUrl
@@ -453,10 +589,15 @@ function Body({
           the actions. A desktop has the mark on its bar instead of the row. */}
       {pinActions && <ConnectionsRow brief={connections} settled={connectionsSettled} onOpen={onConnections} />}
 
-      <div data-publish-security="" className="flex items-center gap-2.5 text-[14px] text-white/80">
-        <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" strokeWidth={1.75} />
-        No security issues found
-      </div>
+      <SecurityLine
+        check={security}
+        open={issuesOpen}
+        onToggle={() => setIssuesOpen((v) => !v)}
+        onRetry={() => {
+          setSecurity({ state: "checking" })
+          void checkSecurity()
+        }}
+      />
     </div>
   )
 

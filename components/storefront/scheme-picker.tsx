@@ -106,7 +106,8 @@ export function SchemePicker({
             type="button"
             data-scheme={preset}
             onClick={() => onChange(preset)}
-            onPointerEnter={onIntent ? () => onIntent(preset) : undefined}
+            /* A pointer that rests on one, not one sweeping across the grid: each fetch is a render of the page. */
+            onPointerEnter={onIntent ? (e) => { const el = e.currentTarget; const t = window.setTimeout(() => { if (el.matches(":hover")) onIntent(preset) }, 90); el.addEventListener("pointerleave", () => window.clearTimeout(t), { once: true }) } : undefined}
             onPointerDown={onIntent ? () => onIntent(preset) : undefined}
             aria-pressed={active}
             title={themePresets[preset].name}

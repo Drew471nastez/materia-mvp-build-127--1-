@@ -66,7 +66,8 @@ const read = (p) =>
       }
     }
     const list = [...document.querySelectorAll("[data-notifications-list]")].find(vis)
-    const items = list ? [...list.querySelectorAll("[data-notification-item]")] : []
+    /* The rows are kept between views; a view shows some of them (the others are `hidden`). */
+    const items = list ? [...list.querySelectorAll("[data-notification-item]:not([hidden])")] : []
     const badge = document.querySelector("[data-bell] [data-notification-badge]")
     return {
       headerH: header ? Math.round(header.getBoundingClientRect().height) : 0,
@@ -75,9 +76,9 @@ const read = (p) =>
       mark: button("[data-notifications-mark-all]"),
       items: items.length,
       unread: items.filter((i) => i.hasAttribute("data-unread")).length,
-      empty: list?.querySelector("[data-notifications-empty] p")?.textContent.trim() ?? null,
+      empty: list?.querySelector("[data-notifications-empty]:not([hidden]) p")?.textContent.trim() ?? null,
       emptyLook: (() => {
-        const e = list?.querySelector("[data-notifications-empty]")
+        const e = list?.querySelector("[data-notifications-empty]:not([hidden])")
         if (!e) return null
         const icon = e.querySelector("svg").getBoundingClientRect()
         const text = e.querySelector("p")
@@ -207,7 +208,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
         const t0 = performance.now()
         const tick = () => {
           const m = /inset\(0px ([\d.]+)px 0px ([\d.]+)px/.exec(getComputedStyle(pill).clipPath)
-          const view = document.querySelector("[data-notifications-list] > [data-notifications-view], [data-notifications-list] > [data-notifications-empty]")
+          const view = document.querySelector("[data-notifications-list] > [data-notifications-view]:not([hidden]), [data-notifications-list] > [data-notifications-empty]:not([hidden])")
           window.__tabFrames.push({ t: performance.now() - t0, right: m ? +m[1] : null, left: m ? +m[2] : null, view: view?.getAttribute("data-notifications-view") ?? null, fade: view ? +getComputedStyle(view).opacity : null, body: body ? Math.round(body.getBoundingClientRect().height) : null })
           if (performance.now() - t0 < 450) requestAnimationFrame(tick)
         }

@@ -1,6 +1,24 @@
 import type React from "react"
+import type { Metadata } from "next"
 import { CheckoutLinkOrigin } from "@/components/website-builder/checkout-link-origin"
 import { SiteDocument } from "@/components/website-builder/site-document"
+
+/**
+ * A CREATOR'S WEBSITE DOES NOT SAY IT IS STORELIB'S. The root layout names
+ * Storelib as the keywords, author, creator, publisher and generator of every
+ * page, and a page inherits what it does not set, so every published website
+ * told search engines it was written and published by Storelib about "sell
+ * digital products". Null clears an inherited value; here, once, so the
+ * site's front page, its other pages, its products and its search are all
+ * covered. The title, description and share card are each page's own.
+ */
+export const metadata: Metadata = {
+  keywords: null,
+  authors: null,
+  creator: null,
+  publisher: null,
+  generator: null,
+}
 
 /**
  * ===========================================================================

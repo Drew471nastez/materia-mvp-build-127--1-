@@ -88,18 +88,63 @@ async function main() {
   section("raw, which is the one way markup reaches a page")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const html = out(`<div>{{ settings.body | raw }}</div>`, { body: `<p>fine</p><script>alert(1)</script>` })
-    check("raw does pass markup through, which is why it exists", html.includes("<p>fine</p>"))
+    const rich = `<p><strong>bold</strong> <a href="https://x.com">link</a></p>`
+    check("raw does pass markup through, which is why it exists",
+      out(`<div>{{ settings.body | raw }}</div>`, { body: rich }) === `<div>${rich}</div>`)
     /**
-     * And why it is the one filter that has to be spelled out: the sanitising
-     * is done when a richtext setting is SAVED, not here. This records what
-     * the engine does, so nobody reads `raw` as "safe".
+     * The sanitising is done when a richtext setting is SAVED. `raw` looks
+     * again as it draws, because a value can reach it without being saved
+     * through the editor: an older row, an imported theme, a setting whose
+     * schema the cleaner never saw. What can run goes out as its words.
      */
-    check("and passes through everything, so the sanitising has to happen on save", html.includes("<script>"))
+    const html = out(`<div>{{ settings.body | raw }}</div>`, { body: `<p>fine</p><script>alert(1)</script>` })
+    check("but markup that can run something goes out as its words", html === "<div>fine</div>", html)
+    const payloads = [
+      `<img src=x onerror=alert(1)>`,
+      `<img/onerror=alert(1)>`,
+      `<img src="x"onerror="alert(1)">`,
+      `<a href="jav&#x61;script:alert(1)">x</a>`,
+      `<a href="java\tscript:alert(1)">x</a>`,
+      `<iframe srcdoc="&lt;script&gt;alert(1)&lt;/script&gt;"></iframe>`,
+      `<iframe src="data:text/html,x"></iframe>`,
+      `<svg onload=alert(1)>`,
+      `<noscript><p title="</noscript><img src=x onerror=alert(1)>"></noscript>`,
+      `<!-- --><img src=x onerror=alert(1)>`,
+      `<img src="x" alt="never closed`,
+      `ends with <`,
+    ]
+    const through = payloads.filter((p) => /<(?!\/?div>)/.test(out(`<div>{{ settings.b | raw }}</div>`, { b: p })))
+    check(`none of ${payloads.length} ways past a tag check reaches the page as markup`, through.length === 0, through.join(" | "))
+    check("a string the template assembles itself is checked the same way",
+      !/<img/.test(out(`<div>{{ "<img src=x o" | append: "nerror=alert(1)>" | raw }}</div>`, {})))
+    check("a pasted map, video frame, form or comment still goes out untouched", (() => {
+      const pasted = [
+        `<!-- map --><iframe src="https://www.google.com/maps/embed?pb=1" style="border:0" loading="lazy"></iframe>`,
+        `<iframe src="https://www.youtube.com/embed/abcdef" allowfullscreen></iframe>`,
+        `<form action="https://formspree.io/f/x" method="POST"><input type="email" name="email"><textarea name="m"></textarea><button>Send</button></form>`,
+      ]
+      return pasted.every((p) => out(`<div>{{ settings.b | raw }}</div>`, { b: p }) === `<div>${p}</div>`)
+    })())
     check("nothing else in the language does that", (() => {
       const filters = ["upcase", "downcase", "capitalize", "strip", "escape", "json"]
       return filters.every((f) => !out(`{{ settings.b | ${f} }}`, { b: `<script>x</script>` }).includes("<script>"))
     })())
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("The handler and address checks, spelled the other ways a browser accepts")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const refused = (tpl: string) => compileTemplate(tpl, { file: "f" }).ok === false
+    check("a handler after a slash is refused", refused(`<img/onerror=alert(1)>`))
+    check("and straight after a quote", refused(`<img src="x"onerror="alert(1)">`) && refused(`<img src='x'onerror='alert(1)'>`))
+    check("a srcdoc is refused", refused(`<p srcdoc="&lt;script&gt;">x</p>`))
+    check("a javascript: address in character references is refused", refused(`<a href="jav&#x61;script:alert(1)">x</a>`) && refused(`<a href="javascript&colon;alert(1)">x</a>`))
+    check("and one split by a tab or a line break", refused(`<a href="java\tscript:alert(1)">x</a>`) && refused(`<a href="java\nscript:alert(1)">x</a>`))
+    check("while ordinary markup still compiles",
+      compileTemplate(`<a href="{{ settings.u | url }}" class="x" data-online="1">Go</a><p>Online, on sale</p><img src="data:image/svg+xml;utf8,x" alt="">`, { file: "f" }).ok === true)
+    check("and a file saved before these checks still compiles as it did",
+      compileTemplate(`<img/onerror=alert(1)>`, { file: "f", lenient: true }).ok === true)
   }
 
   // ═══════════════════════════════════════════════════════════════════════
