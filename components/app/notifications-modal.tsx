@@ -681,7 +681,15 @@ function NotificationTabs<T extends string>({
       placeRef.current(false)
     })
     ro.observe(row)
-    return () => ro.disconnect()
+    /* The typeface can land between the first placing and the observer's
+       first report, which is skipped: the pill then kept the fallback
+       face's width and cut into "All". Placed again once fonts are in. */
+    let live = true
+    document.fonts?.ready.then(() => live && placeRef.current(false)).catch(() => undefined)
+    return () => {
+      live = false
+      ro.disconnect()
+    }
   }, [])
 
   const word = "whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium md:px-2.5"
@@ -795,13 +803,13 @@ function NotificationItem({
         </p>
         {notification.items ? (
           /* A digest: a line per opportunity, each its own link. */
-          <ul data-notification-digest="" className="mt-1 space-y-0.5">
+          <ul data-notification-digest="" className="mt-1 space-y-1.5">
             {notification.items.map((item, i) => (
               <li key={i} className="min-w-0">
                 <Link
                   href={item.href}
                   onClick={onClick}
-                  className="pointer-events-auto relative z-[1] block truncate rounded-sm text-[13px] leading-[18px] text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:shadow-[0_0_0_2px_#1a1a2e]"
+                  className="pointer-events-auto relative z-[1] line-clamp-2 rounded-sm text-[13px] leading-[18px] text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:shadow-[0_0_0_2px_#1a1a2e]"
                 >
                   {item.title}
                 </Link>

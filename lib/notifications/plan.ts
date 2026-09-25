@@ -199,7 +199,7 @@ export function planCreator(input: PlanInput): Plan {
           dedupeKey: digestKey,
           subject: dayKey(now),
           title: `${plural(lines.length, "opportunity", "opportunities")} this week`,
-          message: lines.map((l) => l.f.title).join("; "),
+          message: lines.map((l) => l.f.line ?? l.f.title).join("; "),
           href: lines[0].f.href,
           area: "Opportunities",
           pushTitle: null,
@@ -209,7 +209,7 @@ export function planCreator(input: PlanInput): Plan {
           data: { lines: lines.length },
           baseline: false,
           foldedInto: null,
-          items: lines.map((l) => ({ title: l.f.title, href: l.f.href })),
+          items: lines.map((l) => ({ title: l.f.line ?? l.f.title, href: l.f.href })),
         })
         for (const l of lines) plan.inserts.push({ ...toRow(l.rule, l.f, l.key), foldedInto: digestKey })
         plan.deferred += group.length - lines.length

@@ -65,7 +65,7 @@ export const setupNextStep: Rule = {
         period: monthKey(s.now),
         priority: 51,
         title: "Share your store to get your first sale",
-        message: "Your products are live and ready to sell. Post your link where the people who follow you already are.",
+        message: "Your products are live. Post your link where the people who follow you already are.",
         href: "/app/creator-page",
         area: "Getting started",
       })

@@ -73,7 +73,7 @@ export const domainNotConnected: Rule = {
       out.push({
         subject: d.id,
         title: `${d.domain} is not connected yet`,
-        message: "The DNS records are not there yet, so the address opens nothing. Domains shows the ones to add.",
+        message: "Its DNS records are not set yet, so the address opens nothing. Domains lists them.",
         href: DOMAINS,
         area: "Domains",
       })

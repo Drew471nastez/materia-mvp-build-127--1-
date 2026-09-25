@@ -229,6 +229,8 @@ export interface Finding {
   area: string
   /** A shorter title for a push, with no money, names or addresses in it. */
   pushTitle?: string
+  /** The title said in a few words, for a line of a digest (an opportunity). */
+  line?: string
   priority?: number
   productId?: string | null
   reviewId?: string | null

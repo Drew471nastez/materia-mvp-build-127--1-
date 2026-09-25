@@ -333,7 +333,8 @@ console.log("\nThe planner: one next step, one opportunity, a digest")
   const d = plan(stacked)
   const digest = d.inserts.find((r) => r.kind === DIGEST_KIND)
   check("four opportunities at once: one digest", !!digest && visibleInserts(d).filter((r) => r.category === "opportunity").length === 1, kinds(visibleInserts(d)))
-  check("with a line each, the three that matter most", digest?.items?.length === 3 && digest.items[0].title === "5 buyers left checkout this week", digest?.items)
+  check("with a line each, the three that matter most, in a few words", digest?.items?.length === 3 && digest.items[0].title === "5 buyers left checkout; the reminder is off" && digest.items[1].title === "Lightroom presets: 212 views, no sales" && digest.items[2].title === "240 subscribers, no email in 50 days", digest?.items)
+  check("each line goes to its own page", digest?.items?.map((i) => i.href).join() === "/app/emails/flow/new,/app/products/p1,/app/emails/new", digest?.items)
   check("its lines are written folded into it, so they are not said again", d.inserts.filter((r) => r.foldedInto === digest?.dedupeKey).length === 3)
   check("the fourth waits", d.deferred >= 1)
   check("titled plainly", digest?.title === "3 opportunities this week", digest?.title)
@@ -655,11 +656,50 @@ function storeSuite() {
   check("the claim is the database function, not memory", /rpc\("notification_claim_creators"/.test(store) && !/new Map|new Set/.test(store.replace(/\/\*[\s\S]*?\*\//g, "")))
 }
 
+/* ─── The wiring: the cron, the events, the SQL ────────────────────── */
+
+function wiringSuite() {
+  console.log("\nRuns every hour, and on the events that matter")
+  const vercel = JSON.parse(read("vercel.json")) as { crons: { path: string; schedule: string }[] }
+  check("an hourly job at :25, apart from the ones at :00 and :10", vercel.crons.some((c) => c.path === "/api/cron/notifications" && c.schedule === "25 * * * *"))
+  const cron = read("app/api/cron/notifications/route.ts")
+  check("the job needs CRON_SECRET, and stops taking batches inside its time", /requireBearerSecret\(request, "CRON_SECRET"\)/.test(cron) && /export const maxDuration = 300/.test(cron) && /deadline: started \+ RUN_BUDGET_MS/.test(cron) && /const RUN_BUDGET_MS = 240_000/.test(cron))
+  check("and logs counts only", !/creatorId|user_id|email/.test(cron.replace(/\/\*[\s\S]*?\*\//g, "")))
+  const hook = read("app/api/stripe/webhook/route.ts")
+  check("account.updated, payouts and disputes tell the engine, after the answer", /after\(async \(\) => \(await import\("@\/lib\/notifications\/events"\)\)\.noteStripeAccount\(accountCreatorId, account as any\)\)/.test(hook)
+    && /\.notePayout\(payoutCreatorId\)/.test(hook) && /\.noteDispute\(disputeCreatorId\)/.test(hook))
+  check("a review tells it too (the first is a milestone)", /\.noteReview\(reviewCreatorId\)/.test(read("app/api/reviews/route.ts")))
+  const sale = read("lib/push/notifications.ts")
+  check("a sale that is a milestone is one push, titled as the milestone", /const milestone = await milestoneTitle\(userId\)/.test(sale) && /title: milestone \?\? "🎉 You made a sale!"/.test(sale))
+  const events = read("lib/notifications/events.ts")
+  check("events never wait long and never throw", /export const EVENT_BUDGET_MS = 2_500/.test(events) && /within\(/.test(events) && (events.match(/catch \{/g) ?? []).length >= 2)
+  check("a browser push opens the notification's own page, inside /app only", /data\?\.type === "notification" && typeof data\.url === "string" && \/\^\\\/app/.test(read("lib/push/sender.ts")))
+  check("so does a tap on the phone", /type === "notification"/.test(read("lib/push/client.ts")))
+
+  console.log("\nThe SQL: one statement per line, safe twice, the database keeps the promises")
+  const part = read("supabase/sql/run-now/XX_notification_rules.sql")
+  const migration = read("supabase/migrations/20261003_notification_rules.sql")
+  const lines = part.trim().split("\n")
+  check("every line of the part is a /* */ comment or one whole statement", lines.every((l) => (l.startsWith("/*") && l.endsWith("*/")) || /;\s*$/.test(l)) && !/^\s*--/m.test(part))
+  const statements = (sql: string) => sql.split("\n").filter((l) => l.trim() && !l.startsWith("/*") && !l.startsWith("   ") && !l.startsWith(" "))
+  check("the migration holds the same statements", JSON.stringify(statements(migration).filter((l) => !l.startsWith("/*"))) === JSON.stringify(statements(part)))
+  check("and uses /* */ comments only", !/^\s*--/m.test(migration))
+  check("said once: a unique index on (creator_id, dedupe_key)", /CREATE UNIQUE INDEX IF NOT EXISTS seller_notifications_once ON public\.seller_notifications \(creator_id, dedupe_key\);/.test(part))
+  check("claimed once: FOR UPDATE SKIP LOCKED, with a lease", /FOR UPDATE SKIP LOCKED/.test(part) && /lease_until = now\(\) \+ make_interval/.test(part))
+  check("server only: RLS on, no policies, the function revoked from the public roles", /ENABLE ROW LEVEL SECURITY/.test(part) && !/CREATE POLICY/.test(part) && /REVOKE ALL ON FUNCTION public\.notification_claim_creators\(integer, integer\) FROM PUBLIC, anon, authenticated;/.test(part))
+  check("safe twice: IF NOT EXISTS, DROP IF EXISTS, NOT VALID checks", (part.match(/ADD COLUMN IF NOT EXISTS/g) ?? []).length === 8 && /DROP CONSTRAINT IF EXISTS seller_notifications_category_check/.test(part) && (part.match(/NOT VALID;/g) ?? []).length === 2 && /CREATE TABLE IF NOT EXISTS/.test(part))
+  check("the type keeps every old kind and takes the categories", /'new_review', 'new_sale', 'new_subscriber', 'payout', 'announcement', 'critical', 'problem', 'next_step', 'opportunity', 'milestone', 'update'/.test(part))
+  check("listed in the README and checked after", /XX_notification_rules\.sql/.test(read("supabase/sql/run-now/README.md")) && /pXX_notification_rules/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  const engine = read("lib/notifications/engine.ts") + read("lib/notifications/plan.ts") + read("lib/notifications/snapshot.ts")
+  check("no dedupe, lock or cache kept in memory between calls: nothing mutable at module level", !/^(const|let|var) \w+(: [^=]+)? = new (Map|Set|WeakMap)/m.test(engine) && !/^let /m.test(engine) && !/\bglobalThis\b/.test(engine))
+}
+
 async function main() {
   await engineSuite()
   pushSuite()
   wordsSuite()
   storeSuite()
+  wiringSuite()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
