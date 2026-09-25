@@ -199,6 +199,7 @@ const SUITES = [
   "tests/storage-upload-routes.test.ts",
   "tests/pricing-plans.test.ts",
   "tests/app-search.test.ts",
+  "tests/notifications-panel.test.ts",
   "tests/rich-text.test.ts",
 ]
 

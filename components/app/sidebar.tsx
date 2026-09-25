@@ -32,7 +32,7 @@ import { MobileMenuPage, MobileNavPill, pillBelongsOn, useLockAppScroll } from "
 /* The header draws it directly; the bar below does not carry it any more. */
 import { CompassIcon as ExploreIcon } from "@solar-icons/react/linear/compass"
 
-import { NotificationsModal, NotificationBadge } from "./notifications-modal"
+import { NotificationsModal, LiveNotificationBadge } from "./notifications-modal"
 import { AppSearch, type AppSearchHandle } from "@/components/app/app-search"
 import { useLanguage } from "@/lib/i18n"
 import { LanguageModal } from "@/components/platform/language-modal"
@@ -90,18 +90,6 @@ interface SidebarProps {
   setupProgress?: { completed: number; total: number }
 }
 
-const DISMISSED_NOTIFICATIONS_KEY = "storelib_dismissed_notifications"
-
-function getDismissedNotifications(): string[] {
-  if (typeof window === "undefined") return []
-  try {
-    const dismissed = localStorage.getItem(DISMISSED_NOTIFICATIONS_KEY)
-    return dismissed ? JSON.parse(dismissed) : []
-  } catch {
-    return []
-  }
-}
-
 type NotificationsHandle = { open: () => void }
 
 /**
@@ -114,15 +102,9 @@ const NotificationsHost = memo(forwardRef<NotificationsHandle, {
   stripeConnected: boolean
   stripeStatus: string
   onePagePublished: boolean
-  onClosed: () => void
-}>(function NotificationsHost({ stripeConnected, stripeStatus, onePagePublished, onClosed }, ref) {
+}>(function NotificationsHost({ stripeConnected, stripeStatus, onePagePublished }, ref) {
   const [open, setOpen] = useState(false)
   useImperativeHandle(ref, () => ({ open: () => setOpen(true) }), [])
-  const wasOpenRef = useRef(false)
-  useEffect(() => {
-    if (wasOpenRef.current && !open) onClosed()
-    wasOpenRef.current = open
-  }, [open, onClosed])
   return (
     <NotificationsModal
       open={open}
@@ -153,7 +135,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
      opening notifications does not re-render this whole sidebar. */
   const notificationsRef = useRef<NotificationsHandle>(null)
   const openNotifications = useCallback(() => notificationsRef.current?.open(), [])
-  const [dismissedNotifications, setDismissedNotifications] = useState<string[]>([])
   /* The row a click lights before its page arrives is not state here: this
      held a `pendingHref` that nothing ever read, and setting it re-rendered
      this whole shell on every click, at the moment the click should be
@@ -169,20 +150,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     setProfileDropdownOpen(false)
     setHeaderProfileOpen(false)
   }, [pathname])
-
-  // Load dismissed notifications from localStorage
-  useEffect(() => {
-    setDismissedNotifications(getDismissedNotifications())
-  }, [])
-
-  // Re-check dismissed notifications when notifications modal closes, and
-  // render only when the answer is different.
-  const refreshDismissed = useCallback(() => {
-    setDismissedNotifications((prev) => {
-      const next = getDismissedNotifications()
-      return next.join(",") === prev.join(",") ? prev : next
-    })
-  }, [])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -201,10 +168,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  // Calculate notification count (respecting dismissed notifications)
-  let notificationCount = 0
-  if ((!stripeConnected || (stripeStatus !== "enabled" && stripeStatus !== "connected")) && !dismissedNotifications.includes("payment-setup")) notificationCount++
-  if (!onePagePublished && !dismissedNotifications.includes("onepage-setup")) notificationCount++
+  /* The count on each bell is its own component (LiveNotificationBadge): it
+     reads what is unread from the store the panel writes to, so "Mark all as
+     read" empties it at once, and a new count draws the badge, not this
+     sidebar. */
+  const badgeProps = { stripeConnected, stripeStatus, onePagePublished }
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -637,7 +605,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 title="Notifications"
               >
                 <Bell className="h-[19px] w-[19px]" strokeWidth={1.5} />
-                <NotificationBadge count={notificationCount} />
+                <LiveNotificationBadge {...badgeProps} />
               </button>
               <Link
                 href="/app/settings"
@@ -746,7 +714,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
-              <NotificationBadge count={notificationCount} />
+              <LiveNotificationBadge {...badgeProps} />
             </Button>
             {/* Home moved to the bar at the bottom. Two ways to the same
                 page, one of them out of reach, is one too many. */}
@@ -761,7 +729,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         stripeConnected={stripeConnected}
         stripeStatus={stripeStatus}
         onePagePublished={onePagePublished}
-        onClosed={refreshDismissed}
       />
 
       {/*
