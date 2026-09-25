@@ -131,7 +131,7 @@ export function AskHistory({
     setNotice(null)
     void listConversations(installId).then((answer) => {
       if (!live) return
-      if (!answer.ok) {
+      if (answer.ok === false) {
         setProblem(answer.problem)
         setRows((was) => was ?? [])
         return
@@ -174,7 +174,7 @@ export function AskHistory({
     const answer = await deleteConversation(installId, item.target.kind === "one" ? item.target.id : "earlier")
     setBusy(false)
     setConfirming(null)
-    if (!answer.ok && answer.problem !== "not_found") {
+    if (answer.ok === false && answer.problem !== "not_found") {
       setNotice(DELETE_PROBLEM[answer.problem])
       return
     }
@@ -189,7 +189,7 @@ export function AskHistory({
     const answer = await deleteAllConversations(installId)
     setBusy(false)
     setConfirming(null)
-    if (!answer.ok) {
+    if (answer.ok === false) {
       setNotice(DELETE_PROBLEM[answer.problem])
       return
     }
