@@ -56,8 +56,9 @@ console.log("\nTables that scroll sideways under a frozen column")
       && /\.scroll-edge\[data-start="true"\]::before,\s*\.scroll-edge\[data-end="true"\]::after \{\s*opacity: 1;/.test(css)
       && /@media \(prefers-reduced-motion: reduce\) \{\s*\.scroll-edge::before,\s*\.scroll-edge::after \{\s*transition: none;/.test(css))
   check("Emails' three tables use it, and mark the frozen column in the header and in every row",
-    (home.match(/<ScrollEdge>/g) ?? []).length === 3 && (home.match(/<th data-scroll-edge="" className=\{cn\(th, stickyHead\)\}>/g) ?? []).length === 3
+    (home.match(/<ScrollEdge>/g) ?? []).length === 3 && (home.match(/<th data-scroll-edge="" className=\{cn\(th, stickyHead[,)]/g) ?? []).length === 3
       && (home.match(/<td data-scroll-edge="" className=\{cn\(td, sticky/g) ?? []).length === 3)
+  check("the subscribers' email column keeps to its content (w-px), so the scrolling columns stay in view on a phone", /<th data-scroll-edge="" className=\{cn\(th, stickyHead, "w-px"\)\}>Email<\/th>/.test(home))
   check("the frozen cells are the row's own opaque colour, hover and press included", /const sticky = "sticky left-0 z-\[1\] bg-white group-hover:bg-\[#fafbfb\] group-active:bg-\[#f4f5f7\]"/.test(home) && /const stickyHead = "sticky left-0 z-\[1\] bg-\[#fafbfb\]"/.test(home))
   const flow = read("app/app/emails/flow/[id]/builder.tsx")
   check("so does an automation's runs table", /<ScrollEdge>/.test(flow) && (flow.match(/data-scroll-edge="" className="sticky left-0 z-\[1\]/g) ?? []).length === 2)
