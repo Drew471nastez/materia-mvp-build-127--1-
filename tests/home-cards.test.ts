@@ -144,8 +144,8 @@ function main() {
     /border-\[#ececef\] bg-\[#fafafa\]/.test(cardClass(desktop)) && /border-\[#ececef\] bg-white/.test(cardClass(phone))
       && !/shadow/.test(cardClass(desktop)) && !/shadow/.test(cardClass(phone)), JSON.stringify({ desktop: cardClass(desktop), phone: cardClass(phone) }))
   const bolt = read("components/app/upgrade-bolt.tsx").replace(/\/\*[\s\S]*?\*\//g, "")
-  check("the bolt is flat: a soft violet tint, a violet glyph, no gradient, no glow", /backgroundColor: UPGRADE_TINT/.test(bolt) && /fill=\{UPGRADE_INK\}/.test(bolt)
-    && !/gradient|drop-shadow|0 4px 10px/.test(bolt))
+  check("the bolt is a purple button with little depth: one flat violet, a white glyph, a hairline of light, no gradient, no glow", /backgroundColor: UPGRADE_FILL/.test(bolt) && /fill=\{UPGRADE_INK\}/.test(bolt)
+    && /UPGRADE_INK = "#ffffff"/.test(bolt) && !/gradient|drop-shadow|0 4px 10px/.test(bolt))
   check("the card goes to the plans page the way the rows go to theirs",
     /onClick=\{\(\) => onNavigate\?\.\(UPGRADE_HREF\)\}/.test(desktop) && /onPrefetch\?\.\(UPGRADE_HREF\)/.test(desktop)
       && /onNavigate\?\.\(UPGRADE_HREF\)/.test(phone) && /prefetchAppPage\(router, UPGRADE_HREF\)/.test(phone))

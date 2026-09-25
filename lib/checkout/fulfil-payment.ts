@@ -242,7 +242,7 @@ export async function fulfilPaymentIntent(
     await admin.rpc("increment_product_sales", { p_product_id: productId })
     await admin.from("analytics_events").insert({ creator_id: creatorId, product_id: productId, event_type: "purchase" })
   })
-  if (m.coupon_id) await step("coupon use", () => recordCouponUse(admin, m.coupon_id))
+  if (m.coupon_id) await step("coupon use", () => recordCouponUse(admin, m.coupon_id, m.coupon_holder))
   await step("ledger", () => recordSale(admin, { creatorId, orderId: order.id, total, fee: feeCents, destinationPaymentId: facts.destinationPaymentId }))
 
   await step("emails", async () => {

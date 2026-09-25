@@ -403,7 +403,7 @@ function PaymentTiles() {
         <div className="absolute inset-x-0 bottom-0 h-[118px]">
           <div
             data-pay-tile="visa"
-            className="absolute bottom-[-26px] left-[40%] flex h-[74px] w-[112px] items-center justify-center rounded-[16px] bg-[#0f0f12] text-white"
+            className="absolute bottom-[-15px] left-[40%] flex h-[74px] w-[112px] items-center justify-center rounded-[16px] bg-[#0f0f12] text-white"
           >
             <VisaMark className="w-[58px]" />
           </div>
@@ -415,7 +415,7 @@ function PaymentTiles() {
           </div>
           <div
             data-pay-tile="stripe"
-            className="absolute bottom-[4px] right-[-18px] flex h-[72px] w-[104px] items-center justify-center rounded-[16px] bg-[#635bff] text-white"
+            className="absolute bottom-[13px] right-[-7px] flex h-[72px] w-[104px] items-center justify-center rounded-[16px] bg-[#635bff] text-white"
           >
             <StripeMark className="w-[58px]" />
           </div>

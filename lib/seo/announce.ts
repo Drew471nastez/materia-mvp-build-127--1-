@@ -13,7 +13,7 @@ import "server-only"
  */
 
 import { createAdminClient } from "@/lib/supabase/admin"
-import { getLinksShareUrl, getLinksUrlWithCustomDomain, getProductShareUrl } from "@/lib/url-helpers"
+import { getLinksShareUrl, getLinksUrlWithCustomDomain, getProductShareUrl, getStoreShareUrl } from "@/lib/url-helpers"
 import { deservesIndexing } from "@/lib/security/spam-signals"
 import { isBanned } from "./bans"
 import { activeDomainOf, formerSiteAddresses } from "@/lib/website-builder/site-seo-data"
@@ -50,9 +50,21 @@ export async function productAddresses(productId: string, creatorId: string): Pr
   const p = product as { slug?: string; creator_id?: string } | null
   if (!p?.slug || p.creator_id !== creatorId || !notSpam(handle)) return []
   const urls = [getProductShareUrl(handle, p.slug), `${BASE}/${handle}`]
-  const site = await siteSitemap(handle)
+  const [site, pageHost] = await Promise.all([siteSitemap(handle), activeDomainOf(creatorId)])
   if (site && site.entries.length > 0) urls.push(`${site.origin}/products/${encodeURIComponent(p.slug)}`, `${site.origin}/products`)
+  urls.push(...onPageDomain(handle, pageHost, p.slug))
   return urls
+}
+
+/**
+ * The same pages on the creator page's own domain, where their canonicals
+ * point once it is live (lib/seo/creator-domain.ts). The storelib.com
+ * addresses are still sent: an engine that fetches them reads the canonical
+ * and moves the page over sooner.
+ */
+function onPageDomain(handle: string, pageHost: string | null, slug?: string): string[] {
+  if (!pageHost) return []
+  return slug ? [getProductShareUrl(handle, slug, pageHost), getStoreShareUrl(handle, pageHost)] : [getStoreShareUrl(handle, pageHost), getLinksShareUrl(handle, pageHost)]
 }
 
 /**
@@ -69,15 +81,17 @@ export async function removedProductAddresses(slug: string, creatorId: string): 
   ])
   if (still || !notSpam(handle)) return []
   const urls = [getProductShareUrl(handle, slug), `${BASE}/${handle}`]
-  const site = await siteSitemap(handle)
+  const [site, pageHost] = await Promise.all([siteSitemap(handle), activeDomainOf(creatorId)])
   if (site && site.entries.length > 0) urls.push(`${site.origin}/products/${encodeURIComponent(slug)}`, `${site.origin}/products`)
+  urls.push(...onPageDomain(handle, pageHost, slug))
   return urls
 }
 
-/** A creator's own pages on storelib.com. */
+/** A creator's own pages on storelib.com, and on their creator page's domain when it is live. */
 export async function profileAddresses(creatorId: string): Promise<string[]> {
   const handle = await handleOfCreator(createAdminClient(), creatorId)
-  return notSpam(handle) ? [`${BASE}/${handle}`, getLinksShareUrl(handle)] : []
+  if (!notSpam(handle)) return []
+  return [`${BASE}/${handle}`, getLinksShareUrl(handle), ...onPageDomain(handle, await activeDomainOf(creatorId))]
 }
 
 /**

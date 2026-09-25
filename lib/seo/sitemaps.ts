@@ -21,7 +21,10 @@ import "server-only"
  * Each N is SITEMAP_CHUNK addresses, so the index grows by a file per ten
  * thousand pages and never by a slower file. A built site's own host
  * (<name>.storelib.com or its connected domain) serves its own
- * /robots.txt and /sitemap.xml from siteSitemap below.
+ * /robots.txt and /sitemap.xml from siteSitemap below. A creator page on a
+ * live domain of its own is canonical there, so neither it nor its products
+ * nor its OnePage are in these files: the domain's /sitemap.xml lists them
+ * (lib/seo/creator-domain.ts, liveCreatorPageDomains below).
  *
  * The rules (what is listed, what date it carries) are lib/seo/indexing.ts.
  * A query that fails is tried once more, then says so in the log and the
@@ -45,7 +48,7 @@ import { CATEGORIES } from "@/lib/marketplace/categories"
 import { getLinksShareUrl, getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
 import { DEV_PAGES, devPath } from "@/lib/developers/pages"
 import { HELP_ARTICLES, HELP_CATEGORIES, helpArticlePath } from "@/lib/help/articles"
-import { isMissingColumn } from "@/lib/custom-domains/store"
+import { isMissingColumn, isMissingTable } from "@/lib/custom-domains/store"
 import {
   SITEMAP_CHUNK,
   builtSiteIndexable,
@@ -310,7 +313,11 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
     SITEMAP_CHUNK,
     "products",
   )
-  const [usernameByUserId, banned] = await Promise.all([usernames(admin, rows.map(userIdOf).filter(Boolean) as string[]), bannedCreatorIds(admin)])
+  const [usernameByUserId, banned, ownDomain] = await Promise.all([
+    usernames(admin, rows.map(userIdOf).filter(Boolean) as string[]),
+    bannedCreatorIds(admin),
+    liveCreatorPageDomains(admin, [...new Set(rows.map((r) => r.creator_id).filter(Boolean) as string[])]),
+  ])
   if (rows.length > 0 && usernameByUserId.size === 0) {
     /* Every product would fall back to the old address. That is the failure
        this block used to have in silence. */
@@ -322,6 +329,8 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
     const username = userId ? usernameByUserId.get(userId) : undefined
     /* Banned: the ban took it down, and republishing it does not put it back here. */
     if (!productIndexable(row, username) || (row.creator_id && banned.has(row.creator_id))) continue
+    /* Canonical on its creator page's own domain, and listed by that domain's sitemap (lib/seo/creator-domain.ts). */
+    if (row.creator_id && ownDomain.has(row.creator_id)) continue
     entries.push({
       url: getProductShareUrl(username || "", row.slug),
       lastModified: lastmodOf(row.updated_at),
@@ -370,8 +379,10 @@ export async function creatorsSitemap(chunk: number): Promise<SitemapEntry[]> {
     const seen = newestProduct.get(p.creator_id) ?? { n: 0, at: null }
     newestProduct.set(p.creator_id, { n: seen.n + 1, at: newestOf(seen.at, p.updated_at) })
   }
-  const banned = await bannedCreatorIds(admin)
-  const selling = creators.filter((c) => newestProduct.has(c.id) && c.user_id && !banned.has(c.id))
+  const [banned, ownDomain] = await Promise.all([bannedCreatorIds(admin), liveCreatorPageDomains(admin, ids)])
+  /* A creator page on its own live domain is canonical there, and that domain's
+     /sitemap.xml lists it, its products and its OnePage (lib/seo/creator-domain.ts). */
+  const selling = creators.filter((c) => newestProduct.has(c.id) && c.user_id && !banned.has(c.id) && !ownDomain.has(c.id))
   const sellerByUserId = await sellers(admin, selling.map((c) => c.user_id as string))
   const onePages = await publishedOnePages(admin, selling.map((c) => c.id))
   const entries: SitemapEntry[] = []
@@ -416,6 +427,36 @@ async function publishedOnePages(admin: Admin, creatorIds: string[]): Promise<Ma
     for (const id of [p.creator_id, p.seller_id]) if (id) out.set(id, newestOf(out.get(id), p.updated_at))
   }
   return out
+}
+
+/**
+ * The creators, of these, whose creator page is served on its own domain:
+ * a primary creator page domain that is active, the same rule the page's
+ * canonical reads (lib/custom-domains/store.ts primaryHostOf). Their page,
+ * products and OnePage are canonical on that domain, so storelib.com's
+ * sitemap leaves them to the domain's own /sitemap.xml; a sitemap listing
+ * an address whose page names another as canonical is a duplicate Google
+ * has to sort out.
+ *
+ * Before the purpose columns exist (run-now part 22), or the table, no
+ * domain is a creator page's and nothing is left out: exactly as before.
+ */
+export async function liveCreatorPageDomains(admin: Admin, creatorIds: string[]): Promise<Set<string>> {
+  const found = await eachBatch(creatorIds, async (batch) => {
+    const query = () =>
+      admin
+        .from("custom_domains")
+        .select("creator_id, domain")
+        .in("creator_id", batch)
+        .eq("status", "active")
+        .eq("purpose", "creator_page")
+        .eq("is_primary", true)
+    const first = await query()
+    if (!first.error) return (first.data ?? []) as { creator_id: string }[]
+    if (isMissingColumn(first.error) || isMissingTable(first.error)) return []
+    return rowsOf<{ creator_id: string }>(query, "creator page domains")
+  })
+  return new Set(found.flat().map((d) => d.creator_id))
 }
 
 /* ── Websites ──────────────────────────────────────────────────────────── */

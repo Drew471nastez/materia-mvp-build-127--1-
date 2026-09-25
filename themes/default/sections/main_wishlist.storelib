@@ -95,7 +95,7 @@
 
 .empty { margin-top: 28px; }
 .empty[hidden] { display: none; }
-.empty__text { margin: 0; font-size: 16px; line-height: 1.6; color: var(--s-para); }
+.empty__text { margin: 0; font-size: var(--section-text-size, 16px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); }
 .empty__link { display: inline-block; margin-top: 10px; font-size: 15px; font-weight: 600; color: var(--s-heading); text-decoration: underline; text-underline-offset: 4px; }
 .note { margin: 36px 0 0; font-size: 14px; line-height: 1.6; color: var(--s-para); }
 .note__link { color: var(--s-heading); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }

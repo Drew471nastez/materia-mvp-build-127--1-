@@ -3,7 +3,7 @@
 import { announceChange } from "@/lib/seo/announce-client"
 import { forwardRef, memo, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
-import { ArrowUpDown, Check, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Eye, Search, X } from "lucide-react"
+import { ArrowUpDown, Check, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Search, X } from "lucide-react"
 import { getProductUrl } from "@/lib/url-helpers"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { PickSheet } from "./pick-sheet"
@@ -152,8 +152,8 @@ const EYE_DEPTH = cn(
   quietDepth,
   "aria-disabled:cursor-not-allowed aria-disabled:text-[#b6bac1] aria-disabled:shadow-none aria-disabled:hover:bg-white aria-disabled:active:bg-white aria-disabled:active:shadow-none",
 )
-const EYE_PHONE = cn(EYE_DEPTH, ROW_BUTTON_PHONE)
-const EYE_TABLE = cn(EYE_DEPTH, ROW_BUTTON_TABLE)
+/* In the table View is a word beside the more button, the same height; a phone row has only the more button, whose menu starts with View. */
+const VIEW_TABLE = cn(EYE_DEPTH, "inline-flex h-7 items-center rounded-[7px] px-2.5 text-[13px] font-medium text-[#4b5563] lg:h-[31px] lg:px-3 lg:text-[13.5px]")
 
 /**
  * THE PICTURES, SHARP ON EVERY SCREEN. They went through next/image at a
@@ -792,7 +792,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     PREVIEW. The product's own page, the address View in its menu opens, in
     a new tab. A draft or an archived product has no public page (the page
     serves published products only) and there is no preview address for
-    one, so its eye is drawn but off: "Publish to preview" on a pointer, and
+    one, so its View is drawn but off: "Publish to view" on a pointer, and
     in a toast on a phone. In the app the page opens in the phone's browser
     through openExternal, as the editor's View does. Never the row's press.
   */
@@ -806,7 +806,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   const previewOff = (e: ReactMouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!window.matchMedia("(hover: hover)").matches) showNotification("Publish to preview")
+    if (!window.matchMedia("(hover: hover)").matches) showNotification("Publish to view")
   }
 
   /*
@@ -1148,7 +1148,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                     <th scope="col" className="w-[96px] border-b border-[#eef0f2] px-3 font-medium lg:w-[114px] lg:px-[13px] xl:w-[132px]">Status</th>
                     <th scope="col" className="hidden w-[97px] border-b border-[#eef0f2] px-3 text-right font-medium lg:table-cell lg:px-[13px] xl:w-[110px]">Sales</th>
                     <th scope="col" className="w-[88px] border-b border-[#eef0f2] px-3 text-right font-medium lg:w-[114px] lg:px-[13px] xl:w-[132px]">Price</th>
-                    <th scope="col" className="w-[76px] border-b border-[#eef0f2] lg:w-[84px] xl:w-[89px]" aria-label="Actions" />
+                    <th scope="col" className="w-[106px] border-b border-[#eef0f2] lg:w-[117px] xl:w-[124px]" aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
@@ -1324,30 +1324,30 @@ function useRowActions(product: Product, username: string, labels: RowLabels, ap
 }
 
 /**
- * A row's Preview: a link to the product's page in a new tab, or, for a
- * product that has no public page, the same eye drawn off. The name
- * "Preview" (or why it is off) on a pointer in the table; a phone has no
- * pointer to rest, so there it is only the button's label.
+ * A row's View, in the table only: a link to the product's page in a new
+ * tab, or, for a product that has no public page, the same word drawn off,
+ * with why on a pointer. A phone row has only the more button, whose menu
+ * starts with View.
  */
-function Preview({ product, username, look, tip, api }: { product: Product; username: string; look: string; tip: boolean; api: RowApiRef }) {
+function Preview({ product, username, look, api }: { product: Product; username: string; look: string; api: RowApiRef }) {
   const on = productStatus(product) === "live"
   const url = getProductUrl(username, product.slug)
-  const eye = <Eye className="h-4 w-4" strokeWidth={1.9} aria-hidden />
   const button = on ? (
-    <a href={url} target="_blank" rel="noopener noreferrer" data-preview="" aria-label={`Preview ${product.title}`} onClick={(e) => api.current?.openPreview(url)(e)} className={look}>
-      {eye}
+    <a href={url} target="_blank" rel="noopener noreferrer" data-preview="" aria-label={`View ${product.title}`} onClick={(e) => api.current?.openPreview(url)(e)} className={look}>
+      View
     </a>
   ) : (
-    <button type="button" data-preview="" aria-disabled="true" aria-label={`Preview ${product.title}`} onClick={(e) => api.current?.previewOff(e)} className={look}>
-      {eye}
+    <button type="button" data-preview="" aria-disabled="true" aria-label={`View ${product.title}`} onClick={(e) => api.current?.previewOff(e)} className={look}>
+      View
     </button>
   )
-  if (!tip) return button
+  if (on) return button
+  /* Why it is off, on a pointer: a product with no public page has nothing to view yet. */
   return (
     <Tooltip delayDuration={400}>
       <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent side="top" sideOffset={6} className={TOOLTIP}>
-        {on ? "Preview" : "Publish to preview"}
+        Publish to view
       </TooltipContent>
     </Tooltip>
   )
@@ -1423,7 +1423,7 @@ const PhoneRow = memo(function PhoneRow({
           ) : null}
         </span>
       </span>
-      {opening ? <OpeningMark size="phone" /> : <Preview product={product} username={username} look={EYE_PHONE} tip={false} api={api} />}
+      {opening ? <OpeningMark size="phone" /> : null}
       <ResponsiveActionMenu
         title={product.title}
         align="end"
@@ -1493,7 +1493,7 @@ const TableRow = memo(function TableRow({
       <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:px-[13px]">{priceOf(product.price_cents)}</td>
       <td className="bg-white pr-3 group-hover:bg-[#fafafb] lg:pr-[13px] xl:pr-[18px]">
         <div data-row-actions="" className="flex items-center justify-end gap-2 lg:gap-[9px]">
-          {opening ? <OpeningMark size="table" /> : <Preview product={product} username={username} look={EYE_TABLE} tip api={api} />}
+          {opening ? <OpeningMark size="table" /> : <Preview product={product} username={username} look={VIEW_TABLE} api={api} />}
           <ResponsiveActionMenu
             title={product.title}
             align="end"

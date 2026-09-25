@@ -25,19 +25,25 @@ import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
 import { tagOrderSource, type OrderOrigin } from "@/lib/orders/order-source"
 import { recordCustomer } from "./fulfil-payment"
+import { lineTotalCents } from "./cart-items"
 
 export interface FulfilLineInput {
   productId: string
   variantId: string | null
   quantity: number
-  /** Unit price as charged, in cents. */
+  /** Unit price before any code, in cents. */
   priceCents: number
+  /** What a code took off the whole line, in cents. */
+  discountCents?: number
 }
 
 export interface FulfilContext {
   admin: any
+  /** The Stripe Checkout Session, or for a basket a code made free, `free_` and a random id: what groups its lines. */
   sessionId: string
   paymentIntentId: string | null
+  /** "stripe", or "free" for a basket a code took to $0. */
+  provider?: "stripe" | "free"
   creatorId: string
   buyerId: string | null
   buyerEmail: string | null
@@ -46,7 +52,7 @@ export interface FulfilContext {
   /** The line's receipt token, from its place in the basket. */
   receiptTokenFor: (index: number) => string
   sessionFingerprint: string | null
-  paymentMethod: string
+  paymentMethod: string | null
   cardBrand: string | null
   cardLast4: string | null
   device: {
@@ -70,7 +76,8 @@ export interface FulfilledLine {
 export type LineOutcome = { status: "created"; line: FulfilledLine } | { status: "exists" } | { status: "failed" }
 
 export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, index: number, feeCents: number): Promise<LineOutcome> {
-  const amountCents = line.priceCents * line.quantity
+  /* What this line was charged: its price, less what a code took off it. */
+  const amountCents = lineTotalCents(line)
   const receiptToken = ctx.receiptTokenFor(index)
 
   const { data: order, error } = await ctx.admin
@@ -86,7 +93,7 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
       fee_cents: feeCents,
       application_fee_cents: feeCents,
       currency: "usd",
-      provider: "stripe",
+      provider: ctx.provider ?? "stripe",
       status: "completed",
       stripe_session_id: ctx.sessionId,
       stripe_payment_intent_id: ctx.paymentIntentId,

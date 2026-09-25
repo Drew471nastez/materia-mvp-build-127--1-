@@ -1098,22 +1098,28 @@ export async function proxy(request: NextRequest) {
   }
 
   /**
-   * A CONNECTED DOMAIN'S robots.txt AND sitemap.xml are its website's, not
+   * A CONNECTED DOMAIN'S robots.txt AND sitemap.xml are its own, never
    * Storelib's. Both are reserved paths below, so a creator's domain handed
    * out storelib.com's robots file and pointed Google at storelib.com's
-   * sitemap. A domain whose creator has published a website answers them
-   * from that website, the same way its subdomain does.
+   * sitemap. Each answers them from what it shows:
+   *
+   *   a website domain whose creator published a website
+   *       the website's own, the same way its subdomain does (/w/...)
+   *   a creator page domain, or a website domain showing the creator page
+   *   because no website is published
+   *       the creator page's own (/u/<name>/..., lib/seo/creator-domain.ts),
+   *       which reads the Host header this read: only the creator page's
+   *       live primary domain names and serves a sitemap
    */
   if (
     username &&
     isCustomDomain &&
-    domainPurpose === "website" &&
-    (pathname === "/robots.txt" || pathname === "/sitemap.xml") &&
-    !(await hasLiveAiSite(username)) &&
-    (await hasPublishedWebsite(username))
+    (pathname === "/robots.txt" || pathname === "/sitemap.xml")
   ) {
     const seoUrl = request.nextUrl.clone()
-    seoUrl.pathname = `/w/${username}${pathname}`
+    const website = domainPurpose === "website" && !(await hasLiveAiSite(username)) && (await hasPublishedWebsite(username))
+    if (website) seoUrl.pathname = `/w/${username}${pathname}`
+    else seoUrl.pathname = `/u/${username}${pathname}`
     return NextResponse.rewrite(seoUrl)
   }
 

@@ -16,6 +16,7 @@ import { ORIGIN_METADATA_KEY, SOURCE_METADATA_KEY, channelOf, encodeOrigin, orde
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { MIN_CHARGE_CENTS, priceOrder } from "@/lib/checkout/pricing"
 import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
+import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 
 /**
  * POST /api/checkout/stripe-session
@@ -124,6 +125,15 @@ export async function POST(request: Request) {
     if (data && data.length > 0) return NextResponse.json({ error: "You already own this. It is in your library." }, { status: 400 })
   }
 
+  /* A code with a use limit takes a place under it before a PaymentIntent
+     exists, in one statement in the database, so two buyers pressing Pay on
+     the last use cannot both pass (lib/checkout/coupon-holds). The place is
+     this buyer's address: a second press after a declined card refreshes it. */
+  const holder = needsHold(coupon) ? holderForEmail(email) : null
+  if (coupon && holder && !(await holdCouponUse(admin, coupon.id, holder))) {
+    return NextResponse.json({ error: "That code has been used up." }, { status: 400 })
+  }
+
   const { data: creatorProfile } = await admin.from("profiles").select("display_name").eq("id", creator.user_id).maybeSingle()
 
   const accessToken = nanoid(32)
@@ -168,6 +178,8 @@ export async function POST(request: Request) {
     discount_cents: String(totals.discountCents),
     coupon_id: coupon?.id || "",
     coupon_code: coupon?.code || "",
+    /* Whose place under the code's limit the order turns into its use. */
+    ...(holder ? { coupon_holder: holder } : {}),
     tip_cents: String(totals.tipCents),
     access_token: user ? "" : accessToken,
     session_fingerprint: sessionFingerprint,
@@ -252,6 +264,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ clientSecret: intent.client_secret, paymentIntentId: intent.id, amountCents: intent.amount })
   } catch (error) {
     console.error("[stripe-session] PaymentIntent failed:", error instanceof Error ? error.message : error)
+    /* Nothing to pay, so no place kept under the code's limit. */
+    if (holder) await releaseCouponHold(admin, coupon?.id, holder)
     return NextResponse.json({ error: "The payment could not be started. Nothing was charged. Try again." }, { status: 500 })
   }
 }

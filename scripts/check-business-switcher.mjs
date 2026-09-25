@@ -35,8 +35,10 @@ const expect = (ok, what, got) => { console.log(`  ${ok ? "ok  " : "FAIL"}  ${wh
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 try {
+  /* Creating a business is a request and a reload; here it is recorded and never answers, so the row's waiting state can be read. */
+  writeFileSync(join(work, "switch-client.js"), `export const switchBusiness = () => new Promise(() => {})\nexport const createBusiness = () => { window.__created = (window.__created || 0) + 1; return new Promise(() => {}) }\n`)
   writeFileSync(join(work, "navigation.js"), `export const useRouter = () => ({ push: (h) => (window.__pushed = h), replace() {}, refresh() {}, prefetch() {}, back() {} })\nexport const usePathname = () => "/app"\nexport const useSearchParams = () => new URLSearchParams()\n`)
-  execFileSync("npx", ["esbuild", "scripts/render-business-switcher.tsx", "--bundle", "--format=iife", "--jsx=automatic", '--define:process.env.NODE_ENV="production"', "--alias:@=.", "--banner:js=var process={env:{NODE_ENV:'production'}};", `--alias:next/navigation=./.business-probe/navigation.js`, `--outfile=${join(work, "app.js")}`, "--log-level=error"], { cwd: root, stdio: "inherit" })
+  execFileSync("npx", ["esbuild", "scripts/render-business-switcher.tsx", "--bundle", "--format=iife", "--jsx=automatic", '--define:process.env.NODE_ENV="production"', "--alias:@=.", "--banner:js=var process={env:{NODE_ENV:'production'}};", `--alias:next/navigation=./.business-probe/navigation.js`, `--alias:@/lib/businesses/switch-client=./.business-probe/switch-client.js`, `--outfile=${join(work, "app.js")}`, "--log-level=error"], { cwd: root, stdio: "inherit" })
   const js = readFileSync(join(work, "app.js"), "utf8")
   writeFileSync(join(work, "index.html"), `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`)
   const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
@@ -63,29 +65,13 @@ try {
   const sheet = await read("[data-probe=sheet-two]")
   expect(sheet.rows.every((r) => r.h >= 52), "52px rows in the phone sheet", sheet.rows.map((r) => r.h))
   await p.screenshot({ path: join(shots, "business-menus.png") })
-  await p.evaluate(() => [...document.querySelectorAll("[data-probe=dropdown-one] button")].find((b) => b.textContent.trim() === "New business").click())
-  expect((await p.evaluate(() => window.__pushed)) === "/onboarding/business", "New business opens /onboarding/business", await p.evaluate(() => window.__pushed))
-
-  for (const [label, vp] of [["phone-390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }], ["desktop-1280", { width: 1280, height: 800 }]]) {
-    console.log(`\nthe start screen, ${label}`)
-    await p.setViewport(vp)
-    await p.goto(`file://${join(work, "index.html")}?view=new`)
-    await sleep(300)
-    const s = await p.evaluate(() => {
-      const main = document.querySelector("[data-new-business]").getBoundingClientRect()
-      const btn = document.querySelector("[data-create-business]").getBoundingClientRect()
-      return { h: Math.round(main.height), w: Math.round(main.width), btnH: Math.round(btn.height), btnW: Math.round(btn.width), side: document.documentElement.scrollWidth - innerWidth, title: document.querySelector("h1").textContent.trim(), back: [...document.querySelectorAll("button")].map((b) => b.textContent.trim()).find((t) => t.startsWith("Back")) }
-    })
-    expect(s.h >= vp.height && s.w === vp.width, "it fills the screen", s)
-    expect(s.side === 0, "nothing scrolls sideways", s.side)
-    expect(s.btnH === 48 && s.btnW >= Math.min(vp.width - 40, 440) - 1, "Create business is 48px and full width", { h: s.btnH, w: s.btnW })
-    expect(s.title === "Start another business" && s.back === "Back to AndrewRullz", "it says what it is and the way back", s)
-    await p.screenshot({ path: join(shots, `business-new-${label}.png`) })
-  }
-  await p.goto(`file://${join(work, "index.html")}?view=full`)
-  await sleep(200)
-  const full = await p.evaluate(() => ({ title: document.querySelector("h1").textContent.trim(), create: !!document.querySelector("[data-create-business]") }))
-  expect(full.title === "You have two businesses" && !full.create, "with two, only the way back", full)
+  const labels = await p.evaluate(() => ({ dropdown: document.querySelector("[data-probe=dropdown-two]").textContent.includes("Businesses"), sheet: document.querySelector("[data-probe=sheet-two]").textContent.includes("Businesses") }))
+  expect(labels.dropdown && !labels.sheet, "a Businesses label on the desktop menu, none on the phone sheet", labels)
+  await p.evaluate(() => document.querySelector("[data-probe=dropdown-one] [data-business-new]").click())
+  await sleep(150)
+  const made = await p.evaluate(() => ({ created: window.__created, pushed: window.__pushed ?? null, text: document.querySelector("[data-probe=dropdown-one] [data-business-new]").textContent.trim(), spinning: !!document.querySelector("[data-probe=dropdown-one] [data-business-new] .animate-spin") }))
+  expect(made.created === 1 && made.pushed === null && made.spinning && made.text === "Setting up your new business", "New business starts it right there, no page in between, and says it is setting up", made)
+  await p.screenshot({ path: join(shots, "business-new-waiting.png") })
   if (errors.length) expect(false, "no errors on the page", errors)
   await browser.close()
   console.log(`\nshots: ${shots}`)

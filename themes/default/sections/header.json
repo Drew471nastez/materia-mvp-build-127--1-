@@ -4,6 +4,7 @@
   "description": "Site-wide navigation bar with logo, links, and CTA",
   "icon": "layout-template",
   "category": "structure",
+  "supports_typography_overrides": false,
   "fields": [
     {
       "id": "hdr_logo",

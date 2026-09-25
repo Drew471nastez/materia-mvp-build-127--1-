@@ -647,9 +647,12 @@ const GLASS: React.CSSProperties = {
     " inset 0 0 0 0.5px rgba(255,255,255,0.65), inset 0 0.5px 0 rgba(255,255,255,0.9)",
 }
 
-/** A little bigger again, as asked: 58 with 53px slots before this, and 3% on top. */
-const BAR_H = 60
-const SLOT = 55
+/**
+ * 5% bigger again, as asked: 60 with 55px slots before this. Four slots and
+ * the menu button are 311px across, inside a 320px phone with room to spare.
+ */
+const BAR_H = 63
+const SLOT = 58
 /**
  * The glyphs stay at 22 inside the bigger bar. At 23 the solid and the outline
  * round to different device pixels and the icon measurably shrinks as it

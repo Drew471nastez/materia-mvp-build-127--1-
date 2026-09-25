@@ -1195,7 +1195,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 <div className="flex flex-col items-center">
                   <div className="text-center mb-4 sm:mb-8">
                     <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
-                      {switchBack ? "Name your new business" : "Name your store"}
+                      Name your store
                     </h1>
                     <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
                       You can change it later, and everything else too.

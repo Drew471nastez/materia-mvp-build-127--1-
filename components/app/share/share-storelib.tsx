@@ -54,7 +54,7 @@
 import * as React from "react"
 import { AppLink } from "@/components/app/app-link"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
-import { ArrowLeft, ArrowUpRight, Check, Download, QrCode as QrCodeIcon, Share, X } from "lucide-react"
+import { ArrowLeft, Check, Download, Eye, Share, X } from "lucide-react"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
@@ -62,8 +62,8 @@ import { StorelibMark, STORELIB_S_PATH, STORELIB_S_TRANSFORM } from "@/component
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import { downloadBlob } from "@/lib/platform/save-file"
 import { cn } from "@/lib/utils"
-import { StorelibTile, StorelibVioletS } from "./storelib-share-marks"
-import { SURFACE_HINT, type ConnectedPlatform, type ShareAddress, type ShareSurface } from "./share-data"
+import { StorelibVioletS } from "./storelib-share-marks"
+import { type ConnectedPlatform, type ShareAddress, type ShareSurface } from "./share-data"
 
 /* The sheet's own curve (components/ui/bottom-sheet SHEET_EASE), so a view change moves like the sheet does. */
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
@@ -107,10 +107,9 @@ function FadeText({ text, className }: { text: string; className?: string }) {
 }
 
 /**
- * Light grey, the Storelib S in its own violet with a little depth, the
- * address in a very dark grey, and the share glyph. A hairline and a lit
- * top edge give it the slightest lift off the page. The same pill, the same
- * S, on Home and in Settings, at either size.
+ * A light grey pill with almost no depth: the Storelib S in flat violet, the
+ * address in a very dark grey, and the share glyph. On a phone, where the
+ * address has no room, it is an eye and "View", and opens the same sheet.
  */
 export const SharePill = React.memo(function SharePill({
   display,
@@ -135,21 +134,28 @@ export const SharePill = React.memo(function SharePill({
       data-open={expanded ? "" : undefined}
       aria-label={`Share ${display}`}
       title={display}
-      data-share-pill=""
+      data-share-pill={md ? "address" : "view"}
       className={cn(
-        "inline-flex h-9 min-w-0 max-w-full cursor-pointer select-none items-center rounded-full bg-[#efeff1] text-[#1f1f23] outline-none",
-        "shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(16,24,40,0.06)] ring-1 ring-black/[0.05]",
-        "transition-[background-color,box-shadow] duration-150 hover:bg-[#e8e8eb] active:bg-[#e2e2e6] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)]",
-        "data-open:bg-[#e6e6ea]",
+        "inline-flex h-9 min-w-0 max-w-full cursor-pointer select-none items-center rounded-full bg-[#f4f4f6] text-[#1f1f23] outline-none ring-1 ring-black/[0.04]",
+        "transition-[background-color] duration-150 hover:bg-[#ececef] active:bg-[#e6e6ea] data-open:bg-[#e9e9ec]",
         "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]",
         "[-webkit-tap-highlight-color:transparent]",
-        md ? "gap-2 pl-3 pr-2.5 text-[13.5px]" : "gap-1.5 pl-2.5 pr-2 text-[12.5px]",
+        md ? "gap-2 pl-3 pr-2.5 text-[13.5px]" : "gap-1.5 px-3.5 text-[13.5px]",
         className,
       )}
     >
-      <StorelibVioletS size={md ? 16 : 15} className="shrink-0" />
-      <FadeText text={display} className="font-medium tracking-[-0.005em]" />
-      <Share className={cn("shrink-0 text-[#3a3a40]", md ? "h-4 w-4" : "h-[15px] w-[15px]")} strokeWidth={1.8} aria-hidden />
+      {md ? (
+        <>
+          <StorelibVioletS flat size={16} className="shrink-0" />
+          <FadeText text={display} className="font-medium tracking-[-0.005em]" />
+          <Share className="h-4 w-4 shrink-0 text-[#3a3a40]" strokeWidth={1.8} aria-hidden />
+        </>
+      ) : (
+        <>
+          <Eye className="h-4 w-4 shrink-0 text-[#3a3a40]" strokeWidth={1.9} aria-hidden />
+          <span className="font-medium">View</span>
+        </>
+      )}
     </button>
   )
 })
@@ -241,24 +247,13 @@ function EaseIn({ swapKey, children, className }: { swapKey: string; children: R
   )
 }
 
-/** The address, and Copy. A tap on the address selects all of it, for somebody who would rather copy it by hand. */
-function LinkRow({ address, copied, onCopy, className }: { address: ShareAddress; copied: boolean; onCopy: () => void; className?: string }) {
+/** The address, in a quiet field. A tap selects all of it, for somebody who would rather copy it by hand. */
+function AddressField({ address, className }: { address: ShareAddress; className?: string }) {
   return (
-    <div className={cn("flex h-[52px] items-center gap-2.5 rounded-2xl border border-[#e5e7eb] bg-white pl-3 pr-1.5", className)}>
-      <StorelibTile size={24} />
-      <EaseIn swapKey={address.url} className="block min-w-0 flex-1 select-all truncate text-[14px] text-[#1a1a2e] sm:text-[14.5px]">
+    <div className={cn("flex h-11 items-center rounded-xl bg-[#f4f4f6] px-3.5", className)}>
+      <EaseIn swapKey={address.url} className="block min-w-0 flex-1 select-all truncate text-[14.5px] text-[#1a1a2e]">
         <span data-share-address="">{address.display}</span>
       </EaseIn>
-      <button type="button" onClick={onCopy} data-share-copy="" className={cn(inkDepth, "h-9 min-w-[70px] rounded-[10px] px-3 text-[14px]")}>
-        {/* The check is always there and shown or hidden by its `hidden`
-            attribute: an element put in or taken out under a sheet, or a
-            class that hides it, is a change the page's :has() rules answer
-            by restyling the whole document (scripts/check-app-sheets-frames.mjs). */}
-        <span hidden={!copied} className="inline-flex">
-          <Check className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-        </span>
-        {copied ? "Copied" : "Copy"}
-      </button>
     </div>
   )
 }
@@ -404,9 +399,18 @@ async function qrPng(url: string): Promise<Blob | null> {
 
 type View = "share" | "qr"
 
-/** A secondary action under the address: an icon and a word, all the same width. */
-const actionButton = cn(secondaryDepth, "h-10 gap-2 rounded-xl px-2 text-[14px]")
+/** The quiet actions under Copy link: words, no icons. */
+const textAction = cn(
+  "h-9 cursor-pointer rounded-lg px-3 text-[14px] font-medium text-[#4b5563] outline-none transition-colors duration-100",
+  "hover:bg-[#f1f2f4] hover:text-[#1a1a2e] active:bg-[#e7e8eb]",
+  "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-[#8b5cf6] [-webkit-tap-highlight-color:transparent]",
+)
 
+/**
+ * WHICH PAGE, ITS ADDRESS, COPY LINK. That is the whole view: the switch
+ * (only when there is more than one page), the address, one button, and
+ * Open, QR code and Share as words under it.
+ */
 const ShareView = React.memo(function ShareView({
   addresses,
   current,
@@ -430,35 +434,38 @@ const ShareView = React.memo(function ShareView({
 }) {
   const live = current.live !== false
   return (
-    <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+    <div className="px-4 pb-3 sm:px-5 sm:pb-4">
       {addresses.length > 1 && <SurfaceSwitch addresses={addresses} current={current} onSurface={onSurface} />}
 
-      <LinkRow className={addresses.length > 1 ? "mt-2.5" : undefined} address={current} copied={copied} onCopy={onCopy} />
+      <AddressField className={addresses.length > 1 ? "mt-3" : undefined} address={current} />
 
-      {/* One line, whichever address: the panel keeps its height when the switch moves. Both
-          lines are there and one is shown, so no element comes or goes (see LinkRow's check). */}
-      <EaseIn swapKey={current.surface} className="mt-2 block truncate px-1 text-[12.5px] leading-[18px] text-[#6b7280]">
-        <span hidden={!live}>{SURFACE_HINT[current.surface]}</span>
+      {/* The same height whichever page is chosen, so the panel never moves: empty when the page is live. */}
+      <p className="mt-1.5 h-[18px] truncate px-1 text-[12.5px] leading-[18px] text-[#6b7280]">
         <span hidden={live}>
           Not published yet.{" "}
           <AppLink href="/app/onepage" className="font-medium text-[#1a1a2e] underline underline-offset-2">
             Open OnePage
           </AppLink>
         </span>
-      </EaseIn>
+      </p>
 
-      <div data-share-actions="" className={cn("mt-4 grid gap-2", canNativeShare ? "grid-cols-3" : "grid-cols-2")}>
-        <button type="button" onClick={onOpen} className={actionButton}>
-          <ArrowUpRight className="h-4 w-4 shrink-0 text-[#4b5563]" strokeWidth={1.9} aria-hidden />
+      <button type="button" onClick={onCopy} data-share-copy="" className={cn(inkDepth, "mt-1.5 h-11 w-full rounded-xl text-[15px]")}>
+        {/* Always there and shown by `hidden`: see scripts/check-app-sheets-frames.mjs. */}
+        <span hidden={!copied} className="inline-flex">
+          <Check className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+        </span>
+        {copied ? "Copied" : "Copy link"}
+      </button>
+
+      <div data-share-actions="" className="mt-2 flex items-center justify-center gap-1">
+        <button type="button" onClick={onOpen} className={textAction}>
           Open
         </button>
-        <button type="button" onClick={onQr} className={actionButton}>
-          <QrCodeIcon className="h-4 w-4 shrink-0 text-[#4b5563]" strokeWidth={1.9} aria-hidden />
+        <button type="button" onClick={onQr} className={textAction}>
           QR code
         </button>
         {canNativeShare && (
-          <button type="button" onClick={onNativeShare} className={actionButton}>
-            <Share className="h-4 w-4 shrink-0 text-[#4b5563]" strokeWidth={1.9} aria-hidden />
+          <button type="button" onClick={onNativeShare} className={textAction}>
             Share
           </button>
         )}

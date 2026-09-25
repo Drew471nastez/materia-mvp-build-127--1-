@@ -55,7 +55,8 @@ writeFileSync(join(stubs, "navigation.js"), `const log = (k, a) => (window.__rou
 const router = { push: (h) => log("push", h), replace: (h) => log("replace", h), prefetch() {}, back() {}, refresh() {} }
 export const usePathname = () => "/explore"
 export const useRouter = () => router
-export const useSearchParams = () => new URLSearchParams()
+export const useSearchParams = () => new URLSearchParams(window.__search || "")
+export const useParams = () => ({ category: window.__category })
 `)
 writeFileSync(join(stubs, "link.jsx"), `import React from "react"
 export default React.forwardRef(function Link({ href, children, prefetch, scroll, replace, ...rest }, ref) { return React.createElement("a", { href: typeof href === "string" ? href : "#", ref, ...rest }, children) })
@@ -387,8 +388,259 @@ console.log("\n3. The filters")
   await p.close()
 }
 
+/* ========================================================================= */
+console.log("\n4. A category page, /explore/[category]")
+/*
+  The same questions asked of the category page and its loading screen
+  (app/(marketing)/explore/[category]/loading.tsx): the frame is the page's,
+  on the page's ground, and lines up with it; its category pill and its
+  Filters are Explore's panel and sheet, with the category page's own picks.
+*/
+const CAT_GEOMETRY = `(() => {
+  const r = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) } }
+  const title = document.querySelector("[data-category-title]")
+  const row = document.querySelector("[data-category-pills-row]")
+  const track = document.querySelector("[data-category-track]")
+  const grid = document.querySelector("[data-skeleton-grid]") || [...document.querySelectorAll("main .grid")].find((g) => g.className.includes("lg:grid-cols-3"))
+  return {
+    back: r(document.querySelector("[data-category-back]")), title: r(title), blurb: r(title?.nextElementSibling),
+    field: r(document.querySelector("[data-category-search]")),
+    pills: row ? [...row.children].map(r) : [], scroll: track ? Math.round(track.scrollLeft) : null,
+    pressed: row?.querySelector('[aria-pressed="true"]')?.textContent.trim(),
+    filters: r(document.querySelector("[data-filters-button], [data-skeleton-filters]")),
+    cards: grid ? [...grid.children].slice(0, 3).map(r) : [],
+    ground: getComputedStyle(document.querySelector("main")).backgroundColor,
+    docWidth: document.documentElement.scrollWidth, vw: innerWidth,
+  }
+})()`
+/* Anything violet on the page: a colour, a background or a border with a violet hue. */
+const VIOLET = `(() => {
+  const hue = (c) => { const m = c.match(/rgba?\\(([\\d.]+), ([\\d.]+), ([\\d.]+)(?:, ([\\d.]+))?/); if (!m || m[4] === "0") return null
+    const [r, g, b] = [m[1], m[2], m[3]].map((v) => v / 255), max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+    if (d < 0.12) return null
+    const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+    return (h * 60 + 360) % 360 }
+  const out = []
+  for (const el of document.querySelectorAll("main *, [data-app-sheet] *, [data-category-panel] *, [data-filters-panel] *")) {
+    if (el.closest("img, a[href^='/p/'], [data-product-card]")) continue
+    const cs = getComputedStyle(el)
+    for (const c of [cs.color, cs.backgroundColor, cs.borderTopColor]) { const h = hue(c); if (h !== null && h >= 250 && h <= 295) { out.push(el.tagName + "." + String(el.className).slice(0, 40)); break } }
+  }
+  return out.slice(0, 3)
+})()`
+const routes = (p) => p.evaluate(() => (window.__router || []).map(([k, h]) => `${k} ${h}`))
+const cardsText = (p) => p.evaluate(() => [...document.querySelectorAll("main .grid.lg\\:grid-cols-3 > *")].map((c) => c.textContent))
+const same = (x, y) => x && y && Math.abs(x.x - y.x) <= 1 && Math.abs(x.y - y.y) <= 1 && Math.abs(x.w - y.w) <= 1 && Math.abs(x.h - y.h) <= 1
+
+for (const [label, vp] of [["phone 390", PHONE], ["desktop 1280", DESK]]) {
+  for (const at of ["design", "design/print"]) {
+    const page = await open(vp, `cat-page/${at}`)
+    const load = await open(vp, `cat-loading/${at}`)
+    const a = await page.evaluate(CAT_GEOMETRY)
+    const b = await load.evaluate(CAT_GEOMETRY)
+    const tag = at.replace("/", "-")
+    await page.screenshot({ path: join(shots, `cat-page-${tag}-${vp.width}.png`) })
+    await load.screenshot({ path: join(shots, `cat-loading-${tag}-${vp.width}.png`) })
+    console.log(`\n  ${label}, /explore/${at.replace("/", "?sub=")}`)
+    expect(a.ground === "rgb(248, 249, 250)" && b.ground === a.ground, "the loading screen is on the page's own ground", { page: a.ground, loading: b.ground })
+    expect(same(a.back, b.back) && same(a.title, b.title) && same(a.blurb, b.blurb), "the back link, the heading and its line are where they will be", { page: a.title, loading: b.title })
+    expect(same(a.field, b.field), "the search field is where it will be", { page: a.field, loading: b.field })
+    expect(a.pills.length > 3 && a.pills.length === b.pills.length && a.pills.every((p, i) => same(p, b.pills[i])) && a.scroll === b.scroll,
+      "every pill, the category's own included, is where it will be, the row scrolled alike", { pills: [a.pills.length, b.pills.length], scroll: [a.scroll, b.scroll] })
+    expect(a.pressed === b.pressed && a.pressed === (at.includes("/") ? "Print Design" : "All"), "the same pill is pressed", [a.pressed, b.pressed])
+    expect(same(a.filters, b.filters), "the Filters button is where it will be", { page: a.filters, loading: b.filters })
+    expect(a.cards.length > 0 && a.cards.every((c, i) => same(c, b.cards[i])), "the first row of cards is where it will be, at the real height", { page: a.cards[0], loading: b.cards[0] })
+    expect(b.docWidth <= b.vw && a.docWidth <= a.vw, "nothing runs off the side", [a.docWidth, b.docWidth])
+    if (at.includes("/")) {
+      const box = await page.evaluate(() => { const on = document.querySelector('[data-category-pills-row] [aria-pressed="true"]').getBoundingClientRect(); const t = document.querySelector("[data-category-track]").getBoundingClientRect(); return { l: Math.round(on.left - t.left), r: Math.round(t.right - on.right) } })
+      expect(box.l >= 0 && box.r >= 8, "the pressed pill from the address is in view on arrival", box)
+    }
+    if (!at.includes("/")) {
+      const cat = await page.evaluate(() => { const m = document.querySelector("[data-more-pill]"); const b = m.getBoundingClientRect(); return { label: m.textContent.trim(), x: Math.round(b.left), right: Math.round(b.right), first: m === document.querySelector("[data-category-pills-row]").firstElementChild } })
+      expect(cat.label === "Design" && cat.first && cat.x >= 0 && cat.right <= vp.width, "the category's own pill opens the row and is on screen", cat)
+    }
+    const violet = await page.evaluate(VIOLET)
+    expect(violet.length === 0, "nothing violet on the page", violet)
+    await page.close(); await load.close()
+  }
+}
+
+{
+  console.log("\n  desktop 1280: the subcategory pills")
+  const p = await open(DESK, "cat-page/design")
+  const all = (await cardsText(p)).length
+  await p.click('[data-sub-pill="fonts"]')
+  await sleep(450)
+  const fonts = await cardsText(p)
+  const st = await p.evaluate(() => ({ title: document.querySelector("[data-category-title]").textContent.trim(), pressed: document.querySelector('[data-category-pills-row] [aria-pressed="true"]')?.textContent.trim() }))
+  expect((await routes(p)).at(-1) === "push /explore/design?sub=fonts", "a subcategory is ?sub= on the category's page, as before", (await routes(p)).at(-1))
+  expect(fonts.length > 0 && fonts.every((t) => /font|typograph/i.test(t)), "and the list is the products that are fonts", fonts.map((t) => t.slice(0, 30)).slice(0, 3))
+  expect(st.title === "Fonts & Typography" && st.pressed === "Fonts & Typography", "the heading names it and its pill is pressed", st)
+  await p.click('[data-sub-pill="fonts"]')
+  await sleep(450)
+  expect((await routes(p)).at(-1) === "push /explore/design" && (await cardsText(p)).length === all, "pressing it again takes it off", (await routes(p)).at(-1))
+  await p.click('[data-sub-pill="ui-ux"]')
+  await sleep(450)
+  const ui = await cardsText(p)
+  expect(ui.length >= 2 && ui.every((t) => /UI/.test(t)), "a product filed as \"UI Kits\" is Design, and UI/UX finds it", ui.map((t) => t.slice(0, 30)).slice(0, 3))
+  await p.close()
+}
+
+{
+  console.log("\n  desktop 1280: the category's pill opens Explore's panel")
+  const p = await open(DESK, "cat-page/design")
+  const pill = await p.$("[data-more-pill]")
+  const pillBox = await pill.boundingBox()
+  await pill.click()
+  await sleep(350)
+  const s = await p.evaluate(PANEL)
+  await p.screenshot({ path: join(shots, "cat-picker-1280-open.png") })
+  expect(s && s.kind === "panel" && Math.abs(s.top - (pillBox.y + pillBox.height + 8)) <= 2, "a panel 8px under the pill", s && { top: s.top, pillBottom: Math.round(pillBox.y + pillBox.height) })
+  expect(s && s.lucide === 0 && s.imgs === 0 && s.maxSvgPerRow <= 1 && s.rowH >= 34 && s.rowH <= 38, "plain 36px rows, one drawn mark at most", s && { lucide: s.lucide, perRow: s.maxSvgPerRow, rowH: s.rowH })
+  const design = await p.evaluate(() => document.querySelector('[data-browse-group="design"]')?.textContent.trim())
+  expect(design === "DesignAll", "Design is the category it is on", design)
+  await p.click('[data-browse-group="design"]')
+  await sleep(450)
+  const inSub = await p.evaluate(PANEL)
+  expect(inSub.subX === 0 && inSub.subOpacity === 1, "its subcategories are a level of their own", { subX: inSub.subX, opacity: inSub.subOpacity })
+  await p.click('[data-browse-option="design/mockups"]')
+  await sleep(400)
+  const after = await p.evaluate(() => ({ panel: !!document.querySelector("[data-category-panel]"), pressed: document.querySelector('[data-category-pills-row] [aria-pressed="true"]')?.textContent.trim() }))
+  expect(!after.panel && after.pressed === "Mockups" && (await routes(p)).at(-1) === "push /explore/design?sub=mockups", "a subcategory of this category is picked here and closes the panel", { ...after, route: (await routes(p)).at(-1) })
+  await p.click("[data-more-pill]")
+  await sleep(300)
+  await p.click('[data-browse-group="photography"]')
+  await sleep(420)
+  await p.click('[data-browse-option="photography/presets"]')
+  await sleep(300)
+  expect((await routes(p)).at(-1) === "push /explore/photography?sub=presets", "another category's subcategory is that category's page", (await routes(p)).at(-1))
+  await p.click("[data-more-pill]")
+  await sleep(300)
+  await p.click('[data-browse-option="all"]')
+  await sleep(300)
+  expect((await routes(p)).at(-1) === "push /explore", "All categories is Explore", (await routes(p)).at(-1))
+  await p.close()
+}
+
+{
+  console.log("\n  phone 390: the category's pill opens the shared sheet")
+  const p = await open(PHONE, "cat-page/design")
+  await p.tap("[data-more-pill]")
+  await sleep(600)
+  const s = await p.evaluate(PANEL)
+  await p.screenshot({ path: join(shots, "cat-picker-390-open.png") })
+  expect(s && s.kind === "sheet" && s.lucide === 0 && s.maxSvgPerRow <= 1, "the bottom sheet, no icons beside the rows", s && { kind: s.kind, lucide: s.lucide })
+  expect(s && s.rowH >= 47 && s.rowH <= 50, "48px rows on a phone", s?.rowH)
+  await p.evaluate(() => {
+    window.__slide = []
+    const sub = document.querySelector("[data-browse-level=sub]")
+    const panel = document.querySelector("[data-sheet-panel]")
+    const t0 = performance.now()
+    const tick = () => {
+      window.__slide.push({ x: new DOMMatrixReadOnly(getComputedStyle(sub).transform).m41, top: Math.round(panel.getBoundingClientRect().top) })
+      if (performance.now() - t0 < 700) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+    document.querySelector('[data-browse-group="design"]').click()
+  })
+  await sleep(800)
+  const slide = await p.evaluate(() => window.__slide)
+  const xs = slide.map((f) => f.x)
+  expect(xs.at(-1) < 1 && Math.max(...xs) <= 30 && xs.filter((x) => x > 1 && x < 30).length >= 6, "a category drills in as a level, over several frames", xs.filter((_, i) => i % 3 === 0).map(Math.round))
+  expect(new Set(slide.map((f) => f.top)).size === 1, "the sheet's top edge does not move while it does", [...new Set(slide.map((f) => f.top))])
+  await p.screenshot({ path: join(shots, "cat-picker-390-design.png") })
+  const drag = await p.evaluate(async () => {
+    const panel = document.querySelector("[data-sheet-panel]")
+    const handle = panel.querySelector("[data-sheet-handle]")
+    const b = handle.getBoundingClientRect()
+    const x = 195, y0 = Math.round(b.top + 8)
+    const touch = (yy) => new Touch({ identifier: 1, target: handle, clientX: x, clientY: yy })
+    const fire = (type, yy) => handle.dispatchEvent(new TouchEvent(type, { touches: type === "touchend" ? [] : [touch(yy)], changedTouches: [touch(yy)], bubbles: true, cancelable: true }))
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r()))
+    const y = () => new DOMMatrixReadOnly(getComputedStyle(panel).transform).m42
+    fire("touchstart", y0)
+    const seen = []
+    for (const d of [10, 40, 80, 140]) {
+      fire("touchmove", y0 + d)
+      await frame(); await frame()
+      seen.push([d, Math.round(y())])
+      await new Promise((r) => setTimeout(r, 60))
+    }
+    fire("touchend", y0 + 140)
+    await new Promise((r) => setTimeout(r, 600))
+    return { seen, gone: !document.querySelector("[data-app-sheet]") }
+  })
+  expect(drag.seen.slice(1).every(([d, y]) => Math.abs(y - (d - 10) - 10) <= 12) && drag.gone, "it follows the finger and a pull closes it", drag)
+  await p.tap("[data-more-pill]")
+  await sleep(600)
+  await p.tap('[data-browse-group="design"]')
+  await sleep(450)
+  await p.tap('[data-browse-option="design/logos"]')
+  await sleep(600)
+  const picked = await p.evaluate(() => {
+    const on = document.querySelector('[data-category-pills-row] [aria-pressed="true"]')
+    const t = on.closest("[data-category-track]").getBoundingClientRect()
+    const b = on.getBoundingClientRect()
+    return { sheet: !!document.querySelector("[data-app-sheet]"), pill: on.textContent.trim(), inView: b.left >= t.left && b.right <= t.right - 8 }
+  })
+  expect(!picked.sheet && picked.pill === "Logo Templates" && picked.inView, "a tap picks it, closes the sheet and brings its pill into view", picked)
+  await p.screenshot({ path: join(shots, "cat-picker-390-picked.png") })
+  await p.close()
+}
+
+{
+  console.log("\n  desktop 1280: Explore's filters, with the category page's orders")
+  const p = await open(DESK, "cat-page/design")
+  const btn = await p.$("[data-filters-button]")
+  const bb = await btn.boundingBox()
+  await btn.click()
+  await sleep(300)
+  const f = await p.evaluate(() => {
+    const el = document.querySelector("[data-filters-panel]")
+    if (!el) return null
+    const b = el.getBoundingClientRect()
+    return { top: Math.round(b.top), right: Math.round(b.right), sorts: [...el.querySelectorAll("[data-filter-sort]")].map((x) => x.textContent.trim()), prices: el.querySelectorAll("[data-filter-price]").length, lucide: el.querySelectorAll("svg.lucide").length, checked: el.querySelector('[data-filter-sort][aria-checked="true"]')?.textContent.trim() }
+  })
+  await p.screenshot({ path: join(shots, "cat-filters-1280-open.png") })
+  expect(f && Math.abs(f.right - Math.round(bb.x + bb.width)) <= 2 && Math.abs(f.top - Math.round(bb.y + bb.height + 8)) <= 2, "a panel under the button, right edges aligned", f && { right: f.right, button: Math.round(bb.x + bb.width) })
+  expect(f && f.sorts.length === 4 && !f.sorts.includes("Recommended") && f.checked === "Newest" && f.prices === 5 && f.lucide === 0, "Newest is this page's order; four orders, five prices", f && { sorts: f.sorts, checked: f.checked })
+  await p.click('[data-filter-price="free"]')
+  await sleep(350)
+  const free = await cardsText(p)
+  expect(free.length > 0 && free.every((t) => t.includes("Free")), "a price applies at once to the list behind", free.length)
+  await p.click("[data-filter-clear]")
+  await sleep(250)
+  await p.keyboard.press("Escape")
+  await sleep(250)
+  expect(await p.evaluate(() => !document.querySelector("[data-filters-panel]") && !document.querySelector("[data-filter-clear]")), "Clear all and Escape")
+  await p.close()
+}
+{
+  console.log("\n  phone 390: the filters sheet")
+  const p = await open(PHONE, "cat-page/design")
+  await p.tap("[data-filters-button]")
+  await sleep(600)
+  const s = await p.evaluate(() => {
+    const panel = document.querySelector("[data-app-sheet] [data-sheet-panel]")
+    if (!panel) return null
+    const b = panel.getBoundingClientRect()
+    const done = panel.querySelector("[data-filters-done]")
+    return { bottom: Math.round(b.bottom), top: Math.round(b.top), done: done?.textContent.trim(), doneBg: done ? getComputedStyle(done).backgroundColor : null }
+  })
+  await p.screenshot({ path: join(shots, "cat-filters-390-open.png") })
+  expect(s && s.bottom === 844 && s.top > 120 && /^Show \d+ results$/.test(s.done) && s.doneBg === "rgb(17, 17, 19)", "the bottom sheet, its near-black button counting the results", s)
+  await p.tap('[data-filter-sort="price-low"]')
+  await sleep(300)
+  const sorted = await p.evaluate(() => [...document.querySelectorAll("main .grid.lg\\:grid-cols-3 > *")].slice(0, 4).map((c) => c.textContent.match(/Free|\$[\d.]+/)?.[0]))
+  expect(sorted[0] === "Free", "an order re-sorts the list behind at once", sorted)
+  await p.tap("[data-filters-done]")
+  await sleep(600)
+  expect(await p.evaluate(() => !document.querySelector("[data-app-sheet]")), "the button closes it")
+  await p.close()
+}
+
 await browser.close()
 if (!process.env.KEEP) rmSync(stubs, { recursive: true, force: true })
 console.log(`\nScreenshots: ${shots}`)
 if (broken) fail(`${broken} check(s) failed.`)
-console.log("\nExplore's loading screen, More picker and filters measure as asked.")
+console.log("\nExplore's and the category page's loading screens, pickers and filters measure as asked.")

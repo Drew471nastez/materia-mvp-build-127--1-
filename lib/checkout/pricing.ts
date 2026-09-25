@@ -16,9 +16,12 @@
  *   - a pay-what-you-want product sent without an amount cost nothing.
  */
 
-import { validateCoupon, type CouponRow } from "./coupons"
+import { checkCouponLines, findCoupon, normaliseCode, validateCoupon, type CouponRow } from "./coupons"
+import type { PackedItem } from "./cart-items"
+import { MAX_LINES, MAX_QUANTITY } from "@/lib/website-builder/cart"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /** A thousand dollars. A tip above that is a typo, or not a tip. */
 export const MAX_TIP_CENTS = 100_000
@@ -174,4 +177,164 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
     coupon,
     couponLabel,
   }
+}
+
+/* ===========================================================================
+ *  A BASKET, PRICED THE SAME WAY
+ * ===========================================================================
+ * The basket on a creator's website (app/api/checkout/cart) and its code
+ * box (app/api/coupons/validate) both price here, from product ids and
+ * quantities alone. Each line is the database's price for its product or
+ * option (baseFor, as above: pay what you want is its minimum, because a
+ * basket has no amount box), and the code comes off with the same rules and
+ * the same rounding as a single product's (lib/checkout/coupons
+ * checkCouponLines, which checkCoupon is one line of).
+ *
+ * Lines that cannot be bought are left out and named, never charged: a
+ * product that is not published, an option of another product, something
+ * the buyer already owns, and anything free (a download, not a payment).
+ */
+
+export interface CartProduct {
+  id: string
+  title: string
+  slug: string
+  price_cents: number
+  pay_what_you_want?: boolean | null
+  pwyw_min_price_cents?: number | null
+  thumbnail_url: string | null
+  type: string
+  status: string
+  creator_id: string
+}
+
+export interface CartPricedLine {
+  /** priceCents is the unit price before the code; discountCents what the code took off the line. */
+  item: PackedItem & { discountCents: number }
+  product: CartProduct
+}
+
+export type PricedCart =
+  | {
+      ok: true
+      lines: CartPricedLine[]
+      /** Titles (or ids) of what was left out. */
+      dropped: string[]
+      /** Something was left out because the buyer owns it. */
+      ownedAny: boolean
+      /** Every creator whose published product was asked for. */
+      creatorIds: string[]
+      subtotalCents: number
+      discountCents: number
+      totalCents: number
+      coupon: CouponRow | null
+      couponLabel: string | null
+    }
+  | { ok: false; status: number; error: string }
+
+export interface CartRequest {
+  items: unknown
+  couponCode?: unknown
+  /** The signed in buyer, whose products are left out. */
+  buyerId?: string | null
+}
+
+export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
+  const incoming = Array.isArray(req.items) ? (req.items as any[]).slice(0, MAX_LINES) : []
+  const wanted = new Map<string, { variantId: string | null; quantity: number }>()
+  for (const raw of incoming) {
+    if (typeof raw?.productId !== "string" || raw.productId === "") continue
+    const variantId = typeof raw.variantId === "string" && raw.variantId !== "" ? raw.variantId : null
+    const quantity = Math.max(1, Math.min(MAX_QUANTITY, Math.floor(Number(raw.quantity) || 1)))
+    wanted.set(`${raw.productId}::${variantId ?? ""}`, { variantId, quantity })
+  }
+  const productIds = [...new Set([...wanted.keys()].map((k) => k.split("::")[0]))]
+  if (productIds.length === 0) return { ok: false, status: 400, error: "Your cart is empty" }
+
+  const { data: products, error: productsError } = await db
+    .from("products")
+    .select("id, title, slug, price_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, status, creator_id")
+    .in("id", productIds)
+    .eq("status", "published")
+  if (productsError) {
+    console.error("[checkout/cart] product read failed:", productsError.message)
+    return { ok: false, status: 500, error: "Could not read the cart" }
+  }
+  if (!products || products.length === 0) return { ok: false, status: 400, error: "Nothing in the cart is on sale any more" }
+
+  /* Already owned is dropped rather than charged for. A digital product is
+     one entitlement per buyer, so paying twice buys nothing. */
+  let owned = new Set<string>()
+  if (req.buyerId) {
+    const { data: entitlements } = await db.from("entitlements").select("product_id").eq("buyer_id", req.buyerId).in("product_id", productIds)
+    owned = new Set((entitlements ?? []).map((e: any) => e.product_id))
+  }
+
+  /* A line's option is the database's, checked against its product and
+     priced from itself. The client's variantId used to be kept as sent and
+     the line priced at the product's price: the cheapest option paid for
+     the dearest one, and an unknown id failed the order's foreign key after
+     the money was taken. */
+  const variantIds = [...new Set([...wanted.values()].map((w) => w.variantId).filter((v): v is string => !!v))]
+  const variantsById = new Map<string, any>()
+  if (variantIds.length > 0) {
+    const { data: variants } = await db
+      .from("product_variants")
+      .select("id, product_id, name, price_cents, pay_what_you_want, pwyw_min_price_cents")
+      .in("id", variantIds)
+    for (const v of variants ?? []) variantsById.set(v.id, v)
+  }
+
+  const byId = new Map<string, CartProduct>((products as CartProduct[]).map((p) => [p.id, p]))
+  const lines: CartPricedLine[] = []
+  const dropped: string[] = []
+  let ownedAny = false
+  for (const [key, want] of wanted) {
+    const productId = key.split("::")[0]
+    const product = byId.get(productId)
+    if (!product) { dropped.push(productId); continue }
+    if (owned.has(productId)) { dropped.push(product.title); ownedAny = true; continue }
+
+    const variant = want.variantId ? variantsById.get(want.variantId) : null
+    if (want.variantId && (!variant || variant.product_id !== productId)) { dropped.push(product.title); continue }
+    /* Pay what you want in a basket is its minimum: there is no amount box. */
+    const priced = baseFor(variant ?? product, undefined)
+    const priceCents = priced.ok ? priced.cents : 0
+    /* A free product is a download, not a payment. It has no place in a
+       basket that is going to a card form, and Stripe will not take a zero
+       line anyway. */
+    if (priceCents <= 0) { dropped.push(product.title); continue }
+
+    const quantity = product.type === "digital" ? 1 : want.quantity
+    lines.push({ item: { productId, variantId: want.variantId, quantity, priceCents, discountCents: 0 }, product })
+  }
+
+  const creatorIds = [...new Set((products as CartProduct[]).map((p) => p.creator_id))]
+  const subtotalCents = lines.reduce((n, l) => n + l.item.priceCents * l.item.quantity, 0)
+  const priced = (coupon: CouponRow | null, couponLabel: string | null) => {
+    const discountCents = lines.reduce((n, l) => n + l.item.discountCents, 0)
+    return { ok: true as const, lines, dropped, ownedAny, creatorIds, subtotalCents, discountCents, totalCents: subtotalCents - discountCents, coupon, couponLabel }
+  }
+
+  const typed = typeof req.couponCode === "string" && req.couponCode.trim() ? req.couponCode : null
+  /* Nothing left to buy is said as that, not as a code that applies to nothing. */
+  if (!typed || lines.length === 0) return priced(null, null)
+  const code = normaliseCode(typed)
+  if (!code) return { ok: false, status: 400, error: "That code is not valid." }
+
+  /* A code is one creator's. It is looked for under each creator in the
+     basket, in the order their lines come, and the first that has it is the
+     one it belongs to; it then comes off that creator's lines only. */
+  let coupon: CouponRow | null = null
+  for (const creatorId of [...new Set(lines.map((l) => l.product.creator_id))]) {
+    coupon = await findCoupon(db, creatorId, code)
+    if (coupon) break
+  }
+  const checked = checkCouponLines(
+    coupon,
+    lines.map((l) => ({ productId: l.item.productId, creatorId: l.product.creator_id, cents: l.item.priceCents * l.item.quantity })),
+  )
+  if (checked.ok === false) return { ok: false, status: 400, error: checked.error }
+  checked.discounts.forEach((d, i) => (lines[i].item.discountCents = d))
+  return priced(checked.coupon, checked.label)
 }

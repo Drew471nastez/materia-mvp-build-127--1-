@@ -52,11 +52,12 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `28_theme_chat_reports.sql` | Ask Storelib reports: a creator flags one answer; the question, the reply and an optional reason are kept, written by the server only. Until it runs, Report says it turns on after this update. Needs nothing else. | 7 | 1,246 |
 | `29_notification_rules.sql` | Notifications that decide for themselves: the columns a rule writes on its row, one row per creator and dedupe key, and the leased claim the hourly run takes creators with. Server only. Until it runs the engine does nothing and the panel reads as before. | 31 | 5,139 |
 | `30_site_accounts_contact.sql` | Website accounts and contact forms: each sign in code used once, the contact form messages a creator reads in Emails, and the `wrote` contact status. Run after `13`. Before it runs, Sign in on a website says it is not available yet (the account stays on storelib.com), and a contact message is emailed to the creator but not kept, and its sender is added only if they ticked the box. | 24 | 3,085 |
+| `31_coupon_holds.sql` | Discount code limits that two buyers paying at once cannot pass: a started payment holds a place under the limit, the order uses it, an abandoned one gives it back or it expires. Server only. Until it runs, uses are counted as before. | 21 | 3,773 |
 | `90_storage_policies_needs_owner.sql` | LAST, ON ITS OWN. Replaces the storage.objects policies. Needs the owner of storage.objects; see README if it says "must be owner". | 2 | 3,896 |
 | `91_storage_policies_to_remove.sql` | Read only. For the dashboard route: the storage policies to delete. | 2 | 1,242 |
 | `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 8,293 |
 
-Parts `01` to `30` all run as the editor's normal role. `90` is the one
+Parts `01` to `31` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
 Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:

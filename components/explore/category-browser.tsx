@@ -102,7 +102,7 @@ export function Tick({ className }: { className?: string }) {
   )
 }
 
-function Magnifier({ className }: { className?: string }) {
+export function Magnifier({ className }: { className?: string }) {
   return (
     <svg aria-hidden viewBox="0 0 16 16" fill="none" className={cn("h-4 w-4 shrink-0", className)}>
       <circle cx="7.2" cy="7.2" r="4.6" stroke="currentColor" strokeWidth="1.5" />

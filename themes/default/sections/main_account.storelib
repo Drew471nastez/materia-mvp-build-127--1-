@@ -97,7 +97,7 @@
 .acct__h2 { margin: 48px 0 0; font-size: 19px; font-weight: 600; color: var(--s-heading); }
 .acct__row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
 .acct__row .acct__h2 { margin-top: 48px; }
-.acct__empty { margin: 12px 0 0; font-size: 15px; line-height: 1.6; color: var(--s-para); }
+.acct__empty { margin: 12px 0 0; font-size: var(--section-text-size, 15px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); }
 .acct__inline { color: var(--s-heading); font-weight: 500; text-decoration: underline; text-underline-offset: 4px; font-size: 15px; white-space: nowrap; }
 .acct__note { margin: 14px 0 0; font-size: 13px; color: var(--s-para); }
 .acct__actions { margin-top: 24px; max-width: 320px; }

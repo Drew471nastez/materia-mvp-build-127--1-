@@ -154,8 +154,13 @@ try {
       }
     })
     expect(pill.h === 36, "the pill is 36px tall", pill.h)
-    expect(pill.text === "storelib.com/andrewrullz", "it carries the whole address, no ellipsis", pill.text)
-    expect(pill.fill === "#8b56fa" && pill.lit && !pill.outline, "the S in the logo's violet, lit and shadowed, no square around it", pill)
+    if (phone) expect(pill.text === "View" && !pill.fill, "on a phone it is an eye and View", pill)
+    else {
+      expect(pill.text === "storelib.com/andrewrullz", "it carries the whole address, no ellipsis", pill.text)
+      expect(pill.fill === "#8b56fa" && !pill.lit && !pill.outline, "the S in flat violet, no square around it", pill)
+    }
+    const depth = await p.$eval(pillSel, (el) => ({ bg: getComputedStyle(el).backgroundColor, shadow: getComputedStyle(el).boxShadow }))
+    expect(depth.bg === "rgb(244, 244, 246)" && !/inset/.test(depth.shadow), "light grey with almost no depth", depth)
     if (!phone) expect(!pill.cut, "an address that fits is not faded", pill.cut)
     const pageSide = () => p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     expect((await pageSide()) === 0, "the page does not scroll sideways", await pageSide())
@@ -195,7 +200,7 @@ try {
           return s.position === "fixed" && n.getBoundingClientRect().width >= window.innerWidth && /rgba\(0, 0, 0, 0\.[1-9]/.test(s.backgroundColor) && !n.closest("[data-app-sheet]")
         }),
         close: !!el.querySelector("button[aria-label=Close]") || !!document.querySelector("[data-app-sheet] button[aria-label=Close]"),
-        tile: !!el.querySelector("[data-share-copy]")?.parentElement?.querySelector("span[aria-hidden] svg path"),
+        icons: [...el.querySelectorAll("[data-share-pane]:not([style*=hidden]) svg")].filter((svg) => svg.getClientRects().length && !svg.closest("[hidden]")).length,
         kind: el.getAttribute("data-surface"),
         box: [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)],
         right: +b.right.toFixed(2),
@@ -212,9 +217,9 @@ try {
     if (!surface) continue
     expect(surface.kind === (phone ? "sheet" : "panel"), phone ? "a phone gets the bottom sheet" : "a computer gets the panel", surface.kind)
     expect(surface.tabs.join("|") === "Creator page|OnePage|Website", "the three addresses, the creator page first", surface.tabs)
-    expect(surface.address === "storelib.com/andrewrullz" && surface.buttons.includes("Copy") && surface.tile, "the address with Copy, on the violet tile", { address: surface.address, tile: surface.tile })
-    expect(surface.hint === "Your page with everything you sell", "one line saying what it opens", surface.hint)
-    expect(surface.actions[0] === "Open" && surface.actions[1] === "QR code" && surface.actions.length <= 3, "Open and QR code under it (and Share where the device has one)", surface.actions)
+    expect(surface.address === "storelib.com/andrewrullz" && surface.buttons.includes("Copy link"), "the address and one Copy link button", { address: surface.address, buttons: surface.buttons })
+    expect(surface.icons <= 1, "no icons on the share view beyond the header's", surface.icons)
+    expect(surface.actions[0] === "Open" && surface.actions[1] === "QR code" && surface.actions.length <= 3, "Open and QR code as words under it (and Share where the device has one)", surface.actions)
     const gone = ["My platforms", "Instagram", "TikTok", "WhatsApp", "Facebook", "Telegram", "Reddit", "My Storelib", "Add it to your Instagram bio"].filter((w) => surface.text.includes(w))
     expect(gone.length === 0, "no platforms, no QR card, no row of share targets", gone)
     if (phone) {

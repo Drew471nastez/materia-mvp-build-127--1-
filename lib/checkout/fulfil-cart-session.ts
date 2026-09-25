@@ -35,8 +35,10 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail, triggerEmailFlows } from "@/lib/email"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
-import { unpackItems, packedTotalCents, apportionFee } from "./cart-items"
+import { randomBytes } from "node:crypto"
+import { unpackItems, packedTotalCents, apportionFee, lineTotalCents, type PackedItem } from "./cart-items"
 import { fulfilCartLine, recordCartCustomer, type FulfilContext, type FulfilledLine } from "./fulfil-cart-item"
+import { recordCouponUse } from "./coupons"
 import { orderOriginFrom } from "@/lib/orders/order-source"
 import { paymentFacts, recordSale } from "./fulfil-payment"
 import { cartFingerprint, cartReceiptToken } from "./cart-tokens"
@@ -126,9 +128,32 @@ export async function fulfilCartSession(
     origin: orderOriginFrom(metadata),
   }
 
-  /* The fee, apportioned once for the whole basket, so the parts provably
-     sum to what Stripe took, whichever caller writes which line. */
-  const fees = apportionFee(feeTotal, items.map((i) => i.priceCents * i.quantity))
+  const written = await writeBasket(admin, ctx, items, {
+    paidTotal,
+    feeTotal,
+    destinationPaymentId: facts?.destinationPaymentId ?? null,
+    baseUrl: opts.baseUrl,
+    couponId: metadata.coupon_id || null,
+    couponHolder: metadata.coupon_holder || null,
+  })
+  if (!written.receiptToken) return { ok: false, status: 500, reason: "failed" }
+  return { ok: true, created: written.created, receiptToken: written.receiptToken, sessionFingerprint, complete: written.complete, creatorId }
+}
+
+/**
+ * The lines of a paid (or code-free) basket, each written once, and what
+ * happens once per basket done by whoever wrote its first line.
+ */
+async function writeBasket(
+  admin: Db,
+  ctx: FulfilContext,
+  items: PackedItem[],
+  s: { paidTotal: number; feeTotal: number; destinationPaymentId: string | null; baseUrl: string; couponId: string | null; couponHolder: string | null },
+): Promise<{ created: boolean; receiptToken: string | null; complete: boolean }> {
+  /* The fee, apportioned once for the whole basket over what each line was
+     charged, so the parts provably sum to what Stripe took, whichever caller
+     writes which line. */
+  const fees = apportionFee(s.feeTotal, items.map(lineTotalCents))
 
   const created: (FulfilledLine & { index: number })[] = []
   let failed = 0
@@ -139,17 +164,99 @@ export async function fulfilCartSession(
   }
 
   /* The receipt the buyer lands on: the basket's first line, whoever wrote it. */
-  const firstToken = cartReceiptToken(sessionId, 0)
+  const firstToken = ctx.receiptTokenFor(0)
   const { data: firstOrder } = await admin.from("orders").select("id, receipt_token").eq("receipt_token", firstToken).maybeSingle()
   const receiptToken = firstOrder?.receipt_token ?? created[0]?.receiptToken ?? null
-  if (!receiptToken) return { ok: false, status: 500, reason: "failed" }
+  if (!receiptToken) return { created: false, receiptToken: null, complete: false }
 
   const ownsBasket = created.some((l) => l.index === 0)
   if (created.length > 0) {
-    await sideEffects(admin, { ctx, created, ownsBasket, paidTotal, feeTotal, destinationPaymentId: facts?.destinationPaymentId ?? null, baseUrl: opts.baseUrl, firstOrderId: firstOrder?.id ?? created[0].orderId, receiptToken })
+    await sideEffects(admin, {
+      ctx,
+      created,
+      ownsBasket,
+      paidTotal: s.paidTotal,
+      feeTotal: s.feeTotal,
+      destinationPaymentId: s.destinationPaymentId,
+      baseUrl: s.baseUrl,
+      firstOrderId: firstOrder?.id ?? created[0].orderId,
+      receiptToken,
+      couponId: s.couponId,
+      couponHolder: s.couponHolder,
+    })
   }
+  return { created: created.length > 0, receiptToken, complete: failed === 0 }
+}
 
-  return { ok: true, created: created.length > 0, receiptToken, sessionFingerprint, complete: failed === 0, creatorId }
+/**
+ * ===========================================================================
+ *  A BASKET A CODE MADE FREE
+ * ===========================================================================
+ * The free route for a basket, as /api/checkout/process is for one product:
+ * nothing goes to Stripe, the lines are written straight away by the same
+ * writeBasket as a paid basket, with provider "free" and a session id of
+ * their own (`free_`), which is what groups a basket's lines for its
+ * receipt, the orders list and a later claim. The route has already priced
+ * the basket to $0 on the server.
+ */
+export async function fulfilFreeCart(
+  admin: Db,
+  b: {
+    creatorId: string
+    items: PackedItem[]
+    buyerId: string | null
+    buyerEmail: string
+    buyerFirstName: string
+    buyerLastName: string | null
+    origin: FulfilContext["origin"]
+    couponId: string
+    couponHolder: string | null
+    baseUrl: string
+    request?: Request
+  },
+): Promise<{ ok: true; receiptToken: string; sessionFingerprint: string; complete: boolean } | { ok: false }> {
+  const sessionId = `free_${randomBytes(18).toString("base64url")}`
+  let device: FulfilContext["device"] = { country: null, countryCode: null, deviceType: null, os: null, browser: null }
+  if (b.request) {
+    const { collectOrderDeviceInfo } = await import("@/lib/device-info")
+    const { deviceInfo, geoInfo } = collectOrderDeviceInfo(b.request)
+    device = {
+      country: geoInfo.country || null,
+      countryCode: geoInfo.countryCode || null,
+      deviceType: deviceInfo.deviceType || null,
+      os: deviceInfo.os || null,
+      browser: deviceInfo.browser || null,
+    }
+  }
+  const sessionFingerprint = cartFingerprint(sessionId)
+  const ctx: FulfilContext = {
+    admin,
+    sessionId,
+    paymentIntentId: null,
+    provider: "free",
+    creatorId: b.creatorId,
+    buyerId: b.buyerId,
+    buyerEmail: b.buyerEmail.toLowerCase().trim(),
+    buyerFirstName: b.buyerFirstName,
+    buyerLastName: b.buyerLastName,
+    receiptTokenFor: (index) => cartReceiptToken(sessionId, index),
+    sessionFingerprint,
+    paymentMethod: null,
+    cardBrand: null,
+    cardLast4: null,
+    device,
+    origin: b.origin,
+  }
+  const written = await writeBasket(admin, ctx, b.items, {
+    paidTotal: 0,
+    feeTotal: 0,
+    destinationPaymentId: null,
+    baseUrl: b.baseUrl,
+    couponId: b.couponId,
+    couponHolder: b.couponHolder,
+  })
+  if (!written.receiptToken) return { ok: false }
+  return { ok: true, receiptToken: written.receiptToken, sessionFingerprint, complete: written.complete }
 }
 
 async function sideEffects(
@@ -164,6 +271,8 @@ async function sideEffects(
     baseUrl: string
     firstOrderId: string
     receiptToken: string
+    couponId: string | null
+    couponHolder: string | null
   },
 ) {
   const step = async (name: string, fn: () => Promise<unknown>) => {
@@ -201,6 +310,9 @@ async function sideEffects(
         }),
       )
     }
+    /* The code's use, once for the basket: only the caller that wrote its
+       first line gets here, and that line is written once. */
+    if (s.couponId) await step("coupon use", () => recordCouponUse(admin, s.couponId, s.couponHolder))
     /* The seller's balance, once for the one payment, against the first line. */
     await step("ledger", () =>
       recordSale(admin, { creatorId: ctx.creatorId, orderId: s.firstOrderId, total: s.paidTotal, fee: s.feeTotal, destinationPaymentId: s.destinationPaymentId }),

@@ -55,14 +55,18 @@ const CHIP = "inline-flex items-center rounded-full border font-medium cursor-po
 const CHIP_ON = "bg-[#e2e4e8] text-neutral-900 border-[#d7dadf] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]"
 const CHIP_OFF = "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-300 hover:text-neutral-900"
 
+type SortOption = { readonly id: string; readonly label: string }
+
 function FilterChoices({
   phone,
+  sortOptions,
   sortBy,
   setSortBy,
   priceFilter,
   setPriceFilter,
 }: {
   phone: boolean
+  sortOptions: readonly SortOption[]
   sortBy: string
   setSortBy: (v: string) => void
   priceFilter: string
@@ -76,7 +80,7 @@ function FilterChoices({
     <div className={phone ? "pb-3" : "p-1.5"} data-filter-choices="">
       <div role="radiogroup" aria-label="Sort by">
         <p className={label}>Sort by</p>
-        {SORT_OPTIONS.map((o) => {
+        {sortOptions.map((o) => {
           const on = sortBy === o.id
           return (
             <button
@@ -122,6 +126,7 @@ function FilterChoices({
 export function ExploreFilters({
   open,
   onOpenChange,
+  sortOptions = SORT_OPTIONS,
   sortBy,
   setSortBy,
   priceFilter,
@@ -134,6 +139,8 @@ export function ExploreFilters({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** The orders on offer. A category page has no ranking of its own, so it leaves Recommended out. */
+  sortOptions?: readonly SortOption[]
   sortBy: string
   setSortBy: (v: string) => void
   priceFilter: string
@@ -147,7 +154,7 @@ export function ExploreFilters({
 }) {
   const desktop = useDesktop()
   const choices = (phone: boolean) => (
-    <FilterChoices phone={phone} sortBy={sortBy} setSortBy={setSortBy} priceFilter={priceFilter} setPriceFilter={setPriceFilter} />
+    <FilterChoices phone={phone} sortOptions={sortOptions} sortBy={sortBy} setSortBy={setSortBy} priceFilter={priceFilter} setPriceFilter={setPriceFilter} />
   )
   const clear = (phone: boolean) =>
     activeCount > 0 ? (

@@ -176,6 +176,39 @@ export const SITE_DISALLOW = [
   "/account$", "/account?", "/account/", "/wishlist$", "/wishlist?", "/wishlist/",
 ]
 
+/**
+ * The platform's own pages, as a connected domain answers them. proxy.ts
+ * passes these paths through on EVERY host (its RESERVED_PATHS, and the
+ * flows it sends home to storelib.com), so links.theirname.com/app is
+ * Storelib's app and /checkout is Storelib's checkout, never a page of the
+ * creator's. A domain's robots.txt keeps crawlers out of them; everything
+ * else on the domain is the creator's and is open. Anchored like the lists
+ * above, so a product at /applesauce or /feedback is still crawled.
+ * tests/custom-domains.test.ts holds this to the proxy's own list.
+ */
+const CUSTOM_DOMAIN_PLATFORM_PATHS = [
+  "access",
+  "api",
+  "app",
+  "checkout",
+  "cover-render",
+  "creators",
+  "dashboard",
+  "explore",
+  "feed",
+  "library",
+  "login",
+  "logout",
+  "marketplace",
+  "native-start",
+  "onboarding",
+  "purchase",
+  "receipt",
+  "signup",
+  "wishlist",
+]
+export const CUSTOM_DOMAIN_DISALLOW = CUSTOM_DOMAIN_PLATFORM_PATHS.flatMap((r) => [`/${r}$`, `/${r}?`, `/${r}/`])
+
 /* ── Which pages may be listed ─────────────────────────────────────────── */
 
 export interface ProductRowForSeo {

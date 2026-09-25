@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, addressSubject, LIMITS } from "@/lib/api/rate-limit"
-import { priceOrder } from "@/lib/checkout/pricing"
+import { priceCart, priceOrder } from "@/lib/checkout/pricing"
 
 /**
  * POST /api/coupons/validate
@@ -13,6 +13,12 @@ import { priceOrder } from "@/lib/checkout/pricing"
  *
  * Body:    { code, productId, variantId?, customPriceCents? }
  * Answers: { ok: true, code, label, discountCents } or { ok: false, error }
+ *
+ * A basket (the cart page on a creator's website) sends its lines instead,
+ * and is priced by the same function its Check out is (priceCart):
+ * Body:    { code, items: [{ productId, variantId?, quantity }] }
+ * Answers: { ok: true, code, label, discountCents, subtotalCents,
+ *            totalCents, lines: [{ productId, variantId, discountCents }] }
  *
  * The coupon's id is not returned: nothing outside the server needs it, and
  * the endpoint that took one to count a use is gone. A use is counted when
@@ -41,6 +47,20 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    if (Array.isArray(body.items)) {
+      const cart = await priceCart(createAdminClient(), { items: body.items, couponCode: typeof body.code === "string" ? body.code : "" })
+      if (cart.ok === false) return NextResponse.json({ ok: false, error: cart.error })
+      if (!cart.coupon) return NextResponse.json({ ok: false, error: cart.lines.length === 0 ? "Nothing in the cart can be bought right now." : "That code is not valid." })
+      return NextResponse.json({
+        ok: true,
+        code: cart.coupon.code,
+        label: cart.couponLabel,
+        discountCents: cart.discountCents,
+        subtotalCents: cart.subtotalCents,
+        totalCents: cart.totalCents,
+        lines: cart.lines.map((l) => ({ productId: l.item.productId, variantId: l.item.variantId, discountCents: l.item.discountCents })),
+      })
+    }
     const priced = await priceOrder(createAdminClient(), {
       productId: body.productId,
       variantId: body.variantId,

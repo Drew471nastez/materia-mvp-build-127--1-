@@ -35,7 +35,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
   "design": "Browse premium design templates, UI kits, graphics, fonts, mockups and more. Find the perfect design resources for your next project.",
   "development": "Discover web templates, mobile apps, scripts, plugins and development tools. Build faster with ready-made code resources.",
-  "marketing": "Find email templates, ad creatives, landing pages and SEO tools. Supercharge your marketing with professional templates.",
+  "marketing": "Find email templates, ad creatives, landing pages and SEO tools. Ready to adapt for your next campaign.",
   "business": "Get spreadsheets, presentations, documents and contracts. Professional business templates to streamline your workflow.",
   "ai": "Explore AI prompts, ChatGPT templates and automation tools. Leverage AI with curated prompt libraries and tools.",
   "social-media": "Download Instagram templates, TikTok content, YouTube assets and more. Grow your social media presence with stunning templates.",
@@ -51,6 +51,7 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
 
 type Props = {
   params: Promise<{ category: string }>
+  searchParams: Promise<{ sub?: string | string[] }>
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -96,8 +97,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export const dynamic = "force-dynamic"
 
-export default async function CategoryPage({ params }: Props) {
+export default async function CategoryPage({ params, searchParams }: Props) {
   const { category } = await params
+  /* Read here so the first HTML is already the subcategory: the heading, the
+     pressed pill and the list. It was read in an effect after hydration, so a
+     link to ?sub=fonts painted every Design product first and then swapped. */
+  const subParam = (await searchParams)?.sub
+  const initialSub = typeof subParam === "string" ? subParam : undefined
 
   if (!VALID_CATEGORIES.includes(category)) {
     notFound()
@@ -166,7 +172,9 @@ export default async function CategoryPage({ params }: Props) {
   const categoryDescription = CATEGORY_DESCRIPTIONS[category] || `Browse ${categoryLabel} products on Storelib`
 
   return (
-    <main className="min-h-screen bg-white">
+    /* Explore's ground and container, which the loading screen draws too
+       (./loading.tsx), so nothing moves when the products arrive. */
+    <main className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       {/* JSON-LD structured data */}
       <script
         type="application/ld+json"
@@ -181,11 +189,12 @@ export default async function CategoryPage({ params }: Props) {
         }}
       />
 
-      <div className="mx-auto max-w-6xl lg:max-w-[1270px] px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
         <CategoryPageClient
           initialProducts={productsWithCreators}
           category={category}
           categoryLabel={categoryLabel}
+          initialSubcategory={initialSub}
         />
       </div>
     </main>

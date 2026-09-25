@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server"
-import { rateLimit, addressSubject, LIMITS } from "@/lib/api/rate-limit"
-import { baseFor } from "@/lib/checkout/pricing"
+import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
+import { MIN_CHARGE_CENTS, priceCart } from "@/lib/checkout/pricing"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
 import { getMainDomain } from "@/lib/url-helpers"
 import { siteHostsFor } from "@/lib/checkout/site-hosts"
-import { packItems, type PackedItem } from "@/lib/checkout/cart-items"
-import { MAX_LINES, MAX_QUANTITY } from "@/lib/website-builder/cart"
+import { chargeUnits, packItems } from "@/lib/checkout/cart-items"
+import { HELD_SESSION_SECONDS, HOLD_COOKIE, holdCouponUse, holderForEmail, isHolder, needsHold, newHolder, releaseCouponHold } from "@/lib/checkout/coupon-holds"
+import { fulfilFreeCart } from "@/lib/checkout/fulfil-cart-session"
 import { ORIGIN_METADATA_KEY, cleanHost, cleanOrigin, encodeOrigin } from "@/lib/orders/order-source"
+import { cookies } from "next/headers"
 
 export const runtime = "nodejs"
 
@@ -33,6 +35,15 @@ export const runtime = "nodejs"
  * Every price is read from the row, every product must be published, and
  * anything the buyer already owns is dropped rather than charged for twice.
  *
+ * A DISCOUNT CODE is priced here too, per line, by lib/checkout/pricing
+ * priceCart: it comes off the lines of its own creator inside its product
+ * list, and the total Stripe is asked for is the server's. The code and each
+ * line's share go on the session, so the use is counted once when the
+ * basket is written (lib/checkout/fulfil-cart-session). A code that takes
+ * the whole basket to $0 does not go to Stripe at all: the basket is written
+ * here, as the free checkout writes a single product, with the buyer's name
+ * and address, which the cart page asks for only then.
+ *
  * HOSTED RATHER THAN ELEMENTS. Stripe Checkout takes several line items
  * natively and shows the buyer what they are paying for, line by line. The
  * alternative was a second card form on the platform that would have had to
@@ -44,6 +55,10 @@ interface IncomingItem {
   productId?: unknown
   variantId?: unknown
   quantity?: unknown
+}
+
+function clean(value: unknown, max: number): string {
+  return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f<>]/g, "").trim().slice(0, max) : ""
 }
 
 /**
@@ -80,7 +95,7 @@ export async function POST(request: Request) {
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  let body: { items?: IncomingItem[]; returnPath?: unknown; origin?: unknown }
+  let body: { items?: IncomingItem[]; returnPath?: unknown; origin?: unknown; couponCode?: unknown; buyer?: Record<string, unknown> | null }
   try {
     body = await request.json()
   } catch {
@@ -96,42 +111,19 @@ export async function POST(request: Request) {
   })
   if (limited) return limited
 
-  const incoming = Array.isArray(body.items) ? body.items.slice(0, MAX_LINES) : []
-  if (incoming.length === 0) {
-    return NextResponse.json({ error: "Your cart is empty" }, { status: 400 })
-  }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  const wanted = new Map<string, { variantId: string | null; quantity: number }>()
-  for (const raw of incoming) {
-    if (typeof raw?.productId !== "string" || raw.productId === "") continue
-    const variantId = typeof raw.variantId === "string" && raw.variantId !== "" ? raw.variantId : null
-    const quantity = Math.max(1, Math.min(MAX_QUANTITY, Math.floor(Number(raw.quantity) || 1)))
-    wanted.set(`${raw.productId}::${variantId ?? ""}`, { variantId, quantity })
-  }
-  const productIds = [...new Set([...wanted.keys()].map((k) => k.split("::")[0]))]
-  if (productIds.length === 0) {
-    return NextResponse.json({ error: "Your cart is empty" }, { status: 400 })
-  }
+  /* Every price, every line left out, and the code, from the database (lib/checkout/pricing). */
+  const priced = await priceCart(admin, { items: body.items, couponCode: body.couponCode, buyerId: user?.id ?? null })
+  if (priced.ok === false) return NextResponse.json({ error: priced.error }, { status: priced.status })
+  const { lines, dropped, coupon } = priced
 
-  const { data: products, error: productsError } = await admin
-    .from("products")
-    .select("id, title, slug, price_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, status, creator_id")
-    .in("id", productIds)
-    .eq("status", "published")
-
-  if (productsError) {
-    console.error("[checkout/cart] product read failed:", productsError.message)
-    return NextResponse.json({ error: "Could not read the cart" }, { status: 500 })
-  }
-  if (!products || products.length === 0) {
-    return NextResponse.json({ error: "Nothing in the cart is on sale any more" }, { status: 400 })
-  }
-
-  const creatorIds = new Set(products.map((p: any) => p.creator_id))
-  if (creatorIds.size !== 1) {
+  if (priced.creatorIds.length !== 1) {
     return NextResponse.json({ error: "A cart can only hold one shop's products" }, { status: 400 })
   }
-  const creatorId = products[0].creator_id as string
+  const creatorId = priced.creatorIds[0]
 
   const { data: creator } = await admin
     .from("creators")
@@ -142,6 +134,35 @@ export async function POST(request: Request) {
   if (!creator) {
     return NextResponse.json({ error: "Shop not found" }, { status: 404 })
   }
+
+  if (lines.length === 0) {
+    return NextResponse.json(
+      { error: priced.ownedAny ? "You already own everything in this cart" : "Nothing in the cart can be bought right now" },
+      { status: 400 },
+    )
+  }
+
+  const platformOrigin = `https://${getMainDomain()}`
+  const siteOrigin = (await safeReturnOrigin(request.headers.get("origin"), creatorId)) ?? platformOrigin
+  const returnPath = typeof body.returnPath === "string" && body.returnPath.startsWith("/") ? body.returnPath : "/cart"
+
+  /* A basket is a website's. Which website is the one the request came
+     from, checked above as this creator's; the page adds where its visit
+     came from, every field checked (lib/orders/order-source). */
+  const sent = cleanOrigin(body.origin)
+  const site = siteOrigin !== platformOrigin ? cleanHost(new URL(siteOrigin).host) : sent?.site
+  const origin = encodeOrigin({ ...sent, surface: "website", site })
+
+  const totalCents = priced.totalCents
+  if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, origin: { ...sent, surface: "website", site } })
+
+  if (totalCents < MIN_CHARGE_CENTS) {
+    return NextResponse.json(
+      { error: coupon ? "The smallest card payment is $0.50. Remove the code or add to the cart." : "Minimum payment amount is $0.50" },
+      { status: 400 },
+    )
+  }
+
   if (
     !creator.stripe_account_id ||
     !String(creator.stripe_account_id).startsWith("acct_") ||
@@ -155,100 +176,52 @@ export async function POST(request: Request) {
     )
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  /* Already owned is dropped rather than charged for. A digital product is
-     one entitlement per buyer, so paying twice buys nothing. */
-  let owned = new Set<string>()
-  if (user) {
-    const { data: entitlements } = await admin
-      .from("entitlements")
-      .select("product_id")
-      .eq("buyer_id", user.id)
-      .in("product_id", productIds)
-    owned = new Set((entitlements ?? []).map((e: any) => e.product_id))
-  }
-
-  /* A line's option is the database's, checked against its product and
-     priced from itself. The client's variantId used to be kept as sent and
-     the line priced at the product's price: the cheapest option paid for
-     the dearest one, and an unknown id failed the order's foreign key after
-     the money was taken. */
-  const variantIds = [...new Set([...wanted.values()].map((w) => w.variantId).filter((v): v is string => !!v))]
-  const variantsById = new Map<string, any>()
-  if (variantIds.length > 0) {
-    const { data: variants } = await admin
-      .from("product_variants")
-      .select("id, product_id, name, price_cents, pay_what_you_want, pwyw_min_price_cents")
-      .in("id", variantIds)
-    for (const v of variants ?? []) variantsById.set(v.id, v)
-  }
-
-  const byId = new Map(products.map((p: any) => [p.id, p]))
-  const lines: Array<{ item: PackedItem; product: any }> = []
-  const dropped: string[] = []
-
-  for (const [key, want] of wanted) {
-    const productId = key.split("::")[0]
-    const product = byId.get(productId)
-    if (!product) { dropped.push(productId); continue }
-    if (owned.has(productId)) { dropped.push(product.title); continue }
-
-    const variant = want.variantId ? variantsById.get(want.variantId) : null
-    if (want.variantId && (!variant || variant.product_id !== productId)) { dropped.push(product.title); continue }
-    /* Pay what you want in a basket is its minimum: there is no amount box. */
-    const priced = baseFor(variant ?? product, undefined)
-    const priceCents = priced.ok ? priced.cents : 0
-    /* A free product is a download, not a payment. It has no place in a
-       basket that is going to a card form, and Stripe will not take a zero
-       line anyway. */
-    if (priceCents <= 0) { dropped.push(product.title); continue }
-
-    const quantity = product.type === "digital" ? 1 : want.quantity
-    lines.push({ item: { productId, variantId: want.variantId, quantity, priceCents }, product })
-  }
-
-  if (lines.length === 0) {
-    return NextResponse.json(
-      { error: owned.size > 0 ? "You already own everything in this cart" : "Nothing in the cart can be bought right now" },
-      { status: 400 },
-    )
-  }
-
-  const totalCents = lines.reduce((n, l) => n + l.item.priceCents * l.item.quantity, 0)
-  if (totalCents < 50) {
-    return NextResponse.json({ error: "Minimum payment amount is $0.50" }, { status: 400 })
+  /* A code with a use limit keeps a place under it while this Stripe page is
+     open (lib/checkout/coupon-holds), and the page expires before the place
+     does. The holder is the buyer, or this browser: coming back from Stripe
+     and pressing Check out again refreshes the same place, not a second one. */
+  let holder: string | null = null
+  if (coupon && needsHold(coupon)) {
+    const jar = await cookies()
+    const kept = jar.get(HOLD_COOKIE)?.value
+    holder = user ? `u:${user.id}` : kept && isHolder(kept) ? kept : newHolder()
+    if (!user && holder !== kept) {
+      jar.set(HOLD_COOKIE, holder, { httpOnly: true, secure: true, sameSite: "lax", maxAge: 60 * 60 * 24, path: "/" })
+    }
+    if (!(await holdCouponUse(admin, coupon.id, holder))) {
+      return NextResponse.json({ error: "That code has been used up." }, { status: 400 })
+    }
   }
 
   const fee = await calculatePlatformFee(totalCents, creatorId, admin)
 
-  const platformOrigin = `https://${getMainDomain()}`
-  const siteOrigin = (await safeReturnOrigin(request.headers.get("origin"), creatorId)) ?? platformOrigin
-  const returnPath = typeof body.returnPath === "string" && body.returnPath.startsWith("/") ? body.returnPath : "/cart"
-
-  /* A basket is a website's. Which website is the one the request came
-     from, checked above as this creator's; the page adds where its visit
-     came from, every field checked (lib/orders/order-source). */
-  const sent = cleanOrigin(body.origin)
-  const site = siteOrigin !== platformOrigin ? cleanHost(new URL(siteOrigin).host) : sent?.site
-  const origin = encodeOrigin({ ...sent, surface: "website", site })
+  /* A line the code took to $0 is not a line Stripe will take; it is still
+     in the basket, fulfilled from the metadata, and named on the page. */
+  const freeLines = lines.filter((l) => chargeUnits(l.item).length === 0).map((l) => String(l.product.title ?? "Product"))
 
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      line_items: lines.map((l) => ({
-        quantity: l.item.quantity,
-        price_data: {
-          currency: "usd",
-          unit_amount: l.item.priceCents,
-          product_data: {
-            name: String(l.product.title ?? "Product"),
-            ...(l.product.thumbnail_url ? { images: [String(l.product.thumbnail_url)] } : {}),
+      line_items: lines.flatMap((l) =>
+        chargeUnits(l.item).map((part) => ({
+          quantity: part.quantity,
+          price_data: {
+            currency: "usd",
+            unit_amount: part.unitCents,
+            product_data: {
+              name: String(l.product.title ?? "Product"),
+              ...(l.item.discountCents > 0 && coupon
+                ? { description: `$${(l.item.discountCents / 100).toFixed(2)} off with ${coupon.code}` }
+                : {}),
+              ...(l.product.thumbnail_url ? { images: [String(l.product.thumbnail_url)] } : {}),
+            },
           },
-        },
-      })),
+        })),
+      ),
+      ...(freeLines.length > 0 && coupon
+        ? { custom_text: { submit: { message: `Also included, free with ${coupon.code}: ${freeLines.join(", ")}`.slice(0, 1000) } } }
+        : {}),
+      ...(holder ? { expires_at: Math.floor(Date.now() / 1000) + HELD_SESSION_SECONDS } : {}),
       customer_email: user?.email ?? undefined,
       payment_intent_data: {
         application_fee_amount: fee.platformFeeCents,
@@ -270,6 +243,14 @@ export async function POST(request: Request) {
         platform_fee_cents: String(fee.platformFeeCents),
         plan_used: fee.planId,
         ...(origin ? { [ORIGIN_METADATA_KEY]: origin } : {}),
+        ...(coupon
+          ? {
+              coupon_id: coupon.id,
+              coupon_code: coupon.code,
+              discount_cents: String(priced.discountCents),
+              ...(holder ? { coupon_holder: holder } : {}),
+            }
+          : {}),
         ...packItems(lines.map((l) => l.item)),
       },
     })
@@ -282,6 +263,86 @@ export async function POST(request: Request) {
     })
   } catch (error: any) {
     console.error("[checkout/cart] session creation failed:", error?.message)
+    /* No page, no payment: the place goes back. */
+    if (holder) await releaseCouponHold(admin, coupon?.id, holder)
     return NextResponse.json({ error: "Could not start the checkout" }, { status: 500 })
   }
+}
+
+/**
+ * A basket a code took to $0: no payment, so the buyer's name and address
+ * come from the cart page (asked for only now), checked and limited as the
+ * single product free checkout checks them, and the lines are written here.
+ */
+async function freeBasket(
+  request: Request,
+  c: {
+    admin: ReturnType<typeof createAdminClient>
+    user: { id: string; email?: string | null } | null
+    body: { buyer?: Record<string, unknown> | null }
+    priced: Extract<Awaited<ReturnType<typeof priceCart>>, { ok: true }>
+    creatorId: string
+    platformOrigin: string
+    origin: Parameters<typeof encodeOrigin>[0]
+  },
+) {
+  const buyer = c.body.buyer && typeof c.body.buyer === "object" ? c.body.buyer : {}
+  const firstName = clean(buyer.firstName, 60)
+  const lastName = clean(buyer.lastName, 60)
+  const email = (clean(buyer.email, 254) || c.user?.email || "").toLowerCase()
+  if (!firstName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || buyer.agreedToTerms !== true) {
+    return NextResponse.json({ error: "Enter your name and email, and agree to the Terms, to get your free order.", needsDetails: true }, { status: 400 })
+  }
+
+  /* Each free basket emails the address it is given, as a free product does. */
+  const limited = await rateLimit({
+    bucket: "claim",
+    subjects: [addressSubject(request), emailSubject(email)],
+    windows: LIMITS.claim,
+    message: "That is a lot of orders from one place. Try again in a few minutes.",
+  })
+  if (limited) return limited
+
+  const coupon = c.priced.coupon!
+  const holder = needsHold(coupon) ? holderForEmail(email) : null
+  if (holder && !(await holdCouponUse(c.admin, coupon.id, holder))) {
+    return NextResponse.json({ error: "That code has been used up." }, { status: 400 })
+  }
+
+  const written = await fulfilFreeCart(c.admin, {
+    creatorId: c.creatorId,
+    items: c.priced.lines.map((l) => l.item),
+    buyerId: c.user?.id ?? null,
+    buyerEmail: email,
+    buyerFirstName: firstName,
+    buyerLastName: lastName || null,
+    origin: c.origin,
+    couponId: coupon.id,
+    couponHolder: holder,
+    baseUrl: c.platformOrigin,
+    request,
+  })
+  if (written.ok === false) {
+    if (holder) await releaseCouponHold(c.admin, coupon.id, holder)
+    return NextResponse.json({ error: "The order could not be saved. Try again in a moment." }, { status: 500 })
+  }
+
+  /* The same cookie a paid basket sets, so a guest reaches the downloads again from this browser. */
+  const mainDomain = getMainDomain()
+  const isLocalhost = mainDomain.includes("localhost")
+  const cookieStore = await cookies()
+  cookieStore.set("materia_session", written.sessionFingerprint, {
+    httpOnly: true,
+    secure: !isLocalhost,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 365,
+    path: "/",
+    domain: isLocalhost ? undefined : `.${mainDomain}`,
+  })
+
+  return NextResponse.json({
+    url: `${c.platformOrigin}/receipt/${encodeURIComponent(written.receiptToken)}`,
+    free: true,
+    dropped: c.priced.dropped,
+  })
 }

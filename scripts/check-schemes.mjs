@@ -36,7 +36,11 @@ const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => rea
 
 const stubs = join(root, ".wb-probe")
 mkdirSync(stubs, { recursive: true })
-writeFileSync(join(stubs, "link.jsx"), `import React from "react"\nexport default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }\n`)
+/* useLinkStatus is here, in the link stub, where 187f1a62 meant it to go: it
+   landed inside the MEASURE script below instead, and an \`export\` in a
+   classic script is a SyntaxError, so no page ever reported ("never
+   reported") from then on. */
+writeFileSync(join(stubs, "link.jsx"), `import React from "react"\nexport default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }\nexport const useLinkStatus = () => ({ pending: false })\n`)
 writeFileSync(join(stubs, "navigation.js"), `export const usePathname = () => "/"\nexport const useRouter = () => ({ push() {}, replace() {}, refresh() {}, prefetch() {} })\nexport const useSearchParams = () => new URLSearchParams()\n`)
 
 const out = mkdtempSync(join(tmpdir(), "storelib-scheme-"))
@@ -88,7 +92,6 @@ const MEASURE = `
   function colourSet(box, root) {
     var seen = {}
 
-export const useLinkStatus = () => ({ pending: false })
     /**
      * THE ELEMENTS A SCHEME COLOUR CAN LAND ON, not every node.
      *

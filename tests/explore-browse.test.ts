@@ -12,10 +12,14 @@
  *      that slides.
  *   3. The filters are two questions that apply as they are answered.
  *   4. The header's category menu is the same list.
+ *   5. A category page (/explore/[category]) is built from the same parts:
+ *      its loading screen is the page with the cards missing, and its
+ *      category list and filters are Explore's.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { findInGroups, type BrowseGroup } from "@/components/explore/category-browser"
+import { matchesSubcategory, subcategoryTerms } from "@/lib/explore/subcategory-match"
 
 let passed = 0
 let failed = 0
@@ -89,6 +93,38 @@ function main() {
   check("and in the phone sheet, at a fixed height", /fill=\{!isMarketingNavRoute\}/.test(header) && /height=\{isMarketingNavRoute \? undefined : "min\(78dvh, 680px\)"\}/.test(header))
   check("no Back to Categories link, no Hot badge, no violet icon", !/Back to Categories|<Flame|text-violet-500/.test(header))
   check("it ticks the category Explore is on, read from c as well as category", /searchParams\.get\("c"\) \|\| searchParams\.get\("category"\)/.test(header))
+
+  console.log("\n5. A category page is built from Explore's parts")
+  const catLoading = code("app/(marketing)/explore/[category]/loading.tsx")
+  const catRoute = code("app/(marketing)/explore/[category]/page.tsx")
+  const catSkeleton = code("components/explore/category-skeleton.tsx")
+  const catFrame = code("components/explore/category-frame.tsx")
+  const catPage = code("components/explore/category-page-client.tsx")
+  check("its loading screen draws the page's frame and nothing of its own", /<CategoryLoading\b/.test(catLoading) && !/<Skeleton\b/.test(catLoading + catSkeleton))
+  check("on the page's ground, in the page's container", [catLoading, catRoute].every((f) => /explore-ground min-h-screen bg-\[#f8f9fa\]/.test(f) && /max-w-\[1400px\] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8/.test(f)) && !/bg-white/.test(catRoute))
+  check("only the cards are held back", /gridClassName="skeleton-deferred"/.test(catSkeleton) && /<ProductCardSkeleton\b/.test(catSkeleton))
+  check("the page and its loading screen draw the same hero and pill row", [catSkeleton, catPage].every((f) => /<CategoryHero\b/.test(f) && /<CategoryControls\b/.test(f)))
+  check("the loading screen knows the category and subcategory it is loading", /useParams/.test(catSkeleton) && /get\("sub"\)/.test(catSkeleton))
+  check("the route reads ?sub= so the first HTML is the subcategory", /initialSubcategory=\{initialSub\}/.test(catRoute))
+  check("the category list is Explore's picker", /<ExploreCategoryPicker\b/.test(catPage))
+  check("the filters are Explore's, without a Recommended the page cannot rank", /<ExploreFilters\b/.test(catPage) && /o\.id !== "recommended"/.test(catPage) && /const DEFAULT_SORT = "newest"/.test(catPage))
+  check("its own sheets, modal and chips are gone", !/function (MobileFilterSheet|MobileSubcategorySheet|DesktopSubcategoryModal)|<BottomSheet\b|>\s*Active:\s*<|>\s*Apply/.test(catPage))
+  check("no violet and no icon beside the pills", !/violet/.test(catPage + catFrame + catSkeleton) && !/Layers|LayoutGrid|Grid3X3/.test(catPage))
+  check("the addresses are the same: ?sub= on the category's page", /router\.push\(categoryPath\(category, target\), \{ scroll: false \}\)/.test(catPage) && /router\.push\(categoryPath\(groupId, itemId\)\)/.test(catPage))
+  check("its search hands the header's field back like Explore's", /SEARCH_ANCHOR_ATTR/.test(catFrame))
+
+  console.log("\n   a subcategory is found in the fields the pages load")
+  const explore = code("components/explore/explore-page-client.tsx")
+  check("neither page reads subcategory or tags, which the routes never select", ![catPage, explore].some((f) => /p\.subcategory|p\.tags/.test(f)))
+  check("both use the shared rule", [catPage, explore].every((f) => /matchesSubcategory\(/.test(f)))
+  const m = (id: string, label: string, product: { category?: string; title?: string; description?: string }) => matchesSubcategory(product, subcategoryTerms(id, label))
+  check("a product filed under the subcategory's own name", m("presets", "Lightroom Presets", { category: "Lightroom Presets", title: "Moody Tones" }))
+  check("a plural and its singular are one word", m("mockups", "Mockups", { title: "iPhone Mockup" }) && m("fonts", "Fonts & Typography", { title: "Display Font Family" }))
+  check("the id's words, not the slug", m("after-effects", "After Effects", { title: "After Effects title pack" }) && m("ui-ux", "UI/UX Templates", { category: "UI Kits" }))
+  check("half of a label finds it", m("scripts", "Scripts & Plugins", { title: "Figma plugin" }))
+  check("a label without its generic last word", m("logos", "Logo Templates", { title: "Minimal logo pack" }))
+  check("whole words only", !m("ads", "Ad Creatives", { title: "Uploads manager" }) && !m("print", "Print Design", { title: "Blueprint notes" }))
+  check("a generic word on its own finds nothing", !m("apis", "APIs & Tools", { title: "Handy tools" }))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

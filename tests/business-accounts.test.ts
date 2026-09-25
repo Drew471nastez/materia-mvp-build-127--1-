@@ -106,7 +106,10 @@ function main() {
   console.log("\nThe app")
   check("the layout reads the businesses beside everything else", /listBusinesses\(user\.id\)\.catch\(\(\) => \[\]\)/.test(read("app/app/layout.tsx")) && /businesses=\{businesses\}/.test(read("app/app/layout.tsx")))
   check("both account menus list them", /<BusinessSwitcher businesses=\{businesses\} variant="dropdown"/.test(read("components/app/sidebar.tsx")) && /<BusinessSwitcher businesses=\{businesses\} variant="sheet"/.test(read("components/app/mobile-account-menu.tsx")))
-  check("New business opens the start screen under a reserved address", /router\.push\("\/onboarding\/business"\)/.test(read("components/app/business-switcher.tsx")) && existsSync(join(root, "app/(auth)/onboarding/business/page.tsx")))
+  check("New business makes it right there and goes straight into the creator onboarding, no page in between",
+    /onClick=\{add\}/.test(read("components/app/business-switcher.tsx")) && /await createBusiness\(\)/.test(read("components/app/business-switcher.tsx")) &&
+      /"\/signup\/success\?action=become-creator&business=new"/.test(read("lib/businesses/switch-client.ts")) && /redirect\("\/app"\)/.test(read("app/(auth)/onboarding/business/page.tsx")))
+  check("no Businesses label on the phone's account sheet", /\{!sheet && <p [^>]*>Businesses<\/p>\}/.test(read("components/app/business-switcher.tsx")))
   check("a second business goes straight into onboarding with its way back",
     /const first = await firstBusinessIfSecond\(\)/.test(read("app/(auth)/signup/success/page.tsx")) && /switchBack=\{firstBusiness \?/.test(read("app/(auth)/signup/success/page.tsx")) && /data-onboarding-switch-back/.test(read("components/app/creator-onboarding-modal.tsx")))
   check("the onboarding is the whole screen in the app", /setNativeFullScreen\(isNativeApp\(\)\)/.test(read("components/app/creator-onboarding-modal.tsx")))

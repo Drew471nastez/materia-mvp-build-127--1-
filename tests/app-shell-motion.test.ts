@@ -319,7 +319,8 @@ section("No page draws a picture of itself while it loads, inside or out")
       && /@keyframes shimmer-sweep \{\s*from \{ transform: translateX\(-100%\); \}\s*to \{ transform: translateX\(100%\); \}/.test(css)
       && /@media \(prefers-reduced-motion: reduce\) \{\s*\.shimmer-block::after \{\s*animation: none;/.test(css))
   check("the skeleton stays in the tree through the swap, keyed, so its fade carries on and the content is not remounted",
-    /<div key="skeleton" className=\{leaving \? "shimmer-leave pointer-events-none absolute inset-0 overflow-hidden" : "h-full"\}>/.test(shimmer)
+    /* flow-root in the flow: a first block's top margin stays inside, so the box does not move up when it goes absolute (a layout shift on Analytics' donut) */
+    /<div key="skeleton" className=\{leaving \? "shimmer-leave pointer-events-none absolute inset-0 overflow-hidden" : "h-full flow-root"\}>/.test(shimmer)
       && /<div key="content" className=\{cn\(leaving && "shimmer-enter", contentClassName\)\}>/.test(shimmer)
       && /if \(loading && !held\) setHeld\(true\)/.test(shimmer))
   check("the flash probe lands on every main page and reads every element every frame",
