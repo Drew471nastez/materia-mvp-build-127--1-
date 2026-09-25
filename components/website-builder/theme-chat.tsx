@@ -1476,6 +1476,7 @@ function ThemeChatPanel({
     draftRef.current = next
     setDraft(next)
     if (next !== target) typingFrame.current = requestAnimationFrame(typeFrame)
+    /* Caught up after the recording ended: nothing more is coming. */ else if (voiceRef.current?.state === "idle") voiceTarget.current = null
   }, [])
   const voice = useVoiceInput({
     onText: (text) => {
@@ -1486,15 +1487,36 @@ function ThemeChatPanel({
   const listening = voice.state === "listening"
   const voiceRef = React.useRef(voice)
   voiceRef.current = voice
-  /* The recording is over: the box holds what was heard, whole, and stops typing. */
+  /*
+    The recording is over. Words heard live are already in the box, so what
+    is left of them lands whole. A recording turned into text by the server
+    (the iOS app records rather than hears) arrives in one piece, and types
+    itself in like live words would, rather than appearing at once.
+  */
+  const lastVoiceState = React.useRef(voice.state)
   React.useEffect(() => {
+    const was = lastVoiceState.current
+    lastVoiceState.current = voice.state
     if (voice.state === "listening" || voice.state === "starting") return
     const target = voiceTarget.current
+    if (target === null) return
+    if (was === "transcribing") {
+      if (!typingFrame.current && draftRef.current !== target) typingFrame.current = requestAnimationFrame(typeFrame)
+      return
+    }
     if (typingFrame.current) cancelAnimationFrame(typingFrame.current)
     typingFrame.current = 0
     voiceTarget.current = null
     if (target !== null) setDraft(target)
-  }, [voice.state])
+  }, [voice.state, typeFrame])
+  /** Words still typing themselves in, taken whole: for Send, and for a person who starts typing. */
+  const settleVoice = React.useCallback((): string | null => {
+    const target = voiceTarget.current
+    if (typingFrame.current) cancelAnimationFrame(typingFrame.current)
+    typingFrame.current = 0
+    voiceTarget.current = null
+    return target
+  }, [])
   React.useEffect(
     () => () => {
       if (typingFrame.current) cancelAnimationFrame(typingFrame.current)
@@ -2267,11 +2289,18 @@ function ThemeChatPanel({
     </button>
   )
 
+  /** What Send sends: the box, or the whole of what was heard when it is still typing itself in. */
+  const takeDraft = () => {
+    const spoken = settleVoice()
+    if (voiceRef.current.state === "listening") voiceRef.current.cancel()
+    return spoken ?? draft
+  }
+
   const sendButton = (
     <button
       type="button"
       data-ask-send=""
-      onClick={() => submit(draft)}
+      onClick={() => submit(takeDraft())}
       disabled={(draft.trim().length === 0 && attached.length === 0) || preparing}
       aria-label={busy ? "Queue" : "Send"}
       title={preparing ? "Waiting for the pictures to be ready" : undefined}
@@ -2296,12 +2325,16 @@ function ThemeChatPanel({
       rows={1}
       value={draft}
       aria-label="Message Storelib AI"
-      onChange={(event) => setDraft(event.target.value)}
+      onChange={(event) => {
+        /* A person typing takes the box back from words still typing themselves in. */
+        if (voiceTarget.current !== null && !listening) settleVoice()
+        setDraft(event.target.value)
+      }}
       onFocus={dock ? openDock : undefined}
       onKeyDown={(event) => {
         if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
           event.preventDefault()
-          submit(draft)
+          submit(takeDraft())
         }
       }}
       /** A screenshot goes to the clipboard; this is where it lands. */
