@@ -467,7 +467,9 @@ function SubscriberStatus({ s }: { s: SubscriberRow }) {
 const STATUS_GROUPS: Array<{ value: string; label: string; match: (status: string) => boolean }> = [
   { value: "subscribed", label: "Subscribed", match: (s) => s === "subscribed" },
   { value: "customer", label: "Customers", match: (s) => s === "customer" },
-  { value: "unsubscribed", label: "Unsubscribed", match: (s) => s !== "subscribed" && s !== "customer" },
+  /* People who wrote through a website's contact form and did not ask for news. */
+  { value: "wrote", label: "Wrote to you", match: (s) => s === "wrote" },
+  { value: "unsubscribed", label: "Unsubscribed", match: (s) => s !== "subscribed" && s !== "customer" && s !== "wrote" },
 ]
 
 /** A filter as a chip in the table's toolbar, the way Orders draws its own. */

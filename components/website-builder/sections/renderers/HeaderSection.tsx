@@ -25,7 +25,8 @@ import { useStorefront } from "../../theme/storefront-context"
 import { lineKey } from "@/lib/website-builder/cart"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
-import { getMainDomain } from "@/lib/url-helpers"
+import { SITE_ROUTES } from "@/lib/storelib-theme/globals"
+import { useSiteWishlist } from "../../site-wishlist"
 import type { ColorSchemeKey, ColorSchemeValues } from "@/lib/website-builder/types"
 import {
   type SectionProps,
@@ -150,34 +151,41 @@ function HeaderMobileNavDrawer({
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- *  ACCOUNT, FROM A SITE THAT CANNOT SEE THE SESSION
+ *  ACCOUNT AND WISHLIST ARE PAGES OF THIS WEBSITE
  * ═══════════════════════════════════════════════════════════════════════════
- * A built site runs on its own host and the session cookie is host-only to
- * the platform on purpose, so that a site somebody generated with a prompt
- * can never read a Storelib token. That means the site cannot know whether
- * this visitor is signed in, and must not be able to find out.
+ * They used to be links to storelib.com, because the session that knows who
+ * a visitor is lives there and is host-only on purpose. Every website now
+ * has an account page of its own (/account, and /account/login to sign in)
+ * and a Wishlist (/wishlist): signing in still happens on storelib.com, and
+ * the visitor comes back here with this website's own session
+ * (app/api/site-account). So these are root-relative links, which the proxy
+ * resolves to whichever address the site is being served on, and in the
+ * builder they open those pages in the canvas.
  *
- * So it does not ask. It sends them to /account/continue, which runs where
- * the cookie is and forwards them: to their library if they have an account,
- * to sign in if they do not, carrying where to come back to.
- *
- * WHERE BACK IS is read at the moment of the click rather than rendered into
- * the page, because the same markup is served on a subdomain, on a custom
- * domain and under /w/<name>, and only the browser knows which of those the
- * visitor is actually on. The platform checks it before following it.
+ * The heart carries the count of saved products, from the same list the
+ * hearts on the products draw (../../site-wishlist), once it has been read.
  */
-function platformUrl(path: string): string {
-  return `https://${getMainDomain()}${path}`
+const ACCOUNT_PATH = "/account"
+const WISHLIST_PATH = "/wishlist"
+
+function SavedCount({ className }: { className?: string }) {
+  const { count, ready } = useSiteWishlist()
+  if (!ready || count === 0) return null
+  return (
+    <span
+      aria-hidden
+      className={cn("absolute min-w-[17px] h-[17px] px-1 rounded-full text-[10px] font-semibold leading-[17px] text-center", className)}
+      style={{ background: "currentColor" }}
+    >
+      {/* Punched out of the dot, as the bag's is, so it reads on any scheme. */}
+      <span className="mix-blend-difference text-white">{count > 99 ? "99+" : count}</span>
+    </span>
+  )
 }
 
-function goToPlatform(path: string, inEditor: boolean) {
-  return (e: React.MouseEvent) => {
-    e.preventDefault()
-    if (inEditor) return
-    const url = new URL(path, `https://${getMainDomain()}`)
-    url.searchParams.set("next", window.location.href)
-    window.location.assign(url.toString())
-  }
+function useWishlistLabel(): string {
+  const { count, ready } = useSiteWishlist()
+  return ready && count > 0 ? `Wishlist, ${count} saved` : "Wishlist"
 }
 
 
@@ -935,6 +943,9 @@ function MobileDrawerInner({
   // The back button on the sub-page returns us to the root by clearing it.
   const dismissBackdrop = useBackdropDismiss(open, onClose)
   const [activeSubmenuId, setActiveSubmenuId] = useState<string | null>(null)
+  /* The saved count for the heart, and whether this visitor is signed in here. */
+  const { signedIn } = useSiteWishlist()
+  const wishlistLabel = useWishlistLabel()
   // Reset to root whenever the drawer closes so reopening always starts
   // fresh on the main menu.
   useEffect(() => {
@@ -1268,15 +1279,11 @@ function MobileDrawerInner({
           >
             {/* LEFT slot */}
             {showAccount ? (
-              /**
-               * `/login` was relative, which on a creator's own address is a
-               * page of their site rather than Storelib's sign-in: it was
-               * rewritten to /w/<name>/login and answered 404. The session
-               * lives on the platform, so the link does too.
-               */
+              /* This website's own account page, which sends a visitor who
+                 is not signed in to its sign in page. */
               <a
-                href={platformUrl("/account/continue")}
-                onClick={(e) => { onClose(); goToPlatform("/account/continue", !!onEditorNavigate)(e) }}
+                href={ACCOUNT_PATH}
+                onClick={handleLinkClick(ACCOUNT_PATH)}
                 className="flex items-center gap-2 text-[15px] font-semibold hover:opacity-70 transition-opacity"
                 style={{ color: scheme.nav_link }}
               >
@@ -1286,25 +1293,27 @@ function MobileDrawerInner({
             ) : (
               // Wishlist-only case: wishlist goes on the LEFT.
               <a
-                href={`https://${getMainDomain()}/wishlist`}
-                aria-label="Wishlist"
-                onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
+                href={WISHLIST_PATH}
+                aria-label={wishlistLabel}
+                onClick={handleLinkClick(WISHLIST_PATH)}
                 className="relative h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors -ml-2"
+                style={{ color: scheme.nav_link }}
               >
-                {/* No count badge. It was the character "0", written into the
-                    markup: a number that was never anything else. */}
-                <Heart className="h-[22px] w-[22px]" strokeWidth={1.8} style={{ color: scheme.nav_link }} />
+                <Heart className="h-[22px] w-[22px]" strokeWidth={1.8} />
+                <SavedCount className="-top-0.5 -right-0.5" />
               </a>
             )}
             {/* RIGHT slot — only when BOTH are on so wishlist moves to the right */}
             {showAccount && showWishlist ? (
               <a
-                href={`https://${getMainDomain()}/wishlist`}
-                aria-label="Wishlist"
-                onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
+                href={WISHLIST_PATH}
+                aria-label={wishlistLabel}
+                onClick={handleLinkClick(WISHLIST_PATH)}
                 className="relative h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors -mr-2"
+                style={{ color: scheme.nav_link }}
               >
-                <Heart className="h-[22px] w-[22px]" strokeWidth={1.8} style={{ color: scheme.nav_link }} />
+                <Heart className="h-[22px] w-[22px]" strokeWidth={1.8} />
+                <SavedCount className="-top-0.5 -right-0.5" />
               </a>
             ) : (
               // Empty right slot so `justify-between` keeps the left element
@@ -1320,14 +1329,15 @@ function MobileDrawerInner({
           shop whose only account control is a log in is a shop that assumes
           everyone arriving has shopped here before.
 
-          It goes to the platform, like the rest of the account controls,
-          because that is where the account is and where the session can
-          safely live. The visitor comes back to this shop afterwards.
+          Accounts are Storelib accounts, so it leaves for storelib.com to
+          make one and comes back to this website's account page
+          (routes.account_register_url). Not shown to somebody already
+          signed in here.
         */}
-        {showAccount && (
+        {showAccount && !signedIn && (
           <a
-            href={platformUrl("/signup")}
-            onClick={(e) => { onClose(); goToPlatform("/signup", !!onEditorNavigate)(e) }}
+            href={SITE_ROUTES.account_register_url}
+            onClick={handleLinkClick(SITE_ROUTES.account_register_url)}
             className="border-t border-black/10 px-5 py-4 flex items-center gap-3 shrink-0 text-[15px] font-medium"
             style={{ background: scheme.bg, color: scheme.nav_link }}
           >
@@ -1425,6 +1435,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
      /header-icons.ts for the two that did. */
   const showAccount = headerIconOn(s.show_account_icon)
   const showWishlist = headerIconOn(s.show_wishlist_icon)
+  const wishlistLabel = useWishlistLabel()
   /*
     ON BY DEFAULT. Every shop is expected to have one, and a header without a
     way to look for something is the first thing a visitor misses. It is a
@@ -2128,9 +2139,9 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       )}
       {showAccount && !forMobile && (
         <a
-          href={platformUrl("/account/continue")}
+          href={ACCOUNT_PATH}
           aria-label="Account"
-          onClick={goToPlatform("/account/continue", !!onEditorNavigate)}
+          onClick={onEditorNavigate ? (e) => { e.preventDefault(); onEditorNavigate(ACCOUNT_PATH, true) } : undefined}
           className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
         >
           <User className="h-[18px] w-[18px]" strokeWidth={1.8} />
@@ -2138,12 +2149,13 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       )}
       {showWishlist && !forMobile && (
         <a
-          href={`https://${getMainDomain()}/wishlist`}
-          aria-label="Wishlist"
-          onClick={onEditorNavigate ? (e) => e.preventDefault() : undefined}
-          className="h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
+          href={WISHLIST_PATH}
+          aria-label={wishlistLabel}
+          onClick={onEditorNavigate ? (e) => { e.preventDefault(); onEditorNavigate(WISHLIST_PATH, true) } : undefined}
+          className="relative h-9 w-9 flex items-center justify-center rounded-full theme-tint-hover transition-colors"
         >
           <Heart className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          <SavedCount className="-top-0.5 -right-0.5" />
         </a>
       )}
       {/*

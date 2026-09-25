@@ -62,7 +62,7 @@ Status:
 | 404 | 404 page, generated, editable, real 404 status | Built |
 | policies | policy pages | Had |
 | robots.txt, sitemap | per site | Had |
-| customers/* | customer accounts | Other work this round (accounts helper) |
+| customers/* | account, sign in and wishlist pages, generated | Built this round by the storefront accounts work; merged here |
 | alternate templates | none | Left out: one product layout for every product |
 | blog, article, list-collections, gift_card | none | N/A |
 | password | none | N/A: a site is published or not; unpublished shows a notice |
@@ -79,7 +79,7 @@ Status:
 | none | course_curriculum (Course Outline) | Built |
 | announcement-bar | theme announcement bar | Had, extended with several messages taking turns |
 | slideshow | retired slideshow still renders | Left out: hides content behind a timer; heroes instead |
-| contact-form | contact page form | Other work this round |
+| contact-form | contact section and generated contact page | Built this round by the storefront accounts work |
 | custom-liquid | custom sections | Had |
 | predictive-search | none | Left out: search is a page; not asked for |
 | featured-blog, collection-list, main-list-collections, apps, pickup-availability, quick-order-list, main-password | none | N/A |

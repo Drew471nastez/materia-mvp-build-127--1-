@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { revalidateTag } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { readCurrentUser } from "@/lib/auth/current-user"
-import { AVATAR_CHOSEN } from "@/lib/account/avatar"
+import { saveProfilePhoto, type PhotoClient } from "@/lib/account/avatar-save"
+import { creatorTag } from "@/lib/commerce/product-page-cache"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -14,10 +16,11 @@ export const dynamic = "force-dynamic"
  *                   the avatars bucket (components/app/settings/profile-photo)
  *   POST { url: null }   removes it: the app shows the initials everywhere
  *
- * Either way the account is marked as having chosen (AVATAR_CHOSEN), so the
- * sign in callback never puts the Google picture back over a removal
- * (lib/account/avatar.ts). The profile row is written with the person's own
- * client, so row level security decides as for every other profile field.
+ * Either way the account is marked as having chosen (AVATAR_CHOSEN), first,
+ * so the sign in callback never puts the Google picture back over a removal,
+ * the profile is written and read back on the person's own client (row level
+ * security decides, as for every other profile field), and the creator page
+ * header follows it. The order and the reasons are lib/account/avatar-save.
  */
 
 const NO_STORE = { "Cache-Control": "no-store" }
@@ -53,16 +56,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "That photo is not in your folder." }, { status: 400, headers: NO_STORE })
   }
 
-  const { error } = await supabase.from("profiles").update({ avatar_url: url }).eq("id", user.id)
-  if (error) {
-    console.error(`[account/avatar] not saved (${error.code ?? "unknown"})`)
-    return NextResponse.json({ error: url ? "The photo did not save. Try again in a moment." : "The photo was not removed. Try again in a moment." }, { status: 500, headers: NO_STORE })
-  }
+  const saved = await saveProfilePhoto(supabase as unknown as PhotoClient, user, url)
+  if (!saved.ok) return NextResponse.json({ error: saved.error }, { status: saved.status, headers: NO_STORE })
 
-  /* Remembered on the account, so a later sign in with Google leaves the choice alone. */
-  if (user.user_metadata?.[AVATAR_CHOSEN] !== true) {
-    const { error: metaError } = await supabase.auth.updateUser({ data: { [AVATAR_CHOSEN]: true } })
-    if (metaError) console.error(`[account/avatar] choice not kept on the account (${metaError.code ?? metaError.status ?? "unknown"})`)
+  /* The public creator page reads the profile and its header through a
+     cache shared between visitors (lib/commerce/product-page-cache): it
+     shows the new photo on its next view, not a minute later. */
+  try {
+    revalidateTag(creatorTag(user.id), "max")
+    if (saved.creatorId) revalidateTag(creatorTag(saved.creatorId), "max")
+  } catch {
+    /* Outside a request that can revalidate: the cache's own minute does it. */
   }
 
   return NextResponse.json({ ok: true, url }, { headers: NO_STORE })

@@ -102,7 +102,7 @@ const TOOLTIP = "rounded-md bg-[#1a1a2e] px-2 py-1 text-[12px] font-medium text-
  * A button that is its drawing on a computer and a 44px press around the
  * same drawing on a phone. It passes on its ref and everything it is given,
  * so it can be ResponsiveActionMenu's trigger. The keyboard's outline is
- * drawn round the drawing in the /app violet, as the depth buttons' is.
+ * drawn round the drawing in near black, as the depth buttons' is.
  */
 const Press = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { look: string }>(function Press(
   { look, className, children, ...rest },
@@ -115,7 +115,7 @@ const Press = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonEleme
       {...rest}
       className={cn(
         "group/press inline-flex shrink-0 cursor-pointer items-center justify-center outline-none disabled:cursor-not-allowed max-md:min-h-11 max-md:min-w-11",
-        "[&:focus-visible>span]:outline-2 [&:focus-visible>span]:outline-offset-2 [&:focus-visible>span]:outline-[#8b5cf6] [&:focus-visible>span]:outline-solid",
+        "[&:focus-visible>span]:outline-2 [&:focus-visible>span]:outline-offset-2 [&:focus-visible>span]:outline-[#1a1a2e]/40 [&:focus-visible>span]:outline-solid",
         className,
       )}
     >
@@ -125,7 +125,7 @@ const Press = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonEleme
 })
 
 /**
- * The New product button: the editor's violet Save (primaryDepth), at the
+ * The New product button: the editor's near black Save (primaryDepth), at the
  * bar's 32px (34 from 1024px), with the 44px press on a phone.
  */
 const NEW_LOOK = cn(primaryDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px]", BAR_BUTTON_SIZE)

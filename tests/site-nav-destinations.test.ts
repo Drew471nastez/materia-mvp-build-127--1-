@@ -58,9 +58,12 @@ async function main() {
 
   console.log("\nThe stored nav is repaired against the site's own pages")
 
+  /* Contact left the list: every website answers /contact now, with the
+     generated page when the creator made none (lib/website-builder/
+     account-pages), so a stock Contact link goes somewhere and stays. */
   check(
-    "the repair knows about the header's two stock links as well as the footer's",
-    /\["\/about", "about"\]/.test(links) && /\["\/contact", "contact"\]/.test(links),
+    "the repair knows about the header's About link as well as the footer's, and keeps Contact",
+    /\["\/about", "about"\]/.test(links) && !/\["\/contact", "contact"\]/.test(links) && /"contact"/.test(read("lib/website-builder/account-pages.ts")),
   )
   check(
     "a creator's own page keeps its link",

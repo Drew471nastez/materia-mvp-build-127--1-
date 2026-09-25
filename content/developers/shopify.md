@@ -74,6 +74,9 @@ Every site has these pages from the day it is published. The ones marked generat
 | `404` | 404 page, generated, drawn inside the site's header and footer for any address the site does not have, with a real 404 status | `page.404` |
 | `page` | About, Contact, and any page the creator makes | `page.<key>` |
 | `cart` | Cart, at `/cart`: the site's header and footer around the visitor's cart. Not arranged with sections, because a cart is one visitor's list. | none |
+| `customers/account`, `customers/login` | Account at `/account` and Sign in at `/account/login`, generated | `page.account`, `page.login` |
+| none | Wishlist at `/wishlist`, generated | `page.wishlist` |
+| `page.contact` | Contact at `/contact`, generated when the creator has not made one | `page.contact` |
 | policy pages | Refund, privacy and terms pages, from the creator's own policies | `page.<key>` |
 | `robots.txt.liquid`, sitemap | Each site answers its own `robots.txt` and `sitemap.xml` | none |
 | `blog`, `article`, `list-collections`, `gift_card`, `password` | none. There is no blog, no collection list and no gift card. A site that is not ready is left unpublished, and visitors see that it is not published rather than a password form. | |
@@ -98,6 +101,8 @@ The library's sections against Dawn's:
 | Collapsible content | Accordion FAQ, Two Column FAQ, FAQ + CTA |
 | Email signup, Newsletter | Newsletter Signup. It collects for the creator with nothing to set up. |
 | Custom Liquid | A section of your own, written in the code editor or by an agent |
+| Contact form | Contact form, on the contact page and addable anywhere |
+| Main account, Main login | The account and sign in pages' own sections |
 | Main 404 | Page not found, on the 404 page |
 | Main search | Search results, on the search page |
 | none | Plans, for a course, a membership or a service sold more than one way |
@@ -109,7 +114,7 @@ The library's sections against Dawn's:
 
 Shopify connects a setting to a metafield. Storelib has no metafields, so the list of what a setting can be connected to is closed and small: the shop, the creator, the product on a product page, the page, the creator's social links and the year. A creator types or inserts `{{ shop.name }}` into a setting, and the page fills it in on the server. See [Schema](/developers/schema#shop-data-in-a-setting) for the list.
 
-A template reads the same facts directly: `shop`, `creator` and `product`, beside `settings` and `blocks`.
+A template reads the same facts directly: `shop`, `creator` and `product`, beside `settings` and `blocks`. Shopify's other globals have their counterparts too: `routes` for the addresses every site answers on, and `customer` and `wishlist` on the pages drawn for one visitor.
 
 ## Not in Storelib
 

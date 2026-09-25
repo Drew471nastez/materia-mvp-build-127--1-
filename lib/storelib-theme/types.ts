@@ -330,13 +330,22 @@ export interface RenderContext {
   /** `asset://…` → URL, for the `asset` filter. */
   assets: Record<string, string>
   /**
+   * The store, the addresses every website answers on, and the visitor when
+   * the page is drawn for one. See lib/storelib-theme/globals.ts. Optional:
+   * a surface that gives none still has `shop` from the theme and `routes`,
+   * and reads `customer` and `wishlist` as null.
+   */
+  shop?: Record<string, unknown>
+  routes?: Record<string, unknown>
+  customer?: Record<string, unknown> | null
+  wishlist?: Record<string, unknown> | null
+  /**
    * WHAT THE STOREFRONT KNOWS ABOUT ITSELF, the same facts a dynamic source
    * fills a setting with (lib/storelib-theme/dynamic.ts): the shop's name
    * and address, the creator's public profile, and on a product page the
    * product. Optional and empty when absent, so a section reading
    * `{{ shop.name }}` in a thumbnail draws nothing rather than failing.
    */
-  shop?: StorefrontData["shop"]
   creator?: StorefrontData["creator"]
   /** The product this page is about. Present on the product template only. */
   product?: StorefrontData["product"]

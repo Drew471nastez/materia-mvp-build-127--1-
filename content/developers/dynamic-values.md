@@ -13,7 +13,10 @@ A section's template prints values with `{{ }}` and decides what to draw with `{
 | `scheme` | The colour scheme this instance uses, with its own colour overrides applied. |
 | `theme` | The theme's tokens and every theme setting. |
 | `products` | The creator's published products, shaped like blocks. |
-| `shop` | This site: `shop.name`, `shop.description`, `shop.url`, `shop.product_count`. |
+| `shop` | The store: its name, tagline, logo, social links and, where a section asks for it, its support email; with `shop.description` and `shop.product_count` on a published page. |
+| `routes` | The addresses every website answers on, such as the cart, the account and the contact page. |
+| `customer` | The signed-in visitor and their orders, on the account page. `null` everywhere else. |
+| `wishlist` | The visitor's saved products, on the account and Wishlist pages. `null` everywhere else. |
 | `creator` | The creator's public profile: `creator.name`, `creator.headline`, `creator.bio`, `creator.avatar`. |
 | `product` | On a product page, the product it shows: `title`, `price`, `compare_price`, `description` (words), `description_html` (cleaned markup, printed with `raw`), `image`, `images`, `url`, `includes`, `id`. Empty everywhere else, so `{% if product %}` tells a section where it is. |
 | `forloop` | The loop being drawn: `index`, `index0`, `first`, `last`, `length`. |
@@ -130,6 +133,7 @@ The instance's blocks in order. Each is `{ id, type, settings }`, and each block
 | The shop | `page.products` | `page.products` |
 | Search results | `page.search` | `page.search` |
 | The 404 page | `page.404` | `page.404` |
+| The account, sign in and Wishlist pages | `page.account`, `page.login`, `page.wishlist` | the same |
 | Any other page | `page.<key>` | `page.<key>` |
 
 `page.in_editor` is the one sanctioned difference between the builder and the live site. Put anything meant for the person editing behind it, and a visitor never sees it:
@@ -199,6 +203,72 @@ Which products a page has:
 ```
 
 A template never does money: print `price` as it arrives. See [Selling](/developers/selling).
+
+## shop
+
+The store the website belongs to, from what the creator has already set, so a section never asks for it twice:
+
+| Path | What it is |
+| --- | --- |
+| `shop.name` | The brand name from the theme settings, else the creator's name. |
+| `shop.tagline` | The tagline from the theme settings, or empty. |
+| `shop.logo` | The logo's URL, or empty. |
+| `shop.url` | `/`, the website's home. |
+| `shop.socials` | The theme's social links that are set, each `{ key, label, url }`, such as `{ key: "instagram", label: "Instagram", url: "https://…" }`. Only `https`, `http` and path links are kept. |
+| `shop.email` | The support email from Settings, on a page where a section has a `show_email` setting turned on. Empty everywhere else, so an address is never printed by a section that did not ask for it. |
+
+```storelib
+<h2>{{ settings.heading | default: shop.name }}</h2>
+{% for link in shop.socials %}<a href="{{ link.url | url }}">{{ link.label }}</a>{% endfor %}
+```
+
+## routes
+
+The addresses every Storelib website answers on. Link to them by name rather than typing the path:
+
+| Path | Where it goes |
+| --- | --- |
+| `routes.root_url` | `/` |
+| `routes.products_url` | `/products`, every product |
+| `routes.search_url` | `/search` |
+| `routes.cart_url` | `/cart` |
+| `routes.contact_url` | `/contact` |
+| `routes.wishlist_url` | `/wishlist` |
+| `routes.account_url` | `/account`, which sends a visitor who is not signed in to the sign in page |
+| `routes.account_login_url` | `/account/login` |
+| `routes.account_signin_url` | Leaves for storelib.com to sign in, and comes back to `/account` |
+| `routes.account_register_url` | The same, starting at making a Storelib account |
+| `routes.account_logout_url` | `/account/logout`. Post a form to it: `<form method="post" action="{{ routes.account_logout_url }}" data-storelib-form="native">` |
+
+## customer
+
+The visitor who is signed in, on the account page. `null` on every other page, and on the account page for a visitor who is not signed in, so test it before reading it:
+
+| Path | What it is |
+| --- | --- |
+| `customer.name` | The name on their Storelib account, else their username, or empty. |
+| `customer.first_name` | The first word of it. |
+| `customer.email` | The email on their Storelib account. |
+| `customer.orders_count` | How many of this store's products they have. |
+| `customer.orders` | Those products, most recent first, each `{ id, title, image, url, date, price, action_label, action_url }`. `action_url` opens the download in their Storelib Library, or the receipt when there is nothing to download, and `action_label` says which: `Download`, `Receipt` or `Library`. |
+
+```storelib
+{% if customer %}
+  <p>{{ customer.first_name }}, {{ customer.orders_count }} orders</p>
+{% else %}
+  <a href="{{ routes.account_signin_url }}">Sign in</a>
+{% endif %}
+```
+
+## wishlist
+
+The products the visitor saved, on the account page and the Wishlist page. `null` on every other page: a cached page cannot know who is looking. A section anywhere can still draw a heart, and the page fills it in; see [Saving products](/developers/javascript#saving-products).
+
+| Path | What it is |
+| --- | --- |
+| `wishlist.items` | The saved products, most recently saved first, each `{ id, title, price, compare_price, image, url, tag }`, the same fields as a product's `settings`. |
+| `wishlist.count` | How many. |
+| `wishlist.signed_in` | `true` when the list is the visitor's account's and follows them to any device, `false` when it is kept in this browser. |
 
 ## forloop
 

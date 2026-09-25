@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { withoutMetadata } from "@/lib/images/compress"
+import { announceAvatar } from "@/lib/account/avatar-store"
 import { nativeLogOut } from "@/lib/native-bridge"
 import { ReturnLink } from "@/components/navigation/return-link"
 
@@ -233,7 +234,16 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
         .getPublicUrl(path)
 
       const url = `${publicUrl}?t=${Date.now()}`
-      await supabase.from("profiles").update({ avatar_url: url }).eq("id", userId)
+      /* Saved as Settings saves it (app/api/account/avatar): the choice marked
+         on the account, the profile read back, the creator page following,
+         and every avatar in this browser told (lib/account/avatar-store). */
+      const res = await fetch("/api/account/avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      })
+      if (!res.ok) throw new Error("not saved")
+      announceAvatar(url)
 
       setAvatarPreview(url)
       router.refresh()

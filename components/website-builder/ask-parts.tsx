@@ -15,6 +15,9 @@
  *   SUGGESTIONS    up to three things to ask, from where the creator is
  *                  (lib/website-builder/ask-suggestions.ts). One row; on a
  *                  phone it scrolls sideways rather than wrapping.
+ *   A QUESTION     the run stopped to ask: the question, why, and its
+ *                  answers to tap, which wrap rather than scroll so every
+ *                  one is in view. Once answered, the one sent is marked.
  *   THE SCOPE      "Only Hero": the edit is limited to the selected section.
  */
 
@@ -22,6 +25,7 @@ import * as React from "react"
 import { X } from "lucide-react"
 
 import { ClaudeMark, OpenAIMark } from "@/components/website-builder/connection-marks"
+import { chosenOption, type AskQuestion } from "@/lib/website-builder/ask-activity"
 import { cn } from "@/lib/utils"
 
 export function ConnectAiButton({ phone, onClick }: { phone: boolean; onClick: () => void }) {
@@ -140,6 +144,72 @@ export function SuggestionChips({
           {text}
         </button>
       ))}
+    </div>
+  )
+}
+
+/**
+ * THE RUN'S QUESTION, WITH ITS ANSWERS. It stands where the answer would:
+ * the question is what the run said. The answers wrap under it and never
+ * scroll sideways, so on a 360px phone every one is in view, each 44px tall
+ * there, and one too long for a line wraps inside itself. A tap sends it as
+ * the next message in this conversation; the box below takes any other
+ * answer. `answer` is that next message once there is one: the choices stay
+ * as a record, the one sent filled like a message of yours.
+ */
+export function QuestionChoices({
+  question,
+  answer,
+  canAnswer,
+  onAnswer,
+  phone,
+}: {
+  question: AskQuestion
+  answer: string | undefined
+  canAnswer: boolean
+  onAnswer: (text: string) => void
+  phone: boolean
+}) {
+  const answered = answer !== undefined
+  const chosen = chosenOption(question, answer)
+  return (
+    <div data-ask-question={answered ? "answered" : "open"} className="min-w-0">
+      <p data-ask-question-text="" className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[#1a1a2e]">
+        {question.question}
+      </p>
+      {question.why && (
+        <p data-ask-question-why="" className="mt-0.5 text-[12.5px] leading-snug text-[#6b7280]">
+          {question.why}
+        </p>
+      )}
+      {question.options.length > 0 && (
+        /* `items-start`: an answer that wraps inside itself is taller, and the others on its row keep their own height. */
+        <div role="group" aria-label={question.question} className={cn("flex min-w-0 flex-wrap items-start", phone ? "mt-3 gap-2" : "mt-2.5 gap-1.5")}>
+          {question.options.map((option) => {
+            const picked = option === chosen
+            return (
+              <button
+                key={option}
+                type="button"
+                data-ask-option=""
+                data-picked={picked ? "" : undefined}
+                disabled={answered || !canAnswer}
+                aria-pressed={answered ? picked : undefined}
+                onClick={() => onAnswer(option)}
+                className={cn(
+                  "min-w-0 max-w-full rounded-[22px] border text-left transition-colors duration-150",
+                  phone ? "min-h-[44px] px-4 py-[10px] text-[14px] leading-[22px]" : "min-h-8 px-3 py-[5px] text-[13px] leading-5",
+                  !answered && "border-[#1a1a2e]/15 bg-white font-medium text-[#1a1a2e] hover:border-[#1a1a2e]/35 active:bg-black/[0.03]",
+                  answered && picked && "border-transparent bg-[#f1f2f4] font-medium text-[#1a1a2e]",
+                  answered && !picked && "border-[#e5e7eb] bg-transparent text-[#6b7280]/80",
+                )}
+              >
+                {option}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

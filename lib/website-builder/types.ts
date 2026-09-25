@@ -296,8 +296,14 @@ export interface ThemePage {
  * footer and a section each until the creator opens one in the builder,
  * after which what they saved is what is served.
  */
-export type PageKey = "home" | "product" | "about" | "contact" | "products" | "search" | "404"
+export type PageKey = "home" | "product" | "about" | "contact" | "products" | "search" | "404" | "account" | "login" | "wishlist"
 
+/**
+ * The account, its sign in page and the wishlist are pages every website
+ * has as well (lib/website-builder/account-pages), built the same way as the
+ * shop until a creator arranges them. The sign in page is served at
+ * /account/login; see pagePath in lib/website-builder/site-pages.
+ */
 export const PAGE_META: Record<PageKey, { label: string; icon: string }> = {
   home: { label: "Home page", icon: "home" },
   product: { label: "Product page", icon: "shopping-bag" },
@@ -306,6 +312,9 @@ export const PAGE_META: Record<PageKey, { label: string; icon: string }> = {
   products: { label: "Shop", icon: "grid" },
   search: { label: "Search", icon: "search" },
   "404": { label: "404 page", icon: "search" },
+  account: { label: "Account", icon: "user" },
+  login: { label: "Sign in", icon: "user" },
+  wishlist: { label: "Wishlist", icon: "heart" },
 }
 
 // ── Custom files ─────────────────────────────────────────────

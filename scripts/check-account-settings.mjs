@@ -458,8 +458,9 @@ try {
           kind: sheet ? "sheet" : "popover",
           rows: rows.length,
           rowH: rows.slice(0, 6).map((b) => Math.round(r(b).height)),
-          /* Above the list's box: the list itself may be scrolled to the chosen row. */
-          searchAboveRows: !!search && rows.length > 0 && r(search).bottom <= r(root.querySelector("[role=listbox]")).top + 1,
+          /* Above the box the rows scroll in: the list opens scrolled to the chosen row (the popover's list is its own
+             scroller; in the sheet the rows scroll in the sheet's body, so the list's own box starts above the screen). */
+          searchAboveRows: !!search && rows.length > 0 && r(search).bottom <= r(root.querySelector("[role=listbox]").closest("[data-sheet-scroll]") ?? root.querySelector("[role=listbox]")).top + 1,
           searchFont: search ? getComputedStyle(search).fontSize : null,
           closeButton: !!root.querySelector("[aria-label=Close]"),
           grabber: !!(sheet && sheet.querySelector("[data-sheet-handle]")),

@@ -32,6 +32,7 @@ import { setSiteConsentTheme } from "@/lib/consent/site-theme"
 import { StorefrontProvider, type Storefront } from "./storefront-context"
 import { SectionSandboxProvider } from "../sections/section-sandbox"
 import { SiteCartProvider } from "../site-cart"
+import { SiteWishlistProvider } from "../site-wishlist"
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { announcementMessages, announcementSeconds } from "@/lib/website-builder/announcement"
 import { cn } from "@/lib/utils"
@@ -493,6 +494,12 @@ export function ThemePage({
       only and nothing is written to the browser.
     */}
     <SiteCartProvider shopId={storefront?.inEditor ? undefined : storefront?.creatorId}>
+    {/*
+      THE SAVED LIST, beside the cart and for the same reason: the heart in
+      the header and the hearts on the products are both on the page. Keyed
+      by the creator, memory only in the canvas. See ../site-wishlist.
+    */}
+    <SiteWishlistProvider shopId={storefront?.inEditor ? undefined : storefront?.creatorId}>
     <div
       {...{ [THEME_ROOT_ATTRIBUTE]: "" }}
       /* Website Settings › General › Language. Absent until one is chosen,
@@ -577,6 +584,7 @@ export function ThemePage({
 
       <SiteCookieStyle theme={theme} />
     </div>
+    </SiteWishlistProvider>
     </SiteCartProvider>
     </SectionSandboxProvider>
     </StorefrontProvider>

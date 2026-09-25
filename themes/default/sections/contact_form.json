@@ -88,7 +88,8 @@
       "label": "Recipient Email",
       "type": "text",
       "default": "",
-      "placeholder": "hello@yoursite.com"
+      "placeholder": "hello@yoursite.com",
+      "info": "Where messages are emailed. Empty uses your support email from Settings. Every message is also kept in Emails."
     },
     {
       "id": "subject_prefix",

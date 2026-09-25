@@ -9,7 +9,7 @@ import { BottomSheet, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
 import { prefetchAppPage } from "@/lib/ui/app-navigation"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
-import { BusinessSwitcher, type BusinessRow } from "@/components/app/business-switcher"
+import { BusinessSwitcher, SWITCHER_AVATAR, type BusinessRow } from "@/components/app/business-switcher"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
 const HELP_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/help`
@@ -59,22 +59,24 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
   useEffect(() => { setMobileProfileDropdownOpen(false) }, [pathname])
   /*
    * NOTHING BUT THE SLIDE ON THE FIRST FRAMES. The photo in the sheet is a
-   * different file from the one in the header (40px, not 24px): it is
-   * fetched and decoded while the page is idle, and again on the press
-   * before the tap lands if it has not been yet, so the sheet never decodes
-   * an image while it moves. The sheet's links do not prefetch as they
-   * appear (five router requests answered in the middle of the slide); the
-   * two pages in this app are fetched once the sheet is up.
+   * different file from the one in the header (32px in the businesses' row,
+   * or 40px for an account alone, not 24px): it is fetched and decoded while
+   * the page is idle, and again on the press before the tap lands if it has
+   * not been yet, so the sheet never decodes an image while it moves. The
+   * sheet's links do not prefetch as they appear (five router requests
+   * answered in the middle of the slide); the two pages in this app are
+   * fetched once the sheet is up.
    */
+  const sheetAvatar = businesses.length > 0 ? SWITCHER_AVATAR.sheet : 40
   useEffect(() => {
     const w = window as Window & { requestIdleCallback?: (f: () => void) => number; cancelIdleCallback?: (id: number) => void }
     if (w.requestIdleCallback) {
-      const id = w.requestIdleCallback(() => preloadAvatar(avatarSrc, 40))
+      const id = w.requestIdleCallback(() => preloadAvatar(avatarSrc, sheetAvatar))
       return () => w.cancelIdleCallback?.(id)
     }
-    const t = window.setTimeout(() => preloadAvatar(avatarSrc, 40), 1200)
+    const t = window.setTimeout(() => preloadAvatar(avatarSrc, sheetAvatar), 1200)
     return () => window.clearTimeout(t)
-  }, [avatarSrc])
+  }, [avatarSrc, sheetAvatar])
   const router = useRouter()
   useEffect(() => {
     if (!mobileProfileDropdownOpen) return
@@ -97,7 +99,7 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
     <div className="relative flex-1 z-[60]">
       <button
         id="account-trigger"
-        onPointerDown={() => preloadAvatar(avatarSrc, 40)}
+        onPointerDown={() => preloadAvatar(avatarSrc, sheetAvatar)}
         onClick={() => {
           onOpening()
           setMobileProfileDropdownOpen((v) => !v)
@@ -152,7 +154,7 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
         {/* With the businesses known, they head the sheet (the current one checked); before, the account alone. */}
         {businesses.length > 0 ? (
           <>
-            <BusinessSwitcher businesses={businesses} variant="sheet" onNavigate={closeMobileProfile} />
+            <BusinessSwitcher businesses={businesses} variant="sheet" currentAvatar={avatarSrc} onNavigate={closeMobileProfile} />
             <div className="my-1.5 h-px bg-neutral-100" />
           </>
         ) : (

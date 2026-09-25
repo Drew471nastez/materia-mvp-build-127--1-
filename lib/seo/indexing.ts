@@ -164,12 +164,17 @@ export const PLATFORM_DISALLOW = [
 ]
 
 /**
- * On a built site's host: its forms' API, previews, the shop's search results
- * and the basket. Anchored like PLATFORM_DISALLOW, so a creator's own page at
- * /cartoons or /search-tips stays crawlable. The site's /robots.txt writes
- * these (lib/website-builder/site-seo.ts robotsTxt).
+ * On a built site's host: its forms' API, previews, the shop's search results,
+ * the basket, and the pages drawn for one visitor (the account, signing in
+ * and the Wishlist, which also say noindex). Anchored like PLATFORM_DISALLOW,
+ * so a creator's own page at /cartoons, /search-tips or /accounting stays
+ * crawlable. The site's /robots.txt writes these (lib/website-builder/site-seo.ts
+ * robotsTxt).
  */
-export const SITE_DISALLOW = ["/api/", "/preview/", "/search$", "/search?", "/search/", "/cart$", "/cart?", "/cart/"]
+export const SITE_DISALLOW = [
+  "/api/", "/preview/", "/search$", "/search?", "/search/", "/cart$", "/cart?", "/cart/",
+  "/account$", "/account?", "/account/", "/wishlist$", "/wishlist?", "/wishlist/",
+]
 
 /* ── Which pages may be listed ─────────────────────────────────────────── */
 

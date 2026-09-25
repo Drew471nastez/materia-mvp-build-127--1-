@@ -324,6 +324,8 @@ export async function resolveAudience(db: Db, creatorId: string, type: AudienceT
        contact, not a subscriber: never sent a campaign, and not counted as
        somebody the send left out. */
     if (status === "customer") continue
+    /* The same for somebody who only wrote through a contact form (lib/site-contact). */
+    if (status === "wrote") continue
     if (!email || SUPPRESSED.has(status) || status !== "subscribed" || r.is_active === false || seen.has(email)) {
       excluded++
       continue

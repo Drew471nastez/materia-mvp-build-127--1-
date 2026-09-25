@@ -951,8 +951,9 @@ section("Add Section is derived from the files, one card per preset")
    * is retired — three heroes replaced it — which is what retirement is
    * supposed to look like: gone from the list, still on the pages using it.
    */
-  /* Thirty, then Plans, Rows and Course Outline for what creators sell and teach. */
-  check("the library is thirty three sections across ten categories", ADDABLE_SECTIONS.length === 33 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 10, `${ADDABLE_SECTIONS.length} sections`)
+  /* Ten categories. About has a fourth, the contact form every website's /contact page is made of;
+     Products has Plans, and Content has Rows and Course Outline, for what creators sell and teach. */
+  check("the library is thirty four sections across ten categories, About with the contact form", ADDABLE_SECTIONS.length === 34 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 10 && STORELIB_SCHEMAS.contact?.category === "about", `${ADDABLE_SECTIONS.length} sections`)
   check("every one of them is a .storelib file with a preset", ADDABLE_SECTIONS.every((t) => STORELIB_SCHEMAS[t] && (STORELIB_SCHEMAS[t].presets?.length ?? 0) > 0))
   check("the sections it retired still render, so no page using one goes blank", RETIRED_SECTIONS.length > 0 && RETIRED_SECTIONS.every((t) => !!SECTION_SCHEMAS[t]) && !RETIRED_SECTIONS.some((t) => ADDABLE_SECTIONS.includes(t)))
   check("a creator's own section is filed under its own heading", CUSTOM_SECTION_CATEGORY === "yours" && SECTION_CATEGORIES.yours === "Created by you")

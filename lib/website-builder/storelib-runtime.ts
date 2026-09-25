@@ -27,6 +27,7 @@
 import { COMPILE_CACHE_LIMIT, compileSection, createLru } from "@/lib/storelib-theme/storelib/compile"
 import { renderSection } from "@/lib/storelib-theme/render"
 import type { CompiledSection, RenderContext, SectionInstanceData, StorefrontData, ThemeError } from "@/lib/storelib-theme/types"
+import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import type { SectionInstance, ThemeSettingsValues } from "./types"
 
@@ -127,6 +128,12 @@ export function renderStorelibSection(
    * lib/website-builder/storefront-data.ts; absent means none of them.
    */
   data?: StorefrontData,
+  /**
+   * The store and, on a page drawn for one visitor, the visitor: `shop`,
+   * `customer`, `wishlist` (lib/storelib-theme/globals.ts). Absent is the
+   * theme's own `shop` and nobody signed in.
+   */
+  globals?: StorefrontGlobals,
 ): StorelibRendered {
   const c = compiledSection(section.type, overrides)
   if (c.ok === false) return c
@@ -138,6 +145,7 @@ export function renderStorelibSection(
     page: withPageProduct(page, products),
     products,
     data,
+    globals,
   })
   return {
     ok: true,

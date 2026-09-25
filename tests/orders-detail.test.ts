@@ -373,7 +373,7 @@ async function main() {
     const list = code("app/app/orders/orders-list.tsx")
     check("Export is the violet action, and off with no orders", /className=\{cn\(buttonAccent, [^}]*\)\}\s*onClick=\{\(\) => props\.onExport\(\)\}\s*disabled=\{allOrders\.length === 0\}/.test(list))
     check("  44px to tap on a phone, 32px to see", /cn\(buttonAccent, "relative before:absolute before:-inset-y-1\.5 before:inset-x-0 before:content-\[''\] sm:before:hidden"\)/.test(list))
-    check("  violet, white, a step darker on hover, with a shadow", /bg-\[#8b5cf6\][^"]*text-white[^"]*hover:bg-\[#7c3aed\]/.test(read("app/app/orders/order-parts.tsx")) && /buttonAccent =[\s\S]{0,200}shadow-\[/.test(read("app/app/orders/order-parts.tsx")))
+    check("  near black (no purple on the app's actions, the owner's ask), white, a step lighter on hover, with a shadow", /buttonAccent =\s*"[^"]*bg-\[#1a1a2e\][^"]*text-white[^"]*hover:bg-\[#2a2a40\]/.test(read("app/app/orders/order-parts.tsx")) && !/buttonAccent =\s*"[^"]*8b5cf6/.test(read("app/app/orders/order-parts.tsx")) && /buttonAccent =[\s\S]{0,200}shadow-\[/.test(read("app/app/orders/order-parts.tsx")))
   }
 
     {

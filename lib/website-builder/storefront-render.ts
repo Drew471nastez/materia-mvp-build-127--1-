@@ -3,6 +3,7 @@ import type { RenderedSection } from "@/components/website-builder/sections/stor
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { StorefrontData } from "@/lib/storelib-theme/types"
+import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 
 /**
  * ===========================================================================
@@ -55,6 +56,8 @@ export async function prerenderStorelibSections(
   pageExtras?: Record<string, unknown>,
   /** The shop's own facts; see lib/website-builder/storefront-data.ts. */
   data?: StorefrontData,
+  /** The store and the visitor, for the sections that read them: lib/storelib-theme/globals.ts. */
+  globals?: StorefrontGlobals,
 ): Promise<Record<string, RenderedSection>> {
   const prerendered: Record<string, RenderedSection> = {}
   /**
@@ -72,7 +75,7 @@ export async function prerenderStorelibSections(
    * edited one.
    */
   const sources = await sectionSources(db, installId)
-  return renderWithSources(sources, sections, theme, template, products, pageExtras, data)
+  return renderWithSources(sources, sections, theme, template, products, pageExtras, data, globals)
 }
 
 /**
@@ -128,11 +131,16 @@ export function renderWithSources(
   pageExtras?: Record<string, unknown>,
   /** The shop's own facts; see lib/website-builder/storefront-data.ts. */
   data?: StorefrontData,
+  /**
+   * The store (`shop`) and, on a page drawn for one visitor, who they are
+   * (`customer`) and what they saved (`wishlist`). lib/storelib-theme/globals.
+   */
+  globals?: StorefrontGlobals,
 ): Record<string, RenderedSection> {
   const prerendered: Record<string, RenderedSection> = {}
   for (const section of sections) {
     if (!isStorelibSection(section.type, sources)) continue
-    const out = renderStorelibSection(section, theme, { ...pageExtras, template }, sources, products, data)
+    const out = renderStorelibSection(section, theme, { ...pageExtras, template }, sources, products, data, globals)
     if (out.ok) {
       prerendered[section.id] = { html: out.html, css: out.css, script: out.script, capabilities: out.capabilities }
     }

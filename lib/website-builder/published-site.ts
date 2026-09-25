@@ -393,7 +393,11 @@ export async function publishedSiteByName(name: string, pageKey = "home"): Promi
   // section reads as `page.template` and writes `allowed_templates` against.
   const template = templateForPage(pageKey)
   const { sections, data } = await dressPage(site, linked, products, productCount, template, pageTitleFromKey(pageKey))
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, data)
+  /* `shop.name` falls back to the creator's public name when the store has
+     none set: lib/storelib-theme/globals.ts. Nothing per visitor here. */
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, data, {
+    shop: { name: site.displayName },
+  })
   return { kind: "site", site: { ...site, sections, prerendered } }
 }
 
@@ -495,7 +499,7 @@ export async function publishedNotFoundPage(name: string): Promise<NotFoundPage 
   const template = templateForPage(NOT_FOUND_PAGE_KEY)
   const title = pageTitleFromKey(NOT_FOUND_PAGE_KEY)
   const { sections, data } = await dressPage(site, linked, products, productCount, template, title)
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, data)
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, data, { shop: { name: site.displayName } })
   const brand = typeof site.themeSettings.brand_name === "string" ? site.themeSettings.brand_name.trim() : ""
   return {
     template,

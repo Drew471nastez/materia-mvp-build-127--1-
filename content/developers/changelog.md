@@ -30,6 +30,10 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 - [Themes](/developers/themes): what a theme holds, the website library, every theme setting key, colour schemes and typography, and the package format with `theme.json`, `manifest.json` and `templates/*.json`.
 - [Pages and page settings](/developers/pages), [Sharing themes](/developers/sharing-themes), [Publishing and checks](/developers/publishing), [Dynamic values](/developers/dynamic-values) and [Data model](/developers/data-model).
 - The hub is grouped the way it is used: Get started, Themes, Sections, Data and logic, Tools and AI, and Reference. Every page keeps its address.
+- Four objects every section can read: `shop`, `routes`, `customer` and `wishlist`. See [What a template can read](/developers/sections#what-a-template-can-read).
+- Contact forms: `data-storelib-form="contact"` sends a message to the creator, keeps it in Emails, and adds the sender to Subscribers only when they tick the box. See [Contact forms](/developers/javascript#contact-forms).
+- Saving products: `data-storelib-wishlist` on a button saves a product to the visitor's Wishlist. See [Saving products](/developers/javascript#saving-products).
+- Every website has an account page, a sign in page, a Wishlist and a contact page, drawn by the `main_account`, `main_login`, `main_wishlist` and `contact` sections.
 
 **Changed**
 

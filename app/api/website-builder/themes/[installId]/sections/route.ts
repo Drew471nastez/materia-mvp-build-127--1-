@@ -2,6 +2,7 @@ import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sa
 import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
 import { GENERATED_PAGE_KEYS, isPageKey } from "@/lib/website-builder/site-pages"
 import { notFoundSections, searchSections, shopSections } from "@/lib/website-builder/shop-page"
+import { accountPageSections } from "@/lib/website-builder/account-pages"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
@@ -117,11 +118,16 @@ export async function GET(req: Request, { params }: Params) {
     ])
     const homeSections = ((home?.draft_sections ?? home?.sections) as SectionInstance[] | null) ?? []
     const theme = ((settingsRow?.draft_settings ?? settingsRow?.settings) as ThemeSettingsValues | null) ?? ({} as ThemeSettingsValues)
-    const generated = pageKey === "products"
-      ? shopSections(homeSections, theme)
-      : pageKey === "search"
-        ? searchSections(homeSections)
-        : notFoundSections(homeSections)
+    /* The account pages and the contact page are built the same way:
+       lib/website-builder/account-pages. The 404 page too: shop-page.ts. */
+    const generated =
+      pageKey === "products"
+        ? shopSections(homeSections, theme)
+        : pageKey === "search"
+          ? searchSections(homeSections)
+          : pageKey === "404"
+            ? notFoundSections(homeSections)
+            : (accountPageSections(pageKey, homeSections) ?? [])
     return NextResponse.json({ page: null, sections: sanitizeSections(generated), has_draft: false, generated: true })
   }
 

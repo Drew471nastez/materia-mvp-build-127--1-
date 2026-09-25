@@ -19,6 +19,7 @@ import { cssForInstance } from "./storelib/css"
 import { guardSectionMarkup, guardStyleText } from "./storelib/raw-html"
 import { renderTemplate, stripDocumentMarkup, type CompiledTemplate } from "./storelib/template"
 import type { CompiledSection, RenderContext, SectionInstanceData, StorefrontData } from "./types"
+import { SITE_ROUTES, shopObject, type StorefrontGlobals } from "./globals"
 
 export interface RenderInput {
   compiled: CompiledSection
@@ -43,6 +44,10 @@ export interface RenderInput {
    * draws empty, which is what an export or a thumbnail wants.
    */
   data?: StorefrontData
+   * What the page knows about the store and, on a page drawn for one visitor,
+   * about them. Absent means `shop` from the theme alone, and no customer.
+   */
+  globals?: StorefrontGlobals
 }
 
 export interface Rendered {
@@ -81,7 +86,15 @@ export function renderSection(input: RenderInput): Rendered {
     products: input.products ?? [],
     section: { id, type: compiled.type },
     assets,
-    shop: data.shop,
+    /* The store: the theme's globals (globals.ts), with what only the server knows (storefront-data.ts). */
+    shop: {
+      ...shopObject(input.theme, { ...(data.shop?.name ? { name: data.shop.name } : {}), ...input.globals?.shop }),
+      ...(data.shop?.description !== undefined ? { description: data.shop.description } : {}),
+      ...(data.shop?.product_count !== undefined ? { product_count: data.shop.product_count } : {}),
+    } as unknown as Record<string, unknown>,
+    routes: SITE_ROUTES,
+    customer: input.globals?.customer ?? null,
+    wishlist: (input.globals?.wishlist ?? null) as unknown as Record<string, unknown> | null,
     creator: data.creator,
     product: data.product ?? null,
   }
