@@ -1072,8 +1072,8 @@ section("A form that says it worked, did")
     /\.from\("creators"\)[\s\S]{0,160}if \(!creator\) return/.test(route),
   )
   check(
-    "subscribing twice is not an error and not a second row",
-    /if \(existing\) return NextResponse\.json\(\{ ok: true \}\)/.test(route) && /error\.code === "23505"/.test(route),
+    "subscribing twice is not an error and not a second row (a customer contact is the one row that is changed: they join the list)",
+    /if \(existing && !customer\) return NextResponse\.json\(\{ ok: true \}\)/.test(route) && /error\.code === "23505"/.test(route) && /const customer = existing\?\.status === "customer"/.test(route),
   )
   check(
     "and the answer does not tell a stranger who is already on the list",
