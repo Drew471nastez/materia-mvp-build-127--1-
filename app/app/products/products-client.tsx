@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, buttonSecondary, formatMoney } from "../orders/order-parts"
 import { primaryDepth, secondaryDepth } from "./new/editor-buttons"
-import { openEditor, takeEdited } from "./list-return"
+import { isReturning, listShown, openEditor, takeEdited } from "./list-return"
 import { playList, shootList, type ListShot } from "./list-motion"
 import { LAYER_MOTION_MS } from "@/components/app/page-layer"
 import { createClient } from "@/lib/supabase/client"
@@ -109,8 +109,10 @@ const PAGE_SIZE = 50
  * WHERE THE LIST WAS LEFT. Opening a product and coming back is a new page
  * to the router, so the list would open on All, Newest, no search, page 1.
  * Kept here for the tab instead (never stored), and read as the page's first
- * state, so the list comes back as it was left, at the scroll the stage puts
- * back. A full load starts from nothing, as the server drew it.
+ * state only when this visit is a return: the way back from the editor, or
+ * the browser's back or forward (isReturning, ./list-return). Then the list
+ * comes back as it was left, at the scroll the stage puts back. A fresh
+ * visit, from the sidebar or the pill, and a full load start from nothing.
  */
 let leftAt: { view: View; sort: Sort; search: string; page: number } | null = null
 
@@ -316,10 +318,11 @@ function compare(sort: Sort) {
 export function ProductsClient({ products: initialProducts, creatorUsername }: ProductsClientProps) {
   const { t } = useLanguage()
   const [products, setProducts] = useState<Product[]>(initialProducts)
-  const [view, setView] = useState<View>(() => leftAt?.view ?? "all")
-  const [sort, setSort] = useState<Sort>(() => leftAt?.sort ?? "newest")
-  const [page, setPage] = useState(() => leftAt?.page ?? 1)
-  const [searchQuery, setSearchQuery] = useState(() => leftAt?.search ?? "")
+  const [resumed] = useState(() => (isReturning() ? leftAt : null))
+  const [view, setView] = useState<View>(resumed?.view ?? "all")
+  const [sort, setSort] = useState<Sort>(resumed?.sort ?? "newest")
+  const [page, setPage] = useState(resumed?.page ?? 1)
+  const [searchQuery, setSearchQuery] = useState(resumed?.search ?? "")
   useEffect(() => {
     leftAt = { view, sort, search: searchQuery, page }
   }, [view, sort, searchQuery, page])
@@ -613,6 +616,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     list's scroll left it out.
   */
   useEffect(() => {
+    listShown()
     const id = takeEdited()
     const section = sectionRef.current
     if (!id || !section) return

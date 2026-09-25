@@ -64,7 +64,7 @@ import {
   type UploadedFile,
 } from "./editor-form"
 import { LeaveButton, SAVED_CHECK_MS, SaveButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
-import { returnToProducts, warmProducts } from "../list-return"
+import { returnToProducts, useListOrigin, warmProducts } from "../list-return"
 import { holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
@@ -312,6 +312,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   useEffect(() => {
     warmProducts(router)
   }, [router, loaded])
+  /* Whether the list opened this editor, one history entry after it: Back then goes back in history (../list-return). */
+  useListOrigin()
   const savedValuesRef = useRef<string>(initial.productId ? snapshotOfForm(initial) : "") // What "unsaved" is measured against
 
   // Unsaved changes tracking
@@ -1788,7 +1790,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     asks first, as a sheet on a phone: Discard goes, Keep editing stays.
     Saving is the bar's Save, so the question does not offer a third way
     out. Either way the editor slides off over the list, which is already
-    drawn underneath, at the scroll it was left at (../list-return).
+    drawn underneath, at the scroll it was left at: back in history when the
+    list opened this editor, in place of it otherwise (../list-return).
   */
   const leaveMode = productId && !hasUnsavedChanges ? "back" : "cancel"
   const handleCancel = async () => {

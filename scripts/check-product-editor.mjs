@@ -85,7 +85,8 @@ const pressText = (p, scope, text) => p.evaluate((scope, text) => {
  */
 async function leaving(p, label, vp, isPhone) {
   console.log(`  -- Cancel, and the question`)
-  const pushes = () => p.evaluate(() => (window.__router || []).filter(([k, a]) => k === "push" && a === "/app/products").length)
+  /* Opened directly (no list behind it in this harness), the way out puts the list in its place. */
+  const pushes = () => p.evaluate(() => (window.__router || []).filter(([k, a]) => (k === "replace" && a === "/app/products") || k === "back" || k === "push").length)
   const open = () => p.evaluate(() => !!document.querySelector("[data-confirm-sheet]") && (!document.querySelector("[data-app-sheet]") || document.querySelector("[data-app-sheet]").dataset.appSheet === "open"))
 
   const p0 = await pushes()
@@ -737,8 +738,14 @@ async function routeTrip(p, browser, label, vp, isPhone) {
 
   const moveCount = () => p.evaluate(() => window.__moves.length)
   let n = await moveCount()
+  const calls = () => p.evaluate(() => (window.__router || []).filter(([k]) => k === "push" || k === "replace" || k === "back").map(([k, a]) => (a ? `${k} ${a}` : k)))
+  const hist = () => p.evaluate(() => ({ stack: [...window.__hist.stack], at: window.__hist.at, path: location.pathname }))
+  let c0 = (await calls()).length
   await pressLeave(p)
   const back = await walkMove(p, browser, label, "exit", vp, "::view-transition-old(root)", n)
+  const first = { calls: (await calls()).slice(c0), hist: await hist() }
+  expect(first.calls.join() === "replace /app/products" && first.hist.stack.join() === "/app/products" && first.hist.at === 0 && first.hist.path === "/app/products",
+    "opened directly, with no list behind it, Back puts the list in the editor's place: nothing to come back to", first)
   expect(back.ready && !back.skipped, "Back runs as one move, ready without waiting on anything", { ready: back.ready, skipped: back.skipped, waitedMs: back.waited })
   if (back.ready) {
     const old = back.animations.find((a) => a.el === "::view-transition-old(root)")
@@ -787,12 +794,42 @@ async function routeTrip(p, browser, label, vp, isPhone) {
     expect(inks.every((v) => v >= floor && v > 0.01), "and no blank frame on the way in", { inks, floor: +floor.toFixed(4) })
   }
   await sleep(150)
+  const opened = await hist()
+  expect(opened.stack.join() === "/app/products,/app/products/p2" && opened.at === 1, "a row pushes the editor one entry after the list", opened)
   n = await moveCount()
+  c0 = (await calls()).length
   await pressLeave(p)
-  await walkMove(p, browser, label, "exit2", vp, "::view-transition-old(root)", n)
+  const again = await walkMove(p, browser, label, "exit2", vp, "::view-transition-old(root)", n)
+  const second = { calls: (await calls()).slice(c0), hist: await hist() }
+  expect(second.calls.join() === "back" && second.hist.at === 0 && second.hist.stack[1] === "/app/products/p2",
+    "opened from the list, Back goes back in history: the list is the entry you are on, the editor is forward", second)
+  expect(again.ready && !again.skipped && again.under?.rows > 0 && !again.under?.layer, "the same move, with the list drawn under its first frame", { ready: again.ready, under: again.under })
   await sleep(150)
   const kept = await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.getAttribute("aria-selected") === "true")?.textContent.trim())
   expect(kept === "Draft", "back again, the list is on the view it was left on", kept)
+
+  /* Forward reopens the editor; the browser's back to the list is a return; the sidebar or the pill is a fresh visit. */
+  const tabNow = () => p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.getAttribute("aria-selected") === "true")?.textContent.trim())
+  await p.evaluate(() => history.forward())
+  await sleep(400)
+  const forward = await p.evaluate(() => ({ path: location.pathname, layer: !!document.querySelector("[data-page-layer]") }))
+  expect(forward.path === "/app/products/p2" && forward.layer, "the browser's forward from the list reopens the editor, as it would anywhere", forward)
+  await p.evaluate(() => history.back())
+  await sleep(400)
+  const popped = await tabNow()
+  expect(popped === "Draft", "the browser's back from the editor to the list is a return: still on Draft", popped)
+  await p.evaluate(() => window.__navigate("/app/orders", "push"))
+  await sleep(200)
+  await p.evaluate(() => history.back())
+  await sleep(400)
+  const fromOrders = await tabNow()
+  expect(fromOrders === "Draft", "and so is the browser's back from another page", fromOrders)
+  await p.evaluate(() => window.__navigate("/app/orders", "push"))
+  await sleep(200)
+  await p.evaluate(() => window.__navigate("/app/products", "push"))
+  await sleep(400)
+  const fresh = await p.evaluate(() => ({ tab: [...document.querySelectorAll("[role=tab]")].find((t) => t.getAttribute("aria-selected") === "true")?.textContent.trim(), search: document.querySelector("input[type=search]")?.value }))
+  expect(fresh.tab === "All" && fresh.search === "", "opened fresh from the sidebar or the pill, the list starts at All with no search", fresh)
 
   /* Reduced motion: no move, the page swaps as before. */
   await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
@@ -811,7 +848,7 @@ async function routeTrip(p, browser, label, vp, isPhone) {
 
 try {
   writeFileSync(join(stubs, "navigation.js"), `const log = (k, a) => (window.__router ||= []).push([k, a])
-const router = { push: (h) => { log("push", h); if (window.__navigate) window.__navigate(h) }, replace: (h) => log("replace", h), prefetch: (h, o) => log("prefetch", h + (o && o.kind ? " " + o.kind : "")), back() {}, refresh: () => log("refresh") }
+const router = { push: (h) => { log("push", h); if (window.__navigate) window.__navigate(h, "push") }, replace: (h) => { log("replace", h); if (window.__navigate) window.__navigate(h, "replace") }, prefetch: (h, o) => log("prefetch", h + (o && o.kind ? " " + o.kind : "")), back: () => { log("back"); if (window.__back) window.__back() }, refresh: () => log("refresh") }
 export const usePathname = () => "/app/products/x"
 export const useRouter = () => router
 export const useSearchParams = () => new URLSearchParams()
@@ -917,6 +954,8 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     p.on("request", (r) => {
       const u = r.url()
       if (u.startsWith("file:") || u.startsWith("data:")) return r.continue()
+      /* The routed harness is served at an http address, so its history can hold /app/... paths. */
+      if (u.startsWith("http://probe.test/")) return r.respond({ status: 200, contentType: "text/html", body: readFileSync(join(stubs, "index.html"), "utf8") })
       requests.push(u.replace(/\?.*/, ""))
       if (ctx.fakeDb && /\/rest\/v1\//.test(u)) {
         const method = r.method()
@@ -945,7 +984,7 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
         console.log("        (this Chromium cannot pretend to have a safe area: measured with none)")
       }
     }
-    await p.goto(`file://${join(stubs, "index.html")}${query}`)
+    await p.goto(query.includes("route") ? `http://probe.test/app/products/8f0c2b1e-3a4d-4c5e-9f60-718293a4b5c6${query}` : `file://${join(stubs, "index.html")}${query}`)
     await sleep(900)
     if (errors.length) fail(`The page threw: ${errors[0]}`)
     if (query.includes("route")) {

@@ -16,6 +16,7 @@ import type { LoadedProduct } from "@/app/app/products/new/editor-form"
 import { ProductsClient } from "@/app/app/products/products-client"
 import { PageLayer } from "@/components/app/page-layer"
 import { LanguageProvider } from "@/lib/i18n"
+import { markTraversal, takeTraversal } from "@/lib/ui/app-navigation"
 
 const pic = (hue: number) =>
   "data:image/svg+xml;utf8," +
@@ -88,10 +89,51 @@ const shelf = Array.from({ length: 14 }, (_, i) => ({
   sales_count: i % 3 === 0 ? 12 * i : 0,
 }))
 
+/*
+  The browser's own history. In `route` mode the probe serves this page at
+  http://probe.test/app/products/<id>, so push and replace are
+  history.pushState and replaceState, back is history.back(), and a popstate
+  (back or forward, from the stand-in router or the probe) draws the address
+  it landed on, marked as a traversal the way the app's popstate listener
+  marks one (components/app/navigation-loading-bar.tsx) and taken at the
+  commit the way the stage takes it. A mirror of the entries is kept for
+  the probe to read (`__hist`). The editor starts as the only entry: opened
+  directly, with no list behind it.
+*/
+type Hist = { stack: string[]; at: number }
+const startPath = location.pathname.startsWith("/app/") ? location.pathname : `/app/products/${loaded.product.id}`
+const hist: Hist = { stack: [startPath], at: 0 }
+;(window as unknown as { __hist: Hist }).__hist = hist
+
 function Routed() {
-  const [path, setPath] = React.useState(`/app/products/${loaded.product.id}`)
-  ;(window as unknown as { __navigate: (h: string) => void }).__navigate = (h) => React.startTransition(() => setPath(h))
-  ;(window as unknown as { __path: string }).__path = path
+  const [path, setPath] = React.useState(startPath)
+  const w = window as unknown as { __navigate: (h: string, how?: "push" | "replace") => void; __back: () => void; __path: string }
+  w.__navigate = (h, how = "push") => {
+    if (how === "replace") {
+      hist.stack[hist.at] = h
+      history.replaceState({ at: hist.at }, "", h)
+    } else {
+      hist.stack = [...hist.stack.slice(0, hist.at + 1), h]
+      hist.at++
+      history.pushState({ at: hist.at }, "", h)
+    }
+    React.startTransition(() => setPath(h))
+  }
+  w.__back = () => history.back()
+  w.__path = path
+  React.useEffect(() => {
+    history.replaceState({ at: 0 }, "", startPath)
+    const onPop = (e: PopStateEvent) => {
+      hist.at = (e.state as { at?: number } | null)?.at ?? 0
+      markTraversal()
+      React.startTransition(() => setPath(location.pathname))
+    }
+    window.addEventListener("popstate", onPop)
+    return () => window.removeEventListener("popstate", onPop)
+  }, [])
+  React.useLayoutEffect(() => {
+    takeTraversal()
+  }, [path])
   return (
     <div style={{ position: "fixed", inset: 0 }}>
       <div data-shell-chrome="" className="fixed inset-x-0 top-0 z-50 h-[68px] border-b border-[#eceef1] bg-white md:h-[58px]" />
@@ -101,6 +143,9 @@ function Routed() {
             <LanguageProvider>
               <ProductsClient products={shelf} creatorUsername="astrid" />
             </LanguageProvider>
+          ) : !path.startsWith("/app/products/") ? (
+            /* Any other page, reached from the pill: Orders, say. */
+            <div data-other-page="" className="p-6 text-[14px] text-[#6b7280]">{path}</div>
           ) : (
             <PageLayer pill inset="bar">
               <ProductEditor key={path} creator={{ id: "c1", slug: "astrid", username: "astrid" }} loaded={loaded} />

@@ -231,7 +231,7 @@ check("search is a real field that is always there once there are products, not 
 check("Escape clears the field, and so does its clear button", /e\.key === "Escape" && searchQuery/.test(list) && /aria-label="Clear search"[\s\S]{0,400}onClick=\{clearSearch\}/.test(list))
 check("the field and Sort stack over the views until the column is 700px wide, by container query, not the window",
   /"@container mx-auto pb-2 md:pb-8"/.test(list) && /@min-\[700px\]:flex-row-reverse/.test(list))
-check("the views are All, Active, Draft and Archived, All open first, with no counts", /useState<View>\(\(\) => leftAt\?\.view \?\? "all"\)/.test(list) && /value: "all"[\s\S]{0,80}value: "active"[\s\S]{0,80}value: "draft"[\s\S]{0,80}value: "archived"/.test(list) && !/tabCounts/.test(list))
+check("the views are All, Active, Draft and Archived, All open first, with no counts", /useState<View>\(resumed\?\.view \?\? "all"\)/.test(list) && /value: "all"[\s\S]{0,80}value: "active"[\s\S]{0,80}value: "draft"[\s\S]{0,80}value: "archived"/.test(list) && !/tabCounts/.test(list))
 check("as one segmented control whose white segment slides on transform alone, drawn only when there is more than one view",
   /\{views\.length > 1 \? \(\s*<div\s+role="tablist"/.test(list) && /data-segment=""/.test(list) && /transition-transform duration-200/.test(list) && /motion-reduce:transition-none/.test(list) && /transform: `translateX\(\$\{viewIndex \* 100\}%\)`/.test(list))
 check("sort by newest, oldest, title, price and sales", ["newest", "oldest", "title_asc", "title_desc", "price_desc", "price_asc", "sales"].every((s) => list.includes(`value: "${s}"`)) && /\.sort\(compare\(sort\)\)/.test(list))
@@ -270,6 +270,11 @@ check("nothing moves under reduced motion, and nothing in it animates layout: op
   /if \(!section \|\| reducedMotion\(\) \|\| typeof section\.animate !== "function"\) return null/.test(motion) && animated.length >= 5 && animated.every((k) => ["opacity", "transform", "clipPath"].includes(k)), animated)
 check("each picture is its own size, decoded off the main thread, on grey", /<Image src=\{src\} alt="" width=\{size\} height=\{size\} decoding="async"/.test(list) && !/<Image[^>]*\bfill\b/.test(list) && /bg-\[#eceef1\]/.test(list))
 check("the list comes back as it was left: its view, order, search and page, kept for the tab", /let leftAt: \{ view: View; sort: Sort; search: string; page: number \} \| null = null/.test(list) && /leftAt = \{ view, sort, search: searchQuery, page \}/.test(list))
+/* "The remembered list state should only be restored on a return from the editor (or browser back to the list), not when the Products page is opened fresh." */
+check("but only on a return: a fresh visit from the sidebar or the pill starts at All, Newest, no search, page one",
+  /const \[resumed\] = useState\(\(\) => \(isReturning\(\) \? leftAt : null\)\)/.test(list)
+    && /useState<Sort>\(resumed\?\.sort \?\? "newest"\)/.test(list) && /useState\(resumed\?\.page \?\? 1\)/.test(list) && /useState\(resumed\?\.search \?\? ""\)/.test(list)
+    && !/leftAt\?\./.test(list) && /listShown\(\)/.test(list))
 check("the row you came back from is tinted as the list comes back, after the layer's move", /const id = takeEdited\(\)/.test(list) && /delay: LAYER_MOTION_MS/.test(list))
 check("rows and New product open the editor with the layer's move; a press with a modifier is left to the link",
   /openEditor\(router, href\)/.test(list) && /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(list) && (list.match(/onClick=\{openFromLink\(/g) ?? []).length >= 3)
@@ -288,7 +293,14 @@ check("on a phone the layer slides in from the right edge and back out to it; fr
 check("the pill keeps its place while a layer moves under it", /html\[data-layer-motion\] \[data-app-nav-pill\] \{\s*view-transition-name: app-nav-pill;/.test(css))
 check("the stage plays no landing of its own under a layer's move", /if \(document\.documentElement\.dataset\.layerMotion\) return\s*playEntrance\(s\.outer/.test(code("components/app/app-stage.tsx")))
 const ret = code("app/app/products/list-return.ts")
-check("the way back is a return: the stage puts the list's scroll back", /moveLayer\("leave", \(\) => \{\s*markTraversal\(\)\s*router\.push\(PRODUCTS_HREF\)/.test(ret) && /prefetchAppPage\(router, PRODUCTS_HREF\)/.test(ret))
+/* "Exit must not leave the editor in the browser's forward/back stack in a surprising way." */
+check("an editor the list opened goes back in history; one opened any other way is replaced by the list, and neither pushes a new entry",
+  /if \(back\) \{[\s\S]{0,120}router\.back\(\)\s*\} else \{\s*markTraversal\(\)\s*router\.replace\(PRODUCTS_HREF\)/.test(ret) && !/router\.push\(PRODUCTS_HREF\)/.test(ret) && /prefetchAppPage\(router, PRODUCTS_HREF\)/.test(ret))
+check("\"the list opened it\" is noted when the editor mounts right after the list pushed it, and forgotten once no editor is up",
+  /pushedAt = Date\.now\(\)\s*router\.push\(href\)/.test(ret) && /if \(pushedAt !== null && Date\.now\(\) - pushedAt < PUSH_KEPT_MS\) fromList = true/.test(ret)
+    && /if \(editors === 0\) fromList = false/.test(ret) && /useListOrigin\(\)/.test(editor))
+check("a return is noted by address: the way back from the editor and every popstate, kept until the list shows",
+  /window\.addEventListener\("popstate", \(\) => \{\s*returnTo = window\.location\.pathname/.test(ret) && /returnTo = PRODUCTS_HREF/.test(ret) && /return returnTo === PRODUCTS_HREF \|\| isTraversing\(\)/.test(ret))
 
 const probe = read("scripts/check-products-page.mjs")
 check("the probe reads the pill's box from its source and measures 360, 390, 430, 768 and 1280", /num\("BAR_H"\)/.test(probe) && /num\("SLOT"\)/.test(probe) && ["phone-360", "phone-390", "phone-430", "tablet-768", "desktop-1280"].every((w) => probe.includes(`"${w}"`)))
@@ -296,6 +308,8 @@ check("the probe holds the row buttons and New product against the editor's own,
   /data-probe-more/.test(probe) && /data-probe-save/.test(probe) && /every picture is the same <img> element it was/.test(probe) && /no frame with an empty list/.test(probe))
 const editorProbe = read("scripts/check-product-editor.mjs")
 check("the editor probe walks the way out and in a fifth at a time, at 390 and 1280", /"phone-390-route"/.test(editorProbe) && /"desktop-1280-route"/.test(editorProbe) && /no blank frame/.test(editorProbe) && /Cancel has become Back/.test(editorProbe))
+check("and follows the history: replace when opened directly, back when the list opened it, forward, back and a fresh visit",
+  /http:\/\/probe\.test\//.test(editorProbe) && /Back goes back in history/.test(editorProbe) && /Back puts the list in the editor's place/.test(editorProbe) && /opened fresh from the sidebar or the pill/.test(editorProbe))
 /*
   NO SKELETON LEFT BEHIND. The route's skeleton.tsx outlived the route
   skeletons: nothing imported it, and this test measured its shapes as if a
