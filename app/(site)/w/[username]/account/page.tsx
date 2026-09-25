@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { siteCustomer } from "@/lib/site-accounts/account-data"
 import { listSiteWishlist, wishlistCards } from "@/lib/site-accounts/wishlist-store"
+import { wishlistObject } from "@/lib/storelib-theme/globals"
 import { siteMetadata } from "../render-site"
 import { renderAccountPage } from "../render-account"
 import { siteVisitor } from "../visitor"
@@ -46,6 +47,6 @@ export default async function SiteAccountPage({ params }: PageProps) {
 
   return renderAccountPage(username, "account", {
     customer: customer as unknown as Record<string, unknown> | null,
-    wishlist: { items: cards, count: cards.length, signed_in: true },
+    wishlist: wishlistObject(cards, true),
   })
 }

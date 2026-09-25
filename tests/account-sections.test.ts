@@ -12,7 +12,7 @@
 import { compileSection } from "@/lib/storelib-theme/storelib/compile"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
-import { SITE_ROUTES, shopObject } from "@/lib/storelib-theme/globals"
+import { SITE_ROUTES, shopObject, wishlistObject } from "@/lib/storelib-theme/globals"
 import { accountPageSections, signInNotice } from "@/lib/website-builder/account-pages"
 import { BUILT_IN_PAGE_KEYS, GENERATED_PAGE_KEYS, RESERVED_PAGE_KEYS, pageKeyFromSegment, pagePath, pageTitleFromKey } from "@/lib/website-builder/site-pages"
 import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
@@ -87,13 +87,13 @@ function main() {
   section("Account, with somebody signed in")
   {
     const customer = { name: "Alex Morgan", first_name: "Alex", email: "alex@example.com", orders_count: 1, orders: [{ id: P1, title: "Linen apron", image: "", url: "/products/linen-apron", date: "Sep 21, 2026", price: "$64.00", action_label: "Download", action_url: `https://storelib.com/library/products/${P1}` }] }
-    const html = draw("main_account", {}, { template: "page.account", globals: { customer, wishlist: { items: [card(P2, "Card wallet")], count: 1, signed_in: true } } })
+    const html = draw("main_account", {}, { template: "page.account", globals: { customer, wishlist: wishlistObject([card(P2, "Card wallet")], true) } })
     check("it greets them by first name", /<h1 class="s__h">Hi, Alex<\/h1>/.test(html), html)
     check("their email", html.includes("alex@example.com"))
     check("their order, with the way to the download", html.includes("Linen apron") && html.includes(`href="https://storelib.com/library/products/${P1}"`) && html.includes(">Download<"))
     check("their saved items, and the way to all of them", html.includes("Card wallet") && html.includes(`href="${SITE_ROUTES.wishlist_url}"`))
     check("sign out is a POST to this website's own route, left to the browser", /<form class="acct__out" method="post" action="\/account\/logout" data-storelib-form="native">/.test(html))
-    const empty = draw("main_account", {}, { template: "page.account", globals: { customer: { ...customer, orders: [], orders_count: 0 }, wishlist: { items: [], count: 0, signed_in: true } } })
+    const empty = draw("main_account", {}, { template: "page.account", globals: { customer: { ...customer, orders: [], orders_count: 0 }, wishlist: wishlistObject([], true) } })
     check("no orders says so and offers the shop", empty.includes("Nothing here yet.") && empty.includes(`href="${SITE_ROUTES.products_url}"`))
     const nobody = draw("main_account", {}, { template: "page.account" })
     check("without a customer it draws the signed out line and a way to sign in, and no data", nobody.includes("Sign in to see your orders") && !nobody.includes("alex@example.com") && nobody.includes(`href="${SITE_ROUTES.account_signin_url}"`))
@@ -101,13 +101,13 @@ function main() {
 
   section("Wishlist")
   {
-    const full = draw("main_wishlist", {}, { template: "page.wishlist", globals: { wishlist: { items: [card(P1, "Linen apron"), card(P2, "Card wallet")], count: 2, signed_in: false } } })
+    const full = draw("main_wishlist", {}, { template: "page.wishlist", globals: { wishlist: wishlistObject([card(P1, "Linen apron"), card(P2, "Card wallet")], false) } })
     check("each saved product is a card the page can hide, with a pressed heart", (full.match(/data-storelib-wishlist-card="/g) ?? []).length === 2 && (full.match(/data-storelib-wishlist="/g) ?? []).length === 2 && /aria-pressed="true"/.test(full))
     check("the empty line is drawn hidden, ready for when the last one goes", /<div class="empty" data-storelib-wishlist-empty hidden>/.test(full))
     check("a guest is told the list is in this browser, with a way to keep it", full.includes("Saved items stay in this browser.") && full.includes(`href="${SITE_ROUTES.account_login_url}"`))
-    const mine = draw("main_wishlist", {}, { template: "page.wishlist", globals: { wishlist: { items: [card(P1, "Linen apron")], count: 1, signed_in: true } } })
+    const mine = draw("main_wishlist", {}, { template: "page.wishlist", globals: { wishlist: wishlistObject([card(P1, "Linen apron")], true) } })
     check("a signed in visitor is not told to sign in", !mine.includes("Saved items stay in this browser."))
-    const none = draw("main_wishlist", {}, { template: "page.wishlist", globals: { wishlist: { items: [], count: 0, signed_in: false } } })
+    const none = draw("main_wishlist", {}, { template: "page.wishlist", globals: { wishlist: wishlistObject([], false) } })
     check("nothing saved: the empty line, shown", /<div class="empty" data-storelib-wishlist-empty>/.test(none) && !/data-storelib-wishlist-card/.test(none))
   }
 

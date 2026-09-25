@@ -44,12 +44,38 @@ export interface ShopObject {
 /** The customer on the account page: see lib/site-accounts/account-data.ts. */
 export type CustomerObject = Record<string, unknown> | null
 
+export interface WishlistItem {
+  id: string
+  title: string
+  /** Formatted, e.g. "$48.00". */
+  price: string
+  compare_price: string
+  image: string
+  url: string
+  tag: string
+}
+
 export interface WishlistObject {
-  /** Product cards, block-shaped like `products`. */
-  items: { id: string; type: string; settings: Record<string, unknown> }[]
+  /** The saved products, each `{ id, title, price, compare_price, image, url, tag }`. */
+  items: WishlistItem[]
   count: number
   /** True when the list is the signed-in account's rather than this browser's. */
   signed_in: boolean
+}
+
+/** The saved products as a template reads them, from the shop's product cards. */
+export function wishlistObject(cards: { id: string; settings: Record<string, unknown> }[], signedIn: boolean): WishlistObject {
+  const s = (v: unknown) => (typeof v === "string" ? v : "")
+  const items = cards.map((c) => ({
+    id: c.id,
+    title: s(c.settings.title),
+    price: s(c.settings.price),
+    compare_price: s(c.settings.compare_price),
+    image: s(c.settings.image),
+    url: s(c.settings.url),
+    tag: s(c.settings.tag),
+  }))
+  return { items, count: items.length, signed_in: signedIn }
 }
 
 export interface StorefrontGlobals {

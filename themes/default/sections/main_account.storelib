@@ -1,5 +1,5 @@
 <template>
-<section class="s" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn2: {{ scheme.secondary_btn_bg }}; --s-btn2-text: {{ scheme.secondary_btn_text }}; --s-btn2-border: {{ scheme.secondary_btn_border }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
+<section class="s" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn2: {{ scheme.secondary_btn_bg }}; --s-btn2-text: {{ scheme.secondary_btn_text }}; --s-btn2-border: {{ scheme.secondary_btn_border }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-btn2-hover: {{ scheme.secondary_btn_hover_bg }}; --s-btn2-hover-text: {{ scheme.secondary_btn_hover_text }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
   <div class="s__in acct">
     {% if customer %}
       {# Who is signed in, and the way out, on one line. The page is theirs,
@@ -40,13 +40,13 @@
         </div>
         {% if wishlist.count > 0 %}
           <div class="saved">
-            {% for block in wishlist.items %}
+            {% for item in wishlist.items %}
               {% if forloop.index <= 4 %}
-              <article class="card" data-block-id="{{ block.id }}">
-                <div class="card__media">{% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}</div>
-                <p class="card__title">{{ block.settings.title }}</p>
-                {% if block.settings.price %}<p class="card__price">{{ block.settings.price }}</p>{% endif %}
-                {% if block.settings.url %}<a class="card__link" href="{{ block.settings.url | url }}"><span class="sr">{{ block.settings.title }}</span></a>{% endif %}
+              <article class="card">
+                <div class="card__media">{% if item.image %}<img src="{{ item.image | asset }}" alt="{{ item.title }}" loading="lazy" decoding="async">{% endif %}</div>
+                <p class="card__title">{{ item.title }}</p>
+                {% if item.price %}<p class="card__price">{{ item.price }}</p>{% endif %}
+                {% if item.url %}<a class="card__link" href="{{ item.url | url }}"><span class="sr">{{ item.title }}</span></a>{% endif %}
               </article>
               {% endif %}
             {% endfor %}
@@ -113,9 +113,9 @@ a.order__title:hover { text-decoration: underline; text-underline-offset: 3px; }
 .order__go {
   flex: none; padding: 9px 14px; font-size: 14px; font-weight: 600; text-decoration: none;
   color: var(--s-btn2-text); background: var(--s-btn2); border: 1px solid var(--s-btn2-border); border-radius: var(--s-radius);
-  transition: opacity 150ms ease;
+  transition: background-color 150ms ease, color 150ms ease;
 }
-.order__go:hover { opacity: 0.85; }
+.order__go:hover { background: var(--s-btn2-hover); color: var(--s-btn2-hover-text); }
 
 .saved { display: grid; gap: 16px; margin-top: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @container (min-width: 640px) { .saved { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
@@ -130,11 +130,13 @@ a.order__title:hover { text-decoration: underline; text-underline-offset: 3px; }
 .s__btn {
   display: flex; align-items: center; justify-content: center; min-height: 48px;
   padding: 12px 24px; font-size: 15px; font-weight: 600; text-decoration: none;
-  border-radius: var(--s-radius); border: 1px solid transparent; transition: opacity 150ms ease;
+  border-radius: var(--s-radius); border: 1px solid transparent; transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
-.s__btn:hover { opacity: 0.88; }
 .s__btn--primary { background: var(--s-btn); color: var(--s-btn-text); border-color: var(--s-btn); }
 .s__btn:focus-visible, .order__go:focus-visible, .acct__link:focus-visible { outline: 2px solid var(--s-heading); outline-offset: 2px; }
+/* Hover colours from the scheme, after the section's own Advanced colors. */
+.s__btn--primary:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); border-color: var(--s-btn-hover); }
+.s__btn--secondary:hover { background: var(--s-btn2-hover); color: var(--s-btn2-hover-text); }
 </style>
 
 <schema>

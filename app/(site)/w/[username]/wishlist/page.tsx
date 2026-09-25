@@ -4,6 +4,7 @@ import type { Metadata } from "next"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { GUEST_COOKIE, parseCookieValue } from "@/lib/site-accounts/wishlist-list"
 import { listSiteWishlist, wishlistCards } from "@/lib/site-accounts/wishlist-store"
+import { wishlistObject } from "@/lib/storelib-theme/globals"
 import { siteMetadata } from "../render-site"
 import { renderAccountPage } from "../render-account"
 import { siteVisitor } from "../visitor"
@@ -56,6 +57,6 @@ export default async function SiteWishlistPage({ params }: PageProps) {
   const cards = await wishlistCards(db, creatorId, ids)
 
   return renderAccountPage(username, "wishlist", {
-    wishlist: { items: cards, count: cards.length, signed_in: signedIn },
+    wishlist: wishlistObject(cards, signedIn),
   })
 }

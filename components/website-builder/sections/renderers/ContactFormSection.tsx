@@ -121,6 +121,14 @@ export function ContactFormSection({ section, theme, isEditing, isSelected, onCl
               {problem || str(s.error_message, "Something went wrong. Please try again.")}
             </p>
           )}
+          {/* For the creator in the builder only: where these messages go. */}
+          {(isEditing || inEditor) && (
+            <p className="text-xs opacity-60">
+              {str(s.recipient_email).trim()
+                ? `Messages are emailed to ${str(s.recipient_email).trim()} and kept in Emails.`
+                : "Messages are emailed to your support email and kept in Emails."}
+            </p>
+          )}
           <button
             type="submit"
             disabled={state === "sending"}

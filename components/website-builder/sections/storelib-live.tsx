@@ -13,7 +13,7 @@ import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import type { RenderContext } from "@/lib/storelib-theme/types"
 import { StorelibRenderProvider, type SectionRenderFn } from "./storelib-sources"
-import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
+import { wishlistObject, type StorefrontGlobals } from "@/lib/storelib-theme/globals"
 
 type Card = NonNullable<RenderContext["products"]>[number]
 
@@ -27,7 +27,7 @@ const PLACEHOLDER_CARDS: Card[] = [
 export function editorGlobals(template: string, products: Card[]): StorefrontGlobals | undefined {
   if (template !== "page.account" && template !== "page.wishlist") return undefined
   const cards = products.length > 0 ? products.slice(0, 4) : PLACEHOLDER_CARDS
-  const wishlist = { items: cards, count: cards.length, signed_in: template === "page.account" }
+  const wishlist = wishlistObject(cards, template === "page.account")
   if (template === "page.wishlist") return { wishlist }
   const orders = cards.slice(0, 2).map((c, i) => ({
     id: c.id,

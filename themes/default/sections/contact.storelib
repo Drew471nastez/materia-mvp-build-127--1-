@@ -1,5 +1,5 @@
 <template>
-<section class="s" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
+<section class="s" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
   <div class="s__in s__in--{{ settings.max_width }} cf cf--{{ settings.layout }}">
     <div class="cf__intro">
       {# The store's own name when the heading is left empty, so a new
@@ -98,9 +98,9 @@
   font: inherit; font-size: 15px; font-weight: 600;
   color: var(--s-btn-text); background: var(--s-btn);
   border: 1px solid var(--s-btn); border-radius: var(--s-radius);
-  cursor: pointer; transition: opacity 150ms ease;
+  cursor: pointer; transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
-.cf__send:hover { opacity: 0.88; }
+.cf__send:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); border-color: var(--s-btn-hover); }
 .cf__send:disabled { opacity: 0.6; cursor: default; }
 .cf__send:focus-visible { outline: 2px solid var(--s-heading); outline-offset: 2px; }
 .cf__done { margin: 0; font-size: 16px; line-height: 1.6; color: var(--s-heading); }
