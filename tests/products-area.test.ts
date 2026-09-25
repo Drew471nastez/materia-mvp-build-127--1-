@@ -108,19 +108,58 @@ check("no page or loading boundary under app/app/products draws an outline of th
   /if \(load\.state === "signed-out"\) return null/.test(idPage) && /if \(load\.state === "signed-out"\) return null/.test(newPage))
 check("and the list still prefetches the editor, data and all, when a row is hovered or touched", /router\.prefetch\(`\/app\/products\/\$\{id\}`, FULL_PREFETCH\)/.test(code("app/app/products/products-client.tsx")))
 
-console.log("\nOne bar, at the top")
+console.log("\nNo section tabs; one bar at the top below lg")
 
-check("no Save and Cancel strip at the foot of the screen", !/fixed bottom-0 left-0 right-0/.test(editor) && !/Bottom Action Bar/.test(read("app/app/products/new/product-editor.tsx")))
-check("the bar is sticky at the top and holds Cancel (or Back) and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30/.test(editor) && /<SaveButton phase=\{savePhase\}/.test(editor) && /<LeaveButton mode=\{leaveMode\} disabled=\{saveBusy\} onLeave=\{\(\) => void handleCancel\(\)\} \/>/.test(editor))
+/* "On desktop or on mobile, in products/new or edit, there should not be the About / Media / Content / Settings / SEO." */
+check("no row of section tabs on any width, and no scroll spy behind one",
+  !/role="tablist"|role="tab"|aria-label="Sections"|PILL_SECTIONS|getPillForSection|activeSection|pillScrollRef|pillRefs|completedSections/.test(editor))
+check("a failed check still brings its card into view, the files check its own card", /const scrollToSection = \(sectionId: SectionId\)/.test(editor) && /showToast\("Upload a file"\)[\s\S]{0,160}scrollToSection\("files"\)/.test(editor) && /sectionRefs\.current\.files = el/.test(editor))
+check("no fixed Save and Cancel strip over a phone's foot", !/fixed bottom-0 left-0 right-0/.test(editor) && !/Bottom Action Bar/.test(read("app/app/products/new/product-editor.tsx")))
+check("the top bar is sticky at the top below lg and holds Cancel (or Back) and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30 [^"]* lg:hidden"/.test(editor) && /<SaveButton phase=\{savePhase\}/.test(editor) && /<LeaveButton mode=\{leaveMode\} disabled=\{saveBusy\} onLeave=\{\(\) => void handleCancel\(\)\} \/>/.test(editor))
 check("Cmd or Ctrl and S saves", /e\.metaKey \|\| e\.ctrlKey/.test(editor) && /key\.toLowerCase\(\) !== "s"/.test(editor))
-const barSource = editor.slice(editor.indexOf('data-editor-bar=""'), editor.indexOf('aria-label="Sections"'))
-check("the bar names no product: the name is in the title field", !/savedTitle|\{title\}|"Untitled product"/.test(barSource.replace(/title=\{savedTitle\.trim\(\) \|\| "Product"\}/, "")) && /<h1 className="sr-only">\{productId \? "Edit product" : "New product"\}<\/h1>/.test(barSource))
-/* "Get rid of the Unsaved and the Live badge or New product thing in the bar." */
-check("nothing is written in the middle of the bar: no Unsaved changes, Saved, Live, Draft or New product", !/data-editor-state/.test(editor) && !/Unsaved changes|"Live"|"Draft"/.test(barSource) && !/grid-cols-\[1fr_auto_1fr\]/.test(barSource))
-check("a screen reader still hears Saving and Saved, from a hidden polite line", /<p data-editor-announce="" className="sr-only" aria-live="polite"/.test(barSource) && /savePhase === "saving" \? "Saving" : savePhase === "saved" \? "Saved"/.test(barSource))
-check("Cancel at the start, the more button and Save at the end", /flex h-14 max-w-\[760px\] items-center justify-between/.test(barSource) && barSource.indexOf("handleCancel") < barSource.indexOf("More actions") && barSource.indexOf("More actions") < barSource.indexOf("<SaveButton"))
-check("whether the product is live or a draft heads the more menu", /section: isPublished \? "Live on your page" : "Draft, hidden from your page"/.test(barSource))
+const barSource = editor.slice(editor.indexOf('data-editor-bar=""'), editor.indexOf('data-editor-page=""'))
+check("the bar names no product: the name is in the title field", barSource.length > 0 && !/savedTitle|\{title\}|"Untitled product"/.test(barSource) && /<h1 className="sr-only">\{productId \? "Edit product" : "New product"\}<\/h1>/.test(barSource))
+/* "Get rid of the Unsaved and the Live badge or New product thing in the bar." (the top bar; the desktop foot bar says it, below) */
+check("nothing is written in the middle of the top bar: no Unsaved changes, Saved, Live, Draft or New product", !/data-editor-state|saveState|statusBadge/.test(barSource) && !/Unsaved changes|"Live"|"Draft"/.test(barSource) && !/grid-cols-\[1fr_auto_1fr\]/.test(barSource))
+check("a screen reader still hears Saving and Saved, from a hidden polite line outside both bars, so it is there at every width",
+  /<p data-editor-announce="" className="sr-only" aria-live="polite"/.test(editor) && /savePhase === "saving" \? "Saving" : savePhase === "saved" \? "Saved"/.test(editor)
+    && editor.indexOf("data-editor-announce") < editor.indexOf('data-editor-bar=""'))
+check("Cancel at the start, the more button and Save at the end", /flex h-14 max-w-\[760px\] items-center justify-between/.test(barSource) && barSource.indexOf("handleCancel") < barSource.indexOf("{moreMenu}") && barSource.indexOf("{moreMenu}") < barSource.indexOf("<SaveButton"))
+check("whether the product is live or a draft heads the more menu", /const moreMenu = productId \? \(/.test(editor) && /section: isPublished \? "Live on your page" : "Draft, hidden from your page"/.test(editor))
 check("the unsaved tracking still drives the leave question", /if \(hasUnsavedChanges\) \{\s*const leave = await ask\(/.test(editor) && /title: "Discard changes\?"/.test(editor) && /confirm: "Discard", cancel: "Keep editing"/.test(editor))
+
+/* "On desktop large screens ... too narrow ... the Save and Cancel ... better to be at the bottom ... match the Storelib UI more." */
+console.log("\nFrom lg: a page header, two columns, and Save at the foot")
+const headSource = editor.slice(editor.indexOf('data-editor-head=""'), editor.indexOf("</header>"))
+check("the page container is the /app one from lg: 1200px, 32px gutters", /data-editor-page="" className="mx-auto w-full max-w-\[760px\] [^"]*lg:max-w-\[1200px\] lg:px-8/.test(editor))
+check("a page header from lg only: back to Products (which asks first), the name, the status badge, the more menu",
+  /className="mb-5 hidden min-h-9 items-center gap-2 lg:flex"/.test(headSource) && /aria-label="Back to products"/.test(headSource) && /onClick=\{\(\) => void handleCancel\(\)\}/.test(headSource)
+    && /text-\[24px\] font-bold leading-9 text-\[#1a1a2e\] sm:text-\[28px\]/.test(headSource) && /productId \? savedTitle\.trim\(\) \|\| "Untitled" : "New product"/.test(headSource)
+    && /\{statusBadge\}/.test(headSource) && /\{moreMenu\}/.test(headSource))
+const mainAt = editor.indexOf('data-editor-main=""')
+const sideAt = editor.indexOf('data-editor-side=""')
+const at = (s: string) => editor.indexOf(s)
+check("two columns from lg, the main one two thirds", /lg:grid lg:grid-cols-\[minmax\(0,2fr\)_minmax\(272px,1fr\)\] lg:items-start/.test(editor) && mainAt > 0 && sideAt > mainAt)
+check("the product itself in the main column: title, pictures, description, included, files, variants, pricing, questions",
+  [at("sectionRefs.current.about = el"), at("sectionRefs.current.media = el"), at("sectionRefs.current.content = el"), at("What's Included</h2>"), at("sectionRefs.current.files = el"), at("sectionRefs.current.variants = el"), at(">Pricing</h2>"), at(">FAQ</h2>")]
+    .every((i, n, all) => i > mainAt && i < sideAt && (n === 0 || i > all[n - 1])))
+check("how it is shown and found beside it: status (lg only), category, settings, search",
+  [at('data-editor-status=""'), at("sectionRefs.current.category = el"), at(">Settings</h2>"), at(">SEO</h2>")].every((i, n, all) => i > sideAt && (n === 0 || i > all[n - 1]))
+    && /data-editor-status="" className=\{cn\(CARD, "hidden lg:block"\)\}/.test(editor))
+check("every card is the /app card, spaced by its column rather than a margin of its own",
+  /const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-\[#e5e7eb\]\/60 bg-white p-4 shadow-\[0_1px_3px_rgba\(0,0,0,0\.04\)\] sm:space-y-5 sm:p-6"/.test(editor)
+    && (editor.match(/className=\{CARD\}/g) ?? []).length >= 11 && !/mb-3 scroll-mt-4/.test(editor))
+const footSource = editor.slice(editor.indexOf('data-editor-foot=""'), editor.indexOf("{/* CTA Bottom Sheet */}"))
+check("the foot bar from lg: sticky at the bottom of the pane that scrolls, white, a hairline and a soft shadow upward, over the home indicator's inset",
+  /className="sticky bottom-0 z-30 mt-auto hidden shrink-0 border-t border-\[#e5e7eb\] bg-white pb-\[env\(safe-area-inset-bottom\)\] shadow-\[0_-4px_16px_-8px_rgba\(17,24,39,0\.10\)\] lg:block"/.test(footSource)
+    && /page-scroll h-full overflow-y-auto [^"]* lg:flex lg:flex-col/.test(editor) && !/fixed/.test(footSource))
+check("the state in words on its left, Cancel and Save on its right, the same buttons as the top bar",
+  /data-editor-state=\{saveState\}/.test(footSource) && footSource.indexOf("<LeaveButton mode={leaveMode} disabled={saveBusy}") < footSource.indexOf("<SaveButton phase={savePhase} disabled={!canSave}"))
+check("the words are Saving, Unsaved changes, Not saved yet, Saved, Live and Draft",
+  /const saveState = saveBusy\s*\? "Saving"\s*: hasUnsavedChanges\s*\? "Unsaved changes"\s*: !productId\s*\? "Not saved yet"\s*: savedThisVisit\s*\? "Saved"\s*: isPublished\s*\? "Live"\s*: "Draft"/.test(editor))
+const layoutProbe = read("scripts/check-product-editor.mjs")
+check("scripts/check-product-editor.mjs measures the columns and the foot bar at 1280, 1440 and 1920, and the top bar at 390 and 1000",
+  /"desktop-1280"/.test(layoutProbe) && /"desktop-1440"/.test(layoutProbe) && /"wide-1920"/.test(layoutProbe) && /"tablet-1000"/.test(layoutProbe) && /\[data-editor-foot\]/.test(layoutProbe) && /no row of section tabs/.test(layoutProbe))
 
 /* "Either smoothly close that page, or the Cancel button should become Back when the product is saved, and the state of the buttons should change." */
 console.log("\nAfter a save the page stays: Back, and a grey Saved")

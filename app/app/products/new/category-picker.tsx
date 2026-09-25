@@ -633,6 +633,7 @@ export function CategoryPicker({
     )
   }
 
+  /* The field's own width, 240px at least: from lg it sits in the editor's side column, near the window's right edge, where a wider list would be pushed off its left edge. */
   return (
     <Popover open={open} onOpenChange={show}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
@@ -646,7 +647,7 @@ export function CategoryPicker({
           e.preventDefault()
           ;(e.currentTarget as HTMLElement | null)?.querySelector<HTMLInputElement>("[data-category-search]")?.focus()
         }}
-        className="flex w-[var(--radix-popover-trigger-width)] min-w-[320px] max-w-[440px] flex-col overflow-hidden rounded-xl border border-[#e3e4e8] bg-white p-0 text-[#1a1a2e] shadow-[0_12px_40px_-8px_rgba(17,24,39,0.22),0_2px_6px_rgba(17,24,39,0.06)]"
+        className="flex w-[var(--radix-popover-trigger-width)] min-w-[240px] max-w-[440px] flex-col overflow-hidden rounded-xl border border-[#e3e4e8] bg-white p-0 text-[#1a1a2e] shadow-[0_12px_40px_-8px_rgba(17,24,39,0.22),0_2px_6px_rgba(17,24,39,0.06)]"
         style={{ maxHeight: "min(340px, var(--radix-popover-content-available-height))" }}
       >
         <div className="shrink-0 border-b border-[#eef0f2] p-2">

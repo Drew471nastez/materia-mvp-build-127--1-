@@ -7,10 +7,19 @@
  *
  *   FIRST FRAME. The product's name, pictures and files are in the first
  *   commit, with no request made to get them, and nothing moves after.
- *   THE BAR. One bar at the top, Cancel at the start and the more button and
- *   Save at the end, nothing written in the middle, one height for all three
- *   and a shade under Cancel and more; no bar at the foot of the screen for
- *   the pill to cover.
+ *   NO SECTION TABS, at any width.
+ *   THE BAR, BELOW 1024 (390 to 430, and 1000). One bar at the top, Cancel at
+ *   the start and the more button and Save at the end, nothing written in the
+ *   middle, one height for all three and a shade under Cancel and more; no
+ *   bar at the foot of the screen for the pill to cover; one column of cards.
+ *   FROM 1024 (1280, 1440, 1920). No top bar. A page header (back, the name,
+ *   Live, more) and two columns in the 1200px page container, the main one
+ *   two thirds, each card where it belongs; a white foot bar, sticky on the
+ *   bottom edge across the content area and not the rail, with the state in
+ *   words, Cancel and Save on the column edges; still on the edge half way
+ *   down, and at the end the last card ends 32px above it. No sideways
+ *   scroll, the rail whole. The header's back arrow asks before a change
+ *   is thrown away, as Cancel does.
  *   THE PILL. The last section clears it; nothing is left reserved for the
  *   old bar.
  *   SAVE. Grey while there is nothing to save, violet once there is, grey

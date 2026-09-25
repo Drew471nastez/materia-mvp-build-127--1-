@@ -3383,10 +3383,15 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         className="sticky bottom-0 z-30 mt-auto hidden shrink-0 border-t border-[#e5e7eb] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_-8px_rgba(17,24,39,0.10)] lg:block"
       >
         <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 px-8">
+          {/* The dot is always there, so the words never move when they change: the Products list's green and amber, the violet of Save for a change to save, grey otherwise. */}
           <p data-editor-state={saveState} className="flex min-w-0 items-center gap-2 text-[14px] leading-5">
-            {saveState === "Live" || saveState === "Draft" ? (
-              <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", saveState === "Live" ? "bg-[#22a06b]" : "bg-[#e0a100]")} />
-            ) : null}
+            <span
+              aria-hidden
+              className={cn(
+                "h-1.5 w-1.5 shrink-0 rounded-full",
+                saveState === "Live" ? "bg-[#22a06b]" : saveState === "Draft" ? "bg-[#e0a100]" : saveState === "Unsaved changes" ? "bg-[#8b5cf6]" : "bg-[#b6bac1]",
+              )}
+            />
             <span className={cn("truncate", saveState === "Unsaved changes" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{saveState}</span>
           </p>
           <div className="flex shrink-0 items-center gap-2">
