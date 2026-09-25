@@ -1433,8 +1433,8 @@ section("Two at once still make five, and an import that says what went wrong")
   const parts = read("components/website-builder/website-settings/parts.tsx")
 
   check("the depth lives in components/ui and the product editor re-exports it",
-    /export const secondaryDepth = cn\(/.test(depth) && /export const criticalDepth = cn\(/.test(depth) &&
-      /import \{ REST_SHADOW, criticalDepth, secondaryDepth \} from "@\/components\/ui\/depth-button"/.test(read("app/app/products/new/editor-buttons.tsx")) &&
+    /export const secondaryDepth = cn\(/.test(depth) && /export const primaryDepth = cn\(/.test(depth) && /export const criticalDepth = cn\(/.test(depth) &&
+      /import \{ REST_SHADOW, criticalDepth, primaryDepth, secondaryDepth \} from "@\/components\/ui\/depth-button"/.test(read("app/app/products/new/editor-buttons.tsx")) &&
       !/export const secondaryDepth = cn\(/.test(read("app/app/products/new/editor-buttons.tsx")))
   check("  the library's three dots use it: a hairline, a 1px foot, flat when pressed",
     /import \{ secondaryDepth \} from "@\/components\/ui\/depth-button"/.test(client) &&
