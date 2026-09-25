@@ -18,10 +18,11 @@
  * The real AppStage and top bar over a shell shaped like app/app/layout.tsx
  * (scripts/render-scrollbar-stable.tsx), with the REAL Dashboard, Products
  * (three products, nothing to scroll), Orders (a hundred and thirty), Emails,
- * Coupons, Analytics, Payouts, Settings, Customers and the website list in
- * it, and stand-ins for the product editor and two edge cases. Between the
- * four from the report, every pair both ways and Back after each, plus the
- * older route through the rest, reading every animation frame:
+ * Coupons, Analytics, Payouts, Settings, Customers, the website list and the
+ * product editor in it, and stand-ins for two edge cases. At 1280, 1440 and
+ * 1920, between the four from the report, every pair both ways and Back
+ * after each, plus the older route through the rest, reading every
+ * animation frame:
  *
  *   THE BOX STAYS PUT       the box the page is laid out in (the client box
  *                           of whatever scrolls it) has the same left edge
@@ -38,7 +39,7 @@
  *
  *   node scripts/check-scrollbar-stable.mjs
  *   AUDIT=1 node scripts/check-scrollbar-stable.mjs   (the table: every page,
- *     short and long, at 1440 and 1920: what scrolls it, its gutter, its box)
+ *     short and long, at 1280, 1440 and 1920: what scrolls it, its gutter, its box)
  *   STYLESHEET=<file> ...   measure another copy of app/globals.css (an older
  *     commit's) over this checkout's components
  */
@@ -171,6 +172,7 @@ const base = `http://127.0.0.1:${server.address().port}`
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"], headless: true, ignoreDefaultArgs: ["--hide-scrollbars"] })
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const VIEWPORTS = [
+  ["1280", { width: 1280, height: 800, deviceScaleFactor: 1 }],
   ["1440", { width: 1440, height: 900, deviceScaleFactor: 1 }],
   ["1920", { width: 1920, height: 1080, deviceScaleFactor: 1 }],
 ]
@@ -286,7 +288,7 @@ async function open(viewport, url) {
 /* ── THE AUDIT ─────────────────────────────────────────────────────────── */
 const AUDIT = [
   "/app", "/app/products", "/app/orders", "/app/orders?order=ord-0003", "/app/coupons", "/app/analytics", "/app/payouts",
-  "/app/emails", "/app/emails?tab=published", "/app/emails?tab=automations", "/app/emails?tab=published&email=00000000-0000-4000-8000-000000000001",
+  "/app/emails", "/app/emails?tab=published", "/app/emails?tab=flows", "/app/emails?tab=published&email=00000000-0000-4000-8000-000000000001",
   "/app/website-builder", "/app/settings", "/app/settings?tab=security", "/app/settings?tab=billing", "/app/customers", "/app/sites", "/app/products/x",
 ]
 if (process.env.AUDIT) {
@@ -309,8 +311,8 @@ if (process.env.AUDIT) {
   const pad = (s, n) => String(s).padEnd(n)
   console.log(pad("at", 5) + pad("page", 62) + pad("v", 6) + pad("scroller", 30) + pad("bar", 22) + pad("track", 9) + pad("thumb", 6) + pad("extra", 6) + pad("box", 12) + pad("column", 12) + "h1")
   for (const r of rows) console.log(pad(r.at, 5) + pad(r.page, 62) + pad(r.v, 6) + pad(r.scroller, 30) + pad(r.bar, 22) + pad(r.track, 9) + pad(r.thumb ? "yes" : "", 6) + pad(r.stray || "", 6) + pad(r.box, 12) + pad(r.column, 12) + (r.h1 ?? "") + (r.error ? `  ERROR ${r.error}` : ""))
-  const boxes = new Set(rows.filter((r) => r.page !== "/app/products/x").map((r) => `${r.at} ${r.box} ${r.column}`))
-  console.log(`\ndistinct page boxes (editor aside): ${[...boxes].join(" | ")}`)
+  const boxes = new Set(rows.map((r) => `${r.at} ${r.box} ${r.column}`))
+  console.log(`\ndistinct page boxes: ${[...boxes].join(" | ")}`)
   process.exit(0)
 }
 
@@ -402,11 +404,10 @@ for (const [label, viewport] of VIEWPORTS) {
   await go("/app/orders")
 
   const all = navs.flatMap((n) => n.rec)
-  const pages = all.filter((r) => r.path.split("?")[0] !== "/app/products/x")
-  const ref = pages[0]
+  const ref = all[0]
   const summary = {}
   for (const n of navs) {
-    const rec = n.rec.filter((r) => r.path.split("?")[0] !== "/app/products/x")
+    const rec = n.rec
     const moved = rec.filter((r) => r.left !== ref.left || r.width !== ref.width)
     const column = rec.filter((r) => r.column !== ref.column || r.columnAt !== ref.columnAt)
     const unpainted = rec.filter((r) => !r.painted)
@@ -481,4 +482,4 @@ await browser.close()
 server.close()
 console.log(JSON.stringify(report, null, 1))
 if (problems.length) fail(problems.slice(0, 60).join("\n") + (problems.length > 60 ? `\n...and ${problems.length - 60} more` : ""))
-console.log("ok: at 1440 and 1920 with classic scrollbars, the page's box and the scrollbar track never move or come and go while pages swap, both ways and on Back, and the bar never moves with the page")
+console.log("ok: at 1280, 1440 and 1920 with classic scrollbars, the page's box and the scrollbar track never move or come and go while pages swap, both ways and on Back, and the bar never moves with the page")

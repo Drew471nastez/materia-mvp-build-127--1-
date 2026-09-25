@@ -15,14 +15,15 @@
  *   /app/settings         Settings (?tab=billing for the billing tab)
  *   /app/website-builder  the list of websites
  *   /app/customers        Customers
+ *   /app/products/x       the product editor, in its layout: on a computer a
+ *                         page in the shell, scrolling in its own pane, with
+ *                         Save and Cancel at the foot from 1024px
  *
- * and three stand-ins, for the shapes no real page has on its own:
+ * and two stand-ins, for the shapes no real page has on its own:
  *
  *   /app/sites            short, in the shell's scroller
  *   /app/fits             as tall as the scroller less 2px: the one the 5px
  *                         rise of the landing pushes over the edge
- *   /app/products/x       the product editor's layout around an editor-shaped
- *                         page (the editor itself is being redrawn elsewhere)
  *
  * `?v=short` or `?v=long` on the first load picks the short or the long
  * version of every page that has both (the audit loads each both ways).
@@ -40,6 +41,8 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { NavigationLoadingBar } from "@/components/app/navigation-loading-bar"
 import { AppStage } from "@/components/app/app-stage"
 import EditProductLayout from "@/app/app/products/[id]/layout"
+import { ProductEditor } from "@/app/app/products/new/product-editor"
+import type { LoadedProduct } from "@/app/app/products/new/editor-form"
 import { noteRouterStart, watchRouterStarts } from "@/lib/ui/router-starts"
 import { DashboardClient } from "@/components/app/dashboard-client"
 import { ProductsClient } from "@/app/app/products/products-client"
@@ -217,6 +220,23 @@ const installs = (n: number) => Array.from({ length: n }, (_, i) => ({
   theme: { name: "Storelib Default", version: "1.0.0", slug: "storelib-default" }, settings: null,
 })) as unknown as WebsiteSummary[]
 
+/* The product being edited: a long one, or a short one with nothing to scroll. */
+function editing(long: boolean): LoadedProduct {
+  return {
+    product: {
+      id: "8f0c2b1e-3a4d-4c5e-9f60-718293a4b5c6", creator_id: "c1", title: "Portrait presets",
+      description: long ? "<p>Forty presets made on real client sessions.</p>".repeat(30) : "<p>Forty presets.</p>",
+      price_cents: 2900, compare_at_cents: null, slug: "portrait-presets", type: "digital", status: "published",
+      show_sales_badge: true, refund_policy_enabled: false, refund_policy_type: null, seo_title: null, seo_description: null,
+      call_to_action: "Buy Now", category: "Photography", pay_what_you_want: false, thumbnail_url: null, gallery_urls: [],
+      whats_included: long ? ["40 presets", "Before and after files", "Lifetime updates"] : [],
+      faqs: long ? Array.from({ length: 6 }, (_, i) => ({ question: `Question ${i + 1}`, answer: "An answer." })) : [],
+    },
+    assets: [],
+    variants: [],
+  } as unknown as LoadedProduct
+}
+
 function Customers() {
   const [el, setEl] = React.useState<React.ReactNode>(null)
   React.useEffect(() => { void (CustomersPage as () => Promise<React.ReactNode>)().then(setEl) }, [])
@@ -238,10 +258,7 @@ function Page({ path, search }: { path: string; search: string }) {
     case "/app/products/x":
       return (
         <EditProductLayout>
-          <div data-page="editor" data-product-editor="" className="page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa]">
-            <div data-editor-bar="" className="sticky top-0 z-30 h-16 bg-[#f8f9fa]" />
-            <div data-editor-column="" className="mx-auto w-full max-w-[760px] px-4 sm:px-6"><Cards n={30} /></div>
-          </div>
+          <ProductEditor creator={{ id: "c1", slug: "ana", username: "ana" }} loaded={editing(L)} />
         </EditProductLayout>
       )
     case "/app":
