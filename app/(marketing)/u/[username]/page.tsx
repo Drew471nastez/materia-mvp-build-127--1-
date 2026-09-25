@@ -90,7 +90,8 @@ import {
  * across the top and the footer are rendered OUTSIDE that list, so none of
  * them ever heard about a scheme change. This resolves their colours.
  */
-import { resolveStorefrontChrome, type StorefrontBarColors } from "@/lib/store-builder/storefront-chrome"
+import { resolveStorefrontChrome, type StorefrontBarColors, type StoredChrome } from "@/lib/store-builder/storefront-chrome"
+import { SCHEME_PREVIEW_PARAM, previewSchemeFrom, schemeRootPaints, type RootPaint } from "@/lib/store-builder/scheme-preview"
 
 export const dynamic = "force-dynamic"
 
@@ -122,7 +123,7 @@ export const dynamic = "force-dynamic"
 
 interface StorefrontPageProps {
   params: Promise<{ username: string }>
-  searchParams: Promise<{ src?: string; embedded?: string }>
+  searchParams: Promise<{ src?: string; embedded?: string; scheme?: string }>
 }
 
 export async function generateMetadata({ params }: StorefrontPageProps) {
@@ -280,7 +281,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
 
 export default async function StorefrontPage({ params, searchParams }: StorefrontPageProps) {
   const { username } = await params
-  const { src, embedded: embeddedParam } = await searchParams
+  const { src, embedded: embeddedParam, [SCHEME_PREVIEW_PARAM]: schemeParam } = await searchParams
   /**
    * Inside /creator-page this page IS the editor, so the controls that
    * would take somebody to the editor have nowhere to go, and links into /app
@@ -570,7 +571,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    * `null` for everyone who is not the owner — a visitor never receives the
    * component, not even hidden.
    */
-  const buildOwnerActions = (headerSettings?: ShopHeaderSettings, themePreset?: string) => {
+  const buildOwnerActions = (
+    headerSettings?: ShopHeaderSettings,
+    themePreset?: string,
+    schemeRoots?: Record<string, RootPaint>,
+  ) => {
     if (!viewerIsOwner) return null
     const links = headerSettings?.socialLinks
     return (
@@ -604,6 +609,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           showSocialMedia: headerSettings?.showSocialMedia,
         }}
         themePreset={themePreset}
+        schemeRoots={schemeRoots}
       />
       {/* Everything that needs a whole screen rather than a dialog. */}
       <OwnerMenu embedded={embedded} />
@@ -826,7 +832,16 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     */
     const viewerBought = viewerBoughtFromCreator
     const publicContactEmail = viewerBought ? resolvedContactEmail : undefined
-    const globalSettings = publishedConfig.globalSettings as GlobalStoreSettings | undefined
+    const savedGlobalSettings = publishedConfig.globalSettings as GlobalStoreSettings | undefined
+    /**
+     * A SCHEME BEING TRIED IN EDIT PROFILE, for the owner only, drawn in
+     * place of the saved one and saved by nothing. See
+     * lib/store-builder/scheme-preview. The owner's controls are still handed
+     * the SAVED scheme, so Cancel knows what to put back.
+     */
+    const previewScheme = previewSchemeFrom(schemeParam, viewerIsOwner)
+    const globalSettings =
+      previewScheme && savedGlobalSettings ? { ...savedGlobalSettings, themePreset: previewScheme } : savedGlobalSettings
     /**
      * ONE RESOLUTION FOR THE WHOLE OF THE CHROME.
      *
@@ -846,7 +861,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      * fallback for rows that version left behind.
      */
     const storedBar = (headerSettings?.subscribeBar || {}) as NonNullable<ShopHeaderSettings["subscribeBar"]>
-    const chrome = resolveStorefrontChrome(globalSettings?.themePreset, {
+    const storedChrome: StoredChrome = {
       pageBackground: publishedConfig.globalColors?.backgroundColor,
       text: headerSettings?.textsColor || headerSettings?.colors?.textColor,
       avatarBorder: headerSettings?.profileImageBorderColor,
@@ -869,7 +884,12 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
          */
         chosen: storedBar.colorChoices,
       },
-    })
+    }
+    const chrome = resolveStorefrontChrome(globalSettings?.themePreset, storedChrome)
+    /* The saved scheme, resolved the same way, for the owner's controls. */
+    const savedPreset = previewScheme ? resolveStorefrontChrome(savedGlobalSettings?.themePreset).preset : chrome.preset
+    /* What each scheme paints the page's root with, so a press shows at once. Owner only. */
+    const schemeRoots = viewerIsOwner ? schemeRootPaints(storedChrome) : undefined
     const subscribeBarSettings = buildSubscribeBarSettings(headerSettings, chrome.bar)
     /* The exact URL the header will request; see the preload below. */
     const headerAvatarPreload = headerAvatar(headerSettings, profile.avatar_url)
@@ -1053,6 +1073,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         */}
         <div
           className="min-h-screen overflow-x-hidden"
+          /* The element a scheme press repaints before the render lands (scheme-preview). */
+          data-storefront-root=""
           /**
            * The scheme's colours AND the design system's variables rebound to
            * them, so `text-muted-foreground`, `bg-card` and `border-border`
@@ -1139,7 +1161,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           products={productsData}
           productCount={products?.length || 0}
           globalSettings={globalSettings}
-          ownerActions={buildOwnerActions(headerSettings, chrome.preset)}
+          ownerActions={buildOwnerActions(headerSettings, savedPreset, schemeRoots)}
           reviewCount={creatorReviewCount}
           reviewAverage={creatorRating}
           followerCount={followerCount ?? 0}

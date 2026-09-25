@@ -187,6 +187,8 @@ export function EditorSheet({
   children,
   wide = false,
   onClosed,
+  peek = null,
+  onPeekEnd,
 }: {
   open: boolean
   onClose: () => void
@@ -200,8 +202,53 @@ export function EditorSheet({
   wide?: boolean
   /** Runs once the sheet has finished leaving. See the note below. */
   onClosed?: () => void
+  /**
+   * ON A PHONE, LOWER THE SHEET TO SHOW THE PAGE. A selector for the part of
+   * the form to keep in view: the form scrolls it to the top and the sheet
+   * glides down until that part is all that is left above the bottom edge,
+   * so the page behind is visible while it is being changed (a colour scheme
+   * being tried). A pull up, a tap on the title or a field taking focus puts
+   * the sheet back, and `onPeekEnd` says so. Ignored on a desktop, where the
+   * drawer never covers the page.
+   */
+  peek?: string | null
+  onPeekEnd?: () => void
 }) {
   const phone = useIsPhone()
+  const scrollerRef = React.useRef<HTMLDivElement>(null)
+  const [lowered, setLowered] = React.useState(0)
+  const peekEndRef = React.useRef(onPeekEnd)
+  peekEndRef.current = onPeekEnd
+
+  React.useLayoutEffect(() => {
+    if (!phone || !open || !peek) {
+      setLowered(0)
+      return
+    }
+    const scroller = scrollerRef.current
+    const panel = scroller?.closest<HTMLElement>("[data-sheet-panel]")
+    const anchor = scroller?.querySelector<HTMLElement>(peek)
+    if (!scroller || !panel || !anchor) return
+    const pr = panel.getBoundingClientRect()
+    const sr = scroller.getBoundingClientRect()
+    const ar = anchor.getBoundingClientRect()
+    /* The part is brought up to just under the title, as far as the form can scroll. */
+    const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+    const target = Math.max(0, Math.min(maxScroll, scroller.scrollTop + (ar.top - sr.top) - 16))
+    const anchorTop = ar.top - (target - scroller.scrollTop)
+    /* Cancel and Save stay on the screen while it is lowered (BottomSheet pins them). */
+    const footer = panel.querySelector<HTMLElement>("[data-sheet-pin-bottom]")
+    const footerH = footer ? footer.getBoundingClientRect().height : 0
+    const pad = parseFloat(getComputedStyle(panel).paddingBottom) || 0
+    /* What has to stay above the bottom edge: the title, the part, a margin, and the footer. */
+    const keep = anchorTop - pr.top + ar.height + 16 + footerH + pad
+    const next = Math.max(0, Math.round(pr.height - keep))
+    if (Math.abs(target - scroller.scrollTop) > 1) scroller.scrollTo({ top: target, behavior: "smooth" })
+    setLowered(next)
+  }, [phone, open, peek])
+
+  /* A field taking focus needs the whole sheet, and the keyboard above it. */
+  const endPeek = React.useCallback(() => { if (lowered > 0) peekEndRef.current?.() }, [lowered])
 
   /**
    * NOT CLOSED WHILE A SAVE IS IN FLIGHT, by anything. Cancel was already
@@ -273,7 +320,12 @@ export function EditorSheet({
   }, [open, phone])
 
   const footer = (
-    <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-border bg-background px-5 py-3 sm:px-6 sm:py-4">
+    <div
+      /* Held at the bottom edge while a phone sheet is lowered; the skirt
+         below covers the form it is held over. Clipped away otherwise. */
+      data-sheet-pin-bottom=""
+      className="relative z-10 grid shrink-0 grid-cols-2 gap-3 border-t border-border bg-background px-5 py-3 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-16 after:bg-background after:content-[''] sm:px-6 sm:py-4"
+    >
       <Button type="button" variant="outline" className="w-full" onClick={onClose} disabled={busy}>
         Cancel
       </Button>
@@ -360,9 +412,11 @@ export function EditorSheet({
         aboveKeyboard
         scrim="clear"
         waitForImages
-        /* The title drags the sheet like the handle does. */
+        lowered={lowered}
+        onRaise={() => peekEndRef.current?.()}
+        /* The title drags the sheet like the handle does, and a tap on it raises a lowered sheet. */
         header={
-          <div className="border-b border-border px-5 pb-3 pt-2">
+          <div className="border-b border-border px-5 pb-3 pt-2" onClick={endPeek}>
             <h2 className="text-[17px] font-semibold text-foreground">{title}</h2>
           </div>
         }
@@ -370,7 +424,13 @@ export function EditorSheet({
         <div className="flex min-h-0 flex-1 flex-col">
           {/* The sheet's drag reads the scroller under the finger: one that
               can still scroll scrolls, one at its top edge pulls the sheet. */}
-          <div data-sheet-scroll className="wb-slim-scroll min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-5">
+          <div
+            ref={scrollerRef}
+            data-sheet-scroll
+            onFocus={(e) => { if ((e.target as HTMLElement).matches("input, textarea, select, [contenteditable]")) endPeek() }}
+            /* `isolate`: what is stacked inside the form (the scheme discs) stays under the pinned footer. */
+            className="wb-slim-scroll isolate min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-5"
+          >
             {children}
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>

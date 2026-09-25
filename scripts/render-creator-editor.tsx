@@ -17,7 +17,8 @@ import { UnifiedShopHeader } from "@/components/store-builder/unified-section-re
 import { EditProfileButton } from "@/components/storefront/edit-profile-button"
 import { OwnerMenu } from "@/components/storefront/owner-menu"
 import { CreatorPageShare } from "@/components/app/creator-page-share"
-import { defaultGlobalStoreSettings, defaultShopHeaderSettings } from "@/lib/store-builder/defaults"
+import { defaultGlobalStoreSettings, defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/defaults"
+import { schemeRootPaints } from "@/lib/store-builder/scheme-preview"
 import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
 
 declare global {
@@ -29,6 +30,9 @@ declare global {
     __refreshes: number
     __renders: number
     __setShare?: (open: boolean) => void
+    __onReplace?: (href: string) => void
+    __onRefresh?: () => void
+    __rtt?: number
   }
 }
 window.__refreshes = 0
@@ -51,21 +55,41 @@ function cover(): string {
 const creator = { id: "c1", slug: "andrewrullz", niche_tags: [], show_total_sales_badge: false } as never
 const profile = { id: "p1", username: "andrewrullz", display_name: "AndrewRullz", avatar_url: null } as never
 
+/**
+ * The server, as far as a scheme is concerned: the router stub hands every
+ * replace() here, and the page is drawn again in the scheme the address asks
+ * for after a round trip's worth of delay, the way the real page would be.
+ */
 function ProfilePage({ src }: { src: string }) {
-  const chrome = resolveStorefrontChrome("default")
+  const [drawn, setDrawn] = React.useState<string>("default")
+  const [saved, setSaved] = React.useState<string>("default")
+  React.useEffect(() => {
+    window.__onReplace = (href: string) => {
+      const scheme = new URL(href, location.href).searchParams.get("scheme")
+      window.setTimeout(() => setDrawn(scheme && scheme in themePresets ? scheme : saved), window.__rtt ?? 250)
+    }
+    window.__onRefresh = () => {
+      const last = window.__bodies.filter((b) => (b as { body?: { themePreset?: string } }).body?.themePreset).pop() as { body: { themePreset: string } } | undefined
+      if (last) { setSaved(last.body.themePreset); setDrawn(last.body.themePreset) }
+    }
+  }, [saved])
+  const chrome = resolveStorefrontChrome(drawn)
+  const theme = themePresets[drawn as keyof typeof themePresets]
+  const roots = React.useMemo(() => schemeRootPaints({}), [])
   const settings = { ...defaultShopHeaderSettings, coverImageUrl: src } as never
   return (
     <div
       data-storefront-root=""
       style={{ minHeight: "200vh", fontFamily: "Inter, system-ui, sans-serif", background: chrome.pageBackground, color: chrome.text, ...(chrome.tokens as React.CSSProperties) }}
     >
-      <div style={{ height: 84 }} />
+      <div data-bar="" style={{ height: 84, background: chrome.bar.backgroundColor, color: chrome.bar.textColor }} />
       <UnifiedShopHeader
         settings={settings}
         creator={creator}
         profile={profile}
         products={[]}
-        globalSettings={defaultGlobalStoreSettings as never}
+        globalSettings={{ ...(defaultGlobalStoreSettings as object), themePreset: drawn } as never}
+        surface={{ textColor: chrome.text, mutedColor: chrome.muted }}
         ownerActions={
           <div className="flex items-center gap-2">
             <EditProfileButton
@@ -76,11 +100,22 @@ function ProfilePage({ src }: { src: string }) {
               avatarUrl={null}
               coverUrl={src}
               socialLinks={{}}
+              themePreset={saved}
+              schemeRoots={roots}
             />
             <OwnerMenu embedded />
           </div>
         }
       />
+      <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} data-card="" className="rounded-lg border p-3" style={{ background: theme.productCard.backgroundColor, borderColor: theme.productCard.borderColor, color: theme.productCard.textColor }}>
+            <div className="aspect-video rounded bg-muted" />
+            <p className="mt-2 text-sm font-medium">Preset pack {i + 1}</p>
+            <p className="text-sm" style={{ color: theme.productCard.priceColor }}>$12</p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

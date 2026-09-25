@@ -22,6 +22,24 @@ export function getThemeSkeletonColors(themePreset: ThemePreset = "default") {
         skeletonColor: "#e8dfc9",
         textColor: "#000000",
       }
+    case "sage":
+      return {
+        backgroundColor: "#EEF1EA",
+        skeletonColor: "#DDE4D5",
+        textColor: "#1B2620",
+      }
+    case "harbor":
+      return {
+        backgroundColor: "#ECF1F5",
+        skeletonColor: "#D9E2EA",
+        textColor: "#0F1E2C",
+      }
+    case "clay":
+      return {
+        backgroundColor: "#F5EEE8",
+        skeletonColor: "#EADFD5",
+        textColor: "#2A1C15",
+      }
     case "bubble":
       return {
         backgroundColor: "#ffffff",

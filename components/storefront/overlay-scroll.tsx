@@ -145,7 +145,7 @@ export function OverlayScroll({
       <div
         ref={scrollerRef}
         {...scrollerProps}
-        className={cn("cp-overlay-scroll min-h-0 flex-1 overflow-y-auto", className)}
+        className={cn("cp-overlay-scroll isolate min-h-0 flex-1 overflow-y-auto", className)}
       >
         {/* One child, so its size is what the thumb follows. */}
         <div className="space-y-5">{children}</div>

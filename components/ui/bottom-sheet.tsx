@@ -107,6 +107,9 @@ const DISMISS_PX = 96
 const DISMISS_VELOCITY = 0.5
 /** How far a pull upward can move the sheet before it stops giving. */
 const PULL_CAP = 28
+/** From a lowered rest, a pull up past this (or a flick up) takes the sheet back to the top. */
+const RAISE_PX = 48
+const RAISE_VELOCITY = 0.35
 /** A finger has to travel this far before the sheet decides what it is. */
 const SLOP_PX = 6
 /** The window a release velocity is measured over. */
@@ -216,6 +219,8 @@ export function BottomSheet({
   waitForImages = false,
   onClosed,
   dismissible = true,
+  lowered = 0,
+  onRaise,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -259,6 +264,17 @@ export function BottomSheet({
    * sliding away and coming back up because the parent said no.
    */
   dismissible?: boolean
+  /**
+   * A SECOND RESTING PLACE, LOWER DOWN. Pixels below its full height that the
+   * open sheet sits at, so the page above it shows (a colour being tried on
+   * the page behind, say). The sheet glides there and back when this changes,
+   * a drag starts from wherever it is, and a pull up or a flick up takes it
+   * back to the top, telling the caller through `onRaise`. 0, the default, is
+   * a sheet with one resting place, exactly as before.
+   */
+  lowered?: number
+  /** The finger took a lowered sheet back up to the top. */
+  onRaise?: () => void
 }) {
   const [mounted, setMounted] = useState(false)
   /**
@@ -309,7 +325,16 @@ export function BottomSheet({
   const onClosedRef = useRef(onClosed)
   const waitRef = useRef(waitForImages)
   const dismissibleRef = useRef(dismissible)
-  useEffect(() => { onCloseRef.current = onClose; onClosedRef.current = onClosed; waitRef.current = waitForImages; dismissibleRef.current = dismissible })
+  const onRaiseRef = useRef(onRaise)
+  useEffect(() => { onCloseRef.current = onClose; onClosedRef.current = onClosed; waitRef.current = waitForImages; dismissibleRef.current = dismissible; onRaiseRef.current = onRaise })
+  /** Where the open sheet rests: 0 at the top, or `lowered` below it. */
+  const restRef = useRef(0)
+  /**
+   * How far a `data-sheet-pin-bottom` element is held up against the sheet
+   * going down: the lowered distance, kept through the glide back up and
+   * cleared once the sheet is at the top again. See `pinY`.
+   */
+  const pinLimitRef = useRef(0)
   const isOpenRef = useRef(isOpen)
   useLayoutEffect(() => { isOpenRef.current = isOpen }, [isOpen])
 
@@ -321,11 +346,23 @@ export function BottomSheet({
     if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
   }, [])
 
+  /**
+   * THE FOOTER STAYS ON THE SCREEN WHILE THE SHEET IS LOWERED. Anything in
+   * the sheet marked `data-sheet-pin-bottom` (Cancel and Save) is moved up by
+   * as much as the sheet has gone down, up to the lowered distance, so it
+   * sits where it was, at the bottom edge, while the rest of the sheet slides
+   * down behind it. Past that (a pull down to close) it goes with the sheet.
+   * Nothing is marked in a sheet that is never lowered, and nothing moves.
+   */
+  const pinY = (y: number) => -Math.min(Math.max(y, 0), pinLimitRef.current)
+  const pins = (sheet: HTMLElement) => Array.from(sheet.querySelectorAll<HTMLElement>("[data-sheet-pin-bottom]"))
+
   const paint = useCallback(() => {
     rafRef.current = null
     const sheet = sheetRef.current
     if (!sheet) return
     sheet.style.transform = translate(offsetRef.current)
+    if (pinLimitRef.current > 0) for (const el of pins(sheet)) el.style.transform = translate(pinY(offsetRef.current))
     const scrim = scrimRef.current
     /* The backdrop lightens as the sheet leaves, so the two move together. */
     if (scrim) scrim.style.opacity = String(Math.max(0, Math.min(1, 1 - offsetRef.current / (heightRef.current || 1))))
@@ -363,11 +400,22 @@ export function BottomSheet({
     const a = sheet.animate([{ transform: translate(from) }, { transform: translate(to) }], timing)
     const anims = [a]
     if (scrim) anims.push(scrim.animate([{ opacity: opacity(from) }, { opacity: opacity(to) }], timing))
+    /* The pinned footer moves by the inverse, on the same clock, so it holds still on screen. */
+    const pinned = pinLimitRef.current > 0 ? pins(sheet) : []
+    for (const el of pinned) {
+      el.style.transform = translate(pinY(to))
+      anims.push(el.animate([{ transform: translate(pinY(from)) }, { transform: translate(pinY(to)) }], timing))
+    }
     animsRef.current = anims
     a.onfinish = () => {
       if (animsRef.current[0] !== a) return
       animsRef.current = []
       sheet.style.willChange = ""
+      /* Back at the top: nothing is held any more. */
+      if (restRef.current === 0 && to <= 0.5) {
+        pinLimitRef.current = 0
+        for (const el of pinned) el.style.transform = ""
+      }
       then?.()
     }
   }, [stopMotion])
@@ -396,7 +444,7 @@ export function BottomSheet({
         ? Array.from(sheet.querySelectorAll("img")).filter((img) => img.loading !== "lazy" && typeof img.decode === "function")
         : []
       if (!pictures.length) {
-        glide(from, 0, OPEN_MS)
+        glide(from, restRef.current, OPEN_MS)
         return
       }
       /* Parked below the screen, invisible, until the pictures are ready. */
@@ -408,7 +456,7 @@ export function BottomSheet({
       ]).then(() => {
         if (openTokenRef.current !== token || !isOpenRef.current || closingRef.current) return
         if (draggingRef.current || animsRef.current.length) return
-        glide(offsetRef.current, 0, OPEN_MS)
+        glide(offsetRef.current, restRef.current, OPEN_MS)
       })
       return
     }
@@ -430,12 +478,28 @@ export function BottomSheet({
       : Math.max(200, CLOSE_MS * Math.min(1, travel / heightRef.current))
     glide(from, heightRef.current, ms, () => {
       closingRef.current = false
+      pinLimitRef.current = 0
       setPresent(false)
       onClosedRef.current?.()
     }, v > 0 ? EASE : CLOSE_EASE)
   }, [isOpen, present, mounted, glide, currentY])
 
   useEffect(() => () => stopMotion(), [stopMotion])
+
+  /* The resting place moved (see `lowered`): an open sheet at rest glides there. */
+  useLayoutEffect(() => {
+    const next = Math.max(0, lowered || 0)
+    const prev = restRef.current
+    restRef.current = next
+    /* Held for the whole move, whichever way it goes; cleared at the top (glide). */
+    pinLimitRef.current = Math.max(pinLimitRef.current, next)
+    if (!mounted || !present || !isOpenRef.current || closingRef.current || draggingRef.current) return
+    const sheet = sheetRef.current
+    if (!sheet || Math.abs(prev - next) < 0.5) return
+    const from = currentY()
+    if (Math.abs(from - next) < 0.5) return
+    glide(from, next, Math.max(260, Math.min(OPEN_MS, OPEN_MS * 1.6 * Math.abs(from - next) / (heightRef.current || 1))))
+  }, [lowered, mounted, present, glide, currentY])
 
   /**
    * TAKEN AWAY WHILE ON SCREEN. This cleanup runs when the sheet itself is
@@ -462,7 +526,8 @@ export function BottomSheet({
     if (closingRef.current) return
     if (!dismissibleRef.current) {
       const from = currentY()
-      if (Math.abs(from) > 0.5) glide(from, 0, Math.max(200, Math.min(OPEN_MS, OPEN_MS * 2 * Math.abs(from) / (heightRef.current || 1))))
+      const rest = restRef.current
+      if (Math.abs(from - rest) > 0.5) glide(from, rest, Math.max(200, Math.min(OPEN_MS, OPEN_MS * 2 * Math.abs(from - rest) / (heightRef.current || 1))))
       return
     }
     closingRef.current = true
@@ -477,7 +542,8 @@ export function BottomSheet({
       closingRef.current = false
       /* The parent said no (a refund still in flight, say): come back up
          rather than leave a sheet it still thinks is open. */
-      if (isOpenRef.current) { glide(h, 0, OPEN_MS); return }
+      if (isOpenRef.current) { glide(h, restRef.current, OPEN_MS); return }
+      pinLimitRef.current = 0
       setPresent(false)
       onClosedRef.current?.()
     }, velocity > 0 ? EASE : CLOSE_EASE)
@@ -586,8 +652,8 @@ export function BottomSheet({
       pendingRef.current = false
       if (!draggingRef.current) {
         /* Touched mid-animation and let go without dragging: finish the move. */
-        if (!closingRef.current && Math.abs(offsetRef.current) > 0.5 && !animsRef.current.length) {
-          glide(offsetRef.current, 0, OPEN_MS * 0.6)
+        if (!closingRef.current && Math.abs(offsetRef.current - restRef.current) > 0.5 && !animsRef.current.length) {
+          glide(offsetRef.current, restRef.current, OPEN_MS * 0.6)
         }
         return
       }
@@ -598,11 +664,17 @@ export function BottomSheet({
        * Anything older than a few frames is not a flick, it is a rest.
        */
       const v = performance.now() - lastAtRef.current > 80 ? 0 : velocityRef.current
-      if (offsetRef.current > DISMISS_PX || v > DISMISS_VELOCITY) {
+      const rest = restRef.current
+      const h = heightRef.current || 1
+      if (offsetRef.current - rest > DISMISS_PX || v > DISMISS_VELOCITY) {
         dismiss(Math.max(v, 0))
-      } else {
-        const h = heightRef.current || 1
+      } else if (rest > 0 && (offsetRef.current < rest - RAISE_PX || v < -RAISE_VELOCITY)) {
+        /* Up from a lowered rest: back to the top, and the caller hears it. */
+        restRef.current = 0
         glide(offsetRef.current, 0, Math.max(200, Math.min(OPEN_MS, OPEN_MS * 2 * Math.abs(offsetRef.current) / h)))
+        onRaiseRef.current?.()
+      } else {
+        glide(offsetRef.current, rest, Math.max(200, Math.min(OPEN_MS, OPEN_MS * 2 * Math.abs(offsetRef.current - rest) / h)))
       }
     }
 

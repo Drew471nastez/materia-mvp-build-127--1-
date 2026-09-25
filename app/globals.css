@@ -1342,6 +1342,24 @@ html.capacitor body {
   }
 
   /**
+   * A COLOUR SCHEME BEING TRIED (components/storefront/use-scheme-preview).
+   * On only while a scheme is arriving: every colour on the creator page
+   * eases to its new value instead of cutting, the root's on the press and
+   * the cards' and bars' when the render lands, so the two read as one
+   * change. Colours only, so nothing moves and nothing reflows. It replaces
+   * whatever else an element transitions for that second, which is why it
+   * is taken off again as soon as the colours have arrived.
+   */
+  html.cp-scheme-shift [data-storefront-root],
+  html.cp-scheme-shift [data-storefront-root] * {
+    transition-property: background-color, color, border-color, fill, stroke, outline-color, text-decoration-color !important;
+    transition-duration: 340ms !important;
+    /* Out of the press at once and into place softly: a response, not a wait. */
+    transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1) !important;
+    transition-delay: 0s !important;
+  }
+
+  /**
    * THE EDITOR DRAWER'S SCROLLBAR (components/storefront/overlay-scroll).
    * Under a mouse or a trackpad the platform's bar is hidden and a 6px thumb
    * is drawn over the content instead, fading in while the list moves or the
