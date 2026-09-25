@@ -4289,7 +4289,8 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
 /* A section library preview that lands while its card is on screen fades
    in over the card's grey (components/website-builder/editor/section-library.tsx). */
 .wb-preview-arrive {
-  animation: wb-preview-arrive 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  /* backwards, not both: once in, the preview holds no finished animation (and no layer of its own). */
+  animation: wb-preview-arrive 220ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
 }
 @keyframes wb-preview-arrive {
   from { opacity: 0; }
