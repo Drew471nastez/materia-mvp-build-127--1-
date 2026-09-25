@@ -20,6 +20,7 @@
  *                            of it over the nav pill or the home indicator
  *   SWIPED AWAY              a finger dragging it up 80px puts it away on a
  *                            phone
+ *   ON A COMPUTER            380px at most, 24px in from the bottom right
  *
  *   node scripts/check-toasts.mjs
  *   TOAST_BEFORE=<git ref> node scripts/check-toasts.mjs   the same, for the
@@ -176,6 +177,7 @@ for (const [label, viewport, inset] of [
         W, H, sat, sab,
         box: { x: r1(box.left), y: r1(box.top), w: r1(box.width), h: r1(box.height) },
         gutters: { left: r1(box.left), right: r1(W - box.right) },
+        fromBottom: r1(H - box.bottom),
         title: title ? { px: getComputedStyle(title).fontSize, lines: lines(title), cut: title.scrollWidth > title.clientWidth + 1 } : null,
         description: desc ? { px: getComputedStyle(desc).fontSize, lines: lines(desc), clamped: desc.scrollHeight > desc.clientHeight + 1 } : null,
         underHeader: r1(box.top - (header ? header.getBoundingClientRect().bottom : 0)),
@@ -203,6 +205,7 @@ for (const [label, viewport, inset] of [
     if (m.overPill > 0) problems.push(`${at} the toast covers ${m.overPill}px² of the nav pill`)
     if (m.overHomeIndicator > 0) problems.push(`${at} the toast covers ${m.overHomeIndicator}px² of the home indicator`)
     if (!phone && m.box.w > 380) problems.push(`${at} the toast is ${m.box.w}px wide on a computer`)
+    if (!phone && (Math.abs(m.gutters.right - 24) > 0.5 || Math.abs(m.fromBottom - 24) > 0.5)) problems.push(`${at} on a computer the toast should sit 24px in from the bottom right, not ${m.gutters.right}px and ${m.fromBottom}px`)
   }
   /* A finger drags the last one up and lets go. */
   let swipe = null
@@ -298,4 +301,4 @@ server.close()
 console.log(JSON.stringify(report, null, 1))
 if (BEFORE) process.exit(0)
 if (problems.length) fail(problems.join("\n"))
-console.log("ok: at 390 every toast is one line of 14px title and at most two of 13px detail, 42px tall for a title and 78px with two lines of detail, between the 16px gutters, under the header and clear of the pill and the home indicator, and swipes away upward; at 1440 the same type, 380px wide at most, under the header")
+console.log("ok: at 390 every toast is one line of 14px title and at most two of 13px detail, 42px tall for a title and 78px with two lines of detail, between the 16px gutters, under the header and clear of the pill and the home indicator, and swipes away upward; at 1440 the same type, 380px wide at most, 24px in from the bottom right; the website builder's toasts keep the same lines and stay clear of the home indicator")

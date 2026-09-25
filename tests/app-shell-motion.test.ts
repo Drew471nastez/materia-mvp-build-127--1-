@@ -444,8 +444,8 @@ section("Toasts on a phone")
   check("the viewport runs across the screen between 16px gutters, just under the header, not from the middle (which squeezed every toast into half the screen)",
     /'pointer-events-none fixed inset-x-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\+8px\)\] z-\[2147483646\] flex max-h-screen flex-col items-center gap-2 px-4 outline-none'/.test(box)
       && !/left-1\/2 -translate-x-1\/2 top-\[calc\(76px/.test(box))
-  check("from md it sits under the header at the right, 380px at most, not over the account and bell buttons",
-    /md:left-auto md:right-6 md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\+12px\)\] md:w-\[380px\]/.test(box))
+  check("from md it sits at the bottom right, 380px at most, over neither the header's buttons nor the page's own bar",
+    /md:left-auto md:right-6 md:top-auto md:bottom-\[calc\(24px\+env\(safe-area-inset-bottom,0px\)\)\] md:w-\[380px\]/.test(box))
   check("the box is tight and square cornered like the app's other toasts, no pill, no blur behind it",
     /rounded-xl px-3\.5 py-2\.5/.test(box) && !/rounded-full px-4 py-2\.5/.test(box) && !/backdrop-blur/.test(box))
   check("one line of 14px title and at most two lines of 13px detail",

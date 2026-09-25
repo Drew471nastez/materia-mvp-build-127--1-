@@ -39,8 +39,11 @@ const ToastProvider = ToastPrimitives.Provider
  *   does, and it still took 34px of the width. A swipe up puts it away
  *   (the Toaster sets the direction), or it goes by itself.
  *
- * From md it sits at the top right, under the header rather than over its
- * account and bell buttons, 380px at most, and swipes away to the right.
+ * From md it sits at the bottom right, 24px in, 380px at most, where the
+ * website builder's toasts already are (components/ui/editor-toaster.tsx):
+ * not over the header's account and bell buttons, where it used to be, nor
+ * over the page's own action at the top right of its bar. It swipes away
+ * to the right.
  */
 const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Viewport>,
@@ -51,7 +54,7 @@ const ToastViewport = React.forwardRef<
     data-toast-viewport=""
     className={cn(
       'pointer-events-none fixed inset-x-0 top-[calc(68px+env(safe-area-inset-top,0px)+8px)] z-[2147483646] flex max-h-screen flex-col items-center gap-2 px-4 outline-none',
-      'md:left-auto md:right-6 md:top-[calc(58px+env(safe-area-inset-top,0px)+12px)] md:w-[380px] md:items-end md:px-0',
+      'md:left-auto md:right-6 md:top-auto md:bottom-[calc(24px+env(safe-area-inset-bottom,0px))] md:w-[380px] md:items-end md:px-0',
       className,
     )}
     {...props}
