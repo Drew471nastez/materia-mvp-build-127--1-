@@ -24,6 +24,7 @@ import {
   Edit3,
   Globe,
   Zap,
+  AlertCircle,
 } from "lucide-react"
 import { useState, useEffect, useCallback, useRef } from "react"
 import type { OnePage } from "@/lib/onepage/types"
@@ -347,6 +348,7 @@ function EditorLayout() {
     undo,
     redo,
     save,
+    saveError,
     updateSettings,
   } = useOnePage()
 
@@ -365,6 +367,18 @@ function EditorLayout() {
   const [activeTab, setActiveTab] = useState<TabType>(getInitialTab)
 
   const handleTabChange = useCallback((tab: TabType) => {
+    /*
+      LEAVING SETTINGS TAKES WHAT WAS TYPED THERE ALONG. The page name, the
+      address and the SEO text are held by the Settings tab until a Save, and
+      the tab is unmounted when another one is chosen, so a title typed there
+      and then saved from the Links tab was simply gone while the header said
+      "Changes saved". Handing the typed fields to the page first means the
+      next Save sends them. Only fields that were actually typed in are
+      handed over, so passing through the tab changes nothing.
+    */
+    if (tab !== "settings") {
+      settingsTabRef.current?.saveAllSettings().catch(() => {})
+    }
     setActiveTab(tab)
     if (typeof window !== "undefined") {
       window.history.pushState(null, "", `#${tab}`)
@@ -392,6 +406,21 @@ function EditorLayout() {
   const [saveToastSequence, setSaveToastSequence] = useState(0)
   const [historyToastSequence, setHistoryToastSequence] = useState(0)
   const [historyToastMessage, setHistoryToastMessage] = useState("Updated")
+  const [saveFailure, setSaveFailure] = useState<{ message: string; sequence: number }>({ message: "", sequence: 0 })
+  const showSaveFailure = useCallback((message: string) => {
+    setSaveFailure((prev) => ({ message, sequence: prev.sequence + 1 }))
+  }, [])
+
+  /*
+    EVERY FAILED SAVE IS SAID OUT LOUD, WHOEVER ASKED FOR IT. The header's
+    Save, a Save button inside Settings and the onboarding's closing save all
+    go through the same save(), and it reports a failure through saveError.
+    Watching that here puts one toast on screen for all of them, instead of
+    each caller having to remember to.
+  */
+  useEffect(() => {
+    if (saveError) showSaveFailure(saveError.message)
+  }, [saveError, showSaveFailure])
 
   // =====================================================
   // ONBOARDING STATE - Fetch directly from database
@@ -507,27 +536,37 @@ function EditorLayout() {
       return
     }
 
-    // If on the settings tab, sync ALL local settings state to context+API first
-    // (basic info, SEO, subscribe, share, verified badge)
+    // If on the settings tab, hand what was typed there to the page first, so
+    // the save below sends it (basic info, SEO, subscribe, share, verified badge)
     if (activeTab === "settings") {
-      await settingsTabRef.current?.saveAllSettings()
+      try {
+        await settingsTabRef.current?.saveAllSettings()
+      } catch (error) {
+        console.error("Settings could not be prepared for saving:", error)
+        showSaveFailure("Couldn't save. Try again")
+        return
+      }
     }
 
-    // Proceed with global save (persists all context state)
-    await save()
-    setSaveToastSequence((prev) => prev + 1)
-  }, [hasProFeaturesEnabled, save, activeTab])
+    /*
+      "CHANGES SAVED" ONLY WHEN THEY WERE. This used to toast success after
+      any save at all, including one that failed and one that never ran
+      because another was in flight. save() now answers, and a failure has
+      already put its own toast up through saveError.
+    */
+    const result = await save()
+    if (result.ok) setSaveToastSequence((prev) => prev + 1)
+  }, [hasProFeaturesEnabled, save, activeTab, userPlan, showSaveFailure])
 
   // Handle upgrading to Pro — auto-saves non-pro changes, then sends user to pricing page
   const handleUpgradeToPro = useCallback(async () => {
     setShowProUpgradeDialog(false)
     // Auto-save current changes (non-pro changes will be persisted)
-    // This prevents the user from losing work when they navigate away
-    try {
-      await save()
-    } catch {
-      // Ignore save errors — navigate anyway
-    }
+    // This prevents the user from losing work when they navigate away.
+    // If the save failed, stay: leaving now would throw the work away, and the
+    // failure is already on screen.
+    const result = await save()
+    if (!result.ok) return
     const returnTo = encodeURIComponent(window.location.pathname)
     window.location.href = `/pricing?source=upgrade&returnTo=${returnTo}`
   }, [save])
@@ -636,12 +675,26 @@ function EditorLayout() {
       return
     }
 
+    /*
+      Leave only once the save has worked. A failed save used to be followed
+      by the navigation anyway, which is the one moment unsaved work cannot
+      be got back; now the dialog stays, with Discard still in it, and the
+      failure is on screen.
+    */
     setIsSavingForNav(true)
-    if (activeTab === "settings") {
-      await settingsTabRef.current?.saveSeo()
+    try {
+      if (activeTab === "settings") {
+        await settingsTabRef.current?.saveAllSettings()
+      }
+      const result = await save()
+      if (!result.ok) return
+    } catch (error) {
+      console.error("Save before leaving failed:", error)
+      showSaveFailure("Couldn't save. Try again")
+      return
+    } finally {
+      setIsSavingForNav(false)
     }
-    await save()
-    setIsSavingForNav(false)
     setShowUnsavedDialog(false)
     if (pendingNavigation && pendingNavigation !== 'back') {
       window.location.href = pendingNavigation
@@ -650,7 +703,7 @@ function EditorLayout() {
       window.history.go(-2) // Go back 2 because we pushed a state
     }
     setPendingNavigation(null)
-  }, [save, pendingNavigation, hasProFeaturesEnabled, activeTab])
+  }, [save, pendingNavigation, hasProFeaturesEnabled, activeTab, userPlan, showSaveFailure])
 
   const handleDiscardAndNavigate = useCallback(() => {
     setShowUnsavedDialog(false)
@@ -730,6 +783,16 @@ function EditorLayout() {
         </>
       )
     }
+    /* The last save failed and nothing has been typed since: the button says
+       so, and pressing it is the retry. The next edit or save clears it. */
+    if (saveState === "error" && isDirty) {
+      return (
+        <>
+          <AlertCircle className="h-4 w-4" />
+          <span className="hidden sm:inline ml-2">Try again</span>
+        </>
+      )
+    }
     // Show lightning bolt when the user has pro features active but no paid plan
     const userHasPro = userPlan === "growth" || userPlan === "pro"
     const showZap = hasProFeaturesEnabled() && !userHasPro
@@ -773,6 +836,13 @@ function EditorLayout() {
         show={historyToastSequence > 0}
         message={historyToastMessage}
         duration={2200}
+      />
+      <SaveNotification
+        key={`save-failed-${saveFailure.sequence}`}
+        show={saveFailure.sequence > 0}
+        message={saveFailure.message}
+        duration={5000}
+        icon={<AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" strokeWidth={2.5} />}
       />
       {/* Header - ALWAYS visible with solid background */}
       <header className="flex items-center border-b bg-white h-[56px] sm:h-[60px] shrink-0 relative z-30 overflow-hidden">
@@ -871,7 +941,9 @@ function EditorLayout() {
               "h-8 sm:h-9 px-3 sm:px-4 rounded-lg transition-all duration-200",
               saveState === "saved" && !isDirty
                 ? "bg-purple-400 hover:bg-purple-400 text-white opacity-60 cursor-default pointer-events-none"
-                : isDirty
+                : saveState === "error" && isDirty
+                  ? "bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                  : isDirty
                   ? "bg-violet-500 hover:bg-violet-600 text-white cursor-pointer"
                   : "bg-gray-200 text-gray-500 cursor-not-allowed"
             )}
@@ -934,7 +1006,7 @@ function EditorLayout() {
 >
             {activeTab === "design" && <DesignTab userPlan={userPlan} />}
             {activeTab === "links" && <LinksTab />}
-            {activeTab === "products" && <ProductsTab />}
+            {activeTab === "products" && <ProductsTab onGoToLinks={() => handleTabChange("links")} />}
             {activeTab === "settings" && <SettingsTab ref={settingsTabRef} />}
           </div>
         </div>

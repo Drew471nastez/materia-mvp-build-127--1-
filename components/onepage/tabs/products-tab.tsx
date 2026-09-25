@@ -85,8 +85,15 @@ const productTypeOptions = [
   },
 ]
 
-export function ProductsTab() {
-  const { onepage, addBlock, updateBlock, setActiveSection } = useOnePage()
+/**
+ * `onGoToLinks` is the editor's own tab switch. This tab used to ask the
+ * context's setActiveSection for "links", a value from an older layout that
+ * nothing on screen reads any more, so "Go to Links" and the jump after
+ * adding a product did nothing.
+ */
+export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) {
+  const { onepage, addBlock, updateBlock } = useOnePage()
+  const goToLinks = useCallback(() => onGoToLinks?.(), [onGoToLinks])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -181,7 +188,7 @@ export function ProductsTab() {
     // Check if product is already added
     if (addedProductIds.has(product.id)) {
       // Product already added, just navigate to links
-      setActiveSection("links")
+      goToLinks()
       return
     }
 
@@ -247,9 +254,9 @@ export function ProductsTab() {
     // Show confirmation briefly then redirect
     setTimeout(() => {
       setAddingProductId(null)
-      setActiveSection("links")
+      goToLinks()
     }, 500)
-  }, [addBlock, updateBlock, setActiveSection, addedProductIds, onepage?.draft_blocks])
+  }, [addBlock, updateBlock, goToLinks, addedProductIds, onepage?.draft_blocks])
 
   const closeAddProductSheet = () => {
     if (!showAddModal) return
@@ -280,12 +287,12 @@ export function ProductsTab() {
       addBlock("email_capture")
       showNotification("Email form added")
       closeAddProductSheet()
-      setActiveSection("links")
+      goToLinks()
     } else if (option.id === "digital") {
       addBlock("product")
       showNotification("Product added")
       closeAddProductSheet()
-      setActiveSection("links")
+      goToLinks()
     } else {
       // Redirect to product creation page for other types
       window.location.href = `/app/products/new?type=${option.id}`
@@ -461,7 +468,7 @@ export function ProductsTab() {
             onClick={() => {
               addBlock("email_capture")
               showNotification("Email form added")
-              setActiveSection("links")
+              goToLinks()
             }}
             className="flex items-center gap-4 p-4 border rounded-xl hover:border-violet-300 hover:bg-violet-50/50 transition-all text-left"
           >
@@ -482,7 +489,7 @@ export function ProductsTab() {
             onClick={() => {
               addBlock("product")
               showNotification("Product added")
-              setActiveSection("links")
+              goToLinks()
             }}
             className="flex items-center gap-4 p-4 border rounded-xl hover:border-violet-300 hover:bg-violet-50/50 transition-all text-left"
           >
@@ -503,7 +510,7 @@ export function ProductsTab() {
             onClick={() => {
               addBlock("pdf_document")
               showNotification("PDF added")
-              setActiveSection("links")
+              goToLinks()
             }}
             className="flex items-center gap-4 p-4 border rounded-xl hover:border-violet-300 hover:bg-violet-50/50 transition-all text-left"
           >
