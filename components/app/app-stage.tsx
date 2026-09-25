@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
-import { ActivitySpinner } from "@/components/ui/activity-spinner"
+import { PageSpinner } from "@/components/ui/activity-spinner"
 import {
   endAppNavigation,
   markCommitted,
@@ -12,6 +12,7 @@ import {
   NAV_ENTER_RISE_PX,
   NAV_SPINNER_CAP_MS,
   NAV_SPINNER_FADE_MS,
+  NAV_SPINNER_OUT_MS,
   recalledScroll,
   rememberScroll,
   spinnerDelay,
@@ -42,8 +43,9 @@ import {
  *
  *   THE SLOW PAGE. The old page stays until the new one is ready. Past
  *   NAV_PHONE_SPINNER_AFTER_MS on a phone, or NAV_SPINNER_AFTER_MS on a
- *   computer, the content area goes plain with the spinner in the middle,
- *   and when the page lands that surface fades away over it. No outline of
+ *   computer, the content area goes plain with the spinner a little above
+ *   its middle, and when the page lands that surface fades away over it,
+ *   in NAV_SPINNER_OUT_MS, with the page already whole under it. No outline of
  *   any page, at any width. The product editor and the plans page never get
  *   it (lib/ui/app-navigation waitsWithSpinner). It never blocks: it takes
  *   no presses, it gives way after NAV_SPINNER_CAP_MS whatever happens, and
@@ -185,8 +187,8 @@ function fadeTo(el: HTMLElement, to: number, duration: number, easing: string) {
 
 /**
  * The content area while a page is slow: plain, the page's own colour, with
- * the spinner in the middle. Positioned by the same numbers as <main> (the
- * header above it, the rail beside it from md, the rounded top on a phone),
+ * the spinner 40% of the way down (PageSpinner, components/ui/activity-
+ * spinner). Positioned by the same numbers as <main> (the header above it, the rail beside it from md, the rounded top on a phone),
  * so it covers exactly the page and nothing else; the header and the pill
  * stay over it and stay pressable.
  *
@@ -201,7 +203,10 @@ function fadeTo(el: HTMLElement, to: number, duration: number, easing: string) {
  * In on a 150ms opacity fade, over the page you were on, so there is never a
  * frame with nothing on screen. When the page lands it fades out from
  * wherever its own fade had got to (a page that arrives 20ms after the
- * spinner started must not flash it to full and back).
+ * spinner started must not flash it to full and back), over 120ms
+ * (NAV_SPINNER_OUT_MS) starting on the commit, before it is painted. The
+ * page is whole under it on that frame (it only rises), so every frame shows
+ * the surface, the page, or the one fading into the other: never neither.
  *
  * IT NEVER BLOCKS. "Make sure it never blocks, fully."
  *
@@ -263,12 +268,12 @@ function SlowPage() {
     if (!el || typeof el.animate !== "function" || reducedMotion()) { setShown(false); return }
     leaving.current = true
     const id = ++leaves.current
-    const out = fadeTo(el, 0, NAV_ENTER_MS, NAV_ENTER_EASE)
+    const out = fadeTo(el, 0, NAV_SPINNER_OUT_MS, NAV_ENTER_EASE)
     const done = () => { if (leaving.current && leaves.current === id) { leaving.current = false; setShown(false) } }
     out.onfinish = done
     /* A fade that never finishes (cancelled, or a tab in the background)
        still leaves. */
-    window.setTimeout(done, NAV_ENTER_MS + 120)
+    window.setTimeout(done, NAV_SPINNER_OUT_MS + 120)
   }, [nav, shown, capTick])
 
   /* In on opacity alone, before it is first painted. */
@@ -285,8 +290,8 @@ function SlowPage() {
       data-app-slow-page=""
       className="pointer-events-none fixed inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] z-[38] bg-[#111111] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:bg-transparent"
     >
-      <div data-app-slow-surface="" className="flex h-full items-center justify-center overflow-hidden rounded-t-[20px] bg-[#f8f9fa] md:rounded-none">
-        <ActivitySpinner />
+      <div data-app-slow-surface="" className="h-full overflow-hidden rounded-t-[20px] bg-[#f8f9fa] md:rounded-none">
+        <PageSpinner />
       </div>
     </div>
   )
