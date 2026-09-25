@@ -31,6 +31,8 @@ import { ImageUpload } from "@/components/app/image-upload"
 import { Pencil, Wand2 } from "lucide-react"
 import { SocialLinksEditor } from "@/components/social/social-links-editor"
 import { SchemePicker } from "@/components/storefront/scheme-picker"
+import { useSchemePreview } from "@/components/storefront/use-scheme-preview"
+import type { RootPaint } from "@/lib/store-builder/scheme-preview"
 import type { SocialPlatformKey } from "@/lib/social/platforms"
 
 // The platforms, their order and their icons all come from
@@ -71,6 +73,12 @@ export interface EditProfileButtonProps {
    * presents itself, which is this dialog.
    */
   themePreset?: string
+  /**
+   * What each offered scheme paints the page's root with, prepared by the
+   * page from this creator's own stored colours, so pressing a scheme shows
+   * on the page at once. See lib/store-builder/scheme-preview.
+   */
+  schemeRoots?: Record<string, RootPaint>
 }
 
 export function EditProfileButton({
@@ -85,8 +93,11 @@ export function EditProfileButton({
   socialLinks,
   display,
   themePreset = "default",
+  schemeRoots,
 }: EditProfileButtonProps) {
   const { markSaved, onClosed } = useSaveThenRefresh()
+  /* The page behind the sheet shows the scheme being tried; Save keeps it, anything else puts it back. */
+  const preview = useSchemePreview(themePreset, schemeRoots)
   const [open, setOpen] = React.useState(false)
   /**
    * BELT AND BRACES FOR THE WORKSPACE. `embedded` arrives as a prop from the
@@ -120,6 +131,8 @@ export function EditProfileButton({
     showSocialMedia: display?.showSocialMedia ?? true,
   }))
   const [scheme, setScheme] = React.useState(themePreset)
+  /* On a phone, a scheme press lowers the sheet so the page it is changing shows above it. */
+  const [peeking, setPeeking] = React.useState(false)
 
   /**
    * The shape of the band on the page behind this drawer, so the frame that
@@ -222,6 +235,9 @@ export function EditProfileButton({
         return
       }
       setOpen(false)
+      setPeeking(false)
+      /* The scheme on the page is the saved one now; only the address still says "preview". */
+      preview.settle(scheme)
       /**
        * The server re-renders and the new name, bio, picture and links appear
        * without a reload. This only actually works because /u/:username* is no
@@ -294,7 +310,14 @@ export function EditProfileButton({
       <EditorSheet
         open={open}
         onClosed={onClosed}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          setOpen(false)
+          setPeeking(false)
+          /* Closed without saving: the page goes back to the scheme it has. */
+          preview.reset()
+        }}
+        peek={peeking ? "[data-scheme-picker]" : null}
+        onPeekEnd={() => setPeeking(false)}
         title="Profile details"
         wide
         busy={saving}
@@ -402,9 +425,17 @@ export function EditProfileButton({
               — visible only inside the editor, and nowhere near the thing it
               changes.
             */}
-            <div className="space-y-3">
+            <div className="space-y-3" data-scheme-picker="">
               <Label>Colour scheme</Label>
-              <SchemePicker value={scheme} onChange={setScheme} />
+              <SchemePicker
+                value={scheme}
+                onChange={(next) => {
+                  setScheme(next)
+                  preview.show(next)
+                  setPeeking(true)
+                }}
+                onIntent={preview.prefetch}
+              />
             </div>
 
             <div className="space-y-3">

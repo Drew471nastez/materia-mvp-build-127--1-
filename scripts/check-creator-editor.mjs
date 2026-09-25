@@ -37,7 +37,10 @@ const out = mkdtempSync(join(tmpdir(), "storelib-creator-editor-"))
 const stubs = join(root, ".creator-editor-probe")
 mkdirSync(stubs, { recursive: true })
 writeFileSync(join(stubs, "navigation.js"), `export const usePathname = () => "/andrewrullz"
-export const useRouter = () => ({ push() {}, prefetch() {}, replace() {}, refresh() { window.__refreshes = (window.__refreshes || 0) + 1 }, back() {} })
+export const useRouter = () => ({ push() {},
+  prefetch(href) { (window.__prefetched = window.__prefetched || []).push(href) },
+  replace(href) { (window.__replaced = window.__replaced || []).push(href); window.__onReplace && window.__onReplace(href) },
+  refresh() { window.__refreshes = (window.__refreshes || 0) + 1; window.__onRefresh && window.__onRefresh() }, back() {} })
 export const useSearchParams = () => new URLSearchParams()
 export const useParams = () => ({})
 `)
@@ -113,7 +116,7 @@ async function page({ width, height, phone, hash }) {
   await call("Page.navigate", { url: `file://${file}#${hash}` })
   const js = async (expression) => {
     const r = await call("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })
-    if (r.exceptionDetails) fail(`The page threw: ${JSON.stringify(r.exceptionDetails.exception?.description || r.exceptionDetails.text)}\n${expression.slice(0, 160)}`)
+    if (r.exceptionDetails) { if (SHOTS) { const { data } = await call("Page.captureScreenshot", { format: "png" }); writeFileSync(join(SHOTS, "threw.png"), Buffer.from(data, "base64")) } fail(`The page threw (${width}): ${JSON.stringify(r.exceptionDetails.exception?.description || r.exceptionDetails.text)}\n${expression.slice(0, 160)}`) }
     return r.result.value
   }
   for (let i = 0; i < 60; i++) {
@@ -165,7 +168,8 @@ const SHEET_STATE = `(() => {
   return JSON.stringify({ kind: "none" })
 })()`
 
-for (const vp of [
+const ONLY = process.env.ONLY
+for (const vp of ONLY && ONLY !== "reopen" ? [] : [
   { name: "390", width: 390, height: 844, phone: true },
   { name: "1280", width: 1280, height: 800, phone: false },
 ]) {
@@ -302,6 +306,115 @@ for (const vp of [
     await button("Cancel")
     await sleep(600)
   }
+  await p.close()
+}
+
+/* ======================================================================
+   2. COLOUR SCHEMES: on the press, eased, everywhere, and put back on Cancel
+   ====================================================================== */
+const hex = (h) => { const m = h.replace("#", ""); return `rgb(${parseInt(m.slice(0, 2), 16)}, ${parseInt(m.slice(2, 4), 16)}, ${parseInt(m.slice(4, 6), 16)})` }
+const lum = (rgb) => { const [r, g, b] = rgb.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number).map((c) => c / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05) }
+for (const vp of ONLY && ONLY !== "schemes" ? [] : [
+  { name: "1280", width: 1280, height: 800, phone: false },
+  { name: "390", width: 390, height: 844, phone: true },
+]) {
+  const p = await page({ ...vp, hash: "profile" })
+  const pencil = JSON.parse(await p.js(`JSON.stringify(document.querySelector("[aria-label='Edit profile']").getBoundingClientRect())`))
+  const openSheet = async () => { await p.tap(pencil.x + pencil.width / 2, pencil.y + pencil.height / 2); await sleep(800) }
+  const button = async (label) => {
+    const r = JSON.parse(await p.js(`JSON.stringify([...document.querySelectorAll("button")].find((b) => b.textContent.trim() === ${JSON.stringify(label)})?.getBoundingClientRect() ?? null)`))
+    if (r) await p.tap(r.x + r.width / 2, r.y + r.height / 2)
+    return !!r
+  }
+  const pick = async (key) => {
+    /* Only if it is not already in view: on a phone a lowered sheet has it in view, and a scroll would take it away. */
+    await p.js(`(() => { const b = document.querySelector("[data-scheme=${key}]"), r = b.getBoundingClientRect()
+      const foot = [...document.querySelectorAll("[data-sheet-pin-bottom]")].map((f) => f.getBoundingClientRect().top).filter((t) => t > 0)[0] ?? innerHeight
+      if (r.top < 60 || r.bottom > foot - 4) b.scrollIntoView({ block: "center" }) })()`)
+    await sleep(120)
+    const r = JSON.parse(await p.js(`JSON.stringify(document.querySelector("[data-scheme=${key}]").getBoundingClientRect())`))
+    await p.js(`(() => { window.__samples = []; window.__t0 = performance.now(); window.__clickAt = null
+      document.addEventListener("click", () => { if (window.__clickAt === null) window.__clickAt = performance.now() - window.__t0 }, { capture: true, once: true })
+      const root = document.querySelector("[data-storefront-root]"), card = document.querySelector("[data-card]")
+      const tick = (t) => { window.__samples.push([t - window.__t0, getComputedStyle(root).backgroundColor, getComputedStyle(card).borderTopColor, root.getAnimations().length]); if (t - window.__t0 < 1400) requestAnimationFrame(tick) }
+      requestAnimationFrame(tick) })()`)
+    await p.tap(r.x + r.width / 2, r.y + r.height / 2)
+    await sleep(1500)
+    const samples = JSON.parse(await p.js("JSON.stringify(window.__samples)"))
+    samples.clickAt = await p.js("window.__clickAt")
+    return samples
+  }
+  await openSheet()
+  const rows = []
+  const theme = JSON.parse(await p.js(`JSON.stringify(Object.fromEntries([...document.querySelectorAll("[data-scheme]")].map((b) => [b.dataset.scheme, b.title])))`))
+  for (const key of ["sage", "harbor", "clay", "astrid", "cream", "pink", "blacks", "default"]) {
+    const samples = await pick(key)
+    const first = samples[0][1]
+    /* When the page started to move, counted from the click itself: the first frame with a colour transition running on it. */
+    const startedAt = samples.find(([t, , , anims]) => t >= samples.clickAt && anims > 0)?.[0]
+    const changedAt = startedAt == null ? (samples.find(([, bg]) => bg !== first) ? samples.clickAt + 999 : null) : startedAt - samples.clickAt
+    const distinctRoot = new Set(samples.map(([, bg]) => bg)).size
+    const distinctCard = new Set(samples.map(([, , bd]) => bd)).size
+    const last = samples[samples.length - 1]
+    const state = JSON.parse(await p.js(`(() => {
+      const root = document.querySelector("[data-storefront-root]"), name = document.querySelector("h1, h2")
+      const card = document.querySelector("[data-card]"), price = card.querySelectorAll("p")[1]
+      return JSON.stringify({ page: getComputedStyle(root).backgroundColor, name: getComputedStyle(name).color, card: getComputedStyle(card).backgroundColor,
+        cardText: getComputedStyle(card).color, price: getComputedStyle(price).color, bar: getComputedStyle(document.querySelector("[data-bar]")).backgroundColor,
+        shifting: document.documentElement.classList.contains("cp-scheme-shift"), address: window.__replaced?.slice(-1)[0] })
+    })()`))
+    const nameC = contrast(state.name, state.page), cardC = contrast(state.cardText, state.card), priceC = contrast(state.price, state.card)
+    rows.push(`${key.padEnd(7)} page started moving ${changedAt == null ? "never" : round(changedAt) + "ms"} after the click, through ${distinctRoot} shades, cards through ${distinctCard}; page ${state.page}; name ${round(nameC, 2)}:1, card text ${round(cardC, 2)}:1, price ${round(priceC, 2)}:1; transition left on: ${state.shifting}; asked for ${state.address}`)
+    if (changedAt == null && key !== "default") problems.push(`${vp.name}: pressing ${key} did not change the page`)
+    else if (changedAt != null && changedAt > 34) problems.push(`${vp.name}: pressing ${key} took ${round(changedAt)}ms to start changing the page`)
+    if (distinctRoot < 4 && first !== last[1]) problems.push(`${vp.name}: ${key} cut to the new page colour instead of easing (${distinctRoot} shades)`)
+    if (state.shifting) problems.push(`${vp.name}: the colour transition was left on after ${key} arrived`)
+    if (nameC < 4.5 || cardC < 4.5 || priceC < 3) problems.push(`${vp.name}: ${key} is hard to read: name ${round(nameC, 2)}, card ${round(cardC, 2)}, price ${round(priceC, 2)}`)
+    await p.shot(`scheme-${vp.name}-${key}`)
+  }
+  report[`schemes @${vp.name}`] = rows.join("\n  ")
+  /* Cancel puts the saved page back; Save keeps the pick and says so. */
+  await pick("clay")
+  await button("Cancel")
+  await sleep(1200)
+  const afterCancel = await p.js(`getComputedStyle(document.querySelector("[data-storefront-root]")).backgroundColor`)
+  const defaultPage = JSON.parse(await p.js(`JSON.stringify(window.__replaced.slice(-1)[0])`))
+  await openSheet()
+  await pick("harbor")
+  await button("Save")
+  await sleep(1500)
+  const sent = JSON.parse(await p.js(`JSON.stringify(window.__bodies.filter((b) => b.body && "themePreset" in b.body).pop()?.body.themePreset ?? null)`))
+  const address = await p.js("location.search")
+  const afterSave = await p.js(`getComputedStyle(document.querySelector("[data-storefront-root]")).backgroundColor`)
+  if (vp.phone) {
+    /* The lowered sheet: the page shows above it, Cancel and Save stay on screen, and a pull up takes it back. */
+    await openSheet()
+    await pick("sage")
+    const geo = async () => JSON.parse(await p.js(`(() => { const panel = document.querySelector("[data-app-sheet] [data-sheet-panel]"), foot = panel.querySelector("[data-sheet-pin-bottom]")
+      const pr = panel.getBoundingClientRect(), fr = foot.getBoundingClientRect(), picker = panel.querySelector("[data-scheme-picker]").getBoundingClientRect()
+      return JSON.stringify({ top: Math.round(pr.top), footTop: Math.round(fr.top), footBottom: Math.round(fr.bottom), pickerBottom: Math.round(picker.bottom), pickerTop: Math.round(picker.top), footTransform: getComputedStyle(foot).transform }) })()`))
+    const low = await geo()
+    await p.shot("lowered-390")
+    const x = vp.width / 2, y0 = low.top + 20
+    await p.touch("touchStart", [[x, y0]])
+    for (let i = 1; i <= 10; i++) { await p.touch("touchMove", [[x, y0 - i * 20]]); await sleep(16) }
+    await p.touch("touchEnd", [])
+    await sleep(700)
+    const up = await geo()
+    report["schemes @390, lowered and raised"] = `lowered: sheet top ${low.top}, picker ${low.pickerTop}..${low.pickerBottom}, footer ${low.footTop}..${low.footBottom} of ${vp.height}; after a pull up: sheet top ${up.top}, footer ${up.footTop}..${up.footBottom}, footer transform ${up.footTransform}`
+    if (low.top < vp.height * 0.4) problems.push(`390: a scheme press did not lower the sheet (top ${low.top})`)
+    if (low.footBottom > vp.height || low.footTop < low.pickerBottom) problems.push(`390: lowered, Cancel and Save are not on screen below the picker (${JSON.stringify(low)})`)
+    if (low.pickerTop < low.top) problems.push(`390: lowered, the picker is not inside the sheet's visible part`)
+    if (up.top > 100) problems.push(`390: a pull up did not raise the sheet (top ${up.top})`)
+    if (up.footTransform !== "none" && !/matrix\(1, 0, 0, 1, 0, 0\)/.test(up.footTransform)) problems.push(`390: the footer was left moved after raising (${up.footTransform})`)
+    await button("Cancel")
+    await sleep(900)
+  }
+  report[`schemes @${vp.name}, cancel and save`] = `after Cancel the page is ${afterCancel} (asked for ${defaultPage}); Save sent ${sent}, page ${afterSave}, address "${address}"`
+  if (sent !== "harbor") problems.push(`${vp.name}: Save did not send the scheme that was being shown (${sent})`)
+  if (afterSave !== hex("#ECF1F5")) problems.push(`${vp.name}: after saving Harbor the page is ${afterSave}`)
+  if (/scheme=/.test(address)) problems.push(`${vp.name}: the preview is still in the address after Save (${address})`)
   await p.close()
 }
 

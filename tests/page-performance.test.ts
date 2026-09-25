@@ -1931,7 +1931,9 @@ check(
       missing.push("the editors are centred dialogs again, over a dimmed page")
     if (!/min-h-0 flex-1 space-y-5 overflow-y-auto/.test(dialog))
       missing.push("the dialog body is not the part that scrolls")
-    if (!/<div className="grid shrink-0/.test(dialog))
+    /* `relative z-10` in front of it now: the footer carries a skirt and is
+       held at the bottom edge while a phone sheet is lowered for a scheme. */
+    if (!/className="[^"]*\bgrid shrink-0/.test(dialog))
       missing.push("the footer can be pushed off screen again")
 
     /**

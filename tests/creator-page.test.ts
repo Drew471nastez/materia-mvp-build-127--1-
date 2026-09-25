@@ -235,11 +235,15 @@ function main() {
     /** The scheme, in the dialog that owns how the page presents itself. */
     check("the colour scheme is in Edit profile", profile.includes("<SchemePicker"))
     check("and it saves with the rest of it", profile.includes("themePreset: scheme"))
-    check("five schemes are offered", (picker.match(/"(default|blacks|cream|pink|astrid)"/g) ?? []).length === 5)
-    check("drawn as overlapping discs, not stripes or a tiny page", picker.includes("rounded-full") && picker.includes("left: i * step"))
+    /* Eight since sage, harbor and clay joined; the list moved to lib/store-builder/scheme-preview
+       because the server prepares each one's paint for the instant preview. */
+    const offered = read("lib/store-builder/scheme-preview.ts")
+    check("eight schemes are offered", (offered.match(/"(default|blacks|cream|sage|harbor|clay|pink|astrid)"/g) ?? []).length === 8 && picker.includes("OFFERED_SCHEMES.map"))
+    /* The spread is a transform now (translateX), so a choice moves nothing in layout. */
+    check("drawn as overlapping discs, not stripes or a tiny page", picker.includes("rounded-full") && picker.includes("translateX(${i * step}px)"))
     /** A picker whose only change is which border is dark reads as a radio button. */
     /* The lift was the bump; what settles now is the discs and the shadow. */
-    check("and selecting one settles rather than snapping", picker.includes("transition-[left]") && picker.includes("box-shadow] duration-200"))
+    check("and selecting one settles rather than snapping", picker.includes("transition-transform duration-200") && picker.includes("box-shadow] duration-200"))
 
     /**
      * Every one of them tells the workspace, so nothing needs a reload button.
@@ -869,7 +873,7 @@ function main() {
 
     /**
      * READABLE, MEASURED. Every pair the page actually paints, for each of
-     * the five schemes offered, held to WCAG AA (4.5) for body text and 3.0
+     * the eight schemes offered, held to WCAG AA (4.5) for body text and 3.0
      * for the large Featured heading. This turns "applies well" from an
      * opinion into a number.
      */
@@ -878,7 +882,7 @@ function main() {
     const r = (fg: string, bg: string) => contrastRatio(parseColor(fg)!, parseColor(bg)!)
     const PAGE_FIELD = "#f7f7f8"
     const white = (c: string) => /^#(fff|ffffff)$/i.test(c.trim())
-    for (const key of ["default", "blacks", "cream", "pink", "astrid"] as const) {
+    for (const key of ["default", "blacks", "cream", "sage", "harbor", "clay", "pink", "astrid"] as const) {
       const t = themePresets[key]
       const pageBg = white(t.sections.pageBackgroundColor) ? PAGE_FIELD : t.sections.pageBackgroundColor
       const pairs: Array<[string, string, string, number]> = [
@@ -1830,7 +1834,8 @@ function main() {
     check("and the phone sheet springs back rather than leaving and returning", /dismissible=\{!busy\}/.test(sheet))
     {
       const bottom = code("components/ui/bottom-sheet.tsx")
-      check("the sheet's own refusal: not dismissible means a pull springs back", /if \(!dismissibleRef\.current\) \{[\s\S]{0,200}glide\(from, 0,/.test(bottom) && /dismissible = true,/.test(bottom))
+      /* Springs back to where it rests: the top, or the lowered place a scheme preview put it (`lowered`). */
+      check("the sheet's own refusal: not dismissible means a pull springs back", /if \(!dismissibleRef\.current\) \{[\s\S]{0,260}glide\(from, rest,/.test(bottom) && /const rest = restRef\.current/.test(bottom) && /dismissible = true,/.test(bottom))
       check("an Escape a menu inside the sheet already used does not close the sheet too", /e\.defaultPrevented/.test(bottom) && /e\.isComposing/.test(bottom))
     }
     check("and tells the workspace nothing about it", !sheet.includes("notifyEditorSheet"))
@@ -1901,9 +1906,10 @@ function main() {
      * width on selection pushes its neighbours, possibly onto the next line.
      * Nothing about a button's box may depend on whether it is selected.
      */
-    check("selecting a scheme changes no button's size", !/w-0|w-3\.5 scale-100/.test(picker) && picker.includes('active ? "opacity-100" : "opacity-0"'))
+    /* `min-w-0` (a grid cell that lets its name truncate) is not the zero-width tick this looks for. */
+    check("selecting a scheme changes no button's size", !/(?<![-\w])w-0\b|w-3\.5 scale-100/.test(picker) && picker.includes('active ? "opacity-100" : "opacity-0"'))
     check("nor its position", !/translate-y/.test(picker))
-    check("only colour, shadow, and the discs in their fixed box", picker.includes("transition-[background-color,border-color,box-shadow]") && picker.includes("style={{ width: 52 }}"))
+    check("only colour, shadow, and the discs in their fixed box", picker.includes("transition-[background-color,border-color,box-shadow]") && picker.includes("style={{ width: 54 }}"))
   }
 
   /* ------------------------------------------------------------------ */
