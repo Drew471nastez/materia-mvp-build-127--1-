@@ -265,8 +265,13 @@ async function main() {
     check("and a failed renewal is not sent to /login", /if \(!session && !isSignedOutAnswer\(false, error\)\) \{\s*setStuck\(true\)/.test(gate))
     check("a read that threw keeps a stored session", /catch \{[\s\S]{0,200}if \(hasStoredSessionToken\(\)\) setStuck\(true\)\s*else router\.replace\("\/login"\)/.test(gate))
 
+    /* The email editor is the composer now (components/email/compose). It
+       never sends anybody to /login itself: with no user it waits, and the
+       app's own gate decides what a sign-out is. */
     const editor = readCode("app/app/emails/new/page.tsx")
-    check("the email editor only leaves for /login on a real sign-out", /if \(isSignedOutAnswer\(false, error\)\) router\.push\("\/login"\)/.test(editor))
+    const composer = readCode("components/email/compose/composer.tsx") + readCode("components/email/compose/compose-page.tsx")
+    check("the email editor only leaves for /login on a real sign-out",
+      /<ComposePage campaignId=\{null\} \/>/.test(editor) && !/\/login/.test(composer) && /if \(!user \|\| !live\) return/.test(composer))
   }
 
   console.log("\n6. The proxy builds its response one way")

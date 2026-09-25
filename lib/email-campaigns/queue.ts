@@ -409,7 +409,7 @@ export async function startSend(db: Db, o: StartOptions): Promise<StartResult> {
   }
 
   const fit = fitsPlan(audience.recipients.length, await usedThisMonth(db, o.creatorId), monthlyLimit(sender.planId, sender.planStatus))
-  if (!fit.ok) return { kind: "invalid", status: 402, errors: [{ field: "audience", message: fit.message }] }
+  if ("message" in fit) return { kind: "invalid", status: 402, errors: [{ field: "audience", message: fit.message }] }
 
   if (o.dryRun) {
     return {

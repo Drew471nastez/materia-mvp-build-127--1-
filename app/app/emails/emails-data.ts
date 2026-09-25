@@ -29,14 +29,19 @@ let who: Promise<{ creatorId: string } | null> | null = null
 export function currentCreator(): Promise<{ creatorId: string } | null> {
   if (!who) {
     who = (async () => {
-      const supabase = createClient()
-      const { data: auth } = await supabase.auth.getUser()
-      if (!auth.user) return null
-      const { data } = await supabase.from("creators").select("id").eq("user_id", auth.user.id).maybeSingle()
-      return data ? { creatorId: data.id as string } : null
-    })().catch(() => {
-      who = null
-      return null
+      try {
+        const supabase = createClient()
+        const { data: auth } = await supabase.auth.getUser()
+        if (!auth.user) return null
+        const { data } = await supabase.from("creators").select("id").eq("user_id", auth.user.id).maybeSingle()
+        return data ? { creatorId: data.id as string } : null
+      } catch {
+        return undefined
+      }
+    })().then((found) => {
+      /* A dropped connection: asked again next time, not remembered as nobody. */
+      if (found === undefined) who = null
+      return found ?? null
     })
   }
   return who
