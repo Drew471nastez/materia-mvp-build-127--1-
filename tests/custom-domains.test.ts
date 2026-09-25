@@ -188,6 +188,9 @@ console.log("\nSettings › Domains")
   check("the owner's actions: buttons in the row, Verify or Check again, Make primary, Remove", /"Verify"/.test(panel) && /"Make primary"/.test(panel) && /data-domain-remove=""/.test(panel) && !/<ResponsiveActionMenu/.test(panel))
   check("the owner's table: Domain Name, Status, Date Added, Actions, and a card per domain below the width it fits",
     ["Domain Name", "Status", "Date Added", "Actions"].every((h) => panel.includes(`>${h}</p>`)) && /lg:grid-cols-\[1fr_130px_150px_180px\]/.test(panel) && /bg-\[#f9fafb\] p-4 lg:hidden/.test(panel))
+  /* Building both and hiding one doubled every row, and opening the tab took a frame longer at 1440. */
+  check("each row is built once: the table row at lg, the card below it, never both",
+    /const TABLE_QUERY = "\(min-width: 1024px\)"/.test(panel) && /useSyncExternalStore\(onTableChange, \(\) => tableMedia\(\)\.matches, \(\) => false\)/.test(panel) && /\{table \? \(\s*<>[\s{}]*<div className="hidden items-center gap-4/.test(panel) && /\) : \([\s{}]*<div className="mb-3 rounded-xl border border-\[#e5e7eb\] bg-\[#f9fafb\] p-4 lg:hidden">/.test(panel))
   check("the owner's free plan: the violet Pro bar and the two cards blurred", /bg-gradient-to-r from-\[#7c3aed\] to-\[#6d28d9\]/.test(panel) && /const BLURRED = "blur-\[1\.5px\] opacity-80 pointer-events-none select-none"/.test(panel) && (panel.match(/blurred && BLURRED/g) ?? []).length === 2)
   check("and the Settings page uses it", /<DomainsPanel/.test(code("components/app/settings-form-new.tsx")))
   check("the creator page's Share card reads the creator page's domain, not a field no domain has",

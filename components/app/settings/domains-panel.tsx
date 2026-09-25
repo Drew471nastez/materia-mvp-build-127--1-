@@ -48,7 +48,7 @@
  * records and checks with components/domains/dns-setup.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { AlertCircle, Check, CheckCircle, ChevronRight, Clock, Copy, ExternalLink, Globe, Loader2, Plus, X } from "lucide-react"
 
 import { InfoTip } from "@/components/ui/tooltip"
@@ -105,6 +105,25 @@ const COPY_BUTTON =
   "relative text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1 shrink-0 before:absolute before:-inset-2 before:content-['']"
 
 const PURPOSE_NAME: Record<DomainPurpose, string> = { website: "Website", creator_page: "Creator page" }
+
+/*
+  The owner's rows are a table from lg up and a card per domain below it.
+  Only the one on screen is built: building both and hiding one doubled the
+  rows, their buttons and their status notes, and opening the tab took a
+  frame longer at 1440 (scripts/check-domains.mjs). The list only exists
+  after the client has fetched it, so the server's answer (cards) never
+  meets a row.
+*/
+const TABLE_QUERY = "(min-width: 1024px)"
+let tableQuery: MediaQueryList | null = null
+const tableMedia = () => (tableQuery ??= window.matchMedia(TABLE_QUERY))
+const onTableChange = (on: () => void) => {
+  tableMedia().addEventListener("change", on)
+  return () => tableMedia().removeEventListener("change", on)
+}
+function useTableRows(): boolean {
+  return useSyncExternalStore(onTableChange, () => tableMedia().matches, () => false)
+}
 
 /** Where a domain stands, in the owner's words, with the note under the (i). */
 function statusOf(d: DomainItem): { label: string; tip: string; pill: string; icon: ReactNode } {
@@ -229,6 +248,7 @@ export function DomainsPanel({
   const purposes: DomainPurpose[] = data?.purposes?.length ? data.purposes : ["website", "creator_page"]
   const creatorPageOn = purposes.includes("creator_page")
   const blurred = locked && !planLoading
+  const table = useTableRows()
 
   /* Always the latest, for the handlers below that outlive a render. */
   const dataRef = useRef<DomainsData | null>(data)
@@ -727,12 +747,14 @@ export function DomainsPanel({
         ) : (
           <>
             {/* Table Header - Desktop */}
-            <div className="hidden gap-4 border-b border-[#e5e7eb] pb-3 lg:grid lg:grid-cols-[1fr_130px_150px_180px]">
-              <p className="text-[12px] font-semibold uppercase tracking-wider text-[#6b7280]">Domain Name</p>
-              <p className="text-[12px] font-semibold uppercase tracking-wider text-[#6b7280]">Status</p>
-              <p className="text-[12px] font-semibold uppercase tracking-wider text-[#6b7280]">Date Added</p>
-              <p className="text-right text-[12px] font-semibold uppercase tracking-wider text-[#6b7280]">Actions</p>
-            </div>
+            {table ? (
+              <div className="hidden gap-4 border-b border-[#e5e7eb] pb-3 lg:grid lg:grid-cols-[1fr_130px_150px_180px]">
+                <p className="text-[12px] font-semibold uppercase tracking-wider text-[#6b7280]">Domain Name</p>
+                <p className="text-[12px] font-semibold uppercase tracking-wider text-[#6b7280]">Status</p>
+                <p className="text-[12px] font-semibold uppercase tracking-wider text-[#6b7280]">Date Added</p>
+                <p className="text-right text-[12px] font-semibold uppercase tracking-wider text-[#6b7280]">Actions</p>
+              </div>
+            ) : null}
 
             {ordered.map((d) => {
               const p = purposeOf(d)
@@ -741,60 +763,64 @@ export function DomainsPanel({
               const added = addedOn(d.created_at)
               return (
                 <div key={d.id} data-domain-row={d.domain} data-domain-purpose={p}>
-                  {/* Desktop Row */}
-                  <div className="hidden items-center gap-4 border-b border-[#f3f4f6] py-4 last:border-0 lg:grid lg:grid-cols-[1fr_130px_150px_180px]">
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{d.domain}</p>
-                        {primaryMark ? <span className="shrink-0 rounded-full bg-[#f5f3ff] px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]">Primary</span> : null}
+                  {table ? (
+                    <>
+                      {/* Desktop Row. The owner's card came after it, so its last:border-0 never applied: every row keeps its line. */}
+                      <div className="hidden items-center gap-4 border-b border-[#f3f4f6] py-4 lg:grid lg:grid-cols-[1fr_130px_150px_180px]">
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{d.domain}</p>
+                            {primaryMark ? <span className="shrink-0 rounded-full bg-[#f5f3ff] px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]">Primary</span> : null}
+                          </div>
+                          <p className="mt-0.5 truncate text-[11px] text-[#9ca3af]">
+                            <span className="text-[#6b7280]">{PURPOSE_NAME[p]}</span>
+                            {line.text ? <> · {line.text}</> : null}
+                            {line.fallback ? (
+                              <>
+                                {" "}· Fallback:{" "}
+                                <SmartLink href={`https://${line.fallback}`} className="text-[#7c3aed] hover:underline">
+                                  {line.fallback}
+                                </SmartLink>
+                              </>
+                            ) : null}
+                          </p>
+                        </div>
+                        <StatusPill d={d} align="center" />
+                        <p className="text-[13px] text-[#6b7280]">{added ?? ""}</p>
+                        <div className="flex items-center justify-end gap-2">{actionsOf(d, false)}</div>
                       </div>
-                      <p className="mt-0.5 truncate text-[11px] text-[#9ca3af]">
-                        <span className="text-[#6b7280]">{PURPOSE_NAME[p]}</span>
-                        {line.text ? <> · {line.text}</> : null}
-                        {line.fallback ? (
-                          <>
-                            {" "}· Fallback:{" "}
-                            <SmartLink href={`https://${line.fallback}`} className="text-[#7c3aed] hover:underline">
-                              {line.fallback}
-                            </SmartLink>
-                          </>
-                        ) : null}
-                      </p>
-                    </div>
-                    <StatusPill d={d} align="center" />
-                    <p className="text-[13px] text-[#6b7280]">{added ?? ""}</p>
-                    <div className="flex items-center justify-end gap-2">{actionsOf(d, false)}</div>
-                  </div>
-                  {confirming === d.id ? <div className="mb-2 hidden lg:block">{confirmOf(d)}</div> : null}
-                  {/* Inline verify feedback, for the domain last checked */}
-                  {feedbackOf(d, false)}
-
-                  {/* Mobile Card */}
-                  <div className="mb-3 rounded-xl border border-[#e5e7eb] bg-[#f9fafb] p-4 lg:hidden">
-                    <div className="mb-2 flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="break-all text-[14px] font-semibold text-[#1a1a2e]">{d.domain}</p>
-                        <p className="text-[12px] text-[#6b7280]">
-                          {PURPOSE_NAME[p]}
-                          {primaryMark ? <span className="ml-1.5 rounded-full bg-[#f5f3ff] px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]">Primary</span> : null}
+                      {confirming === d.id ? <div className="mb-2 hidden lg:block">{confirmOf(d)}</div> : null}
+                      {/* Inline verify feedback, for the domain last checked */}
+                      {feedbackOf(d, false)}
+                    </>
+                  ) : (
+                    /* Mobile Card */
+                    <div className="mb-3 rounded-xl border border-[#e5e7eb] bg-[#f9fafb] p-4 lg:hidden">
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="break-all text-[14px] font-semibold text-[#1a1a2e]">{d.domain}</p>
+                          <p className="text-[12px] text-[#6b7280]">
+                            {PURPOSE_NAME[p]}
+                            {primaryMark ? <span className="ml-1.5 rounded-full bg-[#f5f3ff] px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]">Primary</span> : null}
+                          </p>
+                        </div>
+                        <StatusPill d={d} align="end" />
+                      </div>
+                      {added ? <p className="mb-1 text-[12px] text-[#9ca3af]">Added {added}</p> : null}
+                      {line.text ? <p className="mb-2 text-[11px] text-[#9ca3af]">{line.text}</p> : null}
+                      {line.fallback ? (
+                        <p className="mb-2 text-[11px] text-[#9ca3af]">
+                          Fallback:{" "}
+                          <SmartLink href={`https://${line.fallback}`} className="text-[#7c3aed] hover:underline">
+                            {line.fallback}
+                          </SmartLink>
                         </p>
-                      </div>
-                      <StatusPill d={d} align="end" />
+                      ) : null}
+                      <div className="flex items-center gap-2">{actionsOf(d, true)}</div>
+                      {confirming === d.id ? <div className="mt-3">{confirmOf(d)}</div> : null}
+                      {feedbackOf(d, true)}
                     </div>
-                    {added ? <p className="mb-1 text-[12px] text-[#9ca3af]">Added {added}</p> : null}
-                    {line.text ? <p className="mb-2 text-[11px] text-[#9ca3af]">{line.text}</p> : null}
-                    {line.fallback ? (
-                      <p className="mb-2 text-[11px] text-[#9ca3af]">
-                        Fallback:{" "}
-                        <SmartLink href={`https://${line.fallback}`} className="text-[#7c3aed] hover:underline">
-                          {line.fallback}
-                        </SmartLink>
-                      </p>
-                    ) : null}
-                    <div className="flex items-center gap-2">{actionsOf(d, true)}</div>
-                    {confirming === d.id ? <div className="mt-3">{confirmOf(d)}</div> : null}
-                    {feedbackOf(d, true)}
-                  </div>
+                  )}
                 </div>
               )
             })}

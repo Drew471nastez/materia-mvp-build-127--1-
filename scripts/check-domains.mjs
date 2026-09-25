@@ -38,7 +38,8 @@
  *   remove           asks in the row and says where visitors go
  *   phones           nothing scrolls sideways at 390
  *
- *   node scripts/check-domains.mjs            (SHOTS_DIR=... keeps the pictures)
+ *   node scripts/check-domains.mjs            (SHOTS_DIR=... keeps the pictures,
+ *                                              ROUNDS=5 opens the tab five times each)
  */
 import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
@@ -340,9 +341,13 @@ console.log("\nA phone (390, Pro)")
   await p.close()
 }
 
+/* ROUNDS=5 repeats this, before and after taking turns, so a busy machine
+   shows up as noise on both rather than as a verdict on one. */
+const rounds = Math.max(1, Number(process.env.ROUNDS) || 1)
+const opened = {}
 console.log("\nOpening the tab: long tasks and layout shift, from the press to 1.5s after")
-for (const width of [390, 1440]) {
-  for (const which of ["before", "after"]) {
+for (let round = 0; round < rounds; round++) for (const width of [390, 1440]) {
+  for (const which of round % 2 ? ["after", "before"] : ["before", "after"]) {
     if (!scripts[which]) continue
     const p = await browser.newPage()
     const phone = width < 640
@@ -361,8 +366,16 @@ for (const width of [390, 1440]) {
     await wait(1500)
     const m = await p.evaluate(() => ({ lt: window.__lt, cls: Math.round(window.__cls * 1000) / 1000 }))
     console.log(`  ${String(width).padEnd(5)} ${which.padEnd(7)} long tasks: ${m.lt.length ? m.lt.join(", ") + "ms" : "none"}   layout shift: ${m.cls}`)
+    ;(opened[`${width} ${which}`] ??= []).push(m.lt.reduce((a, b) => a + b, 0))
     if (which === "after") expect(m.lt.every((d) => d < 120), `${width}: no long task over 120ms opening the tab`, m.lt)
     await p.close()
+  }
+}
+if (rounds > 1) {
+  console.log(`\n  Long task time per open over ${rounds} rounds, median (each round)`)
+  for (const [key, all] of Object.entries(opened)) {
+    const sorted = [...all].sort((a, b) => a - b)
+    console.log(`  ${key.padEnd(12)} ${sorted[Math.floor(sorted.length / 2)]}ms   (${all.join(", ")})`)
   }
 }
 
