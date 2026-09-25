@@ -6,6 +6,10 @@
  *   #page      ExplorePageClient over thirty made-up products
  *   #loading   ExploreSkeleton, as loading.tsx draws it (grid not deferred,
  *              so it can be measured straight away)
+ *   #cat-page/<category>[/<sub>]      CategoryPageClient, as
+ *              app/(marketing)/explore/[category]/page.tsx draws it
+ *   #cat-loading/<category>[/<sub>]   CategorySkeleton, as that route's
+ *              loading.tsx draws it (grid not deferred)
  *
  * Nothing is reimplemented: scripts/check-explore-loading.mjs and
  * scripts/check-explore-panels.mjs measure what these draw.
@@ -15,6 +19,8 @@ import { createRoot } from "react-dom/client"
 import { LocaleProvider } from "@/components/locale-provider"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { ExploreSkeleton } from "@/components/explore/explore-skeleton"
+import { CategoryPageClient } from "@/components/explore/category-page-client"
+import { CategorySkeleton } from "@/components/explore/category-skeleton"
 
 const CATS = ["design", "development", "business", "marketing", "ai", "education", "productivity", "video", "photography", "audio-music"]
 const HUES = [18, 42, 160, 200, 220, 260, 330, 90, 5, 280]
@@ -50,13 +56,38 @@ const products = Array.from({ length: 30 }, (_, i) => ({
   },
 }))
 
-const mode = location.hash.replace("#", "") || "page"
+/* A category page's own products: named the way sellers name them, so the
+   subcategory pills have something real to find. */
+const DESIGN_TITLES = ["Inter Display Font Family", "UI/UX Dashboard Kit", "Logo Template Bundle", "Hand Drawn Icons", "iPhone Mockups", "Print Ready Poster Pack", "Brand Kit Starter", "Vector Graphics Set"]
+const categoryProducts = [
+  ...products,
+  ...Array.from({ length: 24 }, (_, i) => ({
+    ...products[i % products.length],
+    id: `d${i}`,
+    slug: `design-${i}`,
+    title: `${DESIGN_TITLES[i % DESIGN_TITLES.length]} ${i + 1}`,
+    category: i % 5 === 0 ? "UI Kits" : "design",
+    categoryName: i % 5 === 0 ? "UI Kits" : "design",
+    price_cents: [0, 900, 1900, 4900, 7900, 2500][(i + 2) % 6],
+    created_at: new Date(now - (i * 2 + 1) * 86400000).toISOString(),
+    thumbnail_url: picture(i + 3),
+  })),
+]
+
+const [mode, catId = "design", subId = ""] = (location.hash.replace("#", "") || "page").split("/")
+;(window as any).__category = catId
+;(window as any).__search = subId ? `sub=${subId}` : ""
+const CATEGORY_LABEL: Record<string, string> = { design: "Design", photography: "Photography", freebies: "Freebies" }
 
 function Page() {
   return (
     <main className="explore-ground min-h-screen bg-[#f8f9fa]">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
-        {mode === "loading" ? (
+        {mode === "cat-loading" ? (
+          <CategorySkeleton category={catId} sub={subId || null} />
+        ) : mode === "cat-page" ? (
+          <CategoryPageClient initialProducts={categoryProducts} category={catId} categoryLabel={CATEGORY_LABEL[catId] ?? catId} initialSubcategory={subId || undefined} />
+        ) : mode === "loading" ? (
           <ExploreSkeleton />
         ) : (
           <ExplorePageClient initialProducts={products} initialCategory="all" searchQuery="" />
