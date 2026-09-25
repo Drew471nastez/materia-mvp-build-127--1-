@@ -40,7 +40,7 @@ const common = {
   linkShortenerLabel: "Link shortener",
   settingsLabel: "Settings",
   upgradeTitle: "Upgrade to Pro",
-  upgradeSubtitle: "Unlock more benefits",
+  upgradeSubtitle: "Lower fees, your own domain",
 }
 
 /**
