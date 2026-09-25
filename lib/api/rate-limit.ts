@@ -194,4 +194,10 @@ export const LIMITS = {
   payment: [{ limit: 10, seconds: 600 }, { limit: 40, seconds: 86400 }],
   /** Taking a free product, which emails the address it is given. */
   claim: [{ limit: 5, seconds: 600 }, { limit: 30, seconds: 86400 }],
+  /**
+   * The /app header search, per signed in person. Typing asks once a pause,
+   * a few times a word; sixty a minute is well past anybody reading results
+   * and well short of a script walking somebody's customer list.
+   */
+  search: [{ limit: 60, seconds: 60 }],
 } as const satisfies Record<string, readonly RateWindow[]>
