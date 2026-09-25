@@ -211,6 +211,34 @@ try {
     await page.screenshot({ path: join(shots, `icons-rail-1280${path.replaceAll("/", "-")}.png`), clip: { x: 0, y: 0, width: 240, height: 540 } })
   }
 
+  /* ── The Upgrade card, 1280 ──────────────────────────────────────────── */
+  /*
+    "That purple thing has too much depth and draws too much attention.
+    More subtle, keep it how it is." The same card and words: a light
+    surface with a hairline and no shadow, the bolt flat in a soft violet
+    tint, nothing lit and nothing glowing.
+  */
+  console.log("\nThe Upgrade to Pro card at 1280")
+  await open("/app", "rail", 1280, 720, 2)
+  const card = await page.evaluate(() => {
+    const a = document.querySelector("#rail [data-upgrade-card]")
+    const bolt = a?.querySelector("[data-upgrade-bolt]")
+    if (!a || !bolt) return null
+    const cs = getComputedStyle(a)
+    const bs = getComputedStyle(bolt)
+    const r = a.getBoundingClientRect()
+    return {
+      href: a.getAttribute("href"), text: a.textContent.trim(), shadow: cs.boxShadow, bg: cs.backgroundColor, border: cs.borderTopColor,
+      boltBg: bs.backgroundColor, boltImage: bs.backgroundImage, boltShadow: bs.boxShadow, bolt: Math.round(bolt.getBoundingClientRect().width),
+      glyph: bolt.querySelector("svg")?.getAttribute("fill"), glyphFilter: getComputedStyle(bolt.querySelector("svg")).filter,
+      rect: { y: r.top, h: r.height },
+    }
+  })
+  check("the card: a light surface, a hairline, no shadow", !!card && card.shadow === "none" && card.bg === "rgb(250, 250, 250)" && card.border === "rgb(236, 236, 239)", card && { shadow: card.shadow, bg: card.bg, border: card.border })
+  check("the bolt: a flat circle of soft violet, a violet glyph, no gradient, no glow", !!card && card.boltImage === "none" && card.boltBg === "rgb(243, 240, 255)" && !/rgba\(109, 40, 217|0px 4px 10px/.test(card.boltShadow) && card.glyph === "#7c3aed" && card.glyphFilter === "none", card && { bg: card.boltBg, image: card.boltImage, shadow: card.boltShadow, glyph: card.glyph })
+  check("the same words and the same place: the plans page", !!card && card.href === "/app/settings/billing/upgrade" && /Upgrade to Pro/.test(card.text), card?.text)
+  if (card) await page.screenshot({ path: join(shots, "icons-upgrade-1280.png"), clip: { x: 0, y: Math.max(0, card.rect.y - 16), width: 240, height: card.rect.h + 72 } })
+
   /* ── The phone menu, 390 ─────────────────────────────────────────────── */
   console.log("\nThe phone menu at 390")
   await open("/app/payouts", "menu", 390, 844, 3)
