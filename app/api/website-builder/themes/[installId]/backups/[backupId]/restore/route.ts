@@ -45,7 +45,11 @@ export async function POST(_req: Request, { params }: Params) {
     .eq("install_id", installId)
     .maybeSingle()
 
-  if (readErr) return NextResponse.json({ error: readErr.message }, { status: 500 })
+  /* The database's own words go to the log, never to the browser. */
+  if (readErr) {
+    console.error("[backups/restore] failed", { code: readErr.code })
+    return NextResponse.json({ error: "Could not load that. Try again." }, { status: 500 })
+  }
   if (!backup) return NextResponse.json({ error: "Backup not found" }, { status: 404 })
 
   const snapshot = backup.snapshot as BackupSnapshot

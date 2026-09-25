@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
-import { publishedShopByName } from "@/lib/website-builder/published-site"
+import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
 import { getMainDomain } from "@/lib/url-helpers"
 import { shopSections } from "@/lib/website-builder/shop-page"
 import { siteMetadata } from "../render-site"
@@ -55,13 +55,15 @@ export default async function SiteShopPage({ params }: PageProps) {
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
-  const { site, products } = found
+  const { site, products, productCount } = found
   /* The page the creator arranged, when they have; the generated shop
      until then. The editor generates from the same builder, so the two
      never disagree about what an untouched shop page looks like. */
   const stored = site.pages.products
-  const sections = stored && stored.length > 0 ? stored : shopSections(site.pages.home ?? site.sections, site.themeSettings)
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.products", products)
+  const arranged = stored && stored.length > 0 ? stored : shopSections(site.pages.home ?? site.sections, site.themeSettings)
+  /* Placeholders filled, menus and picked products in hand: see dressPage. */
+  const { sections, data } = await dressPage(site, arranged, products, productCount, "page.products", "Shop")
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.products", products, undefined, data)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "page.products" }}>

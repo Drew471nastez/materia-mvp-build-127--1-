@@ -210,6 +210,21 @@
         "default": "white"
       }
     },
+    "color_background": {
+      "label": "Background",
+      "description": "A colour or a CSS gradient for something to sit on. Only colours, gradient functions, angles and stops: a value that could leave the declaration it is written in is refused.",
+      "value": "background",
+      "fallback": "",
+      "responsive": false,
+      "component": "BackgroundPicker",
+      "accepts": [],
+      "example": {
+        "type": "color_background",
+        "id": "backdrop",
+        "label": "Backdrop",
+        "default": "linear-gradient(135deg, #f8f9fa 0%, #e5e7eb 100%)"
+      }
+    },
     "font_picker": {
       "label": "Font",
       "description": "A font family from the theme's font list.",
@@ -238,6 +253,70 @@
         "id": "align",
         "label": "Align",
         "default": "center"
+      }
+    },
+    "inline_richtext": {
+      "label": "Inline rich text",
+      "description": "One line of formatted text: bold, italic, underline and links, nothing that starts a new block. Stored as cleaned HTML; output with the `raw` filter.",
+      "value": "string",
+      "fallback": "",
+      "responsive": false,
+      "component": "InlineRichText",
+      "accepts": [
+        "placeholder"
+      ],
+      "example": {
+        "type": "inline_richtext",
+        "id": "heading",
+        "label": "Heading",
+        "default": "Made <em>slowly</em>, by hand"
+      }
+    },
+    "html": {
+      "label": "HTML",
+      "description": "Markup a creator pastes, such as an embed from another service. Cleaned on save against the custom HTML allow list: no script, no forms, frames only from known players. Output with the `raw` filter.",
+      "value": "string",
+      "fallback": "",
+      "responsive": false,
+      "component": "HtmlInput",
+      "accepts": [
+        "placeholder"
+      ],
+      "example": {
+        "type": "html",
+        "id": "embed",
+        "label": "Embed code"
+      }
+    },
+    "datetime": {
+      "label": "Date and time",
+      "description": "A date, or a date and a time, written as 2026-03-14 or 2026-03-14T23:00 with an optional zone such as +02:00. Read as written, never shifted to the server's time zone. Format it with the `date` filter.",
+      "value": "string",
+      "fallback": "",
+      "responsive": false,
+      "component": "DateTimeInput",
+      "accepts": [],
+      "example": {
+        "type": "datetime",
+        "id": "ends_at",
+        "label": "Sale ends"
+      }
+    },
+    "focal_point": {
+      "label": "Focal point",
+      "description": "Where the important part of a picture is, as `object-position` reads it: \"30% 70%\". Name the picture setting it belongs to with `image`, and the editor lets the creator tap the spot on that picture.",
+      "value": "string",
+      "fallback": "50% 50%",
+      "responsive": false,
+      "component": "FocalPointPicker",
+      "accepts": [
+        "image"
+      ],
+      "example": {
+        "type": "focal_point",
+        "id": "image_focus",
+        "label": "Focus",
+        "default": "50% 30%"
       }
     },
     "image_picker": {
@@ -331,6 +410,27 @@
         "default": "/shop"
       }
     },
+    "video_url": {
+      "label": "Video link",
+      "description": "A YouTube or Vimeo link, in any shape people paste: a watch page, a short link, a Shorts link or a player address. Anything else is refused. Show it with `src=\"{{ settings.video | embed }}\"` and the `embed` capability. `accept` narrows it to one host.",
+      "value": "string",
+      "fallback": "",
+      "responsive": false,
+      "component": "VideoUrlInput",
+      "accepts": [
+        "accept",
+        "placeholder"
+      ],
+      "example": {
+        "type": "video_url",
+        "id": "video",
+        "label": "Video",
+        "accept": [
+          "youtube",
+          "vimeo"
+        ]
+      }
+    },
     "page_picker": {
       "label": "Page",
       "description": "One of the site's pages, by key.",
@@ -347,7 +447,7 @@
     },
     "product_picker": {
       "label": "Product",
-      "description": "One of the creator's products, by id.",
+      "description": "One of the creator's products. Printed on its own it is the product's address, so `href=\"{{ settings.product | url }}\"` works as it always has; it also carries the product's live `title`, `price`, `compare_price`, `image`, `url` and `id`, read as `settings.product.title`, whenever the page knows that product.",
       "value": "string",
       "fallback": "",
       "responsive": false,
@@ -357,6 +457,38 @@
         "type": "product_picker",
         "id": "product",
         "label": "Product"
+      }
+    },
+    "product_list": {
+      "label": "Product list",
+      "description": "Several of the creator's products, chosen and ordered by the creator, stored by id. The template receives them block-shaped, like `products`, with the live title, price and picture: `{% for block in settings.featured %}`. `limit` caps how many, 12 unless given, never more than 24.",
+      "value": "reference_list",
+      "fallback": [],
+      "responsive": false,
+      "component": "ProductListPicker",
+      "accepts": [
+        "limit"
+      ],
+      "example": {
+        "type": "product_list",
+        "id": "featured",
+        "label": "Products",
+        "limit": 4
+      }
+    },
+    "link_list": {
+      "label": "Menu",
+      "description": "One of the site's menus, by handle. The template receives `{ handle, title, links }`, each link `{ title, url, links }` with every address already made safe. `main-menu` is the header's own links unless the creator made a menu of that name.",
+      "value": "string",
+      "fallback": "",
+      "responsive": false,
+      "component": "MenuPicker",
+      "accepts": [],
+      "example": {
+        "type": "link_list",
+        "id": "menu",
+        "label": "Menu",
+        "default": "main-menu"
       }
     },
     "community_picker": {
@@ -421,5 +553,20 @@
     "icon": "icon_picker",
     "font": "font_picker",
     "spacing": "range"
+  },
+  "shopify_aliases": {
+    "text_alignment": "alignment",
+    "product": "product_picker",
+    "page": "page_picker"
+  },
+  "unsupported": {
+    "collection": "Storelib has no collections. Use product_list for chosen products, or the section's `products` for the whole shop.",
+    "collection_list": "Storelib has no collections. Use product_list for chosen products.",
+    "blog": "A Storelib site has no blog of its own yet.",
+    "article": "A Storelib site has no blog of its own yet.",
+    "metaobject": "Storelib has no metaobjects. Use blocks for repeated content.",
+    "metaobject_list": "Storelib has no metaobjects. Use blocks for repeated content.",
+    "liquid": "A section's template is its code. Write the markup in <template>, or make a section of your own in the code editor.",
+    "color_scheme_group": "Colour schemes are the theme's, edited in Theme settings › Colors. A section picks one with color_scheme."
   }
 }

@@ -2,7 +2,9 @@ import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { ensurePolicyPages, type PagesTable } from "@/lib/website-builder/ensure-policy-pages"
-import { sanitizeInstallRow } from "@/lib/website-builder/sanitize-sections"
+import { sanitizeInstallRow, sectionsOfInstallRow } from "@/lib/website-builder/sanitize-sections"
+import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
+import { creatorFacts } from "@/lib/website-builder/storefront-data-server"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -69,7 +71,11 @@ export async function GET(_req: Request, { params }: Params) {
     .eq("id", installId)
     .single()
 
-  if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 })
+  /* The database's own words go to the log, never to the browser. */
+  if (fetchError) {
+    console.error("[themes/get] read failed", { code: fetchError.code })
+    return NextResponse.json({ error: "Could not load this website. Try again." }, { status: 500 })
+  }
 
   // Get username for URL display
   const { data: { user } } = await supabase!.auth.getUser()
@@ -95,7 +101,17 @@ export async function GET(_req: Request, { params }: Params) {
   */
   /* The name the website is at, when its creator gave it one of its own. */
   const siteHandle = await websiteHandleOf(creator!.id)
-  return NextResponse.json({ install: sanitizeInstallRow(data), username, siteHandle })
+  /*
+    A section the creator wrote is cleaned by the schema its own file
+    declares (lib/website-builder/custom-schemas.ts), and the creator's
+    public profile comes along for the canvas to fill `{{ creator.name }}`
+    the way the live site will: the same four public facts, nothing else.
+  */
+  const [lookup, facts] = await Promise.all([
+    customSchemaLookup(supabase! as never, installId, sectionsOfInstallRow(data), { draft: true }),
+    creatorFacts(supabase! as never, creator!.id),
+  ])
+  return NextResponse.json({ install: sanitizeInstallRow(data, lookup), username, siteHandle, creatorFacts: facts })
 }
 
 // PATCH /api/website-builder/themes/[installId]
@@ -120,7 +136,10 @@ export async function PATCH(req: Request, { params }: Params) {
     .select()
     .single()
 
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+  if (updateError) {
+    console.error("[themes/rename] failed", { code: updateError.code })
+    return NextResponse.json({ error: "Could not rename this website. Try again." }, { status: 500 })
+  }
   return NextResponse.json({ install: data })
 }
 
@@ -150,6 +169,9 @@ export async function DELETE(_req: Request, { params }: Params) {
     .delete()
     .eq("id", installId)
 
-  if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
+  if (deleteError) {
+    console.error("[themes/delete] failed", { code: deleteError.code })
+    return NextResponse.json({ error: "Could not delete this website. Try again." }, { status: 500 })
+  }
   return NextResponse.json({ ok: true })
 }

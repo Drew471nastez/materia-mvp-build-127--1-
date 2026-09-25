@@ -7,10 +7,17 @@
       {% if settings.subheading %}<p class="s__sub">{{ settings.subheading }}</p>{% endif %}
     </div>
     <div class="cd__side">
-      {% if settings.ends_text %}
-        <p class="cd__ends" data-ends="{{ settings.ends_at }}">
+      {# The words the creator typed, or the date they picked, written out.
+         A picked date is also in the markup as a <time>, so a browser, a
+         search engine and a script can read the moment itself. #}
+      {% if settings.ends_text or settings.ends_at %}
+        <p class="cd__ends"{% if settings.ends_at %} data-ends="{{ settings.ends_at | date: 'iso' }}"{% endif %}>
           <span class="cd__ends-label">{{ settings.ends_label }}</span>
-          <span class="cd__ends-when">{{ settings.ends_text }}</span>
+          {% if settings.ends_at %}
+            <time class="cd__ends-when" datetime="{{ settings.ends_at | date: 'iso' }}">{% if settings.ends_text %}{{ settings.ends_text }}{% else %}{{ settings.ends_at | date: 'long_time' }}{% endif %}</time>
+          {% else %}
+            <span class="cd__ends-when">{{ settings.ends_text }}</span>
+          {% endif %}
         </p>
       {% endif %}
       {% if settings.code %}<p class="cd__code"><span>{{ settings.code_label }}</span><code>{{ settings.code }}</code></p>{% endif %}
@@ -145,11 +152,11 @@
       "default": "Sunday, 11pm"
     },
     {
-      "type": "text",
+      "type": "datetime",
       "id": "ends_at",
       "label": "Exact time",
       "default": "",
-      "info": "Written as 2026-03-14T23:00. Shown as written above; a live countdown reads this once section scripts run."
+      "info": "When Ends above is empty, this is written out in its place."
     },
     {
       "type": "header",

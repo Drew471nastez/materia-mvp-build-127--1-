@@ -33,7 +33,9 @@ import { StorefrontProvider, type Storefront } from "./storefront-context"
 import { SectionSandboxProvider } from "../sections/section-sandbox"
 import { SiteCartProvider } from "../site-cart"
 import { SiteWishlistProvider } from "../site-wishlist"
-import { Fragment, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react"
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react"
+import { announcementMessages, announcementSeconds } from "@/lib/website-builder/announcement"
+import { cn } from "@/lib/utils"
 
 import { THEME_ROOT_ATTRIBUTE, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
 import { fontStylesheetHref } from "@/lib/website-builder/font-link"
@@ -98,7 +100,7 @@ function pageFill(inEditor: boolean): CSSProperties {
 
 export function headerTouchesTop(theme: ThemeSettingsValues): boolean {
   const t = theme as Record<string, unknown>
-  const announcement = t.announcement_bar_enabled === true && str(t.announcement_bar_text).length > 0
+  const announcement = t.announcement_bar_enabled === true && announcementMessages(t).length > 0
   const freeShipping =
     t.free_shipping_bar === true && typeof t.free_shipping_threshold === "number" && t.free_shipping_threshold > 0
   return !announcement && !freeShipping
@@ -114,9 +116,22 @@ export function headerTouchesTop(theme: ThemeSettingsValues): boolean {
  */
 function AnnouncementBar({ theme }: { theme: ThemeSettingsValues }) {
   const t = theme as Record<string, unknown>
-  const text = str(t.announcement_bar_text)
+  /*
+    ONE MESSAGE OR SEVERAL. Theme settings › Announcement bar › More
+    messages adds lines that take turns with the first
+    (lib/website-builder/announcement.ts). With one, nothing below differs
+    from the bar every site already had, dismissal key included.
+  */
+  const messages = announcementMessages(t)
+  const text = messages.length > 1 ? messages.join("\n") : (messages[0] ?? "")
   const dismissible = t.announcement_bar_dismissible === true
   const [dismissed, setDismissed] = useState(false)
+  const scrolling = t.announcement_bar_scrolling === true
+  const rotating = messages.length > 1 && !scrolling
+  const seconds = announcementSeconds(t)
+  const [index, setIndex] = useState(0)
+  const [held, setHeld] = useState(false)
+  const barRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (!dismissible) return
@@ -129,30 +144,77 @@ function AnnouncementBar({ theme }: { theme: ThemeSettingsValues }) {
     }
   }, [dismissible, text])
 
+  /*
+    TAKING TURNS, ONLY WHILE SOMEBODY COULD BE READING IT. The timer does
+    nothing while the bar is off screen or the tab is hidden, stops while
+    the pointer or the keyboard is on the bar, and never starts for a
+    visitor who asked their device for less motion: they get the arrows.
+    The change itself is opacity and a 6px lift, on the compositor, and the
+    messages share one grid cell so the bar never changes height.
+  */
+  useEffect(() => {
+    if (!rotating || held || dismissed) return
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    let onScreen = true
+    const el = barRef.current
+    const io = el && typeof IntersectionObserver !== "undefined"
+      ? new IntersectionObserver(([entry]) => { onScreen = entry.isIntersecting })
+      : null
+    if (io && el) io.observe(el)
+    const id = window.setInterval(() => {
+      if (!onScreen || document.hidden) return
+      setIndex((i) => (i + 1) % messages.length)
+    }, seconds * 1000)
+    return () => {
+      window.clearInterval(id)
+      io?.disconnect()
+    }
+  }, [rotating, held, dismissed, seconds, messages.length])
+
   if (!t.announcement_bar_enabled || !text || dismissed) return null
 
   const linkText = str(t.announcement_bar_link_text)
   const linkUrl = str(t.announcement_bar_link_url, "#")
-  const scrolling = t.announcement_bar_scrolling === true
 
+  const link = !!linkText && (
+    <a href={linkUrl} className="ml-2 underline underline-offset-2 font-semibold">
+      {linkText}
+    </a>
+  )
   const body = (
     <>
-      <span>{text}</span>
-      {!!linkText && (
-        <a href={linkUrl} className="ml-2 underline underline-offset-2 font-semibold">
-          {linkText}
-        </a>
-      )}
+      <span>{messages.join("   ·   ")}</span>
+      {link}
     </>
+  )
+  const shown = index % Math.max(1, messages.length)
+  const step = (d: number) => setIndex((i) => (i + d + messages.length) % messages.length)
+  const arrow = (d: number) => (
+    <button
+      type="button"
+      aria-label={d < 0 ? "Previous message" : "Next message"}
+      onClick={() => step(d)}
+      className="absolute top-0 bottom-0 flex w-9 items-center justify-center opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+      style={d < 0 ? { left: 0 } : { right: dismissible ? 28 : 0 }}
+    >
+      <svg aria-hidden width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d={d < 0 ? "M15 18l-6-6 6-6" : "M9 18l6-6-6-6"} />
+      </svg>
+    </button>
   )
 
   return (
     <div
-      className="relative w-full overflow-hidden py-2 text-center text-sm font-medium"
+      ref={barRef}
+      className={cn("relative w-full overflow-hidden py-2 text-center text-sm font-medium", rotating && "max-sm:min-h-[44px] max-sm:py-3")}
       style={{
         background: str(t.announcement_bar_bg, "#6366f1"),
         color: str(t.announcement_bar_color, "#ffffff"),
       }}
+      onPointerEnter={rotating ? () => setHeld(true) : undefined}
+      onPointerLeave={rotating ? () => setHeld(false) : undefined}
+      onFocusCapture={rotating ? () => setHeld(true) : undefined}
+      onBlurCapture={rotating ? () => setHeld(false) : undefined}
     >
       {scrolling ? (
         <>
@@ -171,8 +233,33 @@ function AnnouncementBar({ theme }: { theme: ThemeSettingsValues }) {
             </span>
           </div>
         </>
+      ) : rotating ? (
+        <>
+          <div className="grid px-10" aria-roledescription="announcements">
+            {messages.map((m, i) => (
+              <p
+                key={i}
+                aria-hidden={i !== shown}
+                className="col-start-1 row-start-1 m-0 transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none"
+                style={{
+                  opacity: i === shown ? 1 : 0,
+                  transform: i === shown ? "translateY(0)" : "translateY(6px)",
+                  pointerEvents: i === shown ? "auto" : "none",
+                }}
+              >
+                <span>{m}</span>
+                {link}
+              </p>
+            ))}
+          </div>
+          {arrow(-1)}
+          {arrow(1)}
+        </>
       ) : (
-        <div className="px-10">{body}</div>
+        <div className="px-10">
+          <span>{messages[0]}</span>
+          {link}
+        </div>
       )}
       {dismissible && (
         <button

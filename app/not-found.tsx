@@ -2,19 +2,22 @@ import Link from "next/link"
 import { Compass } from "lucide-react"
 
 import { NotFoundBody } from "@/components/platform/not-found-body"
+import { SiteNotFound } from "@/components/website-builder/site-not-found"
 
 /**
  * Two answers, one route. See components/platform/not-found-body.tsx: on
  * storelib.com this is Storelib's 404, and on a creator's own address it is
- * a page that does not mention Storelib and does not offer to take the
- * visitor off the site they were on.
+ * the 404 page the creator arranged in the builder, inside their own header
+ * and footer (components/website-builder/site-not-found.tsx), with the plain
+ * page below when the site's own cannot be drawn. Neither mentions Storelib
+ * or offers to take the visitor off the site they were on.
  */
 export default function NotFound() {
-  return <NotFoundBody platform={<PlatformNotFound />} site={<SiteNotFound />} />
+  return <NotFoundBody platform={<PlatformNotFound />} site={<SiteNotFound fallback={<PlainSiteNotFound />} />} />
 }
 
-/** A page that is not there, on somebody's own website. */
-function SiteNotFound() {
+/** A page that is not there, on somebody's own website, when their own 404 page cannot be drawn. */
+function PlainSiteNotFound() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-3.5 px-6 py-24 text-center">
       <h1 className="text-[26px] font-semibold tracking-tight text-[#1a1a2e] sm:text-[30px]">That page is not here</h1>

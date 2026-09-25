@@ -26,10 +26,10 @@ import { StorelibSourcesProvider } from "@/components/website-builder/sections/s
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
-import { publishedShopByName } from "@/lib/website-builder/published-site"
+import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
 import { ACCOUNT_PAGE_PATHS, accountPageSections } from "@/lib/website-builder/account-pages"
 import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
-import { templateForPage } from "@/lib/website-builder/site-pages"
+import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import { getMainDomain } from "@/lib/url-helpers"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
@@ -67,11 +67,13 @@ export async function renderAccountPage(
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
-  const { site, products } = found
+  const { site, products, productCount } = found
   const stored = site.pages[key]
   const base = stored && stored.length > 0 ? stored : (accountPageSections(key, site.pages.home ?? site.sections) ?? [])
-  const sections = pageWithLiveLinks(base, new Set(Object.keys(site.pages)))
+  /* Drawn like every other page: live links, then the shop's own facts (placeholders, menus, picked products). */
+  const linked = pageWithLiveLinks(base, new Set(Object.keys(site.pages)))
   const template = templateForPage(key)
+  const { sections, data } = await dressPage(site, linked, products, productCount, template, pageTitleFromKey(key))
 
   const globals: StorefrontGlobals = {
     shop: { name: site.displayName, email: wantsEmail(sections) ? await supportEmail(site.creatorId) : "" },
@@ -79,7 +81,7 @@ export async function renderAccountPage(
     wishlist: extras.wishlist ?? null,
   }
   const page = extras.notice ? { notice: extras.notice } : undefined
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, page, globals)
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, page, data, globals)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template }}>

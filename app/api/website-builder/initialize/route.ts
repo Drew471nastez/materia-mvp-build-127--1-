@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { mainProductSection } from "@/lib/website-builder/product-page"
 
 // Default product page template sections
 const DEFAULT_PRODUCT_SECTIONS = [
@@ -35,25 +36,9 @@ const DEFAULT_PRODUCT_SECTIONS = [
       { id: "nav-contact", type: "nav_link", settings: { label: "Contact", url: "/contact", link_type: "custom" } },
     ],
   },
-  {
-    id: "product-hero",
-    type: "split_content",
-    name: "Product",
-    hidden: false,
-    settings: {
-      heading: "Product Name",
-      body: "<p>Describe your product here. Highlight the key features, what's included, and why customers should buy it.</p>",
-      button_text: "Buy Now",
-      button_url: "#",
-      image_url: "",
-      image_position: "left",
-      bg_color: "#ffffff",
-      text_color: "#0f172a",
-      padding_top: 60,
-      padding_bottom: 60,
-    },
-    blocks: [],
-  },
+  /* The section that draws the real product, not a "Product Name"
+     placeholder: see lib/website-builder/product-page.ts. */
+  mainProductSection(),
   {
     id: "product-features",
     type: "feature_grid",
@@ -169,8 +154,9 @@ export async function POST() {
   })
 
   if (error) {
-    console.error("initialize_creator_themes error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    /* The code only: the database's own words stay out of the log's readers and the browser. */
+    console.error("[initialize] initialize_creator_themes failed", { code: error.code })
+    return NextResponse.json({ error: "Could not set up your website. Try again." }, { status: 500 })
   }
 
   // Ensure product page templates exist for all installs

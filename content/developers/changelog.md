@@ -16,6 +16,17 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 
 **Added**
 
+- Eight setting types: `inline_richtext`, `html`, `color_background`, `datetime`, `focal_point`, `video_url`, `product_list` and `link_list`. See [Schema](/developers/schema#every-control-type).
+- `visible_if` on a setting, written as Shopify writes it, so the panel shows a setting only when it matters. See [Showing a setting only when it matters](/developers/schema#showing-a-setting-only-when-it-matters).
+- Shop data in a setting: `{{ shop.name }}`, `{{ creator.avatar }}`, `{{ product.price }}` and the rest of a closed list, filled in on the server. See [Shop data in a setting](/developers/schema#shop-data-in-a-setting).
+- `shop`, `creator` and `product` in a template, beside `settings` and `blocks`.
+- A `product_picker` carries the product's title, price and picture as well as its address.
+- Menus, made in Theme settings, for a `link_list`. `main-menu` is the header's own links, and the header can show any menu.
+- The `lines` filter, for a `textarea` typed one item per line.
+- Three sections: Plans, Rows and Course Outline.
+- The 404 page: every site draws its own inside its header and footer for an address it does not have, and a creator can arrange it in the builder like the shop and search pages.
+- The Product Grid can show products the creator chooses from the shop.
+- [Coming from Shopify](/developers/shopify).
 - [Themes](/developers/themes): what a theme holds, the website library, every theme setting key, colour schemes and typography, and the package format with `theme.json`, `manifest.json` and `templates/*.json`.
 - [Pages and page settings](/developers/pages), [Sharing themes](/developers/sharing-themes), [Publishing and checks](/developers/publishing), [Dynamic values](/developers/dynamic-values) and [Data model](/developers/data-model).
 - The hub is grouped the way it is used: Get started, Themes, Sections, Data and logic, Tools and AI, and Reference. Every page keeps its address.
@@ -24,9 +35,24 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 - Saving products: `data-storelib-wishlist` on a button saves a product to the visitor's Wishlist. See [Saving products](/developers/javascript#saving-products).
 - Every website has an account page, a sign in page, a Wishlist and a contact page, drawn by the `main_account`, `main_login`, `main_wishlist` and `contact` sections.
 
+**Changed**
+
+- Every saved value is held to its type as a section is drawn. A value the type does not allow is drawn as the default and left as it was in storage.
+- The countdown's exact time is a `datetime`, written out when no end is typed.
+- The header's phone menu can slide in from either side or cover the screen, and its see-through setting can apply to the home page only.
+- The announcement bar can hold several messages that take turns.
+- `migrations` are applied: a section's own setting stored under `from` is read under `to` as the section is drawn.
+- The theme export downloads media from public addresses only, checked at every redirect.
+
+**Security**
+
+- A creator's own sections are cleaned by the schema their file declares, not only by the built-in ones, when a page is saved, read in the builder and published.
+- The builder's routes no longer return database error text.
+
+
 **Fixed in these pages**
 
-- `migrations` and `allowed_templates` are described as they ship: validated and kept, and not applied or used yet.
+- `allowed_templates` is described as it ships: validated and kept, and not used yet.
 - An unknown filter is not refused by the compiler. It prints the value unchanged.
 - There is no `layout/theme.storelib`. A theme has no stylesheet for the whole site that you can write.
 - An export names its page files by page key, `templates/home.json` and `templates/about.json`, and takes the theme settings from the draft and the pages as last published.

@@ -2,10 +2,10 @@ import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
-import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
+import { renderWithSources } from "@/lib/website-builder/storefront-render"
+import { dressPage, ownerOf } from "@/lib/website-builder/published-site"
 import { previewTokenFrom, pageSections } from "@/lib/website-builder/preview-link"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
-import { shopProducts } from "@/lib/website-builder/shop-products"
 import { shopSections } from "@/lib/website-builder/shop-page"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { previewInstall } from "../../../render-site"
@@ -46,9 +46,9 @@ export default async function PreviewShopPage({ params }: PageProps) {
     .maybeSingle()
 
   const home = sanitizeSections(pageSections<SectionInstance[]>(homeData as never, preview) ?? [])
-  const sections = shopSections(home, themeSettings)
-  const products = await shopProducts(admin as never, creatorId)
-  const prerendered = await prerenderStorelibSections(admin as never, installId, sections, themeSettings, "page.products", products)
+  const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings)
+  const { sections, data } = await dressPage(owner, shopSections(home, themeSettings), products, productCount, "page.products", "Shop", undefined, { cached: false })
+  const prerendered = renderWithSources(owner.sources, sections, themeSettings, "page.products", products, undefined, data)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "page.products" }}>

@@ -3521,6 +3521,23 @@ html.capacitor.has-page-layer {
     background-color: #f8f9fa;
   }
 }
+/* ── The OnePage editor, full screen on a phone ────────────────────────────
+   Under 768px its own white bar is the top of the screen, padded into the
+   safe area (components/onepage/onepage-editor.tsx sets `with-op-editor`),
+   so the black header, the rail and the native shield under the clock are
+   not painted. Hidden rather than covered: the editor stays at z 30 and its
+   dialogs and sheets still open over it. From 768px it sits in the shell. */
+@media (max-width: 767px) {
+  html.with-op-editor [data-shell-chrome] {
+    visibility: hidden;
+  }
+  html.capacitor.with-op-editor.with-op-editor::before {
+    display: none;
+  }
+  html.capacitor.with-op-editor.with-op-editor {
+    background-color: #ffffff;
+  }
+}
 
 /* ── A layer comes and goes (moveLayer, components/app/page-layer.tsx) ─────
    A view transition: ::view-transition-old(root) is a picture of the screen
@@ -4289,7 +4306,8 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
 /* A section library preview that lands while its card is on screen fades
    in over the card's grey (components/website-builder/editor/section-library.tsx). */
 .wb-preview-arrive {
-  animation: wb-preview-arrive 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  /* backwards, not both: once in, the preview holds no finished animation (and no layer of its own). */
+  animation: wb-preview-arrive 220ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
 }
 @keyframes wb-preview-arrive {
   from { opacity: 0; }
