@@ -279,14 +279,14 @@ try {
       const qrView = await p.evaluate(() => {
         const el = document.querySelector("[data-share-sheet]")
         const svg = el.querySelector("[role=img] svg")
-        /* The view on show; on a phone the share view is kept beside it, out of sight. */
-        const shown = el.querySelector("[data-share-pane][data-on]") ?? el
+        /* The view on show; on a phone the share view is kept beside it, out of sight (by its style, not a class). */
+        const shown = [...el.querySelectorAll("[data-share-pane]")].find((n) => n.style.visibility !== "hidden") ?? el
         return {
           view: el.getAttribute("data-view"),
           drawn: !!svg && svg.querySelectorAll("path").length > 0,
           size: svg ? Math.round(svg.getBoundingClientRect().width) : 0,
           buttons: [...shown.querySelectorAll("button")].map((b) => b.textContent.trim()).filter(Boolean),
-          panes: [...el.querySelectorAll("[data-share-pane]")].map((n) => (n.hasAttribute("data-on") ? "on" : getComputedStyle(n).visibility)),
+          panes: [...el.querySelectorAll("[data-share-pane]")].map((n) => (getComputedStyle(n).visibility === "hidden" ? "hidden" : "on")),
         }
       })
       expect(qrView.view === "qr" && qrView.drawn && qrView.size >= 180, "the QR view draws a large code", qrView)
@@ -294,7 +294,8 @@ try {
       if (phone) expect(qrView.panes.join("|") === "hidden|on", "the share view is kept out of sight behind it, not taken down", qrView.panes)
       else expect(qrView.panes.join("|") === "on", "on a computer only the view on show is in the panel", qrView.panes)
       await p.screenshot({ path: join(shots, `${label}-qr.png`) })
-      const back = await p.$("button[aria-label=Back]")
+      /* Every header keeps its Back button and hides it on the share view: the one on show. */
+      const back = (await p.evaluateHandle(() => [...document.querySelectorAll("button[aria-label=Back]")].find((b) => !b.hidden && b.getClientRects().length > 0))).asElement()
       if (phone) await back.tap()
       else await back.click()
       await sleep(500)

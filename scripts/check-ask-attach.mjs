@@ -82,7 +82,7 @@ const DRIVE = `
     for (var i = 0; i < all.length; i++) { var l = all[i].getAttribute("aria-label"); if (l === "Send" || l === "Queue") return all[i] }
     return null
   }
-  function attachButton() { return document.querySelector('button[aria-label="Attach a picture"]') }
+  function attachButton() { return document.querySelector('button[aria-label="Attach pictures or a video"]') }
 
   function bytes(b64) { var bin = atob(b64); var a = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a }
 
@@ -121,9 +121,13 @@ const DRIVE = `
       dt.items.add(file)
       field.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }))
       var waited = 0
+      /* The thumbnail is drawn from the file at once, and holds the prepared picture (a data URL) once it is ready. */
+      window.__firstThumbAt = 0
+      var t0 = performance.now()
       function settle() {
-        var thumb = document.querySelector('img[alt="screenshot.png"]')
-        if (!thumb && waited++ < 600) { setTimeout(settle, 10); return }
+        if (!window.__firstThumbAt && document.querySelector("[data-ask-thumb] img")) window.__firstThumbAt = Math.round(performance.now() - t0)
+        var thumb = document.querySelector('[data-ask-thumb][data-state="ready"] img')
+        if ((!thumb || thumb.src.slice(0, 5) !== "data:") && waited++ < 600) { setTimeout(settle, 10); return }
         step3(field, before, thumb)
       }
       setTimeout(settle, 10)
@@ -147,8 +151,12 @@ const DRIVE = `
     if (rb) { for (var d = 0; d <= 24; d++) { if (!owns(document.elementFromPoint(rb.x + d, rb.y)) || !owns(document.elementFromPoint(rb.x, rb.y + d))) break; reach = d } }
     var composer = field.closest("[data-chat-composer]")
 
+    var slot = document.querySelector("[data-ask-thumb]")
     var result = {
       before: before,
+      thumbState: slot ? slot.getAttribute("data-state") : null,
+      firstThumbMs: window.__firstThumbAt || null,
+      attachError: (document.querySelector("[data-ask-attach-error]") || {}).textContent || null,
       thumb: box(thumb),
       thumbLoaded: thumb ? (thumb.naturalWidth > 0) : false,
       thumbSrcIsData: thumb ? thumb.src.slice(0, 11) === "data:image/" : false,
@@ -270,13 +278,26 @@ writeFileSync(file, page(false))
 const held = join(out, "held.html")
 writeFileSync(held, page(true))
 
-const dom = execFileSync(CHROMIUM, ["--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars",
-  "--window-size=420,720", "--virtual-time-budget=12000", "--run-all-compositor-stages-before-draw",
-  "--dump-dom", `file://${file}`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 })
-const m = dom.match(/<pre id="result">([\s\S]*?)<\/pre>/)
-if (!m) fail("The composer never reported. Nothing was measured.")
-const decode = (s) => s.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
-const r = JSON.parse(decode(m[1]))
+/*
+  IN REAL TIME. This ran under --virtual-time-budget with --dump-dom, and a
+  picture is now made ready off the main thread (createImageBitmap,
+  convertToBlob): virtual time runs its whole budget while the decode is
+  still going, and the page was dumped before any picture was ready. The
+  drive script is unchanged; puppeteer loads it and waits for its report.
+*/
+const { default: puppeteer } = await import("puppeteer-core")
+const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars"] })
+let r
+try {
+  const tab = await browser.newPage()
+  await tab.setViewport({ width: 420, height: 720 })
+  await tab.goto(`file://${file}`)
+  const found = await tab.waitForSelector("#result", { timeout: 30000 }).catch(() => null)
+  if (!found) fail("The composer never reported. Nothing was measured.")
+  r = JSON.parse(await tab.$eval("#result", (e) => e.textContent))
+} finally {
+  await browser.close()
+}
 if (r.error) fail(r.error)
 
 if (process.env.KEEP_SHOT) {
@@ -289,7 +310,7 @@ if (process.env.KEEP_SHOT) {
 
 console.log(`  attach control: ${r.before.attach ? `${r.before.attach.w}x${r.before.attach.h}px` : "MISSING"}, ${r.before.attachVisible ? "reachable" : "NOT reachable"}`)
 console.log(`  file input: ${r.fileInput ? `accept=${r.fileInput.accept} multiple=${r.fileInput.multiple} hidden=${!r.fileInput.shown}` : "MISSING"}`)
-console.log(`  pasted screenshot: thumbnail ${r.thumb ? `${r.thumb.w}x${r.thumb.h}px` : "NOT DRAWN"}, decoded: ${r.thumbLoaded}, from a data URL: ${r.thumbSrcIsData}`)
+console.log(`  pasted screenshot: drawn after ${r.firstThumbMs ?? "?"}ms, state ${r.thumbState}${r.attachError ? ` (${r.attachError})` : ""}; ready: ${r.thumb ? `${r.thumb.w}x${r.thumb.h}px` : "NOT DRAWN"}, decoded: ${r.thumbLoaded}, from a data URL: ${r.thumbSrcIsData}`)
 console.log(`  the file was ${(r.sourceBytes / 1024 / 1024).toFixed(2)}MB; what will be posted is ${(r.sentBytes / 1024).toFixed(0)}KB of ${r.sentType}, longest edge ${r.sentLongEdge}px`)
 console.log(`  its cross: ${r.remove ? `${r.remove.w}x${r.remove.h}px drawn, ${r.target}px to a thumb` : "MISSING"}, a press on it ${r.hitIsRemove ? "lands on the cross" : `lands on ${r.hitWas ?? "nothing"}`}`)
 console.log(`  Send: ${r.before.sendDisabledEmpty ? "off" : "on"} with nothing, ${r.sendDisabledWithPicture ? "OFF" : "on"} with a picture and no words`)

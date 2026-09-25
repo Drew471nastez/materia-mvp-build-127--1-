@@ -30,12 +30,13 @@ export async function system(r: Reader): Promise<Omit<SystemPayload, "problems" 
  * late. When there is no trace to read, it says so rather than guessing.
  */
 async function cronChecks(r: Reader): Promise<CronCheck[]> {
-  const [lastFlowSend, lateFlows, lastRelease, overdueHolds, lastRollup] = await Promise.all([
+  const [lastFlowSend, lateFlows, lastRelease, overdueHolds, lastRollup, lastNotify] = await Promise.all([
     r.rows<{ sent_at: string | null }>("cron: flow sends", "scheduled_flow_emails", "sent_at", (q) => q.not("sent_at", "is", null).order("sent_at", { ascending: false }).limit(1)),
     r.count("cron: late flow emails", "scheduled_flow_emails", (q) => q.eq("status", "pending").lt("scheduled_for", isoMinutesAgo(120))),
     r.rows<{ created_at: string }>("cron: hold releases", "ledger_events", "created_at", (q) => q.eq("event_type", "hold_release").order("created_at", { ascending: false }).limit(1)),
     r.count("cron: overdue holds", "ledger_events", (q) => q.eq("event_type", "sale").is("released_at", null).lt("hold_until", isoDaysAgo(2))),
     r.rows<{ updated_at: string | null }>("cron: rollups", "analytics_daily_rollups", "updated_at", (q) => q.order("updated_at", { ascending: false }).limit(1)),
+    r.rows<{ evaluated_at: string | null }>("cron: notifications", "notification_creator_state", "evaluated_at", (q) => q.not("evaluated_at", "is", null).order("evaluated_at", { ascending: false }).limit(1)),
   ])
 
   const byPath = (path: string) => CRON_JOBS.find((j) => j.path === path)!
@@ -49,6 +50,7 @@ async function cronChecks(r: Reader): Promise<CronCheck[]> {
   const flowSign = lastFlowSend?.[0]?.sent_at ?? null
   const releaseSign = lastRelease?.[0]?.created_at ?? null
   const rollupSign = lastRollup?.[0]?.updated_at ?? null
+  const notifySign = lastNotify?.[0]?.evaluated_at ?? null
 
   return [
     {
@@ -72,6 +74,19 @@ async function cronChecks(r: Reader): Promise<CronCheck[]> {
     { ...purge, lastSign: null, state: "unknown", note: "Leaves no record to read. Check the Vercel cron log." },
     { ...byPath("/api/cron/storage-cleanup"), lastSign: null, state: "unknown", note: "Leaves no record to read. Check the Vercel cron log." },
     { ...byPath("/api/cron/strip-image-metadata"), lastSign: null, state: "unknown", note: "Leaves no record to read. Check the Vercel cron log." },
+    {
+      ...byPath("/api/cron/notifications"),
+      lastSign: notifySign,
+      state: lastNotify === null || !notifySign ? "unknown" : old(notifySign, 3) ? "late" : "ok",
+      note:
+        lastNotify === null
+          ? r.reasonFor("cron: notifications") ?? "Could not be read. Its SQL may not have run yet (supabase/sql/run-now/29_notification_rules.sql)."
+          : !notifySign
+            ? "No creator has been evaluated yet."
+            : old(notifySign, 3)
+              ? "No creator has been evaluated in the last three hours."
+              : "Creators evaluated within the last three hours.",
+    },
   ]
 }
 

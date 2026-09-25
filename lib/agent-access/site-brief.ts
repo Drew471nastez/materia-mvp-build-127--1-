@@ -46,8 +46,30 @@ export interface SiteBrief {
   }
   /** Each page, and the sections on it by type, top to bottom. */
   pages: { key: string; sections: { type: string; name: string | null; hidden: boolean }[] }[]
-  /** The published products a section can show, as a visitor sees them. */
-  products: { id: string; title: string; price: string; url: string; sold_out: boolean }[]
+  /**
+   * The published products a section can show, as a visitor sees them: the
+   * product data API (lib/website-builder/shop-products, documented at
+   * storelib.com/developers/selling), the same fields a template reads from
+   * `products` and `page.product`.
+   */
+  products: {
+    id: string
+    title: string
+    price: string
+    compare_price: string
+    currency: string
+    free: boolean
+    pay_what_you_want: boolean
+    image: string
+    images: string[]
+    url: string
+    slug: string
+    kind: string
+    available: boolean
+    sold_out: boolean
+    checkout_url: string
+    variants: { id: string; name: string; price: string; compare_price: string; available: boolean; checkout_url: string }[]
+  }[]
   selling: string
 }
 
@@ -91,16 +113,38 @@ export function briefFrom(input: {
           .map((sec) => ({ type: String(sec.type), name: text(sec.name), hidden: sec.hidden === true })),
       }))
       .sort((a, b) => (a.key === "home" ? -1 : b.key === "home" ? 1 : a.key.localeCompare(b.key))),
-    products: input.products.map((p) => ({
-      id: p.id,
-      title: String(p.settings.title ?? ""),
-      price: String(p.settings.price ?? ""),
-      url: String(p.settings.url ?? ""),
-      sold_out: p.settings.tag === "Sold out",
-    })),
+    products: input.products.map((p) => {
+      const s = p.settings
+      return {
+        id: p.id,
+        title: String(s.title ?? ""),
+        price: String(s.price ?? ""),
+        compare_price: String(s.compare_price ?? ""),
+        currency: String(s.currency ?? "USD"),
+        free: s.free === true,
+        pay_what_you_want: s.pay_what_you_want === true,
+        image: String(s.image ?? ""),
+        images: Array.isArray(s.images) ? s.images.slice(0, 12) : [],
+        url: String(s.url ?? ""),
+        slug: String(s.slug ?? ""),
+        kind: String(s.kind ?? ""),
+        available: s.available !== false,
+        sold_out: s.tag === "Sold out",
+        checkout_url: String(s.checkout_url ?? ""),
+        variants: (Array.isArray(s.variants) ? s.variants : []).map((v) => ({
+          id: v.id,
+          name: v.name,
+          price: v.price,
+          compare_price: v.compare_price,
+          available: v.available,
+          checkout_url: v.checkout_url,
+        })),
+      }
+    }),
     selling:
-      "Products reach a section as `products`, shaped like blocks. Link a product to its page with {{ block.settings.url | url }}, " +
-      "or straight to checkout with /checkout?productId={{ block.id }}&src=website. Never build a payment form or load a payment script. " +
+      "Products reach a section as `products`, shaped like blocks, with the fields above under block.settings; a product page's section reads its product as page.product. " +
+      "Link a card to {{ block.settings.url | url }}, and a buy button to {{ block.settings.checkout_url | url }}, which is /checkout?productId={{ block.id }}&src=website (a variant's own checkout_url for one option). " +
+      "Checkout sends the buyer back to this site after paying. Never build a payment form or load a payment script. " +
       `See ${SELLING_DOCS_URL}.`,
   }
 }

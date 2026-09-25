@@ -269,9 +269,9 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
     expect(r.items === 0 && r.empty === "No unread notifications", '"No unread notifications" with the filter on', { items: r.items, empty: r.empty })
     /* "Smaller and less AI": a 20px bell in the muted grey, one line of
        14px text, nothing else. */
-    const look = r.emptyLook
-    expect(look && look.icon === "20x20" && look.iconColor === "rgb(156, 163, 175)" && look.parts === 2 && look.lines === 1
-      && look.textSize === "14px" && look.textColor === "rgb(107, 114, 128)", "  a 20px muted bell and one 14px line, nothing more", look)
+    const empty = r.emptyLook
+    expect(empty && empty.icon === "20x20" && empty.iconColor === "rgb(156, 163, 175)" && empty.parts === 2 && empty.lines === 1
+      && empty.textSize === "14px" && empty.textColor === "rgb(107, 114, 128)", "  a 20px muted bell and one 14px line, nothing more", empty)
     await p.screenshot({ path: join(shots, `${label}-notifications-empty.png`) })
     expect(r.mark?.disabled === true, "Mark all as read is disabled while it works", r.mark?.disabled)
     await sleep(600)
