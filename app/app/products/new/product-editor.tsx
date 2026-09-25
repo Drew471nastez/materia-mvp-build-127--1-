@@ -115,7 +115,7 @@ const OPTION_CHIP =
 // Limits
 const MAX_PHOTOS = 12
 const MAX_YOUTUBE_VIDEOS = 5
-const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB per file
+const MAX_FILE_SIZE = 10 * 1024 * 1024 * 1024 // 10 GB per file (lib/storage/security MAX_DIGITAL_PRODUCT_FILE_SIZE)
 const MAX_DIGITAL_FILES = 15
 
 // Blocked file extensions for security
@@ -1342,9 +1342,9 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         return
       }
 
-      // Check file size (5GB max)
+      // Check file size (10 GB max)
       if (file.size > MAX_FILE_SIZE) {
-        setError(`File "${file.name}" exceeds 5GB limit`)
+        setError(`File "${file.name}" is over 10 GB, the most one file can be`)
         return
       }
 

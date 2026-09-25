@@ -276,7 +276,7 @@ function main() {
   check("and nothing pushes the discount onto its own line", !/className="mt-1 flex items-center gap-2"/.test(productPage))
   const cardAt = productPage.indexOf('className="rounded-xl border p-6 shadow-sm relative z-20"')
   const cardTitleAt = productPage.indexOf("{product.title}", cardAt)
-  const cardPriceAt = productPage.indexOf("{product.price_cents === 0 ? \"Free\" : formatPrice(product.price_cents)}", cardAt)
+  const cardPriceAt = productPage.indexOf("{headerPrice.main}", cardAt)
   check("above the price rather than under it", cardAt > 0 && cardTitleAt > cardAt && cardPriceAt > cardTitleAt)
 
   /* ---------------------------------------------------------------------

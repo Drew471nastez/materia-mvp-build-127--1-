@@ -161,7 +161,7 @@ check("the product itself in the main column: title, pictures, category, descrip
   [at("sectionRefs.current.about = el"), at("sectionRefs.current.media = el"), at("sectionRefs.current.content = el"), at("sectionRefs.current.category = el"), at("<RichTextEditor"), at("What's Included</h2>"), at("sectionRefs.current.files = el"), at("sectionRefs.current.variants = el"), at(">Pricing</h2>"), at(">FAQ</h2>")]
     .every((i, n, all) => i > mainAt && i < sideAt && (n === 0 || i > all[n - 1])))
 check("how it is shown and found beside it: status (lg only), settings, search",
-  [at('data-editor-status=""'), at(">Settings</h2>"), at(">SEO</h2>")].every((i, n, all) => i > sideAt && (n === 0 || i > all[n - 1]))
+  [at('data-editor-status=""'), at(">Settings</h2>"), at(">Search engine listing</h2>")].every((i, n, all) => i > sideAt && (n === 0 || i > all[n - 1]))
     && /data-editor-status="" className=\{cn\(CARD, "hidden lg:block"\)\}/.test(editor))
 /* Changed on purpose: one card fewer (Category is a field in Content now), so ten. */
 check("every card is the /app card, spaced by its column rather than a margin of its own",

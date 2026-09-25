@@ -242,6 +242,7 @@ const SUITES = [
   "tests/onboarding-polish.test.ts",
   "tests/section-markup-guard.test.ts",
   "tests/list-price.test.ts",
+  "tests/upload-limits.test.ts",
   "tests/own-section-html.test.ts",
   "tests/website-builder-api.test.ts",
   "tests/security-scan.test.ts",
