@@ -155,7 +155,7 @@ section("Settings: six trips to three")
      policies), so it is read with the service role, by the signed in
      person's own address, in the same batch. */
   check("on the caller's own client, but for the newsletter row",
-    (src.match(/createAdminClient\(\)/g) ?? []).length === 1 && /readNewsletter\(createAdminClient\(\), user\.email\)/.test(src) && /\.from\("newsletter|storelib_newsletter"\)/.test(src) === false)
+    (src.match(/createAdminClient\(\)/g) ?? []).length === 1 && /readNewsletter\(createAdminClient\(\), user\.email, user\.user_metadata\?\.storelib_newsletter === true\)/.test(src) && /\.from\("newsletter|storelib_newsletter"\)/.test(src) === false)
 }
 
 section("Payouts: its questions asked together")

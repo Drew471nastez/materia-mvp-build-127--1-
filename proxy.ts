@@ -60,6 +60,8 @@ const RESERVED_PATHS = [
   "/favicon.ico",
   "/robots.txt",
   "/sitemap.xml",
+  /* The browser notifications worker (Settings, Privacy): Storelib's file on every host. */
+  "/storelib-push-sw.js",
 ]
 
 /**

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readCurrentUser } from "@/lib/auth/current-user"
-import { readNewsletter, writeNewsletter } from "@/lib/account/preferences"
+import { missingSchema, readNewsletter, writeNewsletter } from "@/lib/account/preferences"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -45,15 +45,17 @@ export async function GET() {
   if (current.state === "indeterminate") return unavailable()
   if (!current.user) return NextResponse.json({ error: "Sign in again to see this." }, { status: 401 })
 
+  const meta = (current.user.user_metadata ?? {}) as { personalized_recommendations?: boolean; storelib_newsletter?: boolean }
   const [{ data: profile }, newsletter] = await Promise.all([
     supabase.from("profiles").select("personalized_recommendations").eq("id", current.user.id).maybeSingle(),
-    readNewsletter(createAdminClient(), current.user.email),
+    readNewsletter(createAdminClient(), current.user.email, meta.storelib_newsletter === true),
   ])
+  const column = (profile as { personalized_recommendations?: boolean } | null)?.personalized_recommendations
 
   return NextResponse.json(
     {
-      /* A column that is not there yet (its SQL not run) reads as the default: on. */
-      personalizedRecommendations: (profile as { personalized_recommendations?: boolean } | null)?.personalized_recommendations !== false,
+      /* A column that is not there yet (its SQL not run) reads the choice kept on the account, and on without one. */
+      personalizedRecommendations: typeof column === "boolean" ? column : meta.personalized_recommendations !== false,
       newsletter,
     },
     { headers: { "Cache-Control": "no-store" } },
@@ -79,8 +81,19 @@ export async function PATCH(request: NextRequest) {
   if (!current.user) return NextResponse.json({ error: "Your session ended. Sign in again to change this." }, { status: 401 })
   const user = current.user
 
+  /* The choice kept on the account, for a database that has not been given the column or the table yet. */
+  const keepOnAccount = async (data: Record<string, boolean>) => {
+    const { error } = await supabase.auth.updateUser({ data })
+    if (error) console.error(`[preferences] not kept on the account (${error.code ?? error.status ?? "unknown"})`)
+    return !error
+  }
+
   if (personalized !== undefined) {
-    const { error } = await supabase.from("profiles").update({ personalized_recommendations: personalized }).eq("id", user.id)
+    let { error } = await supabase.from("profiles").update({ personalized_recommendations: personalized }).eq("id", user.id)
+    if (missingSchema(error)) {
+      console.warn("[preferences] profiles.personalized_recommendations is not in the database yet (supabase/sql/run-now/12); kept on the account")
+      error = (await keepOnAccount({ personalized_recommendations: personalized })) ? null : error
+    }
     if (error) {
       console.error(`[preferences] personalized_recommendations not saved (${error.code ?? "unknown"})`)
       return NextResponse.json({ error: "That did not save. Try again in a moment." }, { status: 500 })
@@ -89,7 +102,10 @@ export async function PATCH(request: NextRequest) {
 
   if (newsletter !== undefined) {
     if (!user.email) return NextResponse.json({ error: "Add an email address to your account first." }, { status: 400 })
-    const saved = await writeNewsletter(createAdminClient(), user.email, newsletter)
+    const saved = await writeNewsletter(createAdminClient(), user.email, newsletter, (on) => {
+      console.warn("[preferences] storelib_newsletter is not in the database yet (supabase/sql/run-now/01); kept on the account")
+      return keepOnAccount({ storelib_newsletter: on })
+    })
     if (!saved) return NextResponse.json({ error: "That did not save. Try again in a moment." }, { status: 500 })
   }
 

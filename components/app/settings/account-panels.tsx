@@ -7,6 +7,9 @@ import { accountErrorKind, accountErrorMessage, passwordProblem } from "@/lib/au
 import { readConsent, writeConsent, onConsentChange } from "@/lib/consent/client"
 import { everything } from "@/lib/consent/consent"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
+import { secondaryDepth } from "@/components/ui/depth-button"
+import { disableWebPush, enableWebPush, readWebPush, type WebPushState } from "@/lib/push/web-client"
+import { cn } from "@/lib/utils"
 
 /**
  * ===========================================================================
@@ -35,6 +38,22 @@ const FIELD =
 const PRIMARY =
   "inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#8b5cf6] px-5 text-[14px] font-medium text-white " +
   "transition-colors hover:bg-[#7c3aed] disabled:cursor-not-allowed disabled:bg-[#c4b5fd]"
+/*
+ * THE PASSWORD CARD'S BUTTONS. "I don't like the purple Change password
+ * button." The step is opened with the white secondary the Products page
+ * and the editor use (a hairline and a soft foot), and the change itself is
+ * saved with a near-black button, the website builder's primary: a password
+ * is not a thing to celebrate in the accent colour. 44px on a phone, 40
+ * from sm.
+ */
+const OPEN_STEP = cn(secondaryDepth, "h-11 rounded-xl px-4 text-[14px] sm:h-10 sm:rounded-lg sm:text-[13px]")
+const INK =
+  "inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] px-4 text-[14px] font-medium text-white " +
+  "shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(15,23,42,0.18)] transition-colors hover:bg-[#2a2a40] active:bg-[#111122] " +
+  "disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:rounded-lg sm:text-[13px]"
+const TEXT_ACTION =
+  "inline-flex h-11 items-center justify-center gap-2 rounded-lg px-2 text-[14px] font-medium text-[#4b5563] underline-offset-4 " +
+  "transition-colors hover:text-[#1a1a2e] hover:underline disabled:cursor-not-allowed disabled:opacity-60 sm:h-10 sm:text-[13px]"
 const QUIET =
   "inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#f3f4f6] px-4 text-[13px] font-medium text-[#374151] " +
   "transition-colors hover:bg-[#e5e7eb] disabled:cursor-not-allowed disabled:opacity-60"
@@ -57,19 +76,24 @@ function Note({ tone, children }: { tone: "ok" | "error"; children: ReactNode })
 /**
  * A real switch: role="switch" with aria-checked, and a 44px square to press
  * around the app's slim track (components/ui/switch-style.ts), so a thumb
- * on a phone does not have to find the track itself. The knob moves by transform only.
+ * on a phone does not have to find the track itself. The knob moves by
+ * transform only, and the button is not a `.group`: on a touch screen
+ * app/globals.css takes every transform off anything inside a `.group`
+ * (the cards' hover zoom).
  */
 export function Switch({
   checked,
   onChange,
   label,
   busy,
+  disabled,
   id,
 }: {
   checked: boolean
   onChange: (next: boolean) => void
   label: string
   busy?: boolean
+  disabled?: boolean
   id?: string
 }) {
   return (
@@ -81,8 +105,9 @@ export function Switch({
       aria-label={label}
       aria-busy={busy || undefined}
       data-settings-switch=""
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className="group relative -mr-1.5 inline-flex h-11 w-14 shrink-0 cursor-pointer items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/25"
+      className="relative -mr-[9px] inline-flex h-11 w-14 shrink-0 cursor-pointer items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/25 disabled:cursor-not-allowed disabled:opacity-50"
     >
       <span aria-hidden="true" className={switchTrack(checked)}>
         <span className={switchKnob(checked)} />
@@ -302,9 +327,91 @@ export function PrivacyPanel({
             detail="Counts visits and page speed in this browser. Off stores nothing."
             control={<Switch label="Analytics on this device" checked={analytics} onChange={changeAnalytics} />}
           />
+          <BrowserNotificationsRow />
         </div>
       </section>
     </div>
+  )
+}
+
+/**
+ * NOTIFICATIONS ON THIS BROWSER. The browser's own permission prompt, then a
+ * push to this computer on every sale and when a payout is ready, the same
+ * ones the phone app gets (lib/push/web-client, lib/push/sender). What the
+ * switch shows is asked of the browser, so a permission changed in its own
+ * settings is what you see here. Not drawn in the native apps, which have
+ * their own.
+ */
+function BrowserNotificationsRow() {
+  const [state, setState] = useState<WebPushState | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState(0)
+
+  useEffect(() => {
+    let live = true
+    const read = () => void readWebPush().then((s) => live && setState(s))
+    read()
+    /* Back from the browser's own settings with the permission changed. */
+    document.addEventListener("visibilitychange", read)
+    return () => {
+      live = false
+      document.removeEventListener("visibilitychange", read)
+    }
+  }, [])
+
+  if (state === null || (state === "unsupported" && document.documentElement.classList.contains("capacitor"))) return null
+
+  const change = async (next: boolean) => {
+    if (busy) return
+    setBusy(true)
+    setError(null)
+    const was = state
+    setState(next ? "on" : "off")
+    try {
+      const now = next ? await enableWebPush() : await disableWebPush()
+      setState(now)
+      if (now === (next ? "on" : "off")) setSavedAt(Date.now())
+    } catch (e) {
+      setState(was)
+      setError(e instanceof Error && e.message ? e.message : "That did not change. Try again.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const detail =
+    state === "blocked"
+      ? "Blocked for storelib.com in this browser's settings. Allow notifications there, then turn this on."
+      : state === "unsupported"
+        ? "This browser cannot show notifications. On an iPhone, add Storelib to your Home Screen first."
+        : "A notification on this computer when you make a sale or a payout is ready."
+
+  return (
+    <PrivacyRow
+      id="browser-notifications"
+      title={
+        <>
+          Notifications on this browser
+          <Saved at={savedAt} />
+        </>
+      }
+      detail={
+        <>
+          {detail}
+          {error && <span className="mt-1 block text-red-600">{error}</span>}
+        </>
+      }
+      control={
+        <Switch
+          label="Notifications on this browser"
+          checked={state === "on"}
+          busy={busy}
+          disabled={state === "blocked" || state === "unsupported"}
+          onChange={(v) => void change(v)}
+        />
+      }
+    />
   )
 }
 
@@ -414,12 +521,12 @@ function PasswordCard({ email }: { email: string }) {
               setDone(false)
               setResetNote(null)
             }}
-            className={PRIMARY}
+            className={OPEN_STEP}
             data-password-open=""
           >
             Change password
           </button>
-          <button type="button" onClick={sendReset} disabled={resetBusy} className={QUIET} data-password-reset="">
+          <button type="button" onClick={sendReset} disabled={resetBusy} className={TEXT_ACTION} data-password-reset="">
             {resetBusy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             Email me a reset link
           </button>
@@ -485,11 +592,11 @@ function PasswordCard({ email }: { email: string }) {
         )}
 
         <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:items-center">
-          <button type="button" onClick={() => void change()} disabled={busy || !password || !confirm || (step === "reauth" && !nonce)} className={PRIMARY} data-password-submit="">
+          <button type="button" onClick={() => void change()} disabled={busy || !password || !confirm || (step === "reauth" && !nonce)} className={INK} data-password-submit="">
             {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {step === "reauth" ? "Confirm and change" : "Change password"}
           </button>
-          <button type="button" onClick={cancel} disabled={busy} className={QUIET} data-password-cancel="">
+          <button type="button" onClick={cancel} disabled={busy} className={OPEN_STEP} data-password-cancel="">
             Cancel
           </button>
         </div>

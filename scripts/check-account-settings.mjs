@@ -13,7 +13,8 @@
  *              send at most two requests and end on the last value. A
  *              failed save puts the switch back and says why.
  *   SECURITY   the two password fields side by side on a computer and
- *              stacked on a phone, every button 44px or taller, the two
+ *              stacked on a phone, every button 44px or taller there (40 on
+ *              a computer), the two
  *              sign out buttons ending on the same edge.
  *   EMAIL      the change sheet asks for a code from each address.
  *
@@ -139,7 +140,14 @@ try {
           labels: [...document.querySelectorAll("[data-account-panel=privacy] [role=switch]")].map((b) => b.getAttribute("aria-label")),
         }
       })
-      expect(m.rows.length === 3, "three rows, each one saved somewhere", m.labels.join(", "))
+      expect(m.rows.length === 4 && m.rows[3].id === "browser-notifications", "four rows, each one saved somewhere, the last this browser's notifications", m.labels.join(", "))
+      /* "The toggles are a little too fat": the app's one slim switch, 38 by 22 with an 18px knob (components/ui/switch-style). */
+      const tracks = await page.evaluate(() => [...document.querySelectorAll("[data-privacy-row] [role=switch] > span")].map((t) => { const r = t.getBoundingClientRect(); const k = t.firstElementChild.getBoundingClientRect(); return `${Math.round(r.width)}x${Math.round(r.height)}/${Math.round(k.width)}` }))
+      expect(tracks.every((t) => t === "38x22/18"), "every track 38 by 22 with an 18px knob", tracks.join(" "))
+      /* On a touch screen app/globals.css drops transforms inside a .group; the knob has to move anyway. */
+      await wait(400)
+      const knobs = await page.evaluate(() => [...document.querySelectorAll("[data-privacy-row] [role=switch]")].map((b) => { const t = b.firstElementChild; const k = t.firstElementChild; return [b.getAttribute("aria-checked"), Math.round(k.getBoundingClientRect().left - t.getBoundingClientRect().left)] }))
+      expect(knobs.every(([on, x]) => (on === "true" ? x === 18 : x === 2)), "a switch that is on has its knob on the right, off on the left", JSON.stringify(knobs))
       expect(m.rows.every((x) => x.hitW >= 44 && x.hitH >= 44), "every switch is a 44px target", m.rows.map((x) => `${x.hitW}x${x.hitH}`).join(" "))
       const trackOff = Math.max(...m.rows.map((x) => Math.abs(x.trackRight - m.contentRight)))
       expect(trackOff <= 1, `every track ends on the card's content edge (off by ${trackOff}px)`, JSON.stringify(m.rows.map((x) => x.trackRight)))
@@ -235,8 +243,10 @@ try {
       })
       if (label === "1280") expect(m.a.top === m.b.top && m.a.w === m.b.w && m.a.left < m.b.left, "the two password fields side by side, equal", JSON.stringify([m.a, m.b]))
       else expect(m.b.top > m.a.top && m.a.left === m.b.left && m.a.w === m.b.w, "the two password fields stacked, equal", JSON.stringify([m.a, m.b]))
-      const short = m.buttons.filter((x) => x.h < 44)
-      expect(short.length === 0, `every button 44px or taller (${m.buttons.length} checked)`, JSON.stringify(short))
+      /* A thumb's 44px on a phone; a computer's buttons may be the 40px the rest of /app uses. */
+      const floor = label === "390" ? 44 : 40
+      const short = m.buttons.filter((x) => x.h < floor)
+      expect(short.length === 0, `every button ${floor}px or taller (${m.buttons.length} checked)`, JSON.stringify(short))
       expect(m.rows.length === 2 && Math.abs(m.rows[0] - m.rows[1]) <= 1, "both sign out buttons end on the same edge", JSON.stringify(m.rows))
       expect(!m.comingSoon, "no control that does nothing (the Coming Soon button is gone)")
       expect(m.overflow === 0, "nothing scrolls sideways", `${m.overflow}px`)

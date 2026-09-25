@@ -35,7 +35,7 @@ export async function loadSettingsData() {
        Storelib's own list. The table is closed to browsers. */
     (async () => {
       try {
-        return await readNewsletter(createAdminClient(), user.email)
+        return await readNewsletter(createAdminClient(), user.email, user.user_metadata?.storelib_newsletter === true)
       } catch {
         return false
       }
@@ -99,8 +99,16 @@ export async function loadSettingsData() {
     created_at: new Date().toISOString(),
   }
 
+  /* The Privacy tab's recommendations switch: the column, or the choice kept
+     on the account while the database has no column for it yet. */
+  const column = (safeProfile as { personalized_recommendations?: boolean }).personalized_recommendations
+  const personalizedProfile = {
+    ...safeProfile,
+    personalized_recommendations: typeof column === "boolean" ? column : user.user_metadata?.personalized_recommendations !== false,
+  }
+
   return {
-    profile: safeProfile,
+    profile: personalizedProfile,
     creator,
     storeBuilderAvatarUrl,
     onepageAvatarUrl: onepage?.avatar_url || null,

@@ -125,6 +125,16 @@ async function main() {
     check("and it reads back off", (await readNewsletter(admin, "mara@example.com")) === false)
     check("on again clears the date", (await writeNewsletter(admin, "mara@example.com", true)) && admin.rows.get("mara@example.com")?.unsubscribed_at === null)
     check("no address is off, not an error", (await readNewsletter(admin, null)) === false)
+    {
+      /* A database without the table: PostgREST's PGRST205. */
+      const missing = { code: "PGRST205", message: "Could not find the table 'public.storelib_newsletter' in the schema cache" }
+      const q: any = { select: () => q, eq: () => q, update: () => q, insert: async () => ({ error: missing }), maybeSingle: async () => ({ data: null, error: missing }), then: (r: any) => r({ error: missing }) }
+      const bare = { from: () => q }
+      let kept: boolean | null = null
+      check("no table yet: turning it on is kept on the account, and says it saved", (await writeNewsletter(bare, "mara@example.com", true, async (on) => { kept = on; return true })) === true && kept === true)
+      check("  and off the same way", (await writeNewsletter(bare, "mara@example.com", false, async (on) => { kept = on; return true })) === true && kept === false)
+      check("  and it reads back what was kept", (await readNewsletter(bare, "mara@example.com", true)) === true && (await readNewsletter(bare, "mara@example.com", false)) === false)
+    }
   }
 
   console.log("\nEach Privacy switch is saved where it is read")
@@ -135,19 +145,25 @@ async function main() {
       "personalized recommendations: profiles column, on the person's own client",
       /supabase\.from\("profiles"\)\.update\(\{ personalized_recommendations: personalized \}\)\.eq\("id", user\.id\)/.test(route),
     )
-    check("newsletter: storelib_newsletter, through the service role", /writeNewsletter\(createAdminClient\(\), user\.email, newsletter\)/.test(route))
+    check("newsletter: storelib_newsletter, through the service role", /writeNewsletter\(createAdminClient\(\), user\.email, newsletter, /.test(route))
+    /* "That did not save. Try again in a moment." was every save on a database
+       without the column or the table (run-now 12 and 01 not run yet). */
+    check("with no column or table yet, the choice is kept on the account instead of failing",
+      /import \{ missingSchema, readNewsletter, writeNewsletter \} from "@\/lib\/account\/preferences"/.test(route)
+        && /if \(missingSchema\(error\)\) \{/.test(route) && /supabase\.auth\.updateUser\(\{ data \}\)/.test(route)
+        && /keepOnAccount\(\{ storelib_newsletter: on \}\)/.test(route) && /keepOnAccount\(\{ personalized_recommendations: personalized \}\)/.test(route))
     check("only booleans are taken from the body", /typeof body\.personalizedRecommendations === "boolean"/.test(route) && /typeof body\.newsletter === "boolean"/.test(route))
 
     const explore = readCode("app/(marketing)/explore/page.tsx")
     check(
       "Explore reads the column before building For you",
-      /select\("personalized_recommendations"\)/.test(explore) && /personalized_recommendations !== false/.test(explore) &&
-        /if \(!\(await personalizationOn\(supabase, user\.id\)\)\) return EMPTY_INTERESTS/.test(explore),
+      /select\("personalized_recommendations"\)/.test(explore) && /typeof column === "boolean" \? column : kept !== false/.test(explore) &&
+        /if \(!\(await personalizationOn\(supabase, user\.id, user\.user_metadata\?\.personalized_recommendations\)\)\) return EMPTY_INTERESTS/.test(explore),
     )
 
     const loader = readCode("app/app/settings/_server.ts")
     const page = readCode("app/app/settings/page.tsx")
-    check("the settings loader reads the newsletter back", /readNewsletter\(createAdminClient\(\), user\.email\)/.test(loader) && /newsletter,\n/.test(loader))
+    check("the settings loader reads the newsletter back", /readNewsletter\(createAdminClient\(\), user\.email, user\.user_metadata\?\.storelib_newsletter === true\)/.test(loader) && /newsletter,\n/.test(loader))
     check("and the page hands it to the form", /newsletter=\{data\.newsletter\}/.test(page))
 
     const panels = readCode("components/app/settings/account-panels.tsx")
