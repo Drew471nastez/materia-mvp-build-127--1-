@@ -59,6 +59,8 @@ import { RichDescriptionContent } from "@/components/store-builder/description-r
 
 import { themePresets } from "@/lib/store-builder/defaults"
 import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
+import { liveOriginOf } from "@/lib/custom-domain/server"
+import { canonicalOnDomain } from "@/lib/custom-domain/routing"
 
 // Icon mapping for what's included items
 function getIncludedItemIcon(item: string, iconColor?: string) {
@@ -172,6 +174,9 @@ export async function generateMetadata({ params }: ProductPageProps) {
    * getProductShareUrl returns it.
    */
   const productUrl = getProductShareUrl(sellerHandle || "", product.slug)
+  /* On the creator's own domain when a live one shows their creator page: <domain>/<slug>. */
+  const domainOrigin = product.creator_id ? await liveOriginOf(product.creator_id, "creator_page") : null
+  const pageUrl = domainOrigin ? canonicalOnDomain(domainOrigin, { kind: "product", slug: product.slug }) : productUrl
 
   return {
     title: tabTitle,
@@ -181,7 +186,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
       description: pageDescription,
       type: "website",
       siteName: "Storelib",
-      url: productUrl,
+      url: pageUrl,
       ...(socialImage && {
         images: [{ url: socialImage, width: 1200, height: 630, alt: product.title }],
       }),
@@ -195,7 +200,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
       }),
     },
     alternates: {
-      canonical: productUrl,
+      canonical: pageUrl,
     },
     /* Listed and indexed by one rule (lib/seo/indexing productIndexable):
        a published product, unless its seller's handle is a link farm's. */
@@ -1775,7 +1780,10 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   /* The same address the canonical tag declares, so the structured data and
      the <link> cannot disagree about which URL this product lives at. */
-  const canonicalUrl = getProductShareUrl(creatorUsername, product.slug)
+  const canonicalOrigin = product.creator_id ? await liveOriginOf(product.creator_id, "creator_page") : null
+  const canonicalUrl = canonicalOrigin
+    ? canonicalOnDomain(canonicalOrigin, { kind: "product", slug: product.slug })
+    : getProductShareUrl(creatorUsername, product.slug)
   const sellerDisplayName = creatorProfile?.display_name || creator?.name || "Creator"
 
   const primaryCategory = productCategories[0] || null

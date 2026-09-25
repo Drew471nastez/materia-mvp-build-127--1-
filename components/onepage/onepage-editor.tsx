@@ -27,7 +27,8 @@ import {
 } from "lucide-react"
 import { useState, useEffect, useCallback, useRef } from "react"
 import type { OnePage } from "@/lib/onepage/types"
-import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
+import { getLinksShareUrl } from "@/lib/url-helpers"
+import { onePageUrlOnDomain } from "@/lib/custom-domain/targets"
 import { openExternal } from "@/lib/native-bridge"
 import {
   Dialog,
@@ -406,8 +407,9 @@ function EditorLayout() {
     fetch("/api/domains")
       .then((res) => res.json())
       .then((data) => {
-        const active = data.domains?.find((d: any) => d.status === "active")
-        if (active) setConnectedDomain(active.domain)
+        /* The OnePage is on every live domain: its front page, or /links (lib/custom-domain/targets). */
+        const url = onePageUrlOnDomain(data.domains)
+        if (url) setConnectedDomain(url)
       })
       .catch(() => {})
 
@@ -692,7 +694,7 @@ function EditorLayout() {
   }
 
   // Always the external, shareable address: storelib.com/{handle}/links
-  const pageUrl = connectedDomain ? getLinksUrlWithCustomDomain(onepage.slug, connectedDomain) : getLinksShareUrl(onepage.slug)
+  const pageUrl = connectedDomain ?? getLinksShareUrl(onepage.slug)
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(pageUrl)

@@ -98,7 +98,11 @@ check(
   )
   check(
     "and a refresh of the domain list keeps the list on screen",
-    /if \(!domainsLoadedRef\.current\) setDomainsLoading\(true\)/.test(settings),
+    /* The Domains tab is components/app/settings/domains-panel.tsx: a spinner only with nothing read yet, and a refresh never sets it. */
+    (() => {
+      const panel = readFileSync(join(process.cwd(), "components/app/settings/domains-panel.tsx"), "utf8")
+      return /React\.useState\(lastRead === null && domains\.length === 0\)/.test(panel) && !/setLoading\(true\)/.test(panel)
+    })(),
   )
   check(
     "and it is short enough to switch through repeatedly",

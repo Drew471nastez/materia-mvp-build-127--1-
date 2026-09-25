@@ -171,13 +171,15 @@ console.log("\ndesktop, 1280 wide")
   const domains = await p.evaluate(() => document.querySelector("main").textContent)
   expect(/www\.astridstudio\.com/.test(domains) && /Connected/.test(domains) && /to www\.astridstudio\.com/.test(domains),
     "a connected domain shows its primary address, its redirect and that it is connected")
+  expect(/Shows/.test(domains) && /This website\./.test(domains) && (await p.$$("[data-target-choice] [role=radio]")).length === 3,
+    "and what it shows: this website, with the three choices beside it")
   const ruled = await p.evaluate(() => {
     const card = [...document.querySelectorAll("main section")].find((s) => s.querySelector("h2")?.textContent === "Custom domain")
     const rows = [...card.querySelectorAll(":scope > div > div")]
     /* Tailwind 4's divide-y rules the bottom of every row but the last. */
     const ruleOf = (r) => parseFloat(getComputedStyle(r).borderTopWidth) + parseFloat(getComputedStyle(r).borderBottomWidth)
-    /* Primary, redirect and HTTPS, then the field for another domain. */
-    return rows.length === 4 && rows.slice(0, -1).every((r) => ruleOf(r) > 0)
+    /* Primary, redirect, what it shows and HTTPS, then the field for another domain. */
+    return rows.length === 5 && rows.slice(0, -1).every((r) => ruleOf(r) > 0)
   })
   expect(ruled, "and each of its rows is ruled off like every other card's")
 
@@ -369,11 +371,14 @@ console.log("\nphone, 390 wide")
   await sleep(120)
   await clickText(p, "main button", "Replace")
   await sleep(300)
-  const records = await p.evaluate(() => [...document.querySelectorAll("button[aria-label^='Copy the']")].map((b) => b.getBoundingClientRect()).map((r) => ({ right: Math.round(r.right), h: Math.round(r.height) })))
-  expect(records.length === 3 && records.every((r) => r.right <= 390 - 16) && (await overflow(p)) === 0, "a new domain's three records fit the phone, each copy button in reach", records)
-  const cut = await p.evaluate(() => [...document.querySelectorAll("button[aria-label^='Copy the']")].map((b) => b.previousElementSibling.lastElementChild).filter((v) => v.scrollWidth > v.clientWidth).map((v) => v.textContent))
+  const records = await p.evaluate(() => ({
+    rows: document.querySelectorAll("[data-dns-record]").length,
+    copies: [...document.querySelectorAll("[data-dns-copy]")].map((b) => b.getBoundingClientRect()).map((r) => ({ right: Math.round(r.right), h: Math.round(r.height) })),
+  }))
+  expect(records.rows === 3 && records.copies.length >= 5 && records.copies.every((r) => r.right <= 390 - 16 && r.h >= 44) && (await overflow(p)) === 0, "a new domain's three records fit the phone, each copy button in reach and 44px", records)
+  const cut = await p.evaluate(() => [...document.querySelectorAll("[data-dns-value]")].filter((v) => v.scrollWidth > v.clientWidth + 1).map((v) => v.textContent))
   expect(cut.length === 0, "and every value is there in full, to be typed by hand if need be", cut)
-  await p.evaluate(() => document.querySelector("button[aria-label^='Copy the']")?.scrollIntoView({ block: "center" }))
+  await p.evaluate(() => document.querySelector("[data-dns-copy]")?.scrollIntoView({ block: "center" }))
   await p.screenshot({ path: join(shots, "phone-domains-records.png") })
   await clickText(p, "main button", "Website Settings")
   await sleep(150)

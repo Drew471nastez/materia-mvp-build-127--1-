@@ -36,7 +36,11 @@ function stubFetch() {
       return json({ handle, username: "astrid", own: handle !== "astrid" })
     }
     if (url.startsWith("/api/domains")) {
-      return json({ domains: [{ id: "d1", domain: "astridstudio.com", status: "active", ssl_status: "active", verified_at: "2026-09-01T10:00:00Z" }] })
+      return json({
+        domains: [{ id: "d1", domain: "astridstudio.com", status: "active", target: "website", ssl_status: "active", verified_at: "2026-09-01T10:00:00Z" }],
+        sources: { website: { live: true, handle: "astrid" }, onepage: { live: false }, username: "astrid" },
+        targetReady: true,
+      })
     }
     if (url.includes("/backups")) {
       return json({
