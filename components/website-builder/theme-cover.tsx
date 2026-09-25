@@ -20,9 +20,7 @@
  * ViewBox is 1200×750 (16:10). Everything inside is proportional to that.
  */
 
-import type * as React from "react"
 import type { CSSProperties } from "react"
-import { cn } from "@/lib/utils"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 import {
   contrastText,
@@ -432,106 +430,11 @@ export function ThemePhoneCover({ spec, className, style }: { spec: ThemeCoverSp
   )
 }
 
-/**
- * ===========================================================================
- *  THE PHONE IN THE CORNER
- * ===========================================================================
- * One frame for every cover, drawn or photographed, so the two never differ.
- *
- * It was a 2px near-black outline under a long dark shadow: a toy phone
- * pasted on, and the heaviest thing on the card. Now it is a thin white
- * bezel with a hairline edge and a short, soft shadow, the way a theme store
- * shows the phone version: present, and quieter than the site it frames.
- * The bezel is in pixels, not percent, because a percentage of padding is a
- * percentage of the COVER's width and would thicken on the big card.
+/*
+ * THE COVER IS THE SITE, NOTHING AROUND IT. The Website page used to set the
+ * picture in a product shot: a grey stage, a browser window with dots, and a
+ * phone standing in front ("windows in a window"). It is the desktop picture
+ * now, cut to the box it is given, so a card's cover area is the site from
+ * edge to edge. ThemePhoneCover stays for Browse themes, which shows the
+ * phone version on its own when asked.
  */
-export const PHONE_FRAME =
-  "absolute bottom-[5%] right-[4%] w-[18%] overflow-hidden rounded-[12%/5.6%] border-[3px] border-white bg-white ring-1 ring-black/[0.08] shadow-[0_1px_2px_rgba(15,23,42,0.08),0_8px_20px_-10px_rgba(15,23,42,0.28)]"
-
-/**
- * ===========================================================================
- *  THE COVER AS A PRODUCT SHOT
- * ===========================================================================
- * The live website's card shows the site the way a product is shown: the
- * desktop version in a light browser window, the phone version standing in
- * front of it, both on a neutral stage lit softly from the top left.
- *
- * DEPTH WITHOUT TRANSFORMS. The look is a 3D one, and it is made of light,
- * layering and shadow rather than of a tilt: app/globals.css removes
- * transforms inside a hovered `.group` on touch screens, and a perspective
- * tilt is also the trend-of-the-month version of this picture. Here the
- * window casts a long soft shadow and a contact shadow onto the stage, the
- * phone casts a deeper one onto the window, and the stage is brightest where
- * the light comes from.
- *
- * Every size is in container units of the stage, so the picture is the same
- * picture at 340px on a phone and 900px on a desktop.
- */
-export function CoverStage({ desktop, phone, title }: { desktop: React.ReactNode; phone: React.ReactNode | null; title?: string }) {
-  return (
-    <div
-      data-cover-stage=""
-      role={title ? "img" : undefined}
-      aria-label={title}
-      className="relative h-full w-full overflow-hidden [container-type:inline-size]"
-      style={{ background: "radial-gradient(130% 110% at 18% 0%, #fdfdfe 0%, #f3f4f6 42%, #e8eaee 100%)" }}
-    >
-      {/* The window's contact shadow on the stage, soft and wide. */}
-      <div aria-hidden className="absolute bottom-[3.2cqw] left-[8cqw] h-[4cqw] w-[70cqw] rounded-[50%] bg-[rgba(15,23,42,0.18)] blur-[2.4cqw]" />
-      <div
-        data-cover-window=""
-        className="absolute left-[5cqw] top-[4.4cqw] w-[80cqw] overflow-hidden rounded-[1.1cqw] bg-white ring-1 ring-[rgba(15,23,42,0.07)] shadow-[0_1px_1px_rgba(15,23,42,0.05),0_0.8cqw_1.6cqw_-0.8cqw_rgba(15,23,42,0.14),0_3cqw_6cqw_-3cqw_rgba(15,23,42,0.34)]"
-      >
-        <div className="flex h-[3.2cqw] items-center gap-[0.7cqw] border-b border-[rgba(15,23,42,0.06)] bg-[#f7f8fa] px-[1.4cqw]">
-          <span className="h-[0.8cqw] w-[0.8cqw] rounded-full bg-[#dfe2e7]" />
-          <span className="h-[0.8cqw] w-[0.8cqw] rounded-full bg-[#dfe2e7]" />
-          <span className="h-[0.8cqw] w-[0.8cqw] rounded-full bg-[#dfe2e7]" />
-          <span className="mx-auto h-[1.5cqw] w-[26cqw] rounded-full bg-white ring-1 ring-[rgba(15,23,42,0.06)]" />
-          <span className="w-[3.1cqw]" />
-        </div>
-        <div className="aspect-[16/10] w-full overflow-hidden">{desktop}</div>
-      </div>
-      {phone && (
-        <div
-          data-cover-phone=""
-          className="absolute bottom-[3.8cqw] right-[5cqw] w-[18.5cqw] rounded-[3.3cqw] bg-[#15171c] p-[0.75cqw] ring-1 ring-[rgba(255,255,255,0.08)] shadow-[0_0.2cqw_0.4cqw_rgba(15,23,42,0.18),0_1.4cqw_2.6cqw_-1.2cqw_rgba(15,23,42,0.40),0_3.6cqw_6cqw_-3cqw_rgba(15,23,42,0.50)]"
-        >
-          <div className="aspect-[390/800] w-full overflow-hidden rounded-[2.6cqw] bg-white">{phone}</div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/**
- * A desktop cover with the phone version tucked into its corner — one
- * picture that says "this is a website" and "it works on a phone" at once.
- */
-export function ThemeCoverPair({
-  spec,
-  className,
-  phone = true,
-  title,
-}: {
-  spec: ThemeCoverSpec
-  className?: string
-  phone?: boolean
-  title?: string
-}) {
-  return (
-    <div className={cn("relative h-full w-full overflow-hidden", className)}>
-      <ThemeCover spec={spec} className="h-full w-full" title={title} />
-      {phone && (
-        // Wholly inside the cover. It used to hang 7% off the bottom, and
-        // the parent clips, so what it drew was a phone with its lower edge
-        // sliced flat across — which reads as a picture that failed to load
-        // rather than as a deliberate bleed.
-        <div className={PHONE_FRAME}>
-          <div className="aspect-[390/780]">
-            <ThemePhoneCover spec={spec} className="h-full w-full" />
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}

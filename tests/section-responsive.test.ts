@@ -3073,7 +3073,11 @@ check(
    * ever named them, which on a phone is nothing at all.
    */
   /Edit website\s*\n\s*<\/Button>/.test(wbPage) &&
-    /label: "View website"/.test(wbPage) &&
+    // View website is a labelled button beside the title, not a menu row
+    /data-control="view" className=\{HEADER_BUTTON\}>\s*View website/.test(wbPage) && !/label: "View website"/.test(wbPage) &&
+    // Settings says its name from 640px; on a phone it is the one icon
+    // square the owner asked for, and it is named for a screen reader
+    /aria-label="Settings"/.test(wbPage) && /<span className="hidden sm:inline">Settings<\/span>/.test(wbPage) &&
     /aria-label=\{`More actions for \$\{live\.name\}`\}/.test(wbPage) &&
     // the icon-square component is gone, not merely unused
     !/function IconAction\(/.test(wbPage) &&
