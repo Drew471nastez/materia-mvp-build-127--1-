@@ -14,6 +14,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import {
+  MAX_IMAGES_PER_URL,
   PLATFORM_DISALLOW,
   SITEMAP_CHUNK,
   SITE_DISALLOW,
@@ -23,6 +24,7 @@ import {
   productIndexable,
   robotsTxt,
   siteOrigin,
+  sitemapImages,
   sitemapIndexXml,
   urlsetXml,
   websiteIndexable,
@@ -85,6 +87,32 @@ section("Sitemap files are valid, deduplicated and dated only by real dates")
       parseSitemapName("pages.xml")?.kind === "pages" &&
       parseSitemapName("websites-0.xml")?.kind === "websites" &&
       parseSitemapName("../etc.xml") === null && parseSitemapName("products-x.xml") === null)
+}
+
+section("A page's pictures are listed with it, so Google Images can find them")
+{
+  const gallery = Array.from({ length: 14 }, (_, i) => `https://x.supabase.co/storage/v1/object/public/products/p/${i}.webp`)
+  const xml = urlsetXml([
+    {
+      url: "https://storelib.com/mara/pack",
+      images: ["https://cdn.example.com/a&b.png", "https://cdn.example.com/a&b.png", "/relative.png", "https://cdn.example.com/clip.mp4", null, "", ...gallery],
+    },
+    { url: "https://storelib.com/mara", images: [null, undefined] },
+  ])
+  check("the file declares the image extension", xml.includes('xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"'))
+  const pack = xml.slice(xml.indexOf("<loc>https://storelib.com/mara/pack</loc>"), xml.indexOf("<loc>https://storelib.com/mara</loc>"))
+  check("each picture once, escaped, and never a video, a relative path or an empty field",
+    pack.includes("<image:image><image:loc>https://cdn.example.com/a&amp;b.png</image:loc></image:image>") &&
+      (pack.match(/a&amp;b\.png/g) ?? []).length === 1 && !/relative|clip\.mp4|<image:loc><\/image:loc>/.test(pack))
+  check("at most ten to a page", (pack.match(/<image:image>/g) ?? []).length === MAX_IMAGES_PER_URL && MAX_IMAGES_PER_URL === 10)
+  check("a page without pictures is just its address", /<url><loc>https:\/\/storelib\.com\/mara<\/loc><\/url>/.test(xml))
+  check("an index entry never carries one", !sitemapIndexXml([{ url: "https://storelib.com/sitemap/products-0.xml", images: gallery }]).includes("image:"))
+  check("the helper is the same rule", JSON.stringify(sitemapImages(["https://a.com/1.png", "https://a.com/1.png", "https://a.com/doc.pdf"])) === JSON.stringify(["https://a.com/1.png"]))
+  const maps = code("lib/seo/sitemaps.ts")
+  check("a product lists its thumbnail and gallery",
+    /\.select\("slug, status, updated_at, creator_id, thumbnail_url, gallery_urls, creators!inner\(user_id\)"\)/.test(maps) && /images: \[row\.thumbnail_url, \.\.\.\(row\.gallery_urls \?\? \[\]\)\]/.test(maps))
+  check("a creator page lists its avatar and cover", /images: \[seller\?\.avatar_url, c\.cover_url\]/.test(maps) && /\.select\("id, username, avatar_url"\)/.test(maps))
+  check("and a website's own sitemap uses the same escaping", /import \{ SITE_DISALLOW, xmlEscape \} from "@\/lib\/seo\/indexing"/.test(code("lib/website-builder/site-seo.ts")) && !/function xmlEscape/.test(code("lib/website-builder/site-seo.ts")))
 }
 
 section("storelib.com's robots.txt keeps crawlers out of the app, and out of nobody's page")

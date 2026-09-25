@@ -38,10 +38,40 @@ export interface SitemapEntry {
   url: string
   /** ISO time. Left out when nothing real is known. */
   lastModified?: string | null
+  /**
+   * The pictures on the page, for Google Images: a product's thumbnail and
+   * gallery, a creator's avatar and cover. Whatever is given is filtered to
+   * real picture addresses and cut to MAX_IMAGES_PER_URL when it is written.
+   */
+  images?: Array<string | null | undefined>
 }
 
+/**
+ * Pictures listed per address in storelib.com's sitemaps. A product gallery
+ * runs to about this; the rest of a page's pictures are found by crawling it.
+ */
+export const MAX_IMAGES_PER_URL = 10
+
 const ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }
+/** The one escaping every sitemap uses, storelib.com's and each website's (lib/website-builder/site-seo.ts). */
 export const xmlEscape = (s: string) => s.replace(/[&<>"']/g, (c) => ESCAPES[c])
+
+/**
+ * The picture addresses a sitemap may name: absolute http(s), not a video or
+ * a document, each once, at most MAX_IMAGES_PER_URL. A relative path or a
+ * YouTube page would be read as a broken image, and a broken image is noise
+ * in an index built to find the good ones.
+ */
+export function sitemapImages(urls: Array<string | null | undefined> | undefined): string[] {
+  const out: string[] = []
+  for (const raw of urls ?? []) {
+    const url = typeof raw === "string" ? raw.trim() : ""
+    if (!/^https?:\/\/[^\s"'<>]+$/i.test(url) || /\.(?:mp4|webm|mov|m4v|pdf|zip)(?:[?#]|$)/i.test(url) || out.includes(url)) continue
+    out.push(url)
+    if (out.length >= MAX_IMAGES_PER_URL) break
+  }
+  return out
+}
 
 /** A time a sitemap can carry, or nothing. */
 export function lastmodOf(value: string | null | undefined): string | null {
@@ -62,13 +92,17 @@ export function newestOf(...values: Array<string | null | undefined>): string | 
 
 function entryXml(tag: "url" | "sitemap", e: SitemapEntry): string {
   const mod = lastmodOf(e.lastModified)
-  return `<${tag}><loc>${xmlEscape(e.url)}</loc>${mod ? `<lastmod>${mod}</lastmod>` : ""}</${tag}>`
+  /* Pictures belong to a page, never to an entry of the index. */
+  const images = tag === "url" ? sitemapImages(e.images) : []
+  const pictures = images.map((loc) => `<image:image><image:loc>${xmlEscape(loc)}</image:loc></image:image>`).join("")
+  return `<${tag}><loc>${xmlEscape(e.url)}</loc>${mod ? `<lastmod>${mod}</lastmod>` : ""}${pictures}</${tag}>`
 }
 
 export function urlsetXml(entries: SitemapEntry[]): string {
   const seen = new Set<string>()
   const rows = entries.filter((e) => (seen.has(e.url) ? false : (seen.add(e.url), true))).map((e) => entryXml("url", e))
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${rows.join("\n")}\n</urlset>\n`
+  /* The image namespace, as each website's own sitemap declares it. */
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${rows.join("\n")}\n</urlset>\n`
 }
 
 export function sitemapIndexXml(entries: SitemapEntry[]): string {

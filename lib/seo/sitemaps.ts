@@ -132,22 +132,29 @@ export async function eachBatch<T>(ids: string[], work: (batch: string[]) => Pro
   return out
 }
 
-/** user id → username, for the ids given. */
-async function usernames(admin: Admin, userIds: string[]): Promise<Map<string, string>> {
-  const out = new Map<string, string>()
+type Seller = { username: string; avatar_url: string | null }
+
+/** user id → handle and avatar, for the ids given. */
+async function sellers(admin: Admin, userIds: string[]): Promise<Map<string, Seller>> {
+  const out = new Map<string, Seller>()
   const ids = [...new Set(userIds.filter(Boolean))]
   const found = await eachBatch(ids, (batch) =>
-    rowsOf<{ id: string; username: string }>(
+    rowsOf<{ id: string } & Seller>(
       /**
        * `updated_at` is NOT asked for: profiles has no such column, and asking
        * for one turns the whole answer into an error and no creator pages.
        */
-      () => admin.from("profiles").select("id, username").in("id", batch).not("username", "is", null),
+      () => admin.from("profiles").select("id, username, avatar_url").in("id", batch).not("username", "is", null),
       "profiles",
     ),
   )
-  for (const seller of found.flat()) out.set(seller.id, seller.username)
+  for (const seller of found.flat()) out.set(seller.id, { username: seller.username, avatar_url: seller.avatar_url ?? null })
   return out
+}
+
+/** user id → username, for the ids given. */
+async function usernames(admin: Admin, userIds: string[]): Promise<Map<string, string>> {
+  return new Map([...(await sellers(admin, userIds))].map(([id, s]) => [id, s.username]))
 }
 
 async function countOf(admin: Admin, table: string, filter: (q: any) => any, what: string): Promise<number> {
@@ -268,6 +275,8 @@ type ProductRow = {
   status?: string | null
   updated_at: string | null
   creator_id: string | null
+  thumbnail_url?: string | null
+  gallery_urls?: string[] | null
   creators?: { user_id: string | null } | { user_id: string | null }[] | null
 }
 
@@ -289,7 +298,7 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
     (a, b) =>
       admin
         .from("products")
-        .select("slug, status, updated_at, creator_id, creators!inner(user_id)")
+        .select("slug, status, updated_at, creator_id, thumbnail_url, gallery_urls, creators!inner(user_id)")
         .eq("status", "published")
         .order("id", { ascending: true })
         .range(a, b) as unknown as PromiseLike<Rows<ProductRow>>,
@@ -308,7 +317,12 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
     const userId = userIdOf(row)
     const username = userId ? usernameByUserId.get(userId) : undefined
     if (!productIndexable(row, username)) continue
-    entries.push({ url: getProductShareUrl(username || "", row.slug), lastModified: lastmodOf(row.updated_at) })
+    entries.push({
+      url: getProductShareUrl(username || "", row.slug),
+      lastModified: lastmodOf(row.updated_at),
+      /* Its pictures, so Google Images finds a product by what it looks like. */
+      images: [row.thumbnail_url, ...(row.gallery_urls ?? [])],
+    })
   }
   return entries
 }
@@ -324,8 +338,8 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
  */
 export async function creatorsSitemap(chunk: number): Promise<SitemapEntry[]> {
   const admin = createAdminClient()
-  const creators = await readRange<{ id: string; user_id: string | null; updated_at?: string | null }>(
-    (a, b) => admin.from("creators").select("id, user_id").order("id", { ascending: true }).range(a, b),
+  const creators = await readRange<{ id: string; user_id: string | null; cover_url?: string | null }>(
+    (a, b) => admin.from("creators").select("id, user_id, cover_url").order("id", { ascending: true }).range(a, b),
     chunk * SITEMAP_CHUNK,
     SITEMAP_CHUNK,
     "creators",
@@ -352,15 +366,17 @@ export async function creatorsSitemap(chunk: number): Promise<SitemapEntry[]> {
     newestProduct.set(p.creator_id, { n: seen.n + 1, at: newestOf(seen.at, p.updated_at) })
   }
   const selling = creators.filter((c) => newestProduct.has(c.id) && c.user_id)
-  const usernameByUserId = await usernames(admin, selling.map((c) => c.user_id as string))
+  const sellerByUserId = await sellers(admin, selling.map((c) => c.user_id as string))
   const onePages = await publishedOnePages(admin, selling.map((c) => c.id))
   const entries: SitemapEntry[] = []
   for (const c of selling) {
-    const profile = { username: usernameByUserId.get(c.user_id as string), ...newestProduct.get(c.id)! }
+    const seller = sellerByUserId.get(c.user_id as string)
+    const profile = { username: seller?.username, ...newestProduct.get(c.id)! }
     // The spam verdict as well as the publication gate: a farm that files
     // one decoy listing to buy its way in still does not get in.
     if (!profile.username || !creatorIndexable({ publishedProducts: profile.n, handle: profile.username })) continue
-    entries.push({ url: `${BASE}/${profile.username}`, lastModified: profile.at })
+    /* The face and the cover the page opens with. */
+    entries.push({ url: `${BASE}/${profile.username}`, lastModified: profile.at, images: [seller?.avatar_url, c.cover_url] })
     /* Their published OnePage, under the same gate: a page of outbound
        links is exactly what a link farm signs up for. */
     if (onePages.has(c.id)) entries.push({ url: getLinksShareUrl(profile.username), lastModified: onePages.get(c.id) })

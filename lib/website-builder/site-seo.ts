@@ -21,7 +21,7 @@
  * Pure. The loader that fills these from the database is ./site-seo-data.ts.
  */
 import type { SectionInstance } from "./types"
-import { SITE_DISALLOW } from "@/lib/seo/indexing"
+import { SITE_DISALLOW, xmlEscape } from "@/lib/seo/indexing"
 
 export interface SitemapImage {
   loc: string
@@ -101,10 +101,6 @@ export function imagesOnPage(sections: SectionInstance[], limit = MAX_IMAGES_PER
     for (const b of s.blocks ?? []) take(b.settings, heading)
   }
   return out
-}
-
-function xmlEscape(s: string): string {
-  return s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[c] as string)
 }
 
 export function sitemapXml(entries: SitemapEntry[]): string {
