@@ -4746,20 +4746,72 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /* One function for the life of the editor, so the memoised canvas is not
      drawn again by every change anywhere else in the editor. */
   /** Sections, Pages and Theme: one segmented control, for the desktop sidebar and the phone sheet. */
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  A TAB ANSWERS ON THE PRESS; ITS PANEL FOLLOWS WHEN IT IS READY
+   * ═════════════════════════════════════════════════════════════════════════
+   * Switching between Sections, Pages and Theme re-rendered this whole editor
+   * in the click's own frame, and the Theme panel is a heavy form: the press
+   * waited for it, which is the lag the owner felt. Now the tab you pressed
+   * answers at once (`tabIntent`, an urgent update: the white indicator
+   * slides under it) and the panel it asks for is a transition, so React draws
+   * it in the background and the one you are leaving stays until the new one
+   * is ready. No blank frame, no held click.
+   *
+   * The indicator moves on the CSS `translate` property, not `transform`:
+   * globals.css flattens transforms inside a `.group` on touch screens, and
+   * this control sits in the phone sheet too.
+   *
+   * Pages also puts the sidebar back in Sections mode. It left the mode
+   * alone, so Theme, then Pages, then a page, landed on the global Theme
+   * settings with the Theme tab lit, rather than on the page you picked.
+   */
+  const committedTab: "sections" | "pages" | "settings" = pageBrowserOpen ? "pages" : sidebarMode
+  const [tabIntent, setTabIntent] = useState<"sections" | "pages" | "settings" | null>(null)
+  /* Once the panel has caught up (or anything else moved the tab), the committed tab is the truth again. */
+  useEffect(() => setTabIntent(null), [committedTab])
+  const shownTab = tabIntent ?? committedTab
+
   const renderSidebarTabs = (after?: () => void) => {
+    const index = shownTab === "sections" ? 0 : shownTab === "pages" ? 1 : 2
     const tab = (active: boolean) =>
       cn(
-        "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-colors",
-        active ? "bg-white text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+        "relative z-[1] flex items-center justify-center gap-1.5 h-8 rounded-md text-[13px] font-medium transition-colors duration-200",
+        active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
       )
+    const go = (next: "sections" | "pages" | "settings") => {
+      setTabIntent(next)
+      startTransition(() => {
+        if (next === "pages") {
+          setSidebarMode("sections")
+          setPageBrowserOpen(true)
+          setSelectedPanel({ type: "pages" })
+        } else if (next === "sections") {
+          setSidebarMode("sections")
+          setPageBrowserOpen(false)
+          setSelectedPanel({ type: "pages" })
+        } else {
+          setSidebarMode("settings")
+          setPageBrowserOpen(false)
+          setSelectedPanel({ type: "theme_settings" })
+        }
+      })
+      after?.()
+    }
     return (
-      <div role="tablist" aria-label="Sidebar" className="flex items-center gap-1 p-0.5 bg-neutral-100 rounded-lg">
+      <div role="tablist" aria-label="Sidebar" className="relative grid grid-cols-3 p-0.5 bg-neutral-100 rounded-lg">
+        <span
+          aria-hidden
+          data-wb-tab-indicator=""
+          className="pointer-events-none absolute inset-y-0.5 left-0.5 w-[calc((100%-4px)/3)] rounded-md bg-white shadow-sm transition-[translate] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+          style={{ translate: `${index * 100}% 0` }}
+        />
         <button
           type="button"
           role="tab"
-          aria-selected={sidebarMode === "sections" && !pageBrowserOpen}
-          className={tab(sidebarMode === "sections" && !pageBrowserOpen)}
-          onClick={() => { setSidebarMode("sections"); setPageBrowserOpen(false); setSelectedPanel({ type: "pages" }); after?.() }}
+          aria-selected={shownTab === "sections"}
+          className={tab(shownTab === "sections")}
+          onClick={() => go("sections")}
         >
           <Layers className="h-3.5 w-3.5" />
           Sections
@@ -4767,9 +4819,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         <button
           type="button"
           role="tab"
-          aria-selected={pageBrowserOpen}
-          className={tab(pageBrowserOpen)}
-          onClick={() => { setPageBrowserOpen(true); setSelectedPanel({ type: "pages" }); after?.() }}
+          aria-selected={shownTab === "pages"}
+          className={tab(shownTab === "pages")}
+          onClick={() => go("pages")}
         >
           <FileText className="h-3.5 w-3.5" />
           Pages
@@ -4777,9 +4829,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         <button
           type="button"
           role="tab"
-          aria-selected={sidebarMode === "settings" && !pageBrowserOpen}
-          className={tab(sidebarMode === "settings" && !pageBrowserOpen)}
-          onClick={() => { setSidebarMode("settings"); setPageBrowserOpen(false); setSelectedPanel({ type: "theme_settings" }); after?.() }}
+          aria-selected={shownTab === "settings"}
+          className={tab(shownTab === "settings")}
+          onClick={() => go("settings")}
         >
           <Settings className="h-3.5 w-3.5" />
           Theme
@@ -4787,6 +4839,34 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       </div>
     )
   }
+
+  /**
+   * A TAB CHANGE ON THE DESKTOP: the new panel starts at its top, and eases in
+   * on opacity alone over 160ms. Only a TAB change: clicking a section is
+   * still a cut, as asked (see "NO ANIMATION ON A PANEL SWAP" below), and
+   * nothing moves sideways or down, so no scrollbar appears for a frame.
+   * The Theme group that was open is shown open without replaying its
+   * entrance when you come back to it.
+   */
+  useEffect(() => {
+    if (sidebarMode !== "settings" || selectedPanel.type !== "section") return
+    const id = (selectedPanel as { sectionId?: string }).sectionId
+    if (!sections.some((s) => s.id === id)) setSelectedPanel({ type: "pages" })
+  }, [sidebarMode, selectedPanel, sections])
+  const desktopPanelRef = useRef<HTMLDivElement>(null)
+  const desktopScrollRef = useRef<HTMLDivElement>(null)
+  const themeGroupOpenedRef = useRef<string | null>(null)
+  const lastTabRef = useRef(committedTab)
+  useLayoutEffect(() => {
+    if (lastTabRef.current === committedTab) return
+    lastTabRef.current = committedTab
+    themeGroupOpenedRef.current = null
+    const scroller = desktopScrollRef.current
+    if (scroller) scroller.scrollTop = 0
+    const panel = desktopPanelRef.current
+    if (!panel || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    panel.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 160, easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
+  }, [committedTab])
 
   const createMissingPage = useCallback((path: string) => {
     setNewPageTitle(pageTitleFromKey(path.replace(/^\//, "").replace(/\/$/, "")))
@@ -6002,10 +6082,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // ── General Settings mode ──
     if (sidebarMode === "settings") {
       // Show section settings if a section is selected
-      if (selectedPanel.type === "section") {
-        const section = sections.find(s => s.id === (selectedPanel as any).sectionId)
-        if (!section) { setSelectedPanel({ type: "pages" }); return null }
-        const schema = schemaFor(section.type, storelibSources, librarySchemas)
+      /* A section that has gone (deleted, or its page changed) falls back to the
+         theme settings here, and the effect below puts the panel state right:
+         setting state during render drew a blank frame and a React warning. */
+      const staleSection = selectedPanel.type === "section" && !sections.some(s => s.id === (selectedPanel as any).sectionId)
+      if (selectedPanel.type === "section" && !staleSection) {
         // This will fall through to the existing SECTION panel code below
       } else {
         // Global theme settings
@@ -6023,13 +6104,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                       "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
                       expandedSettings === group.id ? "bg-muted/80 text-foreground" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                     )}
-                    onClick={() => setExpandedSettings(expandedSettings === group.id ? null : group.id)}
+                    onClick={() => {
+                      const next = expandedSettings === group.id ? null : group.id
+                      themeGroupOpenedRef.current = next
+                      setExpandedSettings(next)
+                    }}
                   >
                     {group.label}
                     <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", expandedSettings === group.id && "rotate-180")} />
                   </button>
                   {expandedSettings === group.id && (
-                    <div className="px-3 py-3 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className={cn("px-3 py-3 space-y-4", themeGroupOpenedRef.current === group.id && "animate-in fade-in slide-in-from-top-1 duration-150")}>
                       {/* Custom Color Schemes editor */}
                       {group.id === "color_schemes" ? (
                         <ColorsPanel
@@ -7870,10 +7955,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <div className="shrink-0 px-3 pt-3 pb-2" data-wb-sidebar-tabs="">
                 {renderSidebarTabs()}
               </div>
-              <div data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
+              <div ref={desktopScrollRef} data-wb-sidebar-scroll className="flex-1 min-h-0 overflow-y-auto wb-slim-scroll overflow-x-hidden">
                 <LinkTargetsProvider targets={linkTargets}>
                   <div
                     key={sidebarPanelKey}
+                    ref={desktopPanelRef}
                     className="h-full"
                   >
                     {renderSidebarContent()}
@@ -9397,18 +9483,17 @@ function SidebarSectionRow({
         )}
         {/* The header and the footer are chrome, and chrome gets a badge so
             they are not mistaken for sections: a dark tile with the piece
-            drawn on it. It was quietened to grey for one round on the
-            argument that two black squares are the loudest thing in a white
-            list; the owner asked for the black back, and they are right that
-            loud is the point here. These two rows are the only ones in the
-            list that cannot be moved, duplicated or deleted, and the badge
-            is what says so before you try. */}
+            drawn on it. These two rows are the only ones in the list that
+            cannot be moved, duplicated or deleted, and the badge is what says
+            so before you try. Its shade has moved on the owner's word: grey,
+            then black, and now a dark grey (#4d5058), still the darkest thing
+            in the list but no longer a black hole in it. */}
         {isStructure && structureRole && (
           <span
             aria-hidden
             className={cn(
               "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
-              isSelected ? "bg-white/15 text-white" : "bg-neutral-800 text-white",
+              isSelected ? "bg-white/15 text-white" : "bg-[#4d5058] text-white",
             )}
           >
             {structureRole === "header" ? (
