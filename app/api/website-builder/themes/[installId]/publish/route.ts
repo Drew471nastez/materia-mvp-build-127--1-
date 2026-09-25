@@ -3,6 +3,7 @@ import { announce, websiteAddresses } from "@/lib/seo/announce"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
+import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { takeBackup } from "@/lib/website-builder/backups"
 import { promoteFileDrafts } from "@/lib/website-builder/theme-file-drafts"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
@@ -47,8 +48,11 @@ export async function POST(req: Request, { params }: Params) {
   })
   if (limited) return limited
 
+  /* `{ action }` and nothing more, so a small cap: lib/website-builder/request-body.ts. */
+  const read = await readEditorBody(req, BODY_LIMITS.small)
+  if (read.ok === false) return read.response
   /* A body that is not JSON falls through to "Invalid action", a 400, not a 500. */
-  const body = await req.json().catch(() => null)
+  const body = (read.invalid ? null : read.json) as { action?: unknown } | null
   const action = body?.action as "publish" | "unpublish" | "save_draft"
 
   if (action === "publish") {

@@ -21,6 +21,8 @@ import { AGENT_LIMITS } from "@/lib/sites/rate-limit"
 import { toPageSlug } from "@/lib/sites/slug"
 import { POLICY_PAGE_KEYS } from "@/lib/website-builder/policy-pages"
 import { previewBase } from "@/lib/website-builder/preview-link"
+import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
+import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { BUILT_IN_PAGE_KEYS, isPageKey } from "@/lib/website-builder/site-pages"
 
 let passed = 0
@@ -34,7 +36,7 @@ function section(t: string) { console.log(`\n${t}`) }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const ROUTES = "app/api/website-builder/themes/[installId]"
 
-function main() {
+async function main() {
   // ═══════════════════════════════════════════════════════════════════════
   section("The header and footer copied to every page")
   // ═══════════════════════════════════════════════════════════════════════
@@ -196,7 +198,66 @@ function main() {
     })())
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A request body is read up to a cap, and every cap is above what a real site sends")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    /**
+     * The heaviest page the limits allow a person to build: 60 sections,
+     * each the largest preset in the library with its block list grown to
+     * 50, 5 KB of rich text on every section and 1 KB on every block.
+     */
+    const bytes = (v: unknown) => Buffer.byteLength(JSON.stringify(v), "utf8")
+    const words = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(100)
+    const presets = Object.values(SECTION_SCHEMAS).map((schema) => {
+      const preset = schema.presets?.[0]
+      const blocks = (preset?.blocks ?? []).map((b, i) => ({ id: `${schema.type}-block-${i}-0000000000`, type: b.type, settings: b.settings ?? {} }))
+      return { id: `${schema.type}-000000000000000000`, type: schema.type, name: schema.name, settings: preset?.settings ?? {}, blocks }
+    }).sort((a, b) => bytes(b) - bytes(a))
+    const grow = (s: (typeof presets)[number], i: number) => ({
+      ...s,
+      id: `${s.id}-${i}`,
+      settings: { ...s.settings, body: `<p>${words.slice(0, 5000)}</p>` },
+      blocks: Array.from({ length: s.blocks.length ? 50 : 0 }, (_, j) => ({ ...s.blocks[j % s.blocks.length], id: `${s.id}-${i}-${j}`, settings: { ...s.blocks[j % s.blocks.length].settings, body: `<p>${words.slice(0, 1000)}</p>` } })),
+    })
+    const heaviest = { page_key: "home", mode: "draft", sections: Array.from({ length: 60 }, (_, i) => grow(presets[i % presets.length], i)) }
+    const chrome = { header: grow(presets[0], 0), footer: grow(presets[1], 1), current_page: "home", mode: "draft" }
+    const pack = { draft_settings: { _theme_pack: { sections: SECTION_SCHEMAS } } }
+    check(`the heaviest page fits the sections cap with room (${Math.round(bytes(heaviest) / 1024)} KB of ${BODY_LIMITS.sections / 1024} KB)`, bytes(heaviest) * 1.4 < BODY_LIMITS.sections)
+    check(`a header and footer at their limits fit the sync cap (${Math.round(bytes(chrome) / 1024)} KB)`, bytes(chrome) * 4 < BODY_LIMITS.syncGlobal)
+    check(`settings carrying a whole theme pack fit the settings cap (${Math.round(bytes(pack) / 1024)} KB)`, bytes(pack) * 2 < BODY_LIMITS.settings)
+    check("and the largest cap is one a function will accept at all", BODY_LIMITS.sections < 4.5 * 1024 * 1024)
+
+    const routes: [string, keyof typeof BODY_LIMITS][] = [
+      ["settings", "settings"], ["sections", "sections"], ["sections/sync-global", "syncGlobal"],
+      ["publish", "small"], ["backups", "small"], ["preview", "small"], ["focus", "small"],
+    ]
+    for (const [route, cap] of routes) {
+      const src = read(`${ROUTES}/${route}/route.ts`)
+      check(`${route} reads its body up to BODY_LIMITS.${cap}, and answers 413 over it`,
+        new RegExp(`const read = await readEditorBody\\(req, BODY_LIMITS\\.${cap}\\)`).test(src) && /if \(read\.ok === false\) return read\.response/.test(src) && !/req\.json\(/.test(src))
+    }
+  }
+
+  await reader()
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
-main()
+
+/** The reader itself, on real requests. */
+async function reader() {
+  section("The capped reader")
+  const at = (body: BodyInit | null, headers: Record<string, string> = {}) => readEditorBody(new Request("http://x", { method: "PUT", body, headers, ...(body instanceof ReadableStream ? { duplex: "half" } : {}) } as RequestInit), 1024)
+  const small = await at(JSON.stringify({ a: 1 }))
+  check("JSON under the cap is read", small.ok === true && !small.invalid && (small.json as { a: number }).a === 1)
+  const big = await at(JSON.stringify({ a: "x".repeat(2000) }))
+  check("JSON over the cap is a 413 with a plain message", big.ok === false && big.response.status === 413 && /too large to save\. The limit is 1 KB/.test(String((await big.response.json()).error)))
+  const lying = await at(new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode("x".repeat(4000))); c.close() } }), { "content-length": "10" })
+  check("and a body that says it is small but is not is still stopped at the cap", lying.ok === false)
+  const empty = await at(null)
+  const junk = await at("not json")
+  check("an empty body or one that is not JSON is marked, and each route decides", empty.ok === true && empty.invalid && junk.ok === true && junk.invalid)
+}
+
+void main()

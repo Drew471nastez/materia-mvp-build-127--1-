@@ -3,6 +3,7 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { takeBackup } from "@/lib/website-builder/backups"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
+import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -93,13 +94,11 @@ export async function POST(req: Request, { params }: Params) {
   })
   if (limited) return limited
 
-  let body: unknown = {}
-  try {
-    body = await req.json()
-  } catch {
-    /* an empty body is a manual backup */
-  }
-  const parsed = PostSchema.safeParse(body ?? {})
+  /* A label and a source, so a small cap: lib/website-builder/request-body.ts. */
+  const read = await readEditorBody(req, BODY_LIMITS.small)
+  if (read.ok === false) return read.response
+  /* an empty body is a manual backup */
+  const parsed = PostSchema.safeParse(read.invalid ? {} : (read.json ?? {}))
   if (!parsed.success) return NextResponse.json({ error: "Invalid body" }, { status: 400 })
 
   const source = parsed.data.source ?? "manual"

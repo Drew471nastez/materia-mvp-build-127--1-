@@ -20,6 +20,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { newPreviewToken, previewBase } from "@/lib/website-builder/preview-link"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
+import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { getCanonicalSiteUrl, getMainDomain } from "@/lib/url-helpers"
 
 export const runtime = "nodejs"
@@ -92,9 +93,6 @@ function withToken(req: NextRequest, sent: unknown, token: string): string | nul
   return query ? `${path}?${query}` : path
 }
 
-async function baseOf(req: NextRequest): Promise<unknown> {
-  return (await req.json().catch(() => ({})))?.base
-}
 
 export async function GET(req: NextRequest, { params }: Params) {
   const { installId } = await params
@@ -114,9 +112,14 @@ export async function POST(req: NextRequest, { params }: Params) {
   const limited = await limit(o.userId)
   if (limited) return limited
 
+  /* `{ base }` and nothing more, so a small cap: lib/website-builder/request-body.ts. */
+  const read = await readEditorBody(req, BODY_LIMITS.small)
+  if (read.ok === false) return read.response
+  const sent = read.invalid ? undefined : (read.json as { base?: unknown } | null)?.base
+
   const existing = o.install.preview_token
   if (existing) {
-    return NextResponse.json({ token: existing, url: withToken(req, await baseOf(req), existing), created: false })
+    return NextResponse.json({ token: existing, url: withToken(req, sent, existing), created: false })
   }
 
   const token = newPreviewToken()
@@ -124,7 +127,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (error) {
     return NextResponse.json({ error: /preview_token/.test(error.message) ? MIGRATION : error.message }, { status: 503 })
   }
-  return NextResponse.json({ token, url: withToken(req, await baseOf(req), token), created: true })
+  return NextResponse.json({ token, url: withToken(req, sent, token), created: true })
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {

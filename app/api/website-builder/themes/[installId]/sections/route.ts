@@ -6,6 +6,7 @@ import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { LIMITS } from "@/lib/storelib-theme/types"
 import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
+import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -167,12 +168,11 @@ export async function PUT(req: Request, { params }: Params) {
   })
   if (limited) return limited
 
-  let body: unknown
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
-  }
+  /* Read up to a cap rather than whatever arrives: lib/website-builder/request-body.ts. */
+  const read = await readEditorBody(req, BODY_LIMITS.sections)
+  if (read.ok === false) return read.response
+  if (read.invalid) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  const body = read.json
 
   const parsed = PutBodySchema.safeParse(body)
   if (!parsed.success) {
