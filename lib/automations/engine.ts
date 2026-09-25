@@ -48,7 +48,10 @@
  *   EDITING      A job names its step and the step before it. Content edits
  *                reach everyone from their next step. A removed step is
  *                skipped to whatever now follows the step before it. Emails
- *                already sent are never sent again.
+ *                already sent are never sent again. A step moved to after
+ *                one somebody has already passed is not run twice, and does
+ *                not strand them either: they go on to the first step they
+ *                have not had (moveOn, below).
  *
  * Everything that touches the database is behind `Store`, so this file is
  * the logic alone and tests drive it with an in-memory store that keeps the
@@ -201,8 +204,10 @@ export interface Store {
   /** Only a run that is still active changes. */
   finishRun(runId: string, status: Exclude<RunStatus, "active">, reason: string | null): Promise<void>
   setRunStep(runId: string, stepId: string): Promise<void>
-  /** Insert, and nothing when (run_id, step_id) exists. */
-  enqueue(job: { runId: string; flowId: string; creatorId: string; stepId: string; afterStepId: string | null; runAt: string }): Promise<void>
+  /** Insert, and nothing when (run_id, step_id) exists. True when it wrote the job. */
+  enqueue(job: { runId: string; flowId: string; creatorId: string; stepId: string; afterStepId: string | null; runAt: string }): Promise<boolean>
+  /** Where this run's job for this step is, or null when it has none. */
+  jobState(runId: string, stepId: string): Promise<JobState | null>
   /** Each only when the job is running and held by `worker`. True when it changed. */
   completeJob(jobId: string, worker: string, state: "done" | "cancelled", note?: string | null): Promise<boolean>
   retryJob(jobId: string, worker: string, runAt: string, error: string): Promise<boolean>
@@ -482,11 +487,34 @@ export async function processJob(ctx: Ctx, job: JobRow): Promise<JobOutcome> {
       await store.finishRun(run.id, "completed", "The rest of the flow was removed.")
       return (await store.completeJob(job.id, worker, "done")) ? "done" : "lost"
     }
+    /**
+     * MOVING ON, for a flow that may have been edited while this person
+     * waited. The step after `fromId` is queued. The queue takes a step once
+     * per run, so when that step already ran for them (the creator moved it
+     * up past where they are) nothing is written, and they used to stop
+     * there: active, with no job left, "in progress" for ever. So a step
+     * whose job is done is passed over to the first one they have not had,
+     * or the run ends. A job that exists and is not done (this job run a
+     * second time after a crash, or one that failed) is left to itself.
+     */
+    const moveOn = async (fromId: string, runAt: number, note?: string): Promise<JobOutcome> => {
+      let after = fromId
+      let next = stepAfter(steps, fromId)
+      for (let n = 0; next && n <= steps.length; n++) {
+        const wrote = await store.enqueue({ runId: run.id, flowId: flow.id, creatorId: run.creator_id, stepId: next.id, afterStepId: after, runAt: iso(runAt) })
+        if (wrote || (await store.jobState(run.id, next.id)) !== "done") break
+        after = next.id
+        next = stepAfter(steps, next.id)
+      }
+      if (next) await store.setRunStep(run.id, next.id)
+      else await store.finishRun(run.id, "completed", null)
+      return (await store.completeJob(job.id, worker, "done", note)) ? "done" : "lost"
+    }
+
     if (step.id !== job.step_id) {
       /* The step this job was for was removed; the one now in its place is
          queued as its own job, so it too runs once. */
-      await store.enqueue({ runId: run.id, flowId: flow.id, creatorId: run.creator_id, stepId: step.id, afterStepId: job.after_step_id, runAt: iso(ctx.now()) })
-      return (await store.completeJob(job.id, worker, "done", "Step removed; moved on.")) ? "done" : "lost"
+      return moveOn(job.after_step_id!, ctx.now(), "Step removed; moved on.")
     }
 
     const standing = await store.standing(run.creator_id, run.email)
@@ -521,14 +549,7 @@ export async function processJob(ctx: Ctx, job: JobRow): Promise<JobOutcome> {
       }
     }
 
-    const next = stepAfter(steps, step.id)
-    if (next) {
-      await store.enqueue({ runId: run.id, flowId: flow.id, creatorId: run.creator_id, stepId: next.id, afterStepId: step.id, runAt: iso(ctx.now() + delayNext) })
-      await store.setRunStep(run.id, next.id)
-    } else {
-      await store.finishRun(run.id, "completed", null)
-    }
-    return (await store.completeJob(job.id, worker, "done")) ? "done" : "lost"
+    return await moveOn(step.id, ctx.now() + delayNext)
   } catch (error) {
     const reason = reasonText(error)
     const permanent = error instanceof PermanentError

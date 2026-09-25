@@ -15,7 +15,7 @@ import "server-only"
 import { APP_URL } from "@/lib/email-automation"
 import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
 import { cleanContactSource } from "@/lib/contacts/contact-source"
-import type { Brand, FlowRow, Identity, JobRow, RunLinks, RunRow, SendBegin, Standing, Store } from "./engine"
+import type { Brand, FlowRow, Identity, JobRow, JobState, RunLinks, RunRow, SendBegin, Standing, Store } from "./engine"
 import type { TriggerType } from "./flow-model"
 import { textOn } from "./merge-fields"
 import type { CheckoutStart, StartOutcome, StartsStore } from "./abandoned"
@@ -160,11 +160,22 @@ export function supabaseStore(db: Db): Store {
     },
 
     async enqueue(job) {
-      const { error } = await db.from("email_flow_jobs").upsert(
-        { run_id: job.runId, flow_id: job.flowId, creator_id: job.creatorId, step_id: job.stepId, after_step_id: job.afterStepId, run_at: job.runAt, state: "queued" },
-        { onConflict: "run_id,step_id", ignoreDuplicates: true },
-      )
+      const { data, error } = await db
+        .from("email_flow_jobs")
+        .upsert(
+          { run_id: job.runId, flow_id: job.flowId, creator_id: job.creatorId, step_id: job.stepId, after_step_id: job.afterStepId, run_at: job.runAt, state: "queued" },
+          { onConflict: "run_id,step_id", ignoreDuplicates: true },
+        )
+        .select("id")
       if (error) fail("queue the next step", error)
+      /* A duplicate is ignored and returns no row. */
+      return Array.isArray(data) && data.length > 0
+    },
+
+    async jobState(runId, stepId) {
+      const { data, error } = await db.from("email_flow_jobs").select("state").eq("run_id", runId).eq("step_id", stepId).maybeSingle()
+      if (error) fail("read the step", error)
+      return (data?.state ?? null) as JobState | null
     },
 
     async completeJob(jobId, worker, state, note) {
