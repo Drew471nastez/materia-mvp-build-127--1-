@@ -23,6 +23,8 @@ import { headerMenuBlocks, mobileMenuStyle, transparentHere } from "../lib/websi
 import { MAX_ANNOUNCEMENTS, announcementMessages, announcementSeconds } from "../lib/website-builder/announcement"
 import { PAGE_META, type SectionInstance, type ThemeSettingsValues } from "../lib/website-builder/types"
 import { DEFAULT_THEME_SOURCES } from "../themes/default/sources.generated"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 
 let passed = 0
 let failed = 0
@@ -289,6 +291,18 @@ section("The announcement bar takes turns")
   check("never more than the most a bar can hold", announcementMessages({ announcement_bar_text: "a", announcement_bar_messages: Array.from({ length: 20 }, (_, i) => `m${i}`).join("\n") }).length === MAX_ANNOUNCEMENTS)
   check("a bar with no message has none", announcementMessages({}).length === 0)
   check("seconds per message are 3 to 10, 5 unless set", announcementSeconds({}) === 5 && announcementSeconds({ announcement_bar_rotate: 1 }) === 3 && announcementSeconds({ announcement_bar_rotate: 99 }) === 10 && announcementSeconds({ announcement_bar_rotate: "x" }) === 5)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+section("Bugs found on the way")
+// ═══════════════════════════════════════════════════════════════════════════
+{
+  const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+  const published = read("lib/website-builder/published-site.ts")
+  const publish = read("app/api/website-builder/themes/[installId]/publish/route.ts")
+  check("a publish purges the rendered page under every name the site answers to, found by the creator's user", /\.from\("creators"\)\s*\.select\("user_id, slug"\)/.test(published) && /websiteHandleOf\(creatorId, admin\)/.test(published) && !/\.from\("profiles"\)\s*\.select\("username"\)\s*\.eq\("id", creatorId\)/.test(published))
+  check("a renamed name is matched literally, not as a LIKE pattern", /\.ilike\("old_username", literal\)/.test(published) && /name\.replace\(\/\[\\\\%_\]\/g/.test(published))
+  check("publishing cleans each page by the schemas that go live with it", /customSchemaLookup\(admin as never, installId, drafted, \{ draft: true \}\)/.test(publish) && /sanitizeSections\(page\.draft_sections as SectionInstance\[\], lookup\)/.test(publish))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

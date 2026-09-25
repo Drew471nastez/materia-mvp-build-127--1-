@@ -6,6 +6,7 @@ import { takeBackup } from "@/lib/website-builder/backups"
 import { promoteFileDrafts } from "@/lib/website-builder/theme-file-drafts"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
+import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
 type Params = { params: Promise<{ installId: string }> }
@@ -111,12 +112,21 @@ export async function POST(req: Request, { params }: Params) {
       .eq("install_id", installId)
 
     if (pagesRows) {
+      /*
+        Cleaned by the schemas that go live with them. A creator's own
+        section declares its rich text in its own file, and the file drafts
+        are promoted a few lines below, in this same publish; cleaning by the
+        built-in schemas alone left such a setting as it was typed in the
+        live column, and cleaned a plain `text` setting as if it were markup.
+      */
+      const drafted = pagesRows.flatMap((p) => (Array.isArray(p.draft_sections) ? (p.draft_sections as SectionInstance[]) : []))
+      const lookup = await customSchemaLookup(admin as never, installId, drafted, { draft: true })
       for (const page of pagesRows) {
         if (page.draft_sections) {
           await admin
             .from("store_theme_pages")
             .update({
-              sections: sanitizeSections(page.draft_sections as SectionInstance[]),
+              sections: sanitizeSections(page.draft_sections as SectionInstance[], lookup),
               draft_sections: null,
             })
             .eq("id", page.id)

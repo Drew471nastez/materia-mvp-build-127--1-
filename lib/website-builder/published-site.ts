@@ -42,7 +42,7 @@ import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { creatorIdByHandle } from "@/lib/website-builder/site-address-data"
+import { creatorIdByHandle, websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
 import { shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
@@ -592,33 +592,42 @@ export async function revalidatePublishedSite(creatorId: string): Promise<void> 
    * `"layout"` rather than `"page"`: it takes the front page and every page
    * below it, which is what a publish changes.
    */
-  const name = await creatorUsername(creatorId)
-  if (name) revalidatePath(`/w/${name}`, "layout")
+  for (const name of await siteNames(creatorId)) revalidatePath(`/w/${name}`, "layout")
 }
 
 /**
- * The name a creator's site is served under. Profile username first, then the
- * creator slug, which is the same order `findCreator` resolves a name in.
+ * Every name a creator's site is served under, the names `lookUpName`
+ * answers to: the profile's username, the creator's slug, and the name the
+ * website was given in Website Settings.
+ *
+ * This used to ask `profiles` for the row whose id was the CREATOR's id. A
+ * profile's id is the user's, so it found nothing, then asked `creators` for
+ * a `username` column it does not have, found nothing again, and no publish
+ * ever purged a rendered page: a creator pressed Publish and watched the old
+ * site until the minute ran out, which is the thing this purge exists to stop.
  */
-async function creatorUsername(creatorId: string): Promise<string | null> {
+async function siteNames(creatorId: string): Promise<string[]> {
   try {
     const admin = createAdminClient()
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("username")
-      .eq("id", creatorId)
-      .maybeSingle()
-    const fromProfile = (profile as { username?: string | null } | null)?.username
-    if (fromProfile) return fromProfile
     const { data: creator } = await admin
       .from("creators")
-      .select("username")
+      .select("user_id, slug")
       .eq("id", creatorId)
       .maybeSingle()
-    return (creator as { username?: string | null } | null)?.username ?? null
+    const row = creator as { user_id?: string | null; slug?: string | null } | null
+    const [profile, handle] = await Promise.all([
+      row?.user_id
+        ? admin.from("profiles").select("username").eq("id", row.user_id).maybeSingle().then((r) => (r.data as { username?: string | null } | null)?.username ?? null)
+        : Promise.resolve(null),
+      websiteHandleOf(creatorId, admin).catch(() => null),
+    ])
+    const names = [profile, row?.slug ?? null, handle]
+      .filter((n): n is string => typeof n === "string" && n.trim() !== "")
+      .map((n) => n.trim().toLowerCase())
+    return [...new Set(names)]
   } catch {
     // A purge that cannot find the name is better than a publish that fails.
-    return null
+    return []
   }
 }
 
