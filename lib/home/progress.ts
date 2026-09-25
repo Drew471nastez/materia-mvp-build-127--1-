@@ -27,6 +27,11 @@
  *   homeProgress(facts)    HomeProgress: { steps, completed, total,
  *                          setupDone, challenges, challengesDone, phase }
  *
+ *   nextSetupStep(facts)   the first step not done, or null: the one a
+ *                          notification or banner should name
+ *   readProgressFacts(db, { userId })   (lib/home/progress-server) every
+ *                          fact for one creator, read on the server
+ *
  *   ProgressItem           { id, label, done, href?, current?, target? }
  *
  * `href` is where the thing is done. A step that is done by something on
@@ -334,6 +339,17 @@ export function homeProgress(f: ProgressFacts): HomeProgress {
     challengesDone: list.filter((c) => c.done).length,
     phase: setupDone ? "challenges" : "setup",
   }
+}
+
+/**
+ * The one step to nudge about: the first Getting started step not done, in
+ * SETUP_ORDER, or null once they all are. For anything that says a single
+ * next step rather than the list (a notification, a banner): with the facts
+ * from readProgressFacts (lib/home/progress-server) it gives the same answer
+ * as Home's card.
+ */
+export function nextSetupStep(f: ProgressFacts): ProgressItem | null {
+  return setupSteps(f).find((s) => !s.done) ?? null
 }
 
 /** Two sets of facts say the same thing: an answer that changes nothing renders nothing. */

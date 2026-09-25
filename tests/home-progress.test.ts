@@ -29,6 +29,7 @@ import {
   salesFrom,
   sameFacts,
   setupSteps,
+  nextSetupStep,
   type ProgressFacts,
   type ProgressRows,
 } from "../lib/home/progress"
@@ -168,6 +169,7 @@ function main() {
     })
     const p = homeProgress(all)
     check("setup is done", p.setupDone && p.completed === 8 && p.phase === "challenges")
+    check("and there is no next step to nudge about", nextSetupStep(all) === null)
     check("eight challenges, in their order", p.challenges.length === 8 && p.challenges.map((c) => c.id).join() === CHALLENGE_ORDER.join())
     const c = (id: string) => p.challenges.find((x) => x.id === id)!
     check("3 of 10 sales", c("sales").current === 3 && c("sales").target === 10 && !c("sales").done)
@@ -213,6 +215,8 @@ function main() {
     const guide = read("app/api/home/guide/route.ts")
     check("POST /api/home/guide writes the person's own metadata, once", /supabase\.auth\.updateUser\(\{ data: \{ \[GUIDE_OPENED_KEY\]/.test(guide) && /if \(guideOpenedFrom\(current\.user\.user_metadata\)\)/.test(guide) && !/createAdminClient/.test(guide))
     const server = read("lib/home/progress-server.ts")
+    check("the next step to nudge about is the first not done, and none once all are",
+      nextSetupStep({ ...NO_FACTS })?.id === "guide" && nextSetupStep({ ...NO_FACTS, guideOpened: true, products: 1 })?.id === "payments")
     check("every read by the creator's own id", (server.match(/\.eq\("creator_id", creator(Id|\.id)\)/g) ?? []).length >= 7 && /\.eq\("user_id", input\.userId\)/.test(server))
     check("a read that fails is 0, never a thrown error", /async function settle/.test(server) && /r\.error \? 0/.test(server))
     const hook = read("components/app/home/use-home-progress.ts")
