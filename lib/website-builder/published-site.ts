@@ -344,7 +344,11 @@ export async function publishedSiteByName(name: string, pageKey = "home"): Promi
   // "index" for the front page, `page.<key>` for the rest: the name a
   // section reads as `page.template` and writes `allowed_templates` against.
   const template = templateForPage(pageKey)
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products)
+  /* `shop.name` falls back to the creator's public name when the store has
+     none set: lib/storelib-theme/globals.ts. Nothing per visitor here. */
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, {
+    shop: { name: site.displayName },
+  })
   return { kind: "site", site: { ...site, sections, prerendered } }
 }
 

@@ -54,6 +54,10 @@ const DIRECT: Record<string, string> = {
   "/about": "about",
   "/contact": "contact",
   "/search": "search",
+  /* The visitor's account pages, which every website has. */
+  "/account": "account",
+  "/account/login": "login",
+  "/wishlist": "wishlist",
 }
 
 export function resolveEditorHref(href: string, ctx: EditorNavContext): EditorNavDecision {
@@ -111,6 +115,15 @@ export function resolveEditorHref(href: string, ctx: EditorNavContext): EditorNa
 
   if (noSlash === ctx.shopPath) return { kind: "page", key: "products" }
   if (DIRECT[noSlash]) return { kind: "page", key: DIRECT[noSlash] }
+
+  /*
+    NOT A PAGE: an action. Signing in, signing out and the site's own API
+    leave the page on a live site; in the canvas they are nothing to open and
+    nothing to offer to create.
+  */
+  if (noSlash === "/api" || noSlash.startsWith("/api/") || noSlash === "/account/logout") {
+    return { kind: "ignore", why: "external" }
+  }
 
   const key = noSlash.replace(/^\//, "")
   if (ctx.customPageKeys.includes(key)) return { kind: "page", key }
