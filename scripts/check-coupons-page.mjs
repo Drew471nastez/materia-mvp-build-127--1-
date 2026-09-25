@@ -59,7 +59,8 @@ mkdirSync(dir, { recursive: true })
 writeFileSync(join(dir, "navigation.js"), `const log = (k, a) => (window.__router ||= []).push([k, a])
 const page = new URLSearchParams(location.search).get("page") || "list"
 export const usePathname = () => page === "list" ? "/app/coupons" : page === "new" ? "/app/coupons/new" : "/app/coupons/a1"
-export const useRouter = () => ({ push: (h) => log("push", h), replace: (h) => log("replace", h), prefetch: (h) => log("prefetch", h), back: () => log("back"), refresh: () => log("refresh") })
+const go = (to) => setTimeout(() => window.dispatchEvent(new CustomEvent("probe-nav", { detail: to })), 0)
+export const useRouter = () => ({ push: (h) => log("push", h), replace: (h) => { log("replace", h); go(h) }, prefetch: (h) => log("prefetch", h), back: () => { log("back"); go("back") }, refresh: () => log("refresh") })
 export const useSearchParams = () => new URLSearchParams()
 export const useParams = () => ({})
 export const redirect = () => {}
@@ -343,6 +344,9 @@ try {
     expect(body && body.code === "SPRING25" && body.discount_type === "percentage" && body.discount_value === 25 && body.product_ids?.length === 1 && body.usage_limit === 100 && typeof body.expires_at === "string" && body.starts_at === null && body.min_purchase_cents === null && body.is_active === true, "with the body the route reads", body)
     const after = await f.evaluate(() => (window.__router || []).filter(([k]) => k === "replace" || k === "back"))
     expect(after.length === 1 && after[0][0] === "replace" && after[0][1] === "/app/coupons", "and goes back to the list (a replace: nothing opened it from the list here)", after)
+    await sleep(300)
+    const first = await f.evaluate(() => [...document.querySelectorAll(innerWidth < 768 ? "section ul > li" : "section tbody tr")].filter((r) => r.getClientRects().length > 0)[0]?.innerText.replace(/\s+/g, " "))
+    expect(/^SPRING25/.test(first || ""), "the new code is first on the list it goes back to", first)
     await f.close()
 
     console.log(`${label}: a saved coupon`)
@@ -358,6 +362,22 @@ try {
     await sleep(700)
     const put = await e.evaluate(() => window.__sent[0])
     expect(put?.url === "/api/coupons/a1" && put.method === "PUT" && put.body.is_active === false && put.body.code === "SUMMER20" && put.body.product_ids.length === 2, "Save puts the whole code to its own address", put && { url: put.url, method: put.method, is_active: put.body.is_active })
+    /* Back on the list, which the router kept from before the save. */
+    await sleep(300)
+    const back = await e.evaluate(() => {
+      const row = [...document.querySelectorAll("[data-row='a1']")].find((r) => r.getClientRects().length > 0)
+      const tinted = row && (row.tagName === "TR" ? [...row.children] : [row]).some((el) => el.getAnimations().length > 0)
+      return {
+        list: !!document.querySelector(".orders-pane"),
+        status: row?.querySelector("span.inline-flex, td:nth-child(2) span")?.textContent.trim(),
+        pill: document.querySelector("[data-coupon-pill]")?.textContent.trim(),
+        tinted,
+        refreshed: (window.__router || []).some(([k]) => k === "refresh"),
+      }
+    })
+    expect(back.list && back.status === "Off", "back on the list, the row already says what was saved, on its first frame", back)
+    expect(back.pill === "SUMMER20 saved" && back.tinted && back.refreshed, "it says so in the dark pill, tints the row, and refreshes the list", back)
+    await e.screenshot({ path: join(shots, `${label}-back-on-list.png`) })
     await e.close()
   }
 } finally {

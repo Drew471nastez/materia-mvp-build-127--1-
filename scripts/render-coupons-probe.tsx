@@ -7,7 +7,8 @@
  * z 55, as scripts/render-page-layer.tsx draws them.
  *
  *   ?page=list | new | edit     which page (list by default; `?form` and
- *                               `?edit` still work, as before)
+ *                               `?edit` still work, as before). Leaving the
+ *                               editor draws the list in its place.
  *
  * The API is stood in for: window.fetch records what the editor sends in
  * window.__sent and answers as the routes do.
@@ -47,7 +48,8 @@ w.__sent = []
 window.fetch = (async (url: string, init?: RequestInit) => {
   const body = init?.body ? JSON.parse(String(init.body)) : null
   w.__sent.push({ url: String(url), method: init?.method || "GET", body })
-  const answer = w.__answer ?? { status: init?.method === "POST" ? 201 : 200, body: init?.method === "DELETE" ? { ok: true } : { coupon: { ...base, id: "new1", ...(body as object) } } }
+  const id = String(url).match(/\/api\/coupons\/([^/?]+)/)?.[1] ?? "new1"
+  const answer = w.__answer ?? { status: init?.method === "POST" ? 201 : 200, body: init?.method === "DELETE" ? { ok: true } : { coupon: { ...base, id, usage_count: id === "a1" ? 14 : 0, ...(body as object) } } }
   return new Response(JSON.stringify(answer.body), { status: answer.status, headers: { "content-type": "application/json" } })
 }) as typeof fetch
 
@@ -55,7 +57,21 @@ const q = new URLSearchParams(location.search)
 const which = q.get("page") || (q.has("form") ? "new" : q.has("edit") ? "edit" : "list")
 const saved = { ...coupons[0], product_ids: [products[0].id, products[1].id] }
 
+/* The way back: the router's replace or back (the stub in scripts/check-coupons-page.mjs) draws the list, with this bundle's module state, as the app would. */
 function Page() {
+  const [page, setPage] = React.useState(which)
+  React.useEffect(() => {
+    const go = (e: Event) => {
+      const to = (e as CustomEvent<string>).detail
+      if (to === "/app/coupons" || to === "back") setPage("list")
+    }
+    window.addEventListener("probe-nav", go)
+    return () => window.removeEventListener("probe-nav", go)
+  }, [])
+  return <Shown which={page} />
+}
+
+function Shown({ which }: { which: string }) {
   if (which === "new") return <NewCouponLayout><CouponEditor products={products} initialCoupon={null} /></NewCouponLayout>
   if (which === "edit") return <EditCouponLayout><CouponEditor products={products} initialCoupon={saved} /></EditCouponLayout>
   return <CouponsClient creatorId="c1" initialCoupons={coupons} products={products} />
