@@ -62,6 +62,7 @@ import { ADDABLE_SECTIONS, RETIRED_SECTIONS, SECTION_CATEGORIES, SECTION_SCHEMAS
 import { LIBRARY_FULL_CODE, isLibraryFullError, keptWithinLimit } from "@/lib/website-builder/library-limit"
 import { IMPORT_MAX_BYTES, IMPORT_TOO_LARGE, importPathFor, importSizeProblem, isOwnImportPath, looksLikeZip } from "@/lib/website-builder/theme-import"
 import { STALL_MS, sendWithProgress } from "@/app/app/website-builder/incoming"
+import { connectedTools, toolNames } from "@/lib/agent-access/connection-mark"
 
 let passed = 0
 let failed = 0
@@ -340,7 +341,7 @@ section("The page")
         /"Your website is offline"/.test(client) && /onClick=\{\(\) => setPublishing\(offline\)\}/.test(live) &&
         /\{i\.id === offline\?\.id \? "Offline" : "Draft"\} · Edited/.test(client))
     check("the live site's More menu no longer carries Website settings", !/WEBSITE_SETTINGS/.test(client) && !/section: n === 0 \? "Website settings"/.test(client))
-    check("the card's buttons are Edit website and a square More", /<div className="mt-auto flex gap-2 pt-5">/.test(live) && /"w-11 shrink-0 px-0"/.test(live) && !/View site/.test(live))
+    check("the card's buttons are Edit website and a square More, with the shared depth", /<div className="mt-auto flex gap-2 pt-5">/.test(live) && /className=\{MORE_ON_CARD\}/.test(live) && /const MORE_ON_CARD = cn\(secondaryDepth, "h-11 w-11 rounded-xl px-0/.test(client) && !/View site/.test(live))
     check("  no numbers are counted for it any more", !/websitePerformanceFor/.test(read("app/app/website-builder/page.tsx")))
     const frame = /const COVER_FRAME =\s*"([^"]+)"/.exec(client)?.[1] ?? ""
     check("the cover is clipped to 12px corners on all four sides",
@@ -1405,6 +1406,96 @@ section("Two at once still make five, and an import that says what went wrong")
   }, false)
   check("  and one that lands reports its progress, then that it was sent, then the answer",
     fine.answer.ok === true && fine.steps.join(",") === "p0.5,p1,sent" && fine.answer.failure === undefined)
+}
+
+/**
+ * ===========================================================================
+ *  THE BUILDER ON A PHONE: MENUS, THE INSPECTOR, PUBLISH, BACK, SETTINGS
+ * ===========================================================================
+ * The owner's round: the library's three dots with a little depth and a
+ * smoother sheet, the inspector switching without a pop, the Publish sheet
+ * saying what is connected, the Actions sheet with nothing rebuilt under it,
+ * a Back you can hit, and Website Settings that fits a phone. The geometry
+ * and the motion are measured by scripts/check-builder-sheets.mjs and
+ * scripts/check-website-settings-mobile.mjs; this pins the structure that
+ * makes those numbers true.
+ */
+{
+  console.log("\nThe builder on a phone")
+  const client = read("app/app/website-builder/website-builder-client.tsx")
+  const depth = read("components/ui/depth-button.ts")
+  const menu = read("components/ui/responsive-action-menu.tsx")
+  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const css = read("app/globals.css")
+  const publish = read("components/website-builder/publish-panel.tsx")
+  const back = read("components/website-builder/panel-back.tsx")
+  const settings = read("components/website-builder/project-settings.tsx")
+  const parts = read("components/website-builder/website-settings/parts.tsx")
+
+  check("the depth lives in components/ui and the product editor re-exports it",
+    /export const secondaryDepth = cn\(/.test(depth) && /export const criticalDepth = cn\(/.test(depth) &&
+      /import \{ REST_SHADOW, criticalDepth, secondaryDepth \} from "@\/components\/ui\/depth-button"/.test(read("app/app/products/new/editor-buttons.tsx")) &&
+      !/export const secondaryDepth = cn\(/.test(read("app/app/products/new/editor-buttons.tsx")))
+  check("  the library's three dots use it: a hairline, a 1px foot, flat when pressed",
+    /import \{ secondaryDepth \} from "@\/components\/ui\/depth-button"/.test(client) &&
+      /const MORE_ON_ROW = cn\(\s*secondaryDepth,/.test(client) && /className=\{MORE_ON_ROW\}/.test(client) &&
+      /shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\),0_1px_0_rgba\(0,0,0,0\.05\)\]/.test(depth) && /active:shadow-\[inset_0_1px_1px_rgba\(0,0,0,0\.1\)\]/.test(depth))
+  check("  and on a phone the row's button is 40px with a band to 48", /"relative h-10 w-10 rounded-\[10px\] px-0 text-\[#4b5563\] after:absolute after:-inset-1/.test(client))
+
+  check("a row's action waits for the phone sheet to leave, so two things never move at once",
+    /onClosed=\{\(\) => \{\s*const run = pendingRef\.current\s*pendingRef\.current = null\s*run\?\.\(\)/.test(menu) &&
+      !/setTimeout\(\(\) => item\.onClick\?\.\(\), 140\)/.test(menu) && /pick\.current\(item\.onClick \?\? null\)/.test(menu))
+  check("  the menu and its rows are memoised, and the rows are built once per list",
+    /export const ResponsiveActionMenu = React\.memo\(function ResponsiveActionMenu/.test(menu) &&
+      /const ActionSheetRows = React\.memo\(function ActionSheetRows/.test(menu) &&
+      /const groups = React\.useMemo\(\(\) => groupsOf\(items\), \[items\]\)/.test(menu) &&
+      /const pick = React\.useCallback\(/.test(menu))
+  check("  a tick under the finger as it opens", /hapticTap\("soft"\)\s*setSheetOpen\(true\)/.test(menu))
+  check("the editor's Actions list is memoised on what it says, and calls through a ref",
+    /const actionItems = useMemo<ActionMenuItem\[\]>\(\(\) => \{/.test(editor) &&
+      /\}, \[inCode, isMobileView, connection\.online, connection\.label, connection\.kind, websiteUrl\]\)/.test(editor) &&
+      /trigger=\{actionsTrigger\}\s*items=\{actionItems\}/.test(editor) && /const actionsTrigger = useMemo\(/.test(editor))
+
+  check("the inspector: a press on scale, a tick, and a canvas that trails it by one fade",
+    /onClick=\{toggleInspector\}/.test(editor) && /hapticTap\("soft"\)/.test(editor.slice(editor.indexOf("const toggleInspector"), editor.indexOf("const toggleInspector") + 600)) &&
+      /inspectorEnabled=\{canvasInspecting\}/.test(editor) && /const INSPECT_FADE_MS = 200/.test(editor) &&
+      /startTransition\(\(\) => setCanvasInspecting\(false\)\)/.test(editor) && /startTransition\(\(\) => setCanvasInspecting\(true\)\)/.test(editor))
+  check("  the rings fade on opacity over the same 200ms, and never pop",
+    /\[data-wb-inspect\] \.wb-ring \{ transition: opacity 200ms/.test(css) && /\[data-wb-inspect="leaving"\] \.wb-ring,/.test(css) &&
+      /\[data-wb-inspect="entering"\] \.wb-ring \{ animation: wb-ring-in 200ms/.test(css) &&
+      (read("components/website-builder/sections/_shared.tsx").match(/className="wb-ring /g) ?? []).length === 3 &&
+      /"wb-section-toolbar wb-ring /.test(editor))
+  check("  a tap while the rings fade out is a preview's tap", /if \(!inspectorRef\.current\) return\s*const el = document\.getElementById\("wb-preview-root"\)/.test(editor))
+
+  check("the Publish sheet ends with what is connected, on a phone only",
+    /\{pinActions && <ConnectionsRow brief=\{connections\} settled=\{connectionsSettled\} onOpen=\{onConnections\} \/>\}\s*<\/div>\s*\)/.test(publish) &&
+      publish.indexOf("No security issues found") < publish.indexOf("{pinActions && <ConnectionsRow"))
+  check("  from the editor's own read, the one the bar's mark uses: no second request",
+    /connections=\{connectionsBrief\}/.test(editor) && /connectionsSettled=\{connectionsSettled\}/.test(editor) &&
+      /settled: connectionsSettled \} = useSiteActivity\(/.test(editor) && !/agent-activity/.test(publish))
+  check("  nothing connected reads Connect your own AI, GitHub not connected; else each mark and Connected",
+    /"Connect your own AI"/.test(publish) && /"GitHub not connected"/.test(publish) && /\? "Connected" :/.test(publish) && /<ConnectionMarkIcon kind=\{t\.kind\}/.test(publish))
+  check("  it keeps its height while the read is out, and fades its words in", /min-h-\[60px\]/.test(publish) && /settled \? "opacity-100" : "opacity-0"/.test(publish))
+  check("  a tap closes the sheet and opens Connections", /onConnections=\{\(\) => \{\s*setPublishOpen\(false\)\s*if \(connection\.online\) openConnection\(\)\s*else openConnections\(\)/.test(editor))
+  check("  and a preview link that arrives mid-slide waits for the sheet to land", /const SHEET_ARRIVES_MS = 400/.test(publish) && /window\.setTimeout\(\(\) => setPreviewToken\(token\), wait\)/.test(publish))
+
+  const tools = connectedTools({ agents: [{ name: "Claude Code", lastUsedAt: null }, { name: "Claude Code (laptop)", lastUsedAt: null }, { name: "Codex", lastUsedAt: null }], github: { repo: "a/b" }, latest: null })
+  check("connectedTools: one entry per tool, GitHub last", tools.map((t) => `${t.kind}:${t.name}`).join(",") === "claude:Claude,openai:Codex,github:GitHub")
+  check("  and says them the way a person would", toolNames(tools) === "Claude, Codex and GitHub" && toolNames(tools.slice(0, 1)) === "Claude" && toolNames([]) === "")
+  check("  nothing read is nothing connected", connectedTools(null).length === 0 && connectedTools({ agents: [], github: null, latest: null }).length === 0)
+
+  check("Back in a panel is the whole left of the row, 44px, on a quiet tile",
+    /aria-label="Back"/.test(back) && /after:absolute after:inset-0 after:content-\[''\]/.test(back) && /flex h-11 w-11 shrink-0/.test(back) &&
+      /<ArrowLeft className="h-5 w-5 md:h-4 md:w-4"/.test(back) && /group-active\/back:scale-\[0\.94\]/.test(back) &&
+      (editor.match(/<PanelBack onBack=/g) ?? []).length === 6)
+
+  check("Website Settings on a phone: a subject is pushed over the list and popped off it",
+    /const PUSH_MS = 340/.test(settings) && /const POP_MS = 280/.test(settings) && /page\.animate\(push \? \[\{ transform: off \}, \{ transform: at \}\]/.test(settings) &&
+      /picked && moving !== "push" && "max-md:invisible"/.test(settings) && /!picked && moving !== "pop" && "max-md:hidden"/.test(settings))
+  check("  its bar is solid, not blurred, and its Back is 44px", /data-settings-bar="" className="sticky top-0 z-10 flex h-12 items-center border-b border-white\/10 bg-\[#0f0f0f\] px-1\.5 md:hidden"/.test(settings) &&
+    !/backdrop-blur/.test(settings) && /onClick=\{backToList\}\s*className="flex h-11 /.test(settings))
+  check("  fields are 16px on a phone, so iOS does not zoom into them", /text-\[16px\][^"]*md:text-\[14\.5px\]/.test(parts.slice(parts.indexOf("export const inputClass"), parts.indexOf("export const buttonClass"))))
+  check("  and its buttons, switches and links are 44px on a phone", /"inline-flex h-11 shrink-0 select-none[^"]*md:h-9/.test(parts) && /after:-inset-y-2\.5 after:content-\[''\]/.test(parts) && /after:-inset-y-\[13px\]/.test(parts))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

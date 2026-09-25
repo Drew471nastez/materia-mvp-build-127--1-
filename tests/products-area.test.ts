@@ -137,7 +137,8 @@ check("Cmd or Ctrl and S still saves from anywhere", /saveShortcut\.current\(\)/
 
 console.log("\nThe bar's buttons (app/app/products/new/editor-buttons.tsx)")
 
-const buttons = code("app/app/products/new/editor-buttons.tsx")
+/* The depth is shared from components/ui/depth-button.ts; the sizes stay in the editor. */
+const buttons = code("app/app/products/new/editor-buttons.tsx") + code("components/ui/depth-button.ts")
 check("Cancel and more are white with a hairline and a shade at their foot, flat when pressed",
   /border border-\[#d9dbe0\] bg-white/.test(buttons) && /shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\),0_1px_0_rgba\(0,0,0,0\.05\)\]/.test(buttons) && /active:shadow-\[inset_0_1px_1px_rgba\(0,0,0,0\.1\)\]/.test(buttons))
 check("the more button is square and Save's height: 40px on a phone, 32px from 640px",

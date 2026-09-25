@@ -133,6 +133,46 @@ export function pickConnection(brief: ConnectionsBrief | null): ConnectionMark {
   }
 }
 
+/**
+ * ===========================================================================
+ *  EVERYTHING THAT IS CONNECTED, FOR THE PUBLISH SHEET ON A PHONE
+ * ===========================================================================
+ * The bar shows one mark; a phone has no room on its bar for even that, so
+ * the Publish sheet ends with a row that says what is connected, by each
+ * company's mark: Claude, Codex (or ChatGPT), any other agent by the name it
+ * was given, then GitHub. One entry per tool, however many tokens it has.
+ * Read from the same brief as the bar, so the two can never disagree.
+ */
+export interface ConnectedTool {
+  kind: ConnectionKind
+  /** "Claude", "Codex", "GitHub", or an agent's own name. */
+  name: string
+}
+
+export function connectedTools(brief: ConnectionsBrief | null): ConnectedTool[] {
+  if (!brief) return []
+  const tools: ConnectedTool[] = []
+  const seen = new Set<string>()
+  for (const a of brief.agents) {
+    const kind = kindForName(a.name)
+    if (kind === "github") continue
+    const name = kind === "agent" ? a.name.trim() || "Agent" : shortName(kind, a.name)
+    const key = kind === "agent" ? `agent:${name.toLowerCase()}` : `${kind}:${name}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    tools.push({ kind, name })
+  }
+  if (brief.github) tools.push({ kind: "github", name: "GitHub" })
+  return tools
+}
+
+/** "Claude", "Claude and GitHub", "Claude, Codex and GitHub". */
+export function toolNames(tools: ConnectedTool[]): string {
+  const names = tools.map((t) => t.name)
+  if (names.length <= 1) return names[0] ?? ""
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
+}
+
 /** True while the connection acted within the last few minutes. */
 /** The short name a tooltip gives a connection: "GitHub", "Claude", "Codex". */
 export function shortName(kind: ConnectionKind, name: string): string {

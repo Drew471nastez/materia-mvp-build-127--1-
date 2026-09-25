@@ -24,47 +24,16 @@ import * as React from "react"
 import { Check, ChevronLeft } from "lucide-react"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { cn } from "@/lib/utils"
+import { REST_SHADOW, criticalDepth, primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 
-/** The shade of a button at rest: a line inside its foot and a hairline under it. */
-export const REST_SHADOW = "inset 0 -1px 0 rgba(0,0,0,0.08), 0 1px 0 rgba(0,0,0,0.05)"
+/* The depth itself lives in components/ui/depth-button.ts, so every light
+   surface in /app presses the same way; it is re-exported here for the
+   editor's own sheets. */
+export { REST_SHADOW, secondaryDepth, primaryDepth, criticalDepth }
 
 /* Measured from the padding box, which is 1px inside a bordered button: 3px there is 2px past the border. */
 const PRESS_AREA = "relative after:absolute after:inset-x-0 after:-inset-y-[2px] after:content-[''] sm:after:hidden"
 const PRESS_AREA_BORDERED = "relative after:absolute after:inset-x-0 after:-inset-y-[3px] after:content-[''] sm:after:hidden"
-
-/** White, hairline border, a soft 1px foot. Flat and a step darker when pressed. */
-export const secondaryDepth = cn(
-  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap border border-[#d9dbe0] bg-white font-medium text-[#1a1a2e] outline-none",
-  "shadow-[inset_0_-1px_0_rgba(0,0,0,0.08),0_1px_0_rgba(0,0,0,0.05)] transition-[background-color,box-shadow] duration-100",
-  "hover:bg-[#f7f7f8] active:bg-[#f1f2f4] active:shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)]",
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
-  "disabled:cursor-not-allowed disabled:opacity-50",
-  "[-webkit-tap-highlight-color:transparent]",
-)
-
-/**
- * The solid violet with a line of light on top and a darker line under it,
- * flat and a step darker when pressed. Save wears it, and so does the one
- * add action on the Products page (New product), so the two read as the same
- * kind of button. Colour and depth only: each caller sets its own size.
- */
-export const primaryDepth = cn(
-  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap font-semibold text-white outline-none",
-  "bg-[#8b5cf6] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.18),0_1px_1px_rgba(76,29,149,0.25)]",
-  "transition-[background-color,box-shadow,color] duration-100",
-  "hover:bg-[#7c3aed] active:bg-[#6d28d9] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)]",
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
-  "[-webkit-tap-highlight-color:transparent]",
-)
-
-/** Red, for the one action that throws work away. The same light and shade as the primary. */
-export const criticalDepth = cn(
-  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap bg-[#c4290c] font-semibold text-white outline-none",
-  "shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_-1px_0_rgba(0,0,0,0.2),0_1px_1px_rgba(0,0,0,0.12)] transition-[background-color,box-shadow] duration-100",
-  "hover:bg-[#ab230a] active:bg-[#921e09] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]",
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c4290c]",
-  "[-webkit-tap-highlight-color:transparent]",
-)
 
 /** A labelled button in the bar. */
 export const barButton = cn(secondaryDepth, PRESS_AREA_BORDERED, "h-10 rounded-[10px] px-3.5 text-[15px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]")
