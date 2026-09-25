@@ -18,7 +18,7 @@ import { sectionTypography } from "./typography"
 import { cssForInstance } from "./storelib/css"
 import { guardSectionMarkup, guardStyleText } from "./storelib/raw-html"
 import { renderTemplate, stripDocumentMarkup, type CompiledTemplate } from "./storelib/template"
-import type { CompiledSection, RenderContext, SectionInstanceData } from "./types"
+import type { CompiledSection, RenderContext, SectionInstanceData, StorefrontData } from "./types"
 import { SITE_ROUTES, shopObject, type StorefrontGlobals } from "./globals"
 
 export interface RenderInput {
@@ -38,6 +38,13 @@ export interface RenderInput {
    */
   products?: RenderContext["products"]
   /**
+   * What the storefront knows: the catalogue a product picker or list may
+   * name, the menus, the shop, the creator, and on a product page the
+   * product. Absent means none of it, and every setting that reads it
+   * draws empty, which is what an export or a thumbnail wants.
+   */
+  data?: StorefrontData
+  /**
    * What the page knows about the store and, on a page drawn for one visitor,
    * about them. Absent means `shop` from the theme alone, and no customer.
    */
@@ -56,7 +63,12 @@ export interface Rendered {
 export function renderSection(input: RenderInput): Rendered {
   const { compiled, id, instance } = input
   const assets = input.assets ?? {}
-  const { settings, blocks } = resolveInstance(compiled.schema, instance, { assets })
+  const data = input.data ?? {}
+  const { settings, blocks } = resolveInstance(compiled.schema, instance, {
+    assets,
+    catalog: data.catalog,
+    menus: data.menus,
+  })
   const theme = themeTokens(input.theme)
   /**
    * The section's colours: its scheme, then its own overrides, resolved by
@@ -75,10 +87,17 @@ export function renderSection(input: RenderInput): Rendered {
     products: input.products ?? [],
     section: { id, type: compiled.type },
     assets,
-    shop: shopObject(input.theme, input.globals?.shop) as unknown as Record<string, unknown>,
+    /* The store: the theme's globals (globals.ts), with what only the server knows (storefront-data.ts). */
+    shop: {
+      ...shopObject(input.theme, { ...(data.shop?.name ? { name: data.shop.name } : {}), ...input.globals?.shop }),
+      ...(data.shop?.description !== undefined ? { description: data.shop.description } : {}),
+      ...(data.shop?.product_count !== undefined ? { product_count: data.shop.product_count } : {}),
+    } as unknown as Record<string, unknown>,
     routes: SITE_ROUTES,
     customer: input.globals?.customer ?? null,
     wishlist: (input.globals?.wishlist ?? null) as unknown as Record<string, unknown> | null,
+    creator: data.creator,
+    product: data.product ?? null,
   }
   /* No tag here acts on the whole document, whatever the file or a richtext
      setting held: storelib/template.ts, DOCUMENT_MARKUP. And nothing drawn

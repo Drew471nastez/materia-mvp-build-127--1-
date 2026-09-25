@@ -955,8 +955,9 @@ section("Add Section is derived from the files, one card per preset")
    * is retired — three heroes replaced it — which is what retirement is
    * supposed to look like: gone from the list, still on the pages using it.
    */
-  /* About has a fourth: the contact form every website's /contact page is made of, which a creator can also put on any page. */
-  check("the library is ten categories of three, and About also has the contact form", ADDABLE_SECTIONS.length === 31 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 10 && STORELIB_SCHEMAS.contact?.category === "about", `${ADDABLE_SECTIONS.length} sections`)
+  /* Ten categories. About has a fourth, the contact form every website's /contact page is made of;
+     Products has Plans, and Content has Rows and Course Outline, for what creators sell and teach. */
+  check("the library is thirty four sections across ten categories, About with the contact form", ADDABLE_SECTIONS.length === 34 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 10 && STORELIB_SCHEMAS.contact?.category === "about", `${ADDABLE_SECTIONS.length} sections`)
   check("every one of them is a .storelib file with a preset", ADDABLE_SECTIONS.every((t) => STORELIB_SCHEMAS[t] && (STORELIB_SCHEMAS[t].presets?.length ?? 0) > 0))
   check("the sections it retired still render, so no page using one goes blank", RETIRED_SECTIONS.length > 0 && RETIRED_SECTIONS.every((t) => !!SECTION_SCHEMAS[t]) && !RETIRED_SECTIONS.some((t) => ADDABLE_SECTIONS.includes(t)))
   check("a creator's own section is filed under its own heading", CUSTOM_SECTION_CATEGORY === "yours" && SECTION_CATEGORIES.yours === "Created by you")
@@ -1004,9 +1005,13 @@ section("Add Section is derived from the files, one card per preset")
   ] as const
   for (const [route, template] of PUBLIC_ROUTES) {
     const src = read(route)
-    check(`${route} renders them on the server`, /await prerenderStorelibSections\(/.test(src))
-    // The call may carry the creator's products after the template name.
-    check(`${route} renders them as "${template}"`, new RegExp(`"${template.replace(".", "\\.")}"(,\\s*products)?\\s*\\)`).test(src) && new RegExp(`page=\\{\\{ template: "${template}" \\}\\}`).test(src))
+    /* Either function: `renderWithSources` is the same act with the saved
+       files already read (see below), which the product page now does once
+       for both the render and its dynamic sources. */
+    check(`${route} renders them on the server`, /await prerenderStorelibSections\(|renderWithSources\(shop\.sources,/.test(src))
+    // The call may carry the creator's products, and the shop's facts, after the template name.
+    /* And what the page is about, `page.product` on the product page, between them. */
+    check(`${route} renders them as "${template}"`, new RegExp(`"${template.replace(".", "\\.")}"(,\\s*(products|others))?(,\\s*(undefined|about),\\s*dressed\\.data)?\\s*\\)`).test(src) && new RegExp(`page=\\{\\{ template: "${template}" \\}\\}`).test(src))
   }
 
   /**
@@ -1018,14 +1023,14 @@ section("Add Section is derived from the files, one card per preset")
    */
   {
     const site = read("app/(site)/w/[username]/render-site.tsx")
-    check("the website renders its sections on the server", /await prerenderStorelibSections\(/.test(site))
+    check("the website renders its sections on the server", /await prerenderStorelibSections\(|renderWithSources\(owner\.sources,/.test(site))
     check(
       "and names the template after the page it is drawing",
       /const template = templateForPage\(pageKey\)/.test(site),
     )
     check(
       "handing the same name to the render and to the provider",
-      /prerenderStorelibSections\([^)]*\btemplate, products\)/.test(site) &&
+      /(prerenderStorelibSections|renderWithSources)\([^)]*\btemplate, products(, undefined, dressed\.data)?\)/.test(site) &&
         /page=\{\{ template \}\}/.test(site),
     )
   }

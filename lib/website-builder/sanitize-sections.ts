@@ -14,9 +14,19 @@
 import { SECTION_SCHEMAS } from "./section-schemas"
 import { schemaFromStorelib } from "./storelib-schemas"
 import { htmlFieldsOf, sanitizeSettings, type HtmlFieldMap } from "./sanitize"
-import type { SectionInstance } from "./types"
+import { cleanMenus } from "@/lib/storelib-theme/values"
+import type { SectionInstance, SectionSchema } from "./types"
 
 const cache = new Map<string, HtmlFieldMap>()
+
+/**
+ * Where a type's schema comes from when the built-in registry is not the
+ * whole truth: a section the creator wrote in the code editor, or their
+ * copy of one the theme ships. Its rich text is cleaned by its own schema,
+ * not only by the id list, or a creator's `intro` richtext setting would
+ * reach the page as it was typed.
+ */
+export type SchemaLookup = (type: string) => SectionSchema | undefined
 
 /**
  * Which of a section type's settings hold HTML. A type the registry does not
@@ -112,9 +122,27 @@ interface LooseSection {
   blocks?: { type: string; settings?: Record<string, unknown> }[]
 }
 
+/**
+ * Where a section's own fields come from: the install's section files read
+ * into field maps (ownSectionFields), or a lookup that answers with a type's
+ * schema (lib/website-builder/custom-schemas.ts). Either way the install's
+ * file wins over the theme's for the type it defines.
+ */
+export type OwnFields = OwnSectionFields | SchemaLookup
+
+function ownOf(own: OwnFields | undefined, type: string): { section: HtmlFieldMap; blocks: Record<string, HtmlFieldMap> } | undefined {
+  if (!own) return undefined
+  if (typeof own !== "function") return own[type]
+  const schema = own(type)
+  if (!schema) return undefined
+  const blocks: Record<string, HtmlFieldMap> = {}
+  for (const block of schema.blocks ?? []) blocks[block.type] = htmlFieldsOf(block.fields)
+  return { section: htmlFieldsOf(schema.fields), blocks }
+}
+
 /** One section, settings and blocks. The same object back when nothing changed. */
-export function sanitizeSection<T extends LooseSection>(section: T, own?: OwnSectionFields): T {
-  const mine = own?.[section.type]
+export function sanitizeSection<T extends LooseSection>(section: T, own?: OwnFields): T {
+  const mine = ownOf(own, section.type)
   const settings = sanitizeSettings(section.settings, mine ? mine.section : fieldsFor(section.type))
   let blocks = section.blocks
   if (blocks?.length) {
@@ -133,9 +161,10 @@ export function sanitizeSection<T extends LooseSection>(section: T, own?: OwnSec
 
 /**
  * A page. The same array back when nothing in it changed. `own` is the
- * install's own section files (ownSectionFields), for the types it defines.
+ * install's own section files (ownSectionFields, or a schema lookup), for
+ * the types it defines.
  */
-export function sanitizeSections<T extends SectionInstance>(sections: T[] | null | undefined, own?: OwnSectionFields): T[] {
+export function sanitizeSections<T extends SectionInstance>(sections: T[] | null | undefined, own?: OwnFields): T[] {
   if (!Array.isArray(sections)) return []
   let touched = false
   const out = sections.map((s) => {
@@ -159,7 +188,16 @@ const THEME_HTML_SETTINGS: HtmlFieldMap = {
 
 export function sanitizeThemeSettings<T extends Record<string, unknown>>(settings: T | null | undefined): T {
   if (!settings) return {} as T
-  return sanitizeSettings(settings, THEME_HTML_SETTINGS) as T
+  const cleaned = sanitizeSettings(settings, THEME_HTML_SETTINGS) as T
+  /*
+    THE MENUS, TO THE SHAPE A SECTION READS: handles that are handles,
+    titles cut to length, every address made safe, no more than three
+    levels (lib/storelib-theme/values.ts, cleanMenus). The same function
+    runs again as a menu is drawn; this is what keeps the stored copy honest.
+  */
+  if (cleaned.menus === undefined) return cleaned
+  const menus = cleanMenus(cleaned.menus)
+  return JSON.stringify(menus) === JSON.stringify(cleaned.menus) ? cleaned : ({ ...cleaned, menus } as T)
 }
 
 /**
@@ -183,12 +221,12 @@ export function sanitizeThemeSettings<T extends Record<string, unknown>>(setting
 type PageRow = { sections?: unknown; draft_sections?: unknown }
 type SettingsRow = { settings?: unknown; draft_settings?: unknown }
 
-function cleanPage<T extends PageRow>(page: T): T {
+function cleanPage<T extends PageRow>(page: T, schemaOf?: SchemaLookup): T {
   if (!page || typeof page !== "object") return page
   return {
     ...page,
-    ...(page.sections ? { sections: sanitizeSections(page.sections as SectionInstance[]) } : {}),
-    ...(page.draft_sections ? { draft_sections: sanitizeSections(page.draft_sections as SectionInstance[]) } : {}),
+    ...(page.sections ? { sections: sanitizeSections(page.sections as SectionInstance[], schemaOf) } : {}),
+    ...(page.draft_sections ? { draft_sections: sanitizeSections(page.draft_sections as SectionInstance[], schemaOf) } : {}),
   }
 }
 
@@ -208,12 +246,22 @@ function mapEmbedded<T>(value: unknown, fn: (row: T) => T): unknown {
   return value
 }
 
-export function sanitizeInstallRow<T>(install: T): T {
+/** Every section on every page of an install row, for the schema lookup. */
+export function sectionsOfInstallRow(install: unknown): SectionInstance[] {
+  const pages = (install as { pages?: unknown } | null)?.pages
+  const rows = Array.isArray(pages) ? pages : pages && typeof pages === "object" ? [pages] : []
+  return rows.flatMap((p) => {
+    const r = p as PageRow
+    return [...(Array.isArray(r.sections) ? r.sections : []), ...(Array.isArray(r.draft_sections) ? r.draft_sections : [])] as SectionInstance[]
+  })
+}
+
+export function sanitizeInstallRow<T>(install: T, schemaOf?: SchemaLookup): T {
   if (!install || typeof install !== "object") return install
   const row = install as Record<string, unknown>
   return {
     ...row,
-    ...(row.pages !== undefined ? { pages: mapEmbedded<PageRow>(row.pages, cleanPage) } : {}),
+    ...(row.pages !== undefined ? { pages: mapEmbedded<PageRow>(row.pages, (p) => cleanPage(p, schemaOf)) } : {}),
     ...(row.settings !== undefined ? { settings: mapEmbedded<SettingsRow>(row.settings, cleanSettings) } : {}),
   } as T
 }

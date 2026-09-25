@@ -52,6 +52,7 @@ export function llmsTxt(): string {
     line("styling"),
     line("javascript"),
     line("examples"),
+    line("shopify"),
     "",
     "## Data and logic",
     "",

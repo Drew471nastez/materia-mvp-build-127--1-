@@ -651,7 +651,7 @@ section("Toasts on a phone")
       /e instanceof Refused\s*\?\s*\{ message: e\.message \}/.test(code("components/website-builder/editor/image-picker.tsx")) &&
       !/err\.message/.test(code("components/website-builder/editor/image-picker.tsx")))
   const addRoute = code("app/api/website-builder/themes/add/route.ts")
-  check("adding a theme never hands the database's error text to the toast", !/seedErr\.message|installErr\?\.message/.test(addRoute) && (addRoute.match(/"Could not add the theme\. Try again\."/g) ?? []).length === 2)
+  check("adding a theme never hands the database's error text to the toast", !/seedErr\.message|installErr\?\.message/.test(addRoute) && (addRoute.match(/"Could not add the theme\. Try again\."/g) ?? []).length >= 2 && !/json\(\{ error: [a-zA-Z]+Err/.test(addRoute))
 }
 
 section("Avatars")

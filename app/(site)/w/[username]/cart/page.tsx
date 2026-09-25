@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { CartPageBody } from "@/components/website-builder/cart-page-body"
 import { chromeSections } from "@/lib/website-builder/shop-page"
-import { publishedShopByName } from "@/lib/website-builder/published-site"
+import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
 import { resolveSectionColors } from "@/lib/storelib-theme/color-schemes"
 import { getMainDomain } from "@/lib/url-helpers"
 import { siteMetadata } from "../render-site"
@@ -40,8 +40,9 @@ export default async function SiteCartPage({ params }: PageProps) {
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
-  const { site } = found
-  const sections = chromeSections(site.pages.home ?? site.sections)
+  const { site, products, productCount } = found
+  /* The header and footer, with any placeholder in them filled in. */
+  const { sections } = await dressPage(site, chromeSections(site.pages.home ?? site.sections), products, productCount, "cart", "Cart")
 
   /* The theme's default surface, resolved on the server: the cart is not a
      section and has no section settings of its own to resolve from. */

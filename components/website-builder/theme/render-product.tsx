@@ -22,7 +22,10 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
-import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
+import { renderWithSources } from "@/lib/website-builder/storefront-render"
+import { dressPage, ownerOf } from "@/lib/website-builder/published-site"
+import { productFacts } from "@/lib/website-builder/storefront-data"
+import { withMainProduct } from "@/lib/website-builder/product-page"
 import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
@@ -31,7 +34,6 @@ import { plainSummary } from "@/lib/html-entities"
 import { getProductShareUrl } from "@/lib/url-helpers"
 import { productIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript, productJsonLd } from "@/lib/website-builder/site-seo"
-import { cachedShopProducts } from "@/lib/website-builder/published-site"
 import { productVariants, soldOut, toProductPage } from "@/lib/website-builder/shop-products"
 
 /**
@@ -245,7 +247,8 @@ export async function renderProduct(
   // shared with the rest of the site) so a product list on this page draws
   // the catalogue, and this product's options and pricing mode, so a section
   // reading `page.product` gets the same fields as a card in `products`.
-  const [{ data: pageData }, { data: homeData }, catalogue, variants, extra] = await Promise.all([
+  /* The shop itself comes with the page's owner, below (ownerOf). */
+  const [{ data: pageData }, { data: homeData }, variants, extra] = await Promise.all([
     admin
       .from("store_theme_pages")
       .select("sections, draft_sections")
@@ -258,7 +261,6 @@ export async function renderProduct(
       .eq("install_id", install.id)
       .eq("page_key", "home")
       .maybeSingle(),
-    cachedShopProducts(product.creator_id),
     productVariants(admin as never, [product.id]),
     productPricing(admin, product.id),
   ])
@@ -298,7 +300,9 @@ export async function renderProduct(
     slug: product.slug ?? slug,
   }
 
-  const sections: SectionInstance[] = rawSections.map(s =>
+  /* A template saved before the presets carried a product section gets
+     one, where the untouched "Product name" placeholder was: product-page.ts. */
+  const sections: SectionInstance[] = withMainProduct(rawSections).map(s =>
     s.type === "product"
       ? { ...s, settings: { ...s.settings, _product_data: productData } }
       : s
@@ -324,27 +328,33 @@ export async function renderProduct(
    * A section reads that as `page.template` and `allowed_templates` is
    * written against it, so the wrong word here hides the right sections.
    */
-  const prerendered = await prerenderStorelibSections(
-    admin as never,
-    install.id,
-    page,
-    themeSettings,
-    "product",
-    catalogue,
-    /**
-     * THE PRODUCT THIS PAGE IS ABOUT, as `page.product`: the same fields as
-     * a card in `products`, and its description as plain text. A section
-     * written for the product page reads it; a section that does not, does
-     * not notice it. See content/developers/selling.md.
-     */
-    { product: toProductPage({ ...product, ...extra }, variants) },
-  )
+  /**
+   * THE PRODUCT, TO EVERY SECTION ON ITS PAGE. A `.storelib` section reads
+   * it as `product`, a setting holding `{{ product.title }}` is filled from
+   * it, and the shop a "You may also like" grid draws is every other
+   * product: the one on the page is not a suggestion for itself. Held with
+   * the published site's shop when this is the live page, read directly for
+   * a preview.
+   */
+  const cached = !previewToken
+  const { owner: shop, products, productCount } = await ownerOf(product.creator_id, install.id, themeSettings, { cached })
+  const facts = productFacts(product)
+  const others = products.filter((p) => p.id !== product.id)
+  const dressed = await dressPage(shop, page, products, productCount, "product", product.title ?? "Product", facts, { cached })
+  /**
+   * THE PRODUCT THIS PAGE IS ABOUT, as `page.product` too: the same fields
+   * as a card in `products`, and its description as plain text. A section
+   * written for the product page reads it; a section that does not, does
+   * not notice it. See content/developers/selling.md.
+   */
+  const about = { product: toProductPage({ ...product, ...extra }, variants) }
+  const prerendered = renderWithSources(shop.sources, dressed.sections, themeSettings, "product", others, about, dressed.data)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "product" }}>
       <ThemePage
         theme={themeSettings}
-        sections={page}
+        sections={dressed.sections}
         // Whose site this is, for the sections that send something somewhere.
         storefront={{ creatorId: product.creator_id ?? undefined, installId: install.id }}
         className="min-h-screen"

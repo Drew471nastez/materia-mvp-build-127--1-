@@ -76,7 +76,8 @@ async function main() {
 
   check(
     "a published site's sections go through it on the way out",
-    /const sections = pageWithLiveLinks\(stored, new Set\(Object\.keys\(site\.pages\)\)\)/.test(published),
+    /const linked = pageWithLiveLinks\(stored, new Set\(Object\.keys\(site\.pages\)\)\)/.test(published) &&
+      /await dressPage\(site, linked,/.test(published),
     "it used to run only where the editor loaded the theme and wrote the repair back",
   )
   /**

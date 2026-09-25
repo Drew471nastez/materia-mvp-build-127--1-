@@ -33,6 +33,7 @@ import { POLICY_PAGES } from "@/lib/website-builder/policy-pages"
 import { IMPORT_MAX_BYTES } from "@/lib/website-builder/theme-import"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { ALL_TOPICS, MAX_REPAIR_ATTEMPTS, writeSectionRules } from "@/lib/storelib-ai"
+import { DYNAMIC_SOURCES, SOURCE_TARGETS, sourcesFor } from "@/lib/storelib-theme/dynamic"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 
 import { DEVELOPER_EXAMPLES } from "./content.generated"
@@ -63,10 +64,13 @@ export const FILTER_DOCS: Record<string, { use: string; does: string }> = {
   round: { use: `{{ settings.ratio | round: 2 }}`, does: "Rounds to that many decimal places, 0 unless given." },
   json: { use: `data-config="{{ settings | json }}"`, does: "The value as JSON. Output escaping makes it safe inside an attribute." },
   escape: { use: `{{ settings.text | escape }}`, does: "HTML-escaped. Output is escaped already, so this escapes twice: `a < b` shows on the page as `a &lt; b`. Leave it out." },
-  raw: { use: `{{ settings.body | raw }}`, does: "Printed as HTML, without escaping. Nothing checks which setting it is on: use it on a `richtext` setting and nowhere else." },
+  raw: { use: `{{ settings.body | raw }}`, does: "Printed as HTML, without escaping. Use it on a `richtext`, `inline_richtext` or `html` setting, or on `product.description_html`: each is cleaned against an allow list before a template sees it. Nothing checks which setting it is on, and what it prints is still checked as it is drawn, so nothing in it can run." },
   url: { use: `href="{{ settings.link | url }}"`, does: "Keeps a link starting `/`, `http://`, `https://`, `mailto:`, `tel:` or `#`, keeps an empty value empty, and turns anything else, `//host` included, into `#`. Use it on every link built from a setting." },
   embed: { use: `src="{{ settings.video | embed }}"`, does: "A player address from a pasted YouTube, Vimeo, Spotify or SoundCloud link, or an empty string. Needs the `embed` capability." },
   asset: { use: `{{ block.settings.clip | asset }}`, does: "Passes a URL through unchanged. An `asset://` reference, which exists only inside a theme package, prints as an empty string on a site, because media settings arrive as URLs." },
+  date: { use: `{{ settings.ends_at | date: "short" }}`, does: "A `datetime` for people to read: `long` (14 March 2026, the default), `short` (14 Mar 2026), `time` (23:00), `long_time` or `iso`. Read as written, never moved to another time zone." },
+  strip_html: { use: `alt="{{ settings.heading | strip_html }}"`, does: "The words of some markup, entities decoded, on one line. For an alt text or a title made from a rich text setting." },
+  lines: { use: `{% for line in block.settings.features | lines %}`, does: "Each line of a text that has something on it, trimmed, as a list, at most 100. For a `textarea` typed one item per line: the features of a plan, the lessons of a module." },
   alpha: { use: `{{ settings.color | alpha: 0.4 }}`, does: "A 3 or 6 digit hex colour at that opacity, as `rgba()`. Anything else passes through unchanged." },
 }
 
@@ -130,8 +134,10 @@ const VALUE_WORDS: Record<ValueKind, string> = {
   number: "a number",
   boolean: "true or false",
   color: "a hex colour",
+  background: "a colour or a gradient",
   asset: "a URL",
   asset_list: "a list of URLs",
+  reference_list: "a list of products",
   enum: "one of its options",
   none: "nothing; it only draws in the panel",
 }
@@ -231,7 +237,7 @@ export function hubMap(): HubMapGroup[] {
 export const DIRECTIVE_NAMES = [
   "limits", "filters", "refusals", "controls", "legacy-controls", "scheme-vars", "type-styles",
   "embed-hosts", "forbidden", "capabilities", "versions", "example", "ai-brief", "ai-topics-extra", "ai-loop",
-  "builder-controls", "theme-settings", "builder-schemes", "builder-type-styles",
+  "builder-controls", "theme-settings", "builder-schemes", "builder-type-styles", "dynamic-sources",
   "hub-map", "theme-tokens", "scheme-names", "page-keys", "policy-pages", "media-types", "theme-setting-index", "font-options",
   "library-schema", "library-section",
 ] as const
@@ -315,6 +321,21 @@ export function expandDirective(name: string, arg?: string): DocNode[] {
           }],
         },
       ]
+
+    case "dynamic-sources": {
+      /* The setting types a placeholder can go in, asked of the same function
+         the editor's Insert shop data list is built from. */
+      const types = Object.keys(SOURCE_TARGETS).filter((t) => (CONTROL_TYPES as readonly string[]).includes(t))
+      return [{
+        kind: "table",
+        head: ["Placeholder", "What it is", "Setting types it fills"],
+        rows: DYNAMIC_SOURCES.map((s) => [
+          code(`{{ ${s.id} }}`),
+          s.templates ? `${s.description} On the product page only.` : s.description,
+          types.filter((t) => sourcesFor(t, s.templates?.[0] ?? "index").some((x) => x.id === s.id)).map(code).join(" "),
+        ]),
+      }]
+    }
 
     case "legacy-controls":
       return [{
