@@ -26,7 +26,10 @@
  *             sections are the first category, called Created
  *   ROWS      one card per row: every card shown starts at the same x and is
  *             as wide as the list
- *   PILLS     five category switches in a row, every frame sampled: a card
+ *   HEIGHTS   every card as tall as the section drawn in it: under 24px of
+ *             empty card below any section shown whole, and a section only
+ *             ever cut where it is taller than the tallest card
+ *   PILLS     every category, then three again, every frame sampled: a card
  *             whose preview was already drawn must never be without it,
  *             faded, skipped by content-visibility, or moved sideways, and
  *             the screen itself is filmed and each preview's pixels read
@@ -37,6 +40,10 @@
  *             settings, with the canvas holding still under it
  *   SHEET     on a phone, the same from the sheet's own Add section button:
  *             the sheet stays where it is and ends on the new section
+ *   EARLY     a fresh editor, the library opened before its previews are
+ *             drawn: no card on screen, or above it, ever gets shorter while
+ *             it is open; closed and opened again, every card is its
+ *             section's height
  *
  * with long tasks (over 50ms) counted across each step, and screenshots.
  *
@@ -56,6 +63,7 @@ const SHOTS = process.env.SHOTS ?? join(tmpdir(), "storelib-add-section")
 mkdirSync(SHOTS, { recursive: true })
 const shot = (name) => join(SHOTS, `addsection-${name}.png`)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const slug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-")
 
 /* A creator with a section of their own, so the first pill has something in it. */
 const OWN = `<template><section class="mine"><h2>{{ settings.heading }}</h2></section></template>
@@ -71,13 +79,22 @@ const page = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewp
   window.PROBE_FILES = { "sections/my_banner.storelib": ${JSON.stringify(OWN)} }
 </script>
 <script src="/editor-probe.js"></script></body></html>`
+/**
+ * THE EDITOR, AND NOTHING ELSE. The editor frames its code editor
+ * (/website-builder/code/...?embedded=1) over the canvas, and this server
+ * used to answer every address with the editor: two more whole editors ran
+ * in frames inside the one being measured, each drawing its own previews,
+ * and their long tasks were counted as the library's (the Long Tasks API
+ * reports a same-origin frame's to the page). Anything but /editor is an
+ * empty page now.
+ */
 const server = createServer((req, res) => {
   if (req.url.startsWith("/editor-probe.js")) {
     res.writeHead(200, { "content-type": "text/javascript" })
     return res.end(js)
   }
   res.writeHead(200, { "content-type": "text/html" })
-  res.end(page)
+  res.end(req.url.startsWith("/editor") ? page : "<!doctype html><title>blank</title>")
 })
 await new Promise((r) => server.listen(0, "127.0.0.1", r))
 const origin = `http://127.0.0.1:${server.address().port}`
@@ -213,6 +230,142 @@ const SWITCH = async ({ names }) => {
     await new Promise((r) => setTimeout(r, 250))
   }
   return report
+}
+
+/**
+ * EVERY CARD SHOWN, AGAINST THE SECTION DRAWN IN IT. Each is brought on
+ * screen first, so it is laid out whatever content-visibility would skip,
+ * and its preview box is read against the section inside it (the renderer's
+ * `data-section-box`, scaled as the card scales it). The list is put back at
+ * its top afterwards.
+ */
+const CARD_HEIGHTS = async ({ ratio }) => {
+  const { lib, scroller } = window.__lib()
+  const cardName = (c) => (c.querySelector(":scope > span")?.textContent ?? c.textContent ?? "").trim()
+  const frame = () => new Promise((r) => requestAnimationFrame(() => r()))
+  const r1 = (x) => Math.round(x * 10) / 10
+  const out = []
+  for (const c of [...lib.querySelectorAll("[data-library-card]")].filter((x) => !x.hidden)) {
+    c.scrollIntoView({ block: "nearest" })
+    await frame()
+    await frame()
+    const name = cardName(c)
+    const box = c.querySelector("[data-preview-box]")
+    const inner = box ? box.querySelector("[data-keep-transform]") : null
+    const section = inner ? inner.querySelector("[data-section-box]") ?? inner.firstElementChild : null
+    if (!box || !section) {
+      out.push({ name, missing: true })
+      continue
+    }
+    const b = box.getBoundingClientRect()
+    const sct = section.getBoundingClientRect()
+    out.push({
+      name,
+      type: c.getAttribute("data-library-card"),
+      box: r1(b.height),
+      section: r1(sct.height),
+      offset: r1(sct.top - b.top),
+      below: r1(b.bottom - sct.bottom),
+      tallest: Math.round(b.width * ratio),
+    })
+  }
+  scroller.scrollTop = 0
+  await frame()
+  return out
+}
+
+/** The shortest a card is drawn (PREVIEW_MIN_HEIGHT in lib/website-builder/preview-markup.ts). */
+const FLOOR = 80
+/** Less than this much empty card under a section shown whole; a section taller than the tallest card is cut instead. */
+const EMPTY_UNDER = 24
+
+function judgeHeights(where, hs) {
+  const missing = hs.filter((h) => h.missing)
+  const read = hs.filter((h) => !h.missing)
+  const cut = read.filter((h) => h.section > h.box + 1)
+  const whole = read.filter((h) => h.section <= h.box + 1)
+  /* Under the floor: the card is the floor, and the section sits in the middle of it. */
+  const floor = whole.filter((h) => h.box <= FLOOR + 1 && h.section < h.box - 1)
+  const empty = whole.filter((h) => h.below >= EMPTY_UNDER)
+  const badCut = cut.filter((h) => Math.abs(h.box - h.tallest) > 1)
+  const offTop = read.filter((h) => !floor.includes(h) && Math.abs(h.offset) > 1)
+  const offMiddle = floor.filter((h) => Math.abs(h.offset - h.below) > 1)
+  const worst = whole.reduce((a, h) => (a && a.below >= h.below ? a : h), null)
+  expect(read.length >= 30 && missing.length === 0, `${where}: every card shown has its section drawn in it`, { cards: hs.length, missing: missing.map((h) => h.name) })
+  expect(
+    empty.length === 0,
+    `${where}: under every section shown whole, less than ${EMPTY_UNDER}px of empty card`,
+    empty.length
+      ? empty.slice(0, 6).map((h) => `${h.name}: ${h.below}px under a ${h.section}px section in a ${h.box}px card`)
+      : worst ? `most is ${worst.below}px, under "${worst.name}"` : "none shown whole",
+  )
+  expect(badCut.length === 0, `${where}: a section is only cut where it is taller than the tallest card`, badCut.length ? badCut.slice(0, 6).map((h) => `${h.name}: ${h.section}px section cut at ${h.box}px, tallest is ${h.tallest}px`) : `${cut.length} cut, all at the tallest`)
+  expect(offTop.length === 0, `${where}: every section the floor's height or more starts at the top of its card`, offTop.slice(0, 4).map((h) => `${h.name}: ${h.offset}px down`))
+  expect(offMiddle.length === 0, `${where}: a section under the floor sits in the middle of its card`, floor.map((h) => `${h.name}: ${h.offset}px above, ${h.below}px below`))
+  const boxes = read.map((h) => h.box)
+  note(`${where}: ${whole.length - floor.length} cards at their section's own height, ${floor.length} at the ${FLOOR}px floor, ${cut.length} cut at the tallest (${cut[0]?.tallest ?? read[0]?.tallest}px); cards ${Math.min(...boxes)} to ${Math.max(...boxes)}px tall`)
+  for (const h of floor) note(`   at the floor: "${h.name}", a ${h.section}px section in a ${h.box}px card, ${h.offset}px above it and ${h.below}px below`)
+  const mine = read.find((h) => h.type === "my_banner")
+  if (mine) note(`   "My banner": a ${mine.box}px card for a ${mine.section}px section, ${mine.below}px under it (every card was ${mine.tallest}px before)`)
+  return { whole: whole.length, floor: floor.length, cut: cut.length, empty: empty.length }
+}
+
+/**
+ * EVERY FRAME WHILE THE PREVIEWS LAND IN AN OPEN LIBRARY. A card on screen
+ * or above it (where a change moves what is on screen) must never get
+ * shorter from one frame to the next; one below the fold may, and those are
+ * counted. At the end, the cards in sight whose section sits over empty card
+ * are the ones being held until nobody can see them change.
+ */
+const WATCH = async ({ ms }) => {
+  const frame = () => new Promise((r) => requestAnimationFrame(() => r()))
+  const t0 = performance.now()
+  let prev = new Map()
+  const shrunk = []
+  const tookBelow = new Set()
+  const landed = new Set()
+  let frames = 0
+  while (performance.now() - t0 < ms) {
+    await frame()
+    const L = window.__lib()
+    if (!L || !L.scroller) continue
+    const view = L.scroller.getBoundingClientRect()
+    if (view.height === 0) continue
+    frames++
+    const now = new Map()
+    for (const c of L.lib.querySelectorAll("[data-library-card]")) {
+      if (c.hidden) continue
+      const box = c.querySelector("[data-preview-box]")
+      if (!box) continue
+      const r = box.getBoundingClientRect()
+      const key = `${c.getAttribute("data-library-card")}:${c.getAttribute("data-preset")}`
+      const sight = r.top < view.bottom
+      const drawn = !!box.querySelector("[data-keep-transform]")
+      now.set(key, { h: r.height, sight, drawn })
+      const was = prev.get(key)
+      if (!was) continue
+      if (drawn && !was.drawn && sight) landed.add(key)
+      if (r.height < was.h - 1.5) {
+        if (was.sight) shrunk.push({ key, t: Math.round(performance.now() - t0), from: Math.round(was.h), to: Math.round(r.height) })
+        else tookBelow.add(key)
+      }
+    }
+    prev = now
+  }
+  const L = window.__lib()
+  const view = L.scroller.getBoundingClientRect()
+  const inSight = []
+  for (const c of L.lib.querySelectorAll("[data-library-card]")) {
+    if (c.hidden) continue
+    const box = c.querySelector("[data-preview-box]")
+    if (!box) continue
+    const b = box.getBoundingClientRect()
+    if (b.top >= view.bottom || b.bottom <= view.top) continue
+    const sec = box.querySelector("[data-keep-transform] [data-section-box]")
+    const sr = sec ? sec.getBoundingClientRect() : null
+    inSight.push({ name: (c.querySelector(":scope > span")?.textContent ?? "").trim(), box: Math.round(b.height), section: sr ? Math.round(sr.height) : null, below: sr ? Math.round(b.bottom - sr.bottom) : null })
+  }
+  return { frames, cards: prev.size, shrunk, tookBelow: tookBelow.size, landedInSight: landed.size, inSight }
 }
 
 /**
@@ -490,8 +643,15 @@ async function run(kind) {
   expect(rows.columns === 1, "one card per row: every card starts at the same x", rows)
   expect(rows.cardWidth >= rows.listWidth - 1 && rows.maxWidth <= rows.listWidth + 1, "and each is as wide as the list", `${rows.cardWidth}px cards in a ${rows.listWidth}px list, preview ${rows.preview?.join(" × ")}`)
 
-  /* ── PILLS: five switches in a row, every frame sampled, the screen filmed ── */
-  const names = ["Hero", "Features", "All", "Hero", "Created"]
+  /* ── HEIGHTS: each card as tall as its section ── */
+  const hs = await p.evaluate(CARD_HEIGHTS, { ratio: phone ? 1.22 : 0.56 })
+  writeFileSync(join(SHOTS, `addsection-${kind}-heights.json`), JSON.stringify(hs, null, 1))
+  judgeHeights("All", hs)
+
+  /* ── PILLS: every category, every frame sampled, the screen filmed ── */
+  /* Every category once, the first time it is shown, then back to three that have been. */
+  const pillNames = await p.evaluate(() => window.__lib().pills.map((b) => (b.textContent || "").trim().replace(/\d+$/, "")))
+  const names = [...pillNames.filter((n) => n !== "All" && n !== "Created"), "All", "Hero", "Created"]
   /* The pixels are read in a page of their own, and the editor is put back in
      front: a page in the background gets no animation frames at all. */
   const decoder = await browser.newPage()
@@ -510,15 +670,34 @@ async function run(kind) {
     flashes += v.between.length + v.regressed.length
     const after = [...frames].sort((a, b) => a.at - b.at).filter((f) => s.pressedAt && f.at > s.pressedAt)
     const odd = new Set([...v.between, ...v.regressed].map((x) => x.frame))
-    for (const i of [...odd].slice(0, 3)) writeFileSync(shot(`${kind}-2-flash-${name.toLowerCase()}-${i}`), Buffer.from(after[i].data, "base64"))
-    if (after.length) writeFileSync(shot(`${kind}-2-switch-${name.toLowerCase()}-first-frame`), Buffer.from(after[Math.min(1, after.length - 1)].data, "base64"))
+    for (const i of [...odd].slice(0, 3)) writeFileSync(shot(`${kind}-2-flash-${slug(name)}-${i}`), Buffer.from(after[i].data, "base64"))
+    /* The first frame drawn after the switch's own first frame began, not merely after the press. */
+    const first = after.find((f) => s.pressedAt && f.at >= s.pressedAt + (s.firstFrameMs ?? 0)) ?? after[after.length - 1]
+    if (first) writeFileSync(shot(`${kind}-2-switch-${slug(name)}-first-frame`), Buffer.from(first.data, "base64"))
     note(`"${name}": ${v.frames} frames filmed after the press, ${v.boxes} previews read in each (${v.skipped} left out); ${odd.size} frame${odd.size === 1 ? "" : "s"} showing something between the two`)
     if (odd.size) note(`   ${JSON.stringify([...v.between, ...v.regressed].slice(0, 4))}`)
-    if (process.env.DEBUG_FILM) for (const [i, f] of frames.entries()) writeFileSync(join(SHOTS, `film-${kind}-${name.toLowerCase()}-${String(i).padStart(3, "0")}-${Math.round(f.at - s.pressedAt)}ms.png`), Buffer.from(f.data, "base64"))
+    if (process.env.DEBUG_FILM) for (const [i, f] of frames.entries()) writeFileSync(join(SHOTS, `film-${kind}-${slug(name)}-${String(i).padStart(3, "0")}-${Math.round(f.at - s.pressedAt)}ms.png`), Buffer.from(f.data, "base64"))
   }
   await p.screenshot({ path: shot(`${kind}-2-category`) })
   expect(filmed > 0 && judgedBoxes > 0 && flashes === 0, "no filmed frame shows a preview anywhere between how it was and how it settles", `${flashes} box-frames in between, over ${filmed} frames`)
   await decoder.close()
+
+  /* The creator's own card, and the category with the shortest sections in it (the announcement bars, at the floor). */
+  await p.evaluate(() => window.__lib().pills.find((b) => /^Created\d*$/.test((b.textContent || "").trim()))?.click())
+  await sleep(400)
+  await p.screenshot({ path: shot(`${kind}-2-created`) })
+  const marketing = await p.evaluate(() => {
+    const pill = window.__lib().pills.find((b) => /^Marketing$/.test((b.textContent || "").trim()))
+    pill?.scrollIntoView({ inline: "center", block: "nearest" })
+    pill?.click()
+    return !!pill
+  })
+  if (marketing) {
+    await sleep(400)
+    await p.evaluate(() => window.__lib().lib.querySelector("[data-library-card='promo_announcement']")?.scrollIntoView({ block: "center" }))
+    await sleep(300)
+    await p.screenshot({ path: shot(`${kind}-2-floor`) })
+  }
 
   /* Back to everything, for the add. */
   await p.evaluate(() => window.__lib().pills.find((b) => /^All$/.test((b.textContent || "").trim()))?.click())
@@ -644,8 +823,70 @@ async function run(kind) {
   await p.close()
 }
 
+/* ── EARLY: a library opened before its previews are drawn ── */
+async function early(kind) {
+  const phone = kind === "phone"
+  const p = await browser.newPage()
+  await p.setViewport(phone ? { width: 390, height: 844, isMobile: true, hasTouch: true } : { width: 1280, height: 800 })
+  await p.goto(`${origin}/editor`, { waitUntil: "load" })
+  await p.waitForFunction(() => document.querySelectorAll("#wb-preview-root [data-section-box]").length >= 8, { timeout: 60_000 })
+  await p.evaluate(PARTS)
+  const cdp = await p.createCDPSession()
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+  console.log(`\n══ ${phone ? "A phone" : "A computer"}, the library opened before its previews are drawn ══\n`)
+  const tapGap = async () => {
+    const gap = await p.evaluate(() => {
+      const strips = [...document.querySelectorAll("#wb-preview-root [aria-label='Add a section here']")]
+      const s = strips[1] ?? strips[0]
+      s.scrollIntoView({ block: "center" })
+      const r = s.getBoundingClientRect()
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
+    })
+    if (phone) await p.touchscreen.tap(gap.x, gap.y)
+    else await p.mouse.click(gap.x, gap.y)
+  }
+  const atTap = await p.evaluate(() => ({ ms: Math.round(performance.now()), cards: document.querySelectorAll("[data-library-card]").length, drawn: document.querySelectorAll("[data-library-card] [data-keep-transform]").length }))
+  await tapGap()
+  const w = await p.evaluate(WATCH, { ms: 4000 })
+  await p.screenshot({ path: shot(`${kind}-6-early`) })
+  note(`opened ${atTap.ms}ms after the page began, with ${atTap.cards} cards built and ${atTap.drawn} previews in them; watched ${w.frames} frames: ${w.landedInSight} previews landed on screen, ${w.tookBelow} cards below the fold took their own height`)
+  note(`on screen at the end: ${w.inSight.map((c) => `"${c.name}" ${c.box}px card, ${c.section ?? "no"}px section`).join("; ")}`)
+  for (const s of w.shrunk.slice(0, 4)) note(`   shrank in sight: ${s.key} ${s.from} -> ${s.to}px at ${s.t}ms`)
+  expect(w.frames > 30 && w.cards >= 30, "the library was watched, open, while its previews landed", { frames: w.frames, cards: w.cards })
+  expect(w.shrunk.length === 0, "no card on screen, or above it, got shorter while the library was open", w.shrunk.length ? w.shrunk.slice(0, 4) : undefined)
+
+  /* Closed, and opened again: nobody saw the held cards change. */
+  if (phone) {
+    await p.evaluate(() => {
+      const sheet = document.querySelector("[data-section-library='phone']")?.closest("[data-mobile-bottom-sheet]")
+      const overlay = sheet?.previousElementSibling
+      if (overlay && overlay.hasAttribute("data-wb-sheet-overlay")) overlay.click()
+    })
+  } else {
+    await p.keyboard.press("Escape")
+  }
+  await sleep(1200)
+  await tapGap()
+  await sleep(1200)
+  /* Every preview in, however long the rest took to draw at a quarter speed. */
+  const allIn = await p.waitForFunction(() => {
+    const cards = [...document.querySelectorAll("[data-section-library] [data-library-card]")]
+    return cards.length >= 30 && cards.every((c) => c.querySelector("[data-keep-transform]"))
+  }, { timeout: 60_000, polling: 250 }).then(() => true).catch(() => false)
+  expect(allIn, "opened again, every preview is drawn")
+  const held = w.inSight.filter((c) => c.below !== null && c.below >= EMPTY_UNDER)
+  note(`held at the end of the watch, in sight with empty card under them: ${held.length ? held.map((c) => `"${c.name}" ${c.box}px for ${c.section}px`).join("; ") : "none"}`)
+  const again = await p.evaluate(CARD_HEIGHTS, { ratio: phone ? 1.22 : 0.56 })
+  writeFileSync(join(SHOTS, `addsection-${kind}-heights-reopened.json`), JSON.stringify(again, null, 1))
+  judgeHeights("Opened again", again)
+  await p.screenshot({ path: shot(`${kind}-7-early-reopened`) })
+  await p.close()
+}
+
 await run("phone")
 await run("desktop")
+await early("phone")
+await early("desktop")
 await browser.close()
 server.close()
 console.log(`\nScreenshots in ${SHOTS}\n`)

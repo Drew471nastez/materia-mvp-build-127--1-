@@ -12,6 +12,10 @@
  *             "'Created by you' should be called 'Created' only."
  *   PILLS     "When I switch between the category pills of the sections,
  *             there should be no flash and no glitch in the preview cards."
+ *   HEIGHTS   A short section (the "My banner" preview) sat at the top of a
+ *             tall fixed frame over a large empty area. Each card is its
+ *             section's height now, between a floor and the crop, and never
+ *             gets shorter where somebody can see it.
  *   AFTER     "When I click to add a section ... it then needs to open, from
  *             the bottom, smoothly, the sections mobile bottom sheet on that
  *             section's settings."
@@ -37,6 +41,7 @@ import { BUILT_IN_PAGE_KEYS, NOT_FOUND_PAGE_KEY, pagePath } from "@/lib/website-
 import { POLICY_PAGES } from "@/lib/website-builder/policy-pages"
 import { ACCOUNT_PAGE_PATHS } from "@/lib/website-builder/account-pages"
 import { afterAddSettles, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
+import { PREVIEW_MIN_HEIGHT, previewCardHeight, previewCentered } from "@/lib/website-builder/preview-markup"
 import { SECTION_CATEGORIES } from "@/lib/website-builder/section-schemas"
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
 
@@ -161,7 +166,8 @@ async function main() {
   // ═════════════════════════════════════════════════════════════════════════
   {
     const filter = library.slice(library.indexOf("const filterKey ="), library.indexOf("CLOSE FIRST, ADD ON THE NEXT FRAME"))
-    check("a category switch starts the list at its top, before paint, and does nothing else", /useLayoutEffect\(\(\) => \{\s*\n\s*if \(lastFilter\.current === filterKey\) return\s*\n\s*lastFilter\.current = filterKey\s*\n\s*if \(scroller\.current\) scroller\.current\.scrollTop = 0\s*\n\s*\}, \[filterKey\]\)/.test(filter))
+    check("a category switch starts the list at its top, before paint, and fades nothing",
+      /useLayoutEffect\(\(\) => \{\s*\n\s*if \(lastFilter\.current === filterKey\) return\s*\n\s*lastFilter\.current = filterKey\s*\n\s*if \(scroller\.current\) scroller\.current\.scrollTop = 0\s*\n[^\n]*\n\s*releaseHeld\(false\)\s*\n\s*\}, \[filterKey\]\)/.test(filter))
     check("the list is not faded in on a category", !/\.animate\(/.test(code(filter)) && !/opacity: 0\.25/.test(libraryCode))
     check("a preview's fade is no longer a class a re-shown card replays", !/wb-preview-arrive/.test(libraryCode) && !/\.wb-preview-arrive\s*\{/.test(css))
     const box = library.slice(library.indexOf("const PreviewBox = memo("), library.indexOf("const LibraryCard = memo("))
@@ -172,10 +178,75 @@ async function main() {
     check("a preview that is in stays in, whatever category comes next", /const \[live, setLive\] = useState<ReadonlySet<string>>/.test(library) && /live=\{live\.has\(k\)\}/.test(library) && !/< filled/.test(libraryCode))
     check("the cards keep their keys, so a switch rebuilds none", /key=\{k\}/.test(library) && /const cardKey = /.test(library) && /hidden=\{!shown\.has\(e\)\}/.test(library))
     check("a short category cannot widen the list and redraw every card", (library.match(/\[scrollbar-gutter:stable\]/g) ?? []).length === 2)
+    const eagerMemo = library.slice(library.indexOf("const eager = useMemo("), library.indexOf("THE PILLS START AT THE START"))
     check("the top of a category is drawn the moment it is shown, not a few grey frames later",
-      /const eager = useMemo\(\(\) => new Set\(order\.slice\(0, Math\.min\(EAGER_CARDS, shown\.size\)\)\), \[order, shown\]\)/.test(library) &&
-        /contentVisibility: eager \? "visible" : "auto"/.test(library) && /eager=\{eager\.has\(k\)\}/.test(library) && /const EAGER_CARDS = 3/.test(library))
+      /contentVisibility: eager \? "visible" : "auto"/.test(library) && /eager=\{eager\.has\(k\)\}/.test(library) && /const EAGER_CARDS = 3/.test(library))
+    check("as many cards as fill the window, at the heights they are drawn at, and never fewer than three",
+      /if \(out\.size >= EAGER_CARDS && y >= reach\) break/.test(eagerMemo) &&
+        /y \+= previewCardHeight\(HEIGHTS\.get\(e\.keyFor\(renderWidth\)\), cardWidth, renderWidth, ratio\)/.test(eagerMemo) &&
+        /const reach = cardWidth > 0 && typeof window !== "undefined" \? window\.innerHeight : 0/.test(eagerMemo) &&
+        /\}, \[entries, shown, heightsSeen, cardWidth, renderWidth, ratio\]\)/.test(eagerMemo))
     check("a fresh open is on All from its first frame", /useLayoutEffect\(\(\) => \{\s*\n\s*if \(open\) \{\s*\n\s*setActiveCategory\(null\)/.test(library))
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  console.log("\nHEIGHTS: a card is as tall as its section, and never shrinks in sight")
+  // ═════════════════════════════════════════════════════════════════════════
+  {
+    /* The numbers the library draws at: a computer's card in its dialog, and a phone's in its sheet. */
+    const desk = { card: 760, drawnAt: 800, ratio: 0.56 }
+    const phone = { card: 356, drawnAt: 390, ratio: 1.22 }
+    const tallest = (d: typeof desk) => Math.round(d.card * d.ratio)
+    check("until its section is measured, a card is as tall as a card can be (most sections are)",
+      previewCardHeight(undefined, desk.card, desk.drawnAt, desk.ratio) === tallest(desk) && previewCardHeight(undefined, phone.card, phone.drawnAt, phone.ratio) === tallest(phone))
+    check("and so is one whose preview failed to draw", previewCardHeight(0, desk.card, desk.drawnAt, desk.ratio) === tallest(desk))
+    check("a short section's card is its own height, scaled as the card scales it, rounded up",
+      previewCardHeight(120, desk.card, desk.drawnAt, desk.ratio) === 114 && previewCardHeight(137, phone.card, phone.drawnAt, phone.ratio) === Math.ceil((137 * 356) / 390),
+      `${previewCardHeight(120, desk.card, desk.drawnAt, desk.ratio)}`)
+    check(`a sliver of a section still gets ${PREVIEW_MIN_HEIGHT}px, enough to read as a section`,
+      PREVIEW_MIN_HEIGHT === 80 && previewCardHeight(30, desk.card, desk.drawnAt, desk.ratio) === 80 && previewCardHeight(1, phone.card, phone.drawnAt, phone.ratio) === 80)
+    check("and sits in the middle of it, not on a block of white",
+      previewCentered(40, desk.card, desk.drawnAt, 80) && previewCentered(45, phone.card, phone.drawnAt, 80))
+    check("a section at its own height, or held at the crop, starts at the top like a page",
+      !previewCentered(120, desk.card, desk.drawnAt, 114) && !previewCentered(40, desk.card, desk.drawnAt, tallest(desk)) && !previewCentered(undefined, desk.card, desk.drawnAt, 80))
+    check("a tall section is cut at the crop, as before",
+      previewCardHeight(2000, desk.card, desk.drawnAt, desk.ratio) === tallest(desk) && previewCardHeight(1400, phone.card, phone.drawnAt, phone.ratio) === tallest(phone))
+    check("and before the list has a width, the box keeps its shape by ratio", previewCardHeight(120, 0, desk.drawnAt, desk.ratio) === 0 && /aspectRatio: height \? undefined : `1 \/ \$\{ratio\}`/.test(library))
+
+    const pump = library.slice(library.indexOf("function pump()"), library.indexOf("export function requestPreviews"))
+    check("each preview is measured once, after it is drawn and its styles are in",
+      /if \(unmeasured\.length\) \{\s*\n[^\n]*\n\s*flushStyles\(\)/.test(pump) && /height = measureOne\(next\.html, next\.width\)/.test(pump))
+    check("and its card is handed the preview and the height together",
+      /HEIGHTS\.set\(next\.key, height\)\s*\n\s*MARKUP\.set\(next\.key, next\.html\)/.test(pump) && /unmeasured\.push\(\{ key: job\.key, html, width: job\.width \}\)/.test(pump) && !/MARKUP\.set\(job\.key/.test(pump))
+    check("an idle moment measures or draws, never both, and stops at its deadline",
+      /\} while \(unmeasured\.length && deadline\.timeRemaining\(\) > MEASURE_ROOM_MS\)/.test(pump) && /\} else \{\s*\n\s*do \{/.test(pump) && /\} while \(queue\.length && deadline\.timeRemaining\(\) > 12\)/.test(pump))
+    check("and a preview being measured is not asked for twice", /!MARKUP\.has\(j\.key\) && !queued\.has\(j\.key\) && !pending\.has\(j\.key\)/.test(library))
+    const flush = library.slice(library.indexOf("function flushStyles()"), library.indexOf("/* ── The preview store"))
+    check("each idle moment's styles go in a small sheet of their own, not on the end of one that is read again",
+      /const sheet = document\.createElement\("style"\)\s*\n\s*sheet\.setAttribute\("data-section-preview-styles", ""\)\s*\n\s*sheet\.textContent = styleQueue\.splice\(0\)\.join\("\\n"\)\s*\n\s*document\.head\.appendChild\(sheet\)/.test(flush) &&
+        !/createTextNode/.test(libraryCode))
+    check("a closed library is not drawn again for every height that lands, only an open one",
+      /const subscribeWhileOpen = useCallback\(\(l: \(\) => void\) => \(open \? subscribe\(l\) : \(\) => \{\}\), \[open\]\)/.test(library) &&
+        /const heightsSeen = useSyncExternalStore\(subscribeWhileOpen, \(\) => heightsVersion, \(\) => 0\)/.test(library))
+    check("in a ruler out of sight, as wide as the preview is drawn, kept to itself",
+      /ruler\.style\.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;pointer-events:none;contain:layout paint"/.test(library) && /ruler\.style\.width = `\$\{width\}px`/.test(library) && /ruler\.textContent = ""/.test(library))
+    const box = library.slice(library.indexOf("const PreviewBox = memo("), library.indexOf("const LibraryCard = memo("))
+    check("a card takes that height, from its first frame when it is known by then",
+      /const height = useSteadyHeight\(boxRef, previewCardHeight\(drawn, width, renderWidth, ratio\), width, drawn !== undefined\)/.test(box) &&
+        /ref=\{boxRef\}/.test(box) && /useState\(\(\) => \(\{ height: wanted, width \}\)\)/.test(library))
+    check("a section shorter than its card still sits on white to the card's foot",
+      /minHeight: height \? Math\.ceil\(height \/ scale\) : undefined/.test(box) && /height: height \|\| undefined,/.test(box))
+    check("in the middle of it under the floor", /const centered = previewCentered\(drawn, width, renderWidth, height\)/.test(box) && /\.\.\.\(centered \? IN_THE_MIDDLE : null\)/.test(box))
+    const steady = library.slice(library.indexOf("function useSteadyHeight("), library.indexOf("const PreviewBox = memo("))
+    check("a card is never made shorter where somebody can see it: it is held instead",
+      /if \(wanted > kept\.height \|\| !box \|\| !inSight\(box\)\) \{\s*\n\s*take\(\)/.test(steady) && /heldCards\.add\(held\)/.test(steady) && /heldCards\.delete\(held\)/.test(steady))
+    check("and one not measured yet keeps what it has rather than growing to the crop and back", /if \(kept\.height === wanted \|\| !known\) return/.test(steady))
+    const sight = library.slice(library.indexOf("function inSight("), library.indexOf("function releaseHeld("))
+    check("in sight counts a card above the fold too, since iOS will not anchor the list for it",
+      /return box\.getBoundingClientRect\(\)\.top < list\.getBoundingClientRect\(\)\.bottom/.test(sight) && /visibilityProperty: true, opacityProperty: true/.test(sight))
+    check("a held card takes its height when the library opens again, before its first frame",
+      /if \(open\) \{\s*\n\s*setActiveCategory\(null\)\s*\n\s*setQuery\(""\)\s*\n[^\n]*\n\s*releaseHeld\(true\)/.test(library))
+    check("or when a new category leaves it out of sight", /releaseHeld\(false\)\s*\n\s*\}, \[filterKey\]\)/.test(library))
   }
 
   // ═════════════════════════════════════════════════════════════════════════
