@@ -24,7 +24,7 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `00_check_first.sql` | Read only. The audit: everything the app needs, whether it is there, and which file creates what is not. | 3 | 45,056 |
 | `01_rate_limits_and_newsletter.sql` | Rate limit counter for the open forms, and the storelib.com footer newsletter table. Server only. | 9 | 1,116 |
 | `02_agent_connections_and_github.sql` | Agent connections (Claude Code, Codex), their activity log, GitHub sync, and the indexes on them. | 33 | 4,852 |
-| `03_refund_recorded_once.sql` | A Stripe refund is recorded on an order once. If this fails with "could not create unique index", see README. | 2 | 291 |
+| `03_refund_recorded_once.sql` | A Stripe refund is recorded on an order once. If the same refund was recorded twice, it skips itself with a warning; see README. | 2 | 931 |
 | `04_event_and_email_types.sql` | Tracking events and receipt email records the database was refusing. Old rows are not rechecked. | 5 | 718 |
 | `05_order_source.sql` | Where an order came from (Storelib or a website) and the detail. Marks old basket orders as website. | 7 | 697 |
 | `06_site_vitals.sql` | Website speed as visitors measured it: the table and its two functions. | 15 | 3,671 |
@@ -47,11 +47,12 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `23_browser_push_and_time_zone.sql` | Browser notifications save (push_tokens takes platform `web`), and the account's time zone column. | 4 | 887 |
 | `24_theme_chat_conversations.sql` | Ask Storelib conversations: new chat and history. Each message is filed under a conversation on its own website; only its creator can read them. | 15 | 2,794 |
 | `25_analytics_speed.sql` | Analytics that load quickly: indexes in the order the reports read, and the counting done in the database, run by the server only. The page works without it. Can take a minute on a large events table. | 13 | 9,648 |
+| `26_creator_badges.sql` | Badges Storelib grants a creator (Veteran for lucadragoste), and a trigger so nobody can set their own through the API. | 7 | 942 |
 | `90_storage_policies_needs_owner.sql` | LAST, ON ITS OWN. Replaces the storage.objects policies. Needs the owner of storage.objects; see README if it says "must be owner". | 2 | 3,896 |
 | `91_storage_policies_to_remove.sql` | Read only. For the dashboard route: the storage policies to delete. | 2 | 1,242 |
-| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 7,756 |
+| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 8,317 |
 
-Parts `01` to `25` all run as the editor's normal role. `90` is the one
+Parts `01` to `26` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
 Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:
@@ -60,12 +61,11 @@ where the editor runs as `postgres`), or `16` cannot write bucket settings; and
 "storage.objects names the uploader" should read `owner_id`, or Route 1 needs
 `owner = (select auth.uid())` in place of `owner_id = (select auth.uid())::text`.
 
-Two parts can stop on what is already in your database:
+Two parts depend on what is already in your database:
 
-- `03` fails with "could not create unique index" if the old webhook once
-  recorded the same refund twice on one order. Nothing after it depends on
-  it, so carry on with `04`, and send the result of this before changing any
-  ledger row:
+- `03` skips itself with a warning, and `p03_refund_once` reads false, if the
+  old webhook once recorded the same refund twice on one order. Nothing after
+  it depends on it. Send the result of this before changing any ledger row:
   `select stripe_refund_id, order_id, count(*) from public.ledger_events where event_type = 'refund' and stripe_refund_id is not null group by 1, 2 having count(*) > 1;`
 - `19` needs `product_variants`, `product_variant_files`, `reviews` and
   `courses`. If `00` lists any of those four as a missing table, skip `19` and
