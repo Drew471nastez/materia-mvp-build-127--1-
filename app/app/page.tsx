@@ -10,6 +10,7 @@ import { TIME_ZONE_COOKIE } from "@/lib/orders/time-zone"
 import { homeTotals } from "@/lib/analytics/home-figures"
 import { pageUser } from "@/lib/auth/page-user"
 import { connectedBioPlatforms } from "@/components/app/share/share-data"
+import { creatorPageHostFromRows } from "@/lib/custom-domains/client"
 
 /*
   WHO IS ASKING, AND THEIR TWO ROWS, ONCE PER REQUEST. The title and the page
@@ -96,7 +97,7 @@ export default async function AppDashboard() {
 
   const [
     { data: products },
-    { data: activeDomain },
+    { data: activeDomains },
     { data: publishedSite },
     { data: ordersData },
     { data: creatorPageConfig },
@@ -107,10 +108,12 @@ export default async function AppDashboard() {
       .eq("creator_id", creator.id),
     adminSupabase
       .from("custom_domains")
-      .select("domain")
+      /* Every live domain, not maybeSingle: a creator can have several now, and
+         one row too many read as none. The creator page's is picked below. */
+      .select("*")
       .eq("creator_id", creator.id)
       .eq("status", "active")
-      .maybeSingle(),
+      .order("created_at", { ascending: true }),
     /**
      * HAS THIS CREATOR GOT A WEBSITE THAT IS ACTUALLY LIVE?
      *
@@ -247,7 +250,7 @@ export default async function AppDashboard() {
       productIds={productIds}
       initialOrders={allOrders}
       creatorHandle={profile?.username || creator.slug || ""}
-      connectedDomain={activeDomain?.domain || null}
+      connectedDomain={creatorPageHostFromRows(activeDomains)}
       brandingDetail={{ hasAvatar, hasName, hasBio }}
       websitePublished={!!publishedSite}
       subscriptionPlanId={creator.subscription_plan_id || "free"}

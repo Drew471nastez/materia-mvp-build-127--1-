@@ -29,6 +29,7 @@
  */
 
 import { deservesIndexing } from "@/lib/security/spam-signals"
+import { servingHost } from "@/lib/custom-domains/hostname"
 
 /** Addresses per sitemap file. The protocol allows 50,000; smaller files are read faster. */
 export const SITEMAP_CHUNK = 10_000
@@ -172,7 +173,8 @@ export function websiteIndexable(settings: Record<string, unknown> | null | unde
  */
 export function siteOrigin(input: { handle: string; customDomain?: string | null; mainDomain: string }): string {
   const domain = input.customDomain?.trim().toLowerCase().replace(/\.$/, "")
-  if (domain) return `https://${domain.startsWith("www.") ? domain : `www.${domain}`}`
+  /* www for an apex; a connected subdomain (shop.theirname.com) as it is. */
+  if (domain) return `https://${servingHost(domain)}`
   return `https://${input.handle.toLowerCase()}.${input.mainDomain}`
 }
 

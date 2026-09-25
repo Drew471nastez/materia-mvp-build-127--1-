@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { startTimer, logSlowRequest } from "@/lib/perf"
+import { creatorPageHostFromRows } from "@/lib/custom-domains/client"
 
 /**
  * GET /api/dashboard
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
       { data: profile },
       { data: products },
       { data: onepage },
-      { data: activeDomain },
+      { data: activeDomains },
       { data: recentViews },
     ] = await Promise.all([
       admin
@@ -64,10 +65,12 @@ export async function GET(request: NextRequest) {
         .maybeSingle(),
       admin
         .from("custom_domains")
-        .select("domain")
+        /* Every live domain, not maybeSingle: a creator can have several now, and
+           one row too many read as none. The creator page's is picked below. */
+        .select("*")
         .eq("creator_id", creator.id)
         .eq("status", "active")
-        .maybeSingle(),
+        .order("created_at", { ascending: true }),
       // Quick analytics: views in last 7 days
       admin
         .from("analytics_events")
@@ -143,7 +146,7 @@ export async function GET(request: NextRequest) {
         storePublished: creator.store_published,
         stripeConnected: !!creator.stripe_account_id,
         subscriptionPlanId: creator.subscription_plan_id || "free",
-        connectedDomain: activeDomain?.domain || null,
+        connectedDomain: creatorPageHostFromRows(activeDomains),
       },
       products: {
         total: products?.length || 0,

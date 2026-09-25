@@ -3,6 +3,7 @@ import { hasBoughtFromCreator } from "@/lib/commerce/has-bought-from-creator"
 import { applyManualOrder } from "@/lib/store-builder/featured-order"
 import { headerAvatar } from "@/lib/store-builder/header-avatar"
 import { loadCreatorForUser, loadProfileByUsername } from "@/lib/commerce/creator-page-data"
+import { primaryHostFor } from "@/lib/custom-domains/store"
 import { SafeRegion } from "@/components/storefront/safe-region"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
@@ -149,7 +150,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
 
   const creator = await loadCreatorForUser(profile.id)
 
-  const [publishedConfigForMeta, { data: seoOverride }, publishedProducts] = await Promise.all([
+  const [publishedConfigForMeta, { data: seoOverride }, publishedProducts, pageHost] = await Promise.all([
     creator ? getPublishedConfig(creator.id, "shop") : Promise.resolve(null),
     supabase
       .from("seo_overrides")
@@ -165,6 +166,8 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
           .eq("status", "published")
           .then(({ count }) => count ?? 0)
       : Promise.resolve(0),
+    /* Cached (lib/custom-domains/store.ts), and needs only the creator. */
+    primaryHostFor(creator?.id, "creator_page"),
   ])
 
   let faviconUrl: string | undefined
@@ -191,7 +194,9 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     socialPreviewImage = profile.avatar_url || undefined
   }
 
-  const siteUrl = `https://${username}.storelib.com`
+  /* The creator page's own domain when it has one: the address canonicals and
+     link previews name. `<name>.storelib.com` was here, which is the WEBSITE. */
+  const siteUrl = pageHost ? `https://${pageHost}/` : `https://storelib.com/${username}`
   const displayTitle = profile.display_name || profile.username || "Creator"
   const defaultDescription = `Check out ${profile.display_name || profile.username}'s products on Storelib`
 
@@ -226,7 +231,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
       images: socialPreviewImage ? [socialPreviewImage] : undefined,
     },
     alternates: {
-      canonical: `https://storelib.com/${username}`,
+      canonical: pageHost ? `https://${pageHost}/` : `https://storelib.com/${username}`,
     },
     /**
      * ═══════════════════════════════════════════════════════════════════════
@@ -369,6 +374,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     )
   }
 
+  /* The page's own address: its connected domain when it has one (cached,
+     started now so it waits on nothing), else storelib.com/<name>. Named by
+     the structured data below, like the canonical in generateMetadata. */
+  const pageHostPromise = primaryHostFor(creator.id, "creator_page")
+
   /**
    * The products and the published shop config are fetched together.
    *
@@ -470,6 +480,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      */
     viewerPromise.then(({ data }) => hasBoughtFromCreator(supabase, data.user?.id, creator.id)),
   ])
+  const pageHost = await pageHostPromise
+  const pageAddress = pageHost ? `https://${pageHost}/` : `https://storelib.com/${username}`
 
   const viewerIsOwner = !!viewer && viewer.id === profile.id
 
@@ -998,7 +1010,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       mainEntity: {
         "@type": "Person",
         name: profile.display_name || username,
-        url: `https://storelib.com/${username}`,
+        url: pageAddress,
         ...(profile.avatar_url ? { image: profile.avatar_url } : {}),
       },
     }
@@ -1385,7 +1397,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     mainEntity: {
       "@type": "Person",
       name: profile.display_name || username,
-      url: `https://storelib.com/${username}`,
+      url: pageAddress,
       ...(profile.avatar_url ? { image: profile.avatar_url } : {}),
     },
   }

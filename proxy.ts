@@ -4,6 +4,7 @@ import { readCurrentUser, shouldSendToLogin } from "@/lib/auth/current-user"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
 import { previewTokenFrom } from "@/lib/website-builder/preview-token"
+import { isApexHost } from "@/lib/custom-domains/hostname"
 
 // Main domain - customize this based on environment
 const MAIN_DOMAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
@@ -228,10 +229,31 @@ async function hasPublishedWebsite(username: string): Promise<boolean> {
 }
 
 /**
- * Resolve a custom domain to a username via Supabase lookup
- * Returns the username if the domain is active, null otherwise
+ * What a connected domain is: whose, and FOR WHAT.
+ *
+ * `purpose` is 'website' (the site built in the website builder, and the
+ * creator page when none is published, which is what every domain served
+ * before purposes existed) or 'creator_page' (storelib.com/<handle>, its
+ * products under it and the OnePage at /links). `redirectTo` is set when the
+ * domain is not the primary one of its purpose and the primary is live: it
+ * answers with a redirect there, so one address collects the links.
+ *
+ * The purpose columns may not exist yet (supabase/sql/run-now/22): a
+ * database that does not know them is asked again the old way, and every
+ * domain is a website domain, exactly as before.
  */
-async function resolveCustomDomain(host: string): Promise<string | null> {
+type ConnectedDomain = {
+  username: string
+  purpose: "website" | "creator_page"
+  redirectTo: string | null
+}
+
+/** The host a stored domain is served at: www.<apex>, or a subdomain as it is. */
+function servedAt(domain: string): string {
+  return isApexHost(domain) ? `www.${domain}` : domain
+}
+
+async function resolveCustomDomain(host: string): Promise<ConnectedDomain | null> {
   const hostWithoutPort = host.split(":")[0]
 
   // Skip known storelib domains and localhost
@@ -255,19 +277,30 @@ async function resolveCustomDomain(host: string): Promise<string | null> {
     const lookupDomain = hostWithoutPort.replace(/^www\./, "")
 
     // Match active, ssl_provisioning, or pending (if request arrives, DNS is working)
-    const { data: domainRecord } = await supabase
+    const served = ["active", "ssl_provisioning", "pending", "verifying"]
+    let { data: domainRecord, error } = await supabase
       .from("custom_domains")
-      .select("creator_id, status")
+      .select("creator_id, status, purpose, is_primary")
       .eq("domain", lookupDomain)
-      .in("status", ["active", "ssl_provisioning", "pending", "verifying"])
-      .single()
+      .in("status", served)
+      .maybeSingle()
+    if (error && /column|42703|PGRST204/i.test(`${error.code} ${error.message}`)) {
+      ;({ data: domainRecord } = (await supabase
+        .from("custom_domains")
+        .select("creator_id, status")
+        .eq("domain", lookupDomain)
+        .in("status", served)
+        .maybeSingle()) as never)
+    }
 
     if (!domainRecord) return null
+    const row = domainRecord as { creator_id: string; purpose?: string | null; is_primary?: boolean | null }
+    const purpose = row.purpose === "creator_page" ? "creator_page" : "website"
 
     const { data: creator } = await supabase
       .from("creators")
       .select("user_id")
-      .eq("id", domainRecord.creator_id)
+      .eq("id", row.creator_id)
       .single()
 
     if (!creator) return null
@@ -278,7 +311,24 @@ async function resolveCustomDomain(host: string): Promise<string | null> {
       .eq("id", creator.user_id)
       .single()
 
-    return profile?.username || null
+    if (!profile?.username) return null
+
+    /* Not the primary: send it to the one that is, once that one is live. */
+    let redirectTo: string | null = null
+    if (row.is_primary === false) {
+      const { data: primary } = await supabase
+        .from("custom_domains")
+        .select("domain")
+        .eq("creator_id", row.creator_id)
+        .eq("purpose", purpose)
+        .eq("is_primary", true)
+        .eq("status", "active")
+        .maybeSingle()
+      const primaryDomain = (primary as { domain?: string } | null)?.domain
+      if (primaryDomain && primaryDomain !== lookupDomain) redirectTo = servedAt(primaryDomain)
+    }
+
+    return { username: profile.username, purpose, redirectTo }
   } catch {
     return null
   }
@@ -957,6 +1007,8 @@ export async function proxy(request: NextRequest) {
    */
   let username: string | null = null
   let isCustomDomain = false
+  /* What the connected domain is for: the website, or the creator page. */
+  let domainPurpose: "website" | "creator_page" = "website"
 
   // If no subdomain match, check if it's a custom domain
   if (!username) {
@@ -983,7 +1035,9 @@ export async function proxy(request: NextRequest) {
     // by ensuring only ONE host (www) is canonical. Browser caches the redirect permanently (301).
     // www is chosen as canonical because Vercel provisions SSL more reliably for CNAME-based hosts.
     // Pages only: see the note at the top about what a 301 does to an API call.
-    if (!isApiCall && isExternalDomain && !hostWithoutPort.startsWith("www.")) {
+    // APEX ONLY. A subdomain someone connected (links.theirname.com) is its own
+    // address; www.links.theirname.com is nobody's and has no certificate.
+    if (!isApiCall && isExternalDomain && !hostWithoutPort.startsWith("www.") && isApexHost(hostWithoutPort)) {
       const wwwDomain = `www.${hostWithoutPort}`
       const canonicalUrl = new URL(`https://${wwwDomain}`)
       canonicalUrl.pathname = pathname
@@ -991,10 +1045,24 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(canonicalUrl, { status: 301 })
     }
 
-    const customDomainUsername = await resolveCustomDomain(host)
-    if (customDomainUsername) {
-      username = customDomainUsername
+    const connected = await resolveCustomDomain(host)
+    if (connected) {
+      /**
+       * NOT THE PRIMARY DOMAIN: ITS VISITORS GO TO THE ONE THAT IS.
+       * A creator with two domains for one thing picks which one is the
+       * address (Settings, Domains, Make primary); the other keeps working and
+       * sends every page, path and query intact, so nothing shared breaks and
+       * search engines see one address. Pages only, like every host redirect.
+       */
+      if (connected.redirectTo && !isApiCall && !isReservedPath(pathname)) {
+        const to = new URL(`https://${connected.redirectTo}`)
+        to.pathname = pathname
+        to.search = search
+        return NextResponse.redirect(to, { status: 308 })
+      }
+      username = connected.username
       isCustomDomain = true
+      domainPurpose = connected.purpose
     } else if (isExternalDomain && !isReservedPath(pathname)) {
       // Domain not actively connected — check redirect memory table
       // This handles removed/changed domains by redirecting to the new domain or fallback subdomain
@@ -1037,6 +1105,7 @@ export async function proxy(request: NextRequest) {
   if (
     username &&
     isCustomDomain &&
+    domainPurpose === "website" &&
     (pathname === "/robots.txt" || pathname === "/sitemap.xml") &&
     !(await hasLiveAiSite(username)) &&
     (await hasPublishedWebsite(username))
@@ -1104,12 +1173,46 @@ export async function proxy(request: NextRequest) {
     // Pages only, like the subdomain branch: an asset request must not cost
     // two database lookups, and a site's assets are Next's own anyway.
     const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(pathname)
-    const builtSite = !looksLikeFile && !(await hasLiveAiSite(username)) && (await hasPublishedWebsite(username))
+    const builtSite = !looksLikeFile && domainPurpose === "website" && !(await hasLiveAiSite(username)) && (await hasPublishedWebsite(username))
+
+    /**
+     * ═════════════════════════════════════════════════════════════════════════
+     *  A DOMAIN CONNECTED TO THE CREATOR PAGE SHOWS THE CREATOR PAGE
+     * ═════════════════════════════════════════════════════════════════════════
+     * The same page as storelib.com/<handle>, with the handle taken out of
+     * every address, because the domain already says whose it is:
+     *
+     *     /                 the creator page          (/u/<handle>)
+     *     /links            the OnePage               (/l/<handle>)
+     *     /<product>        a product                 (/<handle>/<product>)
+     *     /p/<slug>         a product, the old way
+     *
+     * The pages still build some links with the handle in front
+     * (`/<handle>/<product>`, `/<handle>`); those are sent to the same
+     * address without it, so a visitor never leaves the domain and never
+     * sees the handle twice.
+     */
+    if (domainPurpose === "creator_page" && !looksLikeFile) {
+      const parts = pathname.split("/").filter(Boolean)
+      if (parts.length > 0 && parts[0].toLowerCase() === username.toLowerCase()) {
+        const to = request.nextUrl.clone()
+        to.pathname = `/${parts.slice(1).join("/")}`
+        return NextResponse.redirect(to, { status: 308 })
+      }
+    }
 
     if (pathname === "/links" || pathname === "/links/") {
       // username.storelib.com/links -> /l/{username}
       // The username is passed as the slug parameter
       rewritePath = `/l/${username}`
+    } else if (domainPurpose === "creator_page") {
+      const parts = pathname.split("/").filter(Boolean)
+      rewritePath =
+        parts.length === 0
+          ? `/u/${username}`
+          : looksLikeFile || pathname.startsWith("/p/")
+            ? pathname
+            : `/${username}/${parts.join("/")}`
     } else if (builtSite) {
       rewritePath = `/w/${username}${pathname === "/" || pathname === "" ? "" : pathname}`
     } else if (pathname === "/" || pathname === "") {

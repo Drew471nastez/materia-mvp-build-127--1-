@@ -37,6 +37,7 @@ import { CATEGORIES } from "@/lib/marketplace/categories"
 import { getLinksShareUrl, getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
 import { DEV_PAGES, devPath } from "@/lib/developers/pages"
 import { HELP_ARTICLES, HELP_CATEGORIES, helpArticlePath } from "@/lib/help/articles"
+import { isMissingColumn } from "@/lib/custom-domains/store"
 import {
   SITEMAP_CHUNK,
   creatorIndexable,
@@ -346,12 +347,24 @@ const settingsOf = (row: InstallRow) => {
 async function activeDomains(admin: Admin, creatorIds: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>()
   for (let i = 0; i < creatorIds.length; i += 500) {
-    const { data, error } = await admin
+    const ids = creatorIds.slice(i, i + 500)
+    /* Website domains only, the primary one first; a creator page domain is not the website's. */
+    let { data, error } = await admin
       .from("custom_domains")
-      .select("creator_id, domain, created_at")
-      .in("creator_id", creatorIds.slice(i, i + 500))
+      .select("creator_id, domain, created_at, purpose, is_primary")
+      .in("creator_id", ids)
       .eq("status", "active")
+      .eq("purpose", "website")
+      .order("is_primary", { ascending: false })
       .order("created_at", { ascending: true })
+    if (error && isMissingColumn(error)) {
+      ;({ data, error } = (await admin
+        .from("custom_domains")
+        .select("creator_id, domain, created_at")
+        .in("creator_id", ids)
+        .eq("status", "active")
+        .order("created_at", { ascending: true })) as never)
+    }
     if (error) console.error("[sitemap] custom domains query failed:", error.message)
     for (const d of (data ?? []) as { creator_id: string; domain: string }[]) if (!out.has(d.creator_id)) out.set(d.creator_id, d.domain)
   }

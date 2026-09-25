@@ -16,6 +16,8 @@ interface ShareButtonProps {
   productSlug: string
   /** The seller's handle. Without it the link falls back to `/p/<slug>`. */
   creatorUsername?: string
+  /** The creator page's own domain, when it has one: the link is <domain>/<slug>. */
+  pageHost?: string | null
   className?: string
   size?: "default" | "sm" | "lg" | "icon"
   iconSize?: string
@@ -25,6 +27,7 @@ export function ShareButton({
   productTitle,
   productSlug,
   creatorUsername,
+  pageHost,
   className,
   size = "icon",
   iconSize = "h-5 w-5"
@@ -39,7 +42,7 @@ export function ShareButton({
    * `/p/<slug>`, which now redirects. getProductShareUrl always names the
    * canonical apex address, which is the one that should end up in a message.
    */
-  const shareUrl = getProductShareUrl(creatorUsername || "", productSlug)
+  const shareUrl = getProductShareUrl(creatorUsername || "", productSlug, pageHost)
 
   const shareText = `Check out ${productTitle}`
 

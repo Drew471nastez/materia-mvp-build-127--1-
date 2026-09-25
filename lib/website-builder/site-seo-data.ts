@@ -7,6 +7,7 @@ import "server-only"
  */
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { primaryHostFor } from "@/lib/custom-domains/store"
 import { getMainDomain } from "@/lib/url-helpers"
 import { deservesIndexing } from "@/lib/security/spam-signals"
 import { creatorShopTag, creatorSiteTag, publishedShopByName } from "./published-site"
@@ -29,36 +30,17 @@ import { hiddenPages } from "./page-seo"
  * two addresses is one page to a search engine only if both name this one.
  */
 export async function siteOrigin(creatorId: string, name: string): Promise<string> {
-  const domain = await unstable_cache(
-    async () => {
-      try {
-        const { data } = await createAdminClient()
-          .from("custom_domains")
-          .select("domain")
-          .eq("creator_id", creatorId)
-          .eq("status", "active")
-          .order("created_at", { ascending: true })
-          .limit(1)
-          .maybeSingle()
-        return ((data as { domain?: string } | null)?.domain ?? null) as string | null
-      } catch {
-        return null
-      }
-    },
-    ["site-origin", creatorId],
-    { revalidate: 300 },
-  )()
-  /* The proxy sends a bare connected domain to its www. host (a 301), so
-     that is the address a canonical must name: one that answers, not one
-     that redirects. */
-  const bare = domain ? domain.trim().toLowerCase().replace(/\.$/, "") : null
+  /* The website's primary domain, at the host it is served at (www.<apex>, or
+     a connected subdomain as it is): one that answers, not one that
+     redirects. A creator page domain is not the website's. */
+  const host = await primaryHostFor(creatorId, "website")
   /* Without a domain, the name the website was given, else the one it was reached by. */
-  const handle = bare
+  const handle = host
     ? null
     : await unstable_cache(() => websiteHandleOf(creatorId), ["site-handle", creatorId], { tags: [creatorSiteTag(creatorId)], revalidate: 300 })()
-  const host = bare ? (bare.startsWith("www.") ? bare : `www.${bare}`) : `${(handle ?? name).toLowerCase()}.${getMainDomain()}`
-  const protocol = host.includes("localhost") ? "http" : "https"
-  return `${protocol}://${host}`
+  const origin = host ?? `${(handle ?? name).toLowerCase()}.${getMainDomain()}`
+  const protocol = origin.includes("localhost") ? "http" : "https"
+  return `${protocol}://${origin}`
 }
 
 interface ListedProduct {

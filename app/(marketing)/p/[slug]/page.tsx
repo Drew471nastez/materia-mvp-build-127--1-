@@ -52,6 +52,7 @@ import { ShareButton } from "@/components/product/share-button"
 import { WishlistButton } from "@/components/wishlist/wishlist-button"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { getStoreUrl, getProductShareUrl } from "@/lib/url-helpers"
+import { primaryHostFor } from "@/lib/custom-domains/store"
 import { SmartLink } from "@/components/smart-link"
 import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
 import { EmbeddedBackBar } from "@/components/storefront/embedded-back-bar"
@@ -171,7 +172,9 @@ export async function generateMetadata({ params }: ProductPageProps) {
    * A product whose creator has no handle has only the old address, and
    * getProductShareUrl returns it.
    */
-  const productUrl = getProductShareUrl(sellerHandle || "", product.slug)
+  /* On the creator page's own domain when it has one: <domain>/<slug>. */
+  const pageHost = await primaryHostFor(product.creator_id, "creator_page")
+  const productUrl = getProductShareUrl(sellerHandle || "", product.slug, pageHost)
 
   return {
     title: tabTitle,
@@ -859,6 +862,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // Do NOT fall back to creator.slug — it may differ from the profile username
   // or be a UUID, which would build a broken /u/<uuid> URL and get "lost".
   const creatorUsername = creatorProfile?.username || ""
+  /* The creator page's own domain, when it has one: where the canonical, the
+     structured data and the share sheet send people (lib/custom-domains). */
+  const pageHost = await primaryHostFor(product.creator_id, "creator_page")
   // Use a relative internal path directly — avoids the server-side getStoreUrl()
   // which returns https://username.storelib.com (isNativeApp()=false on the server).
   // That subdomain URL, present in the pre-hydration SSR HTML, was being
@@ -1053,7 +1059,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   </>
                 )}
               </div>
-              <ShareButton productTitle={product.title} productSlug={product.slug} creatorUsername={creatorUsername} className="shrink-0" />
+              <ShareButton productTitle={product.title} productSlug={product.slug} creatorUsername={creatorUsername} pageHost={pageHost} className="shrink-0" />
             </div>
           )}
 
@@ -1249,6 +1255,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   productTitle={product.title}
                   productSlug={product.slug}
                   creatorUsername={creatorUsername}
+                  pageHost={pageHost}
                   className="shrink-0 h-8 w-8"
                   iconSize="h-4 w-4"
                 />
@@ -1775,7 +1782,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   /* The same address the canonical tag declares, so the structured data and
      the <link> cannot disagree about which URL this product lives at. */
-  const canonicalUrl = getProductShareUrl(creatorUsername, product.slug)
+  const canonicalUrl = getProductShareUrl(creatorUsername, product.slug, pageHost)
   const sellerDisplayName = creatorProfile?.display_name || creator?.name || "Creator"
 
   const primaryCategory = productCategories[0] || null
