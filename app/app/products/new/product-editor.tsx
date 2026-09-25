@@ -63,7 +63,9 @@ import {
   type ProductVariant,
   type UploadedFile,
 } from "./editor-form"
-import { SAVED_CHECK_MS, SaveButton, barButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
+import { LeaveButton, SAVED_CHECK_MS, SaveButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
+import { returnToProducts, warmProducts } from "../list-return"
+import { holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
 import { MediaGrid } from "./media-grid"
@@ -237,6 +239,10 @@ function MobileSheet({
  * which is a new page, and the "Product is live" it earned is shown there.
  */
 let carriedNotice: string | null = null
+/* And the save itself: when it landed, so the new page's Save finishes the
+   check the old one started and then says Saved, and its Cancel is Back. */
+let carriedSavedAt: number | null = null
+let carriedScrollTop: number | null = null
 
 export function ProductEditor({ creator: loadedCreator, loaded }: { creator: EditorCreator; loaded: LoadedProduct | null }) {
   const router = useRouter()
@@ -277,6 +283,35 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   useEffect(() => () => {
     if (savedFlashTimer.current) clearTimeout(savedFlashTimer.current)
   }, [])
+  /* Saved in this visit, with nothing changed since, the grey Save says
+     Saved. A new product's first save opens it at its own address, a new
+     page, which picks up where this one was. */
+  const [savedThisVisit, setSavedThisVisit] = useState(() => carriedSavedAt !== null)
+  /* ...and the form opens where it was scrolled, before its first frame is painted. */
+  useLayoutEffect(() => {
+    const top = carriedScrollTop
+    carriedScrollTop = null
+    if (top && contentRef.current) contentRef.current.scrollTop = top
+  }, [])
+  useEffect(() => {
+    const at = carriedSavedAt
+    carriedSavedAt = null
+    if (at === null) return
+    const left = SAVED_CHECK_MS - (performance.now() - at)
+    if (left <= 0) return
+    setSavedFlash(true)
+    savedFlashTimer.current = setTimeout(() => setSavedFlash(false), left)
+  }, [])
+
+  /*
+    THE LIST, READY FOR THE WAY BACK. Fetched in full when the editor opens,
+    and again whenever the page's props change, which is a save's refresh
+    landing: the refresh drops every page the router kept, the list with
+    them, and the list fetched after it has the save in it.
+  */
+  useEffect(() => {
+    warmProducts(router)
+  }, [router, loaded])
   const savedValuesRef = useRef<string>(initial.productId ? snapshotOfForm(initial) : "") // What "unsaved" is measured against
 
   // Unsaved changes tracking
@@ -1747,12 +1782,15 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   }
 
   /*
-    CANCEL. Straight back to Products when there is nothing to lose. With
-    unsaved changes it asks first, as a sheet on a phone: Discard goes, Keep
-    editing stays. Saving is the bar's Save, so the question does not offer a
-    third way out. The unsaved tracking above still drives it; only the words
-    in the bar went.
+    CANCEL, OR BACK. The bar's first button says which (LeaveButton in
+    ./editor-buttons): Cancel while something would be lost, Back once the
+    product is saved and nothing has changed since. With unsaved changes it
+    asks first, as a sheet on a phone: Discard goes, Keep editing stays.
+    Saving is the bar's Save, so the question does not offer a third way
+    out. Either way the editor slides off over the list, which is already
+    drawn underneath, at the scroll it was left at (../list-return).
   */
+  const leaveMode = productId && !hasUnsavedChanges ? "back" : "cancel"
   const handleCancel = async () => {
     if (hasUnsavedChanges) {
       const leave = await ask(
@@ -1763,7 +1801,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       if (!leave) return
       setHasUnsavedChanges(false)
     }
-    router.push("/app/products")
+    returnToProducts(router, productId)
   }
 
   /** Saves and publishes. True when it saved. */
@@ -1829,6 +1867,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       setJustSaved(true)
       setHasUnsavedChanges(false)
       setSavedTitle(title)
+      setSavedThisVisit(true)
       flashSaved()
 
       // Store current values as saved state for change detection
@@ -1884,16 +1923,26 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       const message = typeof window !== "undefined" && window.innerWidth < 640 ? "Product is live" : "Product is live and saved"
       if (created) {
         carriedNotice = message
+        const savedAt = performance.now()
+        carriedSavedAt = savedAt
+        /* The same product at its own address: where the form was scrolled, and no landing (holdLayerLanding). */
+        carriedScrollTop = contentRef.current?.scrollTop ?? 0
+        holdLayerLanding()
         /* Only for the page this refresh draws, never a later one. */
-        setTimeout(() => { if (carriedNotice === message) carriedNotice = null }, 8000)
+        setTimeout(() => {
+          if (carriedNotice === message) carriedNotice = null
+          if (carriedSavedAt === savedAt) {
+            carriedSavedAt = null
+            carriedScrollTop = null
+          }
+        }, 8000)
         window.history.replaceState({}, "", `/app/products/${savedProductId}`)
         router.refresh()
         return true
       }
       router.refresh()
 
-      // Smooth scroll to top
-      contentRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+      /* The page stays where it was: the bar that says Saved is always in view, and so is the notice. */
       setNotificationMessage(message)
       setShowNotification(true)
       setTimeout(() => {
@@ -2073,6 +2122,13 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         draft heads the more menu, above the Publish or Unpublish that changes
         it; and Cancel still asks before unsaved changes are thrown away.
 
+        AFTER A SAVE THE PAGE STAYS, as Shopify's product page does: Save
+        shows its check and settles to a grey Saved, and Cancel becomes Back,
+        because there is nothing left to discard. The next change turns them
+        back into Cancel and a violet Save. So the bar is always one of three:
+        unsaved (Cancel, which asks; Save), saving (Save busy, Cancel held),
+        saved (Back; Saved, greyed).
+
         The three buttons have Polaris depth: white with a hairline and a soft
         foot for Cancel and more, solid violet for Save, all flat when pressed,
         one height on each screen. On a computer the sections are a row of
@@ -2099,9 +2155,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
           {savePhase === "saving" ? "Saving" : savePhase === "saved" ? "Saved" : ""}
         </p>
         <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 px-4 sm:h-16 sm:px-6">
-          <button type="button" onClick={() => void handleCancel()} className={barButton}>
-            Cancel
-          </button>
+          <LeaveButton mode={leaveMode} disabled={saveBusy} onLeave={() => void handleCancel()} />
           <div className="flex items-center gap-2">
             {productId ? (
               <ResponsiveActionMenu
@@ -2118,7 +2172,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                 ].map((item, i) => (i === 0 ? { ...item, section: isPublished ? "Live on your page" : "Draft, hidden from your page" } : item))}
               />
             ) : null}
-            <SaveButton phase={savePhase} disabled={!canSave} onSave={() => void handleSaveChanges()} />
+            <SaveButton phase={savePhase} disabled={!canSave} saved={savedThisVisit} onSave={() => void handleSaveChanges()} />
           </div>
         </div>
         <div className="mx-auto hidden h-11 max-w-[760px] items-start px-6 sm:flex">

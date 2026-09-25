@@ -3219,6 +3219,80 @@ html.capacitor.has-page-layer {
   background-color: #f8f9fa;
 }
 
+/* ── A layer comes and goes (moveLayer, components/app/page-layer.tsx) ─────
+   A view transition: ::view-transition-old(root) is a picture of the screen
+   as it was, ::view-transition-new(root) the live page after the router's
+   commit. Only the layer moves; the page under it holds still and is drawn
+   the whole time, so no frame is ever empty.
+
+   On a phone the layer slides in from the right edge and back out to it,
+   with a soft shade along its leading edge, over the list. From 768px it
+   fades with a 12px rise. Duration and curve are custom properties set by
+   the script from one pair of numbers (LAYER_MOTION_MS, LAYER_MOTION_EASE).
+
+   The navigation pill has a name of its own while a layer moves, so it is
+   taken out of the page's picture and stays put over both. */
+@keyframes layer-slide-in {
+  from { transform: translateX(100%); }
+}
+@keyframes layer-slide-out {
+  to { transform: translateX(100%); }
+}
+@keyframes layer-rise-in {
+  from { opacity: 0; transform: translateY(12px); }
+}
+@keyframes layer-sink-out {
+  to { opacity: 0; transform: translateY(12px); }
+}
+html[data-layer-motion] [data-app-nav-pill] {
+  view-transition-name: app-nav-pill;
+}
+html[data-layer-motion]::view-transition-group(app-nav-pill) {
+  animation: none;
+}
+html[data-layer-motion]::view-transition-old(app-nav-pill) {
+  animation: none;
+  opacity: 0;
+}
+html[data-layer-motion]::view-transition-new(app-nav-pill) {
+  animation: none;
+}
+/* The browser adds the two pictures together (plus-lighter) for its own
+   crossfade; a page moving over another must cover it instead. */
+html[data-layer-motion]::view-transition-old(root),
+html[data-layer-motion]::view-transition-new(root) {
+  mix-blend-mode: normal;
+}
+html[data-layer-motion="enter"]::view-transition-old(root) {
+  animation: none;
+}
+html[data-layer-motion="enter"]::view-transition-new(root) {
+  animation: layer-rise-in var(--layer-motion-ms, 300ms) var(--layer-motion-ease, ease-out) both;
+}
+html[data-layer-motion="leave"]::view-transition-new(root) {
+  animation: none;
+}
+html[data-layer-motion="leave"]::view-transition-old(root) {
+  z-index: 1;
+  animation: layer-sink-out var(--layer-motion-ms, 300ms) var(--layer-motion-ease, ease-out) both;
+}
+@media (max-width: 767px) {
+  html[data-layer-motion="enter"]::view-transition-new(root) {
+    animation-name: layer-slide-in;
+    box-shadow: -8px 0 24px rgba(17, 24, 39, 0.12);
+  }
+  html[data-layer-motion="leave"]::view-transition-old(root) {
+    animation-name: layer-slide-out;
+    box-shadow: -8px 0 24px rgba(17, 24, 39, 0.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-layer-motion]::view-transition-old(root),
+  html[data-layer-motion]::view-transition-new(root) {
+    animation: none;
+  }
+}
+
 html.capacitor.cp-fullscreen {
   background-color: #ffffff;
 }
