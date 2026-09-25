@@ -120,7 +120,7 @@ rmSync(dir, { recursive: true, force: true })
 if (!scripts.after) fail("this checkout's Settings did not bundle")
 const pageOf = (script) => `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
   `<style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>` +
-  `</head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}};window.__fixture={tab:"domains"};window.__err=[];window.addEventListener("error",function(e){window.__err.push(String(e.message))})</script><script>${script}</script></body></html>`
+  `</head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}};window.__fixture={tab:new URLSearchParams(location.search).get("tab")||"domains"};window.__err=[];window.addEventListener("error",function(e){window.__err.push(String(e.message))})</script><script>${script}</script></body></html>`
 
 const records = (host, apex) => apex
   ? [{ type: "A", name: "@", value: "216.150.1.1" }, { type: "CNAME", name: "www", value: "cname.vercel-dns.com" }]
@@ -338,6 +338,32 @@ console.log("\nA phone (390, Pro)")
   expect(phone.buttons.every((h) => h >= 36), "the card's buttons are the owner's 36px", phone.buttons)
   expect(phone.purpose.join() === "Website,Creator page", "Connect asks what the domain is for", phone.purpose)
   await p.close()
+}
+
+console.log("\nOpening the tab: long tasks and layout shift, from the press to 1.5s after")
+for (const width of [390, 1440]) {
+  for (const which of ["before", "after"]) {
+    if (!scripts[which]) continue
+    const p = await browser.newPage()
+    const phone = width < 640
+    await p.setViewport(phone ? { width, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { width, height: 900, deviceScaleFactor: 1 })
+    await p.goto(`${base}/?v=${which}&plan=pro&tab=general`, { waitUntil: "load" })
+    await p.waitForFunction("window.__ran === true", { timeout: 15000 })
+    await wait(900)
+    await p.evaluate(() => {
+      window.__lt = []
+      window.__cls = 0
+      new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push(Math.round(e.duration)) }).observe({ type: "longtask", buffered: false })
+      new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) window.__cls += e.value }).observe({ type: "layout-shift", buffered: false })
+    })
+    const tab = await p.evaluateHandle(() => [...document.querySelectorAll("[data-settings-tabs] button")].find((b) => b.textContent.trim() === "Domains"))
+    await tab.asElement().click()
+    await wait(1500)
+    const m = await p.evaluate(() => ({ lt: window.__lt, cls: Math.round(window.__cls * 1000) / 1000 }))
+    console.log(`  ${String(width).padEnd(5)} ${which.padEnd(7)} long tasks: ${m.lt.length ? m.lt.join(", ") + "ms" : "none"}   layout shift: ${m.cls}`)
+    if (which === "after") expect(m.lt.every((d) => d < 120), `${width}: no long task over 120ms opening the tab`, m.lt)
+    await p.close()
+  }
 }
 
 await browser.close()
