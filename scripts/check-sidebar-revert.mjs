@@ -123,6 +123,11 @@ window.__sr = (function () {
     return el.getBoundingClientRect()
   }
   function box(el) { var r = el.getBoundingClientRect(); return { x: r.left, y: r.top, width: r.width, height: r.height } }
+  /* A control's field: its parent, or the parent of the Insert shop data wrapper around it. */
+  function field(el) {
+    var wrap = el.parentElement && el.parentElement.closest("[data-dynamic-field]")
+    return (wrap && wrap.parentElement) || el.parentElement
+  }
   /*
     Every scroller around it back to its top, the nearest one brought to it,
     and then nothing measured until it has stayed put for three frames: a
@@ -239,7 +244,7 @@ window.__sr = (function () {
     return result
   }
   return {
-    frame: frame, sleep: sleep, click: click, sheet: sheet, side: side, tab: tab, text: text, show: show, settle: settle, box: box, union: union,
+    frame: frame, sleep: sleep, click: click, sheet: sheet, side: side, tab: tab, text: text, show: show, settle: settle, box: box, field: field, union: union,
     sectionRow: sectionRow, schemeBlock: schemeBlock, groupButton: groupButton, colourPopup: colourPopup,
     measureGroup: measureGroup, measureTabs: measureTabs,
   }
@@ -365,18 +370,20 @@ async function capture() {
       const sliderClip = await js(async () => {
         const s = window.__sr.side().querySelector("[data-slot='slider']")
         if (!s) return null
-        /* The slider's row (the track and its number), and the field around it with its label. */
+        /* The slider's row (the track and its number), and the field around it with its label,
+           past the Insert shop data wrapper where there is one (controls/dynamic-source-field). */
         const row = s.closest("[data-sheet-no-drag]")?.parentElement ?? s.parentElement
-        return window.__sr.settle(row.parentElement)
+        return window.__sr.settle(window.__sr.field(row))
       })
       await shoot("slider", sliderClip)
 
       const imageClip = await js(async () => {
         const p = window.__sr.side().querySelector("[data-wb-image-picker]")
         if (!p) return null
-        await window.__sr.settle(p.parentElement)
+        const field = window.__sr.field(p)
+        await window.__sr.settle(field)
         await window.__sr.sleep(700)
-        return window.__sr.box(p.parentElement)
+        return window.__sr.box(field)
       })
       await shoot("image", imageClip)
 
