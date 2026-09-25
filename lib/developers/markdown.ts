@@ -27,12 +27,25 @@ import type { SchemeSwatch, Specimen } from "./builder-reference"
 /** Inline markdown: `code`, **bold**, *emphasis*, [text](href). Kept as written. */
 export type Inline = string
 
+/** One category of the hub with its pages, for the front page's map. Made from lib/developers/pages.ts. */
+export interface HubMapGroup {
+  name: string
+  info: string
+  pages: { nav: string; summary: string; href: string }[]
+}
+
+/** The anchor of a category on the front page's map, e.g. `#group-themes`. */
+export function hubGroupId(name: string): string {
+  return `group-${slugify(name)}`
+}
+
 export type DocNode =
   | { kind: "heading"; level: 1 | 2 | 3; text: Inline; id: string }
   | { kind: "paragraph"; text: Inline }
   | { kind: "code"; lang: string; code: string; title?: string }
   | { kind: "table"; head: Inline[]; rows: Inline[][] }
-  | { kind: "list"; ordered: boolean; items: Inline[] }
+  /** `start` is the first item's number, when a numbered list picks up after a code sample. */
+  | { kind: "list"; ordered: boolean; items: Inline[]; start?: number }
   | { kind: "quote"; text: Inline }
   | { kind: "rule" }
   | { kind: "details"; summary: string; children: DocNode[] }
@@ -41,6 +54,19 @@ export type DocNode =
   | { kind: "specimens"; items: Specimen[] }
   /** Colour schemes as swatches. Only ever made by a directive. */
   | { kind: "schemes"; schemes: SchemeSwatch[] }
+  /** The hub's categories and their pages. Only ever made by a directive. */
+  | { kind: "hubmap"; groups: HubMapGroup[] }
+
+/**
+ * A quote that opens with **Note** or **Warning** is a callout: the web page
+ * draws it as one and the text stays a quote. No new syntax, so a file that
+ * is read as plain markdown anywhere else still reads the same.
+ */
+export function calloutOf(text: Inline): { tone: "note" | "warning"; label: string; body: Inline } | null {
+  const m = text.match(/^\*\*(Note|Warning)\*\*[.:]?\s*/)
+  if (!m) return null
+  return { tone: m[1] === "Warning" ? "warning" : "note", label: m[1], body: text.slice(m[0].length) }
+}
 
 /** The words of a piece of inline markdown, without its markup. */
 export function plainInline(text: Inline): string {
@@ -155,7 +181,8 @@ export function parseMarkdown(src: string): DocNode[] {
         }
         break
       }
-      out.push({ kind: "list", ordered, items })
+      const start = ordered ? Number.parseInt(item[2], 10) : 1
+      out.push(start > 1 ? { kind: "list", ordered, items, start } : { kind: "list", ordered, items })
       continue
     }
 
@@ -191,11 +218,16 @@ export function titleOf(nodes: DocNode[]): string | undefined {
   return h && h.kind === "heading" ? plainInline(h.text) : undefined
 }
 
-/** "On this page": every level-two and level-three heading, in order. */
+/**
+ * "On this page": every level-two and level-three heading, in order. The
+ * front page's map draws each category as a level-two heading, so they are
+ * in its outline too.
+ */
 export function outlineOf(nodes: DocNode[]): { id: string; text: string; level: 2 | 3 }[] {
   const out: { id: string; text: string; level: 2 | 3 }[] = []
   for (const n of nodes) {
     if (n.kind === "heading" && n.level > 1) out.push({ id: n.id, text: plainInline(n.text), level: n.level as 2 | 3 })
+    if (n.kind === "hubmap") for (const g of n.groups) out.push({ id: hubGroupId(g.name), text: g.name, level: 2 })
   }
   return out
 }
