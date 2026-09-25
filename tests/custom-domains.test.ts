@@ -8,6 +8,9 @@
  * subdomain as it is), the records it needs, the share links and canonicals
  * that name it, how proxy.ts routes each purpose, that the session and not
  * the browser says whose a domain is, and that the database change can wait.
+ * And the help around the records: the provider picker's spellings and
+ * links, what a check reads per record, the fixes, the four lines on how a
+ * domain behaves, and the plan that includes it.
  * Measured on screen by scripts/check-domains.mjs.
  */
 import { readFileSync, existsSync } from "node:fs"
@@ -23,6 +26,8 @@ import {
   vercelHostsFor,
 } from "@/lib/custom-domains/hostname"
 import { creatorPageHostFrom, creatorPageHostFromRows } from "@/lib/custom-domains/client"
+import { REGISTRARS, fixesFor, hostFor, readRecord, recordFqdn, registrarById, type RecordCheck } from "@/lib/custom-domains/dns-help"
+import { siteGate, siteLimits } from "@/lib/sites/plan"
 import { getLinksShareUrl, getProductShareUrl, getStoreShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
 import { stripComments } from "./_source"
 
@@ -171,13 +176,106 @@ console.log("\nSettings › Domains")
 {
   const panel = code("components/app/settings/domains-panel.tsx")
   check("asks what the domain is for", /role="radiogroup"/.test(panel) && /body: JSON\.stringify\(\{ domain: clean, purpose \}\)/.test(panel))
-  check("shows the records, Check again, Make primary and a remove that asks first",
-    /<Records records=\{d\.records\} \/>/.test(panel) && /Check again/.test(panel) && /action: "make_primary"/.test(panel) && /Remove \{host\}\?/.test(panel))
+  check("shows the DNS set up, Check again, Make primary and a remove that asks first",
+    /<DnsSetup/.test(panel) && /Check again/.test(panel) && /action: "make_primary"/.test(panel) && /Remove \{host\}\?/.test(panel))
   check("the action list is the shared one: a menu on a computer, a sheet on a phone", /<ResponsiveActionMenu/.test(panel))
   check("no violet", !/#(8b5cf6|7c3aed|6d28d9|a78bfa|ede9fe|f5f3ff|8B56FA)/i.test(panel))
   check("and the Settings page uses it", /<DomainsPanel/.test(code("components/app/settings-form-new.tsx")))
   check("the creator page's Share card reads the creator page's domain, not a field no domain has",
     /creatorPageHostFrom\(data\)/.test(code("components/app/creator-page-share.tsx")) && !/d\.is_active/.test(code("components/app/creator-page-share.tsx")))
+}
+
+console.log("\nWhere the records go: the provider picker")
+{
+  const ids = REGISTRARS.map((r) => r.id).join()
+  check("GoDaddy, Namecheap, Cloudflare, Squarespace, Porkbun, Hostinger and somewhere else", ids === "godaddy,namecheap,cloudflare,squarespace,porkbun,hostinger,other", ids)
+  check("the Name column is @ for the domain itself, and empty where Porkbun wants it empty",
+    hostFor(registrarById("godaddy"), { name: "@" }) === "@" && hostFor(registrarById("porkbun"), { name: "@" }) === "" && hostFor(registrarById("porkbun"), { name: "www" }) === "www" && hostFor(registrarById("namecheap"), { name: "_vercel" }) === "_vercel")
+  check("each named provider links to its DNS page for the registrable domain",
+    registrarById("godaddy").dnsUrl?.("maralind.com") === "https://dcc.godaddy.com/control/dnsmanagement?domainName=maralind.com" && /\/maralind\.com\/advancedns$/.test(registrarById("namecheap").dnsUrl?.("maralind.com") ?? "") && registrarById("other").dnsUrl === null)
+  check("an unknown provider reads as somewhere else", registrarById("nope").id === "other" && registrarById(null).id === "other")
+  check("a record's full name", recordFqdn("@", "maralind.com") === "maralind.com" && recordFqdn("links", "maralind.co.uk") === "links.maralind.co.uk")
+}
+
+console.log("\nWhat a check reads, record by record")
+{
+  const [a, www] = recordsFor("maralind.com")
+  const none = { a: [], cname: [], txt: [] }
+  check("A: missing, found, and another address in its place", readRecord(a, none).state === "missing" && readRecord(a, { ...none, a: ["216.150.1.1"] }).state === "found" && readRecord(a, { ...none, a: ["76.76.21.21"] }).state === "found")
+  const old = readRecord(a, { ...none, a: ["216.150.1.1", "34.1.2.3"] })
+  check("A beside an old host is a conflict, naming the old one", old.state === "conflict" && old.seen.join() === "34.1.2.3", JSON.stringify(old))
+  check("A: the project's own recommended address counts", readRecord({ type: "A", name: "@", value: "216.198.79.1" }, { ...none, a: ["216.198.79.1"] }, ["216.198.79.1", "216.150.1.1"]).state === "found")
+  check("CNAME: Vercel's own target, in any of its spellings", readRecord(www, { ...none, cname: ["d1d4fc829fe7bc7c.vercel-dns-017.com."] }).state === "found" && readRecord(www, { ...none, cname: ["cname.vercel-dns.com"] }).state === "found")
+  const parked = readRecord(www, { ...none, cname: ["parkingpage.namecheap.com"] })
+  check("CNAME at a parking page is a conflict", parked.state === "conflict" && parked.seen[0] === "parkingpage.namecheap.com")
+  check("CNAME flattened to Vercel's addresses is found", readRecord(www, { ...none, a: ["216.150.1.1"] }).state === "found")
+  const txt = { type: "TXT" as const, name: "_vercel", value: "vc-domain-verify=maralind.com,abc" }
+  check("TXT: found when its value is there, other values beside it are fine", readRecord(txt, { ...none, txt: ["vc-domain-verify=other.maralind.com,zzz", "vc-domain-verify=maralind.com,abc"] }).state === "found" && readRecord(txt, { ...none, txt: ["x"] }).state === "missing")
+}
+
+console.log("\nThe fixes, after a check that did not pass")
+{
+  const records = recordsFor("maralind.com")
+  const at = (state: RecordCheck["state"], seen: string[] = []) => records.map((r) => ({ type: r.type, name: r.name, state, seen }))
+  check("nothing yet says so once, and nothing else", JSON.stringify(fixesFor(records, at("missing"))) === JSON.stringify(["Nothing has shown up yet. New records usually appear within an hour, sometimes up to 48 hours."]))
+  check("everything found is nothing to fix", fixesFor(records, at("found")).length === 0 && fixesFor(records, null).length === 0)
+  const oldHost: RecordCheck[] = [{ type: "A", name: "@", state: "conflict", seen: ["34.1.2.3"] }, { type: "CNAME", name: "www", state: "missing", seen: [] }]
+  const lines = fixesFor(records, oldHost, { warnings: ["maralind.com has 2 A records, including 34.1.2.3. Remove the extra ones.", "maralind.com has IPv6 (AAAA) records (::1). Remove every AAAA record for it."] })
+  check("an old A record is named, the missing CNAME asked for, and the route's own A line not said twice",
+    lines[0] === "Delete the A record 34.1.2.3 on @. Only 216.150.1.1 should be there." && lines[1] === "No CNAME record on www yet. Add it with the value cname.vercel-dns.com." && lines.filter((l) => /A records/.test(l) && !/AAAA/.test(l)).length === 0 && lines.some((l) => /AAAA/.test(l)), JSON.stringify(lines))
+  const proxied = fixesFor(records, [{ type: "A", name: "@", state: "conflict", seen: ["104.21.3.4"] }, { type: "CNAME", name: "www", state: "conflict", seen: ["172.67.1.1"] }])
+  check("Cloudflare's proxy is said first, instead of blaming each record", proxied.length === 1 && /Cloudflare's proxy is on/.test(proxied[0]), JSON.stringify(proxied))
+  check("the route's blocking issues come before the records", fixesFor(records, at("missing"), { issues: ["A CAA record blocks it."] })[0] === "A CAA record blocks it.")
+  check("plain words: no em dashes", [...lines, ...proxied].every((l) => !/\u2014/.test(l)))
+}
+
+console.log("\nCheck DNS answers per record, beside what it always answered")
+{
+  const verify = code("app/api/domains/verify/route.ts")
+  check("it reads each record at its own name with the shared reading", /const checks = await checkRecords\(records, apexOf\(domain\), expectedIps\)/.test(verify) && /readRecord\(r, \{ a, cname, txt \}, acceptedIps\)/.test(verify))
+  check("the waiting answer keeps records, found, hints, warnings and issues, and adds checks and fixes",
+    /hints,\s*records,\s*found: \{ aRecord: aRecordVerified, cname: cnameVerified, txt: txtVerified \},\s*warnings,\s*issues,\s*checks,\s*fixes,/.test(verify))
+  check("the status still moves on the same rule", /const dnsVerified = apex \? aRecordVerified \|\| cnameVerified \|\| txtVerified : cnameVerified \|\| aRecordVerified/.test(verify))
+}
+
+console.log("\nThe DNS set up, on both screens")
+{
+  const setup = code("components/domains/dns-setup.tsx")
+  check("a provider picker that rewrites the Name column and links to its DNS page",
+    /<select/.test(setup) && /REGISTRARS\.map/.test(setup) && /hostFor\(registrar, r\)/.test(setup) && /registrar\.dnsUrl\(apex\)/.test(setup))
+  check("Type, Name, Value, TTL and Status", ["Type", "Name", "Value", "TTL", "Status"].every((h) => new RegExp(`role="columnheader">${h}<`).test(setup)))
+  check("a copy button per value, 44px until the table has room", /data-dns-copy=""/.test(setup) && /h-11 w-11 shrink-0[^"]*@xl:h-8 @xl:w-8/.test(setup))
+  check("three steps: add, wait, check", /Add these records where you bought/.test(setup) && /Wait for them to show/.test(setup) && /n=\{3\}/.test(setup))
+  check("fixes only after a check that did not pass", /const showFixes = Boolean\(result && result\.tone !== "ok" && fixes\.length > 0\)/.test(setup))
+  check("the provider is remembered on this device, and storage failing is fine", /localStorage\.getItem\(REGISTRAR_KEY\)/.test(setup) && (setup.match(/try \{/g) ?? []).length >= 2)
+  check("no violet in it", !/#(8b5cf6|7c3aed|6d28d9|a78bfa|ede9fe|f5f3ff)/i.test(setup))
+  const panel = code("components/app/settings/domains-panel.tsx")
+  check("Settings draws it with the records Vercel recommended, and each record's check", /<DnsSetup[\s\S]{0,200}records=\{d\.records && d\.records\.length > 0 \? d\.records : recordsFor\(d\.domain\)\}/.test(panel) && /checks=\{result\?\.checks \?\? null\}/.test(panel))
+  check("a check that did not pass opens the set up", /if \(!quiet && tone === "bad"\) setOpenRecords/.test(panel))
+  const site = code("components/website-builder/website-settings/domains.tsx")
+  check("Website Settings › Domains uses the same set up, dark", /<DnsSetup[\s\S]{0,800}tone="dark"/.test(site) && !/function DnsRecord\(/.test(site))
+}
+
+console.log("\nGet a domain, and how domains work")
+{
+  const panel = code("components/app/settings/domains-panel.tsx")
+  check("Get a domain, with GoDaddy, Namecheap and Hostinger", /Get a domain/.test(panel) && /godaddy\.com\/en\/domains/.test(panel) && /namecheap\.com\/domains/.test(panel) && /hostinger\.com\/domain-name-search/.test(panel))
+  check("and the four lines on how it works", /<HowItWorks /.test(panel) && /How custom domains work/.test(panel))
+  const how = code("components/domains/how-it-works.tsx")
+  const rows = how.match(/^\s*\["[^"]+", /gm) ?? []
+  check("four lines, no more", rows.length === 4, String(rows.length))
+  check("what each purpose shows, www, and HTTPS", /\["Website", /.test(how) && /\["Creator page", /.test(how) && /\["www", /.test(how) && /\["HTTPS", /.test(how))
+  const everywhere = [how, panel, code("components/domains/dns-setup.tsx"), code("components/website-builder/website-settings/domains.tsx")].join("\n")
+  check("none of the old promises: Your Store, Product Pages at /p/", !/Your Store|Product Pages|\/p\/\.\.\./.test(everywhere))
+  check("no em dashes in what the Domains screens say", !/\u2014/.test(everywhere))
+}
+
+console.log("\nThe plan that includes a domain")
+{
+  check("Free does not, Pro does (its id is growth), and the old Pro still does", !siteLimits("free").customDomain && siteLimits("growth").customDomain && siteLimits("pro").customDomain)
+  check("the refusal names Pro, the only paid plan sold", siteGate("free", "customDomain") === "Connecting your own domain is available on Pro." && siteGate("growth", "customDomain") === null)
+  const panel = code("components/app/settings/domains-panel.tsx")
+  check("Settings names Pro, not Growth", /Your own domain is on Pro</.test(panel) && !/Growth/.test(panel))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

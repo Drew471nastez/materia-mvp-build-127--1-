@@ -1,9 +1,12 @@
 "use client"
 
 import { Fragment, useEffect, useState } from "react"
-import { Check, Copy, Loader2 } from "lucide-react"
-import { AddressValue, Badge, Card, ErrorNote, Lead, PageTitle, Row, buttonClass, iconButtonClass, inputClass, primaryButtonClass, textLinkClass } from "./parts"
+import { Loader2 } from "lucide-react"
+import { AddressValue, Badge, Card, ErrorNote, Lead, PageTitle, Row, buttonClass, inputClass, primaryButtonClass, textLinkClass } from "./parts"
 import type { SettingsContext } from "./types"
+import { DnsSetup, type DnsCheckResult } from "@/components/domains/dns-setup"
+import type { DnsRecord } from "@/lib/custom-domains/hostname"
+import type { RecordCheck } from "@/lib/custom-domains/dns-help"
 import { cn } from "@/lib/utils"
 import { handleProblem, normalizeHandle } from "@/lib/website-builder/site-address"
 
@@ -21,13 +24,16 @@ interface DomainRow {
   records?: { type: string; name: string; value: string }[] | null
 }
 
-/** The records a domain needs: the ones Vercel recommended (app/api/domains), else its documented defaults. */
-function recordsFor(d: DomainRow): { type: string; name: string; value: string }[] {
-  if (d.records && d.records.length > 0) return d.records
+/**
+ * The records a domain needs: the ones Vercel recommended (app/api/domains), else its documented defaults.
+ * Drawn by the same three steps as Settings › Domains (components/domains/dns-setup.tsx).
+ */
+function recordsFor(d: DomainRow): DnsRecord[] {
+  if (d.records && d.records.length > 0) return d.records as DnsRecord[]
   return [
     { type: "A", name: "@", value: "216.150.1.1" },
     { type: "CNAME", name: "www", value: "cname.vercel-dns.com" },
-    ...(d.verification_token ? [{ type: "TXT", name: "_storelib", value: d.verification_token }] : []),
+    ...(d.verification_token ? [{ type: "TXT" as const, name: "_storelib", value: d.verification_token }] : []),
   ]
 }
 
@@ -87,6 +93,8 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
   const [confirming, setConfirming] = useState(false)
   const [checking, setChecking] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
+  /* The last check of each domain: its line, a status per record, and what to fix. */
+  const [checked, setChecked] = useState<Record<string, { result: DnsCheckResult; checks: RecordCheck[] | null; fixes: string[] }>>({})
   /* One website domain is replaced by a new one (it redirects for 30 days); a creator who
      connected several in Settings adds alongside them, and manages them there. */
   const current = domains && domains.length === 1 ? domains[0] : null
@@ -133,14 +141,34 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domainId: d.id }),
       })
-      const r = (await res.json().catch(() => ({}))) as { verified?: boolean; sslPending?: boolean; message?: string; error?: string }
+      const r = (await res.json().catch(() => ({}))) as {
+        verified?: boolean
+        sslPending?: boolean
+        message?: string
+        error?: string
+        checks?: RecordCheck[]
+        fixes?: string[]
+        issues?: string[]
+        warnings?: string[]
+      }
       if (!res.ok) throw new Error(r.error || "Could not check the DNS records")
+      const message = r.verified
+        ? r.sslPending
+          ? "DNS is right. The certificate is being issued, which usually takes a few minutes."
+          : "Connected. Your website is live at this domain."
+        : r.message || "The records are not showing yet. DNS can take up to a day to reach everyone; check again later."
       if (r.verified) {
         setDomains((prev) => (prev ?? []).map((x) => (x.id === d.id ? { ...x, status: r.sslPending ? "ssl_provisioning" : "active" } : x)))
-        setNote(r.sslPending ? "DNS is right. The certificate is being issued, which usually takes a few minutes." : "Connected. Your website is live at this domain.")
-      } else {
-        setNote("The records are not showing yet. DNS can take up to a day to reach everyone; check again later.")
+        if (!r.sslPending) setNote(message)
       }
+      setChecked((all) => ({
+        ...all,
+        [d.id]: {
+          result: { tone: r.verified ? (r.sslPending ? "wait" : "ok") : "bad", message },
+          checks: Array.isArray(r.checks) ? r.checks : null,
+          fixes: Array.isArray(r.fixes) ? r.fixes : [...(r.issues ?? []), ...(r.warnings ?? [])],
+        },
+      }))
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not check the DNS records")
     } finally {
@@ -183,17 +211,19 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
                   <span className="text-[14px] text-white/60">{s.ssl}</span>
                 </Row>
                 {waiting && (
-                  <div className="space-y-3 px-4 py-4 md:px-6">
-                    <p className="text-[14px] font-medium text-white">Records to add where you bought the domain</p>
-                    <div className="overflow-hidden rounded-xl border border-white/10">
-                      {recordsFor(d).map((r) => (
-                        <DnsRecord key={`${r.type}-${r.name}`} {...r} />
-                      ))}
-                    </div>
-                    <button type="button" onClick={() => void check(d)} disabled={checking === d.id} className={buttonClass}>
-                      {checking === d.id && <Loader2 className="h-4 w-4 animate-spin" />}
-                      Check DNS
-                    </button>
+                  <div className="px-4 py-4 md:px-6" data-domain-setup={d.domain}>
+                    <DnsSetup
+                      domain={d.domain}
+                      records={recordsFor(d)}
+                      checks={checked[d.id]?.checks ?? null}
+                      status={d.status}
+                      checking={checking === d.id}
+                      onCheck={() => void check(d)}
+                      checkLabel={checked[d.id] ? "Check again" : "Check DNS"}
+                      result={checked[d.id]?.result ?? null}
+                      fixes={checked[d.id]?.fixes ?? []}
+                      tone="dark"
+                    />
                   </div>
                 )}
               </Fragment>
@@ -246,32 +276,6 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
       )}
       {error && <ErrorNote>{error}</ErrorNote>}
     </>
-  )
-}
-
-function DnsRecord({ type, name, value }: { type: string; name: string; value: string }) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <div className="grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-white/[0.06] py-2 pl-3.5 pr-1.5 last:border-b-0 md:grid-cols-[64px_minmax(0,1fr)_auto] md:gap-3 md:py-2.5 md:pr-2.5">
-      <span className="font-mono text-[12.5px] text-white/55">{type}</span>
-      <span className="min-w-0">
-        <span className="block font-mono text-[12.5px] text-white/55">{name}</span>
-        <span className="block break-all font-mono text-[13px] text-white">{value}</span>
-      </span>
-      <button
-        type="button"
-        aria-label={copied ? `${type} value copied` : `Copy the ${type} value`}
-        onClick={() => {
-          void navigator.clipboard?.writeText(value).then(() => {
-            setCopied(true)
-            window.setTimeout(() => setCopied(false), 1400)
-          })
-        }}
-        className={iconButtonClass}
-      >
-        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-      </button>
-    </div>
   )
 }
 
