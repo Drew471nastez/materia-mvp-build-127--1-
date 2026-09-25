@@ -17,7 +17,7 @@ import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "../lib/website-builder/sectio
 import { STORELIB_SCHEMAS } from "../lib/website-builder/storelib-schemas"
 import { renderStorelibSection } from "../lib/website-builder/storelib-runtime"
 import { storefrontData } from "../lib/website-builder/storefront-data"
-import { notFoundSections } from "../lib/website-builder/shop-page"
+import { chromeScheme, notFoundSections, searchSections, shopSections } from "../lib/website-builder/shop-page"
 import { BUILT_IN_PAGE_KEYS, GENERATED_PAGE_KEYS, NOT_FOUND_PAGE_KEY, pageKeyFromSegment, pageTitleFromKey, templateForPage } from "../lib/website-builder/site-pages"
 import { headerMenuBlocks, mobileMenuStyle, transparentHere } from "../lib/website-builder/header-settings"
 import { MAX_ANNOUNCEMENTS, announcementMessages, announcementSeconds } from "../lib/website-builder/announcement"
@@ -177,6 +177,9 @@ section("The 404 page")
     const defaults = Object.fromEntries((SECTION_SCHEMAS.not_found.fields ?? []).filter((f) => f.default !== undefined).map((f) => [f.id, f.default]))
     return Object.entries(page[1].settings).every(([k, v]) => JSON.stringify(defaults[k]) === JSON.stringify(v))
   })())
+  const dark = home.map((s) => (s.type === "header" ? { ...s, settings: { color_scheme: "black" } } : s)) as SectionInstance[]
+  check("on a dark site the generated pages are dark too, not a white band between the chrome",
+    notFoundSections(dark)[1].settings.color_scheme === "black" && searchSections(dark)[1].settings.color_scheme === "black" && shopSections(dark, theme)[1].settings.color_scheme === "black" && chromeScheme(home) === "white")
   check("404 is generated, built in, and never an address of its own", GENERATED_PAGE_KEYS.has("404") && BUILT_IN_PAGE_KEYS.has("404") && pageKeyFromSegment("404") === null && NOT_FOUND_PAGE_KEY === "404")
   check("it is called Page not found, and drawn as page.404", pageTitleFromKey("404") === "Page not found" && templateForPage("404") === "page.404")
   check("the page switcher lists it", PAGE_META["404"]?.label === "404 page")

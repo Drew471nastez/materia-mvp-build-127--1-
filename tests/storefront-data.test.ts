@@ -200,7 +200,8 @@ async function main() {
     const none = await customSchemaLookup(db as never, "install-1", [], { draft: true })
     check("a page with no sections asks nothing", none === undefined && asked.length === 1)
     const route = read("app/api/website-builder/themes/[installId]/sections/route.ts")
-    check("a save is cleaned by the page's own schemas", /sanitizeSections\(raw, await customSchemaLookup\(supabase as never, installId, raw, \{ draft: true \}\)\)/.test(route))
+    /* A save reads the page's own section files into field maps (main's readOwnSectionFields); the sanitiser takes either form. */
+    check("a save is cleaned by the page's own section files", /const own = await readOwnSectionFields\(supabase, installId, raw\.map\(\(s\) => s\.type\)\)/.test(route) && /sanitizeSections\(raw, own\)/.test(route))
     check("and no database error text reaches the browser from that route", !/error: (fetchErr|updateErr|insertErr|deleteErr)\.message/.test(route))
   }
 

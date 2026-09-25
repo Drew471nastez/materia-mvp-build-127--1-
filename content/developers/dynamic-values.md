@@ -13,9 +13,12 @@ A section's template prints values with `{{ }}` and decides what to draw with `{
 | `scheme` | The colour scheme this instance uses, with its own colour overrides applied. |
 | `theme` | The theme's tokens and every theme setting. |
 | `products` | The creator's published products, shaped like blocks. |
+| `shop` | This site: `shop.name`, `shop.description`, `shop.url`, `shop.product_count`. |
+| `creator` | The creator's public profile: `creator.name`, `creator.headline`, `creator.bio`, `creator.avatar`. |
+| `product` | On a product page, the product it shows: `title`, `price`, `compare_price`, `description` (words), `description_html` (cleaned markup, printed with `raw`), `image`, `images`, `url`, `includes`, `id`. Empty everywhere else, so `{% if product %}` tells a section where it is. |
 | `forloop` | The loop being drawn: `index`, `index0`, `first`, `last`, `length`. |
 
-Nothing else can be read. The compiler checks every path against this list and against the schema beside it, so `{{ product.title }}` and `{{ settings.headng }}` are both errors with a line number, not an empty space on the page. A loop variable, `block` in `{% for block in blocks %}`, is checked against the block settings the schema declares.
+Nothing else can be read. The compiler checks every path against this list and against the schema beside it, so `{{ shop.nmae }}` and `{{ settings.headng }}` are both errors with a line number, not an empty space on the page. A loop variable, `block` in `{% for block in blocks %}`, is checked against the block settings the schema declares.
 
 ## settings
 
@@ -47,8 +50,18 @@ What each control gives a template:
 | `image_picker`, `video_picker`, `file_picker` | The file's URL, or `""` when nothing is chosen. |
 | `image_gallery` | A list of URLs. |
 | `icon_picker` | An icon's name, such as `zap`. |
-| `page_picker`, `product_picker` | The page's or product's address, such as `/about` or `/products/preset-pack`. |
+| `page_picker` | The page's address, such as `/about`. |
+| `product_picker` | Prints as the product's address, such as `/products/preset-pack`, and carries the product: `.title`, `.price`, `.compare_price`, `.image`, `.url`, `.tag`. A product that is not this creator's and published is an address with no fields. |
+| `product_list` | The chosen products, in order, shaped like `products`. |
+| `link_list` | A menu: `{ handle, title, links }`, each link `{ title, url, links }`. |
+| `inline_richtext`, `html` | Cleaned HTML. Print it with `raw`. |
+| `color_background` | A colour or a CSS gradient, checked piece by piece. |
+| `datetime` | `2026-03-14` or `2026-03-14T23:00`, as written. Print it with the `date` filter. |
+| `focal_point` | Two percentages, such as `30% 70%`, for `object-position`. |
+| `video_url` | A YouTube or Vimeo link. Print it through `embed`. |
 | `community_picker` | A community id, as typed. |
+
+A stored value the control does not allow is read as the default, as if it had never been set: a word in a `range`, an option a `select` does not list, a link to `javascript:`. The stored value is kept. A setting may also hold a placeholder such as `{{ shop.name }}`, filled in before the section is drawn: see [Shop data in a setting](/developers/schema#shop-data-in-a-setting).
 
 ### Responsive values
 
@@ -116,6 +129,7 @@ The instance's blocks in order. Each is `{ id, type, settings }`, and each block
 | A product page | `product` | `page.product` |
 | The shop | `page.products` | `page.products` |
 | Search results | `page.search` | `page.search` |
+| The 404 page | `page.404` | `page.404` |
 | Any other page | `page.<key>` | `page.<key>` |
 
 `page.in_editor` is the one sanctioned difference between the builder and the live site. Put anything meant for the person editing behind it, and a visitor never sees it:
@@ -234,6 +248,6 @@ It is not Liquid, although it looks like it. These are not in the language, and 
 - `assign`, `capture`, `include`, `render`, `unless`, `case`, `break`, `continue` and a `raw` tag,
 - whitespace control, `{%-` and `-%}`,
 - ranges such as `(1..3)`, and arithmetic with `+` or `-`: use the `plus` and `minus` filters,
-- filters for dates or money. Prices arrive formatted, and a date has to be text in a setting.
+- filters for money. Prices arrive formatted. A date is a `datetime` setting, printed with the `date` filter.
 
 An unknown **filter** is not refused: it prints the value unchanged. Check a filter's name against the table above.

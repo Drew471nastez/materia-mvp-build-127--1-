@@ -20,6 +20,21 @@ const SEARCH_ID = "storelib-search"
 const GRID_ID = "shop-all-products"
 const NOT_FOUND_ID = "storelib-not-found"
 
+/**
+ * THE COLOUR SCHEME OF THE PAGE BETWEEN THE CHROME. A generated page used to
+ * be white whatever the site was, so on a dark theme the shop, the search
+ * results and the 404 page were a white band between a black header and a
+ * black footer. They take the header's scheme, then the footer's, and are
+ * white only when neither says.
+ */
+export function chromeScheme(homeSections: SectionInstance[]): string {
+  for (const type of ["header", "footer"]) {
+    const scheme = homeSections.find((s) => s.type === type)?.settings?.color_scheme
+    if (typeof scheme === "string" && scheme.trim() !== "") return scheme
+  }
+  return "white"
+}
+
 export function shopSections(
   homeSections: SectionInstance[],
   theme: ThemeSettingsValues,
@@ -51,7 +66,7 @@ export function shopSections(
       button_text: "",
       button_url: "",
       max_width: "wide",
-      color_scheme: "white",
+      color_scheme: chromeScheme(homeSections),
       padding_top: 72,
       padding_bottom: 72,
     },
@@ -101,7 +116,7 @@ export function searchSections(homeSections: SectionInstance[]): SectionInstance
       columns: { desktop: 3, tablet: 2, mobile: 1 },
       shape: "1 / 1",
       max_width: "wide",
-      color_scheme: "white",
+      color_scheme: chromeScheme(homeSections),
       padding_top: 60,
       padding_bottom: 60,
     },
@@ -141,7 +156,7 @@ export function notFoundSections(homeSections: SectionInstance[]): SectionInstan
       show_products: true,
       products_heading: "From the shop",
       product_count: 4,
-      color_scheme: "white",
+      color_scheme: chromeScheme(homeSections),
       padding_top: 96,
       padding_bottom: 96,
     },
