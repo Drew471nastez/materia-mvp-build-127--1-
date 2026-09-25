@@ -42,6 +42,9 @@ import { MediaField } from "@/components/website-builder/editor/image-picker"
 import { SegmentedChoice, SettingSelect, fitsSegmented } from "@/components/website-builder/editor/setting-controls"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { altFieldFor, pairedAltIds } from "@/lib/website-builder/alt-pairing"
+import { whereItGoes } from "@/lib/website-builder/insert-words"
+import { measureSectionTops, playArrival } from "@/lib/website-builder/section-arrival"
+import { SectionLibrary } from "@/components/website-builder/editor/section-library"
 import {
   DEFAULT_DESKTOP_HEADER_LAYOUT,
   DEFAULT_MOBILE_HEADER_LAYOUT,
@@ -899,771 +902,11 @@ const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
 /** A thumbnail draws the theme's own file, never a creator's edit of it. */
 const EMPTY_SOURCES: Record<string, string> = {}
 
-/**
- * THE WIDTH A PREVIEW IS DRAWN AT, WHICH DECIDES WHAT IT SHOWS.
- *
- * Sections ask about the width they are IN, not the width of the window:
- * `@[768px]:grid-cols-3` is a container query and the section's own wrapper
- * is what it measures. See SectionRenderer. So the render width is not a
- * detail of the scaling — it is the question being put to the section, and
- * 800px asks "what do you look like on a desktop" wherever it is asked.
- *
- * A phone got the desktop answer, shrunk. Three columns at a third of their
- * size, a split hero with two unreadable halves: a picture of a layout the
- * person holding the phone will never see, offered as the thing they are
- * about to add. 390 is a phone, so the section answers as a phone.
- */
-const PREVIEW_RENDER_WIDTH = 800
-const PREVIEW_RENDER_WIDTH_MOBILE = 390
-const PREVIEW_THEME: ThemeSettingsValues = {
-  primary_color: "#6366f1",
-  secondary_color: "#8b5cf6",
-  accent_color: "#f59e0b",
-  background_color: "#ffffff",
-  surface_color: "#f8fafc",
-  text_color: "#0f172a",
-  text_secondary_color: "#64748b",
-  border_color: "#e2e8f0",
-  button_style: "rounded",
-  border_radius: 8,
-  font_heading: "Inter",
-  font_body: "Inter",
-}
-
-function buildPreviewSection(type: string, presetIndex = 0, given?: SectionSchema): SectionInstance | null {
-  const schema = given ?? SECTION_SCHEMAS[type]
-  if (!schema) return null
-  const preset = schema.presets?.[presetIndex] ?? schema.presets?.[0]
-  return {
-    id: `preview-${type}-${presetIndex}`,
-    type,
-    name: schema.name,
-    settings: preset?.settings ?? {},
-    blocks: preset?.blocks ?? [],
-    hidden: false,
-  }
-}
-
-/**
- * ===========================================================================
- *  ONE SECTION, DRAWN SMALL
- * ===========================================================================
- * The section is rendered at a desktop width and shrunk to fit the card, so
- * what you see is the section and not a narrow-screen version of it.
- *
- * THE BOX IS A FIXED SHAPE. It used to be as tall as whatever the section
- * rendered to, which meant every card changed height the moment its preview
- * appeared, and a grid of them settled in stages — the jumping when the
- * library opens or a category changes. A ratio known before anything renders
- * means the grid is its final size on the first frame, and the previews fill
- * in underneath without moving anything.
- *
- * `content-visibility: auto` lets the browser skip the ones scrolled out of
- * view; `contain-intrinsic-size` is what keeps that from costing a scroll
- * jump, since the box's size is known whether it has been drawn or not.
- */
-/**
- * And the box is a different shape, because the section is. The same hero
- * that is 400px tall at 800 wide is most of a screen tall at 390: keeping the
- * desktop's 2:1 box would crop a phone preview to its first line and a half.
- * Taller here, though not as tall as the section — a card is a glimpse, and a
- * list of full-height phone screens is a list you scroll instead of scan.
- */
-const PREVIEW_RATIO = 0.5
-const PREVIEW_RATIO_MOBILE = 0.75
-
-/**
- * ===========================================================================
- *  A PREVIEW IS DRAWN ONCE AND THEN IT IS MARKUP
- * ===========================================================================
- * Every card mounted a live `SectionRenderer`: a full React tree per section,
- * with its hooks, its effects and its reconciliation, thirty of them in one
- * modal. Opening the library built all thirty. Picking a category rebuilt
- * whatever the new list held. On a phone that is the freeze, the lag and the
- * glitch on close — the main thread is building sections while the sheet is
- * trying to animate, and the sheet's animation is the thing that loses.
- *
- * The previews are not live for any reason. Nothing in them is interactive —
- * they are `pointer-events: none` and scaled to a third of their size — and
- * nothing about them changes after they are drawn. So each one is drawn ONCE,
- * its markup is taken, and from then on the card is that markup.
- *
- * EXACTLY 1:1, and that is the point of doing it this way rather than
- * drawing pictures of the sections: the markup comes from the real renderer,
- * with the real theme, so a preview cannot drift from the section it stands
- * for. It is the same pixels, without the machinery that produced them.
- *
- * Cached across the whole session by type and preset, so a category switch, a
- * keystroke in the search box and a second opening of the library all cost
- * nothing. The cache is module-level on purpose: it outlives the modal, which
- * is exactly the case that used to rebuild everything.
- */
-const PREVIEW_MARKUP = new Map<string, string>()
-
-function SectionPreviewThumbnail({ type, presetIndex = 0, containerWidth = 220, schema, mobile = false }: { type: string; presetIndex?: number; containerWidth?: number; schema?: SectionSchema; mobile?: boolean }) {
-  const section = useMemo(() => buildPreviewSection(type, presetIndex, schema), [type, presetIndex, schema])
-  const renderWidth = mobile ? PREVIEW_RENDER_WIDTH_MOBILE : PREVIEW_RENDER_WIDTH
-  const height = Math.round(containerWidth * (mobile ? PREVIEW_RATIO_MOBILE : PREVIEW_RATIO))
-  /**
-   * THE WIDTH IS PART OF THE KEY.
-   *
-   * The markup a section produces at 390 is a different document from the one
-   * it produces at 800 — that is the whole point of asking it at 390. Keying
-   * on the type alone would hand a phone the desktop markup it happened to
-   * draw first, or the reverse, depending only on which was opened first in
-   * that session.
-   */
-  const cacheKey = `${type}:${presetIndex}:${renderWidth}`
-  const captureRef = useRef<HTMLDivElement>(null)
-
-  /**
-   * What we already have. Read during the first render rather than in an
-   * effect, so a card whose section has been drawn before never mounts a
-   * renderer at all — not even for one frame.
-   */
-  const [markup, setMarkup] = useState<string | null>(() => PREVIEW_MARKUP.get(cacheKey) ?? null)
-
-  /**
-   * The one live render, and only if nothing is cached. `useLayoutEffect`
-   * rather than `useEffect`: the markup is read and the renderer is dropped
-   * before the browser paints, so there is no frame where both exist.
-   */
-  useLayoutEffect(() => {
-    if (markup !== null || !section) return
-    const node = captureRef.current
-    if (!node) return
-    const html = node.innerHTML
-    if (!html) return
-    PREVIEW_MARKUP.set(cacheKey, html)
-    setMarkup(html)
-  }, [markup, section, cacheKey])
-
-  /**
-   * The markup as a prop that stays the same object. React 19 compares the
-   * object, not the string, so `{{ __html: markup }}` inline rewrote every
-   * card's preview, images and all, whenever the library rendered, which was
-   * on every keystroke anywhere in the editor. See sections/stable-html.
-   */
-  const markupProp = useMemo(() => (markup === null ? null : { __html: markup }), [markup])
-
-  if (!section) {
-    return (
-      <div className="w-full flex items-center justify-center bg-muted" style={{ height }}>
-        <Layout className="h-8 w-8 text-muted-foreground/30" />
-      </div>
-    )
-  }
-
-  const scale = containerWidth / renderWidth
-  const inner: CSSProperties = {
-    width: renderWidth,
-    transform: `scale(${scale})`,
-    pointerEvents: "none",
-    userSelect: "none",
-  }
-
-  return (
-    <div
-      className="relative w-full overflow-hidden"
-      style={{
-        height,
-        contentVisibility: "auto",
-        containIntrinsicSize: `${containerWidth}px ${height}px`,
-      }}
-    >
-      {markup === null ? (
-        <div ref={captureRef} className="absolute left-0 top-0 origin-top-left" data-keep-transform style={inner}>
-          {/* `deviceMode` for the header's sake. It is the one section kept
-              out of the container-query wrapper — it positions things `fixed`
-              and containment would make an ancestor their containing block —
-              so it is also the one section that cannot work the width out for
-              itself, and has to be told. */}
-          <SectionRenderer
-            section={section}
-            theme={PREVIEW_THEME}
-            isEditing={false}
-            isSelected={false}
-            deviceMode={mobile ? "mobile" : "desktop"}
-          />
-        </div>
-      ) : (
-        /**
-         * The same box, the same transform, the same markup — and no React
-         * below this point. `dangerouslySetInnerHTML` is the whole of it:
-         * the string came from this application's own renderer a moment ago,
-         * not from anywhere a creator or a visitor can reach.
-         */
-        <div
-          className="absolute left-0 top-0 origin-top-left"
-          /* The scale is what makes the preview fit the card. On a touch
-             device a blanket `transform: none` under `.group` used to remove
-             it: see the rule in globals.css that this opts out of. */
-          data-keep-transform
-          style={inner}
-          aria-hidden
-          dangerouslySetInnerHTML={markupProp ?? undefined}
-        />
-      )}
-    </div>
-  )
-}
-
-// ── Add Section Modal ────────────────────────────────────────
-/**
- * ===========================================================================
- *  ONE CARD IN THE ADD SECTION LIBRARY
- * ===========================================================================
- * Declared here, at the top level, and not inside the modal — which is where
- * it used to be. A component declared inside another component is a NEW
- * component type on every render of its parent, so React unmounts and
- * remounts every card whenever anything in the modal changes: each card's
- * width state resets to its guess, each ResizeObserver re-attaches, and every
- * preview redraws. That is the flicker you see on picking a category, and it
- * would have been one flicker per keystroke once there was a search box.
- *
- * `memo` then does what it is meant to: a card whose props have not changed
- * does not re-render at all.
- */
-const SectionLibraryCard = memo(function SectionLibraryCard({
-  type,
-  presetIndex,
-  title,
-  schema,
-  width,
-  mobile,
-  onAdd,
-}: {
-  type: string
-  presetIndex: number
-  title: string
-  schema: SectionSchema
-  /** Measured once by the grid, not thirty times by thirty cards. */
-  width: number
-  mobile?: boolean
-  onAdd: (type: string, presetIndex: number) => void
-}) {
-  return (
-    <button
-      onClick={() => onAdd(type, presetIndex)}
-      /* A stable hook so the library can be counted from outside: an empty
-         list and a list that failed to draw look identical in a screenshot. */
-      data-library-card={type}
-      className={cn(
-        "flex flex-col w-full rounded-xl border border-border bg-background overflow-hidden text-left",
-        /**
-         * NAMED PROPERTIES, NOT `all`.
-         *
-         * `transition-all` on a card that contains a live rendered section
-         * animates every property that changes on it, the preview's included.
-         * Thirty-eight of those in a grid is thirty-eight elements the
-         * compositor is asked to keep interpolating while you scroll past.
-         */
-        /**
-         * `translate` and `scale`, NOT `transform`. Tailwind v4 compiles
-         * `-translate-y-*` and `scale-*` to the standalone `translate:` and
-         * `scale:` properties, so a transition naming `transform` animates
-         * nothing at all and the lift snaps — silently, with the border and
-         * shadow still easing, so it half looks right.
-         */
-        "transition-[border-color,box-shadow,translate,scale] duration-200 ease-out",
-        mobile
-          ? /**
-             * NO PRESS EFFECT OF ITS OWN ON A PHONE.
-             *
-             * It had `active:scale-[0.98] active:opacity-80`, and the shell
-             * adds `opacity: .72` to every [role=button] on top of that. So a
-             * thumb landing here — to tap it, or to start a scroll — shrank
-             * the card AND faded it twice, over 200ms. That is the bump and
-             * the whitish fade. The shell's dim is the press feedback, it is
-             * delayed so a scroll never triggers it, and one is enough.
-             */
-            "rounded-2xl shadow-sm"
-          : "hover:border-foreground/25 hover:shadow-lg hover:shadow-black/8 hover:-translate-y-0.5 active:scale-[0.99] active:shadow-sm will-change-transform",
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2",
-        "group cursor-pointer select-none [-webkit-touch-callout:none]",
-      )}
-    >
-      <div className="px-4 pt-3 pb-2.5 shrink-0">
-        <p className="font-semibold text-sm leading-tight text-foreground">{title}</p>
-      </div>
-      <div className="w-full border-t border-border/40 bg-muted/10 overflow-hidden">
-        <SectionPreviewThumbnail type={type} presetIndex={presetIndex} containerWidth={width} schema={schema} mobile={mobile} />
-      </div>
-    </button>
-  )
-})
-
-interface LibraryEntry {
-  type: string
-  presetIndex: number
-  title: string
-  schema: SectionSchema
-  /** Everything somebody might type to find this, lower-cased once. */
-  haystack: string
-}
-
-const AddSectionModal = memo(function AddSectionModal({
-  open,
-  onOpenChange,
-  onAddSection,
-  schemas,
-  addable,
-  ownTypes,
-  sources,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onAddSection: (type: string, presetIndex?: number) => void
-  /** Every section this install can add: the theme's, and this creator's own. */
-  schemas: Record<string, SectionSchema>
-  addable: string[]
-  /** The ones this creator wrote, which get their own heading. */
-  ownTypes: string[]
-  /** Every .storelib file this install has saved, so the cards can draw them. */
-  sources: Record<string, string>
-}) {
-  const [activeCategory, setActiveCategory] = useState<string | null>(null)
-  const [query, setQuery] = useState("")
-  const [isMobileLayout, setIsMobileLayout] = useState(false)
-
-  useEffect(() => {
-    const check = () => setIsMobileLayout(window.innerWidth < 640)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
-
-  /** A fresh open starts at everything, with nothing typed. */
-  useEffect(() => {
-    if (open) { setActiveCategory(null); setQuery("") }
-  }, [open])
-
-  const own = useMemo(() => new Set(ownTypes), [ownTypes])
-
-  /**
-   * ONE CARD PER PRESET. A section's presets are the different things it can
-   * first appear as — the centred hero on a colour and the same hero on an
-   * image — and each is its own card with its own preview. A section with one
-   * preset, or none declared, is one card named after the section.
-   */
-  const allEntries = useMemo<LibraryEntry[]>(() => {
-    const out: LibraryEntry[] = []
-    for (const type of addable) {
-      const schema = schemas[type]
-      if (!schema) continue
-      const category = own.has(type) ? CUSTOM_SECTION_CATEGORY : schema.category ?? "content"
-      const label = SECTION_CATEGORIES[category] ?? category
-      const presets = schema.presets ?? []
-      const many = presets.length > 1
-      const list = many ? presets.map((p, i) => ({ i, name: p.name || schema.name })) : [{ i: 0, name: schema.name }]
-      for (const { i, name } of list) {
-        out.push({
-          type,
-          presetIndex: i,
-          title: name,
-          schema,
-          haystack: `${name} ${schema.name} ${label} ${schema.description ?? ""} ${type}`.toLowerCase(),
-        })
-      }
-    }
-    return out
-  }, [addable, schemas, own])
-
-  /**
-   * The theme's own order first, so the tabs read the way the library was
-   * laid out rather than the way an object happened to be built. A creator's
-   * own sections go last, under their own heading, which is the one tab that
-   * is not the theme's.
-   */
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const e of allEntries) {
-      const cat = own.has(e.type) ? CUSTOM_SECTION_CATEGORY : e.schema.category ?? "content"
-      counts.set(cat, (counts.get(cat) ?? 0) + 1)
-    }
-    const themeOrder = SECTION_CATEGORY_ORDER.map(c => c.id).filter(id => counts.has(id))
-    const rest = [...counts.keys()].filter(id => !themeOrder.includes(id) && id !== CUSTOM_SECTION_CATEGORY)
-    const mine = counts.has(CUSTOM_SECTION_CATEGORY) ? [CUSTOM_SECTION_CATEGORY] : []
-    return [
-      { key: "all", label: "All", count: allEntries.length },
-      ...[...themeOrder, ...rest, ...mine].map(id => ({
-        key: id,
-        label: SECTION_CATEGORIES[id] ?? id,
-        count: counts.get(id) ?? 0,
-      })),
-    ]
-  }, [allEntries, own])
-
-  /**
-   * Typing searches the whole library rather than the category in front of
-   * you: somebody looking for "countdown" should not have to know it is
-   * filed under Marketing first.
-   */
-  const searching = query.trim().length > 0
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    if (needle) {
-      const words = needle.split(/\s+/)
-      return allEntries.filter(e => words.every(w => e.haystack.includes(w)))
-    }
-    if (!activeCategory) return allEntries
-    return allEntries.filter(e => (own.has(e.type) ? CUSTOM_SECTION_CATEGORY : e.schema.category ?? "content") === activeCategory)
-  }, [allEntries, query, activeCategory, own])
-
-  /**
-   * CLOSE FIRST, ADD ON THE NEXT FRAME.
-   *
-   * Adding a section mounts a section's worth of DOM in the canvas and
-   * scrolls to it, which is a hundred milliseconds of main thread. Doing it
-   * in the same tick as the close means the browser may never commit the
-   * sheet's starting style before that work begins, and a transition whose
-   * start is never committed does not run: the sheet vanishes instead of
-   * sliding. One frame is all it takes to have the transition committed and
-   * handed to the compositor, which then finishes it whatever the main
-   * thread is doing.
-   */
-  const handleAdd = useCallback((type: string, presetIndex = 0) => {
-    onOpenChange(false)
-    requestAnimationFrame(() => onAddSection(type, presetIndex))
-  }, [onAddSection, onOpenChange])
-
-  const empty = searching
-    ? `Nothing matches “${query.trim()}”`
-    : activeCategory === CUSTOM_SECTION_CATEGORY
-      ? "Write a section in the code editor and it appears here"
-      : "No sections in this category"
-
-  const search = (
-    <div className="relative">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-      <input
-        type="search"
-        value={query}
-        onChange={e => setQuery(e.target.value)}
-        placeholder="Search sections"
-        aria-label="Search sections"
-        /* 16px on a phone. iOS zooms the page when a field under that takes
-           focus and does not zoom back, which inside a bottom sheet leaves
-           the sheet wider than the screen with its own content off to one
-           side. `md:text-sm` puts it back for the desktop modal. */
-        className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-8 text-[16px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-neutral-300 md:h-9 md:text-sm [&::-webkit-search-cancel-button]:hidden"
-      />
-      {searching && (
-        <button
-          type="button"
-          onClick={() => setQuery("")}
-          aria-label="Clear the search"
-          className="absolute right-2 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <X className="h-3 w-3" />
-        </button>
-      )}
-    </div>
-  )
-
-  /**
-   * THE COLUMN IS MEASURED ONCE, BY THE GRID. Every card in a one-column
-   * grid is the width of the grid, so thirty cards measuring themselves was
-   * thirty ResizeObservers agreeing — and each of them reported after the
-   * first paint, so every card drew once at a guessed width and then jumped
-   * to the real one. That is the snap on opening the library and on changing
-   * category.
-   *
-   * Measured here instead, before paint, and kept while the modal is open:
-   * changing category re-uses the width that is already known, so the new
-   * cards are the right size on their first frame. There is nothing to
-   * settle into.
-   */
-  /**
-   * ═════════════════════════════════════════════════════════════════════════
-   *  THE LIBRARY IS NOT ALLOWED TO DEPEND ON A MEASUREMENT ARRIVING
-   * ═════════════════════════════════════════════════════════════════════════
-   * This was a ref read inside an effect keyed on `[open, isMobileLayout]`,
-   * and the grid below was drawn only when `gridWidth > 0`. If the ref was
-   * not attached in the commit that effect ran in — which is what a dialog
-   * mounting its content through a presence wrapper does — the effect
-   * returned early, nothing ever set the width, and the deps never changed
-   * again to give it a second chance.
-   *
-   * That is the bug as reported: every category down the side and, beside
-   * them, nothing. Not "no sections in this category" — the list was never
-   * empty, it simply never drew. Measured on the real editor: `cards=0` in a
-   * modal reading "Add New Section … All, Hero, Products, Features …".
-   *
-   * A CALLBACK REF CANNOT MISS IT. React calls it with the node the moment
-   * the node exists, whenever that is, and with null when it goes away. The
-   * observer is created there, so the first measurement and every later one
-   * come from the same place and there is no window to fall through.
-   */
-  const [gridWidth, setGridWidth] = useState(0)
-  const gridObserver = useRef<ResizeObserver | null>(null)
-  const gridRef = useCallback((el: HTMLDivElement | null) => {
-    gridObserver.current?.disconnect()
-    gridObserver.current = null
-    if (!el) return
-    setGridWidth(el.getBoundingClientRect().width)
-    if (typeof ResizeObserver === "undefined") return
-    const ro = new ResizeObserver(() => setGridWidth(el.getBoundingClientRect().width))
-    ro.observe(el)
-    gridObserver.current = ro
-  }, [])
-  useEffect(() => () => gridObserver.current?.disconnect(), [])
-  /**
-   * The card has a 1px border, and the preview sits inside it, so the space
-   * the preview actually has is the column less those two pixels. Scaling to
-   * the column instead put a 2px-wide sliver of every section past the right
-   * edge of its own box, cropped and never seen — small, but it is the
-   * difference between a preview that is the section and one that is nearly
-   * the section.
-   */
-  const previewWidth = Math.max(0, gridWidth - 2)
-
-  const cards = (mobile: boolean) => (
-    <>
-      {/*
-        * ONE PROVIDER, NOT ONE PER CARD — and it carries this install's saved
-        * sources, which is what lets a section the creator wrote draw at all:
-        * it exists only in their files, so a card with no sources had nothing
-        * to render and showed an empty box under its name. It also means a
-        * theme section somebody has edited previews as they edited it, rather
-        * than as it shipped.
-        */}
-      <StorelibLiveProvider sources={sources}>
-        {/*
-          KEYED ON THE FILTER, so choosing a category replaces the grid rather
-          than editing it in place — which is what lets the new set arrive
-          instead of appearing. React would otherwise reconcile card against
-          card, keep the DOM nodes, and swap their contents: no element is new,
-          so nothing can animate, and a category with a live preview in every
-          card changes under you in one frame.
-
-          The animation is on the CONTAINER, once, not on thirty-eight cards.
-          Thirty-eight staggered entrances is thirty-eight composited layers
-          arriving together on a phone, which is the lag this modal is being
-          blamed for rather than a cure for it.
-        */}
-        <div
-          key={`${activeCategory ?? "all"}:${searching ? "q" : ""}`}
-          ref={gridRef}
-          className={cn("wb-panel-swap", mobile ? "flex flex-col gap-3" : "grid grid-cols-1 gap-4")}
-        >
-          {/* The width no longer gates the list. A card whose preview does
-              not yet know how wide it is can still be drawn and still be
-              pressed; a library nobody can see is worse than a preview that
-              arrives a frame late. */}
-          {visible.map(e => (
-            <SectionLibraryCard
-              key={`${e.type}-${e.presetIndex}`}
-              type={e.type}
-              presetIndex={e.presetIndex}
-              title={e.title}
-              schema={e.schema}
-              width={previewWidth}
-              mobile={mobile}
-              onAdd={handleAdd}
-            />
-          ))}
-        </div>
-      </StorelibLiveProvider>
-      {visible.length === 0 && (
-        <div className="py-16 text-center text-muted-foreground">
-          <p className="text-sm">{empty}</p>
-        </div>
-      )}
-    </>
-  )
-
-  // ── Mobile: bottom sheet ──
-  /**
-   * THE SAME SHEET AS PUBLISH, NOT A SECOND ONE.
-   *
-   * This was Radix's `Sheet` with `enableDragToClose`, which is a different
-   * thing wearing the same shape: it opens and closes on its own curve, its
-   * drag is a gesture handler bolted to a static panel, and it sat beside a
-   * sheet — the publish card, the menu, the AI — that does all of that
-   * properly. Two bottom sheets in one product that do not move alike is
-   * something you feel before you can name it.
-   *
-   * `MobileEditorSheet` is that other one: the drag writes `transform`
-   * imperatively while the finger is down so the sheet is under the thumb on
-   * the same frame, the release settles to a detent on the curve a thrown
-   * thing lands on, and the whole of it is a compositor transform that keeps
-   * running when the main thread is busy — which is exactly the moment a
-   * section is being added.
-   *
-   * NO CLOSE BUTTON. The handle is the affordance, dragging down is the
-   * gesture, and the scrim takes a tap. An X in the corner of a sheet is a
-   * third way to do what two gestures already do, and it is the one that
-   * needs a 44px target in the corner furthest from the thumb.
-   */
-  if (isMobileLayout) {
-    return (
-      <MobileEditorSheet
-        open={open}
-        onOpenChange={onOpenChange}
-        /* A library is a thing you browse: half a screen of it is a peephole,
-           and making somebody drag first is a step with one answer. */
-        openFull
-        detents={[0.92]}
-        /* Over the sections sheet it was opened from, not under it. */
-        layer="raised"
-        peekHeight={0}
-      >
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div className="shrink-0 px-5 pb-3 pt-0.5">
-            <h2 className="text-[17px] font-semibold tracking-tight text-[#1a1a2e]">Add section</h2>
-          </div>
-
-          <div className="shrink-0 px-4 pb-3">{search}</div>
-
-          {!searching && (
-            <div className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3">
-              <div className="flex w-max gap-2">
-                {categories.map(cat => {
-                  const on = (cat.key === "all" && !activeCategory) || activeCategory === cat.key
-                  return (
-                    <button
-                      key={cat.key}
-                      type="button"
-                      onClick={() => setActiveCategory(cat.key === "all" ? null : cat.key)}
-                      /**
-                       * THE SELECTED PILL SAYS SO IN AN ATTRIBUTE, NOT ONLY IN
-                       * A UTILITY CLASS.
-                       *
-                       * A tapped pill went white and read as untouched. The
-                       * cause was a sheet-wide `:hover { background-color:
-                       * transparent !important }` for touch, which on a phone
-                       * stays on the last element tapped, so it landed on
-                       * exactly the chip you had just selected. That rule now
-                       * excludes `.wb-chip` (see globals.css).
-                       *
-                       * The attribute is what a class cannot be: something a
-                       * stylesheet, a test and a screen reader can all read.
-                       * `aria-pressed` because that is what this control is,
-                       * a toggle, and it never announced itself as one.
-                       */
-                      data-on={on ? "true" : "false"}
-                      aria-pressed={on}
-                      className={cn(
-                        /**
-                         * Named properties, not `transition-all`. Tailwind v4
-                         * compiles `active:scale-95` to the standalone
-                         * `scale:` property, so `transition-all` covers it —
-                         * but it also covers `width`, and a chip row that
-                         * transitions width re-lays-out the row on every
-                         * press. These three are colour and a compositor
-                         * transform, and nothing else moves.
-                         */
-                        "wb-chip shrink-0 rounded-full px-4 py-2 text-sm font-medium whitespace-nowrap",
-                        "transition-[background-color,color,scale] duration-200 ease-out active:scale-[0.96]",
-                        /**
-                         * EXPLICIT COLOURS, NOT `bg-foreground` / `bg-muted`.
-                         *
-                         * Those are the app's semantic tokens, and they are
-                         * defined twice: once on `:root` and once under
-                         * `.dark`. The builder is a light surface by
-                         * decision — every other thing in it is a literal,
-                         * `#1a1a2e` and `#f3f4f6` and the rest — but these
-                         * chips asked the document what "foreground" meant.
-                         * Put the sheet under a dark root and the selected
-                         * chip becomes near-white ON near-white: a pill you
-                         * cannot read and cannot see you have selected.
-                         *
-                         * Nothing here needs to be relative to anything. The
-                         * selected chip is the near-black this product uses
-                         * for a primary action, the rest are the same grey
-                         * the section actions use, and neither can be
-                         * flipped by a class on an ancestor.
-                         */
-                        on
-                          ? "bg-[#1a1a2e] text-white"
-                          : "bg-[#f3f4f6] text-[#4b5563]",
-                      )}
-                    >
-                      {cat.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          <div className="h-px w-full shrink-0 bg-border/60" />
-
-          {/**
-            * Keyed on the category, so switching one REPLACES the list and
-            * the new list arrives rather than appearing. Not keyed on the
-            * query as well: an entrance animation on every keystroke is a
-            * list that flickers while you type.
-            */}
-          <div
-            key={activeCategory ?? "all"}
-            data-sheet-scroll
-            className="wb-cards-enter wb-slim-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-3"
-          >
-            {cards(true)}
-          </div>
-        </div>
-      </MobileEditorSheet>
-    )
-  }
-
-  // ── Desktop: centered modal ──
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        data-wb-add-section-modal
-        className={cn(
-          "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
-          "w-[min(735px,calc(100vw-2rem))] !max-w-[calc(100vw-2rem)]",
-          "max-h-[88vh]",
-        )}
-      >
-        <DialogHeader className="px-6 py-4 border-b border-border shrink-0 space-y-3">
-          <div>
-            <DialogTitle className="text-lg font-semibold">Add New Section</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">Choose a section type to add to your page</DialogDescription>
-          </div>
-          {search}
-        </DialogHeader>
-
-        <div className="flex flex-1 min-h-0 overflow-hidden">
-          <nav className="w-[150px] sm:w-[180px] border-r border-border shrink-0 overflow-y-auto wb-slim-scroll py-2 bg-muted/20">
-            {categories.map(cat => {
-              const on = (cat.key === "all" && !activeCategory) || activeCategory === cat.key
-              return (
-                <button
-                  key={cat.key}
-                  onClick={() => { setQuery(""); setActiveCategory(cat.key === "all" ? null : cat.key) }}
-                  className={cn(
-                    "w-full flex items-center gap-2 text-left px-4 py-2.5 text-sm font-medium transition-all relative",
-                    on && !searching
-                      ? "text-foreground bg-background border-l-2 border-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-background/60",
-                  )}
-                >
-                  <span className="truncate">{cat.label}</span>
-                  {cat.key === CUSTOM_SECTION_CATEGORY && (
-                    <span className="ml-auto rounded-full bg-muted px-1.5 text-[11px] tabular-nums">{cat.count}</span>
-                  )}
-                </button>
-              )
-            })}
-          </nav>
-
-          <div className="flex-1 overflow-y-auto wb-slim-scroll overscroll-contain p-5">
-            {searching && (
-              <p className="mb-3 text-xs text-muted-foreground">
-                {visible.length === 1 ? "1 section" : `${visible.length} sections`} matching “{query.trim()}”
-              </p>
-            )}
-            {cards(false)}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-})
+/*
+  THE SECTION LIBRARY moved to components/website-builder/editor/
+  section-library.tsx: its previews, its cards, and the sheet and the dialog
+  it opens in. It is imported above as SectionLibrary.
+*/
 
 // ── Professional Image Picker ────────────────────────────────
 /*
@@ -3018,6 +2261,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const [schemeEditing, setSchemeEditing] = useState<{ key: string; from: Panel } | null>(null)
   const [addSectionOpen, setAddSectionOpen] = useState(false)
+  /** A section just added, and where the page's sections were before it: see addSection. */
+  const arrivalRef = useRef<{ id: string; before: Map<string, number> } | null>(null)
   // Absolute index in `sections` where a new section should be inserted.
   // Set when the user clicks an "insert between" divider in the sidebar.
   // null = append before the footer (default).
@@ -4740,10 +3985,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (footerIdx !== -1) next.splice(footerIdx, 0, newSection)
       else next.push(newSection)
     }
+    /**
+     * Where every section is BEFORE this one goes in, so the canvas can open
+     * the page where it lands instead of jumping (lib/website-builder/
+     * section-arrival.ts). The canvas plays it in the frame the section is
+     * committed, and brings it on screen if it is not.
+     */
+    const scroller = document.getElementById("wb-preview-root")
+    arrivalRef.current = scroller ? { id: newSection.id, before: measureSectionTops(scroller) } : null
     setSections(next)
     setSelectedPanel({ type: "section", sectionId: newSection.id })
     setIsDirty(true)
-    revealSection(newSection.id)
+    if (!scroller) revealSection(newSection.id)
   }
 
   // Add custom page
@@ -5254,11 +4507,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * editor. Each card is memoised on `onAdd`, so every keystroke anywhere
    * re-rendered thirty-eight cards and their previews.
    */
+  const addSectionOpenRef = useRef(addSectionOpen)
+  addSectionOpenRef.current = addSectionOpen
   const onAddSectionOpenChange = useCallback((o: boolean) => {
     setAddSectionOpen(o)
     if (!o) {
-      setPendingInsertIndex(null)
-      setCanvasInsertAt(null)
+      /**
+       * NOT AT ONCE. A section chosen in the library is added on the frame
+       * after the library starts to close (the close goes first, so it is
+       * already with the compositor), and it needs to know which gap it was
+       * chosen for. Clearing the gap here, in the same commit as the close,
+       * is what sent every section tapped into a gap to the end of the page
+       * instead (scripts/check-add-section.mjs: "at 9 of 11"). Two frames
+       * later the add has used it and cleared it itself; a library closed
+       * without a choice is cleared then too, unless it was opened again.
+       */
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (addSectionOpenRef.current) return
+        setPendingInsertIndex(null)
+        setCanvasInsertAt(null)
+      }))
     }
   }, [])
   const addSectionRef = useRef<(type: string, presetIndex?: number) => void>(() => {})
@@ -5308,6 +4576,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setCanvasInsertAt(at)
     setAddSectionOpen(true)
   }, [])
+
+  /**
+   * Where the next section will go, in words, for the library's title: on a
+   * phone the library covers the gap that was tapped. Worked out only while
+   * the library is open, and kept while it closes so the line does not
+   * change under a sheet that is leaving.
+   */
+  const libraryWhereRef = useRef<string | null>(null)
+  const libraryWhere = useMemo(() => {
+    if (!addSectionOpen) return libraryWhereRef.current
+    const index = canvasInsertAt != null ? bodyGapToListIndex(sections, canvasInsertAt) : pendingInsertIndex
+    libraryWhereRef.current = whereItGoes(sections, index, s => sectionDisplayName(s, librarySchemas))
+    return libraryWhereRef.current
+  }, [addSectionOpen, canvasInsertAt, pendingInsertIndex, sections, librarySchemas])
 
   // Narrow the selected section id safely
   const selectedSectionId: string | null =
@@ -8214,6 +7496,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 pageTemplate={templateForPage(currentPage)}
                 sections={canvasSections}
                 arrivedId={arrivedId}
+                arrival={arrivalRef}
                 inspectorEnabled={canvasInspecting}
                 selectedSectionId={selectedSectionId}
                 device={device}
@@ -8317,8 +7600,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         </main>
       </div>
 
-      {/* ── Add Section Modal ── */}
-      <AddSectionModal
+      {/* ── Add a section: components/website-builder/editor/section-library.tsx ── */}
+      <SectionLibrary
         open={addSectionOpen}
         onOpenChange={onAddSectionOpenChange}
         onAddSection={addSectionStable}
@@ -8326,6 +7609,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         addable={libraryAddable}
         ownTypes={ownSectionTypes}
         sources={storelibSources}
+        where={libraryWhere}
       />
 
       {/* ── Add Custom Page Modal ── */}
@@ -8833,6 +8117,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   theme,
   sections,
   arrivedId,
+  arrival,
   sources,
   pageTemplate,
   inspectorEnabled,
@@ -8853,6 +8138,12 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   sections: SectionInstance[]
   /** A section Ask AI has just put on the page, which arrives rather than appears. */
   arrivedId?: string | null
+  /**
+   * A section just added from the library, with where the page's sections
+   * were before it went in. Played by the canvas in the commit that draws it
+   * (lib/website-builder/section-arrival.ts).
+   */
+  arrival?: { current: { id: string; before: Map<string, number> } | null }
   /** Saved .storelib files, path to source; see storelibSources in the editor. */
   sources: Record<string, string>
   /** Which page's sections these are, for `page.template` in a section. */
@@ -8885,6 +8176,26 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
    * and SectionRenderer is memoised on its props.
    */
   const navigateFromChrome = useCallback((href: string) => onEditorNavigate(href, true), [onEditorNavigate])
+  /**
+   * A SECTION JUST ADDED ARRIVES. The canvas draws a deferred copy of the
+   * page, so the commit that puts the new section here can be a frame or two
+   * after the add; whichever commit it is, this runs before it is painted,
+   * opens the page where the section went in and brings it on screen.
+   */
+  useLayoutEffect(() => {
+    const plan = arrival?.current
+    if (!plan) return
+    const el = document.getElementById(`wb-section-${plan.id}`)
+    if (!el) return
+    arrival!.current = null
+    const scroller = document.getElementById("wb-preview-root")
+    if (!scroller) return
+    /* On a phone the sections sheet covers the foot of the canvas by its peek.
+       Read from the root's own style, where the sheet writes it: asking for
+       the computed style here would make the browser restyle the page first. */
+    const peek = parseFloat(document.documentElement.style.getPropertyValue("--wb-sheet-peek")) || 0
+    void playArrival(scroller, el, plan.before, { bottomInset: peek })
+  }, [sections, arrival])
   /* One object per install. Inline, it was a new storefront context on every
      canvas render, and every section reading it rendered again past its memo. */
   const storefront = useMemo(() => ({ inEditor: true, installId }), [installId])

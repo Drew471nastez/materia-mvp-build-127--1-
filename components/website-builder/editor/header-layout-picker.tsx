@@ -31,16 +31,16 @@ export interface HeaderLayoutOption {
 }
 
 export const DESKTOP_HEADER_LAYOUTS: HeaderLayoutOption[] = [
-  { id: "logo_left_nav_right", label: "Menu on the right" },
-  { id: "logo_left_nav_inline", label: "Menu beside logo" },
-  { id: "logo_left_nav_center", label: "Menu in the middle" },
-  { id: "nav_left_logo_center", label: "Logo in the middle" },
-  { id: "logo_center_nav_below", label: "Menu under logo" },
+  { id: "logo_left_nav_right", label: "Menu on right" },
+  { id: "logo_left_nav_inline", label: "Menu by logo" },
+  { id: "logo_left_nav_center", label: "Menu centered" },
+  { id: "nav_left_logo_center", label: "Logo centered" },
+  { id: "logo_center_nav_below", label: "Menu below logo" },
 ]
 
 export const MOBILE_HEADER_LAYOUTS: HeaderLayoutOption[] = [
-  { id: "logo_center_hamburger_left", label: "Logo in the middle" },
-  { id: "hamburger_left_logo_left", label: "Logo on the left" },
+  { id: "logo_center_hamburger_left", label: "Logo centered" },
+  { id: "hamburger_left_logo_left", label: "Logo on left" },
 ]
 
 export const DEFAULT_DESKTOP_HEADER_LAYOUT = "logo_left_nav_right"
@@ -60,7 +60,7 @@ function Logo({ x, y = 17, w = 18 }: { x: number; y?: number; w?: number }) {
 }
 function Menu({ x, y = 20, n = 3, gap = 4, w = 9 }: { x: number; y?: number; n?: number; gap?: number; w?: number }) {
   return (
-    <g stroke="currentColor" strokeWidth={2} strokeLinecap="round" opacity={0.7}>
+    <g stroke="currentColor" strokeWidth={2} strokeLinecap="round" opacity={0.85}>
       {Array.from({ length: n }, (_, i) => (
         <line key={i} x1={x + i * (w + gap)} y1={y} x2={x + i * (w + gap) + w} y2={y} />
       ))}
@@ -69,7 +69,7 @@ function Menu({ x, y = 20, n = 3, gap = 4, w = 9 }: { x: number; y?: number; n?:
 }
 function Icons({ x, y = 20 }: { x: number; y?: number }) {
   return (
-    <g fill="none" stroke="currentColor" strokeWidth={1.6} opacity={0.7}>
+    <g fill="none" stroke="currentColor" strokeWidth={1.6} opacity={0.85}>
       <circle cx={x} cy={y} r={3} />
       <circle cx={x + 10} cy={y} r={3} />
     </g>
@@ -77,7 +77,7 @@ function Icons({ x, y = 20 }: { x: number; y?: number }) {
 }
 function Burger({ x, y = 20 }: { x: number; y?: number }) {
   return (
-    <g stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" opacity={0.7}>
+    <g stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" opacity={0.85}>
       <line x1={x} y1={y - 4} x2={x + 10} y2={y - 4} />
       <line x1={x} y1={y} x2={x + 10} y2={y} />
       <line x1={x} y1={y + 4} x2={x + 10} y2={y + 4} />
@@ -167,7 +167,7 @@ export function HeaderLayoutPicker({
               "focus-visible:ring-2 focus-visible:ring-black/10",
               on
                 ? "border-[#1a1a2e] text-[#1a1a2e] shadow-[inset_0_0_0_0.5px_#1a1a2e]"
-                : "border-[#e5e7eb] text-[#9ca3af] hover:border-[#d1d5db] hover:text-[#6b7280]",
+                : "border-[#e5e7eb] text-[#a3a9b3] hover:border-[#d1d5db] hover:text-[#6b7280]",
             )}
           >
             <span className={cn("block rounded-[5px] border px-1", on ? "border-[#1a1a2e]/15 bg-[#f8f9fa]" : "border-[#f0f1f3] bg-[#fafafa]")}>

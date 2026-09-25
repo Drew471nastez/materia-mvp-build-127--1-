@@ -20,13 +20,27 @@
  *
  * MEASURED, NOT COUNTED. Height comes from `scrollHeight` after the height
  * has been reset, which is the browser's own answer to "how tall is this
- * text" — it accounts for wrapping, the font, the padding and the line
+ * text": it accounts for wrapping, the font, the padding and the line
  * height, none of which this component has to know.
  */
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { useEchoedValue } from "./echo-field"
+
+/**
+ * THE BROWSER DOES IT ITSELF WHERE IT CAN. `field-sizing: content` (Chrome
+ * and Edge) sizes a textarea to its text with no script at all, so there is
+ * nothing to measure: no forced layout per field when a section's settings
+ * open, which with a few text boxes on the panel was a few forced layouts of
+ * the whole editor in the frame a section was added. Where it is not
+ * supported (Safari, Firefox) the measuring below does the same job.
+ *
+ * Read once, on the client: this field only ever renders in the builder,
+ * which draws its panels after the page has loaded, so no server-rendered
+ * markup has to agree with it.
+ */
+const NATIVE_SIZING = typeof window !== "undefined" && typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("field-sizing", "content")
 
 export function AutoTextarea({
   value,
@@ -71,7 +85,9 @@ export function AutoTextarea({
    * assistant, by an undo, or by switching to another section, and a box that
    * only resized under a keystroke would be the wrong size for all three.
    */
-  React.useLayoutEffect(fit, [fit, shown])
+  React.useLayoutEffect(() => {
+    if (!NATIVE_SIZING) fit()
+  }, [fit, shown])
 
   /**
    * And when the panel changes width, because the same text wraps into a
@@ -80,7 +96,7 @@ export function AutoTextarea({
    */
   React.useEffect(() => {
     const el = ref.current
-    if (!el || typeof ResizeObserver === "undefined") return
+    if (NATIVE_SIZING || !el || typeof ResizeObserver === "undefined") return
     const ro = new ResizeObserver(fit)
     ro.observe(el)
     return () => ro.disconnect()
@@ -98,6 +114,8 @@ export function AutoTextarea({
       placeholder={placeholder}
       value={shown}
       onChange={(e) => set(e.target.value)}
+      /* The same ceiling as the measured path: `maxRows` lines, then it scrolls. */
+      style={NATIVE_SIZING ? ({ fieldSizing: "content", maxHeight: `calc(${maxRows}lh + 18px)` } as React.CSSProperties) : undefined}
       {...rest}
     />
   )

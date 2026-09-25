@@ -4263,6 +4263,58 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
 .wb-rich-text .rich-text-content {
   max-height: var(--wb-rich-max, 260px);
 }
+/* Seven controls in one row at the sidebar's default width: 29px targets
+   instead of 32, on a computer only (a phone keeps 44 and scrolls the row). */
+@media (min-width: 640px) {
+  .wb-rich-text .rich-text-toolbar button {
+    width: 29px;
+  }
+}
+
+/* The section library's dialog on a computer, kept rather than rebuilt: it
+   opens and closes by opacity and transform only, and a closed one is
+   hidden once its exit has played (section-library.tsx, LibraryDialog). */
+.wb-library-layer[data-state="closed"] {
+  visibility: hidden;
+  pointer-events: none;
+  transition: visibility 0s linear 190ms;
+}
+.wb-library-scrim {
+  opacity: 1;
+  transition: opacity 220ms ease-out;
+}
+.wb-library-layer[data-state="closed"] .wb-library-scrim {
+  opacity: 0;
+  transition-duration: 180ms;
+}
+.wb-library-panel {
+  transform: translate(-50%, -50%);
+  opacity: 1;
+  transition: transform 280ms cubic-bezier(0.32, 0.72, 0, 1), opacity 200ms ease-out;
+}
+.wb-library-layer[data-state="closed"] .wb-library-panel {
+  transform: translate(-50%, calc(-50% + 10px)) scale(0.985);
+  opacity: 0;
+  transition-duration: 180ms, 160ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-library-layer[data-state="closed"],
+  .wb-library-scrim,
+  .wb-library-panel { transition: none; }
+}
+
+/* A section library preview that lands while its card is on screen fades
+   in over the card's grey (components/website-builder/editor/section-library.tsx). */
+.wb-preview-arrive {
+  animation: wb-preview-arrive 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes wb-preview-arrive {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-preview-arrive { animation: none; }
+}
 
 /* The white piece behind a segmented control's answer slides, by transform
    (components/website-builder/editor/setting-controls.tsx). */

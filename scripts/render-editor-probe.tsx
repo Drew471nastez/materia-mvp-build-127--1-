@@ -48,7 +48,7 @@ const now = new Date().toISOString()
  * saving; PROBE_CONNECTIONS is what the agent-activity route says is
  * connected (a ConnectionsBrief), read at the moment it is asked.
  */
-const probeGlobals = globalThis as unknown as { PROBE_LIVE?: boolean; PROBE_CONNECTIONS?: unknown }
+const probeGlobals = globalThis as unknown as { PROBE_LIVE?: boolean; PROBE_CONNECTIONS?: unknown; PROBE_FILES?: Record<string, string> }
 const install = {
   id: "probe-install", creator_id: "probe-creator", theme_id: "default", name: "Probe store", status: probeGlobals.PROBE_LIVE ? "published" : "draft",
   is_custom: false, parent_install_id: null, sort_order: 0, created_at: now, updated_at: now, published_at: probeGlobals.PROBE_LIVE ? now : null,
@@ -68,7 +68,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   }
   if (/\/themes\/probe-install\/sections/.test(url)) return json({ sections, has_draft: false })
   if (/\/themes\/probe-install\/settings/.test(url)) return json({ settings: install.settings })
-  if (/\/themes\/probe-install\/files/.test(url)) return json({ files: [] })
+  /* PROBE_FILES: the install's saved .storelib files, path to source, so a probe can give the creator a section of their own. */
+  if (/\/themes\/probe-install\/files/.test(url)) return json({ files: probeGlobals.PROBE_FILES ?? [] })
   if (/\/themes\/probe-install\/backups/.test(url)) return json({ backups: [] })
   if (/\/themes\/probe-install$/.test(url)) return json({ install, username: "probe" })
   if (/\/products/.test(url)) return json({ products: [] })
