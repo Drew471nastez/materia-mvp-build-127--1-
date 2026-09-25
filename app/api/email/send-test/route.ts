@@ -25,7 +25,7 @@ import { renderBlocks } from "@/lib/email-campaigns/blocks"
 import { themeOf } from "@/lib/email-campaigns/brand"
 import { esc } from "@/lib/email-campaigns/rich"
 import { plainReason } from "@/lib/email-campaigns/retry"
-import { isResponse, readJson, requireCreator } from "@/lib/email-campaigns/route-auth"
+import { isResponse, readJson, requireCreator, UUID } from "@/lib/email-campaigns/route-auth"
 import { APP_URL } from "@/lib/email-automation"
 
 export const runtime = "nodejs"
@@ -51,7 +51,14 @@ export async function POST(request: Request) {
   /* The automation editor tests through here too, with its own two fields. */
   const flowFields = (v: unknown) =>
     typeof v === "string" ? v.replace(/\{\{\s*customer_name\s*\}\}/gi, "{{name}}").replace(/\{\{\s*product_name\s*\}\}/gi, "your product") : v
-  const content = prepareContent({ subject: flowFields(body.subject), preview_text: body.preview_text, body: flowFields(body.body) })
+  /* From an email's page: the saved email itself, only if it is this creator's. */
+  let source: { subject?: unknown; preview_text?: unknown; body?: unknown } = body
+  if (typeof body.campaign_id === "string" && UUID.test(body.campaign_id)) {
+    const { data: saved } = await ctx.admin.from("email_campaigns").select("subject, preview_text, body").eq("id", body.campaign_id).eq("creator_id", ctx.creatorId).maybeSingle()
+    if (!saved) return NextResponse.json({ error: "This email was not found. It may have been deleted." }, { status: 404 })
+    source = saved
+  }
+  const content = prepareContent({ subject: flowFields(source.subject), preview_text: source.preview_text, body: flowFields(source.body) })
   const blocking = content.errors.filter((e) => e.field !== "audience")
   if (blocking.length) return NextResponse.json({ error: blocking[0].message, errors: blocking }, { status: 422 })
 

@@ -72,21 +72,22 @@ export async function GET(request: NextRequest) {
     // Get all sent campaigns
     const { data: campaigns, error: campaignsError } = await adminSupabase
       .from("email_campaigns")
-      .select("id, subject, preview_text, body, status, audience_type, audience_count, sent_at, created_at")
+      .select("id, subject, preview_text, status, audience_type, audience_count, sent_at, created_at")
       .eq("creator_id", creator.id)
       .in("status", SENT_VIEW)
       .order("sent_at", { ascending: false, nullsFirst: false })
 
     if (campaignsError) {
-      console.error("[stats] Campaigns error:", campaignsError)
+      console.error("[stats] Campaigns error:", campaignsError.code)
       return NextResponse.json({ error: "Failed to fetch campaigns" }, { status: 500 })
     }
 
     if (!campaigns || campaigns.length === 0) {
+      const { data: plan } = await adminSupabase.from("creators").select("subscription_plan_id, subscription_status").eq("id", creator.id).maybeSingle()
       return createResponse({
         campaigns: [],
         stats: { totalSent: 0, totalOpens: 0, totalClicks: 0, totalUnsubscribed: 0, openRate: 0, clickRate: 0 },
-        monthlyUsage: { sent: 0, limit: 3000 },
+        monthlyUsage: { sent: 0, limit: monthlyLimit(plan?.subscription_plan_id, plan?.subscription_status) },
       })
     }
 
@@ -140,7 +141,6 @@ export async function GET(request: NextRequest) {
         id: c.id,
         subject: c.subject,
         preview_text: c.preview_text,
-        body: c.body,
         status: c.status,
         audience_type: c.audience_type,
         sent_at: c.sent_at,
@@ -197,7 +197,7 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error("[stats] Error:", error)
+    console.error("[stats] Error:", error instanceof Error ? error.name : "unknown")
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

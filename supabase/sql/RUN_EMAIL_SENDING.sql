@@ -15,8 +15,10 @@
      1. The campaign statuses the send pipeline moves through, and the
         audience types the compose page offers (the old check refused
         last_7days and segment, so those drafts could not be saved).
-     2. last_error, completed_at, send_idempotency_key and track_opens on a
-        campaign (track_opens: the composer's "Count opens" switch).
+     2. last_error, completed_at, send_idempotency_key, track_opens and
+        rendered_html on a campaign (track_opens: the composer's "Count
+        opens" switch; rendered_html: the email as it went out, kept for its
+        page, so a later change of logo or colour does not rewrite history).
      3. attempts, next_attempt_at and claimed_at on each recipient row, so a
         row is claimed before it is sent and retried later with backoff, and
         the status "unknown" for a message handed over with no answer.
@@ -40,6 +42,7 @@ ALTER TABLE public.email_campaigns ADD COLUMN IF NOT EXISTS completed_at TIMESTA
 ALTER TABLE public.email_campaigns ADD COLUMN IF NOT EXISTS send_idempotency_key TEXT;
 ALTER TABLE public.email_campaigns ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 ALTER TABLE public.email_campaigns ADD COLUMN IF NOT EXISTS track_opens BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE public.email_campaigns ADD COLUMN IF NOT EXISTS rendered_html TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS email_campaigns_send_once ON public.email_campaigns (creator_id, send_idempotency_key) WHERE send_idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS email_campaigns_due ON public.email_campaigns (status, scheduled_at);
 CREATE INDEX IF NOT EXISTS email_campaigns_active ON public.email_campaigns (status, updated_at);

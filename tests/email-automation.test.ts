@@ -187,7 +187,7 @@ async function main() {
   /* The flow editor left page.tsx for its own pages: the chooser at
      app/app/emails/flow/new and the builder at app/app/emails/flow/[id], both
      writing through app/api/automations. The same promises, pinned there. */
-  const page = read("app/app/emails/page.tsx")
+  const page = read("app/app/emails/emails-client.tsx")
   const createRoute = read("app/api/automations/flows/route.ts")
   const chooser = read("app/app/emails/flow/new/chooser.tsx")
   check("choosing an automation you have opens it, rather than making a second that would also send",

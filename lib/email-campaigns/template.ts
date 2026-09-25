@@ -90,18 +90,20 @@ const DARK = `
 @media (prefers-color-scheme: dark) {
 .sl-bg{background-color:#111114!important;}
 .sl-card{background-color:#1c1c21!important;border-color:#2c2c33!important;}
-.sl-body p,.sl-body li,.sl-body td,.sl-body blockquote,.sl-body span{color:#e4e4e7!important;}
+.sl-body p,.sl-body li,.sl-body ul,.sl-body ol,.sl-body blockquote{color:#e4e4e7!important;}
 .sl-body h1,.sl-body h2,.sl-body h3,.sl-brand,.sl-name{color:#fafafa!important;}
 .sl-body hr,.sl-rule{border-color:#34343c!important;}
 .sl-product{border-color:#34343c!important;}
 .sl-foot,.sl-foot a{color:#a1a1aa!important;}
 .sl-logo{background-color:#ffffff!important;border-radius:6px!important;padding:4px 6px!important;}
+.sl-btn{border:1px solid #7a7a85!important;}
 }
-[data-ogsc] .sl-body p,[data-ogsc] .sl-body li,[data-ogsc] .sl-body td,[data-ogsc] .sl-body blockquote{color:#e4e4e7!important;}
+[data-ogsc] .sl-body p,[data-ogsc] .sl-body li,[data-ogsc] .sl-body ul,[data-ogsc] .sl-body ol,[data-ogsc] .sl-body blockquote{color:#e4e4e7!important;}
 [data-ogsc] .sl-body h1,[data-ogsc] .sl-body h2,[data-ogsc] .sl-body h3,[data-ogsc] .sl-brand,[data-ogsc] .sl-name{color:#fafafa!important;}
 [data-ogsc] .sl-foot,[data-ogsc] .sl-foot a{color:#a1a1aa!important;}
 [data-ogsb] .sl-bg{background-color:#111114!important;}
-[data-ogsb] .sl-card{background-color:#1c1c21!important;}`
+[data-ogsb] .sl-card{background-color:#1c1c21!important;}
+[data-ogsb] .sl-btn{border:1px solid #7a7a85!important;}`
 
 /** The whole email as HTML. */
 export function buildEmail(f: EmailFrame): string {

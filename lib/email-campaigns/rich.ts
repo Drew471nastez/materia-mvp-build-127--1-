@@ -27,7 +27,7 @@
 import { parseHtml, type HElement, type HNode } from "@/lib/rich-text/html"
 import { isButtonShaped, parseStyle, safeHref } from "@/lib/rich-text/policy"
 import { decodeHtmlEntities } from "@/lib/html-entities"
-import { buttonColors, type EmailTheme } from "./brand"
+import { DEFAULT_ACCENT, buttonColors, hexColor, type EmailTheme } from "./brand"
 
 export const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
 export const TEXT = "#1f2937"
@@ -160,7 +160,7 @@ function inline(nodes: HNode[], ctx: Ctx): string {
           break
         }
         if (isButtonShaped(node.attrs.style ?? "")) {
-          const c = buttonColors(new Map(parseStyle(node.attrs.style ?? "")).get("background-color"), ctx.theme)
+          const c = buttonColors(chosenFill(node), ctx.theme)
           out += `<a href="${esc(href)}" target="_blank" style="display:inline-block;padding:10px 18px;border-radius:8px;background-color:${c.fill};color:${c.text};font-family:${FONT};font-size:15px;line-height:20px;font-weight:600;text-decoration:none;">${inner}</a>`
           break
         }
@@ -196,6 +196,17 @@ function isBlank(html: string): boolean {
 /* ─── Buttons ────────────────────────────────────────────────────────── */
 
 /**
+ * The fill a button in the text chose, or "" for the brand's. The automated
+ * email's editor (app/app/emails/flow/body-editor.tsx) writes every button
+ * in the default ink and offers no other, so that ink is not a choice: those
+ * buttons wear the creator's colour like every other button they send.
+ */
+function chosenFill(a: HElement): string {
+  const fill = hexColor(new Map(parseStyle(a.attrs.style ?? "")).get("background-color"))
+  return !fill || fill === DEFAULT_ACCENT ? "" : fill
+}
+
+/**
  * A button that survives every inbox: the fill on the table cell, which
  * Outlook paints (it ignores padding and background on a link), with the
  * padding on the link for everyone else and `mso-padding-alt` for Outlook.
@@ -205,7 +216,7 @@ export function buttonHtml(input: { href: string; label: string; fill: string; t
   const pad = input.size === "sm" ? "9px 16px" : "12px 24px"
   const font = input.size === "sm" ? "font-size:14px;line-height:18px;" : "font-size:16px;line-height:20px;"
   const margin = align === "center" ? "margin:0 auto;" : align === "right" ? "margin:0 0 0 auto;" : ""
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"${align === "center" ? ' align="center"' : ""} style="border-collapse:separate;${margin}"><tr><td align="center" bgcolor="${input.fill}" style="border-radius:8px;background-color:${input.fill};mso-padding-alt:${pad};"><a href="${esc(input.href)}" target="_blank" style="display:inline-block;padding:${pad};font-family:${FONT};${font}font-weight:600;color:${input.text};text-decoration:none;border-radius:8px;mso-padding-alt:0;"><span style="color:${input.text};">${input.label}</span></a></td></tr></table>`
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"${align === "center" ? ' align="center"' : ""} style="border-collapse:separate;${margin}"><tr><td align="center" bgcolor="${input.fill}" class="sl-btn" style="border-radius:8px;background-color:${input.fill};mso-padding-alt:${pad};"><a href="${esc(input.href)}" target="_blank" style="display:inline-block;padding:${pad};font-family:${FONT};${font}font-weight:600;color:${input.text};text-decoration:none;border-radius:8px;mso-padding-alt:0;"><span style="color:${input.text};">${input.label}</span></a></td></tr></table>`
 }
 
 /** A paragraph that is only a button-shaped link: drawn as a real button. */
@@ -222,7 +233,7 @@ function buttonBlock(a: HElement, align: string, ctx: Ctx): string {
   const href = emailHref(a.attrs.href)
   const label = inline(a.children, { ...ctx, inLink: true }).replace(/<[^>]*>/g, "").trim() || "Open"
   if (!href) return `<p style="${P}${align}">${label}</p>`
-  const c = buttonColors(new Map(parseStyle(a.attrs.style ?? "")).get("background-color"), ctx.theme)
+  const c = buttonColors(chosenFill(a), ctx.theme)
   const where = /center/.test(align) ? "center" : /right/.test(align) ? "right" : "left"
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin:4px 0 20px;"><tr><td align="${where}">${buttonHtml({ href, label, fill: c.fill, text: c.text, align: where })}</td></tr></table>`
 }

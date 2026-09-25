@@ -104,7 +104,7 @@ let schemaCache: { modern: boolean; at: number } | null = null
 export async function isModernSchema(db: Db): Promise<boolean> {
   if (schemaCache && Date.now() - schemaCache.at < 60_000) return schemaCache.modern
   const [a, b] = await Promise.all([
-    db.from("email_campaigns").select("id, last_error, send_idempotency_key, completed_at, track_opens").limit(1),
+    db.from("email_campaigns").select("id, last_error, send_idempotency_key, completed_at, track_opens, rendered_html").limit(1),
     db.from("campaign_recipients").select("id, attempts, next_attempt_at, claimed_at").limit(1),
   ])
   const modern = !a.error && !b.error
@@ -215,6 +215,25 @@ export function prepareContent(input: { subject?: unknown; preview_text?: unknow
     unknownFields: unknownMergeFields(subject, previewText, body),
   })
   return { subject, previewText, blocks, body, ...verdict }
+}
+
+/**
+ * The email as a reader with no name on file gets it, with no tracking: for
+ * the email's own page and the copy kept when a send starts.
+ */
+export function previewEmail(content: Pick<PreparedContent, "subject" | "previewText" | "blocks">, sender: Pick<Sender, "brand" | "avatarUrl">): string {
+  const reader = { name: null, email: null }
+  const page = `${APP_URL}/unsubscribe`
+  const body = personalizeHtml(renderBlocks(content.blocks, themeOf(sender.brand)), reader).replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, esc(page))
+  return buildEmail({
+    subject: personalizeSubject(content.subject, reader),
+    previewText: personalizeSubject(content.previewText, reader),
+    bodyHtml: body,
+    brand: sender.brand,
+    avatarUrl: sender.avatarUrl,
+    kind: "marketing",
+    unsubscribeUrl: page,
+  })
 }
 
 /* ─── Who it goes to ─────────────────────────────────────────────────── */
@@ -410,6 +429,8 @@ export async function startSend(db: Db, o: StartOptions): Promise<StartResult> {
     patch.last_error = null
     patch.completed_at = null
     if (o.idempotencyKey) patch.send_idempotency_key = o.idempotencyKey
+    /* The email as it goes out, for its page: a later logo or colour does not change what was sent. */
+    patch.rendered_html = previewEmail(content, sender)
   }
   let move = db.from("email_campaigns").update(patch).eq("id", o.campaignId).eq("creator_id", o.creatorId).in("status", o.from)
   if (o.expectedUpdatedAt) move = move.eq("updated_at", campaign.updated_at)

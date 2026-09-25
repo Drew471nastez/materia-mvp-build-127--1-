@@ -14,15 +14,24 @@ function check(name: string, ok: boolean, detail = "") {
   else { failed++; failures.push(name); console.log(`  FAIL  ${name}${detail ? `\n        ${detail}` : ""}`) }
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
-const page = read("app/app/emails/page.tsx")
+const page = read("app/app/emails/emails-client.tsx")
 const home = read("app/app/emails/emails-home.tsx")
+const detail = read("app/app/emails/email-detail.tsx")
+const cache = read("components/email/emails-cache.ts")
 
 console.log("\nThe Emails screen")
-check("the page draws the list with EmailsHome and writes in the composer", /<EmailsHome\n/.test(page) && /<EmailComposer/.test(page))
+check("the page draws the list with EmailsHome, and new and edit open the composer", /<EmailsHome\n/.test(page) && /<ComposePage campaignId=\{null\} \/>/.test(read("app/app/emails/new/page.tsx")) && /<ComposePage campaignId=\{id\} \/>/.test(read("app/app/emails/edit/[id]/page.tsx")) && /<EmailComposer/.test(read("components/email/compose/compose-page.tsx")))
 check("a send that is not simply done says so in the Sent list", /function SendBadge/.test(home) && /Partly sent/.test(home) && /Not sent/.test(home))
 check("the old pill tabs, stat boxes and flow cards are gone", !/Tabs - Pill Style/.test(page) && !/grid grid-cols-2 sm:grid-cols-4 gap-4/.test(page) && !/rounded-full transition-all whitespace-nowrap/.test(page))
 check("it is drawn with the Orders page's own parts", /from "\.\.\/orders\/order-parts"/.test(home) && /<PaneBar /.test(home) && /StatusBadge/.test(home))
-check("the views are tabs in the card's toolbar", /role="tablist" aria-label="Views"/.test(home) && /flex h-12 items-center gap-2 border-b/.test(home))
+check("the views are tabs in the pane's bar, which never unmounts", /role="tablist" aria-label="Views"/.test(home) && /<PaneBar [^>]*>[\s\S]{0,1600}<Tabs tab=\{tab\}/.test(home))
+check("New automation sits beside New email, on a phone too", /href="\/app\/emails\/flow\/new"[^>]*data-new-automation/.test(home) && /<span className="sm:hidden">Automation<\/span>/.test(home) && /href="\/app\/emails\/new"[^>]*data-new-email/.test(home))
+check("a tab switch replaces ?tab= in the address, with no request and no scroll to the top", /writeAddress\(\(p\) => p\.set\("tab", next\), "replace"\)/.test(page) && !/router\.replace/.test(page.replace(/\/\*[\s\S]*?\*\//g, "")))
+check("each tab keeps its scroll, and the bar never drops back down", /scrolls\.current\.set\(tab/.test(page) && /pane\.scrollTop = Math\.max\(saved \?\? stick, stick\)/.test(page) && /min-h-full/.test(home))
+check("each tab's data is read once and kept, and read again behind what is shown", /export function useCached/.test(cache) && /Date\.now\(\) - e\.at > FRESH_MS/.test(cache) && /useCached<unknown>\(keyFor\(tab\)/.test(page))
+check("the other tabs are read while the browser is idle", /requestIdleCallback/.test(page) && /prefetch\(keyFor\(t\), loaderFor\(t\)/.test(page))
+check("rows darken while pressed and read ahead on hover or touch", /data-\[pressed=true\]:bg-\[#f1f2f4\]/.test(home) && /onPointerEnter: intent/.test(home) && /onTouchStart: intent/.test(home))
+check("an automation row opens its builder, prefetched", /router\.prefetch\(href\(f\)\)/.test(home) && /data-flow-row=/.test(home))
 check("the first column stays put on a phone", /const sticky = "sticky left-0/.test(home))
 check("rows are dense", /const td = "h-12 /.test(home))
 check("fifty to a page", /const PAGE_SIZE = 50/.test(home))
@@ -59,7 +68,7 @@ console.log("\nTables that scroll sideways under a frozen column")
   check("Emails' three tables use it, and mark the frozen column in the header and in every row",
     (home.match(/<ScrollEdge>/g) ?? []).length === 3 && (home.match(/<th data-scroll-edge="" className=\{cn\(th, stickyHead\)\}>/g) ?? []).length === 3
       && (home.match(/<td data-scroll-edge="" className=\{cn\(td, sticky/g) ?? []).length === 3)
-  check("the frozen cells are the row's own opaque colour, hover included", /const sticky = "sticky left-0 z-\[1\] bg-white group-hover:bg-\[#fafbfb\]"/.test(home) && /const stickyHead = "sticky left-0 z-\[1\] bg-\[#fafbfb\]"/.test(home))
+  check("the frozen cells are the row's own opaque colour, hover and press included", /const sticky = "sticky left-0 z-\[1\] bg-white[^"]*group-hover:bg-\[#fafbfb\][^"]*group-data-\[pressed=true\]:bg-\[#f1f2f4\]"/.test(home) && /const stickyHead = "sticky left-0 z-\[1\] bg-\[#fafbfb\]"/.test(home))
   const flow = read("app/app/emails/flow/[id]/builder.tsx")
   check("so does an automation's runs table", /<ScrollEdge>/.test(flow) && (flow.match(/data-scroll-edge="" className="sticky left-0 z-\[1\]/g) ?? []).length === 2)
   const orders = read("app/app/orders/orders-list.tsx")
@@ -71,6 +80,17 @@ console.log("\nTables that scroll sideways under a frozen column")
   const offenders = [...walk("app/app"), ...walk("components/app")]
     .filter((f) => /<(td|th)\b[^>]*(sticky left-|orders-sticky)/.test(read(f)) && !/<ScrollEdge\b/.test(read(f)))
   check("no other table in /app freezes a column without it", offenders.length === 0, offenders.join(", "))
+}
+
+console.log("\nAn email's page, opened over the list the way an order is")
+{
+  check("?email= is pushed, so back closes it, and the list stays mounted under it", /writeAddress\(\(p\) => p\.set\("email", c\.id\), "push"\)/.test(page) && /window\.history\.back\(\)/.test(page) && /inert=\{listCovered\}/.test(page) && /orders-pane orders-detail/.test(page))
+  check("its bar is the order's, drawn on the first frame, and its cards fade in on the order's 120ms", /<OrderBarFrame/.test(detail) && /className=\{cn\("orders-body /.test(detail))
+  check("/app/emails/<id> lands on it", /redirect\(UUID\.test\(id\) \? `\/app\/emails\?tab=published&email=/.test(read("app/app/emails/[id]/page.tsx")))
+  check("the email is shown as it went out, in the sandboxed preview", /<EmailPreview/.test(detail) && /sandbox="allow-same-origin"/.test(read("components/email/compose/email-preview.tsx")))
+  const report = read("app/api/email/campaigns/[id]/report/route.ts")
+  check("its numbers come from the send's own rows, for the creator's own email only", /requireCreator\(\)/.test(report) && /\.eq\("creator_id", ctx\.creatorId\)/.test(report) && /countRecipients\(/.test(report) && /"opened_at", "is", null/.test(report))
+  check("and no reader's address is in the answer", !/email: r\.email|recipients:/.test(report))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

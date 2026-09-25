@@ -37,6 +37,7 @@ import { BlockEditor } from "./block-editor"
 import { EmailPreview, type PreviewMode } from "./email-preview"
 import { AudiencePicker, audienceLabel, type Audience, type AudienceOption, type SegmentOption } from "./audience-picker"
 import { useDoc } from "./use-doc"
+import { campaignKey, takeFresh } from "@/components/email/emails-cache"
 import { ComposeDialog, Segmented, StatusBadge, buttonAccent, buttonPrimary, buttonSecondary, card, errorClass, helpClass, iconButton } from "./ui"
 import { SendStatus } from "./send-status"
 
@@ -182,7 +183,10 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   const load = React.useCallback(
     async (id: string) => {
       setLoading(true)
-      const r = await api<{ campaign: Record<string, unknown>; counts: RecipientCounts | null; upgraded?: boolean }>(`/api/email/campaigns/${id}`)
+      /* A draft's row reads it ahead on hover or touch; that copy is used if it is a few seconds old at most. */
+      type Answer = { campaign: Record<string, unknown>; counts: RecipientCounts | null; upgraded?: boolean }
+      const ahead = await takeFresh<Answer>(campaignKey(id), 5_000).catch(() => undefined)
+      const r = ahead?.campaign ? { ok: true, status: 200, data: ahead as Answer & { error?: string } } : await api<Answer>(`/api/email/campaigns/${id}`)
       if (!r.ok) {
         setLoadError(r.data.error ?? "This email could not be opened.")
         setLoading(false)

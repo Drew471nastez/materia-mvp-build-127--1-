@@ -24,7 +24,7 @@ const LEGACY_RECIPIENT = ["pending", "sent", "delivered", "bounced", "failed"]
 const MODERN_RECIPIENT = ["pending", "sending", "sent", "delivered", "bounced", "complained", "failed", "skipped", "unknown"]
 
 const MODERN_ONLY: Record<string, string[]> = {
-  email_campaigns: ["last_error", "send_idempotency_key", "completed_at", "track_opens"],
+  email_campaigns: ["last_error", "send_idempotency_key", "completed_at", "track_opens", "rendered_html"],
   campaign_recipients: ["attempts", "next_attempt_at", "claimed_at"],
 }
 
