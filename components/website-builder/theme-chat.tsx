@@ -5,7 +5,7 @@
  *  THE AI PANEL IN THE THEME EDITOR
  * ===========================================================================
  * It edits the SAME sections the panels on the left edit. Not a copy, not a
- * parallel document — the operations that come back are applied to the state
+ * parallel document: the operations that come back are applied to the state
  * the colour pickers and the drag handles are already writing to.
  *
  * That is what makes the three things below true at once, and none of them
@@ -19,7 +19,7 @@
  *   - Save is unchanged. It writes what is on screen, and it has no idea an AI
  *     was involved.
  *
- * The applier is shared with the server — see lib/website-builder/agent/
+ * The applier is shared with the server: see lib/website-builder/agent/
  * operations.ts for why there is exactly one of it.
  */
 
@@ -36,31 +36,31 @@
   `variant="sheet"` on a phone: the same header, thread and composer inside
   the editor's bottom sheet, which is what a phone does with a panel.
 
-  Both have the same header: the history (a sub page that slides in), a new
-  chat, maximize and close. Everything that talks to the server is shared
+  Both have the same header: the history (a sub page that slides in), Connect
+  AI, a new chat and close; the computer's has maximize too (a phone's sheet
+  is resized by its handle). Everything that talks to the server is shared
   and written once, below; only the layout differs.
 
-  The dock is the one frosted surface in the builder, and on purpose: it sits
-  over the page being edited, and the blur is what keeps it readable over
-  whatever the page happens to be without hiding the page.
+  The pill is frosted over the canvas, the blur confined to its own rounded
+  shape. Around it the page is lifted towards white by a soft glow that fades
+  to nothing: a shadow, not a filter, so it has no edge in any browser and
+  costs nothing to scroll under.
 */
 
 import * as React from "react"
 import { createPortal } from "react-dom"
 import {
   ArrowUp,
-  Check,
   ChevronDown,
   ChevronLeft,
   History,
+  ImagePlus,
   Loader2,
-  Lock,
   Maximize2,
   Mic,
   Minimize2,
   Paperclip,
   RotateCcw,
-  ImagePlus,
   Square,
   SquarePen,
   TriangleAlert,
@@ -69,98 +69,106 @@ import {
 
 import { ImageViewer, type ViewableImage } from "@/components/website-builder/image-viewer"
 import { StorelibMark } from "@/components/storelib-mark"
-import { WorkPanel, type WorkCode, type WorkStep } from "@/components/website-builder/work-panel"
-import { AiStatus, useStageLabel } from "@/components/website-builder/ai-status"
-import { AskHistory, type HistoryTarget } from "@/components/website-builder/ask-history"
+import {
+  ActivityLine,
+  AnswerMeta,
+  CodePreview,
+  ReportForm,
+  StepsList,
+  stepsLabel,
+  type ReportState,
+} from "@/components/website-builder/ask-activity"
+import { AskHistory, type DeletedTarget, type HistoryTarget } from "@/components/website-builder/ask-history"
+import { ModelPicker } from "@/components/website-builder/ask-model-picker"
+import { PictureTray, ProgressRing, type ComposerPicture } from "@/components/website-builder/ask-attachments"
+import { ConnectAiButton, ModeSwitch, ScopeChip, SuggestionChips, type AskMode } from "@/components/website-builder/ask-parts"
+import { PrepareError, preparePicture, prepareStills } from "@/components/website-builder/ask-attach-prepare"
 import { useVoiceInput } from "@/components/website-builder/ask-voice"
 import { useSheetStop } from "@/components/website-builder/mobile-editor-sheet"
 import type { WriteStage } from "@/lib/website-builder/agent/write-section"
 import { cn } from "@/lib/utils"
 import {
   ALLOWED_IMAGE_TYPES,
-  LONG_EDGE,
   MAX_IMAGES,
-  MAX_IMAGE_BYTES,
   MAX_TOTAL_IMAGE_BYTES,
   type AllowedImageType,
 } from "@/lib/sites/agent/attachments"
+import {
+  EMPTY_ACTIVITY,
+  activityFromOps,
+  activityLine,
+  changeCount,
+  finishedSteps,
+  READING_MS,
+  reduceActivity,
+  settleActivity,
+  type Activity,
+} from "@/lib/website-builder/ask-activity"
+import { attachProblem, kindOf, stillsRoom } from "@/lib/website-builder/ask-attach"
+import { reportAnswer, streamPost } from "@/lib/website-builder/ask-client"
+import { suggestionsFor } from "@/lib/website-builder/ask-suggestions"
+import { typeToward, withSpoken } from "@/lib/website-builder/ask-typing"
 import type { ThemeOp } from "@/lib/website-builder/agent/operations"
 import { CLOSE_MS, DOCK_PAD, EASE, OPEN_MS, SLIDE_MS, dockGeometry } from "@/lib/website-builder/ask-dock"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
+/** A picture in the thread: the composer's, once sent, or a stored one read back. */
+type Attachment = ComposerPicture
+
+/** One line of the agent's stream, as the chat reads it. Anything else it carries is kept for ask-activity. */
+type RunLine = Record<string, unknown> & { type?: string; op?: ThemeOp; id?: unknown; title?: unknown }
+
 interface Exchange {
   id: string
   prompt: string
-  /** One line per change, in the creator's words: "Added Pricing". */
-  changes: string[]
   reply?: string
   error?: string
   running: boolean
   /**
-   * The agent's own words while it works. It streams these between tool calls
-   * and the panel used to drop them, so a run that spent twenty seconds
-   * reading a section and the catalogue showed "Working" and nothing else.
-   * Latest line only — this is commentary, not a transcript.
+   * What the run is doing and did: its steps, commentary, the changes that
+   * landed and the files it wrote, read from the stream by
+   * lib/website-builder/ask-activity.ts.
    */
-  note?: string
+  activity: Activity
+  /** When it started, by performance.now, for the line before anything is said. */
+  startedAt?: number
   /**
    * What they attached, kept for the thread only. The bytes go to the model
-   * once and are never written down anywhere; reloading the editor leaves the
-   * words and drops the pictures, which is the trade we want.
+   * once; the server keeps a copy for thirty days so the thread can show it
+   * again after a reload.
    */
   images?: Attachment[]
   /**
    * The request, pictures and all, has reached the server. Until then the
-   * thumbnails say they are being sent: the route reads the whole body
-   * before it answers, so the answer starting is the upload finishing.
+   * thumbnails say they are being sent, with a ring for how much of it has.
    */
   sent?: boolean
-  /** What it said it would do, before it did any of it. */
-  plan?: string
-  /** One entry per tool call it actually made, in the order they happened. */
-  steps?: WorkStep[]
-  /** The source of any section it wrote during the run. */
-  code?: WorkCode[]
+  /** 0 to 1: how much of a request with pictures has gone up. */
+  upload?: number
+  /** The question as the server kept it, which Report names. */
+  messageId?: string | null
+  /** The model that answered, for a report. */
+  engine?: string
+  /** The page the run started on: Undo is only offered while it is still the page on screen. */
+  page?: string
+  /** The editor's snapshot for this run, which Undo restores. */
+  runId?: string
+  undone?: boolean
 }
-
-/**
- * Written to show what it can actually do, not to be safe. Each one exercises
- * a different part: blocks, one section's controls, a section built from
- * nothing, and the theme's own settings.
- */
-const SUGGESTIONS = [
-  "Add an FAQ with five questions about what I sell",
-  "Build a pricing section with three real tiers",
-  "Make this section's heading shorter and tighten the spacing",
-  "Give the whole site a warmer palette and rounder buttons",
-]
-
-/**
- * The other mode. These ask for a section TYPE that does not exist yet, which
- * is a different act from changing a page: it writes a file. Each one names
- * something the thirty sections in the library do not do, because asking for
- * a hero produces a worse hero than the one already there.
- */
-const CODE_SUGGESTIONS = [
-  "A comparison table of my plans, with a row per feature",
-  "A before-and-after image slider with a draggable handle",
-  "A stack of press quotes with the publication's logo beside each",
-  "An opening-hours table with today highlighted",
-]
 
 /**
  * The three choices, as a person would describe them rather than as model ids.
  *
  * `provider` and `tier` are what the endpoint takes: the vendor, and how hard
  * a model within it. Keeping the ids out of the UI means a price change or a
- * model rename is a one-line change on the server and nothing here.
+ * model rename is a one line change on the server and nothing here.
  */
 const ENGINES = [
   {
     id: "claude",
     label: "Claude Sonnet",
     short: "Sonnet",
-    detail: "Default, fast and good at everything here",
+    detail: "Quick, and right for most changes",
     provider: "anthropic",
     tier: "fast",
   },
@@ -168,7 +176,7 @@ const ENGINES = [
     id: "claude-opus",
     label: "Claude Opus",
     short: "Opus",
-    detail: "Slower and dearer. For a change you know is hard",
+    detail: "Slower. For a change you know is hard",
     provider: "anthropic",
     tier: "strong",
   },
@@ -176,7 +184,7 @@ const ENGINES = [
     id: "openai",
     label: "ChatGPT",
     short: "ChatGPT",
-    detail: "The previous engine",
+    detail: "OpenAI's model",
     provider: "openai",
     tier: "fast",
   },
@@ -223,19 +231,6 @@ function useReducedMotion(): boolean {
 /** "0:07", for the recording clock. */
 function clock(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
-}
-
-/**
- * One picture in the composer. `data` is what goes to the model; `url` is the
- * same bytes as a data URL, purely so the thumbnail can be drawn without a
- * second read.
- */
-interface Attachment {
-  id: string
-  name: string
-  mediaType: AllowedImageType
-  data: string
-  url: string
 }
 
 /**
@@ -307,24 +302,188 @@ function plainWriteError(status: number, error: string | undefined, compileError
   return raw || "That did not work. Try again."
 }
 
-/**
- * The page agent's line while it runs, moved on by what the run has shown
- * so far: nothing yet, a plan or a step, then changes arriving on the page.
- */
-function RunStatus({ exchange }: { exchange: Exchange }) {
-  const stage =
-    exchange.changes.length > 0
-      ? "changing"
-      : exchange.plan || (exchange.steps?.length ?? 0) > 0 || exchange.note
-        ? "working"
-        : "starting"
-  const label = useStageLabel(
-    stage,
-    { starting: "Starting…", working: "Working on it…", changing: "Making changes…" },
-    { starting: { after: 1200, label: "Thinking…" } },
-  )
-  return label ? <AiStatus label={label} /> : null
+/** The section writer's stages, as the live line says them. */
+const WRITE_LINES: Record<"starting" | WriteStage, string> = {
+  starting: "Reading what you asked for",
+  thinking: "Writing the section",
+  checking: "Checking it compiles",
+  fixing: "Fixing a detail",
 }
+
+/** What the words of a report problem are. */
+function reportProblem(problem: "not_set_up" | "not_found" | "busy" | "failed"): string {
+  if (problem === "not_set_up") return "Reports turn on once the database update is run."
+  if (problem === "busy") return "That is a lot of reports at once. Try again in a minute."
+  if (problem === "not_found") return "This answer is no longer in your history."
+  return "The report did not send. Try again."
+}
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   ONE EXCHANGE IN THE THREAD
+  ═══════════════════════════════════════════════════════════════════════════
+  Memoised on its own props: typing re-renders the panel on every key (and
+  a voice recording types a few characters a frame), and a thread of fifty
+  answers should not be redrawn for any of it. Everything handed in is
+  either the exchange itself or a callback that never changes.
+*/
+const ExchangeItem = React.memo(function ExchangeItem({
+  exchange,
+  phone,
+  canUndo,
+  canRetry,
+  onRetry,
+  onUndo,
+  onView,
+  onOpenCode,
+  onReport,
+}: {
+  exchange: Exchange
+  phone: boolean
+  canUndo: boolean
+  canRetry: boolean
+  onRetry: (exchange: Exchange) => void
+  onUndo: (exchange: Exchange) => void
+  onView: (images: ViewableImage[], at: number) => void
+  onOpenCode?: (path: string) => void
+  onReport: (exchange: Exchange, reason: string) => Promise<ReportState>
+}) {
+  const [stepsOpen, setStepsOpen] = React.useState(false)
+  const [report, setReport] = React.useState<ReportState>({ stage: "closed" })
+  const { activity } = exchange
+
+  /* Before the run says anything: "Reading the page", then "Planning the change" once READING_MS has passed. */
+  const [, setTick] = React.useState(0)
+  const quiet = exchange.running && activity.last === "none"
+  React.useEffect(() => {
+    if (!quiet || exchange.startedAt === undefined) return
+    const left = READING_MS - (performance.now() - exchange.startedAt)
+    if (left <= 0) return
+    const later = window.setTimeout(() => setTick((n) => n + 1), left + 20)
+    return () => window.clearTimeout(later)
+  }, [quiet, exchange.startedAt])
+
+  const elapsed = exchange.startedAt === undefined ? READING_MS : performance.now() - exchange.startedAt
+  const finished = finishedSteps(activity)
+  const count = changeCount(activity)
+  const sending = exchange.running && !exchange.sent
+  const hasWork = !!activity.plan || finished.length > 0 || activity.code.length > 0
+
+  return (
+    <li data-ask-exchange={exchange.running ? "running" : exchange.error ? "failed" : "done"} className="space-y-2.5">
+      {exchange.images && exchange.images.length > 0 && (
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {exchange.images.map((image, index) => (
+            <button
+              key={image.id}
+              type="button"
+              data-ask-sent-image=""
+              onClick={() => onView(exchange.images ?? [], index)}
+              aria-label={`Open ${image.name}`}
+              className="relative block overflow-hidden rounded-xl border border-[#e5e7eb] transition-opacity hover:opacity-90"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- bytes this thread already holds. */}
+              <img src={image.url} alt={image.name} className="h-16 w-16 object-cover" />
+              {exchange.running && !exchange.sent && (
+                <span data-ask-sending="" className="absolute inset-0 flex items-center justify-center bg-white/60">
+                  <ProgressRing fraction={exchange.upload ?? null} />
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="flex justify-end">
+        <p
+          data-ask-prompt=""
+          className="max-w-[85%] whitespace-pre-wrap rounded-[18px] bg-[#f1f2f4] px-3.5 py-2 text-[13.5px] leading-[1.5] text-[#1a1a2e]"
+        >
+          {exchange.prompt}
+        </p>
+      </div>
+
+      {exchange.running && (
+        <div className="min-w-0">
+          <ActivityLine label={sending && exchange.images?.length ? "Sending your pictures" : activityLine(activity, elapsed)} />
+          {finished.length > 0 && (
+            <button
+              type="button"
+              data-ask-steps-toggle=""
+              aria-expanded={stepsOpen}
+              onClick={() => setStepsOpen((open) => !open)}
+              className={cn(
+                "relative mt-1 inline-flex items-center gap-1 pl-[18px] text-[12px] text-[#6b7280] transition-colors hover:text-[#1a1a2e]",
+                phone ? "h-8 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-['']" : "h-6",
+              )}
+            >
+              {finished.length} step{finished.length === 1 ? "" : "s"} done
+              <ChevronDown className={cn("h-3 w-3 transition-transform duration-200", stepsOpen && "rotate-180")} strokeWidth={2.25} />
+            </button>
+          )}
+          {stepsOpen && <StepsList plan={activity.plan} steps={finished} code={[]} onOpenCode={onOpenCode} />}
+          {/* A section file being written is shown as it is written. */}
+          {activity.code.map((file) => (
+            <CodePreview key={file.path} file={file} onOpenCode={onOpenCode} />
+          ))}
+        </div>
+      )}
+
+      {exchange.reply && <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[#1a1a2e]">{exchange.reply}</p>}
+
+      {exchange.error && (
+        <div className="space-y-1.5">
+          <p className="flex items-start gap-1.5 text-[12.5px] text-red-600">
+            <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
+            {exchange.error}
+          </p>
+          {/*
+            A failed run leaves the request sitting there with no way to make
+            it again except retyping it, which is the moment most people give
+            up on a feature rather than on the network. Its pictures go again
+            too.
+          */}
+          <button
+            type="button"
+            onClick={() => onRetry(exchange)}
+            disabled={!canRetry}
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-3 text-[12px] text-[#1a1a2e]/75 transition-colors hover:border-[#1a1a2e]/25 hover:text-[#1a1a2e] disabled:opacity-40"
+          >
+            <RotateCcw className="h-3 w-3" strokeWidth={2} />
+            Try again
+          </button>
+        </div>
+      )}
+
+      {!exchange.running && (exchange.reply || exchange.error || count || hasWork) && (
+        <div className="min-w-0">
+          <AnswerMeta
+            count={count}
+            steps={stepsLabel(finished.length, !!activity.plan || activity.code.length > 0)}
+            stepsOpen={stepsOpen}
+            onToggleSteps={() => setStepsOpen((open) => !open)}
+            undo={exchange.undone ? "done" : canUndo ? "available" : null}
+            onUndo={() => onUndo(exchange)}
+            copyText={exchange.reply ?? ""}
+            canReport={!!exchange.messageId}
+            report={report}
+            onReport={setReport}
+            phone={phone}
+          />
+          {stepsOpen && hasWork && <StepsList plan={activity.plan} steps={finished} code={activity.code} onOpenCode={onOpenCode} />}
+          <ReportForm
+            report={report}
+            onChange={setReport}
+            phone={phone}
+            onSend={(reason) => {
+              setReport({ stage: "sending", reason })
+              void onReport(exchange, reason).then(setReport)
+            }}
+          />
+        </div>
+      )}
+    </li>
+  )
+})
 
 /**
  * Memoised: the editor re-renders on every edit it makes, and the chat only
@@ -339,11 +498,14 @@ function ThemeChatPanel({
   sections,
   settings,
   selectedSectionId,
+  store,
   onRunStart,
   onRunEnd,
+  onUndoRun,
   onBusyChange,
   onOp,
   onClose,
+  onConnectAi,
   onOpenCodeEditor,
   onSourcesChanged,
   onWriteStart,
@@ -374,17 +536,18 @@ function ThemeChatPanel({
    */
   onWriteStart?: (prompt: string) => void
   onWriteDone?: (section: { type: string; name: string; path: string }) => Promise<boolean> | boolean
-  /** With the reason, for an editor whose chat is closed and so cannot show it. */
   /** Nothing was written: `answered` when it replied in words instead, which is not a failure. */
   onWriteFailed?: (reason: string, answered?: boolean) => void
   /**
    * Opens the code editor at a path. A section the assistant writes is a file,
-   * and the honest end of that is the creator reading it — not a thing that
+   * and the honest end of that is the creator reading it, not a thing that
    * appeared on their site without them seeing what it was.
    */
   onOpenCodeEditor?: (path: string) => void
   /** A section's code was rewritten during a run, so the theme's files are stale. */
   onSourcesChanged?: () => void
+  /** Opens Website settings on Connections: Claude Code or Codex on this website. */
+  onConnectAi?: () => void
   page: string
   sections: SectionInstance[]
   settings: Record<string, unknown>
@@ -394,8 +557,13 @@ function ThemeChatPanel({
    * nine sections, which is not a question anybody can answer.
    */
   selectedSectionId?: string
-  /** Called once before the first change, so one Undo takes the lot back. */
-  onRunStart: () => void
+  /** What the suggestions know about the store: how many products it has. */
+  store?: { productCount: number | null }
+  /**
+   * Called once before the first change, so one Undo takes the lot back,
+   * with an id the chat's own Undo can name later.
+   */
+  onRunStart: (runId?: string) => void
   /**
    * Called once after a run that changed something finishes cleanly, with
    * the prompt that asked for it. The editor takes a backup here, labelled
@@ -403,6 +571,11 @@ function ThemeChatPanel({
    * header" is a thing somebody can do.
    */
   onRunEnd?: (prompt: string) => void
+  /**
+   * Takes back one run's changes, by the id onRunStart was given. False when
+   * it cannot (the page has changed since), and the chat stops offering it.
+   */
+  onUndoRun?: (runId: string) => boolean
   /** Whether a request is running, so the editor can say so with the panel closed. */
   onBusyChange?: (busy: boolean) => void
   onOp: (op: ThemeOp) => void
@@ -413,6 +586,7 @@ function ThemeChatPanel({
   const [historyError, setHistoryError] = React.useState<null | "not_set_up" | "read_failed">(null)
   const [draft, setDraft] = React.useState("")
   const dock = variant === "dock"
+  const phone = !dock
   /**
    * THE CONVERSATION ON SCREEN. `id` is null for a new chat until its first
    * run, when the route answers with the conversation it opened. `earlier`
@@ -439,8 +613,6 @@ function ThemeChatPanel({
    * reading it signs a URL for every picture in it.
    */
   const [wanted, setWanted] = React.useState(!dock)
-  /** Pictures being read and shrunk, shown as placeholders while they are. */
-  const [preparing, setPreparing] = React.useState(0)
   const reducedMotion = useReducedMotion()
   const sheetStop = useSheetStop()
   /**
@@ -448,9 +620,9 @@ function ThemeChatPanel({
    * goes to the agent; "code" writes a new section type and goes to the one
    * endpoint that compiles a file before keeping it. They are different acts
    * with different answers, and a single box that guessed between them would
-   * guess wrong on "add a comparison table" — which could mean either.
+   * guess wrong on "add a comparison table", which could mean either.
    */
-  const [mode, setMode] = React.useState<"change" | "code">("change")
+  const [mode, setMode] = React.useState<AskMode>("change")
   /** The last section written, so the panel can offer to open it. */
   const [written, setWritten] = React.useState<{ path: string; name: string; placed: boolean } | null>(null)
   const [writing, setWriting] = React.useState(false)
@@ -461,11 +633,7 @@ function ThemeChatPanel({
   const [writeReply, setWriteReply] = React.useState<{ prompt: string; text: string } | null>(null)
   /** The last request, so Try again can make it again without retyping it. */
   const lastWrite = React.useRef<{ prompt: string; images: Attachment[] } | null>(null)
-  const writeLabel = useStageLabel(
-    writeStage,
-    { starting: "Starting…", thinking: "Thinking…", checking: "Checking it…", fixing: "Fixing a detail…" },
-    { thinking: { after: 4500, label: "Writing the section…" }, fixing: { after: 4500, label: "Writing it again…" } },
-  )
+  const writeLabel = writeStage ? WRITE_LINES[writeStage] : null
   const [busy, setBusy] = React.useState(false)
   React.useEffect(() => {
     onBusyChange?.(busy)
@@ -475,9 +643,9 @@ function ThemeChatPanel({
    *
    * The box used to be `disabled` for the whole run, so the moment you had a
    * second thought you had to hold it in your head and watch a spinner. A run
-   * is one request in and one answer out — there is no reason a person cannot
-   * be writing the next one — so Enter during a run queues it and it goes the
-   * instant the run ends.
+   * is one request in and one answer out, and there is no reason a person
+   * cannot be writing the next one, so Enter during a run queues it and it
+   * goes the instant the run ends.
    */
   const [queued, setQueued] = React.useState<string | null>(null)
   /**
@@ -486,24 +654,21 @@ function ThemeChatPanel({
    * On by default whenever a section is selected, because that is what
    * selecting one means: asking for "a bit more space" on a FAQ and getting a
    * reworded hero back is an edit you have to check the whole page to trust.
-   *
-   * A toggle rather than a rule, and shown as a chip, so the scope of the edit
-   * is something the creator sets and can SEE — not something inferred from
-   * how they happened to phrase the sentence.
+   * A chip rather than a rule, so the scope of the edit is something the
+   * creator sets and can SEE.
    */
   const [lockOn, setLockOn] = React.useState(true)
   /**
    * WHICH MODEL ANSWERS.
    *
-   * Claude Sonnet 5 by default — it is the everyday model and what the
+   * Claude Sonnet by default: it is the everyday model and what the
    * deployment is configured for. Opus is there for a change somebody already
    * knows is hard, and it is their choice rather than the model's: a model
-   * that can promote itself to the five-times-dearer tier eventually will, and
-   * the bill is theirs.
+   * that can promote itself to the five times dearer tier eventually will,
+   * and the bill is theirs.
    *
    * Remembered per browser. Somebody who has chosen ChatGPT has chosen it for
-   * more than one message, and re-picking it every time is the kind of small
-   * friction that makes a switch feel broken.
+   * more than one message.
    */
   const [engine, setEngine] = React.useState<EngineId>("claude")
   const [engineOpen, setEngineOpen] = React.useState(false)
@@ -513,13 +678,13 @@ function ThemeChatPanel({
       const saved = window.localStorage.getItem(ENGINE_KEY)
       if (saved && ENGINES.some((e) => e.id === saved)) setEngine(saved as EngineId)
     } catch {
-      // A browser with site data blocked still gets the default. Not worth a
-      // failed render.
+      // A browser with site data blocked still gets the default.
     }
   }, [])
 
-  const chooseEngine = React.useCallback((id: EngineId) => {
-    setEngine(id)
+  const chooseEngine = React.useCallback((id: string) => {
+    if (!ENGINES.some((e) => e.id === id)) return
+    setEngine(id as EngineId)
     setEngineOpen(false)
     try {
       window.localStorage.setItem(ENGINE_KEY, id)
@@ -532,14 +697,6 @@ function ThemeChatPanel({
   const threadRef = React.useRef<HTMLDivElement>(null)
   const fieldRef = React.useRef<HTMLTextAreaElement>(null)
 
-  /**
-   * The live state, read at send time rather than captured in the callback.
-   *
-   * A run started thirty seconds ago must send what the page looks like NOW —
-   * including anything the person changed by hand while it was open — or the
-   * model plans against a page that no longer exists and addresses sections by
-   * ids that have moved.
-   */
   const selectedSection = React.useMemo(
     () => (selectedSectionId ? sections.find((s) => s.id === selectedSectionId) : undefined),
     [sections, selectedSectionId],
@@ -549,7 +706,7 @@ function ThemeChatPanel({
   /**
    * A NEW SELECTION IS A FRESH INTENT. Clearing the lock to add a section, then
    * clicking a different section, should not leave the next edit quietly
-   * unscoped — the chip would say one thing and the last click meant another.
+   * unscoped: the chip would say one thing and the last click meant another.
    */
   React.useEffect(() => {
     setLockOn(true)
@@ -559,43 +716,46 @@ function ThemeChatPanel({
 
   /**
    * Read at SEND time, like everything else in here: a run started thirty
-   * seconds ago must send what the panel looks like now.
+   * seconds ago must send what the page looks like NOW, including anything
+   * the person changed by hand while it was open, or the model plans against
+   * a page that no longer exists and addresses sections by ids that moved.
    */
   const live = React.useRef({ sections, settings, page, selectedSectionId, locked, engine: chosenEngine, conversation })
   live.current = { sections, settings, page, selectedSectionId, locked, engine: chosenEngine, conversation }
 
   /**
+   * WHAT TO ASK NEXT, from where the creator is: the section they have open,
+   * what the page has and lacks, and whether the store has products. See
+   * lib/website-builder/ask-suggestions.ts.
+   */
+  const brandName = typeof settings.brand_name === "string" ? settings.brand_name : ""
+  const productCount = store?.productCount ?? null
+  const suggestions = React.useMemo(
+    () => suggestionsFor({ mode, page, sections, selectedId: selectedSectionId, storeName: brandName, productCount }),
+    [mode, page, sections, selectedSectionId, brandName, productCount],
+  )
+
+  /**
    * ===========================================================================
    *  A NEW MESSAGE SCROLLS THE THREAD, AND NOTHING ELSE
    * ===========================================================================
-   * This was `scrollIntoView` on a marker at the end of the list. That walks
-   * EVERY scrollable ancestor and moves each of them until the marker is in
-   * view, on both axes: the thread, and also the phone sheet (an
-   * `overflow: hidden` box is still scrollable by script) and the document
-   * behind it. With a keyboard up the end of the list is under the keys, so
-   * the document went up and took the sheet's header under the status bar,
-   * and a thread holding anything wider than itself was left scrolled
-   * sideways with every message cut off on the left. The thread's own
-   * `scrollTop` touches nothing but the thread.
+   * The thread's own `scrollTop` touches nothing but the thread. A marker's
+   * `scrollIntoView` walks every scrollable ancestor and moved the phone
+   * sheet and the document behind it too, which with a keyboard up took the
+   * sheet's header under the status bar.
    */
   /*
     ─────────────────────────────────────────────────────────────────────────
      AND IT FOLLOWS A RUN ONLY FOR SOMEBODY WHO IS FOLLOWING IT
     ─────────────────────────────────────────────────────────────────────────
-    Every line a run streams in (a step, a plan, a note) is a new `exchanges`,
-    and each one scrolled the thread to its end. Somebody who had scrolled up
-    to read what the last run did was pulled back down on every step, for as
-    long as the run went on.
-
-    So the thread is PINNED while its reader is at the end, and only a pinned
-    thread follows. Scrolling up unpins it, scrolling back to the end pins it
-    again. A new exchange pins it whatever the reader was doing, because a
-    new exchange is the message they just sent. That one arrives with a
-    smooth scroll; the run's own lines, which come many a second, land
-    without one, as a chat's growing last message does.
-
-    The scroll a smooth scroll makes is not the reader's, so for its length
-    it does not unpin anything, unless a finger or a wheel takes over.
+    Every line a run streams in is a new `exchanges`, and each one used to
+    scroll the thread to its end, pulling down somebody who had scrolled up
+    to read what the last run did. So the thread is PINNED while its reader
+    is at the end, and only a pinned thread follows. A new exchange pins it
+    whatever the reader was doing, because a new exchange is the message they
+    just sent. The scroll a smooth scroll makes is not the reader's, so for
+    its length it does not unpin anything, unless a finger or a wheel takes
+    over.
   */
   const pinned = React.useRef(true)
   const autoScrollUntil = React.useRef(0)
@@ -649,20 +809,12 @@ function ThemeChatPanel({
   }, [exchanges, queued])
 
   /**
-   * THE CONVERSATION SURVIVES A REFRESH.
-   *
-   * It used to live only in this component's state, so reloading the editor
-   * left the sections changed and no record of what had been asked for or
-   * why — which is exactly the question somebody has when they come back to a
-   * page they built last week.
-   *
-   * Restored as pairs: the transcript stores one row for the question and one
-   * for the reply, and the panel shows one exchange.
-   *
-   * ONE CONVERSATION AT A TIME: `which` is an id from the history, "earlier"
-   * for the messages from before conversations, or null for the one used
-   * last. A newer load, or a message sent meanwhile, makes an older load's
-   * answer stale (`loadSeq`), and a stale answer is dropped.
+   * THE CONVERSATION SURVIVES A REFRESH, one conversation at a time: `which`
+   * is an id from the history, "earlier" for the messages from before
+   * conversations, or null for the one used last. Restored as pairs: the
+   * transcript stores one row for the question and one for the reply, and
+   * the panel shows one exchange. A newer load, or a message sent meanwhile,
+   * makes an older load's answer stale (`loadSeq`), and it is dropped.
    */
   const loadSeq = React.useRef(0)
   const load = React.useCallback(
@@ -690,6 +842,7 @@ function ThemeChatPanel({
         const body = (await response.json()) as {
           conversation?: { id: string; title: string } | null
           earlier?: boolean
+          history?: string
           messages: Array<{
             id: string
             role: string
@@ -706,28 +859,31 @@ function ThemeChatPanel({
           if (message.role === "user") {
             restored.push({
               id: message.id,
+              messageId: message.id,
               /**
                * The note the route wrote is for the day the pictures have
                * expired and the words are all there is. While the picture is
-               * still there, showing "[an image attached]" underneath it is
-               * a caption nobody needs.
+               * still there, "[an image attached]" underneath it is a caption
+               * nobody needs.
                */
               prompt: message.images?.length
                 ? message.content.replace(/\n*\[(?:an image|\d+ images) attached\]\s*$/, "").trim() ||
                   (message.images.length === 1 ? "Build this." : "Build these.")
                 : message.content,
-              changes: [],
               running: false,
+              activity: EMPTY_ACTIVITY,
               /**
                * The pictures come back too, as signed URLs the server minted
                * for this read. After thirty days there are none and the words
-               * are what is left, which is the trade the expiry buys.
+               * are what is left.
                */
               images: message.images?.length
                 ? message.images.map((image) => ({
                     id: image.id,
                     name: image.name,
-                    /* Kept only to satisfy the viewer's shape; unused on a restored picture. */
+                    state: "ready" as const,
+                    progress: 1,
+                    /* Kept only to satisfy the shape; a restored picture is never sent again. */
                     mediaType: "image/png" as AllowedImageType,
                     data: "",
                     url: image.url,
@@ -741,14 +897,11 @@ function ThemeChatPanel({
           open.reply = message.content || undefined
           open.error = message.error ?? undefined
           /**
-           * The operations are summarised rather than replayed. Replaying them
+           * The operations are counted rather than replayed. Replaying them
            * would apply the same edits a second time to a page that already
-           * has them — the transcript is a record, not a script.
+           * has them: the transcript is a record, not a script.
            */
-          open.changes =
-            message.ops.length > 0
-              ? [`${message.ops.length} change${message.ops.length === 1 ? "" : "s"}`]
-              : []
+          open.activity = activityFromOps(Array.isArray(message.ops) ? message.ops : [])
         }
         /* A different conversation lands at its end without a glide, as a restore does. */
         seenExchanges.current = 0
@@ -758,6 +911,8 @@ function ThemeChatPanel({
           title: body.conversation?.title ?? (body.earlier ? restored[0]?.prompt ?? "" : ""),
           earlier: !!body.earlier,
         })
+        /* A database without the conversations part: say so, above the one thread it has. */
+        if (body.history === "not_set_up") setHistoryError("not_set_up")
       } catch {
         if (!cancelledNow()) setHistoryError("read_failed")
       } finally {
@@ -778,154 +933,182 @@ function ThemeChatPanel({
 
   /**
    * ═════════════════════════════════════════════════════════════════════════
-   *  A PICTURE OF WHAT THEY WANT, HANDED STRAIGHT TO THE ASSISTANT
+   *  PICTURES, AND VIDEOS AS STILLS, HANDED STRAIGHT TO THE ASSISTANT
    * ═════════════════════════════════════════════════════════════════════════
-   * "Attach a screenshot and tell it to build a section like that." Three
-   * ways in, because people reach for whichever is nearest: the button, a
-   * paste, and a drop onto the composer.
+   * Three ways in, because people reach for whichever is nearest: the paper
+   * clip, a paste, and a drop anywhere on the panel. Each one is a thumbnail
+   * the moment it is chosen, drawn from the file itself, with a ring that
+   * fills as it is made ready (components/website-builder/
+   * ask-attach-prepare.ts: decoded, shrunk to the size the model reads,
+   * encoded). A HEIC photo is converted where the browser can read it; a
+   * video becomes a few stills. What cannot be attached says why, under the
+   * row, in a sentence.
    *
-   * Read here as base64 rather than uploaded anywhere. The bytes travel with
-   * the one request that mentions them and are gone after it — no bucket, no
-   * path, and nothing of one creator's to keep away from another's.
+   * The bytes travel with the request that mentions them, in the shape
+   * lib/sites/agent/attachments.ts checks at the route.
    */
   const [attached, setAttached] = React.useState<Attachment[]>([])
+  const attachedRef = React.useRef(attached)
+  attachedRef.current = attached
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [attachError, setAttachError] = React.useState<string | null>(null)
   /** Which picture is open full size, and the set it belongs to. */
   const [viewing, setViewing] = React.useState<{ images: ViewableImage[]; at: number } | null>(null)
   /**
-   * A FILE IS OVER THE PANEL.
-   *
-   * Counted rather than set, because dragenter and dragleave fire for every
-   * child the pointer crosses: a boolean flickers off the moment the cursor
-   * passes from the thread onto the composer inside it, and the drop target
-   * blinks the whole way down the panel.
+   * A FILE IS OVER THE PANEL. Counted rather than set, because dragenter and
+   * dragleave fire for every child the pointer crosses: a boolean flickers
+   * off the moment the cursor passes from the thread onto the composer.
    */
   const dragDepth = React.useRef(0)
   const [dragging, setDragging] = React.useState(false)
+  /** Object URLs made for thumbnails, let go once a picture is ready or removed. */
+  const previews = React.useRef(new Map<string, string>())
+
+  const letGoPreview = React.useCallback((id: string) => {
+    const url = previews.current.get(id)
+    if (url) {
+      URL.revokeObjectURL(url)
+      previews.current.delete(id)
+    }
+  }, [])
+  React.useEffect(() => {
+    const made = previews.current
+    return () => {
+      for (const url of made.values()) URL.revokeObjectURL(url)
+      made.clear()
+    }
+  }, [])
+
+  const patchPicture = React.useCallback((id: string, change: Partial<Attachment>) => {
+    setAttached((previous) => previous.map((a) => (a.id === id ? { ...a, ...change } : a)))
+  }, [])
 
   /**
-   * A SCREENSHOT IS SHRUNK BEFORE IT IS SENT.
-   *
-   * Two reasons, and the second is the hard one. The model scales anything
-   * over LONG_EDGE down before it looks at it and charges for the pixels
-   * either way, so a 4K screenshot buys nothing. And this posts to a Node
-   * serverless function, whose request body the platform caps at 4.5MB —
-   * base64 is a third larger than the file, so two phone screenshots would
-   * be refused with a 413 raised before any of our code runs, which is a
-   * failure nobody could explain to the person who hit it.
-   *
-   * A picture already inside the limit is left exactly as it is: re-encoding
-   * a small PNG only makes it worse.
+   * Makes one waiting picture ready. Under the total the request can carry,
+   * checked here rather than left to the server, so it reads as "that is too
+   * much" in the composer instead of arriving as a failed run.
    */
-  const shrink = React.useCallback(
-    (url: string, mediaType: AllowedImageType): Promise<{ url: string; mediaType: AllowedImageType }> =>
-      new Promise((resolve) => {
-        const keep = { url, mediaType }
-        const image = new Image()
-        image.onerror = () => resolve(keep)
-        image.onload = () => {
-          const long = Math.max(image.naturalWidth, image.naturalHeight)
-          /* Under the edge AND under the size: nothing to gain. */
-          if (long <= LONG_EDGE && url.length * 0.75 <= MAX_IMAGE_BYTES / 2) { resolve(keep); return }
-          const scale = Math.min(1, LONG_EDGE / long)
-          const canvas = document.createElement("canvas")
-          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale))
-          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale))
-          const context = canvas.getContext("2d")
-          if (!context) { resolve(keep); return }
-          /* White underneath, because a transparent PNG becomes black in JPEG. */
-          context.fillStyle = "#ffffff"
-          context.fillRect(0, 0, canvas.width, canvas.height)
-          context.imageSmoothingQuality = "high"
-          context.drawImage(image, 0, 0, canvas.width, canvas.height)
-          try {
-            /**
-             * 0.92, not 0.8. The point of the picture is the detail in it,
-             * and JPEG artefacts around small text are exactly the detail
-             * that gets read wrong.
-             */
-            const out = canvas.toDataURL("image/jpeg", 0.92)
-            resolve(out.length < url.length ? { url: out, mediaType: "image/jpeg" } : keep)
-          } catch {
-            resolve(keep)
-          }
+  const prepare = React.useCallback(
+    async (id: string, file: File) => {
+      try {
+        const ready = await preparePicture(file, (fraction) => patchPicture(id, { progress: fraction }))
+        const others = attachedRef.current.filter((a) => a.id !== id && a.state === "ready")
+        const total = others.reduce((sum, a) => sum + a.data.length * 0.75, 0) + ready.data.length * 0.75
+        if (total > MAX_TOTAL_IMAGE_BYTES) {
+          letGoPreview(id)
+          setAttached((previous) => previous.filter((a) => a.id !== id))
+          setAttachError(`That is more than ${MAX_TOTAL_IMAGE_BYTES / (1024 * 1024)}MB of pictures in one message. Send some now and the rest after.`)
+          return
         }
-        image.src = url
-      }),
-    [],
+        letGoPreview(id)
+        patchPicture(id, { state: "ready", progress: 1, mediaType: ready.mediaType, data: ready.data, url: ready.url, error: undefined })
+      } catch (thrown) {
+        const message = thrown instanceof PrepareError ? thrown.message : `${file.name} could not be read.`
+        /* A HEIC this browser cannot open is not going to open on a second try. */
+        const retry = !(kindOf(file) === "heic" && /HEIC/.test(message))
+        patchPicture(id, { state: "failed", progress: 0, error: message, source: retry ? file : undefined })
+        setAttachError(message)
+      }
+    },
+    [patchPicture, letGoPreview],
   )
 
-  const attach = React.useCallback(async (files: FileList | File[] | null) => {
-    if (!files) return
-    const picked = Array.from(files).filter((f) => f.type.startsWith("image/"))
-    if (picked.length === 0) return
-    setAttachError(null)
-    /* A picture is somewhere to look the moment it is chosen: a placeholder
-       holds its place while it is read and shrunk. */
-    setPreparing((n) => n + picked.length)
-    const read = await Promise.all(
-      picked.map(
-        (file) =>
-          new Promise<Attachment | string>((resolve) => {
-            if (!ALLOWED_IMAGE_TYPES.includes(file.type as AllowedImageType)) {
-              resolve(`${file.name} is not a PNG, JPEG, WebP or GIF.`)
-              return
-            }
-            if (file.size > MAX_IMAGE_BYTES) {
-              resolve(`${file.name} is over ${MAX_IMAGE_BYTES / (1024 * 1024)}MB.`)
-              return
-            }
-            const reader = new FileReader()
-            reader.onerror = () => resolve(`${file.name} could not be read.`)
-            reader.onload = () => {
-              const url = String(reader.result ?? "")
-              const comma = url.indexOf(",")
-              if (comma < 0) { resolve(`${file.name} could not be read.`); return }
-              void shrink(url, file.type as AllowedImageType).then((small) => {
-                const cut = small.url.indexOf(",")
-                resolve({
-                  id: crypto.randomUUID(),
-                  name: file.name,
-                  mediaType: small.mediaType,
-                  data: small.url.slice(cut + 1),
-                  url: small.url,
-                })
-              })
-            }
-            reader.readAsDataURL(file)
-          }),
-      ),
-    )
-    setPreparing((n) => Math.max(0, n - picked.length))
-    const ok = read.filter((r): r is Attachment => typeof r !== "string")
-    const bad = read.filter((r): r is string => typeof r === "string")
-    setAttached((previous) => {
-      const room = MAX_IMAGES - previous.length
-      if (ok.length > room) bad.push(`Only ${MAX_IMAGES} images at a time.`)
-      /**
-       * And under the total the request can carry. Said here rather than
-       * left to the server, so it reads as "that is too much" in the
-       * composer instead of arriving as a failed run.
-       */
-      const kept: Attachment[] = []
-      let total = previous.reduce((sum, a) => sum + a.data.length * 0.75, 0)
-      for (const image of ok.slice(0, Math.max(0, room))) {
-        const size = image.data.length * 0.75
-        if (total + size > MAX_TOTAL_IMAGE_BYTES) {
-          bad.push(`That is more than ${MAX_TOTAL_IMAGE_BYTES / (1024 * 1024)}MB of pictures in one go.`)
+  const attach = React.useCallback(
+    async (files: FileList | File[] | null) => {
+      if (!files) return
+      const picked = Array.from(files)
+      if (picked.length === 0) return
+      setAttachError(null)
+      const problems: string[] = []
+      let room = MAX_IMAGES - attachedRef.current.length
+      for (const file of picked) {
+        const problem = attachProblem(file)
+        if (problem) {
+          problems.push(problem)
+          continue
+        }
+        const kind = kindOf(file)
+        if (room <= 0) {
+          problems.push(`${MAX_IMAGES} pictures is the most one message can carry.`)
           break
         }
-        total += size
-        kept.push(image)
+        if (kind === "video") {
+          const count = stillsRoom(MAX_IMAGES - room)
+          room -= count
+          const ids = Array.from({ length: count }, () => crypto.randomUUID())
+          setAttached((previous) => [
+            ...previous,
+            ...ids.map((id, index) => ({
+              id,
+              name: `${file.name}, still ${index + 1}`,
+              state: "preparing" as const,
+              progress: 0,
+              mediaType: "image/jpeg" as AllowedImageType,
+              data: "",
+              url: "",
+              still: true,
+            })),
+          ])
+          void prepareStills(file, count, (fraction) => ids.forEach((id) => patchPicture(id, { progress: fraction })))
+            .then((stills) => {
+              ids.forEach((id, index) => {
+                const still = stills[index]
+                if (still) patchPicture(id, { state: "ready", progress: 1, mediaType: still.mediaType, data: still.data, url: still.url })
+                else setAttached((previous) => previous.filter((a) => a.id !== id))
+              })
+            })
+            .catch((thrown) => {
+              const message = thrown instanceof PrepareError ? thrown.message : `${file.name} could not be read.`
+              setAttached((previous) => previous.filter((a) => !ids.includes(a.id)))
+              setAttachError(message)
+            })
+          continue
+        }
+        room -= 1
+        const id = crypto.randomUUID()
+        /* The thumbnail is the file itself until the prepared picture replaces it. HEIC draws where it can. */
+        let url = ""
+        try {
+          url = URL.createObjectURL(file)
+          previews.current.set(id, url)
+        } catch {
+          url = ""
+        }
+        setAttached((previous) => [
+          ...previous,
+          { id, name: file.name, state: "preparing", progress: 0, mediaType: "image/jpeg", data: "", url, source: file },
+        ])
+        void prepare(id, file)
       }
-      return [...previous, ...kept]
-    })
-    if (bad.length) setAttachError(bad[0])
-  }, [shrink])
+      if (problems.length) setAttachError(problems[0])
+    },
+    [prepare, patchPicture],
+  )
 
-  const removeAttachment = React.useCallback((id: string) => {
-    setAttached((previous) => previous.filter((a) => a.id !== id))
+  const retryPicture = React.useCallback(
+    (id: string) => {
+      const item = attachedRef.current.find((a) => a.id === id)
+      if (!item?.source) return
+      setAttachError(null)
+      patchPicture(id, { state: "preparing", progress: 0, error: undefined })
+      void prepare(id, item.source)
+    },
+    [patchPicture, prepare],
+  )
+
+  const removeAttachment = React.useCallback(
+    (id: string) => {
+      letGoPreview(id)
+      setAttached((previous) => previous.filter((a) => a.id !== id))
+    },
+    [letGoPreview],
+  )
+
+  const preparing = attached.some((a) => a.state === "preparing")
+  const readyPictures = attached.filter((a) => a.state === "ready")
+
+  const patchExchange = React.useCallback((id: string, change: (exchange: Exchange) => Exchange) => {
+    setExchanges((previous) => previous.map((e) => (e.id === id ? change(e) : e)))
   }, [])
 
   const send = React.useCallback(
@@ -938,6 +1121,8 @@ function ThemeChatPanel({
       if ((!prompt && images.length === 0) || busy) return
 
       const id = crypto.randomUUID()
+      const runId = crypto.randomUUID()
+      const startedOn = live.current.page
       setDraft("")
       setAttached([])
       setAttachError(null)
@@ -950,36 +1135,38 @@ function ThemeChatPanel({
       setWanted(true)
       setExchanges((previous) => [
         ...previous,
-        { id, prompt: prompt || (images.length === 1 ? "Build this." : "Build these."), changes: [], running: true, images },
+        {
+          id,
+          prompt: prompt || (images.length === 1 ? "Build this." : "Build these."),
+          running: true,
+          images,
+          activity: EMPTY_ACTIVITY,
+          startedAt: performance.now(),
+          engine: live.current.engine.id,
+          page: startedOn,
+        },
       ])
 
-      const patch = (change: (exchange: Exchange) => Exchange) =>
-        setExchanges((previous) => previous.map((e) => (e.id === id ? change(e) : e)))
+      const patch = (change: (exchange: Exchange) => Exchange) => patchExchange(id, change)
 
       /** One snapshot, before anything moves, so Undo takes back the whole run. */
       let snapshotTaken = false
+      let uploadStep = -1
 
       /**
        * THE RUN BELONGS TO THE PAGE IT STARTED ON.
        *
        * Switching pages swaps `sections` for a different page's, and the
        * operations coming back address the OLD page by id. Most would miss
-       * harmlessly — update, move and remove all no-op on an id that is not
-       * there — but `add_section` names no existing id and would land a new
-       * section on whichever page happens to be open. Somebody would find a
-       * pricing table on their About page with no idea where it came from.
+       * harmlessly, but `add_section` names no existing id and would land a
+       * new section on whichever page happens to be open.
        */
-      const startedOn = live.current.page
-
+      const controller = new AbortController()
+      abortRef.current = controller
       try {
-        const controller = new AbortController()
-        abortRef.current = controller
-
-        const response = await fetch(`/api/website-builder/themes/${installId}/agent`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          signal: controller.signal,
-          body: JSON.stringify({
+        const result = await streamPost(
+          `/api/website-builder/themes/${installId}/agent`,
+          JSON.stringify({
             prompt,
             images: images.map((a) => ({ mediaType: a.mediaType, data: a.data, name: a.name })),
             page: live.current.page,
@@ -993,153 +1180,110 @@ function ThemeChatPanel({
             conversationId: live.current.conversation.id,
             continueEarlier: live.current.conversation.earlier,
           }),
-        })
+          {
+            signal: controller.signal,
+            /* How much of a request with pictures has gone up, in twentieths, so the ring moves without a render per packet. */
+            onUpload: images.length
+              ? (fraction) => {
+                  const step = Math.floor(fraction * 20)
+                  if (step === uploadStep) return
+                  uploadStep = step
+                  patch((e) => ({ ...e, upload: fraction }))
+                }
+              : undefined,
+            /* The route has read the whole request, pictures included, before it answers. */
+            onSent: () => patch((e) => ({ ...e, sent: true })),
+            onLine: (line) => {
+              const event = line as RunLine
+              const type = typeof event.type === "string" ? event.type : ""
 
-        /* The route has read the whole request, pictures included, before it answers. */
-        patch((e) => ({ ...e, sent: true }))
+              /* Which conversation this run is recorded in: a new chat now has an id, and a name. */
+              if (event.type === "conversation" && event.id) {
+                const opened = { id: String(event.id), title: typeof event.title === "string" ? event.title : "", earlier: false }
+                setConversation((was) => (was.id === opened.id && was.title === opened.title && !was.earlier ? was : opened))
+                return
+              }
+              /* The id the question was kept under, which Report names. */
+              if (type === "recorded") {
+                const messageId = typeof event.messageId === "string" ? event.messageId : null
+                if (messageId) patch((e) => ({ ...e, messageId }))
+                return
+              }
 
-        if (!response.ok || !response.body) {
-          const body = (await response.json().catch(() => ({}))) as { error?: string }
-          patch((e) => ({ ...e, running: false, error: body.error ?? "That did not go through." }))
+              /**
+               * Checked per line rather than once: the page can change at any
+               * point during a run, and the next line is where it matters.
+               */
+              if (live.current.page !== startedOn) {
+                controller.abort()
+                patch((e) => ({
+                  ...e,
+                  running: false,
+                  activity: settleActivity(e.activity),
+                  reply: "Stopped, you moved to another page. Nothing was applied there.",
+                }))
+                return
+              }
+
+              if (event.type === "op" && event.op) {
+                if (!snapshotTaken) {
+                  onRunStart(runId)
+                  snapshotTaken = true
+                  patch((e) => ({ ...e, runId }))
+                }
+                onOp(event.op)
+              } else if (type === "sources-changed") {
+                // The canvas is drawing the old source; the editor holds the files.
+                onSourcesChanged?.()
+                return
+              } else if (type === "message") {
+                const reply = typeof event.text === "string" ? event.text : ""
+                patch((e) => ({ ...e, reply, running: false, activity: settleActivity(e.activity) }))
+                return
+              } else if (type === "error") {
+                const message = typeof event.message === "string" ? event.message : "The edit failed."
+                patch((e) => ({ ...e, running: false, error: message, activity: settleActivity(e.activity, true) }))
+                return
+              }
+              /*
+                Everything else is progress: the agent's `thinking`, `plan`,
+                `step`, `code` and `op`, and any kind of line the server adds
+                later that carries a label. See lib/website-builder/ask-activity.ts.
+              */
+              patch((e) => {
+                const next = reduceActivity(e.activity, event)
+                return next === e.activity ? e : { ...e, activity: next }
+              })
+            },
+          },
+        )
+        if (!result.ok) {
+          patch((e) => ({ ...e, running: false, sent: true, error: result.error ?? "That did not go through.", activity: settleActivity(e.activity, true) }))
           return
         }
-
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ""
-
-        for (;;) {
-          const { done, value } = await reader.read()
-          if (done) break
-          buffer += decoder.decode(value, { stream: true })
-
-          let newline = buffer.indexOf("\n")
-          while (newline !== -1) {
-            const line = buffer.slice(0, newline).trim()
-            buffer = buffer.slice(newline + 1)
-            newline = buffer.indexOf("\n")
-            if (!line) continue
-
-            let event: {
-              type: string
-              op?: ThemeOp
-              label?: string
-              text?: string
-              message?: string
-              /* A step's id and state, and a written file's path and source. */
-              id?: string
-              state?: string
-              path?: string
-              source?: string
-              /* The conversation's name, on the event that says which one this run is in. */
-              title?: string
-            }
-            try {
-              event = JSON.parse(line)
-            } catch {
-              continue
-            }
-
-            /* Which conversation this run is recorded in: a new chat now has an id, and a name. */
-            if (event.type === "conversation" && event.id) {
-              const opened = { id: event.id, title: event.title ?? "", earlier: false }
-              setConversation((was) => (was.id === opened.id && was.title === opened.title && !was.earlier ? was : opened))
-              continue
-            }
-
-            /**
-             * Checked per operation rather than once: the page can change at
-             * any point during a run, and the next event is where it matters.
-             */
-            if (live.current.page !== startedOn) {
-              controller.abort()
-              patch((e) => ({
-                ...e,
-                running: false,
-                reply: "Stopped, you moved to another page. Nothing was applied there.",
-              }))
-              return
-            }
-
-            if (event.type === "thinking") {
-              const note = event.text ?? ""
-              patch((e) => ({ ...e, note }))
-            } else if (event.type === "plan") {
-              const plan = event.text ?? ""
-              patch((e) => ({ ...e, plan }))
-            } else if (event.type === "step") {
-              const id = event.id ?? ""
-              const label = event.label ?? ""
-              const state = (event.state ?? "running") as WorkStep["state"]
-              patch((e) => {
-                const steps = e.steps ?? []
-                const at = steps.findIndex((step) => step.id === id)
-                /**
-                 * The same id arrives twice, once running and once settled.
-                 * Replacing in place is what makes the line TICK rather than
-                 * appear a second time underneath itself.
-                 */
-                if (at < 0) return { ...e, steps: [...steps, { id, label, state }] }
-                const next = [...steps]
-                next[at] = { id, label, state }
-                return { ...e, steps: next }
-              })
-            } else if (event.type === "code") {
-              const path = event.path ?? ""
-              const source = event.source ?? ""
-              if (path && source) {
-                patch((e) => {
-                  const code = e.code ?? []
-                  const at = code.findIndex((file) => file.path === path)
-                  if (at < 0) return { ...e, code: [...code, { path, source }] }
-                  const next = [...code]
-                  next[at] = { path, source }
-                  return { ...e, code: next }
-                })
-              }
-            } else if (event.type === "op" && event.op) {
-              if (!snapshotTaken) {
-                onRunStart()
-                snapshotTaken = true
-              }
-              onOp(event.op)
-              const label = event.label ?? "Changed the page"
-              patch((e) => ({ ...e, changes: [...e.changes, label] }))
-            } else if (event.type === "sources-changed") {
-              // The canvas is drawing the old source; the editor holds the files.
-              onSourcesChanged?.()
-            } else if (event.type === "message") {
-              const reply = event.text ?? ""
-              patch((e) => ({ ...e, reply, running: false }))
-            } else if (event.type === "error") {
-              const message = event.message ?? "The edit failed."
-              patch((e) => ({ ...e, running: false, error: message }))
-            }
-          }
-        }
-
-        patch((e) => ({ ...e, running: false }))
+        patch((e) => ({ ...e, running: false, activity: settleActivity(e.activity) }))
         if (snapshotTaken) onRunEnd?.(prompt)
       } catch (thrown) {
         const stopped = thrown instanceof DOMException && thrown.name === "AbortError"
         patch((e) => ({
           ...e,
           running: false,
+          activity: settleActivity(e.activity, !stopped),
           /**
-           * A stop is the person deciding, not a fault — and changes already
-           * applied are NOT rolled back, because they are on screen and one
-           * Undo takes them back. Silently reverting work somebody watched
-           * happen would be the more surprising behaviour.
+           * A stop is the person deciding, not a fault, and changes already
+           * applied are NOT rolled back: they are on screen and Undo takes
+           * them back. Silently reverting work somebody watched happen would
+           * be the more surprising behaviour.
            */
           error: stopped ? undefined : "Lost the connection. Anything already changed is still here.",
-          reply: stopped ? "Stopped." : e.reply,
+          reply: stopped ? e.reply ?? "Stopped." : e.reply,
         }))
       } finally {
         abortRef.current = null
         setBusy(false)
       }
     },
-    [busy, installId, loadingHistory, onOp, onRunStart, onRunEnd],
+    [busy, installId, loadingHistory, onOp, onRunStart, onRunEnd, onSourcesChanged, patchExchange],
   )
 
   /**
@@ -1153,11 +1297,10 @@ function ThemeChatPanel({
     void send(next)
   }, [busy, queued, send])
 
-  /** Enter sends, or queues if something is already running. */
   /**
    * WRITE ME A SECTION. Not the agent loop: that edits a page, and every one
    * of its operations names something that already exists. This asks for a
-   * file, and the server compiles it before keeping it — a section that does
+   * file, and the server compiles it before keeping it; a section that does
    * not compile is never stored, so the worst outcome here is being told why.
    */
   const writeOne = React.useCallback(
@@ -1182,17 +1325,9 @@ function ThemeChatPanel({
           /* One line per stage, then the answer: see the route. */
           headers: { "Content-Type": "application/json", Accept: "application/x-ndjson" },
           /**
-           * THE PICTURES GO TOO. They used not to, which is the whole of the
-           * bug: attaching a screenshot here sent `{ prompt: "" }`, failed
-           * the route's own validation, and came back as "the assistant could
-           * not produce a section that compiles".
-           */
-          /**
-           * AND THE SITE GOES TOO. Writing a section is the one moment every
-           * colour, font and spacing value is decided at once, and this path
-           * used to make those decisions knowing nothing about the site the
-           * section was for. The editor already holds both, so it costs a
-           * request body rather than a database read.
+           * THE PICTURES GO TOO, and so does the site: writing a section is
+           * the one moment every colour, font and spacing value is decided at
+           * once, and the editor already holds both.
            */
           body: JSON.stringify({
             prompt,
@@ -1213,8 +1348,7 @@ function ThemeChatPanel({
         const type = d.type ?? d.path?.match(/^sections\/([a-z0-9_-]+)\.storelib$/)?.[1]
         if (d.status >= 400 || !d.path || !d.name || !type) {
           /* The compiler's own words are for the code editor, not for this
-             chat: "Line 331: <schema> is never closed" tells a creator
-             nothing they can act on. The detail stays in the console. */
+             chat; the detail stays in the console. */
           if (d.errors?.length) console.warn("[storelib ai] section did not compile", d.errors)
           reason = plainWriteError(d.status, d.error, Boolean(d.errors?.length))
           setWriteError(reason)
@@ -1244,10 +1378,8 @@ function ThemeChatPanel({
       }
     },
     /**
-     * Everything it reads. This list was `[installId]` alone, so the request
-     * carried the site's settings and sections as they were when the panel
-     * first rendered: a section written after changing the colours was
-     * written for the old ones.
+     * Everything it reads, so a section written after changing the colours is
+     * written for the new ones.
      */
     [installId, settings, sections, onWriteStart, onWriteDone, onWriteFailed, dock],
   )
@@ -1255,8 +1387,10 @@ function ThemeChatPanel({
   const submit = React.useCallback(
     (text: string) => {
       const prompt = text.trim()
-      const images = attached
+      const images = attachedRef.current.filter((a) => a.state === "ready")
       if (!prompt && images.length === 0) return
+      /* A picture still being made ready is waited for: sending now would leave it behind. */
+      if (attachedRef.current.some((a) => a.state === "preparing")) return
       setDraft("")
       if (mode === "code") {
         if (writing) return
@@ -1269,14 +1403,45 @@ function ThemeChatPanel({
       }
       void send(prompt, images)
     },
-    [busy, send, mode, writing, writeOne, attached],
+    [busy, send, mode, writing, writeOne],
   )
+
+  /** Try again: the same words, and the same pictures when they are still in hand. */
+  const retry = React.useCallback(
+    (exchange: Exchange) => {
+      if (busy) return
+      const images = (exchange.images ?? []).filter((a) => a.data)
+      void send(exchange.prompt, images)
+    },
+    [busy, send],
+  )
+
+  /** The editor's Undo for one run: the page as it was before it started. */
+  const undoRun = React.useCallback(
+    (exchange: Exchange) => {
+      if (!exchange.runId || !onUndoRun) return
+      const done = onUndoRun(exchange.runId)
+      patchExchange(exchange.id, (e) => ({ ...e, undone: done, runId: done ? e.runId : undefined }))
+    },
+    [onUndoRun, patchExchange],
+  )
+
+  const reportOne = React.useCallback(
+    async (exchange: Exchange, reason: string): Promise<ReportState> => {
+      if (!exchange.messageId) return { stage: "problem", message: "This answer cannot be reported yet.", reason }
+      const result = await reportAnswer(installId, { messageId: exchange.messageId, reason, engine: exchange.engine })
+      if (result.ok) return { stage: "sent" }
+      return { stage: "problem", message: reportProblem(result.problem), reason }
+    },
+    [installId],
+  )
+
+  const viewImages = React.useCallback((images: ViewableImage[], at: number) => setViewing({ images, at }), [])
 
   /**
    * The box grows with what is in it, to a point. Two fixed rows is enough for
    * "make it blue" and not enough for the kind of instruction that is worth
-   * writing — and a box you cannot see the bottom of is one people stop
-   * writing long things in.
+   * writing.
    */
   const resize = React.useCallback(() => {
     const field = fieldRef.current
@@ -1287,37 +1452,68 @@ function ThemeChatPanel({
 
   React.useEffect(resize, [draft, resize])
 
-
   /*
     ═════════════════════════════════════════════════════════════════════════
      SPEAKING INSTEAD OF TYPING
     ═════════════════════════════════════════════════════════════════════════
     The words land in the box, after whatever was already typed, and are not
-    sent: they are read and changed first like typed ones. See ask-voice.ts
-    for which way the browser hears them, and why the microphone is simply
-    not drawn where it cannot.
+    sent: they are read and changed first like typed ones. They TYPE
+    themselves in, a few characters a frame, while the words are still being
+    said: a recogniser hands them over in bursts and revises its guesses,
+    and put straight in the box they jumped by whole phrases and flickered at
+    the end (lib/website-builder/ask-typing.ts). When the recording stops the
+    box holds exactly what was heard. See ask-voice.ts for which way the
+    browser hears.
   */
   const voiceBase = React.useRef("")
+  const voiceTarget = React.useRef<string | null>(null)
+  const typingFrame = React.useRef(0)
+  const draftRef = React.useRef(draft)
+  draftRef.current = draft
+  const typeFrame = React.useCallback(() => {
+    typingFrame.current = 0
+    const target = voiceTarget.current
+    if (target === null) return
+    const next = typeToward(draftRef.current, target)
+    draftRef.current = next
+    setDraft(next)
+    if (next !== target) typingFrame.current = requestAnimationFrame(typeFrame)
+  }, [])
   const voice = useVoiceInput({
     onText: (text) => {
-      const base = voiceBase.current
-      setDraft(base ? `${base} ${text}` : text)
+      voiceTarget.current = withSpoken(voiceBase.current, text)
+      if (!typingFrame.current) typingFrame.current = requestAnimationFrame(typeFrame)
     },
   })
   const listening = voice.state === "listening"
   const voiceRef = React.useRef(voice)
   voiceRef.current = voice
+  /* The recording is over: the box holds what was heard, whole, and stops typing. */
+  React.useEffect(() => {
+    if (voice.state === "listening" || voice.state === "starting") return
+    const target = voiceTarget.current
+    if (typingFrame.current) cancelAnimationFrame(typingFrame.current)
+    typingFrame.current = 0
+    voiceTarget.current = null
+    if (target !== null) setDraft(target)
+  }, [voice.state])
+  React.useEffect(
+    () => () => {
+      if (typingFrame.current) cancelAnimationFrame(typingFrame.current)
+    },
+    [],
+  )
 
-  /** The model menu closes on any press outside it, as a menu does. */
+  /** The model menu closes on any press outside it, as a menu does. On a phone it is a sheet, which closes itself. */
   const engineRef = React.useRef<HTMLDivElement>(null)
   React.useEffect(() => {
-    if (!engineOpen) return
+    if (!engineOpen || phone) return
     const away = (event: PointerEvent) => {
       if (!engineRef.current?.contains(event.target as Node)) setEngineOpen(false)
     }
     document.addEventListener("pointerdown", away, true)
     return () => document.removeEventListener("pointerdown", away, true)
-  }, [engineOpen])
+  }, [engineOpen, phone])
 
   /* ── The dock: open, closed, where, and how it moves ─────────────────── */
   const dockRef = React.useRef<HTMLDivElement>(null)
@@ -1391,7 +1587,9 @@ function ThemeChatPanel({
   /**
    * THE CANVAS'S BOX, MEASURED ONCE AND SHARED. The pill, the conversation
    * and the maximized size are all placed from it (dockGeometry), in the
-   * same pixels the maximize animation measures.
+   * same pixels the maximize animation measures. With a tablet's keyboard up
+   * the box ends on the keyboard (`--kb-inset`, below), and this is where
+   * the conversation learns it is shorter.
    */
   const [box, setBox] = React.useState<{ w: number; h: number; vh: number } | null>(null)
   useLayout(() => {
@@ -1436,12 +1634,7 @@ function ThemeChatPanel({
   */
   const flipFrom = React.useRef<{ surface: DOMRect; pill: DOMRect } | null>(null)
   const toggleMaximize = React.useCallback(() => {
-    if (!dock) {
-      if (!sheetStop) return
-      if (sheetStop.tallest) sheetStop.toMiddle()
-      else sheetStop.toTallest()
-      return
-    }
+    if (!dock) return
     const surface = surfaceRef.current
     const pill = pillFlipRef.current
     if (surface && pill && !reducedMotion && expanded) {
@@ -1450,7 +1643,7 @@ function ThemeChatPanel({
     setWanted(true)
     setExpanded(true)
     setMaximized((was) => !was)
-  }, [dock, sheetStop, reducedMotion, expanded])
+  }, [dock, reducedMotion, expanded])
   useLayout(() => {
     const from = flipFrom.current
     flipFrom.current = null
@@ -1534,8 +1727,7 @@ function ThemeChatPanel({
     THE HISTORY IS THERE ONLY WHILE IT IS USED. Drawn off to the right and
     slid in on the frame after (two frames, so the off screen position has
     been painted and there is something to slide from), and taken away
-    again once it has slid back out. Left mounted, its box sat past the
-    sheet's edge for as long as the chat was open.
+    again once it has slid back out.
   */
   const openHistory = React.useCallback(() => {
     setEngineOpen(false)
@@ -1572,13 +1764,29 @@ function ThemeChatPanel({
     if (busy || writing) return
     loadSeq.current++
     setLoadingHistory(false)
-    setHistoryError(null)
+    setHistoryError((was) => (was === "not_set_up" ? was : null))
     clearThread()
     setConversation({ id: null, title: "", earlier: false })
     setView("thread")
     setDraft("")
     if (dock) requestAnimationFrame(() => fieldRef.current?.focus({ preventScroll: true }))
   }, [busy, writing, clearThread, dock])
+
+  /** A conversation deleted from the history: the one on screen goes with it, and a new chat takes its place. */
+  const onDeleted = React.useCallback(
+    (target: DeletedTarget) => {
+      const onScreen =
+        target.kind === "all" ||
+        (target.kind === "one" && target.id === conversation.id && !conversation.earlier) ||
+        (target.kind === "earlier" && conversation.earlier)
+      if (!onScreen || busy || writing) return
+      loadSeq.current++
+      setLoadingHistory(false)
+      clearThread()
+      setConversation({ id: null, title: "", earlier: false })
+    },
+    [conversation.id, conversation.earlier, busy, writing, clearThread],
+  )
 
   /** Closing the chat. On a computer the pill goes too, until the bar's Ask AI brings it back. */
   const closeChat = React.useCallback(() => {
@@ -1593,36 +1801,67 @@ function ThemeChatPanel({
 
   const startVoice = React.useCallback(() => {
     voiceBase.current = draft.trim()
+    voiceTarget.current = null
     voice.clearError()
     if (dock) openDock()
     void voice.start()
   }, [draft, voice, dock, openDock])
 
+  const pickSuggestion = React.useCallback(
+    (text: string) => {
+      setDraft(text)
+      if (dock) openDock()
+      requestAnimationFrame(() => {
+        const field = fieldRef.current
+        if (!field) return
+        field.focus({ preventScroll: true })
+        field.setSelectionRange(text.length, text.length)
+        resize()
+      })
+    },
+    [dock, openDock, resize],
+  )
+
   viewingRef.current = !!viewing
-  const phone = !dock
   const busyNow = busy || writing
-  const isMax = dock ? maximized : !!sheetStop?.tallest
-  const empty = draft.trim().length === 0 && attached.length === 0
-  const placeholder =
-    listening
-      ? "Listening…"
-      : voice.state === "transcribing"
-        ? "Writing it out…"
-        : dock && !expanded && writing
-          ? writeLabel ?? "Writing the section…"
+  const isMax = dock && maximized
+  const empty = draft.trim().length === 0 && readyPictures.length === 0
+  /** The run going now, whose line the folded pill shows. */
+  const runningExchange = busy ? exchanges.find((e) => e.running) : undefined
+  const pillLine =
+    runningExchange && dock && !expanded
+      ? activityLine(runningExchange.activity, runningExchange.startedAt === undefined ? READING_MS : performance.now() - runningExchange.startedAt)
+      : null
+  const placeholder = listening
+    ? "Listening…"
+    : voice.state === "transcribing"
+      ? "Writing it out…"
+      : dock && !expanded && writing
+        ? `${writeLabel ?? "Writing the section"}…`
+        : pillLine
+          ? `${pillLine}…`
           : mode === "code"
-            ? "Describe a section, or attach a picture of one…"
+            ? "Describe a section"
             : busy
-              ? dock && !expanded
-                ? "Working on it. Ask for the next change…"
-                : "Ask for the next change…"
+              ? "Ask for the next change"
               : attached.length
-                ? "Say what this is for, or just send it"
-                : dock
-                  ? exchanges.length
-                    ? "Continue the conversation"
-                    : "Ask Storelib to change this page"
-                  : "Change this page, or attach a picture…"
+                ? "Add a note, or just send"
+                : exchanges.length
+                  ? "Continue the conversation"
+                  : "Ask for a change"
+
+  /* Undo is offered on the newest run that changed this page, while this is still the page. */
+  const undoable = React.useMemo(() => {
+    if (!onUndoRun) return null
+    for (let i = exchanges.length - 1; i >= 0; i--) {
+      const e = exchanges[i]
+      if (e.running) return null
+      if (!e.runId && !e.undone) continue
+      if (e.undone || e.page !== page || e.activity.code.length > 0) return null
+      return e.id
+    }
+    return null
+  }, [exchanges, onUndoRun, page])
 
   /* ── The pieces, drawn once and placed by the variant below ──────────── */
   const iconButton = cn(
@@ -1649,7 +1888,7 @@ function ThemeChatPanel({
             <ChevronLeft className="h-[19px] w-[19px]" strokeWidth={1.9} />
           </button>
           <span data-ask-title="" className="min-w-0 flex-1 truncate pl-1 text-[14px] font-semibold text-[#1a1a2e]">
-            Conversations
+            Chats
           </span>
         </>
       ) : (
@@ -1673,6 +1912,11 @@ function ThemeChatPanel({
           </span>
         </>
       )}
+      {onConnectAi && (
+        <span className={cn("flex shrink-0 items-center", phone ? "px-1" : "pl-1 pr-1.5")}>
+          <ConnectAiButton phone={phone} onClick={onConnectAi} />
+        </span>
+      )}
       <button
         type="button"
         data-ask-new=""
@@ -1684,7 +1928,7 @@ function ThemeChatPanel({
       >
         <SquarePen className="h-[17px] w-[17px]" strokeWidth={1.8} />
       </button>
-      {(dock || sheetStop) && (
+      {dock && (
         <button
           type="button"
           data-ask-maximize=""
@@ -1703,6 +1947,7 @@ function ThemeChatPanel({
     </div>
   )
 
+  const idle = !busyNow
   const threadPane = (
     <div
       data-ask-view="thread"
@@ -1714,178 +1959,65 @@ function ThemeChatPanel({
       {/*
         THE THREAD SCROLLS ONE WAY. Up and down, never sideways: x is hidden,
         a word or a URL longer than the line breaks where it has to
-        (`overflow-wrap: anywhere`, which also lets a flex row shrink past
-        it), and a finger here pans vertically only. Code blocks scroll
-        sideways inside themselves (work-panel.tsx). Measured by
-        scripts/check-chat-keyboard.mjs: scrollWidth equals clientWidth with
-        a 200 character URL, a long unbroken word and a wide code block in it.
+        (`overflow-wrap: anywhere`), and a finger here pans vertically only.
+        Code blocks scroll sideways inside themselves. Measured by
+        scripts/check-chat-keyboard.mjs.
       */}
       <div
         ref={threadRef}
         data-chat-thread=""
         className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-3 [overflow-wrap:anywhere] [touch-action:pan-y]"
       >
-        <div className={cn("min-w-0", dock && maximized && "mx-auto max-w-[720px]")}>
+        <div className={cn("flex min-h-full min-w-0 flex-col", dock && maximized && "mx-auto max-w-[720px]")}>
+          {historyError === "not_set_up" && (
+            <p data-ask-not-set-up="" className="mb-3 text-[12.5px] leading-snug text-[#6b7280]">
+              History turns on once the database update is run. Until then only this chat is kept.
+            </p>
+          )}
           {loadingHistory ? (
             <p className="flex items-center gap-2 text-[13px] text-[#6b7280]">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               Loading
             </p>
-          ) : historyError === "not_set_up" ? (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-3">
-              <p className="text-[13px] font-medium text-[#1a1a2e]">Chat history is not switched on yet.</p>
-              <p className="mt-1 text-[12px] leading-relaxed text-[#6b7280]">
-                This database has nowhere to keep the conversation, so it will not survive a reload.
-                Everything else works. Ask for a change and it is made.
-              </p>
-            </div>
           ) : historyError === "read_failed" ? (
-            <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-3 py-3">
-              <p className="text-[13px] font-medium text-[#1a1a2e]">We could not load this conversation.</p>
-              <p className="mt-1 text-[12px] leading-relaxed text-[#6b7280]">
-                Nothing has been lost. This is a problem reading it, not a problem with it. You can
-                still ask for a change.
-              </p>
+            <div className="rounded-xl border border-red-500/25 bg-red-500/[0.04] px-3 py-2.5">
+              <p className="text-[13px] font-medium text-[#1a1a2e]">This chat could not be loaded.</p>
+              <p className="mt-0.5 text-[12.5px] leading-relaxed text-[#6b7280]">Nothing is lost. You can still ask for a change.</p>
             </div>
           ) : exchanges.length === 0 ? (
-            <div className="space-y-4">
-              <p className="text-[13px] leading-relaxed text-[#6b7280]">
-                {mode === "change"
-                  ? "Describe a change and it is made on this page. It writes the same sections, blocks and controls the panels do, the same sliders, pickers and colours, so everything stays undoable and nothing saves until you press Save."
-                  : "Describe a section the library does not have and it is written as a .storelib file, with blocks, your colour scheme and a phone layout. It has to compile before it is kept. It appears on this page where you are working, and goes live when you publish."}
-              </p>
-
-              <div className="space-y-1.5">
-                {(mode === "change" ? SUGGESTIONS : CODE_SUGGESTIONS).map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => {
-                      setDraft(suggestion)
-                      fieldRef.current?.focus({ preventScroll: true })
-                      requestAnimationFrame(resize)
-                    }}
-                    className={cn(
-                      "w-full rounded-xl border border-[#e5e7eb] bg-white/70 px-3.5 text-left text-[13px] leading-snug text-[#1a1a2e]/75 transition-colors hover:border-[#1a1a2e]/20 hover:text-[#1a1a2e]",
-                      phone ? "min-h-[44px] py-2.5" : "py-2",
-                    )}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
+            /* Empty: nothing to read, so only what to ask, down by the box you type it in. */
+            <div data-ask-empty="" className="mt-auto">
+              <SuggestionChips items={suggestions} onPick={pickSuggestion} phone={phone} />
             </div>
           ) : (
-            <ul className="space-y-5">
-              {exchanges.map((exchange) => (
-                <li key={exchange.id} className="space-y-2.5">
-                  {exchange.images && exchange.images.length > 0 && (
-                    <div className="flex flex-wrap justify-end gap-1.5">
-                      {exchange.images.map((image, index) => (
-                        <button
-                          key={image.id}
-                          type="button"
-                          data-ask-sent-image=""
-                          onClick={() => setViewing({ images: exchange.images ?? [], at: index })}
-                          aria-label={`Open ${image.name}`}
-                          className="relative block overflow-hidden rounded-xl border border-[#e5e7eb] transition-opacity hover:opacity-90"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element -- bytes this thread already holds. */}
-                          <img src={image.url} alt={image.name} className="h-16 w-16 object-cover" />
-                          {exchange.running && !exchange.sent && (
-                            <span data-ask-sending="" className="absolute inset-0 flex items-center justify-center bg-white/55">
-                              <Loader2 className="h-4 w-4 animate-spin text-[#1a1a2e]/70" />
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex justify-end">
-                    <p
-                      data-ask-prompt=""
-                      className="max-w-[85%] whitespace-pre-wrap rounded-[18px] bg-[#f1f2f4] px-3.5 py-2 text-[13.5px] leading-[1.5] text-[#1a1a2e]"
-                    >
-                      {exchange.prompt}
-                    </p>
-                  </div>
-
-                  {/*
-                    THE RUN ITSELF: the plan, the steps as they tick off, and
-                    any code it wrote. Above the change list, because it is what
-                    is happening and the list is what happened.
-                  */}
-                  <WorkPanel
-                    plan={exchange.plan}
-                    steps={exchange.steps ?? []}
-                    code={exchange.code ?? []}
-                    running={exchange.running}
+            <>
+              <ul className="space-y-5">
+                {exchanges.map((exchange) => (
+                  <ExchangeItem
+                    key={exchange.id}
+                    exchange={exchange}
+                    phone={phone}
+                    canUndo={exchange.id === undoable}
+                    canRetry={idle}
+                    onRetry={retry}
+                    onUndo={undoRun}
+                    onView={viewImages}
                     onOpenCode={onOpenCodeEditor}
+                    onReport={reportOne}
                   />
-
-                  {exchange.changes.length > 0 && (
-                    <ul className="space-y-1 border-l border-[#e5e7eb] pl-3">
-                      {exchange.changes.map((change, index) => (
-                        <li
-                          key={`${change}-${index}`}
-                          className="flex items-center gap-2 text-[12.5px] text-[#6b7280]"
-                        >
-                          <Check className="h-3 w-3 shrink-0 text-emerald-500" strokeWidth={2} />
-                          <span className="truncate">{change}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {exchange.note && exchange.running && (
-                    <p
-                      key={exchange.note}
-                      className="animate-in fade-in text-[12.5px] leading-relaxed text-[#6b7280] duration-300"
-                    >
-                      {exchange.note}
-                    </p>
-                  )}
-
-                  {exchange.running && <RunStatus exchange={exchange} />}
-
-                  {exchange.reply && (
-                    <p className="text-[13.5px] leading-relaxed text-[#1a1a2e]">{exchange.reply}</p>
-                  )}
-
-                  {exchange.error && (
-                    <div className="space-y-1.5">
-                      <p className="flex items-start gap-1.5 text-[12.5px] text-red-600">
-                        <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
-                        {exchange.error}
-                      </p>
-                      {/*
-                        A failed run leaves the request sitting there with no way
-                        to make it again except retyping it, which is the moment
-                        most people give up on a feature rather than on the
-                        network.
-                      */}
-                      <button
-                        type="button"
-                        onClick={() => submit(exchange.prompt)}
-                        disabled={busy}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-3 text-[12px] text-[#1a1a2e]/75 transition-colors hover:border-[#1a1a2e]/25 hover:text-[#1a1a2e] disabled:opacity-40"
-                      >
-                        <RotateCcw className="h-3 w-3" strokeWidth={2} />
-                        Try again
-                      </button>
-                    </div>
-                  )}
-                </li>
-              ))}
-              {queued && (
-                <li className="flex items-start gap-2 text-[12.5px] text-[#6b7280]">
-                  <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#6b7280]/50" />
-                  <span>
-                    Up next: <span className="text-[#1a1a2e]/75">{queued}</span>
-                  </span>
-                </li>
-              )}
-            </ul>
+                ))}
+                {queued && (
+                  <li className="flex items-start gap-2 text-[12.5px] text-[#6b7280]">
+                    <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#6b7280]/50" />
+                    <span>
+                      Up next: <span className="text-[#1a1a2e]/75">{queued}</span>
+                    </span>
+                  </li>
+                )}
+              </ul>
+              {/* What to ask next, once this answer is in. */}
+              {idle && !queued && <SuggestionChips items={suggestions} onPick={pickSuggestion} phone={phone} className="mt-5" />}
+            </>
           )}
         </div>
       </div>
@@ -1909,6 +2041,7 @@ function ThemeChatPanel({
           locked={busyNow}
           phone={phone}
           onOpen={openConversation}
+          onDeleted={onDeleted}
         />
       </div>
     </div>
@@ -1919,19 +2052,15 @@ function ThemeChatPanel({
      the panel under the clipped x axis. */
   const tray = (
     <div data-ask-tray="" className={cn("min-w-0 [overflow-wrap:anywhere]", dock && maximized && "mx-auto max-w-[720px]")}>
-      {/* What the writer produced, or why it could not. Also stranded in
-          the empty state before: a section written after any exchange was
-          reported to nobody. */}
+      {/* What the writer produced, or why it could not. */}
       {written && (
         <div className="mb-2 rounded-xl border border-[#e5e7eb] bg-white p-3">
           <p className="text-[13px] font-medium text-[#1a1a2e]">
             {written.placed ? `${written.name} is on the page` : `${written.name} is written`}
           </p>
           <p className="mt-1 text-[12.5px] leading-snug text-[#6b7280]">
-            It compiled and is saved as <span className="font-mono text-[12px]">{written.path}</span>.{" "}
-            {written.placed
-              ? "It goes live when you publish."
-              : "Add it from Add Section, under Created by you. It goes live when you publish."}
+            Saved as <span className="font-mono text-[12px]">{written.path}</span>.{" "}
+            {written.placed ? "It goes live when you publish." : "Add it from Add Section, under Created by you."}
           </p>
           {onOpenCodeEditor && (
             <button
@@ -1945,8 +2074,7 @@ function ThemeChatPanel({
         </div>
       )}
 
-      {/* It answered rather than wrote: the question, then the answer,
-          like any other turn of a conversation. */}
+      {/* It answered rather than wrote: the question, then the answer. */}
       {writeReply && !writing && (
         <div className="mb-2 space-y-1.5 rounded-xl border border-[#e5e7eb] bg-white p-3">
           <p className="text-[12.5px] text-[#6b7280]">{writeReply.prompt}</p>
@@ -1973,8 +2101,8 @@ function ThemeChatPanel({
         </div>
       )}
 
-      {/* What it is doing while it does it, from the server's reports. */}
-      {writing && writeLabel && <AiStatus label={writeLabel} className="mb-2 px-0.5" />}
+      {/* What the writer is doing while it does it, from the server's reports. */}
+      {writing && writeLabel && <ActivityLine label={writeLabel} className="mb-2 px-0.5" />}
 
       {voice.error && (
         <p data-ask-voice-error="" role="alert" className="mb-2 flex items-start gap-1.5 px-0.5 text-[12.5px] leading-snug text-[#b45309]">
@@ -1991,82 +2119,35 @@ function ThemeChatPanel({
         </p>
       )}
 
-      <div className="mb-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
-        {/*
-          ═════════════════════════════════════════════════════════════════════
-           THE TWO THINGS IT DOES, ALWAYS REACHABLE
-          ═════════════════════════════════════════════════════════════════════
-          Changing this page and writing a new kind of section are different
-          acts with different answers, and "add a comparison table" is a
-          sentence that could mean either. So it asks, in one row.
-
-          THE ROW USED TO BE IN THE EMPTY STATE ONLY. Ask for one change and
-          it was gone, and the conversation is kept across reloads — so after
-          a creator's first message, in that install, forever, half the
-          assistant could not be reached at all. It lives with the box you
-          type into now, because it decides what typing there does.
-        */}
-        <div role="group" aria-label="What to ask for" className="flex min-w-0 shrink-0 gap-0.5 rounded-full bg-black/[0.045] p-0.5">
-          {([
-            ["change", "Change this page"],
-            ["code", "Code a section"],
-          ] as const).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => { setMode(key); setWriteError(null) }}
-              aria-pressed={mode === key}
-              className={cn(
-                "min-w-0 truncate rounded-full font-medium transition-[background-color,color,box-shadow] duration-150",
-                phone ? "h-11 px-4 text-[13px]" : "h-7 px-3 text-[12px]",
-                mode === key
-                  ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(15,23,42,0.1)]"
-                  : "text-[#6b7280] hover:text-[#1a1a2e]",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/*
-          THE SCOPE OF THE EDIT, WHERE YOU ARE ABOUT TO TYPE IT.
-          Not buried in a menu and not implied by the sentence: the chip says
-          what will change before you ask for it, and one click changes the
-          answer.
-        */}
-        {selectedSection && (
-          <div className="flex min-w-0 items-center gap-1.5">
-            {locked ? (
-              <>
-                <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-[#1a1a2e]/12 bg-white py-1 pl-2.5 pr-1 text-[12px] text-[#1a1a2e]">
-                  <Lock className="h-3 w-3 shrink-0 opacity-60" strokeWidth={2} />
-                  <span className="truncate">Only {selectedSection.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => setLockOn(false)}
-                    aria-label={`Stop limiting edits to ${selectedSection.name}`}
-                    title="Edit the whole page instead"
-                    className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[#6b7280] transition-colors after:absolute after:-inset-3 after:content-[''] hover:bg-black/[0.06] hover:text-[#1a1a2e]"
-                  >
-                    <X className="h-3 w-3" strokeWidth={2.25} />
-                  </button>
-                </span>
-                <span className="min-w-0 truncate text-[11.5px] text-[#6b7280]/80">
-                  nothing else will change
-                </span>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setLockOn(true)}
-                className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white/70 px-2.5 py-1 text-[12px] text-[#6b7280] transition-colors hover:border-[#1a1a2e]/25 hover:text-[#1a1a2e]"
-              >
-                <Lock className="h-3 w-3 shrink-0 opacity-60" strokeWidth={2} />
-                <span className="truncate">Editing the whole page. Limit to {selectedSection.name}</span>
-              </button>
-            )}
-          </div>
+      {/*
+        ═════════════════════════════════════════════════════════════════════
+         THE TWO THINGS IT DOES, ALWAYS REACHABLE, ON ONE ROW
+        ═════════════════════════════════════════════════════════════════════
+        Changing this page and writing a new kind of section are different
+        acts with different answers, and "add a comparison table" is a
+        sentence that could mean either. So it asks, beside the box you type
+        into, and the scope of a change sits on the same row. Two words a
+        side, so the row is one row on a 360px phone (measured by
+        scripts/check-ask-dock.mjs).
+      */}
+      <div data-ask-mode-row="" className="mb-2 flex min-w-0 flex-nowrap items-center gap-2">
+        <ModeSwitch
+          mode={mode}
+          onChange={(key) => {
+            setMode(key)
+            setWriteError(null)
+          }}
+          phone={phone}
+          reducedMotion={reducedMotion}
+        />
+        {selectedSection && mode === "change" && (
+          <ScopeChip
+            name={selectedSection.name}
+            locked={locked}
+            onLock={() => setLockOn(true)}
+            onUnlock={() => setLockOn(false)}
+            phone={phone}
+          />
         )}
       </div>
     </div>
@@ -2075,63 +2156,24 @@ function ThemeChatPanel({
   /*
     WHICH MODEL, where the message is written: it is a per-message decision
     ("this one is hard, use Opus"), and a choice buried two screens away is
-    one nobody makes. A short name on the button, the reason in the menu.
+    one nobody makes. While a recording runs, its clock sits in the same
+    place, over the model's button, so nothing on the row moves.
   */
-  const modelMenu = (
+  const modelSlot = (
     <div ref={engineRef} className="relative shrink-0">
-      <button
-        type="button"
-        data-ask-model=""
-        onClick={() => setEngineOpen((open) => !open)}
-        aria-haspopup="listbox"
-        aria-expanded={engineOpen}
-        title="Which model answers"
-        className={cn(
-          "relative flex items-center gap-1 rounded-full text-[13px] text-[#1a1a2e]/75 transition-colors hover:bg-black/[0.05] hover:text-[#1a1a2e]",
-          phone ? "h-11 pl-3.5 pr-2.5" : "h-9 pl-3 pr-2",
-        )}
-      >
-        <span className="max-w-[96px] truncate">{chosenEngine.short}</span>
-        <ChevronDown
-          className={cn("h-3.5 w-3.5 shrink-0 opacity-60 transition-transform duration-200", engineOpen && "rotate-180")}
-          strokeWidth={2}
-        />
-      </button>
-      {engineOpen && (
-        <ul
-          role="listbox"
-          aria-label="Model"
-          data-ask-model-menu=""
-          className={cn(
-            "absolute bottom-full z-50 mb-2 w-[252px] overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white p-1 shadow-[0_16px_40px_-16px_rgba(15,23,42,0.3)]",
-            "animate-in fade-in slide-in-from-bottom-1 duration-150",
-            phone ? "left-0" : "right-0",
-          )}
+      <div className={cn(listening && "invisible")}>
+        <ModelPicker engines={ENGINES} value={engine} onChange={chooseEngine} open={engineOpen} onOpenChange={setEngineOpen} phone={phone} />
+      </div>
+      {listening && (
+        <span
+          data-ask-voice-clock=""
+          role="timer"
+          aria-label={`Recording, ${clock(voice.seconds)}`}
+          className="absolute inset-0 flex items-center justify-center gap-1.5 text-[12.5px] tabular-nums text-[#1a1a2e]/80"
         >
-          {ENGINES.map((option) => (
-            <li key={option.id}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={option.id === engine}
-                onClick={() => chooseEngine(option.id)}
-                className={cn(
-                  "flex w-full items-start gap-2 rounded-xl px-2.5 text-left transition-colors hover:bg-black/[0.04]",
-                  phone ? "min-h-[48px] py-2.5" : "py-2",
-                )}
-              >
-                <Check
-                  className={cn("mt-[3px] h-3.5 w-3.5 shrink-0 text-[#1a1a2e]", option.id === engine ? "opacity-100" : "opacity-0")}
-                  strokeWidth={2.5}
-                />
-                <span className="min-w-0">
-                  <span className="block text-[13px] text-[#1a1a2e]">{option.label}</span>
-                  <span className="block text-[11.5px] leading-snug text-[#6b7280]">{option.detail}</span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+          <span aria-hidden className="ask-rec-dot h-2 w-2 rounded-full bg-[#dc2626]" />
+          {clock(voice.seconds)}
+        </span>
       )}
     </div>
   )
@@ -2140,7 +2182,7 @@ function ThemeChatPanel({
     <input
       ref={fileInputRef}
       type="file"
-      accept={ALLOWED_IMAGE_TYPES.join(",")}
+      accept={[...ALLOWED_IMAGE_TYPES, "image/heic", "image/heif", "video/*"].join(",")}
       multiple
       className="hidden"
       onChange={(event) => {
@@ -2159,9 +2201,9 @@ function ThemeChatPanel({
         if (dock) openDock()
         fileInputRef.current?.click()
       }}
-      disabled={attached.length + preparing >= MAX_IMAGES}
-      aria-label="Attach a picture"
-      title={attached.length >= MAX_IMAGES ? `${MAX_IMAGES} images is the limit` : "Attach a picture of what you want"}
+      disabled={attached.length >= MAX_IMAGES}
+      aria-label="Attach pictures or a video"
+      title={attached.length >= MAX_IMAGES ? `${MAX_IMAGES} pictures is the most one message can carry` : "Attach pictures or a video"}
       className={cn(quietRound, dock && "border border-black/[0.06] bg-white/60")}
     >
       <Paperclip className="h-4 w-4" strokeWidth={1.9} />
@@ -2169,41 +2211,35 @@ function ThemeChatPanel({
   )
 
   const micButton = voice.supported && (
-    <>
-      {listening && (
-        <span data-ask-voice-clock="" className={cn("flex shrink-0 items-center px-1 text-[12.5px] tabular-nums text-[#1a1a2e]/70", phone ? "h-11" : "h-9")}>
-          {clock(voice.seconds)}
-        </span>
+    <button
+      type="button"
+      data-ask-mic={voice.state}
+      onClick={() => (voice.state === "idle" ? startVoice() : voice.stop())}
+      disabled={voice.state === "starting" || voice.state === "transcribing"}
+      aria-label={listening ? "Stop recording" : "Speak instead of typing"}
+      aria-pressed={listening}
+      title={listening ? "Stop, and keep what was said" : "Speak instead of typing"}
+      className={cn(
+        quietRound,
+        dock && !listening && "border border-black/[0.06] bg-white/60",
+        listening && "bg-[#1a1a2e] text-white hover:bg-[#1a1a2e] hover:text-white",
       )}
-      <button
-        type="button"
-        data-ask-mic={voice.state}
-        onClick={() => (voice.state === "idle" ? startVoice() : voice.stop())}
-        disabled={voice.state === "starting" || voice.state === "transcribing"}
-        aria-label={listening ? "Stop recording" : "Speak instead of typing"}
-        aria-pressed={listening}
-        title={listening ? "Stop, and keep what was said" : "Speak instead of typing"}
-        className={cn(
-          quietRound,
-          dock && !listening && "border border-black/[0.06] bg-white/60",
-          listening && "bg-[#1a1a2e] text-white hover:bg-[#1a1a2e] hover:text-white",
-        )}
-      >
-        {listening && <span aria-hidden className="ask-listen-ring" />}
-        {voice.state === "starting" || voice.state === "transcribing" ? (
-          <Loader2 className="relative h-4 w-4 animate-spin" />
-        ) : listening ? (
-          <Square className="relative h-3 w-3 fill-current" />
-        ) : (
-          <Mic className="relative h-4 w-4" strokeWidth={1.9} />
-        )}
-      </button>
-    </>
+    >
+      {listening && <span aria-hidden className="ask-listen-ring" />}
+      {voice.state === "starting" || voice.state === "transcribing" ? (
+        <Loader2 className="relative h-4 w-4 animate-spin" />
+      ) : listening ? (
+        <Square className="relative h-3 w-3 fill-current" />
+      ) : (
+        <Mic className="relative h-4 w-4" strokeWidth={1.9} />
+      )}
+    </button>
   )
 
   const stopButton = busy && (
     <button
       type="button"
+      data-ask-stop=""
       onClick={() => abortRef.current?.abort()}
       aria-label="Stop"
       title="Stop"
@@ -2218,12 +2254,13 @@ function ThemeChatPanel({
       type="button"
       data-ask-send=""
       onClick={() => submit(draft)}
-      disabled={draft.trim().length === 0 && attached.length === 0}
+      disabled={(draft.trim().length === 0 && attached.length === 0) || preparing}
       aria-label={busy ? "Queue" : "Send"}
+      title={preparing ? "Waiting for the pictures to be ready" : undefined}
       className={cn(
         roundButton,
         "disabled:opacity-100",
-        empty ? "bg-black/[0.06] text-black/30" : "bg-[#1a1a2e] text-white hover:bg-[#1a1a2e]/90",
+        empty || preparing ? "bg-black/[0.06] text-black/30" : "bg-[#1a1a2e] text-white hover:bg-[#1a1a2e]/90",
       )}
     >
       <ArrowUp className="h-4 w-4" strokeWidth={2.25} />
@@ -2231,8 +2268,8 @@ function ThemeChatPanel({
   )
 
   /*
-    NOT `disabled` while a run is going. Waiting for a spinner before you are
-    allowed to type your next thought is the difference between a
+    NOT `disabled` while a run is going. Waiting for a spinner before you
+    are allowed to type your next thought is the difference between a
     conversation and a form. Enter during a run queues it instead.
   */
   const field = (
@@ -2252,60 +2289,33 @@ function ThemeChatPanel({
       /** A screenshot goes to the clipboard; this is where it lands. */
       onPaste={(event) => {
         const files = Array.from(event.clipboardData.files)
-        if (!files.some((f) => f.type.startsWith("image/"))) return
+        if (files.length === 0) return
         event.preventDefault()
         void attach(files)
       }}
       placeholder={placeholder}
+      enterKeyHint="send"
       className={cn(
-        "block w-full resize-none bg-transparent text-[#1a1a2e] outline-none placeholder:text-[#6b7280]/80",
-        phone ? "min-h-[44px] px-1.5 py-[11px] text-[15px] leading-[22px]" : "min-h-[40px] py-[9px] text-[14px] leading-[22px]",
+        "block w-full resize-none bg-transparent text-[#1a1a2e] outline-none placeholder:text-[#6b7280]/80 placeholder:truncate",
+        phone ? "min-h-[44px] px-1.5 py-[11px] text-[16px] leading-[22px]" : "min-h-[40px] py-[9px] text-[14px] leading-[22px]",
       )}
     />
   )
 
-  const thumbnails = (attached.length > 0 || preparing > 0) && (
-    <div data-ask-attachments="" className="flex flex-wrap gap-2 px-3 pt-3">
-      {attached.map((image) => (
-        <div key={image.id} data-ask-thumb="" className="group/att relative animate-in fade-in zoom-in-95 duration-200">
-          <button
-            type="button"
-            onClick={() => setViewing({ images: attached, at: attached.indexOf(image) })}
-            aria-label={`Open ${image.name}`}
-            className="block overflow-hidden rounded-xl border border-[#e5e7eb] transition-opacity hover:opacity-90"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- a data URL from the creator's own file; there is nothing to optimise and nowhere to fetch it from. */}
-            <img src={image.url} alt={image.name} className="h-14 w-14 object-cover" />
-          </button>
-          <button
-            type="button"
-            onClick={() => removeAttachment(image.id)}
-            aria-label={`Remove ${image.name}`}
-            /**
-             * The cross is 20px because a bigger one would sit on the
-             * picture rather than beside it. The `after` box is the part a
-             * thumb hits: 44px, invisible, over the corner.
-             */
-            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[#e5e7eb] bg-white text-[#6b7280] shadow-sm transition-colors after:absolute after:-inset-3 after:content-[''] hover:text-[#1a1a2e]"
-          >
-            <X className="h-3 w-3" strokeWidth={2.5} />
-          </button>
-        </div>
-      ))}
-      {Array.from({ length: preparing }, (_, index) => (
-        <div
-          key={`preparing-${index}`}
-          data-ask-preparing=""
-          aria-label="Preparing a picture"
-          className="flex h-14 w-14 items-center justify-center rounded-xl border border-[#e5e7eb] bg-[#f8f9fa]"
-        >
-          <Loader2 className="h-4 w-4 animate-spin text-[#6b7280]" />
-        </div>
-      ))}
-    </div>
+  const thumbnails = (
+    <PictureTray
+      items={attached}
+      onRemove={removeAttachment}
+      onRetry={retryPicture}
+      onOpen={(id) => {
+        const ready = attached.filter((a) => a.url)
+        const at = ready.findIndex((a) => a.id === id)
+        if (at >= 0) setViewing({ images: ready, at })
+      }}
+    />
   )
 
-  const attachProblem = attachError && (
+  const attachProblemLine = attachError && (
     <p data-ask-attach-error="" role="alert" className="flex items-start gap-1.5 px-4 pt-2 text-[12px] leading-snug text-[#b45309]">
       <span className="min-w-0 flex-1">{attachError}</span>
       <button
@@ -2363,12 +2373,12 @@ function ThemeChatPanel({
       )}
       <div className="relative min-w-0">
         {thumbnails}
-        {attachProblem}
+        {attachProblemLine}
         {fileInput}
         {dock ? (
           <div className="flex min-w-0 items-end gap-1.5 py-[7px] pl-5 pr-[7px]">
             <div className="min-w-0 flex-1">{field}</div>
-            {modelMenu}
+            {modelSlot}
             {attachButton}
             {micButton}
             {stopButton}
@@ -2378,7 +2388,7 @@ function ThemeChatPanel({
           <>
             <div className="px-2 pt-0.5">{field}</div>
             <div className="flex min-w-0 items-center gap-0.5 px-1 pb-1">
-              {modelMenu}
+              {modelSlot}
               <span className="min-w-0 flex-1" />
               {attachButton}
               {micButton}
@@ -2393,14 +2403,12 @@ function ThemeChatPanel({
 
   /*
     WHAT A DROP WILL DO, while the file is still in the air. Without it the
-    gesture is something you either already know about or never find, and a
-    file let go over a panel that showed no target reads as broken.
+    gesture is something you either already know about or never find.
   */
   const dropTarget = dragging && (
     <div data-drop-target="" className="pointer-events-none absolute inset-2 z-[120] flex flex-col items-center justify-center gap-2 rounded-[22px] border-2 border-dashed border-[#1a1a2e]/25 bg-white/90">
       <ImagePlus className="h-6 w-6 text-[#1a1a2e]/60" strokeWidth={1.75} />
-      <p className="text-[13px] font-medium text-[#1a1a2e]">Drop the picture here</p>
-      <p className="text-[12px] text-[#6b7280]">It will be built as closely as the theme allows</p>
+      <p className="text-[13px] font-medium text-[#1a1a2e]">Drop pictures or a video</p>
     </div>
   )
 
@@ -2501,31 +2509,39 @@ function ThemeChatPanel({
       data-ask-dock=""
       data-state={!showPill ? "hidden" : cardOpen ? "open" : "pill"}
       data-maximized={maximized ? "true" : "false"}
-      className={cn("pointer-events-none absolute inset-0", cardOpen ? "z-40" : "z-20")}
+      className={cn("pointer-events-none absolute inset-x-0 top-0", cardOpen ? "z-40" : "z-20")}
+      /*
+        ON A KEYBOARD. A tablet's on screen keyboard covers the bottom of the
+        canvas, and the pill with it. The box ends where the keyboard begins
+        (`--kb-inset`, published once by ViewportVars from visualViewport, and
+        0 wherever there is no such keyboard), so the pill sits just above the
+        keys and the conversation shrinks to fit, measured by the observer
+        above. Nothing on the canvas moves.
+      */
+      style={{ bottom: "var(--kb-inset, 0px)" }}
       {...dropHandlers}
     >
       {viewer}
       {g && box && (
         <>
           {/*
-            THE HALO. The canvas just around the pill is softly blurred and
-            lifted towards white, fading out to nothing at its edge, so the
-            pill floats over the page rather than being stuck on it.
+            THE GLOW. The canvas just around the pill is lifted towards white
+            and fades out to nothing: a soft shadow of the page's own grey,
+            the pill's shape, so it has no edge anywhere and no filter to
+            repaint as the page scrolls under it. It was a blurred band with
+            a mask, and where the mask was not honoured (Safari, or a clip
+            around the canvas) it was a hard rectangle.
           */}
           <div
             aria-hidden
             data-ask-halo=""
-            className="pointer-events-none absolute"
+            className="pointer-events-none absolute rounded-full"
             style={{
-              left: (box.w - g.pillW) / 2 - 56,
-              width: g.pillW + 112,
-              bottom: 0,
-              height: g.pillBottom + pillHeight + 36,
-              background: "rgba(248, 249, 250, 0.38)",
-              backdropFilter: "blur(6px)",
-              WebkitBackdropFilter: "blur(6px)",
-              maskImage: "radial-gradient(closest-side, #000 42%, transparent 100%)",
-              WebkitMaskImage: "radial-gradient(closest-side, #000 42%, transparent 100%)",
+              left: (box.w - g.pillW) / 2,
+              width: g.pillW,
+              bottom: g.pillBottom,
+              height: pillHeight,
+              boxShadow: "0 6px 44px 18px rgba(248, 249, 250, 0.66)",
               opacity: showPill && !cardOpen && !pillAway ? 1 : 0,
               transition: reducedMotion ? "none" : "opacity 240ms ease-out",
             }}
