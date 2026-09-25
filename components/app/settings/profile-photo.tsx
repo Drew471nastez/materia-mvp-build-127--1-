@@ -20,6 +20,7 @@
 import { useEffect, useRef, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { AppAvatar } from "@/components/app/app-avatar"
+import { announceAvatar } from "@/lib/account/avatar-store"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
 
@@ -46,6 +47,24 @@ async function squareOf(file: File): Promise<Blob> {
   return await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("no blob"))), "image/jpeg", 0.9),
   )
+}
+
+/**
+ * Saved through app/api/account/avatar, which also marks the account as
+ * having chosen, so signing in with Google again never brings its picture
+ * back over a photo that was removed (lib/account/avatar).
+ */
+async function savePhoto(url: string | null) {
+  const res = await fetch("/api/account/avatar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  }).catch(() => null)
+  if (!res) throw new Error("Could not reach Storelib. Check your connection and try again.")
+  if (!res.ok) {
+    const data = (await res.json().catch(() => null)) as { error?: string } | null
+    throw new Error(data?.error || (url ? "The photo did not upload. Try again in a moment." : "The photo was not removed. Try again in a moment."))
+  }
 }
 
 export function ProfilePhoto({
@@ -102,8 +121,8 @@ export function ProfilePhoto({
       const {
         data: { publicUrl },
       } = supabase.storage.from("avatars").getPublicUrl(path)
-      const { error: saveError } = await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", userId)
-      if (saveError) throw saveError
+      await savePhoto(publicUrl)
+      announceAvatar(publicUrl)
       onChanged(publicUrl)
     } catch (err) {
       console.error("[settings] photo not saved:", err)
@@ -119,13 +138,13 @@ export function ProfilePhoto({
     setError(null)
     setBusy("remove")
     try {
-      const supabase = createClient()
-      const { error: saveError } = await supabase.from("profiles").update({ avatar_url: null }).eq("id", userId)
-      if (saveError) throw saveError
+      await savePhoto(null)
       showPreview(null)
+      /* The header and the account sheet show the initials now, not the Google picture. */
+      announceAvatar(null)
       onChanged(null)
-    } catch {
-      setError("The photo was not removed. Try again in a moment.")
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "The photo was not removed. Try again in a moment.")
     } finally {
       setBusy(null)
     }

@@ -2,27 +2,26 @@
 
 /**
  * ===========================================================================
- *  THE TIME ZONE, PICKED THE WAY ANALYTICS PICKS A PRODUCT
+ *  THE TIME ZONE FIELD
  * ===========================================================================
- * "The select time zone pop up is too AI, our old UI. Bring the Products,
- * Orders and Analytics kind of UI to it." So it is built from the same parts
- * as the Analytics product picker (components/app/date-range-picker): the
- * same rows with a check on the one chosen, in a popover under the field on
- * a computer and the shared sheet on a phone (components/ui/bottom-sheet),
- * with a search field at the top because there are sixty of them.
+ * "The time zone as well, make it cleaner." Built from the same parts as the
+ * Language field (components/ui/choice-list): a popover under the field on a
+ * computer and the shared sheet on a phone, a search at the top, and rows
+ * with the city, its region under it and today's offset on the right, a
+ * check on the one chosen.
  *
- * The offset beside each place is worked out now, by the browser, for today:
- * London reads UTC+1 in summer and UTC in winter. The list used to carry fixed
- * strings that were wrong for half the year. The zone this device is in comes
- * first, so the usual answer is one press.
+ * Every zone the browser knows is listed (about 420), west to east, not the
+ * sixty that happened to be in a hand written list, so any city can be found
+ * by its own name. The offset is worked out now, for today: London reads
+ * UTC+1 in summer and UTC in winter.
+ *
+ * What the choice changes is lib/account/time-zone's to say: it is saved to
+ * the account and followed by the server as well as the browser.
  */
 import * as React from "react"
-import { ChevronDown } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { BottomSheet } from "@/components/ui/bottom-sheet"
-import { cn } from "@/lib/utils"
-import { PickerDivider, PickerRow, onRowsKey, pickerSurface, usePhone } from "@/components/app/date-range-picker"
+import { ChoiceAction, ChoicePicker, type Choice } from "@/components/ui/choice-list"
 
+/** Zones better known by another name, found by it in search and shown under the city. */
 export const TIME_ZONES: { code: string; name: string }[] = [
   { code: "UTC", name: "UTC" },
   { code: "America/New_York", name: "Eastern Time (US & Canada)" },
@@ -66,6 +65,11 @@ export const TIME_ZONES: { code: string; name: string }[] = [
   { code: "Asia/Dubai", name: "Dubai" },
   { code: "Asia/Karachi", name: "Karachi" },
   { code: "Asia/Kolkata", name: "Mumbai, Kolkata, New Delhi" },
+  /* The older names some browsers still list these under. */
+  { code: "Asia/Calcutta", name: "Mumbai, Kolkata, New Delhi" },
+  { code: "Asia/Saigon", name: "Ho Chi Minh City" },
+  { code: "Asia/Katmandu", name: "Kathmandu" },
+  { code: "Asia/Rangoon", name: "Yangon" },
   { code: "Asia/Dhaka", name: "Dhaka" },
   { code: "Asia/Bangkok", name: "Bangkok" },
   { code: "Asia/Jakarta", name: "Jakarta" },
@@ -104,17 +108,66 @@ export function offsetOf(code: string, at = new Date()): string {
 }
 
 /** Minutes east of UTC, for ordering the list west to east. */
-function minutesOf(code: string, at = new Date()): number {
-  const o = offsetOf(code, at)
-  const m = /UTC([+−])(\d+)(?::(\d+))?/.exec(o)
+function minutesOf(offset: string): number {
+  const m = /UTC([+−])(\d+)(?::(\d+))?/.exec(offset)
   if (!m) return 0
   const v = Number(m[2]) * 60 + Number(m[3] ?? 0)
   return m[1] === "+" ? v : -v
 }
 
-/** The name a zone is shown by: the list's, or the city at the end of its code. */
+/** The city at the end of a zone's name: "Buenos Aires" from America/Argentina/Buenos_Aires. */
+function cityOf(code: string): string {
+  return code.split("/").pop()!.replace(/_/g, " ")
+}
+
+/** The name a zone is shown by: the city, or the list's name for the few that have one. */
 export function zoneName(code: string): string {
-  return TIME_ZONES.find((z) => z.code === code)?.name ?? code.split("/").pop()!.replace(/_/g, " ")
+  if (code === "UTC") return "UTC"
+  return cityOf(code)
+}
+
+/** Every zone this browser knows, else the list above. */
+function allZones(): string[] {
+  try {
+    const list = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.("timeZone")
+    if (list && list.length > 0) return list.includes("UTC") ? list : [...list, "UTC"]
+  } catch {
+    /* An older browser: the curated list. */
+  }
+  return TIME_ZONES.map((z) => z.code)
+}
+
+let cached: { at: number; choices: Choice[] } | null = null
+
+/**
+ * The zones as choices, west to east: the city, its region under it
+ * ("America · Argentina", or "Eastern Time (US & Canada)" where the zone has
+ * a better known name), and today's offset on the right. Search finds a
+ * city, a region, a name, or an offset written any usual way.
+ */
+export function timeZoneChoices(now = new Date()): Choice[] {
+  if (cached && Math.abs(cached.at - now.getTime()) < 60 * 60 * 1000) return cached.choices
+  const names = new Map(TIME_ZONES.map((z) => [z.code, z.name]))
+  const choices = allZones()
+    .map((code) => {
+      const offset = offsetOf(code, now)
+      const parts = code.split("/")
+      const region = parts.length > 1 ? parts.slice(0, -1).join(" · ").replace(/_/g, " ") : "Coordinated Universal Time"
+      const known = names.get(code)
+      const plain = offset.replace("−", "-")
+      return {
+        value: code,
+        label: zoneName(code),
+        detail: known && known !== cityOf(code) ? known : region,
+        aside: offset,
+        keywords: `${code} ${known ?? ""} ${region} ${plain} ${plain.replace("UTC", "GMT")} ${plain.replace("UTC", "")}`,
+        minutes: minutesOf(offset),
+      }
+    })
+    .sort((a, b) => a.minutes - b.minutes || a.label.localeCompare(b.label))
+    .map(({ minutes: _minutes, ...c }) => c)
+  cached = { at: now.getTime(), choices }
+  return choices
 }
 
 function deviceZone(): string | null {
@@ -125,133 +178,33 @@ function deviceZone(): string | null {
   }
 }
 
-function List({ value, compact, onPick }: { value: string; compact: boolean; onPick: (code: string) => void }) {
-  const [query, setQuery] = React.useState("")
-  const zones = React.useMemo(() => {
-    const now = new Date()
-    return TIME_ZONES.map((z) => ({ ...z, offset: offsetOf(z.code, now), minutes: minutesOf(z.code, now) })).sort(
-      (a, b) => a.minutes - b.minutes || a.name.localeCompare(b.name),
-    )
-  }, [])
-  const device = React.useMemo(deviceZone, [])
-  const q = query.trim().toLowerCase()
-  const shown = q
-    ? zones.filter((z) => z.name.toLowerCase().includes(q) || z.code.toLowerCase().includes(q) || z.offset.toLowerCase().includes(q))
-    : zones
-
-  return (
-    <div className={compact ? "px-2 pb-2 pt-1" : "p-1.5"}>
-      <div className={compact ? "px-1 pb-2" : "px-1 pb-1.5 pt-0.5"}>
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowDown") {
-              e.preventDefault()
-              e.currentTarget.closest("[data-time-zone-picker]")?.querySelector<HTMLElement>("[data-row]")?.focus()
-            }
-          }}
-          placeholder="Search a city or UTC offset"
-          aria-label="Search time zones"
-          autoComplete="off"
-          data-time-zone-search
-          className={cn(
-            /* 16px on a phone: anything smaller and iOS zooms the page to type. */
-            "w-full min-w-0 rounded-lg border border-[#d5d7dd] bg-white px-3 text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.10)]",
-            compact ? "h-11 text-[16px]" : "h-9 text-[13px]",
-          )}
-        />
-      </div>
-      <div
-        role="menu"
-        aria-label="Time zone"
-        onKeyDown={onRowsKey}
-        className={cn("overflow-y-auto overscroll-contain", compact ? "max-h-[52dvh]" : "max-h-[320px]")}
-      >
-        {!q && device && device !== value ? (
-          <>
-            <PickerRow rowKey={`device:${device}`} compact={compact} checked={false} detail={offsetOf(device)} onClick={() => onPick(device)}>
-              This device: {zoneName(device)}
-            </PickerRow>
-            <PickerDivider compact={compact} />
-          </>
-        ) : null}
-        {shown.map((z) => (
-          <PickerRow key={z.code} rowKey={z.code} compact={compact} checked={value === z.code} detail={z.offset} onClick={() => onPick(z.code)}>
-            {z.name}
-          </PickerRow>
-        ))}
-        {q && shown.length === 0 ? (
-          <p className={cn("px-3 py-2 text-[#6b7280]", compact ? "text-[15px]" : "text-[13px]")}>No time zone matches “{query.trim()}”</p>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
 /**
- * The field and its list. The field is Settings' own 44px field, with the
- * place on the left, its offset on the right and a chevron, so it reads as
- * one of the page's inputs rather than a button.
+ * The field and its list. The field is Settings' own 44px field: the city on
+ * the left, today's offset on the right, a chevron. Above the list, while
+ * nothing is typed, "Use my current time zone" when this device is in a
+ * different one.
  */
 export function TimeZonePicker({ value, onChange }: { value: string; onChange: (code: string) => void }) {
-  const [open, setOpen] = React.useState(false)
-  const [session, setSession] = React.useState(0)
-  const phone = usePhone()
-  const setShown = (o: boolean) => {
-    if (o) setSession((s) => s + 1)
-    setOpen(o)
-  }
-  const pick = (code: string) => {
-    setOpen(false)
-    onChange(code)
-  }
-  const offset = offsetOf(value)
-  const trigger = (
-    <button
-      type="button"
-      data-time-zone-field=""
-      data-state={open ? "open" : "closed"}
-      aria-haspopup="dialog"
-      aria-expanded={open}
-      onClick={phone ? () => setShown(true) : undefined}
-      className="flex h-11 w-full min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-[#e5e7eb] bg-white px-3 text-left text-[14px] text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.04)] outline-none transition-[background-color,box-shadow,border-color] duration-100 hover:bg-[#fafafb] data-[state=open]:border-[#1a1a2e] data-[state=open]:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] focus-visible:border-[#1a1a2e] focus-visible:shadow-[0_0_0_3px_rgba(26,26,46,0.10)]"
-    >
-      <span className="min-w-0 flex-1 truncate">{zoneName(value)}</span>
-      {offset ? <span className="shrink-0 tabular-nums text-[13px] text-[#6b7280]">{offset}</span> : null}
-      <ChevronDown className={cn("h-4 w-4 shrink-0 text-[#6b7280] transition-transform duration-150", open && "rotate-180")} aria-hidden />
-    </button>
-  )
-  const list = (compact: boolean) => <List key={session} value={value} compact={compact} onPick={pick} />
-
-  if (phone) {
-    return (
-      <>
-        {trigger}
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title="Time zone">
-          <div data-time-zone-picker>{list(true)}</div>
-        </BottomSheet>
-      </>
-    )
-  }
+  const device = React.useMemo(deviceZone, [])
   return (
-    <Popover open={open} onOpenChange={setShown}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent
-        align="start"
-        sideOffset={6}
-        data-time-zone-picker
-        className={cn(pickerSurface, "w-[var(--radix-popover-trigger-width)] min-w-[300px] max-w-[calc(100vw-24px)]")}
-        onOpenAutoFocus={(e) => {
-          e.preventDefault()
-          ;(e.currentTarget as HTMLElement | null)?.querySelector<HTMLElement>("[data-time-zone-search]")?.focus({ preventScroll: true })
-          /* The chosen zone in view under the search, not the top of a list of sixty. */
-          ;(e.currentTarget as HTMLElement | null)?.querySelector<HTMLElement>("[data-row][data-checked]")?.scrollIntoView({ block: "center" })
-        }}
-      >
-        {list(false)}
-      </PopoverContent>
-    </Popover>
+    <ChoicePicker
+      name="time-zone"
+      title="Time zone"
+      choices={timeZoneChoices}
+      value={value}
+      onChange={onChange}
+      placeholder="Search a city, region or UTC offset"
+      fieldLabel={zoneName(value)}
+      fieldAside={offsetOf(value)}
+      lead={
+        device && device !== value
+          ? (compact, pick) => (
+              <ChoiceAction compact={compact} aside={offsetOf(device)} onClick={() => pick(device)}>
+                Use my current time zone ({zoneName(device)})
+              </ChoiceAction>
+            )
+          : undefined
+      }
+    />
   )
 }

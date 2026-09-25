@@ -11,6 +11,9 @@ import { NativeAuthGate } from "@/components/native-auth-gate"
 import { OfflineGuard } from "@/components/app/offline-guard"
 import { NativeBackHandler } from "@/components/app/native-back-handler"
 import AppColdStart from "./cold-start"
+import { profileAvatar } from "@/lib/account/avatar"
+import { accountTimeZone, timeZoneScript } from "@/lib/account/time-zone"
+import { TimeZoneSync } from "@/components/app/time-zone-sync"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -90,19 +93,13 @@ export default async function AppLayout({
     so a page that reads them too with its own client is not a second trip.
     All of it on the caller's own client: row-level security as before.
   */
-  const [gateCheck, creator, { data: onepage }, { data: storeConfig }] = await Promise.all([
+  const [gateCheck, creator, { data: onepage }] = await Promise.all([
     profileForRequest(user.id),
     creatorForRequest(user.id),
     supabase
       .from("onepages")
       .select("id, avatar_url, published, draft_blocks, bio")
       .eq("owner_id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("store_builder_configs")
-      .select("published_config")
-      .eq("creator_id", user.id)
-      .eq("page_type", "shop")
       .maybeSingle(),
   ])
   const profile = gateCheck
@@ -127,15 +124,18 @@ export default async function AppLayout({
      needs the products: the two trips that have to wait. */
   const { data: products } = await supabase.from("products").select("id").eq("creator_id", creator.id)
 
-  const storeBuilderAvatar = (storeConfig?.published_config as Record<string, unknown>)?.headerSettings
-    ? ((storeConfig?.published_config as Record<string, unknown>)?.headerSettings as Record<string, unknown>)?.avatarUrl as string | null
-    : null
+  /*
+    THE PROFILE'S PHOTO, OR THE INITIALS (lib/account/avatar). This used to
+    fall back to the creator page header's photo, the OnePage's, and the
+    picture Google sent at sign in, so removing the photo in Settings left
+    the Google one in the header. The Google picture is copied into the
+    profile once, at sign up (app/auth/callback), and nowhere else.
+  */
+  const avatarUrl = profileAvatar(profile?.avatar_url)
 
-  const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
-
-  // Avatar fallback order: Profile (manually set) → Store Builder → OnePage → Google → Initials
-  const rawAvatarUrl = profile?.avatar_url || storeBuilderAvatar || onepage?.avatar_url || googleAvatar || null
-  const avatarUrl = rawAvatarUrl && !rawAvatarUrl.includes("placeholder.svg") ? rawAvatarUrl : null
+  /* The account's time zone (lib/account/time-zone), written where every
+     /app page reads it before any of them hydrates. */
+  const accountZone = accountTimeZone(null, user.user_metadata)
 
   const displayName = profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || creator.slug
 
@@ -183,13 +183,15 @@ export default async function AppLayout({
     <NativeAuthGate loadingFallback={<AppColdStart />}>
     <OfflineGuard>
     <NativeBackHandler />
+    {accountZone ? <script dangerouslySetInnerHTML={{ __html: timeZoneScript(accountZone) }} /> : null}
+    <TimeZoneSync accountZone={accountZone} />
     <AppLayoutWrapper>
       <div className="h-svh overflow-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar">
         <AppSidebar
           creatorSlug={creator.slug ?? undefined}
           username={profile?.username || creator.slug || undefined}
           storePublished={creator.store_published ?? undefined}
-          avatarUrl={avatarUrl}
+          avatarUrl={avatarUrl ?? undefined}
           displayName={displayName}
           stripeConnected={!!creator.stripe_account_id}
           stripeStatus={creator.stripe_onboarding_status || "not_connected"}

@@ -76,11 +76,8 @@ export async function MarketingHeader() {
 
     isCreator = !!creatorData?.onboarding_completed
 
-    // Use profiles.avatar_url, fall back to Google OAuth avatar
-    let resolvedAvatarUrl = profileData?.avatar_url || null
-    if (!resolvedAvatarUrl) {
-      resolvedAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
-    }
+    // profiles.avatar_url only: a photo removed in Settings stays removed (lib/account/avatar)
+    const resolvedAvatarUrl = profileData?.avatar_url || null
 
     profile = profileData ? { ...profileData, avatar_url: resolvedAvatarUrl } : profileData
     creatorSlug = creatorData?.slug || profileData?.username || null

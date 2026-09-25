@@ -1,7 +1,8 @@
 /**
  * "Good morning" by the creator's own clock.
  *
- * The zone is decided in this order, most trustworthy first: the one the
+ * The zone is decided in this order, most trustworthy first: the one saved
+ * on the account in Settings (lib/account/time-zone), then the one the
  * creator picked in settings or their device's own (remembered in a cookie
  * once the app has run in their browser, lib/orders/time-zone.ts), then the
  * zone of their connection (Vercel's x-vercel-ip-timezone), then UTC. The
@@ -30,7 +31,13 @@ export function dayPart(now: number, timeZone: string): DayPart {
   return "night"
 }
 
-export function greetingZone(cookieZone: string | undefined | null, ipZone: string | undefined | null): string {
+export function greetingZone(
+  cookieZone: string | undefined | null,
+  ipZone: string | undefined | null,
+  /** The zone saved on the account in Settings (lib/account/time-zone): first, on every device. */
+  accountZone?: string | null,
+): string {
+  if (accountZone && isTimeZone(accountZone)) return accountZone
   const chosen = readTimeZone(cookieZone)
   if (cookieZone && chosen !== "UTC") return chosen
   return isTimeZone(ipZone) ? ipZone : chosen

@@ -104,8 +104,11 @@ section("The layout: everything that needs only the user, together")
 {
   const layout = code("app/app/layout.tsx")
   const first = batchAfter(layout, /const \[gateCheck, creator/)
-  check("the gates, the creator row, the OnePage and the store header are one batch",
-    /profileForRequest\(user\.id\)/.test(first) && /creatorForRequest\(user\.id\)/.test(first) && /\.from\("onepages"\)/.test(first) && /\.from\("store_builder_configs"\)/.test(first))
+  check("the gates, the creator row and the OnePage are one batch",
+    /profileForRequest\(user\.id\)/.test(first) && /creatorForRequest\(user\.id\)/.test(first) && /\.from\("onepages"\)/.test(first))
+  /* The header's photo is the profile's own (lib/account/avatar): the store
+     header was read only to fall back to its photo, so it is not read at all. */
+  check("and the store header is not read for a photo any more", !/store_builder_configs/.test(layout) && /profileAvatar\(profile\?\.avatar_url\)/.test(layout))
   check("and the redirects are still decided in their order: verified, then role, then creator",
     /if \(!gateCheck\?\.email_verified\)[\s\S]*if \(!roleSelected\)[\s\S]*if \(!creator \|\| creator\.onboarding_completed !== true\)/.test(layout))
   check("on the caller's own client only", !/createAdminClient/.test(layout))
@@ -146,10 +149,12 @@ section("Settings: six trips to three")
 {
   const src = code("app/app/settings/_server.ts")
   const first = batchAfter(src, /pageUser\(\)/)
-  check("the profile, the creator row and the OnePage together", /\.from\("profiles"\)/.test(first) && /\.from\("creators"\)/.test(first) && /\.from\("onepages"\)/.test(first))
+  check("the profile and the creator row together", /\.from\("profiles"\)/.test(first) && /\.from\("creators"\)/.test(first))
+  /* Their photos were read only for the avatar's fallback chain, which is gone (lib/account/avatar). */
+  check("and no OnePage, store header or Google photo is read for the avatar", !/\.from\("onepages"\)/.test(src) && !/store_builder_configs/.test(src) && !/googleAvatarUrl/.test(src))
   const second = batchAfter(src, /redirect\("\/onboarding"\)/)
-  check("then the store header and the published website together, by the creator's id",
-    /\.from\("store_builder_configs"\)[\s\S]*\.eq\("creator_id", creator\.id\)/.test(second) && /\.from\("store_theme_installs"\)[\s\S]*\.eq\("creator_id", creator\.id\)/.test(second))
+  check("then the published website and its address together, by the creator's id",
+    /\.from\("store_theme_installs"\)[\s\S]*\.eq\("creator_id", creator\.id\)/.test(second) && /websiteHandleOf\(creator\.id\)/.test(second))
   /* One exception, and only one: whether the account's own address is on
      Storelib's newsletter. That table is closed to browsers (RLS on, no
      policies), so it is read with the service role, by the signed in

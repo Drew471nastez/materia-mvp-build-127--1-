@@ -8,7 +8,7 @@ import { readConsent, writeConsent, onConsentChange } from "@/lib/consent/client
 import { everything } from "@/lib/consent/consent"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { secondaryDepth } from "@/components/ui/depth-button"
-import { disableWebPush, enableWebPush, readWebPush, type WebPushState } from "@/lib/push/web-client"
+import { WebPushError, disableWebPush, enableWebPush, readWebPush, type WebPushState } from "@/lib/push/web-client"
 import { cn } from "@/lib/utils"
 
 /**
@@ -338,19 +338,35 @@ export function PrivacyPanel({
  * NOTIFICATIONS ON THIS BROWSER. The browser's own permission prompt, then a
  * push to this computer on every sale and when a payout is ready, the same
  * ones the phone app gets (lib/push/web-client, lib/push/sender). What the
- * switch shows is asked of the browser, so a permission changed in its own
- * settings is what you see here. Not drawn in the native apps, which have
- * their own.
+ * switch shows is asked of the browser and the server each time, so a
+ * permission changed in the browser's own settings is what you see here.
+ * Not drawn in the native apps, which have their own.
+ *
+ * Each way it can fail says which it is: blocked in the browser's settings,
+ * a browser that cannot, the browser's push service, or Storelib's server
+ * (lib/push/web-client names them).
  */
+export const NOTIFICATION_WORDS: Record<"blocked" | "unsupported" | "iphone" | "idle", string> = {
+  blocked: "Blocked in this browser's settings for storelib.com. Allow notifications there (the icon beside the address), then turn this on.",
+  unsupported: "This browser cannot show notifications.",
+  iphone: "Safari on iPhone does not show website notifications. The Storelib app for iPhone does.",
+  idle: "A notification on this computer when you make a sale or a payout is ready.",
+}
+
 function BrowserNotificationsRow() {
   const [state, setState] = useState<WebPushState | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState(0)
+  const busyRef = useRef(false)
 
   useEffect(() => {
     let live = true
-    const read = () => void readWebPush().then((s) => live && setState(s))
+    const read = () => {
+      /* Not while a change is under way: it would read the half made state. */
+      if (busyRef.current) return
+      void readWebPush().then((s) => live && !busyRef.current && setState(s))
+    }
     read()
     /* Back from the browser's own settings with the permission changed. */
     document.addEventListener("visibilitychange", read)
@@ -363,7 +379,8 @@ function BrowserNotificationsRow() {
   if (state === null || (state === "unsupported" && document.documentElement.classList.contains("capacitor"))) return null
 
   const change = async (next: boolean) => {
-    if (busy) return
+    if (busyRef.current) return
+    busyRef.current = true
     setBusy(true)
     setError(null)
     const was = state
@@ -374,18 +391,18 @@ function BrowserNotificationsRow() {
       if (now === (next ? "on" : "off")) setSavedAt(Date.now())
     } catch (e) {
       setState(was)
-      setError(e instanceof Error && e.message ? e.message : "That did not change. Try again.")
+      setError(e instanceof WebPushError ? e.message : "That did not change. Try again.")
     } finally {
+      busyRef.current = false
       setBusy(false)
     }
   }
 
   const detail =
-    state === "blocked"
-      ? "Blocked for storelib.com in this browser's settings. Allow notifications there, then turn this on."
-      : state === "unsupported"
-        ? "This browser cannot show notifications. On an iPhone, add Storelib to your Home Screen first."
-        : "A notification on this computer when you make a sale or a payout is ready."
+    state === "blocked" ? NOTIFICATION_WORDS.blocked
+      : state === "iphone" ? NOTIFICATION_WORDS.iphone
+        : state === "unsupported" ? NOTIFICATION_WORDS.unsupported
+          : NOTIFICATION_WORDS.idle
 
   return (
     <PrivacyRow
@@ -398,8 +415,8 @@ function BrowserNotificationsRow() {
       }
       detail={
         <>
-          {detail}
-          {error && <span className="mt-1 block text-red-600">{error}</span>}
+          <span data-notifications-detail="">{detail}</span>
+          {error && <span role="alert" data-notifications-error="" className="mt-1 block text-red-600">{error}</span>}
         </>
       }
       control={
@@ -407,7 +424,7 @@ function BrowserNotificationsRow() {
           label="Notifications on this browser"
           checked={state === "on"}
           busy={busy}
-          disabled={state === "blocked" || state === "unsupported"}
+          disabled={state === "blocked" || state === "unsupported" || state === "iphone"}
           onChange={(v) => void change(v)}
         />
       }
