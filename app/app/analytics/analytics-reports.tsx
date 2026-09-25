@@ -35,7 +35,6 @@
  */
 
 import * as React from "react"
-import { Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerSwap } from "@/components/ui/shimmer"
 import type { BreakdownRow, Headline, OnePageReports, Reports, Series } from "@/lib/analytics/reports"
@@ -394,11 +393,44 @@ function RowChange({ r }: { r: BreakdownRow }) {
   )
 }
 
-function flagOf(code: string): React.ReactNode {
-  if (!code || !/^[A-Z]{2}$/i.test(code)) return <Globe className="h-3.5 w-3.5 text-[#9ca3af]" />
-  return String.fromCodePoint(...code.toUpperCase().split("").map((c) => 127397 + c.charCodeAt(0)))
+/**
+ * A COUNTRY'S FLAG, drawn, not typed. The emoji flags were letters on a
+ * Windows computer and flat everywhere else. These are SVGs (public/flags,
+ * country-flag-icons, MIT) at 3:2, with a hairline edge so white flags keep
+ * their shape and a faint light from above, so a flag reads as a small
+ * printed thing on the page. Anything that is not a country is the globe.
+ */
+function Flag({ code }: { code: string }) {
+  const cc = (code || "").toUpperCase()
+  const [failed, setFailed] = React.useState(false)
+  if (!/^[A-Z]{2}$/.test(cc) || failed) return <SourceIcon kind="source" value="referral" />
+  return (
+    <span aria-hidden data-flag={cc} className="relative flex h-6 w-6 shrink-0 items-center justify-center">
+      <span className="relative block h-[14px] w-[21px] overflow-hidden rounded-[3px] shadow-[0_0_0_0.5px_rgba(17,24,39,0.18),0_1px_2px_rgba(17,24,39,0.12)]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/flags/${cc}.svg`}
+          alt=""
+          width={21}
+          height={14}
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+          className="block h-full w-full object-cover"
+        />
+        <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0)_48%,rgba(0,0,0,0.06)_100%)]" />
+      </span>
+    </span>
+  )
 }
 
+/**
+ * A ROW: the mark, the name and the figure, with the share drawn as a quiet
+ * grey bar behind the name, the way Vercel and Plausible draw theirs. It was
+ * a thin violet line under the name, which the owner found generic; the
+ * figure is what matters and the bar only says how big it is next to the
+ * others, so it sits behind the words in the page's own grey.
+ */
 function Row({
   r,
   max,
@@ -414,33 +446,27 @@ function Row({
 }) {
   const compared = React.useContext(ComparedContext)
   return (
-    <li className="group flex h-10 items-center gap-2.5" title={sub ?? undefined}>
-      {lead && "flag" in lead ? (
-        <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center text-[15px] leading-none">
-          {flagOf(r.extra?.code ?? r.key)}
-        </span>
-      ) : lead ? (
-        <SourceIcon kind={lead.icon} value={r.key} />
-      ) : null}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2 text-[13px]">
-          <span className="min-w-0 flex-1 truncate text-[#303036]" title={r.label}>
+    <li className="group flex h-10 items-center gap-3" title={sub ?? undefined}>
+      <div className="relative flex h-8 min-w-0 flex-1 items-center">
+        <div
+          aria-hidden
+          data-bar=""
+          className="absolute inset-y-0 left-0 rounded-md bg-[#f1f2f5] transition-[width,background-color] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:bg-[#e8eaef]"
+          style={{ width: `${Math.max(2, (r.value / max) * 100)}%` }}
+        />
+        <div className="relative flex min-w-0 items-center gap-2 pl-1">
+          {lead && "flag" in lead ? <Flag code={r.extra?.code ?? r.key} /> : lead ? <SourceIcon kind={lead.icon} value={r.key} /> : null}
+          <span className={cn("min-w-0 truncate text-[13px] text-[#303036]", !lead && "pl-1.5")} title={r.label}>
             {r.label}
           </span>
-          <span className="shrink-0 font-medium tabular-nums text-[#1a1a2e]">{format(r.value)}</span>
-          {compared ? (
-            <span className="w-11 shrink-0 text-right">
-              <RowChange r={r} />
-            </span>
-          ) : null}
-        </div>
-        <div className={cn("mt-1.5", compared && "pr-[52px]")}>
-          <div
-            className="h-[6px] rounded-r-[3px] transition-[width,opacity] duration-500 group-hover:opacity-100"
-            style={{ width: `${Math.max(1.5, (r.value / max) * 100)}%`, background: SERIES, opacity: 0.8 }}
-          />
         </div>
       </div>
+      <span className="shrink-0 text-[13px] font-medium tabular-nums text-[#1a1a2e]">{format(r.value)}</span>
+      {compared ? (
+        <span className="w-11 shrink-0 text-right">
+          <RowChange r={r} />
+        </span>
+      ) : null}
     </li>
   )
 }
@@ -544,7 +570,7 @@ const ROW_SPREAD = [0.82, 0.64, 0.74, 0.52, 0.6]
  * loading; loading structures, light gray shimmering". Each card's body is
  * a fixed 236px (BODY), so whatever arrives moves nothing.
  */
-function Waiting({ kind, lead = false }: { kind: WaitKind; lead?: boolean }) {
+function Waiting({ kind }: { kind: WaitKind; lead?: boolean }) {
   if (kind === "chart") return <ShimmerChart height={236} figure />
   if (kind === "donut") {
     return (
@@ -585,15 +611,12 @@ function Waiting({ kind, lead = false }: { kind: WaitKind; lead?: boolean }) {
   return (
     <Shimmer className="mt-0.5">
       {ROW_SPREAD.map((w, i) => (
-        <div key={i} className="flex h-10 items-center gap-2.5">
-          {lead ? <ShimmerBlock className="h-5 w-5 shrink-0 rounded-full" /> : null}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <ShimmerBlock className="h-3 rounded-full" style={{ width: `${w * 55}%` }} />
-              <ShimmerBlock className="ml-auto h-3 w-9 shrink-0 rounded-full" />
-            </div>
-            <ShimmerBlock className="mt-2 h-[6px] rounded-l-none rounded-r-[3px]" style={{ width: `${w * 100}%` }} />
+        /* The row's own shape: the bar behind the name, the figure after it. */
+        <div key={i} className="flex h-10 items-center gap-3">
+          <div className="flex h-8 min-w-0 flex-1 items-center">
+            <ShimmerBlock className="h-8 rounded-md" style={{ width: `${Math.max(30, w * 100)}%` }} />
           </div>
+          <ShimmerBlock className="h-3 w-9 shrink-0 rounded-full" />
         </div>
       ))}
     </Shimmer>
@@ -637,7 +660,7 @@ const SOURCE_EMPTY: Record<SourceTab, string> = {
   social: "No visits from social apps in this period",
   campaign: "No visits from links with a campaign tag",
 }
-const SOURCE_ICON: Record<SourceTab, IconFor | null> = { source: "source", referrer: "referrer", social: "social", campaign: null }
+const SOURCE_ICON: Record<SourceTab, IconFor | null> = { source: "source", referrer: "referrer", social: "social", campaign: "campaign" }
 
 type Breakdowns = Reports["breakdowns"] | OnePageReports["breakdowns"]
 

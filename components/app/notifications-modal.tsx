@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from "react"
-import { Bell, CreditCard, ChevronRight, X, Link2, Star, Loader2, ListFilter, CircleCheck } from "lucide-react"
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useSyncExternalStore } from "react"
+import { Bell, X, ListFilter, CircleCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useLanguage } from "@/lib/i18n"
@@ -12,6 +12,7 @@ import {
   getUnreadState,
   loadRemembered,
   markAllRead,
+  markSetupNotificationRead,
   readUnreadOnly,
   refreshDbUnread,
   setDbUnread,
@@ -192,25 +193,33 @@ export function NotificationsModal({
     }
   }, [open, fetchNotifications])
 
+  /* The list is read once, quietly, a moment after /app loads, so the first
+     open already has its rows. It used to open on a spinner and then change
+     height under the finger when the rows arrived. */
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      if (!loadedOnceRef.current) fetchNotifications()
+    }, 1500)
+    return () => window.clearTimeout(id)
+  }, [fetchNotifications])
+
   // Handle click outside for desktop panel
   useEffect(() => {
     if (!open || isMobile) return
 
+    /* The bell is not "outside". A press on it used to close the panel on
+       mousedown and open it again on the click that followed, so a second
+       press on the bell flickered instead of closing. The bell toggles. */
     function handleClickOutside(event: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(event.target as Node)) {
+      const target = event.target as Element | null
+      if (target?.closest?.("[data-notifications-trigger]")) return
+      if (panelRef.current && !panelRef.current.contains(target as Node)) {
         onOpenChange(false)
       }
     }
 
-    // Add slight delay to prevent immediate close on click
-    const timeoutId = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside)
-    }, 100)
-
-    return () => {
-      clearTimeout(timeoutId)
-      document.removeEventListener("mousedown", handleClickOutside)
-    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [open, isMobile, onOpenChange])
 
   /* Escape closes the panel on a computer; the sheet on a phone closes itself. */
@@ -326,6 +335,30 @@ export function NotificationsModal({
     }
   }
 
+  /* One notification read, from the check on its row. On screen at once;
+     the row stays in the list, read. */
+  const handleMarkRead = async (notification: Notification) => {
+    if (notification.read) return
+    if (!notification.isFromDb) {
+      markSetupNotificationRead(notification.id)
+      return
+    }
+    const at = new Date().toISOString()
+    setDbNotifications((rows) => rows.map((r) => (r.id === notification.id ? { ...r, read_at: at } : r)))
+    setDbUnread(getUnreadState().dbUnread - 1)
+    try {
+      const res = await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [notification.id], action: "read" }),
+      })
+      if (!res.ok) throw new Error(String(res.status))
+    } catch {
+      setDbNotifications((rows) => rows.map((r) => (r.id === notification.id && r.read_at === at ? { ...r, read_at: null } : r)))
+      setDbUnread(getUnreadState().dbUnread + 1)
+    }
+  }
+
   const handleNotificationClick = async (notification: Notification) => {
     if (notification.isFromDb) {
       // For database notifications, mark as read and dismissed via API
@@ -391,31 +424,18 @@ export function NotificationsModal({
           {markError}
         </p>
       ) : null}
-      {/* Tabs */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-[#eef0f2] overflow-x-auto scrollbar-hide">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              "px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors cursor-pointer",
-              activeTab === tab.id
-                ? "bg-[#1a1a2e] text-white"
-                : "bg-[#f3f4f6] text-[#4b5563] hover:bg-[#e5e7eb]"
-            )}
-          >
-            {t(tab.labelKey as any)}
-          </button>
-        ))}
-      </div>
+      <NotificationTabs
+        tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey as any) }))}
+        active={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* Notifications list */}
       <div className="flex-1 overflow-y-auto overscroll-contain min-h-0" data-notifications-list="">
         {isLoading && notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full py-12 px-4">
-            <Loader2 className="w-8 h-8 text-neutral-400 animate-spin mb-4" />
-            <p className="text-sm text-neutral-500">{t("notifications.loading")}</p>
-          </div>
+          /* Nothing drawn while the first read is out: no spinner, and the
+             same height the empty words take, so nothing moves when it lands. */
+          <div className="h-full min-h-[180px]" aria-busy="true" aria-label={t("notifications.loading")} />
         ) : filteredNotifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-12 px-4" data-notifications-empty="">
             <div className="w-14 h-14 rounded-full bg-[#f3f4f6] flex items-center justify-center mb-4">
@@ -437,6 +457,7 @@ export function NotificationsModal({
                 key={notification.id}
                 notification={notification}
                 onClick={() => handleNotificationClick(notification)}
+                onMarkRead={() => handleMarkRead(notification)}
               />
             ))}
           </div>
@@ -494,55 +515,207 @@ export function NotificationsModal({
   )
 }
 
+/** The word before the date on a row: where it came from, not what icon it would have had. */
+function categoryOf(n: Notification): string {
+  if (n.id === "payment-setup") return "Payments"
+  if (n.id === "onepage-setup") return "OnePage"
+  switch (n.type) {
+    case "new_review":
+      return "Reviews"
+    case "message":
+      return "Messages"
+    case "opportunity":
+      return "Opportunities"
+    case "action":
+      return "To do"
+    default:
+      return "Updates"
+  }
+}
+
+/** "Today at 4:03 PM", "Yesterday at 9:12 AM", "Sep 11 at 4:03 PM", with the year only when it is not this one. */
+function whenOf(date: Date): string | null {
+  if (!date.getTime()) return null
+  const now = new Date()
+  const time = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+  const startOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const days = Math.round((startOf(now) - startOf(date)) / 86_400_000)
+  if (days === 0) return `Today at ${time}`
+  if (days === 1) return `Yesterday at ${time}`
+  const day = date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
+  })
+  return `${day} at ${time}`
+}
+
+/**
+ * THE TABS. A grey pill per view and one dark pill that slides to the chosen
+ * one, on transform and width alone. It used to swap colours in place, which
+ * read as a blink. Measured from the buttons themselves, so a longer word in
+ * another language still gets a pill that fits; the first measurement is
+ * placed without moving, so the panel never opens with the pill flying in.
+ */
+function NotificationTabs<T extends string>({
+  tabs,
+  active,
+  onChange,
+}: {
+  tabs: { id: T; label: string }[]
+  active: T
+  onChange: (id: T) => void
+}) {
+  const rowRef = useRef<HTMLDivElement>(null)
+  const pillRef = useRef<HTMLSpanElement>(null)
+  const placedRef = useRef(false)
+
+  const place = useCallback((animate: boolean) => {
+    const row = rowRef.current
+    const pill = pillRef.current
+    if (!row || !pill) return
+    const button = row.querySelector<HTMLElement>(`[data-tab="${active}"]`)
+    if (!button || !button.offsetWidth) return
+    pill.style.transition = animate
+      ? "transform 280ms cubic-bezier(0.32, 0.72, 0, 1), width 280ms cubic-bezier(0.32, 0.72, 0, 1)"
+      : "none"
+    pill.style.width = `${button.offsetWidth}px`
+    pill.style.transform = `translate3d(${button.offsetLeft}px, 0, 0)`
+    pill.style.opacity = "1"
+    placedRef.current = true
+  }, [active])
+
+  useLayoutEffect(() => {
+    const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    place(placedRef.current && !calm)
+  }, [place])
+
+  /* The words can change width after the first paint (the font arriving, a
+     language switch, the panel going from hidden to shown): follow them
+     without animating. */
+  useEffect(() => {
+    const row = rowRef.current
+    if (!row || typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(() => place(false))
+    ro.observe(row)
+    return () => ro.disconnect()
+  }, [place])
+
+  return (
+    <div className="overflow-x-auto border-b border-[#eef0f2] px-4 py-3 scrollbar-hide">
+      <div ref={rowRef} role="tablist" aria-label="Notification views" className="relative isolate flex w-max items-center gap-2 md:gap-1.5">
+        <span
+          ref={pillRef}
+          aria-hidden="true"
+          data-tab-pill=""
+          className="pointer-events-none absolute left-0 top-0 z-[1] h-full rounded-full bg-[#1a1a2e] opacity-0 will-change-transform"
+        />
+        {tabs.map((tab) => {
+          const selected = tab.id === active
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              data-tab={tab.id}
+              onClick={() => onChange(tab.id)}
+              className="group relative cursor-pointer whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium md:px-2.5 outline-none focus-visible:shadow-[0_0_0_2px_#8b5cf6]"
+            >
+              <span aria-hidden="true" className="absolute inset-0 z-0 rounded-full bg-[#f3f4f6] transition-colors duration-150 group-hover:bg-[#e9eaed]" />
+              <span
+                className={cn(
+                  "relative z-[2] transition-colors duration-200",
+                  selected ? "text-white" : "text-[#4b5563] group-hover:text-[#1a1a2e]",
+                )}
+              >
+                {tab.label}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * A ROW. No icon: where it came from and when, on one quiet line, then what
+ * happened, then the detail. An unread row has a dot at its start and a
+ * light grey ground, and a check on the right marks it read without leaving
+ * the list. The whole row is the link when it goes somewhere; the check sits
+ * above that link, so pressing it never navigates.
+ */
 function NotificationItem({
   notification,
   onClick,
+  onMarkRead,
 }: {
   notification: Notification
   onClick: () => void
+  onMarkRead: () => void
 }) {
-  const content = (
+  const when = whenOf(notification.createdAt)
+  const unread = !notification.read
+  return (
     <div
       className={cn(
-        "flex items-start gap-3 px-4 py-3 hover:bg-[#f9fafb] transition-colors cursor-pointer",
-        !notification.read && "bg-violet-50/50"
+        "group/row relative flex items-start gap-3 py-3.5 pl-4 pr-3 transition-colors duration-150",
+        unread ? "bg-[#f6f6f7] hover:bg-[#f0f0f2]" : "bg-white hover:bg-[#f9fafb]",
       )}
       data-notification-item=""
-      data-unread={notification.read ? undefined : ""}
-      onClick={onClick}
+      data-unread={unread ? "" : undefined}
     >
-      <div className={cn(
-        "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
-        notification.type === "new_review" ? "bg-amber-100" : "bg-violet-100"
-      )}>
-        {notification.type === "action" && <CreditCard className="w-5 h-5 text-violet-600" />}
-        {notification.type === "update" && <Bell className="w-5 h-5 text-violet-600" />}
-        {notification.type === "message" && <Bell className="w-5 h-5 text-violet-600" />}
-        {notification.type === "opportunity" && <Link2 className="w-5 h-5 text-violet-600" />}
-        {notification.type === "new_review" && <Star className="w-5 h-5 text-amber-600" />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className={cn(
-          "text-sm",
-          !notification.read ? "font-semibold text-neutral-900" : "font-medium text-neutral-700"
-        )}>
+      {notification.href ? (
+        <Link
+          href={notification.href}
+          onClick={onClick}
+          aria-label={notification.title}
+          className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#8b5cf6]"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label={notification.title}
+          className="absolute inset-0 z-0 cursor-pointer outline-none focus-visible:shadow-[inset_0_0_0_2px_#8b5cf6]"
+        />
+      )}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none relative mt-[6px] h-2 w-2 shrink-0 rounded-full transition-opacity duration-200",
+          unread ? "bg-[#8b5cf6] opacity-100" : "opacity-0",
+        )}
+      />
+      <div className="pointer-events-none relative min-w-0 flex-1">
+        <p data-notification-meta="" className="truncate text-[12.5px] leading-[18px] text-[#6b7280]">
+          {categoryOf(notification)}
+          {when ? <span className="px-1.5 text-[#b6bac1]">&bull;</span> : null}
+          {when}
+        </p>
+        <p className={cn("mt-1 text-[14px] leading-5 text-[#1a1a2e]", unread ? "font-semibold" : "font-medium")}>
           {notification.title}
         </p>
-        <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">
-          {notification.description}
-        </p>
+        <p className="mt-0.5 line-clamp-2 text-[13px] leading-[18px] text-[#6b7280]">{notification.description}</p>
       </div>
-      {notification.href && (
-        <ChevronRight className="w-5 h-5 text-neutral-400 shrink-0" />
+      {unread ? (
+        <button
+          type="button"
+          onClick={onMarkRead}
+          aria-label="Mark as read"
+          title="Mark as read"
+          data-notification-read=""
+          className="relative z-[1] -my-1 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#9ca3af] outline-none transition-colors duration-150 hover:bg-black/[0.05] hover:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_#8b5cf6]"
+        >
+          <CircleCheck className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      ) : (
+        /* The check's room is kept, so a row marked read does not rewrap. */
+        <span aria-hidden="true" className="-my-1 h-9 w-9 shrink-0" />
       )}
     </div>
   )
-
-  if (notification.href) {
-    return <Link href={notification.href}>{content}</Link>
-  }
-
-  return content
 }
 
 /**

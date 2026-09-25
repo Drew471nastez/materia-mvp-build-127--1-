@@ -30,6 +30,9 @@ const bundle = readFileSync(join(out, "probe.js"))
 const html = `<!doctype html><html class="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>body{margin:0}</style></head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}};localStorage.setItem("storelib_timezone","Europe/Bucharest");window.__cls=0;new PerformanceObserver(l=>{for(const e of l.getEntries())window.__cls+=e.value}).observe({type:"layout-shift",buffered:true})</script><script src="/probe.js"></script></body></html>`
 const server = createServer((req, res) => {
   if (req.url.startsWith("/probe.js")) { res.writeHead(200, { "content-type": "text/javascript" }); return res.end(bundle) }
+  /* The country flags are files in public/flags, as on the site. */
+  const flag = /^\/flags\/([A-Z]{2})\.svg$/.exec(req.url)
+  if (flag && existsSync(join(root, "public/flags", `${flag[1]}.svg`))) { res.writeHead(200, { "content-type": "image/svg+xml" }); return res.end(readFileSync(join(root, "public/flags", `${flag[1]}.svg`))) }
   res.writeHead(200, { "content-type": "text/html" }); res.end(html)
 })
 await new Promise((r) => server.listen(0, "127.0.0.1", r))

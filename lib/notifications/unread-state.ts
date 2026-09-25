@@ -182,6 +182,11 @@ export function setDbUnread(count: number): void {
   if (n !== state.dbUnread) setUnreadState({ ...state, dbUnread: n })
 }
 
+/** A browser-made notification read from its own row, kept in the list. */
+export function markSetupNotificationRead(id: string): void {
+  if (!state.read.includes(id)) setUnreadState({ ...state, read: [...state.read, id] })
+}
+
 export function dismissSetupNotification(id: string): void {
   if (!state.dismissed.includes(id)) setUnreadState({ ...state, dismissed: [...state.dismissed, id] })
 }

@@ -79,7 +79,7 @@ import { useToast } from "@/hooks/use-toast"
 import { ChartScrub, type ScrubRow, type ScrubSeries } from "@/components/app/chart-scrub"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
-import { ShimmerBlock, ShimmerChart, ShimmerSwap } from "@/components/ui/shimmer"
+import { ShimmerBlock } from "@/components/ui/shimmer"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 
@@ -195,10 +195,13 @@ export function DashboardTrendChart({
   displayChartData,
   openKPIModal,
   widthFrom,
+  loading = false,
   t,
 }: {
   displayChartData: ChartDataPoint[]
   openKPIModal: KPIType
+  /** No line has come back yet: the placeholder lies on the floor in grey, as on Analytics. */
+  loading?: boolean
   /** Every metric the tabs can show, so the axis is one width for all of them. */
   widthFrom: Partial<Record<Metric, ChartDataPoint[]>>
   t: (key: string) => string
@@ -278,6 +281,7 @@ export function DashboardTrendChart({
         right={PLOT_RIGHT}
         plotTop={PLOT_TOP}
         plotHeight={plotHeight}
+        loading={loading}
         color="#8b5cf6"
       />
 
@@ -291,7 +295,7 @@ export function DashboardTrendChart({
         series={scrubSeries}
         title={scrubTitle}
         rows={scrubRows}
-        disabled={displayChartData.length === 0}
+        disabled={loading || displayChartData.length === 0}
       />
     </div>
   )
@@ -368,6 +372,8 @@ const SAMPLE_CHART: Record<string, ChartDataPoint[]> = {
   revenue:    SAMPLE_DAYS.map((d, i) => ({ label: d, value: [12.5, 34, 9, 45, 25, 38, 20][i] })),
   conversion: SAMPLE_DAYS.map((d, i) => ({ label: d, value: [4.2, 6.1, 2.8, 7.5, 4.8, 6.8, 7.8][i] })),
 }
+/** The week on the floor while the first line is on its way: the frame, no numbers. */
+const WAITING_CHART: ChartDataPoint[] = SAMPLE_DAYS.map((d) => ({ label: d, value: 0 }))
 const SAMPLE_KPI = {
   periodViews: 452, totalViews: 1660, prevPeriodViews: 380,
   periodOrders: 28, totalOrders: 95, prevPeriodOrders: 22,
@@ -1931,13 +1937,18 @@ export function DashboardClient({
           {/* Shared Chart Area - smooth line chart, toggleable */}
           <div className={`overflow-hidden transition-all duration-500 ease-out ${chartExpanded && openKPIModal ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"}`}>
             <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
-              {/* The chart's room with its shape in light gray until the
-                  period's first line is in, from the very first frame: the
-                  read starts in an effect, so waiting on `isChartLoading`
-                  alone drew an empty chart for a frame first. Nothing shows
-                  for 200ms, so a quick answer shows only its line
-                  (components/ui/shimmer). */}
-              <ShimmerSwap loading={(chartEvents == null || isChartLoading) && displayChartData.length === 0} skeleton={<ShimmerChart height={CHART_H} className="px-1" />}>
+              {/*
+                NO SKELETON. Until the period's first line is in, the chart
+                is drawn as Analytics draws it: its frame, a grey line on the
+                floor, softly blurred. The line then rises into place and the
+                blur clears, one motion. The grey block shapes that stood here
+                before read as too much for one chart. `chartEvents == null`
+                counts as waiting, because the read starts in an effect and
+                `isChartLoading` alone left one empty frame first.
+              */}
+              {(() => {
+                const chartWaiting = (chartEvents == null || isChartLoading) && displayChartData.length === 0
+                return (
                 <div className="relative">
                   {/*
                     NO BLUR WHEN THE METRIC CHANGES.
@@ -1950,17 +1961,26 @@ export function DashboardClient({
                     loading — one tap, three animations, none of which was
                     telling you anything you did not already know.
 
-                    A first load with no data at all gets the waiting area
-                    above (the spinner, past half a second); it is the only
-                    moment there is genuinely nothing to look at. From then on the old line simply becomes the new
-                    one, which is what recharts does well and what the eye
-                    reads as a change rather than a reload.
+                    A first load with no data at all is the one blur: the grey
+                    floor line above, softened, which is the only moment there
+                    is genuinely nothing to look at. From then on the old line
+                    simply becomes the new one, which the eye reads as a
+                    change rather than a reload.
 
                     The sample-data dimming stays, because that is not a
                     loading state — it says these numbers are not yours.
                   */}
-                  <div className={`transition-opacity duration-300 ease-out ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
-                  <DashboardTrendChart displayChartData={displayChartData} openKPIModal={openKPIModal} widthFrom={showSampleData && !hasRealData ? SAMPLE_CHART : chartSeries ?? {}} t={t} />
+                  <div
+                    aria-busy={chartWaiting || undefined}
+                    className={`transition-[opacity,filter] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${chartWaiting ? "opacity-60 blur-[1.5px]" : showSampleData && !hasRealData ? "opacity-50 blur-0" : "opacity-100 blur-0"}`}
+                  >
+                  <DashboardTrendChart
+                    displayChartData={chartWaiting ? WAITING_CHART : displayChartData}
+                    loading={chartWaiting}
+                    openKPIModal={openKPIModal}
+                    widthFrom={showSampleData && !hasRealData ? SAMPLE_CHART : chartSeries ?? {}}
+                    t={t}
+                  />
                   </div>
                   {figuresReady && !hasRealData && (
                     <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
@@ -1977,7 +1997,8 @@ export function DashboardClient({
                     </div>
                   )}
                 </div>
-              </ShimmerSwap>
+                )
+              })()}
             </div>
           </div>
         </div>
