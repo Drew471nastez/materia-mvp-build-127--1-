@@ -13,6 +13,8 @@ import "server-only"
  */
 
 import { APP_URL } from "@/lib/email-automation"
+import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
+import { cleanContactSource } from "@/lib/contacts/contact-source"
 import type { Brand, FlowRow, Identity, JobRow, RunLinks, RunRow, SendBegin, Standing, Store } from "./engine"
 import type { TriggerType } from "./flow-model"
 import { textOn } from "./merge-fields"
@@ -370,6 +372,16 @@ export function supabaseStarts(db: Db): StartsStore {
     },
     async release(id) {
       await db.from("checkout_starts").update({ handled_at: null, outcome: null }).eq("id", id)
+    },
+    async recordConsent(s) {
+      await recordCheckoutContact(db, {
+        creatorId: s.creator_id,
+        email: s.email,
+        name: s.first_name,
+        basis: "ticked",
+        bought: false,
+        source: cleanContactSource(s.source_detail),
+      })
     },
   }
 }

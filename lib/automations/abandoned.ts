@@ -57,6 +57,13 @@ export interface StartsStore {
   settle(id: string, outcome: StartOutcome): Promise<boolean>
   /** Puts it back, for a sweep that could not finish it. */
   release(id: string): Promise<void>
+  /**
+   * The tick, as a subscribed contact with an unsubscribe token
+   * (lib/contacts/checkout-contact). The checkout route writes it when Pay is
+   * pressed; this makes sure, because a reminder is never sent without its
+   * way out.
+   */
+  recordConsent(start: CheckoutStart): Promise<void>
 }
 
 /** How long a checkout is left alone before it counts as left. */
@@ -94,6 +101,7 @@ export async function sweepAbandoned(input: { store: Store; starts: StartsStore;
       }
       out.outcomes[outcome]++
       if (outcome !== "entered") continue
+      if (s.email_opt_in) await starts.recordConsent(s)
       const r = await enroll(
         store,
         {

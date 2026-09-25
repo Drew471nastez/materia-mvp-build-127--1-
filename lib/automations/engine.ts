@@ -489,8 +489,10 @@ export async function processJob(ctx: Ctx, job: JobRow): Promise<JobOutcome> {
     const standing = await store.standing(run.creator_id, run.email)
     if (standing.suppressed) return cancel("exited", "Unsubscribed.")
     const trigger = isTriggerType(flow.trigger_type) ? flow.trigger_type : null
-    if (trigger && audienceOf(trigger, flow.trigger_config) === "subscribers" && !agreedToNews(standing, run)) {
-      return cancel("exited", "Did not ask for news from you.")
+    if (trigger && audienceOf(trigger, flow.trigger_config) === "subscribers") {
+      if (!agreedToNews(standing, run)) return cancel("exited", "Did not ask for news from you.")
+      /* Marketing always carries its way out; without a token there is none. */
+      if (!standing.unsubscribeToken) return cancel("exited", "No unsubscribe link on record, so nothing that sells was sent.")
     }
     /* A checkout reminder ends the moment they buy, whichever step they are on. */
     if (trigger === "abandoned_checkout" && (await store.purchasedSince(run.creator_id, run.email, run.context.checkout_started_at ?? run.started_at))) {
