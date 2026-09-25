@@ -3130,92 +3130,126 @@ html.app-layout .app-content-scroll {
   }
 }
 
-/* ── One scrollbar column, always the same width, on a computer ─────────────
+/* ── One scrollbar track, always there, never moving, on a computer ─────────
  *
  * "Each time I switch between pages in /app on desktop large screens, the
- * scrollbar on the right side of the screen is bumping." A classic scrollbar
- * (a Mac with a mouse, Windows, Linux) takes a column of layout, and it came
- * and went on almost every page swap:
+ * scrollbar on the right side of the screen is bumping." And after the first
+ * fix: "the Products page for example doesn't have a scroll bar, but when I
+ * switch to the Orders page it has a scroll bar because it's needed, so on
+ * switching between pages the page glitches because the scroll bar appears."
  *
- *   a long page after a short one (and back) put a 15px bar on the shell's
- *   scroller, and took it away again;
+ * A classic scrollbar (a Mac with a mouse or "Show scroll bars: Always",
+ * Windows, Linux) takes a column of layout. The first fix kept that column
+ * the same width in the same place on every page, and the page's box stopped
+ * moving. What was left, measured on the real pages by
+ * scripts/check-scrollbar-stable.mjs, was the bar itself:
  *
- *   a page that scrolls in a box of its own (Home, Products, Orders, Coupons,
- *   Analytics, Payouts, Emails, Website) got a 10px bar there, and none on a
- *   short one;
+ *   ITS TRACK CAME AND WENT. A page with nothing to scroll (Products with a
+ *   few products) kept the column empty; a page with something to scroll
+ *   (Orders) painted a track and a thumb in it. At 1440, 30 to 36 frames of
+ *   every visit to Products had no track, and every visit to Orders put one
+ *   back: 526 frames of 2095 over the probe's route.
  *
- *   and the landing's 5px rise (components/app/app-stage.tsx) moved that
- *   full height box 5px past the bottom of the shell's scroller, so for 180ms
- *   the SHELL grew a second bar beside the page's own, and dropped it. That
- *   is the bar that flashed and then disappeared on every Back.
+ *   IT ARRIVED WITH THE PAGE. The landing (components/app/app-stage.tsx)
+ *   faded and raised the page's top box, and on Home, Products, Orders,
+ *   Coupons, Analytics, Payouts, Emails and Website that box IS the scroller,
+ *   so the bar faded in from nothing and rose with it, 8 to 12 frames on
+ *   every arrival: the bar "popping".
  *
- * Measured by scripts/check-scrollbar-stable.mjs: before this, at 1440 the
- * page's column moved sideways in 357 of 748 frames across twenty swaps, and
- * the shell's bar flashed in 8 of them.
+ * So, like the admin of any store platform with classic scrollbars: THE
+ * TRACK IS ALWAYS THERE. Every box that scrolls a page on a computer is
+ * `overflow-y: scroll`, so its track is painted whether or not there is
+ * anything to scroll, in one look (thin, the page's own #f8f9fa, a grey
+ * thumb), and only the thumb says whether this page is longer than the
+ * screen. Which box that is:
  *
- * So there is exactly one scrollbar column, reserved whether or not there is
- * anything to scroll, in exactly one place, the same width everywhere:
+ *   THE SHELL'S SCROLLER for a page that is content in it (Settings,
+ *   Customers, Storelib AI, Courses);
  *
- *   THE SHELL'S SCROLLER keeps its column (`scrollbar-gutter: stable`) when
- *   it is what scrolls, in the same slim bar the pages' own scrollers use
- *   (.page-scroll above), so both are one width;
+ *   THE PAGE'S OWN SCROLLER for a page that scrolls itself (Home, Products,
+ *   Coupons, Analytics, Payouts, Emails, Website, the composer), and each
+ *   pane of the two pane pages (Orders, and Emails with an email open, whose
+ *   list keeps its place under the open item). The shell's scroller then
+ *   holds only that full height box, does not scroll, and keeps no column:
+ *   the page's track is the one track, as wide as the shell's, at the same
+ *   x, so the page's box is the same box on every page.
  *
- *   A PAGE THAT SCROLLS ITSELF keeps the column in its own box, and the
- *   shell's scroller then does not scroll at all and keeps none: there is
- *   nothing in it but that full height box, and a column there too would be
- *   an empty strip beside the page's bar;
+ * The landing moves what is IN a scroller, never the scroller
+ * (app-stage.tsx playEntrance), so the track and thumb stand still while the
+ * page rises into place beside them. A page that fitted before the rise
+ * would overflow by the rise's few pixels for its 180ms and show a thumb it
+ * does not have; the stage marks that scroller [data-app-landing] for those
+ * frames, and the thumb is drawn clear. The track stays.
  *
- *   WHILE THE LANDING PLAYS, a page that fitted the shell keeps fitting: the
- *   stage marks the scroller [data-app-landing] for those 180ms only when
- *   nothing overflowed before the rise, and the rise cannot make it scroll.
- *
- * On a phone, and in the native apps, scrollbars float over the page and
- * take no room: none of this applies below 768px or under html.capacitor
- * (an iPad included), where they are as they were. The same list of page
- * scrollers as the pill's room rule above.
+ * On a phone, and in the native apps (an iPad included), scrollbars float
+ * over the page and take no room: none of this applies below 768px or under
+ * html.capacitor. The same list of page scrollers as the pill's room rule
+ * above.
  * ────────────────────────────────────────────────────────────────────────── */
 @media (min-width: 768px) {
-  html.app-layout:not(.capacitor) .app-content-scroll {
-    scrollbar-gutter: stable;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
-  }
-  /*
-    THE SAME BAR IN A BROWSER THAT READS ONLY ::-webkit-scrollbar. Safari
-    before 18.2 ignores `scrollbar-width`, so the pages that scroll in a box
-    of their own drew their 6px bar (.page-scroll, Home's container) and the
-    shell's scroller, which Settings, Website and the Creator page scroll in,
-    drew the system's 15px one: landing on Settings from Products moved the
-    column 4px and swapped the bar. "When I click Settings coming from a page
-    with no scrollbar, it glitches with the scrollbar on the right." Chrome
-    reads `scrollbar-width` above and ignores these, so nothing changes there.
-  */
-  html.app-layout:not(.capacitor) .app-content-scroll::-webkit-scrollbar {
-    width: 6px;
-  }
-  html.app-layout:not(.capacitor) .app-content-scroll::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  html.app-layout:not(.capacitor) .app-content-scroll::-webkit-scrollbar-thumb {
-    background-color: rgba(156, 163, 175, 0.5);
-    border-radius: 3px;
-  }
-  html.app-layout:not(.capacitor) .app-content-scroll::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(156, 163, 175, 0.7);
-  }
-  html.app-layout:not(.capacitor) .app-content-scroll:has(> .page-scroll, > .dashboard-scroll-container, > .sales-scroll-container, > .orders-stage, > [data-page-layer]) {
-    overflow-y: hidden;
-    scrollbar-gutter: auto;
-  }
+  html.app-layout:not(.capacitor) .app-content-scroll,
   html.app-layout:not(.capacitor) .app-content-scroll > .page-scroll,
   html.app-layout:not(.capacitor) .app-content-scroll > .dashboard-scroll-container,
   html.app-layout:not(.capacitor) .app-content-scroll > .sales-scroll-container,
   html.app-layout:not(.capacitor) .app-content-scroll > .orders-stage > .orders-pane,
   html.app-layout:not(.capacitor) .app-content-scroll [data-page-layer-scroll] > .page-scroll {
+    overflow-y: scroll;
     scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) #f8f9fa;
   }
-  html.app-layout:not(.capacitor) .app-content-scroll[data-app-landing] {
+  /*
+    THE SAME BAR IN A BROWSER THAT READS ONLY ::-webkit-scrollbar. Safari
+    before 18.2 ignores `scrollbar-width`, so there the pages that scroll in a
+    box of their own drew their 6px bar (.page-scroll, Home's container) and
+    the shell's scroller drew the system's 15px one: landing on Settings from
+    Products moved the column 4px and swapped the bar. "When I click Settings
+    coming from a page with no scrollbar, it glitches with the scrollbar on
+    the right." So every scroller in the list above draws the pages' own 6px
+    bar there, on the same track. Chrome reads the standard properties above
+    and ignores these.
+  */
+  html.app-layout:not(.capacitor) .app-content-scroll::-webkit-scrollbar,
+  html.app-layout:not(.capacitor) .app-content-scroll > .page-scroll::-webkit-scrollbar,
+  html.app-layout:not(.capacitor) .app-content-scroll > .dashboard-scroll-container::-webkit-scrollbar,
+  html.app-layout:not(.capacitor) .app-content-scroll > .sales-scroll-container::-webkit-scrollbar,
+  html.app-layout:not(.capacitor) .app-content-scroll > .orders-stage > .orders-pane::-webkit-scrollbar,
+  html.app-layout:not(.capacitor) .app-content-scroll [data-page-layer-scroll] > .page-scroll::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+    background-color: #f8f9fa;
+  }
+  html.app-layout:not(.capacitor) .app-content-scroll::-webkit-scrollbar-thumb,
+  html.app-layout:not(.capacitor) .app-content-scroll > .page-scroll::-webkit-scrollbar-thumb,
+  html.app-layout:not(.capacitor) .app-content-scroll > .dashboard-scroll-container::-webkit-scrollbar-thumb,
+  html.app-layout:not(.capacitor) .app-content-scroll > .sales-scroll-container::-webkit-scrollbar-thumb,
+  html.app-layout:not(.capacitor) .app-content-scroll > .orders-stage > .orders-pane::-webkit-scrollbar-thumb,
+  html.app-layout:not(.capacitor) .app-content-scroll [data-page-layer-scroll] > .page-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 3px;
+  }
+  html.app-layout:not(.capacitor) .app-content-scroll::-webkit-scrollbar-thumb:hover,
+  html.app-layout:not(.capacitor) .app-content-scroll > .page-scroll::-webkit-scrollbar-thumb:hover,
+  html.app-layout:not(.capacitor) .app-content-scroll > .dashboard-scroll-container::-webkit-scrollbar-thumb:hover,
+  html.app-layout:not(.capacitor) .app-content-scroll > .sales-scroll-container::-webkit-scrollbar-thumb:hover,
+  html.app-layout:not(.capacitor) .app-content-scroll > .orders-stage > .orders-pane::-webkit-scrollbar-thumb:hover,
+  html.app-layout:not(.capacitor) .app-content-scroll [data-page-layer-scroll] > .page-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156, 163, 175, 0.7);
+  }
+  /* A page that scrolls itself: the shell's scroller holds it and nothing
+     else, so it neither scrolls nor keeps a column of its own. */
+  html.app-layout:not(.capacitor) .app-content-scroll:has(> .page-scroll, > .dashboard-scroll-container, > .sales-scroll-container, > .orders-stage, > [data-page-layer]) {
     overflow-y: hidden;
+    scrollbar-gutter: auto;
+  }
+  /* While the landing rises: a page that fitted keeps showing no thumb.
+     Important, because the scroller's own rule above names it more closely
+     than an attribute can. */
+  html.app-layout:not(.capacitor) [data-app-landing] {
+    scrollbar-color: transparent #f8f9fa !important;
+  }
+  html.app-layout:not(.capacitor) [data-app-landing]::-webkit-scrollbar-thumb {
+    background-color: transparent !important;
   }
 }
 
