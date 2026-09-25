@@ -61,7 +61,7 @@ export const profileForRequest = cache(async (userId: string): Promise<RequestPr
  * which cover what the pages that read it with their own client need too.
  */
 const SHELL_CREATOR_COLUMNS =
-  "id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, stripe_onboarding_status, stripe_account_id, store_published"
+  "id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, charges_enabled, stripe_onboarding_status, stripe_account_id, store_published, subscription_plan_id"
 
 export interface RequestCreator {
   id: string
@@ -73,9 +73,13 @@ export interface RequestCreator {
   bio: string | null
   onboarding_completed: boolean | null
   payouts_enabled: boolean | null
+  /** With payouts_enabled, whether Stripe can take a charge (lib/home/progress paymentsReadyFrom). */
+  charges_enabled: boolean | null
   stripe_onboarding_status: string | null
   stripe_account_id: string | null
   store_published: boolean | null
+  /** The plan: "free", "growth" (Pro) or the earlier "pro" (lib/billing/plans). */
+  subscription_plan_id: string | null
 }
 
 /**

@@ -12,8 +12,8 @@
  *     and not the page
  *   an order opens over the list, on the      every frame from the tap: where
  *     first frame after the tap: slid in       the order's layer is and how
- *     from the right on a phone, faded in      opaque, where the list under it
- *     on a computer, the list drawn under      is and whether it is drawn,
+ *     from the right on a phone, its cards     opaque, where the list under it
+ *     faded in on a computer, the list drawn   is and whether it is drawn,
  *     it until it rests, never a blank         columns covered by neither, how
  *     frame, the timeline already whole        long until it rests, timeline
  *                                              rows on the first and last frame
@@ -240,6 +240,8 @@ async function recordFrames(p, ms) {
         detail: dr ? { left: dr.left, opacity: dOpacity, leaving: detail.hasAttribute("data-leaving") } : null,
         bar: r ? { top: r.top, left: r.left, dx: r.left - dr.left, width: r.width, height: r.height, opacity: opacityOf(bar) } : null,
         body: body ? opacityOf(body) : null,
+        /* What is in the list, as drawn: back on a computer settles it in (the list itself, the scroller, holds still). */
+        listFade: Math.min(1, ...[...list.children].filter((c) => c.getClientRects().length).map(opacityOf)),
         listShown,
         listLeft: lr.left,
         listTop: list.scrollTop,
@@ -278,6 +280,10 @@ function arrival({ frames, clickAt }) {
     listAfter: after.at(-1)?.listShown,
     blank: Math.max(0, ...after.map((f) => f.blank)),
     blankFrames: after.filter((f) => f.blank > 0).length,
+    layerMin: shown.length ? Math.min(...shown.map((f) => f.detail.opacity)) : null,
+    bodyFirst: first?.body ?? null,
+    bodyRestMs: (() => { const r = shown.find((f) => (f.body ?? 1) >= 0.999); return r && first ? Math.round(r.t - first.t) : null })(),
+    bodyMonotonic: shown.every((f, i) => i === 0 || (f.body ?? 1) >= (shown[i - 1].body ?? 1) - 0.001),
     timelineFirst: first?.timeline ?? null,
     timelineLast: after.at(-1)?.timeline ?? null,
     picked: [...new Set(after.map((f) => f.picked))],
@@ -304,6 +310,22 @@ function departure({ frames, clickAt }) {
     scrollTops: [...new Set(after.map((f) => f.listTop))],
     picked: [...new Set(after.map((f) => f.picked))],
     skeleton: Math.max(0, ...after.map((f) => f.skeleton)),
+    /* On a computer: the order at rest on every frame it is there, and the list's settling in once it is gone. */
+    layerStill: after.filter((f) => f.detail).every((f) => f.detail.opacity >= 0.999 && Math.abs(f.detail.left) < 0.5),
+    listUncovered: after.filter((f) => !f.listShown && !(f.detail && f.detail.opacity >= 0.999 && Math.abs(f.detail.left) < 0.5)).length,
+    ...settling(after, gone),
+  }
+}
+
+/* The list settling in on a computer: from about half, only up, whole in about ORDER_LIST_BACK_MS. */
+function settling(after, gone) {
+  const from = gone ? after.filter((f) => f.t >= gone.t) : []
+  const fades = from.map((f) => f.listFade)
+  const whole = from.find((f) => f.listFade >= 0.999)
+  return {
+    listFadeFirst: fades.length ? Number(fades[0].toFixed(3)) : null,
+    listFadeMs: whole && gone ? Math.round(whole.t - gone.t) : null,
+    listFadeMonotonic: fades.every((o, i) => i === 0 || o >= fades[i - 1] - 0.001),
   }
 }
 
@@ -424,9 +446,13 @@ console.log("\ndesktop, 1280 wide")
   console.log(`  ..    click to the order's first frame: ${opening.ms}ms, ${opening.framesBefore} frames before it, at opacity ${opening.firstOpacity}; at rest ${opening.restMs}ms later over ${opening.frames} frames; list drawn under it until then: ${opening.listDuring}, after: ${opening.listAfter}; blank frames ${opening.blankFrames} (max ${opening.blank}px); timeline rows first/last ${opening.timelineFirst}/${opening.timelineLast}; bar places ${JSON.stringify(opening.barPlaces)}; layout shift ${clsOpen.toFixed(4)}`)
   expect(hoverAsked.some((u) => u.includes("/activity")) && hoverAsked.some((u) => u.includes("order-timeline")), "a pointer resting on a row asks for that order's history ahead", hoverAsked)
   expect(opening.ms !== null && opening.framesBefore === 0, "the order is on the first frame after the click", opening.ms)
-  expect(opening.firstOpacity < 0.5 && opening.restMs !== null && opening.restMs >= 90 && opening.restMs <= 220 && opening.monotonic, "on a computer it fades in, quickly and only one way", { first: opening.firstOpacity, restMs: opening.restMs })
+  /* Since c69b54d3 ("a solid order bar") the layer is not faded on a
+     computer: the bar is there, whole, on the first frame and only the
+     cards (.orders-body) fade in, so the two bars are never drawn through
+     each other. What fades is measured now, not the layer. */
+  expect(opening.layerMin >= 0.999 && opening.bodyFirst !== null && opening.bodyFirst < 0.5 && opening.bodyRestMs !== null && opening.bodyRestMs >= 90 && opening.bodyRestMs <= 220 && opening.bodyMonotonic, "on a computer the order and its bar are whole on the first frame; only its cards fade in, quickly and only one way", { layer: opening.layerMin, cards: opening.bodyFirst, restMs: opening.bodyRestMs })
   expect(opening.barPlaces.length === 1, "its bar never moves while it does", opening.barPlaces)
-  expect(opening.listDuring && opening.listAfter === false, "the list is drawn under it while it fades, and not after", { during: opening.listDuring, after: opening.listAfter })
+  expect(opening.listAfter === false, "the list is not drawn under the settled order", { after: opening.listAfter })
   expect(opening.blankFrames === 0, "no frame shows neither the list nor the order", opening.blank)
   expect(opening.timelineFirst === opening.timelineLast && opening.timelineFirst >= 5, "the timeline is whole on the first frame, the history already read", `${opening.timelineFirst}/${opening.timelineLast}`)
   expect(opening.picked.includes("held"), "the row it came from is tinted under it", opening.picked)
@@ -521,7 +547,8 @@ console.log("\ndesktop, 1280 wide")
   await p.click("button[aria-label='Previous order']")
   await sleep(300)
 
-  /* Back: the list is drawn on every frame, the order fades off it. */
+  /* Back: the order goes at once (c69b54d3) and the list settles in over
+     ORDER_LIST_BACK_MS (cea30d1c); nothing is ever blank. */
   await recordFrames(p, 500)
   await p.click("button[aria-label='Back to orders']")
   await sleep(600)
@@ -533,10 +560,13 @@ console.log("\ndesktop, 1280 wide")
     ticked: document.querySelectorAll(".orders-scroller tbody input:checked").length,
     picked: document.querySelector(".orders-list tr[data-picked]")?.dataset.picked ?? null,
   }))
-  console.log(`  ..    back: the order starts to go ${back.startMs}ms after the click and is gone at ${back.goneMs}ms (${back.moveMs}ms of fade); frames without the list ${back.framesWithoutList}; blank ${back.blank}px; list scrollTop on every frame ${JSON.stringify(back.scrollTops)}; row tint ${JSON.stringify(back.picked)}; skeletons ${back.skeleton}`)
-  expect(!after.detail && back.framesWithoutList === 0 && back.blank === 0, "back draws the list under the order on every frame", back.framesWithoutList)
-  expect(back.monotonic && back.moveMs !== null && back.moveMs <= 220, "and the order fades off it, quickly and only one way", back.moveMs)
-  expect(back.leavingInert > 0, "the leaving order is marked leaving (inert) while it goes", back.leavingInert)
+  console.log(`  ..    back: the order is gone at ${back.goneMs}ms, still and whole until then: ${back.layerStill}; the list from opacity ${back.listFadeFirst}, whole ${back.listFadeMs}ms later; frames with neither drawn ${back.listUncovered}; blank ${back.blank}px; list scrollTop on every frame ${JSON.stringify(back.scrollTops)}; row tint ${JSON.stringify(back.picked)}; skeletons ${back.skeleton}`)
+  expect(!after.detail && back.listUncovered === 0 && back.blank === 0, "back draws the list on every frame the order is not over it", back.listUncovered)
+  /* Was "the order fades off it" and "is marked leaving while it goes":
+     since c69b54d3 back on a computer takes the order away at once, so it
+     is never drawn faded, moved or leaving. */
+  expect(back.layerStill && back.leavingInert === 0 && back.goneMs !== null && back.goneMs <= 300, "and the order goes at once, never faded, moved or drawn leaving", { gone: back.goneMs, still: back.layerStill, leaving: back.leavingInert })
+  expect(back.listFadeFirst !== null && back.listFadeFirst >= 0.4 && back.listFadeFirst <= 0.9 && back.listFadeMonotonic && back.listFadeMs !== null && back.listFadeMs >= 100 && back.listFadeMs <= 300, "while the list settles in from about half, only up, in about 180ms (cea30d1c)", { first: back.listFadeFirst, ms: back.listFadeMs })
   expect(back.skeleton === 0, "with no skeleton", back.skeleton)
   expect(after.top === before.top && before.top > 0 && back.scrollTops.length === 1 && back.scrollTops[0] === before.top, "and the list is exactly as far down as it was, on every frame", `${after.top} vs ${before.top}`)
   expect(back.picked.includes("fading"), "the row the order came from is tinted, then fades", back.picked)

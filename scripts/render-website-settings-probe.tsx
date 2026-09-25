@@ -46,8 +46,16 @@ function stubFetch() {
         ],
       })
     }
+    /* Connect on a tool's line makes its key as the line opens: answered with one, shown once. */
+    if (url.includes("/agent-connections") && init?.method === "POST") {
+      const { name } = JSON.parse(String(init.body ?? "{}")) as { name?: string }
+      return json({
+        connection: { id: "k1", name: name ?? "AI agent", prefix: "slb_Q7mX2p", created_at: "2026-09-25T09:00:00Z", last_used_at: null },
+        token: "slb_Q7mX2pVfH0c9Lr1aZt5WkEo3YbNd8GsuJi4lMqRx6T",
+      })
+    }
     if (url.includes("/agent-connections")) return json({ connections: [], ready: true })
-    if (url.includes("/github")) return json({ configured: true, ready: true, link: null, repos: [], accounts: [] })
+    if (url.includes("/github")) return json({ configured: true, ready: true, link: null, repos: [], accounts: [], events: [] })
     if (url.includes("/publish")) return json({ ok: true, status: "unpublished" })
     if (url.includes("/duplicate")) return json({ error: "You can keep 3 websites: one live and 2 drafts. Remove one to add another." }, 400)
     return json({})

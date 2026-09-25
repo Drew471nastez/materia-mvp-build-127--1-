@@ -322,7 +322,10 @@ async function main() {
     check("  on a computer the order's bar is there on the first frame: only its cards fade in; back takes the order at once and the list settles in, never from nothing",
       /const body = detail\.querySelector<HTMLElement>\("\.orders-body"\)/.test(motion) && !/detail\.animate\(\[\{ opacity/.test(motion)
         && /if \(kind === "pop"\) \{\s*settle\(detail, list\)\s*done\?\.\(\)/.test(motion)
-        && /list\.animate\(\s*\[\{ opacity: 0\.5, transform: "translate3d\(0, 2px, 0\)" \}/.test(motion)
+        /* What is in the list settles in, never the list: it is the scroller,
+           and moving it moved its scrollbar (scripts/check-scrollbar-stable.mjs). */
+        && /for \(const layer of list\.children\) \{\s*\(layer as HTMLElement\)\.animate\(\s*\[\{ opacity: 0\.5, transform: "translate3d\(0, 2px, 0\)" \}/.test(motion)
+        && !/list\.animate\(\s*\[\{ opacity/.test(motion)
         && /export const ORDER_LIST_BACK_MS = 180/.test(motion))
     check("  interrupted, it starts from where the layer is, read before the running move is cancelled",
       /const detailX = moving \? xOf\(detail\)/.test(motion) && motion.indexOf("const detailX") < motion.indexOf("stop(detail)"))

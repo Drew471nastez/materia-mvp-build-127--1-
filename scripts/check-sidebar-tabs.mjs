@@ -15,8 +15,10 @@
  *               scrolled to
  *   PAGES       Theme, then Pages, then a page lands on that page's Sections,
  *               not back on the Theme settings
- *   THEME       a settings group that was left open is shown open when you
- *               come back, without playing its entrance again
+ *   THEME       a settings group opens and closes by height (a Collapse,
+ *               components/website-builder/editor/collapse.tsx), and one
+ *               that was left open is shown open when you come back,
+ *               without playing its opening again
  *   CUT         opening a section is still a cut: nothing animates on the
  *               panel (the owner asked for that and it stays)
  *
@@ -91,10 +93,18 @@ const DRIVE = `
     var groups = scroller().querySelectorAll("button")
     var group = null
     for (var i = 0; i < groups.length; i++) { var tx = (groups[i].textContent || "").trim(); if (tx === "Typography" || tx === "Buttons") { group = groups[i]; break } }
+    /* A group's body is a Collapse: data-collapse on its box, a Web Animation on its height while it moves. */
+    function collapseBox() { return scroller().querySelector("[data-theme-group] [data-collapse]") }
+    async function moving(frames) {
+      var seen = false
+      for (var f0 = 0; f0 < frames; f0++) { await frame(); var c0 = collapseBox(); if (c0 && c0.getAnimations && c0.getAnimations().length > 0) seen = true }
+      return seen
+    }
     click(group)
+    var animated = await moving(6)
     await sleep(350)
-    var open = scroller().querySelector(".space-y-4")
-    steps.push({ label: "group opened", found: !!group, animated: !!open && String(open.className).indexOf("animate-in") >= 0 })
+    var open = scroller().querySelector("[data-theme-group] [data-collapse='open']")
+    steps.push({ label: "group opened", found: !!group, animated: animated && !!open })
     /* The panels scroll inside their own list, so that is what is scrolled. */
     var list = scroller().querySelector("[data-sheet-scroll]") || scroller()
     list.scrollTop = 400
@@ -105,8 +115,22 @@ const DRIVE = `
     steps.push({ label: "top", before: scrolled, after: nowList.scrollTop, outer: scroller().scrollTop })
 
     steps.push({ label: "back to Theme", r: await switchTo("Theme", 600) })
-    var reopened = scroller().querySelector(".space-y-4")
-    steps.push({ label: "group still open", open: !!reopened, replayed: !!reopened && String(reopened.className).indexOf("animate-in") >= 0 })
+    var reopened = scroller().querySelector("[data-theme-group] [data-collapse='open']")
+    var replayed = await moving(6)
+    steps.push({ label: "group still open", open: !!reopened, replayed: replayed })
+
+    /* And it closes the way it opened, rather than vanishing in one frame. */
+    var again = null
+    var gb = scroller().querySelectorAll("[data-theme-group] > button")
+    for (var g = 0; g < gb.length; g++) { if (gb[g].getAttribute("aria-expanded") === "true") { again = gb[g]; break } }
+    click(again)
+    var state = null
+    await frame()
+    var box = collapseBox()
+    if (box) state = box.getAttribute("data-collapse")
+    var closing = (box && box.getAnimations && box.getAnimations().length > 0) || (await moving(4))
+    await sleep(350)
+    steps.push({ label: "group closed", found: !!again, state: state, animated: closing, gone: !collapseBox() })
 
     /* Theme, then Pages, then a page. */
     steps.push({ label: "to Pages", r: await switchTo("Pages", 600) })
@@ -173,6 +197,8 @@ ok("a tab's panel starts at its top (and the one left was really scrolled)", top
 const again = at("group still open")
 ok("coming back to Theme, the open group is still open", again?.open, again)
 ok("  and does not play its entrance again", again && !again.replayed, again)
+const closed = at("group closed")
+ok("and a group closes by height, then leaves", closed?.found && closed.state === "closing" && closed.animated && closed.gone, closed)
 const picked = at("picked a page")
 ok("Theme, Pages, then a page lands on that page's Sections", picked?.found && picked.sectionsSelected && !picked.themeSelected && !picked.general, picked)
 const cut = at("section opened")

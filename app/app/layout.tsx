@@ -14,6 +14,7 @@ import AppColdStart from "./cold-start"
 import { profileAvatar } from "@/lib/account/avatar"
 import { accountTimeZone, timeZoneScript } from "@/lib/account/time-zone"
 import { TimeZoneSync } from "@/components/app/time-zone-sync"
+import { factsFromRows, homeProgress, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
 import { listBusinesses } from "@/lib/businesses/server"
 
 /**
@@ -124,9 +125,26 @@ export default async function AppLayout({
     redirect("/signup/success")
   }
 
-  /* The creator's products need the creator's id, and whether any has sold
-     needs the products: the two trips that have to wait. */
-  const { data: products } = await supabase.from("products").select("id").eq("creator_id", creator.id)
+  /*
+    WHAT THE SETUP RING COUNTS, IN ONE TRIP. The sidebar's "Setup" ring and
+    the phone menu's Store setup card say how far Getting started on Home
+    has got, so they count the same eight steps by the same rules
+    (lib/home/progress): a product, a website published right now, a
+    verified domain and one sale, all by the creator's id, on the caller's
+    own client. The sale is found through its product's creator, as Home
+    reads orders, so it no longer waits for the product ids to come back.
+  */
+  const [{ data: products }, { data: domains }, { data: liveSite }, { data: aSale }] = await Promise.all([
+    supabase.from("products").select("id").eq("creator_id", creator.id),
+    supabase.from("custom_domains").select("*").eq("creator_id", creator.id),
+    supabase.from("store_theme_installs").select("id").eq("creator_id", creator.id).eq("status", WEBSITE_LIVE_STATUS).limit(1).maybeSingle(),
+    supabase
+      .from("orders")
+      .select("id, products!inner(creator_id)")
+      .eq("products.creator_id", creator.id)
+      .not("status", "in", "(failed,pending,disputed)")
+      .limit(1),
+  ])
 
   /*
     THE PROFILE'S PHOTO, OR THE INITIALS (lib/account/avatar). This used to
@@ -143,45 +161,18 @@ export default async function AppLayout({
 
   const displayName = profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || creator.slug
 
-  const hasProducts = (products?.length || 0) > 0
-  const productIds = products?.map((p: any) => p.id) || []
-
-  // Check for Stripe connection — read from creators table (source of truth)
-  const hasPayoutsSetup = creator.payouts_enabled === true || creator.stripe_onboarding_status === "connected"
-
-  // OnePage check
-  const hasOnePage = !!onepage
-  const hasOnePageBlock = onepage?.draft_blocks && onepage.draft_blocks.length > 1
-
-  // Branding check — check each item independently, including onepage data
-  const hasBranding = !!(profile?.avatar_url || creator.avatar_url || onepage?.avatar_url) &&
-                      !!(profile?.display_name || creator.display_name || profile?.username || creator.username || creator.slug) &&
-                      !!(creator.bio || onepage?.bio)
-
-  // First sale check — single query with limit 1 (very fast with idx_orders_product_status index)
-  let hasFirstSale = false
-  if (productIds.length > 0) {
-    const { data: allOrders } = await supabase
-      .from("orders")
-      .select("id")
-      .eq("status", "completed")
-      .in("product_id", productIds)
-      .limit(1)
-    hasFirstSale = (allOrders?.length || 0) > 0
-  }
-
-  // Setup steps calculation
-  const setupSteps = [
-    { id: "welcome", completed: true },
-    { id: "branding", completed: hasBranding },
-    { id: "product", completed: hasProducts },
-    { id: "payouts", completed: hasPayoutsSetup },
-    { id: "onepage", completed: hasOnePage && hasOnePageBlock },
-    { id: "sale", completed: hasFirstSale },
-  ]
-
-  const completedSteps = setupSteps.filter(s => s.completed).length
-  const totalSteps = setupSteps.length
+  const setup = homeProgress({
+    ...factsFromRows({
+      creator,
+      products: products ?? [],
+      domains: domains ?? [],
+      websiteLive: !!liveSite,
+      userMetadata: user.user_metadata ?? null,
+    }),
+    sales: (aSale?.length ?? 0) > 0 ? 1 : 0,
+  })
+  const completedSteps = setup.completed
+  const totalSteps = setup.total
 
   return (
     <NativeAuthGate loadingFallback={<AppColdStart />}>
