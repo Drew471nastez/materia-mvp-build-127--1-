@@ -324,6 +324,14 @@ export function recalledScroll(key: string) {
 export function markTraversal() {
   traversing = true
 }
+/**
+ * Is the commit on its way a back or forward? Read without taking it, by a
+ * page deciding its first state while it renders, before the stage takes it
+ * at the commit (the Products list: products-client, list-return).
+ */
+export function isTraversing() {
+  return traversing
+}
 /** Read once per commit: was it a back or forward? */
 export function takeTraversal() {
   const t = traversing
