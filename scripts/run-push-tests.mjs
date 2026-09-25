@@ -223,6 +223,7 @@ const SUITES = [
   "tests/buy-extras.test.ts",
   "tests/business-accounts.test.ts",
   "tests/onboarding-polish.test.ts",
+  "tests/section-markup-guard.test.ts",
   "tests/own-section-html.test.ts",
   "tests/website-builder-api.test.ts",
   "tests/security-scan.test.ts",

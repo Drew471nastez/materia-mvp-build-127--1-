@@ -100,7 +100,7 @@ A theme can be exported to a single file and imported into another account, whic
 
 - **Markup is escaped.** `{{ }}` always HTML-escapes. The only way to print markup is the `raw` filter, which is for `richtext` settings; rich text is cleaned against an allow list on save, on import, on publish and on every read. See [Output](/developers/sections#output) for which settings that covers.
 - **CSS cannot leave its section.** Scoping is done by the compiler, not by convention.
-- **No inline script.** `<script>` in a template, `on*=` attributes and `javascript:` URLs are refused at compile time.
+- **No inline script.** `<script>` in a template, `on*=` attributes and `javascript:` URLs are refused at compile time. What a section draws is read once more as it is drawn, so one that only appears once values are filled in, such as a handler split around a `{{ }}` or a `javascript:` address typed into a setting, is taken out there.
 - **Frames are allow-listed.** An `<iframe>` needs the `embed` capability and takes its address from the `embed` filter, which only answers for known video and audio players.
 - **Scripts cannot reach the page.** `window`, `document`, `fetch` and the rest are refused by name. See [JavaScript](/developers/javascript).
 

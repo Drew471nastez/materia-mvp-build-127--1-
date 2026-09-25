@@ -49,6 +49,8 @@ The template is HTML plus output, conditions, loops and comments. It is **not** 
 
 `{{ expression }}` prints a value, always HTML-escaped. The only way to print markup is the `raw` filter, which prints a value as it is. The compiler does not check what `raw` is used on, so it is yours to keep it to `richtext` settings.
 
+Put an output that is an attribute's value inside quotes: `class="{{ settings.style }}"`, never `class={{ settings.style }}`. Without them a value with a space in it becomes more than one attribute. Nothing it adds can run, because a drawn section is checked again as it is drawn, but it can still break your markup.
+
 Rich text is cleaned against an allow list of tags and attributes: when a page is saved, when a theme is imported, when a website is published, and every time a page is read. Which values are cleaned is decided by the section: every `richtext` setting of the library's own sections, and, in every section including yours, a setting whose id is `body`, `content`, `answer`, `description` or `preview_text`. So give a rich text setting in a section you write one of those ids, and never `raw` a plain `text` or `textarea` setting.
 
 ### Expressions

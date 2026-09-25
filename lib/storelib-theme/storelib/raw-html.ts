@@ -203,3 +203,175 @@ export function guardRawHtml(html: string): string {
 export function guardStyleText(css: string): string {
   return /<\/style/i.test(css) ? css.replace(/<\/(style)/gi, "<\\/$1") : css
 }
+
+/**
+ * ===========================================================================
+ *  WHAT A SECTION'S TEMPLATE MAY PUT ON A PAGE, ONCE IT IS DRAWN
+ * ===========================================================================
+ * A template is checked when it is saved (template.ts: FORBIDDEN_MARKUP,
+ * DISGUISED_MARKUP), and those checks read the source. A name the source only
+ * spells once it is drawn gets past them: a handler split around an output
+ * (`on{{ x }}error=`), a tag (`<scr{{ x }}ipt>`), an address
+ * (`java{{ x }}script:`), or a value dropped where an attribute name goes
+ * (`class={{ x }}` with no quotes, `{{ x }}="…"`). Each is ordinary markup by
+ * the time a browser reads it, and a built website is served on
+ * storelib.com's own origin as well as its own address (/w/<name>), which is
+ * where a visitor's session is.
+ *
+ * So the drawn markup is read once more, the way a browser's tokenizer reads
+ * it, and only what can run something is changed:
+ *
+ *   a tag that runs code, loads another document or acts on the whole page
+ *   (script, object, embed, frame, base, meta, link…)
+ *                                   its "<" becomes "&lt;", so it shows as words
+ *   an on… attribute, or srcdoc     taken out
+ *   a javascript: or vbscript: address
+ *                                   "#" for a link, empty for anything else
+ *   an SVG animation value that runs one
+ *                                   taken out
+ *   the inside of a tag a browser reads as text (textarea, title, noscript,
+ *   iframe…)                        its "<" become "&lt;", so nothing in it can
+ *                                   read as a tag, in HTML or inside an <svg>
+ *   a tag, comment or quote left open, a doctype or CDATA
+ *                                   shown as words, so it cannot hide or
+ *                                   swallow what is drawn after it
+ *
+ * Unlike `raw`'s check this keeps <svg> (sections draw their icons with it)
+ * and never turns a whole section into words: a section that draws none of
+ * the above comes back as the very same string.
+ */
+
+/** Tags a drawn section may not open. */
+const SECTION_BLOCKED_TAGS = new Set([
+  "script", "object", "embed", "applet", "frame", "frameset", "portal", "fencedframe",
+  "base", "meta", "link", "plaintext",
+])
+
+/** SVG animation attributes, which can set an address while they run. */
+const ANIMATION_VALUE_ATTRIBUTES = new Set(["values", "to", "from", "by"])
+
+type Edit = { from: number; to: number; text: string }
+
+export function guardSectionMarkup(html: string): string {
+  if (html.indexOf("<") === -1) return html
+  const n = html.length
+  const edits: Edit[] = []
+  const asText = (at: number) => edits.push({ from: at, to: at + 1, text: "&lt;" })
+
+  let i = html.indexOf("<")
+  while (i !== -1) {
+    if (i + 1 >= n) {
+      asText(i)
+      break
+    }
+    const next = html.charAt(i + 1)
+    if (next === "!") {
+      if (html.startsWith("<!--", i)) {
+        if (html.startsWith("<!-->", i)) { i = html.indexOf("<", i + 5); continue }
+        if (html.startsWith("<!--->", i)) { i = html.indexOf("<", i + 6); continue }
+        const close = /--!?>/.exec(html.slice(i + 4))
+        if (close) { i = html.indexOf("<", i + 4 + close.index + close[0].length); continue }
+      }
+      /* A comment left open, a doctype, CDATA: none belongs in a section, and each hides what follows it. */
+      asText(i)
+      i = html.indexOf("<", i + 1)
+      continue
+    }
+    if (next === "?") {
+      asText(i)
+      i = html.indexOf("<", i + 1)
+      continue
+    }
+    const closing = next === "/"
+    const at = closing ? i + 2 : i + 1
+    if (!/[A-Za-z]/.test(html.charAt(at))) {
+      /* "</" then anything but a letter hides everything up to the next ">"; "<" then anything but a letter is a character. */
+      if (closing) asText(i)
+      i = html.indexOf("<", i + 1)
+      continue
+    }
+
+    let k = at
+    while (k < n && !SPACE.has(html[k]) && html[k] !== "/" && html[k] !== ">") k++
+    const name = html.slice(at, k).toLowerCase()
+    const tagEdits: Edit[] = []
+    let closed = true
+    for (;;) {
+      while (k < n && (SPACE.has(html[k]) || html[k] === "/")) k++
+      if (k >= n) { closed = false; break }
+      if (html[k] === ">") break
+      /* The first character always begins a name, even "=" or a quote. */
+      const start = k++
+      while (k < n && !SPACE.has(html[k]) && html[k] !== "/" && html[k] !== ">" && html[k] !== "=") k++
+      const attribute = html.slice(start, k).toLowerCase()
+      let j = k
+      while (j < n && SPACE.has(html[j])) j++
+      let value: string | null = null
+      if (html[j] === "=") {
+        j++
+        while (j < n && SPACE.has(html[j])) j++
+        const quote = html[j]
+        if (quote === '"' || quote === "'") {
+          const end = html.indexOf(quote, j + 1)
+          if (end === -1) { closed = false; break }
+          value = html.slice(j + 1, end)
+          k = end + 1
+        } else {
+          const from = j
+          while (j < n && !SPACE.has(html[j]) && html[j] !== ">") j++
+          value = html.slice(from, j)
+          k = j
+        }
+      }
+      if (attribute.startsWith("on") || attribute === "srcdoc") {
+        tagEdits.push({ from: start, to: k, text: "" })
+      } else if (value !== null && ADDRESS_ATTRIBUTES.has(attribute) && isScriptScheme(value)) {
+        const link = attribute === "href" || attribute === "xlink:href"
+        tagEdits.push({ from: start, to: k, text: `${attribute}="${link ? "#" : ""}"` })
+      } else if (value !== null && ANIMATION_VALUE_ATTRIBUTES.has(attribute) && value.split(";").some(isScriptScheme)) {
+        tagEdits.push({ from: start, to: k, text: "" })
+      }
+    }
+
+    /*
+      A tag that never closes would swallow what is drawn next, and a blocked
+      tag must not open at all. Either goes out as words, and reading carries
+      on from just after its "<": what sat inside its quotes is page text now,
+      so it is read the way the page will read it.
+    */
+    if (!closed || (!closing && SECTION_BLOCKED_TAGS.has(name))) {
+      asText(i)
+      i = html.indexOf("<", i + 1)
+      continue
+    }
+
+    if (!closing && TEXT_ONLY_TAGS.has(name)) {
+      const bodyStart = k + 1
+      const end = new RegExp(`</${name}[\\t\\n\\f\\r />]`, "i").exec(html.slice(bodyStart))
+      if (!end) {
+        /* Never closed, it would read the rest of the page as its text. */
+        asText(i)
+        i = html.indexOf("<", i + 1)
+        continue
+      }
+      edits.push(...tagEdits)
+      const bodyEnd = bodyStart + end.index
+      for (let p = html.indexOf("<", bodyStart); p !== -1 && p < bodyEnd; p = html.indexOf("<", p + 1)) asText(p)
+      i = html.indexOf("<", bodyEnd)
+      continue
+    }
+
+    edits.push(...tagEdits)
+    i = html.indexOf("<", k + 1)
+  }
+
+  if (edits.length === 0) return html
+  edits.sort((a, b) => a.from - b.from)
+  let out = ""
+  let from = 0
+  for (const e of edits) {
+    out += html.slice(from, e.from) + e.text
+    from = e.to
+  }
+  return out + html.slice(from)
+}
