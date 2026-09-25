@@ -448,13 +448,15 @@ function Body({
 
       {previewNote && <p className="text-[14px] text-amber-300/90">{previewNote}</p>}
 
-      <div className="flex items-center gap-2.5 text-[14px] text-white/80">
+      {/* What is connected, then the security line under it: the owner asked
+          for the row above the check, so the check is the last word before
+          the actions. A desktop has the mark on its bar instead of the row. */}
+      {pinActions && <ConnectionsRow brief={connections} settled={connectionsSettled} onOpen={onConnections} />}
+
+      <div data-publish-security="" className="flex items-center gap-2.5 text-[14px] text-white/80">
         <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400" strokeWidth={1.75} />
         No security issues found
       </div>
-
-      {/* The last thing in the phone's sheet. A desktop has the mark on its bar. */}
-      {pinActions && <ConnectionsRow brief={connections} settled={connectionsSettled} onOpen={onConnections} />}
     </div>
   )
 
