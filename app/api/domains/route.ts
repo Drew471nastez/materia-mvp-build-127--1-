@@ -1,501 +1,345 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { revalidateTag } from "next/cache"
 import crypto from "crypto"
 
-const VERCEL_TOKEN = process.env.VERCEL_TOKEN
-const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID
-const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID
+import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
+import { domainOwner } from "@/lib/custom-domains/owner"
+import {
+  HOSTNAME_PROBLEM_TEXT,
+  cleanHostname,
+  hostnameProblem,
+  isDomainPurpose,
+  recordsFor,
+  servingHost,
+  type DomainPurpose,
+} from "@/lib/custom-domains/hostname"
+import {
+  CURRENT_COLUMNS,
+  LEGACY_COLUMNS,
+  creatorDomainsTag,
+  ensurePrimary,
+  isMissingColumn,
+  listCreatorDomains,
+  makePrimary,
+  primaryHostOf,
+  purposeOf,
+  saveRecords,
+  syncOnepageDomain,
+  toView,
+  type DomainRow,
+  type Schema,
+} from "@/lib/custom-domains/store"
+import { addDomainHosts, recommendedRecords, removeDomainHosts, vercelConfigured } from "@/lib/custom-domains/vercel"
+import { creatorSitePlan } from "@/lib/sites/plan-server"
+import { siteGate } from "@/lib/sites/plan"
+import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
+import { getMainDomain } from "@/lib/url-helpers"
 
 /**
- * Add a domain to Vercel project so it can serve traffic
+ * ===========================================================================
+ *  A CREATOR'S DOMAINS: LIST, CONNECT, MAKE PRIMARY, REMOVE
+ * ===========================================================================
+ * Settings › Domains and the website builder's Domains both talk to this.
+ *
+ *   GET      the creator's domains, each with the records it needs, and the
+ *            primary host of each purpose
+ *   POST     { domain, purpose: "website" | "creator_page", replace? }
+ *   PATCH    { domainId, action: "make_primary" }
+ *   DELETE   { domainId }
+ *
+ * The session decides whose domains these are (domainOwner, which reads the
+ * user with auth.getUser() and their creator_id from it); every write goes
+ * through the service role after that, because the table is closed to
+ * browser writes (supabase/migrations/20261001_custom_domain_purposes.sql).
+ * The Vercel token stays in lib/custom-domains/vercel.ts, on the server.
  */
-async function addDomainToVercel(domain: string): Promise<{ success: boolean; error?: string }> {
-  if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID) {
-    console.warn("Vercel token or project ID not configured, skipping Vercel domain registration")
-    return { success: true } // Don't block domain addition if Vercel not configured
-  }
 
-  try {
-    const url = VERCEL_TEAM_ID
-      ? `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_TEAM_ID}`
-      : `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains`
+/** Connecting is rare; a script trying names is not. Per person and per address. */
+const ADD_LIMITS = [
+  { limit: 6, seconds: 600 },
+  { limit: 20, seconds: 86400 },
+] as const
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${VERCEL_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name: domain }),
-    })
+/** Enough for a website on a couple of domains and a creator page on a couple more. */
+const MAX_PER_PURPOSE = 5
 
-    if (res.ok) {
-      return { success: true }
-    }
+/** How long a removed domain keeps sending its visitors on, and stays on the Vercel project. */
+const GRACE_DAYS = 30
 
-    const data = await res.json()
-
-    // Domain already exists on this project - that's fine
-    if (data.error?.code === "domain_already_in_use" || data.error?.code === "DOMAIN_ALREADY_IN_USE") {
-      return { success: true }
-    }
-
-    console.error("Vercel domain add error:", data)
-    return { success: false, error: data.error?.message || "Failed to register domain with hosting" }
-  } catch (err) {
-    console.error("Vercel API error:", err)
-    return { success: true } // Don't block on network errors
+function views(rows: DomainRow[], schema: Schema) {
+  return {
+    domains: rows.map((r) => toView(r, schema)),
+    primary: {
+      website: primaryHostOf(rows, "website", schema),
+      creator_page: primaryHostOf(rows, "creator_page", schema),
+    },
+    schema,
+    /* Creator page domains need the purpose column to be told apart from website ones. */
+    purposes: schema === "current" ? ["website", "creator_page"] : ["website"],
+    registered: vercelConfigured(),
   }
 }
 
-/**
- * Set up canonical www redirect on Vercel:
- * - www.domain.com = primary (serves content, SSL cert)
- * - domain.com = redirects to www.domain.com (301, edge-level)
- * Vercel provisions SSL certs for both hosts. Prevents ERR_SSL_PROTOCOL_ERROR.
- */
-async function setupCanonicalWwwOnVercel(apexDomain: string): Promise<void> {
-  if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID) return
-
-  try {
-    const url = VERCEL_TEAM_ID
-      ? `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_TEAM_ID}`
-      : `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains`
-
-    // 1. Register www.domain.com as the primary content-serving domain
-    await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${VERCEL_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name: `www.${apexDomain}` }),
-    })
-
-    // 2. Register apex domain.com with redirect to www — Vercel handles at edge
-    // Vercel provisions SSL cert for apex so the redirect works over HTTPS
-    await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${VERCEL_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: apexDomain,
-        redirect: `www.${apexDomain}`,
-        redirectStatusCode: 301,
-      }),
-    })
-  } catch {
-    // Best effort
-  }
+/** Where a removed domain sends its visitors while it is still attached. */
+async function fallbackFor(purpose: DomainPurpose, creatorId: string, username: string | null): Promise<string> {
+  const main = getMainDomain()
+  if (purpose === "creator_page") return username ? `https://${main}/${username}` : `https://${main}`
+  const handle = (await websiteHandleOf(creatorId).catch(() => null)) ?? username
+  return handle ? `https://${handle}.${main}` : `https://${main}`
 }
 
-/**
- * Remove a domain from Vercel project
- */
-async function removeDomainFromVercel(domain: string): Promise<void> {
-  if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID) return
-
-  try {
-    const url = VERCEL_TEAM_ID
-      ? `https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${domain}?teamId=${VERCEL_TEAM_ID}`
-      : `https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${domain}`
-
-    await fetch(url, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${VERCEL_TOKEN}` },
-    })
-  } catch (err) {
-    console.error("Vercel domain remove error:", err)
-  }
+/** Canonicals and share links read the primary domain through a cache; this empties it. */
+function changed(creatorId: string) {
+  revalidateTag(creatorDomainsTag(creatorId), "max")
 }
 
-/**
- * Get domain configuration from Vercel (includes SSL status)
- * Uses HTTPS probe as the ONLY authority for sslReady.
- * Vercel API checks are used for configuration status only, NOT SSL —
- * because "verified === true" from Vercel means DNS is verified, not that the
- * SSL certificate has been issued. This distinction prevents marking domains as
- * "active" when the cert is still provisioning (causing ERR_SSL_PROTOCOL_ERROR).
- */
-export async function getVercelDomainConfig(domain: string): Promise<{
-  configured: boolean
-  sslReady: boolean
-  error?: string
-  sslError?: string
-  misconfigured?: boolean
-}> {
-  if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID) {
-    return { configured: true, sslReady: true } // Skip check if Vercel not configured
-  }
-
-  // Method 1: HTTPS probe — the ONLY reliable way to confirm SSL works
-  // If we can complete an HTTPS handshake, the cert is valid and served correctly.
-  // Retry up to 2 times for transient network failures (but not SSL errors).
-  let sslErrorDetail: string | undefined
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const probeRes = await fetch(`https://${domain}`, {
-        method: "HEAD",
-        redirect: "manual",
-        signal: AbortSignal.timeout(8000),
-      })
-      // Any HTTP response (even 3xx, 4xx, 5xx) means the TLS handshake succeeded → SSL works
-      if (probeRes.status > 0) {
-        return { configured: true, sslReady: true }
-      }
-    } catch (probeErr: any) {
-      const errMsg = probeErr?.cause?.code || probeErr?.message || ""
-
-      // Categorize SSL errors specifically
-      if (errMsg.includes("SSL") || errMsg.includes("ERR_TLS") || errMsg.includes("certificate") || errMsg.includes("CERT") || errMsg.includes("ssl") || errMsg.includes("tls")) {
-        sslErrorDetail = "SSL certificate not yet provisioned or invalid"
-        break // Don't retry SSL errors — cert genuinely isn't ready
-      }
-      if (errMsg.includes("ENOTFOUND")) {
-        sslErrorDetail = "Domain DNS not resolving"
-        return { configured: false, sslReady: false, sslError: sslErrorDetail }
-      }
-      if (errMsg.includes("ECONNREFUSED")) {
-        sslErrorDetail = "Connection refused — domain not configured on hosting"
-        return { configured: false, sslReady: false, sslError: sslErrorDetail }
-      }
-      // For timeout/other transient errors, retry once
-      if (attempt === 0) continue
-      sslErrorDetail = "Could not reach domain (timeout or network error)"
-    }
-  }
-
-  // Method 2: Check Vercel project domain endpoint — for CONFIGURATION status only
-  // IMPORTANT: "verified === true" means DNS is verified, NOT that SSL cert is issued.
-  // We use this to determine if the domain is configured on Vercel, not SSL readiness.
-  try {
-    const projectUrl = VERCEL_TEAM_ID
-      ? `https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${domain}?teamId=${VERCEL_TEAM_ID}`
-      : `https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${domain}`
-
-    const projectRes = await fetch(projectUrl, {
-      headers: { Authorization: `Bearer ${VERCEL_TOKEN}` },
-      signal: AbortSignal.timeout(5000),
-    })
-
-    if (projectRes.ok) {
-      const projectData = await projectRes.json()
-      return {
-        configured: projectData.verified === true,
-        sslReady: false, // HTTPS probe failed — SSL is NOT ready regardless of Vercel API
-        misconfigured: projectData.verified !== true,
-        sslError: sslErrorDetail,
-      }
-    }
-  } catch {
-    // Project domain check failed, fall through
-  }
-
-  // Method 3: Fallback to domain config endpoint
-  try {
-    const url = VERCEL_TEAM_ID
-      ? `https://api.vercel.com/v6/domains/${domain}/config?teamId=${VERCEL_TEAM_ID}`
-      : `https://api.vercel.com/v6/domains/${domain}/config`
-
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${VERCEL_TOKEN}` },
-      signal: AbortSignal.timeout(5000),
-    })
-
-    if (!res.ok) {
-      return { configured: true, sslReady: false, error: "Could not check domain configuration", sslError: sslErrorDetail }
-    }
-
-    const data = await res.json()
-    const misconfigured = data.misconfigured === true
-
-    return {
-      configured: !misconfigured,
-      sslReady: false, // HTTPS probe failed — SSL is NOT ready
-      misconfigured,
-      sslError: sslErrorDetail,
-    }
-  } catch (err) {
-    console.error("Vercel domain config check error:", err)
-    return { configured: true, sslReady: false, error: "Network error checking domain", sslError: sslErrorDetail }
-  }
-}
-
-// GET - List creator's domains
+// GET - List the creator's domains
 export async function GET() {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { data: creator } = await supabase
-      .from("creators")
-      .select("id")
-      .eq("user_id", user.id)
-      .single()
-
-    if (!creator) {
-      return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-    }
-
-    const { data: domains, error } = await supabase
-      .from("custom_domains")
-      .select("*")
-      .eq("creator_id", creator.id)
-      .order("created_at", { ascending: false })
-
-    if (error) {
+    const owner = await domainOwner()
+    if (owner instanceof NextResponse) return owner
+    const { rows, schema, error } = await listCreatorDomains(owner.admin, owner.creatorId)
+    if (error && error !== "missing_table") {
       console.error("Error fetching domains:", error)
       return NextResponse.json({ error: "Failed to fetch domains" }, { status: 500 })
     }
-
-    return NextResponse.json({ domains: domains || [] })
+    return NextResponse.json(views(rows, schema))
   } catch (error) {
     console.error("Domains GET error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-// POST - Add a new custom domain
+// POST - Connect a domain to the website or the creator page
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const owner = await domainOwner()
+    if (owner instanceof NextResponse) return owner
+    const { admin, creatorId, userId } = owner
 
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const body = (await request.json().catch(() => ({}))) as { domain?: unknown; purpose?: unknown; replace?: unknown }
+    const cleanDomain = cleanHostname(body.domain)
+    const problem = hostnameProblem(cleanDomain, getMainDomain())
+    if (problem) {
+      return NextResponse.json({ error: HOSTNAME_PROBLEM_TEXT[problem], problem }, { status: 400 })
+    }
+    const purpose: DomainPurpose = isDomainPurpose(body.purpose) ? body.purpose : "website"
+    const replace = body.replace === true
+
+    const limited = await rateLimit({
+      bucket: "domain-add",
+      subjects: [`user:${userId}`, addressSubject(request)],
+      windows: ADD_LIMITS,
+      message: "That is a lot of domains in a short time. Try again in a few minutes.",
+    })
+    if (limited) return limited
+
+    const gate = siteGate(await creatorSitePlan(creatorId), "customDomain")
+    if (gate) return NextResponse.json({ error: gate, upgrade: true }, { status: 403 })
+
+    const { rows, schema, error: listError } = await listCreatorDomains(admin, creatorId)
+    if (listError === "missing_table") {
+      return NextResponse.json({ error: "Domains are not switched on for this workspace yet." }, { status: 503 })
+    }
+    if (schema === "legacy" && purpose === "creator_page") {
+      return NextResponse.json(
+        { error: "Connecting a domain to your creator page needs a database update that has not run yet. A website domain works now." },
+        { status: 409 },
+      )
     }
 
-    const { domain } = await request.json()
-
-    if (!domain || typeof domain !== "string") {
-      return NextResponse.json({ error: "Domain is required" }, { status: 400 })
+    // Is it somebody's already? Anybody's, including a row of our own.
+    const { data: existing } = await admin.from("custom_domains").select("id, creator_id").eq("domain", cleanDomain).maybeSingle()
+    if (existing) {
+      if ((existing as { creator_id: string }).creator_id === creatorId) {
+        return NextResponse.json({ error: "You already connected this domain." }, { status: 400 })
+      }
+      return NextResponse.json({ error: "This domain is connected to another Storelib account." }, { status: 409 })
     }
-
-    // Clean and validate domain - strip www prefix
-    const cleanDomain = domain.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, "").replace(/\/.*$/, "").trim()
-
-    if (!cleanDomain || !cleanDomain.includes(".") || cleanDomain.length < 4) {
-      return NextResponse.json({ error: "Invalid domain format" }, { status: 400 })
-    }
-
-    // Block storelib.com subdomains
-    if (cleanDomain.endsWith(".storelib.com") || cleanDomain === "storelib.com") {
-      return NextResponse.json({ error: "Cannot add storelib.com domains" }, { status: 400 })
-    }
-
-    const { data: creator } = await supabase
-      .from("creators")
-      .select("id")
-      .eq("user_id", user.id)
-      .single()
-
-    if (!creator) {
-      return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-    }
-
-    // Check if domain is already taken
-    const { data: existingDomain } = await supabase
-      .from("custom_domains")
-      .select("id, creator_id")
+    /*
+      A domain another creator removed is still on the Vercel project for its
+      grace period, answering with a redirect, and its DNS still points here.
+      Taking it in that window would take their traffic with it.
+    */
+    const { data: remembered } = await admin
+      .from("domain_redirects")
+      .select("creator_id, keep_until")
       .eq("domain", cleanDomain)
+      .gt("keep_until", new Date().toISOString())
       .maybeSingle()
-
-    if (existingDomain) {
-      if (existingDomain.creator_id === creator.id) {
-        return NextResponse.json({ error: "You already added this domain" }, { status: 400 })
-      }
-      return NextResponse.json({ error: "This domain is already connected to another account" }, { status: 400 })
+    if (remembered && (remembered as { creator_id: string }).creator_id !== creatorId) {
+      const until = new Date((remembered as { keep_until: string }).keep_until)
+      return NextResponse.json(
+        { error: `This domain was connected to another account until recently. It can be connected again after ${until.toLocaleDateString("en-GB", { day: "numeric", month: "long" })}.` },
+        { status: 409 },
+      )
     }
 
-    // Check if seller already has an active domain (domain change scenario)
-    // If so, the old domain will become a redirect to the new one
-    const { data: existingActiveDomains } = await supabase
-      .from("custom_domains")
-      .select("id, domain")
-      .eq("creator_id", creator.id)
-      .in("status", ["active", "ssl_provisioning", "pending", "verifying"])
-
-    // Register www as primary domain and apex as redirect → www
-    // www is canonical because Vercel provisions SSL more reliably for CNAME-based hosts.
-    // Apex uses A record (216.150.1.1, Vercel's recommended IP) and redirects to www at the Vercel edge.
-    const wwwResult = await addDomainToVercel(`www.${cleanDomain}`)
-    if (!wwwResult.success) {
-      // Fallback: try adding apex directly
-      const apexResult = await addDomainToVercel(cleanDomain)
-      if (!apexResult.success) {
-        return NextResponse.json({ error: apexResult.error || "Failed to register domain" }, { status: 500 })
-      }
+    const samePurpose = rows.filter((r) => schema === "legacy" || purposeOf(r) === purpose)
+    /* On an old database a creator has one domain, and a new one replaces it, as it always did. */
+    const replacing = replace || (schema === "legacy" && samePurpose.length > 0)
+    if (!replacing && samePurpose.length >= MAX_PER_PURPOSE) {
+      return NextResponse.json({ error: `You can connect up to ${MAX_PER_PURPOSE} domains here. Remove one first.` }, { status: 400 })
     }
 
-    // Set up canonical redirect: apex → www (Vercel provisions SSL for both)
-    await setupCanonicalWwwOnVercel(cleanDomain)
+    const registered = await addDomainHosts(cleanDomain)
+    if (!registered.ok) {
+      return NextResponse.json({ error: registered.error || "Could not register the domain." }, { status: 502 })
+    }
 
-    // Generate verification token
     const verificationToken = `storelib-verify-${crypto.randomBytes(16).toString("hex")}`
-
-    const { data: newDomain, error } = await supabase
+    const firstRecords = recordsFor(cleanDomain, { challenges: registered.challenges })
+    const legacyRow = { creator_id: creatorId, domain: cleanDomain, status: "pending", verification_token: verificationToken }
+    let inserted = await admin
       .from("custom_domains")
-      .insert({
-        creator_id: creator.id,
-        domain: cleanDomain,
-        status: "pending",
-        verification_token: verificationToken,
-      })
-      .select()
+      .insert(
+        schema === "current"
+          ? { ...legacyRow, purpose, is_primary: replacing || !samePurpose.some((r) => r.is_primary === true), dns_records: firstRecords }
+          : legacyRow,
+      )
+      .select(schema === "current" ? CURRENT_COLUMNS : LEGACY_COLUMNS)
       .single()
-
-    if (error) {
-      console.error("Error adding domain:", error)
-      // Try to clean up Vercel domains if DB insert failed
-      await removeDomainFromVercel(cleanDomain)
-      await removeDomainFromVercel(`www.${cleanDomain}`)
+    if (inserted.error && isMissingColumn(inserted.error)) {
+      inserted = await admin.from("custom_domains").insert(legacyRow).select(LEGACY_COLUMNS).single()
+    }
+    if (inserted.error || !inserted.data) {
+      console.error("Error adding domain:", inserted.error)
+      await removeDomainHosts(cleanDomain)
+      if (inserted.error?.code === "23505") {
+        return NextResponse.json({ error: "This domain is connected to another Storelib account." }, { status: 409 })
+      }
       return NextResponse.json({ error: "Failed to add domain" }, { status: 500 })
     }
+    const newRow = inserted.data as unknown as DomainRow
 
-    // Domain change: set up redirects from old domain(s) to the new one
-    // Old domains stay attached to Vercel for 30-day grace period
-    if (existingActiveDomains && existingActiveDomains.length > 0) {
+    // Our own redirect memory for this name, from a time it was removed, is over.
+    await admin.from("domain_redirects").delete().eq("domain", cleanDomain).eq("creator_id", creatorId)
+
+    // Replacing: the old ones send their visitors to this one for the grace period.
+    if (replacing) {
       const keepUntil = new Date()
-      keepUntil.setDate(keepUntil.getDate() + 30)
-
-      for (const oldDomain of existingActiveDomains) {
-        // Create redirect from old domain → new domain
-        await supabase
-          .from("domain_redirects")
-          .upsert({
-            domain: oldDomain.domain,
-            creator_id: creator.id,
-            redirect_to: `https://www.${cleanDomain}`,
+      keepUntil.setDate(keepUntil.getDate() + GRACE_DAYS)
+      for (const old of samePurpose) {
+        await admin.from("domain_redirects").upsert(
+          {
+            domain: old.domain,
+            creator_id: creatorId,
+            redirect_to: `https://${servingHost(cleanDomain)}`,
             http_code: 301,
             reason: "changed",
             keep_until: keepUntil.toISOString(),
-          }, { onConflict: "domain" })
-
-        // Remove old domain from custom_domains (no longer active)
-        await supabase
-          .from("custom_domains")
-          .delete()
-          .eq("id", oldDomain.id)
-          .eq("creator_id", creator.id)
-
-        // DO NOT remove old domain from Vercel — keep it attached for redirects
+          },
+          { onConflict: "domain" },
+        )
+        await admin.from("custom_domains").delete().eq("id", old.id).eq("creator_id", creatorId)
+        // Left on Vercel on purpose, so the redirect answers; app/api/domains/cleanup detaches it later.
       }
     }
 
-    return NextResponse.json({ domain: newDomain })
+    // The records Vercel recommends for this project, which can differ from the defaults.
+    const recommended = await recommendedRecords(cleanDomain)
+    const records = recordsFor(cleanDomain, {
+      ipv4: recommended.ipv4,
+      cname: recommended.cname,
+      challenges: recommended.challenges.length ? recommended.challenges : registered.challenges,
+    })
+    await saveRecords(admin, newRow.id, records)
+
+    changed(creatorId)
+    if (purpose === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
+
+    return NextResponse.json({ domain: { ...toView(newRow, schema), records } })
   } catch (error) {
     console.error("Domains POST error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-// DELETE - Remove a custom domain
-// Instead of immediately removing from Vercel, we keep it attached as a redirect
-// for a grace period (30 days). This prevents DEPLOYMENT_NOT_FOUND for shared links.
-export async function DELETE(request: Request) {
+// PATCH - Make a domain the primary one of its purpose
+export async function PATCH(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const owner = await domainOwner()
+    if (owner instanceof NextResponse) return owner
+    const { admin, creatorId, userId } = owner
+    const body = (await request.json().catch(() => ({}))) as { domainId?: unknown; action?: unknown }
+    if (typeof body.domainId !== "string" || body.action !== "make_primary") {
+      return NextResponse.json({ error: "Nothing to change" }, { status: 400 })
     }
 
-    const { domainId } = await request.json()
+    const { rows, schema } = await listCreatorDomains(admin, creatorId)
+    const row = rows.find((r) => r.id === body.domainId)
+    if (!row) return NextResponse.json({ error: "Domain not found" }, { status: 404 })
+    if (schema === "legacy") return NextResponse.json(views(rows, schema))
 
-    if (!domainId) {
+    const done = await makePrimary(admin, creatorId, row)
+    if (!done.ok) {
+      console.error("Make primary failed:", done.error)
+      return NextResponse.json({ error: "Could not make it the primary domain" }, { status: 500 })
+    }
+    changed(creatorId)
+    if (purposeOf(row) === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
+    const after = await listCreatorDomains(admin, creatorId)
+    return NextResponse.json(views(after.rows, after.schema))
+  } catch (error) {
+    console.error("Domains PATCH error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+// DELETE - Remove a domain
+// A domain that was live stays attached to Vercel for a grace period, sending
+// its visitors on, so links already shared do not hit DEPLOYMENT_NOT_FOUND.
+// One that never connected has nobody to send on and is detached at once.
+export async function DELETE(request: Request) {
+  try {
+    const owner = await domainOwner()
+    if (owner instanceof NextResponse) return owner
+    const { admin, creatorId, userId, username } = owner
+
+    const { domainId } = (await request.json().catch(() => ({}))) as { domainId?: unknown }
+    if (typeof domainId !== "string" || !domainId) {
       return NextResponse.json({ error: "Domain ID is required" }, { status: 400 })
     }
 
-    const { data: creator } = await supabase
-      .from("creators")
-      .select("id")
-      .eq("user_id", user.id)
-      .single()
+    const { rows } = await listCreatorDomains(admin, creatorId)
+    const domainRecord = rows.find((r) => r.id === domainId)
+    if (!domainRecord) return NextResponse.json({ error: "Domain not found" }, { status: 404 })
+    const purpose = purposeOf(domainRecord)
 
-    if (!creator) {
-      return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-    }
-
-    // Get domain record and creator's username for fallback URL
-    const { data: domainRecord } = await supabase
-      .from("custom_domains")
-      .select("domain")
-      .eq("id", domainId)
-      .eq("creator_id", creator.id)
-      .single()
-
-    if (!domainRecord) {
-      return NextResponse.json({ error: "Domain not found" }, { status: 404 })
-    }
-
-    // Get the seller's username for the fallback redirect URL
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("username")
-      .eq("id", user.id)
-      .single()
-
-    const fallbackUrl = profile?.username
-      ? `https://${profile.username}.storelib.com`
-      : `https://storelib.com`
-
-    // Check if the seller has another active domain (domain change scenario)
-    const { data: otherDomains } = await supabase
-      .from("custom_domains")
-      .select("domain")
-      .eq("creator_id", creator.id)
-      .neq("id", domainId)
-      .in("status", ["active", "ssl_provisioning", "pending", "verifying"])
-      .limit(1)
-
-    // Determine redirect target: new domain if changing, fallback subdomain if removing
-    const redirectTo = otherDomains && otherDomains.length > 0
-      ? `https://www.${otherDomains[0].domain}`
-      : fallbackUrl
-
-    const reason = otherDomains && otherDomains.length > 0 ? "changed" : "removed"
-
-    // Create a redirect memory entry (30-day grace period)
-    // Upsert in case the domain was previously redirected
-    const keepUntil = new Date()
-    keepUntil.setDate(keepUntil.getDate() + 30)
-
-    await supabase
-      .from("domain_redirects")
-      .upsert({
-        domain: domainRecord.domain,
-        creator_id: creator.id,
-        redirect_to: redirectTo,
-        http_code: 301,
-        reason,
-        keep_until: keepUntil.toISOString(),
-      }, { onConflict: "domain" })
-
-    // Delete the domain from custom_domains table
-    const { error } = await supabase
-      .from("custom_domains")
-      .delete()
-      .eq("id", domainId)
-      .eq("creator_id", creator.id)
-
+    const { error } = await admin.from("custom_domains").delete().eq("id", domainId).eq("creator_id", creatorId)
     if (error) {
       console.error("Error removing domain:", error)
       return NextResponse.json({ error: "Failed to remove domain" }, { status: 500 })
     }
 
-    // DO NOT remove from Vercel yet - keep the domain attached so it can serve redirects.
-    // The domain stays on Vercel for the grace period so traffic hits our middleware
-    // which then redirects to the new domain or fallback subdomain.
-    // A cleanup job should detach domains after keep_until passes.
+    await ensurePrimary(admin, creatorId, purpose)
+    const after = await listCreatorDomains(admin, creatorId)
 
-    return NextResponse.json({ success: true })
+    const wasLive = Boolean(domainRecord.verified_at) || domainRecord.status === "active" || domainRecord.status === "ssl_provisioning"
+    if (wasLive) {
+      // Its visitors go to the domain that is primary now, or to the storelib.com address.
+      const next = after.rows.find((r) => after.schema === "legacy" || (purposeOf(r) === purpose && r.is_primary === true))
+      const redirectTo = next ? `https://${servingHost(next.domain)}` : await fallbackFor(purpose, creatorId, username)
+      const keepUntil = new Date()
+      keepUntil.setDate(keepUntil.getDate() + GRACE_DAYS)
+      await admin.from("domain_redirects").upsert(
+        {
+          domain: domainRecord.domain,
+          creator_id: creatorId,
+          redirect_to: redirectTo,
+          http_code: 301,
+          reason: next ? "changed" : "removed",
+          keep_until: keepUntil.toISOString(),
+        },
+        { onConflict: "domain" },
+      )
+    } else {
+      await removeDomainHosts(domainRecord.domain)
+    }
+
+    changed(creatorId)
+    if (purpose === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
+    return NextResponse.json({ success: true, ...views(after.rows, after.schema) })
   } catch (error) {
     console.error("Domains DELETE error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

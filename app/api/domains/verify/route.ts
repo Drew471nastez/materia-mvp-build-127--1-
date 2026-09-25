@@ -1,8 +1,35 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { revalidateTag } from "next/cache"
 import dns from "dns"
 import { promisify } from "util"
-import { getVercelDomainConfig } from "../route"
+import { rateLimit } from "@/lib/api/rate-limit"
+import { domainOwner } from "@/lib/custom-domains/owner"
+import { apexOf, isApexHost, recordsFor, servingHost, vercelHostsFor } from "@/lib/custom-domains/hostname"
+import { creatorDomainsTag, listCreatorDomains, purposeOf, saveRecords, syncOnepageDomain } from "@/lib/custom-domains/store"
+import { addDomainHosts, httpsAnswers, recommendedRecords, verifyProjectDomain } from "@/lib/custom-domains/vercel"
+
+/**
+ * ===========================================================================
+ *  CHECK AGAIN: IS THE DNS RIGHT, AND IS THE CERTIFICATE THERE
+ * ===========================================================================
+ * Pressed from the Domains tab, and polled every few seconds while a
+ * certificate is being issued. Each check:
+ *
+ *   1. puts the domain's hosts on the Vercel project again (idempotent, and
+ *      what nudges Vercel to issue a certificate)
+ *   2. reads the records Vercel recommends now, and any TXT challenge, and
+ *      keeps them on the row for the list
+ *   3. reads the DNS itself: an apex needs an A record on @ and a CNAME on
+ *      www, a subdomain a CNAME on itself (or an A record)
+ *   4. once the DNS is right, asks the domain over HTTPS: a completed
+ *      handshake is the only proof a certificate is being served
+ *
+ *   pending  -> ssl_provisioning -> active
+ *
+ * Statuses and the diagnostics (Cloudflare's proxy, AAAA records, CAA) are
+ * the ones this route has always reported; the writes now go through the
+ * service role, after the session has said whose domain it is.
+ */
 
 const resolveTxt = promisify(dns.resolveTxt)
 const resolveCname = promisify(dns.resolveCname)
@@ -24,10 +51,6 @@ try {
 // 76.76.21.21 is the legacy IP — still functional but Vercel marks it as
 // "DNS Change Recommended". Accept both so existing sellers stay verified.
 const VERCEL_IPS = ["216.150.1.1", "76.76.21.21"]
-
-const VERCEL_TOKEN = process.env.VERCEL_TOKEN
-const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID
-const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID
 
 /**
  * Check if an IP belongs to Cloudflare's known ranges.
@@ -55,369 +78,223 @@ function isCloudflareIP(ip: string): boolean {
   return false
 }
 
-/**
- * Ensure domain is registered with Vercel (re-register if needed)
- * This forces Vercel to provision SSL certificates
- */
-async function ensureDomainOnVercel(domain: string): Promise<void> {
-  if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID) return
+/** A person pressing Check again, and the page polling while a certificate is issued. */
+const VERIFY_LIMITS = [{ limit: 90, seconds: 600 }] as const
 
-  try {
-    const url = VERCEL_TEAM_ID
-      ? `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_TEAM_ID}`
-      : `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains`
-
-    // 1. Register www.domain.com as primary (canonical, serves content)
-    await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${VERCEL_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name: `www.${domain}` }),
-    })
-
-    // 2. Register apex domain.com with redirect to www (Vercel edge-level)
-    // Vercel provisions SSL for both hosts. Apex 301 → www at the edge.
-    await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${VERCEL_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: domain,
-        redirect: `www.${domain}`,
-        redirectStatusCode: 301,
-      }),
-    })
-  } catch {
-    // Best effort - don't block verification
-  }
+const pointsAtVercel = (target: string, recommended: string) => {
+  const lower = target.toLowerCase().replace(/\.$/, "")
+  return lower === recommended.toLowerCase() || lower === "cname.vercel-dns.com" || lower === "cname.storelib.com" || /\.vercel-dns(-\d+)?\.com$/.test(lower)
 }
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const owner = await domainOwner()
+    if (owner instanceof NextResponse) return owner
+    const { admin, creatorId, userId } = owner
 
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { domainId } = await request.json()
-
-    if (!domainId) {
+    const { domainId } = (await request.json().catch(() => ({}))) as { domainId?: unknown }
+    if (typeof domainId !== "string" || !domainId) {
       return NextResponse.json({ error: "Domain ID is required" }, { status: 400 })
     }
 
-    const { data: creator } = await supabase
-      .from("creators")
-      .select("id")
-      .eq("user_id", user.id)
-      .single()
+    const limited = await rateLimit({
+      bucket: "domain-verify",
+      subjects: [`user:${userId}`],
+      windows: VERIFY_LIMITS,
+      message: "Checked a lot just now. DNS changes take a few minutes; try again shortly.",
+    })
+    if (limited) return limited
 
-    if (!creator) {
-      return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-    }
-
-    // Fetch the domain record
-    const { data: domainRecord, error: fetchError } = await supabase
-      .from("custom_domains")
-      .select("*")
-      .eq("id", domainId)
-      .eq("creator_id", creator.id)
-      .single()
-
-    if (fetchError || !domainRecord) {
+    const { rows } = await listCreatorDomains(admin, creatorId)
+    const domainRecord = rows.find((r) => r.id === domainId)
+    if (!domainRecord) {
       return NextResponse.json({ error: "Domain not found" }, { status: 404 })
     }
+    const domain = domainRecord.domain
+    const apex = isApexHost(domain)
+    const host = servingHost(domain)
+    const purpose = purposeOf(domainRecord)
 
-    // Collect warnings (non-blocking issues) and critical issues (blocking)
     const warnings: string[] = []
     const issues: string[] = []
 
-    // ============================================================
-    // Fast path: If domain is already in ssl_provisioning, skip DNS
-    // checks and go straight to SSL verification (polling optimization)
-    // ============================================================
-    if (domainRecord.status === "ssl_provisioning") {
-      // Re-register domain with Vercel to ensure cert provisioning is active
-      await ensureDomainOnVercel(domainRecord.domain)
+    /* 1 and 2: on the project, and what Vercel wants now. */
+    const registered = await addDomainHosts(domain)
+    const challenged = registered.challenges.length > 0
+    if (challenged) {
+      for (const h of vercelHostsFor(domain)) await verifyProjectDomain(h.name)
+    }
+    const recommended = await recommendedRecords(domain)
+    const records = recordsFor(domain, { ipv4: recommended.ipv4, cname: recommended.cname, challenges: recommended.challenges })
+    await saveRecords(admin, domainRecord.id, records)
+    const waitingOnTxt = recommended.challenges.length > 0
 
-      // Check SSL on www (canonical) first, then apex
-      const wwwConfig = await getVercelDomainConfig(`www.${domainRecord.domain}`)
-      const apexConfig = wwwConfig.sslReady ? wwwConfig : await getVercelDomainConfig(domainRecord.domain)
-      const sslReady = wwwConfig.sslReady || apexConfig.sslReady
-
-      // Stall recovery: if in ssl_provisioning for >15 minutes and STILL no SSL,
-      // force re-registration and provide specific guidance
-      const provisioningDuration = domainRecord.verified_at
-        ? Date.now() - new Date(domainRecord.verified_at).getTime()
-        : 0
-      const stalledOver15Min = provisioningDuration > 15 * 60 * 1000
-
-      if (sslReady) {
-        // SSL is confirmed working — mark active
-        await supabase
-          .from("custom_domains")
-          .update({
-            status: "active",
-            ssl_status: "active",
-            verified_at: new Date().toISOString(),
-          })
-          .eq("id", domainId)
-
-        return NextResponse.json({
-          verified: true,
-          message: "Domain verified successfully! Your custom domain is now active with SSL.",
-          warnings,
-          issues,
-        })
-      }
-
-      // Run quick diagnostics to explain WHY ssl might be failing
-      await runDiagnostics(domainRecord.domain, warnings, issues)
-
-      if (stalledOver15Min) {
-        // Force re-registration one more time
-        await ensureDomainOnVercel(domainRecord.domain)
-
-        const stallMessage = issues.length > 0
-          ? `SSL certificate has not been issued after ${Math.round(provisioningDuration / 60000)} minutes. Issues detected that may be blocking it — see below.`
-          : `SSL certificate is taking longer than expected (${Math.round(provisioningDuration / 60000)} minutes). Our hosting provider is still working on it. This can happen with new domains.`
-
-        return NextResponse.json({
-          verified: true,
-          sslPending: true,
-          message: stallMessage,
-          warnings,
-          issues,
-        })
-      }
-
-      return NextResponse.json({
-        verified: true,
-        sslPending: true,
-        message: "DNS verified! SSL certificate is being issued by our hosting provider. This usually takes 1-10 minutes.",
-        warnings,
-        issues,
-      })
+    const markLive = async () => {
+      await admin
+        .from("custom_domains")
+        .update({ status: "active", ssl_status: "active", verified_at: domainRecord.verified_at || new Date().toISOString() })
+        .eq("id", domainId)
+        .eq("creator_id", creatorId)
+      revalidateTag(creatorDomainsTag(creatorId), "max")
+      if (purpose === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
     }
 
     // ============================================================
-    // Full DNS Verification Phase
+    // Fast path: the DNS was right last time, so only the certificate is left.
     // ============================================================
+    if (domainRecord.status === "ssl_provisioning" || domainRecord.status === "active") {
+      const https = await httpsAnswers(host)
+      if (https.ok) {
+        if (domainRecord.status !== "active") await markLive()
+        return NextResponse.json({ verified: true, status: "active", message: "Connected. The domain is live with HTTPS.", records, warnings, issues })
+      }
 
-    // Update status to verifying
-    await supabase
-      .from("custom_domains")
-      .update({ status: "verifying" })
-      .eq("id", domainId)
+      await runDiagnostics(domain, warnings, issues)
+      const since = domainRecord.verified_at ? Date.now() - new Date(domainRecord.verified_at).getTime() : 0
+      const minutes = Math.round(since / 60000)
+      const message =
+        since > 15 * 60 * 1000
+          ? issues.length > 0
+            ? `The certificate has not been issued after ${minutes} minutes. Something below is likely blocking it.`
+            : `The certificate is taking longer than usual (${minutes} minutes). This happens with new domains; it keeps trying on its own.`
+          : "The DNS is right. The certificate is being issued, which usually takes a few minutes."
+      if (domainRecord.status === "active") {
+        /* It answered before and does not now: say so, but do not take a live domain down on one failed probe. */
+        return NextResponse.json({ verified: true, status: "active", message: "Connected. HTTPS did not answer just now; if that lasts, check the records below.", records, warnings, issues })
+      }
+      return NextResponse.json({ verified: true, sslPending: true, status: "ssl_provisioning", message, records, warnings, issues })
+    }
 
+    // ============================================================
+    // Full DNS check
+    // ============================================================
+    await admin.from("custom_domains").update({ status: "verifying" }).eq("id", domainId).eq("creator_id", creatorId)
+
+    const expectedIps = Array.from(new Set([recommended.ipv4, ...VERCEL_IPS]))
     let txtVerified = false
     let cnameVerified = false
     let aRecordVerified = false
 
-    // --- 1. Check A record (apex → 76.76.21.21) ---
+    /* The A record: on @ for an apex; a subdomain may use one too. */
     let aRecords: string[] = []
     try {
-      aRecords = await resolve4(domainRecord.domain)
-      aRecordVerified = aRecords.some((ip) => VERCEL_IPS.includes(ip))
-
-      // Detect multiple/conflicting A records
-      if (aRecords.length > 1) {
-        const nonVercel = aRecords.filter((ip) => !VERCEL_IPS.includes(ip))
-        if (nonVercel.length > 0) {
-          warnings.push(
-            `Your domain has ${aRecords.length} A records including non-Vercel IPs (${nonVercel.join(", ")}). Remove the extra records — they cause intermittent SSL errors as browsers randomly pick between them.`
-          )
-        }
+      aRecords = await resolve4(domain)
+      aRecordVerified = aRecords.some((ip) => expectedIps.includes(ip))
+      const others = aRecords.filter((ip) => !expectedIps.includes(ip))
+      if (aRecords.length > 1 && others.length > 0) {
+        warnings.push(`${domain} has ${aRecords.length} A records, including ${others.join(", ")}. Remove the extra ones: browsers pick between them at random, which causes HTTPS errors now and then.`)
       }
-
-      // Detect Cloudflare proxy (orange cloud)
       if (aRecords.some((ip) => isCloudflareIP(ip))) {
         if (!aRecordVerified) {
-          issues.push(
-            "Your domain is proxied through Cloudflare (orange cloud enabled). This blocks SSL certificate provisioning. In Cloudflare, click the orange cloud icon next to your DNS record to switch it to DNS-only (grey cloud). If you want to keep Cloudflare proxy, set SSL mode to \"Full (strict)\"."
-          )
+          issues.push("The domain goes through Cloudflare's proxy (the orange cloud), which stops the certificate from being issued. In Cloudflare, press the orange cloud next to the record so it turns grey (DNS only).")
         } else {
-          // Has both Cloudflare and Vercel IPs — conflicting
-          warnings.push(
-            "Your domain has both Cloudflare proxy IPs and Vercel IPs. Remove the Cloudflare-proxied records or disable proxy (grey cloud) to prevent intermittent SSL issues."
-          )
+          warnings.push("The domain has both Cloudflare proxy addresses and the Vercel address. Remove the proxied records or switch them to DNS only.")
         }
       }
     } catch {
-      // No A record found
+      // No A record
     }
 
-    // --- 2. Check AAAA records (IPv6 — common silent killer for SSL) ---
     try {
-      const aaaaRecords = await resolve6(domainRecord.domain)
-      if (aaaaRecords.length > 0) {
-        warnings.push(
-          `Your domain has IPv6 (AAAA) records (${aaaaRecords.slice(0, 3).join(", ")}${aaaaRecords.length > 3 ? "..." : ""}). Browsers may prefer IPv6 and connect to a server without your SSL certificate, causing intermittent ERR_SSL_PROTOCOL_ERROR. Remove all AAAA records for your domain.`
-        )
+      const aaaa = await resolve6(domain)
+      if (aaaa.length > 0) {
+        warnings.push(`${domain} has IPv6 (AAAA) records (${aaaa.slice(0, 3).join(", ")}${aaaa.length > 3 ? "..." : ""}). Browsers may use them and reach a server without your certificate. Remove every AAAA record for it.`)
       }
     } catch {
-      // No AAAA record — good
+      // No AAAA: good
     }
 
-    // --- 3. Check CNAME on www (canonical host) ---
+    /* The CNAME: on www for an apex, on the name itself for a subdomain. */
+    const cnameHost = apex ? `www.${domain}` : domain
     try {
-      const cnameRecords = await resolveCname(`www.${domainRecord.domain}`)
-      cnameVerified = cnameRecords.some((r) => {
-        const lower = r.toLowerCase().replace(/\.$/, "")
-        return lower === "cname.vercel-dns.com" ||
-               lower === "cname.storelib.com"
-      })
+      const cnames = await resolveCname(cnameHost)
+      cnameVerified = cnames.some((r) => pointsAtVercel(r, recommended.cname))
     } catch {
-      // CNAME lookup on www failed — try apex (some configs use apex CNAME via ALIAS)
-      try {
-        const cnameRecords = await resolveCname(domainRecord.domain)
-        cnameVerified = cnameRecords.some((r) => {
-          const lower = r.toLowerCase().replace(/\.$/, "")
-          return lower === "cname.vercel-dns.com" ||
-                 lower === "cname.storelib.com"
-        })
-      } catch {
-        // Apex can't have CNAME on most registrars, check A record instead
-      }
+      /* An apex cannot usually hold a CNAME; its A record answers for it. */
     }
 
-    // --- 4. Check TXT record for verification token ---
+    /* The old TXT proof, still accepted from domains added before. */
     try {
-      const txtRecords = await resolveTxt(`_storelib.${domainRecord.domain}`)
-      const flatRecords = txtRecords.map((r) => r.join(""))
-      txtVerified = flatRecords.some((r) => r === domainRecord.verification_token)
+      const txt = await resolveTxt(`_storelib.${apexOf(domain)}`)
+      txtVerified = Boolean(domainRecord.verification_token) && txt.map((r) => r.join("")).some((r) => r === domainRecord.verification_token)
     } catch {
-      // TXT lookup failed
+      // No TXT
     }
 
-    // --- 5. Check CAA records (may block Let's Encrypt cert issuance) ---
     if (resolveCaa) {
       try {
-        const caaRecords = await resolveCaa(domainRecord.domain)
-        if (caaRecords && caaRecords.length > 0) {
-          const issueRecords = caaRecords.filter((r: any) => r.issue !== undefined)
-          if (issueRecords.length > 0) {
-            const allowsLE = issueRecords.some((r: any) => {
-              const val = (r.issue || "").toLowerCase().trim()
-              return val.includes("letsencrypt.org") || val.includes("sectigo.com") || val === ";" || val === ""
-            })
-            if (!allowsLE) {
-              issues.push(
-                `Your domain has CAA DNS records that block Let's Encrypt (our SSL provider) from issuing certificates. Add a CAA record: '0 issue "letsencrypt.org"' or remove existing CAA restrictions.`
-              )
-            }
-          }
+        const caa = await resolveCaa(apexOf(domain))
+        const issuers = (caa || []).filter((r: any) => r.issue !== undefined)
+        if (issuers.length > 0) {
+          const allows = issuers.some((r: any) => {
+            const v = (r.issue || "").toLowerCase().trim()
+            return v.includes("letsencrypt.org") || v.includes("sectigo.com") || v === ";" || v === ""
+          })
+          if (!allows) issues.push(`The domain has CAA records that do not allow Let's Encrypt, which issues the certificate. Add a CAA record: 0 issue "letsencrypt.org", or remove the CAA records.`)
         }
       } catch {
-        // No CAA records — no restrictions, cert can be issued freely
+        // No CAA: anybody may issue
       }
     }
 
-    // --- 6. Check AAAA on www subdomain too ---
-    try {
-      const wwwAaaa = await resolve6(`www.${domainRecord.domain}`)
-      if (wwwAaaa.length > 0) {
-        warnings.push(
-          `www.${domainRecord.domain} has IPv6 (AAAA) records. Remove them to prevent intermittent SSL issues.`
-        )
+    if (apex) {
+      try {
+        const wwwAaaa = await resolve6(`www.${domain}`)
+        if (wwwAaaa.length > 0) warnings.push(`www.${domain} has IPv6 (AAAA) records. Remove them to avoid HTTPS errors.`)
+      } catch {
+        // No AAAA on www
       }
-    } catch {
-      // No AAAA on www — good
     }
 
-    // ============================================================
-    // DNS Verification Decision
-    // ============================================================
-    const dnsVerified = txtVerified || cnameVerified || aRecordVerified
+    /* Right enough to serve: the serving host resolves to Vercel. */
+    const dnsVerified = apex ? aRecordVerified || cnameVerified || txtVerified : cnameVerified || aRecordVerified
 
-    if (!dnsVerified) {
-      // DNS not pointing correctly yet
-      await supabase
-        .from("custom_domains")
-        .update({ status: "pending" })
-        .eq("id", domainId)
-
+    if (!dnsVerified || waitingOnTxt) {
+      await admin.from("custom_domains").update({ status: "pending" }).eq("id", domainId).eq("creator_id", creatorId)
       const hints: string[] = []
       if (!aRecordVerified && !cnameVerified) {
-        hints.push("DNS records not pointing to Vercel. Add an A record pointing to 216.150.1.1 for your apex domain, and a CNAME pointing to cname.vercel-dns.com for www.")
+        hints.push(apex
+          ? `Add an A record on @ pointing to ${recommended.ipv4}, and a CNAME on www pointing to ${recommended.cname}.`
+          : `Add a CNAME on ${records[0]?.name ?? domain} pointing to ${recommended.cname}.`)
       }
-      if (!txtVerified) {
-        hints.push("TXT verification record not found at _storelib." + domainRecord.domain)
-      }
-
+      if (waitingOnTxt) hints.push("Add the TXT record in the list. Vercel needs it before it serves the domain.")
       return NextResponse.json({
         verified: false,
-        message: "DNS records not found yet. Please add the required DNS records and try again. DNS changes can take up to 48 hours to propagate.",
+        status: "pending",
+        message: waitingOnTxt && dnsVerified
+          ? "The address records are right. The TXT record is not showing yet."
+          : "The records are not showing yet. DNS changes can take from a few minutes to a day to reach everyone.",
         hints,
-        records: { aRecord: aRecordVerified, cname: cnameVerified, txt: txtVerified },
+        records,
+        found: { aRecord: aRecordVerified, cname: cnameVerified, txt: txtVerified },
         warnings,
         issues,
       })
     }
 
-    // ============================================================
-    // SSL Verification Phase
-    // ============================================================
-
-    // DNS is verified — ensure domain is registered with Vercel for SSL provisioning
-    // This re-registers even if already added (idempotent), which forces Vercel to
-    // check/issue SSL certificates. Critical for fixing ERR_SSL_PROTOCOL_ERROR.
-    await ensureDomainOnVercel(domainRecord.domain)
-
-    // Check SSL on BOTH www (canonical) and apex
-    // www is canonical — check it first. If www works, domain is ready.
-    const wwwConfig = await getVercelDomainConfig(`www.${domainRecord.domain}`)
-    const apexConfig = wwwConfig.sslReady ? wwwConfig : await getVercelDomainConfig(domainRecord.domain)
-    const sslReady = wwwConfig.sslReady || apexConfig.sslReady
-
-    if (sslReady) {
-      // Fully connected - DNS verified AND SSL certificate is active
-      await supabase
-        .from("custom_domains")
-        .update({
-          status: "active",
-          verified_at: new Date().toISOString(),
-          ssl_status: "active",
-        })
-        .eq("id", domainId)
-
-      return NextResponse.json({
-        verified: true,
-        message: "Domain verified successfully! Your custom domain is now active with SSL.",
-        records: { aRecord: aRecordVerified, cname: cnameVerified, txt: txtVerified },
-        warnings,
-        issues,
-      })
-    } else {
-      // DNS points correctly but SSL is still provisioning
-      await supabase
-        .from("custom_domains")
-        .update({
-          status: "ssl_provisioning",
-          verified_at: domainRecord.verified_at || new Date().toISOString(),
-          ssl_status: "provisioning",
-        })
-        .eq("id", domainId)
-
-      // Add context if there are blocking issues
-      const sslMessage = issues.length > 0
-        ? "DNS verified, but there are issues that may prevent SSL certificate issuance — see below."
-        : "DNS verified! SSL certificate is being issued by our hosting provider. This usually takes 1-10 minutes."
-
-      return NextResponse.json({
-        verified: true,
-        sslPending: true,
-        message: sslMessage,
-        records: { aRecord: aRecordVerified, cname: cnameVerified, txt: txtVerified },
-        warnings,
-        issues,
-      })
+    /* The DNS is right: is the certificate there yet? */
+    const https = await httpsAnswers(host)
+    if (https.ok) {
+      await markLive()
+      return NextResponse.json({ verified: true, status: "active", message: "Connected. The domain is live with HTTPS.", records, warnings, issues })
     }
+
+    await admin
+      .from("custom_domains")
+      .update({ status: "ssl_provisioning", ssl_status: "provisioning", verified_at: domainRecord.verified_at || new Date().toISOString() })
+      .eq("id", domainId)
+      .eq("creator_id", creatorId)
+    return NextResponse.json({
+      verified: true,
+      sslPending: true,
+      status: "ssl_provisioning",
+      message: issues.length > 0
+        ? "The DNS is right, but something below may stop the certificate from being issued."
+        : "The DNS is right. The certificate is being issued, which usually takes a few minutes.",
+      records,
+      warnings,
+      issues,
+    })
   } catch (error) {
     console.error("Domain verify error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

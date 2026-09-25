@@ -1,30 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { matchesSecret } from "@/lib/api/require-secret"
-
-const VERCEL_TOKEN = process.env.VERCEL_TOKEN
-const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID
-const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID
-
-/**
- * Remove a domain from Vercel project
- */
-async function removeDomainFromVercel(domain: string): Promise<void> {
-  if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID) return
-
-  try {
-    const url = VERCEL_TEAM_ID
-      ? `https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${domain}?teamId=${VERCEL_TEAM_ID}`
-      : `https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${domain}`
-
-    await fetch(url, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${VERCEL_TOKEN}` },
-    })
-  } catch (err) {
-    console.error("Vercel domain remove error:", err)
-  }
-}
+import { removeDomainHosts } from "@/lib/custom-domains/vercel"
 
 /**
  * Cleanup expired domain redirects.
@@ -68,9 +45,12 @@ export async function POST(request: Request) {
 
     let cleaned = 0
     for (const redirect of expiredRedirects) {
-      // Remove both apex and www from Vercel
-      await removeDomainFromVercel(redirect.domain)
-      await removeDomainFromVercel(`www.${redirect.domain}`)
+      /* Unless it was connected again since (by anybody): then it is still in use. */
+      const { data: inUse } = await supabase.from("custom_domains").select("id").eq("domain", redirect.domain).maybeSingle()
+      if (!inUse) {
+        // Every host it had on the project: www and the bare name, or the subdomain itself
+        await removeDomainHosts(redirect.domain)
+      }
 
       // Delete the redirect entry
       await supabase
