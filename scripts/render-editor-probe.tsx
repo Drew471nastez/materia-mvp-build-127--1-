@@ -56,6 +56,9 @@ const probeGlobals = globalThis as unknown as {
   PROBE_SECURITY?: unknown
   /* The install's saved .storelib files, path to source (see the files route below). */
   PROBE_FILES?: Record<string, string>
+  /* A page's own sections by page key, answered after PROBE_PAGE_DELAY_MS (scripts/check-page-switch.mjs). Unset, every page is the one above. */
+  PROBE_PAGES?: Record<string, string[]>
+  PROBE_PAGE_DELAY_MS?: number
 }
 const install = {
   id: "probe-install", creator_id: "probe-creator", theme_id: "default", name: "Probe store", status: probeGlobals.PROBE_LIVE ? "published" : "draft",
@@ -78,11 +81,22 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     if (probeGlobals.PROBE_SECURITY === "fail") return new Response(JSON.stringify({ error: "Could not check the site just now. Try again." }), { status: 500, headers: { "content-type": "application/json" } })
     return json(probeGlobals.PROBE_SECURITY ?? { issues: [], truncated: false, checked_at: now })
   }
-  if (/\/themes\/probe-install\/sections/.test(url)) return json({ sections, has_draft: false })
+  if (/\/themes\/probe-install\/sections/.test(url)) {
+    const key = new URL(url, location.href).searchParams.get("page") ?? "home"
+    const own = probeGlobals.PROBE_PAGES?.[key]
+    if (own) {
+      await new Promise((r) => setTimeout(r, probeGlobals.PROBE_PAGE_DELAY_MS ?? 0))
+      return json({ sections: own.map((t, i) => instance(t, i)), has_draft: false })
+    }
+    return json({ sections, has_draft: false })
+  }
   if (/\/themes\/probe-install\/settings/.test(url)) return json({ settings: install.settings })
   /* PROBE_FILES: the install's saved .storelib files, path to source, so a probe can give the creator a section of their own. */
   if (/\/themes\/probe-install\/files/.test(url)) return json({ files: probeGlobals.PROBE_FILES ?? [] })
   if (/\/themes\/probe-install\/backups/.test(url)) return json({ backups: [] })
+  /* The GitHub line on Connections (f8595a46) reads this route on open; the real one always answers with its lists. */
+  if (/\/themes\/probe-install\/github/.test(url)) return json({ configured: true, ready: true, link: null, repos: [], accounts: [], events: [] })
+  if (/\/themes\/probe-install\/agent-connections/.test(url)) return json({ connections: [], ready: true })
   if (/\/themes\/probe-install$/.test(url)) return json({ install, username: "probe" })
   if (/\/products/.test(url)) return json({ products: [] })
   if (/\/setup/.test(url)) return json({ setup: {} })

@@ -4494,7 +4494,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * has to light up the canvas at once, because the tap WAS on the canvas.
    */
   const canvasThemeSettings = useDeferredValue(activeThemeSettings)
-  const deferredSections = useDeferredValue(sections)
+  /*
+    EXCEPT ACROSS A PAGE CHANGE. `handlePageChange` puts the new page and its
+    sections in one commit so no frame shows one page's name over another's
+    content; deferring the sections alone undid that, and for a frame or two
+    the canvas drew the page being left under the page being opened
+    (scripts/check-page-switch.mjs, "the page's name never moves ahead of its
+    content"). The deferred copy is used only while it belongs to the page on
+    screen; a page's first render takes its sections at once.
+  */
+  const sectionsOnPage = useMemo(
+    () => ({ page: `${currentPage}|${selectedProductPage ?? ""}`, sections }),
+    [currentPage, selectedProductPage, sections],
+  )
+  const deferredOnPage = useDeferredValue(sectionsOnPage)
+  const deferredSections = deferredOnPage.page === sectionsOnPage.page ? deferredOnPage.sections : sections
 
   /**
    * THE PLACEHOLDER GOES IN HERE AND NOWHERE ELSE. `sections` is what is
