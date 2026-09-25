@@ -7,6 +7,8 @@
  *   ?state=payouts    a product and payouts, no website, no sale
  *   ?state=firstsale  the first sale yesterday, website live, Free
  *   ?state=selling    forty sales in 30 days on Free, website live, no domain
+ *   ?state=milestone  Pro, $1,000 in sales passed this week, no domain yet
+ *   ?state=quiet      Free, everything done, nothing new
  *   ?state=pro        Pro, everything done, a domain, automations, subscribers
  *
  * `&subs=N` and `&flows=N` are what the database answers for subscribers and
@@ -51,12 +53,16 @@ const FIXTURES: Record<string, Fixture> = {
   payouts: { product: true, payouts: true, site: false, domain: false, plan: "free", sales: [], price: 0 },
   firstsale: { product: true, payouts: true, site: true, domain: false, plan: "free", sales: [1], price: 2900 },
   selling: { product: true, payouts: true, site: true, domain: false, plan: "free", sales: Array.from({ length: 40 }, (_, i) => 1 + (i % 29) + i / 40), price: 4500 },
+  /* Pro, no domain yet, and $1,000 in sales passed three days ago: 38 older sales of $25, then 4 this week. */
+  milestone: { product: true, payouts: true, site: true, domain: false, plan: "growth", sales: [...Array.from({ length: 38 }, (_, i) => 9 + i), 3, 2.5, 2, 1], price: 2500 },
+  /* Free with everything done and nothing new: only the plan's own facts are left to say. */
+  quiet: { product: true, payouts: true, site: true, domain: true, plan: "free", sales: Array.from({ length: 6 }, (_, i) => 40 + i * 5), price: 1900 },
   pro: { product: true, payouts: true, site: true, domain: true, plan: "growth", sales: Array.from({ length: 30 }, (_, i) => 2 + i * 3), price: 3900 },
 }
 const f = FIXTURES[state] ?? FIXTURES.selling
 /* What the database answers for the two counts the banner reads (scripts/home-probe-page.mjs); `&subs=` and `&flows=` override. */
 ;(window as unknown as { __probeCounts?: Record<string, number> }).__probeCounts =
-  state === "pro" ? { subscribers: 180, email_flows: 2 } : { subscribers: 0, email_flows: 0 }
+  state === "pro" || state === "quiet" ? { subscribers: 180, email_flows: 2 } : { subscribers: 0, email_flows: 0 }
 
 const orders = f.sales.map((days, i) => ({
   id: `order-${i}`,

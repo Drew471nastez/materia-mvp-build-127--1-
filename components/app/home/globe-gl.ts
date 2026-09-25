@@ -9,10 +9,14 @@
  * scripts/check-home-scroll.mjs).
  *
  * Here the land is uploaded once, as points, and turned on the graphics
- * card by one 3x3 matrix; the ball, its light and its atmosphere are one
- * pass over the canvas's pixels. A frame on the page's thread is a matrix,
- * a few dozen moving points written into an array made once, and five draw
- * calls. Nothing is allocated per frame.
+ * card by one 3x3 matrix. The ball, its light and its atmosphere do not
+ * change as it turns (the light is fixed to the viewer, and a ball looks
+ * the same from every side), so they are one shader pass drawn once per
+ * size and copied into a still canvas under this one (`ball`): every
+ * frame after that is only the dots, the pins and the arcs, on a clear
+ * canvas. A frame on the page's thread is a matrix, a few dozen moving
+ * points written into an array made once, and four draw calls. Nothing is
+ * allocated per frame.
  *
  * Asked for with `failIfMajorPerformanceCaveat`, so a device whose WebGL
  * would run on the processor gets the 2D renderer instead (globe-2d.ts),
@@ -26,7 +30,7 @@ import {
 
 export interface GlobeRenderer {
   readonly kind: "webgl" | "2d"
-  /** The canvas's size in CSS pixels (it is square) and the pixel ratio to draw at. */
+  /** The canvas's size in CSS pixels (it is square) and the pixel ratio to draw at; the still ball is painted again here. */
   resize(size: number, dpr: number): void
   /** One frame: the land turned by `m`, and the overlay on top. */
   draw(m: Float32Array, overlay: Overlay): void
@@ -214,7 +218,8 @@ function compile(gl: WebGLRenderingContext, vs: string, fs: string, attributes: 
   return { p, a, u }
 }
 
-export function createGlRenderer(canvas: HTMLCanvasElement): GlobeRenderer | null {
+/** `canvas` is drawn every frame; `ball`, a 2D canvas under it, holds the still ball, painted once per size. */
+export function createGlRenderer(canvas: HTMLCanvasElement, ball: HTMLCanvasElement): GlobeRenderer | null {
   let gl: WebGLRenderingContext | null = null
   try {
     gl = canvas.getContext("webgl", {
@@ -317,19 +322,29 @@ export function createGlRenderer(canvas: HTMLCanvasElement): GlobeRenderer | nul
       g.uniform1f(dots.u.uDot, dotPx())
       g.useProgram(sprites.p)
       g.uniform1f(sprites.u.uRadiusPx, radiusPx)
+
+      /* The ball and its atmosphere, once: drawn here, copied into the still canvas before this task ends (while the drawing buffer is still this frame's), and cleared. */
+      if (ball.width !== device) ball.width = device
+      if (ball.height !== device) ball.height = device
+      const still = ball.getContext("2d")
+      if (still && !g.isContextLost()) {
+        g.clearColor(0, 0, 0, 0)
+        g.clear(g.COLOR_BUFFER_BIT)
+        g.useProgram(body.p)
+        g.bindBuffer(g.ARRAY_BUFFER, quadBuf)
+        g.enableVertexAttribArray(body.a.aCorner)
+        g.vertexAttribPointer(body.a.aCorner, 2, g.FLOAT, false, 0, 0)
+        g.drawArrays(g.TRIANGLE_STRIP, 0, 4)
+        g.disableVertexAttribArray(body.a.aCorner)
+        still.clearRect(0, 0, device, device)
+        still.drawImage(canvas, 0, 0)
+        g.clear(g.COLOR_BUFFER_BIT)
+      }
     },
     draw(m, o) {
       if (!body || !dots || !sprites || !trails || g.isContextLost()) return
       g.clearColor(0, 0, 0, 0)
       g.clear(g.COLOR_BUFFER_BIT)
-
-      /* The ball and its atmosphere. */
-      g.useProgram(body.p)
-      g.bindBuffer(g.ARRAY_BUFFER, quadBuf)
-      g.enableVertexAttribArray(body.a.aCorner)
-      g.vertexAttribPointer(body.a.aCorner, 2, g.FLOAT, false, 0, 0)
-      g.drawArrays(g.TRIANGLE_STRIP, 0, 4)
-      g.disableVertexAttribArray(body.a.aCorner)
 
       /* The land. */
       g.useProgram(dots.p)

@@ -24,6 +24,7 @@
  *   SHOTS=/some/dir node scripts/check-home-cards.mjs
  */
 import { execFileSync } from "node:child_process"
+import { createHash } from "node:crypto"
 import { createServer } from "node:http"
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
@@ -115,14 +116,19 @@ const open = async (viewport) => {
 }
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 
-/** The globe's pixels, hashed, to tell whether it moved. */
-const globeHash = (page) => page.evaluate(() => {
-  const c = document.querySelector("[data-home-globe]")
-  const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data
-  let h = 0
-  for (let i = 0; i < d.length; i += 16) h = (h * 31 + d[i + 3] + d[i]) | 0
-  return h
-})
+/**
+ * The globe's pixels, hashed, to tell whether it moved: a screenshot of the
+ * ball, because it is drawn with WebGL now (components/app/home/globe-gl)
+ * and a WebGL canvas has no 2D context to read back.
+ */
+const globeHash = async (page) => {
+  const clip = await page.evaluate(() => {
+    const b = document.querySelector("[data-home-globe-box]").getBoundingClientRect()
+    const r = b.width * 0.28
+    return { x: b.left + b.width / 2 - r, y: b.top + b.height / 2 - r, width: r * 2, height: r * 2 }
+  })
+  return createHash("sha1").update(await page.screenshot({ clip })).digest("hex")
+}
 
 try {
   for (const [label, viewport, query] of [
@@ -249,13 +255,14 @@ try {
       await page.evaluate(() => document.querySelector(".dashboard-scroll-container").scrollTo({ top: 0, behavior: "instant" }))
       await wait(300)
       const c = await page.evaluate(() => { const b = document.querySelector("[data-home-globe]").getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2, top: b.y, w: b.width } })
-      const cursor0 = await page.evaluate(() => document.querySelector("[data-home-globe]").style.cursor)
+      /* The ball is grabbed by its round grip (components/app/home/globe), the canvas takes no pointer. */
+      const cursor0 = await page.evaluate(() => getComputedStyle(document.querySelector("[data-home-globe-grip]")).cursor)
       await page.mouse.move(c.x, Math.max(c.top + 30, c.y - 20))
       await wait(50)
-      const cursor = await page.evaluate(() => document.querySelector("[data-home-globe]").style.cursor)
+      const cursor = await page.evaluate(() => getComputedStyle(document.querySelector("[data-home-globe-grip]")).cursor)
       expect(cursor === "grab", "over the globe the pointer is a hand", `${cursor0} -> ${cursor}`)
       await page.mouse.down()
-      const grabbing = await page.evaluate(() => document.querySelector("[data-home-globe]").style.cursor)
+      const grabbing = await page.evaluate(() => getComputedStyle(document.querySelector("[data-home-globe-grip]")).cursor)
       expect(grabbing === "grabbing", "and a closed hand while dragging", grabbing)
       const held = await globeHash(page)
       for (let i = 1; i <= 8; i++) {

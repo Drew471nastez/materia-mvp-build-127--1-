@@ -317,8 +317,11 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
                   className="home-banner-slide"
                 >
                   <p className={`home-banner-eyebrow${a.tone === "critical" ? " is-critical" : ""}`}>{a.eyebrow}</p>
-                  <h2 className="home-banner-title">{a.title}</h2>
-                  <p className="home-banner-line">{a.line}</p>
+                  {/* "5 hours ago" is worked out on the server and again in the browser a moment later; across an
+                      hour's boundary the two differ by a word, which the next render settles. Not a reason to
+                      throw the server's page away. */}
+                  <h2 className="home-banner-title" suppressHydrationWarning>{a.title}</h2>
+                  <p className="home-banner-line" suppressHydrationWarning>{a.line}</p>
                   <div className="home-banner-cta-row">
                     {a.action === "share" && onShare ? (
                       <button type="button" className="home-banner-cta" onClick={onShare}>
@@ -445,6 +448,15 @@ const BANNER_CSS = `
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0 0.16 0.7 0 0 0 -0.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/*
+  ONE HEIGHT, TALL ENOUGH FOR THE LONGEST SLIDE AT EVERY WIDTH: a two line
+  title, the most lines the body is allowed, the button, the segments.
+  Phone type to 619px (16/21 title, 13/18 body, three lines at most):
+  18 + 16 + 4 + 42 + 5 + 54 + 14 + 34 + 28 + 10 = 225. Computer type from
+  620 (20/26 title, 14/20 body, two lines): 26 + 16 + 6 + 52 + 6 + 40 + 14
+  + 36 + 28 + 14 = 238. scripts/check-home-banner.mjs holds every slide of
+  every state to it, at eight widths.
+*/
 .home-banner-inner {
   --g: 168px;
   --gx: 56px;
@@ -452,19 +464,19 @@ const BANNER_CSS = `
   --gap: 8px;
   --pad-l: 18px;
   position: relative;
-  height: 236px;
+  height: 240px;
 }
 @container (min-width: 380px) {
   .home-banner-inner { --g: 180px; --gx: 64px; --pad-l: 20px; }
 }
 @container (min-width: 460px) {
-  .home-banner-inner { --g: 204px; --gx: 96px; --gy: 6px; --gap: 14px; --pad-l: 26px; height: 224px; }
+  .home-banner-inner { --g: 204px; --gx: 96px; --gy: 6px; --gap: 14px; --pad-l: 26px; }
 }
 @container (min-width: 620px) {
-  .home-banner-inner { --g: 252px; --gx: 136px; --gy: 10px; --gap: 22px; --pad-l: 32px; height: 224px; }
+  .home-banner-inner { --g: 252px; --gx: 136px; --gy: 10px; --gap: 22px; --pad-l: 32px; }
 }
 @container (min-width: 860px) {
-  .home-banner-inner { --g: 292px; --gx: 176px; --gy: 18px; --gap: 32px; --pad-l: 36px; height: 236px; }
+  .home-banner-inner { --g: 292px; --gx: 176px; --gy: 18px; --gap: 32px; --pad-l: 36px; }
 }
 
 .home-banner-globe {
@@ -495,11 +507,8 @@ const BANNER_CSS = `
   padding: 18px calc(var(--gx) + var(--g) * 0.452 + var(--gap)) 10px var(--pad-l);
   touch-action: pan-y;
 }
-@container (min-width: 460px) {
-  .home-banner-text { padding-top: 22px; padding-bottom: 12px; }
-}
 @container (min-width: 620px) {
-  .home-banner-text { padding-top: 28px; padding-bottom: 14px; }
+  .home-banner-text { padding-top: 26px; padding-bottom: 14px; }
 }
 .home-banner-stack {
   position: relative;
@@ -516,6 +525,8 @@ const BANNER_CSS = `
   visibility: hidden;
 }
 .home-banner-slide > * {
+  /* Never squeezed: a title or a line clipped to fit would be a sentence cut in half. */
+  flex-shrink: 0;
   opacity: 0;
   translate: var(--in) 0;
   transition: none;
@@ -585,12 +596,8 @@ const BANNER_CSS = `
   -webkit-line-clamp: 3;
   overflow: hidden;
 }
-@container (min-width: 460px) {
-  .home-banner-title { font-size: 18px; line-height: 24px; }
-  .home-banner-line { font-size: 13.5px; line-height: 19px; }
-}
 @container (min-width: 620px) {
-  .home-banner-title { margin-top: 6px; font-size: 21px; line-height: 27px; letter-spacing: -0.015em; }
+  .home-banner-title { margin-top: 6px; font-size: 20px; line-height: 26px; letter-spacing: -0.015em; }
   .home-banner-line { margin-top: 6px; font-size: 14px; line-height: 20px; -webkit-line-clamp: 2; }
 }
 .home-banner-cta-row { margin-top: 14px; }

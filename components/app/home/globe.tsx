@@ -11,10 +11,12 @@
  *
  * DRAWN BY THE GRAPHICS CARD (globe-gl.ts), or with the 2D canvas where
  * WebGL would run on the processor (globe-2d.ts); what both draw is
- * globe-scene.ts. A frame on the page's thread is one matrix and a few
- * dozen points in arrays made once: nothing is allocated per frame, and
- * React renders this once and never again (the angles, the speed and the
- * drag live in the effect, not in state).
+ * globe-scene.ts. The ball itself looks the same however it is turned, so
+ * it is painted once per size into a still canvas; each frame draws only
+ * the dots, the pins and the arcs over it. A frame on the page's thread is
+ * one matrix and a few dozen points in arrays made once: nothing is
+ * allocated per frame, and React renders this once and never again (the
+ * angles, the speed and the drag live in the effect, not in state).
  *
  * IT ONLY RUNS WHEN IT CAN BE SEEN, AND NOT WHILE THE PAGE SCROLLS. Off
  * screen (IntersectionObserver), on a hidden tab (visibilitychange), or
@@ -76,28 +78,36 @@ export function BannerGlobe({ className }: { className?: string }) {
     const grip = gripRef.current
     if (!box || !grip) return
 
-    /* The canvas is made here, not by React: a canvas that has had a WebGL context cannot give a 2D one, so falling back means a new canvas. */
+    /*
+      The canvases are made here, not by React: a canvas that has had a WebGL
+      context cannot give a 2D one, so falling back means a new canvas. Two
+      of them: the still ball, painted once per size, and over it the one
+      drawn every frame (the dots, the pins, the arcs), clear everywhere else.
+    */
     let canvas: HTMLCanvasElement | null = null
+    let ball: HTMLCanvasElement | null = null
     let renderer: GlobeRenderer | null = null
+    const layer = (attribute: string) => {
+      const c = document.createElement("canvas")
+      c.setAttribute(attribute, "")
+      c.setAttribute("aria-hidden", "true")
+      c.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none"
+      box.insertBefore(c, grip)
+      return c
+    }
     const mount = (allowGl: boolean) => {
-      if (canvas) canvas.remove()
-      canvas = document.createElement("canvas")
-      canvas.setAttribute("data-home-globe", "")
-      canvas.setAttribute("aria-hidden", "true")
-      canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none"
-      box.insertBefore(canvas, grip)
-      renderer = (allowGl ? createGlRenderer(canvas) : null) ?? null
+      canvas?.remove()
+      ball?.remove()
+      ball = layer("data-home-globe-ball")
+      canvas = layer("data-home-globe")
+      renderer = allowGl ? createGlRenderer(canvas, ball) : null
       if (!renderer) {
+        /* A failed WebGL start may still have taken the canvas: a fresh one for the 2D context. */
         if (allowGl) {
-          /* A failed WebGL start may still have taken the canvas: a fresh one for the 2D context. */
           canvas.remove()
-          canvas = document.createElement("canvas")
-          canvas.setAttribute("data-home-globe", "")
-          canvas.setAttribute("aria-hidden", "true")
-          canvas.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none"
-          box.insertBefore(canvas, grip)
+          canvas = layer("data-home-globe")
         }
-        renderer = create2dRenderer(canvas)
+        renderer = create2dRenderer(canvas, ball)
       }
       box.dataset.renderer = renderer?.kind ?? "none"
       canvas.addEventListener("webglcontextlost", onLost)
@@ -437,6 +447,7 @@ export function BannerGlobe({ className }: { className?: string }) {
       canvas?.removeEventListener("webglcontextrestored", onRestored)
       renderer?.dispose()
       canvas?.remove()
+      ball?.remove()
       box.removeAttribute("data-renderer")
     }
   }, [])

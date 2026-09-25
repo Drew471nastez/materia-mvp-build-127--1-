@@ -165,10 +165,10 @@ export function salesSummary(rows: OrderRow[], now: number): SalesSummary {
 
 /* ─── Words ────────────────────────────────────────────────────────────── */
 
-/** $29, $29.50, $1,240: cents only when there are some. */
+/** $29, $29.50, $1,240: cents only when there are some, and never on $1,000 or more, where they are noise. */
 export function money(cents: number): string {
-  const dollars = cents / 100
-  const whole = Math.round(cents) % 100 === 0
+  const whole = Math.round(cents) % 100 === 0 || Math.abs(cents) >= 100_000
+  const dollars = whole ? Math.round(cents / 100) : cents / 100
   return `$${dollars.toLocaleString("en-US", { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 })}`
 }
 
@@ -284,7 +284,7 @@ export const RULES: readonly Rule[] = [
         tone: "offer",
         eyebrow: "Pro plan",
         title: `Pro would have saved you ${money(proSaving(p))}`,
-        line: `Your last 30 days: ${money(feeFreeCents)} in fees on Free, ${money(feeProCents + PRO_PRICE_CENTS)} on Pro with the ${money(PRO_PRICE_CENTS)} plan.`,
+        line: `Fees last 30 days: ${money(feeFreeCents)} on Free, ${money(feeProCents + PRO_PRICE_CENTS)} on Pro, plan included.`,
         cta: "See Pro",
         href: "/app/settings/billing/upgrade",
       }
@@ -298,7 +298,7 @@ export const RULES: readonly Rule[] = [
       tone: "next",
       eyebrow: "Next step",
       title: "Share your store",
-      line: "First sales come from a link in your bio, a post or a message to people who asked.",
+      line: "Your first sale starts with the link in your bio or a post.",
       cta: "Share link",
       href: "/app",
       action: "share",
@@ -312,7 +312,7 @@ export const RULES: readonly Rule[] = [
       tone: "next",
       eyebrow: "Next step",
       title: "Publish your website",
-      line: "Pick a theme, add your products, and put a site of your own live.",
+      line: "Pick a theme, add your products and put your own site live.",
       cta: "Open builder",
       href: "/app/website-builder",
     }),
@@ -325,7 +325,7 @@ export const RULES: readonly Rule[] = [
       tone: "tip",
       eyebrow: "Emails",
       title: "Thank every buyer by email",
-      line: "Choose an automation and it writes to each new buyer after their order, on its own.",
+      line: "An automation emails every new buyer after their order.",
       cta: "Choose automation",
       href: "/app/emails/flow/new",
     }),
@@ -337,8 +337,8 @@ export const RULES: readonly Rule[] = [
     write: () => ({
       tone: "tip",
       eyebrow: "Emails",
-      title: "Collect emails on your website",
-      line: "Add a Newsletter section. Each signup lands in Emails, ready for your next launch.",
+      title: "Collect emails on your site",
+      line: "Add a Newsletter section. Each signup lands in Emails.",
       cta: "Add section",
       href: "/app/website-builder",
     }),
@@ -381,7 +381,7 @@ const FALLBACK_FREE: Rule = {
     tone: "offer",
     eyebrow: "Pro plan",
     title: "Keep more of every sale",
-    line: "3% fees instead of 6%, your own domain, and 25 GB of storage instead of 1 GB.",
+    line: "3% fees instead of 6%, your own domain and 25 GB of storage.",
     cta: "See Pro",
     href: "/app/settings/billing/upgrade",
   }),

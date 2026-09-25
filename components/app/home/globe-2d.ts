@@ -8,7 +8,7 @@
  * old globe by scripts/check-home-globe.mjs:
  *
  *   the ball, its light and its atmosphere are painted once per size into
- *   a canvas of their own and copied in with one drawImage;
+ *   the still canvas under this one (`ball`), and never again;
  *   the land is small filled rectangles, grouped by brightness so the fill
  *   colour changes five times a frame. A rectangle is the one shape a 2D
  *   canvas fills without building a path; a circle filled as a path (the
@@ -36,7 +36,8 @@ const smooth = (a: number, b: number, x: number) => {
   return t * t * (3 - 2 * t)
 }
 
-export function create2dRenderer(canvas: HTMLCanvasElement): GlobeRenderer | null {
+/** `canvas` is drawn every frame; `ball`, a 2D canvas under it, holds the still ball, painted once per size. */
+export function create2dRenderer(canvas: HTMLCanvasElement, ball: HTMLCanvasElement): GlobeRenderer | null {
   const ctx = canvas.getContext("2d")
   if (!ctx) return null
 
@@ -66,15 +67,14 @@ export function create2dRenderer(canvas: HTMLCanvasElement): GlobeRenderer | nul
 
   let device = 1
   let dpr = 1
-  let backdrop: HTMLCanvasElement | null = null
 
-  /** The ball, its light, its rim and its atmosphere: the same every frame, so painted once per size. */
-  const paintBackdrop = () => {
-    backdrop = document.createElement("canvas")
-    backdrop.width = device
-    backdrop.height = device
-    const b = backdrop.getContext("2d")
+  /** The ball, its light, its rim and its atmosphere: the same every frame, so painted once per size, into the still canvas. */
+  const paintBall = () => {
+    if (ball.width !== device) ball.width = device
+    if (ball.height !== device) ball.height = device
+    const b = ball.getContext("2d")
     if (!b) return
+    b.clearRect(0, 0, device, device)
     const c = device / 2
     const R = GLOBE_RADIUS * device
     const halo = b.createRadialGradient(c, c, R * 0.98, c, c, R * 1.13)
@@ -108,7 +108,7 @@ export function create2dRenderer(canvas: HTMLCanvasElement): GlobeRenderer | nul
       device = Math.max(1, Math.round(size * dpr))
       if (canvas.width !== device) canvas.width = device
       if (canvas.height !== device) canvas.height = device
-      paintBackdrop()
+      paintBall()
     },
     draw(m, o) {
       const c = device / 2
@@ -116,7 +116,6 @@ export function create2dRenderer(canvas: HTMLCanvasElement): GlobeRenderer | nul
       ctx.setTransform(1, 0, 0, 1, 0, 0)
       ctx.globalAlpha = 1
       ctx.clearRect(0, 0, device, device)
-      if (backdrop) ctx.drawImage(backdrop, 0, 0)
 
       /* The land, turned here: a rectangle about as big as the dot's disc, sorted into brightness levels. */
       const dot = Math.max(0.6, DOT_RADIUS * R)
@@ -196,7 +195,7 @@ export function create2dRenderer(canvas: HTMLCanvasElement): GlobeRenderer | nul
       return true
     },
     dispose() {
-      backdrop = null
+      /* the canvases go with the component */
     },
   }
 }
