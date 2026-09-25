@@ -34,7 +34,7 @@ import "server-only"
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail, triggerEmailFlows } from "@/lib/email"
-import { contactSourceOfOrder, recordContactSource } from "@/lib/contacts/contact-source"
+import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { unpackItems, packedTotalCents, apportionFee } from "./cart-items"
 import { fulfilCartLine, recordCartCustomer, type FulfilContext, type FulfilledLine } from "./fulfil-cart-item"
 import { orderOriginFrom } from "@/lib/orders/order-source"
@@ -180,11 +180,10 @@ async function sideEffects(
   const sellerEmail = await resolveSellerEmail(admin, ctx.creatorId)
 
   if (s.ownsBasket) {
-    await step("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId))
+    await step("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId, s.created[0]?.productId ?? null))
     if (ctx.buyerEmail) {
       const buyerEmail = ctx.buyerEmail
       const source = contactSourceOfOrder(ctx.origin)
-      await step("subscriber source", () => recordContactSource(admin, ctx.creatorId, buyerEmail, source))
       /* One basket is one purchase to the creator's automations: one thank
          you, not one per product. Keyed by the basket's first order. */
       const names = [...new Set(s.created.map((l) => titles.get(l.productId)).filter((t): t is string => Boolean(t)))]

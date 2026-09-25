@@ -29,10 +29,10 @@ import "server-only"
  */
 
 import type Stripe from "stripe"
-import { v4 as uuidv4 } from "uuid"
 import { stripe } from "@/lib/stripe"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
-import { contactSourceOfOrder, recordContactSource } from "@/lib/contacts/contact-source"
+import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
+import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
 import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { recordCouponUse } from "./coupons"
 import { businessFromMetadata } from "./business"
@@ -224,10 +224,19 @@ export async function fulfilPaymentIntent(
   }
 
   await step("customer", () => recordCustomer(admin, { creatorId, email: buyerEmail, first: m.buyer_first_name, last: m.buyer_last_name, total }))
-  if (m.email_opt_in === "true") {
-    await step("subscriber", () => subscribe(admin, { creatorId, email: buyerEmail, orderId: order.id, name: `${m.buyer_first_name || ""} ${m.buyer_last_name || ""}`.trim() }))
-    await step("subscriber source", () => recordContactSource(admin, creatorId, buyerEmail, contactSourceOfOrder(origin)))
-  }
+  /* A contact either way: subscribed when they ticked the box, a customer
+     when they did not (lib/contacts/checkout-contact). */
+  await step("contact", () =>
+    recordCheckoutContact(admin, {
+      creatorId,
+      email: buyerEmail,
+      name: `${m.buyer_first_name || ""} ${m.buyer_last_name || ""}`.trim(),
+      orderId: order.id,
+      basis: m.email_opt_in === "true" ? "ticked" : "none",
+      bought: true,
+      source: contactSourceOfOrder(origin, productId),
+    }),
+  )
   await step("entitlement", () => grant(admin, { buyerId, email: buyerEmail, orderId: order.id, creatorId, productId, variantId }))
   await step("sales count", async () => {
     await admin.rpc("increment_product_sales", { p_product_id: productId })
@@ -356,30 +365,6 @@ export async function recordCustomer(admin: Db, c: { creatorId: string; email: s
     order_count: 1,
     total_spent_cents: c.total,
   })
-}
-
-async function subscribe(admin: Db, s: { creatorId: string; email: string; orderId: string; name: string }) {
-  if (!s.email) return
-  const email = s.email.toLowerCase()
-  const { data: existing } = await admin.from("subscribers").select("id, status").eq("creator_id", s.creatorId).eq("email", email).maybeSingle()
-  const now = new Date().toISOString()
-  if (!existing) {
-    await admin.from("subscribers").insert({
-      email,
-      name: s.name || null,
-      source: "checkout",
-      source_id: s.orderId,
-      creator_id: s.creatorId,
-      status: "subscribed",
-      is_active: true,
-      subscribed_at: now,
-      consent_text: "Subscribed via product checkout (opted in)",
-      consent_timestamp: now,
-      unsubscribe_token: uuidv4(),
-    })
-  } else if (existing.status === "unsubscribed") {
-    await admin.from("subscribers").update({ status: "subscribed", is_active: true, subscribed_at: now, unsubscribed_at: null }).eq("id", existing.id)
-  }
 }
 
 /**

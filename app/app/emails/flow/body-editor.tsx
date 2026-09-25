@@ -22,13 +22,18 @@ import * as React from "react"
 import { RectangleHorizontal } from "lucide-react"
 import { RichTextEditor, type RichTextApi } from "@/components/app/rich-text-editor"
 import { escapeAttr, escapeText } from "@/lib/rich-text/html"
+import { cn } from "@/lib/utils"
 
 const STORE_URL = "{{store_url}}"
+
+/** A link field (lib/automations/merge-fields), kept as the field: it is filled per person when sent. */
+const LINK_FIELD = /^\{\{\s*(store_url|product_url|order_url|review_url|checkout_url)\s*\}\}$/
 
 function normaliseUrl(raw: string): string | null {
   const v = raw.trim()
   if (!v) return null
-  if (/^\{\{\s*store_url\s*\}\}$/.test(v)) return STORE_URL
+  const field = LINK_FIELD.exec(v)
+  if (field) return `{{${field[1]}}}`
   if (/^mailto:/i.test(v)) return v
   const withScheme = /^https?:\/\//i.test(v) ? v : `https://${v}`
   try {
@@ -47,7 +52,19 @@ const input =
 
 const keepEmailHtml = (html: string) => html
 
-export function BodyEditor({ value, onChange, label }: { value: string; onChange: (html: string) => void; label: string }) {
+export function BodyEditor({
+  value,
+  onChange,
+  label,
+  links,
+}: {
+  value: string
+  onChange: (html: string) => void
+  label: string
+  /** The link fields this flow's trigger can fill, offered as places a link or button can go. */
+  links?: Array<{ label: string; href: string }>
+}) {
+  const shortcuts = links && links.length > 0 ? links : [{ label: "Your Storelib page", href: STORE_URL }]
   const api = React.useRef<RichTextApi | null>(null)
   const [button, setButton] = React.useState<{ text: string; url: string } | null>(null)
   const [error, setError] = React.useState("")
@@ -72,7 +89,7 @@ export function BodyEditor({ value, onChange, label }: { value: string; onChange
       onChange={onChange}
       label={label}
       tools={["h2", "bold", "italic", "bulletList", "link"]}
-      linkShortcuts={[{ label: "Link to your Storelib page", href: STORE_URL }]}
+      linkShortcuts={shortcuts.map((s) => ({ label: `Link to ${s.label.charAt(0).toLowerCase()}${s.label.slice(1)}`, href: s.href }))}
       cleanOutput={keepEmailHtml}
       minHeight={220}
       apiRef={api}
@@ -137,14 +154,19 @@ export function BodyEditor({ value, onChange, label }: { value: string; onChange
             </div>
             {error ? <p className="text-[12px] text-[#8a1c0f]">{error}</p> : null}
             <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                className="min-h-11 text-[12px] font-medium text-[#6b7280] hover:text-[#1a1a2e] sm:min-h-0"
-                onClick={() => setButton({ ...button, url: STORE_URL })}
-              >
-                Link to your Storelib page
-              </button>
-              <div className="flex gap-1.5">
+              <span className="flex min-w-0 flex-wrap gap-x-3">
+                {shortcuts.map((s) => (
+                  <button
+                    key={s.href}
+                    type="button"
+                    className={cn("min-h-11 text-[12px] font-medium hover:text-[#1a1a2e] sm:min-h-0", button.url === s.href ? "text-[#1a1a2e]" : "text-[#6b7280]")}
+                    onClick={() => setButton({ ...button, url: s.href })}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </span>
+              <div className="flex shrink-0 gap-1.5">
                 <button type="button" className="h-11 rounded-lg px-3 text-[13px] font-medium text-[#4b5563] hover:bg-[#f1f2f4] sm:h-8" onClick={() => setButton(null)}>
                   Cancel
                 </button>

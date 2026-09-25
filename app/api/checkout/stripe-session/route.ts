@@ -1,5 +1,8 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import type Stripe from "stripe"
+import { recordCheckoutStart } from "@/lib/automations/abandoned"
+import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
+import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
 import { stripe } from "@/lib/stripe"
 import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
 import { createClient } from "@/lib/supabase/server"
@@ -222,6 +225,30 @@ export async function POST(request: Request) {
       delete params.statement_descriptor_suffix
       intent = await stripe.paymentIntents.create(params)
     }
+    /* The checkout reached Pay: written down after the answer goes back, so
+       the button is not slower for it. The start is what a checkout
+       reminder is made from (lib/automations/abandoned), and a ticked box
+       is a yes whether or not the payment then goes through
+       (lib/contacts/checkout-contact). */
+    const started = intent.id
+    const optedIn = body.emailOptIn === true
+    const source = contactSourceOfOrder(origin, product.id)
+    after(async () => {
+      await recordCheckoutStart(admin, {
+        creatorId: creator.id,
+        productId: product.id,
+        variantId: variant?.id ?? null,
+        productTitle: String(product.title || ""),
+        email,
+        firstName,
+        paymentIntentId: started,
+        optedIn,
+        source,
+      })
+      if (optedIn) {
+        await recordCheckoutContact(admin, { creatorId: creator.id, email, name: `${firstName} ${lastName}`.trim(), basis: "ticked", bought: false, source })
+      }
+    })
     return NextResponse.json({ clientSecret: intent.client_secret, paymentIntentId: intent.id, amountCents: intent.amount })
   } catch (error) {
     console.error("[stripe-session] PaymentIntent failed:", error instanceof Error ? error.message : error)

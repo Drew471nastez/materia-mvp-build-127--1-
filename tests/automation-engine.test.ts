@@ -67,7 +67,7 @@ class MemoryStore implements Store {
   runs: Run[] = []
   jobs: Job[] = []
   sends: Send[] = []
-  orders: Array<{ email: string; at: number; creator: string }> = []
+  orders: Array<{ email: string; at: number; creator: string; id?: string }> = []
   suppressed = new Set<string>()
   failComplete = 0
 
@@ -155,8 +155,20 @@ class MemoryStore implements Store {
     return this.orders.some((o) => o.creator === creatorId && o.email === email && o.at > Date.parse(since))
   }
   async openedStep(rid: string, sid: string) { return Boolean(this.sends.find((s) => s.run_id === rid && s.step_id === sid)?.opened_at) }
-  async standing(_c: string, email: string) { return { suppressed: this.suppressed.has(email), unsubscribeToken: "unsub" } }
+  async standing(_c: string, email: string) { return { suppressed: this.suppressed.has(email), unsubscribeToken: "unsub", subscribed: !this.suppressed.has(email) } }
   async identity() { return { fromName: "Astrid", replyTo: "astrid@example.com", storeUrl: "https://storelib.com/astrid" } }
+  async firstOrder(creatorId: string, email: string, orderId: string) {
+    return !this.orders.some((o) => o.creator === creatorId && o.email === email && o.id !== orderId)
+  }
+  async exitRuns(creatorId: string, email: string, trigger: string, reason: string) {
+    let n = 0
+    for (const r of this.runs) {
+      const flow = this.flows.get(r.flow_id)
+      if (r.creator_id === creatorId && r.email === email && r.status === "active" && flow?.trigger_type === trigger) { r.status = "exited"; r.exit_reason = reason; n++ }
+    }
+    return n
+  }
+  async links() { return { productUrl: null, orderUrl: null, checkoutUrl: null } }
 }
 
 function mailer(opts: { fail?: string | ((n: number) => string | null); tick?: boolean } = {}) {

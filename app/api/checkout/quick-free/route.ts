@@ -5,8 +5,8 @@ import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
-import { contactSourceOfOrder, recordContactSource } from "@/lib/contacts/contact-source"
-import { v4 as uuidv4 } from "uuid"
+import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
+import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
 import { channelOf, orderSourceFromRequest, originOf, tagOrderSource } from "@/lib/orders/order-source"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { baseFor } from "@/lib/checkout/pricing"
@@ -207,44 +207,21 @@ export async function POST(request: Request) {
       p_order_amount_cents: 0,
     })
 
-    // Add buyer to seller's subscribers list for future email marketing
+    /* The seller's contact. The download button says, before it is pressed,
+       that the seller may send updates (components/onepage/public-onepage),
+       which is the basis this door has always used: a new address or a
+       customer joins the list. Somebody who unsubscribed is not put back on
+       it by a download, which this used to do (lib/contacts/checkout-contact). */
     const normalizedEmail = email.toLowerCase().trim()
-    const { data: existingSubscriber } = await admin
-      .from("subscribers")
-      .select("id, status")
-      .eq("creator_id", product.creator.id)
-      .eq("email", normalizedEmail)
-      .maybeSingle()
-
-    if (!existingSubscriber) {
-      const unsubscribeToken = uuidv4()
-      const buyerName = `${first_name.trim()} ${last_name.trim()}`.trim() || null
-      await admin.from("subscribers").insert({
-        email: normalizedEmail,
-        name: buyerName,
-        source: "checkout",
-        source_id: order.id,
-        creator_id: product.creator.id,
-        status: "subscribed",
-        is_active: true,
-        subscribed_at: new Date().toISOString(),
-        consent_text: "Subscribed via free download; the form states that the seller may send updates",
-        consent_timestamp: new Date().toISOString(),
-        unsubscribe_token: unsubscribeToken,
-      })
-    } else if (existingSubscriber.status === "unsubscribed") {
-      await admin
-        .from("subscribers")
-        .update({
-          status: "subscribed",
-          is_active: true,
-          subscribed_at: new Date().toISOString(),
-          unsubscribed_at: null,
-        })
-        .eq("id", existingSubscriber.id)
-    }
-
-    await recordContactSource(admin, product.creator.id, normalizedEmail, contactSourceOfOrder(origin))
+    await recordCheckoutContact(admin, {
+      creatorId: product.creator.id,
+      email: normalizedEmail,
+      name: `${first_name.trim()} ${last_name.trim()}`.trim(),
+      orderId: order.id,
+      basis: "notice",
+      bought: true,
+      source: contactSourceOfOrder(origin, product.id),
+    })
 
     // Create entitlement for logged-in users
     if (user) {

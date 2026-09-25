@@ -5,8 +5,8 @@ import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
-import { contactSourceOfOrder, recordContactSource } from "@/lib/contacts/contact-source"
-import { v4 as uuidv4 } from "uuid"
+import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
+import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
 import { channelOf, orderSourceFromRequest, originOf, tagOrderSource } from "@/lib/orders/order-source"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { priceOrder } from "@/lib/checkout/pricing"
@@ -180,31 +180,19 @@ export async function POST(request: Request) {
       })
     })
 
-    /* Only a yes is a yes: this defaulted to subscribing. */
-    if (body.emailOptIn === true) {
-      await step("subscriber", async () => {
-        const { data: existing } = await admin.from("subscribers").select("id, status").eq("creator_id", creator.id).eq("email", email).maybeSingle()
-        const now = new Date().toISOString()
-        if (!existing) {
-          await admin.from("subscribers").insert({
-            email,
-            name: `${firstName} ${lastName}`.trim() || null,
-            source: "checkout",
-            source_id: order.id,
-            creator_id: creator.id,
-            status: "subscribed",
-            is_active: true,
-            subscribed_at: now,
-            consent_text: "Subscribed via product checkout (opted in)",
-            consent_timestamp: now,
-            unsubscribe_token: uuidv4(),
-          })
-        } else if (existing.status === "unsubscribed") {
-          await admin.from("subscribers").update({ status: "subscribed", is_active: true, subscribed_at: now, unsubscribed_at: null }).eq("id", existing.id)
-        }
-      })
-      await step("subscriber source", () => recordContactSource(admin, creator.id, email, contactSourceOfOrder(origin)))
-    }
+    /* A contact either way. Only a yes is a yes: subscribed when they ticked
+       the box, a customer when they did not (lib/contacts/checkout-contact). */
+    await step("contact", () =>
+      recordCheckoutContact(admin, {
+        creatorId: creator.id,
+        email,
+        name: `${firstName} ${lastName}`.trim(),
+        orderId: order.id,
+        basis: body.emailOptIn === true ? "ticked" : "none",
+        bought: true,
+        source: contactSourceOfOrder(origin, product.id),
+      }),
+    )
 
     if (user && !alreadyOwned) {
       await step("entitlement", async () => {

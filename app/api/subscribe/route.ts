@@ -157,6 +157,10 @@ export async function POST(request: NextRequest) {
           subscribed_at: new Date().toISOString(),
           unsubscribed_at: null,
           updated_at: new Date().toISOString(),
+          /* A new yes, from somebody who left or a buyer who never asked
+             (lib/contacts/checkout-contact): the record says what it was. */
+          consent_text: "I agree to receive email updates",
+          consent_timestamp: new Date().toISOString(),
         })
         .eq("id", existingSubscriber.id)
 

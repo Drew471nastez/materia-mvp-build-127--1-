@@ -56,6 +56,7 @@
  */
 
 import {
+  audienceOf,
   emailBefore,
   entryRule,
   isTriggerType,
@@ -70,6 +71,7 @@ import {
   type TriggerConfig,
   type TriggerType,
 } from "./flow-model"
+import { brandButtons, fillFields, mergeValues, textOn, type MergeValues } from "./merge-fields"
 
 /* ─── Rows ───────────────────────────────────────────────────────────── */
 
@@ -99,6 +101,11 @@ export interface RunContext {
   product_title?: string
   product_id?: string
   order_id?: string
+  variant_id?: string
+  /** A checkout left behind: when it was started. A purchase after this ends the run. */
+  checkout_started_at?: string
+  /** They ticked "Email me news and offers" at the checkout this run is about. */
+  opted_in?: boolean
 }
 
 export type JobState = "queued" | "running" | "done" | "failed" | "cancelled"
@@ -127,12 +134,39 @@ export type SendBegin =
 export interface Standing {
   suppressed: boolean
   unsubscribeToken: string | null
+  /** On the list for news: joined it, or ticked the box at a checkout. */
+  subscribed?: boolean
+  /**
+   * Why they are on the creator's contacts at all, for the footer's "you are
+   * getting this because": "subscribed" (joined the list), "customer" (bought,
+   * did not ask for news), null (no contact row).
+   */
+  status?: "subscribed" | "customer" | null
+}
+
+/** How the creator's emails look: their store's name, logo and colour. */
+export interface Brand {
+  name: string
+  /** An absolute https address, or null for none. */
+  logoUrl: string | null
+  /** #rrggbb, for buttons and links. The /app ink when the creator set none. */
+  accentColor: string
+  /** #ffffff or #1a1a2e, whichever reads on the accent. */
+  onAccent: string
 }
 
 export interface Identity {
   fromName: string
   replyTo: string
   storeUrl: string
+  brand?: Brand
+}
+
+/** The addresses a run's fields link to, read when the email is sent. */
+export interface RunLinks {
+  productUrl: string | null
+  orderUrl: string | null
+  checkoutUrl: string | null
 }
 
 export interface OutgoingMail {
@@ -179,14 +213,86 @@ export interface Store {
   openedStep(runId: string, stepId: string): Promise<boolean>
   standing(creatorId: string, email: string): Promise<Standing>
   identity(creatorId: string): Promise<Identity>
+  /** True when this order is the first this address has placed with this creator. */
+  firstOrder(creatorId: string, email: string, orderId: string): Promise<boolean>
+  /** Ends this person's active runs of flows with this trigger. Returns how many. */
+  exitRuns(creatorId: string, email: string, trigger: TriggerType, reason: string): Promise<number>
+  /** Where the run's product, order and checkout are, for the email's links. */
+  links(run: RunRow): Promise<RunLinks>
+}
+
+/**
+ * ===========================================================================
+ *  WHAT THE EMAIL'S FRAME IS HANDED
+ * ===========================================================================
+ * `compose` turns one step into the finished email. By the time it is called
+ * everything about the person and the creator has been read:
+ *
+ *   step       subject, preview line and body with every {{field}} already
+ *              filled (merge-fields fillFields: escaped in the body, text in
+ *              the subject) and the editor's buttons in the creator's colour
+ *   merge      the same values, by name, for anything the frame writes
+ *              itself
+ *   identity   fromName, replyTo, storeUrl, and brand: the store's name, its
+ *              logo (https or null) and its colour with the text that reads
+ *              on it
+ *   standing   unsubscribeToken, and status: "subscribed" or "customer",
+ *              for the footer's reason. Every automated email is marketing
+ *              from the creator and carries its way out when a token exists.
+ *   token      the send's own token, for the open pixel and the click links
+ */
+export interface ComposeInput {
+  step: EmailStep
+  run: RunRow
+  identity: Identity
+  standing: Standing
+  token: string
+  merge?: MergeValues
 }
 
 export interface Mailer {
   send(mail: OutgoingMail): Promise<{ success: boolean; messageId?: string; error?: string }>
   /** Turns a creator's body into the finished email: personalised, tracked, framed, with its way out. */
-  compose(input: { step: EmailStep; run: RunRow; identity: Identity; standing: Standing; token: string }): { subject: string; html: string; text: string; headers?: Record<string, string> }
+  compose(input: ComposeInput): { subject: string; html: string; text: string; headers?: Record<string, string> }
   /** Counted against the creator's monthly allowance. Best effort. */
   counted?(creatorId: string): Promise<void>
+}
+
+/**
+ * The step as it will be sent to this person: every field filled from the
+ * run, the creator and the links, and the buttons in the creator's colour.
+ * The engine and the builder's test send both go through here, so a test
+ * shows exactly what a real send would.
+ */
+export function prepareEmail(step: EmailStep, run: Pick<RunRow, "name" | "context">, identity: Identity, links: RunLinks): { step: EmailStep; merge: MergeValues } {
+  const merge = mergeValues({
+    name: run.name,
+    storeName: identity.brand?.name || identity.fromName,
+    storeUrl: identity.storeUrl,
+    productName: run.context.product_title,
+    productUrl: links.productUrl,
+    orderUrl: links.orderUrl,
+    checkoutUrl: links.checkoutUrl,
+  })
+  const accent = identity.brand?.accentColor ?? "#1a1a2e"
+  const onAccent = identity.brand?.onAccent ?? textOn(accent)
+  const preview = step.config.preview_text ? fillFields(step.config.preview_text, merge, "text") : ""
+  return {
+    merge,
+    step: {
+      ...step,
+      config: {
+        subject: fillFields(step.config.subject, merge, "text"),
+        body: brandButtons(fillFields(step.config.body, merge, "html"), accent, onAccent),
+        ...(preview ? { preview_text: preview } : {}),
+      },
+    },
+  }
+}
+
+/** On the list for news, or ticked the box at the checkout this run is about. */
+function agreedToNews(standing: Standing, run?: Pick<RunRow, "context"> | null): boolean {
+  return standing.subscribed === true || run?.context.opted_in === true
 }
 
 /* ─── Retries ────────────────────────────────────────────────────────── */
@@ -226,6 +332,11 @@ export interface TriggerInput {
   orderId?: string | null
   /** For "each": the event this entry is for, when it is not an order. */
   eventId?: string | null
+  variantId?: string | null
+  /** A checkout left behind: when it was started. */
+  startedAt?: string | null
+  /** They ticked "Email me news and offers" at the checkout this is about. */
+  optedIn?: boolean
   source?: unknown
 }
 
@@ -236,39 +347,77 @@ export interface EnrollResult {
   skipped: Array<{ flowId: string; why: string }>
 }
 
+/**
+ * A purchase is also, for someone with no earlier order, a first purchase,
+ * and for anyone it ends a checkout reminder they were partway through: they
+ * bought, so "you left this at checkout" is no longer true.
+ */
 export async function enroll(store: Store, input: TriggerInput, now: number): Promise<EnrollResult> {
   const email = input.email.trim().toLowerCase()
   const out: EnrollResult = { available: true, enrolled: 0, skipped: [] }
-  const flows = await store.activeFlows(input.creatorId, input.triggerType)
-  if (flows === null) return { ...out, available: false }
-  if (flows.length === 0) return out
+  const purchase = input.triggerType === "purchase"
+  const triggers: TriggerType[] = purchase ? ["purchase", "first_purchase"] : [input.triggerType]
+
+  const found: FlowRow[] = []
+  for (const t of triggers) {
+    const flows = await store.activeFlows(input.creatorId, t)
+    if (flows === null) return { ...out, available: false }
+    found.push(...flows.filter((f) => f.trigger_type === t))
+  }
+  /* Best effort here: a reminder that is not ended now is ended at its next
+     step, which checks for a purchase itself (processJob). */
+  if (purchase) await store.exitRuns(input.creatorId, email, "abandoned_checkout", "Bought.").catch(() => 0)
+  if (found.length === 0) return out
 
   const standing = await store.standing(input.creatorId, email)
   if (standing.suppressed) {
-    for (const f of flows) out.skipped.push({ flowId: f.id, why: "not on the list" })
+    for (const f of found) out.skipped.push({ flowId: f.id, why: "not on the list" })
     return out
   }
 
-  for (const flow of flows) {
+  let first: boolean | null = null
+  for (const flow of found) {
     if (!isTriggerType(flow.trigger_type)) continue
+    const trigger = flow.trigger_type
     const steps = normalizeSteps(flow.steps)
-    if (steps.length === 0 || problemsOf(flow.trigger_type, steps).length > 0) {
+    /* What stops it running, not a field it would leave as written: a flow
+       that was on before fields were checked keeps sending, and the builder
+       shows the field as a problem the next time it is opened or saved. */
+    if (steps.length === 0 || problemsOf(trigger, steps, { fields: false }).length > 0) {
       out.skipped.push({ flowId: flow.id, why: "flow is not complete" })
       continue
     }
     const products = Array.isArray(flow.trigger_config?.product_ids) ? flow.trigger_config!.product_ids!.filter((p) => typeof p === "string") : []
     const bought = [...(input.productIds ?? []), ...(input.productId ? [input.productId] : [])]
-    if (input.triggerType === "purchase" && products.length > 0 && !bought.some((p) => products.includes(p))) {
+    if (products.length > 0 && (trigger === "purchase" || trigger === "first_purchase") && !bought.some((p) => products.includes(p))) {
       out.skipped.push({ flowId: flow.id, why: "another product" })
       continue
     }
-    const rule = entryRule(flow.trigger_type, flow.trigger_config)
+    if (audienceOf(trigger, flow.trigger_config) === "subscribers" && !(standing.subscribed === true || input.optedIn === true)) {
+      out.skipped.push({ flowId: flow.id, why: "did not ask for news" })
+      continue
+    }
+    if (trigger === "first_purchase") {
+      if (!input.orderId) {
+        out.skipped.push({ flowId: flow.id, why: "no order to tell" })
+        continue
+      }
+      first ??= await store.firstOrder(input.creatorId, email, input.orderId)
+      if (!first) {
+        out.skipped.push({ flowId: flow.id, why: "not their first order" })
+        continue
+      }
+    }
+    const rule = entryRule(trigger, flow.trigger_config)
     const key = dedupeKey(rule, { email, eventId: input.orderId ?? input.eventId ?? null, now })
     const windowDays = rule.mode === "once" ? -1 : rule.mode === "after" ? rule.days : 0
     const context: RunContext = {}
     if (input.productTitle) context.product_title = input.productTitle.slice(0, 200)
     if (input.productId) context.product_id = input.productId
     if (input.orderId) context.order_id = input.orderId
+    if (input.variantId) context.variant_id = input.variantId
+    if (input.startedAt) context.checkout_started_at = input.startedAt
+    if (input.optedIn) context.opted_in = true
     const res = await store.enroll({
       flowId: flow.id,
       creatorId: input.creatorId,
@@ -276,7 +425,7 @@ export async function enroll(store: Store, input: TriggerInput, now: number): Pr
       name: input.name?.trim().slice(0, 120) || null,
       dedupeKey: key,
       windowDays,
-      triggerType: input.triggerType,
+      triggerType: trigger,
       firstStepId: steps[0].id,
       context,
       source: input.source ?? null,
@@ -342,6 +491,17 @@ export async function processJob(ctx: Ctx, job: JobRow): Promise<JobOutcome> {
 
     const standing = await store.standing(run.creator_id, run.email)
     if (standing.suppressed) return cancel("exited", "Unsubscribed.")
+    const trigger = isTriggerType(flow.trigger_type) ? flow.trigger_type : null
+    if (trigger && audienceOf(trigger, flow.trigger_config) === "subscribers") {
+      if (!agreedToNews(standing, run)) return cancel("exited", "Did not ask for news from you.")
+      /* Marketing always carries its way out; without a token there is none. */
+      if (!standing.unsubscribeToken) return cancel("exited", "No unsubscribe link on record, so nothing that sells was sent.")
+    }
+    /* A checkout reminder ends the moment they buy, whichever step they are on. */
+    if (trigger === "abandoned_checkout" && (await store.purchasedSince(run.creator_id, run.email, run.context.checkout_started_at ?? run.started_at))) {
+      await store.finishRun(run.id, "exited", "Bought.")
+      return (await store.completeJob(job.id, worker, "done", "Bought.")) ? "done" : "lost"
+    }
 
     let delayNext = 0
     if (step.type === "email") {
@@ -391,9 +551,13 @@ async function safely<T>(fn: () => Promise<T>): Promise<T | null> {
 async function sendStep(ctx: Ctx, flow: FlowRow, run: RunRow, step: EmailStep, standing: Standing): Promise<"sent" | "skipped" | "interrupted"> {
   const { store, mailer } = ctx
   const identity = await store.identity(run.creator_id)
+  /* Read before the send row is written: a failure here is retried like any
+     other, with nothing half done. */
+  const links = await store.links(run)
   const begin = await store.beginSend({ runId: run.id, flowId: flow.id, creatorId: run.creator_id, stepId: step.id, email: run.email, subject: step.config.subject })
   if (!begin.go) return "why" in begin && begin.why === "sent" ? "skipped" : "interrupted"
-  const mail = mailer.compose({ step, run, identity, standing, token: begin.token })
+  const ready = prepareEmail(step, run, identity, links)
+  const mail = mailer.compose({ step: ready.step, run, identity, standing, token: begin.token, merge: ready.merge })
   let result: { success: boolean; messageId?: string; error?: string }
   try {
     result = await mailer.send({ to: run.email, fromName: identity.fromName, replyTo: identity.replyTo, ...mail })

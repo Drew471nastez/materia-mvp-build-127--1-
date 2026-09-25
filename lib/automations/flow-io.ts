@@ -15,6 +15,7 @@ import {
   MAX_STEPS,
   MAX_SUBJECT,
   entryRule,
+  isPurchaseTrigger,
   isTriggerType,
   normalizeSteps,
   serializeSteps,
@@ -81,10 +82,11 @@ export function cleanTriggerConfig(trigger: TriggerType, raw: unknown, existing?
   const out: TriggerConfig = {}
   if (typeof existing?.template === "string") out.template = existing.template
   out.entry = entryRule(trigger, { entry: r.entry as TriggerConfig["entry"] })
-  if (trigger === "purchase" && Array.isArray(r.product_ids)) {
+  if (isPurchaseTrigger(trigger) && Array.isArray(r.product_ids)) {
     const ids = r.product_ids.filter((p): p is string => typeof p === "string" && /^[0-9a-f-]{36}$/i.test(p)).slice(0, 50)
     if (ids.length) out.product_ids = ids
   }
+  if (isPurchaseTrigger(trigger) && (r.audience === "buyers" || r.audience === "subscribers")) out.audience = r.audience
   return out
 }
 
