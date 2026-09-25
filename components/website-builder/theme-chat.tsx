@@ -81,7 +81,7 @@ import {
 import { AskHistory, type DeletedTarget, type HistoryTarget } from "@/components/website-builder/ask-history"
 import { ModelPicker } from "@/components/website-builder/ask-model-picker"
 import { PictureTray, ProgressRing, type ComposerPicture } from "@/components/website-builder/ask-attachments"
-import { ConnectAiButton, ModeSwitch, ScopeChip, SuggestionChips, type AskMode } from "@/components/website-builder/ask-parts"
+import { ConnectAiButton, ModeSwitch, QuestionChoices, ScopeChip, SuggestionChips, type AskMode } from "@/components/website-builder/ask-parts"
 import { PrepareError, preparePicture, prepareStills } from "@/components/website-builder/ask-attach-prepare"
 import { useVoiceInput } from "@/components/website-builder/ask-voice"
 import type { WriteStage } from "@/lib/website-builder/agent/write-section"
@@ -96,8 +96,10 @@ import {
   EMPTY_ACTIVITY,
   activityFromOps,
   activityLine,
-  changeCount,
+  changeSummary,
+  detailToShow,
   finishedSteps,
+  questionFromReply,
   READING_MS,
   reduceActivity,
   settleActivity,
@@ -324,10 +326,11 @@ function reportProblem(problem: "not_set_up" | "not_found" | "busy" | "failed"):
   Memoised on its own props: typing re-renders the panel on every key (and
   a voice recording types a few characters a frame), and a thread of fifty
   answers should not be redrawn for any of it. Everything handed in is
-  either the exchange itself or a callback that never changes.
+  either the exchange itself, a string, or a callback that never changes.
 */
 const ExchangeItem = React.memo(function ExchangeItem({
   exchange,
+  answer,
   phone,
   canUndo,
   canRetry,
@@ -336,8 +339,11 @@ const ExchangeItem = React.memo(function ExchangeItem({
   onView,
   onOpenCode,
   onReport,
+  onAnswer,
 }: {
   exchange: Exchange
+  /** The message after this one, which is the answer when this run asked a question. */
+  answer?: string
   phone: boolean
   canUndo: boolean
   canRetry: boolean
@@ -346,10 +352,13 @@ const ExchangeItem = React.memo(function ExchangeItem({
   onView: (images: ViewableImage[], at: number) => void
   onOpenCode?: (path: string) => void
   onReport: (exchange: Exchange, reason: string) => Promise<ReportState>
+  onAnswer: (text: string) => void
 }) {
   const [stepsOpen, setStepsOpen] = React.useState(false)
   const [report, setReport] = React.useState<ReportState>({ stage: "closed" })
   const { activity } = exchange
+  /* The run stopped to ask: the question stands where its answer would, and the closing message that repeats it is not drawn. */
+  const question = activity.question
 
   /* Before the run says anything: "Reading the page", then "Planning the change" once READING_MS has passed. */
   const [, setTick] = React.useState(0)
@@ -364,7 +373,10 @@ const ExchangeItem = React.memo(function ExchangeItem({
 
   const elapsed = exchange.startedAt === undefined ? READING_MS : performance.now() - exchange.startedAt
   const finished = finishedSteps(activity)
-  const count = changeCount(activity)
+  /* "Changed Hero and FAQ" when the run named them, "2 sections changed" when it did not. */
+  const count = changeSummary(activity)
+  /* The run's own sentence of what changed, where the answer above does not already say it. */
+  const detail = !exchange.running && !question ? detailToShow(exchange.reply, activity.done) : null
   const sending = exchange.running && !exchange.sent
   const hasWork = !!activity.plan || finished.length > 0 || activity.code.length > 0
 
@@ -427,7 +439,20 @@ const ExchangeItem = React.memo(function ExchangeItem({
         </div>
       )}
 
-      {exchange.reply && <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[#1a1a2e]">{exchange.reply}</p>}
+      {question ? (
+        <QuestionChoices question={question} answer={answer} canAnswer={!exchange.running} onAnswer={onAnswer} phone={phone} />
+      ) : (
+        exchange.reply && (
+          <p data-ask-reply="" className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[#1a1a2e]">
+            {exchange.reply}
+          </p>
+        )
+      )}
+      {detail && (
+        <p data-ask-detail="" className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[#1a1a2e]">
+          {detail}
+        </p>
+      )}
 
       {exchange.error && (
         <div className="space-y-1.5">
@@ -453,7 +478,7 @@ const ExchangeItem = React.memo(function ExchangeItem({
         </div>
       )}
 
-      {!exchange.running && (exchange.reply || exchange.error || count || hasWork) && (
+      {!exchange.running && (exchange.reply || exchange.error || count || hasWork || question) && (
         <div className="min-w-0">
           <AnswerMeta
             count={count}
@@ -462,7 +487,7 @@ const ExchangeItem = React.memo(function ExchangeItem({
             onToggleSteps={() => setStepsOpen((open) => !open)}
             undo={exchange.undone ? "done" : canUndo ? "available" : null}
             onUndo={() => onUndo(exchange)}
-            copyText={exchange.reply ?? ""}
+            copyText={exchange.reply ?? detail ?? question?.question ?? ""}
             canReport={!!exchange.messageId}
             report={report}
             onReport={setReport}
@@ -581,6 +606,12 @@ function ThemeChatPanel({
   onClose: () => void
 }) {
   const [exchanges, setExchanges] = React.useState<Exchange[]>([])
+  /**
+   * The newest finished run the open conversation has shown. One that ends
+   * while the dock is folded is not seen yet, and the folded pill says what
+   * it did, or asks its question, until the conversation is opened.
+   */
+  const [seenRun, setSeenRun] = React.useState<string | null>(null)
   const [loadingHistory, setLoadingHistory] = React.useState(true)
   const [historyError, setHistoryError] = React.useState<null | "not_set_up" | "read_failed">(null)
   const [draft, setDraft] = React.useState("")
@@ -899,10 +930,15 @@ function ThemeChatPanel({
            * would apply the same edits a second time to a page that already
            * has them: the transcript is a record, not a script.
            */
-          open.activity = activityFromOps(Array.isArray(message.ops) ? message.ops : [])
+          const counted = activityFromOps(Array.isArray(message.ops) ? message.ops : [])
+          /* A run that stopped to ask kept its question as text: it is a question again, answered by the message after it. */
+          const question = questionFromReply(open.reply, message.id)
+          open.activity = question ? { ...counted, question } : counted
         }
         /* A different conversation lands at its end without a glide, as a restore does. */
         seenExchanges.current = 0
+        /* What was already there has been seen: the folded pill only speaks for a run that ends while it is folded. */
+        setSeenRun(restored[restored.length - 1]?.id ?? null)
         setExchanges(restored)
         setConversation({
           id: body.conversation?.id ?? null,
@@ -1109,6 +1145,12 @@ function ThemeChatPanel({
     setExchanges((previous) => previous.map((e) => (e.id === id ? change(e) : e)))
   }, [])
 
+  /**
+   * ONE RUN. It leaves the box alone: what is in it is the caller's (submit
+   * empties it for what it sends), so an answer tapped under a question, a
+   * Try again, or a queued message going out does not wipe what somebody has
+   * started typing since.
+   */
   const send = React.useCallback(
     async (text: string, images: Attachment[] = []) => {
       const prompt = text.trim()
@@ -1121,9 +1163,6 @@ function ThemeChatPanel({
       const id = crypto.randomUUID()
       const runId = crypto.randomUUID()
       const startedOn = live.current.page
-      setDraft("")
-      setAttached([])
-      setAttachError(null)
       setBusy(true)
       /* A history read still in flight would land on top of this message: it is dropped. */
       if (loadingHistory) {
@@ -1233,6 +1272,18 @@ function ThemeChatPanel({
               } else if (type === "sources-changed") {
                 // The canvas is drawing the old source; the editor holds the files.
                 onSourcesChanged?.()
+                return
+              } else if (type === "question") {
+                /**
+                 * THE RUN STOPPED TO ASK, and is over as far as anybody
+                 * reading it is concerned: the question and its answers
+                 * replace the line. The closing message that follows says
+                 * the same question as text, and is kept only for Copy.
+                 */
+                patch((e) => {
+                  const next = reduceActivity(e.activity, event)
+                  return next.question ? { ...e, running: false, activity: next } : e
+                })
                 return
               } else if (type === "message") {
                 const reply = typeof event.text === "string" ? event.text : ""
@@ -1396,12 +1447,31 @@ function ThemeChatPanel({
         return
       }
       if (busy) {
+        /* The words wait for the run in the way; the pictures stay in the box, to go with the next message. */
         setQueued(prompt)
         return
       }
+      setAttached([])
+      setAttachError(null)
       void send(prompt, images)
     },
     [busy, send, mode, writing, writeOne],
+  )
+
+  /**
+   * AN ANSWER TAPPED UNDER THE RUN'S QUESTION. It goes to the agent as the
+   * next message in this conversation, whichever mode the box is in, since
+   * the agent is what asked; the box keeps whatever is in it.
+   */
+  const answerQuestion = React.useCallback(
+    (text: string) => {
+      if (busy) {
+        setQueued(text)
+        return
+      }
+      void send(text)
+    },
+    [busy, send],
   )
 
   /** Try again: the same words, and the same pictures when they are still in hand. */
@@ -1852,6 +1922,25 @@ function ThemeChatPanel({
     runningExchange && dock && !expanded
       ? activityLine(runningExchange.activity, runningExchange.startedAt === undefined ? READING_MS : performance.now() - runningExchange.startedAt)
       : null
+  /** The newest run once it is over. */
+  const latest = exchanges[exchanges.length - 1]
+  const lastRun = latest && !latest.running ? latest : undefined
+  /** It stopped on a question nobody has answered yet: the next message is the answer. */
+  const openQuestion = lastRun?.activity.question ? lastRun : undefined
+  /*
+    SEEN, once the conversation it ended in is open (a phone's sheet always
+    is). Until then the folded pill says what it did in the run's own
+    sentence, or asks its question: a run that ends while the pill is folded
+    otherwise ends without a word.
+  */
+  const lastRunId = lastRun?.id
+  React.useEffect(() => {
+    if (lastRunId && (!dock || expanded)) setSeenRun(lastRunId)
+  }, [lastRunId, dock, expanded])
+  const foldedLine =
+    dock && !expanded && lastRun && lastRun.id !== seenRun
+      ? (lastRun.activity.question?.question ?? detailToShow(undefined, lastRun.activity.done))
+      : null
   const placeholder = listening
     ? "Listening…"
     : voice.state === "transcribing"
@@ -1860,15 +1949,19 @@ function ThemeChatPanel({
         ? `${writeLabel ?? "Writing the section"}…`
         : pillLine
           ? `${pillLine}…`
-          : mode === "code"
-            ? "Describe a section"
-            : busy
-              ? "Ask for the next change"
-              : attached.length
-                ? "Add a note, or just send"
-                : exchanges.length
-                  ? "Continue the conversation"
-                  : "Ask for a change"
+          : foldedLine
+            ? foldedLine
+            : mode === "code"
+              ? "Describe a section"
+              : busy
+                ? "Ask for the next change"
+                : attached.length
+                  ? "Add a note, or just send"
+                  : openQuestion
+                    ? "Or type your answer"
+                    : exchanges.length
+                      ? "Continue the conversation"
+                      : "Ask for a change"
 
   /* Undo is offered on the newest run that changed this page, while this is still the page. */
   const undoable = React.useMemo(() => {
@@ -2032,10 +2125,11 @@ function ThemeChatPanel({
           ) : (
             <>
               <ul className="space-y-5">
-                {exchanges.map((exchange) => (
+                {exchanges.map((exchange, index) => (
                   <ExchangeItem
                     key={exchange.id}
                     exchange={exchange}
+                    answer={exchanges[index + 1]?.prompt}
                     phone={phone}
                     canUndo={exchange.id === undoable}
                     canRetry={idle}
@@ -2044,6 +2138,7 @@ function ThemeChatPanel({
                     onView={viewImages}
                     onOpenCode={onOpenCodeEditor}
                     onReport={reportOne}
+                    onAnswer={answerQuestion}
                   />
                 ))}
                 {queued && (
@@ -2055,8 +2150,10 @@ function ThemeChatPanel({
                   </li>
                 )}
               </ul>
-              {/* What to ask next, once this answer is in. */}
-              {idle && !queued && <SuggestionChips items={suggestions} onPick={pickSuggestion} phone={phone} className="mt-5" />}
+              {/* What to ask next, once this answer is in. Not under a question: its answers are the next thing to tap. */}
+              {idle && !queued && !openQuestion && (
+                <SuggestionChips items={suggestions} onPick={pickSuggestion} phone={phone} className="mt-5" />
+              )}
             </>
           )}
         </div>

@@ -9,6 +9,11 @@
  *   ACTIVITY     a stream of lines becomes one line, folded steps and a
  *                count; a kind of line the chat has never seen, carrying a
  *                label, is shown like a step
+ *   PROGRESS     the server's headlines replace each other as the line and
+ *                fold into the steps; `done` is the summary, by name
+ *   QUESTIONS    a run that stops to ask: the question and its answers,
+ *                the closing message not drawn twice, read back from the
+ *                transcript, and the answer that was sent
  *   SUGGESTIONS  from the selected section, the empty page, what is
  *                missing, and the mode; three at most, each short
  *   PICTURES     what can be attached and what it becomes
@@ -26,14 +31,20 @@ import {
   activityFromOps,
   activityLine,
   changeCount,
+  changeSummary,
+  chosenOption,
+  detailToShow,
   EMPTY_ACTIVITY,
   finishedSteps,
   firstSentence,
+  MAX_OPTIONS,
+  questionFromReply,
   READING_MS,
   reduceActivity,
   settleActivity,
   type Activity,
 } from "../lib/website-builder/ask-activity"
+import { questionText } from "../lib/website-builder/agent/ask"
 import { MAX_SUGGESTION_CHARS, suggestionsFor, type SuggestionSection } from "../lib/website-builder/ask-suggestions"
 import { attachProblem, fitWithin, kindOf, sizeLabel, stillsRoom, stillTimes } from "../lib/website-builder/ask-attach"
 import { CATCH_UP_FRAMES, MAX_CHARS_PER_FRAME, typeToward, withSpoken } from "../lib/website-builder/ask-typing"
@@ -106,6 +117,131 @@ section("How much changed")
   check("nothing changed: no count at all", changeCount(EMPTY_ACTIVITY) === null)
   const restored = activityFromOps([{ kind: "update_section", id: "s1", settings: {} }, { kind: "update_section", id: "s1", settings: {} }, { kind: "remove_section", id: "s2" }])
   check("a conversation read back counts its changes the same way", changeCount(restored) === "2 sections changed", String(changeCount(restored)))
+}
+
+// ---------------------------------------------------------------------------
+section("The server's headlines, and the summary it ends on")
+// ---------------------------------------------------------------------------
+{
+  /*
+    A run as the route streams it (app/api/website-builder/themes/[installId]/
+    agent/route.ts and the loop behind it): the route's own lines, headlines
+    at each stage, the tool calls, a change, the next turn's "Planning"
+    again, the review, and `done` with its sentence and the sections.
+  */
+  const stream: Record<string, unknown>[] = [
+    { type: "conversation", id: "c1", title: "Add quotes under the hero" },
+    { type: "recorded", messageId: "m1" },
+    { type: "progress", phase: "reading", label: "Reading the page" },
+    { type: "progress", phase: "products", label: "Looking at your products" },
+    { type: "progress", phase: "planning", label: "Planning" },
+    { type: "plan", text: "I'll add three quotes under the hero." },
+    { type: "step", id: "t1", label: "Reading the Hero", state: "running" },
+    { type: "step", id: "t1", label: "Reading the Hero", state: "done" },
+    { type: "step", id: "t2", label: "Adding Testimonials", state: "running" },
+    { type: "progress", phase: "writing", label: "Writing Testimonials" },
+    { type: "op", op: { kind: "add_section", id: "q1", sectionType: "proof_testimonials" }, label: "Added Testimonials" },
+    { type: "step", id: "t2", label: "Adding Testimonials", state: "done" },
+    { type: "progress", phase: "planning", label: "Planning" },
+    { type: "progress", phase: "checking", label: "Checking contrast" },
+    { type: "progress", phase: "done", label: "Done", detail: "Added three quotes under the hero.", sections: ["Testimonials", "Hero"] },
+  ]
+  const lines: string[] = []
+  const after: Activity[] = []
+  let a = EMPTY_ACTIVITY
+  for (const line of stream) {
+    a = reduceActivity(a, line)
+    after.push(a)
+    lines.push(activityLine(a, READING_MS))
+  }
+  const at = (i: number) => lines[i]
+  check("each headline is the line as it comes", at(2) === "Reading the page" && at(3) === "Looking at your products" && at(4) === "Planning", lines.slice(2, 5).join(" | "))
+  check("the plan it wrote does not take the line from Planning", at(5) === "Planning", at(5))
+  check("nor do its tool calls while there is a headline: a dozen a second would flicker", at(6) === "Planning" && at(8) === "Planning", `${at(6)} | ${at(8)}`)
+  check("the next headline replaces it", at(9) === "Writing Testimonials", at(9))
+  check("a change landing is newer and more specific, so it is the line until the next thing", at(10) === "Added Testimonials" && at(11) === "Writing Testimonials", `${at(10)} | ${at(11)}`)
+  check("then the review", at(13) === "Checking contrast", at(13))
+  check("each headline settles the one before it", after[4].steps.filter((s) => s.id.startsWith("~progress:")).map((s) => s.state).join() === "done,done,running", JSON.stringify(after[4].steps))
+  const finished = finishedSteps(a).map((s) => s.label)
+  check(
+    "when it is done every headline and every tool call is in the finished steps, oldest first, and Done is not one of them",
+    finished.join(" | ") === "Reading the page | Looking at your products | Planning | Reading the Hero | Adding Testimonials | Writing Testimonials | Checking contrast",
+    finished.join(" | "),
+  )
+  check("the same words again are the same step, not a second one", finished.filter((s) => s === "Planning").length === 1)
+  check("nothing is left running once it says Done", a.steps.every((s) => s.state !== "running"))
+  check("done carries its sentence and the sections, by name", a.done?.detail === "Added three quotes under the hero." && a.done?.sections.join() === "Testimonials,Hero", JSON.stringify(a.done))
+  check("and the line says Done until the answer replaces it", at(14) === "Done", at(14))
+  check("the summary names what changed", changeSummary(a) === "Changed Testimonials and Hero", String(changeSummary(a)))
+
+  const reply = "Added three quotes under the hero. They use your colours."
+  check("the sentence is not drawn under an answer that already says it", detailToShow(reply, a.done) === null)
+  check("but is, where there is no answer to read: the folded pill, a run cut off after it finished", detailToShow(undefined, a.done) === "Added three quotes under the hero.")
+  check("and where the answer says something else", detailToShow("I changed a few things.", a.done) === "Added three quotes under the hero.")
+  check("spacing and a closing full stop do not make the same sentence different", detailToShow("Added three  quotes under the hero", a.done) === null)
+
+  const five = { ...a, done: { label: "Done", sections: ["Hero", "FAQ", "Footer", "Header", "Quotes"] } }
+  check("more than three names: two, and the rest counted", changeSummary(five) === "Changed Hero, FAQ and 3 more", String(changeSummary(five)))
+  const three = { ...a, done: { label: "Done", sections: ["Hero", "FAQ", "Footer"] } }
+  check("three names are listed", changeSummary(three) === "Changed Hero, FAQ and Footer", String(changeSummary(three)))
+  const withTheme = play([{ type: "op", op: { kind: "update_theme", settings: {} } }, { type: "progress", phase: "done", label: "Done", sections: ["Hero"] }])
+  check("and the site's settings, when they changed too", changeSummary(withTheme) === "Changed Hero and the site's settings", String(changeSummary(withTheme)))
+  const noNames = play([{ type: "op", op: { kind: "update_section", id: "h", settings: {} } }, { type: "progress", phase: "done", label: "Done" }])
+  check("a done with no names falls back to the count", changeSummary(noNames) === "1 section changed", String(changeSummary(noNames)))
+  check("and a conversation read back, which has no done line, is counted as before", changeSummary(activityFromOps([{ kind: "update_section", id: "s1", settings: {} }])) === "1 section changed")
+
+  const unknown = play([{ type: "progress", phase: "polishing", label: "Polishing the footer" }])
+  check("a phase this chat has never heard of is drawn by its label, as a step", activityLine(unknown, 0) === "Polishing the footer" && unknown.steps.length === 1)
+  check("a headline with no words changes nothing", reduceActivity(EMPTY_ACTIVITY, { type: "progress", phase: "writing", label: " " }) === EMPTY_ACTIVITY)
+  const noHeadlines = play([{ type: "step", id: "x", label: "Reading the FAQ", state: "running" }])
+  check("a server that sends no headlines still has its tool calls as the line", activityLine(noHeadlines, 0) === "Reading the FAQ")
+}
+
+// ---------------------------------------------------------------------------
+section("A run that stops to ask")
+// ---------------------------------------------------------------------------
+{
+  const asked = { id: "call_7", question: "Which product should the hero show?", why: "The hero sells one product.", suggestions: ["Clay mug", "Linen apron", "Oak board"] }
+  const closing = questionText(asked)
+  const stream: Record<string, unknown>[] = [
+    { type: "progress", phase: "reading", label: "Reading the page" },
+    { type: "progress", phase: "planning", label: "Planning" },
+    { type: "step", id: "call_7", label: "Asking you a question", state: "running" },
+    { type: "step", id: "call_7", label: "Asking you a question", state: "done" },
+    { type: "question", id: "call_7", question: asked.question, why: asked.why, options: asked.suggestions },
+  ]
+  const a = play(stream)
+  check("the question is kept with why and its answers", a.question?.question === asked.question && a.question?.why === asked.why && a.question?.options.join() === "Clay mug,Linen apron,Oak board", JSON.stringify(a.question))
+  check("nothing is left running: the run is over", a.steps.every((s) => s.state !== "running"), JSON.stringify(a.steps))
+  check("a run that asked has no done line and no summary of changes", a.done === undefined && changeSummary(a) === null)
+  check("the message after it is not activity: it is not drawn again", reduceActivity(a, { type: "message", text: closing }) === a)
+
+  const back = questionFromReply(closing, "m9")
+  check("the closing message, as the transcript keeps it, reads back as the same question", back?.question === asked.question && back?.options.join() === asked.suggestions.join() && back?.id === "m9", JSON.stringify(back))
+  check("an ordinary answer is not a question", questionFromReply("Added three quotes under the hero.", "m") === null)
+  check("nor an answer with a list in it", questionFromReply("I changed three things:\n- the heading\n- the button\n- the colours", "m") === null)
+  check("nor a question followed by anything but choices", questionFromReply("Want the button too?\nI can add it under the heading.", "m") === null)
+  check("nor one choice, or five", questionFromReply("Which one?\n- A", "m") === null && questionFromReply("Which one?\n- A\n- B\n- C\n- D\n- E", "m") === null)
+
+  const messy = play([{ type: "question", id: "q", question: "  Which  page?  ", options: ["Home", " home ", "", "About", "Shop", "Contact", "Blog"] }])
+  check(`answers are cleaned: blanks and repeats out, ${MAX_OPTIONS} at most`, messy.question?.question === "Which page?" && messy.question?.options.join() === "Home,About,Shop,Contact", JSON.stringify(messy.question))
+  const bare = play([{ type: "question", id: "q", question: "What is the shop called?" }])
+  check("a question with no answers to tap is still a question, answered in the box", bare.question?.options.length === 0)
+  check("a question line with no question changes nothing", reduceActivity(EMPTY_ACTIVITY, { type: "question", options: ["A", "B"] }) === EMPTY_ACTIVITY)
+
+  const q = back!
+  check("the answer sent is the choice it matches", chosenOption(q, "Linen apron") === "Linen apron")
+  check("whatever the case, the spacing or a full stop", chosenOption(q, " linen  APRON. ") === "Linen apron")
+  check("an answer typed instead matches none", chosenOption(q, "The blue vase") === null && chosenOption(q, undefined) === null)
+
+  const chat = read("components/website-builder/theme-chat.tsx")
+  const parts = read("components/website-builder/ask-parts.tsx")
+  check("the chat draws the question where the answer would be, and not the message that repeats it", /\{question \? \(\s*<QuestionChoices/.test(chat) && /next\.question \? \{ \.\.\.e, running: false, activity: next \}/.test(chat))
+  check("a tapped answer goes to the agent as the next message in the same conversation", /onAnswer=\{answerQuestion\}/.test(chat) && /const answerQuestion = React\.useCallback\([\s\S]{0,200}void send\(text\)/.test(chat) && /conversationId: live\.current\.conversation\.id/.test(chat))
+  check("the answer to a question is the message after it", /answer=\{exchanges\[index \+ 1\]\?\.prompt\}/.test(chat))
+  check("a question read back from the transcript is a question again", /questionFromReply\(open\.reply, message\.id\)/.test(chat))
+  check("with a question open the box says an answer can be typed, and the suggestions step aside", /"Or type your answer"/.test(chat) && /!queued && !openQuestion/.test(chat))
+  check("the answers are 44px on a phone and wrap rather than scroll", /phone \? "min-h-\[44px\]/.test(parts) && /flex min-w-0 flex-wrap/.test(parts) && !/QuestionChoices[\s\S]*overflow-x-auto[\s\S]*export function ScopeChip/.test(parts))
 }
 
 // ---------------------------------------------------------------------------
