@@ -154,8 +154,9 @@ export async function POST() {
   })
 
   if (error) {
-    console.error("initialize_creator_themes error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    /* The code only: the database's own words stay out of the log's readers and the browser. */
+    console.error("[initialize] initialize_creator_themes failed", { code: error.code })
+    return NextResponse.json({ error: "Could not set up your website. Try again." }, { status: 500 })
   }
 
   // Ensure product page templates exist for all installs

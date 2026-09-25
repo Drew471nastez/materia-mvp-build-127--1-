@@ -99,7 +99,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   const token = newPreviewToken()
   const { error } = await o.supabase.from("store_theme_installs").update({ preview_token: token }).eq("id", installId)
   if (error) {
-    return NextResponse.json({ error: /preview_token/.test(error.message) ? MIGRATION : error.message }, { status: 503 })
+    if (!/preview_token/.test(error.message)) console.error("[preview-link] failed", { code: error.code })
+    return NextResponse.json({ error: /preview_token/.test(error.message) ? MIGRATION : "Could not make a preview link. Try again." }, { status: 503 })
   }
   return NextResponse.json({ token, url: withToken(await baseOf(req), token), created: true })
 }
@@ -109,6 +110,9 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   const o = await owned(installId)
   if (o.error || !o.supabase) return NextResponse.json({ error: o.error }, { status: o.status })
   const { error } = await o.supabase.from("store_theme_installs").update({ preview_token: null }).eq("id", installId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error("[preview-link] could not turn off", { code: error.code })
+    return NextResponse.json({ error: "Could not turn the preview link off. Try again." }, { status: 500 })
+  }
   return NextResponse.json({ ok: true })
 }

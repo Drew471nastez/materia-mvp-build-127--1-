@@ -67,7 +67,11 @@ export async function POST(req: Request, { params }: Params) {
       ;({ error } = await admin.from("store_theme_installs").update({ status: "published" }).eq("id", installId))
     }
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    /* The database's own words go to the log, never to the browser. */
+    if (error) {
+      console.error("[publish] failed", { code: error.code })
+      return NextResponse.json({ error: "Could not publish. Try again." }, { status: 500 })
+    }
 
     // Promote draft_settings if present
     const { data: settingsRow } = await admin

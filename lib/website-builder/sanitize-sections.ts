@@ -126,12 +126,12 @@ export function sanitizeThemeSettings<T extends Record<string, unknown>>(setting
 type PageRow = { sections?: unknown; draft_sections?: unknown }
 type SettingsRow = { settings?: unknown; draft_settings?: unknown }
 
-function cleanPage<T extends PageRow>(page: T): T {
+function cleanPage<T extends PageRow>(page: T, schemaOf?: SchemaLookup): T {
   if (!page || typeof page !== "object") return page
   return {
     ...page,
-    ...(page.sections ? { sections: sanitizeSections(page.sections as SectionInstance[]) } : {}),
-    ...(page.draft_sections ? { draft_sections: sanitizeSections(page.draft_sections as SectionInstance[]) } : {}),
+    ...(page.sections ? { sections: sanitizeSections(page.sections as SectionInstance[], schemaOf) } : {}),
+    ...(page.draft_sections ? { draft_sections: sanitizeSections(page.draft_sections as SectionInstance[], schemaOf) } : {}),
   }
 }
 
@@ -151,12 +151,22 @@ function mapEmbedded<T>(value: unknown, fn: (row: T) => T): unknown {
   return value
 }
 
-export function sanitizeInstallRow<T>(install: T): T {
+/** Every section on every page of an install row, for the schema lookup. */
+export function sectionsOfInstallRow(install: unknown): SectionInstance[] {
+  const pages = (install as { pages?: unknown } | null)?.pages
+  const rows = Array.isArray(pages) ? pages : pages && typeof pages === "object" ? [pages] : []
+  return rows.flatMap((p) => {
+    const r = p as PageRow
+    return [...(Array.isArray(r.sections) ? r.sections : []), ...(Array.isArray(r.draft_sections) ? r.draft_sections : [])] as SectionInstance[]
+  })
+}
+
+export function sanitizeInstallRow<T>(install: T, schemaOf?: SchemaLookup): T {
   if (!install || typeof install !== "object") return install
   const row = install as Record<string, unknown>
   return {
     ...row,
-    ...(row.pages !== undefined ? { pages: mapEmbedded<PageRow>(row.pages, cleanPage) } : {}),
+    ...(row.pages !== undefined ? { pages: mapEmbedded<PageRow>(row.pages, (p) => cleanPage(p, schemaOf)) } : {}),
     ...(row.settings !== undefined ? { settings: mapEmbedded<SettingsRow>(row.settings, cleanSettings) } : {}),
   } as T
 }

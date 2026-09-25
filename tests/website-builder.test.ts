@@ -996,9 +996,12 @@ section("Add Section is derived from the files, one card per preset")
   ] as const
   for (const [route, template] of PUBLIC_ROUTES) {
     const src = read(route)
-    check(`${route} renders them on the server`, /await prerenderStorelibSections\(/.test(src))
-    // The call may carry the creator's products after the template name.
-    check(`${route} renders them as "${template}"`, new RegExp(`"${template.replace(".", "\\.")}"(,\\s*products)?\\s*\\)`).test(src) && new RegExp(`page=\\{\\{ template: "${template}" \\}\\}`).test(src))
+    /* Either function: `renderWithSources` is the same act with the saved
+       files already read (see below), which the product page now does once
+       for both the render and its dynamic sources. */
+    check(`${route} renders them on the server`, /await prerenderStorelibSections\(|renderWithSources\(shop\.sources,/.test(src))
+    // The call may carry the creator's products, and the shop's facts, after the template name.
+    check(`${route} renders them as "${template}"`, new RegExp(`"${template.replace(".", "\\.")}"(,\\s*(products|others))?(,\\s*undefined,\\s*dressed\\.data)?\\s*\\)`).test(src) && new RegExp(`page=\\{\\{ template: "${template}" \\}\\}`).test(src))
   }
 
   /**
@@ -1010,14 +1013,14 @@ section("Add Section is derived from the files, one card per preset")
    */
   {
     const site = read("app/(site)/w/[username]/render-site.tsx")
-    check("the website renders its sections on the server", /await prerenderStorelibSections\(/.test(site))
+    check("the website renders its sections on the server", /await prerenderStorelibSections\(|renderWithSources\(owner\.sources,/.test(site))
     check(
       "and names the template after the page it is drawing",
       /const template = templateForPage\(pageKey\)/.test(site),
     )
     check(
       "handing the same name to the render and to the provider",
-      /prerenderStorelibSections\([^)]*\btemplate, products\)/.test(site) &&
+      /(prerenderStorelibSections|renderWithSources)\([^)]*\btemplate, products(, undefined, dressed\.data)?\)/.test(site) &&
         /page=\{\{ template \}\}/.test(site),
     )
   }
