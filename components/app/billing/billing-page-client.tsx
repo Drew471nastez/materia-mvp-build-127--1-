@@ -13,7 +13,7 @@ import Link from "next/link"
 import { useLanguage } from "@/lib/i18n"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
-import { PLAN_FOOTNOTE, formatPlanPrice, offeredPlan, planHighlights, withPlanLabel, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
+import { PLAN_FOOTNOTE, formatPlanPrice, offeredPlan, withPlanLabel, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
 
 const TABS = [
   { id: "general", label: "General", icon: Settings },
@@ -283,10 +283,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
   const plans = initialData.plans.map(withPlanLabel)
   const pendingPlan = pendingPlanId && pendingPlanId !== currentPlan.id ? plans.find((p: any) => p.id === pendingPlanId) : null
 
-  // What the current plan includes, read from the same tables that enforce it.
-  // The first four lines: the fee, then what matters most after it.
-  const currentPlanId: PlanId = currentPlan.id === "growth" || currentPlan.id === "pro" ? currentPlan.id : "free"
-  const currentBenefits = planHighlights(currentPlanId).slice(0, 4)
+  /* What a plan includes is on the plan cards (components/billing/plan-cards), not repeated here. */
 
   return (
     /* Inside the settings tabs the page is Settings, which the shell's
@@ -369,14 +366,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                 </div>
 
                 <ul className="space-y-2 mb-5">
-                  {currentBenefits.map((benefit: string, idx: number) => (
-                    <li key={idx} className="flex items-center gap-2.5 text-[13px] text-[#374151]">
-                      <div className="w-4 h-4 rounded-full bg-purple-50 flex items-center justify-center shrink-0">
-                        <Check className="h-2.5 w-2.5 text-[#8b5cf6]" strokeWidth={3} />
-                      </div>
-                      {benefit}
-                    </li>
-                  ))}
+                  {/* What each plan includes is on the plan cards under this, the same cards the plans page shows. */}
                   {subscription?.current_period_end && subscription.status !== "canceled" && (
                     <li className={`flex items-center gap-2.5 text-[13px] ${subscription.cancel_at_period_end ? "text-amber-700 font-medium" : "text-[#6b7280]"}`}>
                       <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${subscription.cancel_at_period_end ? "bg-amber-100" : "bg-gray-100"}`}>
@@ -497,7 +487,20 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             </div>
           </div>
 
-          {/* ---- SECTION 2: Billing History ---- */}
+          {/* ---- SECTION 2: The plans, the same cards the plans page shows ---- */}
+          <PricingTiers
+            plans={plans}
+            currentPlan={currentPlan}
+            subscription={subscription}
+            loading={loading}
+            setLoading={setLoading}
+            showNotification={showNotification}
+            router={router}
+            onUpgradeClick={(planId, planName, priceCents) => openUpgradeModal(planId, planName, priceCents)}
+            pendingPlanId={pendingPlanId}
+          />
+
+          {/* ---- SECTION 3: Billing History ---- */}
           <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-[17px] font-bold text-[#1a1a2e]">Billing History</h2>
@@ -629,18 +632,6 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             )}
           </div>
 
-          {/* ---- SECTION 3: Pricing Tiers ---- */}
-          <PricingTiers
-            plans={plans}
-            currentPlan={currentPlan}
-            subscription={subscription}
-            loading={loading}
-            setLoading={setLoading}
-            showNotification={showNotification}
-            router={router}
-            onUpgradeClick={(planId, planName, priceCents) => openUpgradeModal(planId, planName, priceCents)}
-            pendingPlanId={pendingPlanId}
-          />
         </div>
       </div>
 
@@ -1010,7 +1001,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
   return (
     <div>
       <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-4">Plans</h2>
-      <PlanCards actions={{ free: actionFor("free"), growth: actionFor("growth") }} />
+      <PlanCards actions={{ free: actionFor("free"), growth: actionFor("growth") }} lead={currentPlan.id === "free" ? "growth" : undefined} />
       <p className="mt-4 text-[13px] leading-[1.5] text-[#6b7280]">{PLAN_FOOTNOTE}</p>
     </div>
   )

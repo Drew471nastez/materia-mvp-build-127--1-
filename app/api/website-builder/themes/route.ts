@@ -37,7 +37,11 @@ export async function GET() {
     .eq("creator_id", creator.id)
     .order("sort_order", { ascending: true })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  /* The database's own words go to the log, never to the browser. */
+  if (error) {
+    console.error("[themes/list] failed", { code: error.code })
+    return NextResponse.json({ error: "Could not load your websites. Try again." }, { status: 500 })
+  }
 
   return NextResponse.json({ installs: installs ?? [], username })
 }

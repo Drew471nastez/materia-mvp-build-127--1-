@@ -116,7 +116,11 @@ export async function GET(req: Request, { params }: Params) {
       .from("store_theme_custom_files")
       .select("path, updated_at")
       .eq("install_id", installId)
-    if (listErr) return NextResponse.json({ error: listErr.message }, { status: 500 })
+    /* The database's own words go to the log, never to the browser. */
+    if (listErr) {
+      console.error("[theme-files] failed", { code: listErr.code })
+      return NextResponse.json({ error: "Could not load that. Try again." }, { status: 500 })
+    }
     return NextResponse.json({ customized_paths: data?.map(f => f.path) ?? [] })
   }
 
@@ -337,7 +341,11 @@ export async function PATCH(req: Request, { params }: Params) {
         : { install_id: installId, path: to, content: existing.content },
       { onConflict: "install_id,path" },
     )
-  if (upsertErr) return NextResponse.json({ error: upsertErr.message }, { status: 500 })
+  /* The database's own words go to the log, never to the browser. */
+  if (upsertErr) {
+    console.error("[theme-files] failed", { code: upsertErr.code })
+    return NextResponse.json({ error: "Could not save the file. Try again." }, { status: 500 })
+  }
   await supabase.from("store_theme_custom_files").delete().eq("install_id", installId).eq("path", from)
   after(() => mirrorToGitHub(installId, { kind: "rename", from, to, content: source }))
   return NextResponse.json({ ok: true, path: to })

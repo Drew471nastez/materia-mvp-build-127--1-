@@ -566,6 +566,30 @@ console.log("\nAnalytics: counted by the database or by Node, the same figures")
       && /import\("@\/lib\/analytics\/report-cache"\)\.then\(\(m\) => m\.warmAnalytics\(\)\)/.test(read("components/shared/prefetch-links.tsx")))
 }
 
+console.log("\nAnalytics: a wait that says so")
+{
+  /* "It shows those numbers blurred, which is okay, but it takes too much to load the data ... without showing some feedback to the user." */
+  const client = read("app/app/analytics/analytics-client.tsx")
+  const line = read("components/app/loading-line.tsx")
+  check("what is waited for: the figures of this question, or its lists; never the minute's silent refresh of the same one",
+    /const waitingFigures = reportsState\.loading && \(!answer \|\| reportsState\.stale\)/.test(client)
+      && /const waitingLists = reportsState\.loading && !!answer && answer\.mode === "store" && !!answer\.reports\.partial/.test(client))
+  check("the app's slim progress line runs along the top of the figures' card while either lasts",
+    /<LoadingLine active=\{waitingFigures \|\| waitingLists\} \/>/.test(client) && /import \{ LoadingLine \} from "@\/components\/app\/loading-line"/.test(client)
+      && /className="relative bg-white rounded-2xl[^"]*overflow-hidden"/.test(client))
+  check("it shows nothing for 300ms, the navigation bar's wait, then runs towards 90% and ends at the full width, fading",
+    /export const LOADING_LINE_AFTER_MS = 300/.test(line) && /\{ transform: "scaleX\(0\)", opacity: 1 \}, \{ transform: "scaleX\(0\.9\)", opacity: 1 \}/.test(line)
+      && /\{ transform: "scaleX\(1\)", opacity: 1, offset: 0\.45 \}/.test(line) && /\{ transform: "scaleX\(1\)", opacity: 0 \}/.test(line))
+  check("on transform and opacity only, from effects: no React state, nothing renders while it moves",
+    !/useState/.test(line) && /el\.animate\(/.test(line) && !/requestAnimationFrame/.test(line) && /prefers-reduced-motion: reduce/.test(line))
+  check("after 2.5s of waiting for the figures, a quiet line over the chart: Counting visits for this range",
+    /export const COUNTING_NOTE_MS = 2500/.test(client) && />Counting visits for this range</.test(client)
+      && /\{waitingFigures && !sample \? \(/.test(client) && /animation: `skeleton-reveal 260ms ease-out \$\{COUNTING_NOTE_MS\}ms forwards`/.test(client))
+  check("it moves nothing (over the chart, out of the flow), is announced politely, and starts again for a new question",
+    /role="status"\s+data-counting-note=""\s+className="pointer-events-none absolute inset-x-0/.test(client) && /key=\{waitingKey\}/.test(client))
+  check("and the figures on screen stay, blurred, while it waits", /soft=\{soft\} loading=\{figuresLoading\}/.test(client))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

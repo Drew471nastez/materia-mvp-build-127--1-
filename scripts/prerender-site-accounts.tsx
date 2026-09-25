@@ -127,7 +127,7 @@ for (const slug of ["storelib-default", "studio-noir"]) {
     { key: "home", sections: home, template: "index", seed: [] },
   ]
   for (const p of pages) {
-    const prerendered = renderWithSources({}, p.sections, theme, p.template, PRODUCTS, p.page, { shop: { name: def.sample.brand }, ...(p.globals ?? {}) })
+    const prerendered = renderWithSources({}, p.sections, theme, p.template, PRODUCTS, p.page, undefined, { shop: { name: def.sample.brand }, ...(p.globals ?? {}) })
     const props = { theme, sections: p.sections, storefront: { creatorId: CREATOR, installId: "probe-install" } }
     const ssr = renderToString(
       createElement(StorelibSourcesProvider, { prerendered, page: { template: p.template } } as never, createElement(ThemePage, props as never)),

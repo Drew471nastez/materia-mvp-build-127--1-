@@ -12,6 +12,7 @@ import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provid
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import LibraryLoading from "./loading"
 import { LibraryBgFix } from "./library-bg-fix"
+import { HtmlClass } from "@/components/platform/html-class"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -111,6 +112,7 @@ export default async function LibraryLayout({
     */
     <NativeAuthGate>
     <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="library">
+      <HtmlClass name="with-page-library" />
       <LibraryBgFix />
       <PurchaseSyncProvider />
       <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} />

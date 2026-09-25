@@ -146,6 +146,10 @@ const SUITES = [
   "tests/web-vitals.test.ts",
   "tests/sitemaps.test.ts",
   "tests/storelib-theme.test.ts",
+  "tests/theme-setting-types.test.ts",
+  "tests/storefront-data.test.ts",
+  "tests/theme-sections.test.ts",
+  "tests/public-fetch.test.ts",
   "tests/storelib-package.test.ts",
   "tests/storelib-hardening.test.ts",
   "tests/agent-own-sections.test.ts",
@@ -233,6 +237,7 @@ const SUITES = [
   "tests/coupon-checkout.test.ts",
   "tests/cart-coupons.test.ts",
   "tests/home-cards.test.ts",
+  "tests/home-announcements.test.ts",
   "tests/home-progress.test.ts",
   "tests/creator-badges.test.ts",
   "tests/sql-run-four.test.ts",
@@ -240,6 +245,9 @@ const SUITES = [
   "tests/business-accounts.test.ts",
   "tests/onboarding-polish.test.ts",
   "tests/section-markup-guard.test.ts",
+  "tests/list-price.test.ts",
+  "tests/upload-limits.test.ts",
+  "tests/onepage-editor-shell.test.ts",
   "tests/own-section-html.test.ts",
   "tests/website-builder-api.test.ts",
   "tests/security-scan.test.ts",
@@ -247,6 +255,7 @@ const SUITES = [
   "tests/site-contact.test.ts",
   "tests/account-sections.test.ts",
   "tests/onepage-blocks.test.ts",
+  "tests/checkout-loads.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

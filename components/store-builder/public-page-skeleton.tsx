@@ -3,6 +3,7 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import type { ThemePreset } from "@/lib/store-builder/types"
 import { getThemeSkeletonColors } from "@/lib/theme-skeleton-colors"
+import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
 
 // Re-export for backwards compatibility
 export { getThemeSkeletonColors } from "@/lib/theme-skeleton-colors"
@@ -25,8 +26,8 @@ export function ProductPageSkeleton({ themePreset = "default" }: { themePreset?:
       <div
         className="h-14 border-b flex items-center justify-between px-4"
         style={{
-          backgroundColor: themePreset === "astrid" ? "#1a1a1a" : colors.backgroundColor,
-          borderColor: themePreset === "astrid" ? "#2a2a2a" : "#e5e7eb"
+          backgroundColor: isDarkScheme(themePreset) ? (colors.skeletonColor ?? "#1a1a1a") : colors.backgroundColor,
+          borderColor: isDarkScheme(themePreset) ? "#2a2a2a" : "#e5e7eb"
         }}
       >
         <div className="flex items-center gap-3">
@@ -79,14 +80,14 @@ export function ProductPageSkeleton({ themePreset = "default" }: { themePreset?:
             <div
               className="sticky top-6 rounded-xl border p-6 space-y-4"
               style={{
-                backgroundColor: themePreset === "astrid" ? "#1a1a1a" : colors.backgroundColor,
-                borderColor: themePreset === "astrid" ? "#2a2a2a" : "#e5e7eb"
+                backgroundColor: isDarkScheme(themePreset) ? (colors.skeletonColor ?? "#1a1a1a") : colors.backgroundColor,
+                borderColor: isDarkScheme(themePreset) ? "#2a2a2a" : "#e5e7eb"
               }}
             >
               <Skeleton themePreset={themePreset} className="h-10 w-24" />
               <Skeleton themePreset={themePreset} className="h-12 w-full rounded-lg" />
               <Skeleton themePreset={themePreset} className="h-10 w-full rounded-lg" />
-              <div className="pt-4 border-t space-y-3" style={{ borderColor: themePreset === "astrid" ? "#2a2a2a" : "#e5e7eb" }}>
+              <div className="pt-4 border-t space-y-3" style={{ borderColor: isDarkScheme(themePreset) ? "#2a2a2a" : "#e5e7eb" }}>
                 <Skeleton themePreset={themePreset} className="h-5 w-32" />
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="flex items-center gap-2">
@@ -103,7 +104,7 @@ export function ProductPageSkeleton({ themePreset = "default" }: { themePreset?:
       {/* More From Seller Section */}
       <div
         className="py-12 px-4"
-        style={{ backgroundColor: themePreset === "astrid" ? "#0a0a0a" : colors.backgroundColor }}
+        style={{ backgroundColor: colors.backgroundColor }}
       >
         <div className="max-w-6xl mx-auto">
           <Skeleton themePreset={themePreset} className="h-8 w-48 mb-8" />
@@ -135,8 +136,8 @@ export function ShopPageSkeleton({ themePreset = "default" }: { themePreset?: Th
       <div
         className="py-3 px-4 flex items-center justify-center gap-4"
         style={{
-          backgroundColor: themePreset === "astrid" ? "#1a1a1a" : colors.backgroundColor,
-          borderBottom: `1px solid ${themePreset === "astrid" ? "#2a2a2a" : "#e5e7eb"}`
+          backgroundColor: isDarkScheme(themePreset) ? (colors.skeletonColor ?? "#1a1a1a") : colors.backgroundColor,
+          borderBottom: `1px solid ${isDarkScheme(themePreset) ? "#2a2a2a" : "#e5e7eb"}`
         }}
       >
         <Skeleton themePreset={themePreset} className="h-8 w-8 rounded-full" />
@@ -170,7 +171,7 @@ export function ShopPageSkeleton({ themePreset = "default" }: { themePreset?: Th
       {/* Featured Products Section */}
       <div
         className="py-12 px-4"
-        style={{ backgroundColor: themePreset === "astrid" ? "#0a0a0a" : colors.backgroundColor }}
+        style={{ backgroundColor: colors.backgroundColor }}
       >
         <div className="max-w-6xl mx-auto">
           <Skeleton themePreset={themePreset} className="h-8 w-48 mb-4" />
@@ -190,8 +191,8 @@ export function ShopPageSkeleton({ themePreset = "default" }: { themePreset?: Th
                 key={i}
                 className="rounded-lg border overflow-hidden"
                 style={{
-                  backgroundColor: themePreset === "astrid" ? "#1a1a1a" : colors.backgroundColor,
-                  borderColor: themePreset === "astrid" ? "#2a2a2a" : "#e5e7eb"
+                  backgroundColor: isDarkScheme(themePreset) ? (colors.skeletonColor ?? "#1a1a1a") : colors.backgroundColor,
+                  borderColor: isDarkScheme(themePreset) ? "#2a2a2a" : "#e5e7eb"
                 }}
               >
                 <Skeleton themePreset={themePreset} className="aspect-video w-full" />
@@ -209,7 +210,7 @@ export function ShopPageSkeleton({ themePreset = "default" }: { themePreset?: Th
       {/* About Section Skeleton */}
       <div
         className="py-12 px-4"
-        style={{ backgroundColor: themePreset === "astrid" ? "#0a0a0a" : colors.backgroundColor }}
+        style={{ backgroundColor: colors.backgroundColor }}
       >
         <div className="max-w-4xl mx-auto text-center">
           <Skeleton themePreset={themePreset} className="h-8 w-32 mx-auto mb-6" />
@@ -224,8 +225,8 @@ export function ShopPageSkeleton({ themePreset = "default" }: { themePreset?: Th
       <div
         className="py-8 px-4 border-t"
         style={{
-          backgroundColor: themePreset === "astrid" ? "#0a0a0a" : colors.backgroundColor,
-          borderColor: themePreset === "astrid" ? "#2a2a2a" : "#e5e7eb"
+          backgroundColor: colors.backgroundColor,
+          borderColor: isDarkScheme(themePreset) ? "#2a2a2a" : "#e5e7eb"
         }}
       >
         <div className="max-w-6xl mx-auto flex justify-center">

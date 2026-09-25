@@ -698,7 +698,8 @@ console.log("\nphone, 390 wide, touch")
       /* Both are the shared sheet now: the menu is the one holding the action list. */
       const panels = [...document.querySelectorAll("[data-sheet-panel]")]
       const menu = panels.find((el) => el.querySelector("[data-action-sheet]")) ?? null
-      const sheet = panels.find((el) => el !== menu) ?? null
+      /* By its title: the Date range sheet is built ahead and waits in the page too (f061f52c), and it came first. */
+      const sheet = panels.find((el) => el !== menu && /Change customer email/.test(el.textContent || "")) ?? null
       const vis = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return getComputedStyle(el).visibility === "hidden" ? null : Math.round(r.top) }
       window.__sheets.push({ t: Math.round(performance.now() - t0), menu: vis(menu), sheet: vis(sheet) })
       if (performance.now() - t0 < 1400) requestAnimationFrame(tick)
@@ -715,10 +716,14 @@ console.log("\nphone, 390 wide, touch")
   const settled = frames.at(-1)
   console.log(`  ..    after the tap on the row: the menu's sheet is off screen at ${menuGone?.t}ms, the email sheet starts rising at ${rose?.t}ms; frames with both sheets on screen: ${both.length}`)
   expect(both.length === 0 && rose && settled.sheet !== null && settled.sheet < H / 2 + 200, "one sheet at a time: the menu's leaves, then the email's rises and stays", { both: both.slice(0, 3), rose, settled })
-  const sheet = await p.evaluate(() => ({ title: document.querySelector("[data-sheet-panel]")?.textContent?.slice(0, 40), dialogs: document.querySelectorAll("[role=dialog][data-slot=dialog-content]").length }))
+  const sheet = await p.evaluate(() => {
+    /* The panel on screen, not the first in the page: the Date range sheet waits there, built ahead (f061f52c). */
+    const shown = [...document.querySelectorAll("[data-sheet-panel]")].find((el) => getComputedStyle(el).visibility !== "hidden" && el.getBoundingClientRect().top < innerHeight - 1)
+    return { title: shown?.textContent?.slice(0, 40), dialogs: document.querySelectorAll("[role=dialog][data-slot=dialog-content]").length }
+  })
   expect(/^Change customer email/.test(sheet.title || "") && sheet.dialogs === 0, "on a phone it is the shared sheet, not a centred dialog", sheet)
   await p.screenshot({ path: join(shots, "orders-phone-email-sheet.png") })
-  await p.evaluate(() => [...document.querySelectorAll("[data-sheet-panel] button")].find((b) => b.textContent === "Cancel").click())
+  await p.evaluate(() => [...document.querySelectorAll("[data-sheet-panel]")].find((el) => /Change customer email/.test(el.textContent || "")).querySelectorAll("button").forEach((b) => { if (b.textContent === "Cancel") b.click() }))
   await sleep(600)
 
   const openedId = await p.evaluate(() => new URLSearchParams(location.search).get("order"))

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useLayoutEffect, useSyncExternalStore } from "react"
 
 /**
  * ===========================================================================
@@ -40,8 +40,39 @@ import { useEffect } from "react"
  * Restored on unmount, because every other page in the app wants that
  * padding: it is what keeps a footer above the home indicator.
  */
-export function FullScreenLock({ tone = "dark" }: { tone?: "dark" | "light" }) {
-  useEffect(() => {
+/**
+ * ===========================================================================
+ *  FROM THE FIRST PAINT, WITHOUT A :has() ON <html>
+ * ===========================================================================
+ * The lock used to hold before this ran by a second copy of its rules keyed
+ * on `html:has(.wb-editor)`. A `:has()` whose subject is <html> is asked
+ * again whenever anything under it loses its children or has its text
+ * replaced, and each time it is asked the root is restyled, which restyles
+ * every element in the document (Tailwind's --spacing is in rem, so the whole
+ * page depends on the root). Measured with scripts/check-app-sheets-frames.mjs
+ * on /app, where no editor exists: 900 elements restyled when "Copy" became
+ * "Copied", when the QR code drew, when a period was picked.
+ *
+ * So the class is the only lock, and it is there as early as that rule was:
+ *
+ *   SERVER HTML   `fromFirstPaint` writes a one line script as the first
+ *                 thing inside the editor's root. The parser runs it the
+ *                 moment it reaches it, before the editor below it can paint,
+ *                 which is when `:has(.wb-editor)` began to match.
+ *   CLIENT        a layout effect, which runs before the browser paints the
+ *                 commit that mounted the editor, and its cleanup in the
+ *                 commit that removes it.
+ *
+ * The script is rendered for the server's HTML and for hydration only. A
+ * script React creates on the client never runs, so it is not drawn then.
+ */
+const noSubscribe = () => () => {}
+const LOCK_NOW = `try{document.documentElement.classList.add("wb-fullscreen")}catch(e){}`
+
+export function FullScreenLock({ tone = "dark", fromFirstPaint = false }: { tone?: "dark" | "light"; fromFirstPaint?: boolean }) {
+  /* false in the server's HTML and while hydrating it, true for a mount on the client. */
+  const onClient = useSyncExternalStore(noSubscribe, () => true, () => false)
+  useLayoutEffect(() => {
     const root = document.documentElement
     root.classList.add("wb-fullscreen")
     /**
@@ -72,5 +103,5 @@ export function FullScreenLock({ tone = "dark" }: { tone?: "dark" | "light" }) {
     }
   }, [tone])
 
-  return null
+  return fromFirstPaint && !onClient ? <script dangerouslySetInnerHTML={{ __html: LOCK_NOW }} /> : null
 }

@@ -21,11 +21,19 @@ import { PageSpinner } from "@/components/ui/activity-spinner"
  *
  * The header's height is the shell's: 68px under the status bar on a phone,
  * 58px from md, read with env(safe-area-inset-top) so a browser gets 0.
+ *
+ * From md the rail is there too, the sidebar's white column with its hairline,
+ * and the content area starts beside it, as the slow page's surface does
+ * (components/app/app-stage.tsx SlowPage). It is also what an /app page's
+ * HTML shows until its script has run (components/app/app-layout-wrapper),
+ * so a page that arrives as a document goes from the slow page's spinner to
+ * this one in the same place, not 120ms of rail to the left of it.
  */
 export default function AppColdStart() {
   return (
     <div data-app-cold-start="" className="fixed inset-0 bg-[#111111] md:bg-[#131316]">
-      <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] rounded-t-[20px] bg-[#f8f9fa] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:rounded-none">
+      <div className="absolute bottom-0 left-0 top-[calc(58px+env(safe-area-inset-top,0px))] hidden w-[240px] border-r border-neutral-200/60 bg-white md:block" />
+      <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] rounded-t-[20px] bg-[#f8f9fa] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:rounded-none">
         <PageSpinner />
       </div>
     </div>

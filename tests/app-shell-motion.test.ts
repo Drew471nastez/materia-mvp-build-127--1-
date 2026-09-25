@@ -374,14 +374,22 @@ section("Pages drawn over the whole shell")
     /html:has\(\[data-page-layer\]:not\(\[data-page-layer-phone\]\)\) \[data-shell-chrome\] \{\s*visibility: hidden;/.test(css)
       && /html\.has-page-layer \[data-shell-chrome\] \{\s*visibility: hidden;/.test(css)
       && /html:has\(\[data-page-layer\]:not\(\[data-page-layer-phone\]\)\) \.app-content-scroll \{\s*-webkit-overflow-scrolling: auto;/.test(css)
-      && /html\.capacitor:has\(\[data-page-layer\]:not\(\[data-page-layer-phone\]\)\)::before \{\s*display: none;/.test(css)
+      // Changed on purpose: the shield stands down by the class alone, which the
+      // layer sets from its first paint (HtmlClassScript in the server's HTML,
+      // then its layout effect). `html.capacitor:has([data-page-layer])` made
+      // <html> the subject of a :has(), and the Android app restyled the whole
+      // document whenever text anywhere was replaced (NATIVE=1
+      // scripts/check-app-sheets-frames.mjs).
+      && !/html\.capacitor:has\(\[data-page-layer/.test(css.replace(/\/\*[\s\S]*?\*\//g, ""))
+      && /<HtmlClassScript name=\{phoneOnly \? "has-phone-page-layer" : "has-page-layer"\} \/>/.test(layer)
       && /html\.capacitor\.has-page-layer::before \{\s*display: none;/.test(css))
   const phoneOnlyRules = /@media \(max-width: 767px\) \{\s*html:has\(\[data-page-layer-phone\]\) \[data-shell-chrome\] \{[\s\S]*?\n\}/.exec(css)?.[0] ?? ""
   check("and for the editor's layer the same four, by :has() and by class, below 768px only: from md the header and the rail stay",
     /html:has\(\[data-page-layer-phone\]\) \[data-shell-chrome\] \{\s*visibility: hidden;/.test(phoneOnlyRules)
       && /html\.has-phone-page-layer \[data-shell-chrome\] \{\s*visibility: hidden;/.test(phoneOnlyRules)
       && /html:has\(\[data-page-layer-phone\]\) \.app-content-scroll \{\s*-webkit-overflow-scrolling: auto;/.test(phoneOnlyRules)
-      && /html\.capacitor:has\(\[data-page-layer-phone\]\)::before \{\s*display: none;/.test(phoneOnlyRules)
+      // (the capacitor :has() twin is gone on purpose, see the check above)
+      && !/html\.capacitor:has\(\[data-page-layer-phone\]\)/.test(phoneOnlyRules)
       && /html\.capacitor\.has-phone-page-layer::before \{\s*display: none;/.test(phoneOnlyRules)
       && /html\.capacitor\.has-phone-page-layer \{\s*background-color: #f8f9fa;/.test(phoneOnlyRules))
   const stage = code("components/app/app-stage.tsx")
@@ -643,7 +651,7 @@ section("Toasts on a phone")
       /e instanceof Refused\s*\?\s*\{ message: e\.message \}/.test(code("components/website-builder/editor/image-picker.tsx")) &&
       !/err\.message/.test(code("components/website-builder/editor/image-picker.tsx")))
   const addRoute = code("app/api/website-builder/themes/add/route.ts")
-  check("adding a theme never hands the database's error text to the toast", !/seedErr\.message|installErr\?\.message/.test(addRoute) && (addRoute.match(/"Could not add the theme\. Try again\."/g) ?? []).length === 2)
+  check("adding a theme never hands the database's error text to the toast", !/seedErr\.message|installErr\?\.message/.test(addRoute) && (addRoute.match(/"Could not add the theme\. Try again\."/g) ?? []).length >= 2 && !/json\(\{ error: [a-zA-Z]+Err/.test(addRoute))
 }
 
 section("Avatars")

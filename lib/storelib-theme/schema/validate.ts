@@ -15,7 +15,9 @@
  */
 import { z } from "zod"
 
-import { CONTROL_TYPES, controlFor, holdsValue, resolveControlType } from "../controls/registry"
+import { CONTROL_TYPES, UNSUPPORTED_TYPES, controlFor, holdsValue, resolveControlType } from "../controls/registry"
+import { VIDEO_HOSTS } from "../values"
+import { parseCondition } from "../storelib/template"
 import { readLanguageVersion } from "../language"
 import { LIMITS, SECTION_SCHEMA_VERSION, type Result, type SectionSchema, type ThemeError } from "../types"
 
@@ -39,6 +41,7 @@ const setting = z
     unit: z.string().max(8).optional(),
     responsive: z.boolean().optional(),
     content: z.string().optional(),
+    visible_if: z.string().max(300).optional(),
   })
   .passthrough()
 
@@ -149,12 +152,39 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
   if (!TYPE.test(s.type)) err("type", `"${s.type}" is not a section type: lowercase letters, digits, - and _`)
   if (s.settings.length > LIMITS.settingsPerSchema) err("settings", `${s.settings.length} settings; the limit is ${LIMITS.settingsPerSchema}`)
 
-  const checkSettings = (list: typeof s.settings, at: string, seen = new Set<string>()) => {
+  /**
+   * A `visible_if` may read the section's settings, and a block's may also
+   * read its own block's. Anything else is a condition about nothing, which
+   * would hide its setting for good, so it is refused where it is written.
+   */
+  const sectionValueIds = new Set(s.settings.filter((f) => holdsValue(f.type)).map((f) => f.id))
+  const checkCondition = (f: (typeof s.settings)[number], p: string, blockIds: Set<string> | null) => {
+    if (f.visible_if === undefined) return
+    const parsed = parseCondition(f.visible_if)
+    if (parsed.ok === false) {
+      err(`${p}.visible_if`, `visible_if does not read: ${parsed.message}`)
+      return
+    }
+    for (const segs of parsed.paths) {
+      const [root, group, id] = segs
+      const owner = root === "section" ? sectionValueIds : root === "block" ? blockIds : null
+      if (group !== "settings" || !owner || !id) {
+        err(`${p}.visible_if`, `visible_if reads "${segs.join(".")}"; it may read section.settings.<id>${blockIds ? " or block.settings.<id>" : ""}`)
+      } else if (!owner.has(id)) {
+        err(`${p}.visible_if`, `visible_if reads ${root}.settings.${id}, which is not a setting of this ${root}`)
+      } else if (id === f.id) {
+        err(`${p}.visible_if`, `a setting cannot be shown or hidden by its own value`)
+      }
+    }
+  }
+
+  const checkSettings = (list: typeof s.settings, at: string, seen = new Set<string>(), blockIds: Set<string> | null = null) => {
     list.forEach((f, i) => {
       const p = `${at}[${i}]`
       const control = controlFor(f.type)
       if (!control) {
-        err(`${p}.type`, `"${f.type}" is not a Storelib control. Use one of: ${CONTROL_TYPES.join(", ")}`)
+        const why = UNSUPPORTED_TYPES[f.type]
+        err(`${p}.type`, why ? `"${f.type}" is a Shopify type Storelib does not have. ${why}` : `"${f.type}" is not a Storelib control. Use one of: ${CONTROL_TYPES.join(", ")}`)
         return
       }
       if (!ID.test(f.id)) err(`${p}.id`, `"${f.id}" is not a setting id: lowercase letters, digits and _`)
@@ -168,6 +198,22 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
       if (f.responsive && !control.responsive) err(`${p}.responsive`, `a ${canonical} cannot be responsive`)
       if (canonical === "range" && (f.min === undefined || f.max === undefined)) err(p, `a range needs min and max`)
       if (f.min !== undefined && f.max !== undefined && f.min >= f.max) err(p, `min ${f.min} is not below max ${f.max}`)
+      /* The keys the newer controls read, checked where they are declared
+         rather than discovered as a blank control in the panel. */
+      if (canonical === "product_list" && f.limit !== undefined) {
+        const n = f.limit as unknown
+        if (typeof n !== "number" || !Number.isInteger(n) || n < 1 || n > 24) err(`${p}.limit`, `a product_list's limit is a whole number from 1 to 24`)
+      }
+      if (canonical === "video_url" && f.accept !== undefined) {
+        const hosts = f.accept as unknown
+        if (!Array.isArray(hosts) || hosts.length === 0 || !hosts.every((h) => (VIDEO_HOSTS as readonly unknown[]).includes(h))) {
+          err(`${p}.accept`, `accept lists the hosts to allow: ${VIDEO_HOSTS.map((h) => `"${h}"`).join(", ")}`)
+        }
+      }
+      if (canonical === "focal_point" && f.image !== undefined) {
+        const target = list.find((o) => o.id === f.image)
+        if (!target || resolveControlType(target.type) !== "image_picker") err(`${p}.image`, `"${String(f.image)}" is not an image_picker setting beside this one`)
+      }
 
       if (f.default !== undefined && holdsValue(f.type)) {
         // A responsive default may be per breakpoint.
@@ -181,6 +227,7 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
         }
       }
       if (!holdsValue(f.type) && f.default !== undefined) err(`${p}.default`, `a ${canonical} holds no value and takes no default`)
+      checkCondition(f, p, blockIds)
     })
   }
   checkSettings(s.settings, "settings")
@@ -191,7 +238,7 @@ export function validateSectionSchema(input: unknown, opts: ValidateOptions = {}
     if (!TYPE.test(b.type)) err(`${p}.type`, `"${b.type}" is not a block type`)
     if (blockTypes.has(b.type)) err(`${p}.type`, `block type "${b.type}" is declared twice`)
     blockTypes.add(b.type)
-    checkSettings(b.settings, `${p}.settings`)
+    checkSettings(b.settings, `${p}.settings`, new Set<string>(), new Set(b.settings.filter((f) => holdsValue(f.type)).map((f) => f.id)))
   })
   if (s.max_blocks !== undefined && s.max_blocks > LIMITS.blocksPerSection) {
     err("max_blocks", `${s.max_blocks} is above the limit of ${LIMITS.blocksPerSection}`)

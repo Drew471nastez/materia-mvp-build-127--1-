@@ -77,6 +77,10 @@ const CONSUMERS = [
   "app/(site)/w/[username]/render-site.tsx",
   "app/(marketing)/[sellername]/page.tsx",
   "components/website-builder/theme/render-product.tsx",
+  /* The announcement bar's messages and timing, read for ThemePage. */
+  "lib/website-builder/announcement.ts",
+  /* The menus, read for every section that shows one and for the header. */
+  "lib/website-builder/storefront-data.ts",
 ]
 const consumed = CONSUMERS.map((f) => stripComments(readFileSync(join(root, f), "utf8"))).join("\n")
 

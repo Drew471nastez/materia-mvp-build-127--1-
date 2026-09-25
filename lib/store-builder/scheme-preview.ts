@@ -36,7 +36,7 @@ import type { ThemePreset } from "./types"
  * the picker because the server needs it too (to prepare each one's paint),
  * and a server component cannot read a constant out of a client module.
  */
-export const OFFERED_SCHEMES: ThemePreset[] = ["default", "blacks", "cream", "sage", "harbor", "clay", "pink", "astrid"]
+export const OFFERED_SCHEMES: ThemePreset[] = ["default", "blacks", "cream", "sage", "harbor", "clay", "pink", "astrid", "graphite"]
 
 /** The search parameter the editor sets. */
 export const SCHEME_PREVIEW_PARAM = "scheme"

@@ -22,6 +22,8 @@
  */
 import { z } from "zod"
 
+import { cleanBackground, cleanFocalPoint, MENU_HANDLE, parseDatetime, parseVideoUrl, VIDEO_HOSTS } from "../values"
+
 export const CONTROL_TYPES = [
   // ── values a person types or picks ──
   "text",
@@ -35,8 +37,13 @@ export const CONTROL_TYPES = [
   "range",
   "color",
   "color_scheme",
+  "color_background",
   "font_picker",
   "alignment",
+  "inline_richtext",
+  "html",
+  "datetime",
+  "focal_point",
   // ── values that are references ──
   "image_picker",
   "image_gallery",
@@ -44,8 +51,11 @@ export const CONTROL_TYPES = [
   "file_picker",
   "icon_picker",
   "url",
+  "video_url",
   "page_picker",
   "product_picker",
+  "product_list",
+  "link_list",
   "community_picker",
   // ── presentational: draw something, hold nothing ──
   "header",
@@ -60,7 +70,7 @@ export type ControlType = (typeof CONTROL_TYPES)[number]
  * docs, and tells the resolver how to treat it (an `asset` is turned into a
  * URL; `none` is never stored).
  */
-export type ValueKind = "string" | "number" | "boolean" | "color" | "asset" | "asset_list" | "enum" | "none"
+export type ValueKind = "string" | "number" | "boolean" | "color" | "background" | "asset" | "asset_list" | "reference_list" | "enum" | "none"
 
 export interface ControlDefinition {
   type: ControlType
@@ -234,6 +244,66 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
     accepts: [],
     example: { type: "color_scheme", id: "scheme", label: "Colour scheme", default: "white" },
   }),
+  color_background: def({
+    type: "color_background",
+    label: "Background",
+    description: "A colour or a CSS gradient for something to sit on. Only colours, gradient functions, angles and stops: a value that could leave the declaration it is written in is refused.",
+    value: "background",
+    schema: z.string().max(600).refine((v) => v === "" || cleanBackground(v) !== "", "a colour or a linear, radial or conic gradient"),
+    fallback: "",
+    responsive: false,
+    component: "BackgroundPicker",
+    accepts: [],
+    example: { type: "color_background", id: "backdrop", label: "Backdrop", default: "linear-gradient(135deg, #f8f9fa 0%, #e5e7eb 100%)" },
+  }),
+  inline_richtext: def({
+    type: "inline_richtext",
+    label: "Inline rich text",
+    description: "One line of formatted text: bold, italic, underline and links, nothing that starts a new block. Stored as cleaned HTML; output with the `raw` filter.",
+    value: "string",
+    schema: z.string().max(4000),
+    fallback: "",
+    responsive: false,
+    component: "InlineRichText",
+    accepts: ["placeholder"],
+    example: { type: "inline_richtext", id: "heading", label: "Heading", default: "Made <em>slowly</em>, by hand" },
+  }),
+  html: def({
+    type: "html",
+    label: "HTML",
+    description: "Markup a creator pastes, such as an embed from another service. Cleaned on save against the custom HTML allow list: no script, no forms, frames only from known players. Output with the `raw` filter.",
+    value: "string",
+    schema: z.string().max(50000),
+    fallback: "",
+    responsive: false,
+    component: "HtmlInput",
+    accepts: ["placeholder"],
+    example: { type: "html", id: "embed", label: "Embed code" },
+  }),
+  datetime: def({
+    type: "datetime",
+    label: "Date and time",
+    description: "A date, or a date and a time, written as 2026-03-14 or 2026-03-14T23:00 with an optional zone such as +02:00. Read as written, never shifted to the server's time zone. Format it with the `date` filter.",
+    value: "string",
+    schema: z.string().max(40).refine((v) => v === "" || parseDatetime(v) !== null, "a date like 2026-03-14 or 2026-03-14T23:00"),
+    fallback: "",
+    responsive: false,
+    component: "DateTimeInput",
+    accepts: [],
+    example: { type: "datetime", id: "ends_at", label: "Sale ends" },
+  }),
+  focal_point: def({
+    type: "focal_point",
+    label: "Focal point",
+    description: "Where the important part of a picture is, as `object-position` reads it: \"30% 70%\". Name the picture setting it belongs to with `image`, and the editor lets the creator tap the spot on that picture.",
+    value: "string",
+    schema: z.string().max(20).refine((v) => v === "" || cleanFocalPoint(v) !== "", "two percentages, like 50% 30%"),
+    fallback: "50% 50%",
+    responsive: false,
+    component: "FocalPointPicker",
+    accepts: ["image"],
+    example: { type: "focal_point", id: "image_focus", label: "Focus", default: "50% 30%" },
+  }),
   font_picker: def({
     type: "font_picker",
     label: "Font",
@@ -330,6 +400,18 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
     accepts: ["placeholder"],
     example: { type: "url", id: "button_url", label: "Button link", default: "/shop" },
   }),
+  video_url: def({
+    type: "video_url",
+    label: "Video link",
+    description: "A YouTube or Vimeo link, in any shape people paste: a watch page, a short link, a Shorts link or a player address. Anything else is refused. Show it with `src=\"{{ settings.video | embed }}\"` and the `embed` capability. `accept` narrows it to one host.",
+    value: "string",
+    schema: z.string().max(500).refine((v) => v === "" || parseVideoUrl(v) !== null, "a YouTube or Vimeo link"),
+    fallback: "",
+    responsive: false,
+    component: "VideoUrlInput",
+    accepts: ["accept", "placeholder"],
+    example: { type: "video_url", id: "video", label: "Video", accept: ["youtube", "vimeo"] },
+  }),
   page_picker: def({
     type: "page_picker",
     label: "Page",
@@ -345,14 +427,38 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
   product_picker: def({
     type: "product_picker",
     label: "Product",
-    description: "One of the creator's products, by id.",
+    description: "One of the creator's products. Printed on its own it is the product's address, so `href=\"{{ settings.product | url }}\"` works as it always has; it also carries the product's live `title`, `price`, `compare_price`, `image`, `url` and `id`, read as `settings.product.title`, whenever the page knows that product.",
     value: "string",
-    schema: z.string().max(120),
+    schema: z.string().max(200),
     fallback: "",
     responsive: false,
     component: "ProductPicker",
     accepts: [],
     example: { type: "product_picker", id: "product", label: "Product" },
+  }),
+  product_list: def({
+    type: "product_list",
+    label: "Product list",
+    description: "Several of the creator's products, chosen and ordered by the creator, stored by id. The template receives them block-shaped, like `products`, with the live title, price and picture: `{% for block in settings.featured %}`. `limit` caps how many, 12 unless given, never more than 24.",
+    value: "reference_list",
+    schema: z.array(z.string().max(200)).max(24),
+    fallback: [],
+    responsive: false,
+    component: "ProductListPicker",
+    accepts: ["limit"],
+    example: { type: "product_list", id: "featured", label: "Products", limit: 4 },
+  }),
+  link_list: def({
+    type: "link_list",
+    label: "Menu",
+    description: "One of the site's menus, by handle. The template receives `{ handle, title, links }`, each link `{ title, url, links }` with every address already made safe. `main-menu` is the header's own links unless the creator made a menu of that name.",
+    value: "string",
+    schema: z.string().max(40).refine((v) => v === "" || MENU_HANDLE.test(v), "a menu handle like main-menu"),
+    fallback: "",
+    responsive: false,
+    component: "MenuPicker",
+    accepts: [],
+    example: { type: "link_list", id: "menu", label: "Menu", default: "main-menu" },
   }),
   community_picker: def({
     type: "community_picker",
@@ -419,9 +525,42 @@ export const LEGACY_TYPE_ALIASES: Record<string, ControlType> = {
   spacing: "range",
 }
 
+/**
+ * SHOPIFY'S NAMES, FOR THE SAME THINGS.
+ *
+ * Somebody bringing a section across from a Shopify theme writes the types
+ * they know. Where Storelib has the same control under another name, the
+ * name is accepted and means the Storelib control, so the schema validates
+ * and the panel draws the right thing. Written back unchanged, like the
+ * older names above.
+ */
+export const SHOPIFY_TYPE_ALIASES: Record<string, ControlType> = {
+  text_alignment: "alignment",
+  product: "product_picker",
+  page: "page_picker",
+}
+
+/**
+ * SHOPIFY TYPES WITH NOTHING TO POINT AT HERE, AND WHY.
+ *
+ * Refused like any unknown type, but with the reason, because "not a
+ * Storelib control" sends somebody looking for a spelling when the real
+ * answer is that the thing it picks does not exist on Storelib.
+ */
+export const UNSUPPORTED_TYPES: Record<string, string> = {
+  collection: "Storelib has no collections. Use product_list for chosen products, or the section's `products` for the whole shop.",
+  collection_list: "Storelib has no collections. Use product_list for chosen products.",
+  blog: "A Storelib site has no blog of its own yet.",
+  article: "A Storelib site has no blog of its own yet.",
+  metaobject: "Storelib has no metaobjects. Use blocks for repeated content.",
+  metaobject_list: "Storelib has no metaobjects. Use blocks for repeated content.",
+  liquid: "A section's template is its code. Write the markup in <template>, or make a section of your own in the code editor.",
+  color_scheme_group: "Colour schemes are the theme's, edited in Theme settings › Colors. A section picks one with color_scheme.",
+}
+
 export function resolveControlType(type: string): ControlType | null {
   if ((CONTROL_TYPES as readonly string[]).includes(type)) return type as ControlType
-  return LEGACY_TYPE_ALIASES[type] ?? null
+  return LEGACY_TYPE_ALIASES[type] ?? SHOPIFY_TYPE_ALIASES[type] ?? null
 }
 
 export function controlFor(type: string): ControlDefinition | null {
@@ -460,6 +599,8 @@ export function controlsAsJson(): Record<string, unknown> {
     version: 1,
     types,
     legacy_aliases: LEGACY_TYPE_ALIASES,
+    shopify_aliases: SHOPIFY_TYPE_ALIASES,
+    unsupported: UNSUPPORTED_TYPES,
   }
 }
 
@@ -488,6 +629,16 @@ export function controlsAsMarkdown(): string {
   lines.push("The JSON schemas the builder shipped with used a few other names. They still validate, and mean:")
   lines.push("")
   for (const [from, to] of Object.entries(LEGACY_TYPE_ALIASES)) lines.push(`- \`${from}\` → \`${to}\``)
+  lines.push("")
+  lines.push("### Shopify names")
+  lines.push("")
+  lines.push("A schema written for a Shopify theme may use Shopify's names for the controls Storelib has under another name. They validate and mean:")
+  lines.push("")
+  for (const [from, to] of Object.entries(SHOPIFY_TYPE_ALIASES)) lines.push(`- \`${from}\` → \`${to}\``)
+  lines.push("")
+  lines.push("These Shopify types have nothing to point at on Storelib and are refused with the reason:")
+  lines.push("")
+  for (const [type, why] of Object.entries(UNSUPPORTED_TYPES)) lines.push(`- \`${type}\`: ${why}`)
   lines.push("")
   for (const t of CONTROL_TYPES) {
     const c = CONTROLS[t]

@@ -33,8 +33,11 @@ const FIELDS = [
   { name: "Emails subscribers", file: "app/app/emails/emails-home.tsx", placeholder: "Search by email or name", edge: "wrapper" },
   { name: "Products", file: "app/app/products/products-client.tsx", placeholder: "Search products", edge: "wrapper" },
   { name: "Product picker", file: "components/app/product-picker.tsx", placeholder: "Search products", edge: "input" },
-  { name: "Time zone", file: "components/app/time-zone-picker.tsx", placeholder: "Search a city or UTC offset", edge: "input" },
-  { name: "Settings countries", file: "components/app/settings-form-new.tsx", placeholder: "Search countries...", edge: "input" },
+  /* The time zone and country fields are one shared ChoicePicker now
+     (62a7ea8d, c7bb5b46; the time zone's words changed in 88d197a4), so
+     their search is ChoiceSearch's input, found by where it takes the
+     placeholder it is handed rather than by the words. */
+  { name: "Time zone and country (ChoiceSearch)", file: "components/ui/choice-list.tsx", placeholder: "Search a city, region or UTC offset", marker: "data-choice-search=\"\"", edge: "input" },
   /* From 768px this field sits bare in the header's panel, whose own edge is the frame; on a phone it is a filled field and wears the halo. */
   { name: "/app search (phone)", file: "components/app/app-search.tsx", placeholder: "Search orders, customers, products", edge: "input", phoneOnly: true },
 ]
@@ -42,7 +45,7 @@ const FIELDS = [
 /* The className strings nearest the placeholder: the input's after it (or before, in a cn(...) call), the wrapper's before it. */
 function classes(field) {
   const src = readFileSync(join(root, field.file), "utf8")
-  const at = src.indexOf(`placeholder="${field.placeholder}"`)
+  const at = src.indexOf(field.marker ?? `placeholder="${field.placeholder}"`)
   if (at < 0) throw new Error(`${field.name}: no placeholder in ${field.file}`)
   const strings = [...src.matchAll(/className="([^"]*)"|"((?:[^"\n]*\s)?(?:rounded|border|flex|w-full|h-11)[^"\n]*)"/g)].map((m) => ({ i: m.index, s: m[1] ?? m[2] }))
   const after = strings.find((x) => x.i > at && x.i - at < 1200)

@@ -17,6 +17,7 @@ import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-
 import { MIN_CHARGE_CENTS, priceOrder } from "@/lib/checkout/pricing"
 import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
+import { methodsFrom } from "@/lib/checkout/payment-methods"
 
 /**
  * POST /api/checkout/stripe-session
@@ -207,7 +208,8 @@ export async function POST(request: Request) {
   const params: Stripe.PaymentIntentCreateParams = {
     amount: totals.totalCents,
     currency: "usd",
-    automatic_payment_methods: { enabled: true },
+    /* The methods the page's form loaded with, by name (lib/checkout/payment-methods). */
+    payment_method_types: methodsFrom(body.paymentMethods),
     metadata,
     application_fee_amount: fee.platformFeeCents,
     transfer_data: { destination: account },

@@ -435,7 +435,7 @@ check(
    * onto. So there is one answer again, and it is dark.
    */
   /const chromeTone = usePhoneChromeTone\(isMobileView\)/.test(editor) &&
-    /<FullScreenLock tone=\{chromeTone\} \/>/.test(editor) &&
+    /<FullScreenLock tone=\{chromeTone\} fromFirstPaint \/>/.test(editor) /* fromFirstPaint: the lock is set before the editor paints, in place of an html:has() */ &&
     /export function usePhoneChromeTone\(_phone: boolean\): ChromeTone \{\s*\n\s*return "dark"\s*\n\}/.test(nativeChromeSrc) &&
     /root\.style\.backgroundColor = tone === "light" \? "#ffffff" : "#171717"/.test(readFileSync(join(root, "components/website-builder/full-screen-lock.tsx"), "utf8")) &&
     /live \? "bg-\[#8B56FA\] text-white hover:bg-\[#7b46ec\]"/.test(editor),
@@ -1077,11 +1077,15 @@ check(
    */
   ((css) =>
     /html\.capacitor\.wb-fullscreen::before \{\s*\n\s*display: none;/.test(css) &&
-    /html\.capacitor:has\(\.wb-editor\)::before \{\s*\n\s*display: none;/.test(css) &&
+    // Changed on purpose: the `html.capacitor:has(.wb-editor)::before` twin is
+    // gone. The class is set before the editor paints (FullScreenLock,
+    // fromFirstPaint), and a :has() on <html> restyled the whole document
+    // whenever text anywhere was replaced (scripts/check-app-sheets-frames.mjs).
+    !/html\.capacitor:has\(\.wb-editor\)/.test(css.replace(/\/\*[\s\S]*?\*\//g, "")) &&
     // and the bar still pays for the strip it now owns
     /\.wb-editor-topbar \{[\s\S]{0,120}?padding-top: var\(--wb-safe-top\);/.test(css))(
       readFileSync(join(root, "app/globals.css"), "utf8"),
-    ) && /<FullScreenLock tone=\{chromeTone\} \/>/.test(editor),
+    ) && /<FullScreenLock tone=\{chromeTone\} fromFirstPaint \/>/.test(editor) /* fromFirstPaint: the lock is set before the editor paints, in place of an html:has() */,
 )
 
 check(
@@ -2408,7 +2412,7 @@ check(
   "the lock is scoped to the two full-screen surfaces and undone on the way out",
   // Every other page wants that padding — it is what holds a footer above
   // the home indicator — so this cannot be a global rule.
-  /<FullScreenLock tone=\{chromeTone\} \/>/.test(editor) &&
+  /<FullScreenLock tone=\{chromeTone\} fromFirstPaint \/>/.test(editor) /* fromFirstPaint: the lock is set before the editor paints, in place of an html:has() */ &&
     /<FullScreenLock \/>/.test(codePageSrc) &&
     /return \(\) => \{\s*\n\s*root\.classList\.remove\("wb-fullscreen"\)/.test(lockSrc),
 )
@@ -2441,9 +2445,20 @@ check(
   // an effect. Kept in SEPARATE rules because a selector list is not
   // forgiving: one selector an older iOS cannot parse throws away the whole
   // rule, and sharing a list would mean losing the class lock too.
-  /html:has\(\.wb-editor\),\s*\nhtml:has\(\.wb-editor\) body \{/.test(editorCss) &&
-    /html\.wb-fullscreen,\s*\nhtml\.wb-fullscreen body \{/.test(editorCss) &&
-    !/html:has\(\.wb-editor\),\s*\nhtml:has\(\.wb-editor\) body,\s*\nhtml\.wb-fullscreen/.test(editorCss),
+  //
+  // Changed on purpose: the first paint is now held by the class itself, not
+  // by an `html:has(.wb-editor)` copy of the rules. The editor's server HTML
+  // runs a one line script as the first thing inside its root, and a client
+  // mount sets the class in a layout effect, before that commit paints. A
+  // :has() whose subject is <html> restyled every element in the document
+  // whenever text anywhere was replaced, on every page, editor or not
+  // (scripts/check-app-sheets-frames.mjs: "Copy" to "Copied" 2866 elements).
+  /html\.wb-fullscreen,\s*\nhtml\.wb-fullscreen body \{/.test(editorCss) &&
+    !/html:has\(\.wb-editor\)/.test(editorCss.replace(/\/\*[\s\S]*?\*\//g, "")) &&
+    /<FullScreenLock tone=\{chromeTone\} fromFirstPaint \/>/.test(editor) &&
+    /useLayoutEffect\(\(\) => \{\s*\n\s*const root = document\.documentElement\s*\n\s*root\.classList\.add\("wb-fullscreen"\)/.test(lockSrc) &&
+    /classList\.add\("wb-fullscreen"\)/.test(lockSrc.match(/const LOCK_NOW = `[^`]*`/)?.[0] ?? "") &&
+    /return fromFirstPaint && !onClient \? <script dangerouslySetInnerHTML=\{\{ __html: LOCK_NOW \}\} \/> : null/.test(lockSrc),
 )
 
 check(
@@ -2582,8 +2597,9 @@ check(
   // white. Over a #171717 bar that is a black line across the top, which is
   // the "it is not full screen" that was reported. Both locks set it, so it
   // holds whether or not the webview runs edge to edge.
-  /html\.wb-fullscreen,\s*\nhtml\.wb-fullscreen body \{\s*\n\s*background-color: #171717;/.test(editorCss) &&
-    /html:has\(\.wb-editor\),\s*\nhtml:has\(\.wb-editor\) body \{\s*\n\s*background-color: #171717;/.test(editorCss),
+  // (One rule now, on the class: it is set from the first paint, see "the lock
+  // holds from the first paint" above.)
+  /html\.wb-fullscreen,\s*\nhtml\.wb-fullscreen body \{\s*\n\s*background-color: #171717;/.test(editorCss),
 )
 
 check(
@@ -3132,7 +3148,7 @@ check(
   // word found four: the three sections, and the comment above them naming
   // the attribute. An assertion that reads its own documentation is an
   // assertion that passes when the code is deleted and the comment stays.
-  (wbPage.match(/data-page-block>/g) ?? []).length === 3 &&
+  (wbPage.match(/data-page-block\s*>/g) ?? []).length === 3 &&
     !existsSync(join(root, "app/app/website-builder/skeleton.tsx")) &&
     !existsSync(join(root, "app/app/website-builder/loading.tsx")),
 )

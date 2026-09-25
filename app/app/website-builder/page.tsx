@@ -122,6 +122,13 @@ export default async function WebsiteBuilderPage() {
       .eq("creator_id", creator.id)
       .order("sort_order", { ascending: true })
 
+  /*
+    SIDE BY SIDE, NOT ONE AFTER ANOTHER. The website's own name needs only the
+    creator, so it is asked for with the installs rather than after the
+    covers: one round trip less before the page can be drawn. "I click on
+    Website, it shows the loading thing because the page takes long to load."
+  */
+  const handle = websiteHandleOf(creator.id)
   let { data: rows } = await load()
 
   if (!rows || rows.length === 0) {
@@ -138,7 +145,7 @@ export default async function WebsiteBuilderPage() {
   )
 
   /* The website's own name on Storelib, when its creator gave it one. */
-  const siteHandle = await websiteHandleOf(creator.id)
+  const siteHandle = await handle
   return <WebsiteBuilderClient installs={installs} username={username} siteHandle={siteHandle} />
 }
 
@@ -176,10 +183,17 @@ async function withStoredCovers(given: WebsiteSummary[], userId: string): Promis
   const installs = given.map((i) =>
     i.snapshot_url && !isCurrentSnapshotUrl(i.snapshot_url) ? { ...i, snapshot_url: null, snapshot_updated_at: null } : i,
   )
-  /* Every install, not only the ones the column says nothing about: the
-     column records the desktop picture only, and the phone picture that
-     goes with it is found in the folder. */
-  const missing = installs
+  /*
+    ONLY THE INSTALLS THE COLUMN SAYS NOTHING ABOUT. Every install's folder
+    was listed on every visit, for the phone picture that goes with the
+    desktop one; this page never draws the phone picture (the cover is the
+    desktop screenshot alone, cut from its top), so that was a storage
+    round trip per website before the page could be drawn, for nothing on
+    it. A current column is the record; the folder is asked only where the
+    column is empty or holds a picture too old to show.
+  */
+  const missing = installs.filter((i) => !i.snapshot_url)
+  if (missing.length === 0) return installs
 
   const admin = createAdminClient()
   const bucket = admin.storage.from(SNAPSHOT_BUCKET)

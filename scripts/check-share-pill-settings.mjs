@@ -86,7 +86,8 @@ const report = {}
 
 const measure = (page) => page.evaluate(() => {
   const pill = [...document.querySelectorAll("[data-share-pill]")].find((p) => p.getClientRects().length)
-  const sub = document.querySelector("[data-settings-page] h1 + p")
+  /* The subtitle: under the title and the pill since c7bb5b46, no longer the title's next sibling. */
+  const sub = document.querySelector("[data-settings-header] > p") || document.querySelector("[data-settings-page] h1 + p")
   const lineH = parseFloat(getComputedStyle(sub).lineHeight) || 20
   const b = pill.getBoundingClientRect()
   return { pill: +b.width.toFixed(1), lines: Math.round(sub.getBoundingClientRect().height / lineH), text: sub.textContent.trim() }
@@ -114,8 +115,12 @@ try {
     await wait(200)
     const before = await measure(page)
     await page.screenshot({ path: join(SHOTS, `settings-${width}-before.png`), clip: { x: 0, y: 60, width, height: 170 } })
-    const ratio = now.pill / before.pill
-    expect(Math.abs(ratio - 0.9) <= 0.012, `the pill is 10% narrower: ${before.pill}px to ${now.pill}px`, ratio.toFixed(3))
+    /* Since 8839a333 the phone's pill is an eye and "View", not the address,
+       so it no longer reaches the cap that made the address 10% narrower:
+       what is held now is that it stays inside that cap, the 10% narrower
+       width (0.522 of the row, at most 184px), with the title beside it. */
+    const cap = Math.min((width - 32) * 0.522, 184)
+    expect(now.pill <= cap + 0.5 && now.pill <= before.pill + 0.5, `the pill stays inside the 10% narrower cap: ${now.pill}px of ${cap.toFixed(1)}px`, { now: now.pill, cap: +cap.toFixed(1), uncapped: before.pill })
     expect(now.lines <= before.lines, `the subtitle needs ${now.lines} line(s) beside it, ${before.lines} before`, now.text)
     report[width] = { before: before.pill, now: now.pill, linesBefore: before.lines, linesNow: now.lines }
     expect(errors.length === 0, "no errors", errors.slice(0, 2).join(" | "))

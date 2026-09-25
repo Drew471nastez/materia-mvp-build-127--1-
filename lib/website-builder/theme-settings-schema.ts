@@ -235,6 +235,9 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
     fields: [
       { id: "announcement_bar_enabled", label: "Show announcement bar", type: "toggle", default: false },
       { id: "announcement_bar_text", label: "Message", type: "text", placeholder: "Free shipping on orders over $50!" },
+      /* More than one message takes turns: ThemePage's AnnouncementBar. */
+      { id: "announcement_bar_messages", label: "More messages", type: "textarea", placeholder: "One message per line" },
+      { id: "announcement_bar_rotate", label: "Seconds per message", type: "range", min: 3, max: 10, step: 1, default: 5, unit: "s" },
       { id: "announcement_bar_link_text", label: "Link text", type: "text", placeholder: "Shop now" },
       { id: "announcement_bar_link_url", label: "Link URL", type: "link" },
       { id: "announcement_bar_bg", label: "Background", type: "color", default: "#6366f1" },
@@ -242,6 +245,19 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
       { id: "announcement_bar_scrolling", label: "Scrolling marquee", type: "toggle", default: false },
       { id: "announcement_bar_dismissible", label: "Allow dismiss", type: "toggle", default: true },
     ],
+  },
+  {
+    /**
+     * THE SITE'S MENUS: named lists of links a section shows through a
+     * `link_list` setting. The header's own links are the main menu without
+     * being made here. Drawn by MenusEditor
+     * (components/website-builder/editor/controls/menus-editor.tsx) and
+     * cleaned on save by sanitizeThemeSettings.
+     */
+    id: "menus",
+    label: "Menus",
+    icon: "list",
+    fields: [{ id: "menus", label: "Menus", type: "menus" }],
   },
   {
     id: "social",

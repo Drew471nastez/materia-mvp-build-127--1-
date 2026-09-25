@@ -25,6 +25,7 @@
  */
 
 import * as React from "react"
+import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, ChevronDown } from "lucide-react"
@@ -32,16 +33,18 @@ import { cn } from "@/lib/utils"
 import { isNativeApp } from "@/lib/platform-utils"
 import { getProductUrl } from "@/lib/url-helpers"
 import { ReturnLink } from "@/components/navigation/return-link"
+import { canReturnInApp } from "@/lib/navigation/in-app-history"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
 import { paidReturnUrl, returnHostLabel } from "@/lib/checkout/return-url"
 import { EMPTY_BUSINESS, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
-import { CheckRow, ErrorBanner, Field, PayButton, SectionTitle, TextInput, money } from "./parts/ui"
+import { CheckRow, ErrorBanner, Field, PayButton, PoweredByStripe, SectionTitle, Spinner, TextInput, money } from "./parts/ui"
 import { DiscountForm, LineItem, TipPicker, Totals, type SummaryVariant } from "./parts/order-summary"
 import { BusinessFields } from "./parts/business-fields"
 import { EMPTY_CARD, NativeCardFields, nativeCardComplete, type NativeCard } from "./parts/native-card"
 import { PaidOverlay } from "./parts/success"
 import { StripePay, type IntentResult } from "./parts/stripe-pay"
+import { HtmlClass } from "@/components/platform/html-class"
 
 interface CheckoutPageClientProps {
   product: {
@@ -122,17 +125,17 @@ export default function CheckoutPageClient({
 
   /* ── Who ─────────────────────────────────────────────────────────── */
   const [email, setEmail] = React.useState(() => searchParams.get("email") || userEmail || "")
-  const [firstName, setFirstName] = React.useState(() => searchParams.get("firstName") || "")
-  const [lastName, setLastName] = React.useState(() => searchParams.get("lastName") || "")
+  /* One "Full name" box, as Stripe asks for it; the order still keeps a first and a last name, split at the first space. */
+  const [fullName, setFullName] = React.useState(() => [searchParams.get("firstName"), searchParams.get("lastName")].filter(Boolean).join(" "))
+  const firstName = fullName.trim().split(/\s+/)[0] || ""
+  const lastName = fullName.trim().split(/\s+/).slice(1).join(" ")
   const [emailOptIn, setEmailOptIn] = React.useState(false)
   const [agreed, setAgreed] = React.useState(false)
   React.useEffect(() => {
-    setFirstName((v) => v || remembered("firstName"))
-    setLastName((v) => v || remembered("lastName"))
+    setFullName((v) => v || remembered("fullName") || [remembered("firstName"), remembered("lastName")].filter(Boolean).join(" "))
     setEmail((v) => v || remembered("email"))
   }, [])
-  React.useEffect(() => remember("firstName", firstName), [firstName])
-  React.useEffect(() => remember("lastName", lastName), [lastName])
+  React.useEffect(() => remember("fullName", fullName), [fullName])
   React.useEffect(() => remember("email", email), [email])
 
   /* ── What, and for how much ──────────────────────────────────────── */
@@ -168,7 +171,17 @@ export default function CheckoutPageClient({
   const [paid, setPaid] = React.useState<{ total: number; free: boolean } | null>(null)
   /** Paid (or processing) and no longer payable, whatever happens next. */
   const [settled, setSettled] = React.useState(false)
-  const [summaryOpen, setSummaryOpen] = React.useState(false)
+  /* The order is open on a phone as the page arrives, as asked; it folds with Hide details. */
+  const [summaryOpen, setSummaryOpen] = React.useState(true)
+  /** A computer's width: the order is always shown there, beside the form. */
+  const [wide, setWide] = React.useState(false)
+  React.useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)")
+    const read = () => setWide(mq.matches)
+    read()
+    mq.addEventListener("change", read)
+    return () => mq.removeEventListener("change", read)
+  }, [])
   /** null until the first effect knows: in the app, Stripe.js must never load, even for one render. */
   const [nativeApp, setNativeApp] = React.useState<boolean | null>(null)
   const [card, setCard] = React.useState<NativeCard>(EMPTY_CARD)
@@ -184,17 +197,83 @@ export default function CheckoutPageClient({
   const from = searchParams.get("from") || ""
   const productUrl = backTo ?? (from.startsWith("/") && !from.startsWith("//") ? from : getProductUrl(creator.username, product.slug))
   const siteHost = returnHostLabel(backTo ?? returnTo)
-  /* A buyer who came from a creator's website keeps shopping there, not in Explore. */
-  const shopUrl = (() => {
-    const site = backTo ?? returnTo
-    if (!site) return "/explore"
-    try {
-      return `${new URL(site).origin}/`
-    } catch {
-      return "/explore"
-    }
-  })()
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     LEAVING THE CHECKOUT: AT ONCE, AND NEVER INTO A LOOP
+    ═══════════════════════════════════════════════════════════════════════
+    Back used to return only when the page behind was exactly the product's
+    own address, and to PUSH the product page otherwise. Reached from a /p/
+    link, the address differed, so the product page was fetched fresh (up to
+    five seconds on a phone, with nothing on screen to say so) and put on
+    top of the checkout. The product page's own back arrow then landed on
+    the checkout again: the loop that was reported.
+
+    Now: any page of ours behind this one, or the page the buyer came from
+    when it is the same site, is returned to with history.back(), which is
+    instant. With nothing behind (a shared checkout link), the product page
+    REPLACES the checkout rather than stacking on it. And the press is
+    answered on the same frame: the control shows a spinner and the page
+    dims, whatever the network does.
+  */
+  const [leaving, setLeaving] = React.useState(false)
+  React.useEffect(() => {
+    if (!leaving) return
+    const t = window.setTimeout(() => setLeaving(false), 8000)
+    return () => window.clearTimeout(t)
+  }, [leaving])
+  /* A page brought back from the browser's cache is not still leaving. */
+  React.useEffect(() => {
+    const reset = () => setLeaving(false)
+    window.addEventListener("pageshow", reset)
+    return () => window.removeEventListener("pageshow", reset)
+  }, [])
+  /** The product page as a path on this site, or null when it is on another (a creator's website). */
+  const ownPath = (href: string): string | null => {
+    try {
+      const url = new URL(href, window.location.href)
+      return url.origin === window.location.origin ? url.pathname + url.search : null
+    } catch {
+      return null
+    }
+  }
+  /* The product page warmed while the buyer is here, so a Back that must fetch it is quick. */
+  React.useEffect(() => {
+    const path = ownPath(productUrl)
+    if (path) router.prefetch(path)
+  }, [productUrl, router])
+
+  const goBack = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    /* A new tab, a new window, a context menu: the browser's. */
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+    e.preventDefault()
+    if (leaving) return
+    setLeaving(true)
+    const cameFrom = (() => {
+      try {
+        return document.referrer ? new URL(document.referrer).origin : null
+      } catch {
+        return null
+      }
+    })()
+    const target = (() => {
+      try {
+        return new URL(productUrl, window.location.href).origin
+      } catch {
+        return null
+      }
+    })()
+    if (canReturnInApp() || (cameFrom !== null && cameFrom === target && window.history.length > 1)) {
+      window.history.back()
+      return
+    }
+    const path = ownPath(productUrl)
+    if (!path) {
+      window.location.replace(productUrl)
+      return
+    }
+    router.replace(path)
+  }
   /**
    * AFTER PAYING: the creator's website when the link asked for it and the
    * server agreed, else the receipt. The receipt is emailed either way, and
@@ -302,7 +381,7 @@ export default function CheckoutPageClient({
     if (mode !== "express") {
       if (!EMAIL.test(email.trim())) return "Enter a valid email address."
       /* A last name is not required: some people have one name. */
-      if (!firstName.trim()) return "Enter your first name."
+      if (!firstName.trim()) return "Enter your name."
     }
     if (mode !== "free") {
       const b = checkBusinessNow()
@@ -341,8 +420,9 @@ export default function CheckoutPageClient({
     }
   }
 
-  const createIntent = async (contact?: { email?: string; name?: string }): Promise<IntentResult> => {
-    const res = await postJson<IntentResult>("/api/checkout/stripe-session", orderBody(contact))
+  const createIntent = async (contact?: { email?: string; name?: string }, methods?: string[]): Promise<IntentResult> => {
+    /* The ways to pay the form loaded with: the PaymentIntent is made for exactly those (lib/checkout/payment-methods). */
+    const res = await postJson<IntentResult>("/api/checkout/stripe-session", { ...orderBody(contact), paymentMethods: methods })
     if (!res.ok || !res.data.clientSecret) {
       const field = res.data.field as keyof BusinessDetails | undefined
       if (field) setBusinessErrors({ [field]: res.data.error || "Check this field." })
@@ -492,14 +572,9 @@ export default function CheckoutPageClient({
   /* ── Pieces ──────────────────────────────────────────────────────── */
   const namesAndNews = (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <Field id="checkout-first-name" label="First name">
-          <TextInput id="checkout-first-name" autoComplete="given-name" value={firstName} onChange={(e) => setFirstName(e.target.value.slice(0, 60))} />
-        </Field>
-        <Field id="checkout-last-name" label="Last name">
-          <TextInput id="checkout-last-name" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value.slice(0, 60))} />
-        </Field>
-      </div>
+      <Field id="checkout-name" label="Full name">
+        <TextInput id="checkout-name" autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value.slice(0, 121))} />
+      </Field>
       <CheckRow id="checkout-news" checked={emailOptIn} onChange={setEmailOptIn}>
         Email me news and offers from {creator.name}
       </CheckRow>
@@ -522,25 +597,22 @@ export default function CheckoutPageClient({
   )
 
   const discount = (suffix: string) => (
-    <div>
-      <p className="mb-2 text-[14px] font-medium text-[#1a1a2e]">Discount code</p>
-      <DiscountForm
-        code={code}
-        onCode={(v) => {
-          setCode(v)
-          setCodeError(null)
-          setCodeFromLink(false)
-        }}
-        applied={!!applied}
-        label={applied?.label || ""}
-        busy={codeBusy}
-        error={codeError}
-        quiet={codeFromLink}
-        onApply={() => void applyCode()}
-        onRemove={removeCode}
-        idSuffix={suffix}
-      />
-    </div>
+    <DiscountForm
+      code={code}
+      onCode={(v) => {
+        setCode(v)
+        setCodeError(null)
+        setCodeFromLink(false)
+      }}
+      applied={!!applied}
+      label={applied?.label || ""}
+      busy={codeBusy}
+      error={codeError}
+      quiet={codeFromLink}
+      onApply={() => void applyCode()}
+      onRemove={removeCode}
+      idSuffix={suffix}
+    />
   )
 
   const tip = (suffix: string) => (
@@ -557,38 +629,46 @@ export default function CheckoutPageClient({
     />
   )
 
-  const totals = (
-    <Totals subtotal={subtotal} discountCents={discountCents} discountLabel={applied?.code} tipCents={tipCents} total={total} isPwyw={pwywNow} />
-  )
-
-  const line = (
-    <LineItem product={product} variant={variant} variants={allVariants} onVariant={chooseVariant} priceCents={subtotal} isPwyw={pwywNow} />
+  /* The order, as Stripe lays it out: the line, the subtotal with the promotion code under it, the tip, the total due. */
+  const details = (suffix: string) => (
+    <div className="space-y-6">
+      <LineItem product={product} variant={variant} variants={allVariants} onVariant={chooseVariant} priceCents={subtotal} isPwyw={pwywNow} />
+      <div className="border-t border-black/[0.07] pt-5">
+        <Totals
+          part="top"
+          subtotal={subtotal}
+          discountCents={discountCents}
+          discountLabel={applied?.code}
+          tipCents={tipCents}
+          total={total}
+          isPwyw={pwywNow}
+          promo={discount(suffix)}
+        />
+      </div>
+      {tip(suffix)}
+      <Totals part="bottom" subtotal={subtotal} discountCents={discountCents} tipCents={tipCents} total={total} />
+    </div>
   )
 
   const consent = (
     <div id="checkout-terms">
       <CheckRow id="checkout-agree" checked={agreed} onChange={(v) => { setAgreed(v); if (v) setError(null) }} invalid={!agreed && !!error?.includes("Terms")}>
         I agree to the{" "}
-        <Link href="/terms" target="_blank" className="font-medium text-[#1a1a2e] underline underline-offset-2">
+        <Link href="/terms" target="_blank" className="font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-2 hover:decoration-[#1a1a2e]">
           Terms and Conditions
+        </Link>{" "}
+        and the{" "}
+        <Link href="/refund-policy" target="_blank" className="font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-2 hover:decoration-[#1a1a2e]">
+          Refund policy
         </Link>
       </CheckRow>
     </div>
   )
 
-  /* On a phone the order's choices come back just above Pay. */
-  const phoneOrder = (
-    <section aria-label="Order summary" className="space-y-5 border-t border-[#e5e7eb] pt-6 lg:hidden">
-      {discount("-phone")}
-      {tip("-phone")}
-      <div className="border-t border-[#e5e7eb] pt-4">{totals}</div>
-    </section>
-  )
-
   const beforePay = (
     <>
       {!isFree ? (
-        <section aria-label="Invoice" className="border-t border-[#e5e7eb] pt-6">
+        <section aria-label="Invoice">
           <BusinessFields
             on={businessOn}
             onToggle={(on) => {
@@ -604,7 +684,6 @@ export default function CheckoutPageClient({
           />
         </section>
       ) : null}
-      {phoneOrder}
       {consent}
       {error ? <ErrorBanner>{error}</ErrorBanner> : null}
     </>
@@ -618,14 +697,14 @@ export default function CheckoutPageClient({
       <div>
         <section aria-labelledby="checkout-contact-free">
           <SectionTitle>
-            <span id="checkout-contact-free">Contact</span>
+            <span id="checkout-contact-free">Contact information</span>
           </SectionTitle>
           <div className="space-y-3">
             {emailField}
             {namesAndNews}
           </div>
         </section>
-        <div className="mt-8 space-y-5">{beforePay}</div>
+        <div className="mt-7 space-y-4">{beforePay}</div>
         <div className="mt-5">
           <PayButton onClick={() => void takeFree()} busy={busy} disabled={!!paid || settled}>
             {busy ? "Processing" : "Get it free"}
@@ -635,13 +714,13 @@ export default function CheckoutPageClient({
     )
   } else if (nativeApp === null) {
     /* The form's place, held for the one frame before the platform is known. */
-    payment = <div aria-hidden className="checkout-shimmer h-[520px] rounded-[12px]" />
+    payment = <div aria-hidden className="min-h-[520px]" />
   } else if (nativeApp) {
     payment = (
       <div>
         <section aria-labelledby="checkout-contact-app">
           <SectionTitle>
-            <span id="checkout-contact-app">Contact</span>
+            <span id="checkout-contact-app">Contact information</span>
           </SectionTitle>
           <div className="space-y-3">
             {emailField}
@@ -649,12 +728,12 @@ export default function CheckoutPageClient({
           </div>
         </section>
         <section aria-labelledby="checkout-payment-app" className="mt-8">
-          <h2 id="checkout-payment-app" className="mb-3.5 text-[18px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">
-            Payment
+          <h2 id="checkout-payment-app" className="mb-3 text-[16px] font-semibold text-[#1a1a2e]">
+            Payment method
           </h2>
           <NativeCardFields value={card} onChange={setCard} />
         </section>
-        <div className="mt-8 space-y-5">{beforePay}</div>
+        <div className="mt-7 space-y-4">{beforePay}</div>
         <div className="mt-5">
           <PayButton onClick={() => void payNative()} busy={busy} disabled={!!paid || settled}>
             {busy ? "Processing" : payLabel}
@@ -684,86 +763,101 @@ export default function CheckoutPageClient({
     )
   }
 
+  /* The creator, as the summary's heading and Back's label. */
+  const initials = creator.name.trim().charAt(0).toUpperCase() || "S"
+
   return (
     <div
       data-page="checkout"
+      data-leaving={leaving ? "" : undefined}
       /* Under the paid check, nothing behind it can be reached. */
       inert={!!paid}
-      className="min-h-screen bg-white lg:bg-[linear-gradient(to_right,#ffffff_calc(50%-0.5px),#e5e7eb_calc(50%-0.5px),#e5e7eb_calc(50%+0.5px),#f8f9fa_calc(50%+0.5px))]"
+      className={cn(
+        "relative min-h-screen bg-white transition-opacity duration-200 lg:bg-[#f6f7f8]",
+        leaving && "pointer-events-none opacity-60",
+      )}
     >
-      <header className="border-b border-[#e5e7eb] bg-white pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex h-14 max-w-[1100px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-          <ReturnLink href={productUrl} className="flex min-h-[44px] min-w-0 items-center gap-2 text-[14px] text-[#6b7280] transition-colors hover:text-[#1a1a2e]">
-            <ArrowLeft className="h-4 w-4 shrink-0" />
-            <span className="truncate">{backTo && siteHost ? `Back to ${siteHost}` : "Back to product"}</span>
-          </ReturnLink>
-          <Link
-            href={shopUrl}
-            className="inline-flex h-9 shrink-0 items-center rounded-[10px] border border-[#d4d6db] px-3.5 text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]"
-          >
-            Continue Shopping
-          </Link>
-        </div>
-      </header>
+      <HtmlClass name="with-page-checkout" />
+      {/*
+        THE SPLIT, WITH DEPTH. The grey half is the order, the white half is
+        the form, and the white half sits over the grey on a long soft shadow,
+        the way Stripe Checkout's two halves read as a sheet on a desk.
+      */}
+      <div aria-hidden className="pointer-events-none fixed inset-y-0 right-0 hidden w-1/2 bg-white shadow-[-12px_0_32px_-16px_rgba(17,24,39,0.16)] lg:block" />
 
-      {/* Phone: the order as a bar, the total always in view. */}
-      <div className="border-b border-[#e5e7eb] bg-[#f8f9fa] lg:hidden">
-        <button
-          type="button"
-          onClick={() => setSummaryOpen((o) => !o)}
-          aria-expanded={summaryOpen}
-          aria-controls="checkout-summary-phone"
-          className="mx-auto flex h-14 w-full max-w-[600px] items-center justify-between gap-3 px-4 sm:px-6"
+      <div className="relative mx-auto grid max-w-[1120px] lg:grid-cols-2">
+        {/* ── The order ─────────────────────────────────────────────── */}
+        <section
+          aria-label="Order summary"
+          data-summary=""
+          className="checkout-enter border-b border-black/[0.06] bg-[#f6f7f8] px-5 pb-6 pt-[max(1rem,env(safe-area-inset-top))] sm:px-8 lg:border-b-0 lg:bg-transparent lg:px-16 lg:pb-16 lg:pt-14"
         >
-          <span className="flex items-center gap-1.5 text-[14px] font-medium text-[#1a1a2e]">
-            Order summary
-            <ChevronDown aria-hidden className={cn("h-4 w-4 text-[#6b7280] transition-transform duration-200", summaryOpen && "rotate-180")} />
-          </span>
-          <span className="text-[16px] font-semibold tabular-nums text-[#1a1a2e]">{money(total)}</span>
-        </button>
-        <div
-          id="checkout-summary-phone"
-          className={cn(
-            "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
-            summaryOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-          )}
-          inert={!summaryOpen}
-        >
-          <div className="min-h-0 overflow-hidden">
-            <div className="mx-auto max-w-[600px] space-y-5 px-4 pb-5 pt-1 sm:px-6">
-              {line}
-              <div className="border-t border-[#e5e7eb] pt-4">{totals}</div>
+          <div className="mx-auto w-full max-w-[440px] lg:ml-auto lg:mr-0 lg:sticky lg:top-14">
+            <ReturnLink
+              href={productUrl}
+              onClick={goBack}
+              aria-label={backTo && siteHost ? `Back to ${siteHost}` : "Back to product"}
+              data-back=""
+              className="group -ml-2 inline-flex min-h-[44px] max-w-full items-center gap-2 rounded-[8px] px-2 text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-black/[0.04]"
+            >
+              {leaving ? (
+                <Spinner className="h-4 w-4 shrink-0 text-[#6b7280]" />
+              ) : (
+                <ArrowLeft aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280] transition-[translate] duration-150 group-hover:-translate-x-0.5" />
+              )}
+              <span className="relative grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded-full bg-[#e5e7eb] text-[11px] font-semibold text-[#4b5563]">
+                {creator.avatar_url ? <Image src={creator.avatar_url} alt="" fill sizes="24px" className="object-cover" /> : initials}
+              </span>
+              <span className="truncate">{backTo && siteHost ? siteHost : creator.name}</span>
+            </ReturnLink>
+
+            <div className="mt-5 lg:mt-8">
+              <p className="text-[15px] font-medium text-[#6b7280]">Pay {creator.name}</p>
+              <p data-total="" className="mt-1 text-[32px] font-semibold leading-tight tracking-[-0.02em] tabular-nums text-[#1a1a2e] sm:text-[36px]">
+                {money(total)}
+              </p>
+            </div>
+
+            {/* A phone shows the order open, with a way to fold it; a computer always shows it. */}
+            <button
+              type="button"
+              onClick={() => setSummaryOpen((o) => !o)}
+              aria-expanded={summaryOpen}
+              aria-controls="checkout-details"
+              className="mt-3 inline-flex h-8 cursor-pointer items-center gap-1 rounded-[6px] bg-[#e9ebee] px-2.5 text-[13px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#e1e3e7] lg:hidden [-webkit-tap-highlight-color:transparent]"
+            >
+              {summaryOpen ? "Hide details" : "Details"}
+              <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 text-[#6b7280] transition-[rotate] duration-200", summaryOpen && "rotate-180")} />
+            </button>
+            <div
+              id="checkout-details"
+              className={cn(
+                "grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none lg:grid-rows-[1fr] lg:opacity-100",
+                summaryOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+              )}
+            >
+              <div className="min-h-0 overflow-hidden" inert={!summaryOpen && !wide}>
+                <div className="pt-6 lg:pt-10">{details("")}</div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <div className="mx-auto grid max-w-[1100px] lg:grid-cols-2">
-        <main className="px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-7 sm:px-6 lg:px-8 lg:pb-16 lg:pr-12 lg:pt-10">
-          <div className="mx-auto max-w-[600px] lg:mr-0">
+        {/* ── The form ──────────────────────────────────────────────── */}
+        <main className="checkout-enter px-5 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-7 sm:px-8 lg:px-16 lg:pb-16 lg:pt-14 [animation-delay:60ms]">
+          <div className="mx-auto w-full max-w-[440px] lg:ml-0 lg:mr-auto">
             {payment}
-            <nav aria-label="Policies" className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#e5e7eb] pt-5 text-[13px] text-[#6b7280]">
-              <Link href="/refund-policy" target="_blank" className="underline-offset-2 hover:text-[#1a1a2e] hover:underline">
-                Refund policy
-              </Link>
-              <Link href="/privacy" target="_blank" className="underline-offset-2 hover:text-[#1a1a2e] hover:underline">
-                Privacy policy
-              </Link>
-              <Link href="/terms" target="_blank" className="underline-offset-2 hover:text-[#1a1a2e] hover:underline">
-                Terms of service
-              </Link>
-            </nav>
+            {isFree ? (
+              <nav aria-label="Policies" className="mt-6 flex items-center justify-center gap-4 text-[12.5px] text-[#6b7280]">
+                <Link href="/terms" target="_blank" className="hover:text-[#1a1a2e]">Terms</Link>
+                <Link href="/privacy" target="_blank" className="hover:text-[#1a1a2e]">Privacy</Link>
+                <Link href="/refund-policy" target="_blank" className="hover:text-[#1a1a2e]">Refunds</Link>
+              </nav>
+            ) : (
+              <PoweredByStripe />
+            )}
           </div>
         </main>
-
-        <aside aria-label="Order summary" className="hidden lg:block">
-          <div className="sticky top-0 max-w-[440px] space-y-6 py-10 pl-12 pr-8">
-            {line}
-            <div className="border-t border-[#e5e7eb] pt-6">{discount("-desk")}</div>
-            <div className="border-t border-[#e5e7eb] pt-6">{tip("-desk")}</div>
-            <div className="border-t border-[#e5e7eb] pt-5">{totals}</div>
-          </div>
-        </aside>
       </div>
 
       <PaidOverlay show={!!paid} total={paid?.total ?? 0} free={!!paid?.free} returningTo={returnTo ? returnHostLabel(returnTo) : null} />

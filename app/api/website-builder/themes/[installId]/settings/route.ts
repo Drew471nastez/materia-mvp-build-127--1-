@@ -47,7 +47,11 @@ export async function GET(_req: Request, { params }: Params) {
     .eq("install_id", installId)
     .maybeSingle()
 
-  if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 })
+  /* The database's own words go to the log, never to the browser. */
+  if (fetchErr) {
+    console.error("[theme-settings] failed", { code: fetchErr.code })
+    return NextResponse.json({ error: "Could not load that. Try again." }, { status: 500 })
+  }
   return NextResponse.json({ settings: data })
 }
 
@@ -118,7 +122,11 @@ export async function PUT(req: Request, { params }: Params) {
       .eq("install_id", installId)
       .select()
       .single()
-    if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
+    /* The database's own words go to the log, never to the browser. */
+    if (updateErr) {
+      console.error("[theme-settings] failed", { code: updateErr.code })
+      return NextResponse.json({ error: "Could not save the settings. Try again." }, { status: 500 })
+    }
     result = data
   } else {
     const { data, error: insertErr } = await supabase
@@ -126,7 +134,11 @@ export async function PUT(req: Request, { params }: Params) {
       .insert({ install_id: installId, ...update })
       .select()
       .single()
-    if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
+    /* The database's own words go to the log, never to the browser. */
+    if (insertErr) {
+      console.error("[theme-settings] failed", { code: insertErr.code })
+      return NextResponse.json({ error: "Could not save the settings. Try again." }, { status: 500 })
+    }
     result = data
   }
 

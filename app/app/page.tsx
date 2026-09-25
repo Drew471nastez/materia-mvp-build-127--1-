@@ -12,7 +12,8 @@ import { pageUser } from "@/lib/auth/page-user"
 import { creatorPageHostFromRows, websiteHostFromRows } from "@/lib/custom-domains/client"
 import { factsFromRows, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
 import { readChallengeCounts } from "@/lib/home/progress-server"
-import { creatorSalesTotals } from "@/lib/analytics/creator-orders"
+import { creatorSalesRows, creatorSalesTotals } from "@/lib/analytics/creator-orders"
+import { salesSummaryFrom } from "@/lib/home/announcements"
 
 /*
   WHO IS ASKING, AND THEIR TWO ROWS, ONCE PER REQUEST. The title and the page
@@ -106,12 +107,15 @@ export default async function AppDashboard() {
 
   if (!creator.onboarding_completed) redirect("/onboarding")
 
+  const now = Date.now()
+
   const [
     { data: products },
     { data: activeDomains },
     { data: publishedSite },
     salesTotals,
     challengeCounts,
+    bannerRows,
   ] = await Promise.all([
     /* Every product and whether it is published: Getting started asks for one, the challenges for five published. */
     adminSupabase
@@ -152,7 +156,10 @@ export default async function AppDashboard() {
        challenges after Getting started (lib/home/progress-server): head
        counts, each 0 on a database without its table. */
     readChallengeCounts(adminSupabase, creator.id),
+    /* The banner's sales news: the last 30 days and the first sale, never every order (lib/home/announcements salesSummaryFrom). */
+    creatorSalesRows(adminSupabase, creator.id, now),
   ])
+  const bannerSales = salesSummaryFrom({ ...bannerRows, totals: salesTotals }, now)
 
   const productIds = products?.map((p: any) => p.id) || []
 
@@ -185,6 +192,7 @@ export default async function AppDashboard() {
       displayName={displayName}
       initialDayPart={dayPart(Date.now(), greetingTimeZone)}
       initialProgress={progressFacts}
+      bannerSales={bannerSales}
       productIds={productIds}
       viewerId={user.id}
       creatorHandle={profile?.username || creator.slug || ""}

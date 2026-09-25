@@ -42,14 +42,39 @@ import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { creatorIdByHandle } from "@/lib/website-builder/site-address-data"
+import { creatorIdByHandle, websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import { isBanned } from "@/lib/seo/bans"
 import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
 import { shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
-import { templateForPage } from "@/lib/website-builder/site-pages"
+import { NOT_FOUND_PAGE_KEY, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
+import { notFoundSections } from "@/lib/website-builder/shop-page"
+import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
+import { schemaFor } from "@/lib/website-builder/storelib-schemas"
+import {
+  dynamicContext,
+  mergeCatalog,
+  missingReferences,
+  productReferences,
+  siteMenus,
+  storefrontData,
+  withDynamicSources,
+  type CreatorFacts,
+} from "@/lib/website-builder/storefront-data"
+import { creatorFacts, pickedProducts, publishedProductCount } from "@/lib/website-builder/storefront-data-server"
+import { schemaLookupFrom } from "@/lib/website-builder/custom-schemas"
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import type { StorefrontData } from "@/lib/storelib-theme/types"
+
+/** The product a product page is about, as a section reads it. */
+type StorefrontProduct = StorefrontData["product"]
+
+/**
+ * What a page needs from whoever owns it to be dressed: the published site
+ * has all of it, and a preview or a cover builds it with ownerOf below.
+ */
+export type PageOwner = Pick<PublishedSite, "creatorId" | "displayName" | "themeSettings" | "sources" | "profile">
 
 /** What Publish invalidates. One creator, every address they answer on. */
 export const creatorSiteTag = (creatorId: string) => `published-site:${creatorId}`
@@ -93,6 +118,13 @@ export interface PublishedSite {
    * these, which is arithmetic and costs nothing.
    */
   sources: Record<string, string>
+  /**
+   * What the creator's own Storelib page shows anybody: their name,
+   * headline, bio and photo. A section reads it as `creator`, and a
+   * dynamic source fills a setting from it (lib/storelib-theme/dynamic.ts).
+   * Named fields, public ones, and nothing else from the rows they come from.
+   */
+  profile: CreatorFacts
 }
 
 /** A site, with its sections drawn. What a page actually needs. */
@@ -192,13 +224,21 @@ export async function creatorByName(name: string): Promise<NameMatch | null> {
   return unstable_cache(() => lookUpName(lower), ["site-name", lower], { revalidate: NAME_TTL })()
 }
 
-/** Where a name that no longer exists went, if anywhere. */
+/**
+ * Where a name that no longer exists went, if anywhere.
+ *
+ * `ilike` for case, with the name taken literally. The name is whatever was
+ * typed into an address, and to LIKE a `%` is any name at all: `/w/%25`
+ * answered with a redirect to whichever creator had changed their username
+ * most recently.
+ */
 async function renamedTo(name: string): Promise<string | null> {
   const admin = createAdminClient()
+  const literal = name.replace(/[\\%_]/g, (c) => `\\${c}`)
   const { data } = await admin
     .from("username_history")
     .select("new_username")
-    .ilike("old_username", name)
+    .ilike("old_username", literal)
     .order("changed_at", { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -246,6 +286,14 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
     (themeSettingsOf(settingsRow as never, false) ?? {}) as ThemeSettingsValues,
   )
 
+  /* The saved section files first: a creator's own section is cleaned by
+     the schema its file declares, below, not only by the built-in ones. */
+  const [sources, profile] = await Promise.all([
+    sectionSources(admin as never, row.id),
+    creatorFacts(admin as never, creatorId),
+  ])
+  const ownSchemas = schemaLookupFrom(sources)
+
   const { data: pageRows } = await admin
     .from("store_theme_pages")
     .select("page_key, sections, draft_sections")
@@ -261,7 +309,7 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
     const published = pageSections<SectionInstance[]>(r as never, false)
     // A page that has never been published is not a page a visitor can see.
     if (!published || published.length === 0) continue
-    pages[r.page_key] = sanitizeSections(published)
+    pages[r.page_key] = sanitizeSections(published, ownSchemas)
   }
   /**
    * ONE HEADER AND ONE FOOTER, at render, whatever the rows hold.
@@ -277,7 +325,6 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
   for (const key of Object.keys(dressed)) pages[key] = dressed[key]
 
   const sections = pages.home ?? []
-  const sources = await sectionSources(admin as never, row.id)
 
   return {
     kind: "site",
@@ -290,6 +337,7 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
       sections,
       pages,
       sources,
+      profile: { name: profile.name ?? displayName, headline: profile.headline ?? "", bio: profile.bio ?? "", avatar: profile.avatar ?? "" },
     },
   }
 }
@@ -311,7 +359,7 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
 export async function publishedSiteByName(name: string, pageKey = "home"): Promise<SiteLookup> {
   const found = await resolveSite(name)
   if (found.kind !== "site") return found
-  const { site, products } = found
+  const { site, products, productCount } = found
 
   const stored = site.pages[pageKey] ?? (pageKey === "home" ? site.sections : undefined)
   if (!stored) return { kind: "missing" }
@@ -339,17 +387,128 @@ export async function publishedSiteByName(name: string, pageKey = "home"): Promi
    * links are already right. A creator's own /blog stays a link because
    * their page key is in this set.
    */
-  const sections = pageWithLiveLinks(stored, new Set(Object.keys(site.pages)))
+  const linked = pageWithLiveLinks(stored, new Set(Object.keys(site.pages)))
 
   // "index" for the front page, `page.<key>` for the rest: the name a
   // section reads as `page.template` and writes `allowed_templates` against.
   const template = templateForPage(pageKey)
+  const { sections, data } = await dressPage(site, linked, products, productCount, template, pageTitleFromKey(pageKey))
   /* `shop.name` falls back to the creator's public name when the store has
      none set: lib/storelib-theme/globals.ts. Nothing per visitor here. */
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, {
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, data, {
     shop: { name: site.displayName },
   })
   return { kind: "site", site: { ...site, sections, prerendered } }
+}
+
+/**
+ * ===========================================================================
+ *  A PAGE'S OWN FACTS, PUT IN BEFORE IT IS DRAWN
+ * ===========================================================================
+ * Per request and outside the cache, like the live-links pass above, and
+ * for the same reason: it reads the shop, which changes on its own clock.
+ *
+ *   1. Any product a picker names that the shop's newest list does not
+ *      hold is read, by id or slug, this creator's and published only.
+ *   2. Every placeholder in a setting is filled from the shop, the creator
+ *      and the page (lib/website-builder/storefront-data.ts), for both
+ *      kinds of section, so neither ever draws `{{ shop.name }}`.
+ *   3. The menus and the catalogue go to the engine with the facts, for
+ *      `link_list`, `product_picker`, `product_list` and the `shop`,
+ *      `creator` and `product` roots.
+ *
+ * A page with no pickers and no placeholders makes no read here and gets
+ * its own sections back unchanged.
+ */
+export async function dressPage(
+  site: PageOwner,
+  sections: SectionInstance[],
+  products: ProductCard[],
+  productCount: number | null,
+  template: string,
+  pageTitle: string,
+  product?: StorefrontProduct,
+  /**
+   * A preview or a cover is one person looking at unpublished work, never
+   * held in a cache anybody else reads, so its picked products are read
+   * directly. Everything published is cached with the shop.
+   */
+  opts: { cached: boolean } = { cached: true },
+): Promise<{ sections: SectionInstance[]; data: StorefrontData }> {
+  const schemaOf = (type: string) => schemaFor(type, site.sources, SECTION_SCHEMAS)
+  const missing = missingReferences(productReferences(sections, schemaOf), products)
+  const read = () => pickedProducts(createAdminClient() as never, site.creatorId, missing)
+  const picked = missing.ids.length || missing.slugs.length
+    ? opts.cached
+      ? await unstable_cache(
+          read,
+          ["picked-products", site.creatorId, [...missing.ids].sort().join(","), [...missing.slugs].sort().join(",")],
+          { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL },
+        )()
+      : await read()
+    : []
+  const { siteOrigin } = await import("@/lib/website-builder/site-seo-data")
+  const siteUrl = await siteOrigin(site.creatorId, site.displayName).catch(() => "")
+  const dynamic = dynamicContext({
+    theme: site.themeSettings,
+    creator: site.profile,
+    siteUrl,
+    productCount,
+    product: product ?? null,
+    pageTitle,
+    template,
+  })
+  const filled = withDynamicSources(sections, schemaOf, dynamic)
+  const data = storefrontData({
+    dynamic,
+    catalog: mergeCatalog(products, picked),
+    menus: siteMenus(site.themeSettings, filled),
+  })
+  return { sections: filled, data }
+}
+
+/**
+ * ===========================================================================
+ *  THE SITE'S OWN 404 PAGE, DRAWN FOR AN ADDRESS IT DOES NOT HAVE
+ * ===========================================================================
+ * What the creator arranged on their 404 page, or the generated one (their
+ * header and footer around the `not_found` section) until they do. Drawn
+ * the way every other page is: live links, placeholders, picked products.
+ *
+ * Handed to app/(site)/w/[username]/not_found, which the 404 answer fetches
+ * on the visitor's side: Next draws a missing page with the one root 404,
+ * which cannot know whose site it is on, so the status stays a real 404 and
+ * the page inside it becomes the creator's. See app/not-found.tsx.
+ */
+export interface NotFoundPage {
+  template: string
+  title: string
+  theme: ThemeSettingsValues
+  sections: SectionInstance[]
+  prerendered: Record<string, RenderedSection>
+  storefront: { creatorId: string; installId: string }
+}
+
+export async function publishedNotFoundPage(name: string): Promise<NotFoundPage | null> {
+  const found = await resolveSite(name)
+  if (found.kind !== "site") return null
+  const { site, products, productCount } = found
+  const stored = site.pages[NOT_FOUND_PAGE_KEY]
+  const arranged = stored && stored.length > 0 ? stored : notFoundSections(site.pages.home ?? site.sections)
+  const linked = pageWithLiveLinks(arranged, new Set(Object.keys(site.pages)))
+  const template = templateForPage(NOT_FOUND_PAGE_KEY)
+  const title = pageTitleFromKey(NOT_FOUND_PAGE_KEY)
+  const { sections, data } = await dressPage(site, linked, products, productCount, template, title)
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, data, { shop: { name: site.displayName } })
+  const brand = typeof site.themeSettings.brand_name === "string" ? site.themeSettings.brand_name.trim() : ""
+  return {
+    template,
+    title: `${title} | ${brand || site.displayName}`,
+    theme: site.themeSettings,
+    sections,
+    prerendered,
+    storefront: { creatorId: site.creatorId, installId: site.installId },
+  }
 }
 
 /**
@@ -361,7 +520,7 @@ export async function publishedSiteByName(name: string, pageKey = "home"): Promi
  * by the lookup above, so this costs no extra round trips.
  */
 export type ShopLookup =
-  | { kind: "site"; site: PublishedSite; products: ProductCard[] }
+  | { kind: "site"; site: PublishedSite; products: ProductCard[]; productCount: number | null }
   | Exclude<SiteLookup, { kind: "site" }>
 
 export async function publishedShopByName(name: string): Promise<ShopLookup> {
@@ -409,13 +568,21 @@ async function resolveSite(name: string): Promise<ShopLookup> {
    * keeps its own cache of the files — so this costs single-digit
    * milliseconds and buys a shop that is never more than a minute behind.
    */
-  const products = await unstable_cache(
-    () => shopProducts(createAdminClient() as never, match.creatorId),
-    ["shop-products", match.creatorId],
-    { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
-  )()
+  const [products, productCount] = await Promise.all([
+    unstable_cache(
+      () => shopProducts(createAdminClient() as never, match.creatorId),
+      ["shop-products", match.creatorId],
+      { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
+    )(),
+    /* How many there are in all, for `shop.product_count`: the list above stops at 24. */
+    unstable_cache(
+      () => publishedProductCount(createAdminClient() as never, match.creatorId),
+      ["shop-count", match.creatorId],
+      { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
+    )(),
+  ])
 
-  return { kind: "site", site: found.site, products }
+  return { kind: "site", site: found.site, products, productCount }
 }
 
 /**
@@ -457,32 +624,92 @@ export async function revalidatePublishedSite(creatorId: string): Promise<void> 
    * `"layout"` rather than `"page"`: it takes the front page and every page
    * below it, which is what a publish changes.
    */
-  const name = await creatorUsername(creatorId)
-  if (name) revalidatePath(`/w/${name}`, "layout")
+  for (const name of await siteNames(creatorId)) revalidatePath(`/w/${name}`, "layout")
 }
 
 /**
- * The name a creator's site is served under. Profile username first, then the
- * creator slug, which is the same order `findCreator` resolves a name in.
+ * Every name a creator's site is served under, the names `lookUpName`
+ * answers to: the profile's username, the creator's slug, and the name the
+ * website was given in Website Settings.
+ *
+ * This used to ask `profiles` for the row whose id was the CREATOR's id. A
+ * profile's id is the user's, so it found nothing, then asked `creators` for
+ * a `username` column it does not have, found nothing again, and no publish
+ * ever purged a rendered page: a creator pressed Publish and watched the old
+ * site until the minute ran out, which is the thing this purge exists to stop.
  */
-async function creatorUsername(creatorId: string): Promise<string | null> {
+async function siteNames(creatorId: string): Promise<string[]> {
   try {
     const admin = createAdminClient()
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("username")
-      .eq("id", creatorId)
-      .maybeSingle()
-    const fromProfile = (profile as { username?: string | null } | null)?.username
-    if (fromProfile) return fromProfile
     const { data: creator } = await admin
       .from("creators")
-      .select("username")
+      .select("user_id, slug")
       .eq("id", creatorId)
       .maybeSingle()
-    return (creator as { username?: string | null } | null)?.username ?? null
+    const row = creator as { user_id?: string | null; slug?: string | null } | null
+    const [profile, handle] = await Promise.all([
+      row?.user_id
+        ? admin.from("profiles").select("username").eq("id", row.user_id).maybeSingle().then((r) => (r.data as { username?: string | null } | null)?.username ?? null)
+        : Promise.resolve(null),
+      websiteHandleOf(creatorId, admin).catch(() => null),
+    ])
+    const names = [profile, row?.slug ?? null, handle]
+      .filter((n): n is string => typeof n === "string" && n.trim() !== "")
+      .map((n) => n.trim().toLowerCase())
+    return [...new Set(names)]
   } catch {
     // A purge that cannot find the name is better than a publish that fails.
-    return null
+    return []
+  }
+}
+
+/**
+ * ===========================================================================
+ *  THE OWNER OF A PAGE THAT IS NOT THE CACHED PUBLISHED SITE
+ * ===========================================================================
+ * A product page, a preview link or a cover render reads its own install,
+ * so it builds the same facts the published site carries: the saved
+ * section files, the creator's public profile, the shop's newest products
+ * and how many there are.
+ *
+ * `cached` is for the live product page, which every visitor opens: the
+ * shop is held under the same keys and tags as the published site's, so a
+ * price change reaches both together, and the profile under the site's
+ * tag, so it changes when somebody publishes. A preview or a cover is one
+ * person's view of unpublished work and reads everything directly.
+ */
+export async function ownerOf(
+  creatorId: string,
+  installId: string,
+  themeSettings: ThemeSettingsValues,
+  opts: { cached: boolean } = { cached: false },
+): Promise<{ owner: PageOwner; products: ProductCard[]; productCount: number | null }> {
+  const admin = createAdminClient()
+  const readProfile = () => creatorFacts(createAdminClient() as never, creatorId)
+  const readProducts = () => shopProducts(createAdminClient() as never, creatorId)
+  const readCount = () => publishedProductCount(createAdminClient() as never, creatorId)
+  const [sources, profile, products, productCount] = await Promise.all([
+    sectionSources(admin as never, installId),
+    opts.cached
+      ? unstable_cache(readProfile, ["creator-facts", creatorId], { tags: [creatorSiteTag(creatorId)], revalidate: SITE_TTL })()
+      : readProfile(),
+    opts.cached
+      ? unstable_cache(readProducts, ["shop-products", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })()
+      : readProducts(),
+    opts.cached
+      ? unstable_cache(readCount, ["shop-count", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })()
+      : readCount(),
+  ])
+  const name = profile.name ?? ""
+  return {
+    owner: {
+      creatorId,
+      displayName: name,
+      themeSettings,
+      sources,
+      profile: { name, headline: profile.headline ?? "", bio: profile.bio ?? "", avatar: profile.avatar ?? "" },
+    },
+    products,
+    productCount,
   }
 }

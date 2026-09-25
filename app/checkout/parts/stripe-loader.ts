@@ -10,20 +10,13 @@
  *
  * In the Capacitor shell, advanced fraud signals are switched off: they add
  * a controller iframe that navigates the whole WKWebView away from the
- * checkout (see lib/stripe-nav-guard.ts, imported first for the same reason).
+ * checkout (see lib/stripe-nav-guard.ts, which blocks it there, and only
+ * there: a browser needs that frame for every element to load).
  */
-import "@/lib/stripe-nav-guard"
+import { isCapacitorShell } from "@/lib/stripe-nav-guard"
 import { loadStripe } from "@stripe/stripe-js/pure"
 
 let promise: ReturnType<typeof loadStripe> | null = null
-
-export function isCapacitorShell(): boolean {
-  if (typeof window === "undefined") return false
-  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
-  if (cap?.isNativePlatform?.()) return true
-  const ua = navigator.userAgent || ""
-  return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
-}
 
 export function getStripePromise(): ReturnType<typeof loadStripe> {
   if (!promise) {
@@ -37,3 +30,18 @@ export function getStripePromise(): ReturnType<typeof loadStripe> {
   }
   return promise
 }
+
+/**
+ * Forget a Stripe.js that failed to arrive, so the next ask loads it again.
+ * `loadStripe` keeps its own rejected script otherwise, and Try again would
+ * be handed the same failure.
+ */
+export function resetStripePromise() {
+  promise = null
+  if (typeof document === "undefined") return
+  document.querySelectorAll('script[src^="https://js.stripe.com/"]').forEach((s) => {
+    if (!(window as unknown as { Stripe?: unknown }).Stripe) s.remove()
+  })
+}
+
+export { isCapacitorShell }

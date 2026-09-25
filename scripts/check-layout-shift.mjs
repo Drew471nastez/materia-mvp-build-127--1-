@@ -27,7 +27,7 @@ const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => rea
 
 const stubs = join(root, ".wb-probe")
 mkdirSync(stubs, { recursive: true })
-writeFileSync(join(stubs, "link.jsx"), `import React from "react"\nexport default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }\n`)
+writeFileSync(join(stubs, "link.jsx"), `import React from "react"\nexport default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }\nexport const useLinkStatus = () => ({ pending: false })\n`)
 writeFileSync(join(stubs, "navigation.js"), `export const usePathname = () => "/"\nexport const useRouter = () => ({ push() {}, replace() {}, refresh() {}, prefetch() {} })\nexport const useSearchParams = () => new URLSearchParams()\n`)
 
 const out = mkdtempSync(join(tmpdir(), "storelib-shift-"))
@@ -49,8 +49,6 @@ const MEASURE = `
 (function () {
   function heights() {
     var out = {}
-
-export const useLinkStatus = () => ({ pending: false })
     document.querySelectorAll("[data-type]").forEach(function (n) {
       out[n.getAttribute("data-type")] = Math.round(n.getBoundingClientRect().height)
     })

@@ -32,6 +32,8 @@
  */
 import sanitizeHtml from "sanitize-html"
 
+import { sanitizeInlineHtml } from "@/lib/storelib-theme/values"
+
 /**
  * What a rich text body may contain. Everything here is markup somebody
  * writing a paragraph would reach for, and nothing here can execute.
@@ -166,7 +168,7 @@ export function sanitizeEmbedCode(html: unknown): string {
  * here is cleaned whatever its declared type, because the question is what
  * reaches the DOM rather than what the schema claims.
  */
-const HTML_SETTING_IDS: Record<string, "rich" | "custom" | "embed"> = {
+const HTML_SETTING_IDS: Record<string, "rich" | "custom" | "embed" | "inline"> = {
   html_content: "custom",
   custom_html: "custom",
   embed_code: "embed",
@@ -178,19 +180,31 @@ const HTML_SETTING_IDS: Record<string, "rich" | "custom" | "embed"> = {
   description: "rich",
 }
 
-function cleanBy(kind: "rich" | "custom" | "embed", value: unknown): string {
+function cleanBy(kind: "rich" | "custom" | "embed" | "inline", value: unknown): string {
   if (kind === "custom") return sanitizeCustomHtml(value)
   if (kind === "embed") return sanitizeEmbedCode(value)
+  /* One line of formatted text: the engine's own allow list, the same one
+     that runs again as the section is drawn. */
+  if (kind === "inline") return sanitizeInlineHtml(value)
   return sanitizeRichText(value)
 }
 
 /** The schema's own view: `{ id -> "rich" }` for every richtext setting. */
-export type HtmlFieldMap = Record<string, "rich" | "custom" | "embed">
+export type HtmlFieldMap = Record<string, "rich" | "custom" | "embed" | "inline">
 
+/**
+ * Which of a schema's settings hold markup, and which allow list cleans each.
+ * By type first, because the type is what the template prints raw: a
+ * `richtext` is rich text, an `html` is a creator's own markup, an
+ * `inline_richtext` is one formatted line. The id list above covers the
+ * settings that hold markup under another type.
+ */
 export function htmlFieldsOf(fields: { id: string; type?: string }[] | undefined): HtmlFieldMap {
   const out: HtmlFieldMap = {}
   for (const f of fields ?? []) {
     if (f.type === "richtext") out[f.id] = HTML_SETTING_IDS[f.id] ?? "rich"
+    else if (f.type === "html") out[f.id] = "custom"
+    else if (f.type === "inline_richtext") out[f.id] = "inline"
     else if (HTML_SETTING_IDS[f.id]) out[f.id] = HTML_SETTING_IDS[f.id]
   }
   return out

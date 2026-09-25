@@ -88,6 +88,7 @@ import {
 import { ThemeCover, coverSpecFromDefinition } from "@/components/website-builder/theme-cover"
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { type Cover, coverBeingWatched, latestCover, requestCover, savedAt, seedCover, watchCover } from "@/lib/website-builder/cover-refresh"
+import { decodeCover, isDecoded, rememberCover, shownCover } from "@/lib/website-builder/cover-memory"
 import { HelpLabel } from "@/components/app/help-label"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
 import { LIBRARY_FULL_CODE, LIBRARY_RULE, LIBRARY_RULE_TITLE } from "@/lib/website-builder/library-limit"
@@ -215,44 +216,73 @@ function DraftBadge({ offline = false }: { offline?: boolean }) {
 
 /**
  * ===========================================================================
- *  A NEW COVER CROSSFADES IN, IT DOES NOT CUT
+ *  A NEW COVER CROSSFADES IN, IT DOES NOT CUT, AND IT IS NEVER GREY FIRST
  * ===========================================================================
  * A cover older than the site is retaken while the page is open (below), and
  * the new picture used to replace the old one in a single frame: a drawn
  * stand-in turning into a screenshot, or yesterday's screenshot into
  * today's, a moment after landing. That cut is the flash on arriving here.
- *
  * So the cover on screen stays underneath, and the new one fades in over it,
- * then the old one is let go. The first cover a card shows is not faded: it
- * is there on the page's first frame, which the shell's landing brings in.
+ * then the old one is let go.
+ *
+ * "When I go back from the editor to the website page, the cover is gray,
+ * and then it shows the cover, but it takes so long and glitches." Coming
+ * back, the page was handed the newest address at once (the one the editor
+ * had just taken), and drew the frame's grey until a file it had never
+ * fetched arrived, then faded it in. Now the first frame draws the last cover
+ * this website showed whole (lib/website-builder/cover-memory, kept for the
+ * tab and across a reload), decoded, in the box the frame reserves; the new
+ * address is fetched and decoded aside, and only then crossfaded in, once.
+ * A picture that cannot be fetched never replaces one that could. The first
+ * cover a website ever shows in a tab is not faded: it is there on the
+ * page's first frame, which the shell's landing brings in.
  */
-function WebsiteCover(props: { install: WebsiteSummary; eager?: boolean; preparing?: boolean }) {
-  const id = props.install.snapshot_url ?? `pending:${props.install.id}`
-  const [shownId, setShownId] = React.useState(id)
-  const [previous, setPrevious] = React.useState<{ id: string; props: typeof props } | null>(null)
-  /* What the cover on screen was drawn from, as of the last commit. */
-  const committed = React.useRef(props)
+type Face = { url: string | null }
+
+/** What a website's cover draws on its first frame: the last whole one, while a different current one is still to be fetched. */
+function firstFace(installId: string, current: string | null): Face {
+  const last = shownCover(installId)
+  if (current && last && last !== current && !isDecoded(current)) return { url: last }
+  return { url: current }
+}
+
+function WebsiteCover({ install, eager = false, preparing = false }: { install: WebsiteSummary; eager?: boolean; preparing?: boolean }) {
+  const current = install.snapshot_url
+  const [face, setFace] = React.useState<Face>(() => firstFace(install.id, current))
+  /* What was on screen before the last swap, fading out under the new one. */
+  const [previous, setPrevious] = React.useState<Face | null>(null)
   React.useEffect(() => {
-    committed.current = props
-  })
-  if (shownId !== id) {
-    setPrevious({ id: shownId, props: committed.current })
-    setShownId(id)
-  }
+    if (!current || current === face.url) return
+    let live = true
+    const swap = () => {
+      if (!live) return
+      setPrevious(face)
+      setFace({ url: current })
+    }
+    /* Already decoded in this tab: on the next frame. Otherwise not before it can be drawn whole. */
+    if (isDecoded(current)) swap()
+    else void decodeCover(current).then((ok) => { if (ok) swap() })
+    return () => {
+      live = false
+    }
+  }, [current, face])
   React.useEffect(() => {
     if (!previous) return
     const t = window.setTimeout(() => setPrevious(null), COVER_FADE_MS + 60)
     return () => window.clearTimeout(t)
   }, [previous])
+  const keyOf = (f: Face) => f.url ?? `pending:${install.id}`
+  const draw = (f: Face) =>
+    f.url ? <CoverPicture installId={install.id} url={f.url} eager={eager} /> : <PendingCover name={install.name} preparing={preparing} />
   return (
     <span className="relative block h-full w-full">
       {previous && (
-        <span key={previous.id} aria-hidden className="absolute inset-0">
-          <CoverPicture {...previous.props} />
+        <span key={keyOf(previous)} aria-hidden className="absolute inset-0">
+          {draw(previous)}
         </span>
       )}
-      <span key={id} className={cn("relative block h-full w-full", previous && "wb-cover-in")}>
-        <CoverPicture {...props} />
+      <span key={keyOf(face)} className={cn("relative block h-full w-full", previous && "wb-cover-in")}>
+        {draw(face)}
       </span>
     </span>
   )
@@ -260,17 +290,15 @@ function WebsiteCover(props: { install: WebsiteSummary; eager?: boolean; prepari
 const COVER_FADE_MS = 420
 
 /**
- * Pictures this tab has already fetched and decoded (decodedFirst). One of
- * these is drawn eagerly and decoded in step with the frame, so a row that
- * arrives with it shows it on that row's first frame, not a frame later.
- */
-const DECODED = new Set<string>()
-
-/**
  * The website's picture: the desktop screenshot the server took on the last
  * save, cut from the top so the site's header and hero are what shows. Plain
  * `<img>`: the snapshot is already 1440px WebP, sized once at capture, so
  * there is nothing for an optimiser to do and nothing to pay per view.
+ *
+ * A picture this tab has decoded, or the last one this website showed, is
+ * drawn eagerly and decoded in step with the frame, so it is on the frame the
+ * page lands on rather than a frame later. Once one has loaded, it is the one
+ * the next visit starts from (cover-memory rememberCover).
  *
  * NO PICTURE YET IS SAID, NOT DRAWN. Until there is a screenshot the card
  * used to draw a page from the site's settings: a headline, a button in its
@@ -280,31 +308,31 @@ const DECODED = new Set<string>()
  * the site's name on the plain grey the placeholder row had, breathing while
  * a photograph is on its way (PendingCover).
  */
-function CoverPicture({ install, eager = false, preparing = false }: { install: WebsiteSummary; eager?: boolean; preparing?: boolean }) {
-  const fade = useCoverFade(install.snapshot_url)
-  if (install.snapshot_url) {
-    const ready = eager || DECODED.has(install.snapshot_url)
-    return (
-      /* eslint-disable-next-line @next/next/no-img-element */
-      <img
-        src={install.snapshot_url}
-        alt=""
-        width={1440}
-        height={900}
-        loading={ready ? "eager" : "lazy"}
-        fetchPriority={eager ? "high" : "auto"}
-        decoding={DECODED.has(install.snapshot_url) ? "sync" : "async"}
-        draggable={false}
-        data-cover-picture=""
-        className="block h-full w-full object-cover object-top"
-        ref={fade.ref}
-        onLoad={fade.onLoad}
-        onError={fade.onLoad}
-        style={fade.style}
-      />
-    )
-  }
-  return <PendingCover name={install.name} preparing={preparing} />
+function CoverPicture({ installId, url, eager = false }: { installId: string; url: string; eager?: boolean }) {
+  const known = isDecoded(url) || shownCover(installId) === url
+  const fade = useCoverFade(known)
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={url}
+      alt=""
+      width={1440}
+      height={900}
+      loading={eager || known ? "eager" : "lazy"}
+      fetchPriority={eager ? "high" : "auto"}
+      decoding={known ? "sync" : "async"}
+      draggable={false}
+      data-cover-picture=""
+      className="block h-full w-full object-cover object-top"
+      ref={fade.ref}
+      onLoad={(e) => {
+        rememberCover(installId, url)
+        fade.onLoad(e)
+      }}
+      onError={fade.onLoad}
+      style={fade.style}
+    />
+  )
 }
 
 /**
@@ -318,20 +346,18 @@ function CoverPicture({ install, eager = false, preparing = false }: { install: 
  * loaded (or, if it had already loaded before the page came to life, as soon
  * as it can), on the same curve and length as a retaken cover's crossfade.
  *
- * A picture already shown in this tab, or one fetched and decoded ahead
- * (DECODED), is drawn at full strength on its first frame: going back to the
- * page, or a retaken cover crossfading in its own wrapper, never fades twice.
- * All of it is opacity on the element itself, so nothing is laid out again.
+ * A picture already shown in this tab (or before a reload), or one fetched
+ * and decoded ahead (lib/website-builder/cover-memory), is drawn at full
+ * strength on its first frame: going back to the page, or a retaken cover
+ * crossfading in its own wrapper, never fades twice. All of it is opacity on
+ * the element itself, so nothing is laid out again.
  */
-const SHOWN = new Set<string>()
 const COVER_IN = `opacity ${COVER_FADE_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`
 
-function useCoverFade(url: string | null | undefined) {
-  const known = !!url && (SHOWN.has(url) || DECODED.has(url))
+function useCoverFade(known: boolean) {
   const reveal = React.useCallback(
     (el: HTMLImageElement | null) => {
-      if (!el || !url || el.style.opacity === "1") return
-      SHOWN.add(url)
+      if (!el || el.style.opacity === "1") return
       if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
         el.style.opacity = "1"
         return
@@ -342,7 +368,7 @@ function useCoverFade(url: string | null | undefined) {
         el.style.opacity = "1"
       })
     },
-    [url],
+    [],
   )
   const ref = React.useCallback(
     (el: HTMLImageElement | null) => {
@@ -507,23 +533,14 @@ function SectionHeading({
 // ── The page ───────────────────────────────────────────────────────────────
 
 /**
- * Resolves once every picture has been fetched and decoded, or failed to,
- * or `within` ms have passed: a slow picture never holds up what waits on it
- * for longer than that, it just draws a moment later.
+ * Resolves once the picture has been fetched and decoded, or failed to, or
+ * `within` ms have passed: a slow picture never holds up what waits on it for
+ * longer than that, it just draws a moment later (cover-memory decodeCover).
+ * The desktop picture only: the phone one is not drawn on this page, and
+ * decoding it was work nobody saw.
  */
-async function decodedFirst(urls: (string | null)[], within = 10_000): Promise<void> {
-  const all = Promise.all(
-    urls.map((url) => {
-      if (!url) return null
-      const img = new Image()
-      img.decoding = "async"
-      img.src = url
-      return img.decode().then(() => void DECODED.add(url), () => null)
-    }),
-  )
-  let timer: number | undefined
-  await Promise.race([all, new Promise<void>((r) => { timer = window.setTimeout(r, within) })])
-  window.clearTimeout(timer)
+async function decodedFirst(url: string | null, within = 10_000): Promise<void> {
+  if (url) await decodeCover(url, within)
 }
 
 /**
@@ -580,7 +597,7 @@ export function WebsiteBuilderClient({
   }, [])
   /** A new picture, decoded before it is handed to the card, which then crossfades to it. */
   const showCover = React.useCallback(async (id: string, cover: Cover) => {
-    await decodedFirst([cover.url, cover.mobile_url])
+    await decodedFirst(cover.url)
     setFresh((prev) => ({ ...prev, [id]: cover }))
   }, [])
   const installs = React.useMemo(
@@ -647,7 +664,7 @@ export function WebsiteBuilderClient({
           /* Decoded before it is swapped in. Handing the card a new URL
              straight away blanked the cover while a 1440px picture arrived
              and decoded, which is the flash of grey a retake used to be. */
-          await decodedFirst([cover.url, cover.mobile_url])
+          await decodedFirst(cover.url)
           setFresh((prev) => ({ ...prev, [i.id]: cover }))
         }
         markPreparing(i.id, false)
@@ -824,7 +841,7 @@ export function WebsiteBuilderClient({
         asked.current.add(id)
         if (cover?.url) {
           seedCover(id, cover)
-          await decodedFirst([cover.url], 2500)
+          await decodedFirst(cover.url, 2500)
           setFresh((prev) => ({ ...prev, [id]: cover }))
         } else {
           markPreparing(id, true)
@@ -1058,6 +1075,27 @@ export function WebsiteBuilderClient({
 
   /* The themes Browse themes offers (one, for now), whether or not they are in the library already. */
   const explore = BROWSABLE_THEMES
+  /*
+    BROWSE THEMES WAITS FOR THE PAGE'S FIRST FRAME, ON A PHONE. It is a
+    screen below the fold there, and a drawn cover with a dozen lines of SVG
+    text is the dearest thing on the page to lay out: laid out with the rest
+    it made the frame that first paints the page one task of 115ms at a
+    phone's speed (scripts/check-website-arrival.mjs), with the spinner's
+    way out waiting behind it. So below md it starts `content-visibility:
+    hidden` in the room it will take, and is let in on the frame after the
+    first paint, as an attribute: no render of the page for it.
+  */
+  const exploreSection = React.useRef<HTMLElement>(null)
+  React.useEffect(() => {
+    let second = 0
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => exploreSection.current?.setAttribute("data-shown", ""))
+    })
+    return () => {
+      cancelAnimationFrame(first)
+      cancelAnimationFrame(second)
+    }
+  }, [])
 
   /*
     NO FADE OF ITS OWN. This box carried `.app-page-enter`, a fade from
@@ -1452,8 +1490,14 @@ export function WebsiteBuilderClient({
         {/* ── Explore ────────────────────────────────────────────── */}
         {/* `content-visibility: auto`: four drawn covers below the fold are
             not laid out or painted until they are scrolled near, so the top
-            of the page is ready sooner on a phone. */}
-        <section aria-labelledby="explore-heading" className="space-y-3 pb-6 [contain-intrinsic-size:auto_420px] [content-visibility:auto]" data-page-block>
+            of the page is ready sooner on a phone. And on a phone not on the
+            page's first frame at all (exploreSection, above). */}
+        <section
+          ref={exploreSection}
+          aria-labelledby="explore-heading"
+          className="space-y-3 pb-6 [contain-intrinsic-size:auto_420px] [content-visibility:auto] max-md:[content-visibility:hidden] max-md:data-shown:[content-visibility:auto]"
+          data-page-block
+        >
           <SectionHeading title="Browse themes">
             <Link
               href="/app/website-builder/themes"

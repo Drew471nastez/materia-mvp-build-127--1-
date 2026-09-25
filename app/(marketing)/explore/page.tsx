@@ -147,7 +147,7 @@ export default async function ExplorePage({
     // to avoid fetching 100 rows when only a few match the query
     let query = supabase
       .from("products")
-      .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
+      .select("id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
       .eq("status", "published")
       .order("created_at", { ascending: false })
       .limit(100)

@@ -4,6 +4,9 @@
     <div class="hero3__media">
       {% if settings.image %}
         <img src="{{ settings.image | asset }}" alt="{{ settings.image_alt | default: settings.heading }}" loading="eager" fetchpriority="high" decoding="async">
+      {% elsif settings.button_url.image %}
+        {# No picture of its own: the picture of the product the button sells. #}
+        <img src="{{ settings.button_url.image | asset }}" alt="{{ settings.image_alt | default: settings.button_url.title }}" loading="eager" fetchpriority="high" decoding="async">
       {% else %}
         <div class="hero3__placeholder" aria-hidden="true"></div>
       {% endif %}

@@ -34,7 +34,7 @@ const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => rea
 
 const stubs = join(root, ".wb-probe")
 mkdirSync(stubs, { recursive: true })
-writeFileSync(join(stubs, "link.jsx"), `import React from "react"\nexport default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }\n`)
+writeFileSync(join(stubs, "link.jsx"), `import React from "react"\nexport default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }\nexport const useLinkStatus = () => ({ pending: false })\n`)
 writeFileSync(join(stubs, "navigation.js"), `export const usePathname = () => "/"\nexport const useRouter = () => ({ push() {}, replace() {}, refresh() {}, prefetch() {} })\nexport const useSearchParams = () => new URLSearchParams()\n`)
 
 const out = mkdtempSync(join(tmpdir(), "storelib-a11y-"))
@@ -59,8 +59,6 @@ const MEASURE = `
     if (!m) return null
     var p = m[1].split(/[\\s,\\/]+/).filter(Boolean).map(Number)
     return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }
-
-export const useLinkStatus = () => ({ pending: false })
   }
   function lum(c) {
     function ch(v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
