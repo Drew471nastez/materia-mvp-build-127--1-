@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { AVATAR_CHOSEN, onboardingPhoto } from "@/lib/account/avatar"
 import {
+  ArrowLeft,
   Check,
   X,
   ChevronLeft,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { PricingSection } from "@/components/marketing/pricing-section"
+import { isNativeApp } from "@/lib/native-bridge"
 
 // Storelib logo SVG component - inlined for instant loading
 const StorelibLogo = ({ className }: { className?: string }) => (
@@ -319,10 +321,41 @@ interface CreatorOnboardingModalProps {
   onClose: () => void
   /** When the user returns from Stripe Checkout, pass the plan they chose so the modal can auto-resume setup. */
   resumeFromStripe?: { planId: "growth" | "pro" } | null
+  /**
+   * A second business being set up (lib/businesses): the way back to the
+   * first one, at the top left, so starting a business is never a door that
+   * only opens one way. It can be left half done and opened again from the
+   * account menu, where it says "Setting up".
+   */
+  switchBack?: { name: string; onSwitch: () => Promise<void> } | null
 }
 
-export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: CreatorOnboardingModalProps) {
+export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switchBack = null }: CreatorOnboardingModalProps) {
   const router = useRouter()
+  /*
+    FULL SCREEN IN THE APP, AT EVERY WIDTH. Below 640px the onboarding has
+    always been the whole screen; above it, a 930 by 540 card. In the iOS and
+    Android apps a card with the dashboard's black showing round it reads as
+    a website inside the app, and on an iPad it was one. Read after mount, so
+    the server's HTML and the first client render agree.
+  */
+  const [nativeFullScreen, setNativeFullScreen] = useState(false)
+  useEffect(() => {
+    setNativeFullScreen(isNativeApp())
+  }, [])
+  const [switchingBack, setSwitchingBack] = useState(false)
+  const [switchBackError, setSwitchBackError] = useState<string | null>(null)
+  const goBackToFirstBusiness = async () => {
+    if (!switchBack || switchingBack) return
+    setSwitchBackError(null)
+    setSwitchingBack(true)
+    try {
+      await switchBack.onSwitch()
+    } catch (e) {
+      setSwitchingBack(false)
+      setSwitchBackError(e instanceof Error ? e.message : "That business could not be opened. Try again.")
+    }
+  }
   const supabase = createClient()
   const redirectFailureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasResumedFromStripeRef = useRef(false)
@@ -1100,12 +1133,17 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
         <DialogContent
           className={cn(
             "p-0 gap-0 overflow-hidden border-0",
-            // Desktop: centered modal with exact specs
-            "sm:w-[930px] sm:max-w-[930px] sm:h-[540px] sm:rounded-[44px]",
-            // Mobile: true fullscreen experience
-            "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none",
-            // Shadow
-            "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
+            nativeFullScreen
+              ? // The app: the whole screen at every width (see nativeFullScreen above)
+                "fixed inset-0 top-0 left-0 w-screen h-[100dvh] max-w-none translate-x-0 translate-y-0 rounded-none"
+              : cn(
+                  // Desktop: centered modal with exact specs
+                  "sm:w-[930px] sm:max-w-[930px] sm:h-[540px] sm:rounded-[44px]",
+                  // Mobile: true fullscreen experience
+                  "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none",
+                  // Shadow
+                  "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
+                ),
             // Hide the close button
             "[&>button]:hidden"
           )}
@@ -1113,9 +1151,29 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
           onEscapeKeyDown={(e) => e.preventDefault()}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className="flex flex-col h-full sm:max-h-[540px] max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)] bg-white">
-            {/* Progress bar */}
-            <div className="flex justify-center pt-4 sm:pt-8 shrink-0">
+          <div className={cn(
+            "flex flex-col h-full bg-white",
+            nativeFullScreen
+              ? "max-h-[100dvh] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+              : "sm:max-h-[540px] max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]",
+          )}>
+            {/* Progress bar, with the way back to the first business on its left when this is a second one */}
+            <div className="relative flex justify-center pt-4 sm:pt-8 shrink-0">
+              {switchBack && (
+                <div className="absolute left-3 top-2 sm:left-6 sm:top-5">
+                  <button
+                    type="button"
+                    onClick={goBackToFirstBusiness}
+                    disabled={switchingBack}
+                    data-onboarding-switch-back=""
+                    className="inline-flex h-9 max-w-[200px] items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:opacity-60"
+                  >
+                    {switchingBack ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <ArrowLeft className="h-4 w-4 shrink-0" />}
+                    <span className="truncate">{switchBack.name}</span>
+                  </button>
+                  {switchBackError && <p role="alert" className="mt-1 max-w-[220px] px-2 text-[12px] text-red-600">{switchBackError}</p>}
+                </div>
+              )}
               <div className="w-[160px] sm:w-[200px] h-[6px] sm:h-[8px] bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-purple-600 transition-all duration-500 ease-out rounded-full"
@@ -1137,10 +1195,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                 <div className="flex flex-col items-center">
                   <div className="text-center mb-4 sm:mb-8">
                     <h1 className="text-[24px] sm:text-[42px] font-bold leading-tight">
-                      Let's get started <span className="inline-block">👋</span>
+                      {switchBack ? "Name your new business" : "Name your store"}
                     </h1>
                     <p className="text-gray-500 text-xs sm:text-base mt-1.5 sm:mt-2">
-                      Start with your name — everything can be changed later
+                      You can change it later, and everything else too.
                     </p>
                   </div>
 
@@ -1429,13 +1487,13 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                           }}
                           className="mt-2 px-6 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 transition-colors"
                         >
-                          Try Again
+                          Try again
                         </button>
                       </div>
                     ) : setupComplete ? (
                       <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 animate-in fade-in zoom-in duration-500">
                         <h1 className="text-lg sm:text-2xl font-bold">
-                          Your Store is now ready.
+                          Your store is ready.
                         </h1>
                         <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-green-500 flex items-center justify-center animate-in zoom-in duration-300">
                           <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
@@ -1444,18 +1502,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                     ) : null}
                   </div>
 
-                  {/* Divider */}
-                  <div className="h-px bg-gray-200 mt-6 sm:mt-8" style={{ width: '210px' }} />
-
-                  {/* Quote */}
-                  <div className="mt-4 sm:mt-5 text-center max-w-sm px-4">
-                    <p className="text-gray-500 text-xs sm:text-sm italic">
-                      <span className="text-purple-600 font-medium not-italic">"</span>
-                      Logic will get you from A to B. Imagination will take you everywhere.
-                      <span className="text-purple-600 font-medium not-italic">"</span>
-                    </p>
-                    <p className="text-gray-400 text-[10px] sm:text-xs mt-1">- Albert Einstein</p>
-                  </div>
+                  {/* A quote used to sit here (Einstein, under the spinner). It was
+                      filler on a screen whose only job is to say it is working. */}
                 </div>
               )}
             </div>
@@ -1796,7 +1844,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
 
       {isRedirecting && (
         <div
-          className="fixed inset-0 z-[2147483647] bg-white flex items-center justify-center px-6"
+          className="fixed inset-0 z-[2147483647] bg-white flex items-center justify-center px-6 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
           role="status"
           aria-live="polite"
         >

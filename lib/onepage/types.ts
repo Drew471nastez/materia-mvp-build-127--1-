@@ -535,69 +535,8 @@ export const defaultSocialLinks: OnePageSocialLinks = {
   email: null,
 }
 
-/**
- * Normalizes a social media URL/handle to a full URL.
- * Handles @username, plain usernames, and partial URLs.
- */
-export function normalizeSocialUrl(platform: string, url: string): string {
-  if (!url) return url
-
-  // Already a full URL
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('mailto:')) {
-    return url
-  }
-
-  // Platform base URLs
-  const platformBaseUrls: Record<string, string> = {
-    instagram: "https://instagram.com/",
-    tiktok: "https://tiktok.com/@",
-    twitter: "https://x.com/",
-    youtube: "https://youtube.com/@",
-    threads: "https://threads.net/@",
-    facebook: "https://facebook.com/",
-    github: "https://github.com/",
-    linkedin: "https://linkedin.com/in/",
-    twitch: "https://twitch.tv/",
-    snapchat: "https://snapchat.com/add/",
-    pinterest: "https://pinterest.com/",
-    soundcloud: "https://soundcloud.com/",
-    kick: "https://kick.com/",
-    patreon: "https://patreon.com/",
-    discord: "https://discord.gg/",
-    spotify: "https://open.spotify.com/artist/",
-    telegram: "https://t.me/",
-    whatsapp: "https://wa.me/",
-  }
-
-  const baseUrl = platformBaseUrls[platform]
-
-  // Handle email separately
-  if (platform === 'email') {
-    if (url.startsWith('mailto:')) return url
-    if (url.includes('@')) return `mailto:${url}`
-    return url
-  }
-
-  // Handle @username format
-  if (url.startsWith('@')) {
-    const username = url.slice(1)
-    if (baseUrl && username) {
-      return baseUrl + username
-    }
-  }
-
-  // Handle plain username (no @, no URL-like characters)
-  if (!url.includes('/') && !url.includes('.') && !url.includes(':') && baseUrl) {
-    return baseUrl + url
-  }
-
-  // Has dots/slashes but no protocol — assume full URL missing https://
-  if (!url.startsWith('http')) {
-    return 'https://' + url
-  }
-
-  return url
-}
+/** Moved to ./social-url.ts; imported from here as before. */
+export { normalizeSocialUrl } from "./social-url"
 
 export function generateBlockId(): string {
   return `block_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`

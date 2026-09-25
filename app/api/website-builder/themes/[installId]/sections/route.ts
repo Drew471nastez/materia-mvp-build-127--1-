@@ -1,10 +1,12 @@
-import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
-import { GENERATED_PAGE_KEYS } from "@/lib/website-builder/site-pages"
+import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
+import { GENERATED_PAGE_KEYS, isPageKey } from "@/lib/website-builder/site-pages"
 import { searchSections, shopSections } from "@/lib/website-builder/shop-page"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { LIMITS } from "@/lib/storelib-theme/types"
+import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
+import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -52,14 +54,17 @@ async function getCreatorInstall(installId: string) {
   // The creator id comes back too: a write that lands on the LIVE columns
   // has to throw away the cached published site, and that cache is keyed by
   // creator. See lib/website-builder/published-site.ts.
-  return { error: null, status: 200, supabase, creatorId: (creator as { id: string }).id }
+  return { error: null, status: 200, supabase, creatorId: (creator as { id: string }).id, userId: user.id }
 }
 
 // GET /api/website-builder/themes/[installId]/sections?page=home
 export async function GET(req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase } = await getCreatorInstall(installId)
+  const { error, status, supabase, userId } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
+
+  const limited = await rateLimit({ bucket: "site-sections-read", subjects: [`user:${userId}`], windows: RATE_LIMITS.siteRead })
+  if (limited) return limited
 
   const { searchParams } = new URL(req.url)
   const pageKey = searchParams.get("page") ?? "home"
@@ -151,15 +156,23 @@ export async function GET(req: Request, { params }: Params) {
 // body: { page_key: string, sections: SectionInstance[], mode: "draft" | "publish" }
 export async function PUT(req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase, creatorId } = await getCreatorInstall(installId)
+  const { error, status, supabase, creatorId, userId } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
 
-  let body: unknown
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
-  }
+  /* Per person, after they are known, sized for autosave in two tabs: RATE_LIMITS.siteSave. */
+  const limited = await rateLimit({
+    bucket: "site-sections-save",
+    subjects: [`user:${userId}`],
+    windows: RATE_LIMITS.siteSave,
+    message: "Too many saves in a short time. Wait a moment, then keep editing.",
+  })
+  if (limited) return limited
+
+  /* Read up to a cap rather than whatever arrives: lib/website-builder/request-body.ts. */
+  const read = await readEditorBody(req, BODY_LIMITS.sections)
+  if (read.ok === false) return read.response
+  if (read.invalid) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  const body = read.json
 
   const parsed = PutBodySchema.safeParse(body)
   if (!parsed.success) {
@@ -185,9 +198,11 @@ export async function PUT(req: Request, { params }: Params) {
    *
    * Cleaned here rather than only at render, because a value that never
    * enters the database cannot be missed by a read path somebody adds later.
-   * See lib/website-builder/sanitize.ts for the allow lists.
+   * See lib/website-builder/sanitize.ts for the allow lists. A section type
+   * the install wrote itself is cleaned by its own file's schema.
    */
-  const sections = sanitizeSections(raw)
+  const own = await readOwnSectionFields(supabase, installId, raw.map((s) => s.type))
+  const sections = sanitizeSections(raw, own)
 
   /**
    * ===========================================================================
@@ -221,12 +236,24 @@ export async function PUT(req: Request, { params }: Params) {
       : { draft_sections: sections }
 
   // Upsert
-  const { data: existing } = await supabase
+  const { data: existing, error: lookupErr } = await supabase
     .from("store_theme_pages")
     .select("id")
     .eq("install_id", installId)
     .eq("page_key", page_key)
     .maybeSingle()
+  if (lookupErr) return NextResponse.json({ error: "Could not save the page. Try again." }, { status: 500 })
+
+  /**
+   * A NEW page takes an address the editor could have made: lowercase
+   * letters, numbers and hyphens (isPageKey, lib/website-builder/site-pages.ts).
+   * A page that already exists is saved under the key it has, whatever it
+   * is: an imported theme may have stored "About_Us" or "page.about", and
+   * refusing those would be refusing a save.
+   */
+  if (!existing && !isPageKey(page_key)) {
+    return NextResponse.json({ error: "A page address uses lowercase letters, numbers and hyphens." }, { status: 400 })
+  }
 
   let result
   if (existing) {
@@ -279,14 +306,39 @@ export async function PUT(req: Request, { params }: Params) {
  */
 export async function DELETE(req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase, creatorId } = await getCreatorInstall(installId)
+  const { error, status, supabase, creatorId, userId } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
 
+  const limited = await rateLimit({
+    bucket: "site-page-delete",
+    subjects: [`user:${userId}`],
+    windows: RATE_LIMITS.siteAction,
+    message: "Too many pages deleted in a short time. Wait a minute and try again.",
+  })
+  if (limited) return limited
+
   const { searchParams } = new URL(req.url)
-  const pageKey = (searchParams.get("page") ?? "").toLowerCase()
+  /**
+   * The key exactly as stored, the same as PUT. This used to lowercase it and
+   * PUT never did, so a page an import had stored as "About_Us" saved fine
+   * and could never be deleted: the delete looked for "about_us", matched
+   * nothing, and answered ok.
+   */
+  const pageKey = searchParams.get("page") ?? ""
   if (!pageKey) return NextResponse.json({ error: "Which page?" }, { status: 400 })
   if (pageKey === "home" || pageKey === "product") {
     return NextResponse.json({ error: "The home and product pages are part of the theme." }, { status: 400 })
+  }
+  /* The same rule as PUT: an address the editor could have made, or a page this site already has. */
+  if (!isPageKey(pageKey)) {
+    const { data: found, error: lookupErr } = await supabase
+      .from("store_theme_pages")
+      .select("id")
+      .eq("install_id", installId)
+      .eq("page_key", pageKey)
+      .maybeSingle()
+    if (lookupErr) return NextResponse.json({ error: "Could not delete the page. Try again." }, { status: 500 })
+    if (!found) return NextResponse.json({ error: "That is not a page on this site." }, { status: 400 })
   }
 
   const { error: deleteErr } = await supabase

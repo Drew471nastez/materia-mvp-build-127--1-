@@ -9,6 +9,29 @@ import { createClient } from "@/lib/supabase/client"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import Image from "next/image"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { switchBusiness } from "@/lib/businesses/switch-client"
+
+/**
+ * A SECOND BUSINESS (lib/businesses) is always a creator: it goes straight
+ * into the creator onboarding, never the creator or buyer question, and the
+ * onboarding shows the way back to the first business. Null for everyone
+ * else, and for any failure, so the page behaves exactly as it did.
+ */
+async function firstBusinessIfSecond(): Promise<{ userId: string; name: string } | null> {
+  try {
+    const { data } = await createClient().auth.getSession()
+    const token = data.session?.access_token
+    const res = await fetch("/api/businesses", { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: "no-store" })
+    if (!res.ok) return null
+    const body = (await res.json()) as { businesses?: Array<{ userId: string; name: string; role: string; current: boolean }> }
+    const list = body.businesses ?? []
+    if (list.find((b) => b.current)?.role !== "member") return null
+    const first = list.find((b) => b.role === "owner")
+    return first ? { userId: first.userId, name: first.name } : null
+  } catch {
+    return null
+  }
+}
 
 // Store/Creator icon - matches UserIcon style
 const StoreIcon = () => (
@@ -36,6 +59,7 @@ function SuccessContent() {
   const stripeSuccess = searchParams.get("stripe_success")
   const stripeTier = searchParams.get("tier") as "growth" | "pro" | null
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+  const [firstBusiness, setFirstBusiness] = useState<{ userId: string; name: string } | null>(null)
 
   // Check if user already completed onboarding - database is the source of truth
   // Uses auth state listener + retry to handle post-OAuth session delays.
@@ -117,6 +141,15 @@ function SuccessContent() {
 
         if (creator?.onboarding_completed === true) {
           window.location.replace("/app")
+          return
+        }
+
+        const first = await firstBusinessIfSecond()
+        if (cancelled) return
+        if (first) {
+          setFirstBusiness(first)
+          setIsCheckingAuth(false)
+          setShowCreatorOnboarding(true)
           return
         }
 
@@ -407,6 +440,7 @@ function SuccessContent() {
             ? { planId: stripeTier }
             : null
         }
+        switchBack={firstBusiness ? { name: firstBusiness.name, onSwitch: () => switchBusiness(firstBusiness.userId) } : null}
       />
     </>
   )

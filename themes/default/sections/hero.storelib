@@ -35,7 +35,7 @@
       {% endif %}
     </div>
     {% if settings.layout == 'split' and settings.hero_image %}
-      <div class="hero__image"><img src="{{ settings.hero_image | asset }}" alt="" loading="eager" fetchpriority="high" decoding="async"></div>
+      <div class="hero__image"><img src="{{ settings.hero_image | asset }}" alt="{{ settings.heading }}" loading="eager" fetchpriority="high" decoding="async"></div>
     {% endif %}
   </div>
 

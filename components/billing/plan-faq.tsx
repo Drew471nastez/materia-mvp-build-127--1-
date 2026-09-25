@@ -33,9 +33,9 @@ function Item({ q, a, open, onToggle }: { q: string; a: string; open: boolean; o
           aria-expanded={open}
           aria-controls={id}
           onClick={onToggle}
-          className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-2xl px-5 py-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:px-7 sm:py-6"
+          className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-2xl px-5 py-4 text-left outline-none transition-transform duration-150 active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:px-7 sm:py-6 [-webkit-tap-highlight-color:transparent]"
         >
-          <span className="text-[15px] font-semibold leading-snug text-[#1a1a2e] sm:text-[18px]">{q}</span>
+          <span className="text-[15.5px] font-semibold leading-snug text-[#1a1a2e] sm:text-[18px]">{q}</span>
           <Plus
             aria-hidden
             strokeWidth={1.75}
@@ -51,7 +51,7 @@ function Item({ q, a, open, onToggle }: { q: string; a: string; open: boolean; o
         <div className="overflow-hidden">
           <p
             className={cn(
-              "px-5 pb-5 text-[14px] leading-[1.6] text-[#4b5563] transition-opacity duration-300 sm:px-7 sm:pb-6 sm:text-[15px]",
+              "px-5 pb-4 text-[14.5px] leading-[1.6] text-[#4b5563] transition-opacity duration-300 sm:px-7 sm:pb-6 sm:text-[15px]",
               open ? "opacity-100" : "opacity-0",
             )}
           >
@@ -73,18 +73,19 @@ export function PlanFaq() {
           Frequent questions
           <span className="block text-[#6b7280]">Find answers</span>
         </h2>
-        <div className="sm:text-right">
+        {/* One line on a phone, two stacked under the title's right edge on a computer. */}
+        <div className="flex flex-wrap items-baseline gap-x-2 sm:block sm:text-right">
           <p className="text-[14px] text-[#1a1a2e]">Any more questions?</p>
           <a
             href="mailto:support@storelib.com"
-            className="mt-1 inline-flex items-center gap-1 text-[14px] font-medium text-[#3b2bb8] underline-offset-4 hover:underline"
+            className="inline-flex items-center gap-1 text-[14px] font-medium text-[#3b2bb8] underline-offset-4 hover:underline sm:mt-1"
           >
             Email support
             <ArrowUpRight className="h-4 w-4" aria-hidden />
           </a>
         </div>
       </div>
-      <div className="mt-6 space-y-3 sm:mt-8">
+      <div className="mt-6 space-y-2.5 sm:mt-8 sm:space-y-3">
         {questions.map((item, i) => (
           <Item key={item.q} q={item.q} a={item.a} open={open === i} onToggle={() => setOpen((o) => (o === i ? null : i))} />
         ))}

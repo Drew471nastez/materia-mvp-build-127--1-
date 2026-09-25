@@ -380,7 +380,7 @@ function SurfaceSwitch({
       <span
         aria-hidden
         data-share-thumb=""
-        className="absolute bottom-1 left-1 top-1 rounded-[9px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_1px_rgba(16,24,40,0.04)] transition-transform duration-300 will-change-transform motion-reduce:transition-none"
+        className="absolute bottom-1 left-1 top-1 rounded-[9px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_1px_rgba(16,24,40,0.04)] transition-transform duration-300 motion-reduce:transition-none"
         style={{
           width: `calc((100% - 8px) / ${addresses.length})`,
           transform: `translateX(${index * 100}%)`,
@@ -819,14 +819,22 @@ function Swap({ viewKey, forward, children }: { viewKey: string; forward: boolea
   const last = React.useRef<number | null>(null)
   const first = React.useRef(true)
 
-  React.useLayoutEffect(() => {
+  /*
+    THE HEIGHT ARRIVES, IT IS NOT ASKED FOR. Reading offsetHeight as the view
+    mounted made the browser lay the whole page out in the middle of the
+    sheet's first frame, before the sheet could start to rise: at phone speed
+    the largest part of the pause between the tap and the movement. The
+    observer reports the size once layout has happened anyway, and a view
+    change is always long after that.
+  */
+  React.useEffect(() => {
     const el = outer.current
     if (!el) return
-    const ro = new ResizeObserver(() => {
-      last.current = el.offsetHeight
+    const ro = new ResizeObserver((entries) => {
+      const box = entries[entries.length - 1]?.borderBoxSize?.[0]
+      last.current = box ? box.blockSize : el.offsetHeight
     })
     ro.observe(el)
-    last.current = el.offsetHeight
     return () => ro.disconnect()
   }, [])
 

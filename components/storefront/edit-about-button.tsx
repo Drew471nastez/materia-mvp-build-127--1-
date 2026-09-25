@@ -44,7 +44,7 @@ export interface EditAboutButtonProps {
 }
 
 export function EditAboutButton({ headline, story, media, contactEmail = "" }: EditAboutButtonProps) {
-  const { markSaved, onClosed } = useSaveThenRefresh()
+  const { markSaved, onClosed, toast } = useSaveThenRefresh()
   const [open, setOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -260,6 +260,8 @@ export function EditAboutButton({ headline, story, media, contactEmail = "" }: E
               )}
             </div>
       </EditorSheet>
+      {/* "Saved", once the sheet has gone (useSaveThenRefresh). */}
+      {toast}
     </>
   )
 }
