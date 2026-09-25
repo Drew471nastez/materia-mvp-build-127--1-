@@ -50,6 +50,7 @@ import { AnalyticsChartWithTooltip, CHART_COLORS } from "@/components/app/analyt
 import { MetricTab } from "@/components/app/metric-tab"
 import { useTabStrip } from "@/components/app/use-tab-strip"
 import { HoverNote } from "@/components/app/help-label"
+import { LoadingLine } from "@/components/app/loading-line"
 
 /* The four figures in order, for the strip that scrolls them on a phone. */
 const STORE_TAB_ORDER = ["views", "revenue", "orders", "conversion"] as const
@@ -124,6 +125,9 @@ const SAMPLE_ONEPAGE: Record<"views" | "clicks" | "subscribers" | "ctr", Figure>
 
 /** What every percentage on the page is measured against. */
 const PREVIOUS_PERIOD: CompareValue = { mode: "previous_period" }
+
+/** How long the figures are waited for before the page says it is counting: "after ~2.5 s a quiet line". */
+export const COUNTING_NOTE_MS = 2500
 
 /** One formatter for the page. Constructing an Intl.NumberFormat is not free. */
 const USD_FORMAT = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
@@ -301,6 +305,24 @@ export function AnalyticsClient({ products, userId }: AnalyticsClientProps) {
     new changes nothing on screen (analytics-reports useAnalyticsReports).
   */
   const isRefreshing = reportsState.stale
+
+  /*
+    WHAT THE PAGE IS WAITING FOR, AS THE PERSON SEES IT. "It shows those
+    numbers blurred, which is okay, but it takes too much to load the data,
+    without showing some feedback." The figures of this question (a first
+    visit, or a new period, product or mode, while the last ones stay on
+    screen, blurred), or the lists under them once the figures are in. The
+    minute's silent refresh of the same question is neither, and neither is
+    a kept answer being checked behind the page (lib/analytics/report-cache).
+
+    While either lasts, the app's slim progress line runs along the top of
+    the figures' card (components/app/loading-line: nothing for 300ms). And
+    when the figures have taken COUNTING_NOTE_MS, a quiet line over the chart
+    says what the wait is: the visits of a long period being counted.
+  */
+  const waitingFigures = reportsState.loading && (!answer || reportsState.stale)
+  const waitingLists = reportsState.loading && !!answer && answer.mode === "store" && !!answer.reports.partial
+  const waitingKey = `${period.preset ?? ""}|${period.start}|${period.end}|${analyticsMode}|${selectedProduct}`
 
   /**
    * THE CHART CHANGES MODE WHEN THE DATA FOR THAT MODE ARRIVES. The tabs
@@ -481,7 +503,8 @@ export function AnalyticsClient({ products, userId }: AnalyticsClientProps) {
         </div>
 
         {/* The four figures and the chart of the one chosen */}
-        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div className="relative bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden" aria-busy={waitingFigures || waitingLists}>
+          <LoadingLine active={waitingFigures || waitingLists} />
           {/*
             THE FIGURES OF THE ANSWER ON SCREEN, like the chart under them. A
             switch to One page used to put its four tabs up at once reading
@@ -552,6 +575,25 @@ export function AnalyticsClient({ products, userId }: AnalyticsClientProps) {
                   <ChartLegend range={period} compare={comparedRange} compareShown={trendMode === "store"} />
                 </div>
               </div>
+              {/*
+                COUNTING, SAID ONCE THE WAIT IS LONG. Only while the figures
+                themselves are on their way, over the chart they will draw,
+                so nothing on the page moves for it. In after
+                COUNTING_NOTE_MS (CSS, so a quick answer never shows it and no
+                timer runs), and keyed on the question, so a new period
+                starts the wait again. Gone the moment the figures land.
+              */}
+              {waitingFigures && !sample ? (
+                <div
+                  key={waitingKey}
+                  role="status"
+                  data-counting-note=""
+                  className="pointer-events-none absolute inset-x-0 top-[38%] z-10 flex justify-center px-4 opacity-0"
+                  style={{ animation: `skeleton-reveal 260ms ease-out ${COUNTING_NOTE_MS}ms forwards` }}
+                >
+                  <span className="rounded-md bg-white/85 px-2 py-0.5 text-center text-[13px] text-[#6b7280]">Counting visits for this range</span>
+                </div>
+              ) : null}
               {!hasRealData && !chartIsLoading && (
                 <div className="absolute -top-6 right-2 flex items-center gap-1.5 z-10">
                   <span className="text-[11px] text-[#9ca3af]">{showSampleData ? "Sample data" : "No activity yet"}</span>
