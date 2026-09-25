@@ -118,7 +118,13 @@ console.log("\nproxy.ts serves each purpose")
     /parts\[0\]\.toLowerCase\(\) === username\.toLowerCase\(\)/.test(proxy))
   check("a website domain still shows the website, and a creator page domain never does",
     /const builtSite = !looksLikeFile && domainPurpose === "website" &&/.test(proxy))
-  check("robots and sitemap come from the website only on a website domain", /isCustomDomain &&\s*domainPurpose === "website" &&\s*\(pathname === "\/robots\.txt"/.test(proxy))
+  /* Changed on purpose: a creator page domain (and a website domain with no
+     website published) used to fall through to storelib.com's robots.txt and
+     sitemap index. It now answers its own (lib/seo/creator-domain.ts); the
+     website's own files are still only for a website domain with a website. */
+  check("robots and sitemap come from the website only on a website domain, from the creator page's own on every other",
+    /const website = domainPurpose === "website" && !\(await hasLiveAiSite\(username\)\) && \(await hasPublishedWebsite\(username\)\)/.test(proxy)
+      && /if \(website\) seoUrl\.pathname = `\/w\/\$\{username\}\$\{pathname\}`\s*else seoUrl\.pathname = `\/u\/\$\{username\}\$\{pathname\}`/.test(proxy))
 }
 
 console.log("\nOnly the owner, on the server")

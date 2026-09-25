@@ -5,7 +5,11 @@
  * proxy.ts bundled as it is, run in Node against a small stand-in for the
  * database (a PostgREST that knows one creator and three domains), and asked
  * for real URLs. Once with the purpose columns (supabase/sql/run-now/22) and
- * once without, where every domain must be served exactly as before them.
+ * once without, where every domain must be served exactly as before them,
+ * and once with a website published. Each host's /robots.txt and
+ * /sitemap.xml are asked for too: storelib.com and its subdomains keep
+ * their own, a website domain with a website answers the website's, and
+ * every other connected domain the creator page's (lib/seo/creator-domain.ts).
  *
  *   maralind.com         website, primary        (no website published)
  *   maralind.shop        website, not primary
@@ -45,6 +49,7 @@ const domains = [
   { domain: "links.maralind.com", creator_id: "c1", status: "active", purpose: "creator_page", is_primary: true },
 ]
 let legacy = false
+let website = false
 const server = createServer((req, res) => {
   const u = new URL(req.url, "http://x")
   const table = u.pathname.split("/").pop()
@@ -69,6 +74,7 @@ const server = createServer((req, res) => {
     rows = q.domain === "eq.old.maralind.com" ? [{ redirect_to: "https://storelib.com/mara", http_code: 301, keep_until: "2999-01-01T00:00:00Z" }] : []
   } else if (table === "creators") rows = [{ id: "c1", user_id: "u1" }]
   else if (table === "profiles") rows = [{ id: "u1", username: "mara" }]
+  else if (table === "store_theme_installs") rows = website ? [{ id: "i1" }] : []
   const single = (req.headers.accept || "").includes("vnd.pgrst.object")
   res.writeHead(200, { "content-type": "application/json" })
   res.end(JSON.stringify(single ? rows[0] ?? null : rows))
@@ -113,12 +119,34 @@ expect(await ask("https://storelib.com/mara"), "next", "storelib.com is untouche
 expect(await ask("https://nobody.storelib.com/"), "rewrite /w/nobody", "a storelib.com subdomain is still a website address")
 expect(await ask("https://old.maralind.com/prints?x=1"), "301 https://storelib.com/mara/prints?x=1", "a removed creator page domain sends a product to it under the handle")
 
+console.log("\nEach host's robots.txt and sitemap.xml")
+expect(await ask("https://storelib.com/robots.txt"), "next", "storelib.com keeps its own robots.txt")
+expect(await ask("https://storelib.com/sitemap.xml"), "next", "and its own sitemap index")
+expect(await ask("https://nobody.storelib.com/robots.txt"), "rewrite /w/nobody/robots.txt", "a storelib.com subdomain keeps its website's")
+expect(await ask("https://links.maralind.com/robots.txt"), "rewrite /u/mara/robots.txt", "a creator page domain answers the creator page's own robots.txt")
+expect(await ask("https://links.maralind.com/sitemap.xml"), "rewrite /u/mara/sitemap.xml", "and its own sitemap (the route reads the Host header)")
+expect(await ask("https://www.maralind.com/robots.txt"), "rewrite /u/mara/robots.txt", "a website domain with no website shows the creator page, and answers for it, not storelib.com")
+expect(await ask("https://www.maralind.shop/sitemap.xml"), "rewrite /u/mara/sitemap.xml", "a secondary domain is asked, not redirected (the route gives it no sitemap)")
+expect(await ask("https://maralind.com/robots.txt"), "301 https://www.maralind.com/robots.txt", "a bare apex still goes to its www first")
+expect(await ask("https://storelib.com/u/mara/sitemap.xml"), "308 https://storelib.com/mara/sitemap.xml", "the route is not an address on storelib.com")
+expect(await ask("https://links.maralind.com/app"), "307 https://links.maralind.com/login", "the app is Storelib's on a domain, as before, which its robots.txt closes")
+
+website = true
+console.log("\nWith a website published")
+expect(await ask("https://www.maralind.com/"), "rewrite /w/mara", "a website domain shows the website")
+expect(await ask("https://www.maralind.com/robots.txt"), "rewrite /w/mara/robots.txt", "and answers the website's own robots.txt")
+expect(await ask("https://www.maralind.com/sitemap.xml"), "rewrite /w/mara/sitemap.xml", "and the website's own sitemap")
+expect(await ask("https://links.maralind.com/robots.txt"), "rewrite /u/mara/robots.txt", "a creator page domain never answers the website's")
+expect(await ask("https://links.maralind.com/"), "rewrite /u/mara", "nor shows it")
+website = false
+
 legacy = true
 console.log("\nBefore the columns exist: everything as it was")
 expect(await ask("https://www.maralind.shop/about"), "rewrite /u/mara", "no domain redirects to another")
 expect(await ask("https://links.maralind.com/"), "rewrite /u/mara", "every domain is a website domain")
 expect(await ask("https://links.maralind.com/prints"), "rewrite /u/mara", "and other paths land on the page, as they did")
 expect(await ask("https://links.maralind.com/links"), "rewrite /l/mara", "with /links the OnePage")
+expect(await ask("https://links.maralind.com/robots.txt"), "rewrite /u/mara/robots.txt", "robots.txt is the creator page's, which names no sitemap before the columns")
 
 console.warn = quiet
 server.close()

@@ -38,6 +38,7 @@ const SUITES = [
   "tests/ai-keeps-working.test.ts",
   "tests/site-address.test.ts",
   "tests/custom-domains.test.ts",
+  "tests/creator-domain-seo.test.ts",
   "tests/emails-page.test.ts",
   "tests/orders-view.test.ts",
   "tests/orders-detail.test.ts",
