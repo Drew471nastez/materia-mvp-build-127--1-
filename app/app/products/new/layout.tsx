@@ -10,7 +10,9 @@ import { PageLayer } from "@/components/app/page-layer"
  * From md it is a page in the shell like any other, with the rail beside it
  * and the header above it, its own bar stuck to the top of the content area:
  * "On desktop large screen the edit product page should be with the sidebar,
- * with the header up there. Not how it is on mobile."
+ * with the header up there. Not how it is on mobile." From lg that bar moves
+ * to the foot of the content area, under a page header and two columns
+ * (./product-editor.tsx).
  */
 export default function NewProductLayout({ children }: { children: React.ReactNode }) {
   return <PageLayer pill inset="bar" phoneOnly>{children}</PageLayer>
