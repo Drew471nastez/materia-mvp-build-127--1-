@@ -16,6 +16,7 @@ import { resolveSectionColors, styleAttr } from "./color-schemes"
 import { resolveInstance, themeTokens } from "./resolve"
 import { sectionTypography } from "./typography"
 import { cssForInstance } from "./storelib/css"
+import { guardStyleText } from "./storelib/raw-html"
 import { renderTemplate, stripDocumentMarkup, type CompiledTemplate } from "./storelib/template"
 import type { CompiledSection, RenderContext, SectionInstanceData } from "./types"
 
@@ -86,10 +87,13 @@ export function renderSection(input: RenderInput): Rendered {
   const html = `<div ${attrs.join(" ")}>${inner}</div>`
   return {
     html,
+    /* It is written into a <style> element, which a `</style` would end early. */
     css: compiled.css
-      ? cssForInstance(
-          compiled.cssTemplate ? renderTemplate(compiled.cssTemplate as CompiledTemplate, ctx, { mode: "css" }) : compiled.css,
-          id,
+      ? guardStyleText(
+          cssForInstance(
+            compiled.cssTemplate ? renderTemplate(compiled.cssTemplate as CompiledTemplate, ctx, { mode: "css" }) : compiled.css,
+            id,
+          ),
         )
       : "",
     script: compiled.script,
