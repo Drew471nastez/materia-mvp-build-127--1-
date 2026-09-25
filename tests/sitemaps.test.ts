@@ -121,7 +121,8 @@ section("A built site is canonical at one origin")
   check("otherwise its subdomain", siteOrigin({ handle: "Mara", mainDomain: "storelib.com" }) === "https://mara.storelib.com")
   const seoData = code("lib/website-builder/site-seo-data.ts")
   check("the site's own sitemap and canonicals name the www host the proxy answers on, not the bare domain it redirects",
-    /bare\.startsWith\("www\."\) \? bare : `www\.\$\{bare\}`/.test(seoData) && !/replace\(\/\^www\\\.\/, ""\) : `\$\{name/.test(seoData))
+    /* The host comes from lib/custom-domains: www.<apex> for an apex, a connected subdomain as it is. */
+    /primaryHostFor\(creatorId, "website"\)/.test(seoData) && /servingHost\(primary\.domain\)/.test(code("lib/custom-domains/store.ts")) && !/replace\(\/\^www\\\.\/, ""\) : `\$\{name/.test(seoData))
   check("a site under a handle the spam rules hold back is not listed", /deservesIndexing\(\{ publishedProducts: 1, handle: name \}\)/.test(seoData))
 }
 
@@ -131,8 +132,8 @@ section("Every host answers its own robots.txt and sitemap")
   check("a website-builder subdomain's robots.txt and sitemap go to its own routes, an AI site keeps its own",
     /const isWebsite = \(!looksLikeFile \|\| seoFile\) && !\(await hasLiveAiSite\(subdomain\)\)/.test(proxy))
   check("a connected domain's too, instead of storelib.com's, answered once",
-    /username &&\s*isCustomDomain &&\s*\(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\)/.test(proxy) && /seoUrl\.pathname = `\/w\/\$\{username\}\$\{pathname\}`/.test(proxy)
-      && (proxy.match(/isCustomDomain &&\s*\(pathname === "\/robots\.txt"/g) ?? []).length === 1)
+    /username &&\s*isCustomDomain &&\s*(?:domainPurpose === "website" &&\s*)?\(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\)/.test(proxy) && /seoUrl\.pathname = `\/w\/\$\{username\}\$\{pathname\}`/.test(proxy)
+      && (proxy.match(/isCustomDomain &&\s*(?:domainPurpose === "website" &&\s*)?\(pathname === "\/robots\.txt"/g) ?? []).length === 1)
   const siteRobots = code("app/(site)/w/[username]/robots.txt/route.ts")
   const siteMap = code("app/(site)/w/[username]/sitemap.xml/route.ts")
   check("an unknown site's robots.txt allows everything, never a refusal a failed lookup could cache for a day",

@@ -58,7 +58,8 @@ check(
  */
 for (const [name, pattern] of [
   ["www.storelib.com to the apex", /if \(!isApiCall && bareHost === `www\.\$\{MAIN_DOMAIN\}`\)/],
-  ["a custom domain to its www", /if \(!isApiCall && isExternalDomain && !hostWithoutPort\.startsWith\("www\."\)\)/],
+  /* An apex only: a connected subdomain is its own address (lib/custom-domains/hostname). */
+  ["a custom domain to its www", /if \(!isApiCall && isExternalDomain && !hostWithoutPort\.startsWith\("www\."\)(?: && isApexHost\(hostWithoutPort\))?\)/],
 ] as const) {
   check(`${name} skips API calls`, pattern.test(proxy))
 }

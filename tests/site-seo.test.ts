@@ -80,7 +80,7 @@ console.log("\nWired")
 {
   const proxy = read("proxy.ts")
   check("a subdomain's robots.txt and sitemap.xml go to its website", /const seoFile = pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"/.test(proxy) && /const isWebsite = \(!looksLikeFile \|\| seoFile\) && !\(await hasLiveAiSite\(subdomain\)\)/.test(proxy))
-  check("and a connected domain's do too, before the reserved-path rule sends them to Storelib's", /isCustomDomain &&\s*\n\s*\(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\)/.test(proxy) && proxy.indexOf("seoUrl.pathname = `/w/${username}${pathname}`") < proxy.indexOf("if (username && !isReservedPath(pathname))"))
+  check("and a connected domain's do too, before the reserved-path rule sends them to Storelib's", /isCustomDomain &&\s*\n\s*(?:domainPurpose === "website" &&\s*\n\s*)?\(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\)/.test(proxy) && proxy.indexOf("seoUrl.pathname = `/w/${username}${pathname}`") < proxy.indexOf("if (username && !isReservedPath(pathname))"))
   check("both routes exist", /robotsTxt\(seo\.origin, seo\.indexable\)/.test(read("app/(site)/w/[username]/robots.txt/route.ts")) && /sitemapXml\(seo\.entries\)/.test(read("app/(site)/w/[username]/sitemap.xml/route.ts")))
   const render = read("app/(site)/w/[username]/render-site.tsx")
   check("every page names its canonical address on the site's own domain", /alternates: \{ canonical: url \}/.test(render) && /themeMetadata\(settings, \{ title: rawTitle, description, url \}\)/.test(render))
@@ -88,7 +88,8 @@ console.log("\nWired")
   const product = read("app/(site)/w/[username]/products/[slug]/page.tsx")
   check("a product page names its canonical address, respects a hidden site, and carries its structured data",
     /productMetadata\(slug, \{ url: productUrl\(origin, slug\), brand, indexable: siteIsIndexable\(settings\) \}\)/.test(product) && /application\/ld\+json/.test(product))
-  check("the canonical is the connected domain when there is one", /\.eq\("status", "active"\)/.test(read("lib/website-builder/site-seo-data.ts")))
+  /* The website's own primary domain, read through lib/custom-domains/store.ts, once it is live. */
+  check("the canonical is the connected domain when there is one", /primaryHostFor\(creatorId, "website"\)/.test(read("lib/website-builder/site-seo-data.ts")) && /r\.status === "active"/.test(read("lib/custom-domains/store.ts")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

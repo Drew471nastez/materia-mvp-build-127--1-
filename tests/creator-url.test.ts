@@ -88,7 +88,8 @@ for (const file of LINKERS) {
 
 check(
   "the canonical tag names the bare path",
-  /canonical: `https:\/\/storelib\.com\/\$\{username\}`/.test(code("app/(marketing)/u/[username]/page.tsx")),
+  /* Or the creator page's own domain when it has one (lib/custom-domains): still one address, never /u/. */
+  /canonical: (?:pageHost \? `https:\/\/\$\{pageHost\}\/` : )?`https:\/\/storelib\.com\/\$\{username\}`/.test(code("app/(marketing)/u/[username]/page.tsx")),
   "two spellings competing as duplicate content is the thing a canonical exists to stop",
 )
 check(
@@ -190,7 +191,7 @@ check(
 )
 check(
   "and the structured data agrees with it",
-  /const canonicalUrl = getProductShareUrl\(creatorUsername, product\.slug\)/.test(productPage),
+  /const canonicalUrl = getProductShareUrl\(creatorUsername, product\.slug(?:, pageHost)?\)/.test(productPage) && /const productUrl = getProductShareUrl\(sellerHandle \|\| "", product\.slug(?:, pageHost)?\)/.test(productPage),
   "the JSON-LD url and the <link> must not name different addresses",
 )
 check(
