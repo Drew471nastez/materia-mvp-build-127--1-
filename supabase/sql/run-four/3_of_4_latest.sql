@@ -130,12 +130,15 @@ revoke all on public.business_switches from anon, authenticated;
 create index if not exists business_switches_from_created on public.business_switches (from_user, created_at desc);
 
 -- part 27_creator_badges.sql
-/* Creator badges Storelib grants (profiles.badges), kept from being written through the API by a trigger, and Veteran for lucadragoste. Safe to run twice. */
-alter table public.profiles add column if not exists badges text[] not null default '{}';
-create or replace function public.profiles_keep_badges() returns trigger language plpgsql as $$ begin if current_user in ('authenticated', 'anon') then if tg_op = 'INSERT' then new.badges := '{}'; elsif new.badges is distinct from old.badges then new.badges := old.badges; end if; end if; return new; end $$;
-drop trigger if exists profiles_keep_badges on public.profiles;
-create trigger profiles_keep_badges before insert or update on public.profiles for each row execute function public.profiles_keep_badges();
-update public.profiles set badges = array_append(badges, 'veteran') where lower(username) = lower('lucadragoste') and not ('veteran' = any(badges));
+/* Badges Storelib grants a creator (the Veteran mark beside a name on the creator page and product pages). Nobody can give themselves one through the API: a trigger keeps the old value for signed-in and anonymous requests. Until this runs, the app grants the same badge by username, so running it changes nothing on the page. */
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS badges text[] NOT NULL DEFAULT '{}';
+CREATE OR REPLACE FUNCTION public.profiles_keep_badges() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF current_user IN ('authenticated', 'anon') THEN IF tg_op = 'INSERT' THEN new.badges := '{}'; ELSIF new.badges IS DISTINCT FROM old.badges THEN new.badges := old.badges; END IF; END IF; RETURN new; END $$;
+DROP TRIGGER IF EXISTS profiles_keep_badges ON public.profiles;
+CREATE TRIGGER profiles_keep_badges BEFORE INSERT OR UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.profiles_keep_badges();
+/* Veteran: Luca Dragoste (storelib.com/lucadragoste). A second run adds nothing. */
+UPDATE public.profiles SET badges = array_append(badges, 'veteran') WHERE lower(username) = lower('lucadragoste') AND NOT ('veteran' = ANY(badges));
+/* Who has a badge now. */
+SELECT username, badges FROM public.profiles WHERE cardinality(badges) > 0;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

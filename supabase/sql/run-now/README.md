@@ -48,10 +48,10 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `24_theme_chat_conversations.sql` | Ask Storelib conversations: new chat and history. Each message is filed under a conversation on its own website; only its creator can read them. | 15 | 2,794 |
 | `25_analytics_speed.sql` | Analytics that load quickly: indexes in the order the reports read, and the counting done in the database, run by the server only. The page works without it. Can take a minute on a large events table. | 13 | 9,648 |
 | `26_business_accounts.sql` | A second business on the same login: the link between the two accounts (one per login, read by those two, written by the server only) and a server only log of every switch. | 13 | 2,278 |
-| `27_creator_badges.sql` | Badges Storelib grants a creator (Veteran for lucadragoste), and a trigger so nobody can set their own through the API. | 7 | 942 |
+| `27_creator_badges.sql` | Badges Storelib grants a creator (the Veteran mark), kept out of reach of the public API by a trigger. Changes nothing on the page. | 8 | 1,270 |
 | `90_storage_policies_needs_owner.sql` | LAST, ON ITS OWN. Replaces the storage.objects policies. Needs the owner of storage.objects; see README if it says "must be owner". | 2 | 3,896 |
 | `91_storage_policies_to_remove.sql` | Read only. For the dashboard route: the storage policies to delete. | 2 | 1,242 |
-| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 8,548 |
+| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 8,293 |
 
 Parts `01` to `27` all run as the editor's normal role. `90` is the one
 that may not; see below.
