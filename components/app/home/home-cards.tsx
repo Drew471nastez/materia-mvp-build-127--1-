@@ -105,7 +105,8 @@ export const AUTOPLAY_IN_VIEW = 0.6
  * no finger is on it, the tab is showing, and nobody asked for less motion.
  * The moment one stops holding, every timer is cleared and the card settles;
  * nothing runs for a card that is off screen. When they hold again the two
- * seconds start over.
+ * seconds start over. A play that falls while a sheet covers the page is
+ * skipped, so nothing moves under the sheet while it is dragged.
  */
 export function useHoverAutoplay<T extends HTMLElement>() {
   const ref = useRef<T>(null)
@@ -125,6 +126,8 @@ export function useHoverAutoplay<T extends HTMLElement>() {
       el.removeAttribute("data-play")
     }
     const play = () => {
+      /* A sheet or a dialog over the page covers the card: the shared sheet marks <html>, Radix's scroll lock marks <body>. */
+      if (document.documentElement.hasAttribute("data-app-sheet-up") || document.body.hasAttribute("data-scroll-locked")) return
       el.setAttribute("data-play", "")
       window.clearTimeout(settle)
       settle = window.setTimeout(letGo, AUTOPLAY_HOLD_MS)

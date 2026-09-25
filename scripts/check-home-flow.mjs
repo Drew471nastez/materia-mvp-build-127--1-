@@ -347,6 +347,15 @@ try {
           document.dispatchEvent(new Event("visibilitychange"))
         })
 
+        /* A sheet over the page (the shared sheet marks <html>): nothing moves under it. */
+        await page.evaluate(() => document.documentElement.setAttribute("data-app-sheet-up", "open"))
+        await bringTo(page, "#getting-started", 90)
+        await watchPlays(page, "#getting-started")
+        await wait(7500)
+        const covered = await playLog(page)
+        expect(!covered.plays.some(([, k]) => k === "play"), "under an open sheet it never plays", covered.plays)
+        await page.evaluate(() => document.documentElement.removeAttribute("data-app-sheet-up"))
+
         /* The guide and the plan play too. */
         for (const [sel, name] of [[".home-guide", "the guide"], ["[aria-labelledby=your-plan-title]", "the plan"]]) {
           /* From the top first, where no card is on screen, so each one starts its two seconds here. */
