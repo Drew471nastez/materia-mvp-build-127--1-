@@ -1,7 +1,7 @@
 "use client"
 
 import { announceChange } from "@/lib/seo/announce-client"
-import { forwardRef, useState, useRef, useEffect, useMemo, type ButtonHTMLAttributes } from "react"
+import { forwardRef, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { ArrowUpDown, Check, ChevronLeft, ChevronRight, Download, Search, X } from "lucide-react"
@@ -9,7 +9,11 @@ import { getProductUrl } from "@/lib/url-helpers"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
-import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, buttonPrimary, buttonSecondary, formatMoney } from "../orders/order-parts"
+import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, buttonSecondary, formatMoney } from "../orders/order-parts"
+import { primaryDepth, secondaryDepth } from "./new/editor-buttons"
+import { isReturning, listShown, openEditor, takeEdited } from "./list-return"
+import { playList, shootList, type ListShot } from "./list-motion"
+import { LAYER_MOTION_MS } from "@/components/app/page-layer"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
@@ -81,8 +85,40 @@ const Press = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonEleme
   )
 })
 
+/**
+ * The New product button: the editor's violet Save (primaryDepth), at the
+ * bar's 32px, with the 44px press on a phone.
+ */
+const NEW_LOOK = cn(primaryDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px]")
+
+/**
+ * A row's more button with the same depth as the editor's (secondaryDepth):
+ * drawn 40px on a phone, as the editor's is, with a 44px press (3px from
+ * inside its 1px border), and 32px in the table.
+ */
+const ROW_MENU_PHONE = cn(
+  secondaryDepth,
+  "relative z-[1] h-10 w-10 rounded-[10px] text-[#4b5563] after:absolute after:-inset-[3px] after:content-[''] [&>svg]:h-5 [&>svg]:w-5",
+)
+const ROW_MENU_TABLE = cn(secondaryDepth, "h-8 w-8 rounded-lg text-[#4b5563]")
+
 /** How many rows a page holds before the footer's arrows take over. */
 const PAGE_SIZE = 50
+
+/**
+ * WHERE THE LIST WAS LEFT. Opening a product and coming back is a new page
+ * to the router, so the list would open on All, Newest, no search, page 1.
+ * Kept here for the tab instead (never stored), and read as the page's first
+ * state only when this visit is a return: the way back from the editor, or
+ * the browser's back or forward (isReturning, ./list-return). Then the list
+ * comes back as it was left, at the scroll the stage puts back. A fresh
+ * visit, from the sidebar or the pill, and a full load start from nothing.
+ */
+let leftAt: { view: View; sort: Sort; search: string; page: number } | null = null
+
+/** The edited row's tint as the list comes back, fading out once the editor has gone. */
+const EDITED_TINT = "#f3effe"
+const EDITED_FADE_MS = 1200
 
 /** `router.prefetch`'s full kind: the page's data too, not only its shell. */
 const FULL_PREFETCH = { kind: "full" } as unknown as Parameters<ReturnType<typeof useRouter>["prefetch"]>[1]
@@ -282,10 +318,14 @@ function compare(sort: Sort) {
 export function ProductsClient({ products: initialProducts, creatorUsername }: ProductsClientProps) {
   const { t } = useLanguage()
   const [products, setProducts] = useState<Product[]>(initialProducts)
-  const [view, setView] = useState<View>("all")
-  const [sort, setSort] = useState<Sort>("newest")
-  const [page, setPage] = useState(1)
-  const [searchQuery, setSearchQuery] = useState("")
+  const [resumed] = useState(() => (isReturning() ? leftAt : null))
+  const [view, setView] = useState<View>(resumed?.view ?? "all")
+  const [sort, setSort] = useState<Sort>(resumed?.sort ?? "newest")
+  const [page, setPage] = useState(resumed?.page ?? 1)
+  const [searchQuery, setSearchQuery] = useState(resumed?.search ?? "")
+  useEffect(() => {
+    leftAt = { view, sort, search: searchQuery, page }
+  }, [view, sort, searchQuery, page])
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -341,6 +381,39 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   }, [page, pages])
   const from = (pageNow - 1) * PAGE_SIZE
   const pageProducts = filteredProducts.slice(from, from + PAGE_SIZE)
+
+  /*
+    A ROW, ONCE DRAWN, STAYS. Switching view, searching or sorting used to
+    unmount every row that left and mount a new one for every row that came
+    back: a new <img> each time, decoded again, a grey frame where the picture
+    was. Now every product shown since the page opened keeps its element, in
+    the current order, and the ones not in the view are only hidden. Coming
+    back to All finds the same elements with their pictures already decoded,
+    and only a row never shown before is new. Rows are keyed by product id.
+  */
+  const shownIds = useMemo(() => new Set(pageProducts.map((p) => p.id)), [pageProducts])
+  const [kept, setKept] = useState<ReadonlySet<string>>(() => new Set())
+  const drawn = useMemo(
+    () => [...products].sort(compare(sort)).filter((p) => shownIds.has(p.id) || kept.has(p.id)),
+    [products, sort, shownIds, kept],
+  )
+  useLayoutEffect(() => {
+    for (const id of shownIds) {
+      if (!kept.has(id)) {
+        setKept((prev) => new Set([...prev, ...shownIds]))
+        return
+      }
+    }
+  }, [shownIds, kept])
+
+  /* The change of view, measured just before and played just after (./list-motion). */
+  const sectionRef = useRef<HTMLElement>(null)
+  const listShot = useRef<ListShot | null>(null)
+  useLayoutEffect(() => {
+    const before = listShot.current
+    listShot.current = null
+    playList(sectionRef.current, before)
+  }, [view])
 
   /**
    * Archive takes a product off every page; Restore brings it back as a
@@ -475,6 +548,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
 
   /* A new view, search or order starts from its first page. */
   const showView = (next: View) => {
+    if (next === view) return
+    listShot.current = shootList(sectionRef.current)
     setView(next)
     setPage(1)
   }
@@ -516,6 +591,50 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       if (resting.current) clearTimeout(resting.current)
     },
   })
+  /* New product the same way: its page is the empty editor, read on the server. */
+  const warmNew = () => {
+    if (warmed.current.has("new")) return
+    warmed.current.add("new")
+    router.prefetch("/app/products/new", FULL_PREFETCH)
+  }
+
+  /*
+    OPENING THE EDITOR SLIDES IT IN over the list (../list-return,
+    components/app/page-layer moveLayer), the way it slides out again. A
+    press with a modifier key, or not the main button, is left to the link:
+    a new tab or window, as the browser does.
+  */
+  const openFromLink = (href: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+    e.preventDefault()
+    openEditor(router, href)
+  }
+
+  /*
+    THE ROW YOU CAME BACK FROM. Tinted as the list comes back under the
+    editor, fading once the editor has gone, and brought into view if the
+    list's scroll left it out.
+  */
+  useEffect(() => {
+    listShown()
+    const id = takeEdited()
+    const section = sectionRef.current
+    if (!id || !section) return
+    const row = Array.from(section.querySelectorAll<HTMLElement>(`[data-row="${CSS.escape(id)}"]:not([hidden])`)).find((el) => el.getClientRects().length > 0)
+    if (!row || typeof row.animate !== "function") return
+    const pane = section.closest<HTMLElement>(".orders-pane")
+    if (pane) {
+      const r = row.getBoundingClientRect()
+      const p = pane.getBoundingClientRect()
+      if (r.top < p.top || r.bottom > p.bottom) pane.scrollTo({ top: pane.scrollTop + r.top - p.top - (p.height - r.height) / 2, behavior: "smooth" })
+    }
+    /* The table's cells are white and paint over their row, so there it is the cells that are tinted. */
+    const targets = row.tagName === "TR" ? (Array.from(row.children) as HTMLElement[]) : [row]
+    const rest = row.tagName === "TR" ? "#ffffff" : "rgba(243, 239, 254, 0)"
+    for (const el of targets) {
+      el.animate([{ backgroundColor: EDITED_TINT }, { backgroundColor: rest }], { duration: EDITED_FADE_MS, delay: LAYER_MOTION_MS, easing: "ease-out", fill: "backwards" })
+    }
+  }, [])
 
   const statusOf = (product: Product): Status =>
     isArchived(product) ? "archived" : product.status === "published" ? "live" : "draft"
@@ -585,7 +704,14 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               }
               items={exportItems}
             />
-            <Link href="/app/products/new" data-new-product="" className={cn(buttonPrimary, PRESS)}>
+            <Link
+              href="/app/products/new"
+              data-new-product=""
+              onClick={openFromLink("/app/products/new")}
+              onMouseEnter={warmNew}
+              onTouchStart={warmNew}
+              className={NEW_LOOK}
+            >
               {t("products.newProduct")}
             </Link>
           </div>
@@ -692,10 +818,17 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         ) : null}
 
         <section
+          ref={sectionRef}
           aria-label="Products"
-          className="mt-1 md:mt-3 md:overflow-hidden md:rounded-2xl md:border md:border-[#e5e7eb]/60 md:bg-white md:shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+          className="relative mt-1 md:mt-3 md:overflow-hidden md:rounded-2xl md:border md:border-[#e5e7eb]/60 md:bg-white md:shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
         >
-          {pageProducts.length > 0 ? (
+          {/*
+            Every row drawn since the page opened is here (`drawn`); the ones
+            not in the view, the search or the page are hidden, not gone.
+            With nothing to show, both lists are hidden and the empty words
+            show, and the rows are still kept.
+          */}
+          {drawn.length > 0 ? (
             <>
               {/*
                 A PHONE: one 72px row per product, the whole row the press,
@@ -704,20 +837,25 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 it the price and sales in grey. A Draft says so with a small
                 amber dot in All, where live and draft products are mixed;
                 in its own view the control above already says it. The
-                hairline between rows starts where the text does.
+                hairline between rows starts where the text does, on every
+                row shown after another shown row. The more button has the
+                editor's depth, on the 16px gutter like New product.
               */}
-              <ul aria-label="Products" data-list="" className="-mx-4 sm:-mx-6 md:hidden">
-                {pageProducts.map((product) => {
+              <ul aria-label="Products" data-list="" className="-mx-4 sm:-mx-6 md:hidden" hidden={pageProducts.length === 0}>
+                {drawn.map((product) => {
                   const status = statusOf(product)
                   return (
                     <li
                       key={product.id}
-                      className="relative flex h-[72px] items-center gap-3 pl-4 pr-1.5 has-[a:active]:bg-[#eef0f2] sm:pl-6 sm:pr-3.5 [&+li]:before:absolute [&+li]:before:left-[84px] [&+li]:before:right-0 [&+li]:before:top-0 [&+li]:before:h-px [&+li]:before:bg-[#eceef1] sm:[&+li]:before:left-[92px]"
+                      data-row={product.id}
+                      hidden={!shownIds.has(product.id)}
+                      className="relative flex h-[72px] items-center gap-3 pl-4 pr-4 has-[a:active]:bg-[#eef0f2] sm:pl-6 sm:pr-6 [li:not([hidden])~&]:before:absolute [li:not([hidden])~&]:before:left-[84px] [li:not([hidden])~&]:before:right-0 [li:not([hidden])~&]:before:top-0 [li:not([hidden])~&]:before:h-px [li:not([hidden])~&]:before:bg-[#eceef1] sm:[li:not([hidden])~&]:before:left-[92px]"
                     >
                       <Link
                         href={`/app/products/${product.id}`}
                         aria-label={product.title}
                         onTouchStart={() => warm(product.id)}
+                        onClick={openFromLink(`/app/products/${product.id}`)}
                         {...hover(product.id)}
                         className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]"
                       />
@@ -743,7 +881,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       <ResponsiveActionMenu
                         title={product.title}
                         align="end"
-                        trigger={<RowMenuButton label={`Actions for ${product.title}`} className="relative z-[1] h-11 w-11 shrink-0 rounded-full text-[#9ca3af]" />}
+                        trigger={<RowMenuButton label={`Actions for ${product.title}`} className={ROW_MENU_PHONE} />}
                         items={actionsFor(product)}
                       />
                     </li>
@@ -756,10 +894,10 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 44px picture, 14px names, the status as a dot and a word
                 rather than a tinted badge, numbers right aligned in figures
                 of one width, and the whole row opens the product. No grey
-                heading band and no line above the first row. Sales joins
-                from 1024px, where the sidebar leaves room for it.
+                heading band and no line above the first row shown. Sales
+                joins from 1024px, where the sidebar leaves room for it.
               */}
-              <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table">
+              <table className="hidden w-full table-fixed border-separate border-spacing-0 text-[13px] md:table" hidden={pageProducts.length === 0}>
                 <thead>
                   <tr className="h-10 text-left text-[12px] text-[#6b7280]">
                     <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium">Product</th>
@@ -770,24 +908,30 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                   </tr>
                 </thead>
                 <tbody>
-                  {pageProducts.map((product) => {
+                  {drawn.map((product) => {
                     const status = statusOf(product)
                     return (
                       <tr
                         key={product.id}
-                        className="group h-16 cursor-pointer [&+tr>td]:border-t [&+tr>td]:border-[#f1f2f4]"
+                        data-row={product.id}
+                        hidden={!shownIds.has(product.id)}
+                        className="group h-16 cursor-pointer [tr:not([hidden])~&>td]:border-t [tr:not([hidden])~&>td]:border-[#f1f2f4]"
                         {...hover(product.id)}
                         onClick={(e) => {
                           /* Not a press inside the row's own controls, nor one that bubbled up from its menu's portal. */
                           const target = e.target as HTMLElement
                           if (!e.currentTarget.contains(target) || target.closest("a,button,input,label")) return
-                          router.push(`/app/products/${product.id}`)
+                          openEditor(router, `/app/products/${product.id}`)
                         }}
                       >
                         <td className="bg-white pl-4 pr-3 group-hover:bg-[#fafafb]">
                           <div className="flex min-w-0 items-center gap-3">
                             <Thumb src={product.thumbnail_url} title={product.title} size={44} />
-                            <Link href={`/app/products/${product.id}`} className="min-w-0 truncate text-[14px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline">
+                            <Link
+                              href={`/app/products/${product.id}`}
+                              onClick={openFromLink(`/app/products/${product.id}`)}
+                              className="min-w-0 truncate text-[14px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline"
+                            >
                               {product.title}
                             </Link>
                           </div>
@@ -799,11 +943,11 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                           {product.sales_count ? product.sales_count.toLocaleString("en-US") : <span className="text-[#b6bac1]">0</span>}
                         </td>
                         <td className="whitespace-nowrap bg-white px-3 text-right font-medium tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb]">{priceOf(product.price_cents)}</td>
-                        <td className="bg-white pr-2 text-right group-hover:bg-[#fafafb]">
+                        <td className="bg-white pr-3 text-right group-hover:bg-[#fafafb]">
                           <ResponsiveActionMenu
                             title={product.title}
                             align="end"
-                            trigger={<RowMenuButton label={`Actions for ${product.title}`} className="text-[#9ca3af] hover:text-[#1a1a2e]" />}
+                            trigger={<RowMenuButton label={`Actions for ${product.title}`} className={ROW_MENU_TABLE} />}
                             items={actionsFor(product)}
                           />
                         </td>
@@ -813,7 +957,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 </tbody>
               </table>
             </>
-          ) : (
+          ) : null}
+          {pageProducts.length === 0 ? (
             <div data-empty="" className="flex flex-col items-center px-6 py-16 text-center md:py-14">
               <p className="text-[16px] font-semibold text-[#1a1a2e] md:text-[15px]">{emptyTitle}</p>
               <p className="mt-1 max-w-[320px] text-[14px] leading-5 text-[#6b7280] md:text-[13px]">
@@ -830,12 +975,18 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                   Clear search
                 </Press>
               ) : products.length === 0 ? (
-                <Link href="/app/products/new" className={cn(buttonPrimary, PRESS, "mt-5 max-md:h-10 max-md:px-4 max-md:text-[14px]")}>
+                <Link
+                  href="/app/products/new"
+                  onClick={openFromLink("/app/products/new")}
+                  onMouseEnter={warmNew}
+                  onTouchStart={warmNew}
+                  className={cn(NEW_LOOK, "mt-5 max-md:h-10 max-md:px-4 max-md:text-[14px]")}
+                >
                   Create product
                 </Link>
               ) : null}
             </div>
-          )}
+          ) : null}
 
           {/*
             THE FOOTER. On a computer it counts what is shown, as Orders'
@@ -957,6 +1108,12 @@ function StatusMark({ status, label, strong = false }: { status: Status; label: 
  * proportion, with a hairline drawn inside it so a white cover still has an
  * edge. With no picture, the name's first letter on grey rather than a
  * stock box icon, so two products without covers can still be told apart.
+ *
+ * The grey is under the picture too, so a picture still on its way shows
+ * grey, never white. Its box is its size exactly (width and height, not a
+ * fill measured from the parent), decoded off the main thread, and loaded
+ * lazily only the first time: the row keeps this element for as long as the
+ * page is open (see `drawn`), so a picture once shown is not asked for again.
  */
 function Thumb({ src, title, size }: { src: string | null; title: string; size: 56 | 44 }) {
   const letter = (Array.from(title.trim())[0] || "").toUpperCase()
@@ -969,7 +1126,7 @@ function Thumb({ src, title, size }: { src: string | null; title: string; size: 
       )}
     >
       {src ? (
-        <Image src={src} alt="" fill sizes={`${size}px`} className="object-cover" />
+        <Image src={src} alt="" width={size} height={size} decoding="async" draggable={false} className="h-full w-full object-cover" />
       ) : (
         <span aria-hidden className={cn("flex h-full items-center justify-center font-semibold text-[#9ca3af]", size === 56 ? "text-[20px]" : "text-[16px]")}>
           {letter}

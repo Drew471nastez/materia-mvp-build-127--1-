@@ -4,6 +4,7 @@ import { OnePageEditor } from "@/components/onepage/onepage-editor"
 import type { OnePage } from "@/lib/onepage/types"
 import { defaultTheme, defaultSettings, defaultSocialLinks } from "@/lib/onepage/types"
 import type { Metadata } from "next"
+import { pageUser } from "@/lib/auth/page-user"
 
 export const dynamic = "force-dynamic"
 
@@ -29,13 +30,10 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function OnePageEditorPage() {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   // Get creator info including social links from onboarding
   const { data: creator, error: creatorError } = await supabase

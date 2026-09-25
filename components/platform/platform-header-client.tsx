@@ -795,7 +795,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
 
   async function handleLogout() {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: "local" })
     setMobileProfileOpen(false)
     setDesktopProfileOpen(false)
     setCachedAvatarUrl(null)

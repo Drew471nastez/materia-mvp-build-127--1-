@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { nativeAppReadyForce } from "@/lib/native-bridge"
 import { hasStoredSessionToken } from "@/lib/auth/session-read"
+import { isSignedOutAnswer } from "@/lib/auth/auth-error"
 
 /**
  * Lightweight client gate for server-rendered layouts.
@@ -110,9 +111,23 @@ export function NativeAuthGate({
         // Dynamic import so this only runs on the client in Capacitor
         const { createClient } = await import("@/lib/supabase/client")
         const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { session }, error } = await supabase.auth.getSession()
 
         if (cancelled) return
+
+        /**
+         * NO SESSION IS NOT ALWAYS "SIGNED OUT". When the access token has
+         * run out, getSession() renews it first, and if that renewal cannot
+         * reach Supabase it returns `session: null` with a network error
+         * while the session itself is still stored, intact. This used to go
+         * straight to /login on any null. Now only an answer that means
+         * signed out does (lib/auth/auth-error.ts); a dropped connection
+         * gets the "Cannot reach the server" screen and a retry.
+         */
+        if (!session && !isSignedOutAnswer(false, error)) {
+          setStuck(true)
+          return
+        }
 
         if (session) {
           // Session found in Preferences, but Next.js server components read
@@ -136,7 +151,12 @@ export function NativeAuthGate({
           router.replace("/login")
         }
       } catch {
-        if (!cancelled) router.replace("/login")
+        /* A read that threw proves nothing about the session. If one is
+           stored, keep it and offer a retry; only an empty device goes to
+           the login form. */
+        if (cancelled) return
+        if (hasStoredSessionToken()) setStuck(true)
+        else router.replace("/login")
       }
     }
 

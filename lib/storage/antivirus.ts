@@ -35,11 +35,23 @@ export interface ScanResult {
 /** Files smaller than this skip virus scanning (too small to be threats). */
 const MIN_SCAN_SIZE_BYTES = 256
 
-/** Maximum file size to scan (larger files use checksum-based lookup). */
-const MAX_SCAN_SIZE_BYTES = 500 * 1024 * 1024 // 500MB
+/**
+ * Maximum file size a full scan downloads. Larger files are judged by their
+ * header alone (lib/storage/scan-gate.ts): a function holding a 5 GB file in
+ * memory to scan it is an outage, not a scan.
+ */
+export const MAX_SCAN_SIZE_BYTES = 500 * 1024 * 1024 // 500MB
 
 /** Timeout for external scan APIs. */
 const SCAN_TIMEOUT_MS = 60_000
+
+/**
+ * Whether a real antivirus engine is configured. Without one the scan is the
+ * header heuristic in security.ts, which is fast enough to run inline.
+ */
+export function hasExternalScanner(): boolean {
+  return Boolean(process.env.CLAMAV_REST_URL || process.env.CLOUDMERSIVE_API_KEY || process.env.VIRUSTOTAL_API_KEY)
+}
 
 // ── Scan Backends ──────────────────────────────────────────────────
 

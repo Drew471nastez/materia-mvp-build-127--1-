@@ -7,6 +7,13 @@ export const STORAGE_BUCKET = "digital-products" // single private bucket for al
 export const PUBLIC_BUCKET = "lead-form-files-v2" // public bucket for thumbnails/images
 export const BUCKET_FILE_SIZE_LIMIT = 0 // 0 = no bucket-level limit (disables the check in Supabase Storage; only project-level global limit applies)
 
+/**
+ * The private buckets a paid file can live in: digital-products today,
+ * product-files and digital-assets for files uploaded before it. A signed
+ * download URL is only ever made for one of these, whatever a row says.
+ */
+export const DIGITAL_BUCKETS = [STORAGE_BUCKET, "product-files", "digital-assets"] as const
+
 /** Global hard ceiling — effectively unlimited; actual limits are plan-based. */
 export const MAX_FILE_SIZE_BYTES = Number.MAX_SAFE_INTEGER
 
@@ -27,7 +34,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     maxFileSizeBytes: 10 * 1024 * 1024 * 1024, // 10 GB
     maxDownloadsPerLink: 10,
     linkExpiryDays: 30,
-    maxFilesPerProduct: 3,
+    maxFilesPerProduct: 20,
     rateLimit: { uploadsPerHour: 150, downloadsPerHour: 500 },
   },
   growth: {
@@ -35,7 +42,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     maxFileSizeBytes: 50 * 1024 * 1024 * 1024, // 50 GB
     maxDownloadsPerLink: 100,
     linkExpiryDays: 90,
-    maxFilesPerProduct: 10,
+    maxFilesPerProduct: 100,
     rateLimit: { uploadsPerHour: 500, downloadsPerHour: 5000 },
   },
   pro: {
@@ -43,13 +50,19 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     maxFileSizeBytes: Number.MAX_SAFE_INTEGER, // unlimited
     maxDownloadsPerLink: 9999,
     linkExpiryDays: 365,
-    maxFilesPerProduct: 50,
+    maxFilesPerProduct: 100,
     rateLimit: { uploadsPerHour: 1000, downloadsPerHour: 10000 },
   },
 }
 
+/**
+ * The limits for a stored plan id. Case and spacing are ignored, and
+ * "professional", an id from before the plans were renamed, is Pro, the same
+ * reading as planDisplayName in lib/billing/plans.ts. Anything unknown is Free.
+ */
 export function getPlanLimits(planId: string | null | undefined): PlanLimits {
-  const id = (planId || "free") as PlanId
+  const key = (planId || "free").toLowerCase().trim()
+  const id = (key === "professional" ? "pro" : key) as PlanId
   return PLAN_LIMITS[id] ?? PLAN_LIMITS.free
 }
 

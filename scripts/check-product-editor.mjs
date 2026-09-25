@@ -25,6 +25,12 @@
  *   photos and videos: a swipe over the tiles scrolls, a hold lifts one
  *   where it is, a touchcancel restores, the remove button still removes,
  *   and the save writes the gallery and the cover in the new order.
+ *   CANCEL AND BACK. Back on a saved product with nothing changed, Cancel
+ *   after a change (which asks), Back and a grey Saved after a save.
+ *   THE WAY OUT AND IN (`?route`, at 390 and 1280). The editor leaves over the
+ *   list and comes in over it as one view transition, stepped through a
+ *   fifth at a time: no blank frame, 260 to 320ms, the list already drawn.
+ *   Screenshots are named products-exit-*, products-enter-*.
  *   THE DESCRIPTION. A title change saves it untouched; typing in it lights
  *   Save, and the save sends it through the clean once and writes the result.
  *   The clean is a server action; here it is a stand-in that counts calls.
@@ -59,6 +65,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
 const saveButton = "[data-editor-bar] [data-save-button]"
+/* The bar's first button holds both of its words (Cancel and Back), one unseen, so it is found by its attribute. */
+const leaveButton = "[data-editor-bar] [data-leave-button]"
+const pressLeave = (p) => p.$eval(leaveButton, (b) => b.click())
+const leaveMode = (p) => p.$eval(leaveButton, (b) => b.dataset.mode)
 const pressText = (p, scope, text) => p.evaluate((scope, text) => {
   const b = [...document.querySelectorAll(scope)].find((x) => x.textContent.trim() === text && x.getBoundingClientRect().width > 0)
   if (!b) return false
@@ -75,13 +85,16 @@ const pressText = (p, scope, text) => p.evaluate((scope, text) => {
  */
 async function leaving(p, label, vp, isPhone) {
   console.log(`  -- Cancel, and the question`)
-  const pushes = () => p.evaluate(() => (window.__router || []).filter(([k, a]) => k === "push" && a === "/app/products").length)
+  /* Opened directly (no list behind it in this harness), the way out puts the list in its place. */
+  const pushes = () => p.evaluate(() => (window.__router || []).filter(([k, a]) => (k === "replace" && a === "/app/products") || k === "back" || k === "push").length)
   const open = () => p.evaluate(() => !!document.querySelector("[data-confirm-sheet]") && (!document.querySelector("[data-app-sheet]") || document.querySelector("[data-app-sheet]").dataset.appSheet === "open"))
 
   const p0 = await pushes()
-  await pressText(p, "[data-editor-bar] button", "Cancel")
-  await sleep(250)
-  expect((await pushes()) === p0 + 1 && !(await open()), "with nothing changed, Cancel goes straight back to Products", { pushes: (await pushes()) - p0 })
+  const restMode = await leaveMode(p)
+  expect(restMode === "back", "with nothing changed on a saved product, the first button is Back", restMode)
+  await pressLeave(p)
+  await sleep(650)
+  expect((await pushes()) === p0 + 1 && !(await open()), "and it goes straight back to Products", { pushes: (await pushes()) - p0 })
 
   /* The more menu names the state the bar used to. */
   await p.click("[data-editor-bar] button[aria-label='More actions']")
@@ -96,7 +109,9 @@ async function leaving(p, label, vp, isPhone) {
   await p.keyboard.type(" v2")
   await sleep(150)
   const p1 = await pushes()
-  await pressText(p, "[data-editor-bar] button", "Cancel")
+  const dirtyMode = await leaveMode(p)
+  expect(dirtyMode === "cancel", "a change turns Back into Cancel", dirtyMode)
+  await pressLeave(p)
   await sleep(isPhone ? 700 : 400)
   const shape = await p.evaluate(() => {
     const s = document.querySelector("[data-confirm-sheet]")
@@ -138,7 +153,7 @@ async function leaving(p, label, vp, isPhone) {
   expect(!(await open()) && (await pushes()) === p1 && / v2$/.test(stayed), "Keep editing closes it and keeps the change", { pushes: (await pushes()) - p1, title: stayed.slice(-10) })
 
   if (isPhone) {
-    await pressText(p, "[data-editor-bar] button", "Cancel")
+    await pressLeave(p)
     await sleep(700)
     const cdp = await p.createCDPSession()
     const grab = await p.evaluate(() => {
@@ -156,10 +171,10 @@ async function leaving(p, label, vp, isPhone) {
     expect(!(await open()) && (await pushes()) === p1, "pulled down, it goes, and nothing is discarded", { open: await open() })
   }
 
-  await pressText(p, "[data-editor-bar] button", "Cancel")
+  await pressLeave(p)
   await sleep(isPhone ? 700 : 400)
   await pressText(p, "[data-confirm-sheet] button", "Discard")
-  await sleep(500)
+  await sleep(650)
   expect((await pushes()) === p1 + 1, "Discard goes back to Products", { pushes: (await pushes()) - p1 })
 }
 
@@ -612,16 +627,235 @@ async function savedOrder(p, ctx) {
   return { ok: got.length === expected.length && same(got, expected), expected, got }
 }
 
+/**
+ * THE WAY BACK, AND IN AGAIN, FRAME BY FRAME. The routed harness (`?route`)
+ * draws the editor in its PageLayer with a two address router, so Back runs
+ * the real moveLayer against a real commit. The move's own animations are
+ * paused as soon as it is ready and stepped through by hand: at each fifth a
+ * screenshot, and in it the share of the content area (under the header,
+ * over the pill) that is not bare page or white, which is what a blank frame
+ * would be. The list must already be in the DOM under the move's first
+ * frame, the layer gone, and the duration on the iOS curve within 260 to 320ms.
+ */
+const PAGE_BG = [248, 249, 250]
+/* Decoded in the page itself, off the DOM: a second tab would hide this one, and a hidden page skips its view transition. */
+async function inkOf(p, png, top, bottom) {
+  return p.evaluate(async (b64, top, bottom, bg) => {
+    const img = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob())
+    const c = new OffscreenCanvas(img.width, img.height)
+    const g = c.getContext("2d")
+    g.drawImage(img, 0, 0)
+    const scale = img.width / innerWidth
+    const y0 = Math.round(top * scale)
+    const y1 = Math.round(bottom * scale)
+    const d = g.getImageData(0, y0, c.width, y1 - y0).data
+    let ink = 0
+    const near = (i, [r, gg, bb]) => Math.abs(d[i] - r) <= 6 && Math.abs(d[i + 1] - gg) <= 6 && Math.abs(d[i + 2] - bb) <= 6
+    for (let i = 0; i < d.length; i += 4) if (!near(i, bg) && !near(i, [255, 255, 255])) ink++
+    return +(ink / (d.length / 4)).toFixed(4)
+  }, png, top, bottom, PAGE_BG)
+}
+
+async function watchMoves(p) {
+  await p.evaluate(() => {
+    window.__moves = []
+    const start = document.startViewTransition?.bind(document)
+    if (!start) return
+    document.startViewTransition = (cb) => {
+      const t = start(cb)
+      const m = { at: performance.now() }
+      window.__moves.push(m)
+      t.ready.then(() => { m.ready = performance.now() }, () => { m.skipped = true })
+      t.finished.then(() => { m.done = performance.now() })
+      return t
+    }
+  })
+}
+
+/** Waits for the move that just began to be ready, pauses it, and walks it. */
+async function walkMove(p, browser, label, name, vp, which, before) {
+  let m = null
+  for (let i = 0; i < 60; i++) {
+    m = await p.evaluate((n) => window.__moves[n] ?? null, before)
+    if (m && (m.ready || m.skipped)) break
+    await sleep(20)
+  }
+  const out = { ready: !!m?.ready, skipped: !!m?.skipped, waited: m?.ready ? +(m.ready - m.at).toFixed(1) : null }
+  if (!m?.ready) return out
+  const info = await p.evaluate(() => {
+    const all = document.getAnimations().filter((a) => a.effect?.pseudoElement?.startsWith("::view-transition"))
+    for (const a of all) a.pause()
+    return all.map((a) => {
+      const t = a.effect.getTiming()
+      return { el: a.effect.pseudoElement, name: a.animationName, dur: t.duration, easing: a.effect.getKeyframes()[0]?.easing ?? t.easing, frames: a.effect.getKeyframes().map((k) => ({ transform: k.transform, opacity: k.opacity })) }
+    })
+  })
+  out.animations = info
+  out.under = await p.evaluate(() => ({
+    layer: !!document.querySelector("[data-page-layer]"),
+    rows: document.querySelectorAll("[data-list] > [data-row]:not([hidden]), tbody > [data-row]:not([hidden])").length,
+    motion: document.documentElement.dataset.layerMotion ?? null,
+    path: window.__path,
+    /* The edited product's row, read as the move begins: its tint runs 1.5s, less than stepping through the move can take. */
+    tinted: (() => {
+      const row = [...document.querySelectorAll(`[data-row="8f0c2b1e-3a4d-4c5e-9f60-718293a4b5c6"]`)].find((r) => r.getClientRects().length > 0)
+      return row ? [row, ...row.children].some((el) => el.getAnimations().some((a) => a.effect.getKeyframes().some((k) => k.backgroundColor))) : false
+    })(),
+  }))
+  const moving = info.find((a) => a.el === which)
+  const dur = moving ? Number(moving.dur) : 0
+  out.frames = []
+  const cdp = await p.createCDPSession()
+  const top = vp.width >= 768 ? 70 : 80
+  const bottom = vp.height - (vp.width >= 768 ? 10 : 90)
+  for (const f of [0, 0.25, 0.5, 0.75, 1]) {
+    await p.evaluate((ms) => {
+      for (const a of document.getAnimations()) if (a.effect?.pseudoElement?.startsWith("::view-transition")) a.currentTime = ms
+    }, f * dur)
+    /* The protocol's own capture: puppeteer's screenshot() waits on a frame the paused move never asks for. */
+    const { data: png } = await cdp.send("Page.captureScreenshot", { format: "png" })
+    const file = `products-${name}-${label}-${String(Math.round(f * 100)).padStart(3, "0")}.png`
+    writeFileSync(join(shots, file), Buffer.from(png, "base64"))
+    out.frames.push({ at: f, ink: await inkOf(p, png, top, bottom) })
+  }
+  await p.evaluate(() => {
+    for (const a of document.getAnimations()) if (a.effect?.pseudoElement?.startsWith("::view-transition")) a.play()
+  })
+  for (let i = 0; i < 50; i++) {
+    const done = await p.evaluate(() => window.__moves[window.__moves.length - 1]?.done ?? null)
+    if (done) break
+    await sleep(20)
+  }
+  return out
+}
+
+async function routeTrip(p, browser, label, vp, isPhone) {
+  console.log(`  -- Back to the list, and in again, frame by frame`)
+  await watchMoves(p)
+  const pre = await p.evaluate(() => (window.__router || []).filter(([k]) => k === "prefetch").map(([, a]) => a))
+  expect(pre.includes("/app/products full"), "the editor fetches the list ahead, in full, as it opens", pre)
+  expect((await leaveMode(p)) === "back", "a saved product with nothing changed opens with Back", await leaveMode(p))
+
+  const moveCount = () => p.evaluate(() => window.__moves.length)
+  let n = await moveCount()
+  const calls = () => p.evaluate(() => (window.__router || []).filter(([k]) => k === "push" || k === "replace" || k === "back").map(([k, a]) => (a ? `${k} ${a}` : k)))
+  const hist = () => p.evaluate(() => ({ stack: [...window.__hist.stack], at: window.__hist.at, path: location.pathname }))
+  let c0 = (await calls()).length
+  await pressLeave(p)
+  const back = await walkMove(p, browser, label, "exit", vp, "::view-transition-old(root)", n)
+  const first = { calls: (await calls()).slice(c0), hist: await hist() }
+  expect(first.calls.join() === "replace /app/products" && first.hist.stack.join() === "/app/products" && first.hist.at === 0 && first.hist.path === "/app/products",
+    "opened directly, with no list behind it, Back puts the list in the editor's place: nothing to come back to", first)
+  expect(back.ready && !back.skipped, "Back runs as one move, ready without waiting on anything", { ready: back.ready, skipped: back.skipped, waitedMs: back.waited })
+  if (back.ready) {
+    const old = back.animations.find((a) => a.el === "::view-transition-old(root)")
+    const neu = back.animations.find((a) => a.el === "::view-transition-new(root)")
+    console.log(`        (exit: ${JSON.stringify(old)})`)
+    expect(!!old && old.dur >= 260 && old.dur <= 320 && /0\.32, 0\.72, 0, 1/.test(old.easing), "the editor leaves in 260 to 320ms on the iOS curve", old && { ms: old.dur, easing: old.easing })
+    expect(!!old && old.frames.every((k) => k.transform !== undefined || k.opacity !== undefined), "on transform and opacity alone", old?.frames)
+    expect(isPhone ? /translateX?\(100%\)|matrix\(1, 0, 0, 1, 390/.test(JSON.stringify(old?.frames)) : /translateY\(12px\)/.test(JSON.stringify(old?.frames)), isPhone ? "on a phone it slides off to the right edge" : "on a computer it fades with a 12px drop", old?.frames)
+    expect(!neu || neu.name === "none" || neu.frames.length === 0, "the list under it holds still", neu)
+    expect(!back.under.layer && back.under.rows > 0 && back.under.path === "/app/products" && back.under.motion === "leave", "the list is already drawn under the move's first frame, and the layer is gone", back.under)
+    const inks = back.frames.map((f) => f.ink)
+    const floor = Math.min(inks[0], inks[inks.length - 1]) * 0.5
+    expect(inks.every((v) => v >= floor && v > 0.01), "no blank frame: every fifth of the move has the editor, the list or both in it", { inks, floor: +floor.toFixed(4) })
+  }
+  await sleep(120)
+  const after = await p.evaluate((id) => {
+    const row = [...document.querySelectorAll(`[data-row="${id}"]`)].find((r) => r.getClientRects().length > 0)
+    const tinted = row ? [row, ...row.children].some((el) => el.getAnimations().some((a) => a.effect.getKeyframes().some((k) => k.backgroundColor))) : false
+    return { path: window.__path, motion: document.documentElement.dataset.layerMotion ?? null, tinted, rows: document.querySelectorAll("[data-row]:not([hidden])").length }
+  }, "8f0c2b1e-3a4d-4c5e-9f60-718293a4b5c6")
+  expect(after.path === "/app/products" && after.motion === null, "then the list is the page, and the move has cleaned up after itself", after)
+  expect(back.under?.tinted === true, "the row just edited is tinted as the list comes back", back.under?.tinted)
+  await p.screenshot({ path: join(shots, `products-exit-${label}-landed.png`) })
+
+  /* The list keeps its view across the trip. */
+  await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === "Draft").click())
+  await sleep(350)
+
+  /* In again: a press on a row. */
+  n = await moveCount()
+  await p.evaluate(() => {
+    const rows = [...document.querySelectorAll("[data-row]:not([hidden])")].filter((r) => r.getClientRects().length > 0)
+    const r = rows[0]
+    if (r.tagName === "TR") r.querySelector("td:nth-child(2)").click()
+    else r.querySelector("a").click()
+  })
+  const into = await walkMove(p, browser, label, "enter", vp, "::view-transition-new(root)", n)
+  expect(into.ready && !into.skipped, "opening a product is the same move the other way", { ready: into.ready, waitedMs: into.waited })
+  if (into.ready) {
+    const neu = into.animations.find((a) => a.el === "::view-transition-new(root)")
+    console.log(`        (enter: ${JSON.stringify(neu)})`)
+    expect(!!neu && neu.dur >= 260 && neu.dur <= 320 && /0\.32, 0\.72, 0, 1/.test(neu.easing), "in 260 to 320ms on the same curve", neu && { ms: neu.dur, easing: neu.easing })
+    expect(into.under.layer, "the editor is committed under the move's first frame", into.under)
+    const inks = into.frames.map((f) => f.ink)
+    const floor = Math.min(inks[0], inks[inks.length - 1]) * 0.5
+    expect(inks.every((v) => v >= floor && v > 0.01), "and no blank frame on the way in", { inks, floor: +floor.toFixed(4) })
+  }
+  await sleep(150)
+  const opened = await hist()
+  expect(opened.stack.join() === "/app/products,/app/products/p2" && opened.at === 1, "a row pushes the editor one entry after the list", opened)
+  n = await moveCount()
+  c0 = (await calls()).length
+  await pressLeave(p)
+  const again = await walkMove(p, browser, label, "exit2", vp, "::view-transition-old(root)", n)
+  const second = { calls: (await calls()).slice(c0), hist: await hist() }
+  expect(second.calls.join() === "back" && second.hist.at === 0 && second.hist.stack[1] === "/app/products/p2",
+    "opened from the list, Back goes back in history: the list is the entry you are on, the editor is forward", second)
+  expect(again.ready && !again.skipped && again.under?.rows > 0 && !again.under?.layer, "the same move, with the list drawn under its first frame", { ready: again.ready, under: again.under })
+  await sleep(150)
+  const kept = await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.getAttribute("aria-selected") === "true")?.textContent.trim())
+  expect(kept === "Draft", "back again, the list is on the view it was left on", kept)
+
+  /* Forward reopens the editor; the browser's back to the list is a return; the sidebar or the pill is a fresh visit. */
+  const tabNow = () => p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.getAttribute("aria-selected") === "true")?.textContent.trim())
+  await p.evaluate(() => history.forward())
+  await sleep(400)
+  const forward = await p.evaluate(() => ({ path: location.pathname, layer: !!document.querySelector("[data-page-layer]") }))
+  expect(forward.path === "/app/products/p2" && forward.layer, "the browser's forward from the list reopens the editor, as it would anywhere", forward)
+  await p.evaluate(() => history.back())
+  await sleep(400)
+  const popped = await tabNow()
+  expect(popped === "Draft", "the browser's back from the editor to the list is a return: still on Draft", popped)
+  await p.evaluate(() => window.__navigate("/app/orders", "push"))
+  await sleep(200)
+  await p.evaluate(() => history.back())
+  await sleep(400)
+  const fromOrders = await tabNow()
+  expect(fromOrders === "Draft", "and so is the browser's back from another page", fromOrders)
+  await p.evaluate(() => window.__navigate("/app/orders", "push"))
+  await sleep(200)
+  await p.evaluate(() => window.__navigate("/app/products", "push"))
+  await sleep(400)
+  const fresh = await p.evaluate(() => ({ tab: [...document.querySelectorAll("[role=tab]")].find((t) => t.getAttribute("aria-selected") === "true")?.textContent.trim(), search: document.querySelector("input[type=search]")?.value }))
+  expect(fresh.tab === "All" && fresh.search === "", "opened fresh from the sidebar or the pill, the list starts at All with no search", fresh)
+
+  /* Reduced motion: no move, the page swaps as before. */
+  await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
+  const moves = await p.evaluate(() => window.__moves.length)
+  await p.evaluate(() => {
+    const rows = [...document.querySelectorAll("[data-row]:not([hidden])")].filter((r) => r.getClientRects().length > 0)
+    const r = rows[0]
+    if (r.tagName === "TR") r.querySelector("td:nth-child(2)").click()
+    else r.querySelector("a").click()
+  })
+  await sleep(200)
+  const still = await p.evaluate(() => ({ moves: window.__moves.length, layer: !!document.querySelector("[data-page-layer]") }))
+  expect(still.moves === moves && still.layer, "with reduced motion there is no move: the editor is simply there", { moves: still.moves - moves, layer: still.layer })
+  await p.emulateMediaFeatures([])
+}
+
 try {
   writeFileSync(join(stubs, "navigation.js"), `const log = (k, a) => (window.__router ||= []).push([k, a])
-const router = { push: (h) => log("push", h), replace: (h) => log("replace", h), prefetch() {}, back() {}, refresh: () => log("refresh") }
+const router = { push: (h) => { log("push", h); if (window.__navigate) window.__navigate(h, "push") }, replace: (h) => { log("replace", h); if (window.__navigate) window.__navigate(h, "replace") }, prefetch: (h, o) => log("prefetch", h + (o && o.kind ? " " + o.kind : "")), back: () => { log("back"); if (window.__back) window.__back() }, refresh: () => log("refresh") }
 export const usePathname = () => "/app/products/x"
 export const useRouter = () => router
 export const useSearchParams = () => new URLSearchParams()
 export const redirect = () => {}
 `)
   writeFileSync(join(stubs, "link.jsx"), `import React from "react"
-export default React.forwardRef(function Link({ href, children, prefetch, ...rest }, ref) { return React.createElement("a", { href, ref, ...rest, onClick: (e) => { e.preventDefault(); rest.onClick && rest.onClick(e) } }, children) })
+export default React.forwardRef(function Link({ href, children, prefetch, ...rest }, ref) { return React.createElement("a", { href, ref, ...rest, onClick: (e) => { rest.onClick && rest.onClick(e); e.preventDefault() } }, children) })
 `)
   writeFileSync(join(stubs, "image.jsx"), `import React from "react"
 export default function Image({ src, alt, fill, sizes, priority, ...rest }) { return React.createElement("img", { src, alt, style: fill ? { position: "absolute", inset: 0, width: "100%", height: "100%" } : undefined, ...rest }) }
@@ -695,6 +929,8 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     ["desktop-1440", { width: 1440, height: 900 }, ""],
     ["desktop-1440-new", { width: 1440, height: 900 }, "?new"],
     ["wide-1920", { width: 1920, height: 1080 }, ""],
+    ["phone-390-route", phone(390), "?route"],
+    ["desktop-1280-route", { width: 1280, height: 800 }, "?route"],
   ]
   /* ONLY=phone-390,desktop-1280 runs just those. */
   const only = process.env.ONLY ? process.env.ONLY.split(",") : null
@@ -718,6 +954,8 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     p.on("request", (r) => {
       const u = r.url()
       if (u.startsWith("file:") || u.startsWith("data:")) return r.continue()
+      /* The routed harness is served at an http address, so its history can hold /app/... paths. */
+      if (u.startsWith("http://probe.test/")) return r.respond({ status: 200, contentType: "text/html", body: readFileSync(join(stubs, "index.html"), "utf8") })
       requests.push(u.replace(/\?.*/, ""))
       if (ctx.fakeDb && /\/rest\/v1\//.test(u)) {
         const method = r.method()
@@ -746,9 +984,15 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
         console.log("        (this Chromium cannot pretend to have a safe area: measured with none)")
       }
     }
-    await p.goto(`file://${join(stubs, "index.html")}${query}`)
+    await p.goto(query.includes("route") ? `http://probe.test/app/products/8f0c2b1e-3a4d-4c5e-9f60-718293a4b5c6${query}` : `file://${join(stubs, "index.html")}${query}`)
     await sleep(900)
     if (errors.length) fail(`The page threw: ${errors[0]}`)
+    if (query.includes("route")) {
+      await routeTrip(p, browser, label.replace(/-route$/, ""), vp, isPhone)
+      if (errors.length) expect(false, "nothing threw on the way", errors)
+      await p.close()
+      continue
+    }
 
     /* First frame */
     const first = await p.evaluate(() => window.__t)
@@ -770,8 +1014,8 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       const pane = document.querySelector("[data-product-editor]")
       const b = document.querySelector("[data-editor-bar]")
       const buttons = [...b.querySelectorAll("button, a")].filter((x) => x.getBoundingClientRect().width > 0)
-      const save = buttons.find((x) => x.textContent.trim() === "Save")
-      const cancel = buttons.find((x) => x.textContent.trim() === "Cancel")
+      const save = b.querySelector("[data-save-button]")
+      const cancel = b.querySelector("[data-leave-button]")
       const more = buttons.find((x) => x.getAttribute("aria-label") === "More actions")
       const box = (x) => {
         if (!x) return null
@@ -829,7 +1073,7 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       expect(bar.padTop === want, isLayer ? `first on the screen, it starts below the status bar (${inset}px of safe area)` : "under the app's header it adds no safe area of its own", { padTop: bar.padTop, inset })
       const reach = await p.evaluate(() => {
         const b = document.querySelector("[data-editor-bar]")
-        const c = [...b.querySelectorAll("button")].find((x) => x.textContent.trim() === "Cancel")
+        const c = b.querySelector("[data-leave-button]")
         const r = c.getBoundingClientRect()
         const hit = (y) => document.elementFromPoint(r.left + r.width / 2, y)
         return { above: c.contains(hit(r.top - 1.5)), below: c.contains(hit(r.bottom + 1.5)), under: hit(r.bottom + 1.5)?.outerHTML.slice(0, 90) }
@@ -905,7 +1149,8 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
 
     /* Save */
     const saveState = () => p.evaluate(() => {
-      const b = [...document.querySelectorAll("[data-editor-bar] button")].find((x) => x.textContent.trim() === "Save")
+      const b = document.querySelector("[data-editor-bar] [data-save-button]")
+      const leave = document.querySelector("[data-editor-bar] [data-leave-button]")
       const r = b.getBoundingClientRect()
       return {
         phase: b.dataset.phase,
@@ -914,10 +1159,15 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
         w: +r.width.toFixed(2),
         h: Math.round(r.height),
         bg: getComputedStyle(b).backgroundColor,
-        label: getComputedStyle(b.querySelector("span")).opacity,
+        /* The word, inside the box that holds "Saved"'s width. */
+        label: getComputedStyle(b.querySelector("span > span")).opacity,
         spinner: !!b.querySelector("[data-activity-spinner]"),
         check: !!b.querySelector("[data-save-check]"),
         said: document.querySelector("[data-editor-announce]").textContent,
+        word: b.textContent.trim(),
+        leave: leave.dataset.mode,
+        leaveName: leave.getAttribute("aria-label"),
+        leaveDisabled: leave.disabled,
       }
     })
     if (isNew) {
@@ -953,7 +1203,7 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       ctx.writes.length = 0
       /* Two presses in the same moment: one save. */
       await p.evaluate(() => {
-        const b = [...document.querySelectorAll("[data-editor-bar] button")].find((x) => x.textContent.trim() === "Save")
+        const b = document.querySelector("[data-editor-bar] [data-save-button]")
         b.click()
         b.click()
       })
@@ -981,11 +1231,19 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
         after = await saveState()
       }
       const held = Date.now() - t0
-      expect(after.phase === "idle" && after.disabled === true && after.w === idle.w, "and back to a grey Save with nothing left to save", after)
+      expect(after.phase === "idle" && after.disabled === true && after.w === idle.w, "and back to a grey button with nothing left to save", after)
+      expect(after.word === "Saved" && after.leave === "back" && after.leaveName === "Back", "saved: the grey button says Saved and Cancel has become Back", { word: after.word, leave: after.leave, name: after.leaveName })
+      await sleep(200)
+      await p.screenshot({ path: join(shots, `products-editor-${label}-settled.png`) })
+      expect(saving.leave === "cancel" && saving.leaveDisabled === true, "while it saves, Cancel stays Cancel and is held", { leave: saving.leave, disabled: saving.leaveDisabled })
+      expect(idle.leave === "cancel" && idle.word === "Save", "before it, with a change: Cancel and Save", { leave: idle.leave, word: idle.word })
       expect(held >= 600 && held <= 1100, "the check stays for about 900ms", { ms: held })
       ctx.fakeDb = false
 
       await p.keyboard.type("!")
+      await sleep(150)
+      const again = await saveState()
+      expect(again.leave === "cancel" && again.word === "Save" && again.disabled === false, "the next change turns them back into Cancel and a violet Save", { leave: again.leave, word: again.word, bg: again.bg })
       const before = requests.length
       await p.keyboard.down("Control")
       await p.keyboard.press("s")

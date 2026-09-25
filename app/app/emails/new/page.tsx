@@ -14,6 +14,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { isSignedOutAnswer } from "@/lib/auth/auth-error"
 
 export default function NewEmailPage() {
   const router = useRouter()
@@ -31,10 +32,12 @@ export default function NewEmailPage() {
   useEffect(() => {
     const loadData = async () => {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user }, error } = await supabase.auth.getUser()
 
       if (!user) {
-        router.push("/login")
+        /* Only a real "signed out" goes to /login. A dropped connection
+           leaves the person here, signed in (lib/auth/auth-error.ts). */
+        if (isSignedOutAnswer(false, error)) router.push("/login")
         return
       }
 

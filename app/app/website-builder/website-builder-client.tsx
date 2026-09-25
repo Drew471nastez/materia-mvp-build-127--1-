@@ -68,6 +68,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
+import { secondaryDepth } from "@/components/ui/depth-button"
 import { useToast } from "@/hooks/use-toast"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
@@ -423,8 +424,20 @@ function SiteAddress({ url, display }: { url: string; display: string }) {
 const SETTINGS_BUTTON =
   "-my-1 inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#e5e7eb] bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f3f4f6] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:my-0 sm:h-9"
 
-const SECONDARY_ACTION =
-  "inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#e5e7eb] bg-white text-[13.5px] font-semibold text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors duration-150 hover:bg-[#f8f9fa] active:bg-[#f3f4f6]"
+/**
+ * THE MORE BUTTON, WITH A LITTLE DEPTH. "The three dots button should have
+ * more depth, a very subtle depth." The shared secondary depth
+ * (components/ui/depth-button.ts): a hairline, a 1px shade at its foot, and
+ * flat with the shade inside when pressed, the same press as the product
+ * editor's buttons. On the live card it is the Edit button's height; on a
+ * library row it is 40px on a phone with an invisible band to 48, and 36 from
+ * 640px, beside Publish and Edit.
+ */
+const MORE_ON_CARD = cn(secondaryDepth, "h-11 w-11 rounded-xl px-0 text-[#4b5563]")
+const MORE_ON_ROW = cn(
+  secondaryDepth,
+  "relative h-10 w-10 rounded-[10px] px-0 text-[#4b5563] after:absolute after:-inset-1 after:content-[''] sm:h-9 sm:w-9 sm:rounded-lg sm:after:hidden",
+)
 
 function SectionHeading({
   title,
@@ -1042,7 +1055,7 @@ export function WebsiteBuilderClient({
                         items={menuFor(live)}
                         menuWidth="w-56"
                         trigger={
-                          <button type="button" aria-label={`More actions for ${live.name}`} className={cn(SECONDARY_ACTION, "w-11 shrink-0 px-0")}>
+                          <button type="button" aria-label={`More actions for ${live.name}`} data-more-button="" className={MORE_ON_CARD}>
                             {busy?.startsWith(live.id) ? (
                               <Loader2 className="h-4 w-4 animate-spin text-[#6b7280]" />
                             ) : (
@@ -1251,7 +1264,8 @@ export function WebsiteBuilderClient({
                                 <button
                                   type="button"
                                   aria-label={`More actions for ${i.name}`}
-                                  className="flex h-9 w-9 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#eef0f3] hover:text-[#1a1a2e]"
+                                  data-more-button=""
+                                  className={MORE_ON_ROW}
                                 >
                                   {isBusy && busy !== `${i.id}:publish` ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
                                 </button>

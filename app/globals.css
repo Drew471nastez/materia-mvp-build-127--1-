@@ -995,16 +995,52 @@ html.capacitor body {
       fill 260ms cubic-bezier(0.32, 0.72, 0, 1),
       filter 260ms cubic-bezier(0.32, 0.72, 0, 1);
   }
+  /* The press. `scale`, not `transform`: this transition named `transform`
+     while the press was Tailwind's `active:scale-90`, which sets the `scale`
+     property, so the button snapped down and snapped back. A step of 8%,
+     and it never moves anything around it. */
   .wb-inspector {
+    -webkit-tap-highlight-color: transparent;
     transition:
-      transform 180ms cubic-bezier(0.32, 0.72, 0, 1),
+      scale 160ms cubic-bezier(0.32, 0.72, 0, 1),
       color 260ms cubic-bezier(0.32, 0.72, 0, 1),
       box-shadow 260ms cubic-bezier(0.32, 0.72, 0, 1),
       background-color 200ms ease;
   }
+  .wb-inspector:active:not(:disabled) { scale: 0.92; }
   .wb-inspector-on svg {
     fill: currentColor;
     filter: drop-shadow(0 0 6px rgba(139, 86, 250, 0.9));
+  }
+  /* And the icon answers the switch: a small lift as it lights, a small dip
+     as it goes out. Two keyframes rather than one, so each change starts its
+     own; transform only, on the icon alone. Only once it has been pressed
+     (`data-toggled`), so the editor opening does not play it. */
+  .wb-inspector[data-toggled] svg { animation: wb-inspector-off 260ms cubic-bezier(0.32, 0.72, 0, 1); }
+  .wb-inspector-on[data-toggled] svg { animation: wb-inspector-on 300ms cubic-bezier(0.32, 0.72, 0, 1); }
+  @keyframes wb-inspector-on {
+    0% { transform: scale(0.86); }
+    55% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  @keyframes wb-inspector-off {
+    0% { transform: scale(1.06); }
+    100% { transform: scale(1); }
+  }
+  /*
+   * THE CANVAS FOLLOWS THE SWITCH (editor page.tsx, toggleInspector). The
+   * rings, the Selected badge and the section toolbar fade out where they are
+   * before the canvas is drawn without them, and fade up after it is drawn
+   * with them. 200ms, INSPECT_FADE_MS in the editor. Opacity only.
+   */
+  [data-wb-inspect] .wb-ring { transition: opacity 200ms cubic-bezier(0.4, 0, 0.2, 1); }
+  [data-wb-inspect="leaving"] .wb-ring,
+  [data-wb-inspect="off"] .wb-ring { opacity: 0 !important; }
+  [data-wb-inspect="entering"] .wb-ring { animation: wb-ring-in 200ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+  @keyframes wb-ring-in { from { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .wb-inspector, .wb-inspector svg { animation: none; transition: none; }
+    [data-wb-inspect] .wb-ring { transition: none; animation: none; }
   }
   .wb-inspector-on {
     /* Storelib purple, the colour of the mark two buttons over. One accent
@@ -1125,6 +1161,11 @@ html.capacitor body {
   @keyframes wb-settings-swap {
     from { opacity: 0; }
     to { opacity: 1; }
+  }
+  /* On a phone a subject is pushed in over the list (project-settings.tsx),
+     and a fade on top of the push is two motions for one step. */
+  @media (max-width: 767px) {
+    [data-settings-page] > .wb-settings-swap { animation: none; }
   }
   @keyframes wb-settings-in {
     from { opacity: 0; transform: translateY(8px) scale(0.985); }
@@ -2601,6 +2642,59 @@ html.keyboard-open [data-page="library"] main {
   }
 }
 
+/* ── A part of a page still on its way (components/ui/shimmer.tsx) ──────────
+ *
+ * Light gray shapes where the chart, the rows or the figure will be, with a
+ * soft band of light passing over them. Nothing for the first 200ms, so a
+ * quick answer shows only itself; then in over 200ms. The band is a
+ * transform on each shape's ::after, compositor only, 1.4s a pass; under
+ * reduced motion it is gone and the shapes hold still. When the answer comes
+ * the skeleton fades out over the content as the content fades in, both
+ * 180ms, on opacity alone. `backwards` on the way in, not `both`: an opacity
+ * animation still in effect is a stacking context (see .app-page-enter).
+ */
+.shimmer-wait {
+  opacity: 0;
+  animation: shimmer-fade-in 200ms ease-out 200ms forwards;
+}
+.shimmer-block {
+  position: relative;
+  overflow: hidden;
+  background-color: #f1f2f4;
+}
+.shimmer-block::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.62) 50%, rgba(255, 255, 255, 0) 100%);
+  animation: shimmer-sweep 1400ms cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes shimmer-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+@keyframes shimmer-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes shimmer-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.shimmer-enter {
+  animation: shimmer-fade-in 180ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+.shimmer-leave {
+  animation: shimmer-fade-out 180ms cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-block::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 /* ── The product bar's menu opens where it was pressed ───────────────────────
  *
  * It grows from the corner the three dots are in, rather than fading in
@@ -3264,6 +3358,83 @@ html.capacitor.has-page-layer {
   }
 }
 
+/* ── A layer comes and goes (moveLayer, components/app/page-layer.tsx) ─────
+   A view transition: ::view-transition-old(root) is a picture of the screen
+   as it was, ::view-transition-new(root) the live page after the router's
+   commit. Only the layer moves; the page under it holds still and is drawn
+   the whole time, so no frame is ever empty.
+
+   On a phone the layer slides in from the right edge and back out to it,
+   with a soft shade along its leading edge, over the list. From 768px the
+   editor is a page in the shell and moveLayer plays no move there (it would
+   take the header and the rail with it); the fade with a 12px rise below is
+   what any wider window that does get a move shows. Duration and curve are
+   custom properties set by the script from one pair of numbers
+   (LAYER_MOTION_MS, LAYER_MOTION_EASE).
+
+   The navigation pill has a name of its own while a layer moves, so it is
+   taken out of the page's picture and stays put over both. */
+@keyframes layer-slide-in {
+  from { transform: translateX(100%); }
+}
+@keyframes layer-slide-out {
+  to { transform: translateX(100%); }
+}
+@keyframes layer-rise-in {
+  from { opacity: 0; transform: translateY(12px); }
+}
+@keyframes layer-sink-out {
+  to { opacity: 0; transform: translateY(12px); }
+}
+html[data-layer-motion] [data-app-nav-pill] {
+  view-transition-name: app-nav-pill;
+}
+html[data-layer-motion]::view-transition-group(app-nav-pill) {
+  animation: none;
+}
+html[data-layer-motion]::view-transition-old(app-nav-pill) {
+  animation: none;
+  opacity: 0;
+}
+html[data-layer-motion]::view-transition-new(app-nav-pill) {
+  animation: none;
+}
+/* The browser adds the two pictures together (plus-lighter) for its own
+   crossfade; a page moving over another must cover it instead. */
+html[data-layer-motion]::view-transition-old(root),
+html[data-layer-motion]::view-transition-new(root) {
+  mix-blend-mode: normal;
+}
+html[data-layer-motion="enter"]::view-transition-old(root) {
+  animation: none;
+}
+html[data-layer-motion="enter"]::view-transition-new(root) {
+  animation: layer-rise-in var(--layer-motion-ms, 300ms) var(--layer-motion-ease, ease-out) both;
+}
+html[data-layer-motion="leave"]::view-transition-new(root) {
+  animation: none;
+}
+html[data-layer-motion="leave"]::view-transition-old(root) {
+  z-index: 1;
+  animation: layer-sink-out var(--layer-motion-ms, 300ms) var(--layer-motion-ease, ease-out) both;
+}
+@media (max-width: 767px) {
+  html[data-layer-motion="enter"]::view-transition-new(root) {
+    animation-name: layer-slide-in;
+    box-shadow: -8px 0 24px rgba(17, 24, 39, 0.12);
+  }
+  html[data-layer-motion="leave"]::view-transition-old(root) {
+    animation-name: layer-slide-out;
+    box-shadow: -8px 0 24px rgba(17, 24, 39, 0.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-layer-motion]::view-transition-old(root),
+  html[data-layer-motion]::view-transition-new(root) {
+    animation: none;
+  }
+}
+
 html.capacitor.cp-fullscreen {
   background-color: #ffffff;
 }
@@ -3692,6 +3863,18 @@ html.capacitor [tabindex="0"]:active {
   transition-duration: 60ms;
   /* scale(0.97) removed: transform on :active can trigger a relayout that delays
      the subsequent click event by one frame in some Android WebViews */
+}
+
+/* ── NOT THE PILL'S ICONS ─────────────────────────────────────────────────────
+   The bar answers a finger with its lens (components/app/sidebar-mobile-nav),
+   and its four icons are links, so the rule above dimmed the icon under the
+   finger to 72% as well, with no easing (the link's own transition is its
+   colour), and put it back on the frame the finger lifted: a flicker on the
+   icon exactly as you let go, which the browser probes never saw because
+   they have no `html.capacitor`. Only colour and opacity of their own change
+   on these icons, and only as the tab changes. */
+html.capacitor [data-app-nav-pill] nav a:active {
+  opacity: 1;
 }
 
 /* ── NO LONG-PRESS CALLOUT, ANYWHERE IT IS NOT TEXT ───────────────────────────
@@ -4936,22 +5119,56 @@ html.pop-in-flight #platform-header-root {
   display: none;
 }
 
-/* An order over the list. Its bar is drawn at full strength on the first
-   frame; only the cards under it fade in, 120ms, opacity alone. `backwards`,
-   not `both`: an opacity animation still in effect after it ends keeps a
-   stacking context, and the cards' menus must be free to rise out of it
-   (see .app-page-enter). Stepping to the previous or next order draws the
-   next one's cards the same way, as the body is keyed by the order. */
+/* An order over the list (app/app/orders/orders-client.tsx). Opened from the
+   list, the whole order moves as one layer (app/app/orders/order-motion.ts),
+   so nothing inside it animates on its own. Stepping to the previous or next
+   order keeps the bar still and fades only the next one's cards in, 120ms,
+   opacity alone, as the body is keyed by the order. `backwards`, not `both`:
+   an opacity animation still in effect after it ends keeps a stacking
+   context, and the cards' menus must be free to rise out of it (see
+   .app-page-enter). */
 @keyframes orders-body-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-.orders-body {
+.orders-detail[data-arrival="step"] .orders-body {
   animation: orders-body-in 120ms ease-out backwards;
 }
+
+/* Under a settled order the list is not drawn at all (nothing to paint, no
+   scroll to follow), and it keeps its scroll position while hidden. While an
+   order moves over it, in or out, it carries data-moving and is drawn. */
+.orders-stage[data-order-open] > .orders-list:not([data-moving]) {
+  visibility: hidden;
+}
+
+/* The row an order was opened from: tinted while the order covers it, and
+   fading once the list is back, so the eye lands where it left. The tint is
+   a layer over each cell, faded on opacity alone. */
+.orders-row[data-picked] > td:not(.orders-sticky) {
+  position: relative;
+}
+.orders-row[data-picked] > td::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 26, 46, 0.06);
+  pointer-events: none;
+}
+@keyframes orders-row-fade {
+  0%, 30% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.orders-row[data-picked="fading"] > td::after {
+  animation: orders-row-fade 900ms ease-out forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .orders-body {
+  .orders-detail[data-arrival="step"] .orders-body {
     animation: none;
+  }
+  .orders-row[data-picked="fading"] > td::after {
+    animation-duration: 1ms;
   }
 }
 

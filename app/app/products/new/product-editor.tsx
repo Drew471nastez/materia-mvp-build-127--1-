@@ -1,13 +1,12 @@
 "use client"
 
 import { announceChange } from "@/lib/seo/announce-client"
-import { sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { getProductShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
-import { openExternal } from "@/lib/native-bridge"
+import { hapticTap, openExternal } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Input } from "@/components/ui/input"
@@ -21,13 +20,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -40,7 +32,6 @@ import {
   FileText,
   Info,
   Play,
-  Pencil,
   Trash2,
   ChevronUp,
   ChevronDown,
@@ -54,10 +45,9 @@ import { RichTextEditor } from "@/components/app/rich-text-editor"
 import { descriptionForSave } from "./description-save"
 import { descriptionTooLong } from "@/lib/rich-text/policy"
 import { uploadDescriptionImage } from "@/lib/rich-text/upload-image"
-import { DirectUploader, type UploadStatus } from "@/lib/storage/chunked-upload"
 import { CSS } from "@dnd-kit/utilities"
 import { avoidReservedProductSlug } from "@/lib/commerce/reserved-slugs"
-import { SWITCH_GROUP, SwitchRow } from "./editor-controls"
+import { SWITCH_GROUP, Segmented, SwapPanels, SwitchRow } from "./editor-controls"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import {
@@ -73,10 +63,14 @@ import {
   type ProductVariant,
   type UploadedFile,
 } from "./editor-form"
-import { SAVED_CHECK_MS, SaveButton, barButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
+import { LeaveButton, SAVED_CHECK_MS, SaveButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
+import { returnToProducts, useListOrigin, warmProducts } from "../list-return"
+import { holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
 import { MediaGrid } from "./media-grid"
+import { DigitalFiles, useFileUploads } from "./file-uploads"
+import { CategoryPicker } from "./category-picker"
 
 // Section definitions - internal refs for all sections
 const SECTIONS = [
@@ -138,16 +132,6 @@ const BLOCKED_EXTENSIONS = new Set([
   "url", "webloc", "desktop",
   "cer", "crt", "der", "p7b", "pfx", "p12",
 ])
-
-interface ActiveFileUpload {
-  file: File
-  uploader: DirectUploader
-  progress: number
-  status: UploadStatus
-  error?: string
-  bytesUploaded: number
-  bytesTotal: number
-}
 
 
 const stripHtmlToPlainText = (input: string): string => {
@@ -225,12 +209,12 @@ const VariantFileCheckbox = React.memo(function VariantFileCheckbox({
 })
 
 /**
- * The product form's phone sheets (the category, the call to action, the
- * refund policy) are the shared sheet, components/ui/bottom-sheet: the same
- * opening, drag and close as every sheet in /app, above the navigation
- * pill. This was a sheet of its own, on a CSS transition started a paint
- * late from an effect and a React-rendered drag. It still sits on the
- * keyboard when the category search is typed into.
+ * The product form's phone sheets (the call to action, the refund policy)
+ * are the shared sheet, components/ui/bottom-sheet: the same opening, drag
+ * and close as every sheet in /app, above the navigation pill. This was a
+ * sheet of its own, on a CSS transition started a paint late from an effect
+ * and a React-rendered drag. It sits on the keyboard when a field in it is
+ * typed into. The category has its own, on the same sheet (./category-picker).
  */
 function MobileSheet({
   isOpen,
@@ -255,6 +239,10 @@ function MobileSheet({
  * which is a new page, and the "Product is live" it earned is shown there.
  */
 let carriedNotice: string | null = null
+/* And the save itself: when it landed, so the new page's Save finishes the
+   check the old one started and then says Saved, and its Cancel is Back. */
+let carriedSavedAt: number | null = null
+let carriedScrollTop: number | null = null
 
 export function ProductEditor({ creator: loadedCreator, loaded }: { creator: EditorCreator; loaded: LoadedProduct | null }) {
   const router = useRouter()
@@ -295,6 +283,37 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   useEffect(() => () => {
     if (savedFlashTimer.current) clearTimeout(savedFlashTimer.current)
   }, [])
+  /* Saved in this visit, with nothing changed since, the grey Save says
+     Saved. A new product's first save opens it at its own address, a new
+     page, which picks up where this one was. */
+  const [savedThisVisit, setSavedThisVisit] = useState(() => carriedSavedAt !== null)
+  /* ...and the form opens where it was scrolled, before its first frame is painted. */
+  useLayoutEffect(() => {
+    const top = carriedScrollTop
+    carriedScrollTop = null
+    if (top && contentRef.current) contentRef.current.scrollTop = top
+  }, [])
+  useEffect(() => {
+    const at = carriedSavedAt
+    carriedSavedAt = null
+    if (at === null) return
+    const left = SAVED_CHECK_MS - (performance.now() - at)
+    if (left <= 0) return
+    setSavedFlash(true)
+    savedFlashTimer.current = setTimeout(() => setSavedFlash(false), left)
+  }, [])
+
+  /*
+    THE LIST, READY FOR THE WAY BACK. Fetched in full when the editor opens,
+    and again whenever the page's props change, which is a save's refresh
+    landing: the refresh drops every page the router kept, the list with
+    them, and the list fetched after it has the save in it.
+  */
+  useEffect(() => {
+    warmProducts(router)
+  }, [router, loaded])
+  /* Whether the list opened this editor, one history entry after it: Back then goes back in history (../list-return). */
+  useListOrigin()
   const savedValuesRef = useRef<string>(initial.productId ? snapshotOfForm(initial) : "") // What "unsaved" is measured against
 
   // Unsaved changes tracking
@@ -310,132 +329,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   const [showCtaSheet, setShowCtaSheet] = useState(false)
   const [showRefundPolicySheet, setShowRefundPolicySheet] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
-
-  // Bottom sheet dismiss animation states
-  const [dismissingSheet, setDismissingSheet] = useState<string | null>(null)
-  const sheetSwipeStartY = useRef<number | null>(null)
-  const sheetSwipeCurrentY = useRef(0)
-  const sheetSwipeRef = useRef<HTMLDivElement | null>(null)
-  const sheetSwipeLastY = useRef(0)
-  const sheetSwipeLastTime = useRef(0)
-  const sheetSwipeVelocity = useRef(0)
-  const swipeCloseRef = useRef(false) // Tracks swipe-initiated close to prevent CSS animation conflict
-
-  // Animated close for bottom sheets
-  const closeSheet = useCallback((sheetName: string, closer: () => void) => {
-    setDismissingSheet(sheetName)
-    setTimeout(() => {
-      setDismissingSheet(null)
-      closer()
-    }, 400)
-  }, [])
-
-  const closeCategoryModal = useCallback(() => {
-    if (isMobileViewport) {
-      closeSheet("category", () => setShowCategoryModal(false))
-      return
-    }
-    setShowCategoryModal(false)
-  }, [closeSheet, isMobileViewport])
-
-  // Swipe handlers for bottom sheets — GPU-accelerated, 1:1 finger tracking
-  const handleSheetTouchStart = useCallback((e: React.TouchEvent, ref: HTMLDivElement | null) => {
-    const target = e.target as HTMLElement
-    const isDragHandle = target.closest("[data-drag-handle]")
-    const scrollContainer = ref?.querySelector("[data-scroll-container]") as HTMLElement
-    const isAtTop = !scrollContainer || scrollContainer.scrollTop <= 1
-    const touchY = e.touches[0].clientY
-    const bounds = ref?.getBoundingClientRect()
-    // Allow swipe start from top 120px of sheet or anywhere on drag handle
-    const nearTop = !!bounds && touchY - bounds.top <= 120
-
-    if (isDragHandle || (isAtTop && nearTop)) {
-      sheetSwipeStartY.current = touchY
-      sheetSwipeCurrentY.current = 0
-      sheetSwipeLastY.current = touchY
-      sheetSwipeLastTime.current = Date.now()
-      sheetSwipeVelocity.current = 0
-      sheetSwipeRef.current = ref
-      // Force GPU layer for smooth animation
-      if (ref) {
-        ref.style.willChange = "transform"
-        ref.style.backfaceVisibility = "hidden"
-      }
-    }
-  }, [])
-
-  const handleSheetTouchMove = useCallback((e: React.TouchEvent) => {
-    if (sheetSwipeStartY.current === null) return
-    const touchY = e.touches[0].clientY
-    const deltaY = touchY - sheetSwipeStartY.current
-    const now = Date.now()
-    const dt = Math.max(1, now - sheetSwipeLastTime.current)
-
-    // Smoothed velocity (exponential moving average for stability)
-    const instantVelocity = (touchY - sheetSwipeLastY.current) / dt
-    sheetSwipeVelocity.current = sheetSwipeVelocity.current * 0.4 + instantVelocity * 0.6
-
-    sheetSwipeLastY.current = touchY
-    sheetSwipeLastTime.current = now
-
-    // 1:1 finger tracking for first 80px, then gradual resistance
-    const resisted = deltaY > 0
-      ? (deltaY <= 80 ? deltaY : 80 + (deltaY - 80) * 0.55)
-      : deltaY * 0.15
-    if (deltaY > 0) e.preventDefault()
-
-    sheetSwipeCurrentY.current = Math.max(0, deltaY)
-    if (sheetSwipeRef.current) {
-      sheetSwipeRef.current.style.transform = `translate3d(0, ${resisted}px, 0)`
-      sheetSwipeRef.current.style.transition = "none"
-    }
-  }, [])
-
-  const handleSheetTouchEnd = useCallback((sheetName: string, closer: () => void) => {
-    if (sheetSwipeStartY.current === null) return
-    sheetSwipeStartY.current = null
-    const activeSheet = sheetSwipeRef.current
-    const shouldDismiss = sheetSwipeCurrentY.current > 70 || sheetSwipeVelocity.current > 0.4
-
-    if (shouldDismiss) {
-      swipeCloseRef.current = true
-      setDismissingSheet(sheetName)
-      if (activeSheet) {
-        activeSheet.style.transition = "transform 350ms cubic-bezier(0.32, 0.72, 0, 1)"
-        activeSheet.style.transform = "translate3d(0, 105%, 0)"
-      }
-      setTimeout(() => {
-        if (activeSheet) {
-          activeSheet.style.transition = ""
-          activeSheet.style.transform = ""
-          activeSheet.style.willChange = ""
-        }
-        sheetSwipeRef.current = null
-        swipeCloseRef.current = false
-        setDismissingSheet(null)
-        closer()
-      }, 350)
-      sheetSwipeCurrentY.current = 0
-      sheetSwipeVelocity.current = 0
-      return
-    }
-
-    // Snap back with spring animation
-    if (activeSheet) {
-      activeSheet.style.transition = "transform 300ms cubic-bezier(0.2, 0.9, 0.3, 1)"
-      activeSheet.style.transform = "translate3d(0, 0, 0)"
-      setTimeout(() => {
-        if (activeSheet) {
-          activeSheet.style.transition = ""
-          activeSheet.style.transform = ""
-          activeSheet.style.willChange = ""
-        }
-        sheetSwipeRef.current = null
-      }, 300)
-    }
-    sheetSwipeCurrentY.current = 0
-    sheetSwipeVelocity.current = 0
-  }, [])
 
   // Whether anything has scrolled under the bar (its hairline)
   const [isScrolled, setIsScrolled] = useState(false)
@@ -466,11 +359,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   const [description, setDescription] = useState(initial.description)
   const [callToAction, setCallToAction] = useState(initial.callToAction)
   const [digitalFiles, setDigitalFiles] = useState<UploadedFile[]>(initial.digitalFiles)
-  const [uploadingFiles, setUploadingFiles] = useState(false)
-  const [fileUploadProgress, setFileUploadProgress] = useState(0)
-  const [activeFileUploads, setActiveFileUploads] = useState<Map<string, ActiveFileUpload>>(new Map())
-  const [isFileDragOver, setIsFileDragOver] = useState(false)
-  const fileDragCounterRef = useRef(0)
+  /* Each file uploading, in the row it keeps when it is done (./file-uploads). */
+  const fileUploads = useFileUploads(setDigitalFiles)
 
   // Settings tab fields
   const [price, setPrice] = useState(initial.price)
@@ -524,10 +414,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   // Ratio warning state for non-widescreen images
   const [ratioWarning, setRatioWarning] = useState<string | null>(null)
 
-  // File renaming state
-  const [editingFileId, setEditingFileId] = useState<string | null>(null)
-  const [editingFileName, setEditingFileName] = useState("")
-
   // Variants state (max 7 variants)
   const [variants, setVariants] = useState<ProductVariant[]>(initial.variants)
   const MAX_VARIANTS = 7
@@ -536,6 +422,31 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   const [payWhatYouWant, setPayWhatYouWant] = useState(initial.payWhatYouWant)
   const [pwywMinPrice, setPwywMinPrice] = useState(initial.pwywMinPrice)
   const [pwywSuggestedPrice, setPwywSuggestedPrice] = useState(initial.pwywSuggestedPrice)
+  /*
+    How it is sold: a fixed price, pay what you want, or free. Nothing new is
+    saved for it. Pay what you want is the flag it always was, and free is a
+    price of nothing, which is how a saved product with no price opens.
+  */
+  type PriceMode = "fixed" | "pwyw" | "free"
+  const [priceMode, setPriceMode] = useState<PriceMode>(() =>
+    initial.payWhatYouWant ? "pwyw" : initial.productId && initial.variants.length === 0 && !Number.parseFloat(initial.price || "0") ? "free" : "fixed",
+  )
+  /* The prices free cleared, given back if fixed is chosen again. */
+  const priceBeforeFree = useRef<{ price: string; compareAt: string } | null>(null)
+  const choosePriceMode = (mode: PriceMode) => {
+    if (mode === priceMode) return
+    hapticTap("soft")
+    if (mode === "free") {
+      priceBeforeFree.current = { price, compareAt: compareAtPrice }
+      setPrice("")
+      setCompareAtPrice("")
+    } else if (priceMode === "free" && priceBeforeFree.current && !price) {
+      setPrice(priceBeforeFree.current.price)
+      setCompareAtPrice(priceBeforeFree.current.compareAt)
+    }
+    setPayWhatYouWant(mode === "pwyw")
+    setPriceMode(mode)
+  }
 
   // What's Included state (3 defaults + 5 custom max = 8 total)
   const [whatsIncluded, setWhatsIncluded] = useState<string[]>(initial.whatsIncluded)
@@ -546,9 +457,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
   // Category state
   const [selectedCategory, setSelectedCategory] = useState<string | null>(initial.selectedCategory)
-  const [showCategoryModal, setShowCategoryModal] = useState(false)
-  const [categorySearch, setCategorySearch] = useState("")
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
   // Toast notification state for validation errors (with dismissing animation state)
   const [toast, setToast] = useState<{ message: string; visible: boolean; dismissing: boolean }>({ message: "", visible: false, dismissing: false })
@@ -583,328 +491,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       })
     })
   }, [])
-
-  // Grouped categories structure
-  const CATEGORY_GROUPS: Record<string, { icon: string; categories: string[] }> = {
-    "Design & Creative": {
-      icon: "•",
-      categories: [
-        "Digital Art", "Graphics", "Illustrations", "Vector Art", "Icons", "Fonts", "Clip Art",
-        "Photoshop Actions", "Photoshop Brushes", "Lightroom Presets", "Lightroom Profiles",
-        "Procreate Brushes", "Procreate Stamps", "Design Systems", "UI Kits", "Wireframes",
-        "Prototypes", "Brand Kits", "Brand Guidelines", "Logo Templates", "Logo Packs",
-        "Pattern Designs", "Textures", "Backgrounds", "Overlays", "Filters", "Color Palettes", "Gradients",
-        "Figma Templates", "Sketch Templates", "Adobe XD Templates", "Canva Templates"
-      ]
-    },
-    "VFX & Motion": {
-      icon: "•",
-      categories: [
-        "Motion Graphics", "After Effects Templates", "Premiere Pro Templates", "DaVinci Resolve Templates",
-        "Transitions", "Lower Thirds", "Intros", "Outros", "Video Templates", "Video LUTs",
-        "Visual Effects", "VFX Presets", "Animation Templates", "Animated Elements", "Title Templates",
-        "Green Screen Assets", "Particle Effects", "Light Leaks", "Glitch Effects", "Cinematic LUTs"
-      ]
-    },
-    "Audio & Music": {
-      icon: "•",
-      categories: [
-        "Sample Packs", "Drum Kits", "Loops", "MIDI Files", "Presets", "Synth Presets",
-        "Vocal Samples", "Beats", "Instrumentals", "Sound Effects", "Music Tracks", "Audio Files",
-        "Sound Libraries", "Ableton Templates", "FL Studio Templates", "Logic Pro Templates",
-        "Podcasts", "Audiobooks", "Podcast Templates", "Podcast Artwork", "Podcast Intros",
-        "Audio Branding", "Voice Overs", "Jingles", "Ringtones", "Ambient Sounds"
-      ]
-    },
-    "Software & Development": {
-      icon: "•",
-      categories: [
-        "Software", "Plugins", "Extensions", "Code Snippets", "Scripts", "APIs", "SDKs",
-        "Libraries", "Frameworks", "WordPress Themes", "WordPress Plugins", "Shopify Themes",
-        "Shopify Apps", "Web Apps", "SaaS Products", "Mobile Apps", "Desktop Apps",
-        "Source Code", "Databases", "Development Tools", "CLI Tools", "DevOps Tools",
-        "Bots", "Automation Scripts", "Browser Extensions", "App Templates"
-      ]
-    },
-    "AI & Automation": {
-      icon: "•",
-      categories: [
-        "AI Tools", "AI Assistants", "AI Agents", "AI Models", "Machine Learning", "Datasets",
-        "Algorithms", "GPT Templates", "ChatGPT Prompts", "Claude Prompts", "Gemini Prompts",
-        "AI Prompts", "Midjourney Prompts", "Stable Diffusion Prompts", "DALL-E Prompts",
-        "AI Workflows", "Automation Workflows", "Zapier Templates", "Make Templates", "n8n Workflows",
-        "AI Art Generators", "AI Voice Tools", "Text to Speech", "Prompt Packs"
-      ]
-    },
-    "Gaming & Esports": {
-      icon: "•",
-      categories: [
-        "Games", "Game Assets", "Unity Assets", "Unreal Assets", "Sprites", "Tilesets",
-        "Gaming Guides", "Strategy Guides", "Walkthroughs", "Cheat Codes", "Modding Tools", "Game Mods",
-        "Esports Coaching", "Gaming Overlays", "Stream Overlays", "Twitch Panels", "Twitch Emotes",
-        "Discord Assets", "Discord Bots", "Gaming Avatars", "Gaming Banners", "Gaming Templates",
-        "Controller Skins", "Character Models", "Game UI Kits"
-      ]
-    },
-    "3D & Assets": {
-      icon: "•",
-      categories: [
-        "3D Assets", "3D Models", "3D Printing Files", "3D Characters", "3D Environments",
-        "3D Props", "3D Textures", "3D Materials", "Blender Assets", "Maya Assets",
-        "Cinema 4D Assets", "HDRI Images", "PBR Materials", "CAD Files", "Architectural Models"
-      ]
-    },
-    "Photography & Video": {
-      icon: "•",
-      categories: [
-        "Stock Photos", "Stock Videos", "Photo Presets", "Thumbnails", "YouTube Templates",
-        "Instagram Reels Templates", "TikTok Templates", "Travel Photography", "Food Photography Presets",
-        "Portrait Presets", "Landscape Presets", "Film Emulation", "Photo Overlays", "Photo Frames"
-      ]
-    },
-    "Templates & Mockups": {
-      icon: "•",
-      categories: [
-        "Templates", "Mockups", "Presentations", "Resume Templates", "Business Cards", "Flyers",
-        "Posters", "Brochures", "Social Media Templates", "Website Templates", "Mobile App Templates",
-        "Email Templates", "Newsletter Designs", "Notion Templates", "Notion Dashboards",
-        "Notion Databases", "Notion Wikis", "Second Brain Templates", "PARA Templates", "GTD Templates"
-      ]
-    },
-    "Education & Courses": {
-      icon: "•",
-      categories: [
-        "Online Courses", "Video Courses", "Tutorials", "Workshops", "Masterclasses", "Video Lessons",
-        "Webinars", "Educational Content", "Study Guides", "Cheat Sheets", "Flashcards", "Quizzes",
-        "Language Learning", "Test Prep", "Certifications", "Training Materials", "Curriculum",
-        "Homeschool Resources", "Learning Materials", "Educational Games"
-      ]
-    },
-    "Business & Marketing": {
-      icon: "•",
-      categories: [
-        "Business Plans", "Marketing Plans", "Sales Funnels", "Marketing Funnels", "Landing Pages",
-        "Lead Magnets", "Case Studies", "White Papers", "Pitch Decks", "Reports", "Analytics Templates",
-        "CRM Templates", "Project Management", "SOPs", "Spreadsheets", "Financial Models",
-        "Invoices", "Contracts", "Legal Templates", "NDA Templates", "Proposal Templates",
-        "Quotation Templates", "Business Proposals", "Business Model Canvas", "Lean Canvas"
-      ]
-    },
-    "Startup & Entrepreneurship": {
-      icon: "•",
-      categories: [
-        "Startup Templates", "Investor Decks", "Fundraising Guides", "Startup Playbooks",
-        "Growth Hacking", "MVP Templates", "Product Roadmaps", "OKR Templates",
-        "Venture Capital", "Angel Investing", "Pitch Templates", "Startup Guides"
-      ]
-    },
-    "Ecommerce & Sales": {
-      icon: "•",
-      categories: [
-        "Ecommerce Templates", "Dropshipping Guides", "Product Research", "Supplier Lists",
-        "Store Setups", "Amazon FBA Guides", "Etsy Templates", "Gumroad Templates",
-        "Product Descriptions", "Pricing Strategies", "Sales Playbooks", "CRM Setups",
-        "HubSpot Templates", "Salesforce Templates", "Pipeline Templates", "Closing Scripts"
-      ]
-    },
-    "Writing & Content": {
-      icon: "•",
-      categories: [
-        "Ebooks", "Writing Templates", "Content Calendars", "Blog Posts", "Articles", "Ghostwriting",
-        "Copywriting Templates", "Ad Copy", "Sales Scripts", "Email Sequences", "Cold Email Templates",
-        "Newsletter Templates", "Documentation", "Guides", "Manuals"
-      ]
-    },
-    "Social Media": {
-      icon: "•",
-      categories: [
-        "Instagram Templates", "Pinterest Templates", "LinkedIn Posts", "Twitter Templates",
-        "Social Media Planners", "Content Planners", "Hashtag Guides", "Bio Templates",
-        "Link in Bio Templates", "Creator Toolkits", "Sponsorship Templates", "Media Kits",
-        "Brand Deal Templates", "UGC Templates", "Influencer Contracts", "Rate Cards"
-      ]
-    },
-    "Email Marketing": {
-      icon: "•",
-      categories: [
-        "Email Funnels", "Drip Campaigns", "Welcome Sequences", "Launch Sequences",
-        "Re-engagement Emails", "Substack Templates", "ConvertKit Templates", "Mailchimp Templates",
-        "Beehiiv Templates", "Newsletter Growth", "Cold Outreach Templates"
-      ]
-    },
-    "No-Code & Tools": {
-      icon: "•",
-      categories: [
-        "No-Code Templates", "Bubble Templates", "Webflow Templates", "Airtable Bases", "Glide Apps",
-        "Softr Templates", "Adalo Templates", "FlutterFlow Templates", "Retool Templates", "Xano Templates"
-      ]
-    },
-    "Finance & Investing": {
-      icon: "•",
-      categories: [
-        "Investment Templates", "Stock Analysis", "Portfolio Trackers", "Crypto Trackers", "Tax Templates",
-        "Expense Trackers", "Savings Planners", "Debt Payoff", "Financial Literacy", "Money Guides",
-        "Trading Strategies", "DeFi Guides", "Crypto Guides", "NFT Art", "NFT Collections"
-      ]
-    },
-    "Health & Fitness": {
-      icon: "•",
-      categories: [
-        "Workout Plans", "Meal Plans", "Nutrition Guides", "Recipe Books", "Diet Plans",
-        "Fitness Programs", "Meditation Guides", "Wellness Journals", "Health Trackers", "Yoga Guides"
-      ]
-    },
-    "Personal Development": {
-      icon: "•",
-      categories: [
-        "Planners", "Journals", "Trackers", "Goal Setting", "Habit Trackers", "Budget Planners",
-        "Mindmaps", "Note Taking", "Productivity Systems", "Life Coaching", "Self-Help Guides",
-        "Affirmation Cards", "Vision Boards", "Gratitude Journals", "Daily Planners", "Weekly Reviews"
-      ]
-    },
-    "Spirituality & Mindfulness": {
-      icon: "•",
-      categories: [
-        "Tarot Guides", "Astrology Charts", "Horoscope Templates", "Crystal Guides", "Energy Healing",
-        "Chakra Guides", "Manifestation Guides", "Law of Attraction", "Spiritual Journals", "Prayer Guides"
-      ]
-    },
-    "Art & Crafts": {
-      icon: "•",
-      categories: [
-        "Printables", "Coloring Pages", "Patterns", "SVG Files", "Cut Files", "Cricut Designs",
-        "Embroidery Designs", "Knitting Patterns", "Sewing Patterns", "Craft Templates",
-        "Stickers", "Labels", "Invitations", "Greeting Cards", "Wall Art", "Digital Planners"
-      ]
-    },
-    "Print on Demand": {
-      icon: "•",
-      categories: [
-        "T-Shirt Designs", "Mug Designs", "Phone Case Designs", "Poster Designs", "Tote Bag Designs",
-        "Sticker Designs", "Print Designs", "Apparel Graphics", "Merchandise Templates"
-      ]
-    },
-    "Fashion & Beauty": {
-      icon: "•",
-      categories: [
-        "Fashion Lookbooks", "Outfit Guides", "Style Guides", "Fashion Illustrations", "Fashion Sketches",
-        "Makeup Tutorials", "Beauty Guides", "Skincare Routines", "Hair Care Guides", "Nail Art Designs",
-        "Fashion Presets", "Beauty Presets", "Fashion Templates", "Lookbook Templates"
-      ]
-    },
-    "Real Estate": {
-      icon: "•",
-      categories: [
-        "Real Estate Flyers", "Property Listings", "Real Estate Templates", "Property Management",
-        "Rental Agreements", "Real Estate Guides", "Investment Guides", "Property Analysis",
-        "Real Estate Marketing", "Open House Templates"
-      ]
-    },
-    "Events & Weddings": {
-      icon: "•",
-      categories: [
-        "Wedding Templates", "Wedding Invitations", "Save the Date", "Event Flyers", "Party Invitations",
-        "Event Planning", "Wedding Planning", "Event Checklists", "Seating Charts", "Menu Templates",
-        "RSVP Templates", "Thank You Cards", "Event Programs", "Wedding Programs"
-      ]
-    },
-    "Food & Cooking": {
-      icon: "•",
-      categories: [
-        "Cookbook", "Recipe Cards", "Meal Prep Guides", "Cooking Tutorials", "Baking Recipes",
-        "Restaurant Menus", "Food Blogs", "Cocktail Recipes", "Smoothie Recipes"
-      ]
-    },
-    "Travel & Adventure": {
-      icon: "•",
-      categories: [
-        "Travel Guides", "Itinerary Templates", "Packing Lists", "Travel Journals", "Destination Guides",
-        "Travel Presets", "Adventure Guides", "Hiking Guides", "Camping Guides"
-      ]
-    },
-    "Parenting & Family": {
-      icon: "•",
-      categories: [
-        "Parenting Guides", "Baby Planners", "Pregnancy Journals", "Family Budgets", "Chore Charts",
-        "Kids Activities", "Childcare Templates"
-      ]
-    },
-    "Home & Interior": {
-      icon: "•",
-      categories: [
-        "Interior Design", "Home Decor", "Room Planners", "Floor Plans", "Furniture Layouts",
-        "DIY Home Projects", "Organization Templates", "Cleaning Checklists", "Home Inventory", "Renovation Guides"
-      ]
-    },
-    "Career & Job Search": {
-      icon: "•",
-      categories: [
-        "Cover Letters", "Portfolio Templates", "LinkedIn Templates", "Interview Prep", "Career Guides",
-        "Salary Negotiation", "Job Search Trackers", "Networking Templates", "Personal Branding", "Career Coaching"
-      ]
-    },
-    "Agency & Freelance": {
-      icon: "•",
-      categories: [
-        "Agency Templates", "Client Onboarding", "Project Briefs", "Scope of Work", "Retainer Agreements",
-        "Freelance Contracts", "Rate Calculators", "Time Trackers", "Client Portals", "Service Packages"
-      ]
-    },
-    "Community & Membership": {
-      icon: "•",
-      categories: [
-        "Community Templates", "Membership Sites", "Circle Templates", "Skool Templates", "Mighty Networks",
-        "Community Playbooks", "Engagement Strategies", "Onboarding Sequences", "Welcome Emails", "Community Guidelines"
-      ]
-    },
-    "Data & Analytics": {
-      icon: "•",
-      categories: [
-        "Dashboard Templates", "Data Visualization", "Excel Templates", "Google Sheets", "Power BI Templates",
-        "Tableau Templates", "SQL Queries", "Data Analysis", "KPI Trackers", "Reporting Templates"
-      ]
-    },
-    "Pet & Animals": {
-      icon: "•",
-      categories: [
-        "Pet Care Guides", "Dog Training", "Cat Care", "Pet Health", "Animal Illustrations",
-        "Pet Journals", "Vet Records", "Pet Planners"
-      ]
-    },
-    "Other": {
-      icon: "•",
-      categories: [
-        "Memberships", "Subscriptions", "Coaching", "Consulting", "Services", "Freelance Services",
-        "Bundles", "Collections", "Preorders", "Gift Cards", "Licenses", "Other"
-      ]
-    }
-  }
-
-  // Flat list of all categories for search and AI suggestion
-  const ALL_CATEGORIES = Object.values(CATEGORY_GROUPS).flatMap(g => g.categories).sort()
-
-  // Toggle category group expansion
-  const toggleGroupExpansion = (groupName: string) => {
-    setExpandedGroups(prev => {
-      const next = new Set(prev)
-      if (next.has(groupName)) {
-        next.delete(groupName)
-      } else {
-        next.add(groupName)
-      }
-      return next
-    })
-  }
-
-  // Find which group a category belongs to
-  const findCategoryGroup = (category: string): string | null => {
-    for (const [groupName, group] of Object.entries(CATEGORY_GROUPS)) {
-      if (group.categories.includes(category)) {
-        return groupName
-      }
-    }
-    return null
-  }
 
   // Show toast notification with animated dismiss
   const dismissToast = useCallback(() => {
@@ -2046,30 +1632,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     setMediaItems(prev => prev.filter(m => m.id !== id))
   }
 
-  // Handle file upload for digital assets using admin API with progress
-  // Helper: get upload status label
-  const getUploadStatusLabel = (status: UploadStatus): string => {
-    switch (status) {
-      case "computing_checksum": return "Verifying integrity..."
-      case "preparing": return "Preparing upload..."
-      case "uploading": return "Uploading..."
-      case "completing": return "Finalizing..."
-      case "complete": return "Complete"
-      case "paused": return "Paused"
-      case "error": return "Failed"
-      case "aborted": return "Cancelled"
-      default: return "Starting..."
-    }
-  }
-
-  // Compute overall upload progress from all active uploads
-  const computedFileUploadProgress = activeFileUploads.size > 0
-    ? Math.round(
-        Array.from(activeFileUploads.values()).reduce((sum, u) => sum + u.progress, 0) /
-          activeFileUploads.size
-      )
-    : 0
-
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
 
@@ -2078,9 +1640,10 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
     const fileArray = Array.from(files)
 
-    // Validate: max file count
-    if (digitalFiles.length + fileArray.length > MAX_DIGITAL_FILES) {
-      setError(`Maximum ${MAX_DIGITAL_FILES} digital files per product. You currently have ${digitalFiles.length}.`)
+    // Validate: max file count, counting the ones still uploading
+    const inFlight = fileUploads.inFlight
+    if (digitalFiles.length + inFlight.length + fileArray.length > MAX_DIGITAL_FILES) {
+      setError(`Maximum ${MAX_DIGITAL_FILES} digital files per product. You currently have ${digitalFiles.length + inFlight.length}.`)
       return
     }
 
@@ -2099,7 +1662,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       }
 
       // Check for duplicate file names
-      const isDuplicate = digitalFiles.some(f => f.file_name === file.name)
+      const isDuplicate = digitalFiles.some(f => f.file_name === file.name) || inFlight.some(u => u.file.name === file.name)
       if (isDuplicate) {
         setError(`A file named "${file.name}" already exists. Please rename it or remove the existing file first.`)
         return
@@ -2177,120 +1740,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       }
     }
 
-    setUploadingFiles(true)
-    setFileUploadProgress(0)
-
-    for (const file of fileArray) {
-      const uploadKey = `${file.name}-${file.size}-${Date.now()}`
-
-      const uploader = new DirectUploader({
-        file,
-        productId: currentProductId || undefined,
-        folder: "digital",
-        onProgress: (percent, bytesUploaded, bytesTotal) => {
-          setActiveFileUploads(prev => {
-            const next = new Map(prev)
-            const entry = next.get(uploadKey)
-            if (entry) {
-              next.set(uploadKey, { ...entry, progress: percent, bytesUploaded, bytesTotal })
-            }
-            return next
-          })
-          // Update overall progress
-          setActiveFileUploads(prev => {
-            const total = Array.from(prev.values()).reduce((s, u) => s + u.progress, 0)
-            setFileUploadProgress(prev.size > 0 ? Math.round(total / prev.size) : 0)
-            return prev
-          })
-        },
-        onStatusChange: (status) => {
-          setActiveFileUploads(prev => {
-            const next = new Map(prev)
-            const entry = next.get(uploadKey)
-            if (entry) {
-              next.set(uploadKey, { ...entry, status })
-            }
-            return next
-          })
-        },
-        onComplete: (result) => {
-          const newFile: UploadedFile = {
-            id: result.assetId || undefined,
-            file_name: result.fileName,
-            file_path: result.path,
-            file_size: result.fileSize,
-            mime_type: result.mimeType,
-          }
-
-          setDigitalFiles(prev => [...prev, newFile])
-
-          // Remove from active uploads after showing completion briefly
-          setTimeout(() => {
-            setActiveFileUploads(prev => {
-              const next = new Map(prev)
-              next.delete(uploadKey)
-              // If no more active uploads, reset progress state
-              if (next.size === 0) {
-                setUploadingFiles(false)
-                setFileUploadProgress(0)
-              }
-              return next
-            })
-          }, 1500)
-
-          // Trigger background antivirus scan
-          if (result.assetId) {
-            fetch("/api/v2/upload/scan", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ assetId: result.assetId }),
-            }).catch(() => { /* Non-critical: scan will be picked up by cron */ })
-          }
-        },
-        onError: (err) => {
-          setActiveFileUploads(prev => {
-            const next = new Map(prev)
-            const entry = next.get(uploadKey)
-            if (entry) {
-              next.set(uploadKey, { ...entry, status: "error", error: err.message })
-            }
-            return next
-          })
-
-          // Show the error for 5 seconds, then clean up so the user can retry
-          setTimeout(() => {
-            setActiveFileUploads(prev => {
-              const next = new Map(prev)
-              next.delete(uploadKey)
-              if (next.size === 0) {
-                setUploadingFiles(false)
-                setFileUploadProgress(0)
-              }
-              return next
-            })
-          }, 5000)
-        },
-      })
-
-      // Add to active uploads
-      setActiveFileUploads(prev => {
-        const next = new Map(prev)
-        next.set(uploadKey, {
-          file,
-          uploader,
-          progress: 0,
-          status: "idle",
-          bytesUploaded: 0,
-          bytesTotal: file.size,
-        })
-        return next
-      })
-
-      // Start upload (don't await — allow parallel uploads)
-      uploader.start().catch(() => {
-        // Error already handled by onError callback
-      })
-    }
+    /* All at once, each in its own row (./file-uploads). */
+    fileUploads.start(fileArray, currentProductId || undefined)
   }
 
   const handleDeleteFile = async (file: UploadedFile) => {
@@ -2333,12 +1784,16 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   }
 
   /*
-    CANCEL. Straight back to Products when there is nothing to lose. With
-    unsaved changes it asks first, as a sheet on a phone: Discard goes, Keep
-    editing stays. Saving is the bar's Save, so the question does not offer a
-    third way out. The unsaved tracking above still drives it; only the words
-    in the bar went.
+    CANCEL, OR BACK. The bar's first button says which (LeaveButton in
+    ./editor-buttons): Cancel while something would be lost, Back once the
+    product is saved and nothing has changed since. With unsaved changes it
+    asks first, as a sheet on a phone: Discard goes, Keep editing stays.
+    Saving is the bar's Save, so the question does not offer a third way
+    out. Either way the editor slides off over the list, which is already
+    drawn underneath, at the scroll it was left at: back in history when the
+    list opened this editor, in place of it otherwise (../list-return).
   */
+  const leaveMode = productId && !hasUnsavedChanges ? "back" : "cancel"
   const handleCancel = async () => {
     if (hasUnsavedChanges) {
       const leave = await ask(
@@ -2349,7 +1804,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       if (!leave) return
       setHasUnsavedChanges(false)
     }
-    router.push("/app/products")
+    returnToProducts(router, productId)
   }
 
   /** Saves and publishes. True when it saved. */
@@ -2415,6 +1870,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       setJustSaved(true)
       setHasUnsavedChanges(false)
       setSavedTitle(title)
+      setSavedThisVisit(true)
       flashSaved()
 
       // Store current values as saved state for change detection
@@ -2470,16 +1926,26 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       const message = typeof window !== "undefined" && window.innerWidth < 640 ? "Product is live" : "Product is live and saved"
       if (created) {
         carriedNotice = message
+        const savedAt = performance.now()
+        carriedSavedAt = savedAt
+        /* The same product at its own address: where the form was scrolled, and no landing (holdLayerLanding). */
+        carriedScrollTop = contentRef.current?.scrollTop ?? 0
+        holdLayerLanding()
         /* Only for the page this refresh draws, never a later one. */
-        setTimeout(() => { if (carriedNotice === message) carriedNotice = null }, 8000)
+        setTimeout(() => {
+          if (carriedNotice === message) carriedNotice = null
+          if (carriedSavedAt === savedAt) {
+            carriedSavedAt = null
+            carriedScrollTop = null
+          }
+        }, 8000)
         window.history.replaceState({}, "", `/app/products/${savedProductId}`)
         router.refresh()
         return true
       }
       router.refresh()
 
-      // Smooth scroll to top
-      contentRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+      /* The page stays where it was: the bar that says Saved is always in view, and so is the notice. */
       setNotificationMessage(message)
       setShowNotification(true)
       setTimeout(() => {
@@ -2649,6 +2115,13 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         draft heads the more menu, above the Publish or Unpublish that changes
         it; and Cancel still asks before unsaved changes are thrown away.
 
+        AFTER A SAVE THE PAGE STAYS, as Shopify's product page does: Save
+        shows its check and settles to a grey Saved, and Cancel becomes Back,
+        because there is nothing left to discard. The next change turns them
+        back into Cancel and a violet Save. So the bar is always one of three:
+        unsaved (Cancel, which asks; Save), saving (Save busy, Cancel held),
+        saved (Back; Saved, greyed).
+
         The three buttons have Polaris depth: white with a hairline and a soft
         foot for Cancel and more, solid violet for Save, all flat when pressed,
         one height on each screen. On a computer the sections are a row of
@@ -2676,9 +2149,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
           {savePhase === "saving" ? "Saving" : savePhase === "saved" ? "Saved" : ""}
         </p>
         <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 px-4 sm:h-16 sm:px-6">
-          <button type="button" onClick={() => void handleCancel()} className={barButton}>
-            Cancel
-          </button>
+          <LeaveButton mode={leaveMode} disabled={saveBusy} onLeave={() => void handleCancel()} />
           <div className="flex items-center gap-2">
             {productId ? (
               <ResponsiveActionMenu
@@ -2695,7 +2166,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                 ].map((item, i) => (i === 0 ? { ...item, section: isPublished ? "Live on your page" : "Draft, hidden from your page" } : item))}
               />
             ) : null}
-            <SaveButton phase={savePhase} disabled={!canSave} onSave={() => void handleSaveChanges()} />
+            <SaveButton phase={savePhase} disabled={!canSave} saved={savedThisVisit} onSave={() => void handleSaveChanges()} />
           </div>
         </div>
         <div className="mx-auto hidden h-11 max-w-[760px] items-start px-6 sm:flex">
@@ -3150,196 +2621,14 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     Files customers receive after purchase.
                   </p>
 
-                  {digitalFiles.length > 0 && (
-                    <div className="space-y-2 mt-3">
-                      {digitalFiles.map((file) => (
-                        <div
-                          key={file.id}
-                          className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
-                        >
-                          <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                          <div className="min-w-0 flex-1 mr-2">
-                            {editingFileId === file.id ? (
-                              <Input
-                                value={editingFileName}
-                                onChange={(e) => setEditingFileName(e.target.value)}
-                                className="h-7 text-xs sm:text-sm border-gray-300 w-full"
-                                autoFocus
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    setDigitalFiles(prev => prev.map(f =>
-                                      f.id === file.id ? { ...f, file_name: editingFileName } : f
-                                    ))
-                                    setEditingFileId(null)
-                                  }
-                                  if (e.key === 'Escape') {
-                                    setEditingFileId(null)
-                                  }
-                                }}
-                                onBlur={() => {
-                                  setDigitalFiles(prev => prev.map(f =>
-                                    f.id === file.id ? { ...f, file_name: editingFileName } : f
-                                  ))
-                                  setEditingFileId(null)
-                                }}
-                              />
-                            ) : (
-                              <p className="text-sm font-medium text-gray-900 truncate">{file.file_name}</p>
-                            )}
-                            <p className="text-xs text-gray-500">{formatFileSize(file.file_size)}</p>
-                          </div>
-                          <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingFileId(file.id || null)
-                                setEditingFileName(file.file_name)
-                              }}
-                              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                              title="Rename file"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteFile(file)}
-                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                              title="Delete file"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div
-                    className={`
-                      mt-3 border-2 border-dashed rounded-xl
-                      flex flex-col items-center justify-center py-6
-                      transition-all duration-300 cursor-pointer
-                      ${uploadingFiles ? "pointer-events-none border-gray-200 bg-gray-50" : ""}
-                      ${isFileDragOver
-                        ? "border-violet-400 bg-violet-50/70 scale-[1.01]"
-                        : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                      }
-                    `}
-                    onClick={() => { if (!uploadingFiles && !isScrollingRef.current) document.getElementById("file-input")?.click() }}
-                    onDragEnter={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      fileDragCounterRef.current++
-                      if (e.dataTransfer.types.includes('Files')) {
-                        setIsFileDragOver(true)
-                      }
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      e.dataTransfer.dropEffect = 'copy'
-                    }}
-                    onDragLeave={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      fileDragCounterRef.current--
-                      if (fileDragCounterRef.current === 0) {
-                        setIsFileDragOver(false)
-                      }
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      fileDragCounterRef.current = 0
-                      setIsFileDragOver(false)
-                      handleFileUpload(e.dataTransfer.files)
-                    }}
-                  >
-                    <input
-                      id="file-input"
-                      type="file"
-                      multiple
-                      accept="*/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        handleFileUpload(e.target.files)
-                        // Reset value so the same file can be re-selected
-                        e.target.value = ""
-                      }}
-                      disabled={uploadingFiles}
-                    />
-
-                    {uploadingFiles && activeFileUploads.size > 0 ? (
-                      <div className="w-full max-w-md mx-auto space-y-2 px-4">
-                        {Array.from(activeFileUploads).map(([key, upload]) => (
-                          <div key={key} className="flex items-center gap-2 py-1">
-                            <div className="flex-shrink-0 w-4 flex items-center justify-center">
-                              {upload.status === "complete" ? (
-                                <CheckCircle className="h-4 w-4 text-green-500" />
-                              ) : upload.status === "error" ? (
-                                <AlertCircle className="h-4 w-4 text-red-500" />
-                              ) : (
-                                <Loader2 className="h-4 w-4 text-violet-500 animate-spin" />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-2 mb-0.5">
-                                <p className="text-xs font-medium text-gray-700 truncate">{upload.file.name}</p>
-                                <span className="text-xs tabular-nums text-gray-500 flex-shrink-0 ml-2">{upload.progress}%</span>
-                              </div>
-                              <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-200 ease-out ${
-                                    upload.status === "error" ? "bg-red-500" :
-                                    upload.status === "complete" ? "bg-green-500" : "bg-violet-500"
-                                  }`}
-                                  style={{ width: `${upload.progress}%` }}
-                                />
-                              </div>
-                              {upload.error && (
-                                <p className="text-xs text-red-500 mt-0.5">{upload.error}</p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : uploadingFiles ? (
-                      <div className="flex items-center gap-2 py-2">
-                        <Loader2 className="h-4 w-4 text-violet-500 animate-spin" />
-                        <p className="text-xs text-gray-500">Preparing upload...</p>
-                      </div>
-                    ) : isFileDragOver ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
-                          <Plus className="h-5 w-5 text-violet-600" />
-                        </div>
-                        <p className="text-sm font-medium text-violet-600">
-                          Drop files here
-                        </p>
-                      </div>
-                    ) : (
-                      <>
-                        <p className="text-gray-400 text-sm mb-3">
-                          Drag and drop or click to upload
-                        </p>
-
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="border-gray-200 text-gray-700 h-9 text-sm hover:bg-gray-50 pointer-events-auto"
-                          disabled={uploadingFiles}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            document.getElementById("file-input")?.click()
-                          }}
-                        >
-                          <Plus className="h-4 w-4 mr-1.5" />
-                          Choose Files
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                  <DigitalFiles
+                    files={digitalFiles}
+                    uploads={fileUploads}
+                    max={MAX_DIGITAL_FILES}
+                    onPick={(files) => void handleFileUpload(files)}
+                    onRename={(file, name) => setDigitalFiles(prev => prev.map(f => (f.file_path === file.file_path ? { ...f, file_name: name } : f)))}
+                    onDelete={(file) => void handleDeleteFile(file)}
+                  />
                 </div>
               </div>
 
@@ -3697,60 +2986,123 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                 <div>
                   <h2 className="text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">Pricing</h2>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Set your product's price.
+                    How buyers pay for it.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="price" className="text-xs sm:text-sm font-medium text-gray-700">
-                      {payWhatYouWant ? "Minimum amount" : "Price (USD)"}
-                    </Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
-                      <Input
-                        id="price"
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        value={payWhatYouWant ? pwywMinPrice : price}
-                        onChange={(e) => payWhatYouWant ? setPwywMinPrice(e.target.value) : setPrice(e.target.value)}
-                        className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="comparePrice" className="text-xs sm:text-sm font-medium text-gray-700">
-                      {payWhatYouWant ? "Suggested amount" : "Compare at price"}
-                    </Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
-                      <Input
-                        id="comparePrice"
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        value={payWhatYouWant ? pwywSuggestedPrice : compareAtPrice}
-                        onChange={(e) => payWhatYouWant ? setPwywSuggestedPrice(e.target.value) : setCompareAtPrice(e.target.value)}
-                        className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Pay what you want */}
-                <div className={SWITCH_GROUP}>
-                  <SwitchRow
-                    title="Pay what you want"
-                    hint={payWhatYouWant ? "Buyers see \"Name a fair price\", starting at your suggested amount" : "Buyers choose the price, from your minimum"}
-                    checked={payWhatYouWant}
-                    onChange={setPayWhatYouWant}
+                {/* The way it is sold slides; the fields under it change in place (./editor-controls). */}
+                <div className="sm:max-w-[440px]">
+                  <Segmented
+                    label="Pricing"
+                    fit="content"
+                    value={priceMode}
+                    onChange={choosePriceMode}
+                    options={[
+                      { value: "fixed", label: "Fixed price" },
+                      { value: "pwyw", label: "Pay what you want" },
+                      { value: "free", label: "Free" },
+                    ]}
                   />
                 </div>
+
+                <SwapPanels
+                  active={priceMode}
+                  panels={[
+                    {
+                      key: "fixed",
+                      node: (
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="price" className="text-xs sm:text-sm font-medium text-gray-700">Price (USD)</Label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
+                              <Input
+                                id="price"
+                                type="number"
+                                inputMode="decimal"
+                                step="0.01"
+                                min="0"
+                                placeholder="0.00"
+                                value={price}
+                                onChange={(e) => setPrice(e.target.value)}
+                                className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
+                              />
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="comparePrice" className="text-xs sm:text-sm font-medium text-gray-700">Compare at price</Label>
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
+                              <Input
+                                id="comparePrice"
+                                type="number"
+                                inputMode="decimal"
+                                step="0.01"
+                                min="0"
+                                placeholder="0.00"
+                                value={compareAtPrice}
+                                onChange={(e) => setCompareAtPrice(e.target.value)}
+                                className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ),
+                    },
+                    {
+                      key: "pwyw",
+                      node: (
+                        <div className="space-y-2.5">
+                          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="pwywMin" className="text-xs sm:text-sm font-medium text-gray-700">Minimum amount</Label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
+                                <Input
+                                  id="pwywMin"
+                                  type="number"
+                                  inputMode="decimal"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="0.00"
+                                  value={pwywMinPrice}
+                                  onChange={(e) => setPwywMinPrice(e.target.value)}
+                                  className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="pwywSuggested" className="text-xs sm:text-sm font-medium text-gray-700">Suggested amount</Label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
+                                <Input
+                                  id="pwywSuggested"
+                                  type="number"
+                                  inputMode="decimal"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="0.00"
+                                  value={pwywSuggestedPrice}
+                                  onChange={(e) => setPwywSuggestedPrice(e.target.value)}
+                                  className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-[13px] leading-[18px] text-[#6b7280]">Buyers see &ldquo;Name a fair price&rdquo;, starting at your suggested amount.</p>
+                        </div>
+                      ),
+                    },
+                    {
+                      key: "free",
+                      node: (
+                        <p className="rounded-xl bg-[#f6f7f8] px-4 py-3 text-[14px] leading-5 text-[#4b5563]">
+                          No payment. Buyers enter their name and email and get the files right away.
+                        </p>
+                      ),
+                    },
+                  ]}
+                />
               </div>
 
               {/* Category Section */}
@@ -3767,369 +3119,12 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                   </p>
                 </div>
 
-                <div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowCategoryModal(true)}
-                    className="w-full h-11 justify-between text-sm border-gray-200"
-                  >
-                    <span className={selectedCategory ? "text-gray-900" : "text-gray-400"}>
-                      {selectedCategory || "Select a category..."}
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-gray-400" />
-                  </Button>
-                </div>
-
-                {/* Category Modal - Desktop Dialog only (mobile uses MobileSheet below) */}
-                <Dialog open={showCategoryModal && !isMobileViewport} onOpenChange={(open) => {
-                  if (!open) closeCategoryModal()
-                  else setShowCategoryModal(true)
-                }}>
-                  <DialogContent
-                    disableDefaultAnimations={isMobileViewport}
-                    showCloseButton={!isMobileViewport}
-                    onOpenAutoFocus={(e) => {
-                      if (isMobileViewport) e.preventDefault()
-                    }}
-                    overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "category" ? "opacity-0" : "opacity-100"}` : undefined}
-                    className={`fixed !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0 sm:!left-[50%] sm:!top-[50%] sm:!bottom-auto sm:!translate-x-[-50%] sm:!translate-y-[-50%] w-full !max-w-none sm:!max-w-2xl lg:!max-w-3xl sm:w-[calc(100%-2rem)] rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border-t sm:border p-0 h-[85vh] sm:h-auto max-h-[85vh] sm:max-h-[85vh] overflow-hidden flex flex-col ${dismissingSheet === "category" && !swipeCloseRef.current ? "animate-bottom-sheet-out" : (!dismissingSheet ? "animate-bottom-sheet-in" : "")} sm:animate-none`}
-                    /* The search field in here is typed into; the sheet has to sit on the keyboard. */
-                    style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden', ...sheetAboveKeyboard(0.85) } : undefined}
-                    onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
-                    onTouchMove={handleSheetTouchMove}
-                    onTouchEnd={() => handleSheetTouchEnd("category", () => setShowCategoryModal(false))}
-                    onTouchCancel={() => handleSheetTouchEnd("category", () => setShowCategoryModal(false))}
-                  >
-                    <div className="pt-3 pb-1 flex justify-center sm:hidden cursor-grab active:cursor-grabbing touch-none" data-drag-handle><div className="h-[5px] w-10 rounded-full bg-gray-300" /></div>
-                    <DialogHeader className="px-4 sm:p-6 pb-3 sm:pb-4 border-b flex-shrink-0">
-                      <DialogTitle className="text-lg sm:text-xl font-semibold">Select Category</DialogTitle>
-                      <DialogDescription className="text-sm text-gray-500">
-                        Choose a category that best describes your product.
-                      </DialogDescription>
-                    </DialogHeader>
-
-                    {/* Sticky Search Bar */}
-                    <div className="flex-shrink-0 px-4 sm:px-6 py-3 border-b bg-white">
-                      <Input
-                        placeholder="Search 300+ categories..."
-                        value={categorySearch}
-                        onChange={(e) => setCategorySearch(e.target.value)}
-                        className="h-11 text-sm sm:text-base rounded-lg"
-                      />
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 pt-3 sm:pt-4" data-scroll-container>
-                      {/* AI Suggestion - Modern Badge Style */}
-                      {suggestedCategory && !categorySearch && (
-                        <div className="mb-4">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedCategory(suggestedCategory)
-                              closeCategoryModal()
-                              setCategorySearch("")
-                            }}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-400 ${
-                              selectedCategory === suggestedCategory
-                                ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md"
-                                : "bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 border border-violet-200"
-                            }`}
-                          >
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
-                              selectedCategory === suggestedCategory
-                                ? "bg-white/20 text-white"
-                                : "bg-violet-500 text-white"
-                            }`}>
-                              ✨ AI Suggested
-                            </span>
-                            <span className={`font-medium ${selectedCategory === suggestedCategory ? "text-white" : "text-violet-900"}`}>
-                              {suggestedCategory}
-                            </span>
-                            {selectedCategory === suggestedCategory && (
-                              <Check className="ml-auto h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Search Results - Flat List */}
-                      {categorySearch ? (
-                        <div className="space-y-0.5">
-                          {ALL_CATEGORIES.filter(cat =>
-                            cat.toLowerCase().includes(categorySearch.toLowerCase())
-                          ).map((category) => (
-                            <button
-                              key={category}
-                              type="button"
-                              onClick={() => {
-                                setSelectedCategory(category)
-                                closeCategoryModal()
-                                setCategorySearch("")
-                              }}
-                              className={`w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
-                                selectedCategory === category
-                                  ? "bg-violet-100 text-violet-900 font-medium"
-                                  : "hover:bg-gray-50 text-gray-700"
-                              }`}
-                            >
-                              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                selectedCategory === category ? "bg-violet-500" : "bg-gray-300"
-                              }`} />
-                              <span className="flex-1">{category}</span>
-                              <span className="text-xs text-gray-400">{findCategoryGroup(category)}</span>
-                              {selectedCategory === category && (
-                                <Check className="h-4 w-4 text-violet-500 flex-shrink-0" />
-                              )}
-                            </button>
-                          ))}
-                          {ALL_CATEGORIES.filter(cat =>
-                            cat.toLowerCase().includes(categorySearch.toLowerCase())
-                          ).length === 0 && (
-                            <p className="text-sm text-gray-500 text-center py-6">No categories found</p>
-                          )}
-                        </div>
-                      ) : (
-                        /* Grouped Categories */
-                        <div className="space-y-1">
-                          {Object.entries(CATEGORY_GROUPS).map(([groupName, group]) => (
-                            <div key={groupName} className="rounded-lg border border-gray-100 overflow-hidden">
-                              {/* Group Header */}
-                              <button
-                                type="button"
-                                onClick={() => toggleGroupExpansion(groupName)}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm font-medium transition-all duration-150 ${
-                                  expandedGroups.has(groupName)
-                                    ? "bg-gray-50 text-gray-900"
-                                    : "bg-white hover:bg-gray-50 text-gray-700"
-                                }`}
-                              >
-                                <span className="text-lg">{group.icon}</span>
-                                <span className="flex-1">{groupName}</span>
-                                <span className="text-xs text-gray-400 mr-1">{group.categories.length}</span>
-                                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-400 ${
-                                  expandedGroups.has(groupName) ? "rotate-180" : ""
-                                }`} />
-                              </button>
-
-                              {/* Expanded Categories */}
-                              {expandedGroups.has(groupName) && (
-                                <div className="border-t border-gray-100 bg-gray-50/50 p-2 space-y-0.5">
-                                  {group.categories.map((category) => (
-                                    <button
-                                      key={category}
-                                      type="button"
-                                      onClick={() => {
-                                        setSelectedCategory(category)
-                                        closeCategoryModal()
-                                        setCategorySearch("")
-                                      }}
-                                      className={`w-full flex items-center gap-2 text-left px-3 py-2 rounded-md text-sm transition-all duration-150 ${
-                                        selectedCategory === category
-                                          ? "bg-violet-100 text-violet-900 font-medium"
-                                          : "hover:bg-white text-gray-600"
-                                      }`}
-                                    >
-                                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                        selectedCategory === category ? "bg-violet-500" : "bg-gray-300"
-                                      }`} />
-                                      <span className="flex-1">{category}</span>
-                                      {selectedCategory === category && (
-                                        <Check className="h-4 w-4 text-violet-500 flex-shrink-0" />
-                                      )}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex-shrink-0 border-t p-4 sm:p-6 pt-3 sm:pt-4 bg-gray-50 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedCategory(null)
-                          closeCategoryModal()
-                          setCategorySearch("")
-                        }}
-                        className="w-full sm:w-auto"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          closeCategoryModal()
-                          setCategorySearch("")
-                        }}
-                        className="w-full sm:w-auto bg-violet-500 hover:bg-violet-600"
-                      >
-                        Save Changes
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-                {/* Mobile Category Bottom Sheet */}
-                {isMobileViewport && (
-                  <MobileSheet
-                    isOpen={showCategoryModal}
-                    onClose={() => { setShowCategoryModal(false); setCategorySearch("") }}
-                    maxHeight="64vh"
-                  >
-                    {/* Title row */}
-                    <div className="px-5 pb-2">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <h3 className="text-base font-semibold text-gray-900">Select Category</h3>
-                        {selectedCategory && (
-                          <button
-                            type="button"
-                            onClick={() => { setSelectedCategory(null); setShowCategoryModal(false); setCategorySearch("") }}
-                            className="text-xs text-rose-400 hover:text-rose-600 font-medium px-2 py-1 rounded-md active:bg-rose-50 transition-colors"
-                          >
-                            Clear
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500">Choose the best category for your product.</p>
-                    </div>
-
-                    {/* Search */}
-                    <div className="px-5 py-2.5 sticky top-7 z-10 bg-white border-b border-gray-100">
-                      <Input
-                        placeholder="Search 300+ categories..."
-                        value={categorySearch}
-                        onChange={(e) => setCategorySearch(e.target.value)}
-                        className="h-10 text-sm rounded-lg"
-                        autoComplete="off"
-                        autoCorrect="off"
-                        autoCapitalize="off"
-                      />
-                    </div>
-
-                    {/* Category list */}
-                    <div className="px-5 py-3 pb-8">
-                      {/* AI Suggestion */}
-                      {suggestedCategory && !categorySearch && (
-                        <div className="mb-4">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedCategory(suggestedCategory)
-                              setShowCategoryModal(false)
-                              setCategorySearch("")
-                            }}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-200 ${
-                              selectedCategory === suggestedCategory
-                                ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md"
-                                : "bg-gradient-to-r from-violet-50 to-purple-50 active:from-violet-100 active:to-purple-100 border border-violet-200"
-                            }`}
-                          >
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
-                              selectedCategory === suggestedCategory ? "bg-white/20 text-white" : "bg-violet-500 text-white"
-                            }`}>
-                              ✨ AI Suggested
-                            </span>
-                            <span className={`font-medium ${selectedCategory === suggestedCategory ? "text-white" : "text-violet-900"}`}>
-                              {suggestedCategory}
-                            </span>
-                            {selectedCategory === suggestedCategory && <Check className="ml-auto h-4 w-4" />}
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Search results — flat list */}
-                      {categorySearch ? (
-                        <div className="space-y-0.5">
-                          {ALL_CATEGORIES.filter(cat =>
-                            cat.toLowerCase().includes(categorySearch.toLowerCase())
-                          ).map((category) => (
-                            <button
-                              key={category}
-                              type="button"
-                              onClick={() => {
-                                setSelectedCategory(category)
-                                setShowCategoryModal(false)
-                                setCategorySearch("")
-                              }}
-                              className={`w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
-                                selectedCategory === category
-                                  ? "bg-violet-100 text-violet-900 font-medium"
-                                  : "active:bg-gray-50 text-gray-700"
-                              }`}
-                            >
-                              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                selectedCategory === category ? "bg-violet-500" : "bg-gray-300"
-                              }`} />
-                              <span className="flex-1">{category}</span>
-                              <span className="text-xs text-gray-400">{findCategoryGroup(category)}</span>
-                              {selectedCategory === category && <Check className="h-4 w-4 text-violet-500 flex-shrink-0" />}
-                            </button>
-                          ))}
-                          {ALL_CATEGORIES.filter(cat =>
-                            cat.toLowerCase().includes(categorySearch.toLowerCase())
-                          ).length === 0 && (
-                            <p className="text-sm text-gray-500 text-center py-6">No categories found</p>
-                          )}
-                        </div>
-                      ) : (
-                        /* Grouped categories */
-                        <div className="space-y-1">
-                          {Object.entries(CATEGORY_GROUPS).map(([groupName, group]) => (
-                            <div key={groupName} className="rounded-lg border border-gray-100 overflow-hidden">
-                              <button
-                                type="button"
-                                onClick={() => toggleGroupExpansion(groupName)}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm font-medium transition-all duration-150 ${
-                                  expandedGroups.has(groupName)
-                                    ? "bg-gray-50 text-gray-900"
-                                    : "bg-white active:bg-gray-50 text-gray-700"
-                                }`}
-                              >
-                                <span className="text-lg">{group.icon}</span>
-                                <span className="flex-1">{groupName}</span>
-                                <span className="text-xs text-gray-400 mr-1">{group.categories.length}</span>
-                                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
-                                  expandedGroups.has(groupName) ? "rotate-180" : ""
-                                }`} />
-                              </button>
-                              {expandedGroups.has(groupName) && (
-                                <div className="border-t border-gray-100 bg-gray-50/50 p-2 space-y-0.5">
-                                  {group.categories.map((category) => (
-                                    <button
-                                      key={category}
-                                      type="button"
-                                      onClick={() => {
-                                        setSelectedCategory(category)
-                                        setShowCategoryModal(false)
-                                        setCategorySearch("")
-                                      }}
-                                      className={`w-full flex items-center gap-2 text-left px-3 py-2 rounded-md text-sm transition-all duration-150 ${
-                                        selectedCategory === category
-                                          ? "bg-violet-100 text-violet-900 font-medium"
-                                          : "active:bg-white text-gray-600"
-                                      }`}
-                                    >
-                                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                        selectedCategory === category ? "bg-violet-500" : "bg-gray-300"
-                                      }`} />
-                                      <span className="flex-1">{category}</span>
-                                      {selectedCategory === category && <Check className="h-4 w-4 text-violet-500 flex-shrink-0" />}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </MobileSheet>
-                )}
+                <CategoryPicker
+                  value={selectedCategory}
+                  onChange={setSelectedCategory}
+                  suggested={suggestedCategory}
+                  isPhone={isMobileViewport}
+                />
               </div>
 
               {/* FAQ Section */}

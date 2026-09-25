@@ -460,15 +460,29 @@ function main() {
   check("the depth is three soft drops and a half pixel of inner light, not a cast shadow",
     /0 1px 2px rgba\(16,18,27,0\.06\), 0 4px 10px rgba\(16,18,27,0\.07\), 0 14px 30px rgba\(16,18,27,0\.14\)/.test(nav)
       && /inset 0 0 0 0\.5px rgba\(255,255,255,0\.65\)/.test(nav))
-  check("and the circle under a finger is lifted off the bar the same way, one step down",
-    /0 1px 2px rgba\(16,18,27,0\.07\), 0 3px 8px rgba\(16,18,27,0\.10\)/.test(nav))
+  /* "The glass animation circle should feel more like glass, like iOS 2026."
+     A clearer fill than the bar with its own blur and saturation, light
+     along the top edge, a band of refracted light low inside it, and a soft
+     shadow under it. */
+  check("and the circle is a lens of glass on the bar: its own blur, light along its top, a soft shadow under it",
+    /const DROP = "0 1px 1\.5px rgba\(16,18,27,0\.08\), 0 4px 12px -2px rgba\(16,18,27,0\.14\)"/.test(nav)
+      && /const LENS_GLASS = "blur\(8px\) saturate\(180%\)"/.test(nav)
+      && /backdropFilter: LENS_GLASS,/.test(nav)
+      && /inset 0 1px 0\.5px rgba\(255,255,255,0\.95\)/.test(nav)
+      && /background: LENS_LIGHT,/.test(nav) && /radial-gradient\(80% 55% at 50% 4%/.test(nav))
 
   check("a finger can slide along the bar, and the slot follows it",
     /function useSlide\(/.test(nav) && /onPointerMove: \(e: React\.PointerEvent\) => \{/.test(nav))
   check("the selector is square in its box, which is what makes it a circle",
     /width: DOT,\s*\n\s*height: DOT,/.test(nav) && /const DOT = BAR_H - PAD \* 2/.test(nav))
   check("a tap is a drag of zero length, so the two can never disagree",
-    !/onClick=\{\(\) => pick\(/.test(nav) && /const picked = slotAt\(e\.clientX\)/.test(nav))
+    !/onClick=\{\(\) => pick\(/.test(nav) && /: slotAt\(e\.clientX\)/.test(nav))
+  /* "Accurate when I land on something": a finger let go while still moving
+     means the slot it was heading for. The probe flicks from Home and lets
+     go past Products at speed: it lands on Analytics, 0px off its centre. */
+  check("and a drag let go at speed picks the slot it was heading for",
+    /const PROJECT_MS = 90/.test(nav)
+      && /\? slotNearest\(posRef\.current \+ speedRef\.current \* PROJECT_MS\)/.test(nav))
   check("and it ticks once per slot crossed, not once per frame",
     /if \(lastRef\.current !== next\) \{[\s\S]{0,1600}?hapticTap\(first \? "light" : "soft"\)/.test(nav))
   /*
@@ -544,16 +558,19 @@ function main() {
     90ms hop from slot to slot was "very snappy, very direct, landing on it,
     not smooth at all". Let go of it and it springs to the slot.
   */
-  check("under a finger the circle follows the finger itself, not the finger's slot, with no transition",
-    /const FOLLOW = 0\.72/.test(nav)
-      && /const under = leftFor\(clientX\)/.test(nav)
-      && /targetRef\.current = under \+ \(leftForSlot\(next\) - under\) \* MAGNET/.test(nav)
-      && /posRef\.current \+= gap \* FOLLOW/.test(nav)
+  /* One to one now: it closed 72% of the gap a frame and leaned 22% into the
+     slot, which left it a few pixels off a moving finger. The probe reads it
+     0px from the finger at the median once the pick up is over. */
+  check("under a finger the circle is where the finger is, one to one, with no transition",
+    !/const FOLLOW =/.test(nav) && !/MAGNET/.test(strip(nav))
+      && /targetRef\.current = leftFor\(clientX\)/.test(nav)
+      && /const next = targetRef\.current \+ offsetRef\.current/.test(nav)
+      && /offsetRef\.current \*= Math\.pow\(CATCH_UP, dt \/ 16\.7\)/.test(nav)
       && /frameRef\.current = requestAnimationFrame\(step\)/.test(nav)
-      && /slide\.bounce && !slide\.following \? SETTLE : NO_TRAVEL/.test(nav),
+      && /transition: `\$\{NO_TRAVEL\}, \$\{LIFT_EASE\}, transform 0s,/.test(nav),
     "a transition under the finger is a delay; a slot under the finger is a step")
   check("written straight to the element by the loop, and never by a style prop",
-    /dot\.style\.translate = `\$\{posRef\.current\}px 0`/.test(nav)
+    /dot\.style\.translate = `\$\{Math\.round\(posRef\.current \* 100\) \/ 100\}px 0`/.test(nav)
       && /dot\.style\.translate = `\$\{x\}px 0`/.test(nav)
       && !/translate: `/.test(strip(nav)) && !/transform: `translateX\(\$\{x\}px\)/.test(strip(nav)),
     "a position prop would fight the loop, or on the lift be a string React already rendered and never written")
@@ -588,11 +605,19 @@ function main() {
     up: it does not animate, so there is no halfway to catch it at.
   */
   check("and a drag beginning during a spring picks the circle up from where it is drawn",
-    /posRef\.current = drawnAt\(\) \?\? leftFor\(clientX\)/.test(nav)
+    /stopSettle\(\)\s*\n\s*const drawn = drawnAt\(\) \?\? leftFor\(clientX\)/.test(nav)
+      && /offsetRef\.current = drawn - leftFor\(clientX\)/.test(nav)
       && /getComputedStyle\(dot\)\.translate/.test(nav))
-  check("it settles with a small overshoot, on its own property, and lifts on another",
-    /const SETTLE = `translate 380ms cubic-bezier\(0\.3, 1\.12, 0\.42, 1\)`/.test(nav)
-      && /const LIFT = 1\.06/.test(nav) && /slide\.following \? LIFT : 1/.test(nav)
+  /* Let go, it lands on a spring that starts at the finger's speed: sampled
+     into keyframes the compositor plays, ending on the slot's exact centre
+     because the resting style is that same number. Probe: 0px off the slot,
+     0.5px past it, still 239ms after a flick. */
+  check("it springs onto the slot from the finger's speed, on the compositor, and lifts on another property",
+    !/const SETTLE =/.test(nav) && /const SPRING = \{ stiffness: 520, damping: 34 \}/.test(nav)
+      && /function settleSpring\(from: number, speed: number, to: number\)/.test(nav)
+      && /dot\.style\.translate = `\$\{to\}px 0`\s*\n\s*dot\.style\.transform = ""/.test(nav)
+      && /const a = dot\.animate\(frames, \{ duration: ms, easing: "linear" \}\)/.test(nav)
+      && /const LIFT = 1\.04/.test(nav) && /slide\.following \? LIFT : 1/.test(nav)
       && /const LIFT_EASE = `scale 200ms/.test(nav))
   /*
     AND NEITHER OF THOSE BELONGS TO A PRESS. `dragging` meant "a finger is
@@ -774,9 +799,9 @@ function main() {
     "a dip is a wait however short it is, and it lands on the press")
   check("and its position is written on the frame its glass is empty, in one step",
     /const lay = \(\) => \{ dot\.style\.translate = `\$\{x\}px 0`; laidAt\.current = x \}/.test(nav)
-      && /if \(!arriving\) \{ setArriving\(true\); return \}\s*\n\s*lay\(\)/.test(nav))
-  check("while a released drag still springs into the slot, which is what SETTLE is for",
-    /slide\.bounce && !slide\.following \? SETTLE : NO_TRAVEL/.test(nav),
+      && /if \(!arriving\) \{ setArriving\(true\); return \}\s*\n\s*if \(slide\.motion\.current\.settlingTo\(\) != null\) slide\.motion\.current\.stopSettle\(\)\s*\n\s*lay\(\)/.test(nav))
+  check("while a released drag still springs into the slot",
+    /if \(slide\.bounce\) \{ slide\.motion\.current\.settleTo\(x\); laidAt\.current = x; return \}/.test(nav),
     "a drag is not what was called abrupt, and the bounce was asked for")
 
   /*
@@ -793,8 +818,8 @@ function main() {
     second. Measured: on in 0s, off over 0.26s, 0px wider while held.
   */
   check("the lens brightens under a finger, and that is the whole of the answer",
-    /const PRESS_FILL = "rgba\(255,255,255,0\.97\)"/.test(nav)
-      && /const REST_FILL = "rgba\(255,255,255,0\.82\)"/.test(nav)
+    /const PRESS_FILL = "rgba\(255,255,255,0\.9\)"/.test(nav)
+      && /const REST_FILL = "rgba\(255,255,255,0\.72\)"/.test(nav)
       && /backgroundColor: arriving \? ARRIVING_FILL : slide\.pressed \? PRESS_FILL : REST_FILL/.test(nav),
     "a control that does nothing at all when touched is what taking every moving thing out left behind")
   check("and it goes on instantly and comes off eased, never the other way round",
@@ -821,10 +846,10 @@ function main() {
   */
   check("a press puts the circle on the icon rather than sending it across the bar",
     /const NO_TRAVEL = "translate 0s"/.test(nav)
-      && /slide\.bounce && !slide\.following \? SETTLE : NO_TRAVEL/.test(nav),
+      && /transition: `\$\{NO_TRAVEL\}, /.test(nav) && !/SETTLE : NO_TRAVEL/.test(nav),
     "a journey across the bar on every press is the movement that was reported")
   check("and the frame loop is only ever started by a finger that is dragging",
-    /if \(movedRef\.current\) \{[\s\S]{0,260}?targetRef\.current = under \+ \(leftForSlot\(next\) - under\) \* MAGNET\s*\n\s*wake\(\)\s*\n\s*\}/.test(nav)
+    /if \(movedRef\.current\) \{[\s\S]{0,260}?targetRef\.current = leftFor\(clientX\)\s*\n\s*wake\(\)\s*\n\s*\}/.test(nav)
       && /posRef\.current = null/.test(nav),
     "a loop that runs on a press is a journey with frames in it, whatever the transition says")
 
@@ -836,13 +861,12 @@ function main() {
     "a tap holds nothing, so growing the circle under one is movement for no reason")
   check("and every gesture starts as a press, and is promoted only if a finger travels",
     /setFollowing\(false\)\s*\n\s*setBounce\(false\)/.test(nav)
-      && /movedRef\.current = true[\s\S]{0,300}?setFollowing\(true\)/.test(nav),
+      && /movedRef\.current = true[\s\S]{0,700}?setFollowing\(true\)/.test(nav),
     "left over from the last gesture, the first tap after a drag would lift and bounce")
   check("and only a released drag animates at all",
-    /const SETTLE = `translate 380ms/.test(nav)
-      && /slide\.bounce && !slide\.following \? SETTLE : NO_TRAVEL/.test(nav)
+    /settleTo/.test(nav) && /if \(slide\.bounce\) \{ slide\.motion\.current\.settleTo\(x\)/.test(nav)
       && !/LAND/.test(strip(nav)),
-    "SETTLE's third control point is 1.12: past the slot and back, which a press never asked for")
+    "a spring on a press is a journey across the bar that nobody asked for")
   check("the finger is known from a ref, not from state a render behind",
     /if \(!activeRef\.current\) return/.test(nav) && !/if \(!dragging\) return/.test(strip(nav)))
   /*
@@ -893,11 +917,28 @@ function main() {
   check("3% bigger: a 60px bar and 55px slots, with the glyphs kept at the 22px their fill is matched at",
     /const BAR_H = 60\b/.test(nav) && /const SLOT = 55\b/.test(nav) && /const GLYPH = 22\b/.test(nav))
   check("5% more blur in the glass", /backdropFilter: "blur\(25px\) saturate\(120%\)"/.test(nav))
-  check("under a finger the lens leans into the slot it is over, and stretches with its speed",
-    /const MAGNET = 0\.22/.test(nav) && /const STRETCH_MAX = 0\.14/.test(nav)
-      && /dot\.style\.transform = k > 0\.004 \? `scale\(\$\{1 \+ k\}, \$\{1 - k \* 0\.45\}\)` : ""/.test(nav)
-      && /paint\(gap \* FOLLOW\)/.test(nav))
-  check("and rounds off again, eased, as it lets go", /dotRef\.current\.style\.transform = ""/.test(nav) && /transform 280ms cubic-bezier\(0\.32, 0\.72, 0, 1\)/.test(nav))
+  /* Stretched along the way it moves, by its smoothed speed, to at most
+     about 1.12 wide with the lift: the probe reads 1.068 on a slow slide and
+     1.104 on a flick. */
+  check("under a finger the lens stretches with its speed, like a drop, never past about 1.12",
+    /const STRETCH_MAX = 0\.08/.test(nav) && /const STRETCH_AT = 0\.6/.test(nav)
+      && /`scale\(\$\{Math\.round\(\(1 \+ k\) \* 1000\) \/ 1000\}, \$\{Math\.round\(\(1 - k \* 0\.5\) \* 1000\) \/ 1000\}\)`/.test(nav)
+      && /speedRef\.current \+= \(\(next - posRef\.current\) \/ dt - speedRef\.current\) \* blend/.test(nav))
+  check("and rounds off again on the spring as it lets go", /dotRef\.current\.style\.transform = ""/.test(nav) && /transform: stretchStyle\(v \/ 1000\)/.test(nav))
+  /* "When I release a button and move to the next one, exactly at that moment
+     the button icon glitches and moves a little bit." Two causes: in the
+     native shell a:active dimmed the icon under the finger to 72% and put it
+     back on the lift; and a glyph was put on a layer of its own only while
+     it faded, so it was drawn on another pixel grid for that fade. The probe
+     reads every glyph's box across a press, a slide and a release: 0px. */
+  check("the pill's icons do not dim under a finger in the native shell",
+    /html\.capacitor \[data-app-nav-pill\] nav a:active \{\s*opacity: 1;\s*\}/.test(read("app/globals.css")))
+  check("and each glyph is on a layer of its own for good, the solid drawn at its matched size rather than scaled",
+    /willChange: "opacity"/.test(nav) && /size=\{layer \? size \* FILL_MATCH : size\}/.test(nav)
+      && /<NavIcon icon=\{item\.icon\} active=\{on\} color="currentColor" size=\{GLYPH\} layer \/>/.test(nav))
+  check("all of it measured in the probe: tracking, landing, stretch, and the icons holding still",
+    /THE GLASS UNDER A FINGER, EVERY FRAME, IN THE NATIVE SHELL/.test(read("scripts/check-app-mobile-nav.mjs"))
+      && /no icon moves, not by half a pixel/.test(read("scripts/check-app-mobile-nav.mjs")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

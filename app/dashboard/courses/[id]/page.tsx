@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { CoursePlayer } from "@/components/dashboard/course-player"
+import { pageUser } from "@/lib/auth/page-user"
 
 interface CourseAccessPageProps {
   params: Promise<{ id: string }>
@@ -12,11 +13,10 @@ export default async function CourseAccessPage({ params, searchParams }: CourseA
   const { lesson: lessonId } = await searchParams
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect("/login")
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   // Check entitlement
   const { data: entitlement } = await supabase

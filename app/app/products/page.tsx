@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { creatorForRequest, currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
+import { creatorForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import { ProductsClient } from "./products-client"
 import type { Metadata } from "next"
+import { pageUser } from "@/lib/auth/page-user"
 
 export const metadata: Metadata = {
   title: "Products",
@@ -17,10 +18,10 @@ export const metadata: Metadata = {
  * layout's answers and not a second trip. All on the caller's own client.
  */
 export default async function ProductsPage() {
-  const { user } = await currentUserForRequest()
-  /* Signed out, or signed in without a creator yet: sent where that is sorted
-     out, like the Website page, rather than a crash on a missing row. */
-  if (!user) redirect("/login")
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   const [creator, profile] = await Promise.all([creatorForRequest(user.id), profileForRequest(user.id)])
 

@@ -4,127 +4,50 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import {
   STORAGE_BUCKET,
   PUBLIC_BUCKET,
-  BUCKET_FILE_SIZE_LIMIT,
   validateFile,
   generateStoragePath,
   checkUploadAllowed,
   getPlanLimits,
-  checkUploadRateLimit,
 } from "@/lib/storage"
+import {
+  UPLOAD_HEADERS,
+  productFileLimit,
+  tooManyPendingUploads,
+  uploadRateLimit,
+} from "@/lib/storage/upload-guard"
+import { PUBLIC_IMAGE_MAX_BYTES } from "@/lib/storage/public-image"
+import { declaresPublicImage } from "@/lib/storage/file-signature"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
 
-/**
- * Ensure the target storage bucket exists with NO bucket-level file size limit.
- * Setting file_size_limit to 0/null disables the bucket check in Supabase Storage,
- * letting only the project-level global limit apply (which is much higher).
- *
- * Tries REST API first, then JS client, then RPC, then direct SQL RPC.
- */
-async function ensureBucket(
-  admin: ReturnType<typeof createAdminClient>,
-  bucket: string,
-  isPublic: boolean,
-  _requiredSize: number,
-): Promise<{ ok: boolean; currentLimit: number | null }> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  // Helper to read current bucket config
-  const getBucketInfo = async (): Promise<{ exists: boolean; limit: number | null }> => {
-    if (!supabaseUrl || !serviceRoleKey) return { exists: false, limit: null }
-    try {
-      const r = await fetch(`${supabaseUrl}/storage/v1/bucket/${bucket}`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey },
-      })
-      if (!r.ok) return { exists: false, limit: null }
-      const b = await r.json()
-      return { exists: true, limit: b?.file_size_limit ?? null }
-    } catch {
-      return { exists: false, limit: null }
-    }
-  }
-
-  const info = await getBucketInfo()
-
-  // null/0 = no bucket-level limit = OK (only global limit applies)
-  if (info.exists && (info.limit === null || info.limit === 0)) {
-    return { ok: true, currentLimit: null }
-  }
-
-  // Bucket exists but has a restrictive limit — remove it (set to 0)
-  // Or bucket doesn't exist — create it with no limit
-  if (supabaseUrl && serviceRoleKey) {
-    const headers = {
-      Authorization: `Bearer ${serviceRoleKey}`,
-      apikey: serviceRoleKey,
-      "Content-Type": "application/json",
-    }
-
-    // Method 1: REST API — set file_size_limit to 0 (disables bucket-level check)
-    try {
-      if (info.exists) {
-        await fetch(`${supabaseUrl}/storage/v1/bucket/${bucket}`, {
-          method: "PUT",
-          headers,
-          body: JSON.stringify({ public: isPublic, file_size_limit: 0, allowed_mime_types: null }),
-        })
-      } else {
-        await fetch(`${supabaseUrl}/storage/v1/bucket`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ id: bucket, name: bucket, public: isPublic, file_size_limit: 0, allowed_mime_types: null }),
-        })
-      }
-    } catch { /* continue */ }
-
-    const after1 = await getBucketInfo()
-    if (after1.exists && (after1.limit === null || after1.limit === 0)) {
-      return { ok: true, currentLimit: null }
-    }
-  }
-
-  // Method 2: JS admin client — set fileSizeLimit to 0
-  try {
-    if (info.exists) {
-      await admin.storage.updateBucket(bucket, { public: isPublic, fileSizeLimit: 0 as unknown as string })
-    } else {
-      await admin.storage.createBucket(bucket, { public: isPublic, fileSizeLimit: 0 as unknown as string })
-    }
-  } catch { /* continue */ }
-  const after2 = await getBucketInfo()
-  if (after2.exists && (after2.limit === null || after2.limit === 0)) {
-    return { ok: true, currentLimit: null }
-  }
-
-  // Method 3: RPC — direct SQL to NULL out the limit
-  try {
-    await admin.rpc("fix_storage_bucket_limit", { p_bucket_id: bucket, p_file_size_limit: 0 })
-  } catch { /* RPC may not exist */ }
-
-  const after3 = await getBucketInfo()
-  if (after3.exists && (after3.limit === null || after3.limit === 0)) {
-    return { ok: true, currentLimit: null }
-  }
-
-  // If we still have a limit, report the current value
-  return { ok: false, currentLimit: after3.limit }
-}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * POST /api/v2/upload/prepare
  *
  * Prepares an upload by:
  * 1. Authenticating the user and verifying creator status
- * 2. Validating the file metadata (type, size, plan limits)
- * 3. Checking storage quota
- * 4. Creating a pending digital_assets record
- * 5. Generating a signed upload URL
+ * 2. Rate limiting per user, and refusing a ninth upload still in flight
+ * 3. Validating the file metadata (type, size, plan limits, files per product)
+ * 4. Checking storage quota, counting uploads still pending
+ * 5. Creating a pending digital_assets record
+ * 6. Generating a signed upload URL for a path the server built
  *
  * Request body:
- *   { fileName, contentType, fileSize, productId?, folder? }
+ *   { fileName, contentType, fileSize, productId?, folder?, assetId? }
+ *
+ *   `folder` only chooses between the private digital bucket ("digital") and
+ *   the public picture bucket (anything else). It never becomes part of a
+ *   path. `assetId` is the caller's own pending upload, asked for again after
+ *   a signed URL expired: it gets a fresh URL for the same path instead of a
+ *   second record and a second copy of the file.
+ *
+ * Buckets are not created or changed here. This used to create a missing
+ * bucket, remove its size limit and call ensure_storage_rls on every upload,
+ * six storage API calls per file, and that RPC granted every signed in user
+ * read, write and delete on the whole bucket. Buckets and their policies are
+ * set once, by supabase/migrations/20260929_upload_safety.sql.
  *
  * Response:
  *   { signedUrl, token, path, publicUrl, bucket, assetId, limits }
@@ -137,7 +60,7 @@ export async function POST(request: NextRequest) {
     // Authenticate
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
     }
 
     // Get creator
@@ -148,39 +71,110 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!creator) {
-      return NextResponse.json({ error: "Creator account required" }, { status: 403 })
+      return NextResponse.json({ error: "Creator account required" }, { status: 403, headers: UPLOAD_HEADERS })
     }
 
-    // Rate limit check
-    const rateCheck = await checkUploadRateLimit(admin, creator.id)
-    if (!rateCheck.allowed) {
-      return NextResponse.json({ error: rateCheck.reason }, { status: 429 })
-    }
+    const limited = await uploadRateLimit(user.id, creator.subscription_plan_id)
+    if (limited) return limited
 
     // Parse request
-    const body = await request.json()
-    const { fileName, contentType, fileSize, productId, folder } = body as {
-      fileName: string
-      contentType: string
-      fileSize: number
-      productId?: string
-      folder?: string
+    const body = (await request.json().catch(() => null)) as {
+      fileName?: unknown
+      contentType?: unknown
+      fileSize?: unknown
+      productId?: unknown
+      folder?: unknown
+      assetId?: unknown
+    } | null
+    const fileName = typeof body?.fileName === "string" ? body.fileName.slice(0, 255) : ""
+    const contentType = typeof body?.contentType === "string" ? body.contentType : "application/octet-stream"
+    const fileSize = Number(body?.fileSize)
+    const productId = typeof body?.productId === "string" && UUID.test(body.productId) ? body.productId : null
+    const folder = typeof body?.folder === "string" ? body.folder : ""
+    const reuseId = typeof body?.assetId === "string" && UUID.test(body.assetId) ? body.assetId : null
+
+    if (!fileName || !Number.isFinite(fileSize) || fileSize <= 0) {
+      return NextResponse.json({ error: "Missing required fields: fileName, fileSize" }, { status: 400, headers: UPLOAD_HEADERS })
     }
 
-    if (!fileName || !fileSize) {
-      return NextResponse.json({ error: "Missing required fields: fileName, fileSize" }, { status: 400 })
+    const isDigital = folder === "digital" || folder === "digital-products"
+
+    /* A private file with no product has no row, so nothing can ever deliver
+       it and nothing counts it: it only fills the bucket. The old page flow
+       that sends one (a lead magnet on a link page) falls back to
+       /api/onepage/signed-upload-url on a 400, which is where its file works. */
+    if (isDigital && !productId) {
+      return NextResponse.json({ error: "Choose the product this file belongs to." }, { status: 400, headers: UPLOAD_HEADERS })
     }
 
-    // Validate file (security scan + 5GB limit + MIME resolution)
-    const validation = validateFile(fileName, contentType || "application/octet-stream", fileSize)
+    /* The same upload again, after its signed URL expired or a PUT failed. */
+    if (reuseId && isDigital) {
+      const { data: pending } = await admin
+        .from("digital_assets")
+        .select("id, file_path, storage_bucket, upload_status")
+        .eq("id", reuseId)
+        .eq("uploaded_by", user.id)
+        .maybeSingle()
+      if (pending && pending.upload_status === "pending" && pending.file_path) {
+        const bucket = pending.storage_bucket || STORAGE_BUCKET
+        const { data: again, error: againErr } = await admin.storage
+          .from(bucket)
+          .createSignedUploadUrl(pending.file_path, { upsert: true })
+        if (!againErr && again) {
+          const planLimits = getPlanLimits(creator.subscription_plan_id)
+          return NextResponse.json(
+            {
+              signedUrl: again.signedUrl,
+              token: again.token,
+              path: pending.file_path,
+              publicUrl: "",
+              bucket,
+              tusReady: false,
+              assetId: pending.id,
+              limits: {
+                maxFileSize: planLimits.maxFileSizeBytes,
+                maxFilesPerProduct: planLimits.maxFilesPerProduct,
+                storageQuota: planLimits.storageQuotaBytes,
+              },
+            },
+            { headers: UPLOAD_HEADERS },
+          )
+        }
+      }
+    }
+
+    // Validate file (extension blocklist, double extensions, dangerous MIME)
+    const validation = validateFile(fileName, contentType, fileSize)
     if (!validation.valid) {
-      return NextResponse.json({ error: validation.reason }, { status: 400 })
+      return NextResponse.json({ error: validation.reason }, { status: 400, headers: UPLOAD_HEADERS })
+    }
+
+    /* The public bucket takes pictures, and nothing a browser would run.
+       The bytes are checked again at /complete; this refuses early. */
+    if (!isDigital) {
+      if (!declaresPublicImage(contentType)) {
+        return NextResponse.json(
+          { error: "That file is not a picture. Use a JPEG, PNG, WebP, GIF or AVIF." },
+          { status: 415, headers: UPLOAD_HEADERS },
+        )
+      }
+      if (fileSize > PUBLIC_IMAGE_MAX_BYTES) {
+        return NextResponse.json({ error: "That picture is over 25 MB. Choose a smaller one." }, { status: 413, headers: UPLOAD_HEADERS })
+      }
     }
 
     // Check plan limits and quota
-    const quotaCheck = await checkUploadAllowed(admin, creator.id, fileSize)
-    if (!quotaCheck.allowed) {
-      return NextResponse.json({ error: quotaCheck.reason }, { status: 403 })
+    if (isDigital) {
+      const quotaCheck = await checkUploadAllowed(admin, creator.id, fileSize)
+      if (!quotaCheck.allowed) {
+        return NextResponse.json({ error: quotaCheck.reason }, { status: 403, headers: UPLOAD_HEADERS })
+      }
+      if (await tooManyPendingUploads(admin, user.id)) {
+        return NextResponse.json(
+          { error: "Several uploads are still running. Let them finish, then add more." },
+          { status: 429, headers: UPLOAD_HEADERS },
+        )
+      }
     }
 
     // If productId is provided, verify ownership
@@ -192,36 +186,19 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (!product || product.creator_id !== creator.id) {
-        return NextResponse.json({ error: "Product not found or access denied" }, { status: 403 })
+        return NextResponse.json({ error: "Product not found or access denied" }, { status: 403, headers: UPLOAD_HEADERS })
+      }
+
+      if (isDigital) {
+        const full = await productFileLimit(admin, productId, creator.subscription_plan_id)
+        if (full) return NextResponse.json({ error: full }, { status: 403, headers: UPLOAD_HEADERS })
       }
     }
 
-    // Determine bucket and path
-    const isDigital = folder === "digital" || folder === "digital-products"
+    // Determine bucket and path: both chosen here, never by the caller
     const targetBucket = isDigital ? STORAGE_BUCKET : PUBLIC_BUCKET
     const subfolder = isDigital ? "digital-products" : "product-images"
     const filePath = generateStoragePath(creator.id, fileName, subfolder as "digital-products" | "product-images")
-
-    // Ensure bucket exists and limit is sufficient for this file
-    const bucketCheck = await ensureBucket(admin, targetBucket, !isDigital, fileSize)
-
-    // Auto-create RLS policies so browser TUS uploads work (idempotent)
-    let tusReady = false
-    try {
-      await admin.rpc("ensure_storage_rls", { p_bucket_id: targetBucket })
-      tusReady = true
-    } catch (rlsErr) {
-      console.warn("[v2/upload/prepare] ensure_storage_rls RPC not available:", rlsErr)
-    }
-
-    if (!bucketCheck.ok) {
-      const sql = `UPDATE storage.buckets SET file_size_limit = NULL WHERE id = '${targetBucket}';`
-      console.error(`[v2/upload/prepare] Bucket limit still set: ${bucketCheck.currentLimit}. Run SQL: ${sql}`)
-      return NextResponse.json(
-        { error: `Storage bucket file_size_limit is ${bucketCheck.currentLimit} bytes — run this SQL in Supabase SQL Editor to remove it: ${sql}` },
-        { status: 507 },
-      )
-    }
 
     // Create pending asset record for digital products
     let assetId: string | null = null
@@ -237,6 +214,7 @@ export async function POST(request: NextRequest) {
           file_category: validation.fileCategory,
           storage_bucket: targetBucket,
           upload_status: "pending",
+          scan_status: "pending_scan",
           uploaded_by: user.id,
         })
         .select("id")
@@ -244,7 +222,7 @@ export async function POST(request: NextRequest) {
 
       if (assetError) {
         console.error("[v2/upload/prepare] Asset record error:", assetError)
-        return NextResponse.json({ error: "Failed to prepare upload record" }, { status: 500 })
+        return NextResponse.json({ error: "Failed to prepare upload record" }, { status: 500, headers: UPLOAD_HEADERS })
       }
       assetId = asset.id
     }
@@ -261,33 +239,36 @@ export async function POST(request: NextRequest) {
         await admin.from("digital_assets").delete().eq("id", assetId)
       }
       return NextResponse.json(
-        { error: `Failed to create upload URL: ${signedError?.message || "Unknown error"}` },
-        { status: 500 },
+        { error: "Could not start the upload. Try again." },
+        { status: 500, headers: UPLOAD_HEADERS },
       )
     }
 
-    // Get public URL (for public bucket items like thumbnails)
-    const { data: urlData } = admin.storage.from(targetBucket).getPublicUrl(filePath)
+    /* A public URL only means something for the public bucket. A private
+       file's is never handed out: it would not work, and it names the path. */
+    const publicUrl = isDigital ? "" : admin.storage.from(targetBucket).getPublicUrl(filePath).data.publicUrl
 
     const planLimits = getPlanLimits(creator.subscription_plan_id)
 
-    return NextResponse.json({
-      signedUrl: signedData.signedUrl,
-      token: signedData.token,
-      path: filePath,
-      publicUrl: urlData.publicUrl,
-      bucket: targetBucket,
-      tusReady,
-      assetId,
-      limits: {
-        maxFileSize: planLimits.maxFileSizeBytes,
-        maxFilesPerProduct: planLimits.maxFilesPerProduct,
-        storageQuota: planLimits.storageQuotaBytes,
+    return NextResponse.json(
+      {
+        signedUrl: signedData.signedUrl,
+        token: signedData.token,
+        path: filePath,
+        publicUrl,
+        bucket: targetBucket,
+        tusReady: false,
+        assetId,
+        limits: {
+          maxFileSize: planLimits.maxFileSizeBytes,
+          maxFilesPerProduct: planLimits.maxFilesPerProduct,
+          storageQuota: planLimits.storageQuotaBytes,
+        },
       },
-    })
+      { headers: UPLOAD_HEADERS },
+    )
   } catch (error) {
     console.error("[v2/upload/prepare] Error:", error)
-    const message = error instanceof Error ? error.message : "Internal server error"
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: "Could not start the upload. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
   }
 }

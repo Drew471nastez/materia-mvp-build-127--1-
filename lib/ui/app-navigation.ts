@@ -16,8 +16,9 @@
  * native apps:
  *
  *      under 500ms   nothing at all
- *      500ms         the content area goes plain, with the spinner in the
- *                    middle of it, fading in over 150ms
+ *      500ms         the content area goes plain, with the spinner a little
+ *                    above its middle (40% of the way down), fading in over
+ *                    150ms, and out over 120ms once the page is there
  *
  * Why 500. The four pages in the pill are fetched whole ahead of time, so a
  * tap on one of them lands on the next frame; a page that was not, over a
@@ -44,7 +45,8 @@
  *
  * When the new page commits there is one short entrance: opacity from 0 and a
  * 5px rise, 180ms, one curve (components/app/app-stage.tsx). If the spinner's
- * surface was up, its fade out is the page's fade in, and the page only rises.
+ * surface was up, its fade out (NAV_SPINNER_OUT_MS) is the page's fade in,
+ * and the page only rises.
  *
  * This file is the one record of "a navigation is underway, to where, since
  * when" that the bar, the stage and the nav controls all read, so they cannot
@@ -63,6 +65,14 @@ export const NAV_SPINNER_AFTER_MS = 1000
 export const NAV_PHONE_SPINNER_AFTER_MS = 500
 /** ...and at either width it arrives on an opacity fade this long. */
 export const NAV_SPINNER_FADE_MS = 150
+/**
+ * AND IT LEAVES QUICKER THAN IT CAME. "Make sure the in-page transition with
+ * the loading doesn't stay so long." The page is already there, whole, under
+ * the surface on the frame it commits, so the surface going IS the page
+ * appearing: 120ms, from the commit, on the landing's curve, while the page
+ * rises under it over NAV_ENTER_MS. It was the landing's own 180ms.
+ */
+export const NAV_SPINNER_OUT_MS = 120
 /** The landing: opacity and a rise, on one curve. */
 export const NAV_ENTER_MS = 180
 export const NAV_ENTER_RISE_PX = 5
@@ -314,6 +324,14 @@ export function recalledScroll(key: string) {
 /** Called from `popstate`: the next commit is a back or forward, not a new visit. */
 export function markTraversal() {
   traversing = true
+}
+/**
+ * Is the commit on its way a back or forward? Read without taking it, by a
+ * page deciding its first state while it renders, before the stage takes it
+ * at the commit (the Products list: products-client, list-return).
+ */
+export function isTraversing() {
+  return traversing
 }
 /** Read once per commit: was it a back or forward? */
 export function takeTraversal() {

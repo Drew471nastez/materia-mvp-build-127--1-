@@ -502,11 +502,12 @@ export function SectionWrapper({
       {children}
       {/* Hover ring — paints above children via group-hover so opaque child
           backgrounds can't hide it. Uses a named group so nested sections
-          don't cross-trigger. */}
+          don't cross-trigger. `wb-ring` is how the editor fades the rings
+          in and out with the inspector (globals.css, [data-wb-inspect]). */}
       {isEditing && !isSelected && (
         <span
           aria-hidden
-          className="absolute inset-0 pointer-events-none z-[9997] opacity-0 group-hover/section:opacity-100 transition-opacity"
+          className="wb-ring absolute inset-0 pointer-events-none z-[9997] opacity-0 group-hover/section:opacity-100 transition-opacity"
           style={{ boxShadow: "inset 0 0 0 2px rgba(59, 130, 246, 0.5)", ...ringRadiusStyle }}
         />
       )}
@@ -515,7 +516,7 @@ export function SectionWrapper({
       {isEditing && isSelected && (
         <span
           aria-hidden
-          className="absolute inset-0 pointer-events-none z-[9998]"
+          className="wb-ring absolute inset-0 pointer-events-none z-[9998]"
           style={{ boxShadow: "inset 0 0 0 2px #3b82f6", ...ringRadiusStyle }}
         />
       )}
@@ -523,7 +524,7 @@ export function SectionWrapper({
           the header's logo/nav area or any section's top content. */}
       {isEditing && isSelected && (
         <span
-          className="absolute bottom-2 right-2 z-[9999] pointer-events-none select-none"
+          className="wb-ring absolute bottom-2 right-2 z-[9999] pointer-events-none select-none"
           style={{
             background: "#3b82f6",
             color: "#fff",

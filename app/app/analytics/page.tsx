@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { AnalyticsClient } from "./analytics-client"
+import { pageUser } from "@/lib/auth/page-user"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -21,11 +21,10 @@ export default async function AnalyticsPage() {
 
   /* The same answer the /app layout got, through the per-request cache
      (lib/auth/request-scope.ts): no second auth round trip on a full load. */
-  const { user } = await currentUserForRequest()
-
-  if (!user) {
-    redirect("/login")
-  }
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   const { data: creator, error: creatorError } = await adminSupabase
     .from("creators")

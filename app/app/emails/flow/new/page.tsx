@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { FlowChooser } from "./chooser"
+import { pageUser } from "@/lib/auth/page-user"
 
 export const metadata: Metadata = { title: "New automation" }
 export const dynamic = "force-dynamic"
@@ -9,10 +10,10 @@ export const dynamic = "force-dynamic"
 /** The templates, and which of them this creator already made (to open, not copy). */
 export default async function NewFlowPage() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect("/login?next=/app/emails/flow/new")
+  const user = await pageUser("/login?next=/app/emails/flow/new")
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator) redirect("/app")
   const { data: flows } = await supabase.from("email_flows").select("id, trigger_type, trigger_config").eq("creator_id", creator.id).order("created_at", { ascending: true })

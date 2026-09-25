@@ -1007,6 +1007,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
       label,
       onClick: handlePlanAction,
       settled: isCurrentPlan || (isCanceling && isFree) || (isPendingPlan && !isUpgrade),
+      current: isCurrentPlan,
       disabled: loading !== null,
       loading: loading === id,
     }

@@ -564,7 +564,7 @@ check(
 check(
   "the compact mode pill is off the phone bar, and Code lives in the three-dots menu",
   !/<PreviewModeSwitch\s+compact/.test(editor) &&
-    /label: previewMode === "code" \? "Back to preview" : "View code"/.test(editor),
+    /const inCode = previewMode === "code"/.test(editor) && /label: inCode \? "Back to preview" : "View code"/.test(editor),
 )
 
 check(
@@ -1668,7 +1668,9 @@ check(
   // `fill: none` and `filter: none` cannot be animated from; transparent and
   // a zero-radius shadow can.
   /\.wb-inspector svg \{\s*fill: transparent;\s*filter: drop-shadow\(0 0 0 rgba\(139, 86, 250, 0\)\);\s*transition:\s*fill 260ms/.test(css) &&
-    /\.wb-inspector \{\s*transition:\s*transform 180ms[\s\S]{0,200}box-shadow 260ms/.test(css),
+    /* The press is on `scale` (Tailwind 4 writes scale, not transform), so the transition names scale. */
+    /\.wb-inspector \{\s*-webkit-tap-highlight-color: transparent;\s*transition:\s*scale 160ms[\s\S]{0,200}box-shadow 260ms/.test(css) &&
+    /\.wb-inspector:active:not\(:disabled\) \{ scale: 0\.92; \}/.test(css),
 )
 
 check(
@@ -2338,7 +2340,8 @@ check(
     /scroller\.addEventListener\("scroll", onScroll, \{ passive: true \}\)/.test(editor) &&
     /if \(!frame\) frame = requestAnimationFrame\(measure\)/.test(editor) &&
     /<SectionToolbar/.test(editor) &&
-    /inspectorEnabled && !isMobileView && previewMode === "preview" && \(\(\) => \{/.test(editor),
+    /* What the canvas draws trails the switch by one fade (toggleInspector). */
+    /canvasInspecting && !isMobileView && previewMode === "preview" && \(\(\) => \{/.test(editor),
 )
 
 check(

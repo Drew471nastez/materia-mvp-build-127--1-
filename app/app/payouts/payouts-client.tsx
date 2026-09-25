@@ -54,7 +54,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { WaitingArea } from "@/components/ui/activity-spinner";
+import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/ui/shimmer";
 import { DateRangePicker } from "@/components/app/date-range-picker";
 import { viewerTimeZone } from "@/lib/orders/time-zone";
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range";
@@ -449,7 +449,9 @@ function RevenueChart() {
             </div>
           </div>
           {!numReady ? (
-            <WaitingArea className="mt-1 h-[34px] w-32 justify-start" size={18} />
+            <Shimmer className="flex h-9 items-center sm:h-[42px]">
+              <ShimmerBlock className="h-7 w-32 rounded-lg" />
+            </Shimmer>
           ) : (
             <p className="text-[24px] sm:text-[28px] font-semibold tracking-tight text-[#1a1a2e]">
               {fmt(Math.max(0, totalGross), currency)}
@@ -462,7 +464,7 @@ function RevenueChart() {
       </div>
 
       {loading ? (
-        <WaitingArea className="h-48 w-full" />
+        <ShimmerChart height={192} />
       ) : error ? (
         <div className="h-48 flex items-center justify-center">
           <p className="text-[13px] text-rose-500">{error}</p>
@@ -779,7 +781,11 @@ function WithdrawPanel({
                 {isNegative ? `-${fmt(Math.abs(effectiveBalance), currency)}` : fmt(effectiveBalance, currency)}
               </p>
             ) : (
-              <WaitingArea className="mt-2 h-8 w-24 justify-start" size={18} />
+              /* The figure's own line box (28px, 32 from sm, leading-none), so
+                 the panel does not change height when the figure comes. */
+              <Shimmer className="mt-2 flex h-7 items-center sm:h-8">
+                <ShimmerBlock className="h-6 w-24 rounded-lg sm:h-7" />
+              </Shimmer>
             )}
           </div>
           <div className="text-right">
@@ -791,7 +797,9 @@ function WithdrawPanel({
                 {fmt(pendingBalance, currency)}
               </p>
             ) : (
-              <WaitingArea className="mt-2 ml-auto h-7 w-20 justify-end" size={18} />
+              <Shimmer className="mt-2 flex h-6 items-center justify-end sm:h-7">
+                <ShimmerBlock className="h-5 w-20 rounded-lg sm:h-6" />
+              </Shimmer>
             )}
             <button
               onClick={async () => {
@@ -955,7 +963,7 @@ function WithdrawPanel({
                   </div>
                   {/* Per-transaction hold dates */}
                   {holdItemsLoading ? (
-                    <WaitingArea className="mt-3 h-[54px]" size={18} />
+                    <ShimmerRows className="mt-3 border-t border-[#e5e7eb] pt-3" rows={3} rowHeight={16} cols={["45%", "22%"]} divided={false} inset={false} />
                   ) : holdItems.length > 0 ? (
                     <div className="mt-3 space-y-1 border-t border-[#e5e7eb] pt-3">
                       {holdItems.map((item) => (
@@ -1056,7 +1064,7 @@ function WithdrawPanel({
                 <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(pendingBalance, currency)}</span>
               </div>
               {holdItemsLoading ? (
-                <WaitingArea className="mt-2.5 h-[46px]" size={18} />
+                <ShimmerRows className="mt-2.5 border-t border-[#e5e7eb] pt-2.5" rows={3} rowHeight={14} cols={["45%", "22%"]} divided={false} inset={false} />
               ) : holdItems.length > 0 ? (
                 <div className="mt-2.5 space-y-1 border-t border-[#e5e7eb] pt-2.5">
                   {holdItems.map((item) => (
@@ -1204,7 +1212,9 @@ function WithdrawPanel({
 
               <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
                 {detailsLoading ? (
-                  <WaitingArea className="h-4 w-48 justify-start" size={16} />
+                  <Shimmer className="flex h-4 items-center">
+                    <ShimmerBlock className="h-3 w-48 rounded-full" />
+                  </Shimmer>
                 ) : detailsBank ? (
                   <p className="text-[12px] text-[#9ca3af] leading-relaxed">
                     Your funds are manually paid out to{" "}
@@ -1273,7 +1283,9 @@ function WithdrawPanel({
           </button>
           <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
             {detailsLoading ? (
-              <WaitingArea className="h-4 w-48 justify-start" size={16} />
+              <Shimmer className="flex h-4 items-center">
+                <ShimmerBlock className="h-3 w-48 rounded-full" />
+              </Shimmer>
             ) : detailsBank ? (
               <p className="text-[12px] text-[#9ca3af] leading-relaxed">
                 Your funds are manually paid out to{" "}
@@ -1347,7 +1359,8 @@ function OrderTimeline({
         No payout timeline for free orders.
       </p>
     );
-  if (loading) return <WaitingArea className="h-[136px]" />;
+  /* The timeline's own shape, three steps of it, while it is read. */
+  if (loading) return <ShimmerRows rows={3} rowHeight={45} cols={["40%", "20%"]} divided={false} lead inset={false} />;
   if (error) return <p className="text-[12px] text-rose-500">{error}</p>;
   if (!timeline.length)
     return (
@@ -3487,7 +3500,9 @@ function PayoutMethodCard() {
                 Payout account
               </p>
               {loading ? (
-                <WaitingArea className="h-5 w-48 justify-start" size={16} />
+                <Shimmer className="flex h-5 items-center">
+                  <ShimmerBlock className="h-3.5 w-48 rounded-full" />
+                </Shimmer>
               ) : bank ? (
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                   <span className="text-[14px] font-semibold text-[#1a1a2e]">
@@ -3615,7 +3630,7 @@ function PayoutsHistoryList({
   if (loading) {
     return (
       <div className={cn("overflow-hidden", !flat && "bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)]")}>
-        <WaitingArea className="h-[168px]" />
+        <ShimmerRows rows={3} rowHeight={56} cols={["30%", "18%", "12%"]} />
       </div>
     );
   }

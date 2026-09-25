@@ -82,17 +82,69 @@ export function planHighlights(id: PlanId): string[] {
   return lines
 }
 
+/* ─── What each card says ─────────────────────────────────────────────── */
+
+/**
+ * The lines on the cards, each one written from the table that decides it
+ * where there is one, so a card cannot promise what the plan does not get.
+ * The rest name things every plan has, and tests/pricing-plans.test.ts ties
+ * each of those to the code that provides it.
+ */
+const websitesLine = (id: PlanId) => `${siteLimits(id as SitePlan).maxSites} websites, ${siteLimits(id as SitePlan).maxPages} pages each`
+const storageLine = (id: PlanId) => `${formatBytes(PLAN_LIMITS[id].storageQuotaBytes)} of file storage`
+const aiEditsLine = (id: PlanId) => `${siteLimits(id as SitePlan).aiEditsPerMonth} AI edits a month`
+
+/** What Free includes, in the order a seller weighs it. */
+function freeFeatures(): string[] {
+  return [
+    feeLine("free"),
+    "Unlimited digital products and courses",
+    `A creator page and ${siteLimits("free").maxSites} websites`,
+    "Payouts to your bank through Stripe",
+    "Email your buyers and subscribers",
+    "Sales and visitor analytics",
+    storageLine("free"),
+  ]
+}
+
+/** What Free does not have that Pro does, shown crossed out so the cards compare. */
+function freeExcluded(): string[] {
+  const free = siteLimits("free")
+  const lines: string[] = []
+  if (!free.customDomain && siteLimits(PRO_CHECKOUT_PLAN_ID).customDomain) lines.push("Your own domain")
+  return lines
+}
+
+/** What Pro adds, after everything Free has. */
+function proFeatures(): string[] {
+  const pro = siteLimits(PRO_CHECKOUT_PLAN_ID)
+  const lines = ["Everything in Free", feeLine(PRO_CHECKOUT_PLAN_ID)]
+  if (pro.customDomain) lines.push("Your own domain")
+  if (pro.removeBranding) lines.push("No Storelib branding")
+  lines.push(websitesLine(PRO_CHECKOUT_PLAN_ID), storageLine(PRO_CHECKOUT_PLAN_ID), aiEditsLine(PRO_CHECKOUT_PLAN_ID))
+  lines.push("Verified badge")
+  return lines
+}
+
 export interface OfferedPlan {
   id: OfferedPlanId
   name: string
   priceCents: number
   price: string
-  /** Beside the price: "/month", or "forever" for the plan that costs nothing. */
+  /** Beside the price where it is written in one line: "/month", or "forever". */
   period: string
+  /** The small label at the top of the card. A plain fact about who it is for, never a claim nobody can check. */
+  pill: string
+  /** The small line under the price. */
+  priceNote: string
+  /** One line under that. */
   summary: string
-  /** The line above the feature list. */
-  featuresHeading: string
+  /** What the plan includes. Pro starts with "Everything in Free". */
   features: string[]
+  /** What it does not include, drawn greyed with a cross, so both cards have as many lines. */
+  excluded: string[]
+  /** The small print under the button. */
+  note: string
 }
 
 export const OFFERED_PLANS: readonly OfferedPlan[] = [
@@ -102,9 +154,13 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
     priceCents: 0,
     price: formatPlanPrice(0),
     period: "forever",
-    summary: "Everything you need to open a store and start selling.",
-    featuresHeading: "Includes",
-    features: planHighlights("free"),
+    pill: "Start here",
+    priceNote: "No monthly fee",
+    summary: "Open your store and start selling today.",
+    features: freeFeatures(),
+    excluded: freeExcluded(),
+    /* Free has no checkout: signing up asks for no card. */
+    note: "No card needed",
   },
   {
     id: PRO_CHECKOUT_PLAN_ID,
@@ -112,9 +168,14 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
     priceCents: PRO_PRICE_CENTS,
     price: formatPlanPrice(PRO_PRICE_CENTS),
     period: "/month",
-    summary: "A lower fee on every sale, your own domain, and no Storelib branding.",
-    featuresHeading: "Everything in Free, plus",
-    features: planHighlights(PRO_CHECKOUT_PLAN_ID).filter((line) => line !== "Unlimited digital products"),
+    pill: "For growing stores",
+    priceNote: "per month",
+    summary: "Keep more of every sale.",
+    features: proFeatures(),
+    excluded: [],
+    /* A monthly Stripe subscription, cancelled from Billing
+       (app/api/billing/subscription/cancel). */
+    note: "Billed monthly. Cancel anytime.",
   },
 ]
 

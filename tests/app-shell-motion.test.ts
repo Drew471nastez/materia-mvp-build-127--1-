@@ -36,6 +36,7 @@ import {
   NAV_SPINNER_AFTER_MS,
   NAV_PHONE_SPINNER_AFTER_MS,
   NAV_SPINNER_FADE_MS,
+  NAV_SPINNER_OUT_MS,
   NAV_SPINNER_CAP_MS,
   APP_PAGE_KEPT_MS,
   isCommittedAddress,
@@ -50,6 +51,7 @@ import {
 } from "@/lib/ui/app-navigation"
 import { SHEET_CLOSE_EASE, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { SPINNER_WAIT_MS } from "@/components/ui/activity-spinner"
+import { SHIMMER_SWAP_MS, SHIMMER_WAIT_MS } from "@/components/ui/shimmer"
 
 const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
@@ -156,12 +158,17 @@ section("A slow page: no outline, a spinner")
         .every((f) => !existsSync(join(root, f))))
   const stage = code("components/app/app-stage.tsx")
   check("the stage draws the spinner and nothing shaped like a page, asks for the wait by address, and fades in on opacity alone",
-    /<ActivitySpinner \/>/.test(stage) && !/RouteSkeleton|data-app-route-skeleton/.test(stage)
+    /<PageSpinner \/>/.test(stage) && !/RouteSkeleton|data-app-route-skeleton/.test(stage)
       && /const delay = nav \? spinnerDelay\(nav\.href\) : null/.test(stage)
       && /el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: NAV_SPINNER_FADE_MS/.test(stage))
-  check("it fades out from where it got to, and a fade that never finishes still leaves",
-    /const from = Number\(getComputedStyle\(el\)\.opacity\)/.test(stage) && /const out = fadeTo\(el, 0, NAV_ENTER_MS, NAV_ENTER_EASE\)/.test(stage)
-      && /out\.onfinish = done\s*window\.setTimeout\(done, NAV_ENTER_MS \+ 120\)/.test(stage) && /leaves\.current === id/.test(stage))
+  /* "Make sure the in-page transition with the loading doesn't stay so long,
+     and after it ends there is no empty gap." scripts/check-app-stage.mjs:
+     gone 117ms after the commit at 390 and 133ms at 1280 (167 before), and
+     surface and page together cover every frame after it (1.0). */
+  check("it fades out from where it got to, quicker than it came (120ms), and a fade that never finishes still leaves",
+    NAV_SPINNER_OUT_MS === 120 && NAV_SPINNER_OUT_MS < NAV_ENTER_MS && NAV_SPINNER_OUT_MS < NAV_SPINNER_FADE_MS
+      && /const from = Number\(getComputedStyle\(el\)\.opacity\)/.test(stage) && /const out = fadeTo\(el, 0, NAV_SPINNER_OUT_MS, NAV_ENTER_EASE\)/.test(stage)
+      && /out\.onfinish = done\s*window\.setTimeout\(done, NAV_SPINNER_OUT_MS \+ 120\)/.test(stage) && /leaves\.current === id/.test(stage))
   /* "Make sure it never blocks, fully." scripts/check-app-stage.mjs presses
      through it, lets a navigation hang past the cap, and ends navigations
      every way the router can: a query, a redirect, a redirect back to the
@@ -188,7 +195,7 @@ section("A slow page: no outline, a spinner")
     /playEntrance\(s\.outer, \{ fade: !slowSurfaceIsUp\(\) \}\)/.test(stage) && /if \(!rise && !fade\) continue/.test(stage))
   check("it covers the content area by main's own numbers: under the header and the pill, rounded on a phone",
     /pointer-events-none fixed inset-x-0 bottom-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] z-\[38\] bg-\[#111111\] md:left-\[240px\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:bg-transparent/.test(stage)
-      && /data-app-slow-surface="" className="flex h-full items-center justify-center overflow-hidden rounded-t-\[20px\] bg-\[#f8f9fa\] md:rounded-none"/.test(stage)
+      && /data-app-slow-surface="" className="h-full overflow-hidden rounded-t-\[20px\] bg-\[#f8f9fa\] md:rounded-none"/.test(stage)
       && /pt-\[calc\(68px_\+_env\(safe-area-inset-top,_0px\)\)\] md:pt-\[calc\(58px\+env\(safe-area-inset-top,_0px\)\)\] md:pl-\[240px\]/.test(read("app/app/layout.tsx")))
   /* Regression: "the purple things in the corners". The rounded surface was
      the fixed box itself, so its corners showed the page under it, and Home's
@@ -218,6 +225,12 @@ section("A slow page: no outline, a spinner")
       && /<span\s+data-activity-spinner=""[\s\S]{0,300}data-keep-transform=""\s*className="activity-spinner"/.test(spinner)
       && /@media \(prefers-reduced-motion: reduce\) \{[\s\S]{0,160}\.activity-spinner \{\s*animation-duration: 3000ms;/.test(css))
   check("the outline's leftover rule is gone from the stylesheet", !/data-app-route-skeleton/.test(css))
+  /* "Move that loading thing a little bit more up." The probe measures the
+     spinner's centre at 0.403 of the content area's height at 390 and 1280
+     (313px and 323px down), where it was 0.5. */
+  check("it sits a little above the middle, 40% of the way down, on grid rows rather than a transform",
+    /export function PageSpinner\(/.test(spinner) && /grid h-full w-full grid-rows-\[2fr_auto_3fr\] justify-items-center/.test(spinner)
+      && /<ActivitySpinner label=\{label\} className="row-start-2" \/>/.test(spinner))
 }
 
 section("No page draws a picture of itself while it loads, inside or out")
@@ -228,29 +241,47 @@ section("No page draws a picture of itself while it loads, inside or out")
   check("a native cold start is the shell's frame and the spinner: the header's colour, the rounded content area, no violet bar, no drawing",
     !existsSync(join(root, "app/app/dashboard-skeleton.tsx"))
       && /fixed inset-0 bg-\[#111111\] md:bg-\[#131316\]/.test(cold) && /rounded-t-\[20px\] bg-\[#f8f9fa\]/.test(cold)
-      && /<ActivitySpinner \/>/.test(cold) && !/8b5cf6|animate-pulse|bg-gray-/.test(cold))
+      && /<PageSpinner \/>/.test(cold) && !/8b5cf6|animate-pulse|bg-gray-/.test(cold))
   const layout = code("app/app/layout.tsx")
   check("and both of the layout's gates use it", (layout.match(/loadingFallback=\{<AppColdStart \/>\}/g) ?? []).length === 2)
   const dash = code("components/app/dashboard-client.tsx")
-  check("Home has no full page skeleton, and its chart waits with the spinner, not grey bars",
-    !/showLoadingSkeleton|isLoading && |Full Page Skeleton|skeleton-bar/.test(dash) && /<WaitingArea className="h-\[200px\]" \/>/.test(dash) && !/animate-pulse/.test(dash))
-  check("Analytics' cards wait with the spinner, in the room their figures take", /<WaitingArea className=\{lines \? "h-\[144px\]" : "h-\[100px\]"\} \/>/.test(code("app/app/analytics/analytics-reports.tsx")) && !/animate-pulse/.test(code("app/app/analytics/analytics-reports.tsx")))
+  /* "The loading should not be the spinner in the charts loading and the
+     tables loading; loading structures or skeleton, light gray shimmering."
+     Page to page stays on the spinner and draws no page; the data inside a
+     page draws its own shapes (components/ui/shimmer). */
+  check("Home has no full page skeleton, and its chart holds its own shape while it is read, from the first frame",
+    !/showLoadingSkeleton|isLoading && |Full Page Skeleton|skeleton-bar/.test(dash) && !/animate-pulse/.test(dash) && !/WaitingArea/.test(dash)
+      && /<ShimmerSwap loading=\{\(chartEvents == null \|\| isChartLoading\) && displayChartData\.length === 0\} skeleton=\{<ShimmerChart height=\{CHART_H\}/.test(dash))
+  check("and its four figures hold shapes until the period's first answer, rather than zeros that turn into numbers",
+    /const \[figuresReady, setFiguresReady\] = useState\(false\)/.test(dash) && (dash.match(/loading=\{!figuresReady\}/g) ?? []).length === 4
+      && (dash.match(/soft=\{isRefreshing && figuresReady\}/g) ?? []).length === 4 && /\{figuresReady && !hasRealData && \(/.test(dash))
+  const reports = code("app/app/analytics/analytics-reports.tsx")
+  check("Analytics' cards draw their own shapes while they wait (rows, a chart, a ring, the funnel) and crossfade into the figures",
+    !/WaitingArea/.test(reports) && !/animate-pulse/.test(reports)
+      && (reports.match(/<Body blank=\{/g) ?? []).length === 16
+      && /<ShimmerSwap loading=\{blank\} skeleton=\{<Waiting kind=\{wait\} lead=\{lead\} \/>\} className=\{BODY\} contentClassName="h-full">/.test(reports))
+  const tab = code("components/app/metric-tab.tsx")
+  check("a figure tab holds a light gray shape where its number goes until the first answer, and Analytics' tabs use it",
+    /\{loading \? <ShimmerBlock className="shimmer-wait inline-block/.test(tab) && /waited && !loading && "shimmer-enter"/.test(tab)
+      && (code("app/app/analytics/analytics-client.tsx").match(/loading=\{figuresLoading\}/g) ?? []).length === 8)
   const payouts = code("app/app/payouts/payouts-client.tsx")
-  check("Payouts' chart, timeline and payout list wait with the spinner, not rows of grey",
-    (payouts.match(/<WaitingArea className="h-[^"]*" \/>/g) ?? []).length === 3 && !/\[1, 2, 3\]\.map/.test(payouts))
-  /* The grey bars that stood in for a figure, a bank name or a list of
-     holds while the browser asked Stripe: each is its own room now, empty
-     for half a second and then a small spinner. */
-  check("and so do its figures, its bank line and its holds: no grey bar pulses anywhere in Payouts or Settings",
-    !/animate-pulse/.test(payouts) && (payouts.match(/<WaitingArea className="[^"]*justify-(start|end)" size=\{1[68]\} \/>/g) ?? []).length === 6
-      && !/animate-pulse/.test(code("components/app/settings-form-new.tsx")) && /<WaitingArea className="mb-3 h-5 w-48 justify-start" size=\{16\} \/>/.test(code("components/app/settings-form-new.tsx")))
+  check("Payouts' chart, figures, bank lines, holds, timeline and payout list draw their shapes, not the spinner",
+    !/WaitingArea/.test(payouts) && !/animate-pulse/.test(payouts) && !/\[1, 2, 3\]\.map/.test(payouts)
+      && /<ShimmerChart height=\{192\} \/>/.test(payouts) && (payouts.match(/<ShimmerRows /g) ?? []).length === 4
+      && (payouts.match(/<Shimmer className=/g) ?? []).length === 6)
+  check("no grey bar pulses in Settings either", !/animate-pulse/.test(code("components/app/settings-form-new.tsx")))
   const payoutsPage = code("app/app/payouts/page.tsx")
   check("Payouts' heading lands on the press; Stripe streams in behind it, in a waiting room rather than an outline",
-    /<Suspense fallback=\{<WaitingArea className="h-\[420px\]" \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator \}\)\}\s*<\/Suspense>/.test(payoutsPage)
+    /<Suspense fallback=\{<PayoutsWaiting \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator \}\)\}\s*<\/Suspense>/.test(payoutsPage)
+      && /function PayoutsWaiting\(\) \{\s*return \(\s*<Shimmer className="space-y-6" label="Loading payouts">/.test(payoutsPage)
       && /async function PayoutsBody\(/.test(payoutsPage)
       && !/stripe\./.test(payoutsPage.slice(payoutsPage.indexOf("export default async function PayoutsPage"), payoutsPage.indexOf("async function PayoutsBody")))
       && /stripe\.balance\.retrieve/.test(payoutsPage.slice(payoutsPage.indexOf("async function PayoutsBody"))))
-  check("Emails' table waits with the spinner", /function Loading\(\) \{\s*return <WaitingArea className="h-\[288px\]" \/>/.test(code("app/app/emails/emails-home.tsx")))
+  const emails = code("app/app/emails/emails-home.tsx")
+  check("Emails' tables wait as their own header and rows, crossfading into the rows, and its figures as shapes, not dashes",
+    /function Loading\(\) \{\s*return <ShimmerRows rows=\{5\} header/.test(emails) && !/WaitingArea/.test(emails)
+      && (emails.match(/<ShimmerSwap loading=\{props\.loading\} skeleton=\{<Loading \/>\}>/g) ?? []).length === 3
+      && !/props\.loading \? "–"/.test(emails) && /if \(p\.tab === "published" && \(p\.overview \|\| p\.loading\)\)/.test(emails))
   check("the coupon pages draw nothing under the gate rather than an outline",
     !existsSync(join(root, "app/app/coupons/skeleton.tsx")) && !existsSync(join(root, "app/app/coupons/new/skeleton.tsx"))
       && ["app/app/coupons/page.tsx", "app/app/coupons/new/page.tsx", "app/app/coupons/[id]/page.tsx"].every((f) => /if \(load\.state === "signed-out"\) return null/.test(code(f))))
@@ -261,6 +292,23 @@ section("No page draws a picture of itself while it loads, inside or out")
     /export const SPINNER_WAIT_MS = 500/.test(spinner) && /animation: `skeleton-reveal 150ms ease-out \$\{SPINNER_WAIT_MS\}ms forwards`/.test(spinner) && /className="inline-flex opacity-0"/.test(spinner))
   const css = read("app/globals.css")
   check("the late and fade skeleton classes nothing uses are gone from the stylesheet", !/\.skeleton-late\s*\{/.test(css) && !/\.skeleton-fade\s*\{/.test(css) && /@keyframes skeleton-reveal/.test(css))
+  const shimmer = code("components/ui/shimmer.tsx")
+  check("a skeleton shows nothing for 200ms, then fades in; the answer crossfades over 180ms",
+    SHIMMER_WAIT_MS === 200 && SHIMMER_SWAP_MS === 180
+      && /\.shimmer-wait \{\s*opacity: 0;\s*animation: shimmer-fade-in 200ms ease-out 200ms forwards;/.test(css)
+      && /\.shimmer-enter \{\s*animation: shimmer-fade-in 180ms [^;]* backwards;/.test(css)
+      && /\.shimmer-leave \{\s*animation: shimmer-fade-out 180ms [^;]* forwards;/.test(css))
+  check("its band of light is one transform on a pseudo element, 1.4s a pass, and still under reduced motion",
+    /\.shimmer-block::after \{[^}]*transform: translateX\(-100%\);[^}]*animation: shimmer-sweep 1400ms/.test(css)
+      && /@keyframes shimmer-sweep \{\s*from \{ transform: translateX\(-100%\); \}\s*to \{ transform: translateX\(100%\); \}/.test(css)
+      && /@media \(prefers-reduced-motion: reduce\) \{\s*\.shimmer-block::after \{\s*animation: none;/.test(css))
+  check("the skeleton stays in the tree through the swap, keyed, so its fade carries on and the content is not remounted",
+    /<div key="skeleton" className=\{leaving \? "shimmer-leave pointer-events-none absolute inset-0 overflow-hidden" : "h-full"\}>/.test(shimmer)
+      && /<div key="content" className=\{cn\(leaving && "shimmer-enter", contentClassName\)\}>/.test(shimmer)
+      && /if \(loading && !held\) setHeld\(true\)/.test(shimmer))
+  check("the flash probe lands on every main page and reads every element every frame",
+    /home,orders,products,analytics,emails,customers,payouts,website,settings/.test(read("scripts/check-page-flash.mjs"))
+      && /playEntrance\(ref\.current\)/.test(read("scripts/render-page-flash.tsx")))
 }
 
 section("The press answers on the press")
