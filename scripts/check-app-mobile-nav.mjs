@@ -1193,13 +1193,17 @@ await ev("window.__went = null; true")
  *               up is over: one to one is under a pixel
  *   LANDING     how far the lens's centre is from the slot's centre once the
  *               spring has finished: under half a pixel
- *   THE ICONS   how far any glyph's box moved, and how far its link's
+ *   THE ICONS   how far any glyph's centre moved, and how far its link's
  *               opacity fell, across every frame of the press, the slide and
  *               the release, with `html.capacitor` on <html> as the native
  *               apps have it, so its `a:active` dimming is in play: nothing,
- *               not even half a pixel
+ *               not even half a pixel. The icon touched gives a little and
+ *               springs back about its own centre (to about 0.9, through
+ *               about 1.03, to exactly 1); no other icon changes size.
  *
- * And the stretch: never more than about 1.12 wide, lift included.
+ * And the stretch: never more than about 1.12 wide, lift included, and a
+ * drop's settle when the finger stops: a slight squash, then round
+ * (DROP_TRACE=1 prints the drop's own width, frame by frame).
  */
 await ev('globalThis.__goto("/app"); window.__routeDelay = 0; true')
 await sleep(1700)
@@ -1227,6 +1231,8 @@ await ev(`(() => {
       cx: r.left + r.width / 2,
       w: r.width,
       h: r.height,
+      /* The drop's own shape: the transform's horizontal scale, without the lift (a separate property). */
+      sx: (() => { const t = getComputedStyle(lens).transform; return t.startsWith("matrix(") ? Number.parseFloat(t.slice(7)) : 1 })(),
       glyphs: glyphs.map((g) => { const b = g.getBoundingClientRect(); return [b.left, b.top, b.width, b.height] }),
       linkOpacity: links.map((a) => Number(getComputedStyle(a).opacity)),
     })
@@ -1293,8 +1299,23 @@ const tracked = glassFrames.filter((f) => f.t >= dragBegan + 150 && f.t <= tUp &
 const errs = tracked.map((f) => Math.abs(f.cx - clampFinger(f.finger)))
 const sortedErrs = [...errs].sort((a, b) => a - b)
 const firstGlyphs = glassFrames[0].glyphs
+/* A glyph's CENTRE, which is what moving is: the icon touched gives a
+   little under the finger (A TAP HAS A LITTLE GIVE), a scale about its own
+   centre, so its box changes size and its centre does not. The two glyphs
+   of the icon touched are the first two; every other glyph keeps its box
+   exactly. */
 let glyphMoved = 0
-for (const f of glassFrames) f.glyphs.forEach((g, i) => { for (let k = 0; k < 4; k++) glyphMoved = Math.max(glyphMoved, Math.abs(g[k] - firstGlyphs[i][k])) })
+let othersResized = 0
+let pulseMin = 1
+let pulseMax = 1
+for (const f of glassFrames) f.glyphs.forEach((g, i) => {
+  const g0 = firstGlyphs[i]
+  glyphMoved = Math.max(glyphMoved, Math.abs(g[0] + g[2] / 2 - (g0[0] + g0[2] / 2)), Math.abs(g[1] + g[3] / 2 - (g0[1] + g0[3] / 2)))
+  if (i < 2) { pulseMin = Math.min(pulseMin, g[2] / g0[2]); pulseMax = Math.max(pulseMax, g[2] / g0[2]) }
+  else othersResized = Math.max(othersResized, Math.abs(g[2] - g0[2]), Math.abs(g[3] - g0[3]))
+})
+const lastGlyphs = glassFrames[glassFrames.length - 1].glyphs
+const pulseEnd = lastGlyphs[0][2] / firstGlyphs[0][2]
 const afterUp = glassFrames.filter((f) => f.t > tUp)
 const target = glassSlots.links[2].x
 const glass = {
@@ -1303,10 +1324,21 @@ const glass = {
   trackingMedianPx: Math.round((sortedErrs[Math.floor(sortedErrs.length / 2)] ?? 99) * 100) / 100,
   trackingWorstPx: Math.round(Math.max(0, ...errs) * 100) / 100,
   widestStretch: Math.round((Math.max(...glassFrames.map((f) => f.w)) / DOT_PX) * 1000) / 1000,
+  /* The finger slows to a stop, holds, and lets go: the drop runs on past
+     round into a slight squash (narrower than round, read from its own
+     transform, the lift left out) and settles round (A DROP OF WATER). */
+  squash: (() => {
+    const lastMove = glassFrames.reduce((at, f, i) => (i > 0 && f.finger !== glassFrames[i - 1].finger ? f.t : at), tDown)
+    const after = glassFrames.filter((f) => f.t > lastMove)
+    return { narrowest: Math.round(Math.min(...after.map((f) => f.sx)) * 1000) / 1000, last: Math.round(after[after.length - 1].sx * 1000) / 1000, widest: Math.round(Math.max(...glassFrames.map((f) => f.sx)) * 1000) / 1000 }
+  })(),
   landedOffPx: landedOn,
   pastSlotPx: Math.round(Math.max(0, ...afterUp.map((f) => f.cx - target)) * 100) / 100,
   settledMs: (() => { const last = [...afterUp].reverse().find((f) => Math.abs(f.cx - target) > 0.5); return last ? Math.round(last.t - tUp) : 0 })(),
+  trace: process.env.DROP_TRACE ? glassFrames.map((f) => `${Math.round(f.t - tUp)}:${Math.round(f.sx * 1000) / 1000}`).join(" ") : null,
   glyphMovedPx: Math.round(glyphMoved * 1000) / 1000,
+  othersResizedPx: Math.round(othersResized * 1000) / 1000,
+  pulse: { min: Math.round(pulseMin * 1000) / 1000, max: Math.round(pulseMax * 1000) / 1000, end: Math.round(pulseEnd * 1000) / 1000 },
   linkOpacityMin: Math.min(...glassFrames.flatMap((f) => f.linkOpacity)),
   forcedActive,
   went: await ev("window.__went"),
@@ -2076,7 +2108,8 @@ must(sheetOver.tapIsTheScrims, "and a tap on it is the scrim's, not the pill's",
 console.log(`  the glass   a slide from Home to Products in the native shell, ${glass.frames} frames watched`)
 console.log(`              tracking: the lens ${glass.trackingMedianPx}px from the finger at the median, ${glass.trackingWorstPx}px at worst, over ${glass.trackedFrames} frames`)
 console.log(`              stretched to ${glass.widestStretch}x its width, landed ${glass.landedOffPx.dx}px off the slot's centre, ${glass.pastSlotPx}px past it, still after ${glass.settledMs}ms`)
-console.log(`              the glyphs moved ${glass.glyphMovedPx}px at most; the links' opacity never went below ${glass.linkOpacityMin}\n`)
+console.log(`              the glyphs' centres moved ${glass.glyphMovedPx}px at most; the links' opacity never went below ${glass.linkOpacityMin}`)
+console.log(`              the icon touched gave to ${glass.pulse.min}x, sprang to ${glass.pulse.max}x and rested at ${glass.pulse.end}x; the others changed size by ${glass.othersResizedPx}px\n`)
 must(glass.trackedFrames >= 5, "the slide was long enough to read the tracking", `only ${glass.trackedFrames} frames of it`)
 must(glass.trackingMedianPx <= 1, "under a finger the lens is where the finger is, one to one",
   `it was ${glass.trackingMedianPx}px from the finger at the median`)
@@ -2084,6 +2117,11 @@ must(glass.trackingWorstPx <= 7, "and never more than a frame of the finger's ow
   `it was ${glass.trackingWorstPx}px behind at worst`)
 must(glass.widestStretch >= 1.05 && glass.widestStretch <= 1.13, "it stretches along the way it moves, to about 1.12 and no more",
   `it was ${glass.widestStretch}x as wide as it is round`)
+if (glass.trace) console.log(glass.trace)
+console.log(`              the drop's own shape: ${glass.squash.widest}x at its widest, ${glass.squash.narrowest}x at its narrowest once the finger stopped, ${glass.squash.last}x at rest`)
+must(glass.squash.narrowest < 0.998 && glass.squash.narrowest >= 0.97 && glass.squash.last === 1,
+  "and when the finger stops it runs on into a slight squash and settles round, like a drop, not a stamp",
+  `narrowest ${glass.squash.narrowest}x after the finger stopped, ${glass.squash.last}x at rest`)
 console.log(`  a flick     released at speed past Products: went to ${flick.went}, landed on slot ${flick.landedSlot + 1} ${flick.landedOffPx}px off its centre`)
 console.log(`              ${flick.pastSlotPx}px past it, still after ${flick.settledMs}ms, widest ${flick.widest}x, biggest step after the lift ${flick.stepAfter}px\n`)
 must(flick.landedOffPx <= 0.5, "a flick lands on a slot's exact centre too", `${flick.landedOffPx}px off it`)
@@ -2097,7 +2135,12 @@ must(glass.pastSlotPx <= 3, "with no more than a small overshoot on the way",
   `it went ${glass.pastSlotPx}px past the slot`)
 must(glass.went === "/app/products", "letting go of it picks the slot it landed on", `it went to ${glass.went}`)
 must(glass.glyphMovedPx < 0.5, "no icon moves, not by half a pixel, through the press, the slide and the release",
-  `a glyph's box moved ${glass.glyphMovedPx}px`)
+  `a glyph's centre moved ${glass.glyphMovedPx}px`)
+/* "Make tapping an icon feel a touch more satisfying (subtle press scale/spring, nothing big)." */
+must(glass.pulse.min >= 0.88 && glass.pulse.min <= 0.93 && glass.pulse.max >= 1.01 && glass.pulse.max <= 1.04 && Math.abs(glass.pulse.end - 1) < 0.002,
+  "the icon touched gives a little (to about 0.9), springs back through about 1.03 and rests at exactly its size",
+  `it went to ${glass.pulse.min}x, up to ${glass.pulse.max}x, and rested at ${glass.pulse.end}x`)
+must(glass.othersResizedPx < 0.01, "and no other icon changes size", `another glyph's box changed by ${glass.othersResizedPx}px`)
 must(glass.linkOpacityMin >= 0.999, "and none dims under the finger in the native shell, where a:active used to",
   `a link's opacity went down to ${glass.linkOpacityMin}`)
 console.log(`              with :active forced in the native shell: a pill icon ${glass.forcedActive.pill}, an ordinary link ${glass.forcedActive.control}\n`)

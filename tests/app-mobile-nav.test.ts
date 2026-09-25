@@ -614,7 +614,7 @@ function main() {
      0.5px past it, still 239ms after a flick. */
   check("it springs onto the slot from the finger's speed, on the compositor, and lifts on another property",
     !/const SETTLE =/.test(nav) && /const SPRING = \{ stiffness: 520, damping: 34 \}/.test(nav)
-      && /function settleSpring\(from: number, speed: number, to: number\)/.test(nav)
+      && /function settleSpring\(from: number, speed: number, to: number, drop: Drop = /.test(nav)
       && /dot\.style\.translate = `\$\{to\}px 0`\s*\n\s*dot\.style\.transform = ""/.test(nav)
       && /const a = dot\.animate\(frames, \{ duration: ms, easing: "linear" \}\)/.test(nav)
       && /const LIFT = 1\.04/.test(nav) && /slide\.following \? LIFT : 1/.test(nav)
@@ -922,9 +922,18 @@ function main() {
      1.104 on a flick. */
   check("under a finger the lens stretches with its speed, like a drop, never past about 1.12",
     /const STRETCH_MAX = 0\.08/.test(nav) && /const STRETCH_AT = 0\.6/.test(nav)
-      && /`scale\(\$\{Math\.round\(\(1 \+ k\) \* 1000\) \/ 1000\}, \$\{Math\.round\(\(1 - k \* 0\.5\) \* 1000\) \/ 1000\}\)`/.test(nav)
+      && /scale\(\$\{Math\.round\(\(1 \+ d\) \* 1000\) \/ 1000\}, \$\{Math\.round\(\(1 - d \* 0\.5\) \* 1000\) \/ 1000\}\)`/.test(nav)
+      && /drop\.d = Math\.max\(-SQUASH_MAX, Math\.min\(STRETCH_MAX, drop\.d \+ drop\.dv \* dt\)\)/.test(nav)
       && /speedRef\.current \+= \(\(next - posRef\.current\) \/ dt - speedRef\.current\) \* blend/.test(nav))
-  check("and rounds off again on the spring as it lets go", /dotRef\.current\.style\.transform = ""/.test(nav) && /transform: stretchStyle\(v \/ 1000\)/.test(nav))
+  /* "Make the glassy bubble a bit more fluid, like a drop of water stretching slightly in the drag direction and settling." The stretch has a small underdamped spring of its own, leans the way it goes, and runs on into a slight squash when the finger stops; the probe reads 0.994x narrowest after a slow slide, and 1x at rest. */
+  check("the stretch is a drop with a body: its own soft spring, leaning the way it goes, a slight squash as it stops, settling round",
+    /const DROP_SPRING = \{ stiffness: 420, damping: 9 \}/.test(nav) && /const SQUASH_MAX = 0\.03/.test(nav) && /const DROP_LEAD = 0\.2/.test(nav)
+      && /stepDrop\(dropRef\.current, speedRef\.current, dt\)/.test(nav) && /translateX\(\$\{lead\}px\) scale\(/.test(nav))
+  check("and rounds off again on the spring as it lets go, the drop's own spring riding along", /dotRef\.current\.style\.transform = ""/.test(nav) && /transform: dropStyle\(drop\)/.test(nav) && /stepDrop\(drop, v \/ 1000, dt \* 1000\)/.test(nav))
+  /* "Make tapping an icon feel a touch more satisfying (subtle press scale/spring, nothing big)." One fixed animation from the touch, the same every tap, on the glyph's own `scale`, never the lens. */
+  check("a tapped icon gives a little and springs back: one fixed 420ms pulse on its own scale, 0.9 then 1.03, the lens untouched",
+    /const TAP_PULSE: Keyframe\[\] = \[/.test(nav) && /\{ scale: "0\.9", offset: 0\.2/.test(nav) && /\{ scale: "1\.03", offset: 0\.6/.test(nav) && /const TAP_PULSE_MS = 420/.test(nav)
+      && /const a = glyph\.animate\(TAP_PULSE, \{ duration: TAP_PULSE_MS \}\)/.test(nav) && /pulse\(index\)/.test(nav) && /prefers-reduced-motion: reduce\)"\)\.matches\) return\s*for \(const a of glyph\.getAnimations\(\)\)/.test(nav))
   /* "When I release a button and move to the next one, exactly at that moment
      the button icon glitches and moves a little bit." Two causes: in the
      native shell a:active dimmed the icon under the finger to 72% and put it

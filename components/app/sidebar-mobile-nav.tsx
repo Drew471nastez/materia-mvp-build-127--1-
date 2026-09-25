@@ -868,10 +868,53 @@ const STRETCH_MAX = 0.08
 /** px per ms of speed for all of STRETCH_MAX: three slots in a quarter of a second, an ordinary slide. */
 const STRETCH_AT = 0.6
 const stretchFor = (speed: number) => Math.min(STRETCH_MAX, (Math.abs(speed) / STRETCH_AT) * STRETCH_MAX)
-const stretchStyle = (speed: number): string => {
-  const k = stretchFor(speed)
-  return k > 0.004 ? `scale(${Math.round((1 + k) * 1000) / 1000}, ${Math.round((1 - k * 0.5) * 1000) / 1000})` : "scale(1, 1)"
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  A DROP OF WATER, NOT A RUBBER STAMP
+ * ═══════════════════════════════════════════════════════════════════════════
+ * "Make the glassy bubble a bit more fluid, like a drop of water stretching
+ * slightly in the drag direction and settling." The stretch used to BE the
+ * speed: as fast as the finger went, that wide, and as the finger stopped it
+ * went round again on the same curve, like a shape being redrawn rather than
+ * a thing with a little weight in it.
+ *
+ * So the stretch has a body of its own now: a small underdamped spring
+ * (DROP_SPRING) chasing what the speed asks for. Pulled along, it leans into
+ * the stretch a moment after the finger does; stopped, it runs on past round
+ * into a slight squash (at most SQUASH_MAX, a little narrower and taller)
+ * and settles in one soft wobble. And it leads: the stretch reaches a touch
+ * further ahead of the finger than behind it (DROP_LEAD of it), the way a
+ * drop pulled across glass is fuller at its front. All of it is one
+ * `transform` on the lens, written once a frame under a finger and sampled
+ * into the landing spring's keyframes after it, so it runs on the
+ * compositor like the rest. It never passes STRETCH_MAX, so the widest the
+ * lens gets is unchanged.
+ */
+const DROP_SPRING = { stiffness: 420, damping: 9 }
+const SQUASH_MAX = 0.03
+const DROP_LEAD = 0.2
+type Drop = { d: number; dv: number; dir: number }
+/** One step of the drop's spring towards the stretch `speed` asks for; `ms` is split so a slow frame stays stable. */
+function stepDrop(drop: Drop, speed: number, ms: number) {
+  if (Math.abs(speed) > 0.02) drop.dir = Math.sign(speed)
+  const target = stretchFor(speed)
+  let left = ms / 1000
+  while (left > 0) {
+    const dt = Math.min(left, 1 / 120)
+    left -= dt
+    drop.dv += (DROP_SPRING.stiffness * (target - drop.d) - DROP_SPRING.damping * drop.dv) * dt
+    drop.d = Math.max(-SQUASH_MAX, Math.min(STRETCH_MAX, drop.d + drop.dv * dt))
+  }
 }
+/** The lens's shape for a drop: wider and a little flatter while stretched, leaning the way it goes; narrower and taller in the squash. */
+function dropStyle(drop: Drop): string {
+  const d = drop.d
+  if (Math.abs(d) < 0.002) return "scale(1, 1)"
+  const lead = d > 0 ? Math.round(drop.dir * d * DOT * DROP_LEAD * 100) / 100 : 0
+  return `translateX(${lead}px) scale(${Math.round((1 + d) * 1000) / 1000}, ${Math.round((1 - d * 0.5) * 1000) / 1000})`
+}
+const dropSettled = (drop: Drop) => Math.abs(drop.d) < 0.002 && Math.abs(drop.dv) < 0.05
 
 /**
  * The spring from `from` (px, with `speed` px/ms) to `to`, as keyframes of
@@ -879,7 +922,7 @@ const stretchStyle = (speed: number): string => {
  * stable for these constants and ends when both the distance and the speed
  * are below what a screen can show.
  */
-function settleSpring(from: number, speed: number, to: number): { frames: Keyframe[]; ms: number } {
+function settleSpring(from: number, speed: number, to: number, drop: Drop = { d: stretchFor(speed), dv: 0, dir: Math.sign(speed) }): { frames: Keyframe[]; ms: number } {
   const dt = 1 / 120
   let x = from - to
   let v = speed * 1000
@@ -887,10 +930,13 @@ function settleSpring(from: number, speed: number, to: number): { frames: Keyfra
   let t = 0
   for (let i = 0; i < 240; i++) {
     const place = `${Math.round((to + x) * 100) / 100}px 0`
-    frames.push({ translate: place, transform: stretchStyle(v / 1000) })
-    if (Math.abs(x) < 0.05 && Math.abs(v) < 5) break
+    /* The drop's shape rides along on its own spring, from the stretch it
+       had under the finger: the landing and the settling are one motion. */
+    frames.push({ translate: place, transform: dropStyle(drop) })
+    if (Math.abs(x) < 0.05 && Math.abs(v) < 5 && dropSettled(drop)) break
     v += (-SPRING.stiffness * x - SPRING.damping * v) * dt
     x += v * dt
+    stepDrop(drop, v / 1000, dt * 1000)
     t += dt
   }
   const rest = `${to}px 0`
@@ -1010,6 +1056,32 @@ const LIFT = 1.04
 const LIFT_EASE = `scale 200ms cubic-bezier(0.32, 0.72, 0, 1)`
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  A TAP HAS A LITTLE GIVE
+ * ═══════════════════════════════════════════════════════════════════════════
+ * "Make tapping an icon feel a touch more satisfying: a subtle press scale,
+ * a spring, nothing big." The icon you touch gives under the finger, to 0.9,
+ * and springs back through 1.03 to rest, in 420ms.
+ *
+ * What it is careful not to be is the bump this bar spent so long losing:
+ * the lens does not move or grow on a tap (it is still simply on the icon),
+ * the glyph does not change its box or its place (a scale about its own
+ * centre, on its own `scale` property), and it is the same every time. That
+ * last is why it is one fixed animation started on the touch rather than a
+ * pressed state eased in and out: a tap is over in sixty milliseconds, so a
+ * held squeeze would be cut off at a different depth on every tap, which is
+ * exactly what the old lift did. Played by the compositor with no fill, so
+ * when it ends nothing is left on the icon.
+ */
+const TAP_PULSE: Keyframe[] = [
+  { scale: "1", easing: "cubic-bezier(0.3, 0, 0.7, 1)" },
+  { scale: "0.9", offset: 0.2, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" },
+  { scale: "1.03", offset: 0.6, easing: "cubic-bezier(0.45, 0, 0.55, 1)" },
+  { scale: "1", offset: 1 },
+]
+const TAP_PULSE_MS = 420
+
+/**
  * Three bars that become a cross.
  *
  * The bars used to sit 4px apart, which at 1.6px of stroke leaves 2.4px of
@@ -1103,6 +1175,8 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
   const offsetRef = useRef(0)
   /* How fast it is going, px per ms, smoothed; and when it was last drawn. */
   const speedRef = useRef(0)
+  /* The drop's shape and its spring (A DROP OF WATER, above). */
+  const dropRef = useRef<Drop>({ d: 0, dv: 0, dir: 1 })
   const stampRef = useRef(0)
   /* The spring a released drag is on, and the slot it is landing on. */
   const settleRef = useRef<Animation | null>(null)
@@ -1150,8 +1224,7 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
     const dot = dotRef.current
     if (!dot || posRef.current == null) return
     dot.style.translate = `${Math.round(posRef.current * 100) / 100}px 0`
-    const k = stretchFor(speedRef.current)
-    dot.style.transform = k > 0.004 ? stretchStyle(speedRef.current) : ""
+    dot.style.transform = dropSettled(dropRef.current) ? "" : dropStyle(dropRef.current)
   }
   /**
    * One frame under a finger: the finger's place, plus what is left of the
@@ -1171,6 +1244,7 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
     const blend = 1 - Math.pow(0.55, dt / 16.7)
     speedRef.current += ((next - posRef.current) / dt - speedRef.current) * blend
     posRef.current = next
+    stepDrop(dropRef.current, speedRef.current, dt)
     paint()
     frameRef.current = requestAnimationFrame(step)
   }
@@ -1211,10 +1285,12 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
     const from = posRef.current ?? drawnAt()
     if (!dot || from == null) return
     const speed = speedRef.current
+    const drop = { ...dropRef.current }
+    dropRef.current = { d: 0, dv: 0, dir: drop.dir }
     dot.style.translate = `${to}px 0`
     dot.style.transform = ""
     if (typeof dot.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    const { frames, ms } = settleSpring(from, speed, to)
+    const { frames, ms } = settleSpring(from, speed, to, drop)
     const a = dot.animate(frames, { duration: ms, easing: "linear" })
     settleRef.current = a
     settleToRef.current = to
@@ -1259,6 +1335,7 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
       posRef.current = drawn
       offsetRef.current = drawn - leftFor(clientX)
       speedRef.current = 0
+      dropRef.current = { d: 0, dv: 0, dir: 1 }
       stampRef.current = 0
       setFollowing(true)
       /* And a drag, released, is the gesture the spring was asked for. */
@@ -1334,7 +1411,7 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
     if (settleToRef.current === to) return
     stopSettle()
     const at = drawnAt()
-    if (at != null && Math.abs(at - to) < 0.05 && Math.abs(speedRef.current) < 0.01) {
+    if (at != null && Math.abs(at - to) < 0.05 && Math.abs(speedRef.current) < 0.01 && dropSettled(dropRef.current)) {
       if (dotRef.current) dotRef.current.style.translate = `${to}px 0`
       return
     }
@@ -1524,7 +1601,16 @@ export function MobileNavPill({
   /* The page under the finger starts coming the moment it lands, not when it
      lifts: the length of the tap is a head start for the server, and a page
      already warm is not fetched again (prefetchAppPage). */
+  const linkRefs = useRef<(HTMLAnchorElement | null)[]>([])
+  const pulse = (index: number) => {
+    const glyph = linkRefs.current[index]?.firstElementChild as HTMLElement | null | undefined
+    if (!glyph || typeof glyph.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    for (const a of glyph.getAnimations()) if (a.id === "tap") a.cancel()
+    const a = glyph.animate(TAP_PULSE, { duration: TAP_PULSE_MS })
+    a.id = "tap"
+  }
   const slide = useSlide(items.length, pick, (index) => {
+    pulse(index)
     const item = items[index]
     if (item && index !== current) onPrefetch?.(item.href)
   })
@@ -1766,6 +1852,7 @@ export function MobileNavPill({
             return (
               <Link
                 key={item.key}
+                ref={(el) => { linkRefs.current[i] = el }}
                 href={item.href}
                 aria-label={item.label}
                 aria-current={on ? "page" : undefined}
