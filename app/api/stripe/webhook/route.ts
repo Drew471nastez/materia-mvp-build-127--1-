@@ -5,10 +5,10 @@ import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail, sendDisputeCreatedEmail, sendDisputeWonEmail, sendDisputeLostEmail } from "@/lib/email"
-import { v4 as uuidv4 } from "uuid"
 import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
-import { recordContactSource } from "@/lib/contacts/contact-source"
+import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
+import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
 import { fulfilCartSession, isCartSession } from "@/lib/checkout/fulfil-cart-session"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 import { maskEmail } from "@/lib/privacy/mask-email"
@@ -483,42 +483,19 @@ export async function POST(request: Request) {
         { onConflict: "email,creator_id", ignoreDuplicates: false }
       )
 
-      const normalizedEmail = buyerEmail.toLowerCase().trim()
-      const { data: existingSubscriber } = await supabaseAdmin
-        .from("subscribers")
-        .select("id, status")
-        .eq("creator_id", creatorId)
-        .eq("email", normalizedEmail)
-        .maybeSingle()
-
-      if (!existingSubscriber) {
-        const unsubscribeToken = uuidv4()
-        const buyerName = `${buyerFirstName || ""} ${buyerLastName || ""}`.trim() || null
-        await supabaseAdmin.from("subscribers").insert({
-          email: normalizedEmail,
-          name: buyerName,
-          source: "checkout",
-          source_id: order.id,
-          creator_id: creatorId,
-          status: "subscribed",
-          is_active: true,
-          subscribed_at: new Date().toISOString(),
-          consent_text: "Subscribed via product checkout",
-          consent_timestamp: new Date().toISOString(),
-          unsubscribe_token: unsubscribeToken,
-        })
-        await recordContactSource(supabaseAdmin, creatorId, normalizedEmail, { surface: "checkout" })
-      } else if (existingSubscriber.status === "unsubscribed") {
-        await supabaseAdmin
-          .from("subscribers")
-          .update({
-            status: "subscribed",
-            is_active: true,
-            subscribed_at: new Date().toISOString(),
-            unsubscribed_at: null,
-          })
-          .eq("id", existingSubscriber.id)
-      }
+      /* The buyer as the creator's contact: subscribed only with the
+         session's own yes, a customer otherwise, and never back on the list
+         after unsubscribing (lib/contacts/checkout-contact). This used to
+         subscribe every buyer of an older session. */
+      await recordCheckoutContact(supabaseAdmin, {
+        creatorId,
+        email: buyerEmail,
+        name: `${buyerFirstName || ""} ${buyerLastName || ""}`.trim(),
+        orderId: order.id,
+        basis: metadata.email_opt_in === "true" ? "ticked" : "none",
+        bought: true,
+        source: contactSourceOfOrder(orderOriginFrom(metadata), productId),
+      })
     }
 
     // Entitlement

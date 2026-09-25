@@ -12,9 +12,11 @@ import "server-only"
  * path: see triggerEmailFlows in lib/email.tsx.
  */
 
-import { APP_URL, standingOf } from "@/lib/email-automation"
-import type { FlowRow, Identity, JobRow, RunRow, SendBegin, Standing, Store } from "./engine"
+import { APP_URL } from "@/lib/email-automation"
+import type { Brand, FlowRow, Identity, JobRow, RunLinks, RunRow, SendBegin, Standing, Store } from "./engine"
 import type { TriggerType } from "./flow-model"
+import { textOn } from "./merge-fields"
+import type { CheckoutStart, StartOutcome, StartsStore } from "./abandoned"
 
 type Db = { from: (table: string) => any; rpc: (fn: string, args?: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 type PgError = { code?: string; message?: string } | null | undefined
@@ -40,8 +42,51 @@ function likeExact(value: string): string {
 
 const FLOW_COLUMNS = "id, creator_id, name, trigger_type, trigger_config, status, steps"
 
+/** Statuses that mean "do not email this person", however they got there. */
+const SUPPRESSED = new Set(["unsubscribed", "bounced", "complained", "cleaned"])
+
+/** Orders that were paid for, refunded or not: "has bought before". */
+const PAID = ["completed", "refunded", "partially_refunded", "disputed"]
+
+/**
+ * Where this address stands with this creator's contacts
+ * (lib/contacts/checkout-contact says who is which). No row is not
+ * suppressed: a buyer from before contacts were recorded at checkout still
+ * gets their order's follow-up, as they always have, and nothing that sells.
+ */
+export async function contactStanding(db: Db, creatorId: string, email: string): Promise<Standing> {
+  const { data, error } = await db
+    .from("subscribers")
+    .select("status, is_active, unsubscribe_token")
+    .eq("creator_id", creatorId)
+    .eq("email", email.toLowerCase().trim())
+    .maybeSingle()
+  if (error || !data) return { suppressed: false, unsubscribeToken: null, subscribed: false, status: null }
+  const status = typeof data.status === "string" ? data.status : "subscribed"
+  const suppressed = SUPPRESSED.has(status) || data.is_active === false
+  return {
+    suppressed,
+    unsubscribeToken: typeof data.unsubscribe_token === "string" ? data.unsubscribe_token : null,
+    subscribed: !suppressed && status === "subscribed",
+    status: suppressed ? null : status === "customer" ? "customer" : status === "subscribed" ? "subscribed" : null,
+  }
+}
+
 export function supabaseStore(db: Db): Store {
-  const identities = new Map<string, Promise<Identity>>()
+  const identities = new Map<string, Promise<Identity & { handle: string | null }>>()
+  const identityOf = (creatorId: string) => {
+    let found = identities.get(creatorId)
+    if (!found) {
+      found = readIdentity(db, creatorId)
+      identities.set(creatorId, found)
+    }
+    return found
+  }
+  const creatorProducts = async (creatorId: string): Promise<string[]> => {
+    const { data, error } = await db.from("products").select("id").eq("creator_id", creatorId)
+    if (error) fail("read the products", error)
+    return (data ?? []).map((p: { id: string }) => p.id)
+  }
   return {
     async activeFlows(creatorId: string, trigger: TriggerType) {
       const { data, error } = await db.from("email_flows").select(FLOW_COLUMNS).eq("creator_id", creatorId).eq("trigger_type", trigger).eq("status", "active")
@@ -197,9 +242,7 @@ export function supabaseStore(db: Db): Store {
     },
 
     async purchasedSince(creatorId, email, sinceIso) {
-      const { data: products, error } = await db.from("products").select("id").eq("creator_id", creatorId)
-      if (error) fail("read the products", error)
-      const ids = (products ?? []).map((p: { id: string }) => p.id)
+      const ids = await creatorProducts(creatorId)
       if (ids.length === 0) return false
       const { count, error: ordersError } = await db
         .from("orders")
@@ -219,33 +262,182 @@ export function supabaseStore(db: Db): Store {
     },
 
     standing(creatorId, email): Promise<Standing> {
-      return standingOf(db, creatorId, email)
+      return contactStanding(db, creatorId, email)
     },
 
-    identity(creatorId) {
-      let found = identities.get(creatorId)
-      if (!found) {
-        found = readIdentity(db, creatorId)
-        identities.set(creatorId, found)
+    async identity(creatorId) {
+      const found = await identityOf(creatorId)
+      return { fromName: found.fromName, replyTo: found.replyTo, storeUrl: found.storeUrl, brand: found.brand }
+    },
+
+    async firstOrder(creatorId, email, orderId) {
+      const { data: order, error } = await db.from("orders").select("id, created_at").eq("id", orderId).maybeSingle()
+      if (error) fail("read the order", error)
+      if (!order) return false
+      const ids = await creatorProducts(creatorId)
+      if (ids.length === 0) return false
+      /* Earlier than this order, so the other lines of the same basket
+         (written after its first) are not "an earlier order". */
+      const { count, error: ordersError } = await db
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .in("product_id", ids)
+        .ilike("buyer_email", likeExact(email))
+        .in("status", PAID)
+        .neq("id", orderId)
+        .lt("created_at", order.created_at)
+      if (ordersError) fail("read the orders", ordersError)
+      return (count ?? 0) === 0
+    },
+
+    async exitRuns(creatorId, email, trigger, reason) {
+      const now = new Date().toISOString()
+      const { data, error } = await db
+        .from("email_flow_runs")
+        .update({ status: "exited", exit_reason: reason, finished_at: now, updated_at: now })
+        .eq("creator_id", creatorId)
+        .eq("email", email.trim().toLowerCase())
+        .eq("trigger_type", trigger)
+        .eq("status", "active")
+        .select("id")
+      if (error) {
+        if (isMissing(error)) return 0
+        fail("end the runs", error)
       }
-      return found
+      const ids = (Array.isArray(data) ? data : []).map((r: { id: string }) => r.id)
+      if (ids.length > 0) {
+        await db.from("email_flow_jobs").update({ state: "cancelled", last_error: reason, finished_at: now, updated_at: now }).in("run_id", ids).eq("state", "queued")
+      }
+      return ids.length
+    },
+
+    async links(run): Promise<RunLinks> {
+      const out: RunLinks = { productUrl: null, orderUrl: null, checkoutUrl: null }
+      const productId = run.context.product_id
+      if (!productId) return out
+      const { data: product, error } = await db.from("products").select("id, slug, creator_id").eq("id", productId).maybeSingle()
+      if (error) fail("read the product", error)
+      /* Only this creator's own product: a run's context is ours, but a
+         link in their email is checked against the row it names. */
+      if (!product || product.creator_id !== run.creator_id) return out
+      const { handle } = await identityOf(run.creator_id)
+      if (product.slug) out.productUrl = handle ? `${APP_URL}/${encodeURIComponent(handle)}/${encodeURIComponent(product.slug)}` : `${APP_URL}/p/${encodeURIComponent(product.slug)}`
+      out.checkoutUrl = `${APP_URL}/checkout?productId=${encodeURIComponent(product.id)}${run.context.variant_id ? `&variantId=${encodeURIComponent(run.context.variant_id)}` : ""}`
+      if (run.context.order_id) {
+        const { data: order, error: orderError } = await db.from("orders").select("receipt_token, product_id, buyer_email").eq("id", run.context.order_id).maybeSingle()
+        if (orderError) fail("read the order", orderError)
+        /* The order page is the key to the download: only ever for the
+           address the order was placed with, for this creator's product. */
+        const own = order && typeof order.receipt_token === "string" && order.receipt_token && (order.buyer_email ?? "").toLowerCase() === run.email && (order.product_id === product.id || (await creatorProducts(run.creator_id)).includes(order.product_id))
+        if (own) out.orderUrl = `${APP_URL}/receipt/${encodeURIComponent(order.receipt_token)}`
+      }
+      return out
     },
   }
 }
 
-async function readIdentity(db: Db, creatorId: string): Promise<Identity> {
-  const fallback = { fromName: "Storelib", replyTo: process.env.EMAIL_REPLY_TO || "support@storelib.com", storeUrl: APP_URL }
+/**
+ * The checkouts that reached Pay (lib/automations/abandoned.ts), on the table
+ * supabase/sql/RUN_CHECKOUT_CONTACTS.sql adds. Before it runs, `due` is null
+ * and nothing is swept.
+ */
+export function supabaseStarts(db: Db): StartsStore {
+  return {
+    async due(olderThanIso, newerThanIso, limit) {
+      const { data, error } = await db
+        .from("checkout_starts")
+        .select("id, creator_id, product_id, variant_id, product_title, email, first_name, email_opt_in, source_detail, created_at")
+        .is("handled_at", null)
+        .lt("created_at", olderThanIso)
+        .gt("created_at", newerThanIso)
+        .order("created_at", { ascending: true })
+        .limit(limit)
+      if (error) {
+        if (isMissing(error)) return null
+        fail("read the started checkouts", error)
+      }
+      return (data ?? []) as CheckoutStart[]
+    },
+    async settle(id, outcome: StartOutcome) {
+      const { data, error } = await db
+        .from("checkout_starts")
+        .update({ handled_at: new Date().toISOString(), outcome })
+        .eq("id", id)
+        .is("handled_at", null)
+        .select("id")
+      if (error) fail("settle a started checkout", error)
+      return Array.isArray(data) && data.length > 0
+    },
+    async release(id) {
+      await db.from("checkout_starts").update({ handled_at: null, outcome: null }).eq("id", id)
+    },
+  }
+}
+
+const HEX = /^#[0-9a-f]{6}$/i
+
+function httpsUrl(v: unknown): string | null {
+  if (typeof v !== "string" || v.length > 1000) return null
+  try {
+    const u = new URL(v.trim())
+    return u.protocol === "https:" ? u.toString() : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The creator as their emails show them. The name and address they send
+ * from, their page, and their brand: the published website's store name,
+ * logo and main colour when they have a site, their profile name and
+ * picture when they do not, and the /app ink when no colour was chosen.
+ */
+async function readIdentity(db: Db, creatorId: string): Promise<Identity & { handle: string | null }> {
+  const replyFallback = process.env.EMAIL_REPLY_TO || "support@storelib.com"
+  const plain = (name: string): Brand => ({ name, logoUrl: null, accentColor: "#1a1a2e", onAccent: "#ffffff" })
+  const fallback = { fromName: "Storelib", replyTo: replyFallback, storeUrl: APP_URL, brand: plain("Storelib"), handle: null }
   try {
     const { data: creator } = await db.from("creators").select("slug, headline, support_email, user_id").eq("id", creatorId).maybeSingle()
     if (!creator) return fallback
-    const { data: profile } = creator.user_id
-      ? await db.from("profiles").select("display_name, username, email").eq("id", creator.user_id).maybeSingle()
-      : { data: null }
+    const [{ data: profile }, site] = await Promise.all([
+      creator.user_id ? db.from("profiles").select("display_name, username, email, avatar_url").eq("id", creator.user_id).maybeSingle() : Promise.resolve({ data: null }),
+      readSiteBrand(db, creatorId),
+    ])
     const fromName = profile?.display_name?.trim() || profile?.username?.trim() || creator.headline?.trim() || creator.slug?.trim() || "Storelib"
-    const replyTo = (creator.support_email?.trim() || profile?.email?.trim() || fallback.replyTo).toLowerCase()
-    const handle = profile?.username?.trim() || creator.slug?.trim()
-    return { fromName, replyTo, storeUrl: handle ? `${APP_URL}/${encodeURIComponent(handle)}` : APP_URL }
+    const replyTo = (creator.support_email?.trim() || profile?.email?.trim() || replyFallback).toLowerCase()
+    const handle = profile?.username?.trim() || creator.slug?.trim() || null
+    const accent = site.color ?? "#1a1a2e"
+    const brand: Brand = {
+      name: site.name || fromName,
+      logoUrl: site.logo ?? httpsUrl(profile?.avatar_url),
+      accentColor: accent,
+      onAccent: textOn(accent),
+    }
+    return { fromName, replyTo, storeUrl: handle ? `${APP_URL}/${encodeURIComponent(handle)}` : APP_URL, brand, handle }
   } catch {
     return fallback
+  }
+}
+
+/** The published website's name, logo and main colour, when the creator has one. Never a draft. */
+async function readSiteBrand(db: Db, creatorId: string): Promise<{ name: string | null; logo: string | null; color: string | null }> {
+  const none = { name: null, logo: null, color: null }
+  try {
+    const { data: install } = await db
+      .from("store_theme_installs")
+      .select("id, store_theme_settings ( settings )")
+      .eq("creator_id", creatorId)
+      .eq("status", "published")
+      .order("sort_order", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    const row = install?.store_theme_settings
+    const settings = (Array.isArray(row) ? row[0]?.settings : row?.settings) as Record<string, unknown> | null | undefined
+    if (!settings || typeof settings !== "object") return none
+    const name = typeof settings.brand_name === "string" ? settings.brand_name.replace(/\s+/g, " ").trim().slice(0, 80) : ""
+    const color = [settings.primary_color, settings.accent_color].find((c): c is string => typeof c === "string" && HEX.test(c.trim()))
+    return { name: name || null, logo: httpsUrl(settings.logo_url), color: color ? color.trim().toLowerCase() : null }
+  } catch {
+    return none
   }
 }

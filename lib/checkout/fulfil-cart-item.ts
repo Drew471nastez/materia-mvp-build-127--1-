@@ -21,7 +21,8 @@ import "server-only"
  * as a second order. A retry after a partial failure writes only what is
  * missing.
  */
-import { v4 as uuidv4 } from "uuid"
+import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
+import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
 import { tagOrderSource, type OrderOrigin } from "@/lib/orders/order-source"
 import { recordCustomer } from "./fulfil-payment"
 
@@ -147,7 +148,7 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
  * The buyer's standing with this seller, which is about the basket rather
  * than about any one line in it, so it happens once per checkout.
  */
-export async function recordCartCustomer(ctx: FulfilContext, basketTotalCents: number, firstOrderId: string | null) {
+export async function recordCartCustomer(ctx: FulfilContext, basketTotalCents: number, firstOrderId: string | null, firstProductId?: string | null) {
   if (!ctx.buyerEmail || !ctx.creatorId) return
   const email = ctx.buyerEmail.toLowerCase().trim()
 
@@ -160,31 +161,17 @@ export async function recordCartCustomer(ctx: FulfilContext, basketTotalCents: n
     total: basketTotalCents,
   })
 
-  const { data: existing } = await ctx.admin
-    .from("subscribers")
-    .select("id, status")
-    .eq("creator_id", ctx.creatorId)
-    .eq("email", email)
-    .maybeSingle()
-
-  if (!existing) {
-    await ctx.admin.from("subscribers").insert({
-      email,
-      name: `${ctx.buyerFirstName ?? ""} ${ctx.buyerLastName ?? ""}`.trim() || null,
-      source: "checkout",
-      source_id: firstOrderId,
-      creator_id: ctx.creatorId,
-      status: "subscribed",
-      is_active: true,
-      subscribed_at: new Date().toISOString(),
-      consent_text: "Subscribed via cart checkout",
-      consent_timestamp: new Date().toISOString(),
-      unsubscribe_token: uuidv4(),
-    })
-  } else if (existing.status === "unsubscribed") {
-    await ctx.admin
-      .from("subscribers")
-      .update({ status: "subscribed", is_active: true, subscribed_at: new Date().toISOString(), unsubscribed_at: null })
-      .eq("id", existing.id)
-  }
+  /* Stripe's hosted page asks nothing about news, so a basket's buyer is a
+     customer contact, never subscribed on their behalf, and somebody who
+     unsubscribed stays that way (lib/contacts/checkout-contact). This used
+     to subscribe every buyer and put unsubscribed ones back on the list. */
+  await recordCheckoutContact(ctx.admin, {
+    creatorId: ctx.creatorId,
+    email,
+    name: `${ctx.buyerFirstName ?? ""} ${ctx.buyerLastName ?? ""}`.trim(),
+    orderId: firstOrderId,
+    basis: "none",
+    bought: true,
+    source: contactSourceOfOrder(ctx.origin, firstProductId),
+  })
 }
