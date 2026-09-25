@@ -318,6 +318,23 @@ console.log("\nThe country field, 390: the sheet")
     /* Every frame from the tap: where the list is scrolled, and where the sheet is. */
     window.__frames = []
     const t0 = performance.now()
+    /* A frame over 50ms, with what filled it: script, style and layout, or nothing of this page's (a busy machine). */
+    window.__loaf = []
+    try {
+      new PerformanceObserver((l) => {
+        for (const e of l.getEntries()) {
+          const end = e.startTime + e.duration
+          window.__loaf.push({
+            at: Math.round(e.startTime - t0), ms: Math.round(e.duration),
+            script: Math.round(e.scripts.reduce((a, x) => a + x.duration, 0)),
+            styleLayout: e.styleAndLayoutStart ? Math.round(end - e.styleAndLayoutStart) : 0,
+            render: e.renderStart ? Math.round(end - e.renderStart) : 0,
+          })
+        }
+      }).observe({ type: "long-animation-frame", buffered: false })
+    } catch {
+      /* An older browser: the frames alone say it. */
+    }
     const tick = () => {
       const s = document.querySelector("[data-choice-sheet]")?.closest("[data-sheet-scroll]")
       const panel = document.querySelector("[data-sheet-panel]") || s?.closest("[role=dialog]")
@@ -336,10 +353,12 @@ console.log("\nThe country field, 390: the sheet")
   await wait(1000)
   const frames = await p.evaluate(() => window.__frames)
   const lt = await p.evaluate(() => window.__lt)
+  const loaf = await p.evaluate(() => window.__loaf.filter((f) => f.at > -50 && f.at < 1000))
   const seen = frames.filter((f) => f.scroll !== null)
   const settled = seen[seen.length - 1]?.scroll
   const gaps = frames.slice(1).map((f, i) => f.t - frames[i].t)
   console.log(`  ${frames.length} frames in 900ms, longest gap ${Math.max(...gaps)}ms (gaps: ${gaps.join(" ")}); list scrolled to ${settled} on the first frame it was there: ${seen[0]?.scroll}; long tasks: ${lt.length ? lt.join(", ") + "ms" : "none"}`)
+  console.log(`  frames over 50ms: ${loaf.length ? loaf.map((f) => `at ${f.at}ms ${f.ms}ms (script ${f.script}, style and layout ${f.styleLayout}, render ${f.render})`).join("; ") : "none"}`)
   expect(seen.length > 0 && seen[0].scroll === settled && settled > 0, "the list is on Sweden from the first frame the sheet is drawn, and never jumps", { first: seen[0], settled })
   const ats = [...new Set(seen.map((f) => f.at))]
   const counts = [...new Set(seen.map((f) => f.rows))]
