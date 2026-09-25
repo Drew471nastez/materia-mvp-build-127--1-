@@ -311,12 +311,19 @@ check(
 
 check(
   "the panel closes on an outside press and on Escape",
-  /pointerdown/.test(switcher) && /e\.key === "Escape"/.test(switcher),
+  /pointerdown/.test(switcher) && /e\.key !== "Escape"/.test(switcher),
 )
 
 check(
   "and it grows from its trigger rather than fading in place",
-  /origin-top animate-in fade-in-0 zoom-in-95/.test(switcher),
+  /**
+   * From the top centre, where the pill is, by a short drop and a hair of
+   * scale; kept once opened so the close plays too (globals.css).
+   */
+  /className="wb-pages-menu /.test(switcher) &&
+    ((css) => /\.wb-pages-menu \{[\s\S]{0,120}transform-origin: 50% 0;/.test(css) && /translate3d\(0, -4px, 0\) scale\(0\.98\)/.test(css))(
+      readFileSync(join(root, "app/globals.css"), "utf8"),
+    ),
 )
 
 check(
@@ -327,9 +334,12 @@ check(
 )
 
 check(
-  "the pill pre-fills the search with the current path, selected",
-  // The way an address bar behaves: one keystroke replaces it.
-  /searchRef\.current\?\.select\(\)/.test(switcher),
+  "the pill opens with the cursor in an empty search and the page being edited ticked in view",
+  // It pre-filled the search with the current path; in a grouped list the
+  // page being edited is ticked and scrolled into view instead, and the
+  // first keystroke searches rather than replacing an address.
+  /autoFocus/.test(switcher) && /searchRef\.current\?\.focus\(\{ preventScroll: true \}\)/.test(switcher) &&
+    /aria-current=\{active \? "page" : undefined\}/.test(switcher) && /querySelector<HTMLElement>\("\[aria-current='page'\]"\)/.test(switcher),
 )
 
 // ===========================================================================
@@ -499,9 +509,9 @@ check(
 check(
   "the desktop pill can open the product page as a real product",
   // A template with placeholder data is not what a buyer sees.
-  /onSelectProduct=\{\(title\) =>/.test(editor) &&
+  /onSelectProduct=\{selectProductById\}/.test(editor) &&
     /handleSelectProductPage\(p\.id, p\.title\)/.test(editor) &&
-    /products\.map\(\(pr\) =>/.test(switcher),
+    /productRow\(row\.product\)/.test(switcher),
 )
 
 check(
@@ -1170,9 +1180,9 @@ check(
     /"transition-\[background-color,color\] duration-150 ease-out"/.test(library) &&
     !/transition-all/.test(libraryPhone) &&
     /className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3"/.test(library) &&
-    // the grid says it changed on a category, and not on every keystroke of a search
-    /Only a category change is announced; a keystroke is not\./.test(library) &&
-    /if \(!categoryChanged \|\| !grid/.test(library) &&
+    // a category changes which cards show and nothing else: no fade of the list on a pill or a keystroke
+    /THE LIST STARTS AT ITS TOP, IN THE SAME FRAME, AND THAT IS ALL\./.test(library) &&
+    !/categoryChanged/.test(library) &&
     ((css) => /\.wb-chip-row \{[\s\S]{0,200}?scroll-snap-type: x proximity;/.test(css))(
         readFileSync(join(root, "app/globals.css"), "utf8"),
       ),

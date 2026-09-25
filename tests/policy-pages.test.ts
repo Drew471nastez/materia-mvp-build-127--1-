@@ -27,6 +27,7 @@ import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { withLiveLinks } from "@/lib/website-builder/live-links"
 import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
+import { pageGroupOf } from "@/lib/website-builder/page-groups"
 import { applyUniversalChrome, chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -292,10 +293,17 @@ async function main() {
       })(),
     )
 
-    check("the pages group is shut until it is asked for", /const \[yoursOpen, setYoursOpen\] = useState\(false\)/.test(switcher))
+    /**
+     * The policies used to fold away with the creator's pages behind one row,
+     * and that group scrolled inside the panel that already scrolled:
+     * "sub-levels with sub scroll bars, it's weird and bad". They are a group
+     * of their own now, a heading in one list with one scroll
+     * (lib/website-builder/page-groups.ts, tests/library-and-pages.test.ts).
+     */
+    check("the policies are a group of their own in the page switcher", pageGroupOf("refund-policy") === "policies" && POLICY_PAGES.every((p) => pageGroupOf(p.key) === "policies"))
     check(
-      "and it scrolls inside itself past three",
-      /PAGES_BEFORE_SCROLL = 3/.test(switcher) && /yours\.length > PAGES_BEFORE_SCROLL/.test(switcher),
+      "and nothing in the switcher folds or scrolls inside itself",
+      !/yoursOpen|PAGES_BEFORE_SCROLL/.test(switcher) && (switcher.match(/overflow-y-auto/g) ?? []).length === 1,
     )
   }
 

@@ -25,7 +25,7 @@ This is the schema of the library's Accordion FAQ, `sections/faq_accordion.store
 | `settings` | no, none | The settings, in panel order. At most 120. |
 | `schema_version` | no, 1 | The schema format. A file asking for a newer one than the engine reads is refused rather than misread. |
 | `language_version` | no, 1 | The template language the file is written in. A file that says nothing is version 1 for good. |
-| `category` | no | Which group of Add Section lists it: `hero`, `products`, `features`, `content`, `social-proof`, `cta`, `media`, `about`, `faq` or `marketing`. A section you write is listed under Created by you, whatever it says. |
+| `category` | no | Which group of Add Section lists it: `hero`, `products`, `features`, `content`, `social-proof`, `cta`, `media`, `about`, `faq` or `marketing`. A section you write is listed under Created, whatever it says. |
 | `description` | no | Found by Add Section's search box. |
 | `icon` | no | Kept. Add Section does not show it. |
 | `version` | no | The section's own version. Nothing reads it yet. |

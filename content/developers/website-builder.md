@@ -50,7 +50,7 @@ The page's sections, top to bottom.
 
 ### Adding a section
 
-**Add section** opens the library: a search box, the categories down the side, and a card for each section drawn small with its real content. A section with several presets has a card for each. Sections you or Ask AI coded are under **Created by you**. Pick one and it is placed, selected and scrolled to.
+**Add section** opens the library: a search box, the categories down the side, and one card per row, each section drawn with its real content. A section with several presets has a card for each. Sections you or Ask AI coded are under **Created**. Pick one and it is placed, selected and scrolled to; on a phone its settings come up with it.
 
 The library's categories are Hero, Products, Features, Content, Social Proof, CTA, Media, About, FAQ and Marketing. A section is only in the library when its file declares a preset; see [Blocks](/developers/blocks#presets-fill-a-new-section).
 

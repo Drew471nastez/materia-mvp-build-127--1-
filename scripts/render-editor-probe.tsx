@@ -56,12 +56,19 @@ const probeGlobals = globalThis as unknown as {
   PROBE_SECURITY?: unknown
   /* The install's saved .storelib files, path to source (see the files route below). */
   PROBE_FILES?: Record<string, string>
+  /* More pages the install has saved (policies, the creator's own), by key, for the page switcher probe. */
+  PROBE_PAGES?: string[]
+  /* The store's products, for the page switcher probe. */
+  PROBE_PRODUCTS?: { id: string; title: string; slug?: string }[]
 }
 const install = {
   id: "probe-install", creator_id: "probe-creator", theme_id: "default", name: "Probe store", status: probeGlobals.PROBE_LIVE ? "published" : "draft",
   is_custom: false, parent_install_id: null, sort_order: 0, created_at: now, updated_at: now, published_at: probeGlobals.PROBE_LIVE ? now : null,
   settings: { id: "s1", install_id: "probe-install", settings: {}, draft_settings: null, created_at: now, updated_at: now },
-  pages: [{ id: "p1", install_id: "probe-install", page_key: "home", sections: [], created_at: now, updated_at: now }],
+  pages: [
+    { id: "p1", install_id: "probe-install", page_key: "home", sections: [], created_at: now, updated_at: now },
+    ...(probeGlobals.PROBE_PAGES ?? []).map((key, i) => ({ id: `p${i + 2}`, install_id: "probe-install", page_key: key, sections: [], created_at: now, updated_at: now })),
+  ],
 }
 
 const calls: string[] = []
@@ -84,7 +91,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (/\/themes\/probe-install\/files/.test(url)) return json({ files: probeGlobals.PROBE_FILES ?? [] })
   if (/\/themes\/probe-install\/backups/.test(url)) return json({ backups: [] })
   if (/\/themes\/probe-install$/.test(url)) return json({ install, username: "probe" })
-  if (/\/products/.test(url)) return json({ products: [] })
+  if (/\/products/.test(url)) return json({ products: probeGlobals.PROBE_PRODUCTS ?? [] })
   if (/\/setup/.test(url)) return json({ setup: {} })
   return json({})
 }

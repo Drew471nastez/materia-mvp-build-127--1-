@@ -941,7 +941,7 @@ section("Add Section is derived from the files, one card per preset")
    * The manifest is the library. A .storelib the theme ships and does not
    * list has been retired from Add Section — it still renders, and every
    * page using it keeps working, but it is not offered again. A section a
-   * creator wrote is not the theme's and comes in under "Created by you".
+   * creator wrote is not the theme's and comes in under "Created".
    */
   check("a .storelib the theme ships but does not list is retired, not auto-added", !derived.includes("extra"))
   check("JSON-described sections are untouched", derived.includes("faq") && derived.includes("cta"))
@@ -955,7 +955,8 @@ section("Add Section is derived from the files, one card per preset")
   check("the library is ten categories of three, and About also has the contact form", ADDABLE_SECTIONS.length === 31 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 10 && STORELIB_SCHEMAS.contact?.category === "about", `${ADDABLE_SECTIONS.length} sections`)
   check("every one of them is a .storelib file with a preset", ADDABLE_SECTIONS.every((t) => STORELIB_SCHEMAS[t] && (STORELIB_SCHEMAS[t].presets?.length ?? 0) > 0))
   check("the sections it retired still render, so no page using one goes blank", RETIRED_SECTIONS.length > 0 && RETIRED_SECTIONS.every((t) => !!SECTION_SCHEMAS[t]) && !RETIRED_SECTIONS.some((t) => ADDABLE_SECTIONS.includes(t)))
-  check("a creator's own section is filed under its own heading", CUSTOM_SECTION_CATEGORY === "yours" && SECTION_CATEGORIES.yours === "Created by you")
+  /* "'Created by you' should be called 'Created' only." */
+  check("a creator's own section is filed under its own heading, called Created", CUSTOM_SECTION_CATEGORY === "yours" && SECTION_CATEGORIES.yours === "Created")
 
   const editorSrc = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   /* Add a section lives in its own module: components/website-builder/editor/section-library.tsx. */
@@ -1060,7 +1061,7 @@ section("Add Section is derived from the files, one card per preset")
  * ===========================================================================
  */
 {
-  console.log("\n  Created by you")
+  console.log("\n  Created")
   const mine = customSectionSchemas({
     // The usual starting point: a copy of one of the theme's own sections,
     // which carries the theme's category with it.

@@ -408,7 +408,7 @@ export async function handleMcp(msg: RpcRequest, ops: BoundOps): Promise<RpcResp
             text(
               `${v.path} saved as a draft${v.created ? ", a new section" : ""}. updated_at ${v.updated_at ?? "unknown"}. ` +
                 (v.created
-                  ? "If the creator has the builder open it is on their page now; otherwise it is in Add Section under Created by you. "
+                  ? "If the creator has the builder open it is on their page now; otherwise it is in Add Section under Created. "
                   : "The builder shows the change. ") +
                 "It goes live when they publish.",
             ),

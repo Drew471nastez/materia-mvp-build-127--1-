@@ -2201,7 +2201,9 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
   }
   check(
     "the panels that scroll inside the Sections sheet carry the room themselves",
-    (editor.match(/<div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll/g) || []).length >= 6 &&
+    /* The Pages tab's scroller is the page list's own now (components/website-builder/page-switcher.tsx). */
+    (editor.match(/<div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll/g) || []).length >= 5 &&
+      /data-page-list-scroll=""\s*\n\s*data-sheet-scroll=""/.test(readFileSync(join(root, "components/website-builder/page-switcher.tsx"), "utf8")) &&
       /\[data-mobile-bottom-sheet\] \[data-sheet-scroll\]:has\(\[data-sheet-scroll\]:last-child\)::after \{\s*height: 0;/.test(css),
   )
 }

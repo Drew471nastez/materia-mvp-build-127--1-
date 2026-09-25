@@ -10,16 +10,26 @@
  * The 'Made by me' category pill should be first ... It should not glitch,
  * be very optimized for performance, not lag at all."
  *
+ * And then: "one section per row, not 2 per row", "it should not show at the
+ * end 'after (whatever)'", "'Created by you' should be called 'Created'", and
+ * "when I switch between the category pills of the sections, there should be
+ * no flash and no glitch in the preview cards".
+ *
  * One library, in two shells:
  *
  *   A PHONE     the builder's own sheet (MobileEditorSheet, the one Publish
  *               and the sections list use), over the sheet it was opened
- *               from. Under the title, where the section will go. A search
- *               box, the categories as a row of pills with the creator's own
- *               sections first, and the sections as a two column grid of
- *               phone sized previews.
- *   A COMPUTER  a dialog: the categories down the side, the same grid of
- *               desktop sized previews beside them.
+ *               from. A search box, the categories as a row of pills with
+ *               the creator's own sections first, and the sections one under
+ *               another: each a phone sized preview as wide as the sheet,
+ *               with its name under it.
+ *   A COMPUTER  a dialog: the categories down the side, the same single
+ *               column of desktop sized previews beside them.
+ *
+ * NO LINE SAYING WHERE IT GOES. The title used to carry "Between Hero and
+ * FAQ" or "At the end, after FAQ". The section lands where it was asked for
+ * and the canvas brings it on screen, which says it better than a sentence
+ * read before choosing.
  *
  * WHAT MAKES IT CHEAP
  *
@@ -30,23 +40,34 @@
  *   by the time anybody opens the library every preview is ready and opening
  *   it builds nothing. A card that is shown before its preview is ready
  *   holds a quiet grey box of the final size, and the preview fades in over
- *   it when it lands: nothing moves.
+ *   it once, when it lands in front of somebody: nothing moves.
  *
  *   A CATEGORY IS A FILTER, NOT A NEW LIST. Every card is built once and
- *   kept; choosing a category shows some and hides the rest, and the grid
- *   fades in from the top. Nothing is parsed, rebuilt or measured again.
+ *   kept; choosing a category shows some and hides the rest. Nothing is
+ *   parsed, rebuilt, measured or faded again: a preview that is drawn is
+ *   there, at full strength and in its place, from the first frame after the
+ *   press. It used to be otherwise twice over. The list faded in from a
+ *   quarter of its strength on every category, and each preview carried the
+ *   class that had faded it in when it first arrived; a CSS animation starts
+ *   again whenever its element comes back from `display: none`, so every
+ *   card a category showed again flashed up from nothing.
  *
  *   IMAGES WAIT. Every picture in a preview is `loading="lazy"`, and every
- *   card is `content-visibility: auto`, so the thirty cards below the fold
- *   cost nothing until they are scrolled to.
+ *   card below the first few of what is showing is `content-visibility:
+ *   auto`, so the thirty cards below the fold cost nothing until they are
+ *   scrolled to. The first few are drawn outright: a box the browser has
+ *   never drawn starts out skipped, and was grey for a few frames the first
+ *   time a category showed it.
  *
  *   ADDING CLOSES FIRST. The sheet starts to close on the tap, and the
  *   section is added on the next frame, so the close is already with the
  *   compositor while the canvas does its work (see the editor's
- *   addSection, which then slides the page open where it lands).
+ *   addSection, which then slides the page open where it lands, and on a
+ *   phone brings the sections sheet up on the new section's settings).
  *
  * scripts/check-add-section.mjs opens it, switches categories and adds a
- * section on a phone and a computer, and counts the frames.
+ * section on a phone and a computer, reads every frame of a category switch
+ * and films it, and follows the add until everything has settled.
  */
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react"
@@ -245,26 +266,81 @@ function useMarkup(key: string): string | undefined {
 
 /* ── A card ────────────────────────────────────────────────────────────── */
 
+/** A preview that lands in front of somebody comes in over the grey, once. */
+const ARRIVE_MS = 220
+const ARRIVE_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+
+/**
+ * In front of somebody: laid out (not in a category that is hidden), not in
+ * a closed sheet or dialog, and not below the fold where content-visibility
+ * skips it. A preview landing anywhere else is simply there when it is seen.
+ */
+function inFrontOfSomebody(el: HTMLElement): boolean {
+  const check = (el as HTMLElement & { checkVisibility?: (o?: Record<string, boolean>) => boolean }).checkVisibility
+  if (typeof check === "function") {
+    return check.call(el, { contentVisibilityAuto: true, visibilityProperty: true, opacityProperty: true })
+  }
+  return el.getClientRects().length > 0
+}
+
+function reducedMotion(): boolean {
+  try {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  } catch {
+    return false
+  }
+}
+
 const PreviewBox = memo(function PreviewBox({
   markupKey,
   width,
   renderWidth,
   ratio,
   live,
+  eager,
 }: {
   markupKey: string
   width: number
   renderWidth: number
   ratio: number
-  /** Its turn has come to be put in (see `filled` in the library). */
+  /** Its turn has come to be put in (see `live` in the library). */
   live: boolean
+  /** Among the first few of what is shown, so drawn the moment it is shown (see `eager` in the library). */
+  eager: boolean
 }) {
   const stored = useMarkup(markupKey)
   const markup = live ? stored : undefined
   /* The same object for the same markup, or React rewrites it on every render. */
   const html = useMemo(() => (markup ? { __html: markup } : null), [markup])
-  /* Fade only what arrives after the card was on screen; a ready preview is simply there. */
-  const [arrived] = useState(() => markup !== undefined)
+  /**
+   * ===========================================================================
+   *  A PREVIEW FADES IN ONCE, WHEN IT ARRIVES, AND NEVER AGAIN
+   * ===========================================================================
+   * The fade used to be a class, and a CSS animation on a class plays again
+   * every time its element comes back from `display: none`. A category hides
+   * the cards it does not want with exactly that, so every card a category
+   * showed again replayed its entrance from nothing, over a preview that had
+   * been drawn all along: the flash over the covers on every pill.
+   *
+   * So the fade is played by hand, by the Web Animations API, in the commit
+   * the preview lands in, and only if the box is in front of somebody right
+   * then. An animation played by hand runs on its own clock and is gone when
+   * it ends; hiding and showing the card afterwards has nothing to replay.
+   * A box that had its preview from the start fades nothing.
+   */
+  const innerRef = useRef<HTMLDivElement | null>(null)
+  const held = useRef(html !== null)
+  useLayoutEffect(() => {
+    const el = innerRef.current
+    if (!html || !el) {
+      held.current = false
+      return
+    }
+    if (held.current) return
+    held.current = true
+    if (reducedMotion() || typeof el.animate !== "function" || !inFrontOfSomebody(el)) return
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
+  }, [html])
   const height = Math.round(width * ratio)
   const scale = width > 0 ? width / renderWidth : 0.3
   const inner: CSSProperties = {
@@ -277,18 +353,20 @@ const PreviewBox = memo(function PreviewBox({
   }
   return (
     <div
+      data-preview-box=""
       className="relative w-full overflow-hidden bg-[#f3f4f6]"
       style={{
-        /* The box is its final size before anything is drawn in it, so the grid never moves. */
+        /* The box is its final size before anything is drawn in it, so the list never moves. */
         height: height || undefined,
         aspectRatio: height ? undefined : `1 / ${ratio}`,
-        contentVisibility: "auto",
+        contentVisibility: eager ? "visible" : "auto",
         containIntrinsicSize: `${width || 200}px ${height || 200}px`,
       }}
     >
       {html && (
         <div
-          className={cn("absolute left-0 top-0 origin-top-left bg-white", !arrived && "wb-preview-arrive")}
+          ref={innerRef}
+          className="absolute left-0 top-0 origin-top-left bg-white"
           data-keep-transform
           style={inner}
           aria-hidden
@@ -306,6 +384,7 @@ const LibraryCard = memo(function LibraryCard({
   ratio,
   hidden,
   live,
+  eager,
   phone,
   onAdd,
 }: {
@@ -315,6 +394,7 @@ const LibraryCard = memo(function LibraryCard({
   ratio: number
   hidden: boolean
   live: boolean
+  eager: boolean
   phone: boolean
   onAdd: (type: string, presetIndex: number) => void
 }) {
@@ -339,9 +419,10 @@ const LibraryCard = memo(function LibraryCard({
           !phone && "group-hover:border-[#d1d5db] group-hover:shadow-[0_6px_18px_-10px_rgba(15,23,42,0.35)] group-hover:-translate-y-px",
         )}
       >
-        <PreviewBox markupKey={entry.keyFor(renderWidth)} width={width} renderWidth={renderWidth} ratio={ratio} live={live} />
+        <PreviewBox markupKey={entry.keyFor(renderWidth)} width={width} renderWidth={renderWidth} ratio={ratio} live={live} eager={eager} />
       </div>
-      <span className="truncate px-0.5 text-[13px] font-medium leading-tight text-[#1a1a2e]">{entry.title}</span>
+      {/* The name under the picture; a size up on a phone, where the card is the width of the sheet. */}
+      <span className="truncate px-0.5 text-[14px] font-medium leading-tight text-[#1a1a2e] sm:text-[13px]">{entry.title}</span>
     </button>
   )
 })
@@ -359,10 +440,15 @@ interface LibraryEntry {
   keyFor: (width: number) => string
 }
 
+/** A card's own name: its React key, and what the set of filled previews holds. */
+const cardKey = (e: { type: string; presetIndex: number }) => `${e.type}-${e.presetIndex}`
+
 /** The shells swap here, as the rest of the builder's sheets do. */
 const PHONE_QUERY = "(max-width: 639px)"
 /** How many previews are put in per frame (or per idle moment) once they are drawn. */
 const FILL_PER_FRAME = 4
+/** How many at the top of what is showing are drawn outright rather than when the browser gets to them. */
+const EAGER_CARDS = 3
 /** How long after the editor has settled the previews start being drawn. */
 const WARM_AFTER_MS = 1800
 
@@ -374,7 +460,6 @@ export const SectionLibrary = memo(function SectionLibrary({
   addable,
   ownTypes,
   sources,
-  where,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -386,8 +471,6 @@ export const SectionLibrary = memo(function SectionLibrary({
   ownTypes: string[]
   /** Every .storelib file this install has saved, so the cards can draw them. */
   sources: Record<string, string>
-  /** Where the section will go, in words: "After Centered Hero". */
-  where?: string | null
 }) {
   const [phone, setPhone] = useState(false)
   useEffect(() => {
@@ -400,8 +483,12 @@ export const SectionLibrary = memo(function SectionLibrary({
 
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [query, setQuery] = useState("")
-  /** A fresh open starts at everything, with nothing typed. */
-  useEffect(() => {
+  /**
+   * A fresh open starts at everything, with nothing typed, from its first
+   * frame. Before paint: as an effect it ran after the library had been drawn
+   * once on the category it was left on, which then changed under the eye.
+   */
+  useLayoutEffect(() => {
     if (open) {
       setActiveCategory(null)
       setQuery("")
@@ -513,7 +600,7 @@ export const SectionLibrary = memo(function SectionLibrary({
 
   /**
    * ===========================================================================
-   *  THE PREVIEWS GO IN A FEW AT A TIME
+   *  THE PREVIEWS GO IN A FEW AT A TIME, AND ONCE IN, THEY STAY IN
    * ===========================================================================
    * A preview is markup, and markup has to be parsed: thirty-eight of them in
    * the one frame the library opens in was 539ms on a computer at a quarter
@@ -523,20 +610,60 @@ export const SectionLibrary = memo(function SectionLibrary({
    * content while closed (the phone's sheet, and the dialog below), so this
    * happens in idle time long before the library is opened; a library
    * opened sooner than that fills in a frame at a time, behind its entrance.
+   *
+   * WHICH CARDS HAVE THEIRS IS A SET THAT ONLY GROWS. It was a count, checked
+   * against each card's place in the order of the category on screen, and
+   * that order changes with every pill: a card near the top of one category
+   * could be twentieth in the next, past the count, and hand its preview
+   * back until the count caught up. A preview that is in stays in, whatever
+   * is chosen after it.
    */
-  const [filled, setFilled] = useState(0)
-  const filledRef = useRef(0)
-  const total = entries.length
+  const [live, setLive] = useState<ReadonlySet<string>>(() => new Set())
+  const liveRef = useRef(live)
+  /** The order the rest go in: what the current filter shows, top to bottom, then everything else. */
+  const order = useMemo(() => {
+    const out: string[] = []
+    for (const e of entries) if (shown.has(e)) out.push(cardKey(e))
+    for (const e of entries) if (!shown.has(e)) out.push(cardKey(e))
+    return out
+  }, [entries, shown])
+  const orderRef = useRef(order)
+  useEffect(() => {
+    orderRef.current = order
+  }, [order])
+  /**
+   * ===========================================================================
+   *  THE TOP OF A CATEGORY IS DRAWN THE MOMENT IT IS SHOWN
+   * ===========================================================================
+   * Every preview box is `content-visibility: auto`, which is what lets forty
+   * cards cost nothing below the fold. But a box the browser has never drawn
+   * starts out skipped, and it is only drawn once the browser has worked out
+   * that it is on screen, a frame or more later. A category shows cards that
+   * have been hidden since they were built, so the first time one was shown
+   * its previews came up as empty grey boxes for that long: filmed at a
+   * quarter speed, three to seven frames of grey before the picture.
+   *
+   * So the first few of whatever is showing are drawn outright, whatever the
+   * browser thinks of them yet. A switch starts the list at its top, so they
+   * are exactly the cards on screen; everything under them keeps its saving.
+   */
+  const eager = useMemo(() => new Set(order.slice(0, Math.min(EAGER_CARDS, shown.size))), [order, shown])
   useEffect(() => {
     if (!built) return
     let cancelled = false
     let raf = 0
     const step = () => {
       if (cancelled) return
-      const next = Math.min(total, filledRef.current + FILL_PER_FRAME)
-      filledRef.current = next
-      setFilled(next)
-      if (next >= total) return
+      const next = new Set(liveRef.current)
+      let added = 0
+      for (const k of orderRef.current) {
+        if (next.has(k)) continue
+        next.add(k)
+        if (++added === FILL_PER_FRAME) break
+      }
+      if (!added) return
+      liveRef.current = next
+      setLive(next)
       if (open) raf = requestAnimationFrame(step)
       else idle(step)
     }
@@ -545,24 +672,14 @@ export const SectionLibrary = memo(function SectionLibrary({
       cancelled = true
       cancelAnimationFrame(raf)
     }
-  }, [built, open, phone, total])
-  /** The order previews go in: what the current filter shows, top to bottom, then the rest. */
-  const rank = useMemo(() => {
-    const out = new Map<LibraryEntry, number>()
-    let i = 0
-    for (const e of entries) if (shown.has(e)) out.set(e, i++)
-    for (const e of entries) if (!out.has(e)) out.set(e, i++)
-    return out
-  }, [entries, shown])
+  }, [built, open, phone, entries])
 
   /* ── The column, measured once by the grid ── */
   const [gridWidth, setGridWidth] = useState(0)
   const gridObserver = useRef<ResizeObserver | null>(null)
-  const gridEl = useRef<HTMLDivElement | null>(null)
   const gridRef = useCallback((el: HTMLDivElement | null) => {
     gridObserver.current?.disconnect()
     gridObserver.current = null
-    gridEl.current = el
     if (!el) return
     /* `clientWidth`, not the box on screen: a closed dialog is drawn scaled
        down a touch, and a preview scaled to that would stop short of its card. */
@@ -573,37 +690,39 @@ export const SectionLibrary = memo(function SectionLibrary({
     gridObserver.current = ro
   }, [])
   useEffect(() => () => gridObserver.current?.disconnect(), [])
-  const GAP = phone ? 12 : 16
-  /* Two columns; the card's 1px border on each side is not the preview's. */
-  const cardWidth = gridWidth > 0 ? Math.floor((gridWidth - GAP) / 2) - 2 : 0
+  /**
+   * ONE CARD PER ROW, AS WIDE AS THE LIST. Two to a row made each preview
+   * a thumbnail a phone could not read. The card's 1px border on each side
+   * is not the preview's.
+   */
+  const cardWidth = gridWidth > 0 ? gridWidth - 2 : 0
 
   /**
    * THE PILLS START AT THE START. The row snaps to its pills, and the browser
    * keeps a snapped row on the pill it was snapped to when pills are added in
    * front of it: the creator's own sections arrive a moment after the editor
-   * loads, so the row opened scrolled to All with Created by you cut off.
+   * loads, so the row opened scrolled to All with Created cut off.
    */
   const pillRow = useRef<HTMLDivElement | null>(null)
   useLayoutEffect(() => {
     if (open && pillRow.current) pillRow.current.scrollLeft = 0
   }, [open])
 
-  /* ── A category or a search: the same cards, some hidden, the grid eased in ── */
+  /* ── A category or a search: the same cards, some hidden, nothing faded ── */
   const scroller = useRef<HTMLDivElement | null>(null)
   const filterKey = `${activeCategory ?? "all"}:${needle}`
   const lastFilter = useRef(filterKey)
+  /**
+   * THE LIST STARTS AT ITS TOP, IN THE SAME FRAME, AND THAT IS ALL. Before
+   * paint, so a category is never drawn at the scroll of the one before it.
+   * The list used to ease in from a quarter of its strength on every
+   * category as well, which over a column of pictures is a flash; what
+   * changed is already plain from the pill that was pressed.
+   */
   useLayoutEffect(() => {
     if (lastFilter.current === filterKey) return
-    const categoryChanged = lastFilter.current.split(":")[0] !== filterKey.split(":")[0]
     lastFilter.current = filterKey
     if (scroller.current) scroller.current.scrollTop = 0
-    const grid = gridEl.current
-    /* Only a category change is announced; a keystroke is not. */
-    if (!categoryChanged || !grid || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    grid.animate([{ opacity: 0.25, transform: "translate3d(0, 6px, 0)" }, { opacity: 1, transform: "none" }], {
-      duration: 200,
-      easing: "cubic-bezier(0.32, 0.72, 0, 1)",
-    })
   }, [filterKey])
 
   /**
@@ -653,25 +772,24 @@ export const SectionLibrary = memo(function SectionLibrary({
 
   const grid = built ? (
     <>
-      <div
-        ref={gridRef}
-        data-library-grid=""
-        className="grid grid-cols-2"
-        style={{ columnGap: GAP, rowGap: phone ? 16 : 20 }}
-      >
-        {entries.map((e) => (
-          <LibraryCard
-            key={`${e.type}-${e.presetIndex}`}
-            entry={e}
-            width={cardWidth}
-            renderWidth={renderWidth}
-            ratio={ratio}
-            hidden={!shown.has(e)}
-            live={(rank.get(e) ?? total) < filled}
-            phone={phone}
-            onAdd={handleAdd}
-          />
-        ))}
+      <div ref={gridRef} data-library-grid="" className="flex flex-col" style={{ rowGap: phone ? 20 : 24 }}>
+        {entries.map((e) => {
+          const k = cardKey(e)
+          return (
+            <LibraryCard
+              key={k}
+              entry={e}
+              width={cardWidth}
+              renderWidth={renderWidth}
+              ratio={ratio}
+              hidden={!shown.has(e)}
+              live={live.has(k)}
+              eager={eager.has(k)}
+              phone={phone}
+              onAdd={handleAdd}
+            />
+          )
+        })}
       </div>
       {shown.size === 0 && (
         <p className="py-16 text-center text-[14px] text-[#6b7280]">{empty}</p>
@@ -720,7 +838,6 @@ export const SectionLibrary = memo(function SectionLibrary({
         <div className="flex min-h-0 flex-1 flex-col" data-section-library="phone">
           <div className="shrink-0 px-4 pb-3 pt-0.5">
             <h2 className="text-[17px] font-semibold tracking-tight text-[#1a1a2e]">Add a section</h2>
-            {where && <p className="mt-0.5 truncate text-[13px] text-[#6b7280]" data-library-where="">{where}</p>}
           </div>
           <div className="shrink-0 px-4 pb-3">{search}</div>
           <div ref={pillRow} className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3" role="toolbar" aria-label="Categories">
@@ -730,7 +847,8 @@ export const SectionLibrary = memo(function SectionLibrary({
           <div
             ref={scroller}
             data-sheet-scroll
-            className="wb-slim-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-10 pt-4"
+            data-library-scroll=""
+            className="wb-slim-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-10 pt-4 [scrollbar-gutter:stable]"
           >
             {grid}
           </div>
@@ -743,10 +861,7 @@ export const SectionLibrary = memo(function SectionLibrary({
   return (
     <LibraryDialog open={open} onClose={() => onOpenChange(false)} labelledBy="section-library-title" searchRef={searchRef}>
       <div className="flex shrink-0 items-center gap-4 border-b border-[#f0f1f3] px-5 py-3.5">
-        <div className="min-w-0 shrink">
-          <h2 id="section-library-title" className="text-[16px] font-semibold text-[#1a1a2e]">Add a section</h2>
-          {where && <p className="truncate text-[13px] text-[#6b7280]" data-library-where="">{where}</p>}
-        </div>
+        <h2 id="section-library-title" className="min-w-0 shrink truncate text-[16px] font-semibold text-[#1a1a2e]">Add a section</h2>
         <div className="ml-auto w-[260px] max-w-full shrink-0">{search}</div>
         <button
           type="button"
@@ -781,7 +896,14 @@ export const SectionLibrary = memo(function SectionLibrary({
             )
           })}
         </nav>
-        <div ref={scroller} className="wb-slim-scroll min-w-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+        {/* The gutter is kept whether the list overflows or not, so a short
+            category cannot widen the column and redraw every card a size
+            bigger: nothing moves sideways between one pill and the next. */}
+        <div
+          ref={scroller}
+          data-library-scroll=""
+          className="wb-slim-scroll min-w-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 [scrollbar-gutter:stable]"
+        >
           {searching && (
             <p className="mb-3 text-[12.5px] text-[#6b7280]">
               {shown.size === 1 ? "1 section" : `${shown.size} sections`} matching “{query.trim()}”

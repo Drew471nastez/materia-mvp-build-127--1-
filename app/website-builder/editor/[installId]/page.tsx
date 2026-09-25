@@ -34,15 +34,14 @@ import { Badge } from "@/components/ui/badge"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
-import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
+import { MobileEditorSheet, sheetMoveMs } from "@/components/website-builder/mobile-editor-sheet"
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { MediaField } from "@/components/website-builder/editor/image-picker"
 import { SegmentedChoice, SettingSelect, fitsSegmented } from "@/components/website-builder/editor/setting-controls"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { altFieldFor, pairedAltIds } from "@/lib/website-builder/alt-pairing"
-import { whereItGoes } from "@/lib/website-builder/insert-words"
-import { measureSectionTops, playArrival } from "@/lib/website-builder/section-arrival"
+import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
 import { SectionLibrary } from "@/components/website-builder/editor/section-library"
 import {
   DEFAULT_DESKTOP_HEADER_LAYOUT,
@@ -67,7 +66,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { PageSwitcher } from "@/components/website-builder/page-switcher"
+import { PageList, PageSwitcher, type SwitcherPage } from "@/components/website-builder/page-switcher"
 import { PublishPanel } from "@/components/website-builder/publish-panel"
 import { PreviewModeSwitch, CodePane, type PreviewMode } from "@/components/website-builder/preview-mode-switch"
 import { ProjectSettings } from "@/components/website-builder/project-settings"
@@ -2261,7 +2260,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [schemeEditing, setSchemeEditing] = useState<{ key: string; from: Panel } | null>(null)
   const [addSectionOpen, setAddSectionOpen] = useState(false)
   /** A section just added, and where the page's sections were before it: see addSection. */
-  const arrivalRef = useRef<{ id: string; before: Map<string, number> } | null>(null)
+  const arrivalRef = useRef<{ id: string; before: Map<string, number>; bottomInset?: number } | null>(null)
+  /** Changed to send the phone's sections sheet back to its middle stop: see riseOnAdded. */
+  const [sheetRestKey, setSheetRestKey] = useState(0)
+  /** The sheet panel a section just added opens in, which arrives without its slide: see panelMove. */
+  const quietPanel = useRef<string | null>(null)
   // Absolute index in `sections` where a new section should be inserted.
   // Set when the user clicks an "insert between" divider in the sidebar.
   // null = append before the footer (default).
@@ -2481,7 +2484,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // ── New: Sidebar mode, page browser, product/collection pages ──
   const [sidebarMode, setSidebarMode] = useState<"sections" | "settings">("sections")
   const [pageBrowserOpen, setPageBrowserOpen] = useState(false)
-  const [pageBrowserSearch, setPageBrowserSearch] = useState("")
   const [products, setProducts] = useState<{ id: string; title: string; slug: string; thumbnail_url: string; price_cents: number; compare_at_cents: number | null; description: string; whats_included: string[]; gallery_urls: string[] }[]>([])
   const [productsLoading, setProductsLoading] = useState(false)
   const [selectedProductPage, setSelectedProductPage] = useState<string | null>(null)
@@ -4031,11 +4033,60 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * committed, and brings it on screen if it is not.
      */
     const scroller = document.getElementById("wb-preview-root")
-    arrivalRef.current = scroller ? { id: newSection.id, before: measureSectionTops(scroller) } : null
+    arrivalRef.current = scroller
+      ? {
+          id: newSection.id,
+          before: measureSectionTops(scroller),
+          /* On a phone the sheet is about to rise over the foot of the canvas: the section goes above it. */
+          bottomInset: isMobileView ? sheetCoverAbovePeek(document.documentElement.style) : undefined,
+        }
+      : null
     setSections(next)
     setSelectedPanel({ type: "section", sectionId: newSection.id })
+    quietPanel.current = `section:${newSection.id}`
+    /* Its settings are where the sidebar is looking, whichever tab it was on. */
+    setPageBrowserOpen(false)
+    setSidebarMode("sections")
     setIsDirty(true)
     if (!scroller) revealSection(newSection.id)
+    if (isMobileView) riseOnAdded(newSection.id)
+  }
+
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  ON A PHONE, A SECTION JUST ADDED COMES UP WITH ITS SETTINGS OPEN
+   * ═════════════════════════════════════════════════════════════════════════
+   * "It adds it smoothly and takes me to it, but not with the mobile bottom
+   * sheet open on that section's settings; it just shows me the section
+   * with it selected. It then needs to open, from the bottom, smoothly, the
+   * sections mobile bottom sheet."
+   *
+   * In order, one thing at a time. The library closes (it started on the
+   * tap). The section is selected the moment it is added, so the sheet's
+   * panel changes to its settings then, while the sheet is still down at its
+   * peek and that panel is out of sight. The canvas brings the section into
+   * the room the risen sheet will leave (the arrival's `bottomInset`, from
+   * the number the sheet publishes). Then, with the library gone and the
+   * canvas still, the sheet rises to the stop it always opens to: one
+   * movement, already on the panel it stays on, over a page that does not
+   * move under it. A sheet that was already open goes back to that stop, so
+   * it does not cover the section it was brought up for.
+   */
+  const cancelRise = useRef<(() => void) | null>(null)
+  useEffect(() => () => cancelRise.current?.(), [])
+  const riseOnAdded = (sectionId: string) => {
+    cancelRise.current?.()
+    cancelRise.current = afterAddSettles(
+      { waitMs: sheetMoveMs(), scroller: document.getElementById("wb-preview-root"), sectionId },
+      () => {
+        cancelRise.current = null
+        /* The library was opened again in the meantime: it owns the bottom of the screen. */
+        if (addSectionOpenRef.current) return
+        setAiOpen(false)
+        setMobileSidebarOpen(true)
+        setSheetRestKey((n) => n + 1)
+      },
+    )
   }
 
   // Add custom page
@@ -4616,20 +4667,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setAddSectionOpen(true)
   }, [])
 
-  /**
-   * Where the next section will go, in words, for the library's title: on a
-   * phone the library covers the gap that was tapped. Worked out only while
-   * the library is open, and kept while it closes so the line does not
-   * change under a sheet that is leaving.
-   */
-  const libraryWhereRef = useRef<string | null>(null)
-  const libraryWhere = useMemo(() => {
-    if (!addSectionOpen) return libraryWhereRef.current
-    const index = canvasInsertAt != null ? bodyGapToListIndex(sections, canvasInsertAt) : pendingInsertIndex
-    libraryWhereRef.current = whereItGoes(sections, index, s => sectionDisplayName(s, librarySchemas))
-    return libraryWhereRef.current
-  }, [addSectionOpen, canvasInsertAt, pendingInsertIndex, sections, librarySchemas])
-
   // Narrow the selected section id safely
   const selectedSectionId: string | null =
     selectedPanel.type === "section" ? (selectedPanel as { type: "section"; sectionId: string }).sectionId : null
@@ -4859,114 +4896,45 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   // ── Sidebar panel rendering ─────────────────────────────────
 
-  // Page browser content — shows all pages grouped by type
-  const renderPageBrowser = () => {
-    const search = pageBrowserSearch.toLowerCase()
-    const filteredProducts = products.filter(p => p.title.toLowerCase().includes(search))
-    const builtInPages = [
-      { name: "Home Page", key: "home" as PageKey },
-      { name: "About Page", key: "about" as PageKey },
-      { name: "Contact Page", key: "contact" as PageKey },
-      { name: "Shop", key: "products" as PageKey },
-      { name: "Search", key: "search" as PageKey },
-    ]
-    const allCustomPages = [
-      ...builtInPages,
-      ...customPages.map(p => ({ name: p.name, key: p.key })),
-    ].filter(p => p.name.toLowerCase().includes(search))
-
-    return (
-      <div className="flex flex-col h-full">
-        {/* Header with back button */}
-        <div className="px-4 py-3 border-b border-border shrink-0">
-          <button
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-2"
-            onClick={() => { setPageBrowserOpen(false); setSidebarMode("sections") }}
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back
-          </button>
-          <p className="text-sm font-semibold">Pages</p>
-        </div>
-
-        {/* Search */}
-        <div className="px-3 pt-3 pb-2 shrink-0">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Search for page..."
-              value={pageBrowserSearch}
-              onChange={e => setPageBrowserSearch(e.target.value)}
-              className="pl-8 h-8 text-sm"
-            />
-          </div>
-        </div>
-
-        <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-3 pb-4">
-
-          {/* Custom Pages */}
-          {allCustomPages.length > 0 && (
-            <div className="mb-4">
-              <div className="flex items-center justify-between px-1 mb-1.5">
-                <p className="text-xs font-bold text-foreground">Custom Pages</p>
-                <button className="text-muted-foreground hover:text-foreground cursor-pointer" title="Add page" onClick={() => setAddPageOpen(true)}>
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
-                {allCustomPages.map(p => (
-                  <button
-                    key={p.key}
-                    className={cn(
-                      "w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-muted/50",
-                      currentPage === p.key && !selectedProductPage ? "text-foreground font-medium bg-muted" : "text-foreground"
-                    )}
-                    onClick={() => handlePageChange(p.key)}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Product Pages */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between px-1 mb-1.5">
-              <p className="text-xs font-bold text-foreground">Product Pages</p>
-              <button className="text-muted-foreground hover:text-foreground" title="Add product page">
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            {productsLoading ? (
-              <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Loading products...
-              </div>
-            ) : filteredProducts.length > 0 ? (
-              <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
-                {filteredProducts.map(p => (
-                  <button
-                    key={p.id}
-                    className={cn(
-                      "w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-muted/50",
-                      selectedProductPage === p.title ? "text-foreground font-medium bg-muted" : "text-foreground"
-                    )}
-                    onClick={() => handleSelectProductPage(p.id, p.title)}
-                  >
-                    {p.title}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground px-3 py-2">No products found</p>
-            )}
-          </div>
-
-        </div>
-      </div>
-    )
+  /**
+   * EVERY PAGE THE SITE HAS, for the bar's page switcher and the Pages tab:
+   * the theme's own and the creator's, each with the address it is served at.
+   */
+  const sitePages = useMemo<SwitcherPage[]>(
+    () => [
+      ...(Object.keys(PAGE_META) as PageKey[]).map((k) => ({ key: k, name: PAGE_META[k].label, path: pagePath(k) })),
+      ...customPages.map((p) => ({ key: p.key as string, name: p.name, path: `/${p.key}`, custom: true })),
+    ],
+    [customPages],
+  )
+  const switcherProducts = useMemo(() => products.map((p) => ({ id: p.id, title: p.title })), [products])
+  const selectProductById = (id: string) => {
+    const p = products.find((x) => x.id === id)
+    if (p) void handleSelectProductPage(p.id, p.title)
   }
+
+  /**
+   * THE PAGES TAB IS THE PAGE SWITCHER'S OWN LIST (components/website-builder/
+   * page-switcher.tsx), light, and 48px a row on a phone, where this tab is
+   * the page switcher. It was a list of its own: a "Custom Pages" box holding
+   * Home, About and Contact beside the creator's pages, a "Product Pages" box,
+   * and no account, sign in or wishlist at all.
+   */
+  const renderPageBrowser = () => (
+    <PageList
+      className="h-full"
+      tone="light"
+      touch={isMobileView}
+      pages={sitePages}
+      current={currentPage}
+      currentProduct={selectedProductPage}
+      products={switcherProducts}
+      onSelect={(key) => { void handlePageChange(key as PageKey) }}
+      onSelectProduct={selectProductById}
+      onCreate={() => setAddPageOpen(true)}
+      onDelete={(key) => { void handleDeletePage(key) }}
+    />
+  )
 
   /**
    * WHICH PANEL IS IN THE SIDEBAR, as one string.
@@ -5025,9 +4993,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
   const panelMove = useRef<{ key: string; dir: number }>({ key: sidebarPanelKey, dir: 0 })
   if (panelMove.current.key !== sidebarPanelKey) {
+    /* A section just added changes the panel while nobody can see it (under the library, or below the
+       peek), so it arrives without a slide to be caught halfway as the sheet comes into view. */
+    const quiet = quietPanel.current === sidebarPanelKey
+    quietPanel.current = null
     panelMove.current = {
       key: sidebarPanelKey,
-      dir: panelDepth(sidebarPanelKey) - panelDepth(panelMove.current.key),
+      dir: quiet ? 0 : panelDepth(sidebarPanelKey) - panelDepth(panelMove.current.key),
     }
   }
   const panelDir = panelMove.current.dir
@@ -6541,14 +6513,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
           {!isMobileView && (
           <PageSwitcher
-            pages={[
-              ...(Object.keys(PAGE_META) as PageKey[]).map((k) => ({
-                key: k,
-                name: PAGE_META[k].label,
-                path: pagePath(k),
-              })),
-              ...customPages.map((p) => ({ key: p.key as string, name: p.name, path: `/${p.key}`, custom: true })),
-            ]}
+            pages={sitePages}
             current={currentPage}
             onSelect={(key) => { void handlePageChange(key as PageKey) }}
             onCreate={() => setAddPageOpen(true)}
@@ -6556,12 +6521,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             onReload={() => { void handlePageChange(currentPage) }}
             reloading={sectionsLoading}
             disabled={sectionsLoading}
-            products={products.map((p) => ({ id: p.id, title: p.title }))}
+            products={switcherProducts}
             currentProduct={selectedProductPage}
-            onSelectProduct={(title) => {
-              const p = products.find((x) => x.title === title)
-              if (p) handleSelectProductPage(p.id, p.title)
-            }}
+            onSelectProduct={selectProductById}
           />
           )}
 
@@ -6993,6 +6955,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           previewMode !== "code" && !projectSettingsOpen && (
           <MobileEditorSheet
             open={mobileSidebarOpen}
+            restKey={sheetRestKey}
             onOpenChange={(next) => {
               setMobileSidebarOpen(next)
               // Two sheets cannot both own the bottom of the screen. Whichever
@@ -7667,7 +7630,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         addable={libraryAddable}
         ownTypes={ownSectionTypes}
         sources={storelibSources}
-        where={libraryWhere}
       />
 
       {/* ── Add Custom Page Modal ── */}
@@ -8201,7 +8163,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
    * were before it went in. Played by the canvas in the commit that draws it
    * (lib/website-builder/section-arrival.ts).
    */
-  arrival?: { current: { id: string; before: Map<string, number> } | null }
+  arrival?: { current: { id: string; before: Map<string, number>; bottomInset?: number } | null }
   /** Saved .storelib files, path to source; see storelibSources in the editor. */
   sources: Record<string, string>
   /** Which page's sections these are, for `page.template` in a section. */
@@ -8252,7 +8214,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
        Read from the root's own style, where the sheet writes it: asking for
        the computed style here would make the browser restyle the page first. */
     const peek = parseFloat(document.documentElement.style.getPropertyValue("--wb-sheet-peek")) || 0
-    void playArrival(scroller, el, plan.before, { bottomInset: peek })
+    /* Unless the add says what will cover it: on a phone, the sheet that rises on the new section. */
+    void playArrival(scroller, el, plan.before, { bottomInset: plan.bottomInset ?? peek })
   }, [sections, arrival])
   /* One object per install. Inline, it was a new storefront context on every
      canvas render, and every section reading it rendered again past its memo. */
