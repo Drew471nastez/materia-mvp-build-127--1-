@@ -16,6 +16,8 @@ import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers
 import { soldOut, toCard } from "@/lib/website-builder/shop-products"
 import { DB_CATEGORY_TO_ID, categoryPath } from "@/lib/marketplace/categories"
 import { hasCategoryPage } from "@/lib/explore/category-pages"
+import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
+import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 
 let passed = 0
 let failed = 0
@@ -170,6 +172,33 @@ console.log("\nA product is described in its creator's words, with its real avai
     /inStock: !soldOut\(product\)/.test(site) && !/inStock: true/.test(site) && /\.from\("products"\)\s*\.select\("\*"\)/.test(site) && /products!inner \( \* \)/.test(site))
   check("and is described in the creator's words there too",
     /const ownTitle = typeof product\.seo_title === "string"/.test(site) && /plainSummary\(product\.seo_description \?\? "", 300\) \|\| plainSummary\(product\.description\)/.test(site))
+}
+
+console.log("\nA picture that means something says what it is")
+{
+  const onepage = read("components/onepage/public-onepage.tsx")
+  check("a OnePage names every product, link and file thumbnail by its title, and the avatar by the name",
+    !/alt=""/.test(onepage) && (onepage.match(/alt=\{data\.label \|\| ""\}/g) ?? []).length === 4 &&
+      (onepage.match(/alt=\{data\.product_title \|\| ""\}/g) ?? []).length === 3 && (onepage.match(/alt=\{data\.title \|\| ""\}/g) ?? []).length === 3 &&
+      /alt=\{quickCheckoutModalData\.productTitle\}/.test(onepage) && /alt=\{profile\.title \|\| ""\}/.test(onepage) && /alt=\{data\.headline \|\| ""\}/.test(onepage))
+  const product = read("components/website-builder/sections/renderers/ProductSection.tsx")
+  check("a website's product gallery names each thumbnail button by the product", !/alt=""/.test(product) && /alt=\{`\$\{title\} thumbnail \$\{i \+ 1\}`\}/.test(product))
+  check("the reference hero names the picture beside its heading", /alt=\{str\(s\.heading\)\}/.test(read("components/website-builder/sections/renderers/HeroSection.tsx")))
+  const hero = renderStorelibSection(
+    { id: "h1", type: "hero", name: "Hero", settings: { layout: "split", heading: "Film presets", hero_image: "https://cdn.example.com/hero.jpg" }, blocks: [] },
+    {} as ThemeSettingsValues,
+    { template: "index" },
+    {},
+  )
+  check("and the live hero does, drawn from the theme's own file", hero.ok === true && /<img src="https:\/\/cdn\.example\.com\/hero\.jpg" alt="Film presets"/.test(hero.html), hero.ok ? hero.html.slice(0, 200) : "did not render")
+  const split = renderStorelibSection(
+    { id: "h2", type: "hero_split", name: "Hero", settings: { heading: "Film presets", image: "https://cdn.example.com/split.jpg", image_alt: "" }, blocks: [] },
+    {} as ThemeSettingsValues,
+    { template: "index" },
+    {},
+  )
+  check("a split hero uses its own alt text, and its heading when that is empty", split.ok === true && /alt="Film presets"/.test(split.html))
+  check("a backdrop behind the text stays decorative", /class="hero__media" src="\{\{ settings\.bg_image \| asset \}\}" alt=""/.test(read("themes/default/sections/hero.storelib")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
