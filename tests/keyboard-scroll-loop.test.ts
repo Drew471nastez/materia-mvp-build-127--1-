@@ -87,9 +87,12 @@ function main() {
     the first one. A SUBcategory keeps its chip, because the row above only
     names the parent.
   */
+  /* The block ends where the note on the removed "Active:" row begins: that
+     row went when the filters became two questions (components/explore/
+     explore-filters.tsx), so its old marker is gone with it. */
   const mobileChip = explore.slice(
     explore.indexOf('NO "CLEAR" CHIP'),
-    explore.indexOf("Active Filters Pills"),
+    explore.indexOf("NO ROW OF ACTIVE FILTERS"),
   )
   check("the block exists to check", mobileChip.length > 0)
   check("it draws no Clear button", !/>\s*Clear\s*</.test(mobileChip), mobileChip.slice(0, 120))
@@ -100,7 +103,9 @@ function main() {
     the Active-filters row and the empty state — and were not what was
     reported. Named here so removing them later is a decision, not a slip.
   */
-  check("the filters row keeps its own Clear all", /Clear all/.test(explore))
+  /* The "Active:" row under the pills is gone; its Clear all lives in the
+     filters panel now, which is where the choices it clears are made. */
+  check("the filters panel keeps its own Clear all", /Clear all/.test(read("components/explore/explore-filters.tsx")))
   check("and the empty state keeps Clear filters", /Clear filters/.test(explore))
 
   console.log(`\n${passed} passed, ${failed} failed`)
