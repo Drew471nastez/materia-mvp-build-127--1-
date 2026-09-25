@@ -11,7 +11,8 @@
  *      those pages at the domain's addresses, and only the live primary
  *      domain names or serves a sitemap
  *   3. the sitemap's addresses are the ones the pages' canonical and og:url
- *      name, and there are no hreflang alternates to disagree
+ *      name, there are no hreflang alternates to disagree, and IndexNow is
+ *      told the domain's addresses too
  *
  * The readers run here against a small fake database. What proxy.ts sends
  * where is asked of the real proxy by scripts/check-domain-routing.mjs.
@@ -224,6 +225,10 @@ async function main() {
       /const pageAddress = pageHost \? `https:\/\/\$\{pageHost\}\/` : /.test(u) && /url: pageAddress,/.test(u) && /const canonicalUrl = getProductShareUrl\(creatorUsername, product\.slug, pageHost\)/.test(code("app/(marketing)/p/[slug]/page.tsx")))
     const pages = ["app/(marketing)/u/[username]/page.tsx", "app/(marketing)/p/[slug]/page.tsx", "app/(marketing)/l/[slug]/page.tsx", "app/(marketing)/[sellername]/page.tsx", "app/(marketing)/[sellername]/[productSlug]/page.tsx", "app/(marketing)/[sellername]/links/page.tsx"]
     check("no hreflang alternates on these pages that could name a second address", pages.every((p) => !/languages\s*:|hreflang|hrefLang/.test(code(p))))
+    const announce = code("lib/seo/announce.ts")
+    check("IndexNow is told the domain's addresses beside storelib.com's",
+      (announce.match(/urls\.push\(\.\.\.onPageDomain\(handle, pageHost, (p\.)?slug\)\)/g) ?? []).length === 2 && /\.\.\.onPageDomain\(handle, await activeDomainOf\(creatorId\)\)/.test(announce)
+        && /getProductShareUrl\(handle, slug, pageHost\), getStoreShareUrl\(handle, pageHost\)/.test(announce) && /getStoreShareUrl\(handle, pageHost\), getLinksShareUrl\(handle, pageHost\)/.test(announce))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
