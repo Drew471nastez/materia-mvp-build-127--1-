@@ -69,6 +69,8 @@ export interface FlowRow {
 export interface CampaignRow {
   id: string
   subject: string
+  /** Where its send is: queued, sending, sent, partially_failed, failed, cancelled. */
+  status?: string
   sent_at?: string
   scheduled_at?: string
   created_at: string
@@ -348,6 +350,15 @@ function Pager({ page, pages, total, onPage }: { page: number; pages: number; to
       </div>
     </div>
   )
+}
+
+/** A send that is not simply done says so, in the tone of how much it needs the creator. */
+function SendBadge({ status }: { status?: string }) {
+  if (status === "queued" || status === "sending") return <StatusBadge tone="attention">Sending</StatusBadge>
+  if (status === "partially_failed") return <StatusBadge tone="critical">Partly sent</StatusBadge>
+  if (status === "failed") return <StatusBadge tone="critical">Not sent</StatusBadge>
+  if (status === "cancelled") return <StatusBadge tone="neutral">Stopped</StatusBadge>
+  return null
 }
 
 function SubscriberStatus({ s }: { s: SubscriberRow }) {
@@ -683,7 +694,7 @@ function CampaignsTable(props: EmailsHomeProps) {
               {shown.map((c) => {
                 const recipients = c.recipient_count || c.audience_count || 0
                 const resent = /\(Resend\)/.test(c.subject ?? "")
-                const items: ActionMenuItem[] = sent
+                const items: ActionMenuItem[] = sent && (!c.status || c.status === "sent")
                   ? [
                       { label: "View results", onClick: () => props.onViewStats(c) },
                       { label: props.isSending ? "Sending…" : "Send again", onClick: () => { if (!props.isSending) props.onResend(c) } },
@@ -701,6 +712,7 @@ function CampaignsTable(props: EmailsHomeProps) {
                       <span className="flex min-w-0 max-w-[180px] items-center gap-2 sm:max-w-[320px]">
                         <span className="truncate font-medium">{(c.subject ?? "").replace(/\s*\(Resend\)\s*$/, "") || "Untitled"}</span>
                         {resent ? <StatusBadge tone="neutral">Sent again</StatusBadge> : null}
+                        {sent ? <SendBadge status={c.status} /> : null}
                       </span>
                     </td>
                     <td className={cn(td, "tabular-nums text-[#4b5563]")}>

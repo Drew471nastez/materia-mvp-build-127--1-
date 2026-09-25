@@ -112,6 +112,8 @@ export async function POST(request: Request) {
         break
     }
 
+    await recordCampaignDelivery(event, severity, eventData)
+
     // Log the event in email_events table
     // `.catch()` here threw instead of logging — a PostgREST builder has no
     // `catch` — so this webhook answered 500 on every delivery event.
@@ -133,6 +135,39 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("[mailgun-webhook] Error processing webhook:", error instanceof Error ? error.message : "unknown error")
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+/**
+ * A campaign message's fate, on its own recipient row. Campaign sends carry
+ * the row's id as a Mailgun variable (lib/email-campaigns/queue.ts), so the
+ * event names the exact row: delivered, or bounced for good. A row only
+ * moves forward, never back from bounced to delivered.
+ */
+async function recordCampaignDelivery(event: string, severity: string, eventData: any) {
+  const vars = eventData?.["user-variables"] || {}
+  const recipientId = typeof vars.recipient_id === "string" ? vars.recipient_id : null
+  const campaignId = typeof vars.campaign_id === "string" ? vars.campaign_id : null
+  if (!recipientId || !campaignId) return
+  const now = new Date().toISOString()
+  try {
+    if (event === "delivered") {
+      await supabaseAdmin
+        .from("campaign_recipients")
+        .update({ status: "delivered", delivered_at: now })
+        .eq("id", recipientId)
+        .eq("campaign_id", campaignId)
+        .in("status", ["sent", "sending"])
+    } else if (event === "failed" && severity === "permanent") {
+      await supabaseAdmin
+        .from("campaign_recipients")
+        .update({ status: "bounced", bounced_at: now, error_message: "The receiving mail server refused it." })
+        .eq("id", recipientId)
+        .eq("campaign_id", campaignId)
+        .in("status", ["sent", "sending", "delivered"])
+    }
+  } catch (err) {
+    console.error("[mailgun-webhook] campaign delivery not recorded:", err instanceof Error ? err.message : "unknown error")
   }
 }
 

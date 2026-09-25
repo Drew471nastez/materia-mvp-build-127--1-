@@ -49,7 +49,7 @@ import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
 import { EmailsHome, type FlowRow, type FlowTotals } from "./emails-home"
 import { useRouter } from "next/navigation"
 import { sourceView } from "@/lib/contacts/contact-source"
-import { EmailEditor } from "@/components/email/email-editor"
+import { EmailComposer } from "@/components/email/compose/composer"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -133,6 +133,8 @@ export default function EmailsPage() {
 
   // Editor state
   const [editingCampaign, setEditingCampaign] = useState<EmailCampaign | null>(null)
+  /** The email the composer has open: null for a new one. */
+  const [composeId, setComposeId] = useState<string | null>(null)
   const [subject, setSubject] = useState("")
   const [body, setBody] = useState("")
   const [previewText, setPreviewText] = useState("")
@@ -204,23 +206,21 @@ export default function EmailsPage() {
   useEffect(() => {
     const path = window.location.pathname
     if (path === "/app/emails/new") {
+      setComposeId(null)
       setView("editor")
     } else if (path.startsWith("/app/emails/edit/")) {
       const campaignId = path.split("/app/emails/edit/")[1]
       if (campaignId) {
-        ;(async () => {
-          const supabase = createClient()
-          const { data } = await supabase.from("email_campaigns").select("*").eq("id", campaignId).maybeSingle()
-          if (data) {
-            setEditingCampaign(data as EmailCampaign)
-            setSubject(data.subject || "")
-            setBody(data.body || "")
-            setPreviewText(data.preview_text || "")
-            setAudienceType(data.audience_type || "all")
-            setSelectedSegment(data.segment_id || "")
-            setView("editor")
-          }
-        })()
+        /* The composer reads the email itself, through /api/email/campaigns. */
+        setComposeId(campaignId)
+        setView("editor")
+      }
+    } else {
+      /* ?tab=drafts and friends, from the composer's way back. */
+      const wanted = new URLSearchParams(window.location.search).get("tab")
+      if (wanted === "drafts" || wanted === "scheduled" || wanted === "published" || wanted === "flows" || wanted === "subscribers") {
+        setActiveTab(wanted)
+        window.history.replaceState(window.history.state, "", "/app/emails")
       }
     }
   }, [])
@@ -400,11 +400,7 @@ export default function EmailsPage() {
 
   const handleNewEmail = () => {
     setEditingCampaign(null)
-    setSubject("")
-    setBody("")
-    setPreviewText("")
-    setAudienceType("all")
-    setSelectedSegment("")
+    setComposeId(null)
     setView("editor")
     // Update URL to /emails/new without full page reload
     window.history.pushState({}, "", "/app/emails/new")
@@ -412,11 +408,7 @@ export default function EmailsPage() {
 
   const handleEditCampaign = (campaign: EmailCampaign) => {
     setEditingCampaign(campaign)
-    setSubject(campaign.subject)
-    setBody(campaign.body)
-    setPreviewText(campaign.preview_text || "")
-    setAudienceType(campaign.audience_type)
-    setSelectedSegment(campaign.segment_id || "")
+    setComposeId(campaign.id)
     setView("editor")
     // Update URL to /emails/edit/id without full page reload
     window.history.pushState({}, "", `/app/emails/edit/${campaign.id}`)
@@ -478,7 +470,9 @@ export default function EmailsPage() {
 
       toast({
         title: "Email resent!",
-        description: `Successfully resent to ${responseData.sent} subscriber${responseData.sent !== 1 ? "s" : ""}. A new copy was created in your sent list.`,
+        description: responseData.recipients
+          ? `Sending to ${responseData.recipients} subscriber${responseData.recipients !== 1 ? "s" : ""}. The copy is in your sent list.`
+          : "The copy is in your sent list.",
       })
     } catch (error) {
       console.error("[emails page] Resend error:", error)
@@ -889,208 +883,20 @@ export default function EmailsPage() {
     )
   }
 
-  // Editor View - Using the new EmailBuilder component
+  // Editor View: the composer owns the email, its saving and its sending.
   if (view === "editor") {
-    const handleBuilderSave = async (data: { subject: string; body: string; previewText: string }) => {
-      if (!creatorId) return
-
-      setIsSaving(true)
-      const supabase = createClient()
-
-      // Extract segment_id from audienceType if it's a segment
-      const segmentId = audienceType.startsWith("segment:") ? audienceType.replace("segment:", "") : (selectedSegment || null)
-      const actualAudienceType = audienceType.startsWith("segment:") ? "segment" : audienceType
-
-      const campaignData = {
-        creator_id: creatorId,
-        subject: data.subject,
-        body: data.body,
-        preview_text: data.previewText || null,
-        status: "draft" as const,
-        audience_type: actualAudienceType,
-        segment_id: segmentId,
-      }
-
-      if (editingCampaign) {
-        await supabase
-          .from("email_campaigns")
-          .update(campaignData)
-          .eq("id", editingCampaign.id)
-      } else {
-        await supabase.from("email_campaigns").insert(campaignData)
-      }
-
-      setIsSaving(false)
-      setView("list")
-      setActiveTab("drafts")
-      loadData()
-      toast({ title: "Draft saved", description: "Your email draft has been saved." })
-    }
-
-    const handleBuilderSend = async (data: { subject: string; body: string; previewText: string }) => {
-      if (!creatorId) return
-
-      setIsSending(true)
-      const supabase = createClient()
-
-      try {
-        let campaignId = editingCampaign?.id
-
-        const campaignData = {
-          creator_id: creatorId,
-          subject: data.subject,
-          body: data.body,
-          preview_text: data.previewText || null,
-          audience_type: audienceType,
-        }
-
-        if (editingCampaign) {
-          await supabase
-            .from("email_campaigns")
-            .update(campaignData)
-            .eq("id", editingCampaign.id)
-        } else {
-          const { data: newCampaign } = await supabase
-            .from("email_campaigns")
-            .insert({ ...campaignData, status: "draft" })
-            .select()
-            .single()
-          campaignId = newCampaign?.id
-        }
-
-        if (!campaignId) {
-          throw new Error("Failed to create campaign")
-        }
-
-        console.log("[emails page] Sending campaign:", campaignId)
-
-        const response = await fetch("/api/email/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ campaign_id: campaignId }),
-        })
-
-        const responseData = await response.json()
-        console.log("[emails page] Send response:", responseData)
-
-        if (!response.ok) {
-          throw new Error(responseData.error || "Failed to send campaign")
-        }
-
-        // Navigate to Sent tab first
-        setView("list")
-        setActiveTab("published")
-
-        // Clear state to trigger loading state
-        setCampaigns([])
-        setOverviewStats(null)
-
-        // Small delay to ensure database transaction is complete, then fetch fresh data
-        await new Promise(resolve => setTimeout(resolve, 500))
-
-        console.log("[emails page] Refreshing Sent tab data...")
-        await loadData("published")
-
-        triggerSuccessToast()
-        if (window.innerWidth < 640) {
-          setIsMobileTopToastVisible(true)
-          window.setTimeout(() => setIsMobileTopToastVisible(false), 2500)
-        }
-      } catch (error) {
-        console.error("[emails page] Send error:", error)
-        toast({
-          title: "Failed to send",
-          description: error instanceof Error ? error.message : "An error occurred",
-          variant: "destructive",
-        })
-      } finally {
-        setIsSending(false)
-      }
-    }
-
-    const handleBuilderSchedule = async (data: { subject: string; body: string; previewText: string; scheduledAt: string }) => {
-      if (!creatorId) return
-
-      setIsSaving(true)
-      const supabase = createClient()
-
-      const campaignData = {
-        creator_id: creatorId,
-        subject: data.subject,
-        body: data.body,
-        preview_text: data.previewText || null,
-        status: "scheduled" as const,
-        audience_type: audienceType,
-        scheduled_at: new Date(data.scheduledAt).toISOString(),
-      }
-
-      if (editingCampaign) {
-        await supabase
-          .from("email_campaigns")
-          .update(campaignData)
-          .eq("id", editingCampaign.id)
-      } else {
-        await supabase.from("email_campaigns").insert(campaignData)
-      }
-
-      setIsSaving(false)
-      setView("list")
-      setActiveTab("scheduled")
-      loadData()
-      toast({
-        title: "Email scheduled",
-        description: "Your email has been scheduled.",
-      })
-    }
-
-    const handleSendTest = async (data: { subject: string; body: string; previewText: string; testEmail: string }) => {
-      try {
-        const response = await fetch("/api/email/send-test", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            subject: data.subject,
-            body: data.body,
-            preview_text: data.previewText,
-            test_email: data.testEmail,
-          }),
-        })
-
-        const responseData = await response.json()
-
-        if (!response.ok) {
-          throw new Error(responseData.error || "Failed to send test email")
-        }
-
-        toast({
-          title: "Test email sent!",
-          description: `A test email has been sent to ${data.testEmail}`,
-        })
-      } catch (error) {
-        toast({
-          title: "Failed to send test",
-          description: error instanceof Error ? error.message : "An error occurred",
-          variant: "destructive",
-        })
-      }
-    }
-
     return (
-      <EmailEditor
-        onBack={() => { setView("list"); window.history.pushState({}, "", "/app/emails"); }}
-        onSave={handleBuilderSave}
-        onSend={handleBuilderSend}
-        onSchedule={handleBuilderSchedule}
-        onSendTest={handleSendTest}
-        initialSubject={subject}
-        initialBody={body}
-        initialPreviewText={previewText}
-        audienceType={audienceType}
-        onAudienceChange={setAudienceType}
-        isSaving={isSaving}
-        isSending={isSending}
-        creatorId={creatorId || undefined}
-        sellerInfo={sellerInfo || undefined}
+      <EmailComposer
+        key={composeId ?? "new"}
+        campaignId={composeId}
+        onExit={(tab) => {
+          setView("list")
+          setComposeId(null)
+          window.history.pushState({}, "", "/app/emails")
+          const next = tab ?? activeTab
+          setActiveTab(next)
+          if (next === activeTab) loadData(next)
+        }}
       />
     )
   }
@@ -1157,7 +963,7 @@ export default function EmailsPage() {
           setShowDeleteDialog(true)
         }}
         campaigns={campaigns}
-        onOpenCampaign={(c) => (activeTab === "published" ? handleViewStats(c as EmailCampaign) : handleEditCampaign(c as EmailCampaign))}
+        onOpenCampaign={(c) => (activeTab === "published" && (c as EmailCampaign).status === "sent" ? handleViewStats(c as EmailCampaign) : handleEditCampaign(c as EmailCampaign))}
         onViewStats={(c) => handleViewStats(c as EmailCampaign)}
         onResend={(c) => handleResend(c as EmailCampaign)}
         onEditCampaign={(c) => handleEditCampaign(c as EmailCampaign)}

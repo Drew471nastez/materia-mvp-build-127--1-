@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { audienceRefusal, cleanDraft, DRAFT_COLUMNS } from "@/lib/email-campaigns/drafts"
+import { isResponse, readJson, requireCreator, UUID } from "@/lib/email-campaigns/route-auth"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -171,4 +173,42 @@ export async function GET(request: NextRequest) {
     console.error("[campaigns] Error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
+}
+
+/**
+ * POST: start a draft. The page picks the id, so a retried request (a slow
+ * network, a double tap) finds the draft it already made instead of making
+ * a second one.
+ */
+export async function POST(request: NextRequest) {
+  const ctx = await requireCreator()
+  if (isResponse(ctx)) return ctx
+  const body = await readJson(request)
+  const id = typeof body.id === "string" && UUID.test(body.id) ? body.id : null
+  const cleaned = await cleanDraft(ctx.admin, ctx.creatorId, body)
+  if (!cleaned.ok) return NextResponse.json({ error: cleaned.error, field: cleaned.field }, { status: cleaned.status })
+
+  const row = {
+    ...(id ? { id } : {}),
+    creator_id: ctx.creatorId,
+    subject: cleaned.patch.subject ?? "",
+    preview_text: cleaned.patch.preview_text ?? null,
+    body: cleaned.patch.body ?? "",
+    audience_type: cleaned.patch.audience_type ?? "all",
+    segment_id: cleaned.patch.segment_id ?? null,
+    status: "draft",
+  }
+  const { data, error } = await ctx.admin.from("email_campaigns").insert(row).select(DRAFT_COLUMNS).maybeSingle()
+  if (error?.code === "23505" && id) {
+    const { data: existing } = await ctx.admin.from("email_campaigns").select(DRAFT_COLUMNS).eq("id", id).eq("creator_id", ctx.creatorId).maybeSingle()
+    if (existing) return NextResponse.json({ campaign: existing })
+    return NextResponse.json({ error: "Could not start this draft. Reload and try again." }, { status: 409 })
+  }
+  if (error || !data) {
+    const refusal = await audienceRefusal(ctx.admin, error, row.audience_type)
+    if (refusal) return NextResponse.json({ error: refusal, field: "audience" }, { status: 422 })
+    console.error("[campaigns] draft insert failed:", error?.code)
+    return NextResponse.json({ error: "Could not save this draft. Check your connection and try again." }, { status: 500 })
+  }
+  return NextResponse.json({ campaign: data }, { status: 201 })
 }

@@ -1,6 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { monthlyLimit } from "@/lib/email-campaigns/limits"
+import { usedThisMonth } from "@/lib/email-campaigns/queue"
+
+/** The Sent view: everything that has been through Send, however it ended, so nothing disappears. */
+const SENT_VIEW = ["queued", "sending", "sent", "partially_failed", "failed", "cancelled"]
+/** A recipient row the provider accepted. */
+const WENT_OUT = ["sent", "delivered", "bounced", "complained"]
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -67,7 +74,7 @@ export async function GET(request: NextRequest) {
       .from("email_campaigns")
       .select("id, subject, preview_text, body, status, audience_type, audience_count, sent_at, created_at")
       .eq("creator_id", creator.id)
-      .eq("status", "sent")
+      .in("status", SENT_VIEW)
       .order("sent_at", { ascending: false, nullsFirst: false })
 
     if (campaignsError) {
@@ -86,11 +93,19 @@ export async function GET(request: NextRequest) {
     const campaignIds = campaigns.map(c => c.id)
 
     // Get recipient stats from campaign_recipients
-    const { data: recipientStats } = await adminSupabase
-      .from("campaign_recipients")
-      .select("campaign_id, status, opened_at, clicked_at")
-      .in("campaign_id", campaignIds)
-      .eq("status", "sent")
+    /* In pages: PostgREST answers a thousand rows at a time, and a list past that was undercounted. */
+    const recipientStats: { campaign_id: string; opened_at: string | null; clicked_at: string | null }[] = []
+    for (let from = 0; from < 200_000; from += 1000) {
+      const { data: page } = await adminSupabase
+        .from("campaign_recipients")
+        .select("campaign_id, opened_at, clicked_at")
+        .in("campaign_id", campaignIds)
+        .in("status", WENT_OUT)
+        .order("id", { ascending: true })
+        .range(from, from + 999)
+      recipientStats.push(...(page ?? []))
+      if (!page || page.length < 1000) break
+    }
 
     // Aggregate by campaign
     const statsByCampaign: Record<string, { sent: number; opened: number; clicked: number }> = {}
@@ -161,11 +176,9 @@ export async function GET(request: NextRequest) {
     const openRate = totalSent > 0 ? Math.round((totalOpens / totalSent) * 100) : 0
     const clickRate = totalSent > 0 ? Math.round((totalClicks / totalSent) * 100) : 0
 
-    // Monthly usage
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const monthlyEmailsSent = campaigns
-      .filter(c => c.sent_at && new Date(c.sent_at) >= startOfMonth)
-      .reduce((sum, c) => sum + (c.audience_count || 0), 0)
+    // Monthly usage, against the plan's own limit
+    const monthlyEmailsSent = await usedThisMonth(adminSupabase, creator.id)
+    const { data: plan } = await adminSupabase.from("creators").select("subscription_plan_id, subscription_status").eq("id", creator.id).maybeSingle()
 
     return createResponse({
       campaigns: campaignsWithStats,
@@ -179,7 +192,7 @@ export async function GET(request: NextRequest) {
       },
       monthlyUsage: {
         sent: monthlyEmailsSent,
-        limit: 3000,
+        limit: monthlyLimit(plan?.subscription_plan_id, plan?.subscription_status),
       },
     })
 
@@ -227,7 +240,8 @@ async function getCampaignDetails(adminSupabase: ReturnType<typeof createAdminCl
   }))
 
   // Calculate stats
-  const totalSent = recipients?.filter(r => r.status === "sent").length || 0
+  const totalSent = recipients?.filter(r => WENT_OUT.includes(r.status)).length || 0
+  const totalBounced = recipients?.filter(r => r.status === "bounced").length || 0
   const totalOpened = recipients?.filter(r => r.opened_at).length || 0
   const totalClicked = recipients?.filter(r => r.clicked_at).length || 0
   const totalUnsubscribed = unsubscribedEmails.size
@@ -246,10 +260,10 @@ async function getCampaignDetails(adminSupabase: ReturnType<typeof createAdminCl
     recipients: enrichedRecipients,
     stats: {
       sent: totalSent,
-      delivered: totalSent, // Assume all sent = delivered for now
+      delivered: totalSent - totalBounced,
       opened: totalOpened,
       clicked: totalClicked,
-      bounced: recipients?.filter(r => r.status === "bounced").length || 0,
+      bounced: totalBounced,
       unsubscribed: totalUnsubscribed,
       openRate: totalSent > 0 ? Math.round((totalOpened / totalSent) * 100) : 0,
       clickRate: totalSent > 0 ? Math.round((totalClicked / totalSent) * 100) : 0,

@@ -296,6 +296,81 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
 }
 
 /**
+ * ONE ATTEMPT, AND THE WHOLE ANSWER.
+ *
+ * The campaign queue (lib/email-campaigns/queue.ts) decides for itself what
+ * a 429, a 500 or a timeout means for the address it was about, and when to
+ * try again. So this makes exactly one request, with a timeout, and returns
+ * the status code with the result: no sleeping inside the request, no second
+ * try it cannot see, and no suppression lookups (the queue reads the list's
+ * own bounce and unsubscribe state, kept current by the Mailgun webhook).
+ *
+ * `messageId` fixes the Message-Id, so a message sent again after a crash
+ * carries the same id as the first and the receiving mailbox can recognise
+ * it as the same message.
+ */
+export interface MailgunOnceResult {
+  success: boolean
+  messageId?: string
+  status?: number
+  error?: string
+  timedOut?: boolean
+  notConfigured?: boolean
+}
+
+export async function sendMailgunOnce(
+  options: MailgunSendOptions & { messageId?: string },
+  { timeoutMs = 15_000 }: { timeoutMs?: number } = {},
+): Promise<MailgunOnceResult> {
+  if (!isMailgunConfigured()) return { success: false, notConfigured: true, error: "Mailgun is not configured" }
+  if (!isValidEmail(options.to)) return { success: false, status: 400, error: "Invalid email address" }
+
+  const form = new FormData()
+  form.append("from", options.from || EMAIL_FROM)
+  form.append("to", options.to)
+  form.append("subject", options.subject)
+  form.append("html", options.html)
+  form.append("text", options.text || htmlToPlainText(options.html))
+  form.append("h:Reply-To", options.replyTo || EMAIL_REPLY_TO)
+  if (options.messageId) form.append("h:Message-Id", options.messageId)
+  for (const [key, value] of Object.entries(options.headers ?? {})) form.append(`h:${key}`, value)
+  for (const tag of options.tags ?? []) form.append("o:tag", tag)
+  for (const [key, value] of Object.entries(options.metadata ?? {})) form.append(`v:${key}`, value)
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetch(`${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Basic ${Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64")}` },
+      body: form,
+      signal: controller.signal,
+    })
+    const raw = await response.text()
+    let data: { id?: string; message?: string } = {}
+    try {
+      data = JSON.parse(raw)
+    } catch {
+      data = {}
+    }
+    if (!response.ok) {
+      return { success: false, status: response.status, error: (data.message || response.statusText || "").slice(0, 200) }
+    }
+    return { success: true, status: response.status, messageId: data.id || options.messageId }
+  } catch (error) {
+    const aborted = error instanceof Error && error.name === "AbortError"
+    return { success: false, timedOut: aborted, error: aborted ? "Timed out" : "Network error" }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** The domain campaign mail is sent from, for Message-Ids. */
+export function mailgunDomain(): string {
+  return MAILGUN_DOMAIN
+}
+
+/**
  * Build a "from" header with display name
  */
 export function buildMailgunFromHeader(displayName?: string): string {
