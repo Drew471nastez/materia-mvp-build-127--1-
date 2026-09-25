@@ -530,6 +530,7 @@ section("Toasts on a phone")
     "components/onepage/tabs/products-tab.tsx",
     "app/website-builder/code/[installId]/page.tsx",
     "components/website-builder/editor/image-picker.tsx",
+    "app/website-builder/editor/[installId]/page.tsx",
   ]
   const call = /\b(?:toast(?:\.(?:success|error|info|warning|message))?|showNotification|showToast|say)\(\s*(?:\{\s*title:\s*)?(["`])((?:(?!\1)[^\\]|\\.)*)\1/g
   const long: string[] = []
