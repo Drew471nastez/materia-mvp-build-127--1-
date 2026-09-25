@@ -149,6 +149,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
         the stylesheet.
       */
       const hoverRule = /\.md\\:group-hover\\:opacity-100 \{\s*@media \(width >= 48rem\) \{\s*&:is\(:where\(\.group\):hover \*\) \{\s*@media \(hover: hover\) \{\s*opacity: 100%/.test(css)
+        /* The built stylesheet is minified and nests the other way round. */
+        || /@media \(hover:hover\)\{\.md\\:group-hover\\:opacity-100:is\(:where\(\.group\):hover \*\)\{opacity:(1|100%)\}/.test(css)
       expect(hoverRule, "on a computer, hovering a button shows its tooltip (the stylesheet's rule)", hoverRule)
       await p.focus("[data-notifications-mark-all]")
       await sleep(200)
