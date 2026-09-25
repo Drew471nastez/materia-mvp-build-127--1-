@@ -26,6 +26,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const body = JSON.parse(String(init.body))
     return json({ flow: { name: body.name, trigger_type: body.trigger_type, trigger_config: body.trigger_config, steps: body.steps, status: "draft", updated_at: new Date().toISOString() } })
   }
+  if (url.includes("/api/automations/flows/") && init?.method === "DELETE") return json({ ok: true })
   if (url.endsWith("/api/automations/flows")) return json({ id: "new-flow" })
   if (url.includes("/test")) return json({ ok: true, to: "astrid@example.com" })
   return realFetch(input, init)
@@ -34,6 +35,27 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 const view = new URLSearchParams(location.search).get("view") ?? "chooser"
 const welcome = TEMPLATES.find((t) => t.id === "welcome")!
 const winBack = TEMPLATES.find((t) => t.id === "win_back")!
+
+/** Start from scratch: the trigger the creator chose and no steps. */
+function scratchData(): BuilderData {
+  return {
+    flow: { id: "f2", name: "Untitled automation", trigger_type: "purchase", trigger_config: { template: "blank", entry: { mode: "each" } }, status: "draft", steps: [], updated_at: "2026-09-20T10:00:00Z" },
+    products: [],
+    stats: {},
+    runs: [],
+    counts: { active: 0, finished: 0, left: 0, failed: 0 },
+    failedJobs: 0,
+    tracking: true,
+    startsRecorded: true,
+    accountEmail: "astrid@example.com",
+  }
+}
+
+/** A checkout reminder on an account whose started checkouts are not recorded yet. */
+function reminderData(): BuilderData {
+  const t = TEMPLATES.find((x) => x.id === "checkout_reminder")!
+  return { ...scratchData(), flow: { id: "f3", name: t.name, trigger_type: t.trigger, trigger_config: { template: t.id, entry: t.entry }, status: "draft", steps: t.steps, updated_at: "2026-09-20T10:00:00Z" }, startsRecorded: false }
+}
 
 function builderData(broken: boolean): BuilderData {
   const steps = broken
@@ -147,6 +169,8 @@ function App() {
       {view === "chooser" ? <FlowChooser existing={{ thank_you: "f9" }} /> : null}
       {view === "builder" ? <FlowBuilder data={builderData(false)} /> : null}
       {view === "broken" ? <FlowBuilder data={builderData(true)} /> : null}
+      {view === "scratch" ? <FlowBuilder data={scratchData()} /> : null}
+      {view === "reminder" ? <FlowBuilder data={reminderData()} /> : null}
       {view === "subscribers" ? <Subscribers /> : null}
       <Toaster />
     </div>

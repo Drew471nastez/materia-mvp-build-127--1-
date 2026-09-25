@@ -7,10 +7,17 @@ export const metadata: Metadata = { title: "Automation" }
 export const dynamic = "force-dynamic"
 
 /**
- * One automation: read here, drawn by builder.tsx. Everything is read with
- * the creator's own session, so row level security decides what is theirs;
- * the run history and numbers come from the engine's tables and are simply
- * empty before its SQL has run (`tracking: false`).
+ * One automation: read here, drawn by builder.tsx, so the page's first frame
+ * is the flow itself with nothing to load after it (no skeleton, nothing that
+ * moves when it arrives). Everything is read with the creator's own session,
+ * so row level security decides what is theirs; the run history and numbers
+ * come from the engine's tables and are simply empty before its SQL has run
+ * (`tracking: false`).
+ *
+ * ONE ROUND AFTER SIGN IN. The flow, its numbers and its history are read by
+ * the flow's id, all at once, beside the creator's own row; the products
+ * follow the creator row inside the same round. It used to be four rounds
+ * one after another: the user, the creator, the flow, then the rest.
  */
 export default async function FlowPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -19,20 +26,16 @@ export default async function FlowPage({ params }: { params: Promise<{ id: strin
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) redirect(`/login?next=${encodeURIComponent(`/app/emails/flow/${id}`)}`)
+  if (!/^[0-9a-f-]{36}$/i.test(id)) redirect("/app/emails?tab=flows")
 
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) redirect("/app")
-
-  const { data: flow } = await supabase
-    .from("email_flows")
-    .select("id, name, trigger_type, trigger_config, status, steps, updated_at")
-    .eq("id", id)
-    .eq("creator_id", creator.id)
-    .maybeSingle()
-  if (!flow) redirect("/app/emails?tab=flows")
-
-  const [products, stats, runs, active, finished, left, failed, failedJobs] = await Promise.all([
-    supabase.from("products").select("id, title").eq("creator_id", creator.id).order("created_at", { ascending: false }).limit(200),
+  const creatorRead = supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  const count = (q: PromiseLike<{ count: number | null }>) => q.then((r) => r.count ?? 0, () => 0)
+  const [creatorRes, flowRes, products, stats, runs, active, finished, left, failed, failedJobs, starts] = await Promise.all([
+    creatorRead,
+    supabase.from("email_flows").select("id, creator_id, name, trigger_type, trigger_config, status, steps, updated_at").eq("id", id).maybeSingle(),
+    creatorRead.then(({ data }) =>
+      data ? supabase.from("products").select("id, title").eq("creator_id", data.id).order("created_at", { ascending: false }).limit(200) : { data: [] },
+    ),
     supabase.rpc("email_flow_step_stats", { p_flow_id: id }),
     supabase
       .from("email_flow_runs")
@@ -40,12 +43,20 @@ export default async function FlowPage({ params }: { params: Promise<{ id: strin
       .eq("flow_id", id)
       .order("started_at", { ascending: false })
       .limit(50),
-    supabase.from("email_flow_runs").select("id", { count: "exact", head: true }).eq("flow_id", id).eq("status", "active"),
-    supabase.from("email_flow_runs").select("id", { count: "exact", head: true }).eq("flow_id", id).eq("status", "completed"),
-    supabase.from("email_flow_runs").select("id", { count: "exact", head: true }).eq("flow_id", id).in("status", ["exited", "cancelled"]),
-    supabase.from("email_flow_runs").select("id", { count: "exact", head: true }).eq("flow_id", id).eq("status", "failed"),
-    supabase.from("email_flow_jobs").select("id", { count: "exact", head: true }).eq("flow_id", id).eq("state", "failed"),
+    count(supabase.from("email_flow_runs").select("id", { count: "exact", head: true }).eq("flow_id", id).eq("status", "active")),
+    count(supabase.from("email_flow_runs").select("id", { count: "exact", head: true }).eq("flow_id", id).eq("status", "completed")),
+    count(supabase.from("email_flow_runs").select("id", { count: "exact", head: true }).eq("flow_id", id).in("status", ["exited", "cancelled"])),
+    count(supabase.from("email_flow_runs").select("id", { count: "exact", head: true }).eq("flow_id", id).eq("status", "failed")),
+    count(supabase.from("email_flow_jobs").select("id", { count: "exact", head: true }).eq("flow_id", id).eq("state", "failed")),
+    /* Whether started checkouts are recorded yet (RUN_CHECKOUT_CONTACTS.sql). */
+    supabase.from("checkout_starts").select("id", { head: true }).limit(1),
   ])
+
+  const creator = creatorRes.data
+  if (!creator) redirect("/app")
+  const flow = flowRes.data
+  /* Row level security already keeps other creators' flows out; this says so twice. */
+  if (!flow || flow.creator_id !== creator.id) redirect("/app/emails?tab=flows")
 
   const tracking = !runs.error
   const stepStats: Record<string, StepStats> = {}
@@ -66,14 +77,10 @@ export default async function FlowPage({ params }: { params: Promise<{ id: strin
     products: (products.data ?? []) as Array<{ id: string; title: string }>,
     stats: stepStats,
     runs: tracking ? ((runs.data ?? []) as RunView[]) : [],
-    counts: {
-      active: active.count ?? 0,
-      finished: finished.count ?? 0,
-      left: left.count ?? 0,
-      failed: failed.count ?? 0,
-    },
-    failedJobs: failedJobs.count ?? 0,
+    counts: { active, finished, left, failed },
+    failedJobs,
     tracking,
+    startsRecorded: !starts.error,
     accountEmail: user.email ?? null,
   }
   return <FlowBuilder data={data} />

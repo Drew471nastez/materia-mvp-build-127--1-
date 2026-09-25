@@ -9,17 +9,23 @@
  * open to edit, and the rules that govern the whole thing said in words next
  * to it rather than discovered later.
  *
- *   the state      a banner under the bar says whether it is sending, to
- *                  whom, and what turning it on or off does. Turning on is
- *                  refused with the problems listed until the flow is
- *                  complete; turning off says how many people it stops.
- *   the steps      a column of nodes on the page itself (no card around a
- *                  card), joined by a line with a + between every two.
+ *   the bar        Back, the name (edit it where it is), Draft or Live, and
+ *                  one action: Save while there are changes, Turn on while it
+ *                  is off. Everything else is in the menu beside it: turning
+ *                  off, deleting. The same frame as an order's bar.
+ *   the state      one line under the bar: who is partway through, or what
+ *                  is left to finish before it can go on.
+ *   the steps      one column, the width of everything else on the page, on
+ *                  one axis, joined by a line with a + between every two.
  *   editing        a panel on the right on a desktop, the shared sheet on a
  *                  phone (components/ui/bottom-sheet). With nothing open,
  *                  the panel reads the flow back: what happens and when.
+ *                  Opening a step changes the panel, never the column.
  *   the numbers    per email, and the run history under the steps, straight
  *                  from the engine's records. Nothing is estimated.
+ *
+ * The page arrives with its data (./page.tsx reads it on the server), so its
+ * first frame is the flow itself, with nothing to fill in afterwards.
  *
  * Saving is explicit and never changes on or off. The server checks every
  * field again (app/api/automations/flows/[id]).
@@ -27,27 +33,32 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Plus, X } from "lucide-react"
+import { ArrowLeft, Ellipsis, Plus, X } from "lucide-react"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog"
-import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { ScrollEdge } from "@/components/app/scroll-edge"
+import { canReturnTo } from "@/lib/navigation/in-app-history"
 import {
   CONDITIONS,
   MAX_STEPS,
   TRIGGERS,
+  TRIGGER_ORDER,
+  audienceOf,
   blankStep,
   emailBefore,
   emailNumber,
   entryRule,
   entryText,
+  isPurchaseTrigger,
   isTriggerType,
   normalizeSteps,
   problemsOf,
   timeline,
   waitText,
+  type Audience,
   type ConditionCheck,
   type EntryRule,
   type FlowStep,
@@ -57,8 +68,9 @@ import {
   type TriggerType,
   type WaitUnit,
 } from "@/lib/automations/flow-model"
+import { fieldsFor } from "@/lib/automations/merge-fields"
 import { joinedSentence } from "@/lib/contacts/contact-source"
-import { GUTTER, LIST_WIDTH, PaneBar, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../../../orders/order-parts"
+import { PaneBar, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../../../orders/order-parts"
 import { RUN_STATUS } from "../../contact-detail"
 import { BodyEditor } from "../body-editor"
 import { StepMark } from "../flow-parts"
@@ -92,6 +104,8 @@ export interface BuilderData {
   failedJobs: number
   /** False before the engine's SQL has run: no run history exists to show. */
   tracking: boolean
+  /** False before RUN_CHECKOUT_CONTACTS.sql: no started checkout is recorded, so a checkout reminder cannot start. */
+  startsRecorded?: boolean
   accountEmail: string | null
 }
 
@@ -103,6 +117,12 @@ interface Draft {
 }
 
 type Selection = "trigger" | string | null
+
+/** The bar and the body share one width, so the back arrow, the column and the panel line up. */
+const FLOW_WIDTH = "max-w-[704px] lg:max-w-[1040px]"
+const FLOW_GUTTER = "px-4 sm:px-6 lg:px-8"
+
+const EMAILS = "/app/emails?tab=flows"
 
 function draftOf(flow: BuilderData["flow"]): Draft {
   const trigger: TriggerType = isTriggerType(flow.trigger_type) ? flow.trigger_type : "new_subscriber"
@@ -144,6 +164,13 @@ function stepKindName(steps: FlowStep[], s: FlowStep): string {
   return "Check"
 }
 
+const STATE: Record<string, { label: string; tone: "success" | "neutral" }> = {
+  active: { label: "Live", tone: "success" },
+  draft: { label: "Draft", tone: "neutral" },
+  paused: { label: "Paused", tone: "neutral" },
+}
+const stateOf = (status: string) => STATE[status] ?? STATE.draft
+
 /* ─── The page ───────────────────────────────────────────────────────── */
 
 export function FlowBuilder({ data }: { data: BuilderData }) {
@@ -158,6 +185,8 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
   const [switching, setSwitching] = React.useState(false)
   const [confirmOff, setConfirmOff] = React.useState(false)
   const [confirmLeave, setConfirmLeave] = React.useState(false)
+  const [confirmDelete, setConfirmDelete] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
   const [flagged, setFlagged] = React.useState(false)
   const wide = useWide("(min-width: 1024px)")
 
@@ -175,6 +204,12 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
     window.addEventListener("beforeunload", warn)
     return () => window.removeEventListener("beforeunload", warn)
   }, [dirty])
+
+  /* Back is known before it is pressed: the list is warmed, so leaving
+     without history behind (a link opened cold) is a quick push too. */
+  React.useEffect(() => {
+    router.prefetch(EMAILS)
+  }, [router])
 
   const update = (next: Partial<Draft>) => setDraft((d) => ({ ...d, ...next }))
   const updateStep = (id: string, step: FlowStep) => setDraft((d) => ({ ...d, steps: d.steps.map((s) => (s.id === id ? step : s)) }))
@@ -251,7 +286,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       }
       setStatus(out.status)
       toast({
-        title: next ? "On" : "Off",
+        title: next ? "Live" : "Paused",
         description: next
           ? `From now on, ${TRIGGERS[draft.trigger].sentence.charAt(0).toLowerCase()}${TRIGGERS[draft.trigger].sentence.slice(1)} starts it.`
           : out.stopped > 0
@@ -265,10 +300,46 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
     }
   }
 
+  const remove = async () => {
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/automations/flows/${data.flow.id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error()
+      setSavedJson(JSON.stringify(draft))
+      router.replace(EMAILS)
+    } catch {
+      setDeleting(false)
+      toast({ title: "Not deleted", description: "Try again.", variant: "destructive" })
+    }
+  }
+
+  /**
+   * BACK RETURNS. When the page behind this one is the Emails list, this is
+   * the browser's own back: instant, with the list where it was scrolled.
+   * From anywhere else (a link opened cold, a new tab) it goes to the list.
+   */
+  const leave = () => {
+    if (canReturnTo("/app/emails")) router.back()
+    else router.push(EMAILS)
+  }
   const back = () => {
     if (dirty) setConfirmLeave(true)
-    else router.push("/app/emails?tab=flows")
+    else leave()
   }
+
+  const turnOff = () => (data.counts.active > 0 ? setConfirmOff(true) : void setOn(false))
+  const menu: ActionMenuItem[] = [
+    ...(on ? [{ label: "Turn off", onClick: turnOff }] : dirty ? [{ label: "Save and turn on", onClick: () => void setOn(true) }] : []),
+    { label: "Delete automation", variant: "destructive" as const, separatorBefore: true, onClick: () => setConfirmDelete(true) },
+  ]
+  const busy = saving || switching || deleting
+  const primary = dirty
+    ? { label: saving ? "Saving" : "Save", run: () => void save() }
+    : !on
+      ? { label: switching ? "Turning on" : "Turn on", run: () => void setOn(true) }
+      : null
+  const state = stateOf(status)
+  const subtitle = `${TRIGGERS[draft.trigger].sentence} · ${entryText(draft.trigger, entryRule(draft.trigger, draft.config))}`
 
   const selectedStep = selected && selected !== "trigger" ? draft.steps.find((s) => s.id === selected) ?? null : null
   const panel =
@@ -278,7 +349,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
       <StepPanel
         key={selectedStep.id}
         flowId={data.flow.id}
-        purchase={draft.trigger === "purchase"}
+        trigger={draft.trigger}
         steps={draft.steps}
         step={selectedStep}
         stats={data.stats[selectedStep.id]}
@@ -292,64 +363,83 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
     ) : null
 
   return (
-    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]">
-      <PaneBar width={LIST_WIDTH} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 pb-2.5 pt-2">
-        <div className="-ml-1.5 flex h-9 w-9 items-center justify-center">
-          <button type="button" aria-label="Back to Emails" className={iconButton} onClick={back}>
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-        </div>
+    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
+      <PaneBar width={FLOW_WIDTH} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 pb-2.5 pt-2">
+        <button
+          type="button"
+          aria-label="Back to automations"
+          className="-ml-0.5 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[#e3e4e8] bg-white text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] transition-colors duration-100 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]"
+          onClick={back}
+        >
+          <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2.2} />
+        </button>
         <div className="flex min-h-9 min-w-0 items-center gap-2">
           {/* As wide as the name, so the badge sits right after it: an
-              invisible copy of the text sizes the cell the field fills. */}
+              invisible copy of the text sizes the cell the field fills.
+              `size={1}`, or the field's own default width (twenty
+              characters) sizes the cell instead and the badge floats off. */}
           <span className="-ml-1.5 inline-grid min-w-0 grid-cols-[minmax(0,auto)]">
-            <span aria-hidden className="invisible col-start-1 row-start-1 overflow-hidden whitespace-pre px-1.5 text-[18px] font-semibold sm:text-[20px]">
+            <span aria-hidden className="invisible col-start-1 row-start-1 overflow-hidden whitespace-pre px-1.5 text-[18px] font-bold sm:text-[20px]">
               {draft.name || "Name"}
             </span>
             <input
               aria-label="Name"
+              size={1}
               value={draft.name}
               maxLength={80}
               placeholder="Name"
               onChange={(e) => update({ name: e.target.value })}
-              className="col-start-1 row-start-1 h-9 w-full min-w-[4ch] truncate rounded-lg bg-transparent px-1.5 text-[18px] font-semibold text-[#1a1a2e] outline-none transition-colors hover:bg-[#eef0f2] focus:bg-white focus:shadow-[0_0_0_1px_#1a1a2e] sm:text-[20px]"
+              className="col-start-1 row-start-1 h-9 w-full min-w-[4ch] truncate rounded-lg bg-transparent px-1.5 text-[18px] font-bold text-[#1a1a2e] outline-none transition-colors hover:bg-[#eef0f2] focus:bg-white focus:shadow-[0_0_0_1px_#1a1a2e] sm:text-[20px]"
             />
           </span>
-          <StatusBadge tone={on ? "success" : "neutral"} className="hidden sm:inline-flex">
-            {on ? "On" : "Off"}
+          <StatusBadge tone={state.tone} className="hidden sm:inline-flex">
+            {state.label}
           </StatusBadge>
         </div>
-        <div className="flex min-h-9 shrink-0 items-center gap-2">
+        <div className="flex min-h-9 shrink-0 items-center gap-1.5">
           <span className="hidden text-[12px] text-[#6b7280] md:inline" aria-live="polite">
-            {saving ? "Saving" : dirty ? "Unsaved changes" : "Saved"}
+            {saving ? "Saving" : dirty ? "Unsaved changes" : ""}
           </span>
-          <button type="button" className={buttonAccent} disabled={!dirty || saving} onClick={() => void save()}>
-            {saving ? "Saving" : "Save"}
-          </button>
+          {primary ? (
+            <button type="button" className={cn(buttonAccent, "h-9 px-3.5")} disabled={busy} onClick={primary.run}>
+              {primary.label}
+            </button>
+          ) : null}
+          <ResponsiveActionMenu
+            title={draft.name || "Automation"}
+            items={menu}
+            trigger={
+              <button type="button" aria-label="More actions" className={cn(iconButton, "h-9 w-9")} disabled={deleting}>
+                <Ellipsis className="h-5 w-5" />
+              </button>
+            }
+          />
         </div>
-        <div className="col-span-2 col-start-2 -mt-0.5 min-w-0 truncate text-[13px] leading-5 text-[#6b7280]">
-          {TRIGGERS[draft.trigger].sentence} · {entryText(draft.trigger, entryRule(draft.trigger, draft.config))}
+        <div className="col-span-2 col-start-2 -mt-0.5 flex min-w-0 items-center gap-2 text-[13px] leading-5 text-[#6b7280]">
+          <StatusBadge tone={state.tone} className="sm:hidden">
+            {state.label}
+          </StatusBadge>
+          <span className="min-w-0 truncate">{subtitle}</span>
         </div>
       </PaneBar>
 
-      <div className={cn("mx-auto pb-28 md:pb-10", LIST_WIDTH, GUTTER)}>
-        <StateBanner
-          on={on}
-          busy={switching}
-          problems={problems}
-          counts={data.counts}
-          tracking={data.tracking}
-          hasCheck={draft.steps.some((s) => s.type === "condition")}
-          onTurnOn={() => void setOn(true)}
-          onTurnOff={() => (data.counts.active > 0 ? setConfirmOff(true) : void setOn(false))}
-          onShowProblem={(p) => {
-            setFlagged(true)
-            setSelected(p.stepId ?? "trigger")
-          }}
-        />
-
-        <div className="mt-5 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+      <div className={cn("mx-auto pb-28 pt-3 md:pb-10", FLOW_WIDTH, FLOW_GUTTER)}>
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="min-w-0">
+            <StateLine
+              on={on}
+              problems={problems}
+              counts={data.counts}
+              tracking={data.tracking}
+              hasCheck={draft.steps.some((s) => s.type === "condition")}
+              trigger={draft.trigger}
+              config={draft.config}
+              startsRecorded={data.startsRecorded !== false}
+              onShowProblem={(p) => {
+                setFlagged(true)
+                setSelected(p.stepId ?? "trigger")
+              }}
+            />
             <Canvas
               draft={draft}
               selected={selected}
@@ -363,8 +453,11 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
             <Activity data={data} on={on} steps={draft.steps} />
           </div>
           {wide !== false ? (
-            <aside className="sticky top-[88px] hidden lg:block">
-              <div className={cn(card, "max-h-[calc(100dvh-112px)] overflow-y-auto")}>
+            /* Sticky at exactly where it rests (the bar's 72px and the 12px
+               above the column), so it never starts lower than the column
+               beside it and never moves when the page begins to scroll. */
+            <aside className="sticky top-[84px] hidden lg:block">
+              <div className={cn(card, "max-h-[calc(100dvh-100px)] overflow-y-auto")}>
                 {(wide ? panel : null) ?? <Summary draft={draft} problems={problems} onPick={(id) => setSelected(id ?? "trigger")} bare />}
               </div>
             </aside>
@@ -378,25 +471,28 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
         </BottomSheet>
       ) : null}
 
-      <Dialog open={confirmOff} onOpenChange={setConfirmOff}>
-        <DialogContent className="max-w-[calc(100vw-2rem)] rounded-2xl p-0 sm:max-w-[420px]">
-          <div className="p-5">
-            <DialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">Turn off {draft.name}?</DialogTitle>
-            <DialogDescription className="mt-1.5 text-[14px] text-[#6b7280]">
-              {data.counts.active} {data.counts.active === 1 ? "person is" : "people are"} partway through. Turning it off stops them where they are, and their remaining emails are not sent, now or if you turn it on again.
-            </DialogDescription>
-          </div>
-          <div className="flex justify-end gap-2 border-t border-[#eef0f2] px-5 py-3">
-            <button type="button" className={buttonSecondary} onClick={() => setConfirmOff(false)}>
-              Keep it on
-            </button>
-            <button type="button" className="inline-flex h-8 items-center rounded-lg bg-[#c4290c] px-3 text-[13px] font-medium text-white hover:bg-[#a8230a] disabled:opacity-50" disabled={switching} onClick={() => void setOn(false)}>
-              Turn off
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
+      <Confirm
+        open={confirmOff}
+        onOpenChange={setConfirmOff}
+        title={`Turn off ${draft.name}?`}
+        body={`${data.counts.active} ${data.counts.active === 1 ? "person is" : "people are"} partway through. Turning it off stops them where they are, and their remaining emails are not sent, now or if you turn it on again.`}
+        cancel="Keep it on"
+        confirm="Turn off"
+        danger
+        busy={switching}
+        onConfirm={() => void setOn(false)}
+      />
+      <Confirm
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={`Delete ${draft.name}?`}
+        body={on || data.counts.active > 0 ? "It stops at once for everyone partway through, and its history goes with it." : "Its steps and history go with it."}
+        cancel="Keep it"
+        confirm={deleting ? "Deleting" : "Delete"}
+        danger
+        busy={deleting}
+        onConfirm={() => void remove()}
+      />
       <Dialog open={confirmLeave} onOpenChange={setConfirmLeave}>
         <DialogContent className="max-w-[calc(100vw-2rem)] rounded-2xl p-0 sm:max-w-[420px]">
           <div className="p-5">
@@ -404,14 +500,25 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
             <DialogDescription className="mt-1.5 text-[14px] text-[#6b7280]">Your changes to this flow are not saved yet.</DialogDescription>
           </div>
           <div className="flex justify-end gap-2 border-t border-[#eef0f2] px-5 py-3">
-            <button type="button" className={buttonSecondary} onClick={() => router.push("/app/emails?tab=flows")}>
+            <button
+              type="button"
+              className={buttonSecondary}
+              onClick={() => {
+                setConfirmLeave(false)
+                setSavedJson(JSON.stringify(draft))
+                leave()
+              }}
+            >
               Leave
             </button>
             <button
               type="button"
               className={buttonAccent}
               onClick={async () => {
-                if (await save()) router.push("/app/emails?tab=flows")
+                if (await save()) {
+                  setConfirmLeave(false)
+                  leave()
+                }
               }}
             >
               Save and leave
@@ -423,48 +530,75 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
   )
 }
 
-/* ─── On or off, said plainly ────────────────────────────────────────── */
+function Confirm(props: { open: boolean; onOpenChange: (v: boolean) => void; title: string; body: string; cancel: string; confirm: string; danger?: boolean; busy?: boolean; onConfirm: () => void }) {
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent className="max-w-[calc(100vw-2rem)] rounded-2xl p-0 sm:max-w-[420px]">
+        <div className="p-5">
+          <DialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">{props.title}</DialogTitle>
+          <DialogDescription className="mt-1.5 text-[14px] text-[#6b7280]">{props.body}</DialogDescription>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-[#eef0f2] px-5 py-3">
+          <button type="button" className={buttonSecondary} onClick={() => props.onOpenChange(false)}>
+            {props.cancel}
+          </button>
+          <button
+            type="button"
+            className={cn("inline-flex h-8 items-center rounded-lg px-3 text-[13px] font-medium text-white disabled:opacity-50", props.danger ? "bg-[#c4290c] hover:bg-[#a8230a]" : "bg-[#1a1a2e] hover:bg-[#2a2a40]")}
+            disabled={props.busy}
+            onClick={props.onConfirm}
+          >
+            {props.confirm}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
-function StateBanner(props: {
+/* ─── What it is doing, in one line ──────────────────────────────────── */
+
+function StateLine(props: {
   on: boolean
-  busy: boolean
   problems: Problem[]
   counts: BuilderData["counts"]
   tracking: boolean
   /** Before the engine's SQL has run, a check cannot be evaluated, so such a flow does not send at all. */
   hasCheck: boolean
-  onTurnOn: () => void
-  onTurnOff: () => void
+  trigger: TriggerType
+  config: TriggerConfig
+  startsRecorded: boolean
   onShowProblem: (p: Problem) => void
 }) {
   const { on, problems, counts } = props
+  const toNews = audienceOf(props.trigger, props.config) === "subscribers"
+  const notes: string[] = []
+  if (!props.tracking && props.hasCheck) notes.push("Checks are not running yet on your account, so a flow with a check sends nothing for now. Remove the check to send without it.")
+  if (props.trigger === "abandoned_checkout" && !props.startsRecorded) notes.push("Started checkouts are not recorded on your account yet, so this sends nothing for now.")
+  const line = on
+    ? props.tracking && counts.active > 0
+      ? `${counts.active} ${counts.active === 1 ? "person is" : "people are"} partway through. Edits reach them from their next step.`
+      : "Sending. People who trigger it from now on go through it."
+    : problems.length > 0
+      ? `${problems.length} ${problems.length === 1 ? "thing" : "things"} to finish before it can go on.`
+      : "Not sending. Turn it on and it starts for people who trigger it from then on."
   return (
     <section
       aria-label="Whether this automation is sending"
       className={cn(
-        "mt-4 flex flex-col gap-3 rounded-2xl border px-4 py-3.5 sm:flex-row sm:items-start",
-        on
-          ? "border-[#bfe5cc] bg-[#f2fbf5] shadow-[0_1px_3px_rgba(20,83,45,0.06)]"
-          : "border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]",
+        "flex gap-3 rounded-xl border px-3.5 py-3",
+        on ? "border-[#cde9d6] bg-[#f3fbf6]" : problems.length > 0 ? "border-[#f3e2a8] bg-[#fffbeb]" : "border-[#e5e7eb]/70 bg-white",
       )}
     >
-      <span aria-hidden className={cn("mt-[6px] hidden h-2.5 w-2.5 shrink-0 rounded-full sm:block", on ? "bg-[#1f9d55] shadow-[0_0_0_4px_rgba(31,157,85,0.15)]" : "bg-[#b5b5bd]")} />
-      <div className="min-w-0 flex-1">
-        <p className="text-[14px] font-semibold text-[#1a1a2e]">{on ? "On and sending" : "Off"}</p>
-        <p className="text-[13px] text-[#4b5563]">
-          {on
-            ? props.tracking && counts.active > 0
-              ? `${counts.active} ${counts.active === 1 ? "person is" : "people are"} partway through. Edits reach them from their next step.`
-              : "People who trigger it from now on go through it. Nobody from before is sent anything."
-            : problems.length > 0
-              ? `${problems.length} ${problems.length === 1 ? "thing" : "things"} to finish before it can go on.`
-              : "Nothing is sent. Turn it on and it starts for people who trigger it from then on."}
-        </p>
-        {!props.tracking && props.hasCheck ? (
-          <p className="mt-1.5 text-[13px] text-[#5c4300]">Checks are not running yet on your account, so a flow with a check sends nothing for now. Remove the check to send without it.</p>
-        ) : null}
+      <span aria-hidden className={cn("mt-[5px] h-2 w-2 shrink-0 rounded-full", on ? "bg-[#1f9d55]" : problems.length > 0 ? "bg-[#e0a800]" : "bg-[#b5b5bd]")} />
+      <div className="min-w-0 flex-1 text-[13px] leading-5">
+        <p className="text-[#1a1a2e]">{line}</p>
+        {toNews ? <p className="text-[#4b5563]">Only people who asked for your news get it.</p> : null}
+        {notes.map((n) => (
+          <p key={n} className="mt-1 text-[#5c4300]">{n}</p>
+        ))}
         {!on && problems.length > 0 ? (
-          <ul className="mt-2 space-y-1">
+          <ul className="mt-1.5 space-y-0.5">
             {problems.slice(0, 4).map((p, i) => (
               <li key={i}>
                 <button type="button" className="text-left text-[13px] text-[#8a1c0f] underline decoration-[#8a1c0f]/30 underline-offset-2 hover:decoration-[#8a1c0f]" onClick={() => props.onShowProblem(p)}>
@@ -475,17 +609,6 @@ function StateBanner(props: {
           </ul>
         ) : null}
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {on ? (
-          <button type="button" className={buttonSecondary} disabled={props.busy} onClick={props.onTurnOff}>
-            Turn off
-          </button>
-        ) : (
-          <button type="button" className={buttonAccent} disabled={props.busy} onClick={props.onTurnOn}>
-            Turn on
-          </button>
-        )}
-      </div>
     </section>
   )
 }
@@ -493,9 +616,9 @@ function StateBanner(props: {
 /* ─── The column of steps ────────────────────────────────────────────── */
 
 const node =
-  "group relative flex w-full cursor-pointer items-start gap-3 rounded-2xl border bg-white px-3.5 py-3 text-left transition-[translate,box-shadow,border-color] duration-150 ease-out"
-const nodeRest = "border-[#e5e7eb]/80 shadow-[0_1px_0_rgba(17,24,39,0.03),0_1px_3px_rgba(17,24,39,0.06)] hover:-translate-y-px hover:border-[#d5d7dd] hover:shadow-[0_1px_0_rgba(17,24,39,0.03),0_6px_16px_-6px_rgba(17,24,39,0.16)]"
-const nodeOn = "border-[#8b5cf6] shadow-[0_0_0_3px_rgba(139,92,246,0.16),0_6px_16px_-6px_rgba(76,29,149,0.22)]"
+  "group relative flex w-full cursor-pointer items-start gap-3 rounded-2xl border bg-white px-3.5 py-3 text-left transition-[box-shadow,border-color] duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]"
+const nodeRest = "border-[#e5e7eb]/80 shadow-[0_1px_0_rgba(17,24,39,0.03),0_1px_3px_rgba(17,24,39,0.06)] hover:border-[#d5d7dd] hover:shadow-[0_1px_0_rgba(17,24,39,0.03),0_6px_16px_-8px_rgba(17,24,39,0.18)]"
+const nodeOn = "border-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e,0_6px_16px_-8px_rgba(17,24,39,0.22)]"
 
 function Canvas(props: {
   draft: Draft
@@ -509,18 +632,18 @@ function Canvas(props: {
   const { draft } = props
   const when = new Map(timeline(draft.steps).map((t) => [t.stepId, t.when]))
   const rule = entryRule(draft.trigger, draft.config)
-  const products = draft.trigger === "purchase" ? draft.config.product_ids?.length ?? 0 : 0
+  const products = isPurchaseTrigger(draft.trigger) ? draft.config.product_ids?.length ?? 0 : 0
   return (
-    <ol aria-label="Steps" className="mx-auto w-full max-w-[560px]">
+    <ol aria-label="Steps" className="mt-4 w-full">
       <li>
         <button type="button" className={cn(node, props.selected === "trigger" ? nodeOn : nodeRest)} onClick={() => props.onSelect("trigger")}>
-          <StepMark kind="trigger" />
+          <StepMark kind="trigger" trigger={draft.trigger} />
           <span className="min-w-0 flex-1">
-            <span className="block text-[12px] font-medium text-[#6d28d9]">Starts when</span>
+            <span className="block text-[12px] font-medium text-[#6b7280]">Starts when</span>
             <span className="block truncate text-[14px] font-semibold text-[#1a1a2e]">{TRIGGERS[draft.trigger].sentence}</span>
             <span className="block truncate text-[12px] text-[#6b7280]">
               {entryText(draft.trigger, rule)}
-              {draft.trigger === "purchase" ? ` · ${products > 0 ? `${products} ${products === 1 ? "product" : "products"}` : "Any product"}` : ""}
+              {isPurchaseTrigger(draft.trigger) ? ` · ${products > 0 ? `${products} ${products === 1 ? "product" : "products"}` : "Any product"}` : ""}
             </span>
           </span>
         </button>
@@ -559,7 +682,7 @@ function Canvas(props: {
           </React.Fragment>
         )
       })}
-      <Connector onAdd={(type) => props.onAdd(draft.steps.length, type)} />
+      <Connector onAdd={(type) => props.onAdd(draft.steps.length, type)} label={draft.steps.length === 0 ? "Add the first step" : undefined} />
       <li className="flex justify-center">
         <span className="inline-flex h-7 items-center rounded-full border border-[#e3e4e8] bg-white px-3 text-[12px] font-medium text-[#6b7280]">End</span>
       </li>
@@ -567,28 +690,32 @@ function Canvas(props: {
   )
 }
 
-const AddButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(function AddButton(props, ref) {
+const AddButton = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & { label?: string }>(function AddButton({ label, ...props }, ref) {
   return (
     <button
       ref={ref}
       type="button"
-      aria-label="Add a step here"
+      aria-label={label ?? "Add a step here"}
       {...props}
-      className="relative z-[1] inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-[#d5d7dd] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(17,24,39,0.06)] transition-[scale,background-color,color] duration-100 hover:scale-105 hover:bg-[#1a1a2e] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]"
+      className={cn(
+        "relative z-[1] inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-full border border-[#d5d7dd] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(17,24,39,0.06)] transition-[background-color,color,border-color] duration-100 hover:border-[#1a1a2e] hover:bg-[#1a1a2e] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]",
+        label ? "px-3 text-[12px] font-medium" : "w-8",
+      )}
     >
       <Plus className="h-3.5 w-3.5" strokeWidth={2.4} />
+      {label ? <span>{label}</span> : null}
     </button>
   )
 })
 
-function Connector({ onAdd }: { onAdd: (type: StepType) => void }) {
+function Connector({ onAdd, label }: { onAdd: (type: StepType) => void; label?: string }) {
   return (
     <li className="relative flex h-12 items-center justify-center">
       <span aria-hidden className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 rounded-full bg-[#dfe1e6]" />
       <ResponsiveActionMenu
         title="Add a step"
         align="center"
-        trigger={<AddButton />}
+        trigger={<AddButton label={label} />}
         items={[
           { label: "Email", onClick: () => onAdd("email") },
           { label: "Wait", onClick: () => onAdd("wait") },
@@ -605,12 +732,12 @@ const field = "h-9 w-full rounded-lg border border-[#d5d7dd] bg-white px-2.5 tex
 const labelText = "mb-1.5 block text-[13px] font-medium text-[#1a1a2e]"
 const hint = "mt-1.5 text-[12px] leading-[1.45] text-[#6b7280]"
 
-function PanelHead({ kind, title, onClose }: { kind: Parameters<typeof StepMark>[0]["kind"]; title: string; onClose: () => void }) {
+function PanelHead({ kind, trigger, title, onClose }: { kind: Parameters<typeof StepMark>[0]["kind"]; trigger?: TriggerType; title: string; onClose: () => void }) {
   return (
     <div className="flex items-center gap-2.5 border-b border-[#eef0f2] px-4 py-3">
-      <StepMark kind={kind} />
+      <StepMark kind={kind} trigger={trigger} />
       <p className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#1a1a2e]">{title}</p>
-      <button type="button" aria-label="Close" className={iconButton} onClick={onClose}>
+      <button type="button" aria-label="Close" className={cn(iconButton, "h-9 w-9")} onClick={onClose}>
         <X className="h-4 w-4" />
       </button>
     </div>
@@ -641,27 +768,36 @@ function TriggerPanel({ draft, on, products, onChange, onClose }: { draft: Draft
   const picked = new Set(draft.config.product_ids ?? [])
   const setRule = (entry: EntryRule) => onChange({ config: { ...draft.config, entry } })
   const [only, setOnly] = React.useState(picked.size > 0)
+  const purchase = isPurchaseTrigger(draft.trigger)
+  const audience = audienceOf(draft.trigger, draft.config)
+  const setAudience = (a: Audience) => onChange({ config: { ...draft.config, audience: a } })
   return (
     <div>
-      <PanelHead kind="trigger" title="Starts when" onClose={onClose} />
+      <PanelHead kind="trigger" trigger={draft.trigger} title="Starts when" onClose={onClose} />
       <div className="space-y-6 px-4 py-4">
         <fieldset>
           <legend className={labelText}>What starts it</legend>
           <div className="space-y-2">
-            {(Object.keys(TRIGGERS) as TriggerType[]).map((t) => (
+            {TRIGGER_ORDER.map((t) => (
               <Choice
                 key={t}
                 checked={draft.trigger === t}
                 disabled={on && draft.trigger !== t}
                 label={TRIGGERS[t].sentence}
-                onChange={() => onChange({ trigger: t, config: { ...draft.config, entry: entryRule(t, draft.config), product_ids: t === "purchase" ? draft.config.product_ids : undefined } })}
+                onChange={() =>
+                  onChange({
+                    trigger: t,
+                    config: { ...draft.config, entry: entryRule(t, draft.config), product_ids: isPurchaseTrigger(t) ? draft.config.product_ids : undefined, audience: isPurchaseTrigger(t) ? draft.config.audience : undefined },
+                  })
+                }
               />
             ))}
           </div>
           {on ? <p className={hint}>Turn it off to change this. People already in it joined for the current reason.</p> : null}
+          {draft.trigger === "abandoned_checkout" ? <p className={hint}>An hour after someone presses Pay and no order comes of it. Only people who ticked &ldquo;Email me news and offers&rdquo; at checkout, or are on your list, get it, and it stops the moment they buy.</p> : null}
         </fieldset>
 
-        {draft.trigger === "purchase" ? (
+        {purchase ? (
           <fieldset>
             <legend className={labelText}>Which purchases</legend>
             <div className="space-y-2">
@@ -671,7 +807,7 @@ function TriggerPanel({ draft, on, products, onChange, onClose }: { draft: Draft
             {only && products.length > 0 ? (
               <div className="mt-2 max-h-[220px] overflow-y-auto rounded-xl border border-[#e3e4e8]">
                 {products.map((p) => (
-                  <label key={p.id} className="flex cursor-pointer items-center gap-2.5 border-b border-[#f1f2f4] px-3 py-2 text-[13px] last:border-b-0 hover:bg-[#fafbfb]">
+                  <label key={p.id} className="flex min-h-11 cursor-pointer items-center gap-2.5 border-b border-[#f1f2f4] px-3 py-2 text-[13px] last:border-b-0 hover:bg-[#fafbfb] sm:min-h-0">
                     <input
                       type="checkbox"
                       className="h-4 w-4 accent-[#1a1a2e]"
@@ -691,33 +827,43 @@ function TriggerPanel({ draft, on, products, onChange, onClose }: { draft: Draft
           </fieldset>
         ) : null}
 
-        <fieldset>
-          <legend className={labelText}>Who can go through it again</legend>
-          <div className="space-y-2">
-            {draft.trigger === "purchase" ? <Choice checked={rule.mode === "each"} label="Every order" detail="Each order starts it once. The same order never starts it twice." onChange={() => setRule({ mode: "each" })} /> : null}
-            <Choice checked={rule.mode === "once"} label="Once per person" detail="Never twice for the same address." onChange={() => setRule({ mode: "once" })} />
-            <Choice
-              checked={rule.mode === "after"}
-              label="Again, after a while"
-              onChange={() => setRule({ mode: "after", days: rule.mode === "after" ? rule.days : 30 })}
-            >
-              {rule.mode === "after" ? (
-                <span className="mt-2 flex items-center gap-2 text-[13px] text-[#4b5563]">
-                  Not within
-                  <input
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={rule.days}
-                    onChange={(e) => setRule({ mode: "after", days: Math.max(1, Math.min(365, Number(e.target.value) || 1)) })}
-                    className="h-8 w-16 rounded-lg border border-[#d5d7dd] px-2 text-center text-[16px] outline-none focus:border-[#1a1a2e] sm:text-[13px]"
-                  />
-                  days of their last time
-                </span>
-              ) : null}
-            </Choice>
-          </div>
-        </fieldset>
+        {purchase ? (
+          <fieldset>
+            <legend className={labelText}>Who gets it</legend>
+            <div className="space-y-2">
+              <Choice checked={audience === "buyers"} label="Every buyer" detail="For notes about their order: thanks, how to use it, a review." onChange={() => setAudience("buyers")} />
+              <Choice checked={audience === "subscribers"} label="Only buyers who asked for your news" detail="For offers and new work. They ticked the box at checkout or joined your list." onChange={() => setAudience("subscribers")} />
+            </div>
+          </fieldset>
+        ) : null}
+
+        {draft.trigger !== "first_purchase" ? (
+          <fieldset>
+            <legend className={labelText}>Who can go through it again</legend>
+            <div className="space-y-2">
+              {draft.trigger === "purchase" ? <Choice checked={rule.mode === "each"} label="Every order" detail="Each order starts it once. The same order never starts it twice." onChange={() => setRule({ mode: "each" })} /> : null}
+              <Choice checked={rule.mode === "once"} label="Once per person" detail="Never twice for the same address." onChange={() => setRule({ mode: "once" })} />
+              <Choice checked={rule.mode === "after"} label="Again, after a while" onChange={() => setRule({ mode: "after", days: rule.mode === "after" ? rule.days : draft.trigger === "abandoned_checkout" ? 7 : 30 })}>
+                {rule.mode === "after" ? (
+                  <span className="mt-2 flex items-center gap-2 text-[13px] text-[#4b5563]">
+                    Not within
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={rule.days}
+                      onChange={(e) => setRule({ mode: "after", days: Math.max(1, Math.min(365, Number(e.target.value) || 1)) })}
+                      className="h-8 w-16 rounded-lg border border-[#d5d7dd] px-2 text-center text-[16px] outline-none focus:border-[#1a1a2e] sm:text-[13px]"
+                    />
+                    days of their last time
+                  </span>
+                ) : null}
+              </Choice>
+            </div>
+          </fieldset>
+        ) : (
+          <p className={hint}>A first order happens once, so each person goes through this once: when they first buy from you.</p>
+        )}
         <p className={hint}>Only people who trigger it after you turn it on are sent anything. Someone who unsubscribes is never sent another email, wherever they are in the flow.</p>
       </div>
     </div>
@@ -726,7 +872,7 @@ function TriggerPanel({ draft, on, products, onChange, onClose }: { draft: Draft
 
 function StepPanel(props: {
   flowId: string
-  purchase: boolean
+  trigger: TriggerType
   steps: FlowStep[]
   step: FlowStep
   stats?: StepStats
@@ -755,13 +901,13 @@ function StepPanel(props: {
         {step.type === "condition" ? <CheckFields steps={steps} step={step} onChange={props.onChange} /> : null}
       </div>
       <div className="flex flex-wrap items-center gap-2 border-t border-[#eef0f2] px-4 py-3">
-        <button type="button" className={buttonSecondary} disabled={i <= 0} onClick={() => props.onMove(-1)}>
+        <button type="button" className={cn(buttonSecondary, "max-sm:h-10")} disabled={i <= 0} onClick={() => props.onMove(-1)}>
           Move up
         </button>
-        <button type="button" className={buttonSecondary} disabled={i >= steps.length - 1} onClick={() => props.onMove(1)}>
+        <button type="button" className={cn(buttonSecondary, "max-sm:h-10")} disabled={i >= steps.length - 1} onClick={() => props.onMove(1)}>
           Move down
         </button>
-        <button type="button" className="ml-auto inline-flex h-8 items-center rounded-lg px-3 text-[13px] font-medium text-[#c4290c] hover:bg-[#fef1ee]" onClick={props.onRemove}>
+        <button type="button" className="ml-auto inline-flex h-8 items-center rounded-lg px-3 text-[13px] font-medium text-[#c4290c] hover:bg-[#fef1ee] max-sm:h-10" onClick={props.onRemove}>
           Remove
         </button>
       </div>
@@ -769,11 +915,12 @@ function StepPanel(props: {
   )
 }
 
-function EmailFields(props: { flowId: string; purchase: boolean; step: Extract<FlowStep, { type: "email" }>; stats?: StepStats; accountEmail: string | null; onChange: (s: FlowStep) => void }) {
+function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extract<FlowStep, { type: "email" }>; stats?: StepStats; accountEmail: string | null; onChange: (s: FlowStep) => void }) {
   const { step } = props
   const { toast } = useToast()
   const [testing, setTesting] = React.useState(false)
   const set = (config: Partial<typeof step.config>) => props.onChange({ ...step, config: { ...step.config, ...config } })
+  const fields = fieldsFor(props.trigger)
   const test = async () => {
     setTesting(true)
     try {
@@ -814,16 +961,16 @@ function EmailFields(props: { flowId: string; purchase: boolean; step: Extract<F
       </div>
       <div>
         <span className={labelText}>Email</span>
-        <BodyEditor key={step.id} label="Email body" value={step.config.body} onChange={(body) => set({ body })} />
+        <BodyEditor key={step.id} label="Email body" value={step.config.body} onChange={(body) => set({ body })} links={fields.filter((f) => f.link).map((f) => ({ label: f.label, href: `{{${f.key}}}` }))} />
         <p className={hint}>
-          {"{{first_name}}"} becomes their first name, or &ldquo;there&rdquo;.{props.purchase ? ` ${"{{product_name}}"} is what they bought.` : ""} Every email ends with your name and an unsubscribe link.
+          Fields: {fields.filter((f) => !f.link).map((f) => `{{${f.key}}}`).join(", ")}. {"{{first_name}}"} is &ldquo;there&rdquo; when a name is not known. Every email ends with your name and an unsubscribe link.
         </p>
       </div>
       <div className="flex items-center justify-between gap-3 rounded-xl bg-[#f7f7f8] px-3 py-2.5">
         <p className="min-w-0 text-[12px] text-[#4b5563]">
-          {props.accountEmail ? <>Send this one to <span className="font-medium text-[#1a1a2e]">{props.accountEmail}</span>, as it is now.</> : "Your account has no email address for a test."}
+          {props.accountEmail ? <>Send this one to <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{props.accountEmail}</span>, as it is now.</> : "Your account has no email address for a test."}
         </p>
-        <button type="button" className={buttonSecondary} disabled={testing || !props.accountEmail} onClick={() => void test()}>
+        <button type="button" className={cn(buttonSecondary, "max-sm:h-10")} disabled={testing || !props.accountEmail} onClick={() => void test()}>
           {testing ? "Sending" : "Send test"}
         </button>
       </div>
@@ -967,8 +1114,8 @@ function Activity({ data, on, steps }: { data: BuilderData; on: boolean; steps: 
   }
 
   return (
-    <section aria-label="Activity" className={cn(card, "mx-auto mt-10 max-w-[560px] overflow-hidden lg:max-w-none")}>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-[#eef0f2] px-4 py-3">
+    <section aria-label="Activity" className={cn(card, "mt-10 overflow-hidden")}>
+      <div className="flex min-h-12 flex-wrap items-center gap-x-4 gap-y-2 border-b border-[#eef0f2] px-4 py-2.5">
         <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Activity</h2>
         {data.tracking && total > 0 ? (
           <p className="flex flex-wrap gap-x-3 text-[12px] tabular-nums text-[#4b5563]">
@@ -1005,14 +1152,14 @@ function Activity({ data, on, steps }: { data: BuilderData; on: boolean; steps: 
                 return (
                   <tr key={r.id} className="group hover:bg-[#fafbfb]">
                     <td data-scroll-edge="" className="sticky left-0 z-[1] h-12 bg-white px-3 text-[13px] font-medium text-[#1a1a2e] group-hover:bg-[#fafbfb]">
-                      <span className="block max-w-[170px] truncate sm:max-w-[240px]">{r.email}</span>
+                      <span className="block max-w-[170px] truncate sm:max-w-[220px]">{r.email}</span>
                     </td>
                     <td className="h-12 px-3 text-[13px] text-[#4b5563]">
-                      <span className="block max-w-[220px] truncate">{joinedSentence(r.source_detail, r.trigger_type) ?? "Not recorded"}</span>
+                      <span className="block max-w-[200px] truncate">{joinedSentence(r.source_detail, r.trigger_type) ?? "Not recorded"}</span>
                     </td>
                     <td className="h-12 whitespace-nowrap px-3 text-[13px] tabular-nums text-[#4b5563]">{day(r.started_at)}</td>
                     <td className="h-12 px-3 text-[13px]">
-                      <span className="flex max-w-[300px] items-center gap-2">
+                      <span className="flex max-w-[280px] items-center gap-2">
                         <StatusBadge tone={st.tone}>{st.label}</StatusBadge>
                         <span className={cn("truncate", r.status === "failed" ? "text-[#8a1c0f]" : "text-[#4b5563]")} title={where(r)}>
                           {where(r)}

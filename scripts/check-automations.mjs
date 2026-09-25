@@ -1,18 +1,21 @@
 /**
  * ===========================================================================
- *  THE AUTOMATION PAGES, MEASURED AT 390 AND 1440
+ *  THE AUTOMATION PAGES, MEASURED AT 360, 390, 430, 1440 AND 1920
  * ===========================================================================
  * Mounts the real chooser, builder and Subscribers view
  * (scripts/render-automations-probe.tsx) and checks what they claim:
  *
- *   chooser      every starting point drawn with its whole flow, nothing
- *                spilling out of its card; two columns on a desktop, one on
- *                a phone; a card lifts under the pointer; one you have
- *                opens yours rather than making a copy
- *   builder      the steps in one centred column with the panel beside it on
- *                a desktop, and the sheet on a phone; opening a step opens
- *                its editor; the page never scrolls sideways; a flow that is
- *                not complete is not turned on and says why
+ *   chooser      one list of starting points in the order a person meets a
+ *                creator, each a neutral line icon, a name, one line and its
+ *                steps in words; no violet anywhere, no gradient; full width
+ *                inside a 16px gutter on a phone; one you have opens yours;
+ *                Start from scratch asks what starts it
+ *   builder      a bar with a visible Back, the name, Draft or Live, one
+ *                primary action and a menu; the bar, the state line, every
+ *                step node and the activity on one left edge and one width;
+ *                every + on the column's centre line; no layout shift while it
+ *                loads or when a step is opened; the panel beside it on a
+ *                desktop, the sheet on a phone; Back goes to the list
  *   subscribers  a Source column that names the website, a filter that
  *                narrows to one source, and a contact's detail with where
  *                they came from
@@ -39,7 +42,7 @@ mkdirSync(shots, { recursive: true })
 
 writeFileSync(join(dir, "next-navigation.js"), `
 const nav = () => (globalThis.__nav = globalThis.__nav || [])
-const router = { replace: (u) => nav().push(["replace", String(u)]), push: (u) => nav().push(["push", String(u)]), refresh: () => nav().push(["refresh"]), back() {}, forward() {}, prefetch() {} }
+const router = { replace: (u) => nav().push(["replace", String(u)]), push: (u) => nav().push(["push", String(u)]), refresh: () => nav().push(["refresh"]), back: () => nav().push(["back"]), forward() {}, prefetch: (u) => nav().push(["prefetch", String(u)]) }
 export function useRouter() { return router }
 export function useSearchParams() { return new URLSearchParams(location.search) }
 export function usePathname() { return location.pathname }
@@ -94,11 +97,17 @@ try {
   const open = async (vp, view) => {
     const p = await browser.newPage()
     await p.setViewport(vp)
+    /* Every layout shift from the first paint on, the way CLS counts them. */
+    await p.evaluateOnNewDocument(() => {
+      window.__shifts = []
+      new PerformanceObserver((list) => { for (const e of list.getEntries()) if (!e.hadRecentInput) window.__shifts.push({ value: e.value, at: Math.round(e.startTime), nodes: (e.sources || []).map((s) => (s.node && s.node.textContent ? s.node.textContent.trim().slice(0, 40) : s.node?.nodeName || "")) }) }).observe({ type: "layout-shift", buffered: true })
+    })
     await p.goto(`${origin}/?view=${view}`)
     await p.waitForSelector(".orders-pane")
-    await sleep(250)
+    await sleep(400)
     return p
   }
+  const cls = (p) => p.evaluate(() => ({ total: +window.__shifts.reduce((n, s) => n + s.value, 0).toFixed(4), shifts: window.__shifts }))
   const sideways = (p) => p.evaluate(() => { const el = document.querySelector(".orders-pane"); return el.scrollWidth - el.clientWidth })
   /** Anything whose box leaves the one it is in, sideways. */
   const spills = (p, sel) => p.evaluate((s) => {
@@ -113,145 +122,259 @@ try {
     }
     return out
   }, sel)
+  /** Any element painted in the /app violet, or with a gradient, inside `sel`. */
+  const violetOrGradient = (p, sel) => p.evaluate((s) => {
+    const violet = /rgb\((139, 92, 246|124, 58, 237|109, 40, 217|91, 33, 182|239, 233, 254|247, 244, 255)\)/
+    const out = []
+    for (const el of document.querySelectorAll(`${s}, ${s} *`)) {
+      const cs = getComputedStyle(el)
+      const paints = [cs.color, cs.backgroundColor, cs.borderTopColor, cs.fill, cs.stroke].join(" ")
+      if (violet.test(paints) || /gradient/.test(cs.backgroundImage)) out.push((el.getAttribute("aria-label") || el.textContent || el.tagName).trim().slice(0, 30))
+    }
+    return out
+  }, sel)
+  const minText = (p) => p.evaluate(() => Math.min(...[...document.querySelectorAll(".orders-pane *")].filter((e) => e.childNodes.length && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())).map((e) => parseFloat(getComputedStyle(e).fontSize))))
+  const lastNav = (p) => p.evaluate(() => (window.__nav || []).filter((n) => n[0] !== "prefetch").at(-1) ?? null)
 
+  const phone = (width, height) => ({ width, height, isMobile: true, hasTouch: true, deviceScaleFactor: 2 })
   const viewports = [
-    ["desktop", { width: 1440, height: 900 }],
-    ["phone", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
+    ["360", phone(360, 740)],
+    ["390", phone(390, 844)],
+    ["430", phone(430, 932)],
+    ["1440", { width: 1440, height: 900 }],
+    ["1920", { width: 1920, height: 1080 }],
   ]
 
   for (const [label, vp] of viewports) {
+    const isPhone = vp.width < 640
+    const gutter = vp.width < 640 ? 16 : vp.width < 1024 ? 24 : 32
+
     console.log(`\nChooser, ${label}`)
     const p = await open(vp, "chooser")
-    const cards = await p.$$eval("[aria-label='Starting points'] > li > button", (b) => b.map((x) => { const r = x.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height), steps: x.querySelectorAll("ol[aria-label=Steps] > li").length } }))
-    expect(cards.length === 4, "four starting points, each one the platform can start", cards.length)
-    expect(cards.every((c) => c.steps >= 2), "each drawn with its trigger and every step", cards.map((c) => c.steps))
-    const columns = new Set(cards.map((c) => c.x)).size
-    expect(label === "desktop" ? columns === 2 : columns === 1, `${label === "desktop" ? "two columns" : "one column"} of cards`, columns)
-    if (label === "phone") expect(cards.every((c) => c.w === 390 - 32), "full width inside a 16px gutter", cards.map((c) => c.w))
-    const rows = {}
-    for (const c of cards) (rows[c.y] ??= []).push(c.h)
-    expect(Object.values(rows).every((hs) => new Set(hs).size === 1), "cards side by side are the same height", rows)
-    expect((await spills(p, "[aria-label='Starting points'] > li > button")).length === 0, "nothing spills out of a card", await spills(p, "[aria-label='Starting points'] > li > button"))
+    const rows = await p.$$eval("[aria-label='Starting points'] > li > button", (b) => b.map((x) => {
+      const r = x.getBoundingClientRect()
+      const icon = x.querySelector("span[aria-hidden] svg")?.getBoundingClientRect()
+      return { x: Math.round(r.left), w: Math.round(r.width), iconX: icon ? Math.round(icon.left) : null, text: x.textContent }
+    }))
+    expect(rows.length === 9, "eight starting points and Start from scratch", rows.length)
+    const order = rows.map((r) => r.text.split(/You have this|Email|Wait|Choose/)[0].trim())
+    expect(/^Welcome series/.test(order[0]) && /^Checkout reminder/.test(order[1]) && /^First order welcome/.test(order[2]) && /^Start from scratch/.test(order.at(-1)), "in the order a person meets a creator: joining, checkout, the orders, then your own", order)
+    expect(rows.some((r) => /Welcome series.*Email, wait 3 days, email/.test(r.text)), "each says its steps in words", rows[0].text.slice(0, 120))
+    expect(new Set(rows.map((r) => r.x)).size === 1 && new Set(rows.map((r) => r.w)).size === 1 && new Set(rows.map((r) => r.iconX)).size === 1, "every row and every icon on one left edge, one width", rows.map((r) => [r.x, r.w, r.iconX]))
+    const listBox = await p.$eval("[aria-label='Starting points']", (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), w: Math.round(r.width) } })
+    if (isPhone) expect(listBox.x === 16 + 1 && listBox.w === vp.width - 32 - 2, "full width inside a 16px gutter", listBox)
+    else expect(listBox.w <= 760, "a readable measure on a wide screen, centred", listBox)
+    expect((await violetOrGradient(p, "[aria-label='Starting points']")).length === 0, "no violet and no gradient anywhere in the list", await violetOrGradient(p, "[aria-label='Starting points']"))
+    const iconColour = await p.$eval("[aria-label='Starting points'] li button span[aria-hidden] svg", (s) => getComputedStyle(s).color)
+    expect(/rgb\((63, 63, 70|55, 65, 81|75, 85, 99)\)/.test(iconColour), "the icons are one neutral ink", iconColour)
+    expect((await spills(p, "[aria-label='Starting points'] > li > button")).length === 0, "nothing spills out of a row", await spills(p, "[aria-label='Starting points'] > li > button"))
     expect((await sideways(p)) === 0, "the page never scrolls sideways", await sideways(p))
-    const minText = await p.evaluate(() => Math.min(...[...document.querySelectorAll(".orders-pane *")].filter((e) => e.childNodes.length && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())).map((e) => parseFloat(getComputedStyle(e).fontSize))))
-    expect(minText >= 12, "no text under 12px", minText)
-    if (label === "desktop") {
-      /* Headless Chromium reports no pointer that can hover, and Tailwind puts
-         hover: behind (hover: hover), so the lift cannot be seen here. What
-         can be checked is that the rule is in the stylesheet and on the card. */
-      const lift = await p.evaluate(() => {
-        const card = document.querySelector("[aria-label='Starting points'] > li > button")
-        const rules = [...document.styleSheets].flatMap((s) => [...s.cssRules]).map((r) => r.cssText)
-        return { onCard: /hover:-translate-y-0\.5/.test(card.className) && /hover:shadow-/.test(card.className), inSheet: rules.some((t) => t.includes("hover\\:-translate-y-0\\.5") && t.includes("hover: hover")) }
-      })
-      expect(lift.onCard && lift.inSheet, "a card lifts 2px with a deeper shadow under a mouse (rule present; headless has no mouse to show it)", lift)
-    }
-    const mine = await p.$$eval("[aria-label='Starting points'] > li > button", (b) => b.map((x) => x.textContent))
-    expect(mine.some((t) => /You have this/.test(t) && /Open yours/.test(t)), "one you already have says so, and opens yours")
+    expect((await minText(p)) >= 12, "no text under 12px", await minText(p))
+    expect((await cls(p)).total === 0, "nothing moves while it loads", await cls(p))
+    const mine = rows.find((r) => /You have this/.test(r.text))
+    expect(Boolean(mine) && (isPhone || /Open yours/.test(mine.text)), "one you already have says so", mine?.text.slice(0, 80))
     await p.screenshot({ path: join(shots, `chooser-${label}.png`), fullPage: true })
     await p.evaluate(() => [...document.querySelectorAll("[aria-label='Starting points'] > li > button")].find((b) => /You have this/.test(b.textContent)).click())
     await sleep(100)
-    expect((await p.evaluate(() => (window.__nav || []).at(-1)))?.[1] === "/app/emails/flow/f9" && (await p.evaluate(() => window.__calls.length)) === 0, "without creating a second one")
+    expect((await lastNav(p))?.[1] === "/app/emails/flow/f9" && (await p.evaluate(() => window.__calls.length)) === 0, "and opens yours, without creating a second one")
     await p.evaluate(() => [...document.querySelectorAll("[aria-label='Starting points'] > li > button")].find((b) => /Welcome series/.test(b.textContent)).click())
     await sleep(200)
-    expect((await p.evaluate(() => (window.__nav || []).at(-1)))?.[1] === "/app/emails/flow/new-flow", "a new one is created and opened")
+    expect(JSON.stringify(await lastNav(p)) === JSON.stringify(["replace", "/app/emails/flow/new-flow"]), "a new one is created and opened in place of this list", await lastNav(p))
     await p.close()
+
+    const s = await open(vp, "chooser")
+    await s.click("button[aria-label='Start from scratch']")
+    await sleep(600)
+    const triggers = await s.evaluate(() => [...document.querySelectorAll("[data-action-list] [role=menuitem], [data-action-sheet] button")].map((b) => b.textContent.trim()))
+    expect(triggers.length === 4 && triggers[0] === "Someone joins your email list", "Start from scratch asks what starts it: four triggers", triggers)
+    if (label === "390" || label === "1440") await s.screenshot({ path: join(shots, `chooser-${label}-scratch.png`) })
+    await s.evaluate(() => [...document.querySelectorAll("[data-action-list] [role=menuitem], [data-action-sheet] button")].find((b) => /buys from you$/.test(b.textContent.trim())).click())
+    await sleep(500)
+    const made = await s.evaluate(() => window.__calls.find(([m, u]) => m === "POST" && u === "/api/automations/flows"))
+    expect(Boolean(made), "and makes an empty one for it", made)
+    await s.close()
 
     console.log(`\nBuilder, ${label}`)
     const b = await open(vp, "builder")
-    const col = await b.$eval("ol[aria-label=Steps]", (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), w: Math.round(r.width) } })
-    const nodes = await b.$$eval("ol[aria-label=Steps] > li > button:not([aria-label='Add a step here'])", (n) => n.length)
-    expect(nodes === 6, "the trigger and five steps, in order", nodes)
-    expect(col.w <= 560, "the steps are one column no wider than 560px", col)
-    const aside = await b.evaluate(() => { const a = document.querySelector("aside"); if (!a) return null; const r = a.getBoundingClientRect(); return r.width ? { x: Math.round(r.left), w: Math.round(r.width) } : null })
-    if (label === "desktop") expect(aside && aside.w === 420 && aside.x > col.x + col.w, "with the panel beside it, 420px", aside)
-    else expect(aside === null, "no side panel on a phone", aside)
+    const load = await cls(b)
+    expect(load.total === 0, "nothing moves while it loads (CLS 0)", load)
+    const bar = await b.evaluate(() => {
+      const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height), r: Math.round(r.right) } }
+      const back = document.querySelector("button[aria-label='Back to automations']")
+      const name = document.querySelector("input[aria-label=Name]")
+      const primary = [...document.querySelectorAll("[data-orders-bar] button")].find((x) => ["Save", "Turn on"].includes(x.textContent.trim()))
+      const more = document.querySelector("[data-orders-bar] button[aria-label='More actions']")
+      const badge = [...document.querySelectorAll("[data-orders-bar] span")].find((x) => ["Live", "Draft", "Paused"].includes(x.textContent.trim()) && getComputedStyle(x).display !== "none")
+      return { back: box(back), backBorder: back ? getComputedStyle(back).borderTopWidth : null, name: box(name), primary: primary ? primary.textContent.trim() : null, more: box(more), badge: badge ? { text: badge.textContent.trim(), ...box(badge) } : null }
+    })
+    expect(bar.back && bar.back.w >= 36 && bar.back.h >= 36 && bar.backBorder === "1px", "Back is a 36px bordered button, easy to see", bar.back)
+    if (isPhone) expect(bar.more && bar.more.r === vp.width - gutter, "the menu sits at the bar's right edge, on the gutter", { more: bar.more, gutter })
+    expect(bar.badge?.text === "Live", "the state says Live", bar.badge)
+    expect(bar.primary === null, "a live flow with nothing to save shows no primary action, only the menu", bar.primary)
+    expect(bar.name && bar.name.w >= 80, "the name has room to be read", bar.name)
+    const axis = await b.evaluate(() => {
+      const box = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), r: Math.round(r.right), w: Math.round(r.width), cx: Math.round(r.left + r.width / 2) } }
+      const nodes = [...document.querySelectorAll("ol[aria-label=Steps] > li > button:not([aria-label^='Add'])")].map(box)
+      const adds = [...document.querySelectorAll("ol[aria-label=Steps] button[aria-label='Add a step here'], ol[aria-label=Steps] button[aria-label='Add the first step']")].map(box)
+      const back = box(document.querySelector("button[aria-label='Back to automations']"))
+      const state = box(document.querySelector("[aria-label='Whether this automation is sending']"))
+      const activity = box(document.querySelector("section[aria-label=Activity]"))
+      const aside = document.querySelector("aside")
+      const asideBox = aside && aside.getBoundingClientRect().width ? box(aside) : null
+      const more = box(document.querySelector("button[aria-label='More actions']"))
+      return { nodes, adds, back, state, activity, aside: asideBox, more }
+    })
+    expect(axis.nodes.length === 6, "the trigger and five steps", axis.nodes.length)
+    expect(new Set(axis.nodes.map((n) => n.x)).size === 1 && new Set(axis.nodes.map((n) => n.w)).size === 1, "every step node on one left edge, one width", axis.nodes.map((n) => [n.x, n.w]))
+    expect(axis.adds.length === 6 && axis.adds.every((a) => Math.abs(a.cx - axis.nodes[0].cx) <= 1), "every + on the column's centre line", axis.adds.map((a) => a.cx))
+    expect(axis.state.x === axis.nodes[0].x && axis.state.w === axis.nodes[0].w && axis.activity.x === axis.nodes[0].x && axis.activity.w === axis.nodes[0].w, "the state line, the steps and the activity share one edge and one width", { state: axis.state, node: axis.nodes[0], activity: axis.activity })
+    expect(Math.abs(axis.back.x - axis.nodes[0].x) <= 2, "the Back button lines up with the column below it", { back: axis.back.x, column: axis.nodes[0].x })
+    if (isPhone) {
+      expect(axis.nodes[0].x === 16 && axis.nodes[0].r === vp.width - 16, "16px gutters on a phone", axis.nodes[0])
+      expect(axis.aside === null, "no side panel on a phone", axis.aside)
+    } else {
+      expect(axis.aside && axis.aside.w === 420 && axis.aside.x > axis.nodes[0].r && Math.abs(axis.aside.r - axis.more.r) <= 2, "the panel beside the column, 420px, its right edge under the menu", { aside: axis.aside, more: axis.more })
+      expect(Math.abs((axis.back.x + axis.aside.r) / 2 - vp.width / 2) <= 2, "the whole page centred", { left: axis.back.x, right: axis.aside.r })
+      expect(axis.aside.y === axis.state.y, "the panel's top lines up with the column's", { aside: axis.aside.y, column: axis.state.y })
+      expect(bar.badge && bar.name && bar.badge.x - bar.name.r >= 0 && bar.badge.x - bar.name.r <= 12, "the state badge sits right after the name", { name: bar.name, badge: bar.badge })
+    }
     expect((await sideways(b)) === 0, "the page never scrolls sideways", await sideways(b))
-    expect((await spills(b, "ol[aria-label=Steps] > li > button:not([aria-label='Add a step here'])")).length === 0, "a long subject is cut inside its node", await spills(b, "ol[aria-label=Steps] > li > button:not([aria-label='Add a step here'])"))
+    expect((await spills(b, "ol[aria-label=Steps] > li > button")).length === 0, "a long subject is cut inside its node", await spills(b, "ol[aria-label=Steps] > li > button"))
+    expect((await violetOrGradient(b, "ol[aria-label=Steps]")).length === 0, "no violet in the steps, and no gradient", await violetOrGradient(b, "ol[aria-label=Steps]"))
+    expect((await minText(b)) >= 11, "no text under 11px", await minText(b))
     const stats = await b.$eval("ol[aria-label=Steps] > li:nth-child(3) button", (n) => n.textContent)
     expect(/412 sent/.test(stats) && /61% opened/.test(stats) && /2 failed/.test(stats), "an email shows what it has done, from its records", stats.slice(0, 120))
-    const badge = await b.evaluate(() => {
-      const input = document.querySelector("input[aria-label=Name]").getBoundingClientRect()
-      const badge = [...document.querySelectorAll("[data-orders-bar] span")].find((x) => x.textContent.trim() === "On")
-      return badge && getComputedStyle(badge).display !== "none" ? Math.round(badge.getBoundingClientRect().left - input.right) : null
-    })
-    if (label === "desktop") expect(badge !== null && badge >= 0 && badge <= 12, "the On badge sits right after the name", badge)
-    const banner = await b.$eval("[aria-label='Whether this automation is sending']", (s) => s.textContent)
-    expect(/On and sending/.test(banner) && /14 people are partway through/.test(banner), "the banner says it is on and who is in it", banner.slice(0, 90))
-    const adds = await b.$$eval("ol[aria-label=Steps] button[aria-label='Add a step here']", (a) => a.map((x) => Math.round(x.getBoundingClientRect().width)))
-    expect(adds.length === 6 && adds.every((w) => w >= 32), "a + between every two steps and at the end, 32px or more", adds)
-    await b.screenshot({ path: join(shots, `builder-${label}.png`), fullPage: true })
+    const stateLine = await b.$eval("[aria-label='Whether this automation is sending']", (s) => s.textContent)
+    expect(/14 people are partway through/.test(stateLine), "the state line says who is in it", stateLine.slice(0, 90))
+    await b.screenshot({ path: join(shots, `builder-${label}.png`), fullPage: !isPhone })
+    if (isPhone) await b.screenshot({ path: join(shots, `builder-${label}-top.png`) })
 
+    /* Opening a step: the column does not move, the editor appears where it belongs. */
+    const before = await b.$$eval("ol[aria-label=Steps] > li > button:not([aria-label^='Add'])", (n) => n.map((x) => { const r = x.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)] }))
+    const shiftsBefore = (await cls(b)).shifts.length
     await b.click("ol[aria-label=Steps] > li:nth-child(3) button")
-    await sleep(500)
+    await sleep(600)
+    const after = await b.$$eval("ol[aria-label=Steps] > li > button:not([aria-label^='Add'])", (n) => n.map((x) => { const r = x.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)] }))
+    expect(JSON.stringify(before) === JSON.stringify(after), "selecting a step moves nothing in the column", { before: before.slice(0, 3), after: after.slice(0, 3) })
+    const shiftsAfter = (await cls(b)).shifts.slice(shiftsBefore)
+    expect(shiftsAfter.length === 0, "and no layout shift is recorded for it", shiftsAfter)
     const editor = await b.evaluate(() => {
       const s = document.querySelector("input[id^='subject-']")
       if (!s) return null
       const r = s.getBoundingClientRect()
-      const sheet = s.closest("[role=dialog]")
-      return { inSheet: !!sheet, inAside: !!s.closest("aside"), value: s.value, right: Math.round(r.right), body: !!document.querySelector("[role=textbox][contenteditable]") }
+      return { inSheet: !!s.closest("[role=dialog]"), inAside: !!s.closest("aside"), value: s.value, left: Math.round(r.left), right: Math.round(r.right), body: !!document.querySelector("[role=textbox][contenteditable]") }
     })
     expect(editor && editor.value === "Welcome, {{first_name}}" && editor.body, "opening an email opens its subject and body", editor)
-    expect(label === "desktop" ? editor?.inAside : editor?.inSheet, `in the ${label === "desktop" ? "side panel" : "bottom sheet"}`, editor)
-    if (label === "phone") expect(editor && editor.right <= 390, "inside the screen", editor?.right)
+    expect(isPhone ? editor?.inSheet : editor?.inAside, `in the ${isPhone ? "bottom sheet" : "side panel"}`, editor)
+    if (isPhone) expect(editor && editor.left >= 16 && editor.right <= vp.width - 16, "inside the screen, with its gutters", editor)
+    else {
+      const rows = await b.$$eval("[role=toolbar] button", (x) => [...new Set(x.map((e) => Math.round(e.getBoundingClientRect().top)))])
+      expect(rows.length === 1, "the email's toolbar is one row in the panel", rows)
+    }
     await b.screenshot({ path: join(shots, `builder-${label}-email.png`) })
     await b.type("input[id^='subject-']", " and welcome")
-    await sleep(100)
-    const saveOn = await b.evaluate(() => [...document.querySelectorAll("button")].find((x) => x.textContent.trim() === "Save")?.disabled === false)
-    expect(saveOn, "an edit makes Save available")
-    await b.evaluate(() => [...document.querySelectorAll("button")].find((x) => x.textContent.trim() === "Save").click())
+    await sleep(150)
+    const saveNow = await b.evaluate(() => [...document.querySelectorAll("[data-orders-bar] button")].find((x) => x.textContent.trim() === "Save")?.disabled === false)
+    expect(saveNow, "an edit brings Save into the bar as its one action")
+    await b.evaluate(() => [...document.querySelectorAll("[data-orders-bar] button")].find((x) => x.textContent.trim() === "Save").click())
     await sleep(300)
     const patched = await b.evaluate(() => window.__calls.filter(([m, u]) => m === "PATCH" && u === "/api/automations/flows/f1").length)
     expect(patched === 1, "and Save sends it once", patched)
-
+    const goneAgain = await b.evaluate(() => ![...document.querySelectorAll("[data-orders-bar] button")].some((x) => x.textContent.trim() === "Save"))
+    expect(goneAgain, "once saved, Save leaves the bar")
     await b.keyboard.press("Escape")
-    await sleep(400)
-    await b.evaluate(() => [...document.querySelectorAll("button")].find((x) => x.textContent.trim() === "Turn off").click())
-    await sleep(300)
+    await sleep(500)
+
+    await b.click("button[aria-label='More actions']")
+    await sleep(500)
+    const actions = await b.evaluate(() => [...document.querySelectorAll("[data-action-list] [role=menuitem], [data-action-sheet] button")].map((x) => x.textContent.trim()))
+    expect(actions.join("|") === "Turn off|Delete automation", "the menu holds Turn off and Delete", actions)
+    await b.evaluate(() => [...document.querySelectorAll("[data-action-list] [role=menuitem], [data-action-sheet] button")].find((x) => x.textContent.trim() === "Turn off").click())
+    await sleep(500)
     const confirm = await b.evaluate(() => [...document.querySelectorAll("[role=dialog]")].map((d) => d.textContent).find((t) => /partway through/.test(t)) ?? null)
     expect(confirm && /14 people are partway through/.test(confirm), "turning off says who it stops, before it does", confirm?.slice(0, 80))
+    await b.keyboard.press("Escape")
+    await sleep(300)
+    await b.click("button[aria-label='Back to automations']")
+    await sleep(200)
+    expect(JSON.stringify(await lastNav(b)) === JSON.stringify(["push", "/app/emails?tab=flows"]), "Back with nothing behind goes to the automations list", await lastNav(b))
+    expect(await b.evaluate(() => (window.__nav || []).some((n) => n[0] === "prefetch" && n[1] === "/app/emails?tab=flows")), "which was fetched ahead, so it is quick")
     await b.close()
+
+    const d = await open(vp, "builder")
+    await d.click("ol[aria-label=Steps] > li:nth-child(3) button")
+    await sleep(500)
+    await d.type("input[id^='subject-']", "!")
+    await d.keyboard.press("Escape")
+    await sleep(400)
+    await d.click("button[aria-label='Back to automations']")
+    await sleep(400)
+    const leaving = await d.evaluate(() => [...document.querySelectorAll("[role=dialog]")].map((x) => x.textContent).find((t) => /Leave without saving/.test(t)) ?? null)
+    expect(Boolean(leaving) && (await lastNav(d))?.[1] !== "/app/emails?tab=flows", "Back with unsaved changes asks first", leaving?.slice(0, 40))
+    await d.close()
 
     console.log(`\nA flow that is not finished, ${label}`)
     const x = await open(vp, "broken")
     const listed = await x.$eval("[aria-label='Whether this automation is sending']", (s) => s.textContent)
-    expect(/3 things to finish/.test(listed) && /needs a subject/.test(listed) && /is empty/.test(listed), "the banner lists what is missing", listed.slice(0, 160))
-    await x.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Turn on").click())
+    expect(/3 things to finish/.test(listed) && /needs a subject/.test(listed) && /is empty/.test(listed), "the state line lists what is missing", listed.slice(0, 160))
+    const primary = await x.evaluate(() => [...document.querySelectorAll("[data-orders-bar] button")].map((b) => b.textContent.trim()).find((t) => ["Save", "Turn on"].includes(t)))
+    const badge = await x.evaluate(() => [...document.querySelectorAll("[data-orders-bar] span")].find((s) => ["Live", "Draft", "Paused"].includes(s.textContent.trim()) && getComputedStyle(s).display !== "none")?.textContent.trim())
+    expect(primary === "Turn on" && badge === "Draft", "a draft says Draft, and its one action is Turn on", { primary, badge })
+    await x.evaluate(() => [...document.querySelectorAll("[data-orders-bar] button")].find((b) => b.textContent.trim() === "Turn on").click())
     await sleep(400)
     const statusCalls = await x.evaluate(() => window.__calls.filter(([, u]) => u.endsWith("/status")).length)
     expect(statusCalls === 0, "Turn on does not reach the server while it is not complete", statusCalls)
     const flagged = await x.$eval("ol[aria-label=Steps]", (o) => o.textContent)
     expect(/needs a subject/.test(flagged), "and the step that needs work says so", flagged.slice(0, 120))
     expect((await sideways(x)) === 0, "the page never scrolls sideways", await sideways(x))
-    await x.screenshot({ path: join(shots, `builder-${label}-broken.png`), fullPage: true })
+    await x.screenshot({ path: join(shots, `builder-${label}-broken.png`), fullPage: !isPhone })
     await x.close()
 
+    console.log(`\nFrom scratch, ${label}`)
+    const z = await open(vp, "scratch")
+    const firstAdd = await z.$$eval("ol[aria-label=Steps] button[aria-label='Add the first step']", (a) => a.map((x) => x.textContent.trim()))
+    expect(firstAdd.length === 1 && firstAdd[0] === "Add the first step", "an empty flow says where to begin", firstAdd)
+    const trig = await z.$eval("ol[aria-label=Steps] > li:first-child button", (n) => n.textContent)
+    expect(/Someone buys from you/.test(trig), "with the trigger that was chosen", trig.slice(0, 60))
+    await z.screenshot({ path: join(shots, `scratch-${label}.png`) })
+    await z.close()
+
+    if (label === "390" || label === "1440") {
+      const r = await open(vp, "reminder")
+      const text = await r.$eval("[aria-label='Whether this automation is sending']", (s) => s.textContent)
+      expect(/not recorded on your account yet/.test(text) && /Only people who asked for your news/.test(text), "a checkout reminder says who gets it, and that it waits for the SQL", text.slice(0, 200))
+      const trigger = await r.$eval("ol[aria-label=Steps] > li:first-child button", (n) => n.textContent)
+      expect(/starts checkout and does not pay/.test(trigger), "its trigger in words", trigger.slice(0, 80))
+      await r.screenshot({ path: join(shots, `reminder-${label}.png`), fullPage: !isPhone })
+      await r.close()
+    }
+
+    if (label !== "390" && label !== "1440") continue
     console.log(`\nSubscribers, ${label}`)
-    const s = await open(vp, "subscribers")
-    const heads = await s.$$eval("section[aria-label=Emails] thead th", (t) => t.map((x) => x.textContent.trim()).filter(Boolean))
+    const sp = await open(vp, "subscribers")
+    const heads = await sp.$$eval("section[aria-label=Emails] thead th", (t) => t.map((x) => x.textContent.trim()).filter(Boolean))
     expect(heads.includes("Source"), "a Source column", heads)
-    const firstRow = await s.$eval("section[aria-label=Emails] tbody tr td:nth-child(3)", (td) => td.textContent)
+    const firstRow = await sp.$eval("section[aria-label=Emails] tbody tr td:nth-child(3)", (td) => td.textContent)
     expect(/andrewrullz\.storelib\.com/.test(firstRow) && /from Instagram/.test(firstRow), "that names the website and where the visit came from", firstRow)
-    const cells = await s.$$eval("section[aria-label=Emails] tbody tr td:nth-child(3)", (tds) => tds.map((x) => x.textContent))
+    const cells = await sp.$$eval("section[aria-label=Emails] tbody tr td:nth-child(3)", (tds) => tds.map((x) => x.textContent))
     expect(cells.some((c) => c === "Not recorded") && cells.some((c) => c.startsWith("OnePage")), "an old contact with no source says Not recorded; an old OnePage one says OnePage")
-    const rowH = await s.$$eval("section[aria-label=Emails] tbody tr", (r) => [...new Set(r.map((x) => Math.round(x.getBoundingClientRect().height)))])
+    const rowH = await sp.$$eval("section[aria-label=Emails] tbody tr", (r) => [...new Set(r.map((x) => Math.round(x.getBoundingClientRect().height)))])
     expect(rowH.length === 1 && rowH[0] === 48, "rows stay 48px with the source in them", rowH)
-    await s.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Source").click())
+    await sp.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Source").click())
     await sleep(300)
-    const options = await s.$$eval("[role=menu][aria-label=Source] [role=menuitemradio]", (o) => o.map((x) => x.textContent.trim()))
+    const options = await sp.$$eval("[role=menu][aria-label=Source] [role=menuitemradio]", (o) => o.map((x) => x.textContent.trim()))
     expect(options.length >= 5 && /andrewrullz\.storelib\.com/.test(options[1]) && /Not recorded/.test(options.at(-1)), "the filter lists each website first, Not recorded last", options)
-    await s.evaluate(() => [...document.querySelectorAll("[role=menu][aria-label=Source] [role=menuitemradio]")].find((o) => /andrewrullz/.test(o.textContent)).click())
+    await sp.evaluate(() => [...document.querySelectorAll("[role=menu][aria-label=Source] [role=menuitemradio]")].find((o) => /andrewrullz/.test(o.textContent)).click())
     await sleep(200)
-    const filtered = await s.$$eval("section[aria-label=Emails] tbody tr td:nth-child(3)", (tds) => [...new Set(tds.map((x) => x.textContent.split("Footer")[0]))])
+    const filtered = await sp.$$eval("section[aria-label=Emails] tbody tr td:nth-child(3)", (tds) => [...new Set(tds.map((x) => x.textContent.split("Footer")[0]))])
     expect(filtered.length === 1 && /andrewrullz/.test(filtered[0]), "choosing one shows only that source", filtered)
-    expect((await sideways(s)) === 0, "the page never scrolls sideways", await sideways(s))
-    await s.screenshot({ path: join(shots, `subscribers-${label}.png`) })
-    await s.click("section[aria-label=Emails] tbody tr td:nth-child(2)")
+    expect((await sideways(sp)) === 0, "the page never scrolls sideways", await sideways(sp))
+    await sp.screenshot({ path: join(shots, `subscribers-${label}.png`) })
+    await sp.click("section[aria-label=Emails] tbody tr td:nth-child(2)")
     await sleep(600)
-    const detail = await s.evaluate(() => [...document.querySelectorAll("[role=dialog]")].map((d) => d.textContent).find((t) => /Source/.test(t)) ?? null)
+    const detail = await sp.evaluate(() => [...document.querySelectorAll("[role=dialog]")].map((d) => d.textContent).find((t) => /Source/.test(t)) ?? null)
     expect(detail && /andrewrullz\.storelib\.com/.test(detail) && /Welcome series/.test(detail), "a contact's detail says where they came from and what they are in", detail?.slice(0, 140))
-    await s.screenshot({ path: join(shots, `subscribers-${label}-detail.png`) })
-    await s.close()
+    await sp.close()
   }
   console.log(`\nScreenshots: ${shots}`)
 } finally {
@@ -259,4 +382,4 @@ try {
   server?.close()
 }
 console.log(broken ? `\n${broken} failed` : "\nall passed")
-process.exit(broken ? 1 : 0)
+if (broken) process.exit(1)

@@ -151,7 +151,8 @@ export function sourceView(detail: unknown, legacy?: unknown): SourceView {
 export function joinedSentence(detail: unknown, trigger?: string): string | null {
   const d = cleanContactSource(detail)
   if (!d?.surface) return null
-  if (trigger === "purchase" || d.surface === "checkout") {
+  if (trigger === "abandoned_checkout") return d.site ? `Left checkout on ${d.site}` : "Left checkout on Storelib"
+  if (trigger === "purchase" || trigger === "first_purchase" || d.surface === "checkout") {
     return d.site ? `Bought on ${d.site}` : d.surface === "checkout" ? "Bought on Storelib" : `Bought from ${SURFACE_NAME[d.surface]}`
   }
   if (d.surface === "website") return d.site ? `Joined from ${d.site}` : "Joined from a website"
