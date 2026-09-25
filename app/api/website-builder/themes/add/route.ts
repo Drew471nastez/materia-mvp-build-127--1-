@@ -74,7 +74,9 @@ export async function POST(req: Request) {
   if (!catalogRow) {
     const { error: seedErr } = await admin.from("themes").upsert(themeCatalogRow(def), { onConflict: "id" })
     if (seedErr) {
-      return NextResponse.json({ error: `Could not register theme: ${seedErr.message}` }, { status: 500 })
+      /* The database's own words go to the server log, never into a toast. */
+      console.error("[themes/add] could not register the catalogue row", { themeId, code: seedErr.code })
+      return NextResponse.json({ error: "Could not add the theme. Try again." }, { status: 500 })
     }
   }
 
@@ -100,7 +102,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
   }
   if (installErr || !newInstall) {
-    return NextResponse.json({ error: installErr?.message ?? "Failed to add theme" }, { status: 500 })
+    console.error("[themes/add] could not create the install", { themeId, code: installErr?.code })
+    return NextResponse.json({ error: "Could not add the theme. Try again." }, { status: 500 })
   }
   if (!(await keptWithinLimit(admin, creator.id, newInstall.id as string))) {
     return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })

@@ -12,9 +12,14 @@ import { cn } from "@/lib/utils"
  * there, then the editor was, then the list again. Now opening a product
  * slides the editor in from the right edge over the list, and Back or Cancel
  * slides it off to the right with the list already drawn underneath, the
- * way a pushed screen comes and goes on an iPhone. From 768px the travel
- * would be the whole width of a computer's screen, so there it is a short
- * fade with a 12px rise.
+ * way a pushed screen comes and goes on an iPhone.
+ *
+ * ON A PHONE ONLY. From 768px the editor is not a layer: it is a page in the
+ * shell, under the header and beside the rail (`phoneOnly`, below), and it
+ * arrives the way every page there does, on the stage's landing
+ * (components/app/app-stage.tsx), which moves the content and nothing else.
+ * A view transition animates the whole screen: the header and the rail would
+ * fade and rise with the page. So from 768px there is no move.
  *
  * HOW. The two pages never exist at the same time in React: the router
  * swaps one for the other in a single commit. So the move is a view
@@ -46,12 +51,14 @@ import { cn } from "@/lib/utils"
  * properties on <html>, one number in one place.
  *
  * No move under reduced motion, in a browser with no view transitions (the
- * page swaps as before), or when one is already running.
+ * page swaps as before), from 768px (above), or when one is already running.
  */
 export const LAYER_MOTION_MS = 300
 /** The iOS sheet curve, the one the segmented control and the sheets use. */
 export const LAYER_MOTION_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 export const LAYER_WAIT_MS = 450
+/** Where the editor is a layer at all: the pill's breakpoint, the same 768px as `phoneOnly`. */
+export const LAYER_PHONE = "(max-width: 767px)"
 
 type LayerMotion = "enter" | "leave"
 let waiting: { motion: LayerMotion; landed: () => void } | null = null
@@ -64,7 +71,8 @@ export function moveLayer(motion: LayerMotion, navigate: () => void) {
   const doc = document as WithViewTransitions
   const html = document.documentElement
   const reduced = !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-  if (waiting || reduced || typeof doc.startViewTransition !== "function") {
+  const phone = !!window.matchMedia?.(LAYER_PHONE).matches
+  if (waiting || reduced || !phone || typeof doc.startViewTransition !== "function") {
     navigate()
     return
   }
@@ -176,11 +184,25 @@ export function holdLayerLanding() {
  * The page inside scrolls in `[data-page-layer-scroll]`, or in a scroller of
  * its own that fills it (the editor's `.page-scroll`). The room the pill
  * needs at the foot goes on whichever one moves, in app/globals.css.
+ *
+ * ONLY ON A PHONE (`phoneOnly`, the product editor). "On desktop large
+ * screen the edit product page should be with the sidebar, with the header up
+ * there. Not how it is on mobile." Below md it is the layer described above;
+ * from md it is an ordinary page in the shell's content area, under the
+ * header and beside the rail, filling it the way every page that scrolls
+ * itself does, and the page's own bar sticks to the top of that area. Decided
+ * by the stylesheet alone (768px, the pill's breakpoint), so the server draws
+ * the same thing for both, and a window dragged across the breakpoint keeps
+ * the same boxes and the same scroll: only where they sit changes. What the
+ * layer does to the shell (the chrome, the shield, the strip under the status
+ * bar) is then under a media query too, keyed on [data-page-layer-phone] and
+ * the html class `has-phone-page-layer`.
  */
 export function PageLayer({
   children,
   pill = false,
   inset = "page",
+  phoneOnly = false,
   className,
 }: {
   children: React.ReactNode
@@ -190,16 +212,19 @@ export function PageLayer({
    * Who clears the status bar. "page" and "white": the layer pads its top by
    * the inset and paints that strip in the page's colour or in white. "bar":
    * the page's own sticky bar pads itself (the product editor's does, inside
-   * any [data-page-layer]), so the layer adds nothing and the bar's colour
-   * runs up under the clock as the page scrolls beneath it.
+   * any [data-page-layer] below md), so the layer adds nothing and the bar's
+   * colour runs up under the clock as the page scrolls beneath it.
    */
   inset?: "page" | "white" | "bar"
+  /** A layer below md only; from md an ordinary page inside the shell. */
+  phoneOnly?: boolean
   className?: string
 }) {
   useLayoutEffect(() => {
     const html = document.documentElement
-    html.classList.add("has-page-layer")
-    /* The commit a layer's move is waiting for (moveLayer, below): this layer is on the screen. */
+    const name = phoneOnly ? "has-phone-page-layer" : "has-page-layer"
+    html.classList.add(name)
+    /* The commit a layer's move is waiting for (moveLayer, above): this layer is on the screen. */
     if (waiting?.motion === "enter") waiting.landed()
     /* A layer standing in for the one before it (holdLayerLanding): from the next frame the stage lands pages again. */
     if (html.dataset.layerMotion === "stay") {
@@ -208,18 +233,21 @@ export function PageLayer({
       })
     }
     return () => {
-      html.classList.remove("has-page-layer")
+      html.classList.remove(name)
       /* ...or it has gone, and the page under it is in the same commit. */
       if (waiting?.motion === "leave") waiting.landed()
     }
-  }, [])
+  }, [phoneOnly])
 
   return (
     <div
       data-page-layer={pill ? "pill" : ""}
+      data-page-layer-phone={phoneOnly ? "" : undefined}
       className={cn(
-        "fixed inset-0 z-[52] flex flex-col bg-[#f8f9fa]",
-        inset !== "bar" && "pt-[env(safe-area-inset-top,0px)]",
+        phoneOnly
+          ? "flex h-full flex-col bg-[#f8f9fa] max-md:fixed max-md:inset-0 max-md:z-[52] max-md:h-auto"
+          : "fixed inset-0 z-[52] flex flex-col bg-[#f8f9fa]",
+        inset !== "bar" && (phoneOnly ? "max-md:pt-[env(safe-area-inset-top,0px)]" : "pt-[env(safe-area-inset-top,0px)]"),
         inset === "white" && "bg-white",
         className,
       )}

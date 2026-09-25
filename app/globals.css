@@ -3130,6 +3130,72 @@ html.app-layout .app-content-scroll {
   }
 }
 
+/* ── One scrollbar column, always the same width, on a computer ─────────────
+ *
+ * "Each time I switch between pages in /app on desktop large screens, the
+ * scrollbar on the right side of the screen is bumping." A classic scrollbar
+ * (a Mac with a mouse, Windows, Linux) takes a column of layout, and it came
+ * and went on almost every page swap:
+ *
+ *   a long page after a short one (and back) put a 15px bar on the shell's
+ *   scroller, and took it away again;
+ *
+ *   a page that scrolls in a box of its own (Home, Products, Orders, Coupons,
+ *   Analytics, Payouts, Emails, Website) got a 10px bar there, and none on a
+ *   short one;
+ *
+ *   and the landing's 5px rise (components/app/app-stage.tsx) moved that
+ *   full height box 5px past the bottom of the shell's scroller, so for 180ms
+ *   the SHELL grew a second bar beside the page's own, and dropped it. That
+ *   is the bar that flashed and then disappeared on every Back.
+ *
+ * Measured by scripts/check-scrollbar-stable.mjs: before this, at 1440 the
+ * page's column moved sideways in 357 of 748 frames across twenty swaps, and
+ * the shell's bar flashed in 8 of them.
+ *
+ * So there is exactly one scrollbar column, reserved whether or not there is
+ * anything to scroll, in exactly one place, the same width everywhere:
+ *
+ *   THE SHELL'S SCROLLER keeps its column (`scrollbar-gutter: stable`) when
+ *   it is what scrolls, in the same slim bar the pages' own scrollers use
+ *   (.page-scroll above), so both are one width;
+ *
+ *   A PAGE THAT SCROLLS ITSELF keeps the column in its own box, and the
+ *   shell's scroller then does not scroll at all and keeps none: there is
+ *   nothing in it but that full height box, and a column there too would be
+ *   an empty strip beside the page's bar;
+ *
+ *   WHILE THE LANDING PLAYS, a page that fitted the shell keeps fitting: the
+ *   stage marks the scroller [data-app-landing] for those 180ms only when
+ *   nothing overflowed before the rise, and the rise cannot make it scroll.
+ *
+ * On a phone, and in the native apps, scrollbars float over the page and
+ * take no room: none of this applies below 768px or under html.capacitor
+ * (an iPad included), where they are as they were. The same list of page
+ * scrollers as the pill's room rule above.
+ * ────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  html.app-layout:not(.capacitor) .app-content-scroll {
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+  }
+  html.app-layout:not(.capacitor) .app-content-scroll:has(> .page-scroll, > .dashboard-scroll-container, > .sales-scroll-container, > .orders-stage, > [data-page-layer]) {
+    overflow-y: hidden;
+    scrollbar-gutter: auto;
+  }
+  html.app-layout:not(.capacitor) .app-content-scroll > .page-scroll,
+  html.app-layout:not(.capacitor) .app-content-scroll > .dashboard-scroll-container,
+  html.app-layout:not(.capacitor) .app-content-scroll > .sales-scroll-container,
+  html.app-layout:not(.capacitor) .app-content-scroll > .orders-stage > .orders-pane,
+  html.app-layout:not(.capacitor) .app-content-scroll [data-page-layer-scroll] > .page-scroll {
+    scrollbar-gutter: stable;
+  }
+  html.app-layout:not(.capacitor) .app-content-scroll[data-app-landing] {
+    overflow-y: hidden;
+  }
+}
+
 /* Any element explicitly marked as needing bottom clearance */
 html.capacitor [data-safe-bottom] {
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -3234,30 +3300,62 @@ html.capacitor:has(.cp-editor)::before {
    strip in its own colour by padding its top by the inset.
 
    Pairs of rules, not selector lists, for the reason given above: the class
-   is set by the layer for an engine without :has(). */
-html:has([data-page-layer]) [data-shell-chrome] {
+   is set by the layer for an engine without :has().
+
+   THE PRODUCT EDITOR IS A LAYER ON A PHONE ONLY. From md it is a page in the
+   shell with the header and the rail around it, "not how it is on mobile",
+   so its layer carries [data-page-layer-phone] (and sets
+   `has-phone-page-layer` rather than `has-page-layer`), the rules for every
+   width skip it, and the same rules hold for it below 768px only. */
+html:has([data-page-layer]:not([data-page-layer-phone])) [data-shell-chrome] {
   visibility: hidden;
 }
 html.has-page-layer [data-shell-chrome] {
   visibility: hidden;
 }
-html:has([data-page-layer]) .app-content-scroll {
+html:has([data-page-layer]:not([data-page-layer-phone])) .app-content-scroll {
   -webkit-overflow-scrolling: auto;
 }
 html.has-page-layer .app-content-scroll {
   -webkit-overflow-scrolling: auto;
 }
-html.capacitor:has([data-page-layer])::before {
+html.capacitor:has([data-page-layer]:not([data-page-layer-phone]))::before {
   display: none;
 }
 html.capacitor.has-page-layer::before {
   display: none;
 }
-html.capacitor:has([data-page-layer]) {
+html.capacitor:has([data-page-layer]:not([data-page-layer-phone])) {
   background-color: #f8f9fa;
 }
 html.capacitor.has-page-layer {
   background-color: #f8f9fa;
+}
+@media (max-width: 767px) {
+  html:has([data-page-layer-phone]) [data-shell-chrome] {
+    visibility: hidden;
+  }
+  html.has-phone-page-layer [data-shell-chrome] {
+    visibility: hidden;
+  }
+  html:has([data-page-layer-phone]) .app-content-scroll {
+    -webkit-overflow-scrolling: auto;
+  }
+  html.has-phone-page-layer .app-content-scroll {
+    -webkit-overflow-scrolling: auto;
+  }
+  html.capacitor:has([data-page-layer-phone])::before {
+    display: none;
+  }
+  html.capacitor.has-phone-page-layer::before {
+    display: none;
+  }
+  html.capacitor:has([data-page-layer-phone]) {
+    background-color: #f8f9fa;
+  }
+  html.capacitor.has-phone-page-layer {
+    background-color: #f8f9fa;
+  }
 }
 
 /* ── A layer comes and goes (moveLayer, components/app/page-layer.tsx) ─────
@@ -3267,9 +3365,12 @@ html.capacitor.has-page-layer {
    the whole time, so no frame is ever empty.
 
    On a phone the layer slides in from the right edge and back out to it,
-   with a soft shade along its leading edge, over the list. From 768px it
-   fades with a 12px rise. Duration and curve are custom properties set by
-   the script from one pair of numbers (LAYER_MOTION_MS, LAYER_MOTION_EASE).
+   with a soft shade along its leading edge, over the list. From 768px the
+   editor is a page in the shell and moveLayer plays no move there (it would
+   take the header and the rail with it); the fade with a 12px rise below is
+   what any wider window that does get a move shows. Duration and curve are
+   custom properties set by the script from one pair of numbers
+   (LAYER_MOTION_MS, LAYER_MOTION_EASE).
 
    The navigation pill has a name of its own while a layer moves, so it is
    taken out of the page's picture and stays put over both. */

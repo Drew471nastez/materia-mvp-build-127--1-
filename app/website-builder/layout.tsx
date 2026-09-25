@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { SessionRecovery } from "@/components/auth/session-recovery"
-import { Toaster } from "sonner"
+import { EditorToaster } from "@/components/ui/editor-toaster"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -36,7 +36,8 @@ export default async function WebsiteBuilderEditorLayout({
     */
     <div className="fixed inset-0 overflow-hidden bg-background">
       {children}
-      <Toaster position="bottom-right" />
+      {/* Compact on a phone and clear of the home indicator: see the file. */}
+      <EditorToaster />
     </div>
   )
 }

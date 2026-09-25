@@ -199,7 +199,11 @@ check("the editor draws the grid from the form's own media; the old sensors, ove
 
 console.log("\nThe editor's page")
 
-check("first on the screen, as a layer over the app's header, it starts below the status bar", /\[\[data-page-layer\]_&\]:pt-\[env\(safe-area-inset-top\)\]/.test(barSource) && /\[\[data-page-layer\]_&\]:pb-\[calc\(32px\+env\(safe-area-inset-bottom\)\)\]/.test(editor))
+check("on a phone, first on the screen as a layer over the app's header, it starts below the status bar; from md, under the header, it adds nothing",
+  /max-md:\[\[data-page-layer\]_&\]:pt-\[env\(safe-area-inset-top\)\]/.test(barSource) && /max-md:\[\[data-page-layer\]_&\]:pb-\[calc\(32px\+env\(safe-area-inset-bottom\)\)\]/.test(editor)
+    && !/(^|[\s"])\[\[data-page-layer\]_&\]/.test(barSource + editor))
+check("a layer on a phone only: both editor addresses ask for it, and from md it is a page in the shell",
+  /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/app/products/new/layout.tsx")) && /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/app/products/[id]/layout.tsx")))
 check("the editor scrolls as a page-scroll pane, so the pill's room is the shared 104px and nothing else", /className="page-scroll h-full overflow-y-auto/.test(editor) && !/pb-24 sm:pb-8/.test(editor))
 check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g) ?? []).length >= 4)
 
@@ -283,10 +287,12 @@ const layer = code("components/app/page-layer.tsx")
 check("the editor comes and goes as one view transition, waiting only for the router's commit, capped at LAYER_WAIT_MS",
   /export const LAYER_MOTION_MS = 300/.test(layer) && /export const LAYER_MOTION_EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(layer) && /export const LAYER_WAIT_MS = 450/.test(layer)
     && /doc\.startViewTransition\(\(\) => \{\s*navigate\(\)/.test(layer) && /move\.skipTransition\(\)/.test(layer) && /if \(waiting\?\.motion === "enter"\) waiting\.landed\(\)/.test(layer) && /if \(waiting\?\.motion === "leave"\) waiting\.landed\(\)/.test(layer))
-check("no move under reduced motion or without view transitions: the page swaps as before", /if \(waiting \|\| reduced \|\| typeof doc\.startViewTransition !== "function"\) \{\s*navigate\(\)\s*return/.test(layer))
+check("no move under reduced motion, without view transitions, or from 768px where the editor is a page in the shell: the page swaps and lands as any other",
+  /if \(waiting \|\| reduced \|\| !phone \|\| typeof doc\.startViewTransition !== "function"\) \{\s*navigate\(\)\s*return/.test(layer)
+    && /const phone = !!window\.matchMedia\?\.\(LAYER_PHONE\)\.matches/.test(layer) && /export const LAYER_PHONE = "\(max-width: 767px\)"/.test(layer))
 check("the duration and curve reach the CSS from the script, one number in one place", /html\.style\.setProperty\("--layer-motion-ms", `\$\{LAYER_MOTION_MS\}ms`\)/.test(layer) && /html\.style\.setProperty\("--layer-motion-ease", LAYER_MOTION_EASE\)/.test(layer))
 const css = read("app/globals.css")
-check("on a phone the layer slides in from the right edge and back out to it; from 768px a fade with a 12px rise",
+check("on a phone the layer slides in from the right edge and back out to it; the fade with a 12px rise is kept for a wider move",
   /@keyframes layer-slide-out \{\s*to \{ transform: translateX\(100%\); \}/.test(css) && /@keyframes layer-sink-out \{\s*to \{ opacity: 0; transform: translateY\(12px\); \}/.test(css)
     && /html\[data-layer-motion="leave"\]::view-transition-new\(root\) \{\s*animation: none;/.test(css) && /html\[data-layer-motion="leave"\]::view-transition-old\(root\) \{\s*z-index: 1;/.test(css)
     && /animation: layer-sink-out var\(--layer-motion-ms, 300ms\) var\(--layer-motion-ease, ease-out\) both/.test(css) && /mix-blend-mode: normal/.test(css))

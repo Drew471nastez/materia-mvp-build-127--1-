@@ -658,8 +658,8 @@ function WithdrawPanel({
       }
     } catch (e: any) {
       toast({
-        title: "Could not open account settings",
-        description: e?.message || "Please try again.",
+        title: "Could not open Stripe",
+        description: e?.message || "Try again.",
         variant: "destructive",
       });
     } finally {
@@ -680,7 +680,7 @@ function WithdrawPanel({
         currency: json.payout.currency,
       });
       toast({
-        title: "Withdrawal created!",
+        title: "Withdrawal sent",
         description: `${fmt(json.payout.amount, json.payout.currency)} is on its way to your bank.`,
       });
     } catch (e: any) {
@@ -1526,11 +1526,11 @@ function OrderDetailsModal({
     if (!order) return;
     const currentCount = receiptResendCounts[order.id] || 0;
     if (currentCount >= 5) {
-      showNotification("Maximum 5 resends per order", "error");
+      showNotification("Resend limit reached", "error");
       return;
     }
     if (!order.receipt_token) {
-      showNotification("No receipt token available for this order", "error");
+      showNotification("This order has no receipt to send", "error");
       return;
     }
     setResendLoading(true);
@@ -1546,10 +1546,10 @@ function OrderDetailsModal({
         setReceiptResendCounts(newCounts);
         showNotification(`Receipt sent to buyer (${currentCount + 1}/5)`);
       } else {
-        showNotification(data.error || "Failed to resend. Please try again.", "error");
+        showNotification(data.error || "Could not resend. Try again.", "error");
       }
     } catch {
-      showNotification("Failed to resend. Please try again.", "error");
+      showNotification("Could not resend. Try again.", "error");
     } finally {
       setResendLoading(false);
     }
@@ -1585,10 +1585,10 @@ function OrderDetailsModal({
       setShowRefundConfirm(false);
       // Pass the refunded amount so the parent can instantly update the balance UI
       onRefundSuccess?.(order.amount_cents);
-      showNotification("Refund issued — the buyer will be notified");
+      showNotification("Refund issued");
     } catch (e: any) {
       setRefundError(e.message);
-      showNotification(e.message || "Refund failed", "error");
+      showNotification("Could not refund", "error");
     } finally {
       setRefundLoading(false);
     }
@@ -3384,8 +3384,8 @@ function PayoutMethodCard() {
       }
     } catch (e: any) {
       toast({
-        title: "Could not open account settings",
-        description: e?.message || "Please try again.",
+        title: "Could not open Stripe",
+        description: e?.message || "Try again.",
         variant: "destructive",
       });
     } finally {

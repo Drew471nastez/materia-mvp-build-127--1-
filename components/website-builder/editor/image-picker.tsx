@@ -132,12 +132,12 @@ export function WbImagePicker({
 
   const handleFile = useCallback(async (file: File) => {
     if (!ALLOWED_TYPES.has(file.type)) {
-      toast.error("Only JPEG, PNG, GIF, WebP, SVG, and AVIF images are allowed")
+      toast.error("Use JPG, PNG, GIF, WebP, SVG or AVIF")
       return
     }
     const ext = (file.name.split(".").pop() ?? "").toLowerCase()
     if (!SAFE_EXTENSIONS.has(ext)) {
-      toast.error("Invalid file extension")
+      toast.error("That file type is not allowed")
       return
     }
     if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5 MB"); return }
@@ -163,11 +163,11 @@ export function WbImagePicker({
 
       const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
       onChange(urlData.publicUrl)
-    } catch (err) {
+    } catch {
       /* Nothing was stored, so the box goes back to being empty rather than
          showing a picture this panel does not actually have. */
       showFile(null)
-      toast.error(err instanceof Error ? err.message : "Upload failed")
+      toast.error("Upload failed. Try again.")
     } finally {
       setUploading(false)
     }

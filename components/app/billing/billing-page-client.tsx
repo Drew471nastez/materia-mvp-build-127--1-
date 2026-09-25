@@ -134,15 +134,15 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
     const canceled = searchParams.get("canceled")
 
     if (success === "1" || success === "true") {
-      showNotification("success", "Subscription activated successfully! Your plan has been updated.")
+      showNotification("success", "You are on Pro now")
       window.history.replaceState({}, "", "/app/settings/billing")
       router.refresh()
     } else if (setupSuccess === "1" || setupSuccess === "true") {
-      showNotification("success", "Payment method updated successfully!")
+      showNotification("success", "Card updated")
       window.history.replaceState({}, "", "/app/settings/billing")
       router.refresh()
     } else if (canceled === "1" || canceled === "true") {
-      showNotification("error", "Checkout was canceled. No changes were made.")
+      showNotification("error", "Checkout canceled. Nothing changed.")
       window.history.replaceState({}, "", "/app/settings/billing")
     }
   }, [searchParams])
@@ -177,7 +177,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
       const { url } = await response.json()
       window.location.href = url
     } catch (error: any) {
-      showNotification("error", error.message || "Failed to open billing portal")
+      showNotification("error", error.message || "Could not open billing. Try again.")
     } finally {
       setPortalLoading(false)
     }
@@ -194,7 +194,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
       const { url } = await response.json()
       window.location.href = url
     } catch (error: any) {
-      showNotification("error", error.message || "Failed to open payment setup")
+      showNotification("error", error.message || "Could not open card setup. Try again.")
     } finally {
       setPortalLoading(false)
     }
@@ -211,7 +211,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
       const { url } = await response.json()
       window.location.href = url
     } catch (error: any) {
-      showNotification("error", error.message || "Failed to open billing portal")
+      showNotification("error", error.message || "Could not open billing. Try again.")
     } finally {
       setPortalLoading(false)
     }
@@ -676,15 +676,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
         <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-3 left-0 right-0 z-[200] flex justify-center pointer-events-none">
           <div className={`pointer-events-auto bg-[#18181b] text-white rounded-xl shadow-lg px-4 py-2.5 flex items-center gap-2.5 max-w-[calc(100vw-2rem)] whitespace-nowrap transition-all duration-300 ease-out ${notification.visible ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"}`}>
             {notification.type === "success" ? <Check className="h-3.5 w-3.5 shrink-0 text-white" strokeWidth={2.5} /> : <X className="h-3.5 w-3.5 shrink-0 text-red-400" strokeWidth={2.5} />}
-            <p className="text-[12px] font-medium hidden sm:block">{notification.message}</p>
-            <p className="text-[12px] font-medium sm:hidden">{
-              notification.message.includes("Subscription activated") ? "Plan activated!" :
-              notification.message.includes("Payment method updated") ? "Payment updated!" :
-              notification.message.includes("Checkout was canceled") ? "Checkout canceled" :
-              notification.message.includes("Plan changed") ? "Plan updated!" :
-              notification.message.length > 30 ? notification.message.slice(0, 28) + "..." :
-              notification.message
-            }</p>
+            <p className="min-w-0 truncate text-[13px] font-medium">{notification.message}</p>
             <button onClick={dismissNotification} className="shrink-0 text-white/40 hover:text-white transition-colors cursor-pointer ml-1"><X className="h-3.5 w-3.5" /></button>
           </div>
         </div>
@@ -708,7 +700,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                 const response = await fetch("/api/billing/subscription/change", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ newPlanId: showUpgradeModal.planId }) })
                 const result = await response.json()
                 if (!response.ok) { throw new Error(result.error || "Failed to change plan") }
-                showNotification("success", result.message || `Plan changed to ${showUpgradeModal.planName}!`)
+                showNotification("success", result.message || `Now on ${showUpgradeModal.planName}`)
                 // Optimistically update state
                 if (result.type === "downgrade") {
                   setLiveSubscription((prev: any) => prev ? { ...prev, pending_plan_id: showUpgradeModal.planId } : prev)

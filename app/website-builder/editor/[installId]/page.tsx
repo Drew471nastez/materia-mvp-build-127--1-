@@ -5042,7 +5042,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       showNotification(
         pageKey && (BUILT_IN_PAGE_KEYS.has(pageKey) || customPages.some((p) => p.key === pageKey))
           ? `There is already a page at /${pageKey}.`
-          : "Give the page a name with letters or numbers in it.",
+          : "Use letters or numbers in the name.",
         "error",
       )
       setAddingPage(false)
@@ -5095,7 +5095,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       })
       if (!res.ok) throw new Error(String(res.status))
     } catch {
-      showNotification("That page could not be created. Try again.", "error")
+      showNotification("Could not create the page. Try again.", "error")
       setAddingPage(false)
       return
     }
@@ -5142,7 +5142,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       showNotification("Page deleted")
     } catch {
       setCustomPages(before)
-      showNotification("That page could not be deleted. Try again.", "error")
+      showNotification("Could not delete the page. Try again.", "error")
     }
   }, [customPages, currentPage, handlePageChange, installId, showNotification])
 
@@ -5288,7 +5288,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        * trains somebody to ignore the one that matters — the bar already shows
        * the state.
        */
-      if (!options.quiet) showNotification("Changes saved successfully")
+      if (!options.quiet) showNotification("Saved")
       return true
     } catch {
       showNotification("Failed to save", "error")
@@ -7804,7 +7804,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       >
         <div
           className={cn(
-            "mt-3 px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium pointer-events-auto flex items-center gap-2",
+            /* Between 16px gutters on a phone, and one line: a longer message ends in "...". */
+            "mx-4 mt-3 flex min-w-0 max-w-[calc(100vw-2rem)] items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg pointer-events-auto",
             notification?.type === "error"
               ? "bg-red-600 text-white"
               : "bg-neutral-900 text-white"
@@ -7815,7 +7816,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           ) : (
             <Check className="h-3.5 w-3.5 shrink-0" />
           )}
-          {notification?.message}
+          <span className="min-w-0 truncate">{notification?.message}</span>
         </div>
       </div>
 

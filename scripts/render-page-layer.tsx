@@ -1,5 +1,6 @@
 /**
- * The two pages drawn as a layer over the shell, through their real layouts:
+ * The two pages drawn as a layer over the shell (the plans page at every
+ * width, the product editor on a phone only), through their real layouts:
  * the plans page (app/app/settings/billing/upgrade/layout.tsx around the real
  * UpgradePageClient) and the product editor (app/app/products/new/layout.tsx
  * and [id]/layout.tsx around the real ProductEditor). Around them, a shell
@@ -77,7 +78,7 @@ function Page() {
 createRoot(document.getElementById("app")!).render(
   <div className="h-svh overflow-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar">
     {/* The shell's chrome, as components/app/sidebar.tsx draws it. */}
-    <header data-shell-chrome="" className="fixed left-0 right-0 top-0 z-50 hidden pt-[env(safe-area-inset-top,_0px)] md:block">
+    <header data-shell-chrome="" data-desktop-header="" className="fixed left-0 right-0 top-0 z-50 hidden pt-[env(safe-area-inset-top,_0px)] md:block">
       <div className="h-[58px] bg-[#131316]" />
     </header>
     <header data-shell-chrome="" className="fixed left-0 right-0 top-0 z-50 bg-[#111111] md:hidden" style={{ height: "calc(68px + env(safe-area-inset-top, 0px))", transform: "translateZ(0)" }}>
@@ -85,7 +86,7 @@ createRoot(document.getElementById("app")!).render(
         <span className="text-[13px] text-white/90">AndrewRullz</span>
       </div>
     </header>
-    <aside data-shell-chrome="" className="fixed left-0 z-40 hidden w-[240px] bg-white md:flex" style={{ top: "calc(58px + env(safe-area-inset-top, 0px))", height: "calc(100svh - 58px - env(safe-area-inset-top, 0px))" }} />
+    <aside data-shell-chrome="" data-rail="" className="fixed left-0 z-40 hidden w-[240px] bg-white md:flex" style={{ top: "calc(58px + env(safe-area-inset-top, 0px))", height: "calc(100svh - 58px - env(safe-area-inset-top, 0px))" }} />
     <div data-app-nav-pill="" className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex items-end justify-center md:hidden" style={{ paddingBottom: "max(4px, env(safe-area-inset-bottom, 0px))" }}>
       <button data-pill-tab="" className="pointer-events-auto mb-1.5 h-[58px] w-[300px] rounded-full bg-black" />
     </div>

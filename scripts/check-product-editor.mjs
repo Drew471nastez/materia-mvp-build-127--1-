@@ -729,6 +729,33 @@ async function walkMove(p, browser, label, name, vp, which, before) {
   return out
 }
 
+/** What is on the screen now, the same reading walkMove takes under a move's first frame. */
+async function readUnder(p) {
+  return p.evaluate(() => ({
+    layer: !!document.querySelector("[data-page-layer]"),
+    rows: document.querySelectorAll("[data-list] > [data-row]:not([hidden]), tbody > [data-row]:not([hidden])").length,
+    motion: document.documentElement.dataset.layerMotion ?? null,
+    path: window.__path,
+    tinted: (() => {
+      const row = [...document.querySelectorAll(`[data-row="8f0c2b1e-3a4d-4c5e-9f60-718293a4b5c6"]`)].find((r) => r.getClientRects().length > 0)
+      return row ? [row, ...row.children].some((el) => el.getAnimations().some((a) => a.effect.getKeyframes().some((k) => k.backgroundColor))) : false
+    })(),
+  }))
+}
+
+/*
+  FROM 768px THERE IS NO MOVE. The editor is a page in the shell there, under
+  the header and beside the rail (components/app/page-layer.tsx phoneOnly),
+  and a view transition would take the header and the rail with it: moveLayer
+  navigates at once and the stage lands the page as it lands any other. So
+  on a computer each way is read once it has landed: no transition started,
+  the page there, and the same list state as on a phone.
+*/
+async function landedWithoutMove(p, from) {
+  await sleep(250)
+  return { moves: (await p.evaluate(() => window.__moves.length)) - from, under: await readUnder(p) }
+}
+
 async function routeTrip(p, browser, label, vp, isPhone) {
   console.log(`  -- Back to the list, and in again, frame by frame`)
   await watchMoves(p)
@@ -742,12 +769,14 @@ async function routeTrip(p, browser, label, vp, isPhone) {
   const hist = () => p.evaluate(() => ({ stack: [...window.__hist.stack], at: window.__hist.at, path: location.pathname }))
   let c0 = (await calls()).length
   await pressLeave(p)
-  const back = await walkMove(p, browser, label, "exit", vp, "::view-transition-old(root)", n)
+  const back = isPhone ? await walkMove(p, browser, label, "exit", vp, "::view-transition-old(root)", n) : await landedWithoutMove(p, n)
   const first = { calls: (await calls()).slice(c0), hist: await hist() }
   expect(first.calls.join() === "replace /app/products" && first.hist.stack.join() === "/app/products" && first.hist.at === 0 && first.hist.path === "/app/products",
     "opened directly, with no list behind it, Back puts the list in the editor's place: nothing to come back to", first)
-  expect(back.ready && !back.skipped, "Back runs as one move, ready without waiting on anything", { ready: back.ready, skipped: back.skipped, waitedMs: back.waited })
-  if (back.ready) {
+  if (isPhone) expect(back.ready && !back.skipped, "Back runs as one move, ready without waiting on anything", { ready: back.ready, skipped: back.skipped, waitedMs: back.waited })
+  else expect(back.moves === 0 && !back.under.layer && back.under.rows > 0 && back.under.path === "/app/products" && back.under.motion === null,
+    "on a computer Back is no move: the list lands in the shell like any other page", back)
+  if (isPhone && back.ready) {
     const old = back.animations.find((a) => a.el === "::view-transition-old(root)")
     const neu = back.animations.find((a) => a.el === "::view-transition-new(root)")
     console.log(`        (exit: ${JSON.stringify(old)})`)
@@ -782,9 +811,10 @@ async function routeTrip(p, browser, label, vp, isPhone) {
     if (r.tagName === "TR") r.querySelector("td:nth-child(2)").click()
     else r.querySelector("a").click()
   })
-  const into = await walkMove(p, browser, label, "enter", vp, "::view-transition-new(root)", n)
-  expect(into.ready && !into.skipped, "opening a product is the same move the other way", { ready: into.ready, waitedMs: into.waited })
-  if (into.ready) {
+  const into = isPhone ? await walkMove(p, browser, label, "enter", vp, "::view-transition-new(root)", n) : await landedWithoutMove(p, n)
+  if (isPhone) expect(into.ready && !into.skipped, "opening a product is the same move the other way", { ready: into.ready, waitedMs: into.waited })
+  else expect(into.moves === 0 && into.under.layer && into.under.motion === null, "and opening a product is no move either: the editor lands in the shell", into)
+  if (isPhone && into.ready) {
     const neu = into.animations.find((a) => a.el === "::view-transition-new(root)")
     console.log(`        (enter: ${JSON.stringify(neu)})`)
     expect(!!neu && neu.dur >= 260 && neu.dur <= 320 && /0\.32, 0\.72, 0, 1/.test(neu.easing), "in 260 to 320ms on the same curve", neu && { ms: neu.dur, easing: neu.easing })
@@ -799,11 +829,12 @@ async function routeTrip(p, browser, label, vp, isPhone) {
   n = await moveCount()
   c0 = (await calls()).length
   await pressLeave(p)
-  const again = await walkMove(p, browser, label, "exit2", vp, "::view-transition-old(root)", n)
+  const again = isPhone ? await walkMove(p, browser, label, "exit2", vp, "::view-transition-old(root)", n) : await landedWithoutMove(p, n)
   const second = { calls: (await calls()).slice(c0), hist: await hist() }
   expect(second.calls.join() === "back" && second.hist.at === 0 && second.hist.stack[1] === "/app/products/p2",
     "opened from the list, Back goes back in history: the list is the entry you are on, the editor is forward", second)
-  expect(again.ready && !again.skipped && again.under?.rows > 0 && !again.under?.layer, "the same move, with the list drawn under its first frame", { ready: again.ready, under: again.under })
+  if (isPhone) expect(again.ready && !again.skipped && again.under?.rows > 0 && !again.under?.layer, "the same move, with the list drawn under its first frame", { ready: again.ready, under: again.under })
+  else expect(again.moves === 0 && again.under.rows > 0 && !again.under.layer, "no move again on a computer, and the list is there", again)
   await sleep(150)
   const kept = await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.getAttribute("aria-selected") === "true")?.textContent.trim())
   expect(kept === "Draft", "back again, the list is on the view it was left on", kept)
@@ -1045,17 +1076,22 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
         loose,
         announce: announce ? { live: announce.getAttribute("aria-live"), w: announce.getBoundingClientRect().width } : null,
         padTop: Math.round(parseFloat(getComputedStyle(b).paddingTop)),
+        /* The pane's content area: its box less the scrollbar column it keeps from md (app/globals.css). */
+        area: { left: pane.getBoundingClientRect().left + pane.clientLeft, width: pane.clientWidth, right: window.innerWidth - (pane.getBoundingClientRect().left + pane.clientLeft + pane.clientWidth) },
       }
     })
     const H = isPhone ? 40 : 32
-    const pad = isPhone ? 16 : Math.round((vp.width - 760) / 2) + 24
+    /* The column is centred in the content area, which from md stops at the scrollbar's column. */
+    const edge = isPhone ? 16 : Math.round((bar.area.width - 760) / 2) + 24
+    const pad = isPhone ? 16 : Math.round(bar.area.left) + edge
+    const padEnd = isPhone ? 16 : Math.round(bar.area.right) + edge
     expect(bar.top === 0, "the bar is at the top of the page", bar.top)
     expect(bar.h === (isPhone ? 56 + bar.padTop : 108), `and is ${isPhone ? "56px under any safe area" : "64px, with a 44px row of section tabs,"}`, bar.h)
     expect(!!bar.save && !!bar.cancel, "with Cancel and Save in it", { save: bar.save, cancel: bar.cancel })
     expect(!bar.oldState && bar.loose.length === 0, "and no state in the middle: no Unsaved changes, Live, Draft or New product to read", { oldState: bar.oldState, loose: bar.loose })
     expect(bar.announce?.live === "polite" && bar.announce.w <= 1, "a screen reader still hears Saving and Saved, from a hidden line", bar.announce)
     expect(bar.cancel.left === pad, "Cancel is at the start of the bar, on the column's edge", { left: bar.cancel.left, want: pad })
-    expect(bar.save.right === pad, "Save is at the end", { right: bar.save.right, want: pad })
+    expect(bar.save.right === padEnd, "Save is at the end", { right: bar.save.right, want: padEnd })
     expect(bar.cancel.h === H && bar.save.h === H, `Cancel and Save are both ${H}px`, { cancel: bar.cancel.h, save: bar.save.h })
     if (!isNew) expect(bar.more && bar.more.h === H && bar.more.w === H && bar.save.left - (bar.more.left + bar.more.w) === 8, `the more button is a ${H}px square, 8px before Save`, bar.more)
     expect(/inset/.test(bar.cancel.shadow) && bar.cancel.border === "1px" && bar.cancel.bg === "rgb(255, 255, 255)", "Cancel has depth: white, a hairline, a shade at its foot", { shadow: bar.cancel.shadow, border: bar.cancel.border, bg: bar.cancel.bg })
