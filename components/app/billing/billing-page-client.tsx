@@ -291,7 +291,11 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
   const currentBenefits = planHighlights(currentPlanId).slice(0, 4)
 
   return (
-    <div className="h-full overflow-y-scroll overflow-x-hidden page-scroll bg-[#fafafa]" style={{ scrollbarGutter: "stable" }}>
+    /* Inside the settings tabs the page is Settings, which the shell's
+       scroller scrolls. A scroller of its own here was as tall as what is in
+       it, so it had nowhere to go, and `overflow-y: scroll` painted an empty
+       track down the right of the billing tab, beside the page's real one. */
+    <div className={embedded ? "overflow-x-clip bg-[#fafafa]" : "h-full overflow-y-scroll overflow-x-hidden page-scroll bg-[#fafafa]"} style={embedded ? undefined : { scrollbarGutter: "stable" }}>
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-hidden">
         {/* Header — the page owns this when billing is a tab. */}
         {!embedded && (

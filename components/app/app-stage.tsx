@@ -87,53 +87,106 @@ function reducedMotion() {
 }
 
 /**
+ * The boxes in a top level box of the page that carry a scrollbar: the box
+ * itself when the page scrolls in a box of its own, each pane of a two pane
+ * page (Orders, Emails), the product editor's own scroller. None for a page
+ * the shell's scroller scrolls.
+ */
+function ownScrollers(child: HTMLElement): HTMLElement[] {
+  const scrolls = (el: HTMLElement) => /^(auto|scroll)$/.test(getComputedStyle(el).overflowY)
+  if (scrolls(child)) return [child]
+  const panes = Array.from(child.querySelectorAll<HTMLElement>(":scope > .orders-pane, :scope > [data-page-layer-scroll] > .page-scroll")).filter(scrolls)
+  if (panes.length) return panes
+  const layer = child.querySelector<HTMLElement>(":scope > [data-page-layer-scroll]")
+  return layer && scrolls(layer) ? [layer] : []
+}
+
+/**
  * The landing, on every top level box of the page that is showing.
  *
  * `fade: false` when the slow page's surface is up over it: that surface
  * fading away IS the page appearing, and fading the page in underneath it as
  * well would multiply the two, a reveal that crawls for half its length and
  * then hurries. So under the surface the page only rises.
+ *
+ * THE SCROLLBAR DOES NOT LAND. On a computer with classic scrollbars a box
+ * that scrolls paints its bar at its own right edge, so fading and raising a
+ * page that scrolls in a box of its own faded that bar in from nothing and
+ * raised it 5px, on every arrival: the bar "popping". So where a top level
+ * box carries a scrollbar (ownScrollers), what moves is what is IN it, and
+ * the box, its background and its bar stand still (app/globals.css, "One
+ * scrollbar track, always there").
  */
 export function playEntrance(outer: HTMLElement, { fade = true }: { fade?: boolean } = {}) {
   if (reducedMotion()) return
-  /* Read before anything moves: the rise itself adds to what can be scrolled. */
-  const fitted = outer.scrollHeight <= outer.clientHeight
-  const moving: Animation[] = []
+  const movers: HTMLElement[] = []
+  /* Every scroller something moves in, and whether it had anywhere to go
+     before the rise: read before anything moves, because the rise itself
+     adds to what can be scrolled. */
+  const scrollers = new Map<HTMLElement, boolean>()
+  const fits = (el: HTMLElement) => el.scrollHeight <= el.clientHeight
   for (const child of Array.from(outer.children) as HTMLElement[]) {
-    if (typeof child.animate !== "function") continue
-    const cs = getComputedStyle(child)
-    if (cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) === 0) continue
-    const rise = !holdsVisibleFixed(child)
+    if (!showing(child)) continue
+    const boxes = ownScrollers(child)
+    if (!boxes.length) {
+      movers.push(child)
+      if (!scrollers.has(outer)) scrollers.set(outer, fits(outer))
+      continue
+    }
+    for (const box of boxes) {
+      scrollers.set(box, fits(box))
+      movers.push(...(Array.from(box.children) as HTMLElement[]))
+    }
+    /* Whatever else a stage holds besides its panes lands as it did. */
+    if (boxes[0] === child) continue
+    for (const other of Array.from(child.children) as HTMLElement[]) {
+      if (!boxes.some((box) => box === other || other.contains(box))) movers.push(other)
+    }
+  }
+  const moving: Animation[] = []
+  for (const el of movers) {
+    if (typeof el.animate !== "function" || !showing(el)) continue
+    const rise = !holdsVisibleFixed(el)
     if (!rise && !fade) continue
     const from: Keyframe = { ...(fade ? { opacity: 0 } : {}), ...(rise ? { translate: `0 ${NAV_ENTER_RISE_PX}px` } : {}) }
     const to: Keyframe = { ...(fade ? { opacity: 1 } : {}), ...(rise ? { translate: "0 0" } : {}) }
-    const a = child.animate([from, to], { duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE })
+    const a = el.animate([from, to], { duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE })
     if (rise) moving.push(a)
   }
-  holdStill(outer, fitted && moving.length > 0, moving)
+  holdStill(moving.length ? [...scrollers].filter(([, fitted]) => fitted).map(([el]) => el) : [], moving)
+}
+
+function showing(el: HTMLElement) {
+  const cs = getComputedStyle(el)
+  return cs.display !== "none" && cs.visibility !== "hidden" && Number(cs.opacity) !== 0
 }
 
 /**
- * THE RISE NEVER MAKES THE SHELL SCROLL. A transform counts towards what a
- * scroller can scroll, so a page that fitted, or a page that scrolls in a box
- * of its own (which is exactly the scroller's height), was 5px too tall for
- * the 180ms of the rise, and on a computer with classic scrollbars the shell
- * put up a scrollbar for those frames and took it away again: the bar that
- * "flashes and then disappears" on every page change and every Back. So when
- * nothing overflowed before the rise, the scroller is marked for as long as
- * it lasts, and app/globals.css stops it scrolling (on a computer only; the
- * column for its bar stays reserved, so nothing beside it moves). A page that
- * was already scrolling keeps its bar: it is there before and after.
+ * THE RISE NEVER SHOWS A THUMB A PAGE DOES NOT HAVE. A transform counts
+ * towards what a scroller can scroll, so a page that fitted was 5px too tall
+ * for the 180ms of the rise, and on a computer with classic scrollbars its
+ * scroller showed a thumb for those frames and took it away again: the bar
+ * that "flashes and then disappears". So every scroller that had nowhere to
+ * go before the rise is marked for as long as the rise lasts, and
+ * app/globals.css draws its thumb clear (on a computer only). The track
+ * stays, so nothing beside it changes. A page that was already scrolling
+ * keeps its thumb: it is there before and after.
  */
 let landing = 0
-function holdStill(outer: HTMLElement, hold: boolean, moving: Animation[]) {
+const held = new Set<HTMLElement>()
+function holdStill(boxes: HTMLElement[], moving: Animation[]) {
   const mine = ++landing
-  if (!hold) {
-    outer.removeAttribute("data-app-landing")
-    return
+  const letGo = () => {
+    for (const el of held) el.removeAttribute("data-app-landing")
+    held.clear()
   }
-  outer.setAttribute("data-app-landing", "")
-  const release = () => { if (landing === mine) outer.removeAttribute("data-app-landing") }
+  letGo()
+  if (!boxes.length) return
+  for (const el of boxes) {
+    el.setAttribute("data-app-landing", "")
+    held.add(el)
+  }
+  const release = () => { if (landing === mine) letGo() }
   Promise.all(moving.map((a) => a.finished.catch(() => undefined))).then(release)
   /* An animation that never finishes (a tab in the background) still lets go. */
   window.setTimeout(release, NAV_ENTER_MS + 120)
