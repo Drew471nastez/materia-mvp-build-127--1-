@@ -250,11 +250,14 @@ async function drainLegacyQueue(deadline: number): Promise<{ sent: number; faile
         .eq("id", email.id)
 
       await ignoreError(
+        /* creator_id and email are the table's columns since
+           20260203_rebuild_email_sent_system.sql; flow_id is not one of them,
+           so it rides in the metadata that already carries the step. */
         supabaseAdmin.from("email_events").insert({
-          flow_id: email.flow_id,
-          recipient_email: email.recipient_email,
+          creator_id: email.creator_id,
+          email: email.recipient_email,
           event_type: "sent",
-          metadata: { step_id: email.step_id, subject: email.subject, scheduled_for: email.scheduled_for },
+          metadata: { flow_id: email.flow_id, step_id: email.step_id, subject: email.subject, scheduled_for: email.scheduled_for },
         }),
       )
       await ignoreError(supabaseAdmin.rpc("increment_email_usage", { p_creator_id: email.creator_id, p_count: 1 }))

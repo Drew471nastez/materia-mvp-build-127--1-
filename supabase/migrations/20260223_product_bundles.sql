@@ -69,7 +69,20 @@ CREATE POLICY "Creators can view product bundles"
     )
   );
 
--- updated_at auto-maintenance
+-- updated_at auto-maintenance. The trigger function is shared by many tables
+-- and normally exists already; it is made here only when it does not, so a
+-- database without it can still run this file, and one with it keeps its own.
+DO $$ BEGIN
+  IF to_regprocedure('public.update_updated_at_column()') IS NULL THEN
+    CREATE FUNCTION public.update_updated_at_column() RETURNS trigger LANGUAGE plpgsql AS $fn$
+    BEGIN
+      NEW.updated_at = NOW();
+      RETURN NEW;
+    END;
+    $fn$;
+  END IF;
+END $$;
+
 CREATE OR REPLACE TRIGGER update_product_bundles_updated_at
   BEFORE UPDATE ON public.product_bundles
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

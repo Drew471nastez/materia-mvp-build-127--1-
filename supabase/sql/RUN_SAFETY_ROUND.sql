@@ -183,6 +183,11 @@ alter table public.account_delete_codes
 --
 --  Every policy this removes is named in the output (NOTICE), so nothing is
 --  dropped silently.
+--
+--  The storage.objects policies (C) are in a block of their own. Creating or
+--  dropping a policy needs ownership of storage.objects, which the SQL
+--  editor's role may not have; everything else here does not. The paste-ready
+--  parts in supabase/sql/run-now/ run that block last, on its own.
 -- ===========================================================================
 
 
@@ -256,22 +261,30 @@ grant execute on function public.storage_owns_path(text) to authenticated, servi
 -- the server chose the path in /api/v2/upload/prepare, counted it against the
 -- quota, and checks the real size and bytes in /complete. Once the upload is
 -- completed the path is no longer theirs to write, read or list.
+--
+-- plpgsql, not sql: a sql function's body is checked against the tables when
+-- it is created, so on a database without digital_assets the create itself
+-- failed, and with it the whole paste. Here the table is only read once the
+-- guard has said it exists.
 create or replace function public.storage_reserved_upload(p_bucket text, p_name text)
 returns boolean
-language sql
+language plpgsql
 stable
 security definer
 set search_path = public
 as $$
-  select auth.uid() is not null
-     and to_regclass('public.digital_assets') is not null
-     and exists (
-       select 1 from public.digital_assets da
-        where da.file_path = p_name
-          and coalesce(da.storage_bucket, 'digital-products') = p_bucket
-          and da.uploaded_by = auth.uid()
-          and da.upload_status = 'pending'
-     );
+begin
+  if auth.uid() is null or to_regclass('public.digital_assets') is null then
+    return false;
+  end if;
+  return exists (
+    select 1 from public.digital_assets da
+     where da.file_path = p_name
+       and coalesce(da.storage_bucket, 'digital-products') = p_bucket
+       and da.uploaded_by = auth.uid()
+       and da.upload_status = 'pending'
+  );
+end;
 $$;
 
 revoke all on function public.storage_reserved_upload(text, text) from public, anon;
@@ -279,15 +292,12 @@ grant execute on function public.storage_reserved_upload(text, text) to authenti
 
 
 -- ---------------------------------------------------------------------------
--- B, C, D. Buckets and their policies
+-- B, D. Buckets: private ones private, public ones public with type and size
+-- limits. Writing storage.buckets needs privileges on it, not ownership.
 -- ---------------------------------------------------------------------------
 do $$
 declare
   private_buckets text[] := array['digital-products', 'product-files', 'digital-assets'];
-  public_buckets  text[] := array['product-images', 'avatars', 'covers', 'store-builder-images',
-                                  'onepage-assets', 'lead-form-files-v2', 'lead-form-files',
-                                  'product-videos', 'email-images'];
-  managed text[];
   image_types text[] := array['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
   video_types text[] := array['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v', 'video/mpeg',
                               'video/3gpp', 'video/ogg', 'video/x-matroska', 'video/avi', 'video/mov'];
@@ -310,24 +320,8 @@ declare
                              'application/gzip', 'application/x-tar', 'application/json',
                              'image/vnd.adobe.photoshop', 'application/postscript', 'application/illustrator',
                              'model/stl', 'model/obj', 'model/gltf-binary', 'application/x-blender'];
-  owner_expr text;
-  pol record;
   b text;
-  mentions text;
-  unmanaged text;
 begin
-  managed := private_buckets || public_buckets;
-
-  -- The owner column is `owner_id` (text) on current storage, `owner` (uuid)
-  -- on older projects. Either is set by storage to the uploader's user id.
-  if exists (select 1 from information_schema.columns
-              where table_schema = 'storage' and table_name = 'objects' and column_name = 'owner_id') then
-    owner_expr := 'owner_id = (select auth.uid())::text';
-  else
-    owner_expr := 'owner = (select auth.uid())';
-  end if;
-
-  -- Buckets: private ones private, public ones public with type and size limits.
   foreach b in array private_buckets loop
     update storage.buckets set public = false where id = b;
   end loop;
@@ -347,6 +341,41 @@ begin
    where id in ('store-builder-images', 'onepage-assets', 'product-videos');
   update storage.buckets set allowed_mime_types = lead_types
    where id in ('lead-form-files-v2', 'lead-form-files');
+end;
+$$;
+
+
+-- ---------------------------------------------------------------------------
+-- C. The storage.objects policies. Needs ownership of storage.objects.
+-- ---------------------------------------------------------------------------
+-- Seven policies in all, each naming its buckets in one list, so the same set
+-- can be typed into Storage > Policies in the dashboard when the SQL editor's
+-- role does not own storage.objects (supabase/sql/run-now/README.md).
+do $$
+declare
+  private_buckets text[] := array['digital-products', 'product-files', 'digital-assets'];
+  public_buckets  text[] := array['product-images', 'avatars', 'covers', 'store-builder-images',
+                                  'onepage-assets', 'lead-form-files-v2', 'lead-form-files',
+                                  'product-videos', 'email-images'];
+  managed text[];
+  public_list text;
+  owner_expr text;
+  pol record;
+  b text;
+  mentions text;
+  unmanaged text;
+begin
+  managed := private_buckets || public_buckets;
+  select string_agg(quote_literal(x), ', ') into public_list from unnest(public_buckets) as x;
+
+  -- The owner column is `owner_id` (text) on current storage, `owner` (uuid)
+  -- on older projects. Either is set by storage to the uploader's user id.
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'storage' and table_name = 'objects' and column_name = 'owner_id') then
+    owner_expr := 'owner_id = (select auth.uid())::text';
+  else
+    owner_expr := 'owner = (select auth.uid())';
+  end if;
 
   -- Every policy on storage.objects that lets anon or signed in users at a
   -- managed bucket, or at every bucket (no bucket_id in it at all), goes.
@@ -377,9 +406,8 @@ begin
     end if;
   end loop;
 
-  -- The owner policies, one set per public bucket. No anon policy: a public
-  -- bucket serves its files by URL without one, and a SELECT policy for anon
-  -- would only add the ability to LIST everybody's files.
+  -- Ours are replaced whole, including the one-set-per-bucket ones an earlier
+  -- version of this file made.
   for pol in
     select policyname from pg_policies
      where schemaname = 'storage' and tablename = 'objects' and policyname like 'storelib owner %'
@@ -387,21 +415,22 @@ begin
     execute format('drop policy %I on storage.objects', pol.policyname);
   end loop;
 
-  foreach b in array public_buckets loop
-
-    execute format(
-      'create policy %I on storage.objects for select to authenticated using (bucket_id = %L and (public.storage_owns_path(name) or %s))',
-      'storelib owner read ' || b, b, owner_expr);
-    execute format(
-      'create policy %I on storage.objects for insert to authenticated with check (bucket_id = %L and public.storage_owns_path(name))',
-      'storelib owner insert ' || b, b);
-    execute format(
-      'create policy %I on storage.objects for update to authenticated using (bucket_id = %L and (public.storage_owns_path(name) or %s)) with check (bucket_id = %L and (public.storage_owns_path(name) or %s))',
-      'storelib owner update ' || b, b, owner_expr, b, owner_expr);
-    execute format(
-      'create policy %I on storage.objects for delete to authenticated using (bucket_id = %L and (public.storage_owns_path(name) or %s))',
-      'storelib owner delete ' || b, b, owner_expr);
-  end loop;
+  -- The public buckets: the owner may read, upload, replace and delete, and
+  -- only under their own folder. No anon policy: a public bucket serves its
+  -- files by URL without one, and a SELECT policy for anon would only add the
+  -- ability to LIST everybody's files.
+  execute format(
+    'create policy %I on storage.objects for select to authenticated using (bucket_id = any (array[%s]) and (public.storage_owns_path(name) or %s))',
+    'storelib owner read public buckets', public_list, owner_expr);
+  execute format(
+    'create policy %I on storage.objects for insert to authenticated with check (bucket_id = any (array[%s]) and public.storage_owns_path(name))',
+    'storelib owner insert public buckets', public_list);
+  execute format(
+    'create policy %I on storage.objects for update to authenticated using (bucket_id = any (array[%s]) and (public.storage_owns_path(name) or %s)) with check (bucket_id = any (array[%s]) and (public.storage_owns_path(name) or %s))',
+    'storelib owner update public buckets', public_list, owner_expr, public_list, owner_expr);
+  execute format(
+    'create policy %I on storage.objects for delete to authenticated using (bucket_id = any (array[%s]) and (public.storage_owns_path(name) or %s))',
+    'storelib owner delete public buckets', public_list, owner_expr);
 
   -- The private bucket: a signed in person may write one path only, the one
   -- reserved for their pending upload, and read it back while it is pending
@@ -481,18 +510,27 @@ $$;
 -- ---------------------------------------------------------------------------
 -- F. Storage usage counts uploads in progress
 -- ---------------------------------------------------------------------------
+-- plpgsql for the same reason as storage_reserved_upload: without
+-- digital_assets a sql body cannot even be created.
 create or replace function public.get_creator_storage_usage(p_creator_id uuid)
 returns bigint
-language sql
+language plpgsql
 stable
 security definer
 set search_path = public
 as $$
-  select coalesce(sum(da.file_size), 0)::bigint
-    from public.digital_assets da
-    join public.products p on da.product_id = p.id
-   where p.creator_id = p_creator_id
-     and coalesce(da.upload_status, 'completed') in ('pending', 'completed');
+begin
+  if to_regclass('public.digital_assets') is null then
+    return 0;
+  end if;
+  return (
+    select coalesce(sum(da.file_size), 0)::bigint
+      from public.digital_assets da
+      join public.products p on da.product_id = p.id
+     where p.creator_id = p_creator_id
+       and coalesce(da.upload_status, 'completed') in ('pending', 'completed')
+  );
+end;
 $$;
 
 -- Somebody else's usage is not a signed in user's business.
@@ -641,13 +679,23 @@ grant execute on function public.storage_object_referenced(text, text) to servic
 --                       uploaded between p_image_from_days and 30 days ago,
 --                       so each run reads a bounded slice; a wider backfill
 --                       is a manual run with a larger p_image_from_days.
+--
+-- plpgsql, not sql: a sql body naming product_bundles could not be created
+-- on a database without that table, which failed the whole paste and took
+-- the storage fixes above down with it. Without either table there is
+-- nothing to compare against, so it offers nothing to delete.
 create or replace function public.storage_cleanup_candidates(p_limit integer default 200, p_image_from_days integer default 32)
 returns table (bucket_id text, name text, reason text)
-language sql
+language plpgsql
 stable
 security definer
 set search_path = public, storage
 as $$
+begin
+  if to_regclass('public.digital_assets') is null or to_regclass('public.product_bundles') is null then
+    return;
+  end if;
+  return query
   with imports as (
     select o.bucket_id::text, o.name::text, 'theme-import'::text as reason, o.created_at
       from storage.objects o
@@ -717,6 +765,7 @@ as $$
     ) c
    order by c.created_at
    limit p_limit;
+end;
 $$;
 
 revoke all on function public.storage_cleanup_candidates(integer, integer) from public, anon, authenticated;

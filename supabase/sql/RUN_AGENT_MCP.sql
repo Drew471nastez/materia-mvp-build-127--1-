@@ -17,7 +17,10 @@
 
 alter table public.theme_agent_activity add column if not exists detail jsonb;
 alter table public.theme_agent_activity drop constraint if exists theme_agent_activity_action_check;
-alter table public.theme_agent_activity add constraint theme_agent_activity_action_check check (action in ('created', 'updated', 'page', 'page_created'));
+-- NOT VALID, so the rows already in this log are not rescanned: the check
+-- applies to every new row, and adding it does not read a table that only
+-- ever grows. The same as the coupons and email flow checks in this round.
+alter table public.theme_agent_activity add constraint theme_agent_activity_action_check check (action in ('created', 'updated', 'page', 'page_created')) not valid;
 
 create table if not exists public.theme_editor_focus (
   install_id uuid primary key references public.store_theme_installs(id) on delete cascade,
