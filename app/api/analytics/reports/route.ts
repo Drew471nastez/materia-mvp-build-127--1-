@@ -18,7 +18,7 @@ import {
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "@/lib/analytics/sources"
 import { parseUserAgent } from "@/lib/analytics/user-agent"
 import { isTimeZone } from "@/lib/orders/time-zone"
-import { groupOrders, type OrderRow } from "@/lib/orders/order-view"
+import { groupOrders, isSale, type OrderRow } from "@/lib/orders/order-view"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -51,6 +51,13 @@ const VIEW_COLUMNS =
   "id, session_id, visitor_id, product_id, created_at, source_category, referrer_domain, country_code, country_name, city, device_type, browser, os, page_url, utm_campaign"
 
 
+/**
+ * A PAGE AT A TIME NEEDS AN ORDER WITH NO TIES. Every read below is sorted
+ * by `created_at` and then by `id`: rows written in the same millisecond
+ * have no order of their own, so Postgres may hand them back differently to
+ * each page's query, and a row at the edge of a page of 1,000 could be read
+ * twice or not at all.
+ */
 async function readAll<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>) {
   const rows: T[] = []
   for (let from = 0; from < CEILING; from += PAGE) {
@@ -142,6 +149,7 @@ export async function GET(request: Request) {
         .gte("created_at", from)
         .lt("created_at", to)
         .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
         .range(a, b)
       if (product) q = q.eq("product_id", product)
       return q as unknown as PromiseLike<{ data: ViewRow[] | null; error: { message: string } | null }>
@@ -156,6 +164,7 @@ export async function GET(request: Request) {
         .gte("created_at", from)
         .lt("created_at", to)
         .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
         .range(a, b)
       if (product) q = q.eq("product_id", product)
       return q as unknown as PromiseLike<{ data: StepRow[] | null; error: { message: string } | null }>
@@ -172,6 +181,7 @@ export async function GET(request: Request) {
           .gte("created_at", from)
           .lt("created_at", to)
           .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
           .range(a, b) as unknown as PromiseLike<{ data: OrderRow[] | null; error: { message: string } | null }>,
       )
       orders = read.rows
@@ -205,9 +215,10 @@ export async function GET(request: Request) {
             .select("*")
             .in("product_id", productIds)
             .order("created_at", { ascending: true })
+            .order("id", { ascending: true })
             .range(a, b) as unknown as PromiseLike<{ data: OrderRow[] | null; error: { message: string } | null }>,
         )
-        const counted = groupOrders(read.rows).filter((o) => o.payment !== "failed" && o.payment !== "pending")
+        const counted = groupOrders(read.rows).filter(isSale)
         orderCount = counted.length
         salesCents = counted.reduce((sum, o) => sum + moneyOf(o).net, 0)
       }
@@ -262,6 +273,7 @@ async function onePage(
         .gte("created_at", from)
         .lt("created_at", to)
         .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
         .range(a, b) as unknown as PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
     )
   const countAll = async (table: string) => {

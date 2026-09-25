@@ -81,7 +81,11 @@ import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { ShimmerBlock } from "@/components/ui/shimmer"
 import { DateRangePicker } from "@/components/app/date-range-picker"
-import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
+import { resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
+import { spansToRead } from "@/lib/analytics/buckets"
+import { homeFigures, homeSpans, homeTotals, type HomeMetric } from "@/lib/analytics/home-figures"
+import type { ViewRow } from "@/lib/analytics/reports"
+import type { OrderRow } from "@/lib/orders/order-view"
 
 interface SetupStep {
   id: string
@@ -417,13 +421,13 @@ const stepSubsteps: Record<string, { labelKey: string; check: (data: any) => boo
   ],
 }
 
-interface Order {
-  id: string
-  product_id: string
-  amount_cents: number
-  status: string
-  created_at: string
-}
+/**
+ * An order row as Home holds it: enough to group a basket into one payment
+ * and to take its refunds off (lib/analytics/home-figures). The rows the
+ * page arrives with carry these columns (app/app/page.tsx), and a realtime
+ * row carries every column.
+ */
+type Order = Pick<OrderRow, "id" | "product_id" | "amount_cents" | "status" | "created_at" | "stripe_session_id" | "refund_amount_cents">
 
 interface DashboardClientProps {
   creatorId: string
@@ -433,8 +437,6 @@ interface DashboardClientProps {
   initialSetupSteps: SetupStep[]
   productIds: string[]
   initialOrders?: Order[]
-  initialTotalOrders?: number
-  initialTotalRevenue?: number
   creatorHandle?: string
   connectedDomain?: string | null
   brandingDetail?: { hasAvatar: boolean; hasName: boolean; hasBio: boolean }
@@ -682,17 +684,6 @@ function QuickAccessBottomSheet({
   )
 }
 
-/** Which of the chart's bucket shapes a preset draws with; the rest are drawn between their dates. */
-const DASH_LEGACY_TIMEFRAME: Partial<Record<RangeValue["preset"], string>> = {
-  today: "today",
-  yesterday: "yesterday",
-  last_7_days: "last_7_days",
-  last_30_days: "last_30_days",
-  month_to_date: "this_month",
-  last_90_days: "last_90_days",
-  all_time: "all_time",
-}
-
 /**
  * ===========================================================================
  *  THE ANNOUNCEMENT BAR: ONE SLIDE AT A TIME, ALWAYS, AND ONLY WHEN SEEN
@@ -853,8 +844,6 @@ export function DashboardClient({
   initialSetupSteps,
   productIds,
   initialOrders = [],
-  initialTotalOrders = 0,
-  initialTotalRevenue = 0,
   creatorHandle = "",
   connectedDomain = null,
   brandingDetail,
@@ -865,7 +854,6 @@ export function DashboardClient({
    * THE PERIOD, from the date picker every page in /app shares, remembered
    * on this device as the old choice was. A preset is re-read against today
    * each time, so "Last 7 days" chosen last week is still the last 7 days.
-   * `timeframe` is the older name the chart's bucket shapes still branch on.
    */
   const dashTimeZone = useMemo(() => viewerTimeZone(), [])
   const dashToday = todayIn(dashTimeZone, Date.now())
@@ -882,13 +870,7 @@ export function DashboardClient({
     }
     return resolveValue(saved, dashToday, "last_7_days")
   })
-  const timeframe = DASH_LEGACY_TIMEFRAME[period.preset] ?? "custom"
   const periodKey = `${period.preset}:${period.start}:${period.end}`
-  /** The period's instants: whole days on the creator's clock, to now. */
-  const periodDates = () => {
-    const b = boundsOf(period, dashTimeZone, Date.now())
-    return { start: new Date(b.start), end: new Date(Math.max(b.start, b.end - 1)) }
-  }
   const [isProfileAccessOpen, setIsProfileAccessOpen] = useState(false)
   const [isProfileAccessVisible, setIsProfileAccessVisible] = useState(false)
   const [isProfileAccessAnimating, setIsProfileAccessAnimating] = useState(false)
@@ -951,20 +933,8 @@ export function DashboardClient({
   const [isChartLoading, setIsChartLoading] = useState(false)
   // Sample data toggle — session-only (resets on page refresh, no localStorage)
   const [showSampleData, setShowSampleData] = useState(false)
-  const [analyticsData, setAnalyticsData] = useState({
-    totalViews: 0,
-    totalOrders: initialTotalOrders,
-    totalRevenue: initialTotalRevenue,
-    conversionRate: 0,
-    periodViews: 0,
-    periodOrders: initialTotalOrders,
-    periodRevenue: initialTotalRevenue,
-    // Previous period for comparison
-    prevPeriodViews: 0,
-    prevPeriodOrders: 0,
-    prevPeriodRevenue: 0,
-    prevConversionRate: 0,
-  })
+  /* Every page view the creator has had, counted by the database, as Analytics' all time is. */
+  const [totalViews, setTotalViews] = useState(0)
   // Live orders — starts from SSR-fetched initialOrders, updated via Realtime
   const [liveOrders, setLiveOrders] = useState<Order[]>(initialOrders)
   const liveOrdersRef = useRef<Order[]>(initialOrders)
@@ -1014,40 +984,44 @@ export function DashboardClient({
     }
   }, [productIds.join(",")]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [chartEvents, setChartEvents] = useState<{
-    buckets: { start: number; end: number; label: string }[]
-    views: { at: number; key: string | null }[]
-    clicks: number[]
-  } | null>(null)
+  /** The period's page views and link taps, read once per period (fetchPeriodEvents). */
+  const [chartEvents, setChartEvents] = useState<{ views: ViewRow[]; clicks: number[] } | null>(null)
   /**
-   * Every metric's series for the period, from the events read below (fetchChartEvents) and the
-   * orders the page keeps live. The same rules as the figures on the tabs:
-   * orders count completed and refunded, revenue counts completed only.
+   * ===========================================================================
+   *  THE FOUR FIGURES AND THE CHART, BY THE ANALYTICS PAGE'S RULES
+   * ===========================================================================
+   * Worked out in one place, lib/analytics/home-figures, from the events read
+   * for the period and the orders the page keeps live, by the rules the
+   * Analytics page counts with: a basket is one order, money is what was
+   * charged less what was refunded, a disputed payment is not a sale, the
+   * period is compared with the one just before on the creator's clock, and
+   * the buckets are that clock's hours, days or months.
+   *
+   * This used to be three copies of other rules, one for the tabs, one for
+   * the chart and one for when an order came in live, and they disagreed
+   * with Analytics and with each other (home-figures says how).
+   *
+   * The period's instants are taken again here rather than at the read, so
+   * an order that arrives live after it still lands in a period that runs
+   * to now. Before the first read there are no views yet, and the orders
+   * are already right.
    */
-  const chartSeries = useMemo<Record<Exclude<KPIType, null>, ChartDataPoint[]> | null>(() => {
-    if (!chartEvents) return null
-    const within = (t: number, b: { start: number; end: number }) => t >= b.start && t <= b.end
-    const valid = liveOrders
-      .filter((o) => o.status === "completed" || o.status === "refunded")
-      .map((o) => ({ at: Date.parse(o.created_at), refunded: o.status === "refunded"}))
-    const completed = liveOrders.filter((o) => o.status === "completed").map((o) => ({ at: Date.parse(o.created_at), cents: o.amount_cents || 0 }))
-    const out = { views: [] as ChartDataPoint[], orders: [] as ChartDataPoint[], revenue: [] as ChartDataPoint[], conversion: [] as ChartDataPoint[] }
-    for (const b of chartEvents.buckets) {
-      const seen = new Set<string>()
-      for (const v of chartEvents.views) if (v.key && within(v.at, b)) seen.add(v.key)
-      const views = seen.size
-      const clicks = chartEvents.clicks.reduce((n, t) => (within(t, b) ? n + 1 : n), 0)
-      const inBucket = valid.filter((o) => within(o.at, b))
-      const orders = inBucket.length
-      const refunds = inBucket.filter((o) => o.refunded).length
-      const revenue = completed.reduce((sum, o) => (within(o.at, b) ? sum + o.cents : sum), 0) / 100
-      out.views.push({ label: b.label, value: views, secondaryValue: clicks })
-      out.orders.push({ label: b.label, value: orders, refunds })
-      out.revenue.push({ label: b.label, value: revenue })
-      out.conversion.push({ label: b.label, value: views > 0 ? Number(((orders / views) * 100).toFixed(2)) : 0 })
-    }
-    return out
-  }, [chartEvents, liveOrders])
+  const figures = useMemo(() => {
+    const { window, previous } = homeSpans(period, dashTimeZone, Date.now())
+    return homeFigures({
+      orders: liveOrders as OrderRow[],
+      views: chartEvents?.views ?? [],
+      clicks: chartEvents?.clicks ?? [],
+      window,
+      previous,
+      timeZone: dashTimeZone,
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartEvents, liveOrders, periodKey, dashTimeZone])
+  const totals = useMemo(() => homeTotals(liveOrders as OrderRow[]), [liveOrders])
+  const analyticsData = { ...figures, ...totals, totalViews }
+  /** Every metric's series for the period. Null until the period's events are in. */
+  const chartSeries: Record<HomeMetric, ChartDataPoint[]> | null = chartEvents ? figures.series : null
   /** The chosen metric's series. A tab changes this and nothing else. */
   const chartData = (openKPIModal && chartSeries?.[openKPIModal]) || NO_POINTS
 
@@ -1112,142 +1086,6 @@ export function DashboardClient({
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const isFirstLoadRef = useRef(true)
-  const fetchAnalytics = async (selectedTimeframe: string) => {
-    // First load: isRefreshing is already true (seeded in useState), and the
-    // soft blur on the figures is the only sign of the read.
-    setIsRefreshing(true)
-    const supabase = createClient()
-
-    try {
-      void selectedTimeframe
-      const { start, end } = periodDates()
-
-      // Calculate previous period dates (same duration, immediately before)
-      const periodDuration = end.getTime() - start.getTime()
-      const prevEnd = new Date(start.getTime() - 1) // 1ms before current period start
-      const prevStart = new Date(prevEnd.getTime() - periodDuration)
-
-      // Fetch views for the current period (analytics_events are OK to fetch client-side)
-      const { data: viewEvents } = await supabase
-        .from("analytics_events")
-        .select("id, visitor_id, session_id, product_id, created_at")
-        .eq("creator_id", creatorId)
-        .eq("event_type", "view")
-        .gte("created_at", start.toISOString())
-        .lte("created_at", end.toISOString())
-
-      const uniqueViewKeys = new Set(
-        (viewEvents || [])
-          .map((e: any) => {
-            const identity = e.visitor_id || e.session_id
-            if (!identity) return null
-            return `${identity}__${e.product_id || "store"}`
-          })
-          .filter(Boolean)
-      )
-
-      const periodViews = uniqueViewKeys.size || 0
-
-      // Fetch views for the previous period
-      const { data: prevViewEvents } = await supabase
-        .from("analytics_events")
-        .select("id, visitor_id, session_id, product_id, created_at")
-        .eq("creator_id", creatorId)
-        .eq("event_type", "view")
-        .gte("created_at", prevStart.toISOString())
-        .lte("created_at", prevEnd.toISOString())
-
-      const prevUniqueViewKeys = new Set(
-        (prevViewEvents || [])
-          .map((e: any) => {
-            const identity = e.visitor_id || e.session_id
-            if (!identity) return null
-            return `${identity}__${e.product_id || "store"}`
-          })
-          .filter(Boolean)
-      )
-
-      const prevPeriodViews = prevUniqueViewKeys.size || 0
-
-      // Filter orders — include both completed + refunded in order counts
-      const completedOrders = liveOrders.filter(o => o.status === "completed")
-      const allValidOrders = liveOrders.filter(o => o.status === "completed" || o.status === "refunded")
-
-      // Current period orders
-      const periodOrdersData = allValidOrders.filter(o => {
-        const orderDate = new Date(o.created_at)
-        return orderDate >= start && orderDate <= end
-      })
-      const periodOrders = periodOrdersData.length
-      const periodRevenue = completedOrders.filter(o => {
-        const orderDate = new Date(o.created_at)
-        return orderDate >= start && orderDate <= end
-      }).reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-
-      // Previous period orders
-      const prevPeriodOrdersData = allValidOrders.filter(o => {
-        const orderDate = new Date(o.created_at)
-        return orderDate >= prevStart && orderDate <= prevEnd
-      })
-      const prevPeriodOrders = prevPeriodOrdersData.length
-      const prevPeriodRevenue = completedOrders.filter(o => {
-        const orderDate = new Date(o.created_at)
-        return orderDate >= prevStart && orderDate <= prevEnd
-      }).reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-
-      // Fetch all-time views
-      const { data: allViewEvents } = await supabase
-        .from("analytics_events")
-        .select("id, visitor_id, session_id, product_id")
-        .eq("creator_id", creatorId)
-        .eq("event_type", "view")
-
-      const allUniqueViewKeys = new Set(
-        (allViewEvents || [])
-          .map((e: any) => {
-            const identity = e.visitor_id || e.session_id
-            if (!identity) return null
-            return `${identity}__${e.product_id || "store"}`
-          })
-          .filter(Boolean)
-      )
-
-      const totalViews = allUniqueViewKeys.size || 0
-
-      // All-time orders — includes completed + refunded
-      const totalOrders = allValidOrders.length
-      const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-
-      const conversionRate = periodViews > 0 ? (periodOrders / periodViews) * 100 : 0
-      const prevConversionRate = prevPeriodViews > 0 ? (prevPeriodOrders / prevPeriodViews) * 100 : 0
-
-      setAnalyticsData({
-        totalViews,
-        totalOrders,
-        totalRevenue,
-        conversionRate: Number(conversionRate.toFixed(2)),
-        periodViews,
-        periodOrders,
-        periodRevenue,
-        prevPeriodViews,
-        prevPeriodOrders,
-        prevPeriodRevenue,
-        prevConversionRate: Number(prevConversionRate.toFixed(2)),
-      })
-    } catch (error) {
-      console.error("Error fetching analytics:", error)
-    } finally {
-      // Delay removing the refresh blur so KPI numbers and charts
-      // settle before the CSS transition fades them back in cleanly
-      if (!isFirstLoadRef.current) {
-        setTimeout(() => setIsRefreshing(false), 300)
-      } else {
-        setIsRefreshing(false)
-      }
-      isFirstLoadRef.current = false
-      setFiguresReady(true)
-    }
-  }
 
   // Fetch live visitors (active in last 5 minutes)
   const fetchLiveVisitors = async () => {
@@ -1284,226 +1122,108 @@ export function DashboardClient({
     return () => clearInterval(interval)
   }, [creatorId])
 
-  // Generate time buckets based on timeframe for chart
-  const generateTimeBuckets = (tf: string, start: Date, end: Date) => {
-    const buckets: { start: Date; end: Date; label: string }[] = []
-    const isHourly = tf === "today" || tf === "yesterday"
-    const is48h = tf === "last_48_hours"
-    const isAllTime = tf === "all_time"
-    const is90Days = tf === "last_90_days"
-    const isMonth = tf === "last_30_days" || tf === "this_month"
-
-    if (isHourly) {
-      const maxHour = tf === "today" ? new Date().getHours() : 23
-      for (let hour = 0; hour <= maxHour; hour++) {
-        const hourStart = new Date(start)
-        hourStart.setHours(hour, 0, 0, 0)
-        const hourEnd = new Date(start)
-        hourEnd.setHours(hour, 59, 59, 999)
-        buckets.push({ start: hourStart, end: hourEnd, label: `${hour.toString().padStart(2, '0')}:00` })
-      }
-    } else if (is48h) {
-      for (let i = 47; i >= 0; i -= 4) {
-        const bStart = new Date(end)
-        bStart.setHours(bStart.getHours() - i)
-        bStart.setMinutes(0, 0, 0)
-        const bEnd = new Date(bStart)
-        bEnd.setHours(bEnd.getHours() + 3, 59, 59, 999)
-        buckets.push({
-          start: bStart,
-          end: bEnd,
-          label: `${bStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${bStart.getHours().toString().padStart(2, '0')}:00`,
-        })
-      }
-    } else if (isAllTime) {
-      const currentYear = new Date().getFullYear()
-      for (let year = 2020; year <= currentYear; year++) {
-        buckets.push({
-          start: new Date(year, 0, 1),
-          end: new Date(year, 11, 31, 23, 59, 59, 999),
-          label: year.toString(),
-        })
-      }
-    } else if (is90Days) {
-      for (let week = 11; week >= 0; week--) {
-        const wStart = new Date(end)
-        wStart.setDate(wStart.getDate() - (week * 7 + 6))
-        wStart.setHours(0, 0, 0, 0)
-        const wEnd = new Date(wStart)
-        wEnd.setDate(wEnd.getDate() + 6)
-        wEnd.setHours(23, 59, 59, 999)
-        buckets.push({
-          start: wStart,
-          end: wEnd,
-          label: wStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        })
-      }
-    } else if (tf === "custom" && end.getTime() - start.getTime() > 92 * 86_400_000) {
-      /* A long chosen range is drawn a month at a time, not a thousand days. */
-      const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
-      while (cursor <= end) {
-        const mStart = new Date(cursor)
-        const mEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0, 23, 59, 59, 999)
-        buckets.push({
-          start: mStart < start ? start : mStart,
-          end: mEnd > end ? end : mEnd,
-          label: mStart.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-        })
-        cursor.setMonth(cursor.getMonth() + 1)
-      }
-    } else {
-      let dayStep = 1
-      let dayCount: number
-      if (isMonth) { dayCount = 10; dayStep = 3 }
-      else {
-        // Compute day count from actual date range to avoid off-by-one
-        const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-        dayCount = diffDays + 1
-      }
-      for (let i = dayCount - 1; i >= 0; i--) {
-        const dStart = new Date(end)
-        dStart.setDate(dStart.getDate() - (i * dayStep))
-        dStart.setHours(0, 0, 0, 0)
-        const dEnd = new Date(dStart)
-        dEnd.setDate(dEnd.getDate() + dayStep - 1)
-        dEnd.setHours(23, 59, 59, 999)
-        buckets.push({
-          start: dStart,
-          end: dEnd,
-          label: dStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        })
-      }
-    }
-    return buckets
-  }
-
   /**
    * =========================================================================
-   *  THE CHART IS READ ONCE PER PERIOD, NEVER PER TAB
+   *  THE PERIOD IS READ ONCE, NEVER PER TAB
    * =========================================================================
    * This fetched on every tab: tapping Revenue asked Supabase again, then
    * redrew, so a tap was a wait and a line that appeared rather than one
    * that moved. The events are read once for the period (views and clicks,
-   * the only two that are not already in `liveOrders`), and every metric's
-   * series is worked out from them here. A tab picks one of four series the
-   * page already holds, and the chart morphs to it.
+   * the only two that are not already in `liveOrders`), and the four figures
+   * and every metric's series are worked out from them (`figures` above). A
+   * tab picks one of four series the page already holds, and the chart
+   * morphs to it.
+   *
+   * The views are read for the period and the one it is compared with, in
+   * one read when the two touch (lib/analytics/buckets spansToRead), each
+   * with its end left out, as Analytics reads them. The chart used to read
+   * the period's views and the figures read them again, with their own
+   * idea of where the period began.
    *
    * A newer period's answer wins: a slow reply for the period before is
    * dropped rather than drawn over the new one.
    */
   const chartRequestRef = useRef(0)
-  const fetchChartEvents = async () => {
+  const fetchPeriodEvents = async () => {
     const request = ++chartRequestRef.current
+    // First load: isRefreshing is already true (seeded in useState), and the
+    // soft blur on the figures is the only sign of the read.
+    setIsRefreshing(true)
     setIsChartLoading(true)
     const supabase = createClient()
     try {
-      const { start, end } = periodDates()
-      // For all_time, extend start to 2020
-      const fetchStart = timeframe === "all_time" ? new Date(2020, 0, 1) : start
-      const [viewsRead, clicksRead] = await Promise.all([
-        supabase
-          .from("analytics_events")
-          .select("id, visitor_id, session_id, product_id, created_at")
-          .eq("creator_id", creatorId)
-          .eq("event_type", "view")
-          .gte("created_at", fetchStart.toISOString())
-          .lte("created_at", end.toISOString()),
+      const { window: span, previous } = homeSpans(period, dashTimeZone, Date.now())
+      const iso = (ms: number) => new Date(ms).toISOString()
+      const [viewsRead, clicksRead, allViews] = await Promise.all([
+        Promise.all(
+          spansToRead(span, previous).map((s) =>
+            supabase
+              .from("analytics_events")
+              .select("id, visitor_id, session_id, product_id, created_at")
+              .eq("creator_id", creatorId)
+              .eq("event_type", "view")
+              .gte("created_at", iso(s.start))
+              .lt("created_at", iso(s.end)),
+          ),
+        ),
         supabase
           .from("analytics_events")
           .select("id, created_at")
           .eq("creator_id", creatorId)
           .eq("event_type", "click")
-          .gte("created_at", fetchStart.toISOString())
-          .lte("created_at", end.toISOString()),
+          .gte("created_at", iso(span.start))
+          .lt("created_at", iso(span.end)),
+        /* Counted by the database: a read of the rows stops at 1,000. */
+        supabase
+          .from("analytics_events")
+          .select("id", { count: "exact", head: true })
+          .eq("creator_id", creatorId)
+          .eq("event_type", "view"),
       ])
       if (request !== chartRequestRef.current) return
-      const buckets = generateTimeBuckets(timeframe, start, end).map((b) => ({ start: b.start.getTime(), end: b.end.getTime(), label: b.label }))
+      setTotalViews(allViews.count ?? 0)
       setChartEvents({
-        buckets,
-        views: (viewsRead.data || []).map((e: any) => {
-          const identity = e.visitor_id || e.session_id
-          return { at: Date.parse(e.created_at), key: identity ? `${identity}__${e.product_id || "store"}` : null }
-        }),
+        views: viewsRead.flatMap((read) => (read.data || []) as ViewRow[]),
         clicks: (clicksRead.data || []).map((e: any) => Date.parse(e.created_at)),
       })
       // Delay removing loading blur so chart lines redraw while still
       // blurred, then the CSS transition fades in the finished chart cleanly
       setTimeout(() => setIsChartLoading(false), 350)
     } catch (error) {
-      console.error("Error fetching chart data:", error)
+      console.error("Error fetching the period's events:", error)
       if (request === chartRequestRef.current) {
         setIsChartLoading(false)
         /* Nothing to draw, rather than a skeleton that waits for ever. */
-        setChartEvents((prev) => prev ?? { buckets: [], views: [], clicks: [] })
+        setChartEvents((prev) => prev ?? { views: [], clicks: [] })
+      }
+    } finally {
+      if (request === chartRequestRef.current) {
+        // Delay removing the refresh blur so KPI numbers and charts
+        // settle before the CSS transition fades them back in cleanly
+        if (!isFirstLoadRef.current) {
+          setTimeout(() => setIsRefreshing(false), 300)
+        } else {
+          setIsRefreshing(false)
+        }
+        isFirstLoadRef.current = false
+        setFiguresReady(true)
       }
     }
   }
 
-  // Read the chart's events when the period changes. Not when the tab does.
+  // Read the period's events when the period changes. Not when the tab does.
   useEffect(() => {
-    // Safety net: if Supabase queries hang, stop the skeleton after 5 s
+    // Safety net: if Supabase queries hang (slow network, Supabase latency),
+    // stop the chart's wait and show the figures after 5 s rather than never.
     const safetyTimer = window.setTimeout(() => {
       setIsChartLoading(false)
-      setChartEvents((prev) => prev ?? { buckets: [], views: [], clicks: [] })
-    }, 5000)
-    fetchChartEvents().finally(() => window.clearTimeout(safetyTimer))
-    return () => window.clearTimeout(safetyTimer)
-  }, [periodKey, creatorId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-
-  useEffect(() => {
-    // Safety net: if analytics queries hang (slow network, Supabase latency),
-    // let live order updates recalculate after 5s rather than wait forever.
-    const safetyTimer = window.setTimeout(() => {
+      setChartEvents((prev) => prev ?? { views: [], clicks: [] })
       isFirstLoadRef.current = false
       setFiguresReady(true)
     }, 5000)
-    fetchAnalytics(timeframe).finally(() => window.clearTimeout(safetyTimer))
+    fetchPeriodEvents().finally(() => window.clearTimeout(safetyTimer))
     return () => window.clearTimeout(safetyTimer)
   }, [periodKey, creatorId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // When liveOrders updates (realtime), recalculate order KPIs without re-fetching views
-  useEffect(() => {
-    // Skip on first render — fetchAnalytics will handle it
-    if (isFirstLoadRef.current) return
-
-    const { start, end } = periodDates()
-    const periodDuration = end.getTime() - start.getTime()
-    const prevEnd = new Date(start.getTime() - 1)
-    const prevStart = new Date(prevEnd.getTime() - periodDuration)
-
-    const completedOrders = liveOrders.filter(o => o.status === "completed")
-    const allValidOrders = liveOrders.filter(o => o.status === "completed" || o.status === "refunded")
-
-    const periodOrders = allValidOrders.filter(o => {
-      const d = new Date(o.created_at)
-      return d >= start && d <= end
-    }).length
-    const periodRevenue = completedOrders.filter(o => {
-      const d = new Date(o.created_at)
-      return d >= start && d <= end
-    }).reduce((s, o) => s + (o.amount_cents || 0), 0)
-    const prevPeriodOrders = allValidOrders.filter(o => {
-      const d = new Date(o.created_at)
-      return d >= prevStart && d <= prevEnd
-    }).length
-    const prevPeriodRevenue = completedOrders.filter(o => {
-      const d = new Date(o.created_at)
-      return d >= prevStart && d <= prevEnd
-    }).reduce((s, o) => s + (o.amount_cents || 0), 0)
-    const totalOrders = allValidOrders.length
-    const totalRevenue = completedOrders.reduce((s, o) => s + (o.amount_cents || 0), 0)
-
-    setAnalyticsData(prev => ({
-      ...prev,
-      totalOrders,
-      totalRevenue,
-      periodOrders,
-      periodRevenue,
-      prevPeriodOrders,
-      prevPeriodRevenue,
-    }))
-  }, [liveOrders]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close dropdown when clicking outside (desktop only)
   const copyQuickAccessUrl = async (target: "onepage" | "store" | "website") => {
@@ -1588,7 +1308,7 @@ export function DashboardClient({
   // with { passive: false } — the only reliable way to block iOS rubber-band
   // bounce on a child overflow-scroll element.
   const handlePullRefresh = useCallback(async () => {
-    await fetchAnalytics(timeframe)
+    await fetchPeriodEvents()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodKey])
 

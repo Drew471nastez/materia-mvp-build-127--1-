@@ -7,6 +7,7 @@ import type { Metadata } from "next"
 import { cookies, headers } from "next/headers"
 import { dayPart, greetingZone } from "@/lib/greeting"
 import { TIME_ZONE_COOKIE } from "@/lib/orders/time-zone"
+import { homeTotals } from "@/lib/analytics/home-figures"
 import { pageUser } from "@/lib/auth/page-user"
 
 /*
@@ -127,7 +128,7 @@ export default async function AppDashboard() {
       .maybeSingle(),
     adminSupabase
       .from("orders")
-      .select("id, product_id, amount_cents, status, created_at, products!inner(creator_id)")
+      .select("id, product_id, amount_cents, status, created_at, stripe_session_id, refund_amount_cents, products!inner(creator_id)")
       .eq("products.creator_id", creator.id)
       .order("created_at", { ascending: false }),
   ])
@@ -141,14 +142,14 @@ export default async function AppDashboard() {
   // Check for Stripe connection — read from creators table (source of truth)
   const hasPayoutsSetup = creator.payouts_enabled === true || creator.stripe_onboarding_status === "connected"
 
-  /* The rows the client is handed are the columns it was always handed: the
-     embedded product was only the filter. */
+  /* The rows the client is handed, without the embedded product, which was
+     only the filter. The Stripe session groups a basket into one order and
+     the refund amount takes a partial refund off, as Analytics counts them
+     (lib/analytics/home-figures). */
   const allOrders: any[] = (ordersData || []).map(({ products: _owner, ...order }: any) => order)
 
-  // Calculate totals — totalOrders includes completed + refunded
-  const completedOrders = allOrders.filter(o => o.status === "completed")
-  const totalOrders = allOrders.filter(o => o.status === "completed" || o.status === "refunded").length
-  const totalRevenue = completedOrders.reduce((sum: number, o: any) => sum + (o.amount_cents || 0), 0)
+  /* Orders that are sales, by the rule every figure uses (homeTotals). */
+  const { totalOrders } = homeTotals(allOrders)
 
   // Branding check: check each item independently
   const hasAvatar = !!(profile?.avatar_url || creator.avatar_url || onepage?.avatar_url)
@@ -223,8 +224,6 @@ export default async function AppDashboard() {
       initialSetupSteps={setupSteps}
       productIds={productIds}
       initialOrders={allOrders}
-      initialTotalOrders={totalOrders}
-      initialTotalRevenue={totalRevenue}
       creatorHandle={profile?.username || creator.slug || ""}
       connectedDomain={activeDomain?.domain || null}
       brandingDetail={{ hasAvatar, hasName, hasBio }}

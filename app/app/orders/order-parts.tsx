@@ -131,7 +131,7 @@ export function StatusBadge({ tone, children, className }: { tone: Tone; childre
 
 export function PaymentBadge({ status }: { status: PaymentStatus }) {
   const tone: Tone =
-    status === "pending" || status === "partially_refunded" ? "attention" : status === "failed" ? "critical" : "neutral"
+    status === "pending" || status === "partially_refunded" ? "attention" : status === "failed" || status === "disputed" ? "critical" : "neutral"
   return <StatusBadge tone={tone}>{PAYMENT_LABEL[status]}</StatusBadge>
 }
 

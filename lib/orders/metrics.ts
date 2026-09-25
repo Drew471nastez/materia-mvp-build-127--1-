@@ -7,13 +7,13 @@
  * time just before, with the shape of it underneath.
  */
 import { bucketIndex, bucketStarts, grainFor } from "../analytics/buckets"
-import type { Order } from "./order-view"
+import { isSale, type Order } from "./order-view"
 
 export type MetricKey = "sales" | "orders" | "aov" | "customers" | "refunds"
 
 export const METRICS: Array<{ key: MetricKey; label: string; money?: boolean; upIsBad?: boolean; help: string }> = [
   { key: "sales", label: "Total sales", money: true, help: "Money taken from orders in this period, less anything refunded." },
-  { key: "orders", label: "Orders", help: "Orders placed in this period. Failed and unfinished payments are not counted." },
+  { key: "orders", label: "Orders", help: "Orders placed in this period. Failed, unfinished and disputed payments are not counted." },
   { key: "aov", label: "Average order value", money: true, help: "What a paid order was worth on average. Free orders are left out." },
   { key: "customers", label: "Customers", help: "Different people who ordered in this period, told apart by their email." },
   { key: "refunds", label: "Refunds", money: true, upIsBad: true, help: "Money given back in this period, counted on the day it was refunded." },
@@ -34,7 +34,8 @@ interface Window {
   end: number
 }
 
-const counted = (o: Order) => o.payment !== "failed" && o.payment !== "pending"
+/* Failed, unfinished and disputed payments are not sales (lib/orders/order-view isSale). */
+const counted = isSale
 const net = (o: Order) => Math.max(0, o.totalCents - o.refundedCents)
 const buyer = (o: Order) => (o.customerEmail || o.customerName || o.id).toLowerCase()
 

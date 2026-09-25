@@ -19,7 +19,7 @@
  */
 
 import { channelOfUrl, sessionsOf, type ViewRow } from "@/lib/analytics/reports"
-import { groupOrders, type OrderRow } from "@/lib/orders/order-view"
+import { groupOrders, isSale, type OrderRow } from "@/lib/orders/order-view"
 import type { RangeValue } from "@/lib/date-range/range"
 import type { VitalsState } from "./web-vitals"
 import type { Span } from "./site-period"
@@ -87,7 +87,7 @@ export function trafficFigures(input: {
   let orders: Figure | null = null
   if (input.orders) {
     const counted = groupOrders(input.orders).filter(
-      (o) => o.source === "website" && o.payment !== "failed" && o.payment !== "pending",
+      (o) => o.source === "website" && isSale(o),
     )
     const inWindow = (w: Span) => counted.filter((o) => within(Date.parse(o.createdAt), w)).length
     orders = figure(inWindow(span), previous ? inWindow(previous) : null)

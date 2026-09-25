@@ -126,9 +126,9 @@ section("Home: three trips, and its title shares them")
   check("then the products, the domain, the live website and the orders go together",
     /\.from\("products"\)/.test(second) && /\.from\("custom_domains"\)/.test(second) && /\.from\("store_theme_installs"\)/.test(second) && /\.from\("orders"\)/.test(second))
   check("the orders are the creator's by their product's creator, not by a list of ids that had to come back first",
-    /\.select\("id, product_id, amount_cents, status, created_at, products!inner\(creator_id\)"\)\s*\.eq\("products\.creator_id", creator\.id\)/.test(body)
+    /\.select\("id, product_id, amount_cents, status, created_at, stripe_session_id, refund_amount_cents, products!inner\(creator_id\)"\)\s*\.eq\("products\.creator_id", creator\.id\)/.test(body)
       && !/\.in\("product_id"/.test(body))
-  check("and the client is handed the columns it always was", /\(ordersData \|\| \[\]\)\.map\(\(\{ products: _owner, \.\.\.order \}: any\) => order\)/.test(body))
+  check("and the client is handed the rows without the embedded product", /\(ordersData \|\| \[\]\)\.map\(\(\{ products: _owner, \.\.\.order \}: any\) => order\)/.test(body))
   check("still on the service role, as before, never the caller's client swapped in or out", /createAdminClient\(\)/.test(body) && !/createClient\(\)/.test(home))
 }
 

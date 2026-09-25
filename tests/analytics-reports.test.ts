@@ -21,12 +21,13 @@ import {
   type StepRow,
   type ViewRow,
 } from "../lib/analytics/reports"
-import type { OrderRow } from "../lib/orders/order-view"
+import { groupOrders, isSale, PAYMENT_LABEL, type OrderRow } from "../lib/orders/order-view"
+import { readMetrics } from "../lib/orders/metrics"
 import { dayPart, firstName, greetingZone } from "../lib/greeting"
 import { buildOnePageReports } from "../lib/analytics/reports"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "../lib/analytics/sources"
 import { isBotAgent, parseUserAgent } from "../lib/analytics/user-agent"
-import { moneyOf, spansToRead } from "../lib/analytics/reports"
+import { lineMoney, moneyOf, spansToRead } from "../lib/analytics/reports"
 import { axisWidth, compactCount, compactMoney, compactPercent, niceScale } from "../lib/analytics/chart-scale"
 
 let passed = 0
@@ -391,6 +392,63 @@ console.log("\nAnalytics: from the review")
   check("a step is sent once per page, with nothing stored", /const sentSteps = new Set<string>\(\)/.test(read("lib/analytics-utils.ts")) && /if \(sentSteps\.has\(key\)\) return Promise\.resolve\(\)/.test(read("lib/analytics-utils.ts")))
   check("a failed refresh keeps the figures; only a different question clears them",
     /questionOf\(s\.data\.key\) === question \? s\.data : null/.test(read("app/app/analytics/analytics-reports.tsx")))
+}
+
+console.log("\nAnalytics: disputes, products and countries, from the accuracy audit")
+{
+  const w = { start: T0 + 7 * DAY, end: T0 + 14 * DAY }
+  /*
+    A disputed payment: the bank has the money while it decides, and a lost
+    dispute stays "disputed" for good. It was a full sale in Total sales and
+    missing from Sales by product, so the two cards did not add up.
+  */
+  const orders: OrderRow[] = [
+    order("s1", 8, { product_id: "p1", amount_cents: 2000 }),
+    order("s2", 9, { product_id: "p2", amount_cents: 5000, status: "refunded", refund_amount_cents: 500 }),
+    order("b1", 10, { product_id: "p1", amount_cents: 1000, stripe_session_id: "cs_b" }),
+    order("b2", 10, { product_id: "p2", amount_cents: 700, stripe_session_id: "cs_b" }),
+    order("d1", 11, { product_id: "p1", amount_cents: 9900, status: "disputed" }),
+  ]
+  const [disputed] = groupOrders([orders[4]])
+  check("a disputed payment reads as disputed, not paid", disputed.payment === "disputed" && PAYMENT_LABEL.disputed === "Disputed")
+  check("  and is not a sale", !isSale(disputed) && isSale(groupOrders([orders[0]])[0]))
+  const r = buildReports({ views: [], steps: [], orders, window: w, timeZone: "UTC", mainDomain: "storelib.com", productTitles: { p1: "Presets", p2: "Brushes" } })
+  check("a disputed order is left out of Orders and Total sales", r.orders.value === 3 && r.sales.value === 2000 + 4500 + 1700, { orders: r.orders.value, sales: r.sales.value })
+  const byProduct = r.salesByProduct.reduce((sum, row) => sum + row.value, 0)
+  check("Sales by product adds up to Total sales", byProduct === r.sales.value, { byProduct, sales: r.sales.value })
+  check("  each product its own lines less their refunds", r.salesByProduct.find((x) => x.key === "p1")?.value === 3000 && r.salesByProduct.find((x) => x.key === "p2")?.value === 5200, r.salesByProduct)
+  check("lineMoney is the unit moneyOf adds up", lineMoney(orders[1]).net === 4500 && moneyOf(groupOrders([orders[2], orders[3]])[0]).net === 1700)
+  const m = Object.fromEntries(readMetrics(groupOrders(orders), w, null, "UTC").map((x) => [x.key, x]))
+  check("the Orders page's own figures leave a dispute out the same way", m.orders.value === 3 && m.sales.value === 2000 + 4500 + 1700, { orders: m.orders.value, sales: m.sales.value })
+  check("every page asks one question of an order", /\.filter\(isSale\)/.test(read("lib/analytics/reports.ts")) && /\.filter\(isSale\)/.test(read("app/api/analytics/reports/route.ts"))
+    && /const counted = isSale/.test(read("lib/orders/metrics.ts")) && /isSale\(o\)/.test(read("lib/website-builder/site-performance.ts")))
+
+  /*
+    Countries: 26 with a visit each, and the last of them by name, Zimbabwe,
+    with an order. The visits were cut to 25 before the orders were added,
+    so Zimbabwe came back as a new row with no visits, sorted last and cut
+    again: its order was nowhere on the card.
+  */
+  const codes = ["AR", "AT", "AU", "BE", "BR", "CA", "CH", "CL", "CN", "CZ", "DE", "DK", "ES", "FI", "FR", "GB", "GR", "IE", "IN", "IT", "JP", "MX", "NL", "NO", "PL", "ZW"]
+  const views = codes.map((code) => view(`c-${code}`, 8, { country_code: code }))
+  const countries = buildReports({
+    views,
+    steps: [],
+    orders: [order("zw", 8, { buyer_country_code: "ZW", buyer_country: "Zimbabwe" })],
+    window: w,
+    timeZone: "UTC",
+    mainDomain: "storelib.com",
+    productTitles: {},
+  }).breakdowns.country
+  const zw = countries.find((c) => c.key === "ZW")
+  check("a country with a visit and an order keeps both, past the 25th", zw?.value === 1 && zw.extra?.orders === 1 && zw.extra?.salesCents === 2000, zw)
+  check("  and the card is still 25 countries, none of them with no visits", countries.length === 25 && countries.every((c) => c.value > 0), countries.length)
+
+  /* Pages of 1,000 read in an order with no ties, so none is read twice or missed. */
+  const route = read("app/api/analytics/reports/route.ts")
+  const ranges = (route.match(/\.range\(a, b\)/g) ?? []).length
+  const tieBroken = (route.match(/\.order\("created_at", \{ ascending: true \}\)\s*\.order\("id", \{ ascending: true \}\)/g) ?? []).length
+  check("every paged read is sorted by time and then by id", ranges === 5 && tieBroken === ranges, { ranges, tieBroken })
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

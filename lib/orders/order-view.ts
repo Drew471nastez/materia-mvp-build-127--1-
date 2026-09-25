@@ -55,7 +55,7 @@ export interface OrderRow {
   } | null
 }
 
-export type PaymentStatus = "paid" | "pending" | "refunded" | "partially_refunded" | "failed"
+export type PaymentStatus = "paid" | "pending" | "refunded" | "partially_refunded" | "failed" | "disputed"
 export type FulfillmentStatus = "fulfilled" | "unfulfilled"
 export type DeliveryStatus = "delivered" | "failed" | null
 
@@ -122,10 +122,31 @@ function sourceDetailOf(rows: OrderRow[]): OrderOrigin | null {
 function paymentOf(rows: OrderRow[], totalCents: number, refundedCents: number): PaymentStatus {
   if (rows.every((r) => r.status === "failed")) return "failed"
   if (rows.some((r) => r.status === "pending")) return "pending"
+  /* The buyer's bank has taken the money back while it decides
+     (app/api/stripe/webhook, charge.dispute.*). It read as "Paid", and so as
+     a sale in every figure, including after a dispute was lost: a lost
+     dispute stays "disputed" for good. A won one goes back to "completed". */
+  if (rows.some((r) => r.status === "disputed")) return "disputed"
   if (refundedCents > 0) {
     return totalCents > 0 && refundedCents < totalCents ? "partially_refunded" : "refunded"
   }
   return "paid"
+}
+
+/**
+ * ===========================================================================
+ *  WHICH ORDERS ARE SALES
+ * ===========================================================================
+ * The one test every figure uses: Home, Analytics, the Orders page's own
+ * figures and a website's performance. A failed or unfinished payment is no
+ * sale, and neither is one in dispute, whose money the bank is holding and
+ * may never give back. Each page had its own copy of this, and the copies
+ * disagreed about disputes: Analytics counted a disputed order as a full
+ * sale in Total sales while leaving it out of Sales by product, so the two
+ * cards did not add up.
+ */
+export function isSale(order: Pick<Order, "payment">): boolean {
+  return order.payment !== "failed" && order.payment !== "pending" && order.payment !== "disputed"
 }
 
 /**
@@ -395,6 +416,7 @@ export const PAYMENT_LABEL: Record<PaymentStatus, string> = {
   refunded: "Refunded",
   partially_refunded: "Partially refunded",
   failed: "Failed",
+  disputed: "Disputed",
 }
 
 export const FULFILLMENT_LABEL: Record<FulfillmentStatus, string> = {

@@ -29,7 +29,7 @@
  * on its tabs and the cards under it cannot disagree.
  */
 
-import { groupOrders, startOfDay, type OrderRow } from "../orders/order-view"
+import { groupOrders, isSale, startOfDay, type OrderRow } from "../orders/order-view"
 import { isInternalReferrer } from "./sources"
 import { bucketIndex, bucketLabel, bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span } from "./buckets"
 
@@ -389,14 +389,27 @@ export function moneyOf(o: Grouped): { gross: number; refunded: number; net: num
   let gross = 0
   let refunded = 0
   for (const line of o.lines) {
-    const amount = Math.max(0, line.amount_cents || 0)
-    gross += amount
-    if (line.status === "refunded") {
-      const recorded = line.refund_amount_cents
-      refunded += typeof recorded === "number" && recorded > 0 ? Math.min(recorded, amount) : amount
-    }
+    const m = lineMoney(line)
+    gross += m.gross
+    refunded += m.refunded
   }
   return { gross, refunded, net: Math.max(0, gross - refunded) }
+}
+
+/**
+ * ONE LINE'S MONEY, the unit moneyOf adds up. Sales by product reads the
+ * same function, so its rows add up to Total sales: it used to keep only
+ * lines marked completed or refunded, with its own copy of the refund rule,
+ * while the total counted every line of the payment.
+ */
+export function lineMoney(line: OrderRow): { gross: number; refunded: number; net: number } {
+  const gross = Math.max(0, line.amount_cents || 0)
+  let refunded = 0
+  if (line.status === "refunded") {
+    const recorded = line.refund_amount_cents
+    refunded = typeof recorded === "number" && recorded > 0 ? Math.min(recorded, gross) : gross
+  }
+  return { gross, refunded, net: gross - refunded }
 }
 
 export function buildReports(input: {
@@ -417,8 +430,8 @@ export function buildReports(input: {
   const sessionsNow = sessionsOf(views, cur, timeZone)
   const sessionsBefore = sessionsOf(views, prev, timeZone)
 
-  /* Orders: one per payment, failed and pending left out. */
-  const allOrders = groupOrders(input.orders).filter((o) => o.payment !== "failed" && o.payment !== "pending")
+  /* Orders: one per payment, failed, pending and disputed left out (isSale). */
+  const allOrders = groupOrders(input.orders).filter(isSale)
   const inWindow = (o: { createdAt: string }, w: Span) => {
     const at = Date.parse(o.createdAt)
     return at >= w.start && at < w.end
@@ -509,19 +522,15 @@ export function buildReports(input: {
       .sort((a, b) => b.value - a.value || (b.extra.orders ?? 0) - (a.extra.orders ?? 0))
   })()
 
-  /* Sales by product: each product's own line of each payment. */
+  /* Sales by product: each product's own line of each payment, by the rule
+     Total sales is counted with (lineMoney), so the two agree. */
   const productRows = (() => {
     const tally = (list: Grouped[]) => {
       const m = new Map<string, { cents: number; units: number }>()
       for (const o of list) {
         for (const line of o.lines) {
-          if (line.status !== "completed" && line.status !== "refunded") continue
-          const refunded =
-            line.status === "refunded"
-              ? Math.min(line.amount_cents || 0, line.refund_amount_cents && line.refund_amount_cents > 0 ? line.refund_amount_cents : line.amount_cents || 0)
-              : 0
           const row = m.get(line.product_id) ?? { cents: 0, units: 0 }
-          row.cents += Math.max(0, (line.amount_cents || 0) - refunded)
+          row.cents += lineMoney(line).net
           row.units += 1
           m.set(line.product_id, row)
         }
@@ -563,9 +572,15 @@ export function buildReports(input: {
   ]
   const funnel = funnelRaw.map((f) => ({ ...f, rate: rate(f.value, sessionsNow.length) }))
 
-  /* Country: visits, and the orders and money from buyers there. */
+  /*
+    Country: visits, and the orders and money from buyers there.
+
+    EVERY COUNTRY FIRST, THEN THE TOP 25. The visits were cut to 25 before
+    the orders were added, so a country outside those 25 that had orders
+    came back as a new row saying 0 visits, beside a country that had them.
+  */
   const countryRows = (() => {
-    const rows = breakdown(sessionsNow, sessionsBefore, keyCountry, 25)
+    const rows = breakdown(sessionsNow, sessionsBefore, keyCountry, Infinity)
     const byCode = new Map(rows.map((r) => [r.key, r]))
     for (const o of ordersNow) {
       const code = (o.lines[0].buyer_country_code || "").toUpperCase()
