@@ -136,6 +136,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     ["desktop-1280", { width: 1280, height: 800 }],
   ]) {
     const isPhone = label.startsWith("phone")
+    /* From 1280px everything is one step up ("a little bit bigger on large screens"). */
+    const big = vp.width >= 1280
     console.log(`\n${label}${hash ? ` (${hash.slice(1)}: the page 240px in, beside the sidebar)` : ""}`)
     const p = await open(vp, hash)
     await p.evaluate(`window.__shown = ${shown}; window.__rows = ${rowsShown}`)
@@ -167,7 +169,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     expect(bar.barH === 66, "the bar is Orders' 66px", bar.barH)
     expect(bar.titleSize === (isPhone ? "24px" : "28px"), `the title is ${isPhone ? 24 : 28}px`, bar.titleSize)
     row.newBg = bar.addBg
-    expect(bar.addText === "New product" && bar.add[1] === 32 && bar.addBg === "rgb(139, 92, 246)", "New product is one compact violet button, 32px, #8b5cf6", { add: bar.add, bg: bar.addBg })
+    expect(bar.addText === "New product" && bar.add[1] === (big ? 36 : 32) && bar.addBg === "rgb(139, 92, 246)", `New product is one compact violet button, ${big ? 36 : 32}px, #8b5cf6`, { add: bar.add, bg: bar.addBg })
     expect(bar.addBg === bar.saveBg && bar.addShadow === bar.saveShadow, "with the editor's Save's colour and depth, to the letter", { newProduct: bar.addShadow, save: bar.saveShadow })
     if (isPhone) {
       expect(bar.expText === "" && bar.exp.join() === "32,32" && bar.expBg === "rgba(0, 0, 0, 0)" && bar.expBorder === "rgba(0, 0, 0, 0)", "Export is a plain icon on a phone, with no box drawn round it", bar)
@@ -191,9 +193,9 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       }
     })
     row.search = tools.drawn[1]
-    expect(tools.placeholder === "Search products" && tools.font === (isPhone ? "16px" : "13px"), `a search field that is always there, ${isPhone ? "16px text so iOS does not zoom" : "13px text"}`, tools)
-    expect(isPhone ? tools.field[1] === 44 && tools.drawn[1] === 40 : tools.drawn[1] === 32, isPhone ? "drawn 40px in a 44px press" : "drawn 32px", tools.drawn)
-    expect(isPhone ? tools.sort.join() === "44,44" && tools.sortDrawn.join() === "40,40" : tools.sortDrawn.join() === "32,32", isPhone ? "Sort beside it, drawn 40px, a 44px press" : "Sort beside it at 32px", { press: tools.sort, drawn: tools.sortDrawn })
+    expect(tools.placeholder === "Search products" && tools.font === (isPhone ? "16px" : big ? "14px" : "13px"), `a search field that is always there, ${isPhone ? "16px text so iOS does not zoom" : big ? "14px text" : "13px text"}`, tools)
+    expect(isPhone ? tools.field[1] === 44 && tools.drawn[1] === 40 : tools.drawn[1] === (big ? 36 : 32), isPhone ? "drawn 40px in a 44px press" : `drawn ${big ? 36 : 32}px`, tools.drawn)
+    expect(isPhone ? tools.sort.join() === "44,44" && tools.sortDrawn.join() === "40,40" : tools.sortDrawn.join() === (big ? "36,36" : "32,32"), isPhone ? "Sort beside it, drawn 40px, a 44px press" : `Sort beside it at ${big ? 36 : 32}px`, { press: tools.sort, drawn: tools.sortDrawn })
 
     /* The views: one segmented control. */
     const seg = await p.evaluate(() => {
@@ -209,8 +211,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     })
     row.views = seg.track
     expect(seg.tabs.map((t) => t.t).join() === "All,Active,Draft,Archived", "the views in Polaris's order, All first", seg.tabs.map((t) => t.t))
-    expect(seg.track === 36 && seg.thumb[2] === 32, "a 36px grey track with a 32px white segment", { track: seg.track, segment: seg.thumb[2] })
-    expect(seg.tabs.every((t) => t.h === (isPhone ? 44 : 36) && t.w >= 44 && !t.cut && t.size === "13px"), `each view a ${isPhone ? "44px press" : "36px button"}, none cut off`, seg.tabs.map((t) => [t.w, t.h, t.cut]))
+    expect(seg.track === (big ? 40 : 36) && seg.thumb[2] === (big ? 36 : 32), `a ${big ? 40 : 36}px grey track with a ${big ? 36 : 32}px white segment`, { track: seg.track, segment: seg.thumb[2] })
+    expect(seg.tabs.every((t) => t.h === (isPhone ? 44 : big ? 40 : 36) && t.w >= 44 && !t.cut && t.size === (big ? "14px" : "13px")), `each view a ${isPhone ? "44px press" : big ? "40px button" : "36px button"}, none cut off`, seg.tabs.map((t) => [t.w, t.h, t.cut]))
     expect(Math.abs(seg.thumb[0] - seg.tabs[0].left) <= 2, "the segment sits on All", { segment: seg.thumb[0], all: seg.tabs[0].left })
     if (isPhone) expect(seg.w === vp.width - 32, "full width between the gutters on a phone", seg.w)
 
@@ -353,10 +355,10 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(t.cols.map((c) => c.t).join() === wantCols, `the columns: ${wantCols.replace(/,$/, "")}${label.startsWith("tablet") ? " (Sales from 1024px)" : ""}`, t.cols.map((c) => c.t))
       expect(t.cols.every((c) => c.bg === "rgba(0, 0, 0, 0)"), "no grey band behind the headings", t.cols.map((c) => c.bg))
       expect(t.cols.filter((c) => /Sales|Price/.test(c.t)).every((c) => c.align === "right"), "numbers' headings right aligned", t.cols)
-      expect(t.headH === 40, "a 40px heading row", t.headH)
-      expect(t.rows.length === 13 && t.rows.every((r) => r.h === 64), "one 64px row per product in All", { count: t.rows.length, heights: [...new Set(t.rows.map((r) => r.h))] })
-      expect(t.rows.every((r) => r.pic.join() === "44,44" && r.radius === "10px"), "a 44px picture, 10px round", [...new Set(t.rows.map((r) => `${r.pic.join("x")} r${r.radius}`))])
-      expect(t.rows.every((r) => r.nameSize === "14px" && r.nameWeight === "500"), "the name at 14px medium", t.rows[0])
+      expect(t.headH === (big ? 44 : 40), `a ${big ? 44 : 40}px heading row`, t.headH)
+      expect(t.rows.length === 13 && t.rows.every((r) => r.h === (big ? 72 : 64)), `one ${big ? 72 : 64}px row per product in All`, { count: t.rows.length, heights: [...new Set(t.rows.map((r) => r.h))] })
+      expect(t.rows.every((r) => r.pic.join() === (big ? "48,48" : "44,44") && r.radius === (big ? "11px" : "10px")), big ? "a 48px picture, 11px round" : "a 44px picture, 10px round", [...new Set(t.rows.map((r) => `${r.pic.join("x")} r${r.radius}`))])
+      expect(t.rows.every((r) => r.nameSize === (big ? "15px" : "14px") && r.nameWeight === "500"), `the name at ${big ? 15 : 14}px medium`, t.rows[0])
       expect(t.rows.every((r) => r.statusBg === "rgba(0, 0, 0, 0)") && t.rows[0].status === "Active" && t.rows[0].dot === "rgb(34, 160, 107)" && t.rows[3].status === "Draft" && t.rows[3].dot === "rgb(224, 161, 0)",
         "the status is a dot and a word, green for Active and amber for Draft, with no badge", t.rows.slice(0, 4).map((r) => [r.status, r.dot]))
       expect(t.rows.every((r) => r.nums.length >= 1 && r.nums.every(([a, n]) => a === "right" && /tabular-nums/.test(n))), "numbers right aligned in figures of one width", t.rows[0].nums)
@@ -548,7 +550,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await q.evaluate(`window.__shown = ${shown}; window.__rows = ${rowsShown}`)
     const count = () => q.evaluate(() => ({ rows: window.__rows().length, footer: document.querySelector("[data-footer]").textContent.trim(), h: Math.round(document.querySelector("[data-footer]").getBoundingClientRect().height) }))
     const first = await count()
-    expect(first.rows === 50 && /^1–50 of 59/.test(first.footer) && first.h === 44, "sixty products (59 not archived): fifty on the first page, and a 44px footer says so", first)
+    expect(first.rows === 50 && /^1–50 of 59/.test(first.footer) && first.h === (big ? 48 : 44), `sixty products (59 not archived): fifty on the first page, and a ${big ? 48 : 44}px footer says so`, first)
     const next = await q.evaluate(() => {
       const press = document.querySelector("button[aria-label='Next page']")
       press.scrollIntoView({ block: "center" })

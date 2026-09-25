@@ -389,7 +389,7 @@ html.capacitor body {
 
   /*
     ONE LANDING PER PAGE, AND THE SHELL PLAYS IT. Inside /app a page arrives
-    on the stage's entrance (components/app/app-stage.tsx: opacity and a 5px
+    on the stage's entrance (components/app/app-stage.tsx: opacity and a 2px
     rise, 180ms), started before the new page is painted. A page that still
     carries .app-page-enter would fade a second time on top of it, from 0
     over 380ms, so inside the shell's scroller the class does nothing.
@@ -3179,6 +3179,29 @@ html.app-layout .app-content-scroll {
     scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+  }
+  /*
+    THE SAME BAR IN A BROWSER THAT READS ONLY ::-webkit-scrollbar. Safari
+    before 18.2 ignores `scrollbar-width`, so the pages that scroll in a box
+    of their own drew their 6px bar (.page-scroll, Home's container) and the
+    shell's scroller, which Settings, Website and the Creator page scroll in,
+    drew the system's 15px one: landing on Settings from Products moved the
+    column 4px and swapped the bar. "When I click Settings coming from a page
+    with no scrollbar, it glitches with the scrollbar on the right." Chrome
+    reads `scrollbar-width` above and ignores these, so nothing changes there.
+  */
+  html.app-layout:not(.capacitor) .app-content-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  html.app-layout:not(.capacitor) .app-content-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  html.app-layout:not(.capacitor) .app-content-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 3px;
+  }
+  html.app-layout:not(.capacitor) .app-content-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156, 163, 175, 0.7);
   }
   html.app-layout:not(.capacitor) .app-content-scroll:has(> .page-scroll, > .dashboard-scroll-container, > .sales-scroll-container, > .orders-stage, > [data-page-layer]) {
     overflow-y: hidden;

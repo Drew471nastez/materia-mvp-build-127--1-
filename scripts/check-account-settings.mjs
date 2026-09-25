@@ -209,6 +209,15 @@ try {
       await page.waitForSelector("[data-account-panel=security]")
       await wait(500)
       console.log(`\nSecurity, ${label}px`)
+      /* The fields are a step: none on screen until Change password is pressed. */
+      const resting = await page.evaluate(() => ({
+        fields: document.querySelectorAll("[data-password-field]").length,
+        open: !!document.querySelector("[data-password-open]"),
+        reset: !!document.querySelector("[data-password-reset]"),
+      }))
+      expect(resting.fields === 0 && resting.open && resting.reset, "no password fields until Change password is pressed; the reset link beside it", JSON.stringify(resting))
+      await page.evaluate(() => document.querySelector("[data-password-open]").click())
+      await page.waitForSelector("[data-password-field=new]")
       const m = await page.evaluate(() => {
         const r = (el) => el.getBoundingClientRect()
         const a = r(document.querySelector("[data-password-field=new]"))

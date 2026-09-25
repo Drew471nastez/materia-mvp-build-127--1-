@@ -9,8 +9,11 @@
  * the right edge, bar and all, as one layer, while the list moves a third of
  * the way left underneath it; back runs the same motion the other way. The
  * list is never unmounted, so underneath it is exactly where it was left.
- * Wider, where nothing on a desktop slides in from an edge, the order fades
- * in over the list and out of it, quickly.
+ * Wider, where nothing on a desktop slides in from an edge, the order's bar
+ * is there on the first frame and only its cards fade in under it; back is
+ * at once. The whole order used to fade in over the list, bar and all, so
+ * for 150ms the list's bar and the order's number and badges were drawn
+ * through each other: "the top bar blends in with a delay, it looks cheap".
  *
  * What the last slide got wrong, and this does not:
  *
@@ -93,7 +96,6 @@ export function moveOrder(kind: Kind, detail: HTMLElement, list: HTMLElement, do
   const moving = running.has(detail) || running.has(list)
   const detailX = moving ? xOf(detail) : kind === "push" ? width : 0
   const listX = moving ? xOf(list) : kind === "push" ? 0 : -width * ORDER_PARALLAX
-  const detailOpacity = moving ? Number(getComputedStyle(detail).opacity) : kind === "push" ? 0 : 1
   stop(detail)
   stop(list)
 
@@ -118,17 +120,20 @@ export function moveOrder(kind: Kind, detail: HTMLElement, list: HTMLElement, do
     anims.push(detail.animate([{ transform: `translate3d(${detailX}px, 0, 0)` }, { transform: `translate3d(${detailTo}px, 0, 0)` }], timing))
     anims.push(list.animate([{ transform: `translate3d(${listX}px, 0, 0)` }, { transform: `translate3d(${listTo}px, 0, 0)` }], { ...timing, fill: "none" }))
   } else {
-    const to = kind === "push" ? 1 : 0
-    const whole = kind === "push" ? ORDER_FADE_IN_MS : ORDER_FADE_OUT_MS
-    const ms = Math.max(60, Math.round(whole * Math.abs(to - detailOpacity)))
-    detail.style.willChange = "opacity"
-    anims.push(
-      detail.animate([{ opacity: detailOpacity }, { opacity: to }], {
-        duration: ms,
-        easing: "ease-out",
-        fill: kind === "pop" ? "forwards" : "none",
-      }),
-    )
+    /* The list is not drawn under a settled order, so nothing shows through. */
+    delete list.dataset.moving
+    if (kind === "pop") {
+      settle(detail, list)
+      done?.()
+      return
+    }
+    const body = detail.querySelector<HTMLElement>(".orders-body")
+    if (!body) {
+      settle(detail, list)
+      done?.()
+      return
+    }
+    anims.push(body.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ORDER_FADE_IN_MS, easing: "ease-out" }))
   }
   running.set(detail, anims)
   running.set(list, anims)

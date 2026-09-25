@@ -766,7 +766,9 @@ const AnnouncementBar = memo(function AnnouncementBar({
 
   return (
       <div ref={barRef} className="bg-[#8b5cf6] text-white">
-        <div className="py-2 px-4 md:py-2.5">
+        {/* 38px on a phone and 40px wider, the same as every other /app page's
+            bar (components/app/announcement-bar-mobile). It was 44 and 52. */}
+        <div className="py-[5px] px-4 md:py-1">
           <div
             className={`max-w-[1200px] mx-auto flex h-7 md:h-8 items-center justify-center gap-2 md:gap-3 text-center whitespace-nowrap transition-opacity duration-300 ${
               announcementVisible ? "opacity-100" : "opacity-0"

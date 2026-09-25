@@ -30,7 +30,7 @@ import {
  * the moment `usePathname` changes (the address and the page are one commit):
  *
  *   THE LANDING. Before that commit is painted, every top level box of the
- *   new page starts at opacity 0 and 5px low and rises into place over
+ *   new page starts at opacity 0 and 2px low and rises into place over
  *   180ms. Transform and opacity only, on the compositor, with no fill, so
  *   when it ends nothing is left on the element. A page that has something
  *   `position: fixed` showing inside it (a bottom bar, an editor) gets the

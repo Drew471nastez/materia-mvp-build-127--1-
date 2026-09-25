@@ -73,9 +73,14 @@ export const NAV_SPINNER_FADE_MS = 150
  * rises under it over NAV_ENTER_MS. It was the landing's own 180ms.
  */
 export const NAV_SPINNER_OUT_MS = 120
-/** The landing: opacity and a rise, on one curve. */
+/**
+ * The landing: opacity and a rise, on one curve. The rise is 2px: "it comes
+ * with a bump, sliding up when I land on the page... extremely subtle,
+ * normal." At 5px the page read as arriving from below; at 2px it only
+ * settles, and the fade does the work.
+ */
 export const NAV_ENTER_MS = 180
-export const NAV_ENTER_RISE_PX = 5
+export const NAV_ENTER_RISE_PX = 2
 export const NAV_ENTER_EASE = "cubic-bezier(0.2, 0, 0, 1)"
 /**
  * How long the router keeps a page it fetched: next.config.mjs
