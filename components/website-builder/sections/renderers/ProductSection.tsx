@@ -12,6 +12,7 @@ import { Facebook, FileText, Heart, Instagram, Package, Share2, Twitter } from "
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { useSiteCart } from "../../site-cart"
+import { useSiteWishlist } from "../../site-wishlist"
 import { useStorefront } from "../../theme/storefront-context"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { checkoutHrefWithOrigin } from "@/lib/orders/checkout-origin"
@@ -42,6 +43,8 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
   const productData = (s._product_data as Record<string, unknown> | undefined) ?? null
 
   const productId = str(productData?.id as unknown, "")
+  const wishlist = useSiteWishlist()
+  const saved = !!productId && wishlist.has(productId)
   const title = str(productData?.title as unknown, "Product Title")
   const description = str(productData?.description as unknown, "Product description will appear here. This is where you describe your product in detail, including features, benefits, and what makes it special.")
   const priceCents = typeof productData?.price_cents === "number" ? productData.price_cents : 2999
@@ -344,10 +347,23 @@ export function ProductSection({ section, theme, isEditing, isSelected, onClick 
 
           {/* Wishlist + Share */}
           <div className="flex items-center gap-4 mb-6" style={{ color: scheme.muted }}>
-            {showWishlist && (
-              <button className="flex items-center gap-1.5 text-sm hover:opacity-80 transition-opacity">
-                <Heart className="h-4 w-4" />
-                <span className="underline">Add to wishlist</span>
+            {/*
+              IT SAVES NOW. This was a button with no handler: "Add to
+              wishlist" on every product page, and nothing happened. It is the
+              same list as the hearts on the product cards and the Wishlist
+              page (../../site-wishlist): the browser's own until the visitor
+              signs in, then their account's. In the canvas it toggles in
+              memory, so a creator can see both states.
+            */}
+            {showWishlist && productId && (
+              <button
+                type="button"
+                aria-pressed={saved}
+                onClick={(e) => { e.stopPropagation(); wishlist.toggle(productId) }}
+                className="flex items-center gap-1.5 text-sm hover:opacity-80 transition-opacity"
+              >
+                <Heart className="h-4 w-4" fill={saved ? "currentColor" : "none"} />
+                <span className="underline">{saved ? "Saved to your wishlist" : "Add to wishlist"}</span>
               </button>
             )}
             {showShare && (

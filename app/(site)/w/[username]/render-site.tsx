@@ -34,6 +34,8 @@ import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pa
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { TrackView } from "@/components/analytics/track-view"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
+import { renderAccountPage } from "./render-account"
+import { contactSections } from "@/lib/website-builder/account-pages"
 
 export type SiteSearchParams = Record<string, string | string[] | undefined>
 
@@ -188,6 +190,13 @@ export async function renderSite(
   const wantedToken = previewToken ?? previewTokenFrom(paramsToSearch(searchParams))
   if (wantedToken) return await previewPage(username, wantedToken, pageKey)
 
+  /*
+    THE CONTACT PAGE IS EVERY WEBSITE'S. The one the creator saved when they
+    made one, the generated one when they have not, and either way with the
+    store's own details handed to its sections: ./render-account.tsx.
+  */
+  if (pageKey === "contact") return await renderAccountPage(username, "contact")
+
   const found = await publishedSiteByName(username, pageKey)
   if (found.kind === "renamed") redirect(`https://${found.to}.${getMainDomain()}`)
   if (found.kind === "missing") notFound()
@@ -285,7 +294,8 @@ async function previewPage(username: string, token: string, pageKey: string) {
     .maybeSingle()
 
   // A page the creator has not made is not a page, even with the link.
-  if (!pageData && pageKey !== "home") notFound()
+  // Contact is the exception: every website has one (./render-account.tsx).
+  if (!pageData && pageKey !== "home" && pageKey !== "contact") notFound()
 
   /**
    * And again on the way out. The database already holds rich text saved
@@ -306,8 +316,10 @@ async function previewPage(username: string, token: string, pageKey: string) {
       .maybeSingle()
     chrome = chromeOf(sanitizeSections(pageSections<SectionInstance[]>(homeRow as never, preview) ?? []))
   }
+  const own = sanitizeSections(pageSections<SectionInstance[]>(pageData as never, preview) ?? [])
   const sections = withUniversalChrome(
-    sanitizeSections(pageSections<SectionInstance[]>(pageData as never, preview) ?? []),
+    /* A contact page nobody has made yet is the generated one, like the live site's. */
+    own.length === 0 && pageKey === "contact" ? contactSections([chrome.header, chrome.footer].filter((s): s is SectionInstance => !!s)) : own,
     chrome,
   )
   const products = await shopProducts(admin as never, creatorId)

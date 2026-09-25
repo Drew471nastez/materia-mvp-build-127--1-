@@ -1,6 +1,7 @@
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { GENERATED_PAGE_KEYS } from "@/lib/website-builder/site-pages"
 import { searchSections, shopSections } from "@/lib/website-builder/shop-page"
+import { accountPageSections } from "@/lib/website-builder/account-pages"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
@@ -107,7 +108,14 @@ export async function GET(req: Request, { params }: Params) {
     ])
     const homeSections = ((home?.draft_sections ?? home?.sections) as SectionInstance[] | null) ?? []
     const theme = ((settingsRow?.draft_settings ?? settingsRow?.settings) as ThemeSettingsValues | null) ?? ({} as ThemeSettingsValues)
-    const generated = pageKey === "products" ? shopSections(homeSections, theme) : searchSections(homeSections)
+    /* The account pages and the contact page are built the same way:
+       lib/website-builder/account-pages. */
+    const generated =
+      pageKey === "products"
+        ? shopSections(homeSections, theme)
+        : pageKey === "search"
+          ? searchSections(homeSections)
+          : (accountPageSections(pageKey, homeSections) ?? [])
     return NextResponse.json({ page: null, sections: sanitizeSections(generated), has_draft: false, generated: true })
   }
 

@@ -73,7 +73,7 @@ import { BUTTON_COLOR_GROUPS, ButtonColorGroup, ColorsPanel, SectionDesignPanel,
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { PAGE_META } from "@/lib/website-builder/types"
-import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
+import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pagePath, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
@@ -7625,7 +7625,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               ...(Object.keys(PAGE_META) as PageKey[]).map((k) => ({
                 key: k,
                 name: PAGE_META[k].label,
-                path: k === "home" ? "/" : `/${k}`,
+                path: pagePath(k),
               })),
               ...customPages.map((p) => ({ key: p.key as string, name: p.name, path: `/${p.key}`, custom: true })),
             ]}
@@ -7887,7 +7887,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           ...(Object.keys(PAGE_META) as PageKey[]).map((k) => ({
             key: k,
             name: PAGE_META[k].label,
-            path: k === "home" ? "/" : `/${k}`,
+            path: pagePath(k),
           })),
           ...customPages.map((p) => ({ key: p.key as string, name: p.name, path: `/${p.key}`, custom: true })),
         ]}

@@ -67,7 +67,11 @@ const STOCK_DEAD = new Map<string, string>([
    * a link somebody chose, and it is theirs to fix.
    */
   ["/about", "about"],
-  ["/contact", "contact"],
+  /*
+    NOT /contact. Every website answers it now, with the generated contact
+    page when the creator has not made one (lib/website-builder/
+    account-pages), so a stock Contact link goes somewhere and stays.
+  */
 ])
 
 const norm = (value: unknown): string => {
