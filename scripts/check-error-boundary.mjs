@@ -24,7 +24,7 @@ if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 
 const stubs = join(root, ".wb-probe")
 mkdirSync(stubs, { recursive: true })
-writeFileSync(join(stubs, "link.jsx"), `import React from "react"\nexport default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }\n`)
+writeFileSync(join(stubs, "link.jsx"), `import React from "react"\nexport default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }\nexport const useLinkStatus = () => ({ pending: false })\n`)
 writeFileSync(join(stubs, "navigation.js"), `export const usePathname = () => "/"\nexport const useRouter = () => ({ push() {}, replace() {}, refresh() {}, prefetch() {} })\nexport const useSearchParams = () => new URLSearchParams()\n`)
 
 const out = mkdtempSync(join(tmpdir(), "storelib-boundary-"))
@@ -43,8 +43,6 @@ const page = `<!doctype html><html><head><meta charset="utf-8"></head><body>
 (function () {
   var threw = null
   try { window.mountProbe() } catch (e) { threw = String(e && e.message || e) }
-
-export const useLinkStatus = () => ({ pending: false })
   setTimeout(function () {
     var ed = document.getElementById("editor")
     var vi = document.getElementById("visitor")

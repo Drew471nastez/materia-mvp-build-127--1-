@@ -45,7 +45,7 @@ const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => rea
 
 const stubs = join(root, ".wb-probe")
 mkdirSync(stubs, { recursive: true })
-writeFileSync(join(stubs, "link.jsx"), `import React from "react"\nexport default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }\n`)
+writeFileSync(join(stubs, "link.jsx"), `import React from "react"\nexport default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }\nexport const useLinkStatus = () => ({ pending: false })\n`)
 writeFileSync(join(stubs, "navigation.js"), `export const usePathname = () => "/"\nexport const useRouter = () => ({ push() {}, replace() {}, refresh() {}, prefetch() {} })\nexport const useSearchParams = () => new URLSearchParams()\n`)
 
 const MEASURE = `
@@ -60,8 +60,6 @@ const MEASURE = `
     for (let n = walker.nextNode(); n; n = walker.nextNode()) parts.push(n.nodeValue)
     return parts.join(" ").replace(/\\s+/g, " ").trim()
   }
-
-export const useLinkStatus = () => ({ pending: false })
   const out = []
   for (const fx of document.querySelectorAll(".fixture")) {
     const rec = { name: fx.dataset.name, width: fx.dataset.width }

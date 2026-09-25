@@ -32,6 +32,7 @@ import CustomersPage from "@/app/app/customers/page"
 import { buildReports, type ViewRow } from "@/lib/analytics/reports"
 import { resolveValue, todayIn } from "@/lib/date-range/range"
 import type { OrderRow } from "@/lib/orders/order-view"
+import { legacyFacts, salesFrom } from "@/lib/home/progress"
 
 type W = Window & {
   __dataDelay: number
@@ -151,11 +152,14 @@ function Page() {
       return (
         <DashboardClient {...({
           creatorId: "c1", displayName: "Ana", productIds: ["p1", "p2", "p3"],
-          initialSetupSteps: [
-            { id: "welcome", title: "Welcome", description: "Account created", tooltip: "", completed: true, href: "/app/settings" },
-            { id: "product", title: "Product", description: "Add your first product", tooltip: "", completed: true, href: "/app/products" },
-            { id: "payouts", title: "Payouts", description: "Connect a payout account", tooltip: "", completed: false, href: "/app/payouts" },
-          ],
+          /* What app/app/page.tsx hands Home since b920281e: the account's
+             facts with the sales already counted on the server, so the steps
+             are right on the first frame (the old checklist prop left the
+             sales at 0 until Home's answer, and "2 of 8" became "3 of 8"). */
+          initialProgress: {
+            ...legacyFacts([{ id: "product", completed: true }, { id: "payouts", completed: false }], "free"),
+            ...salesFrom(orders as never),
+          },
           initialOrders: orders.map((o) => ({ ...o, total_cents: o.amount_cents, product_title: "Preset pack", buyer_email: "a@example.com" })),
           initialTotalOrders: orders.length, initialTotalRevenue: 99_000, creatorHandle: "ana", connectedDomain: null,
           brandingDetail: null, websitePublished: true, subscriptionPlanId: "free",

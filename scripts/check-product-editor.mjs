@@ -53,6 +53,9 @@ import { join } from "node:path"
 import puppeteer from "puppeteer-core"
 import { appCss, interFaces } from "./probe-css.mjs"
 
+/* Save's colour when it can be pressed. Violet (#8b5cf6) until 7ea799ec made
+   the app's primary actions near black (#1a1a2e, primaryDepth). */
+const SAVE_INK = "rgb(26, 26, 46)"
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
 const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
@@ -1169,7 +1172,7 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     if (!isNew) expect(bar.more && bar.more.h === H && bar.more.w === H && bar.save.left - (bar.more.left + bar.more.w) === 8, `the more button is a ${H}px square, 8px before Save`, bar.more)
     expect(/inset/.test(bar.cancel.shadow) && bar.cancel.border === "1px" && bar.cancel.bg === "rgb(255, 255, 255)", "Cancel has depth: white, a hairline, a shade at its foot", { shadow: bar.cancel.shadow, border: bar.cancel.border, bg: bar.cancel.bg })
     if (!isNew) expect(/inset/.test(bar.more.shadow) && bar.more.border === "1px", "and so does the more button", { shadow: bar.more.shadow, border: bar.more.border })
-    expect(bar.save?.disabled === true && !/rgba\(\d+, \d+, \d+, 0\.[1-9]|rgb\(/.test(bar.save.shadow.replace(/rgba\(0, 0, 0, 0\)/g, "")) && bar.save.bg !== "rgb(139, 92, 246)", "Save is flat and grey while there is nothing to save", { disabled: bar.save.disabled, bg: bar.save.bg, shadow: bar.save.shadow })
+    expect(bar.save?.disabled === true && !/rgba\(\d+, \d+, \d+, 0\.[1-9]|rgb\(/.test(bar.save.shadow.replace(/rgba\(0, 0, 0, 0\)/g, "")) && bar.save.bg !== SAVE_INK, "Save is flat and grey while there is nothing to save", { disabled: bar.save.disabled, bg: bar.save.bg, shadow: bar.save.shadow })
     expect(!bar.named && !bar.headingShown, "the bar shows no product name: it is in the title field", { named: bar.named, heading: bar.heading })
     expect(bar.heading === (isNew ? "New product" : "Edit product"), "a screen reader still hears which page this is", bar.heading)
     if (isPhone) {
@@ -1409,7 +1412,7 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       await p.keyboard.type("!")
       await sleep(150)
       const dirty = await saveState()
-      expect(dirty.disabled === false && dirty.bg === "rgb(139, 92, 246)", "a change lights Save up, in the violet", dirty)
+      expect(dirty.disabled === false && dirty.bg === SAVE_INK, "a change lights Save up, in the app's near black", dirty)
       if (wide) expect(dirty.state === "Unsaved changes", "and the foot bar says Unsaved changes", dirty.state)
       const moved = await geometry()
       expect(moved === resting, "and nothing in the bar moves or changes size", { resting, moved })
@@ -1437,7 +1440,7 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       expect(saving.phase === "saving" && saving.busy === "true" && saving.spinner && saving.label === "0", "saving: a spinner in place of the word, aria-busy", saving)
       if (wide) expect(saving.state === "Saving", "the foot bar says Saving", saving.state)
       expect(saving.w === idle.w && saving.h === idle.h, "and Save keeps its size to the hundredth of a pixel", { idle: [idle.w, idle.h], saving: [saving.w, saving.h] })
-      expect(saving.bg === "rgb(139, 92, 246)" && saving.disabled === false, "and its colour: busy, not greyed", saving.bg)
+      expect(saving.bg === SAVE_INK && saving.disabled === false, "and its colour: busy, not greyed", saving.bg)
       expect(saving.said === "Saving", "a screen reader hears Saving", saving.said)
       let saved = saving
       for (let i = 0; i < 100 && saved.phase !== "saved"; i++) {

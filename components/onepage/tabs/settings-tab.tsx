@@ -7,31 +7,21 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import {
-  Globe,
   Copy,
   Check,
   ChevronRight,
   ChevronDown,
-  Upload,
-  Image as ImageIcon,
   CreditCard,
-  FileText,
   X,
   Loader2,
   Bell,
-  BadgeCheck,
   Send,
 } from "lucide-react"
 import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { secondaryDepth } from "@/components/ui/depth-button"
 import { getLinksUrl, getLinksUrlDisplay } from "@/lib/url-helpers"
 import { PRO_CHECKOUT_PLAN_ID, offeredPlan, planDisplayName, planHighlights, type PlanId } from "@/lib/billing/plans"
 
@@ -48,13 +38,14 @@ function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChang
 }
 
 // Settings sections with Linktree-style icons
+/* Words only: a row of stock icons beside six words said nothing the words did not. */
 const SETTINGS_SECTIONS = [
-  { id: "basic", label: "Basic Info", icon: FileText },
-  { id: "seo", label: "SEO", icon: Globe },
-  { id: "subscribe", label: "Subscribe", icon: Bell },
-  { id: "share", label: "Share", icon: Send },
-  { id: "verified", label: "Verified Badge", icon: BadgeCheck },
-  { id: "billing", label: "Billing", icon: CreditCard },
+  { id: "basic", label: "Basic info" },
+  { id: "seo", label: "SEO" },
+  { id: "subscribe", label: "Subscribe" },
+  { id: "share", label: "Share" },
+  { id: "verified", label: "Verified badge" },
+  { id: "billing", label: "Billing" },
 ]
 
 // Badge type options
@@ -81,7 +72,6 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
   const router = useRouter()
   const [activeSection, setActiveSection] = useState("basic")
   const [copied, setCopied] = useState(false)
-  const [showOgImageModal, setShowOgImageModal] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [localSaveState, setLocalSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -392,7 +382,6 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
         .getPublicUrl(fileName)
 
       setOgImage(publicUrl)
-      setShowOgImageModal(false)
 
       /*
         WRITTEN AT ONCE, AND ONLY WHAT CHANGED. The picture is stored straight
@@ -448,22 +437,20 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
 
   // Sidebar navigation item component
   const NavItem = ({ section }: { section: typeof SETTINGS_SECTIONS[0] }) => {
-    const Icon = section.icon
     const isActive = activeSection === section.id
 
     return (
       <button
         onClick={() => setActiveSection(section.id)}
+        aria-current={isActive ? "page" : undefined}
         className={cn(
-          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left cursor-pointer",
+          "w-full flex items-center px-3 py-2 rounded-lg text-[13.5px] font-medium transition-colors text-left cursor-pointer",
           isActive
-            ? "bg-white text-gray-900 shadow-sm border border-gray-200"
-            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+            ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06)] ring-1 ring-[#e5e7eb]"
+            : "text-[#6b7280] hover:bg-white/70 hover:text-[#1a1a2e]"
         )}
       >
-        <Icon className="h-4 w-4 flex-shrink-0" />
-        <span>{section.label}</span>
-        {isActive && <ChevronRight className="h-4 w-4 ml-auto" />}
+        {section.label}
       </button>
     )
   }
@@ -538,47 +525,56 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
     </div>
   )
 
+  /*
+    SEO, AS ONE CARD. It used to be two fields, an upload box with an image
+    icon, a modal with a cloud icon, and then a second picture of the same
+    image under "Preview". Now the card IS the preview: the image as it will
+    be cropped when the link is shared, with the title and description under
+    it, and two plain buttons. Add image opens the file picker straight away;
+    there is nothing a modal in between was adding. Drag on the image to set
+    the focal point, the same as before.
+  */
   const renderSeo = () => (
-    <div className="space-y-6">
+    <div className="space-y-5" data-onepage-seo="">
       <div>
-        <h3 className="text-base font-semibold mb-1">SEO</h3>
-        <p className="text-sm text-gray-500">Optimize for search engines</p>
+        <h3 className="text-base font-semibold text-[#1a1a2e]">Search and sharing</h3>
+        <p className="mt-0.5 text-[13px] text-[#6b7280]">What people see on Google and when your link is shared.</p>
       </div>
 
-      {/* Meta Title */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-700">Page Title</Label>
+      <div className="space-y-1.5">
+        <div className="flex items-baseline justify-between gap-3">
+          <Label className="text-[13px] font-medium text-[#374151]">Title</Label>
+          <span className={cn("text-[12px] tabular-nums", metaTitle.length > 60 ? "text-amber-600" : "text-[#9ca3af]")}>{metaTitle.length}/60</span>
+        </div>
         <Input
           value={metaTitle}
           onChange={(e) => { setMetaTitle(e.target.value); markDirty() }}
-          placeholder="My Page Title"
+          placeholder={pageName || "My page"}
           className="h-10 rounded-lg border-gray-200"
         />
-        <p className="text-xs text-gray-500">Appears in browser tabs and search results</p>
       </div>
 
-      {/* Meta Description */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-700">Meta Description</Label>
+      <div className="space-y-1.5">
+        <div className="flex items-baseline justify-between gap-3">
+          <Label className="text-[13px] font-medium text-[#374151]">Description</Label>
+          <span className={cn("text-[12px] tabular-nums", metaDescription.length > 160 ? "text-amber-600" : "text-[#9ca3af]")}>{metaDescription.length}/160</span>
+        </div>
         <Textarea
           value={metaDescription}
           onChange={(e) => { setMetaDescription(e.target.value); markDirty() }}
-          placeholder="A brief description..."
+          placeholder="One or two lines about you and what you share here"
           className="rounded-lg resize-none border-gray-200"
           rows={3}
         />
-        <p className="text-xs text-gray-500">{metaDescription.length}/160 characters</p>
       </div>
 
-      {/* Social Share Image */}
       <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-700">Social Image</Label>
-        {ogImage ? (
-          <div className="space-y-2">
-            {/* Draggable focal-point container */}
+        <Label className="text-[13px] font-medium text-[#374151]">Share preview</Label>
+        <div className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]" data-og-card="">
+          {ogImage ? (
             <div
               ref={focalContainerRef}
-              className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 cursor-crosshair select-none touch-none"
+              className="relative aspect-[1200/630] cursor-crosshair select-none touch-none overflow-hidden bg-[#f3f4f6]"
               onMouseDown={(e) => {
                 e.preventDefault()
                 setIsDraggingFocal(true)
@@ -603,85 +599,67 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
             >
               <img
                 src={ogImage}
-                alt="Social preview"
-                className="w-full h-full object-cover pointer-events-none"
+                alt="Share preview"
+                className="h-full w-full object-cover pointer-events-none"
                 style={{ objectPosition: `${ogPosX}% ${ogPosY}%` }}
                 draggable={false}
               />
-              {/* Crosshair focal indicator */}
               <div
-                className="absolute pointer-events-none -translate-x-1/2 -translate-y-1/2"
+                className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
                 style={{ left: `${ogPosX}%`, top: `${ogPosY}%` }}
               >
-                {/* Outer ring */}
                 <div className={cn(
-                  "w-7 h-7 rounded-full border-2 border-white shadow-[0_0_0_1.5px_rgba(0,0,0,0.4)] transition-transform",
+                  "h-6 w-6 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.35)] transition-transform duration-150",
                   isDraggingFocal ? "scale-125" : "scale-100"
                 )} />
-                {/* Center dot */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-1.5 h-1.5 rounded-full bg-white shadow-sm" />
-                </div>
               </div>
-              {/* Drag hint */}
-              {!isDraggingFocal && (
-                <div className="absolute bottom-2 left-2 pointer-events-none">
-                  <span className="text-[11px] bg-black/55 text-white px-2 py-1 rounded-md font-medium">
-                    Drag to set focal point
-                  </span>
-                </div>
-              )}
-              {/* Top-right controls */}
-              <button
-                onClick={(e) => { e.stopPropagation(); removeOgImage() }}
-                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
-              >
-                <X className="h-4 w-4 text-white" />
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowOgImageModal(true) }}
-                className="absolute bottom-2 right-2 px-3 py-1.5 bg-white/90 hover:bg-white rounded-lg text-sm font-medium transition-colors"
-              >
-                Change
-              </button>
             </div>
-            <p className="text-xs text-gray-400">Click or drag anywhere on the image to set the focal point for cropping.</p>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowOgImageModal(true)}
-            className="w-full aspect-video rounded-lg border border-dashed border-gray-300 hover:border-violet-400 transition-colors flex flex-col items-center justify-center gap-2 bg-gray-50 hover:bg-violet-50/50"
-          >
-            <ImageIcon className="h-6 w-6 text-gray-400" />
-            <span className="text-sm text-gray-500">Upload image</span>
-            <span className="text-xs text-gray-400">1200x630px recommended</span>
-          </button>
-        )}
-      </div>
-
-      {/* Preview */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium text-gray-700">Preview</Label>
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <div className="aspect-video bg-gray-100 flex items-center justify-center">
-            {ogImage ? (
-              <img
-                src={ogImage}
-                alt="Preview"
-                className="w-full h-full object-cover"
-                style={{ objectPosition: `${ogPosX}% ${ogPosY}%` }}
-              />
-            ) : onepage?.avatar_url ? (
-              <img src={onepage.avatar_url} alt="Avatar preview" className="w-full h-full object-cover" />
-            ) : (
-              <ImageIcon className="h-8 w-8 text-gray-300" />
-            )}
-          </div>
-          <div className="p-3 bg-white">
-            <p className="font-medium text-sm truncate text-gray-900">{metaTitle || "Page Title"}</p>
-            <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">{metaDescription || "Description..."}</p>
+          ) : (
+            <div className="relative flex aspect-[1200/630] items-center justify-center overflow-hidden bg-[#f3f4f6]">
+              {onepage?.avatar_url ? (
+                <img src={onepage.avatar_url} alt="" className="h-full w-full object-cover opacity-90" />
+              ) : (
+                <span className="text-[13px] text-[#9ca3af]">No image yet</span>
+              )}
+            </div>
+          )}
+          <div className="border-t border-[#f0f0f2] px-3.5 py-3">
+            <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{metaTitle || pageName || "Your page"}</p>
+            <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-snug text-[#6b7280]">{metaDescription || "Your description shows here."}</p>
+            <p className="mt-1 truncate text-[12px] text-[#9ca3af]">{getLinksUrlDisplay(pageSlug)}</p>
           </div>
         </div>
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => !isUploading && fileInputRef.current?.click()}
+            disabled={isUploading}
+            data-og-pick=""
+            className={cn(secondaryDepth, "h-9 rounded-lg px-3.5 text-[13px]")}
+          >
+            {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            {isUploading ? "Uploading" : ogImage ? "Change image" : "Add image"}
+          </button>
+          {ogImage && !isUploading && (
+            <button
+              type="button"
+              onClick={removeOgImage}
+              className="h-9 rounded-lg px-3 text-[13px] font-medium text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
+            >
+              Remove
+            </button>
+          )}
+          <span className="ml-auto text-[12px] text-[#9ca3af]">
+            {ogImage ? "Drag on the image to move the crop" : "1200 x 630, up to 5 MB"}
+          </span>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={(e) => { void handleImageUpload(e); e.target.value = "" }}
+          className="hidden"
+        />
       </div>
 
       <Button
@@ -1109,25 +1087,21 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
 
       {/* Mobile Navigation - Horizontal scroll */}
       <div className="md:hidden -mx-4 px-4 mb-4">
-        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-          {SETTINGS_SECTIONS.map((section) => {
-            const Icon = section.icon
-            return (
-              <button
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap cursor-pointer",
-                  activeSection === section.id
-                    ? "bg-gray-900 text-white"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {section.label}
-              </button>
-            )
-          })}
+        <div className="flex gap-2 overflow-x-auto p-px pb-1 no-scrollbar">
+          {SETTINGS_SECTIONS.map((section) => (
+            <button
+              key={section.id}
+              onClick={() => setActiveSection(section.id)}
+              className={cn(
+                "px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-colors whitespace-nowrap cursor-pointer",
+                activeSection === section.id
+                  ? "bg-[#1a1a2e] text-white"
+                  : "bg-white text-[#4b5563] ring-1 ring-[#e5e7eb] hover:bg-[#f7f7f8]"
+              )}
+            >
+              {section.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -1142,42 +1116,6 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
           {activeSection === "billing" && renderBilling()}
         </div>
       </div>
-
-      {/* OG Image Upload Modal */}
-      <Dialog open={showOgImageModal} onOpenChange={setShowOgImageModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-          <DialogHeader className="p-5 border-b">
-            <DialogTitle className="text-lg font-semibold text-center">Upload Social Image</DialogTitle>
-          </DialogHeader>
-          <div className="p-5">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="hidden"
-            />
-            <div
-              onClick={() => !isUploading && fileInputRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors"
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="h-12 w-12 text-violet-500 animate-spin mb-4" />
-                  <p className="font-medium text-gray-600">Uploading...</p>
-                </>
-              ) : (
-                <>
-                  <Upload className="h-12 w-12 text-gray-300 mb-4" />
-                  <p className="font-medium text-gray-600">Select file to upload,</p>
-                  <p className="font-medium text-gray-600">or drag-and-drop file</p>
-                  <p className="text-sm text-gray-400 mt-2">1200×630px recommended · PNG, JPG up to 5MB</p>
-                </>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Add custom scrollbar hiding CSS */}
       <style dangerouslySetInnerHTML={{ __html: `
