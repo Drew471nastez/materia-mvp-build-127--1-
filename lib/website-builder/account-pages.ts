@@ -111,6 +111,8 @@ export function signInNotice(error: unknown): string | null {
       return "That code has expired. Send a new one."
     case "tries":
       return "Too many tries with that code. Send a new one."
+    case "restart":
+      return "That sign in has expired. Enter your email to get a new code."
     case "limit":
       return "Too many codes asked for at once. Try again in a few minutes."
     case "send":

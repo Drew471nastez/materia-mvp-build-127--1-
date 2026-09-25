@@ -52,7 +52,9 @@ export default async function SiteSignInPage({ params, searchParams }: PageProps
   if (visitor) redirect(back)
 
   const pending = sp.step === "email" ? null : await pendingSignIn(creatorId)
-  const notice = signInNotice(sp.error) ?? (pending && sp.sent === "1" ? "A new code is on its way." : null)
+  /* A code refused after this browser's note ran out lands on the email step, and says to start again there. */
+  const why = !pending && (sp.error === "code" || sp.error === "expired" || sp.error === "tries") ? "restart" : sp.error
+  const notice = signInNotice(why) ?? (pending && sp.sent === "1" ? "A new code is on its way." : null)
   return renderAccountPage(username, "login", {
     notice,
     signIn: pending

@@ -31,11 +31,19 @@
               <ul class="items">
                 {% for item in order.items %}
                 <li class="item">
-                  <div class="item__img">{% if item.image %}<img src="{{ item.image | asset }}" alt="" loading="lazy" decoding="async">{% endif %}</div>
-                  <div class="item__main">
-                    {% if item.url %}<a class="item__title" href="{{ item.url | url }}">{{ item.title }}</a>{% else %}<p class="item__title">{{ item.title }}</p>{% endif %}
-                    {% if item.variant %}<p class="item__meta">{{ item.variant }}</p>{% endif %}
+                  {# The whole row is the link, picture and all, so it is a
+                     thumb's height on a phone rather than one line of text. #}
+                  {% if item.url %}
+                  <a class="item__row" href="{{ item.url | url }}">
+                    <span class="item__img">{% if item.image %}<img src="{{ item.image | asset }}" alt="" loading="lazy" decoding="async">{% endif %}</span>
+                    <span class="item__main"><span class="item__title">{{ item.title }}</span>{% if item.variant %}<span class="item__meta">{{ item.variant }}</span>{% endif %}</span>
+                  </a>
+                  {% else %}
+                  <div class="item__row">
+                    <span class="item__img">{% if item.image %}<img src="{{ item.image | asset }}" alt="" loading="lazy" decoding="async">{% endif %}</span>
+                    <span class="item__main"><span class="item__title">{{ item.title }}</span>{% if item.variant %}<span class="item__meta">{{ item.variant }}</span>{% endif %}</span>
                   </div>
+                  {% endif %}
                 </li>
                 {% endfor %}
               </ul>
@@ -141,13 +149,14 @@
 .order__status { margin: 0; flex: none; font-size: 14px; font-weight: 500; color: var(--s-heading); }
 .order__status[data-state="refunded"], .order__status[data-state="held"] { color: var(--s-para); }
 .items { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.item { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.item { min-width: 0; }
+.item__row { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 48px; color: inherit; text-decoration: none; }
 .item__img { flex: none; width: 48px; height: 48px; overflow: hidden; border-radius: calc(var(--s-radius) * 0.6); background: var(--s-border); }
 .item__img img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.item__main { flex: 1 1 auto; min-width: 0; }
-.item__title { display: block; margin: 0; font-size: var(--section-text-size, 15px); line-height: 1.4; font-weight: 500; color: var(--s-heading); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-a.item__title:hover { text-decoration: underline; text-underline-offset: 3px; }
-.item__meta { margin: 2px 0 0; font-size: 13px; color: var(--s-para); }
+.item__main { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.item__title { display: block; font-size: var(--section-text-size, 15px); line-height: 1.4; font-weight: 500; color: var(--s-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.item__row:hover .item__title { text-decoration: underline; text-underline-offset: 3px; }
+.item__meta { margin-top: 2px; font-size: 13px; color: var(--s-para); }
 .order__foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; }
 .order__total { margin: 0; font-size: 15px; font-weight: 600; color: var(--s-heading); font-variant-numeric: tabular-nums; }
 .order__total-label { margin-right: 6px; font-weight: 400; color: var(--s-para); }
@@ -187,9 +196,11 @@ a.item__title:hover { text-decoration: underline; text-underline-offset: 3px; }
   border-radius: var(--s-radius); border: 1px solid transparent; transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 .s__btn--primary { background: var(--s-btn); color: var(--s-btn-text); border-color: var(--s-btn); }
-.s__btn:focus-visible, .order__go:focus-visible, .acct__link:focus-visible, .entry:focus-visible { outline: 2px solid var(--s-heading); outline-offset: 2px; }
+.s__btn--secondary { background: var(--s-btn2); color: var(--s-btn2-text); border-color: var(--s-btn2-border); }
+.s__btn:focus-visible, .order__go:focus-visible, .acct__link:focus-visible, .entry:focus-visible, .item__row:focus-visible { outline: 2px solid var(--s-heading); outline-offset: 2px; }
 /* Hover colours from the scheme, after the section's own Advanced colors. */
 .s__btn--primary:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); border-color: var(--s-btn-hover); }
+.s__btn--secondary:hover { background: var(--s-btn2-hover); color: var(--s-btn2-hover-text); }
 @container (max-width: 480px) {
   .row { grid-template-columns: 72px minmax(0, 1fr) auto; column-gap: 12px; }
 }

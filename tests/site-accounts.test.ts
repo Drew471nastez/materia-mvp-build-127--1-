@@ -268,7 +268,7 @@ async function main() {
     check("and sends the same email, word for word but the code", JSON.stringify(plain(sent[0])) === JSON.stringify(plain(sent[1])))
     const stepOne = code("lib/site-accounts/sign-in.ts").split("export async function requestCode")[1]?.split("export type VerifyResult")[0] ?? "x"
     check("nothing about the address is read at that step", !/site_customers/.test(code("lib/site-accounts/codes.ts")) && !/findOrCreateCustomer|customerById|site_customers/.test(stepOne) && stepOne.length > 200)
-    for (const why of ["email", "code", "expired", "tries", "limit", "send", "site", "unavailable", "failed"]) {
+    for (const why of ["email", "code", "expired", "tries", "restart", "limit", "send", "site", "unavailable", "failed"]) {
       const words = signInNotice(why) ?? ""
       check(`the "${why}" sentence says nothing about an account existing`, words.length > 0 && !/no account|not found|does not exist|already has|registered|unknown email/i.test(words), words)
     }
@@ -437,6 +437,7 @@ async function main() {
     check("the old Sign in address still lands on the website's sign in page", /new URL\("\/account\/login", originOf\(host\)\)/.test(code("app/api/site-account/start/route.ts")))
     const login = code("app/(site)/w/[username]/account/login/page.tsx")
     check("the sign in page shows the code step while this browser waits on one, and sends a signed in customer on", /pendingSignIn\(creatorId\)/.test(login) && /if \(visitor\) redirect\(back\)/.test(login))
+    check("a code refused after the note ran out says to start again at the email step", /!pending && \(sp\.error === "code" \|\| sp\.error === "expired" \|\| sp\.error === "tries"\) \? "restart" : sp\.error/.test(login) && signInNotice("restart") === "That sign in has expired. Enter your email to get a new code.")
     const account = code("app/(site)/w/[username]/account/page.tsx")
     check("the account page is for a customer who is still there, and sends anybody else to sign in", /if \(!visitor \|\| !customer\) redirect\("\/account\/login"\)/.test(account))
     check("a session is only good while its customer is", /customerById\(createAdminClient\(\), visitor\)/.test(code("app/(site)/w/[username]/visitor.ts")))

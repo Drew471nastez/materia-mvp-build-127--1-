@@ -114,7 +114,9 @@ function main() {
     check("a page title and the way out, and no greeting by name", /<h1 class="s__h">Account<\/h1>/.test(html) && !/Hi,|Hello|Welcome/.test(html), html)
     check("sign out is a POST to this website's own route, left to the browser", /<form class="acct__out" method="post" action="\/account\/logout" data-storelib-form="native">/.test(html))
     check("Orders: each with its date, number, status and total", /<h2 class="acct__h2">Orders<\/h2>/.test(html) && html.includes(">Sep 21, 2026<") && html.includes("Order #3F2A9C1B") && /data-state="open">Complete</.test(html) && /Total<\/span> \$93\.00/.test(html))
-    check("its items, a variant under its title, a link where the product is still for sale", html.includes('<a class="item__title" href="/products/linen-apron">Linen apron</a>') && html.includes('<p class="item__title">Card wallet</p> <p class="item__meta">Blue</p>'))
+    check("its items, a variant under its title, the whole row a link where the product is still for sale",
+      /<a class="item__row" href="\/products\/linen-apron"> <span class="item__img"><\/span> <span class="item__main"><span class="item__title">Linen apron<\/span><\/span> <\/a>/.test(html) &&
+        /<div class="item__row"> <span class="item__img"><\/span> <span class="item__main"><span class="item__title">Card wallet<\/span><span class="item__meta">Blue<\/span><\/span> <\/div>/.test(html), html)
     check("and the button to its download", html.includes('<a class="order__go" href="https://storelib.com/receipt/tok-1">Download</a>'))
     check("Profile: the name, with Edit, and the email", /<h2 class="acct__h2">Profile<\/h2>/.test(html) && html.includes(">Ana Pop<") && html.includes('href="/account?edit=name#profile">Edit<') && html.includes(">ana@mail.test<"))
     check("the wishlist, as an entry with its count and a way to it", /<a class="entry" href="\/wishlist"> <span class="entry__text">1 saved<\/span> <span class="entry__go">View<\/span> <\/a>/.test(html))
