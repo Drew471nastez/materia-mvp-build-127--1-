@@ -2,13 +2,13 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
-import { currentUserForRequest } from "@/lib/auth/request-scope";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { PayoutsClient } from "./payouts-client";
 import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile";
 import { getMarketExchangeRate } from "@/lib/exchange-rate";
 import { WaitingArea } from "@/components/ui/activity-spinner";
+import { pageUser } from "@/lib/auth/page-user"
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -22,11 +22,10 @@ export default async function PayoutsPage() {
 
   /* The same answer the /app layout got, through the per-request cache
      (lib/auth/request-scope.ts): no second auth round trip on a full load. */
-  const { user } = await currentUserForRequest();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   const { data: creator, error: creatorError } = await adminSupabase
     .from("creators")

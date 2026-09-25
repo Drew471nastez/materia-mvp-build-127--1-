@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { NativeAuthGate } from "@/components/native-auth-gate"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -26,12 +27,14 @@ export default async function CreatorPageLayout({
   const supabase = await createClient()
   const isNative = await isCapacitorWebView()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /* A blip is not a sign-out (lib/auth/current-user.ts): when Supabase did
+     not answer, the gate below recovers the session in the browser, exactly
+     as it does for the native app. */
+  const current = await currentUserForRequest()
+  const user = current.user
 
   if (!user) {
-    if (isNative) {
+    if (isNative || current.state === "indeterminate") {
       return (
         <NativeAuthGate
           requireAuth

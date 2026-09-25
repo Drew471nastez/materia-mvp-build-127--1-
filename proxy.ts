@@ -1046,6 +1046,20 @@ export async function proxy(request: NextRequest) {
 
   // Handle subdomain or custom domain routing
   let supabaseResponse: NextResponse
+  /**
+   * ONE WAY TO BUILD THIS REQUEST'S RESPONSE, used twice.
+   *
+   * When the Supabase client renews the session (setAll below) the response
+   * has to be built again, so that it is made from the request AFTER its
+   * cookies were updated and the pages behind it read the new token rather
+   * than the one Supabase has just retired. That second build used to be a
+   * separate copy of the rewrite rules, and it had drifted: it dropped the
+   * connected domain's website (`/w/…`), the storefront's no-cache header,
+   * and it did not pass the request on at all, so a page on a connected
+   * domain rendered with the old cookie on exactly the request that renewed
+   * it. Now both builds are this function.
+   */
+  let respond: () => NextResponse = () => NextResponse.next({ request })
 
   // If we have a username (from subdomain or custom domain) and it's not a reserved path
   if (username && !isReservedPath(pathname)) {
@@ -1116,9 +1130,16 @@ export async function proxy(request: NextRequest) {
       rewriteUrl.search = search
     }
 
-    // Create rewrite response
-    supabaseResponse = NextResponse.rewrite(rewriteUrl)
-    supabaseResponse.headers.set("x-seller-subdomain", username)
+    const seller = username
+    const storefront = rewritePath.startsWith("/u/")
+    respond = () => {
+      const r = NextResponse.rewrite(rewriteUrl, { request })
+      r.headers.set("x-seller-subdomain", seller)
+      /* Why a storefront is no-cache: the note just below. */
+      if (storefront) r.headers.set("Cache-Control", "private, no-cache, must-revalidate")
+      if (isCustomDomain) r.headers.set("x-custom-domain", host.split(":")[0])
+      return r
+    }
 
     /**
      * THE STOREFRONT IS PER-VIEWER, ON THIS PATH TOO.
@@ -1141,17 +1162,8 @@ export async function proxy(request: NextRequest) {
      * so the header belongs here. `/l/` keeps its own caching: a link-in-bio
      * page has no per-viewer content.
      */
-    if (rewritePath.startsWith("/u/")) {
-      supabaseResponse.headers.set("Cache-Control", "private, no-cache, must-revalidate")
-    }
-    if (isCustomDomain) {
-      supabaseResponse.headers.set("x-custom-domain", host.split(":")[0])
-    }
-  } else {
-    supabaseResponse = NextResponse.next({
-      request,
-    })
   }
+  supabaseResponse = respond()
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -1171,31 +1183,9 @@ export async function proxy(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-        // Preserve the rewrite if we had one
-        if (username && !isReservedPath(pathname)) {
-          const rewriteUrl = request.nextUrl.clone()
-          if (pathname === "/links" || pathname === "/links/") {
-            rewriteUrl.pathname = `/l/${username}`
-          } else if (pathname === "/" || pathname === "") {
-            rewriteUrl.pathname = `/u/${username}`
-          } else if (pathname.startsWith("/p/")) {
-            rewriteUrl.pathname = pathname
-          } else {
-            rewriteUrl.pathname = `/u/${username}`
-          }
-          if (search) {
-            rewriteUrl.search = search
-          }
-          supabaseResponse = NextResponse.rewrite(rewriteUrl)
-          supabaseResponse.headers.set("x-seller-subdomain", username)
-          if (isCustomDomain) {
-            supabaseResponse.headers.set("x-custom-domain", host.split(":")[0])
-          }
-        } else {
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-        }
+        // The same response, rebuilt from the request that now carries the
+        // renewed cookies (see `respond` above).
+        supabaseResponse = respond()
         // Set cookies with domain for cross-subdomain support
         // This ensures PKCE code verifier cookies work across subdomains
         cookiesToSet.forEach(({ name, value, options }) => {

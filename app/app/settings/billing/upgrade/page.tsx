@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
+import { pageUser } from "@/lib/auth/page-user"
 
 const FREE_PLAN = {
   id: "free",
@@ -57,13 +58,10 @@ function getPlanIdFromPriceId(priceId: string): string | null {
 export default async function UpgradePage() {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   let plans = FALLBACK_PLANS
   let currentPlanId = "free"

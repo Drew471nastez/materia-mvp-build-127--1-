@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { StoreBuilderEditor } from "@/components/store-builder/store-builder-editor"
 import type { Metadata } from "next"
+import { pageUser } from "@/lib/auth/page-user"
 
 export const metadata: Metadata = {
   title: "Sections and theme - Storelib",
@@ -17,13 +18,10 @@ export default async function CreatorPageEditor({
   const { pageType, productId } = await searchParams
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   // Get creator + profile in parallel
   const [{ data: creator }, { data: profile }] = await Promise.all([
