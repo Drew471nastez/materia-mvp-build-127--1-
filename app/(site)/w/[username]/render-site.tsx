@@ -14,7 +14,7 @@
  * could do and no visitor could see.
  */
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
-import { notFound, redirect } from "next/navigation"
+import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
@@ -199,7 +199,8 @@ export async function renderSite(
   if (wantedToken) return await previewPage(username, wantedToken, pageKey)
 
   const found = await publishedSiteByName(username, pageKey)
-  if (found.kind === "renamed") redirect(`https://${found.to}.${getMainDomain()}`)
+  /* A renamed creator's site, at the new name for good (308), and at the same page of it rather than its front page. */
+  if (found.kind === "renamed") permanentRedirect(pageUrl(`https://${found.to}.${getMainDomain()}`, pageKey))
   if (found.kind === "missing") notFound()
   /**
    * NOTHING PUBLISHED IS NOT THE SAME AS "GO TO THE CREATOR PAGE". This used

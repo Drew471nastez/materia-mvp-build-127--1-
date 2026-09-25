@@ -201,5 +201,19 @@ console.log("\nA picture that means something says what it is")
   check("a backdrop behind the text stays decorative", /class="hero__media" src="\{\{ settings\.bg_image \| asset \}\}" alt=""/.test(read("themes/default/sections/hero.storelib")))
 }
 
+console.log("\nAn old address moved for good says so")
+{
+  /* A 307 keeps a search engine on the old address; a 308 moves what it knows to the new one. */
+  check("a renamed creator's page", /permanentRedirect\(`\/\$\{historyRecord\.new_username\}`\)/.test(code("app/(marketing)/u/[username]/page.tsx")) && !/\bredirect\(`\/\$\{historyRecord/.test(code("app/(marketing)/u/[username]/page.tsx")))
+  check("their OnePage", /permanentRedirect\(getLinksInternalPath\(historyRecord\.new_username\)\)/.test(code("app/(marketing)/l/[slug]/page.tsx")))
+  check("a renamed product", /permanentRedirect\(`\/p\/\$\{product\.slug\}`\)/.test(code("app/(marketing)/p/[slug]/page.tsx")))
+  const c = code("app/(marketing)/c/[slug]/page.tsx")
+  check("the old /c/ address, while a guess with nothing behind it stays temporary",
+    /permanentRedirect\(`\/\$\{creator\.profile\.username\}`\)/.test(c) && /\bredirect\(`\/\$\{slug\}`\)/.test(c))
+  check("a renamed creator's website, to the same page, and its shop",
+    /found\.kind === "renamed"\) permanentRedirect\(pageUrl\(/.test(code("app/(site)/w/[username]/render-site.tsx")) &&
+      /found\.kind === "renamed"\) permanentRedirect\(`https:\/\/\$\{found\.to\}\.\$\{getMainDomain\(\)\}\/products`\)/.test(code("app/(site)/w/[username]/products/page.tsx")))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

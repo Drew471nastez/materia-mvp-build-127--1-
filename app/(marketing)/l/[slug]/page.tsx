@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import { cache } from "react"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
@@ -331,8 +331,9 @@ export default async function PublicOnePageRoute({ params }: Props) {
       .maybeSingle()
 
     if (historyRecord?.new_username) {
-      /* Their page, at the address it has now: /{handle}/links. */
-      redirect(getLinksInternalPath(historyRecord.new_username))
+      /* Their page, at the address it has now: /{handle}/links. Permanent
+         (308), so a search engine moves what it knows there. */
+      permanentRedirect(getLinksInternalPath(historyRecord.new_username))
     }
 
     notFound()

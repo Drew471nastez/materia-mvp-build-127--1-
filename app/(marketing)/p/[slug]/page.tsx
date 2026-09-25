@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import { plainSummary } from "@/lib/html-entities"
 import { productIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
@@ -253,8 +253,12 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const { product, viaHistory } = await loadProductBySlug(slug)
 
   // The slug in the URL is an old one: send them to the current address.
+  // Permanent (308): the old slug is not coming back, and a search engine
+  // moves what it knows only for a permanent move. /p/<slug> rather than
+  // /<handle>/<slug> because it answers on every host, a connected domain's
+  // included, and names the nested address as its canonical.
   if (product && viaHistory) {
-    redirect(`/p/${product.slug}`)
+    permanentRedirect(`/p/${product.slug}`)
   }
 
   if (!product) {

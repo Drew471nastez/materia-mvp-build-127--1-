@@ -5,7 +5,7 @@ import { headerAvatar } from "@/lib/store-builder/header-avatar"
 import { loadCreatorForUser, loadProfileByUsername } from "@/lib/commerce/creator-page-data"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { SafeRegion } from "@/components/storefront/safe-region"
-import { notFound, redirect } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -365,7 +365,10 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       .maybeSingle()
 
     if (historyRecord?.new_username) {
-      redirect(`/${historyRecord.new_username}`)
+      /* PERMANENT: the old name is gone for good, and a 308 is what tells a
+         search engine to move what it knows to the new address, where a 307
+         keeps it on the old one. */
+      permanentRedirect(`/${historyRecord.new_username}`)
     }
 
     notFound()
