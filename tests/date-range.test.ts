@@ -279,9 +279,14 @@ function main() {
        painted over it and it disappeared. It is never hidden or faded for a
        sheet, and while one is open the scrim, not the pill, takes the tap. */
     check("every sheet on a phone goes over the nav pill, and the pill stays visible under it",
-      /html:has\(\[data-app-sheet\]\) \[data-app-nav-pill\],\s*\n\s*html:has\(\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\]\)\) \[data-app-nav-pill\],\s*\n\s*body\[data-scroll-locked\] \[data-app-nav-pill\] \{\s*\n\s*z-index: 39;/.test(css)
-        /* What can take a tap is named, not `*`: a bare `*` restyled the whole document on every open and close. */
-        && /html:has\(\[data-app-sheet="open"\]\) \[data-app-nav-pill\] :is\(a, button, \.pointer-events-auto\),[\s\S]{0,300}pointer-events: none !important;/.test(css)
+      /* The shared sheet says it is up on <html> (data-app-sheet-up), and the rule for other dialogs leaves its root out:
+         a :has() on the root that changes its answer restyled the whole document (scripts/check-app-sheets-frames.mjs). */
+      /html\[data-app-sheet-up\] \[data-app-nav-pill\],\s*\n\s*html:has\(\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\], \[data-sheet-root\]\)\) \[data-app-nav-pill\],\s*\n\s*body\[data-scroll-locked\] \[data-app-nav-pill\] \{\s*\n\s*z-index: 39;/.test(css)
+        /* What can take a tap is named, not `*`: a bare `*` restyled the whole document on every open and close,
+           and `a, button` every link and button in it (scripts/check-app-sheets-frames.mjs), so it is the pill's
+           `pointer-events-auto` parts alone, which the links and buttons inside them inherit from. */
+        && /html\[data-app-sheet-up="open"\] \[data-app-nav-pill\] \.pointer-events-auto,[\s\S]{0,300}pointer-events: none !important;/.test(css)
+        && !/\[data-app-nav-pill\] :is\(a, button/.test(css)
         && !/data-app-sheet[^{]*\[data-app-nav-pill\][^{]*\{[^}]*(opacity: 0|visibility: hidden|display: none|z-index: 0;)/.test(css))
     /* The pill used to step down to layer 0 while a sheet was open, which
        hid it behind the page before the sheet arrived and brought it back
@@ -305,7 +310,7 @@ function main() {
     const shared = ["app/app/payouts/payouts-client.tsx", "components/app/settings-form-new.tsx", "components/app/billing/billing-page-client.tsx", "components/app/notifications-modal.tsx", "components/app/mobile-account-menu.tsx", "components/app/share/share-storelib.tsx"]
     check("and the sheets pages draw for themselves say when they are open",
       sheets.every(([f, n]) => (read(f).match(/data-app-sheet="open"/g) ?? []).length === n)
-        && /data-app-sheet=\{isOpen \? "open" : "closing"\}/.test(read("components/ui/bottom-sheet.tsx"))
+        && /data-app-sheet=\{atRest \? undefined : isOpen \? "open" : "closing"\}/.test(read("components/ui/bottom-sheet.tsx"))
         && /role="dialog"\s*aria-modal="true"/.test(read("components/ui/bottom-sheet.tsx"))
         && shared.every((f) => /<BottomSheet\b/.test(read(f)) && !/translateY\(100%\)|translate3d\(0, ?100%, ?0\)/.test(read(f)))
         && /<ShareStorelib\b/.test(read("components/app/dashboard-client.tsx"))
