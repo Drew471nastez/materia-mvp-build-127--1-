@@ -713,8 +713,13 @@ html.capacitor body {
   .onepage-live, .onepage-live * {
     caret-color: transparent !important;
   }
-  /* Force block wrapper divs that contain only whitespace to collapse */
-  .onepage-live .flex.flex-col > .w-full:has(> :only-child:is(p)) > p {
+  /* Force block wrapper divs that contain only whitespace to collapse.
+     `> p:only-child`, not `:has(> :only-child:is(p)) > p`, which selects
+     the same paragraph: the browser keeps one list of what any change under
+     any `:has()` restyles, and a `p` at the end of this one put every
+     paragraph in the document on it, restyled each time a sheet or dialog
+     opened or closed anywhere in the app (scripts/check-app-sheets-frames.mjs). */
+  .onepage-live .flex.flex-col > .w-full > p:only-child {
     overflow: hidden;
   }
 
