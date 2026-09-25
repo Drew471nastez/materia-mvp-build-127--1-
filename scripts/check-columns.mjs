@@ -34,7 +34,7 @@ const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => rea
 
 const stubs = join(root, ".wb-probe")
 mkdirSync(stubs, { recursive: true })
-writeFileSync(join(stubs, "link.jsx"), `import React from "react"\nexport default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }\n`)
+writeFileSync(join(stubs, "link.jsx"), `import React from "react"\nexport default function Link({ href, children, ...rest }) { return React.createElement("a", { href, ...rest }, children) }\nexport const useLinkStatus = () => ({ pending: false })\n`)
 writeFileSync(join(stubs, "navigation.js"), `export const usePathname = () => "/"\nexport const useRouter = () => ({ push() {}, replace() {}, refresh() {}, prefetch() {} })\nexport const useSearchParams = () => new URLSearchParams()\n`)
 
 const out = mkdtempSync(join(tmpdir(), "storelib-cols-"))
@@ -51,8 +51,6 @@ const MEASURE = `
 <script>
 (function () {
   var report = {}
-
-export const useLinkStatus = () => ({ pending: false })
   document.querySelectorAll(".probe").forEach(function (probe) {
     var type = probe.getAttribute("data-type")
     var worst = null
@@ -79,6 +77,11 @@ export const useLinkStatus = () => ({ pending: false })
       var tracks = s.gridTemplateColumns.split(" ").filter(Boolean).map(parseFloat).filter(function (n) { return !isNaN(n) })
       if (tracks.length < 2) return
       var narrowest = Math.min.apply(null, tracks)
+      /* A row, not columns: a line of text with a small thing beside it (a
+         lesson's title, its length and its mark in course_curriculum, e85caf74)
+         has one wide track and narrow ones by design. Columns of cards share
+         the width. */
+      if (Math.max.apply(null, tracks) > narrowest * 3) return
       if (!worst || narrowest < worst.width) worst = { cols: tracks.length, width: Math.round(narrowest) }
     })
 

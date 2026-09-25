@@ -33,7 +33,21 @@
  *               untouched. A theme from a later engine, or a setting that
  *               was renamed, keeps its data.
  */
-import { controlFor, holdsValue, type ValueKind } from "./controls/registry"
+import { controlFor, holdsValue, resolveControlType, type ControlType } from "./controls/registry"
+import {
+  Linked,
+  cleanBackground,
+  cleanDatetime,
+  cleanFocalPoint,
+  cleanMenu,
+  isColor,
+  parseVideoUrl,
+  safeHref,
+  safeMediaUrl,
+  sanitizeInlineHtml,
+  VIDEO_HOSTS,
+  type Menu,
+} from "./values"
 import { legacySchemeValues, themeColorSchemes } from "./color-schemes"
 import { themeTypography } from "./typography"
 import { BREAKPOINTS, isAssetRef, type Breakpoint, type ResponsiveValue, type SectionInstanceData, type SectionSchema, type SettingDefinition } from "./types"
@@ -41,6 +55,21 @@ import { BREAKPOINTS, isAssetRef, type Breakpoint, type ResponsiveValue, type Se
 export interface ResolveOptions {
   /** `asset://…` → URL. Missing references resolve to "". */
   assets?: Record<string, string>
+  /**
+   * The products a `product_picker` or `product_list` may name, block-shaped
+   * like `products`. Absent means none are known: a picker then stays the
+   * address it holds and a list comes out empty.
+   */
+  catalog?: CatalogItem[]
+  /** The site's menus by handle, for `link_list`. */
+  menus?: Record<string, Menu>
+}
+
+/** A product as a section is handed it: `{ id, type, settings: { title, price, … } }`. */
+export interface CatalogItem {
+  id: string
+  type?: string
+  settings: Record<string, unknown>
 }
 
 function isPlain(v: unknown): v is Record<string, unknown> {
@@ -84,30 +113,203 @@ export function fillResponsive<T>(v: unknown, fallback: T): ResponsiveValue<T> {
   return { desktop: v as T, tablet: v as T, mobile: v as T }
 }
 
-function resolveAsset(v: unknown, kind: ValueKind, assets: Record<string, string>): unknown {
-  if (kind === "asset") return isAssetRef(v) ? (assets[v] ?? "") : v
-  if (kind === "asset_list" && Array.isArray(v)) return v.map((x) => (isAssetRef(x) ? (assets[x] ?? "") : x))
-  return v
+/* ── what a stored value is allowed to be ──────────────────────────────── */
+
+/**
+ * ===========================================================================
+ *  A VALUE THE SCHEMA DOES NOT ALLOW IS NOT DRAWN
+ * ===========================================================================
+ * The schema says what each setting holds, and until now nothing held a
+ * stored value to it on the way to the page. A `select` somebody's AI set to
+ * `1 / 1; background: url(//x)` was printed into a style attribute, a range
+ * holding a word became `--pad: bigpx`, a link holding `javascript:` was
+ * printed into any `href` whose author forgot `| url`.
+ *
+ * So each value is checked against its control here, where every surface
+ * passes through (the published page, the builder's canvas, the export),
+ * and a value that fails is drawn as the setting's default. The stored value
+ * is left exactly as it was: this decides what is DRAWN, never what is
+ * kept, so nothing a creator saved is lost to a rule they cannot see.
+ *
+ * Returns `undefined` for "not allowed", which the caller turns into the
+ * default. An empty string is an allowed value for every text-like control:
+ * it means "nothing here", and a template already treats it that way.
+ */
+function allowed(type: ControlType, v: unknown, def: SettingDefinition, opts: ResolveOptions): unknown {
+  switch (type) {
+    case "text":
+    case "textarea":
+      return typeof v === "string" ? v : typeof v === "number" && Number.isFinite(v) ? String(v) : undefined
+    case "richtext":
+    case "html":
+      /* Cleaned against their allow lists when saved and again when read,
+         by the application, which has the HTML parser the engine does not
+         carry: lib/website-builder/sanitize.ts. */
+      return typeof v === "string" ? v : undefined
+    case "inline_richtext":
+      return typeof v === "string" ? sanitizeInlineHtml(v) : undefined
+    case "number":
+    case "range": {
+      const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN
+      return Number.isFinite(n) ? n : undefined
+    }
+    case "toggle":
+    case "checkbox":
+      return typeof v === "boolean" ? v : v === "true" ? true : v === "false" ? false : undefined
+    case "select":
+    case "radio": {
+      if (typeof v !== "string" && typeof v !== "number") return undefined
+      const s = String(v)
+      const options = Array.isArray(def.options) ? def.options : []
+      return options.length === 0 || options.some((o) => o && o.value === s) ? s : undefined
+    }
+    case "color":
+      return v === "" ? "" : isColor(v) ? (v as string).trim() : undefined
+    case "color_background":
+      return v === "" ? "" : cleanBackground(v) || undefined
+    case "color_scheme":
+      return typeof v === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(v) ? v : undefined
+    case "font_picker":
+      /* A font name lands in `font-family`, inside a style attribute or a
+         stylesheet: letters, digits, spaces and hyphens, nothing that ends
+         a declaration. */
+      return typeof v === "string" && /^[A-Za-z0-9 _-]{0,80}$/.test(v) ? v : undefined
+    case "alignment":
+      return v === "left" || v === "center" || v === "right" ? v : undefined
+    case "datetime":
+      return v === "" ? "" : cleanDatetime(v) || undefined
+    case "focal_point":
+      return v === "" ? "" : cleanFocalPoint(v) || undefined
+    case "image_picker":
+      if (typeof v !== "string") return undefined
+      return safeMediaUrl(isAssetRef(v) ? (opts.assets?.[v] ?? "") : v)
+    case "video_picker":
+    case "file_picker": {
+      if (typeof v !== "string") return undefined
+      const s = isAssetRef(v) ? (opts.assets?.[v] ?? "") : v.trim()
+      return s === "" || /^(https?:\/\/|\/(?![/\\]))/i.test(s) ? s : ""
+    }
+    case "image_gallery":
+      if (!Array.isArray(v)) return undefined
+      return v
+        .filter((x): x is string => typeof x === "string")
+        .map((x) => safeMediaUrl(isAssetRef(x) ? (opts.assets?.[x] ?? "") : x))
+        .filter((x) => x !== "")
+    case "icon_picker":
+      return typeof v === "string" && /^[a-z0-9-]{0,64}$/.test(v) ? v : undefined
+    case "url":
+    case "page_picker":
+      return typeof v === "string" ? safeHref(v) : undefined
+    case "video_url": {
+      if (typeof v !== "string") return undefined
+      if (v.trim() === "") return ""
+      const accept = Array.isArray(def.accept) ? (def.accept as string[]) : VIDEO_HOSTS
+      return parseVideoUrl(v, accept) ? v.trim() : ""
+    }
+    case "community_picker":
+      return typeof v === "string" ? v : undefined
+    case "product_picker":
+      return typeof v === "string" ? productRef(v, opts) : undefined
+    case "product_list":
+      return Array.isArray(v) ? productList(v, def, opts) : undefined
+    case "link_list":
+      return typeof v === "string" ? menuFor(v, opts) : undefined
+    case "header":
+    case "paragraph":
+    case "divider":
+      return undefined
+  }
+}
+
+/* ── references: products and menus ───────────────────────────────────── */
+
+const catalogIndex = new WeakMap<CatalogItem[], Map<string, CatalogItem>>()
+
+/** A catalogue by id and by address, built once per catalogue. */
+function lookupIn(catalog: CatalogItem[] | undefined): Map<string, CatalogItem> {
+  if (!catalog) return new Map()
+  const hit = catalogIndex.get(catalog)
+  if (hit) return hit
+  const map = new Map<string, CatalogItem>()
+  for (const item of catalog) {
+    if (!item || typeof item.id !== "string") continue
+    map.set(item.id, item)
+    const url = item.settings?.url
+    if (typeof url === "string" && url) map.set(url, item)
+  }
+  catalogIndex.set(catalog, map)
+  return map
+}
+
+/**
+ * A product picker holds an address (`/products/linen-apron`) or an id.
+ * When the page knows that product, the setting becomes a Linked value: it
+ * prints as the address, as it always did, and it carries the product's own
+ * title, price and picture for a template that asks.
+ */
+function productRef(v: string, opts: ResolveOptions): unknown {
+  const key = v.trim()
+  if (key === "") return ""
+  const item = lookupIn(opts.catalog).get(key)
+  if (!item) return safeHref(key)
+  const href = safeHref(typeof item.settings.url === "string" ? item.settings.url : key)
+  return new Linked(href, { id: item.id, ...item.settings })
+}
+
+/** The chosen products, in the creator's order, each once, up to the limit. */
+function productList(v: unknown[], def: SettingDefinition, opts: ResolveOptions): CatalogItem[] {
+  const limit = typeof def.limit === "number" && Number.isInteger(def.limit) ? Math.min(24, Math.max(1, def.limit)) : 12
+  const index = lookupIn(opts.catalog)
+  const seen = new Set<string>()
+  const out: CatalogItem[] = []
+  for (const raw of v) {
+    if (typeof raw !== "string") continue
+    const item = index.get(raw.trim())
+    if (!item || seen.has(item.id)) continue
+    seen.add(item.id)
+    out.push({ id: item.id, type: item.type ?? "product", settings: item.settings })
+    if (out.length >= limit) break
+  }
+  return out
+}
+
+/** A menu as a template reads it. An unknown handle is an empty menu, never an error. */
+function menuFor(handle: string, opts: ResolveOptions): { handle: string; title: string; links: ReturnType<typeof cleanMenu> } {
+  const h = handle.trim()
+  const menu = h ? opts.menus?.[h] : undefined
+  if (!menu) return { handle: h, title: "", links: [] }
+  return { handle: h, title: menu.title, links: cleanMenu(menu.links) }
 }
 
 /**
  * One setting, resolved. Exposed for the editor, which shows the resolved
  * value in a control and a "reset to default" affordance when it differs.
+ *
+ * Saved, else the schema's default, else the control's own fallback, and
+ * each of those only if the control allows it: a saved value the control
+ * refuses is drawn as the default.
  */
 export function resolveOne(def: SettingDefinition, saved: unknown, opts: ResolveOptions = {}): unknown {
   const control = controlFor(def.type)
   if (!control || control.value === "none") return undefined
+  const type = resolveControlType(def.type)!
   const fallback = def.default !== undefined ? def.default : control.fallback
-  const assets = opts.assets ?? {}
+  const pick = (v: unknown, fb: unknown): unknown => {
+    const ok = v === undefined ? undefined : allowed(type, v, def, opts)
+    if (ok !== undefined) return ok
+    const d = allowed(type, fb, def, opts)
+    return d !== undefined ? d : allowed(type, control.fallback, def, opts) ?? control.fallback
+  }
   if (def.responsive && control.responsive) {
     const r = fillResponsive(saved, fallback)
+    const f = fillResponsive(undefined, fallback)
     return {
-      desktop: resolveAsset(r.desktop, control.value, assets),
-      tablet: resolveAsset(r.tablet, control.value, assets),
-      mobile: resolveAsset(r.mobile, control.value, assets),
+      desktop: pick(r.desktop, f.desktop),
+      tablet: pick(r.tablet, f.tablet),
+      mobile: pick(r.mobile, f.mobile),
     }
   }
-  return resolveAsset(saved === undefined ? fallback : saved, control.value, assets)
+  return pick(saved, fallback)
 }
 
 export function resolveSettings(
@@ -130,6 +332,32 @@ export function resolveSettings(
 }
 
 /**
+ * ===========================================================================
+ *  A RENAMED SETTING KEEPS ITS VALUE
+ * ===========================================================================
+ * A schema may say `"migrations": [{ "from": "title", "to": "heading" }]`,
+ * and the docs have always promised that the old value is then read under
+ * the new name. Nothing did the reading, so renaming a setting quietly
+ * emptied it on every page that had filled it in.
+ *
+ * Applied in order, oldest first, and only where the new name holds
+ * nothing: a value saved under the new name is newer than any under the
+ * old one. The old key stays in the stored data, untouched.
+ */
+function migrated(schema: SectionSchema, saved: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  const steps = Array.isArray(schema.migrations) ? schema.migrations : []
+  if (!saved || steps.length === 0) return saved
+  let out: Record<string, unknown> | undefined
+  for (const step of steps) {
+    if (!step || typeof step.from !== "string" || typeof step.to !== "string") continue
+    const current = out ?? saved
+    if (current[step.to] !== undefined || current[step.from] === undefined) continue
+    out = { ...current, [step.to]: current[step.from] }
+  }
+  return out ?? saved
+}
+
+/**
  * A whole instance against its schema: settings, then each block in
  * `block_order` against its block definition. Blocks whose type the schema
  * no longer declares are kept with their raw settings, so a section update
@@ -140,7 +368,7 @@ export function resolveInstance(
   instance: SectionInstanceData,
   opts: ResolveOptions = {},
 ): { settings: Record<string, unknown>; blocks: { id: string; type: string; settings: Record<string, unknown> }[] } {
-  const settings = resolveSettings(schema.settings, instance.settings, opts)
+  const settings = resolveSettings(schema.settings, migrated(schema, instance.settings), opts)
   const byType = new Map((schema.blocks ?? []).map((b) => [b.type, b]))
   const order = instance.block_order ?? Object.keys(instance.blocks ?? {})
   const blocks = order

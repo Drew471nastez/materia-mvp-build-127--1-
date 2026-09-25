@@ -31,11 +31,21 @@ import {
 import { THEME_FORMAT, THEME_FORMAT_VERSION } from "@/lib/storelib-theme/types"
 import { MAX_BYTES as SNAPSHOT_MAX_BYTES, SNAPSHOT_BUCKET, mobilePartner, snapshotFolder, snapshotsNewestFirst } from "@/lib/website-builder/snapshot"
 import { isPackagedCover, renderOrigin, takeCover } from "@/lib/website-builder/cover-take"
+import { fetchPublic } from "@/lib/api/public-fetch"
 
 type Params = { params: Promise<{ installId: string }> }
 
 /** A site with no cover yet is photographed before it is packaged: a browser launch and two page loads. */
 export const maxDuration = 60
+
+/** The storage uploads are served from, asked even where it is not public (localhost in development). */
+const STORAGE_ORIGINS: string[] = (() => {
+  try {
+    return process.env.NEXT_PUBLIC_SUPABASE_URL ? [new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin] : []
+  } catch {
+    return []
+  }
+})()
 
 // Walk an arbitrary JSON value and collect every URL that points to an image.
 /* Extensions, sizes and mime types all live in lib/storelib-theme/media.ts now,
@@ -168,7 +178,13 @@ export async function GET(_req: Request, { params }: Params) {
     const type = mediaTypeFor(url)
     if (!type) continue
     try {
-      const res = await fetch(url)
+      /*
+        Only a public address, checked as it is connected to and at every
+        redirect, and never more than this kind of file may weigh: a setting
+        can hold any address at all, and what comes back goes into the
+        download. See lib/api/public-fetch.ts.
+      */
+      const res = await fetchPublic(url, { maxBytes: MAX_BYTES[type.kind], timeoutMs: 20_000, trustOrigins: STORAGE_ORIGINS })
       if (!res.ok) { skipped.push(url); continue }
 
       /**

@@ -1,4 +1,5 @@
 import { notFound, permanentRedirect } from "next/navigation"
+import { listPrice } from "@/lib/pricing/list-price"
 import { plainSummary } from "@/lib/html-entities"
 import { productIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
@@ -65,7 +66,7 @@ import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
 import { EmbeddedBackBar } from "@/components/storefront/embedded-back-bar"
 import { RichDescriptionContent } from "@/components/store-builder/description-rich-editor"
 
-import { themePresets } from "@/lib/store-builder/defaults"
+import { productPageTone } from "@/lib/store-builder/product-page-tone"
 import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
 
 // Icon mapping for what's included items
@@ -463,40 +464,12 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // Extract theme colors from config
   const headerSettings = productPageConfig?.headerSettings as any
 
-  // Get theme preset from global settings
-  const themePreset = productPageConfig?.globalSettings?.themePreset || "default"
-  const themeConfig = themePresets[themePreset as keyof typeof themePresets]
-
-  // Determine if this is a dark/colorful theme
+  /* The scheme's colours, dark or not, and the page's own colour: decided in
+     lib/store-builder/product-page-tone, which scripts/check-creator-chrome.mjs
+     measures per scheme on the real components. */
+  const { themePreset, themeConfig, isDarkTheme, themeColors, categoryBadgeStyle, ratingStarColor, pageBackgroundColor: tonePageBackground } =
+    productPageTone(productPageConfig)
   const isColorfulTheme = false // No more colorful themes
-  const isDarkTheme = ["astrid"].includes(themePreset)
-
-  // CRITICAL: Theme colors ALWAYS come from the theme preset to ensure global consistency
-  // This ensures that when a theme preset is applied on any product page, ALL products get the same colors
-  const themeColors = {
-    // Page and text colors - prioritize theme preset, then globalColors, then fallback
-    pageBackground: themeConfig?.sections?.pageBackgroundColor || productPageConfig?.globalColors?.backgroundColor || "var(--background)",
-    textColor: themeConfig?.colors?.foreground || headerSettings?.colors?.textColor || "inherit",
-    // FAQ section colors - ALWAYS from theme preset for global consistency
-    faqTextColor: themeConfig?.faqSection?.textColor || headerSettings?.faqColors?.textColor,
-    faqBorderColor: themeConfig?.faqSection?.borderColor || headerSettings?.faqColors?.borderColor,
-    faqIconColor: themeConfig?.faqSection?.iconColor || headerSettings?.faqColors?.iconColor,
-    // Reviews section colors - ALWAYS from theme preset for global consistency
-    reviewsTextColor: themeConfig?.reviewsSection?.textColor || headerSettings?.reviewsColors?.textColor,
-    reviewsStarColor: themeConfig?.reviewsSection?.starColor || headerSettings?.reviewsColors?.starColor,
-    reviewsCardBackground: themeConfig?.reviewsSection?.cardBackgroundColor || headerSettings?.reviewsColors?.cardBackgroundColor,
-    reviewsCardBorder: themeConfig?.reviewsSection?.cardBorderColor || headerSettings?.reviewsColors?.cardBorderColor,
-    // Product card colors (for price cards, containers) - ALWAYS from theme preset
-    cardBackground: themeConfig?.priceContainer?.backgroundColor || headerSettings?.productCardColors?.backgroundColor,
-    cardTextColor: themeConfig?.priceContainer?.textColor || headerSettings?.productCardColors?.textColor,
-    cardPriceColor: themeConfig?.priceContainer?.mutedTextColor || headerSettings?.productCardColors?.priceColor,
-    cardBorderColor: themeConfig?.priceContainer?.borderColor || headerSettings?.productCardColors?.borderColor,
-    cardIconColor: themeConfig?.priceContainer?.iconColor || headerSettings?.productCardColors?.textColor,
-    // View in Library button colors - ALWAYS from theme preset
-    viewInLibraryBg: themeConfig?.viewInLibraryButton?.backgroundColor,
-    viewInLibraryText: themeConfig?.viewInLibraryButton?.textColor,
-    viewInLibraryBorder: themeConfig?.viewInLibraryButton?.borderColor,
-  }
 
   // Download button colors - use buyButtonColor if set (custom), otherwise use theme preset colors
   const downloadButtonBgColor = buyButtonColor || themeConfig?.productHeader?.buyButtonColor || "#2563eb"
@@ -849,6 +822,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       currency: "USD",
     }).format(cents / 100)
   }
+  /* The price under the title: free, pay what you want, or a price and its saving, by the rule every card uses. */
+  const headerPrice = listPrice({
+    price_cents: product.price_cents,
+    compare_at_cents: product.compare_at_cents,
+    pay_what_you_want: (product as { pay_what_you_want?: boolean | null }).pay_what_you_want ?? null,
+    pwyw_min_price_cents: (product as { pwyw_min_price_cents?: number | null }).pwyw_min_price_cents ?? null,
+  }, formatPrice)
 
   const creatorInitials = creatorProfile?.display_name
     ?.split(" ")
@@ -1026,15 +1006,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               <Badge
                 variant="secondary"
                 className="shrink-0 capitalize"
-                style={isDarkTheme ? {
-                  backgroundColor: "#2a2a2a",
-                  color: "#fafafa",
-                  borderColor: "#3a3a3a"
-                } : themePreset === "cream" ? {
-                  backgroundColor: "#ffffff",
-                  color: "#000000",
-                  borderColor: "#e8dfc9"
-                } : undefined}
+                style={categoryBadgeStyle}
               >
                 {product.category || productCategories[0]?.name || (product.type === "digital" ? "Digital" : product.type)}
               </Badge>
@@ -1074,7 +1046,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     <div className="flex items-center gap-1 shrink-0">
                       <Star
                         className="h-4 w-4 fill-current"
-                        style={{ color: isDarkTheme ? "#fafafa" : "#000000" }}
+                        style={{ color: ratingStarColor }}
                       />
                       <span
                         className="text-sm"
@@ -1107,19 +1079,17 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     className="text-2xl font-bold"
                     style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
                   >
-                    {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
+                    {headerPrice.main}
                   </div>
-                  {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+                  {headerPrice.was && (
                     <div className="flex items-center gap-2">
                       <span
                         className="text-base line-through"
                         style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
                       >
-                        {formatPrice(product.compare_at_cents)}
+                        {headerPrice.was}
                       </span>
-                      <Badge variant="destructive">
-                        {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
-                      </Badge>
+                      {headerPrice.off != null && <Badge variant="destructive">{headerPrice.off}% OFF</Badge>}
                     </div>
                   )}
                 </div>
@@ -1267,7 +1237,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                       <div className="flex items-center gap-1 shrink-0">
                         <Star
                           className="h-3.5 w-3.5 fill-current"
-                          style={{ color: isDarkTheme ? "#fafafa" : "#000000" }}
+                          style={{ color: ratingStarColor }}
                         />
                         <span
                           className="text-xs"
@@ -1463,19 +1433,17 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   className="text-2xl font-bold tracking-tight"
                   style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
                 >
-                  {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
+                  {headerPrice.main}
                 </div>
-                {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+                {headerPrice.was && (
                   <div className="flex items-center gap-2">
                     <span
                       className="text-base line-through"
                       style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
                     >
-                      {formatPrice(product.compare_at_cents)}
+                      {headerPrice.was}
                     </span>
-                    <Badge variant="destructive">
-                      {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
-                    </Badge>
+                    {headerPrice.off != null && <Badge variant="destructive">{headerPrice.off}% OFF</Badge>}
                   </div>
                 )}
               </div>
@@ -1733,7 +1701,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         : undefined
     const stickyAddToCartSettings = headerSettings?.stickyAddToCart || defaultStickyAddToCartSettings
     // Get theme colors from published config
-    const pageBackgroundColor = productPageConfig?.globalColors?.backgroundColor
+    /* On a dark scheme the scheme's own page colour unless one was chosen (product-page-tone). */
+    const pageBackgroundColor = tonePageBackground
     const pageTextColor = themeColors.textColor
 
     return (

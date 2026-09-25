@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react"
 import { AuthLogo } from "@/components/auth/auth-logo"
+import { HtmlClass } from "@/components/platform/html-class"
 
 /**
  * Detect if running in a mobile browser (NOT inside Capacitor WebView).
@@ -374,6 +375,7 @@ function ResetPasswordContent() {
   if (phase === "initializing") {
     return (
       <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+        <HtmlClass name="with-page-reset-password" />
         <div className="w-full max-w-[440px] text-center">
           <AuthLogo />
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-neutral-400" />
@@ -387,6 +389,7 @@ function ResetPasswordContent() {
   if (phase === "handoff") {
     return (
       <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+        <HtmlClass name="with-page-reset-password" />
         <div className="w-full max-w-[440px] text-center">
           <AuthLogo />
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-neutral-400" />
@@ -438,6 +441,7 @@ function ResetPasswordContent() {
   if (phase === "success") {
     return (
       <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+        <HtmlClass name="with-page-reset-password" />
         <div className="w-full max-w-[440px] text-center">
           <AuthLogo />
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
@@ -459,6 +463,7 @@ function ResetPasswordContent() {
   if (phase === "expired") {
     return (
       <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+        <HtmlClass name="with-page-reset-password" />
         <div className="w-full max-w-[440px] text-center">
           <AuthLogo />
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
@@ -491,6 +496,7 @@ function ResetPasswordContent() {
   // ── Render: Reset form ───────────────────────────────────────────
   return (
     <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+      <HtmlClass name="with-page-reset-password" />
       <div className="w-full max-w-[440px] text-center">
         <AuthLogo />
         <h1 className="mb-4 text-[32px] font-bold tracking-tight text-neutral-900">

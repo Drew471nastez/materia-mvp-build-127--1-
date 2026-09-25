@@ -72,16 +72,16 @@ function main() {
     every one of those ends up in front of somebody through one of these.
   */
   check("the published site cleans its pages",
-    /pages\[r\.page_key\] = sanitizeSections\(published\)/.test(published))
+    /pages\[r\.page_key\] = sanitizeSections\(published(, ownSchemas)?\)/.test(published))
   check("and its theme settings, which a .storelib file may emit through `raw`",
     /const themeSettings = sanitizeThemeSettings\(/.test(published),
     "cleaned on save only means a row that never went through save is not cleaned at all")
   check("the editor's own read cleans what it hands the canvas",
-    /const clean = sanitizeSections\(sections \?\? \[\]\)/.test(sections),
+    /const clean = sanitizeSections\(sections \?\? \[\](, lookup)?\)/.test(sections),
     "the canvas renders these with dangerouslySetInnerHTML, in a signed-in session")
   check("including the row it returns alongside them",
-    /sections: data\.sections \? sanitizeSections\(data\.sections as SectionInstance\[\]\) : data\.sections/.test(sections)
-      && /draft_sections: data\.draft_sections \? sanitizeSections\(data\.draft_sections as SectionInstance\[\]\) : data\.draft_sections/.test(sections),
+    /sections: data\.sections \? sanitizeSections\(data\.sections as SectionInstance\[\](, lookup)?\) : data\.sections/.test(sections)
+      && /draft_sections: data\.draft_sections \? sanitizeSections\(data\.draft_sections as SectionInstance\[\](, lookup)?\) : data\.draft_sections/.test(sections),
     "`page: data` carried the same arrays back unfiltered")
   check("and the shop and search pages it generates from a stored home page",
     /sections: sanitizeSections\(generated\)/.test(sections))

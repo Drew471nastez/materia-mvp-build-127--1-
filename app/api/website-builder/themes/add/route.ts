@@ -124,10 +124,9 @@ export async function POST(req: Request) {
 
   if (settingsErr || pagesErr) {
     await admin.from("store_theme_installs").delete().eq("id", newInstall.id)
-    return NextResponse.json(
-      { error: settingsErr?.message ?? pagesErr?.message ?? "Failed to add theme" },
-      { status: 500 },
-    )
+    /* The database's own words go to the server log, never into a toast. */
+    console.error("[themes/add] could not write the pages or settings", { code: settingsErr?.code ?? pagesErr?.code })
+    return NextResponse.json({ error: "Could not add the theme. Try again." }, { status: 500 })
   }
 
   /*

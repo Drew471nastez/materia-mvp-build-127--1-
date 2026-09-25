@@ -26,6 +26,7 @@
  */
 
 import type { SectionInstance, ThemeSettingsValues } from "./types"
+import { mainProductSection } from "./product-page"
 
 export type ThemeIndustryKey =
   | "general"
@@ -884,24 +885,19 @@ export function buildThemePreset(def: ThemeDefinition): ThemePreset {
 
   home.push(footer)
 
+  /*
+    THE PRODUCT TEMPLATE STARTS WITH THE PRODUCT. This was a Split Content
+    section reading "Product name" with a Buy button to `#`, so every
+    product on a site whose creator never opened the product page in the
+    builder was drawn as that placeholder. The `product` section is the one
+    that draws the real product: see lib/website-builder/product-page.ts,
+    which repairs templates saved before this.
+  */
   const product: SectionInstance[] = [
     header,
-    section("product-hero", "split_content", "Product", {
-      heading: "Product name",
-      body: "<p>Describe your product here.</p>",
-      button_text: "Buy now",
-      button_url: "#",
-      button_style: "filled",
-      button_color: p.primary,
-      button_text_color: contrastText(p.primary),
-      image_position: "left",
-      image_aspect_ratio: "square",
+    section("main-product", "product", "Product", {
+      ...mainProductSection().settings,
       color_scheme: dark ? "black" : "white",
-      bg_color: p.bg,
-      text_color: p.text,
-      max_width: "wide",
-      padding_top: 60,
-      padding_bottom: 60,
     }),
     features("product-features", "What's included", "Everything you get with your purchase", [
       ["download", "Instant download", "Get immediate access to all files after purchase."],

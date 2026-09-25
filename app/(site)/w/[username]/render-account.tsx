@@ -12,9 +12,17 @@
  *
  *   shop       every page: the store's name, and its support email only when
  *              a section on the page asked to show it
- *   customer   /account, the signed-in visitor
+ *   customer   /account, the signed-in customer and their orders
  *   wishlist   /account and /wishlist, what they saved
- *   notice     /account/login, why the last sign in did not finish
+ *
+ * and, as `page.*`, what one visit to a page knows:
+ *
+ *   notice     /account/login and /account: why the last step did not
+ *              finish, or that it did, as a fixed sentence
+ *   edit       /account: "name" while the profile's name is being changed
+ *   step       /account/login: "email" or "code"
+ *   email      /account/login on the code step: where the code went
+ *   return_to  /account/login: the path on this website to land on after
  *
  * The published site and its catalogue come from the same cache every page
  * uses (lib/website-builder/published-site), so nothing here is a second
@@ -26,10 +34,10 @@ import { StorelibSourcesProvider } from "@/components/website-builder/sections/s
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
-import { publishedShopByName } from "@/lib/website-builder/published-site"
+import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
 import { ACCOUNT_PAGE_PATHS, accountPageSections } from "@/lib/website-builder/account-pages"
 import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
-import { templateForPage } from "@/lib/website-builder/site-pages"
+import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import { getMainDomain } from "@/lib/url-helpers"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
@@ -59,7 +67,14 @@ async function supportEmail(creatorId: string): Promise<string> {
 export async function renderAccountPage(
   username: string,
   key: AccountPageKey,
-  extras: { customer?: Record<string, unknown> | null; wishlist?: StorefrontGlobals["wishlist"]; notice?: string | null } = {},
+  extras: {
+    customer?: Record<string, unknown> | null
+    wishlist?: StorefrontGlobals["wishlist"]
+    notice?: string | null
+    signIn?: { step: "email" | "code"; email: string; returnTo: string }
+    /** /account: the profile field open for editing. */
+    edit?: "name" | null
+  } = {},
 ) {
   const found = await publishedShopByName(username)
   /* Renamed for good: the same page at the new name, permanently (308), as every other page of a website. */
@@ -67,19 +82,28 @@ export async function renderAccountPage(
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
-  const { site, products } = found
+  const { site, products, productCount } = found
   const stored = site.pages[key]
   const base = stored && stored.length > 0 ? stored : (accountPageSections(key, site.pages.home ?? site.sections) ?? [])
-  const sections = pageWithLiveLinks(base, new Set(Object.keys(site.pages)))
+  /* Drawn like every other page: live links, then the shop's own facts (placeholders, menus, picked products). */
+  const linked = pageWithLiveLinks(base, new Set(Object.keys(site.pages)))
   const template = templateForPage(key)
+  const { sections, data } = await dressPage(site, linked, products, productCount, template, pageTitleFromKey(key))
 
   const globals: StorefrontGlobals = {
     shop: { name: site.displayName, email: wantsEmail(sections) ? await supportEmail(site.creatorId) : "" },
     customer: extras.customer ?? null,
     wishlist: extras.wishlist ?? null,
   }
-  const page = extras.notice ? { notice: extras.notice } : undefined
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, page, globals)
+  const page: Record<string, unknown> = {}
+  if (extras.notice) page.notice = extras.notice
+  if (extras.edit) page.edit = extras.edit
+  if (extras.signIn) {
+    page.step = extras.signIn.step
+    page.email = extras.signIn.email
+    page.return_to = extras.signIn.returnTo
+  }
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, page, data, globals)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template }}>

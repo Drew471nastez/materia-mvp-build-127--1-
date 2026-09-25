@@ -36,6 +36,7 @@ import { themePresets } from "./defaults"
 import type { ThemePreset } from "./types"
 import { isInheritedWhite, storefrontPageBackground } from "./page-surface"
 import { contrastRatio, parseColor } from "@/lib/storelib-theme/contrast"
+import { colourLightness } from "./scheme-tone"
 
 const BLACK = new Set(["#000", "#000000", "black", "rgb(0,0,0)", "rgb(0, 0, 0)", "transparent", ""])
 
@@ -84,12 +85,8 @@ export function ensureContrast(foreground: string, background: string, need = 4.
   return target
 }
 
-/** Perceived lightness, 0 (black) to 1 (white). */
-function lightness(colour: string): number {
-  const c = parseColor(colour)
-  if (!c) return 1
-  return (0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b) / 255
-}
+/** Perceived lightness, 0 (black) to 1 (white): the one the product page's "dark" is decided by too. */
+const lightness = (colour: string): number => colourLightness(colour)
 
 /**
  * The secondary colours ON a product card, derived from the two the theme

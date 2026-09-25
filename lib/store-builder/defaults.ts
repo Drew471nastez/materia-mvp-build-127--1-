@@ -881,7 +881,9 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     priceContainer: {
       backgroundColor: "#f5efe3",
       textColor: "#000000",
-      mutedTextColor: "#6b7280",
+      /* A hair darker than #6b7280, which read 4.2 to 1 on this card (the
+         struck through price on the product page); 4.7 now, above AA. */
+      mutedTextColor: "#646a76",
       borderColor: "#e8dfc9",
       iconColor: "#896d34",
     },
@@ -925,9 +927,9 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
     THREE MORE, EACH A DIFFERENT ANSWER TO THE ONES ALREADY OFFERED: a green,
     a navy and a terracotta, each on a page tinted toward its own accent with
     white cards on it, so the cards read as cards on every one of them. All
-    three are light pages on purpose: the product page decides "dark" by the
-    scheme's name (astrid), and a new dark scheme would be a dark creator
-    page opening onto a light product page.
+    three are light pages. (They had to be: the product page decided "dark"
+    by the scheme's name then. It decides by the page colour now, which is
+    what let graphite, below, be offered.)
   */
   sage: {
     name: "Sage",
@@ -1287,6 +1289,135 @@ export const themePresets: Record<ThemePreset, ThemeConfig> = {
       backgroundColor: "transparent",
       textColor: "#2A1C15",
       borderColor: "#E6D8CC",
+    },
+  },
+  /*
+    GRAPHITE, THE SECOND DARK ANSWER. Astrid is near black with grey
+    buttons; this is a lifted charcoal with a cool steel accent, the page one
+    step lighter so photos and cards keep their edges. It could only be
+    offered once the product page decided "dark" by the page colour
+    (lib/store-builder/scheme-tone) rather than by the name astrid. Every pair
+    holds AA: white on the steel button 5.4, the muted grey 6.5 on a card.
+  */
+  graphite: {
+    name: "Graphite",
+    description: "Lifted charcoal with cool steel accents",
+    colors: {
+      primary: "#4F6D8F",
+      secondary: "#2E3238",
+      accent: "#8FA8C4",
+      background: "#1D2025",
+      foreground: "#EEF0F3",
+      muted: "#23272D",
+      border: "#353A42",
+    },
+    borderRadius: 10,
+    buttonBorderRadius: 10,
+    profileImageBorderColor: "#3F454E",
+    subscribeBar: {
+      buttonColor: "#4F6D8F",
+      buttonTextColor: "#ffffff",
+      backgroundColor: "#23272D",
+      textColor: "#E3E6EA",
+      buttonBorderRadius: 10,
+      inputBorderColor: "#353A42",
+      inputTextColor: "#E3E6EA",
+      inputPlaceholderColor: "#8A919B",
+      inputBackgroundColor: "transparent",
+    },
+    creatorBar: {
+      backgroundColor: "#1D2025",
+      textColor: "#E3E6EA",
+      buttonColor: "#4F6D8F",
+      buttonTextColor: "#ffffff",
+      buttonBorderRadius: 10,
+    },
+    stickyAddToCart: {
+      backgroundColor: "#23272D",
+      buttonColor: "#4F6D8F",
+      buttonTextColor: "#ffffff",
+      borderRadius: 10,
+      textColor: "#E3E6EA",
+    },
+    productHeader: {
+      buyButtonColor: "#4F6D8F",
+      buyButtonTextColor: "#ffffff",
+      buttonsBorderRadius: 10,
+    },
+    /* One surface from the header to the footer, as astrid learned: two near blacks meet as a seam. */
+    sections: {
+      headerBackgroundColor: "#1D2025",
+      headerTextColor: "#EEF0F3",
+      featuredProductsBackgroundColor: "#1D2025",
+      featuredProductsTextColor: "#EEF0F3",
+      footerBackgroundColor: "#1D2025",
+      footerTextColor: "#A9B0BA",
+      pageBackgroundColor: "#1D2025",
+    },
+    productCard: {
+      backgroundColor: "#272B31",
+      textColor: "#EEF0F3",
+      priceColor: "#A9B0BA",
+      borderColor: "#353A42",
+    },
+    categoryFilter: {
+      textColor: "#A9B0BA",
+      activeTextColor: "#EEF0F3",
+      borderColor: "#EEF0F3",
+    },
+    reviewsSection: {
+      backgroundColor: "transparent",
+      textColor: "#EEF0F3",
+      starColor: "#EEF0F3",
+      cardBackgroundColor: "#272B31",
+      cardBorderColor: "#353A42",
+    },
+    faqSection: {
+      textColor: "#EEF0F3",
+      borderColor: "#353A42",
+      iconColor: "#EEF0F3",
+    },
+    priceContainer: {
+      backgroundColor: "#272B31",
+      textColor: "#EEF0F3",
+      mutedTextColor: "#A9B0BA",
+      borderColor: "#353A42",
+      iconColor: "#EEF0F3",
+    },
+    viewInLibraryButton: {
+      backgroundColor: "#2E3238",
+      textColor: "#EEF0F3",
+      borderColor: "#3F454E",
+    },
+    announcementBar: {
+      backgroundColor: "#272B31",
+      textColor: "#EEF0F3",
+    },
+    textBlock: {
+      backgroundColor: "transparent",
+      headlineColor: "#EEF0F3",
+      contentColor: "#A9B0BA",
+    },
+    benefits: {
+      backgroundColor: "transparent",
+      textColor: "#EEF0F3",
+      iconColor: "#8FA8C4",
+    },
+    imageText: {
+      backgroundColor: "transparent",
+      textColor: "#EEF0F3",
+      buttonColor: "#4F6D8F",
+      buttonTextColor: "#ffffff",
+    },
+    about: {
+      backgroundColor: "transparent",
+      textColor: "#EEF0F3",
+      mutedTextColor: "#A9B0BA",
+    },
+    wishlistButton: {
+      backgroundColor: "transparent",
+      textColor: "#EEF0F3",
+      borderColor: "#3F454E",
     },
   },
   blacks: {

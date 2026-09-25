@@ -26,7 +26,7 @@
  */
 import { COMPILE_CACHE_LIMIT, compileSection, createLru } from "@/lib/storelib-theme/storelib/compile"
 import { renderSection } from "@/lib/storelib-theme/render"
-import type { CompiledSection, RenderContext, SectionInstanceData, ThemeError } from "@/lib/storelib-theme/types"
+import type { CompiledSection, RenderContext, SectionInstanceData, StorefrontData, ThemeError } from "@/lib/storelib-theme/types"
 import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import type { SectionInstance, ThemeSettingsValues } from "./types"
@@ -123,6 +123,12 @@ export function renderStorelibSection(
    */
   products?: RenderContext["products"],
   /**
+   * The shop's own facts: the catalogue pickers name, the menus, the shop,
+   * the creator and on a product page the product. Built by
+   * lib/website-builder/storefront-data.ts; absent means none of them.
+   */
+  data?: StorefrontData,
+  /**
    * The store and, on a page drawn for one visitor, the visitor: `shop`,
    * `customer`, `wishlist` (lib/storelib-theme/globals.ts). Absent is the
    * theme's own `shop` and nobody signed in.
@@ -138,6 +144,7 @@ export function renderStorelibSection(
     theme: theme as unknown as Record<string, unknown>,
     page: withPageProduct(page, products),
     products,
+    data,
     globals,
   })
   return {

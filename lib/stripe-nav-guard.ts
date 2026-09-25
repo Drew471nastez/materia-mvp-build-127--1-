@@ -217,5 +217,24 @@ export function applyStripeNavGuard(): void {
   } catch { /* ignore */ }
 }
 
-// Auto-apply on import.
-applyStripeNavGuard()
+/**
+ * True inside the Storelib app's Capacitor shell, the only place the guard is
+ * for.
+ */
+export function isCapacitorShell(): boolean {
+  if (typeof window === "undefined") return false
+  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
+  if (cap?.isNativePlatform?.()) return true
+  const ua = navigator.userAgent || ""
+  return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
+}
+
+/*
+  APPLIED IN THE APP ONLY. This used to run on import in every browser, and a
+  browser needs the controller frame it blocks: Stripe.js does all of its
+  talking to Stripe through that frame, so with it gone the Express Checkout,
+  Link and Payment elements were created and then waited for it forever. On
+  the web the checkout showed Stripe's loading skeletons and never a field.
+  The Pro upgrade's card form imports this too and waited the same way.
+*/
+if (isCapacitorShell()) applyStripeNavGuard()

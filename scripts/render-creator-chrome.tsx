@@ -16,13 +16,17 @@ import { StorefrontTabs, EmptyTabPanel } from "@/components/storefront/storefron
 import { StorefrontProductCard } from "@/components/storefront/storefront-product-card"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { resolveStorefrontChrome, cardAccents } from "@/lib/store-builder/storefront-chrome"
+import { productPageTone } from "@/lib/store-builder/product-page-tone"
+import { Badge } from "@/components/ui/badge"
+import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
+import { Star } from "lucide-react"
 import { themePresets, defaultShopHeaderSettings } from "@/lib/store-builder/defaults"
 import { OFFERED_SCHEMES } from "@/lib/store-builder/scheme-preview"
 import type { ShopHeaderSettings } from "@/lib/store-builder/types"
 
 const OUT = process.env.OUT_DIR!
 
-/** Every scheme the picker offers (eight since sage, harbor and clay). */
+/** Every scheme the picker offers (eight since sage, harbor and clay; nine since graphite). */
 const SCHEMES = OFFERED_SCHEMES
 
 /**
@@ -136,7 +140,64 @@ const parts = SCHEMES.map((preset) => {
     </div>
   )
 
-  return renderToStaticMarkup(body)
+  /*
+    THE PRODUCT PAGE THE CREATOR PAGE OPENS ONTO, on the same scheme. The
+    parts of app/(marketing)/p/[slug]/page.tsx a scheme paints, with the same
+    markup and the colours from the same function the page calls
+    (productPageTone). The stored page colour is the builder's untouched
+    white, which is what a scheme picked in Edit profile leaves behind.
+  */
+  const tone = productPageTone({ globalSettings: { themePreset: preset }, globalColors: { backgroundColor: "#ffffff" }, headerSettings: {} })
+  const c = tone.themeColors
+  const productPage = (
+    <div
+      data-product-page={preset}
+      data-dark={tone.isDarkTheme ? "true" : "false"}
+      className="w-full"
+      style={{ background: tone.pageBackgroundColor || "var(--background)", color: c.textColor || "var(--foreground)", padding: 16 }}
+    >
+      <div className="flex items-start gap-2">
+        <h1 className="text-2xl sm:text-3xl font-semibold break-words flex-1 min-w-0" style={{ color: c.textColor || "var(--foreground)" }}>
+          Men&apos;s heavyweight tee
+        </h1>
+        <Badge data-part="badge" variant="secondary" className="shrink-0 capitalize" style={tone.categoryBadgeStyle}>
+          Digital
+        </Badge>
+      </div>
+      <div className="mt-4 flex items-center gap-3">
+        <p data-part="seller" className="font-medium truncate" style={{ color: c.textColor || "var(--foreground)" }}>AndrewRullz</p>
+        <Star data-part="star" className="h-4 w-4 fill-current" style={{ color: tone.ratingStarColor }} />
+        <span data-part="rating" className="text-sm" style={{ color: c.cardPriceColor || "rgb(156, 163, 175)" }}>4.8</span>
+      </div>
+      <div
+        data-part="card"
+        className="mt-6 rounded-xl border p-4 shadow-sm"
+        style={{ backgroundColor: c.cardBackground || "var(--card)", borderColor: c.cardBorderColor || "var(--border)", maxWidth: 380 }}
+      >
+        <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <div data-part="price" className="text-2xl font-bold" style={{ color: c.cardTextColor || "var(--foreground)" }}>$64.40</div>
+          <span data-part="was" className="text-base line-through" style={{ color: c.cardPriceColor || "var(--muted-foreground)" }}>$115.00</span>
+        </div>
+        <div data-part="refund">
+          <RefundPolicyDisplay
+            enabled
+            policyType="30_day"
+            finePrint={null}
+            updatedAt={null}
+            className="mt-3"
+            textColor={c.cardTextColor}
+            themePreset={preset}
+            isDarkTheme={tone.isDarkTheme}
+          />
+        </div>
+      </div>
+      <h3 data-part="faq" className="mt-6 text-lg font-semibold" style={{ color: c.faqTextColor || "var(--foreground)" }}>
+        Frequently asked
+      </h3>
+    </div>
+  )
+
+  return renderToStaticMarkup(body) + renderToStaticMarkup(productPage)
 })
 
 writeFileSync(join(OUT, "body.html"), parts.join("\n"))

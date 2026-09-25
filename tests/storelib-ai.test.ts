@@ -567,7 +567,9 @@ async function main() {
     const budget = (name: string, text: string, maxChars: number) =>
       check(`${name} stays under ~${Math.round(maxChars / 4 / 100) / 10}k tokens`, text.length <= maxChars, `${text.length} chars`)
     budget("the page assistant's shared rules", pageAgentRules(), 10_000)
-    budget("the section writer's rules", writeSectionRules(), 11_000)
+    /* 11,000 until the framework's own lists grew: eight setting types and the
+       `lines` filter, which CORE_FORMAT names from the registry. Still a budget. */
+    budget("the section writer's rules", writeSectionRules(), 11_400)
     budget("the section editor's rules", editSectionRules(), 8_000)
     budget("the sites agent's rules", sitesAgentRules(), 6_000)
   }

@@ -84,6 +84,29 @@ function main() {
     "lib/website-builder/alt-pairing.ts",
   ]) check(`${gone} is gone with the rework`, !existsSync(join(process.cwd(), gone)))
 
+  console.log("\nWhat the editor gained since is drawn with those controls")
+  /*
+    The new setting types, conditional settings and the header's new
+    settings arrived on main after the rework, written against its controls.
+    They are kept, in the controls that came back: the browser's own select,
+    the fields listed one by one, the alt text as a field of its own.
+  */
+  check("the header's Menu on phones is the old select, under the phone layout's preview row",
+    /\{mobilePreviewSummary\}[\s\S]{0,600}<WbSelect\s+label="Menu on phones"/.test(editor) && /onUpdateSetting\("mobile_menu_style", v\)/.test(editor))
+  check("and Transparent on and the header's Links are the old select too",
+    /<WbSelect\s+label="Transparent on"/.test(editor) && /<WbSelect\s+label="Links"/.test(editor))
+  check("a section's settings are listed one by one, the ones whose visible_if holds, with its other settings beside them",
+    /const visible = visibleFields\(schema\.fields, section\.settings\)/.test(editor) &&
+      /<SiblingSettingsProvider settings=\{section\.settings\}>\s*<div className="p-4 space-y-4">\s*\{clean\.map\(field => \(/.test(editor))
+  check("and a block's the same way, its conditions reading the section's settings as well",
+    /<SiblingSettingsProvider settings=\{block\.settings\}>\s*\{visibleFields\(blockSchema\?\.fields \?\? \[\], block\.settings, \{ fields: schema\.fields \?\? \[\], saved: section\.settings \}\)\.map\(field => \(/.test(editor))
+  check("the newer controls are drawn by the controls folder first, and Insert shop data wraps every field",
+    /const registered = renderRegisteredControl\(kind, field, raw, onChange\)/.test(editor) && /<DynamicSourceField field=\{props\.field\}/.test(editor))
+  check("Theme settings' Menus is drawn by its own editor, without a second label, in both lists of groups",
+    (editor.match(/field\.type === "header" \|\| field\.type === "paragraph" \|\| field\.type === "menus" \? \(/g) ?? []).length === 2)
+  check("every panel the sidebar draws has the shop's facts for those controls",
+    (editor.match(/<EditorFieldProvider value=\{fieldEnv\}>/g) ?? []).length === 2)
+
   console.log("\nA group in Theme settings opens and closes, rather than appearing")
   /*
     "Make sure that the theme settings, the tabs in the sidebar, open

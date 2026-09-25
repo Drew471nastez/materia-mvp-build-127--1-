@@ -78,7 +78,7 @@ const SUSPICIOUS_TEXT_PATTERNS = [
 export interface SecurityScanResult {
   safe: boolean
   reason?: string
-  threatType?: "blocked_extension" | "double_extension" | "executable_binary" | "embedded_script" | "disguised_file"
+  threatType?: "blocked_extension" | "double_extension" | "executable_binary" | "embedded_script" | "disguised_file" | "malware_signature"
   severity?: "critical" | "high" | "medium"
 }
 
@@ -90,6 +90,14 @@ export interface SecurityScanResult {
  * @param contentType - MIME type reported by the browser
  * @param fileHeader - First N bytes of the file (for magic byte inspection)
  */
+const EICAR = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+
+/** The EICAR test string at the start of a file, as the standard defines it (leading whitespace allowed). */
+export function headerHasEicar(header: Uint8Array): boolean {
+  const text = new TextDecoder("latin1").decode(header.subarray(0, 256)).trimStart()
+  return text.startsWith(EICAR)
+}
+
 export function scanFile(
   fileName: string,
   contentType: string,
@@ -121,6 +129,21 @@ export function scanFile(
   // --- Layer 3: Magic byte analysis (detect renamed executables) ---
   if (fileHeader) {
     const header = fileHeader instanceof Uint8Array ? fileHeader : new Uint8Array(fileHeader)
+
+    /*
+      THE EICAR TEST FILE, which every antivirus engine flags on purpose so a
+      scanner can be tested without real malware. Refused here too, so the
+      whole path (the header read back from storage, the refusal, the file
+      removed) can be tried by anyone with a 68 byte text file.
+    */
+    if (headerHasEicar(header)) {
+      return {
+        safe: false,
+        reason: "This file matches the EICAR antivirus test signature, so it cannot be uploaded.",
+        threatType: "malware_signature",
+        severity: "critical",
+      }
+    }
 
     for (const sig of DANGEROUS_MAGIC_BYTES) {
       if (header.length >= sig.offset + sig.bytes.length) {
@@ -218,8 +241,13 @@ export function readBufferHeader(buffer: Buffer | ArrayBuffer, bytes: number = H
   return new Uint8Array(buffer, 0, Math.min(buffer.byteLength, bytes))
 }
 
-/** Global hard ceiling — effectively unlimited; actual limits are plan-based (free=10GB, growth=50GB, pro=unlimited). */
-export const MAX_DIGITAL_PRODUCT_FILE_SIZE = Number.MAX_SAFE_INTEGER
+/**
+ * 10 GB per file, on every plan: the most one digital product file may be.
+ * Checked on the size declared before the upload (prepare), and again on the
+ * size storage actually recorded once it arrives (complete), because a signed
+ * upload URL cannot limit what is sent through it.
+ */
+export const MAX_DIGITAL_PRODUCT_FILE_SIZE = 10 * 1024 * 1024 * 1024
 
 /**
  * Full pre-upload security check combining size limit + file scanning.

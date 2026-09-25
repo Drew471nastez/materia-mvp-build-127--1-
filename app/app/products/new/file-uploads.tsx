@@ -558,7 +558,7 @@ export function DigitalFiles({
         <button type="button" onClick={choose} className={cn(secondaryDepth, "h-11 rounded-[10px] px-4 text-[15px] sm:h-9 sm:rounded-lg sm:text-[14px]", dragging && "invisible")}>
           Choose files
         </button>
-        <p className="text-[12.5px] leading-4 text-[#9ca3af]">Up to 5 GB each</p>
+        <p className="text-[12.5px] leading-4 text-[#9ca3af]">Up to 10 GB each</p>
       </div>
     )
   }

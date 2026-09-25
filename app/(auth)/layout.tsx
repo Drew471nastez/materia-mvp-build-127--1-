@@ -1,5 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
+import { HtmlClass } from "@/components/platform/html-class"
 
 export const metadata: Metadata = {
   openGraph: {
@@ -31,5 +32,5 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <div className="bg-white" data-page="auth">{children}</div>
+  return <div className="bg-white" data-page="auth"><HtmlClass name="with-page-auth" />{children}</div>
 }

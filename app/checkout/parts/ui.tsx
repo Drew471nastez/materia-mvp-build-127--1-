@@ -4,15 +4,17 @@
  * ===========================================================================
  *  THE CHECKOUT'S OWN FORM PIECES
  * ===========================================================================
- * A checkout is read field by field, so every field is the same thing: a
- * label above, a 48px box, one hairline border that darkens on focus, and a
- * message under it when something is wrong. 16px text in the box, because
- * iOS zooms the whole page into any input set smaller, and a checkout that
- * jumps when you tap it feels broken.
+ * Drawn after Stripe Checkout: slim boxes on a hairline border with a
+ * shadow you feel more than see, labels small and grey above them, and
+ * placeholders a light grey so a typed value is never mistaken for one.
  *
- * The same values are handed to Stripe's own fields (see `stripeAppearance`
- * in stripe-pay.tsx) so the card number and the email box beside it are
- * indistinguishable.
+ * 44px boxes. 16px text on a phone, because iOS zooms the whole page into
+ * any input set smaller and a checkout that jumps when you tap it feels
+ * broken; 15px on a computer, where nothing zooms and 16 reads large.
+ *
+ * The same values are handed to Stripe's own fields (`stripeAppearance` in
+ * stripe-pay.tsx) so the card number and the name box beside it are one
+ * family.
  */
 
 import * as React from "react"
@@ -21,13 +23,16 @@ import { cn } from "@/lib/utils"
 
 export const INK = "#1a1a2e"
 
+/* Stripe's own input shadow: a one pixel lip and a soft drop, barely there. */
+export const FIELD_SHADOW = "0 1px 1px rgba(0,0,0,0.03), 0 3px 6px rgba(0,0,0,0.02)"
+
 export const inputClass =
-  "block h-12 w-full min-w-0 rounded-[10px] border border-[#d4d6db] bg-white px-3.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] hover:border-[#b9bcc3] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.10)] aria-[invalid=true]:border-[#dc2626] aria-[invalid=true]:shadow-[0_0_0_3px_rgba(220,38,38,0.10)] disabled:bg-[#f7f7f8] disabled:text-[#9ca3af]"
+  "block h-11 w-full min-w-0 rounded-[8px] border border-[#e1e3e7] bg-white px-3.5 text-[16px] text-[#1a1a2e] shadow-[0_1px_1px_rgba(0,0,0,0.03),0_3px_6px_rgba(0,0,0,0.02)] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#a2a7b0] hover:border-[#d2d5da] focus:border-[#1a1a2e]/55 focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08),0_1px_1px_rgba(0,0,0,0.03)] aria-[invalid=true]:border-[#dc2626] aria-[invalid=true]:shadow-[0_0_0_3px_rgba(220,38,38,0.10)] disabled:bg-[#f7f7f8] disabled:text-[#9ca3af] sm:text-[15px]"
 
 export function SectionTitle({ children, aside }: { children: React.ReactNode; aside?: React.ReactNode }) {
   return (
-    <div className="mb-3.5 flex items-baseline justify-between gap-3">
-      <h2 className="text-[18px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">{children}</h2>
+    <div className="mb-3 flex items-baseline justify-between gap-3">
+      <h2 className="text-[16px] font-semibold text-[#1a1a2e]">{children}</h2>
       {aside}
     </div>
   )
@@ -50,7 +55,7 @@ export function Field({
 }) {
   return (
     <div className={cn("min-w-0", className)}>
-      <label htmlFor={id} className="mb-1.5 block text-[13px] font-medium text-[#374151]">
+      <label htmlFor={id} className="mb-1.5 block text-[13px] font-medium text-[#4b5563]">
         {label}
       </label>
       {children}
@@ -86,8 +91,8 @@ export function CheckRow({
   invalid?: boolean
 }) {
   return (
-    <label htmlFor={id} className="group flex cursor-pointer items-start gap-3 py-1 text-[14px] leading-[1.45] text-[#374151]">
-      <span className="relative mt-[1px] flex h-5 w-5 shrink-0 items-center justify-center">
+    <label htmlFor={id} className="group flex cursor-pointer items-start gap-2.5 py-1 text-[14px] leading-[1.45] text-[#4b5563]">
+      <span className="relative mt-[1px] flex h-[18px] w-[18px] shrink-0 items-center justify-center">
         <input
           id={id}
           type="checkbox"
@@ -95,15 +100,15 @@ export function CheckRow({
           onChange={(e) => onChange(e.target.checked)}
           aria-invalid={invalid || undefined}
           className={cn(
-            "peer h-5 w-5 cursor-pointer appearance-none rounded-[6px] border bg-white transition-colors duration-150",
+            "peer h-[18px] w-[18px] cursor-pointer appearance-none rounded-[5px] border bg-white shadow-[0_1px_1px_rgba(0,0,0,0.04)] transition-colors duration-150",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]",
-            checked ? "border-[#1a1a2e] bg-[#1a1a2e]" : invalid ? "border-[#dc2626]" : "border-[#b9bcc3] group-hover:border-[#6b7280]",
+            checked ? "border-[#1a1a2e] bg-[#1a1a2e]" : invalid ? "border-[#dc2626]" : "border-[#c9ccd2] group-hover:border-[#9ca3af]",
           )}
         />
         <Check
           aria-hidden
           strokeWidth={3}
-          className={cn("pointer-events-none absolute h-3.5 w-3.5 text-white transition-[opacity,scale] duration-150", checked ? "scale-100 opacity-100" : "scale-75 opacity-0")}
+          className={cn("pointer-events-none absolute h-3 w-3 text-white transition-[opacity,scale] duration-150", checked ? "scale-100 opacity-100" : "scale-75 opacity-0")}
         />
       </span>
       <span className="min-w-0">{children}</span>
@@ -114,9 +119,9 @@ export function CheckRow({
 /** "OR" between the express buttons and the form, as a rule with a word in it. */
 export function OrDivider() {
   return (
-    <div className="my-6 flex items-center gap-3 text-[12px] font-medium uppercase tracking-[0.08em] text-[#9ca3af]" aria-hidden>
+    <div className="my-6 flex items-center gap-3 text-[13px] text-[#6b7280]" aria-hidden>
       <span className="h-px flex-1 bg-[#e5e7eb]" />
-      or
+      OR
       <span className="h-px flex-1 bg-[#e5e7eb]" />
     </div>
   )
@@ -131,7 +136,10 @@ export function Spinner({ className }: { className?: string }) {
   )
 }
 
-/** The one primary action. Near-black, full width, 52px. */
+/**
+ * The one primary action. Full width, 48px, a small 8px corner, lit along
+ * its top edge and sitting on a short shadow, the way Stripe's Pay is.
+ */
 export function PayButton({
   children,
   busy,
@@ -149,7 +157,8 @@ export function PayButton({
       onClick={onClick}
       disabled={disabled || busy}
       aria-busy={busy || undefined}
-      className="relative flex h-[52px] w-full items-center justify-center gap-2 rounded-[10px] bg-[#1a1a2e] text-[16px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_1px_2px_rgba(17,24,39,0.25)] transition-[background-color,scale,opacity] duration-150 hover:bg-[#2a2a40] active:scale-[0.99] active:bg-[#111122] disabled:cursor-not-allowed disabled:opacity-55"
+      data-pay=""
+      className="relative flex h-12 w-full items-center justify-center gap-2 rounded-[8px] bg-[#1a1a2e] text-[16px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_1px_rgba(0,0,0,0.12),0_3px_8px_-2px_rgba(26,26,46,0.35)] transition-[background-color,scale,opacity] duration-150 hover:bg-[#262640] active:scale-[0.99] active:bg-[#111122] disabled:cursor-not-allowed disabled:opacity-60 [-webkit-tap-highlight-color:transparent]"
     >
       {busy ? <Spinner /> : null}
       {children}
@@ -159,9 +168,42 @@ export function PayButton({
 
 export function ErrorBanner({ children }: { children: React.ReactNode }) {
   return (
-    <div role="alert" className="checkout-rise flex items-start gap-2.5 rounded-[10px] border border-[#fecaca] bg-[#fef2f2] px-3.5 py-3 text-[14px] leading-snug text-[#991b1b]">
+    <div role="alert" className="checkout-rise flex items-start gap-2.5 rounded-[8px] border border-[#fecaca] bg-[#fef2f2] px-3.5 py-3 text-[14px] leading-snug text-[#991b1b]">
       <span aria-hidden className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#dc2626]" />
       <span className="min-w-0">{children}</span>
+    </div>
+  )
+}
+
+/*
+  STRIPE'S WORDMARK, from Font Awesome's brand set (react-icons FaStripe),
+  cut to the letters' own box so it sits on the text's baseline.
+*/
+const STRIPE_WORDMARK =
+  "M165 144.7l-43.3 9.2-.2 142.4c0 26.3 19.8 43.3 46.1 43.3 14.6 0 25.3-2.7 31.2-5.9v-33.8c-5.7 2.3-33.7 10.5-33.7-15.7V221h33.7v-37.8h-33.7zm89.1 51.6l-2.7-13.1H213v153.2h44.3V233.3c10.5-13.8 28.2-11.1 33.9-9.3v-40.8c-6-2.1-26.7-6-37.1 13.1zm92.3-72.3l-44.6 9.5v36.2l44.6-9.5zM44.9 228.3c0-6.9 5.8-9.6 15.1-9.7 13.5 0 30.7 4.1 44.2 11.4v-41.8c-14.7-5.8-29.4-8.1-44.1-8.1-36 0-60 18.8-60 50.2 0 49.2 67.5 41.2 67.5 62.4 0 8.2-7.1 10.9-17 10.9-14.7 0-33.7-6.1-48.6-14.2v40c16.5 7.1 33.2 10.1 48.5 10.1 36.9 0 62.3-15.8 62.3-47.8 0-52.9-67.9-43.4-67.9-63.4zM640 261.6c0-45.5-22-81.4-64.2-81.4s-67.9 35.9-67.9 81.1c0 53.5 30.3 78.2 73.5 78.2 21.2 0 37.1-4.8 49.2-11.5v-33.4c-12.1 6.1-26 9.8-43.6 9.8-17.3 0-32.5-6.1-34.5-26.9h86.9c.2-2.3.6-11.6.6-15.9zm-87.9-16.8c0-20 12.3-28.4 23.4-28.4 10.9 0 22.5 8.4 22.5 28.4zm-112.9-64.6c-17.4 0-28.6 8.2-34.8 13.9l-2.3-11H363v204.8l44.4-9.4.1-50.2c6.4 4.7 15.9 11.2 31.4 11.2 31.8 0 60.8-23.2 60.8-79.6.1-51.6-29.3-79.7-60.5-79.7zm-10.6 122.5c-10.4 0-16.6-3.8-20.9-8.4l-.3-66c4.6-5.1 11-8.8 21.2-8.8 16.2 0 27.4 18.2 27.4 41.4.1 23.9-10.9 41.8-27.4 41.8zm-126.7 33.7h44.6V183.2h-44.6z"
+
+/** "Powered by stripe | Terms Privacy", under Pay, as Stripe Checkout signs its own. */
+export function PoweredByStripe() {
+  return (
+    <div data-powered-by="" className="mt-6 flex items-center justify-center gap-3 text-[12.5px] text-[#6b7280]">
+      <a
+        href="https://stripe.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 transition-colors hover:text-[#1a1a2e]"
+      >
+        Powered by
+        <svg viewBox="0 120 640 272" aria-label="Stripe" role="img" className="mt-[1px] h-[15px] w-auto" fill="currentColor">
+          <path d={STRIPE_WORDMARK} />
+        </svg>
+      </a>
+      <span aria-hidden className="h-4 w-px bg-[#d1d5db]" />
+      <a href="/terms" target="_blank" className="transition-colors hover:text-[#1a1a2e]">
+        Terms
+      </a>
+      <a href="/privacy" target="_blank" className="transition-colors hover:text-[#1a1a2e]">
+        Privacy
+      </a>
     </div>
   )
 }

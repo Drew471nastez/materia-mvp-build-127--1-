@@ -1,6 +1,7 @@
 import type React from "react"
 import { loadProductBySlug, loadStoreConfig } from "@/lib/commerce/product-page-data"
 import { getThemeSkeletonColors } from "@/lib/theme-skeleton-colors"
+import { isDarkScheme } from "@/lib/store-builder/scheme-tone"
 import type { ThemePreset } from "@/lib/store-builder/types"
 
 interface ProductLayoutProps {
@@ -42,8 +43,8 @@ export default async function ProductLayout({ children, params }: ProductLayoutP
         "--skeleton-bg": colors.backgroundColor,
         "--skeleton-color": colors.skeletonColor || "#e5e7eb",
         "--skeleton-text": colors.textColor,
-        "--skeleton-border": themePreset === "astrid" ? "#2a2a2a" : "#e5e7eb",
-        "--skeleton-card-bg": themePreset === "astrid" ? "#1a1a1a" : colors.backgroundColor,
+        "--skeleton-border": isDarkScheme(themePreset) ? "#2a2a2a" : "#e5e7eb",
+        "--skeleton-card-bg": isDarkScheme(themePreset) ? (colors.skeletonColor ?? "#1a1a1a") : colors.backgroundColor,
       } as React.CSSProperties}
     >
       {children}

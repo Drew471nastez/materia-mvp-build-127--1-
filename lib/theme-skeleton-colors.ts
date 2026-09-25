@@ -1,3 +1,5 @@
+import { themePresets } from "@/lib/store-builder/defaults"
+import { isDarkScheme, schemePageColour } from "@/lib/store-builder/scheme-tone"
 import type { ThemePreset } from "@/lib/store-builder/types"
 
 // Get theme-specific colors for skeleton loading
@@ -94,12 +96,23 @@ export function getThemeSkeletonColors(themePreset: ThemePreset = "default") {
         skeletonColor: "#dcfce7",
         textColor: "#000000",
       }
-    default:
+    default: {
+      /* A dark scheme with no line of its own here waits in its own colours,
+         not on white: its page, its cards and its type, read off the scheme. */
+      if (isDarkScheme(themePreset) && themePreset in themePresets) {
+        const theme = themePresets[themePreset]
+        return {
+          backgroundColor: schemePageColour(themePreset) ?? "#0a0a0a",
+          skeletonColor: theme.productCard?.backgroundColor || "#1a1a1a",
+          textColor: theme.colors.foreground,
+        }
+      }
       return {
         backgroundColor: "#ffffff",
         skeletonColor: undefined, // Use default accent
         textColor: "#000000",
       }
+    }
   }
 }
 

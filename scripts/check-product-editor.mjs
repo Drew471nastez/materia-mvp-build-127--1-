@@ -53,6 +53,9 @@ import { join } from "node:path"
 import puppeteer from "puppeteer-core"
 import { appCss, interFaces } from "./probe-css.mjs"
 
+/* Save's colour when it can be pressed. Violet (#8b5cf6) until 7ea799ec made
+   the app's primary actions near black (#1a1a2e, primaryDepth). */
+const SAVE_INK = "rgb(26, 26, 46)"
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
 const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
@@ -256,6 +259,11 @@ const cards = (p) => p.$$eval("[data-faq-list] > [data-faq-id]", (els) => els.ma
  */
 async function reorder(p, label, vp, isPhone) {
   console.log(`  -- The questions, reordered`)
+  /* The FAQ card is folded to one line until it is opened. */
+  const folded = await p.evaluate(() => ({ list: !!document.querySelector("[data-faq-list]"), show: !!document.querySelector("[data-faq-show]") }))
+  expect(!folded.list && folded.show, "the questions are folded to one line until Show", folded)
+  await p.evaluate(() => document.querySelector("[data-faq-show]")?.click())
+  await sleep(250)
   const start = await order(p)
   expect(start.length === 4, "four questions to move", start)
   if (isPhone) {
@@ -1164,7 +1172,7 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     if (!isNew) expect(bar.more && bar.more.h === H && bar.more.w === H && bar.save.left - (bar.more.left + bar.more.w) === 8, `the more button is a ${H}px square, 8px before Save`, bar.more)
     expect(/inset/.test(bar.cancel.shadow) && bar.cancel.border === "1px" && bar.cancel.bg === "rgb(255, 255, 255)", "Cancel has depth: white, a hairline, a shade at its foot", { shadow: bar.cancel.shadow, border: bar.cancel.border, bg: bar.cancel.bg })
     if (!isNew) expect(/inset/.test(bar.more.shadow) && bar.more.border === "1px", "and so does the more button", { shadow: bar.more.shadow, border: bar.more.border })
-    expect(bar.save?.disabled === true && !/rgba\(\d+, \d+, \d+, 0\.[1-9]|rgb\(/.test(bar.save.shadow.replace(/rgba\(0, 0, 0, 0\)/g, "")) && bar.save.bg !== "rgb(139, 92, 246)", "Save is flat and grey while there is nothing to save", { disabled: bar.save.disabled, bg: bar.save.bg, shadow: bar.save.shadow })
+    expect(bar.save?.disabled === true && !/rgba\(\d+, \d+, \d+, 0\.[1-9]|rgb\(/.test(bar.save.shadow.replace(/rgba\(0, 0, 0, 0\)/g, "")) && bar.save.bg !== SAVE_INK, "Save is flat and grey while there is nothing to save", { disabled: bar.save.disabled, bg: bar.save.bg, shadow: bar.save.shadow })
     expect(!bar.named && !bar.headingShown, "the bar shows no product name: it is in the title field", { named: bar.named, heading: bar.heading })
     expect(bar.heading === (isNew ? "New product" : "Edit product"), "a screen reader still hears which page this is", bar.heading)
     if (isPhone) {
@@ -1220,7 +1228,7 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       /* One column in the order the source reads, the Status card (a computer's) not drawn. */
       const order = await p.evaluate(() => [...document.querySelectorAll("[data-product-editor] h2")].filter((h) => h.getClientRects().length > 0 && h.closest(".rounded-2xl")).map((h) => h.textContent.trim()))
       /* The category is a field in Content, above the description, since the owner moved it there. */
-      expect(same(order, ["About", "Photos and video", "Content", "What's Included", "Digital Files", "Variants", "Pricing", "FAQ", "Settings", "SEO"]), "one column of cards, each under its own heading, with no Status card", order)
+      expect(same(order, ["About", "Photos and video", "Content", "What's Included", "Digital Files", "Variants", "Pricing", "FAQ", "Settings", "Search engine listing"]), "one column of cards, each under its own heading, with no Status card", order)
       const fields = await p.$$eval("[data-product-editor] input:not([type=checkbox]):not([type=file]), [data-product-editor] select, [data-product-editor] textarea", (els) =>
         els.filter((e) => e.getBoundingClientRect().width > 0).map((e) => ({ id: e.id || e.placeholder, size: getComputedStyle(e).fontSize, h: Math.round(e.getBoundingClientRect().height) })))
       expect(fields.every((f) => f.size === "16px"), "every field is 16px, so iOS does not zoom", fields.filter((f) => f.size !== "16px"))
@@ -1313,7 +1321,7 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     expect(desk.side.left - desk.main.right === 16 && desk.main.top === desk.side.top, "two columns, 16px apart, starting on one line", { gap: desk.side.left - desk.main.right, tops: [desk.main.top, desk.side.top] })
     expect(desk.side.w >= 272 && (desk.side.w === 272 || Math.abs(desk.main.w - 2 * desk.side.w) <= 2), "the main column two thirds, the side one third", { main: desk.main.w, side: desk.side.w })
     expect(same(desk.mainCards, ["About", "Photos and video", "Content", "What's Included", "Digital Files", "Variants", "Pricing", "FAQ"]), "the product itself in the main column", desk.mainCards)
-    expect(same(desk.sideCards, ["Status", "Settings", "SEO"]), "its status, settings and search listing beside it", desk.sideCards)
+    expect(same(desk.sideCards, ["Status", "Settings", "Search engine listing"]), "its status, settings and search listing beside it", desk.sideCards)
     expect(desk.category, "the category is a field in the main column, above the description", desk.category)
     expect(desk.cardLook.bg === "rgb(255, 255, 255)" && desk.cardLook.radius === "16px" && /0px 1px 3px/.test(desk.cardLook.shadow), "each card is the /app card: white, 16px corners, the faint shadow", desk.cardLook)
     expect(!!desk.foot && desk.foot.position === "sticky" && desk.foot.bottomProp === "0px", "a foot bar, sticky at the bottom of the pane that scrolls", desk.foot)
@@ -1404,7 +1412,7 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       await p.keyboard.type("!")
       await sleep(150)
       const dirty = await saveState()
-      expect(dirty.disabled === false && dirty.bg === "rgb(139, 92, 246)", "a change lights Save up, in the violet", dirty)
+      expect(dirty.disabled === false && dirty.bg === SAVE_INK, "a change lights Save up, in the app's near black", dirty)
       if (wide) expect(dirty.state === "Unsaved changes", "and the foot bar says Unsaved changes", dirty.state)
       const moved = await geometry()
       expect(moved === resting, "and nothing in the bar moves or changes size", { resting, moved })
@@ -1432,7 +1440,7 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
       expect(saving.phase === "saving" && saving.busy === "true" && saving.spinner && saving.label === "0", "saving: a spinner in place of the word, aria-busy", saving)
       if (wide) expect(saving.state === "Saving", "the foot bar says Saving", saving.state)
       expect(saving.w === idle.w && saving.h === idle.h, "and Save keeps its size to the hundredth of a pixel", { idle: [idle.w, idle.h], saving: [saving.w, saving.h] })
-      expect(saving.bg === "rgb(139, 92, 246)" && saving.disabled === false, "and its colour: busy, not greyed", saving.bg)
+      expect(saving.bg === SAVE_INK && saving.disabled === false, "and its colour: busy, not greyed", saving.bg)
       expect(saving.said === "Saving", "a screen reader hears Saving", saving.said)
       let saved = saving
       for (let i = 0; i < 100 && saved.phase !== "saved"; i++) {

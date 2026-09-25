@@ -176,6 +176,12 @@ export interface RichTextEditorProps {
   uploadImage?: (file: File) => Promise<{ url: string; width?: number; height?: number }>
   /** Says why the HTML cannot be saved as it is (too long); shown under the text. */
   checkSize?: (html: string) => string | null
+  /**
+   * A bar along the foot of the field that drags its height up and down, by
+   * mouse or finger, anywhere along its width; the arrow keys move it in
+   * steps and a double press puts it back.
+   */
+  resizable?: boolean
   /** Height of the text area before it starts to grow, in px. */
   minHeight?: number
   /**
@@ -240,12 +246,59 @@ export function RichTextEditor({
   checkSize,
   minHeight = 168,
   grow = false,
+  resizable = false,
   stickyToolbar,
   toolbarEnd,
   className,
   id,
 }: RichTextEditorProps) {
   const rootRef = React.useRef<HTMLDivElement>(null)
+  /* The height the person dragged the field to, or null for its own. */
+  const [dragHeight, setDragHeight] = React.useState<number | null>(null)
+  const RESIZE_MAX = 1200
+  const clampHeight = React.useCallback((h: number) => Math.round(Math.min(RESIZE_MAX, Math.max(minHeight, h))), [minHeight])
+  /*
+    THE DRAG MOVES THE BOX, NOT REACT. While a finger or the mouse is down
+    the height is written straight onto the text box on each frame, and
+    React hears the last one when it lets go: no render per pixel, so it
+    follows the pointer one to one.
+  */
+  const startResize = React.useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const box = rootRef.current
+    if (!box || (e.pointerType === "mouse" && e.button !== 0)) return
+    e.preventDefault()
+    const handle = e.currentTarget
+    handle.setPointerCapture(e.pointerId)
+    const startY = e.clientY
+    const startH = box.getBoundingClientRect().height
+    let last = startH
+    let frame = 0
+    const move = (ev: PointerEvent) => {
+      last = clampHeight(startH + ev.clientY - startY)
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        box.style.height = `${last}px`
+        box.style.maxHeight = "none"
+      })
+    }
+    const end = () => {
+      if (frame) cancelAnimationFrame(frame)
+      handle.removeEventListener("pointermove", move)
+      handle.removeEventListener("pointerup", end)
+      handle.removeEventListener("pointercancel", end)
+      setDragHeight(last)
+    }
+    handle.addEventListener("pointermove", move)
+    handle.addEventListener("pointerup", end)
+    handle.addEventListener("pointercancel", end)
+  }, [clampHeight])
+  const keyResize = React.useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return
+    e.preventDefault()
+    const now = rootRef.current?.getBoundingClientRect().height ?? minHeight
+    setDragHeight(clampHeight(now + (e.key === "ArrowDown" ? 32 : -32)))
+  }, [clampHeight, minHeight])
   const toolbarRef = React.useRef<HTMLDivElement>(null)
   const stripRef = React.useRef<HTMLDivElement>(null)
   const savedRange = React.useRef<Range | null>(null)
@@ -1136,10 +1189,10 @@ export function RichTextEditor({
             /* Tall enough to write in; short enough that on a phone the
                toolbar and the caret both stay above the keyboard. A field
                that grows leaves the scrolling to the page. */
-            grow ? null : "max-h-[320px] overflow-y-auto overscroll-contain sm:max-h-[480px]",
+            dragHeight != null ? "overflow-y-auto overscroll-contain" : grow ? null : "max-h-[320px] overflow-y-auto overscroll-contain sm:max-h-[480px]",
             "[overflow-wrap:anywhere] [-webkit-user-select:text] [user-select:text]",
           )}
-          style={{ minHeight }}
+          style={dragHeight != null ? { minHeight, height: dragHeight, maxHeight: "none" } : { minHeight }}
         />
         {picture && uploadImage && rootRef.current && (!phone || dock) ? (
           <div aria-hidden={false} className="pointer-events-none absolute inset-0 z-[4] overflow-hidden">
@@ -1158,6 +1211,25 @@ export function RichTextEditor({
           </div>
         ) : null}
       </div>
+
+      {resizable ? (
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label={`Resize ${label}`}
+          aria-valuenow={dragHeight ?? undefined}
+          aria-valuemin={minHeight}
+          aria-valuemax={RESIZE_MAX}
+          tabIndex={0}
+          data-rich-text-resize=""
+          onPointerDown={startResize}
+          onKeyDown={keyResize}
+          onDoubleClick={() => setDragHeight(null)}
+          className="flex h-5 cursor-ns-resize touch-none select-none items-center justify-center border-t border-[#eef0f2] bg-[#fafafa] transition-colors duration-100 hover:bg-[#f3f4f6] focus-visible:bg-[#f3f4f6] focus-visible:outline-none sm:h-4"
+        >
+          <span aria-hidden className="h-1 w-9 rounded-full bg-[#d1d5db]" />
+        </div>
+      ) : null}
 
       {uploads > 0 || notice || sizeProblem ? (
         <div role="status" aria-live="polite" className="space-y-0.5 border-t border-[#eef0f2] px-3.5 py-2 text-[13px] leading-5">

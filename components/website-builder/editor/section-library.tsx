@@ -245,6 +245,12 @@ function useMarkup(key: string): string | undefined {
 
 /* ── A card ────────────────────────────────────────────────────────────── */
 
+/**
+ * Whether the library is on screen, for a preview to read at the moment it
+ * lands. Not a prop: opening the library must not draw every card again.
+ */
+let libraryOnScreen = false
+
 const PreviewBox = memo(function PreviewBox({
   markupKey,
   width,
@@ -263,8 +269,15 @@ const PreviewBox = memo(function PreviewBox({
   const markup = live ? stored : undefined
   /* The same object for the same markup, or React rewrites it on every render. */
   const html = useMemo(() => (markup ? { __html: markup } : null), [markup])
-  /* Fade only what arrives after the card was on screen; a ready preview is simply there. */
-  const [arrived] = useState(() => markup !== undefined)
+  /*
+    Fade only what arrives while the library is on screen; a ready preview is
+    simply there. Previews drawn ahead into the CLOSED library used to fade
+    too, dozens of animations nobody saw, each holding its preview on a layer
+    of its own: an idle editor paid for them on every frame the AI ring
+    turned (scripts/check-ai-ring-cost.mjs).
+  */
+  const fades = useRef<boolean | null>(markup !== undefined ? false : null)
+  if (markup !== undefined && fades.current === null) fades.current = libraryOnScreen
   const height = Math.round(width * ratio)
   const scale = width > 0 ? width / renderWidth : 0.3
   const inner: CSSProperties = {
@@ -288,7 +301,7 @@ const PreviewBox = memo(function PreviewBox({
     >
       {html && (
         <div
-          className={cn("absolute left-0 top-0 origin-top-left bg-white", !arrived && "wb-preview-arrive")}
+          className={cn("absolute left-0 top-0 origin-top-left bg-white", fades.current && "wb-preview-arrive")}
           data-keep-transform
           style={inner}
           aria-hidden
@@ -497,6 +510,12 @@ export const SectionLibrary = memo(function SectionLibrary({
    * the closed library costs the editor nothing at all.
    */
   const [built, setBuilt] = useState(false)
+  useLayoutEffect(() => {
+    libraryOnScreen = open
+    return () => {
+      libraryOnScreen = false
+    }
+  }, [open])
   useEffect(() => {
     if (open) {
       /* Whatever is still missing, in the order it will be seen. */
