@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import type { Metadata } from "next"
 
 import { createClient } from "@/lib/supabase/server"
-import { readCurrentUser } from "@/lib/auth/current-user"
+import { pageUser } from "@/lib/auth/page-user"
 import { CreatorPageWorkspace } from "@/components/app/creator-page-workspace"
 
 export const metadata: Metadata = { title: "Creator page - Storelib" }
@@ -44,8 +44,10 @@ export const dynamic = "force-dynamic"
  */
 export default async function CreatorPageWorkspaceRoute() {
   const supabase = await createClient()
-  const { user } = await readCurrentUser(supabase)
-  if (!user) redirect("/login")
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   const [{ data: creator }, { data: profile }] = await Promise.all([
     supabase.from("creators").select("id, slug, store_published").eq("user_id", user.id).single(),

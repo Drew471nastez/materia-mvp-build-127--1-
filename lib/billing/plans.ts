@@ -17,7 +17,7 @@
  *
  * Pure and client safe: every import here is a table, not a database client.
  */
-import { getFeeDescription } from "./fee-calculator"
+import { getFeeDescription, getFeePreview } from "./fee-calculator"
 import { siteLimits, type SitePlan } from "@/lib/sites/plan"
 import { PLAN_LIMITS, formatBytes } from "@/lib/storage/plans"
 
@@ -82,6 +82,14 @@ export function planHighlights(id: PlanId): string[] {
   return lines
 }
 
+/**
+ * The sale every card works through, so the fee is a number somebody keeps
+ * rather than a percentage they have to multiply out. $50 because it is over
+ * the $3.00 threshold for the fixed $0.25, so the example carries every part
+ * of the fee.
+ */
+export const EXAMPLE_SALE_CENTS = 5000
+
 export interface OfferedPlan {
   id: OfferedPlanId
   name: string
@@ -90,9 +98,15 @@ export interface OfferedPlan {
   /** Beside the price: "/month", or "forever" for the plan that costs nothing. */
   period: string
   summary: string
+  /** Who the plan is for, in one short line. */
+  audience: string
   /** The line above the feature list. */
   featuresHeading: string
   features: string[]
+  /** The fee on this plan, as a line: "6% + $0.25 per sale". */
+  fee: string
+  /** What the seller keeps of EXAMPLE_SALE_CENTS, from the fee table that charges it. */
+  keepsCents: number
 }
 
 export const OFFERED_PLANS: readonly OfferedPlan[] = [
@@ -103,8 +117,11 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
     price: formatPlanPrice(0),
     period: "forever",
     summary: "Everything you need to open a store and start selling.",
+    audience: "For opening a store and making your first sales.",
     featuresHeading: "Includes",
     features: planHighlights("free"),
+    fee: feeLine("free"),
+    keepsCents: getFeePreview(EXAMPLE_SALE_CENTS, "free").sellerReceivesCents,
   },
   {
     id: PRO_CHECKOUT_PLAN_ID,
@@ -113,8 +130,11 @@ export const OFFERED_PLANS: readonly OfferedPlan[] = [
     price: formatPlanPrice(PRO_PRICE_CENTS),
     period: "/month",
     summary: "A lower fee on every sale, your own domain, and no Storelib branding.",
+    audience: "For stores that sell every week and want their own address.",
     featuresHeading: "Everything in Free, plus",
     features: planHighlights(PRO_CHECKOUT_PLAN_ID).filter((line) => line !== "Unlimited digital products"),
+    fee: feeLine(PRO_CHECKOUT_PLAN_ID),
+    keepsCents: getFeePreview(EXAMPLE_SALE_CENTS, PRO_CHECKOUT_PLAN_ID).sellerReceivesCents,
   },
 ]
 

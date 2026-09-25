@@ -10,14 +10,20 @@
  *   - exactly two cards, side by side on a desktop and stacked on a phone
  *   - equal heights when side by side
  *   - nothing runs off the side of the page
- *   - Pro stands apart by restrained means only: a firmer border and a little
- *     more shadow, the same white surface, no gradient, no badge
+ *   - Pro stands apart by one flat surface: Storelib's near-black (#1a1a2e),
+ *     with Free on white; no background image on either, no badge floated
+ *     over a corner, and the plan somebody is on marked in line
+ *   - each card works one $50 sale through, and the numbers are the fee
+ *     table's own (lib/billing/fee-calculator.ts), not typed into the card
+ *   - side by side, the price, the sale and the button of both cards sit on
+ *     the same lines
  *   - every button is at least 44px tall
  *   - every piece of text reaches 4.5:1 against what it sits on
  *
- * It renders the marketing pricing section and the in-app upgrade page (for
- * somebody on Free, and for somebody still on the earlier $99 plan) at 390px
- * and 1280px, and writes a screenshot of each.
+ * It renders the marketing pricing section, onboarding's plan step (the
+ * compact cards, idle and while a plan is being set up) and the in-app
+ * upgrade page (for somebody on Free, and for somebody still on the earlier
+ * $99 plan) at 390px and 1280px, and writes a screenshot of each.
  *
  *   node scripts/check-pricing-cards.mjs
  *   SHOTS=/some/dir node scripts/check-pricing-cards.mjs   # keep screenshots
@@ -136,7 +142,12 @@ const PROBE = (W) => `<script>
       text: el.textContent.trim(), h: Math.round(box(el).height), w: Math.round(box(el).width),
       bg: getComputedStyle(el).backgroundColor,
     })),
-    positioned: [...document.querySelectorAll("[data-plan-card] *")].filter((el) => getComputedStyle(el).position === "absolute").length,
+    /* A screen reader's words (sr-only) are positioned out of sight on purpose and draw nothing. */
+    positioned: [...document.querySelectorAll("[data-plan-card] *")].filter((el) => getComputedStyle(el).position === "absolute" && !el.classList.contains("sr-only")).length,
+    examples: [...document.querySelectorAll("[data-plan-example]")].map((el) => ({ id: el.dataset.planExample, text: el.textContent, top: Math.round(box(el).top) })),
+    prices: [...document.querySelectorAll("[data-plan-card]")].map((el) => Math.round(box(el.querySelector("p.flex")).top)),
+    actionTops: [...document.querySelectorAll("[data-plan-action]")].map((el) => Math.round(box(el).top)),
+    current: [...document.querySelectorAll("[data-plan-current]")].map((el) => el.closest("[data-plan-card]").dataset.planCard),
     contrast: [],
   }
 
@@ -170,7 +181,7 @@ const expect = (ok, what, got = "") => {
 }
 
 try {
-  for (const name of ["marketing", "upgrade", "upgrade-legacy"]) {
+  for (const name of ["marketing", "onboarding", "onboarding-loading", "upgrade", "upgrade-legacy"]) {
     const body = readFileSync(join(out, `${name}.html`), "utf8")
     for (const W of [390, 1280]) {
       const html = join(out, `${name}-${W}.html`)
@@ -193,7 +204,7 @@ try {
 
       if (SHOTS) {
         mkdirSync(SHOTS, { recursive: true })
-        const shot = join(SHOTS, `pricing-${name}-${W}.png`)
+        const shot = join(SHOTS, `${process.env.SHOTS_PREFIX ?? "pricing-"}${name}-${W}.png`)
         execFileSync(
           CHROMIUM,
           ["--headless=new", "--no-sandbox", "--disable-gpu", `--window-size=${W},${W < 640 ? 2000 : 1250}`,
@@ -212,15 +223,31 @@ try {
         expect(free.top === pro.top && free.left < pro.left, "side by side", `tops ${free.top}/${pro.top}, lefts ${free.left}/${pro.left}`)
         expect(Math.abs(free.height - pro.height) <= 1, "equal heights", `${free.height}px and ${pro.height}px`)
       } else {
-        expect(pro.top >= free.bottom, "stacked, Free above Pro", `Free ends ${free.bottom}, Pro starts ${pro.top}`)
+        if (name === "upgrade") expect(free.top >= pro.bottom, "stacked, Pro first for somebody on Free (what they came for)", `Pro ends ${pro.bottom}, Free starts ${free.top}`)
+        else expect(pro.top >= free.bottom, "stacked, Free above Pro", `Free ends ${free.bottom}, Pro starts ${pro.top}`)
         expect(free.width === pro.width, "the same width", `${free.width}px and ${pro.width}px`)
         expect(free.left >= 16 && free.right >= 16, "at least 16px from each edge", `${free.left}/${free.right}px`)
       }
       expect(r.overflow === 0, "the page does not scroll sideways", `${r.overflow}px off the side`)
 
-      expect(free.bg === pro.bg && free.bgImage === "none" && pro.bgImage === "none", "both on the same plain white surface, no gradient", `${free.bg} ${free.bgImage} / ${pro.bg} ${pro.bgImage}`)
+      expect(free.bg === "rgb(255, 255, 255)" && pro.bg === "rgb(26, 26, 46)", "Free on white, Pro on Storelib's near-black", `${free.bg} / ${pro.bg}`)
+      expect(free.bgImage === "none" && pro.bgImage === "none", "one flat colour each, no background image", `${free.bgImage} / ${pro.bgImage}`)
       expect(free.borderWidth === pro.borderWidth && pro.borderWidth <= 1, "the same 1px border weight", `${free.borderWidth}/${pro.borderWidth}`)
-      expect(free.border !== pro.border && free.shadow !== pro.shadow, "Pro set apart by border tone and shadow", `${pro.border} vs ${free.border}`)
+      expect(free.shadow !== pro.shadow, "Pro sits a little higher than Free", `${pro.shadow} vs ${free.shadow}`)
+
+      const [exFree, exPro] = r.examples
+      expect(/6% \+ \$0\.25/.test(exFree?.text ?? "") && /\$46\.75/.test(exFree?.text ?? ""), "Free works a $50 sale through: 6% + $0.25, you keep $46.75", exFree?.text)
+      expect(/3% \+ \$0\.25/.test(exPro?.text ?? "") && /\$48\.25/.test(exPro?.text ?? "") && /\+\$1\.50/.test(exPro?.text ?? ""), "Pro: 3% + $0.25, you keep $48.25, $1.50 more", exPro?.text)
+      if (W >= 768) {
+        expect(r.prices[0] === r.prices[1] && exFree.top === exPro.top && r.actionTops[0] === r.actionTops[1],
+          "price, sale and button on the same lines across both cards", `prices ${r.prices}, sales ${exFree.top}/${exPro.top}, buttons ${r.actionTops}`)
+      }
+      if (name === "upgrade") expect(r.current.length === 1 && r.current[0] === "free", "the plan somebody is on is marked, in line", JSON.stringify(r.current))
+      if (name === "marketing") expect(r.current.length === 0, "a visitor's cards mark no plan as theirs", JSON.stringify(r.current))
+      if (name === "onboarding-loading") {
+        const busy = r.buttons.find((b) => /Processing/.test(b.text))
+        expect(Boolean(busy) && r.buttons.every((b) => b.h === r.buttons[0].h), "a plan being set up says so, and the button keeps its size", r.buttons.map((b) => `"${b.text}" ${b.h}px`).join("; "))
+      }
       expect(r.positioned === 0, "no badge floated over a card", `${r.positioned} absolutely positioned`)
       expect(free.radius <= 16 && pro.radius <= 16, "corners no rounder than the app's cards (16px)", `${free.radius}/${pro.radius}px`)
 

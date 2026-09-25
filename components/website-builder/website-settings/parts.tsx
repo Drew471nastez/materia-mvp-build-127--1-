@@ -14,25 +14,31 @@ import * as React from "react"
 import { Check, Copy, ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+/**
+ * The subject's name, and its one action beside it. On a phone the action
+ * stays on the heading's line at its own width, and only drops under the
+ * heading when the two do not fit; it used to go full width under every
+ * heading, a slab of button before anything was said.
+ */
 export function PageTitle({ children, aside }: { children: React.ReactNode; aside?: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-      <h1 className="text-[24px] font-semibold tracking-[-0.01em] md:text-[28px]">{children}</h1>
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 md:items-end">
+      <h1 className="min-w-0 text-[24px] font-semibold tracking-[-0.01em] md:text-[28px]">{children}</h1>
       {aside}
     </div>
   )
 }
 
 export function Lead({ children }: { children: React.ReactNode }) {
-  return <p className="mt-2 max-w-[600px] text-[14.5px] leading-relaxed text-white/55">{children}</p>
+  return <p className="mt-2 max-w-[600px] text-[14px] leading-relaxed text-white/55 md:text-[14.5px]">{children}</p>
 }
 
 export function Card({ title, children, className, footer }: { title?: string; children: React.ReactNode; className?: string; footer?: React.ReactNode }) {
   return (
-    <section className={cn("mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]", className)}>
-      {title && <h2 className="border-b border-white/[0.07] px-5 py-3.5 text-[14px] font-semibold text-white/90 md:px-6">{title}</h2>}
+    <section className={cn("mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] md:mt-6", className)}>
+      {title && <h2 className="border-b border-white/[0.07] px-4 py-3.5 text-[14px] font-semibold text-white/90 md:px-6">{title}</h2>}
       <div className="divide-y divide-white/[0.07]">{children}</div>
-      {footer && <div className="border-t border-white/[0.07] px-5 py-3 text-[13px] text-white/45 md:px-6">{footer}</div>}
+      {footer && <div className="border-t border-white/[0.07] px-4 py-3 text-[13px] leading-snug text-white/45 md:px-6">{footer}</div>}
     </section>
   )
 }
@@ -40,42 +46,81 @@ export function Card({ title, children, className, footer }: { title?: string; c
 /**
  * One fact or one control. `stack` puts the control under its label at every
  * width, for the controls that need the room: a text area, an image.
+ * `inline` keeps a small control (a switch, a badge, one button) on the
+ * label's line on a phone too, the way a phone's own settings do, instead of
+ * a line of its own under the words.
  */
 export function Row({
   label,
   hint,
   children,
   stack = false,
+  inline = false,
   htmlFor,
 }: {
   label: React.ReactNode
   hint?: React.ReactNode
   children?: React.ReactNode
   stack?: boolean
+  inline?: boolean
   htmlFor?: string
 }) {
   const Label = htmlFor ? "label" : "div"
   return (
-    <div className={cn("flex flex-col gap-2.5 px-5 py-4 md:px-6", !stack && "md:flex-row md:items-center md:justify-between md:gap-6")}>
-      <div className={cn("min-w-0", !stack && "md:flex-1")}>
+    <div
+      className={cn(
+        "flex px-4 py-4 md:px-6",
+        inline && !stack
+          ? "flex-row items-center justify-between gap-4 md:gap-6"
+          : cn("flex-col gap-2.5", !stack && "md:flex-row md:items-center md:justify-between md:gap-6"),
+      )}
+    >
+      <div className={cn("min-w-0", !stack && (inline ? "flex-1" : "md:flex-1"))}>
         <Label {...(htmlFor ? { htmlFor } : {})} className="block text-[14.5px] font-medium text-white">
           {label}
         </Label>
         {hint && <p className="mt-0.5 text-[13px] leading-snug text-white/45">{hint}</p>}
       </div>
-      {children !== undefined && <div className={cn("min-w-0", !stack && "md:shrink-0")}>{children}</div>}
+      {children !== undefined && <div className={cn("min-w-0", !stack && (inline ? "shrink-0" : "md:shrink-0"))}>{children}</div>}
     </div>
   )
 }
 
+/**
+ * 16px text on a phone, and that is not a matter of taste: iOS zooms the
+ * whole page into any field whose text is smaller than 16px the moment it is
+ * focused, and leaves it zoomed. 44px tall there, a thumb's height; the
+ * desktop keeps its 40.
+ */
 export const inputClass =
-  "h-10 w-full min-w-0 rounded-lg border border-white/12 bg-[#171717] px-3.5 text-[14.5px] text-white outline-none transition-colors duration-150 placeholder:text-white/30 focus:border-white/35 md:w-[320px]"
+  "h-11 w-full min-w-0 rounded-lg border border-white/12 bg-[#171717] px-3.5 text-[16px] text-white outline-none transition-colors duration-150 placeholder:text-white/30 focus:border-white/35 md:h-10 md:w-[320px] md:text-[14.5px]"
 
+/** A text area with the same edge, fill and phone rule as a field. */
+export const textAreaClass =
+  "w-full resize-none rounded-lg border border-white/12 bg-[#171717] px-3.5 py-2.5 text-[16px] leading-relaxed text-white outline-none transition-colors duration-150 placeholder:text-white/30 focus:border-white/35 md:text-[14.5px]"
+
+/**
+ * The editor bar's depth, drawn for the dark page: a line of light along the
+ * top and a shade at the foot, flat and a step darker when pressed. 44px on a
+ * phone, 36 on a desktop.
+ */
 export const buttonClass =
-  "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/[0.06] px-3.5 text-[14px] font-medium text-white transition-colors duration-150 hover:bg-white/[0.12] disabled:cursor-default disabled:opacity-50"
+  "inline-flex h-11 shrink-0 select-none items-center justify-center gap-2 rounded-[10px] border border-white/[0.13] bg-white/[0.06] px-4 text-[15px] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.4)] transition-[background-color,box-shadow] duration-100 hover:bg-white/[0.1] active:bg-white/[0.04] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.45)] disabled:cursor-default disabled:opacity-50 md:h-9 md:rounded-lg md:px-3.5 md:text-[14px] [-webkit-tap-highlight-color:transparent]"
 
 export const primaryButtonClass =
-  "inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-white px-4 text-[14px] font-semibold text-[#0f0f0f] transition-opacity duration-150 hover:opacity-90 disabled:cursor-default disabled:opacity-50"
+  "inline-flex h-11 shrink-0 select-none items-center justify-center gap-2 rounded-[10px] bg-white px-4 text-[15px] font-semibold text-[#0f0f0f] shadow-[inset_0_-1px_0_rgba(0,0,0,0.12),0_1px_2px_rgba(0,0,0,0.4)] transition-[opacity,box-shadow] duration-100 hover:opacity-90 active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] disabled:cursor-default disabled:opacity-50 md:h-9 md:rounded-lg md:text-[14px] [-webkit-tap-highlight-color:transparent]"
+
+/**
+ * A word that goes somewhere, inside a hint or beside a badge. Its box is the
+ * word; on a phone its press area is a thumb's height around it, an
+ * invisible band above and below, so no text moves to make room.
+ */
+export const textLinkClass =
+  "relative inline-flex items-center text-white/75 underline underline-offset-2 transition-colors hover:text-white after:absolute after:-inset-x-1 after:-inset-y-[13px] after:content-[''] md:after:hidden [-webkit-tap-highlight-color:transparent]"
+
+/** A square icon button (copy, open): 44px on a phone, 32 on a desktop. */
+export const iconButtonClass =
+  "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white/55 transition-colors hover:bg-white/10 hover:text-white active:bg-white/[0.08] md:h-8 md:w-8 md:rounded-md [-webkit-tap-highlight-color:transparent]"
 
 type Tone = "live" | "neutral" | "attention" | "critical"
 
@@ -98,7 +143,8 @@ export function Badge({ tone, children }: { tone: Tone; children: React.ReactNod
 /** A switch. A real checkbox underneath, so a keyboard and a screen reader get one for free. */
 export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (on: boolean) => void; label: string }) {
   return (
-    <label className="relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center">
+    /* 24px drawn, 44px pressed: the band around it belongs to the label. */
+    <label className="relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-[''] [-webkit-tap-highlight-color:transparent]">
       <input type="checkbox" className="peer sr-only" checked={checked} aria-label={label} onChange={(e) => onChange(e.target.checked)} />
       <span className="absolute inset-0 rounded-full bg-white/15 transition-colors duration-150 peer-checked:bg-emerald-500 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-white/60" />
       <span className="absolute left-0.5 h-5 w-5 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.35)] transition-transform duration-150 peer-checked:translate-x-4" />
@@ -111,8 +157,8 @@ export function AddressValue({ url, display }: { url: string; display: string })
   const [copied, setCopied] = React.useState(false)
   if (!url) return <span className="text-[14.5px] text-white/45">No address yet</span>
   return (
-    <span className="flex min-w-0 items-center gap-1">
-      <span className="min-w-0 truncate text-[14.5px] text-white/85">{display}</span>
+    <span className="-mr-2 flex min-w-0 items-center md:mr-0 md:gap-1">
+      <span className="min-w-0 flex-1 truncate text-[14.5px] text-white/85 md:flex-none">{display}</span>
       <button
         type="button"
         onClick={() => {
@@ -121,7 +167,7 @@ export function AddressValue({ url, display }: { url: string; display: string })
             window.setTimeout(() => setCopied(false), 1400)
           })
         }}
-        className="rounded-md p-1.5 text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+        className={iconButtonClass}
         aria-label={copied ? "Address copied" : "Copy address"}
       >
         {copied ? <Check className="h-4 w-4" strokeWidth={2} /> : <Copy className="h-4 w-4" strokeWidth={1.75} />}
@@ -130,7 +176,7 @@ export function AddressValue({ url, display }: { url: string; display: string })
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="rounded-md p-1.5 text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+        className={iconButtonClass}
         aria-label="Open the website"
       >
         <ExternalLink className="h-4 w-4" strokeWidth={1.75} />

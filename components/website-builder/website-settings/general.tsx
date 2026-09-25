@@ -4,8 +4,9 @@ import { useEffect, useState } from "react"
 import { Check, Loader2 } from "lucide-react"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { SITE_LANGUAGES, siteLanguage } from "@/lib/website-builder/site-language"
-import { AddressValue, Badge, Card, ErrorNote, GOES_LIVE, PageTitle, Row, buttonClass, inputClass } from "./parts"
+import { AddressValue, Badge, Card, ErrorNote, GOES_LIVE, PageTitle, Row, buttonClass, inputClass, textLinkClass } from "./parts"
 import type { SettingsContext } from "./types"
+import { cn } from "@/lib/utils"
 
 export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
   const [draft, setDraft] = useState(ctx.name)
@@ -59,7 +60,7 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
               }}
               className={inputClass}
             />
-            <button type="button" onClick={() => void save()} disabled={!dirty || saving} className={buttonClass}>
+            <button type="button" onClick={() => void save()} disabled={!dirty || saving} className={cn(buttonClass, "md:h-10")}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : null}
               {saving ? "Saving" : saved ? "Saved" : "Save"}
             </button>
@@ -69,7 +70,7 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
           label="Address"
           hint={
             <>
-              <button type="button" onClick={() => ctx.go("domains")} className="text-white/75 underline underline-offset-2 hover:text-white">
+              <button type="button" onClick={() => ctx.go("domains")} className={textLinkClass}>
                 Change address
               </button>
             </>
@@ -77,13 +78,8 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
         >
           <AddressValue url={ctx.websiteUrl} display={ctx.websiteUrlDisplay} />
         </Row>
-        <Row label="Status">
-          <span className="flex items-center gap-3">
-            {ctx.live ? <Badge tone="live">Live</Badge> : <Badge tone="neutral">Draft</Badge>}
-            <button type="button" onClick={() => ctx.go("publishing")} className="text-[13.5px] text-white/60 underline-offset-2 hover:text-white hover:underline">
-              Publishing
-            </button>
-          </span>
+        <Row label="Status" hint={<button type="button" onClick={() => ctx.go("publishing")} className={textLinkClass}>Publishing</button>} inline>
+          {ctx.live ? <Badge tone="live">Live</Badge> : <Badge tone="neutral">Draft</Badge>}
         </Row>
       </Card>
 

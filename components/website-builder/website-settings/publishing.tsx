@@ -48,7 +48,7 @@ export function PublishingSettings({ ctx }: { ctx: SettingsContext }) {
       </PageTitle>
 
       <Card>
-        <Row label="Status" hint={ctx.live ? "Visitors see the last version you published." : "Nobody can see this website until you publish it."}>
+        <Row label="Status" hint={ctx.live ? "Visitors see the last version you published." : "Nobody can see this website until you publish it."} inline>
           {ctx.live ? <Badge tone="live">Live</Badge> : <Badge tone="neutral">Draft</Badge>}
         </Row>
         <Row label="Published address">
@@ -66,14 +66,14 @@ export function PublishingSettings({ ctx }: { ctx: SettingsContext }) {
           <Row label="Unpublish this website" hint="Your address shows a short “not published yet” page. Nothing is deleted, and you can publish again at any time.">
             {confirming ? (
               <span className="flex items-center gap-2">
-                <button type="button" onClick={() => setConfirming(false)} disabled={busy} className="h-9 rounded-lg px-3 text-[14px] text-white/70 hover:text-white">
+                <button type="button" onClick={() => setConfirming(false)} disabled={busy} className="h-11 rounded-lg px-3 text-[15px] text-white/70 hover:text-white md:h-9 md:text-[14px]">
                   Keep live
                 </button>
                 <button
                   type="button"
                   onClick={() => void takeOffline()}
                   disabled={busy}
-                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-amber-500 px-4 text-[14px] font-semibold text-[#1a1200] transition-colors hover:bg-amber-400 disabled:opacity-60"
+                  className="inline-flex h-11 items-center gap-2 rounded-[10px] bg-amber-500 px-4 text-[15px] font-semibold text-[#1a1200] transition-colors hover:bg-amber-400 disabled:opacity-60 md:h-9 md:rounded-lg md:text-[14px]"
                 >
                   {busy && <Loader2 className="h-4 w-4 animate-spin" />}
                   Take offline

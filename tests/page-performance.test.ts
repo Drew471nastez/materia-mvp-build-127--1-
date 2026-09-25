@@ -188,7 +188,7 @@ check(
       /export const NAV_SPINNER_AFTER_MS = 1000/.test(nav) &&
       /export const NAV_PHONE_SPINNER_AFTER_MS = 500/.test(nav) &&
       /export const NAV_BAR_AFTER_MS = 300/.test(nav) &&
-      /<ActivitySpinner \/>/.test(stage) &&
+      /<PageSpinner \/>/.test(stage) &&
       !/RouteSkeleton/.test(stage) &&
       !existsSync(join(root, "components/app/route-skeletons.tsx"))
     )
@@ -2432,7 +2432,9 @@ check(
       missing.push("the stored path takes its extension from the original, so a WebP is stored as .heic")
 
     // The three refusals, each of which turns an optimisation into a downgrade.
-    if (!/if \(blob\.size >= file\.size\) return file/.test(compress))
+    /* The original goes up instead, without its location metadata
+       (lib/images/metadata.ts), never the larger re-encode. */
+    if (!/if \(blob\.size >= file\.size\) return \(await withoutMetadata\(file\)\) as File/.test(compress))
       missing.push("compression can now return something LARGER than it was given")
     if (!/const LEAVE_ALONE = /.test(compress) || !compress.includes("svg") || !compress.includes("gif"))
       missing.push("SVGs and GIFs are rasterised again — one loses its animation, the other gets bigger")
@@ -2632,7 +2634,11 @@ check(
 
     if (!/rewritePath\.startsWith\("\/u\/"\)/.test(proxy))
       missing.push("the proxy no longer recognises a storefront rewrite")
-    if (!/supabaseResponse\.headers\.set\("Cache-Control", "private, no-cache, must-revalidate"\)/.test(proxy))
+    /* Set on whichever response the proxy returns: built by `respond()`, the
+       one function the proxy uses both first and again after a session
+       renewal, so the header survives a renewal too. */
+    if (!/if \(rewritePath\.startsWith\("\/u\/"\)\) r\.headers\.set\("Cache-Control", "private, no-cache, must-revalidate"\)/.test(proxy) ||
+        !/supabaseResponse = respond\(\)/.test(proxy))
       missing.push("a subdomain storefront is edge-cacheable again — saves will not show, and one viewer's page can be served to another")
 
     // The direct path keeps its own rule.

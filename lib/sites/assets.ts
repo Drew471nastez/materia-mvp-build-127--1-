@@ -24,6 +24,8 @@ import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { matchesDeclared } from "@/lib/storage/file-signature"
+import { imageSizeProblem, readImageSize, stripImageMetadata } from "@/lib/images/metadata"
 
 export const ASSET_BUCKET = "site-assets"
 
@@ -171,9 +173,27 @@ export async function uploadAsset(input: {
     return { ok: false, error: `This site is at its limit of ${MAX_ASSETS_PER_SITE} files.` }
   }
 
+  /*
+    The declared type chose the extension; the bytes have to agree with it. A
+    page called logo.png and sent as image/png is refused here, and a photo
+    loses its location metadata before it gets a public URL
+    (lib/storage/file-signature.ts, lib/images/metadata.ts).
+  */
+  const head = new Uint8Array(input.body, 0, Math.min(input.body.byteLength, 4096))
+  if (!matchesDeclared(head, input.mime)) {
+    return { ok: false, error: `That file is not the ${ALLOWED[input.mime].toUpperCase()} it says it is.` }
+  }
+  let body: ArrayBuffer | Uint8Array = input.body
+  if (input.mime.startsWith("image/")) {
+    const size = readImageSize(new Uint8Array(input.body))
+    const tooBig = imageSizeProblem(size)
+    if (tooBig) return { ok: false, error: tooBig }
+    body = stripImageMetadata(new Uint8Array(input.body))
+  }
+
   const key = storageKey(input.siteId, input.mime)
 
-  const { error: uploadError } = await admin.storage.from(ASSET_BUCKET).upload(key, input.body, {
+  const { error: uploadError } = await admin.storage.from(ASSET_BUCKET).upload(key, body, {
     contentType: input.mime,
     // The key carries a UUID, so a name is never reused and the file behind a
     // URL never changes. That is what makes the long cache below safe.

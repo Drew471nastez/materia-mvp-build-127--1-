@@ -111,7 +111,7 @@ check("and the list still prefetches the editor, data and all, when a row is hov
 console.log("\nOne bar, at the top")
 
 check("no Save and Cancel strip at the foot of the screen", !/fixed bottom-0 left-0 right-0/.test(editor) && !/Bottom Action Bar/.test(read("app/app/products/new/product-editor.tsx")))
-check("the bar is sticky at the top and holds Cancel and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30/.test(editor) && /<SaveButton phase=\{savePhase\}/.test(editor) && /onClick=\{\(\) => void handleCancel\(\)\}/.test(editor))
+check("the bar is sticky at the top and holds Cancel (or Back) and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30/.test(editor) && /<SaveButton phase=\{savePhase\}/.test(editor) && /<LeaveButton mode=\{leaveMode\} disabled=\{saveBusy\} onLeave=\{\(\) => void handleCancel\(\)\} \/>/.test(editor))
 check("Cmd or Ctrl and S saves", /e\.metaKey \|\| e\.ctrlKey/.test(editor) && /key\.toLowerCase\(\) !== "s"/.test(editor))
 const barSource = editor.slice(editor.indexOf('data-editor-bar=""'), editor.indexOf('aria-label="Sections"'))
 check("the bar names no product: the name is in the title field", !/savedTitle|\{title\}|"Untitled product"/.test(barSource.replace(/title=\{savedTitle\.trim\(\) \|\| "Product"\}/, "")) && /<h1 className="sr-only">\{productId \? "Edit product" : "New product"\}<\/h1>/.test(barSource))
@@ -122,14 +122,33 @@ check("Cancel at the start, the more button and Save at the end", /flex h-14 max
 check("whether the product is live or a draft heads the more menu", /section: isPublished \? "Live on your page" : "Draft, hidden from your page"/.test(barSource))
 check("the unsaved tracking still drives the leave question", /if \(hasUnsavedChanges\) \{\s*const leave = await ask\(/.test(editor) && /title: "Discard changes\?"/.test(editor) && /confirm: "Discard", cancel: "Keep editing"/.test(editor))
 
+/* "Either smoothly close that page, or the Cancel button should become Back when the product is saved, and the state of the buttons should change." */
+console.log("\nAfter a save the page stays: Back, and a grey Saved")
+check("the first button is Back once the product is saved and nothing has changed since, Cancel otherwise", /const leaveMode = productId && !hasUnsavedChanges \? "back" : "cancel"/.test(editor))
+check("a save leaves the page where it was: no scroll to the top", !/contentRef\.current\?\.scrollTo\(\{ top: 0/.test(editor))
+check("while Save saves, Cancel is held", /<LeaveButton mode=\{leaveMode\} disabled=\{saveBusy\}/.test(editor))
+check("a save in this visit makes the grey Save say Saved, until the next change", /setSavedThisVisit\(true\)/.test(editor) && /saved=\{savedThisVisit\}/.test(editor))
+check("a new product's first save carries the check and Saved to the page at its own address", /carriedSavedAt = savedAt/.test(editor) && /useState\(\(\) => carriedSavedAt !== null\)/.test(editor))
+check("and opens where the form was scrolled, with no landing played over it: the same product, not a new page", /carriedScrollTop = contentRef\.current\?\.scrollTop \?\? 0\s*holdLayerLanding\(\)/.test(editor) && /if \(top && contentRef\.current\) contentRef\.current\.scrollTop = top/.test(editor)
+  && /export function holdLayerLanding\(\)/.test(code("components/app/page-layer.tsx")) && /if \(html\.dataset\.layerMotion === "stay"\) \{\s*requestAnimationFrame/.test(code("components/app/page-layer.tsx")))
+check("both ways out go through the list's return: the layer's move, the list's scroll, the row tinted", /returnToProducts\(router, productId\)/.test(editor) && !/router\.push\("\/app\/products"\)/.test(editor))
+check("the list is fetched ahead when the editor opens and again after a save's refresh", /useEffect\(\(\) => \{\s*warmProducts\(router\)\s*\}, \[router, loaded\]\)/.test(editor))
+check("Cmd or Ctrl and S still saves from anywhere", /saveShortcut\.current\(\)/.test(editor))
+
 console.log("\nThe bar's buttons (app/app/products/new/editor-buttons.tsx)")
 
-const buttons = code("app/app/products/new/editor-buttons.tsx")
+/* The depth is shared from components/ui/depth-button.ts; the sizes stay in the editor. */
+const buttons = code("app/app/products/new/editor-buttons.tsx") + code("components/ui/depth-button.ts")
 check("Cancel and more are white with a hairline and a shade at their foot, flat when pressed",
   /border border-\[#d9dbe0\] bg-white/.test(buttons) && /shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\),0_1px_0_rgba\(0,0,0,0\.05\)\]/.test(buttons) && /active:shadow-\[inset_0_1px_1px_rgba\(0,0,0,0\.1\)\]/.test(buttons))
 check("the more button is square and Save's height: 40px on a phone, 32px from 640px",
-  /barIconButton = cn\(secondaryDepth, PRESS_AREA_BORDERED, "h-10 w-10 [^"]*sm:h-8 sm:w-8/.test(buttons) && /"inline-flex h-10 min-w-\[64px\][^"]*sm:h-8/.test(buttons))
-check("Save keeps its word in the layout while busy, so its width never changes", /<span className=\{cn\(busy && "opacity-0"\)\}>Save<\/span>/.test(buttons) && /absolute inset-0 flex items-center justify-center/.test(buttons))
+  /barIconButton = cn\(secondaryDepth, PRESS_AREA_BORDERED, "h-10 w-10 [^"]*sm:h-8 sm:w-8/.test(buttons) && /"h-10 min-w-\[64px\][^"]*sm:h-8/.test(buttons))
+check("Save keeps its word in the layout while busy, and is always as wide as Saved, so its width never changes",
+  /<span className=\{cn\("col-start-1 row-start-1 text-center", busy && "opacity-0"\)\}>\{word\}<\/span>/.test(buttons) && /after:content-\['Saved'\]/.test(buttons) && /absolute inset-0 flex items-center justify-center/.test(buttons))
+check("the grey Save says Saved only when it is disabled after a save", /const word = !busy && disabled && saved \? "Saved" : "Save"/.test(buttons))
+check("Save's violet and depth are one exported set (primaryDepth), which New product wears too", /export const primaryDepth = cn\(/.test(buttons) && /PRESS_AREA,\s*primaryDepth,/.test(buttons))
+check("Cancel and Back are one button holding both words, crossfading, so the bar never moves",
+  /export function LeaveButton/.test(buttons) && /data-leave-button=""/.test(buttons) && /aria-label=\{back \? "Back" : "Cancel"\}/.test(buttons) && /<ChevronLeft/.test(buttons) && /transition-opacity duration-150 motion-reduce:transition-none/.test(buttons) && /cn\(barButton, "grid"\)/.test(buttons))
 check("busy is aria-busy and not disabled, and a press while busy does nothing", /aria-busy=\{phase === "saving" \|\| undefined\}/.test(buttons) && /disabled=\{!busy && disabled\}/.test(buttons) && /if \(!busy\) onSave\(\)/.test(buttons))
 check("a check for SAVED_CHECK_MS after a save", /export const SAVED_CHECK_MS = 900/.test(buttons) && /data-save-check=""/.test(buttons) && /setTimeout\(\(\) => setSavedFlash\(false\), SAVED_CHECK_MS\)/.test(editor))
 check("disabled is Polaris grey with no depth", /disabled:bg-\[#ebebef\] disabled:text-\[#a1a1aa\] disabled:shadow-none/.test(buttons))
@@ -187,7 +206,7 @@ check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g
 console.log("\nThe Products list: a shelf of pictures on a phone, a light table from 768px")
 
 const list = code("app/app/products/products-client.tsx")
-check("a list under 768px and the table from it", /<ul aria-label="Products" data-list="" className="-mx-4 sm:-mx-6 md:hidden">/.test(list) && /className="hidden w-full table-fixed border-separate border-spacing-0 text-\[13px\] md:table"/.test(list))
+check("a list under 768px and the table from it", /<ul aria-label="Products" data-list="" className="-mx-4 sm:-mx-6 md:hidden" hidden=\{pageProducts\.length === 0\}>/.test(list) && /className="hidden w-full table-fixed border-separate border-spacing-0 text-\[13px\] md:table"/.test(list))
 check("no table forced sideways on a phone", !/min-w-\[500px\]/.test(list) && !/min-w-max/.test(list) && !/sticky left-0/.test(list))
 check("a hover or a finger prefetches the editor in full", /onTouchStart=\{\(\) => warm\(product\.id\)\}/.test(list) && /kind: "full"/.test(list))
 const couponsList = code("app/app/coupons/coupons-client.tsx")
@@ -196,8 +215,14 @@ check("with its own title", /<h1[^>]*>Coupons<\/h1>/.test(couponsList))
 const sidebar = code("components/app/sidebar.tsx")
 check("and its own place in the menu, under Products, where it was", /href: "\/app\/products",[\s\S]{0,160}children: \[\{ href: "\/app\/coupons", label: "Coupons" \}\]/.test(sidebar))
 check("the Orders bar, gutter and width, not a parallel set", /<PaneBar width=\{LIST_WIDTH\} className=\{LIST_BAR\}>/.test(list) && /from "\.\.\/orders\/order-parts"/.test(list))
-check("New product is the one dark button (buttonPrimary, not the violet accent), with no icon, and a 44px press on a phone",
-  /<Link href="\/app\/products\/new" data-new-product="" className=\{cn\(buttonPrimary, PRESS\)\}>\s*\{t\("products\.newProduct"\)\}\s*<\/Link>/.test(list) && !/buttonAccent/.test(list) && /max-md:after:-inset-1\.5/.test(list))
+/* "In the Products page the New product button at the top should be purple." */
+check("New product is the one violet button, the editor's Save's colour and depth (primaryDepth, not a copy), with no icon, and a 44px press on a phone",
+  /const NEW_LOOK = cn\(primaryDepth, PRESS, "h-8 gap-1\.5 rounded-lg px-3 text-\[13px\]"\)/.test(list) && /data-new-product=""[\s\S]{0,200}className=\{NEW_LOOK\}\s*>\s*\{t\("products\.newProduct"\)\}\s*<\/Link>/.test(list)
+    && /import \{ primaryDepth, secondaryDepth \} from "\.\/new\/editor-buttons"/.test(list) && !/buttonAccent|buttonPrimary/.test(list) && !/bg-\[#8b5cf6\]/.test(list) && /max-md:after:-inset-1\.5/.test(list))
+/* "Make sure the three dots button in the products page has the same depth as the three dots button in the edit product page." */
+check("a row's more button wears the editor's secondaryDepth, 40px on a phone with a 44px press, 32px in the table",
+  /const ROW_MENU_PHONE = cn\(\s*secondaryDepth,\s*"relative z-\[1\] h-10 w-10 rounded-\[10px\] text-\[#4b5563\] after:absolute after:-inset-\[3px\]/.test(list) && /const ROW_MENU_TABLE = cn\(secondaryDepth, "h-8 w-8 rounded-lg text-\[#4b5563\]"\)/.test(list)
+    && /className=\{ROW_MENU_PHONE\}/.test(list) && /className=\{ROW_MENU_TABLE\}/.test(list) && !/shadow-\[inset_0_-1px_0/.test(list))
 check("Export is a plain icon on a phone and the word on a computer, and neither it nor New product is in the bar of an empty shop",
   /aria-label="Export products" look=\{EXPORT_LOOK\}/.test(list) && /max-md:border-transparent max-md:bg-transparent/.test(list) && /\{products\.length > 0 \? \(\s*<div className="flex shrink-0 items-center gap-1 md:gap-2">\s*<ResponsiveActionMenu/.test(list))
 check("nothing floats: no fixed New product over the list or the navigation pill", !/fixed[^"]*bottom-/.test(list.slice(list.indexOf("<PaneBar"), list.indexOf("deleteModalOpen && productToDelete"))))
@@ -206,25 +231,85 @@ check("search is a real field that is always there once there are products, not 
 check("Escape clears the field, and so does its clear button", /e\.key === "Escape" && searchQuery/.test(list) && /aria-label="Clear search"[\s\S]{0,400}onClick=\{clearSearch\}/.test(list))
 check("the field and Sort stack over the views until the column is 700px wide, by container query, not the window",
   /"@container mx-auto pb-2 md:pb-8"/.test(list) && /@min-\[700px\]:flex-row-reverse/.test(list))
-check("the views are All, Active, Draft and Archived, All open first, with no counts", /useState<View>\("all"\)/.test(list) && /value: "all"[\s\S]{0,80}value: "active"[\s\S]{0,80}value: "draft"[\s\S]{0,80}value: "archived"/.test(list) && !/tabCounts/.test(list))
+check("the views are All, Active, Draft and Archived, All open first, with no counts", /useState<View>\(resumed\?\.view \?\? "all"\)/.test(list) && /value: "all"[\s\S]{0,80}value: "active"[\s\S]{0,80}value: "draft"[\s\S]{0,80}value: "archived"/.test(list) && !/tabCounts/.test(list))
 check("as one segmented control whose white segment slides on transform alone, drawn only when there is more than one view",
   /\{views\.length > 1 \? \(\s*<div\s+role="tablist"/.test(list) && /data-segment=""/.test(list) && /transition-transform duration-200/.test(list) && /motion-reduce:transition-none/.test(list) && /transform: `translateX\(\$\{viewIndex \* 100\}%\)`/.test(list))
 check("sort by newest, oldest, title, price and sales", ["newest", "oldest", "title_asc", "title_desc", "price_desc", "price_asc", "sales"].every((s) => list.includes(`value: "${s}"`)) && /\.sort\(compare\(sort\)\)/.test(list))
 check("phone rows are 72px with a 56px picture, straight on the page with no card, the name on one 15px line",
-  /className="relative flex h-\[72px\] items-center gap-3 pl-4/.test(list) && /size === 56 \? "h-14 w-14 rounded-\[12px\]"/.test(list) && /block truncate text-\[15px\] font-medium leading-5/.test(list) && /aria-label="Products"\s+className="mt-1 md:mt-3 md:overflow-hidden md:rounded-2xl/.test(list))
+  /className="relative flex h-\[72px\] items-center gap-3 pl-4/.test(list) && /size === 56 \? "h-14 w-14 rounded-\[12px\]"/.test(list) && /block truncate text-\[15px\] font-medium leading-5/.test(list) && /aria-label="Products"\s+className="relative mt-1 md:mt-3 md:overflow-hidden md:rounded-2xl/.test(list))
 check("price and sales are quiet grey text under the name, and a free product says Free", /data-meta="" className="[^"]*text-\[13px\][^"]*text-\[#6b7280\]"/.test(list) && /cents > 0 \? formatMoney\(cents\) : "Free"/.test(list) && /\{product\.sales_count \? \(/.test(list))
 check("a phone row names its status only when it is not on sale, as a dot and a word, not a badge",
   /view === "all" && status !== "live"/.test(list) && /function StatusMark/.test(list) && !/StatusBadge/.test(list) && /bg-\[#e0a100\]/.test(list))
 check("a product with no picture shows its first letter, not a box icon", /Array\.from\(title\.trim\(\)\)\[0\]/.test(list) && !/<Package/.test(list))
-check("table rows are 64px, the whole row opens the product, and nothing from a menu's portal does", /className="group h-16 cursor-pointer/.test(list) && /router\.push\(`\/app\/products\/\$\{product\.id\}`\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
+check("table rows are 64px, the whole row opens the product, and nothing from a menu's portal does", /className="group h-16 cursor-pointer/.test(list) && /openEditor\(router, `\/app\/products\/\$\{product\.id\}`\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
 check("no grey heading band in the table", !/bg-\[#f7f7f8\] pl-4/.test(list) && /<th scope="col" className="border-b border-\[#eef0f2\] pl-4 pr-3 font-medium">Product<\/th>/.test(list))
 check("numbers right aligned in figures of one width, Sales from 1024px", /text-right font-medium tabular-nums text-\[#1a1a2e\]/.test(list) && /hidden w-\[96px\] border-b border-\[#eef0f2\] px-3 text-right font-medium lg:table-cell">Sales/.test(list))
 check("fifty to a page, with the footer's count and arrows, the count left off a phone with one page", /const PAGE_SIZE = 50/.test(list) && /data-footer=""/.test(list) && /aria-label="Next page"/.test(list) && /pages === 1 && "max-md:hidden"/.test(list))
-check("every phone press is 44px however small it is drawn", /max-md:min-h-11 max-md:min-w-11/.test(list) && /max-md:after:-inset-1\.5/.test(list) && /trigger=\{<RowMenuButton label=\{`Actions for \$\{product\.title\}`\} className="relative z-\[1\] h-11 w-11/.test(list))
+check("every phone press is 44px however small it is drawn", /max-md:min-h-11 max-md:min-w-11/.test(list) && /max-md:after:-inset-1\.5/.test(list) && /trigger=\{<RowMenuButton label=\{`Actions for \$\{product\.title\}`\} className=\{ROW_MENU_PHONE\} \/>\}/.test(list) && /after:-inset-\[3px\]/.test(list))
 check("the product actions are all still there: view, share, archive or restore, duplicate, delete", /t\("common\.view"\)/.test(list) && /handleShare\(product\)/.test(list) && /handleArchive\(product\)/.test(list) && /handleDuplicate\(product\)/.test(list) && /handleDeleteClick\(product\)/.test(list) && /generateProductsCSV/.test(list) && /generateProductsPDF/.test(list))
 check("the phone pane leaves the pill's room to the shared page-scroll rule, not a second padding of its own", /className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll/.test(list) && !/pb-24 md:pb-8/.test(list))
+console.log("\nSwitching views, and the way to a product and back")
+
+/* "When I switch between All / Draft / Active / Archived, it should feel smoother." "The image thumbnails should not glitch or flash." */
+check("a row once drawn keeps its element: every product shown since the page opened is drawn, the ones out of view hidden, keyed by id",
+  /const drawn = useMemo\(\s*\(\) => \[\.\.\.products\]\.sort\(compare\(sort\)\)\.filter\(\(p\) => shownIds\.has\(p\.id\) \|\| kept\.has\(p\.id\)\)/.test(list)
+    && (list.match(/\{drawn\.map\(\(product\) => \{/g) ?? []).length === 2 && (list.match(/key=\{product\.id\}\s*data-row=\{product\.id\}\s*hidden=\{!shownIds\.has\(product\.id\)\}/g) ?? []).length === 2
+    && !/pageProducts\.map\(\(product\)/.test(list))
+check("an empty view hides the lists rather than unmounting them", /\{drawn\.length > 0 \? \(/.test(list) && /\{pageProducts\.length === 0 \? \(\s*<div data-empty=""/.test(list))
+check("the hairlines follow the rows shown, not the rows in the page", /\[li:not\(\[hidden\]\)~&\]:before:h-px/.test(list) && /\[tr:not\(\[hidden\]\)~&>td\]:border-t/.test(list) && !/\[&\+li\]|\[&\+tr>td\]/.test(list))
+check("a change of view is measured before and played after, in a layout effect", /listShot\.current = shootList\(sectionRef\.current\)/.test(list) && /useLayoutEffect\(\(\) => \{\s*const before = listShot\.current\s*listShot\.current = null\s*playList\(sectionRef\.current, before\)\s*\}, \[view\]\)/.test(list))
+const motion = code("app/app/products/list-motion.ts")
+check("rows that stay glide on transform, rows that come fade in from 6px, 16ms apart for the first six",
+  /\{ transform: `translateY\(\$\{dy\}px\)` \}, \{ transform: "translateY\(0\)" \}/.test(motion) && /\{ opacity: 0, transform: "translateY\(6px\)" \}, \{ opacity: 1, transform: "translateY\(0\)" \}/.test(motion)
+    && /export const ROW_MOVE_MS = 220/.test(motion) && /export const ROW_FADE_IN_MS = 200/.test(motion) && /const ROW_STAGGER_MS = 16/.test(motion) && /const ROW_STAGGER_MAX = 6/.test(motion))
+check("rows that leave fade out as copies where they were, so the list is never empty for a frame", /export const ROW_FADE_OUT_MS = 140/.test(motion) && /layer\.dataset\.listLeaving = ""/.test(motion) && /layer\.inert = true/.test(motion) && /\[\{ opacity: 1 \}, \{ opacity: 0 \}\]/.test(motion))
+check("a shorter list holds its height until it has settled, the card's foot glides on clip-path, and a page scrolled past it glides up first",
+  /section\.style\.minHeight = `\$\{before\.height\}px`/.test(motion) && /clipPath: `inset\(0 0 \$\{from\}px 0 round \$\{radius\}\)`/.test(motion) && /pane\.scrollTo\(\{ top: Math\.max\(0, reach\), behavior: "smooth" \}\)/.test(motion))
+const animated = [...motion.matchAll(/\.animate\(\s*\[\s*\{ (\w+):/g)].map((m) => m[1])
+check("nothing moves under reduced motion, and nothing in it animates layout: opacity, transform and the card's clip only",
+  /if \(!section \|\| reducedMotion\(\) \|\| typeof section\.animate !== "function"\) return null/.test(motion) && animated.length >= 5 && animated.every((k) => ["opacity", "transform", "clipPath"].includes(k)), animated)
+check("each picture is its own size, decoded off the main thread, on grey", /<Image src=\{src\} alt="" width=\{size\} height=\{size\} decoding="async"/.test(list) && !/<Image[^>]*\bfill\b/.test(list) && /bg-\[#eceef1\]/.test(list))
+check("the list comes back as it was left: its view, order, search and page, kept for the tab", /let leftAt: \{ view: View; sort: Sort; search: string; page: number \} \| null = null/.test(list) && /leftAt = \{ view, sort, search: searchQuery, page \}/.test(list))
+/* "The remembered list state should only be restored on a return from the editor (or browser back to the list), not when the Products page is opened fresh." */
+check("but only on a return: a fresh visit from the sidebar or the pill starts at All, Newest, no search, page one",
+  /const \[resumed\] = useState\(\(\) => \(isReturning\(\) \? leftAt : null\)\)/.test(list)
+    && /useState<Sort>\(resumed\?\.sort \?\? "newest"\)/.test(list) && /useState\(resumed\?\.page \?\? 1\)/.test(list) && /useState\(resumed\?\.search \?\? ""\)/.test(list)
+    && !/leftAt\?\./.test(list) && /listShown\(\)/.test(list))
+check("the row you came back from is tinted as the list comes back, after the layer's move", /const id = takeEdited\(\)/.test(list) && /delay: LAYER_MOTION_MS/.test(list))
+check("rows and New product open the editor with the layer's move; a press with a modifier is left to the link",
+  /openEditor\(router, href\)/.test(list) && /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(list) && (list.match(/onClick=\{openFromLink\(/g) ?? []).length >= 3)
+
+const layer = code("components/app/page-layer.tsx")
+check("the editor comes and goes as one view transition, waiting only for the router's commit, capped at LAYER_WAIT_MS",
+  /export const LAYER_MOTION_MS = 300/.test(layer) && /export const LAYER_MOTION_EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(layer) && /export const LAYER_WAIT_MS = 450/.test(layer)
+    && /doc\.startViewTransition\(\(\) => \{\s*navigate\(\)/.test(layer) && /move\.skipTransition\(\)/.test(layer) && /if \(waiting\?\.motion === "enter"\) waiting\.landed\(\)/.test(layer) && /if \(waiting\?\.motion === "leave"\) waiting\.landed\(\)/.test(layer))
+check("no move under reduced motion or without view transitions: the page swaps as before", /if \(waiting \|\| reduced \|\| typeof doc\.startViewTransition !== "function"\) \{\s*navigate\(\)\s*return/.test(layer))
+check("the duration and curve reach the CSS from the script, one number in one place", /html\.style\.setProperty\("--layer-motion-ms", `\$\{LAYER_MOTION_MS\}ms`\)/.test(layer) && /html\.style\.setProperty\("--layer-motion-ease", LAYER_MOTION_EASE\)/.test(layer))
+const css = read("app/globals.css")
+check("on a phone the layer slides in from the right edge and back out to it; from 768px a fade with a 12px rise",
+  /@keyframes layer-slide-out \{\s*to \{ transform: translateX\(100%\); \}/.test(css) && /@keyframes layer-sink-out \{\s*to \{ opacity: 0; transform: translateY\(12px\); \}/.test(css)
+    && /html\[data-layer-motion="leave"\]::view-transition-new\(root\) \{\s*animation: none;/.test(css) && /html\[data-layer-motion="leave"\]::view-transition-old\(root\) \{\s*z-index: 1;/.test(css)
+    && /animation: layer-sink-out var\(--layer-motion-ms, 300ms\) var\(--layer-motion-ease, ease-out\) both/.test(css) && /mix-blend-mode: normal/.test(css))
+check("the pill keeps its place while a layer moves under it", /html\[data-layer-motion\] \[data-app-nav-pill\] \{\s*view-transition-name: app-nav-pill;/.test(css))
+check("the stage plays no landing of its own under a layer's move", /if \(document\.documentElement\.dataset\.layerMotion\) return\s*playEntrance\(s\.outer/.test(code("components/app/app-stage.tsx")))
+const ret = code("app/app/products/list-return.ts")
+/* "Exit must not leave the editor in the browser's forward/back stack in a surprising way." */
+check("an editor the list opened goes back in history; one opened any other way is replaced by the list, and neither pushes a new entry",
+  /if \(back\) \{[\s\S]{0,120}router\.back\(\)\s*\} else \{\s*markTraversal\(\)\s*router\.replace\(PRODUCTS_HREF\)/.test(ret) && !/router\.push\(PRODUCTS_HREF\)/.test(ret) && /prefetchAppPage\(router, PRODUCTS_HREF\)/.test(ret))
+check("\"the list opened it\" is noted when the editor mounts right after the list pushed it, and forgotten once no editor is up",
+  /pushedAt = Date\.now\(\)\s*router\.push\(href\)/.test(ret) && /if \(pushedAt !== null && Date\.now\(\) - pushedAt < PUSH_KEPT_MS\) fromList = true/.test(ret)
+    && /if \(editors === 0\) fromList = false/.test(ret) && /useListOrigin\(\)/.test(editor))
+check("a return is noted by address: the way back from the editor and every popstate, kept until the list shows",
+  /window\.addEventListener\("popstate", \(\) => \{\s*returnTo = window\.location\.pathname/.test(ret) && /returnTo = PRODUCTS_HREF/.test(ret) && /return returnTo === PRODUCTS_HREF \|\| isTraversing\(\)/.test(ret))
+
 const probe = read("scripts/check-products-page.mjs")
 check("the probe reads the pill's box from its source and measures 360, 390, 430, 768 and 1280", /num\("BAR_H"\)/.test(probe) && /num\("SLOT"\)/.test(probe) && ["phone-360", "phone-390", "phone-430", "tablet-768", "desktop-1280"].every((w) => probe.includes(`"${w}"`)))
+check("the probe holds the row buttons and New product against the editor's own, and a view switch to the same <img> elements and no empty frame",
+  /data-probe-more/.test(probe) && /data-probe-save/.test(probe) && /every picture is the same <img> element it was/.test(probe) && /no frame with an empty list/.test(probe))
+const editorProbe = read("scripts/check-product-editor.mjs")
+check("the editor probe walks the way out and in a fifth at a time, at 390 and 1280", /"phone-390-route"/.test(editorProbe) && /"desktop-1280-route"/.test(editorProbe) && /no blank frame/.test(editorProbe) && /Cancel has become Back/.test(editorProbe))
+check("and follows the history: replace when opened directly, back when the list opened it, forward, back and a fresh visit",
+  /http:\/\/probe\.test\//.test(editorProbe) && /Back goes back in history/.test(editorProbe) && /Back puts the list in the editor's place/.test(editorProbe) && /opened fresh from the sidebar or the pill/.test(editorProbe))
 /*
   NO SKELETON LEFT BEHIND. The route's skeleton.tsx outlived the route
   skeletons: nothing imported it, and this test measured its shapes as if a

@@ -37,7 +37,7 @@
 import * as React from "react"
 import { Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { WaitingArea } from "@/components/ui/activity-spinner"
+import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerSwap } from "@/components/ui/shimmer"
 import type { BreakdownRow, Headline, OnePageReports, Reports, Series } from "@/lib/analytics/reports"
 import { axisWidth, compactCount, compactMoney, compactPercent } from "@/lib/analytics/chart-scale"
 import { AxisLabels, MORPH_MS, fixedScale, morphEase } from "@/components/app/chart-morph"
@@ -530,13 +530,87 @@ function Funnel({ steps }: { steps: Reports["funnel"] }) {
 
 /* ─── Loading ─────────────────────────────────────────────────────────── */
 
+type WaitKind = "list" | "chart" | "donut" | "funnel"
+
+/* Row widths that vary the way names do, the same on every render. */
+const ROW_SPREAD = [0.82, 0.64, 0.74, 0.52, 0.6]
+
 /**
- * A card whose figures are still on their way: the room they take (the grey
- * lines this used to draw measured 144px with a headline and 100px without)
- * and, only past half a second, the spinner. No drawing of rows.
+ * A card whose figures are still on their way, drawn as the card will be in
+ * light gray (components/ui/shimmer): the five rows of a list with their
+ * bars, the headline and plot of a chart, the ring and legend of a donut,
+ * the four columns of the funnel. It was the spinner, past half a second, in
+ * an empty card: "not the spinner in the charts loading and the tables
+ * loading; loading structures, light gray shimmering". Each card's body is
+ * a fixed 236px (BODY), so whatever arrives moves nothing.
  */
-function Waiting({ lines = false }: { lines?: boolean }) {
-  return <WaitingArea className={lines ? "h-[144px]" : "h-[100px]"} />
+function Waiting({ kind, lead = false }: { kind: WaitKind; lead?: boolean }) {
+  if (kind === "chart") return <ShimmerChart height={236} figure />
+  if (kind === "donut") {
+    return (
+      <Shimmer className="mt-2 flex h-[180px] items-center gap-x-5 sm:gap-x-6">
+        <span className="flex h-[112px] w-[112px] shrink-0 items-center justify-center rounded-full border-[16px] border-[#f1f2f4] sm:h-[140px] sm:w-[140px] sm:border-[18px]" />
+        <div className="min-w-0 flex-1 space-y-3.5">
+          {ROW_SPREAD.slice(0, 3).map((w, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <ShimmerBlock className="h-2.5 w-2.5 shrink-0 rounded-[3px]" />
+              <ShimmerBlock className="h-3 rounded-full" style={{ width: `${w * 60}%` }} />
+              <ShimmerBlock className="ml-auto h-3 w-8 shrink-0 rounded-full" />
+            </div>
+          ))}
+        </div>
+      </Shimmer>
+    )
+  }
+  if (kind === "funnel") {
+    return (
+      <Shimmer>
+        <div className="flex h-9 items-center">
+          <ShimmerBlock className="h-6 w-24 rounded-lg" />
+        </div>
+        <div className="mt-2 grid grid-cols-4 gap-2">
+          {[1, 0.62, 0.4, 0.22].map((h, i) => (
+            <div key={i} className={cn("flex flex-col", i > 0 && "border-l border-[#eef0f2] pl-2")}>
+              <ShimmerBlock className="mt-1 h-3 w-4/5 rounded-full" />
+              <ShimmerBlock className="mt-2 h-3.5 w-1/2 rounded-full" />
+              <div className="mt-3 flex h-[80px] items-end">
+                <ShimmerBlock className="w-full max-w-[24px] rounded-b-none rounded-t-[4px]" style={{ height: `${h * 100}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Shimmer>
+    )
+  }
+  return (
+    <Shimmer className="mt-0.5">
+      {ROW_SPREAD.map((w, i) => (
+        <div key={i} className="flex h-10 items-center gap-2.5">
+          {lead ? <ShimmerBlock className="h-5 w-5 shrink-0 rounded-full" /> : null}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <ShimmerBlock className="h-3 rounded-full" style={{ width: `${w * 55}%` }} />
+              <ShimmerBlock className="ml-auto h-3 w-9 shrink-0 rounded-full" />
+            </div>
+            <ShimmerBlock className="mt-2 h-[6px] rounded-l-none rounded-r-[3px]" style={{ width: `${w * 100}%` }} />
+          </div>
+        </div>
+      ))}
+    </Shimmer>
+  )
+}
+
+/**
+ * A card's body: its fixed height, the skeleton while `blank`, and the
+ * figures crossfading in over it when they come (ShimmerSwap). The children
+ * are only built once there is something to build them from.
+ */
+function Body({ blank, wait, lead, children }: { blank: boolean; wait: WaitKind; lead?: boolean; children: React.ReactNode }) {
+  return (
+    <ShimmerSwap loading={blank} skeleton={<Waiting kind={wait} lead={lead} />} className={BODY} contentClassName="h-full">
+      {children}
+    </ShimmerSwap>
+  )
 }
 
 /* ─── The grids ───────────────────────────────────────────────────────── */
@@ -579,10 +653,8 @@ function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; 
         help="Where each visit came from, judged by its first page: a search engine, a social app, an email, another website, or typed in directly."
         tabs={<Tabs value={sourceTab} onChange={setSourceTab} options={SOURCE_TABS} />}
       >
-        <div className={BODY}>
-          {blank || !b ? (
-            <Waiting />
-          ) : (
+        <Body blank={blank || !b} wait="list" lead>
+          {blank || !b ? null : (
             <BarList
               key={sourceTab}
               title={`${noun === "visits" ? "Sessions" : "Views"} by ${sourceTab}`}
@@ -593,7 +665,7 @@ function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; 
               empty={SOURCE_EMPTY[sourceTab]}
             />
           )}
-        </div>
+        </Body>
       </Card>
 
       <Card
@@ -601,10 +673,8 @@ function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; 
         help="Where visitors were, from their connection."
         tabs={<Tabs value={placeTab} onChange={setPlaceTab} options={[{ value: "country", label: "Country" }, { value: "city", label: "City" }]} />}
       >
-        <div className={BODY}>
-          {blank || !b ? (
-            <Waiting />
-          ) : (
+        <Body blank={blank || !b} wait="list" lead>
+          {blank || !b ? null : (
             <BarList
               key={placeTab}
               title={`${noun === "visits" ? "Sessions" : "Views"} by ${placeTab}`}
@@ -619,7 +689,7 @@ function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; 
               empty={placeTab === "city" ? "No cities recorded in this period" : "No locations recorded in this period"}
             />
           )}
-        </div>
+        </Body>
       </Card>
 
       <Card
@@ -627,10 +697,8 @@ function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; 
         help="The device, browser and system of the first page of each visit."
         tabs={<Tabs value={deviceTab} onChange={setDeviceTab} options={DEVICE_TABS} />}
       >
-        <div className={BODY}>
-          {blank || !b ? (
-            <Waiting />
-          ) : (
+        <Body blank={blank || !b} wait="list" lead>
+          {blank || !b ? null : (
             <BarList
               key={deviceTab}
               title={`${noun === "visits" ? "Sessions" : "Views"} by ${deviceTab === "os" ? "system" : deviceTab}`}
@@ -641,7 +709,7 @@ function VisitCards({ b, blank, noun }: { b: Breakdowns | null; blank: boolean; 
               empty={`No ${noun} in this period`}
             />
           )}
-        </div>
+        </Body>
       </Card>
     </>
   )
@@ -656,27 +724,27 @@ function StoreGrid({ r }: { r: Reports | null }) {
   return (
     <>
       <Card title="Total sales by channel" help="Money taken in the period, less refunds, split by where the order was placed: your Storelib page or your website. Orders from before the channel was recorded count as your Storelib page.">
-        <div className={BODY}>
-          {blank ? <Waiting /> : r!.salesByChannel.length === 0 ? <Empty>No orders in this period</Empty> : (
+        <Body blank={blank} wait="donut">
+          {blank ? null : r!.salesByChannel.length === 0 ? <Empty>No orders in this period</Empty> : (
             <Donut rows={r!.salesByChannel} total={fmtMoneyShort(r!.sales.value)} format={fmtMoneyShort} sub={orders} />
           )}
-        </div>
+        </Body>
       </Card>
 
       <Card title="Average order value over time" help="What a paying buyer spent in one order, on average. Free orders are left out.">
-        <div className={BODY}>
-          {blank ? <Waiting lines /> : (
+        <Body blank={blank} wait="chart">
+          {blank ? null : (
             <>
               <Figure value={fmtMoney(r!.aov.value)} h={r!.aov} />
               <LineChart series={r!.aov.series} format={fmtMoney} kind="money" />
             </>
           )}
-        </div>
+        </Body>
       </Card>
 
       <Card title="Total sales by product" help="Each product's share of the money taken, less refunds, and how many were sold.">
-        <div className={BODY}>
-          {blank ? <Waiting /> : (
+        <Body blank={blank} wait="list">
+          {blank ? null : (
             <BarList
               title="Total sales by product"
               rows={r!.salesByProduct}
@@ -685,47 +753,47 @@ function StoreGrid({ r }: { r: Reports | null }) {
               empty="No sales in this period"
             />
           )}
-        </div>
+        </Body>
       </Card>
 
       <Card title="Sessions over time" help="Visits to your Storelib page and your website. A visit ends after 30 minutes without opening a page. Your own visits and search engine robots are not counted.">
-        <div className={BODY}>
-          {blank ? <Waiting lines /> : (
+        <Body blank={blank} wait="chart">
+          {blank ? null : (
             <>
               <Figure value={fmtCount(r!.sessions.value)} h={r!.sessions} />
               <LineChart series={r!.sessions.series} format={fmtCount} kind="count" />
             </>
           )}
-        </div>
+        </Body>
       </Card>
 
       <Card title="Conversion rate over time" help="Orders divided by visits: how many visits ended in an order.">
-        <div className={BODY}>
-          {blank ? <Waiting lines /> : (
+        <Body blank={blank} wait="chart">
+          {blank ? null : (
             <>
               <Figure value={fmtPct(r!.conversion.value)} h={r!.conversion} />
               <LineChart series={r!.conversion.series} format={fmtPct} kind="percent" />
             </>
           )}
-        </div>
+        </Body>
       </Card>
 
       <Card title="Conversion rate breakdown" help="Of the visits in the period, how many pressed Buy, how many reached the checkout, and how many ordered.">
-        <div className={BODY}>
-          {blank ? <Waiting /> : (
+        <Body blank={blank} wait="funnel">
+          {blank ? null : (
             <>
               <Figure value={fmtPct(r!.conversion.value)} h={r!.conversion} />
               <Funnel steps={r!.funnel} />
             </>
           )}
-        </div>
+        </Body>
       </Card>
 
       <VisitCards b={r?.breakdowns ?? null} blank={blank} noun="visits" />
 
       <Card title="Sessions by landing page" help="The page each visit started on." className="md:col-span-2">
-        <div className={BODY}>
-          {blank ? <Waiting /> : (
+        <Body blank={blank} wait="list">
+          {blank ? null : (
             <BarList
               title="Sessions by landing page"
               rows={r!.breakdowns.landing}
@@ -734,15 +802,15 @@ function StoreGrid({ r }: { r: Reports | null }) {
               empty="No visits in this period"
             />
           )}
-        </div>
+        </Body>
       </Card>
 
       <Card title="Sessions by channel" help="Visits to your Storelib page, and visits to the website you built.">
-        <div className={BODY}>
-          {blank ? <Waiting /> : r!.sessions.value === 0 ? <Empty>No visits in this period</Empty> : (
+        <Body blank={blank} wait="donut">
+          {blank ? null : r!.sessions.value === 0 ? <Empty>No visits in this period</Empty> : (
             <Donut rows={r!.breakdowns.channel} total={fmtCount(r!.sessions.value)} format={fmtCount} />
           )}
-        </div>
+        </Body>
       </Card>
     </>
   )
@@ -760,41 +828,41 @@ function OnePageGrid({ r, hasPage }: { r: OnePageReports | null; hasPage: boolea
   return (
     <>
       <Card title="Views over time" help="Visits to your OnePage. One person counts once a day, however many times they reload it.">
-        <div className={BODY}>
-          {blank ? <Waiting lines /> : (
+        <Body blank={blank} wait="chart">
+          {blank ? null : (
             <>
               <Figure value={fmtCount(r!.views.value)} h={r!.views} />
               <LineChart series={r!.views.series} format={fmtCount} kind="count" />
             </>
           )}
-        </div>
+        </Body>
       </Card>
 
       <Card title="Link clicks over time" help="Taps on the links and buttons of your OnePage. One person's taps on the same link count once a day.">
-        <div className={BODY}>
-          {blank ? <Waiting lines /> : (
+        <Body blank={blank} wait="chart">
+          {blank ? null : (
             <>
               <Figure value={fmtCount(r!.clicks.value)} h={r!.clicks} />
               <LineChart series={r!.clicks.series} format={fmtCount} kind="count" />
             </>
           )}
-        </div>
+        </Body>
       </Card>
 
       <Card title="Click-through rate" help="Link clicks divided by views: how often a visit led somewhere.">
-        <div className={BODY}>
-          {blank ? <Waiting lines /> : (
+        <Body blank={blank} wait="chart">
+          {blank ? null : (
             <>
               <Figure value={fmtPct(r!.ctr.value)} h={r!.ctr} />
               <LineChart series={r!.ctr.series} format={fmtPct} kind="percent" />
             </>
           )}
-        </div>
+        </Body>
       </Card>
 
       <Card title="Top links" help="Which links and buttons were tapped most, by the name they have on your OnePage." className="md:col-span-2">
-        <div className={BODY}>
-          {blank ? <Waiting /> : (
+        <Body blank={blank} wait="list">
+          {blank ? null : (
             <BarList
               title="Top links"
               rows={r!.links}
@@ -803,18 +871,18 @@ function OnePageGrid({ r, hasPage }: { r: OnePageReports | null; hasPage: boolea
               empty="No link clicks in this period"
             />
           )}
-        </div>
+        </Body>
       </Card>
 
       <Card title="Subscribers over time" help="People who left their email on your OnePage.">
-        <div className={BODY}>
-          {blank ? <Waiting lines /> : (
+        <Body blank={blank} wait="chart">
+          {blank ? null : (
             <>
               <Figure value={fmtCount(r!.subscribers.value)} h={r!.subscribers} />
               <LineChart series={r!.subscribers.series} format={fmtCount} kind="count" />
             </>
           )}
-        </div>
+        </Body>
       </Card>
 
       <VisitCards b={r?.breakdowns ?? null} blank={blank} noun="views" />

@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState } from "react"
 import { Check, Copy, Loader2 } from "lucide-react"
-import { AddressValue, Badge, Card, ErrorNote, Lead, PageTitle, Row, buttonClass, inputClass, primaryButtonClass } from "./parts"
+import { AddressValue, Badge, Card, ErrorNote, Lead, PageTitle, Row, buttonClass, iconButtonClass, inputClass, primaryButtonClass, textLinkClass } from "./parts"
 import type { SettingsContext } from "./types"
 import { cn } from "@/lib/utils"
 import { handleProblem, normalizeHandle } from "@/lib/website-builder/site-address"
@@ -145,7 +145,7 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
 
       <Card title="Storelib address">
         <StorelibAddress ctx={ctx} />
-        <Row label="HTTPS">
+        <Row label="HTTPS" inline>
           <Badge tone="live">Secured</Badge>
         </Row>
       </Card>
@@ -161,17 +161,17 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
             const waiting = d.status !== "active"
             return (
               <Fragment key={d.id}>
-                <Row label={`www.${d.domain}`} hint="Primary address">
+                <Row label={`www.${d.domain}`} hint="Primary address" inline>
                   <Badge tone={s.tone}>{s.label}</Badge>
                 </Row>
                 <Row label={d.domain} hint="Redirects">
                   <span className="text-[14px] text-white/60">to www.{d.domain}</span>
                 </Row>
-                <Row label="HTTPS">
+                <Row label="HTTPS" inline>
                   <span className="text-[14px] text-white/60">{s.ssl}</span>
                 </Row>
                 {waiting && (
-                  <div className="space-y-3 px-5 py-4 md:px-6">
+                  <div className="space-y-3 px-4 py-4 md:px-6">
                     <p className="text-[14px] font-medium text-white">Records to add where you bought the domain</p>
                     <div className="overflow-hidden rounded-xl border border-white/10">
                       {recordsFor(d).map((r) => (
@@ -190,7 +190,7 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
         )}
 
         {domains !== null && (
-          <div className="space-y-3 px-5 py-4 md:px-6">
+          <div className="space-y-3 px-4 py-4 md:px-6">
             <label htmlFor="wb-new-domain" className="block text-[14.5px] font-medium text-white">
               {current ? "Use a different domain" : "Connect a domain you own"}
             </label>
@@ -210,9 +210,9 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
                 autoCorrect="off"
                 spellCheck={false}
                 placeholder="yourname.com"
-                className={inputClass + " text-[16px] md:w-full md:text-[14.5px]"}
+                className={inputClass + " md:w-full"}
               />
-              <button type="button" onClick={() => void add()} disabled={!clean || adding} className={primaryButtonClass}>
+              <button type="button" onClick={() => void add()} disabled={!clean || adding} className={cn(primaryButtonClass, "md:h-10")}>
                 {adding && <Loader2 className="h-4 w-4 animate-spin" />}
                 {confirming ? "Replace" : "Connect"}
               </button>
@@ -228,7 +228,7 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
 
       {note && <p className="mt-4 text-[14px] text-white/70">{note}</p>}
       {domains && domains.length > 0 && (
-        <button type="button" onClick={manage} className="mt-3 text-[13.5px] text-white/55 underline-offset-2 hover:text-white hover:underline">
+        <button type="button" onClick={manage} className="mt-1 inline-flex min-h-11 items-center text-[13.5px] text-white/55 underline-offset-2 hover:text-white hover:underline md:mt-3 md:min-h-0 [-webkit-tap-highlight-color:transparent]">
           Remove the domain, or see its records in Settings
         </button>
       )}
@@ -240,7 +240,7 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
 function DnsRecord({ type, name, value }: { type: string; name: string; value: string }) {
   const [copied, setCopied] = useState(false)
   return (
-    <div className="grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/[0.06] px-3.5 py-2.5 last:border-b-0">
+    <div className="grid grid-cols-[52px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-white/[0.06] py-2 pl-3.5 pr-1.5 last:border-b-0 md:grid-cols-[64px_minmax(0,1fr)_auto] md:gap-3 md:py-2.5 md:pr-2.5">
       <span className="font-mono text-[12.5px] text-white/55">{type}</span>
       <span className="min-w-0">
         <span className="block font-mono text-[12.5px] text-white/55">{name}</span>
@@ -255,7 +255,7 @@ function DnsRecord({ type, name, value }: { type: string; name: string; value: s
             window.setTimeout(() => setCopied(false), 1400)
           })
         }}
-        className="rounded-md p-2 text-white/55 transition-colors hover:bg-white/10 hover:text-white"
+        className={iconButtonClass}
       >
         {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
       </button>
@@ -320,7 +320,7 @@ function StorelibAddress({ ctx }: { ctx: SettingsContext }) {
               setError(null)
               setEditing(true)
             }}
-            className="text-white/75 underline underline-offset-2 hover:text-white"
+            className={textLinkClass}
           >
             Change address
           </button>
@@ -332,7 +332,7 @@ function StorelibAddress({ ctx }: { ctx: SettingsContext }) {
   }
 
   return (
-    <div className="space-y-3 px-5 py-4 md:px-6" data-address-editor="">
+    <div className="space-y-3 px-4 py-4 md:px-6" data-address-editor="">
       <label htmlFor="wb-site-handle" className="block text-[14.5px] font-medium text-white">
         Website address
       </label>
@@ -353,15 +353,15 @@ function StorelibAddress({ ctx }: { ctx: SettingsContext }) {
             autoCorrect="off"
             spellCheck={false}
             autoFocus
-            className="h-11 min-w-0 flex-1 bg-transparent pl-3.5 text-[16px] text-white outline-none md:text-[14.5px]"
+            className="h-11 min-w-0 flex-1 bg-transparent pl-3.5 text-[16px] text-white outline-none md:h-10 md:text-[14.5px]"
           />
           <span className="shrink-0 pr-3.5 text-[14.5px] text-white/45">{suffix}</span>
         </div>
-        <div className="flex gap-2">
-          <button type="button" onClick={() => setEditing(false)} className={buttonClass}>
+        <div className="grid grid-cols-2 gap-2 sm:flex">
+          <button type="button" onClick={() => setEditing(false)} className={cn(buttonClass, "md:h-10")}>
             Cancel
           </button>
-          <button type="button" onClick={() => void save()} disabled={!wanted || !!problem || saving} className={primaryButtonClass}>
+          <button type="button" onClick={() => void save()} disabled={!wanted || !!problem || saving} className={cn(primaryButtonClass, "md:h-10")}>
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
             Save
           </button>

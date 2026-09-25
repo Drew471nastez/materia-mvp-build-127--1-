@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation"
-import { creatorForRequest, currentUserForRequest } from "@/lib/auth/request-scope"
+import { creatorForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, Users } from "lucide-react"
+import { pageUser } from "@/lib/auth/page-user"
 
 export const metadata = {
   title: "Customers",
@@ -16,11 +17,10 @@ export default async function CustomersPage() {
   /* The /app layout's own answers, through the per-request cache
      (lib/auth/request-scope.ts): the user, and the creator row on the
      caller's own client, as this page read it before. */
-  const { user } = await currentUserForRequest()
-
-  if (!user) {
-    redirect("/login")
-  }
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   const creator = await creatorForRequest(user.id)
 

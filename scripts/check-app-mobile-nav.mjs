@@ -1180,6 +1180,191 @@ const settled = {
 }
 await ev("window.__went = null; true")
 
+/*
+ * ── THE GLASS UNDER A FINGER, EVERY FRAME, IN THE NATIVE SHELL ───────────
+ *
+ * "When I release a button and move to the next one, exactly at that moment
+ * the button icon glitches and moves a little bit", and the bubble "should
+ * feel more like glass, smoother, cleaner, and accurate when I land on
+ * something". Three numbers answer that, read in the page on every frame of
+ * a slide from Home to Products that holds still and then lets go:
+ *
+ *   TRACKING    how far the lens's centre is from the finger once the pick
+ *               up is over: one to one is under a pixel
+ *   LANDING     how far the lens's centre is from the slot's centre once the
+ *               spring has finished: under half a pixel
+ *   THE ICONS   how far any glyph's box moved, and how far its link's
+ *               opacity fell, across every frame of the press, the slide and
+ *               the release, with `html.capacitor` on <html> as the native
+ *               apps have it, so its `a:active` dimming is in play: nothing,
+ *               not even half a pixel
+ *
+ * And the stretch: never more than about 1.12 wide, lift included.
+ */
+await ev('globalThis.__goto("/app"); window.__routeDelay = 0; true')
+await sleep(1700)
+await ev('document.documentElement.classList.add("capacitor"); window.__routeDelay = 220; window.__went = null; true')
+await sleep(120)
+const glassSlots = await ev(`(() => {
+  const bar = document.querySelector('nav[aria-label="Main"]').getBoundingClientRect()
+  const links = [...document.querySelectorAll('nav[aria-label="Main"] a[aria-label]')].map((a) => { const r = a.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+  return { links, lo: bar.left + ${4} + (bar.height - ${8}) / 2, hi: bar.right - ${4} - (bar.height - ${8}) / 2 }
+})()`)
+await ev(`(() => {
+  window.__finger = null
+  window.__glassFrames = []
+  window.addEventListener("pointermove", (e) => { window.__finger = e.clientX }, true)
+  window.addEventListener("pointerdown", (e) => { window.__finger = e.clientX }, true)
+  const nav = document.querySelector('nav[aria-label="Main"]')
+  const lens = nav.querySelector('span[aria-hidden="true"]')
+  const links = [...nav.querySelectorAll("a[aria-label]")]
+  const glyphs = links.flatMap((a) => [...a.querySelectorAll("svg")])
+  const tick = () => {
+    const r = lens.getBoundingClientRect()
+    window.__glassFrames.push({
+      t: performance.now(),
+      finger: window.__finger,
+      cx: r.left + r.width / 2,
+      w: r.width,
+      h: r.height,
+      glyphs: glyphs.map((g) => { const b = g.getBoundingClientRect(); return [b.left, b.top, b.width, b.height] }),
+      linkOpacity: links.map((a) => Number(getComputedStyle(a).opacity)),
+    })
+    window.__glassRaf = requestAnimationFrame(tick)
+  }
+  window.__glassRaf = requestAnimationFrame(tick)
+  return true
+})()`)
+const touch = (type, x, y) => send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y, radiusX: 12, radiusY: 12, force: 1 }] })
+const gy = glassSlots.links[0].y
+const gFrom = glassSlots.links[0].x
+const gTo = glassSlots.links[2].x
+const tDown = await ev("performance.now()")
+await touch("touchStart", gFrom, gy)
+await sleep(40)
+for (let i = 1; i <= 20; i++) {
+  await touch("touchMove", Math.round(gFrom + ((gTo - gFrom) * i) / 20), gy)
+  await sleep(16)
+  if (i === 12 && process.env.PILL_SHOTS) {
+    const { data } = await send("Page.captureScreenshot", { format: "png", clip: { x: 20, y: VIEW_H - 110, width: 350, height: 110, scale: 2 } })
+    writeFileSync(join(process.env.PILL_SHOTS, "pill-drag.png"), Buffer.from(data, "base64"))
+  }
+}
+/* Still, under the finger, before letting go. */
+await sleep(160)
+const tUp = await ev("performance.now()")
+await touch("touchEnd", gTo, gy)
+await sleep(900)
+if (process.env.PILL_SHOTS) {
+  const { data } = await send("Page.captureScreenshot", { format: "png", clip: { x: 20, y: VIEW_H - 110, width: 350, height: 110, scale: 2 } })
+  writeFileSync(join(process.env.PILL_SHOTS, "pill-landed.png"), Buffer.from(data, "base64"))
+}
+const glassFrames = await ev("cancelAnimationFrame(window.__glassRaf); window.__glassFrames")
+const landedOn = await ev(`(() => {
+  const nav = document.querySelector('nav[aria-label="Main"]')
+  const lens = nav.querySelector('span[aria-hidden="true"]').getBoundingClientRect()
+  const slot = nav.querySelectorAll("a[aria-label]")[2].getBoundingClientRect()
+  return { dx: Math.round(Math.abs(lens.left + lens.width / 2 - (slot.left + slot.width / 2)) * 1000) / 1000, dy: Math.round(Math.abs(lens.top + lens.height / 2 - (slot.top + slot.height / 2)) * 1000) / 1000 }
+})()`)
+/*
+  A synthetic touch here does not always leave `:active` on the link it
+  landed on, so the dimming is also read with the state forced, on a pill
+  icon and, as the control that proves the native rule is in play, on an
+  ordinary link beside it.
+*/
+await send("DOM.enable")
+await send("CSS.enable")
+const { root: docRoot } = await send("DOM.getDocument", { depth: -1 })
+await ev(`(() => { const a = document.createElement("a"); a.id = "__ctl"; a.href = "#"; a.textContent = "control"; a.style.cssText = "position:fixed;top:120px;left:10px"; document.body.appendChild(a); return true })()`)
+const pillLinkIds = (await send("DOM.querySelectorAll", { nodeId: docRoot.nodeId, selector: 'nav[aria-label="Main"] a[aria-label]' })).nodeIds
+const ctlId = (await send("DOM.querySelector", { nodeId: docRoot.nodeId, selector: "#__ctl" })).nodeId
+await send("CSS.forcePseudoState", { nodeId: pillLinkIds[1], forcedPseudoClasses: ["active"] })
+await send("CSS.forcePseudoState", { nodeId: ctlId, forcedPseudoClasses: ["active"] })
+await sleep(300)
+const forcedActive = await ev(`({ pill: Number(getComputedStyle(document.querySelectorAll('nav[aria-label="Main"] a[aria-label]')[1]).opacity), control: Number(getComputedStyle(document.getElementById("__ctl")).opacity) })`)
+await send("CSS.forcePseudoState", { nodeId: pillLinkIds[1], forcedPseudoClasses: [] })
+await send("CSS.forcePseudoState", { nodeId: ctlId, forcedPseudoClasses: [] })
+await ev('document.getElementById("__ctl").remove(); true')
+await ev('document.documentElement.classList.remove("capacitor"); true')
+const clampFinger = (x) => Math.max(glassSlots.lo, Math.min(glassSlots.hi, x))
+/* Once the pick up is over: from 150ms after the drag began to the lift. */
+const dragBegan = glassFrames.find((f) => f.finger != null && Math.abs(f.finger - gFrom) > 8)?.t ?? tDown
+const tracked = glassFrames.filter((f) => f.t >= dragBegan + 150 && f.t <= tUp && f.finger != null)
+const errs = tracked.map((f) => Math.abs(f.cx - clampFinger(f.finger)))
+const sortedErrs = [...errs].sort((a, b) => a - b)
+const firstGlyphs = glassFrames[0].glyphs
+let glyphMoved = 0
+for (const f of glassFrames) f.glyphs.forEach((g, i) => { for (let k = 0; k < 4; k++) glyphMoved = Math.max(glyphMoved, Math.abs(g[k] - firstGlyphs[i][k])) })
+const afterUp = glassFrames.filter((f) => f.t > tUp)
+const target = glassSlots.links[2].x
+const glass = {
+  frames: glassFrames.length,
+  trackedFrames: tracked.length,
+  trackingMedianPx: Math.round((sortedErrs[Math.floor(sortedErrs.length / 2)] ?? 99) * 100) / 100,
+  trackingWorstPx: Math.round(Math.max(0, ...errs) * 100) / 100,
+  widestStretch: Math.round((Math.max(...glassFrames.map((f) => f.w)) / DOT_PX) * 1000) / 1000,
+  landedOffPx: landedOn,
+  pastSlotPx: Math.round(Math.max(0, ...afterUp.map((f) => f.cx - target)) * 100) / 100,
+  settledMs: (() => { const last = [...afterUp].reverse().find((f) => Math.abs(f.cx - target) > 0.5); return last ? Math.round(last.t - tUp) : 0 })(),
+  glyphMovedPx: Math.round(glyphMoved * 1000) / 1000,
+  linkOpacityMin: Math.min(...glassFrames.flatMap((f) => f.linkOpacity)),
+  forcedActive,
+  went: await ev("window.__went"),
+}
+await ev('window.__routeDelay = 0; globalThis.__goto("/app"); true')
+await sleep(1700)
+
+/*
+ * AND LET GO WHILE IT IS STILL MOVING. A flick from Home towards the end
+ * of the bar, released a little past Products at speed: the release carries
+ * its speed into the spring and picks the slot it was heading for, and the
+ * spring ends on that slot's exact centre.
+ */
+await ev('window.__routeDelay = 220; window.__went = null; window.__glassFrames = []; true')
+await ev(`(() => {
+  const nav = document.querySelector('nav[aria-label="Main"]')
+  const lens = nav.querySelector('span[aria-hidden="true"]')
+  const tick = () => { const r = lens.getBoundingClientRect(); window.__glassFrames.push({ t: performance.now(), cx: r.left + r.width / 2, w: r.width }); window.__glassRaf = requestAnimationFrame(tick) }
+  window.__glassRaf = requestAnimationFrame(tick)
+  return true
+})()`)
+const fFrom = glassSlots.links[0].x
+const fTo = glassSlots.links[2].x + 18
+await touch("touchStart", fFrom, gy)
+await sleep(30)
+for (let i = 1; i <= 5; i++) {
+  await touch("touchMove", Math.round(fFrom + ((fTo - fFrom) * i) / 5), gy)
+  await sleep(8)
+}
+const fUp = await ev("performance.now()")
+await touch("touchEnd", fTo, gy)
+await sleep(900)
+const flickFrames = await ev("cancelAnimationFrame(window.__glassRaf); window.__glassFrames")
+const flickLanded = await ev(`(() => {
+  const nav = document.querySelector('nav[aria-label="Main"]')
+  const lens = nav.querySelector('span[aria-hidden="true"]').getBoundingClientRect()
+  const slots = [...nav.querySelectorAll("a[aria-label]")].map((a) => { const r = a.getBoundingClientRect(); return r.left + r.width / 2 })
+  const cx = lens.left + lens.width / 2
+  const nearest = slots.reduce((b, s, i) => (Math.abs(s - cx) < Math.abs(slots[b] - cx) ? i : b), 0)
+  return { slot: nearest, dx: Math.round(Math.abs(cx - slots[nearest]) * 1000) / 1000 }
+})()`)
+const flickAfter = flickFrames.filter((f) => f.t > fUp)
+const flickTarget = glassSlots.links[flickLanded.slot].x
+const flick = {
+  went: await ev("window.__went"),
+  landedSlot: flickLanded.slot,
+  landedOffPx: flickLanded.dx,
+  widest: Math.round((Math.max(...flickFrames.map((f) => f.w)) / DOT_PX) * 1000) / 1000,
+  pastSlotPx: Math.round(Math.max(0, ...flickAfter.map((f) => f.cx - flickTarget)) * 100) / 100,
+  settledMs: (() => { const last = [...flickAfter].reverse().find((f) => Math.abs(f.cx - flickTarget) > 0.5); return last ? Math.round(last.t - fUp) : 0 })(),
+  /* A spring started at the finger's speed has no seam at the release: the
+     biggest step between two frames after the lift, against the biggest
+     before it. */
+  stepAfter: Math.round(Math.max(0, ...flickAfter.slice(1).map((f, i) => Math.abs(f.cx - flickAfter[i].cx))) * 100) / 100,
+}
+await ev('window.__routeDelay = 0; globalThis.__goto("/app"); true')
+await sleep(500)
+
 /* ── open it, the way the pill does ──────────────────────────────────────── */
 const menuBtn = await ev(`(() => {
   /* Its own button beside the bar now, not a slot inside it. */
@@ -1680,7 +1865,9 @@ must(tap.emptiedTo <= 0.05, "emptying rather than dimming, which is the element'
   `the least colour in it was ${tap.emptiedTo}`)
 must(tap.glassSteps >= 4, "and filling back over a ramp rather than being switched on",
   `its colour passed through only ${tap.glassSteps} value(s) on the way in`)
-must(tap.filledTo >= 0.8, "all the way to its glass",
+/* The resting glass is 72% white now, clearer than the bar's frost
+   (components/app/sidebar-mobile-nav REST_FILL), so "all the way" is 0.7. */
+must(tap.filledTo >= 0.7, "all the way to its glass",
   `it finished at ${tap.filledTo}`)
 /*
   AND NOTHING IS WAITED ON. Smoothness belongs to the coming back, never to
@@ -1885,6 +2072,39 @@ must(sheetOver.during.top === sheetOver.before.top, "and in its place",
   `the pill moved from y=${sheetOver.before.top} to y=${sheetOver.during.top} while a sheet was open`)
 must(sheetOver.tapIsTheScrims, "and a tap on it is the scrim's, not the pill's",
   "the pill took a tap through an open sheet")
+
+console.log(`  the glass   a slide from Home to Products in the native shell, ${glass.frames} frames watched`)
+console.log(`              tracking: the lens ${glass.trackingMedianPx}px from the finger at the median, ${glass.trackingWorstPx}px at worst, over ${glass.trackedFrames} frames`)
+console.log(`              stretched to ${glass.widestStretch}x its width, landed ${glass.landedOffPx.dx}px off the slot's centre, ${glass.pastSlotPx}px past it, still after ${glass.settledMs}ms`)
+console.log(`              the glyphs moved ${glass.glyphMovedPx}px at most; the links' opacity never went below ${glass.linkOpacityMin}\n`)
+must(glass.trackedFrames >= 5, "the slide was long enough to read the tracking", `only ${glass.trackedFrames} frames of it`)
+must(glass.trackingMedianPx <= 1, "under a finger the lens is where the finger is, one to one",
+  `it was ${glass.trackingMedianPx}px from the finger at the median`)
+must(glass.trackingWorstPx <= 7, "and never more than a frame of the finger's own travel behind it",
+  `it was ${glass.trackingWorstPx}px behind at worst`)
+must(glass.widestStretch >= 1.05 && glass.widestStretch <= 1.13, "it stretches along the way it moves, to about 1.12 and no more",
+  `it was ${glass.widestStretch}x as wide as it is round`)
+console.log(`  a flick     released at speed past Products: went to ${flick.went}, landed on slot ${flick.landedSlot + 1} ${flick.landedOffPx}px off its centre`)
+console.log(`              ${flick.pastSlotPx}px past it, still after ${flick.settledMs}ms, widest ${flick.widest}x, biggest step after the lift ${flick.stepAfter}px\n`)
+must(flick.landedOffPx <= 0.5, "a flick lands on a slot's exact centre too", `${flick.landedOffPx}px off it`)
+must(flick.went === "/app/analytics" && flick.landedSlot === 3, "the slot it was heading for, not the one it was over",
+  `it went to ${flick.went}, slot ${flick.landedSlot + 1}`)
+must(flick.widest <= 1.13, "stretched no more than about 1.12 however fast", `${flick.widest}x`)
+must(flick.settledMs <= 600, "and it is still within about half a second", `it was still moving ${flick.settledMs}ms after the lift`)
+must(glass.landedOffPx.dx <= 0.5 && glass.landedOffPx.dy <= 0.5, "and lands on the slot's exact centre",
+  `it came to rest ${glass.landedOffPx.dx}px across and ${glass.landedOffPx.dy}px down from the slot's centre`)
+must(glass.pastSlotPx <= 3, "with no more than a small overshoot on the way",
+  `it went ${glass.pastSlotPx}px past the slot`)
+must(glass.went === "/app/products", "letting go of it picks the slot it landed on", `it went to ${glass.went}`)
+must(glass.glyphMovedPx < 0.5, "no icon moves, not by half a pixel, through the press, the slide and the release",
+  `a glyph's box moved ${glass.glyphMovedPx}px`)
+must(glass.linkOpacityMin >= 0.999, "and none dims under the finger in the native shell, where a:active used to",
+  `a link's opacity went down to ${glass.linkOpacityMin}`)
+console.log(`              with :active forced in the native shell: a pill icon ${glass.forcedActive.pill}, an ordinary link ${glass.forcedActive.control}\n`)
+must(glass.forcedActive.control < 0.9, "the native shell's press dimming is in play for this check (an ordinary link dims)",
+  `an ordinary link read ${glass.forcedActive.control} with :active forced, so the check below proves nothing`)
+must(glass.forcedActive.pill >= 0.999, "and a pill icon held under a finger keeps its full opacity",
+  `a pill icon read ${glass.forcedActive.pill} with :active forced: it dims under the finger and flickers back on the release`)
 
 console.log(`\n  pictures in .nav-probe/closed.png and .nav-probe/open.png\n`)
 if (problems.length) {

@@ -107,8 +107,10 @@ function Segmented<T extends string>({
           aria-checked={value === o.id}
           onClick={() => onChange(o.id)}
           className={cn(
-            "rounded-lg font-medium transition-colors duration-150",
-            size === "sm" ? "h-7 px-2.5 text-[12.5px]" : "h-9 px-4 text-[14px]",
+            /* The group's own 4px padding is part of each button's press area:
+               an invisible band out to the group's edge, so a phone gets 44px. */
+            "relative rounded-lg font-medium transition-colors duration-150 after:absolute after:inset-x-0 after:-inset-y-1 after:content-[''] [-webkit-tap-highlight-color:transparent]",
+            size === "sm" ? "h-9 px-3 text-[13.5px] md:h-7 md:px-2.5 md:text-[12.5px]" : "h-10 px-4 text-[15px] md:h-9 md:text-[14px]",
             value === o.id ? "bg-white text-[#0f0f0f]" : "text-white/65 hover:text-white",
           )}
         >
@@ -209,7 +211,7 @@ export function AgentConnectionsPanel({ installId }: { installId: string }) {
                 type="button"
                 onClick={() => void connect()}
                 disabled={creating}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-5 text-[14.5px] font-semibold text-[#0f0f0f] transition-opacity hover:opacity-90 disabled:opacity-50"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-[15px] font-semibold text-[#0f0f0f] transition-opacity hover:opacity-90 disabled:opacity-50 md:h-10 md:text-[14.5px]"
               >
                 {creating && <Loader2 className="h-4 w-4 animate-spin" />}
                 Make a token
@@ -281,7 +283,7 @@ export function AgentConnectionsPanel({ installId }: { installId: string }) {
         ) : (
           <ul className="divide-y divide-white/[0.07]">
             {connections.map((c) => (
-              <li key={c.id} className="flex items-center gap-4 px-5 py-4">
+              <li key={c.id} className="flex items-center gap-4 px-4 py-4 md:px-5">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-medium">{c.name}</p>
                   <p className="mt-0.5 truncate text-[13px] text-white/50">
@@ -295,14 +297,14 @@ export function AgentConnectionsPanel({ installId }: { installId: string }) {
                     <button
                       type="button"
                       onClick={() => setConfirmingId(null)}
-                      className="h-9 rounded-lg px-3 text-[14px] text-white/70 hover:text-white"
+                      className="h-11 rounded-lg px-3 text-[15px] text-white/70 hover:text-white md:h-9 md:text-[14px]"
                     >
                       Keep
                     </button>
                     <button
                       type="button"
                       onClick={() => void disconnect(c.id)}
-                      className="h-9 rounded-lg bg-red-500/90 px-4 text-[14px] font-medium text-white hover:bg-red-500"
+                      className="h-11 rounded-lg bg-red-500/90 px-4 text-[15px] font-medium text-white hover:bg-red-500 md:h-9 md:text-[14px]"
                     >
                       Disconnect
                     </button>
@@ -311,7 +313,7 @@ export function AgentConnectionsPanel({ installId }: { installId: string }) {
                   <button
                     type="button"
                     onClick={() => setConfirmingId(c.id)}
-                    className="h-9 shrink-0 rounded-lg border border-white/15 px-4 text-[14px] font-medium text-white transition-colors hover:bg-white/[0.1]"
+                    className="h-11 shrink-0 rounded-lg border border-white/15 px-4 text-[15px] font-medium text-white transition-colors hover:bg-white/[0.1] md:h-9 md:text-[14px]"
                   >
                     Disconnect
                   </button>

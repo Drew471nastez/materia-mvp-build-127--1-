@@ -44,7 +44,7 @@ export function UserNav({ user, profile, isCreator }: UserNavProps) {
   const handleSignOut = async () => {
     setIsLoading(true)
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: "local" })
     if (isNativePlatform()) {
       window.location.replace("/welcome")
     } else {

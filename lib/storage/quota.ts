@@ -4,7 +4,7 @@
  */
 
 import { type SupabaseClient } from "@supabase/supabase-js"
-import { getPlanLimits, STORAGE_BUCKET, PUBLIC_BUCKET } from "./plans"
+import { getPlanLimits } from "./plans"
 
 export interface QuotaInfo {
   usedBytes: number
@@ -15,30 +15,37 @@ export interface QuotaInfo {
 }
 
 /**
- * Get storage usage for a creator by summing digital_assets.file_size.
- * Falls back to listing storage objects if file_size is not populated.
+ * Storage a creator is using, in bytes: every digital file that is uploaded
+ * OR still uploading. Pending uploads count because the bytes are in the
+ * bucket from the moment the signed URL is used; counting only completed ones
+ * let anybody who never called /complete store without limit.
+ *
+ * The RPC (supabase/migrations/20260929_upload_safety.sql) is one SUM in the
+ * database. The fallback is the same sum here, for a database that has not
+ * run it yet.
  */
 export async function getCreatorStorageUsage(
   admin: SupabaseClient,
   creatorId: string,
 ): Promise<number> {
-  // Primary: sum from digital_assets via product ownership
   const { data, error } = await admin.rpc("get_creator_storage_usage", {
     p_creator_id: creatorId,
   })
 
-  if (!error && typeof data === "number") {
-    return data
+  if (!error && data !== null && data !== undefined && Number.isFinite(Number(data))) {
+    return Number(data)
   }
 
-  // Fallback: query digital_assets directly
+  /* The embed is aliased `product`, so the filter is on `product.`, not
+     `products.`: the old spelling matched nothing and every creator read 0. */
   const { data: assets } = await admin
     .from("digital_assets")
     .select("file_size, product:products!inner(creator_id)")
-    .eq("products.creator_id", creatorId)
+    .eq("product.creator_id", creatorId)
+    .in("upload_status", ["pending", "completed"])
 
   if (assets && assets.length > 0) {
-    return assets.reduce((sum: number, a: { file_size: number | null }) => sum + (a.file_size || 0), 0)
+    return assets.reduce((sum: number, a: { file_size: number | null }) => sum + (Number(a.file_size) || 0), 0)
   }
 
   return 0
@@ -83,6 +90,12 @@ export async function checkUploadAllowed(
   creatorId: string,
   fileSize: number,
 ): Promise<{ allowed: true } | { allowed: false; reason: string }> {
+  /* A size is a number the page sends; NaN or a negative one would pass every
+     comparison below. */
+  if (typeof fileSize !== "number" || !Number.isFinite(fileSize) || fileSize <= 0) {
+    return { allowed: false, reason: "That file is empty." }
+  }
+
   const { data: creator } = await admin
     .from("creators")
     .select("subscription_plan_id")
