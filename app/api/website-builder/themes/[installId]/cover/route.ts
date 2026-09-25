@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { isThemeId } from "@/lib/website-builder/theme-registry"
 import { newestCover, renderOrigin, takeCover } from "@/lib/website-builder/cover-take"
+import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 
 /**
  * ===========================================================================
@@ -75,6 +76,15 @@ export async function POST(req: Request, { params }: Params) {
   const { installId } = await params
   const who = await owned(installId)
   if (who instanceof NextResponse) return who
+
+  /* A browser launch each, so counted per person before one starts: LIMITS.siteCover. */
+  const limited = await rateLimit({
+    bucket: "site-cover",
+    subjects: [`user:${who.userId}`],
+    windows: LIMITS.siteCover,
+    message: "The cover was asked for too often. The current one stays for now.",
+  })
+  if (limited) return limited
 
   /* The photographing is shared with the routes that create a website: lib/website-builder/cover-take.ts */
   try {

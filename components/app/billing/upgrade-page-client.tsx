@@ -4,8 +4,9 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Loader2 } from "lucide-react"
 import { hasInAppHistory } from "@/lib/ui/app-navigation"
+import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { isNativeApp } from "@/lib/native-bridge"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
@@ -33,6 +34,25 @@ export function UpgradePageClient({
   const router = useRouter()
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  /* Back was pressed: said at once on the button and the page, whatever the page behind takes to arrive. */
+  const [leaving, setLeaving] = useState(false)
+
+  /* Billing is where Back goes when there is no page behind this one: fetched ahead, so the link lands at once. */
+  useEffect(() => {
+    router.prefetch("/app/settings?tab=billing")
+  }, [router])
+
+  /* Still here after a Back (restored from the browser's cache, or a navigation that never left): the page comes back to life. */
+  useEffect(() => {
+    if (!leaving) return
+    const reset = () => setLeaving(false)
+    const timer = window.setTimeout(reset, 8000)
+    window.addEventListener("pageshow", reset)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener("pageshow", reset)
+    }
+  }, [leaving])
 
   // Listen for in-app browser tab closing (native Capacitor)
   // When user finishes Stripe checkout and the tab closes,
@@ -68,7 +88,19 @@ export function UpgradePageClient({
    * email) there is nothing in the app to go back to, and the link does
    * what it says instead, to the Billing tab.
    */
+  /*
+    AND IT ANSWERS AT ONCE. The press turns the arrow into a small spinner and
+    lets the page go quiet on the same frame, and the app's loading bar is
+    told, so however long the Billing tab takes there is never a moment where
+    the tap seems not to have landed.
+  */
   const goBack = (e: React.MouseEvent) => {
+    if (leaving) {
+      e.preventDefault()
+      return
+    }
+    setLeaving(true)
+    startNavigationLoading("/app/settings?tab=billing")
     if (!hasInAppHistory()) return
     e.preventDefault()
     router.back()
@@ -209,9 +241,11 @@ export function UpgradePageClient({
             href="/app/settings?tab=billing"
             onClick={goBack}
             data-upgrade-back=""
-            className="-ml-2 inline-flex h-11 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f3f4f6]"
+            data-leaving={leaving ? "" : undefined}
+            aria-busy={leaving || undefined}
+            className="-ml-2 inline-flex h-11 items-center gap-1.5 rounded-lg px-2 text-[14px] font-medium text-[#1a1a2e] transition-[background-color,scale] duration-150 hover:bg-[#f3f4f6] active:scale-[0.97] active:bg-[#eceef1] data-[leaving]:bg-[#f3f4f6] [-webkit-tap-highlight-color:transparent]"
           >
-            <ArrowLeft className="h-4 w-4" />
+            {leaving ? <Loader2 className="h-4 w-4 animate-spin text-[#4b5563]" aria-hidden /> : <ArrowLeft className="h-4 w-4" />}
             <span className="sm:hidden">Back</span>
             <span className="hidden sm:inline">Back to billing</span>
           </Link>
@@ -232,10 +266,22 @@ export function UpgradePageClient({
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1080px] px-4 pb-16 pt-8 sm:px-6 sm:pt-12 lg:px-8">
-        <div className="mb-8 sm:mb-10 sm:text-center">
-          <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Choose a plan</h1>
-          <p className="mt-1.5 text-[14px] text-[#6b7280]">Start free. Upgrade when you&apos;re ready, and change or cancel anytime.</p>
+      <div
+        data-upgrade-body=""
+        className={`mx-auto max-w-[1080px] px-4 pb-16 pt-9 transition-opacity duration-200 sm:px-6 sm:pt-14 lg:px-8 ${leaving ? "pointer-events-none opacity-60" : ""}`}
+      >
+        {/*
+          THE TITLE CARRIES THE PAGE. It was the size of a settings heading
+          over two cards far larger than it; now it is the largest thing
+          here, the size of the sections under the cards and a step past
+          them, centred on a phone as on a computer, with a line under it
+          that can be read without leaning in.
+        */}
+        <div className="mx-auto mb-9 max-w-[620px] text-center sm:mb-12">
+          <h1 className="text-[32px] font-bold leading-[1.08] tracking-[-0.025em] text-[#1a1a2e] sm:text-[44px]">Choose a plan</h1>
+          <p className="mt-3 text-balance text-[16px] leading-[1.5] text-[#6b7280] sm:mt-4 sm:text-[17px]">
+            Start free. Upgrade when you&apos;re ready, and change or cancel anytime.
+          </p>
         </div>
 
         {error && (

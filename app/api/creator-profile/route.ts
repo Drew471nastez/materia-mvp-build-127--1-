@@ -25,7 +25,8 @@
  * signed-in user can only ever reach their own row. No admin client here.
  */
 import { createClient } from "@/lib/supabase/server"
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse, after } from "next/server"
+import { announce, profileAddresses } from "@/lib/seo/announce"
 import type { AboutMediaItem, ShopHeaderSettings, SocialLinksConfig } from "@/lib/store-builder/types"
 import { SOCIAL_PLATFORM_KEYS, resolveSocialInput, type SocialPlatformKey } from "@/lib/social/platforms"
 import { toPublicHttpUrl } from "@/lib/url/public-url"
@@ -424,7 +425,13 @@ export async function PATCH(request: NextRequest) {
     .eq("page_type", "shop")
     .maybeSingle()
 
+  /* The page has changed by here: its address, to the search engines that
+     take IndexNow, after the answer and never in its way. */
+  const announcedCreator = creator.id
+  const announceProfile = () => after(() => announce(() => profileAddresses(announcedCreator)))
+
   if (!config) {
+    announceProfile()
     return NextResponse.json({ ok: true, storefront: false })
   }
 
@@ -546,5 +553,6 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Could not save your profile" }, { status: 500 })
   }
 
+  announceProfile()
   return NextResponse.json({ ok: true, storefront: true })
 }

@@ -25,13 +25,16 @@ function str(value: unknown, fallback = ""): string {
  * The Open Graph, Twitter and robots half of a page's metadata, from the
  * theme. The title, description and favicon stay with the route, which knows
  * the creator's handle and what to fall back to.
+ *
+ * `image` is the route's fallback for the share card when the creator set no
+ * share image: without one a site shared as a bare line of text.
  */
 export function themeMetadata(
   theme: ThemeSettingsValues,
-  base: { title: string; description: string; url?: string },
+  base: { title: string; description: string; url?: string; image?: string },
 ): Pick<Metadata, "openGraph" | "twitter" | "robots"> {
   const t = theme as Record<string, unknown>
-  const image = str(t.seo_og_image)
+  const image = str(t.seo_og_image) || str(base.image)
   const card = str(t.seo_twitter_card, "summary_large_image")
   /*
     THE PANEL STORES A TOGGLE. "Allow search indexing" writes true or false,

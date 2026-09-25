@@ -4,7 +4,7 @@ A Storelib website sells the creator's products, and the part that takes the mon
 
 ## Products reach a section as `products`
 
-`products` holds the creator's published products, newest first, up to 24, in the same `{ id, type, settings }` shape as blocks. The platform reads them on the server when the page is drawn, so a price changed in the shop is on the website within a minute.
+`products` holds the creator's published products, newest first, up to 24 on the live site, in the same `{ id, type, settings }` shape as blocks. The platform reads them on the server when the page is drawn, so a price changed in the shop is on the website within a minute. On the search page it holds the products that match. Which list each page has is in [Dynamic values](/developers/dynamic-values#products).
 
 | Field | What it is |
 | --- | --- |
@@ -20,8 +20,8 @@ A Storelib website sells the creator's products, and the part that takes the mon
 | `block.settings.url` | Its page on this website, such as `/products/preset-pack`. |
 | `block.settings.slug` | The last part of that address, `preset-pack`. |
 | `block.settings.kind` | What kind of product it is, as it was made: `digital`, `course` and so on. |
-| `block.settings.available` | `true` when it can be bought right now. |
-| `block.settings.tag` | `Sold out` when it cannot be bought, or empty. |
+| `block.settings.available` | `true` when it can be bought. Stock is not read yet, so today it is always `true`. |
+| `block.settings.tag` | `Sold out` when it cannot be bought, or empty. Today it is always empty, because stock is not read yet. |
 | `block.settings.checkout_url` | Storelib checkout for this product, `/checkout?productId=<id>&src=website`. Empty when it cannot be bought. |
 | `block.settings.variants` | Its options, such as sizes or licences. Empty when it has none. See below. |
 
@@ -38,7 +38,7 @@ A product with options is bought as one of them. Each entry in `block.settings.v
 | `variant.price` | Its own price, formatted, or empty when it is free. |
 | `variant.compare_price` | Its price before a sale, or empty. |
 | `variant.free` | `true` when this option costs nothing. |
-| `variant.available` | `true` when it can be bought right now. |
+| `variant.available` | `true` when it can be bought. Always `true` today, as above. |
 | `variant.checkout_url` | Storelib checkout for this option, `/checkout?productId=<id>&variantId=<option id>&src=website`. |
 
 A product with options that is sent to checkout without one arrives with its first option chosen, and the buyer can change it there.
@@ -51,7 +51,9 @@ Every product has a page on the website at `/products/<slug>`. A section placed 
 | --- | --- |
 | `page.product.settings.description` | The product's description as plain text, line breaks kept. It is text, never HTML: print it with `{{ }}` and give it `white-space: pre-line`. |
 
-In the builder, while the product page is open, `page.product` is the newest product, so the section draws something real. On any other page it is empty. Put `"allowed_templates": ["product"]` in the schema of a section that only makes sense there.
+On a product page `products` is there too, the newest 24, for a row of more products under this one.
+
+In the builder, while the product page is open, `page.product` is the newest product, so the section draws something real. There it has no description and no options yet. On any other page it is empty, so a section written for the product page draws nothing without it, and a note behind `page.in_editor` for the creator, as the example below does. `"allowed_templates": ["product"]` in its schema says where it belongs, though Add Section does not act on that yet: see [Schema](/developers/schema).
 
 ## Two ways to sell from a section
 
@@ -101,7 +103,7 @@ To let the creator pick which product a section shows, give it a `product_picker
 ## Buy buttons and checkout
 
 - A buy button links to `checkout_url`, or to one option's `variant.checkout_url`. Never build the address from pieces, and never add a price to it: checkout reads the price from the product.
-- A product that is not `available` gets no buy button. Show its `tag`.
+- A product that is not `available` gets no buy button: show its `tag` instead, so the section is right on the day stock is read.
 - **The buyer comes back to the website.** When a buy link is followed on a website, the site adds which website it is and the page the buyer was on. After paying, checkout sends the buyer back to that page with `?checkout=paid` on the address, and the site says the payment went through. Back on the checkout page goes to the same page.
 - **A page of your own to come back to.** Add `return` to the link with a path on this site, such as `{{ block.settings.checkout_url }}&return=/thank-you`, and the buyer lands there after paying. `cancel` does the same for Back.
 - **Only this creator's own addresses.** Checkout checks `return` and `cancel` on the server against the creator's own sites: their Storelib addresses and their verified domains. Anything else is ignored, never followed.

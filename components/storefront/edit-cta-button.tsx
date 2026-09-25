@@ -85,7 +85,7 @@ export function EditCtaButton({
    */
   onPreview?: (draft: CtaValues | null) => void
 }) {
-  const { markSaved, onClosed } = useSaveThenRefresh()
+  const { markSaved, onClosed, toast } = useSaveThenRefresh()
   const [open, setOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -262,6 +262,8 @@ export function EditCtaButton({
           </div>
         </EditorField>
       </EditorSheet>
+      {/* "Saved", once the sheet has gone (useSaveThenRefresh). */}
+      {toast}
     </>
   )
 }

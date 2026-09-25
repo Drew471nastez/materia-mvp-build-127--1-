@@ -36,6 +36,17 @@ import { useSchemePreview } from "@/components/storefront/use-scheme-preview"
 import type { RootPaint } from "@/lib/store-builder/scheme-preview"
 import type { SocialPlatformKey } from "@/lib/social/platforms"
 
+/**
+ * THE HEAVY PARTS OF THE FORM DRAW ONLY WHEN THEIR OWN VALUES CHANGE. The
+ * name and the bio re-render this component on every keystroke, and each of
+ * those used to redraw the cover frame, the picture, eight schemes and eight
+ * social fields as well. With stable handlers below, these skip that work,
+ * and a keystroke redraws the field it went into.
+ */
+const MemoImageUpload = React.memo(ImageUpload)
+const MemoSchemePicker = React.memo(SchemePicker)
+const MemoSocialLinksEditor = React.memo(SocialLinksEditor)
+
 // The platforms, their order and their icons all come from
 // lib/social/platforms and components/social. This file used to carry its own
 // list with its own placeholder text — one of five such lists.
@@ -96,7 +107,7 @@ export function EditProfileButton({
   themePreset = "default",
   schemeRoots,
 }: EditProfileButtonProps) {
-  const { markSaved, onClosed } = useSaveThenRefresh()
+  const { markSaved, onClosed, toast } = useSaveThenRefresh()
   /* The page behind the sheet shows the scheme being tried; Save keeps it, anything else puts it back. */
   const preview = useSchemePreview(themePreset, schemeRoots)
   const [open, setOpen] = React.useState(false)
@@ -142,15 +153,34 @@ export function EditProfileButton({
    */
   const coverAspect = useCoverAspect(open)
 
+  /* Stable handlers and props for the memoised parts above. */
+  const onCoverChange = React.useCallback((url: string | null) => {
+    setCover(url)
+    setCrop(DEFAULT_COVER_CROP)
+  }, [])
+  const onAvatarChange = React.useCallback((url: string | null) => setAvatar(url), [])
+  const coverReposition = React.useMemo(
+    () => ({ value: crop, onChange: setCrop, aspect: coverAspect, editable: !!cover }),
+    [crop, coverAspect, cover],
+  )
+  const { show: showScheme } = preview
+  const onPickScheme = React.useCallback((next: string) => {
+    setScheme(next)
+    showScheme(next)
+    setPeeking(true)
+  }, [showScheme])
+  const onLinkChange = React.useCallback(
+    (key: SocialPlatformKey, next: string) => setLinks((l) => ({ ...l, [key]: next })),
+    [],
+  )
+
   /**
    * Reopening shows what is SAVED, not what was abandoned — and not what was
    * saved a moment ago either. See lib/store-builder/use-saved-values: the
    * old version watched `open` alone, so it put back the pre-save props and
    * never heard about the refreshed ones.
    */
-  useSavedValues(
-    open,
-    {
+  const savedValues = {
       displayName,
       bio,
       avatarUrl: avatarUrl ?? null,
@@ -160,8 +190,8 @@ export function EditProfileButton({
       socialLinks,
       display,
       themePreset,
-    },
-    (saved) => {
+  }
+  const applySaved = (saved: typeof savedValues) => {
       setName(saved.displayName)
       setAbout(saved.bio)
       setAvatar(saved.avatarUrl)
@@ -176,8 +206,20 @@ export function EditProfileButton({
       })
       setScheme(saved.themePreset)
       setError(null)
-    },
-  )
+  }
+  useSavedValues(open, savedValues, applySaved)
+
+  /**
+   * CLOSED WITHOUT SAVING IS CLOSED WITHOUT SAVING. The re-sync above only
+   * fires when the saved values change, so a Cancel left the abandoned edits
+   * in the form for next time, a scheme among them: reopened, the picker
+   * showed a scheme the page was not in, and Save would have kept it. The
+   * form is put back to what is saved once the sheet has finished leaving,
+   * so nothing changes in it on the way out.
+   */
+  const abandoned = React.useRef(false)
+  const restoreRef = React.useRef(() => applySaved(savedValues))
+  restoreRef.current = () => applySaved(savedValues)
 
   /**
    * THE COVER IS DECODED BEFORE THE SHEET MOVES. The press starts it, at the
@@ -293,7 +335,10 @@ export function EditProfileButton({
           type="button"
           onPointerDown={warmCover}
           onFocus={warmCover}
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            abandoned.current = false
+            setOpen(true)
+          }}
           aria-label="Edit profile"
           // rounded-lg (8px), not a pill. A fully rounded control reads as a
           // chip or a tag; this is a button, and it sits beside a card grid whose
@@ -311,8 +356,15 @@ export function EditProfileButton({
 
       <EditorSheet
         open={open}
-        onClosed={onClosed}
+        onClosed={() => {
+          if (abandoned.current) {
+            abandoned.current = false
+            restoreRef.current()
+          }
+          onClosed()
+        }}
         onClose={() => {
+          abandoned.current = true
           setOpen(false)
           setPeeking(false)
           /* Closed without saving: the page goes back to the scheme it has. */
@@ -359,12 +411,12 @@ export function EditProfileButton({
                 in, and `reposition` only reaches it when there is a cover to
                 move: with none, this is the ordinary upload box.
               */}
-              <ImageUpload
+              <MemoImageUpload
                 bucket="covers"
                 aspectRatio="cover"
                 value={cover || undefined}
                 /* A new picture starts from the middle, at its own size. */
-                onChange={(url) => { setCover(url); setCrop(DEFAULT_COVER_CROP) }}
+                onChange={onCoverChange}
                 replaceOnly
                 allowRemove
                 livePreview
@@ -379,18 +431,18 @@ export function EditProfileButton({
                   what the page shows. Position and zoom come back from the
                   frame once per gesture, when the finger lifts.
                 */
-                reposition={{ value: crop, onChange: setCrop, aspect: coverAspect, editable: !!cover }}
+                reposition={coverReposition}
               />
             </div>
 
             <div className="space-y-2">
               <Label>Profile picture</Label>
               <div className="w-28">
-                <ImageUpload
+                <MemoImageUpload
                   bucket="avatars"
                   aspectRatio="square"
                   value={avatar || undefined}
-                  onChange={(url) => setAvatar(url)}
+                  onChange={onAvatarChange}
                   replaceOnly
                   livePreview
                   replaceLabel="Change"
@@ -431,13 +483,9 @@ export function EditProfileButton({
             */}
             <div className="space-y-3" data-scheme-picker="">
               <Label>Colour scheme</Label>
-              <SchemePicker
+              <MemoSchemePicker
                 value={scheme}
-                onChange={(next) => {
-                  setScheme(next)
-                  preview.show(next)
-                  setPeeking(true)
-                }}
+                onChange={onPickScheme}
                 onIntent={preview.prefetch}
               />
             </div>
@@ -448,9 +496,9 @@ export function EditProfileButton({
               <p className="text-xs text-muted-foreground">
                 Only the ones you fill in appear on your page. A username or a full link both work.
               </p>
-              <SocialLinksEditor
+              <MemoSocialLinksEditor
                 value={links}
-                onChange={(key, next) => setLinks((l) => ({ ...l, [key]: next }))}
+                onChange={onLinkChange}
               />
             </div>
 
@@ -494,6 +542,8 @@ export function EditProfileButton({
               </p>
             </div>
       </EditorSheet>
+      {/* "Saved", once the sheet has gone (useSaveThenRefresh). */}
+      {toast}
     </>
   )
 }

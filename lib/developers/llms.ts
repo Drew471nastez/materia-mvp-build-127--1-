@@ -2,6 +2,11 @@
  * The text of storelib.com/llms.txt, in the llms.txt format (llmstxt.org).
  * Here rather than in the route because a Next route file may only export
  * its handlers and its config, and the tests want to read this directly.
+ *
+ * The pages are listed by hand, not looped over, because the order is for an
+ * agent rather than for the sidebar: the rules and the AI guide come before
+ * everything else, whatever category the site files them under.
+ * tests/developer-hub.test.ts fails when a page of the hub is missing here.
  */
 import { DEV_PAGES, FRAMEWORK_NAME, HUB_NAME, SITE_ORIGIN, devPath } from "./pages"
 
@@ -24,26 +29,38 @@ export function llmsTxt(): string {
     "",
     "When a fact that changes the result is missing and nothing on the site has it, an agent asks its person one short question with a few options instead of guessing, and never asks what a tool can tell it.",
     "",
-    "## Start",
+    "## Start here",
     "",
     line(""),
-    line("builder"),
-    line("website-builder"),
     line("rules"),
     line("ai"),
+    line("builder"),
+    line("website-builder"),
     "",
-    `## ${FRAMEWORK_NAME}`,
+    "## Themes",
+    "",
+    line("themes"),
+    line("pages"),
+    line("sharing-themes"),
+    line("publishing"),
+    "",
+    `## Sections: the ${FRAMEWORK_NAME}`,
     "",
     line("sections"),
-    line("blocks"),
     line("schema"),
+    line("blocks"),
     line("styling"),
     line("javascript"),
-    "",
-    "## Build",
-    "",
-    line("selling"),
     line("examples"),
+    "",
+    "## Data and logic",
+    "",
+    line("dynamic-values"),
+    line("selling"),
+    "",
+    "## Reference",
+    "",
+    line("data-model"),
     "",
     "## Optional",
     "",

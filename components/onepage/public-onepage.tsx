@@ -2664,7 +2664,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 {quickCheckoutModalData.productThumbnail && (
                   <img
                     src={quickCheckoutModalData.productThumbnail}
-                    alt=""
+                    alt={quickCheckoutModalData.productTitle}
                     className="w-14 h-14 rounded-xl object-cover shadow-sm"
                   />
                 )}
@@ -3847,7 +3847,7 @@ function PublicBlockRenderer({
               ) : (
                 <img
                   src={profile.avatar_url! || "/placeholder.svg"}
-                  alt=""
+                  alt={profile.title || ""}
                   className="w-full h-full object-cover"
                   onError={(e) => { e.currentTarget.style.display = 'none' }}
                   style={{
@@ -4476,7 +4476,7 @@ function PublicBlockRenderer({
                 {data.thumbnail_url ? (
                   <img
                     src={data.thumbnail_url}
-                    alt=""
+                    alt={data.label || ""}
                     className={cn(
                       "w-full",
                       displayMode === 'cover' && "h-full object-cover",
@@ -4692,7 +4692,7 @@ function PublicBlockRenderer({
             {data.thumbnail_url ? (
               <img
                 src={data.thumbnail_url}
-                alt=""
+                alt={data.label || ""}
                 className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] rounded object-cover shrink-0 absolute left-[20px]"
               />
             ) : iconPath ? (
@@ -4756,7 +4756,7 @@ function PublicBlockRenderer({
             {data.thumbnail_url ? (
               <img
                 src={data.thumbnail_url}
-                alt=""
+                alt={data.label || ""}
                 className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] rounded object-cover shrink-0 absolute left-[20px]"
               />
             ) : iconPath ? (
@@ -4829,7 +4829,7 @@ function PublicBlockRenderer({
           {data.thumbnail_url ? (
             <img
               src={data.thumbnail_url}
-              alt=""
+              alt={data.label || ""}
               className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] rounded object-cover shrink-0 absolute left-[20px]"
             />
           ) : iconPath ? (
@@ -5346,7 +5346,7 @@ function PublicBlockRenderer({
               <div className="flex gap-3 sm:gap-4 items-start">
                 <img
                   src={layoutImage || ""}
-                  alt=""
+                  alt={data.headline || ""}
                   className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl object-cover shrink-0"
                 />
                 <div className="flex-1 min-w-0">
@@ -5763,7 +5763,7 @@ function PublicBlockRenderer({
             {data.product_thumbnail && (
               <img
                 src={data.product_thumbnail}
-                alt=""
+                alt={data.product_title || ""}
                 className="w-6 h-6 sm:w-7 sm:h-7 rounded object-cover shrink-0"
               />
             )}
@@ -5814,7 +5814,7 @@ function PublicBlockRenderer({
               <div className="w-full aspect-[2/1] overflow-hidden">
                 <img
                   src={data.custom_thumbnail || data.product_thumbnail}
-                  alt=""
+                  alt={data.product_title || ""}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -5906,7 +5906,7 @@ function PublicBlockRenderer({
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl overflow-hidden shrink-0 bg-gray-100">
                 <img
                   src={data.custom_thumbnail || data.product_thumbnail}
-                  alt=""
+                  alt={data.product_title || ""}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -6097,7 +6097,7 @@ function PublicBlockRenderer({
                 {thumbnailUrl ? (
                   <img
                     src={thumbnailUrl}
-                    alt=""
+                    alt={data.title || ""}
                     className="w-full h-full object-cover"
                     style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
                   />
@@ -6283,7 +6283,7 @@ function PublicBlockRenderer({
                 {thumbnailUrl ? (
                   <img
                     src={thumbnailUrl}
-                    alt=""
+                    alt={data.title || ""}
                     className="w-full h-full object-cover"
                     style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
                   />
@@ -6506,7 +6506,7 @@ function PublicBlockRenderer({
                   {thumbnailUrl ? (
                     <img
                       src={thumbnailUrl}
-                      alt=""
+                      alt={data.title || ""}
                       className="w-full h-full object-cover"
                       style={{ borderRadius: Math.max(0, theme.button_border_radius - 4) }}
                     />

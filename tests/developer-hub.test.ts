@@ -26,11 +26,11 @@ import { join } from "node:path"
 
 import { developerDocsModule } from "../scripts/emit-developer-docs"
 import { DEVELOPER_DOCS, DEVELOPER_EXAMPLES } from "@/lib/developers/content.generated"
-import { CAPABILITY_DOCS, DIRECTIVE_NAMES, FILTER_DOCS, LIMIT_DOCS, expandAll } from "@/lib/developers/directives"
+import { CAPABILITY_DOCS, DIRECTIVE_NAMES, FILTER_DOCS, LIMIT_DOCS, THEME_TOKEN_DOCS, expandAll, expandDirective, themeTokenLeaves } from "@/lib/developers/directives"
 import { highlight } from "@/lib/developers/highlight"
 import { llmsTxt } from "@/lib/developers/llms"
 import { parseMarkdown, titleOf, type DocNode } from "@/lib/developers/markdown"
-import { DEV_PAGES, devPath } from "@/lib/developers/pages"
+import { DEV_GROUPS, DEV_PAGES, devPagesIn, devPath } from "@/lib/developers/pages"
 import { hubText, pageText } from "@/lib/developers/render-text"
 import { RESERVED_ROOT_SEGMENTS } from "@/lib/routes/reserved-segments"
 import { compileSection } from "@/lib/storelib-theme"
@@ -38,7 +38,10 @@ import { CAPABILITIES } from "@/lib/storelib-theme/storelib/script"
 import { FILTER_NAMES, FOREIGN_SYNTAX, FORBIDDEN_MARKUP } from "@/lib/storelib-theme/storelib/template"
 import { LIMITS } from "@/lib/storelib-theme/types"
 import { CONTROL_TYPES } from "@/lib/storelib-theme/controls/registry"
-import { THEME_SETTING_DOCS, themeSettingGroups, themeSettingIds } from "@/lib/developers/builder-reference"
+import { CONTROL_DESCRIPTIONS, THEME_SETTING_DOCS, themeSettingGroups, themeSettingIds } from "@/lib/developers/builder-reference"
+import { THEME_INSTALL_LIMIT } from "@/lib/website-builder/theme-registry"
+import { MAX_SHOP_PRODUCTS } from "@/lib/website-builder/shop-products"
+import { IMPORT_MAX_BYTES } from "@/lib/website-builder/theme-import"
 import { ALL_TOPICS, CORE_FORMAT, checkSectionQuality, qualityErrors, writeSectionRules } from "@/lib/storelib-ai"
 
 let passed = 0
@@ -225,7 +228,7 @@ function main() {
     /title: \{ absolute: title \}/.test(hub) && /alternates: \{ canonical: path \}/.test(hub))
   check("and structured data saying what it is and where it sits",
     /"@type": "TechArticle"/.test(hub) && /"@type": "BreadcrumbList"/.test(hub)
-      && /JSON\.stringify\(data\)\.replace\(\/<\/g, "\\\\u003c"\)/.test(hub),
+      && /__html: jsonLdScript\(data\)/.test(hub) && /from "@\/lib\/seo\/json-ld"/.test(hub),
     "`<` escaped so nothing in the data can close the script element")
   check("the side columns stick below the site header, not behind it",
     (hub.match(/sticky top-\[92px\]/g) ?? []).length === 2)
@@ -261,6 +264,59 @@ function main() {
   const guideText = pageText("website-builder")
   check("and /llms-full.txt carries the same settings as a table", /\| Default style \(`button_style`\) \| radio/.test(guideText))
   check("the guide's copy has no em dash", !/\u2014/.test(guideSrc))
+
+  console.log("\nThe map of the hub, and the numbers its pages state")
+
+  check("every category has pages", DEV_GROUPS.every((g) => devPagesIn(g).length > 0))
+  const front = pageText("")
+  const unmapped = DEV_PAGES.filter((p) => p.slug && !front.includes(`[${p.nav}](https://storelib.com${devPath(p.slug)}): ${p.summary}`))
+  check("the front page's map lists every page, under its category, with its line",
+    unmapped.length === 0 && DEV_GROUPS.every((g) => front.includes(`## ${g}`)),
+    unmapped.map((p) => p.slug).join(", "))
+  check("and every line is one short line", DEV_PAGES.every((p) => p.summary.length > 0 && p.summary.length <= 80))
+
+  const firstCode = parseMarkdown(DEVELOPER_DOCS[""] ?? "").find((n) => n.kind === "code" && n.lang === "storelib")
+  const firstSrc = firstCode && firstCode.kind === "code" ? firstCode.code : ""
+  const firstType = firstSrc.match(/"type": "([a-z0-9_]+)"/)?.[1] ?? ""
+  const first = compileSection(firstSrc, { file: `sections/${firstType}.storelib`, expectType: firstType } as never)
+  check("the section the front page walks through compiles, with no warnings",
+    !!firstType && first.ok === true && ((first as { warnings?: unknown[] }).warnings ?? []).length === 0,
+    first.ok === false ? first.errors.map((e) => `${e.line}: ${e.message}`).join(" | ") : undefined)
+  check("and passes the checks the builder applies to AI-written sections", qualityErrors(checkSectionQuality(firstSrc)).length === 0)
+
+  const tokens = themeTokenLeaves().map(([path]) => path)
+  check("every theme value a template can read is described, and nothing else",
+    same(Object.keys(THEME_TOKEN_DOCS), tokens),
+    `engine: ${tokens.join(", ")}`)
+  check("the hub's own words for a control are for controls that exist",
+    Object.keys(CONTROL_DESCRIPTIONS).every((t) => (CONTROL_TYPES as readonly string[]).includes(t)))
+  const settingIndex = expandDirective("theme-setting-index")[0]
+  check("every group of theme settings says what it holds",
+    settingIndex?.kind === "table" && settingIndex.rows.every((r) => (r[1] ?? "").trim() !== ""))
+
+  const themes = pageText("themes")
+  const publishing = pageText("publishing")
+  const sharing = pageText("sharing-themes")
+  check("the library holds as many websites as the registry allows",
+    THEME_INSTALL_LIMIT === 5 && themes.includes("up to five websites: **one live and four drafts**")
+      && publishing.includes("| Websites in the library | 5: one live and four drafts |") && sharing.includes("It holds five: one live and four drafts."),
+    `the registry allows ${THEME_INSTALL_LIMIT}`)
+  const backups = Number(read("lib/website-builder/backups.ts").match(/export const BACKUPS_TO_KEEP = (\d+)/)?.[1])
+  check("as many backups are kept as the page says", backups > 0 && publishing.includes(`| Backups kept for each website | The newest ${backups} |`), `${backups}`)
+  check("a template reads as many products as the page says",
+    publishing.includes(`| Products a template can read | ${MAX_SHOP_PRODUCTS} on the live site |`)
+      && pageText("selling").includes(`up to ${MAX_SHOP_PRODUCTS} on the live site`)
+      && pageText("pages").includes(`newest ${MAX_SHOP_PRODUCTS} published products`))
+  const mb = (n: number) => n / (1024 * 1024)
+  check("an import is refused at the sizes the page gives",
+    sharing.includes(`The file is a zip, and ${mb(IMPORT_MAX_BYTES)} MB or less.`)
+      && sharing.includes(`It holds ${LIMITS.filesPerPackage} files or fewer.`)
+      && sharing.includes(`each text file is ${LIMITS.sourceBytes / 1024} KB or less, each asset ${mb(LIMITS.assetBytes)} MB or less, and the whole ${mb(LIMITS.packageBytes * 4)} MB or less`)
+      && /const MAX_UNPACKED_BYTES = LIMITS\.packageBytes \* 4/.test(read("lib/storelib-theme/package.ts")))
+
+  const bar = read("components/developers/hub-page.tsx")
+  check("a phone gets the page list and the outline in a bar under the header",
+    /data-hub-bar/.test(bar) && /data-hub-menu="pages"/.test(bar) && /data-hub-menu="outline"/.test(bar) && /<HubMenus \/>/.test(bar))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

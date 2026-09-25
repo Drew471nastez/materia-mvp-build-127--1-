@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache"
 import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
+import { announce, productAddresses, profileAddresses } from "@/lib/seo/announce"
 import { createClient } from "@/lib/supabase/server"
 import { defaultShopPageConfig, defaultProductPageConfig } from "@/lib/store-builder/defaults"
 import type { PageType } from "@/lib/store-builder/types"
@@ -554,6 +555,11 @@ export async function PUT(request: Request) {
       id: publishedConfig.id,
       sections: publishedConfig.published_config?.sections?.length,
     })
+    /* After the answer: the product's pages, to the search engines that take
+       IndexNow (lib/seo/indexnow.ts). Never in the way of the publish. */
+    const announcedProduct = productId as string
+    const announcedCreator = creator.id
+    after(() => announce(() => productAddresses(announcedProduct, announcedCreator)))
     return NextResponse.json(publishedConfig)
   }
 
@@ -634,5 +640,11 @@ export async function PUT(request: Request) {
     id: publishedConfig.id,
     sections: publishedConfig.published_config?.sections?.length,
   })
+  /* The creator page changed: its address, after the answer. The product
+     template only rearranges pages whose words did not change. */
+  if (pageType === "shop") {
+    const announcedCreator = creator.id
+    after(() => announce(() => profileAddresses(announcedCreator)))
+  }
   return NextResponse.json(publishedConfig)
 }

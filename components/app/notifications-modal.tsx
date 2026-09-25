@@ -189,11 +189,14 @@ export function NotificationsModal({
     }
   }, [])
 
+  /* On a phone the refresh waits for the sheet to arrive (BottomSheet
+     onOpened below): the rows it brings back are drawn after the slide, not
+     in the middle of it. */
   useEffect(() => {
-    if (open) {
+    if (open && !isMobile) {
       fetchNotifications()
     }
-  }, [open, fetchNotifications])
+  }, [open, isMobile, fetchNotifications])
 
   /* The list is read once, quietly, a moment after /app loads, so the first
      open already has its rows. It used to open on a spinner and then change
@@ -290,6 +293,7 @@ export function NotificationsModal({
     return true
   })
   const filteredNotifications = unreadOnly ? inTab.filter((n) => !n.read) : inTab
+  const shownIds = new Set(filteredNotifications.map((n) => n.id))
   const hasUnread = unreadCount(unread, setupIds) > 0 || notifications.some((n) => !n.read)
 
   /*
@@ -307,6 +311,28 @@ export function NotificationsModal({
     if (listRef.current) listRef.current.scrollTop = 0
     setActiveTab(id)
   }
+  /*
+    EVERY ROW STAYS; A VIEW SHOWS SOME OF THEM. Each switch used to throw the
+    list away and build the next one (a `key` per view), which on a phone's
+    CPU was 60 to 110ms of rendering, styling and layout on the tap, and an
+    element put in or taken out under a sheet is also a change the page's
+    :has() rules answer by restyling the whole document
+    (scripts/check-app-sheets-frames.mjs). Now the rows are all there, the
+    ones not in the view are `hidden`, and the view fades in on the
+    compositor as it did.
+  */
+  const viewRef = useRef<HTMLDivElement>(null)
+  const emptyRef = useRef<HTMLDivElement>(null)
+  const firstView = useRef(true)
+  useLayoutEffect(() => {
+    if (firstView.current) {
+      firstView.current = false
+      return
+    }
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    const el = viewRef.current && !viewRef.current.hidden ? viewRef.current : emptyRef.current
+    el?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: "cubic-bezier(0.4, 0, 0.2, 1)" })
+  }, [activeTab, unreadOnly])
   useEffect(() => {
     if (open) return
     /* After the close has faded, so the panel does not shrink as it goes. */
@@ -466,29 +492,37 @@ export function NotificationsModal({
           /* Nothing drawn while the first read is out: no spinner, and the
              same height the empty words take, so nothing moves when it lands. */
           <div className="h-full min-h-[180px]" aria-busy="true" aria-label={t("notifications.loading")} />
-        ) : filteredNotifications.length === 0 ? (
-          /* A small bell and one line, both muted. It was a 56px grey disc
-             with a 28px bell, a 16px heading and a sentence under it: an
-             illustration for a list with nothing in it. "Smaller and less
-             AI." The height stays the loading block's 180px, so nothing
-             moves when the first read lands. */
-          <div key={activeTab} className="flex h-full min-h-[180px] flex-col items-center justify-center gap-2 px-4 py-10 animate-in fade-in-0 duration-200 motion-reduce:animate-none" data-notifications-empty="">
-            <Bell aria-hidden className="h-5 w-5 text-[#9ca3af]" strokeWidth={1.75} />
-            <p className="text-center text-[14px] leading-5 text-[#6b7280]">
-              {unreadOnly ? "No unread notifications" : t("notifications.empty")}
-            </p>
-          </div>
         ) : (
-          <div key={activeTab} data-notifications-view={activeTab} className="divide-y divide-[#f1f2f4] animate-in fade-in-0 duration-200 motion-reduce:animate-none">
-            {filteredNotifications.map((notification) => (
-              <NotificationItem
-                key={notification.id}
-                notification={notification}
-                onClick={() => handleNotificationClick(notification)}
-                onMarkRead={() => handleMarkRead(notification)}
-              />
-            ))}
-          </div>
+          <>
+            {/* A line between two rows that are showing, whichever are hidden between them. */}
+            <div
+              ref={viewRef}
+              hidden={filteredNotifications.length === 0}
+              data-notifications-view={activeTab}
+              className="[&>:not([hidden])~:not([hidden])]:border-t [&>:not([hidden])~:not([hidden])]:border-[#f1f2f4]"
+            >
+              {notifications.map((notification) => (
+                <NotificationItem
+                  key={notification.id}
+                  hidden={!shownIds.has(notification.id)}
+                  notification={notification}
+                  onClick={() => handleNotificationClick(notification)}
+                  onMarkRead={() => handleMarkRead(notification)}
+                />
+              ))}
+            </div>
+            {/* A small bell and one line, both muted. It was a 56px grey disc
+                with a 28px bell, a 16px heading and a sentence under it: an
+                illustration for a list with nothing in it. "Smaller and less
+                AI." The height stays the loading block's 180px, so nothing
+                moves when the first read lands. */}
+            <div ref={emptyRef} hidden={filteredNotifications.length > 0} className="flex h-full min-h-[180px] flex-col items-center justify-center gap-2 px-4 py-10" data-notifications-empty="">
+              <Bell aria-hidden className="h-5 w-5 text-[#9ca3af]" strokeWidth={1.75} />
+              <p className="text-center text-[14px] leading-5 text-[#6b7280]">
+                {unreadOnly ? "No unread notifications" : t("notifications.empty")}
+              </p>
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -504,6 +538,9 @@ export function NotificationsModal({
         hideFrom="md"
         fill
         height="min(62dvh, 540px)"
+        /* Built while the page is idle and kept: the tap only slides it up. */
+        keepMounted
+        onOpened={fetchNotifications}
         header={
           <div className="flex items-center justify-between gap-2 border-b border-[#eef0f2] pb-1 pl-5 pr-2 pt-1" data-notifications-header="">
             <h3 className="text-[16px] font-semibold text-[#1a1a2e]">{t("notifications.title")}</h3>
@@ -692,10 +729,13 @@ function NotificationItem({
   notification,
   onClick,
   onMarkRead,
+  hidden,
 }: {
   notification: Notification
   onClick: () => void
   onMarkRead: () => void
+  /** Not in the view that is showing (see the list). */
+  hidden?: boolean
 }) {
   const when = whenOf(notification.createdAt)
   const unread = !notification.read
@@ -707,6 +747,7 @@ function NotificationItem({
       )}
       data-notification-item=""
       data-unread={unread ? "" : undefined}
+      hidden={hidden}
     >
       {notification.href ? (
         <Link

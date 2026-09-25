@@ -207,12 +207,21 @@ export function toVariant(productId: string, v: VariantRow, available: boolean):
   }
 }
 
+/**
+ * Whether a product has sold out: its stock is counted and none is left. A
+ * product whose stock is not counted (no such column, or null) never sells
+ * out. One rule for the card's tag and for the availability a search result
+ * is told, on the website's product page and storelib.com's alike.
+ */
+export function soldOut(row: { inventory_count?: number | null }): boolean {
+  return typeof row.inventory_count === "number" && row.inventory_count <= 0
+}
+
 /** A row to the card a section draws. Exported so a test can drive it. */
 export function toCard(row: ProductRow, variants: VariantRow[] = []): ProductCard {
   const cents = askingCents(row)
   const images = pictures(row)
-  const soldOut = typeof row.inventory_count === "number" && row.inventory_count <= 0
-  const available = !soldOut
+  const available = !soldOut(row)
   const options = variants
     .filter((v) => v.product_id === row.id)
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || askingCents(a) - askingCents(b))
@@ -233,7 +242,7 @@ export function toCard(row: ProductRow, variants: VariantRow[] = []): ProductCar
       slug: row.slug ?? "",
       kind: row.type ?? "",
       available,
-      tag: soldOut ? "Sold out" : "",
+      tag: available ? "" : "Sold out",
       checkout_url: available ? checkoutUrl(row.id) : "",
       variants: options,
     },

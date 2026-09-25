@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { createAdminClient } from "@/lib/supabase/admin"
 import BlogListing, { type BlogPost } from "./_blog-listing"
+import { jsonLdScript } from "@/lib/seo/json-ld"
 
 export const dynamic = "force-dynamic"
 
@@ -54,7 +55,7 @@ export default async function BlogPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: jsonLdScript({
             "@context": "https://schema.org",
             "@type": "Blog",
             name: "Storelib Blog",

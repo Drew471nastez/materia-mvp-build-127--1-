@@ -959,8 +959,10 @@ function main() {
     check("the search panel says it is a modal only while it is open, and is hidden and inert while closed",
       /aria-modal=\{open \? "true" : undefined\}/.test(search) && /aria-hidden=\{open \? undefined : "true"\}/.test(search) && /inert=\{!open\}/.test(search)
         && !/^\s*aria-modal="true"\s*$/m.test(search))
+    /* ... nor the shared sheet's own root (data-sheet-root), which says it is up on <html> instead of through :has()
+       (components/ui/bottom-sheet.tsx showSheetState; scripts/check-app-sheets-frames.mjs). */
     check("and the pill never counts a dialog that says it is hidden",
-      (css.match(/\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\]\)\) \[data-app-nav-pill\]/g) ?? []).length === 2
+      (css.match(/\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\], \[data-sheet-root\]\)\) \[data-app-nav-pill\]/g) ?? []).length === 2
         && !/\[aria-modal="true"\]:not\(\[data-mobile-menu\]\)\)/.test(css))
   }
 
