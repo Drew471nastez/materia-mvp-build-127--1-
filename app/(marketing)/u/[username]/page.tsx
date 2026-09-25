@@ -12,6 +12,8 @@ import { isReservedWord } from "@/lib/reserved-words"
 import Image from "next/image"
 import { TrackView } from "@/components/analytics/track-view"
 import { getPublishedConfig } from "@/lib/store-builder/get-published-config"
+import { liveOriginOf } from "@/lib/custom-domain/server"
+import { canonicalOnDomain } from "@/lib/custom-domain/routing"
 import { SectionRenderer, ShopHeaderRenderer, type ProductData } from "@/components/store-builder/section-renderer"
 import type { AboutSettings, ShopHeaderSettings, GlobalStoreSettings, Section } from "@/lib/store-builder/types"
 import { defaultAboutSettings, defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/defaults"
@@ -149,7 +151,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
 
   const creator = await loadCreatorForUser(profile.id)
 
-  const [publishedConfigForMeta, { data: seoOverride }, publishedProducts] = await Promise.all([
+  const [publishedConfigForMeta, { data: seoOverride }, publishedProducts, domainOrigin] = await Promise.all([
     creator ? getPublishedConfig(creator.id, "shop") : Promise.resolve(null),
     supabase
       .from("seo_overrides")
@@ -165,6 +167,8 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
           .eq("status", "published")
           .then(({ count }) => count ?? 0)
       : Promise.resolve(0),
+    /* A live domain set to show this page: its address is the page's address. */
+    creator ? liveOriginOf(creator.id, "creator_page") : Promise.resolve(null),
   ])
 
   let faviconUrl: string | undefined
@@ -191,7 +195,14 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     socialPreviewImage = profile.avatar_url || undefined
   }
 
-  const siteUrl = `https://${username}.storelib.com`
+  /**
+   * ONE ADDRESS FOR THE PAGE, in the canonical and in what a shared link
+   * previews. storelib.com/<handle>, or the creator's own domain when a
+   * live one is set to show this page (Settings, Domains). og:url used to
+   * say <handle>.storelib.com, which is the website's address now, not
+   * this page's.
+   */
+  const pageUrl = domainOrigin ? canonicalOnDomain(domainOrigin, { kind: "creator_page" }) : `https://storelib.com/${username}`
   const displayTitle = profile.display_name || profile.username || "Creator"
   const defaultDescription = `Check out ${profile.display_name || profile.username}'s products on Storelib`
 
@@ -207,7 +218,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
       description,
       type: "website",
       siteName: "Storelib",
-      url: siteUrl,
+      url: pageUrl,
       images: socialPreviewImage
         ? [
             {
@@ -226,7 +237,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
       images: socialPreviewImage ? [socialPreviewImage] : undefined,
     },
     alternates: {
-      canonical: `https://storelib.com/${username}`,
+      canonical: pageUrl,
     },
     /**
      * ═══════════════════════════════════════════════════════════════════════

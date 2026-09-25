@@ -4,6 +4,8 @@ import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { headers } from "next/headers"
 import { getLinksInternalPath } from "@/lib/url-helpers"
+import { liveOriginOf } from "@/lib/custom-domain/server"
+import { canonicalOnDomain } from "@/lib/custom-domain/routing"
 import crypto from "crypto"
 
 // Hash IP address for privacy (same as track API)
@@ -155,6 +157,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     faviconUrl = userProfileAvatarUrl
   }
 
+  /* A live domain set to show the OnePage is where it lives: named as its address. */
+  const domainOrigin = effectiveSellerId ? await liveOriginOf(effectiveSellerId, "onepage") : null
+  const domainUrl = domainOrigin ? canonicalOnDomain(domainOrigin, { kind: "onepage", front: true }) : null
+
   return {
     title: pageTitle,
     description: settings?.seo_description || profile?.bio || undefined,
@@ -162,7 +168,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: ogTitle,
       description: settings?.seo_description || profile?.bio || undefined,
       images: socialImageUrl ? [socialImageUrl] : undefined,
+      ...(domainUrl && { url: domainUrl }),
     },
+    ...(domainUrl && { alternates: { canonical: domainUrl } }),
     twitter: {
       card: socialImageUrl ? "summary_large_image" : "summary",
       title: ogTitle,

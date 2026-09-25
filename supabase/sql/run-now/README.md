@@ -44,11 +44,12 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `20_saved_cards_bounces_and_exec_sql.sql` | Saved cards land, the bounce list reads, `exec_sql` is closed to the public key, and search ranks without a general SQL runner. | 7 | 5,893 |
 | `21_email_sending.sql` | Email campaigns: the send pipeline statuses and audience types, send bookkeeping, one row per address sent, and private reads. | 41 | 4,560 |
 | `22_browser_push_and_time_zone.sql` | Browser notifications save (push_tokens takes platform `web`), and the account's time zone column. | 4 | 887 |
+| `23_custom_domain_target.sql` | What a connected domain shows: website, creator page or OnePage. Existing domains stay on website. | 3 | 668 |
 | `90_storage_policies_needs_owner.sql` | LAST, ON ITS OWN. Replaces the storage.objects policies. Needs the owner of storage.objects; see README if it says "must be owner". | 2 | 3,896 |
 | `91_storage_policies_to_remove.sql` | Read only. For the dashboard route: the storage policies to delete. | 2 | 1,242 |
-| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 6,517 |
+| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 7,103 |
 
-Parts `01` to `22` all run as the editor's normal role. `90` is the one
+Parts `01` to `23` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
 Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:

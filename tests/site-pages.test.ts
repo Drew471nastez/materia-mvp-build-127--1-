@@ -262,10 +262,12 @@ function main() {
      * they built got the profile at it and their site only at the subdomain
      * they were replacing.
      */
-    check("a connected domain shows the website that was built", /rewritePath = `\/w\/\$\{username\}\$\{pathname === "\/" \|\| pathname === "" \? "" : pathname\}`/.test(proxy))
-    check("with the path kept, so About on a domain is About", /\$\{pathname === "\/" \|\| pathname === "" \? "" : pathname\}/.test(proxy))
-    check("a creator with no published website keeps the profile they had", /hasPublishedWebsite\(username\)/.test(proxy) && /rewritePath = `\/u\/\$\{username\}`/.test(proxy))
-    check("and an asset never pays for the two lookups", /const looksLikeFile = \/\\\.\[a-z0-9\]\{1,8\}\$\/i\.test\(pathname\)\s*\n\s*const builtSite/.test(proxy))
+    /* What a domain shows is its creator's choice now (custom_domains.target); the
+       rules are lib/custom-domain/routing.ts and tests/custom-domains.test.ts runs them. */
+    check("a connected domain set to show the website shows the website that was built", /domainRoute\(\{ pathname, username, target: domainTarget, hasWebsite \}\)/.test(proxy))
+    check("with the path kept, so About on a domain is About", /path === "\/" \? `\/w\/\$\{u\}` : `\/w\/\$\{u\}\$\{path\}`/.test(read("lib/custom-domain/routing.ts")))
+    check("a creator with no published website keeps the profile they had", /hasPublishedWebsite\(username\)/.test(proxy) && /target === "website" && !hasWebsite \? "creator_page"/.test(read("lib/custom-domain/routing.ts")))
+    check("and an asset never pays for the two lookups", /domainTarget === "website" && !looksLikeFile && !\(await hasLiveAiSite\(username\)\)/.test(proxy))
     check("a lookup that fails reads as no website, which is the profile", /async function hasPublishedWebsite[\s\S]*?catch \{\s*return false/.test(proxy))
   }
 

@@ -35,6 +35,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { CATEGORIES } from "@/lib/marketplace/categories"
 import { getLinksShareUrl, getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
+import { targetOf, type DomainTarget } from "@/lib/custom-domain/targets"
 import { DEV_PAGES, devPath } from "@/lib/developers/pages"
 import { HELP_ARTICLES, HELP_CATEGORIES, helpArticlePath } from "@/lib/help/articles"
 import {
@@ -235,7 +236,10 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
     SITEMAP_CHUNK,
     "products",
   )
-  const usernameByUserId = await usernames(admin, rows.map(userIdOf).filter(Boolean) as string[])
+  const [usernameByUserId, onDomain] = await Promise.all([
+    usernames(admin, rows.map(userIdOf).filter(Boolean) as string[]),
+    activeDomains(admin, [...new Set(rows.map((r) => r.creator_id).filter(Boolean) as string[])], "creator_page"),
+  ])
   if (rows.length > 0 && usernameByUserId.size === 0) {
     /* Every product would fall back to the old address. That is the failure
        this block used to have in silence. */
@@ -246,6 +250,8 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
     const userId = userIdOf(row)
     const username = userId ? usernameByUserId.get(userId) : undefined
     if (!productIndexable(row, username)) continue
+    /* Canonical on the creator's own domain, whose /sitemap.xml lists it. */
+    if (row.creator_id && onDomain.has(row.creator_id)) continue
     entries.push({ url: getProductShareUrl(username || "", row.slug), lastModified: lastmodOf(row.updated_at) })
   }
   return entries
@@ -292,16 +298,21 @@ export async function creatorsSitemap(chunk: number): Promise<SitemapEntry[]> {
   const selling = creators.filter((c) => newestProduct.has(c.id) && c.user_id)
   const usernameByUserId = await usernames(admin, selling.map((c) => c.user_id as string))
   const onePages = await publishedOnePages(admin, selling.map((c) => c.id))
+  const [pageOnDomain, onePageOnDomain] = await Promise.all([
+    activeDomains(admin, selling.map((c) => c.id), "creator_page"),
+    activeDomains(admin, selling.map((c) => c.id), "onepage"),
+  ])
   const entries: SitemapEntry[] = []
   for (const c of selling) {
     const profile = { username: usernameByUserId.get(c.user_id as string), ...newestProduct.get(c.id)! }
     // The spam verdict as well as the publication gate: a farm that files
     // one decoy listing to buy its way in still does not get in.
     if (!profile.username || !creatorIndexable({ publishedProducts: profile.n, handle: profile.username })) continue
-    entries.push({ url: `${BASE}/${profile.username}`, lastModified: profile.at })
+    /* A page canonical on the creator's own domain is listed by that domain's sitemap, not this one. */
+    if (!pageOnDomain.has(c.id)) entries.push({ url: `${BASE}/${profile.username}`, lastModified: profile.at })
     /* Their published OnePage, under the same gate: a page of outbound
        links is exactly what a link farm signs up for. */
-    if (onePages.has(c.id)) entries.push({ url: getLinksShareUrl(profile.username), lastModified: onePages.get(c.id) })
+    if (onePages.has(c.id) && !onePageOnDomain.has(c.id)) entries.push({ url: getLinksShareUrl(profile.username), lastModified: onePages.get(c.id) })
   }
   return entries
 }
@@ -342,18 +353,24 @@ const settingsOf = (row: InstallRow) => {
   return s?.settings ?? null
 }
 
-/** Connected, active domains for these creators. */
-async function activeDomains(admin: Admin, creatorIds: string[]): Promise<Map<string, string>> {
+/**
+ * Connected, active domains for these creators that show `target` (see
+ * lib/custom-domain/targets.ts). Before custom_domains.target exists every
+ * domain shows the website, as it always did.
+ */
+async function activeDomains(admin: Admin, creatorIds: string[], target: DomainTarget): Promise<Map<string, string>> {
   const out = new Map<string, string>()
   for (let i = 0; i < creatorIds.length; i += 500) {
-    const { data, error } = await admin
-      .from("custom_domains")
-      .select("creator_id, domain, created_at")
-      .in("creator_id", creatorIds.slice(i, i + 500))
-      .eq("status", "active")
-      .order("created_at", { ascending: true })
+    const ids = creatorIds.slice(i, i + 500)
+    type Row = { creator_id: string; domain: string; target?: string | null }
+    const read = (columns: string) =>
+      admin.from("custom_domains").select(columns).in("creator_id", ids).eq("status", "active").order("created_at", { ascending: true }) as unknown as PromiseLike<Rows<Row>>
+    let { data, error } = await read("creator_id, domain, target, created_at")
+    if (error) ({ data, error } = await read("creator_id, domain, created_at"))
     if (error) console.error("[sitemap] custom domains query failed:", error.message)
-    for (const d of (data ?? []) as { creator_id: string; domain: string }[]) if (!out.has(d.creator_id)) out.set(d.creator_id, d.domain)
+    for (const d of data ?? []) {
+      if (targetOf(d) === target && !out.has(d.creator_id)) out.set(d.creator_id, d.domain)
+    }
   }
   return out
 }
@@ -385,7 +402,7 @@ export async function websitesSitemap(chunk: number): Promise<SitemapEntry[]> {
     : { data: [], error: null }
   if (error) console.error("[sitemap] website creators query failed:", error.message)
   const userOf = new Map(((creators ?? []) as { id: string; user_id: string }[]).map((c) => [c.id, c.user_id]))
-  const [names, domains] = await Promise.all([usernames(admin, [...userOf.values()]), activeDomains(admin, creatorIds)])
+  const [names, domains] = await Promise.all([usernames(admin, [...userOf.values()]), activeDomains(admin, creatorIds, "website")])
   const main = getMainDomain()
   const entries: SitemapEntry[] = []
   for (const i of open) {

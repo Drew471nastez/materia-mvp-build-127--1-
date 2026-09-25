@@ -39,12 +39,13 @@ import { useCallback, useEffect, useState } from "react"
 import { Check, Copy, ExternalLink, Globe, ShieldCheck } from "lucide-react"
 
 import { InlinePanel } from "@/components/app/inline-panel"
+import { targetOf } from "@/lib/custom-domain/targets"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 
 interface Domain {
   domain?: string | null
   status?: string | null
-  is_active?: boolean | null
+  target?: string | null
 }
 
 export function CreatorPageShare({
@@ -76,7 +77,8 @@ export function CreatorPageShare({
         const res = await fetch("/api/domains")
         if (!res.ok) return
         const data = await res.json()
-        const live = (data.domains as Domain[] | undefined)?.find((d) => d.is_active) ?? null
+        /* The domain set to show this page, live or still waiting on DNS. One showing the website is not this page's. */
+        const live = (data.domains as Domain[] | undefined)?.find((d) => targetOf(d) === "creator_page") ?? null
         if (!cancelled) setDomain(live)
       } catch {
         /* A domain we could not look up is shown as none, which is the same
@@ -168,7 +170,7 @@ export function CreatorPageShare({
                 {domain?.domain
                   ? domain.status === "active"
                     ? domain.domain
-                    : `${domain.domain} — waiting on DNS`
+                    : `${domain.domain}, waiting on DNS`
                   : "Add a custom domain"}
               </span>
               <span className="shrink-0 text-white/50">{domain?.domain ? "Manage" : "Set up"}</span>

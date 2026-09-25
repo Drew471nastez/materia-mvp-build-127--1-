@@ -130,9 +130,11 @@ section("Every host answers its own robots.txt and sitemap")
   const proxy = code("proxy.ts")
   check("a website-builder subdomain's robots.txt and sitemap go to its own routes, an AI site keeps its own",
     /const isWebsite = \(!looksLikeFile \|\| seoFile\) && !\(await hasLiveAiSite\(subdomain\)\)/.test(proxy))
-  check("a connected domain's too, instead of storelib.com's, answered once",
-    /username &&\s*isCustomDomain &&\s*\(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\)/.test(proxy) && /seoUrl\.pathname = `\/w\/\$\{username\}\$\{pathname\}`/.test(proxy)
-      && (proxy.match(/isCustomDomain &&\s*\(pathname === "\/robots\.txt"/g) ?? []).length === 1)
+  check("a connected domain's too, instead of storelib.com's, for whatever it shows",
+    /if \(username && isCustomDomain && \(seoFile \|\| !isReservedPath\(pathname\)\)\)/.test(proxy)
+      && /if \(SEO_FILES\.has\(path\)\)/.test(code("lib/custom-domain/routing.ts"))
+      && /domainSeo\(username, shows\)/.test(code("app/(marketing)/u/[username]/robots.txt/route.ts"))
+      && /domainSeo\(username, shows\)/.test(code("app/(marketing)/u/[username]/sitemap.xml/route.ts")))
   const siteRobots = code("app/(site)/w/[username]/robots.txt/route.ts")
   const siteMap = code("app/(site)/w/[username]/sitemap.xml/route.ts")
   check("an unknown site's robots.txt allows everything, never a refusal a failed lookup could cache for a day",
@@ -146,7 +148,10 @@ section("Every host answers its own robots.txt and sitemap")
   const maps = code("lib/seo/sitemaps.ts")
   check("products are read a chunk at a time, not the first 5,000", !/\.limit\(5000\)/.test(maps) && /chunk \* SITEMAP_CHUNK/.test(maps))
   check("every listed page carries its row's own date", /lastModified: lastmodOf\(row\.updated_at\)/.test(maps) && !/lastModified: new Date\(\)/.test(maps))
-  check("a published site is listed at its subdomain only when it has no connected domain", /domains\.has\(i\.creator_id\)/.test(maps))
+  check("a published site is listed at its subdomain only when it has no connected domain", /domains\.has\(i\.creator_id\)/.test(maps) && /activeDomains\(admin, creatorIds, "website"\)/.test(maps))
+  check("a creator page, its products and a OnePage on the creator's own domain are left to that domain's sitemap",
+    /activeDomains\(admin, selling\.map\(\(c\) => c\.id\), "creator_page"\)/.test(maps) && /!pageOnDomain\.has\(c\.id\)/.test(maps)
+      && /!onePageOnDomain\.has\(c\.id\)/.test(maps) && /onDomain\.has\(row\.creator_id\)\) continue/.test(maps))
 }
 
 section("Pages a visitor can reach but no index should hold carry noindex")
