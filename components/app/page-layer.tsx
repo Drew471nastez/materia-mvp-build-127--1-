@@ -224,7 +224,28 @@ export function PageLayer({
         className,
       )}
     >
-      <div data-page-layer-scroll="" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain bg-[#f8f9fa]">
+      {/*
+        WHAT A PULL PAST THE TOP SHOWS. On iOS (Safari and the app alike) a
+        scroller that is pulled past its top moves its content down and shows
+        its own background in the gap, and `overscroll-behavior: contain`
+        does not stop that, it only keeps the pull from reaching the page.
+        That background was the page grey, so the plans page, whose bar and
+        status strip are white, opened a grey band between them on every
+        pull: "when I swipe, it lets me see the gray background at the top".
+
+        A white-topped layer paints the scroller's own background in two
+        flat halves, white above and page grey below. The page inside is
+        opaque and covers all of it, so the halves are only ever seen in a
+        pull: white past the top, under the white bar, and grey past the
+        bottom, under the grey page. A hard stop, not a blend.
+      */}
+      <div
+        data-page-layer-scroll=""
+        className={cn(
+          "min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain bg-[#f8f9fa]",
+          inset === "white" && "bg-[linear-gradient(#ffffff_50%,#f8f9fa_50%)]",
+        )}
+      >
         {children}
       </div>
     </div>

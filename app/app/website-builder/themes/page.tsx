@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { ThemeMarketplaceClient } from "./themes-client"
+import { pageUser } from "@/lib/auth/page-user"
 
 export const metadata: Metadata = {
   title: "Theme marketplace",
@@ -16,8 +17,10 @@ export const metadata: Metadata = {
  */
 export default async function ThemeMarketplacePage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator) redirect("/app")

@@ -21,6 +21,7 @@
  */
 import { readCode, readSource } from "./_source"
 import {
+  EXAMPLE_SALE_CENTS,
   OFFERED_PLANS,
   OFFERED_PLAN_IDS,
   PRO_CHECKOUT_PLAN_ID,
@@ -110,6 +111,20 @@ function main() {
   )
 
   /**
+   * THE SALE EACH CARD WORKS THROUGH comes from the table that charges it.
+   * A card that says "you keep $48.25 of $50" has to be the fee calculator's
+   * own answer, or it is a number somebody typed.
+   */
+  for (const plan of OFFERED_PLANS) {
+    const preview = getFeePreview(EXAMPLE_SALE_CENTS, plan.id)
+    check(`${plan.name}: what you keep of $50 is the calculator's (${preview.sellerReceivesCents})`, plan.keepsCents === preview.sellerReceivesCents, String(plan.keepsCents))
+    check(`${plan.name}: the fee line is the first highlight`, plan.fee === plan.features[0], plan.fee)
+    check(`${plan.name}: says who it is for`, plan.audience.length > 10 && plan.audience.length <= 70, plan.audience)
+  }
+  check("the example sale is over the $3.00 threshold, so it carries the $0.25", EXAMPLE_SALE_CENTS >= 300 && getFeePreview(EXAMPLE_SALE_CENTS, "free").feeFixedCents === 25)
+  check("Pro keeps more of the same sale", OFFERED_PLANS[1].keepsCents > OFFERED_PLANS[0].keepsCents)
+
+  /**
    * Things the old cards promised that nothing in the code delivers, or that
    * only the $99 plan gets. None may come back on a card that sells growth.
    */
@@ -158,6 +173,12 @@ function main() {
   check("the cards come from OFFERED_PLANS", /OFFERED_PLANS\.map\(/.test(cards))
   check("two columns from md up, one on a phone", /grid-cols-1 md:grid-cols-2/.test(cards))
   check("no gradient, glow or badge on the cards", !/gradient|glow|btn-shine|absolute -top-3/.test(cards))
+  check("Pro on Storelib's near-black, Free on white, one flat colour each", /border-\[#1a1a2e\] bg-\[#1a1a2e\]/.test(cards) && /border-\[#e5e7eb\] bg-white/.test(cards))
+  check("each card works a sale through", /<SaleExample plan=\{plan\}/.test(cards) && /plan\.keepsCents - free\.keepsCents/.test(cards))
+  check("the plan somebody is on is marked in line, not floated", /action\.current &&/.test(cards) && /aria-current=\{action\.current \|\| undefined\}/.test(cards))
+  check("the upgrade and billing screens say which plan is current", /current: isCurrentPlan,/.test(readCode("components/app/billing/upgrade-page-client.tsx")) && /current: isCurrentPlan,/.test(readCode("components/app/billing/billing-page-client.tsx")))
+  check("the upgrade page leads with Pro on a phone for somebody on Free", /lead=\{currentPlanId === "free" \? "growth" : undefined\}/.test(readCode("components/app/billing/upgrade-page-client.tsx")) && /order-first md:order-none/.test(cards))
+  check("a loading button keeps its place and says so", /Loader2 className="h-4 w-4 animate-spin"/.test(cards) && /Processing/.test(cards) && /aria-busy=\{action\.loading \|\| undefined\}/.test(cards))
   check("the billing tab no longer upsells from Pro to the $99 plan", !/nextUpgradePlan/.test(readCode("components/app/billing/billing-page-client.tsx")))
 
   console.log("\nChoosing Pro checks out as growth")
@@ -198,8 +219,19 @@ function main() {
     check(`${file}: no banned words`, !banned.test(src), src.match(banned)?.[0])
     check(`${file}: no em dashes, in copy or comments`, !src.includes("—"))
   }
-  for (const line of [...pro, ...free, ...OFFERED_PLANS.map((p) => p.summary)]) {
+  for (const line of [...pro, ...free, ...OFFERED_PLANS.map((p) => p.summary), ...OFFERED_PLANS.map((p) => p.audience)]) {
     check(`"${line}" has no banned word or em dash`, !banned.test(line) && !line.includes("—"))
+  }
+
+  console.log("\nThe plans page itself")
+  {
+    const page = readCode("components/app/billing/upgrade-page-client.tsx")
+    check("the mark is a fixed square that cannot be squeezed", /data-upgrade-logo=""/.test(page) && /h-7 w-7 shrink-0 -translate-x-1\/2 rounded-\[7px\] object-contain/.test(page))
+    check("the bar is solid white, not see-through", /data-upgrade-bar="" className="sticky top-0 z-10 border-b border-\[#e5e7eb\]\/60 bg-white"/.test(page) && !/backdrop-blur/.test(page))
+    check("the page paints its own grey, so the layer's white top only shows in a pull", /data-upgrade-page="" className="min-h-full bg-\[#f8f9fa\]"/.test(page))
+    const layer = readCode("components/app/page-layer.tsx")
+    check("a white topped layer shows white past its top and grey past its bottom", /inset === "white" && "bg-\[linear-gradient\(#ffffff_50%,#f8f9fa_50%\)\]"/.test(layer))
+    check("scripts/check-upgrade-page.mjs reads the pixel a pull reveals", /pulled\.top !== "rgb\(255, 255, 255\)"/.test(readSource("scripts/check-upgrade-page.mjs")))
   }
 
   console.log("\nThe probe that measures the cards is on disk")

@@ -219,7 +219,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   const handleSignOut = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: "local" })
     setMobileMenuOpen(false)
     setProfileDropdownOpen(false)
     if (isNativePlatform()) {

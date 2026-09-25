@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { FlowBuilder, type BuilderData, type RunView, type StepStats } from "./builder"
+import { pageUser } from "@/lib/auth/page-user"
 
 export const metadata: Metadata = { title: "Automation" }
 export const dynamic = "force-dynamic"
@@ -15,10 +16,10 @@ export const dynamic = "force-dynamic"
 export default async function FlowPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect(`/login?next=${encodeURIComponent(`/app/emails/flow/${id}`)}`)
+  const user = await pageUser(`/login?next=${encodeURIComponent(`/app/emails/flow/${id}`)}`)
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator) redirect("/app")

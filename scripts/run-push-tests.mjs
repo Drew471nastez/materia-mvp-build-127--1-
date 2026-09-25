@@ -72,6 +72,8 @@ const SUITES = [
   "tests/react-binding.test.ts",
   "tests/oauth-errors.test.ts",
   "tests/session-durability.test.ts",
+  "tests/session-stability.test.ts",
+  "tests/account-settings.test.ts",
   "tests/client-error-gate.test.ts",
   "tests/gallery-and-back.test.ts",
   "tests/motion-properties.test.ts",

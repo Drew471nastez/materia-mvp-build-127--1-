@@ -25,8 +25,21 @@ const plans = [
   { id: "pro", name: "Pro", price_cents: 9900 },
 ]
 
+/** Onboarding's plan step: the compact cards, in the modal's content width. */
+const onboarding = (loadingPlan: string | null) => (
+  <div className="mx-auto max-w-[834px] bg-white px-4 py-6 md:px-0">
+    <PricingSection
+      compact
+      hideDetailsLink
+      onboardingCallbacks={{ onPlanSelect() {}, loadingPlan, ctaLabels: { free: "Start free", growth: "Get Pro" } }}
+    />
+  </div>
+)
+
 const pages: Record<string, ReactElement> = {
   marketing: <PricingSection hideDetailsLink />,
+  onboarding: onboarding(null),
+  "onboarding-loading": onboarding("growth"),
   upgrade: <UpgradePageClient plans={plans} currentPlanId="free" hasActiveSubscription={false} />,
   "upgrade-legacy": <UpgradePageClient plans={plans} currentPlanId="pro" hasActiveSubscription />,
 }

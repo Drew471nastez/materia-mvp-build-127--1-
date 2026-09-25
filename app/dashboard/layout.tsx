@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { NativeAuthGate } from "@/components/native-auth-gate"
+import { currentUserForRequest } from "@/lib/auth/request-scope"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -19,11 +20,14 @@ export default async function DashboardLayout({
 }) {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  /* A blip is not a sign-out (lib/auth/current-user.ts). When Supabase did
+     not answer, the gate reads the session in the browser and recovers it;
+     only a definite "nobody" goes to /login. */
+  const current = await currentUserForRequest()
+  const user = current.user
 
   if (!user) {
+    if (current.state === "indeterminate") return <NativeAuthGate requireAuth>{children}</NativeAuthGate>
     redirect("/login")
   }
 

@@ -8,6 +8,7 @@ export const metadata: Metadata = {
 
 export default async function SettingsPage() {
   const data = await loadSettingsData()
+  if (!data) return null
 
   return (
     <SettingsFormNew
@@ -17,6 +18,7 @@ export default async function SettingsPage() {
       onepageAvatarUrl={data.onepageAvatarUrl}
       googleAvatarUrl={data.googleAvatarUrl}
       websitePublished={data.websitePublished}
+      newsletter={data.newsletter}
       initialTab="general"
     />
   )

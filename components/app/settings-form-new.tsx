@@ -34,6 +34,7 @@ import { BillingPageClient } from "@/components/app/billing/billing-page-client"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { WaitingArea } from "@/components/ui/activity-spinner"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { EmailChangeFlow, PrivacyPanel, SecurityPanel } from "@/components/app/settings/account-panels"
 
 function ChainLinkIcon({ className = "w-3 h-3", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
   return (
@@ -232,6 +233,8 @@ interface SettingsFormProps {
   googleAvatarUrl?: string | null
   /** True only when a site has actually been published, never when one merely exists. */
   websitePublished?: boolean
+  /** On Storelib's own newsletter list (storelib_newsletter), read on the server. */
+  newsletter?: boolean
   initialTab?: TabId
 }
 
@@ -789,7 +792,7 @@ function ImageUploadModal({
   )
 }
 
-export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl, websitePublished = false, initialTab = "general" }: SettingsFormProps) {
+export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl, websitePublished = false, newsletter = false, initialTab = "general" }: SettingsFormProps) {
   const router = useRouter()
   const { language: currentLanguage, setLanguage, t } = useLanguage()
   const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage)
@@ -1295,20 +1298,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
   }, [hasUnsavedChanges])
 
-  // Security
-  const [passwordResetLoading, setPasswordResetLoading] = useState(false)
-  const [passwordResetSent, setPasswordResetSent] = useState(false)
-  const [passwordResetError, setPasswordResetError] = useState<string | null>(null)
-
-  // Email change modal
+  // Email change: the flow keeps its own steps; a new run each time it opens.
   const [showEmailChangeModal, setShowEmailChangeModal] = useState(false)
-  const [newEmail, setNewEmail] = useState("")
-  const [emailChangeStep, setEmailChangeStep] = useState<"input" | "verify">("input")
-  const [verificationCode, setVerificationCode] = useState(["", "", "", "", "", ""])
-  const [emailChangeLoading, setEmailChangeLoading] = useState(false)
-  const [emailChangeError, setEmailChangeError] = useState<string | null>(null)
-  const [emailChangeSuccess, setEmailChangeSuccess] = useState(false)
-  const codeInputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const [emailChangeRun, setEmailChangeRun] = useState(0)
 
   // Sign out all devices
   const [signingOutAll, setSigningOutAll] = useState(false)
@@ -1320,14 +1312,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const deleteCodeInputRefs = useRef<(HTMLInputElement | null)[]>([])
-
-  // Privacy settings
-  const [aiFeatures, setAiFeatures] = useState(true)
-  const [personalization, setPersonalization] = useState(true)
-  const [sessionRecording, setSessionRecording] = useState(false)
-  const [analyticsSharing, setAnalyticsSharing] = useState(true)
-  const [marketingEmails, setMarketingEmails] = useState(true)
-  const [productUpdates, setProductUpdates] = useState(true)
 
   const storeUrl = getStoreUrl(username)
   const storeUrlDisplay = getStoreUrlDisplay(username)
@@ -1764,9 +1748,12 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     }
   }
 
+  /* This device only. "Sign out everywhere" below is the one that ends every
+     session; this used to be the same call, because supabase-js signs out
+     globally unless told otherwise. */
   const handleSignOut = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: "local" })
     if (isNativePlatform()) {
       nativeLogOut()
     } else {
@@ -1778,7 +1765,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     setSigningOutAll(true)
     try {
       const supabase = createClient()
-      await supabase.auth.signOut({ scope: 'global' })
+      await supabase.auth.signOut({ scope: "global" })
       if (isNativePlatform()) {
         nativeLogOut()
       } else {
@@ -1853,8 +1840,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       const data = await response.json()
 
       if (response.ok) {
+        /* The account and every session are already gone on the server;
+           this clears what is left on this device. */
         const supabase = createClient()
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: "local" })
         if (isNativePlatform()) {
           nativeLogOut()
         } else {
@@ -1870,126 +1859,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     }
   }
 
-  const handlePasswordReset = async () => {
-    setPasswordResetLoading(true)
-    setPasswordResetError(null)
-
-    try {
-      const response = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setPasswordResetSent(true)
-      } else {
-        setPasswordResetError(data.error || "Failed to send reset email")
-      }
-    } catch {
-      setPasswordResetError("An error occurred. Please try again.")
-    } finally {
-      setPasswordResetLoading(false)
-    }
-  }
-
-  const handleSendEmailChangeCode = async () => {
-    if (!newEmail || newEmail === currentEmail) {
-      setEmailChangeError("Please enter a different email address")
-      return
-    }
-
-    setEmailChangeLoading(true)
-    setEmailChangeError(null)
-
-    try {
-      const response = await fetch("/api/auth/change-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newEmail }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setEmailChangeStep("verify")
-        setVerificationCode(["", "", "", "", "", ""])
-      } else {
-        setEmailChangeError(data.error || "Failed to send verification code")
-      }
-    } catch {
-      setEmailChangeError("An error occurred. Please try again.")
-    } finally {
-      setEmailChangeLoading(false)
-    }
-  }
-
-  const handleCodeInput = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return
-
-    const newCode = [...verificationCode]
-    newCode[index] = value.slice(-1)
-    setVerificationCode(newCode)
-
-    if (value && index < 5) {
-      codeInputRefs.current[index + 1]?.focus()
-    }
-  }
-
-  const handleCodeKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !verificationCode[index] && index > 0) {
-      codeInputRefs.current[index - 1]?.focus()
-    }
-  }
-
-  const handleVerifyEmailChange = async () => {
-    const code = verificationCode.join("")
-    if (code.length !== 6) {
-      setEmailChangeError("Please enter the complete 6-digit code")
-      return
-    }
-
-    setEmailChangeLoading(true)
-    setEmailChangeError(null)
-
-    try {
-      const response = await fetch("/api/auth/verify-email-change", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setEmailChangeSuccess(true)
-        setCurrentEmail(data.newEmail)
-        setTimeout(() => {
-          setShowEmailChangeModal(false)
-          setEmailChangeStep("input")
-          setNewEmail("")
-          setVerificationCode(["", "", "", "", "", ""])
-          setEmailChangeSuccess(false)
-          router.refresh()
-        }, 2000)
-      } else {
-        setEmailChangeError(data.error || "Invalid verification code")
-      }
-    } catch {
-      setEmailChangeError("An error occurred. Please try again.")
-    } finally {
-      setEmailChangeLoading(false)
-    }
-  }
-
   const closeEmailChangeModal = () => {
     setShowEmailChangeModal(false)
-    setEmailChangeStep("input")
-    setNewEmail("")
-    setVerificationCode(["", "", "", "", "", ""])
-    setEmailChangeError(null)
-    setEmailChangeSuccess(false)
   }
 
   // Header quick access
@@ -2400,7 +2271,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       </div>
                       <button
                         type="button"
-                        onClick={() => setShowEmailChangeModal(true)}
+                        onClick={() => {
+                          setEmailChangeRun((n) => n + 1)
+                          setShowEmailChangeModal(true)
+                        }}
                         className="px-4 h-11 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors whitespace-nowrap cursor-pointer"
                       >
                         Change
@@ -2649,270 +2523,25 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             </div>
           )}
 
-          {/* Security Tab */}
+          {/* Security Tab: components/app/settings/account-panels.tsx */}
           {activeTab === "security" && (
-            <div className="space-y-4 sm:space-y-6">
-              {/* Password Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">
-                  Password
-                </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Send a password reset link to your email address.</p>
-                <button
-                  type="button"
-                  onClick={handlePasswordReset}
-                  disabled={passwordResetLoading || passwordResetSent}
-                  className={`px-4 h-10 text-[13px] font-medium rounded-xl transition-colors flex items-center gap-2 ${
-                    passwordResetSent ? "bg-emerald-50 text-emerald-600" : "bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151]"
-                  }`}
-                >
-                  {passwordResetLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Sending...
-                    </>
-                  ) : passwordResetSent ? (
-                    <>
-                      <Check className="h-4 w-4" />
-                      Email Sent
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="h-4 w-4" />
-                      Send Reset Link
-                    </>
-                  )}
-                </button>
-                {passwordResetSent && <p className="mt-3 text-[13px] text-emerald-600 bg-emerald-50 p-3 rounded-xl">Check your email for the password reset link.</p>}
-                {passwordResetError && <p className="mt-3 text-[13px] text-red-600 bg-red-50 p-3 rounded-xl">{passwordResetError}</p>}
-              </div>
-
-              {/* Two-Factor Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">
-                  Two-Factor Authentication
-                </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Add an extra layer of security to your account.</p>
-                <button type="button" disabled className="px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] text-[#9ca3af] rounded-xl cursor-not-allowed">
-                  Coming Soon
-                </button>
-              </div>
-
-              {/* Session Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">
-                  Active Sessions
-                </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Manage your active sessions across all devices.</p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    className="px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors cursor-pointer"
-                  >
-                    Sign Out
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSignOutAllDevices}
-                    disabled={signingOutAll}
-                    className="px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors cursor-pointer flex items-center gap-2"
-                  >
-                    {signingOutAll ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Signing out...
-                      </>
-                    ) : (
-                      "Sign out from all devices"
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Delete Account Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
-                      Delete your account
-                    </h3>
-                    <p className="text-[13px] text-[#6b7280]">
-                      Permanently delete your account and all associated data. This action cannot be undone.
-                    </p>
-                    <p className="text-[12px] text-[#9ca3af] mt-2">
-                      Account created on {new Date(profile.created_at || Date.now()).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteModal(true)}
-                    className="px-4 h-10 text-[13px] font-medium bg-[#1a1a2e] hover:bg-[#2d2d44] text-white rounded-xl transition-colors cursor-pointer shrink-0"
-                  >
-                    Delete Account
-                  </button>
-                </div>
-              </div>
-            </div>
+            <SecurityPanel
+              email={currentEmail}
+              createdAt={profile.created_at}
+              onSignOut={handleSignOut}
+              onSignOutEverywhere={handleSignOutAllDevices}
+              signingOutEverywhere={signingOutAll}
+              onDeleteAccount={() => setShowDeleteModal(true)}
+            />
           )}
 
-          {/* Privacy Tab */}
+          {/* Privacy Tab: every switch saved where it is read (account-panels.tsx) */}
           {activeTab === "privacy" && (
-            <div className="space-y-4 sm:space-y-6">
-              {/* AI & Personalization Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
-                  AI & Personalization
-                </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Control how we use AI and personalize your experience.</p>
-
-                <div className="space-y-4">
-                  {/* AI Features Toggle */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">AI-powered features</p>
-                      <p className="text-[12px] text-[#6b7280]">Enable smart suggestions and AI assistance</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setAiFeatures(!aiFeatures)}
-                      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
-                        aiFeatures ? "bg-[#8b5cf6]" : "bg-[#e5e7eb]"
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                          aiFeatures ? "translate-x-5" : "translate-x-0"
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Personalization Toggle */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">Personalized recommendations</p>
-                      <p className="text-[12px] text-[#6b7280]">Get tailored content based on your activity</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setPersonalization(!personalization)}
-                      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
-                        personalization ? "bg-[#8b5cf6]" : "bg-[#e5e7eb]"
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                          personalization ? "translate-x-5" : "translate-x-0"
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Data & Analytics Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">Data & Analytics</h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Manage how your data is collected and used.</p>
-
-                <div className="space-y-4">
-                  {/* Session Recording Toggle */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">Session recording</p>
-                      <p className="text-[12px] text-[#6b7280]">Help us improve by recording anonymous sessions</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSessionRecording(!sessionRecording)}
-                      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
-                        sessionRecording ? "bg-[#8b5cf6]" : "bg-[#e5e7eb]"
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                          sessionRecording ? "translate-x-5" : "translate-x-0"
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Analytics Sharing Toggle */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">Analytics sharing</p>
-                      <p className="text-[12px] text-[#6b7280]">Share anonymous usage data to improve our service</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setAnalyticsSharing(!analyticsSharing)}
-                      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
-                        analyticsSharing ? "bg-[#8b5cf6]" : "bg-[#e5e7eb]"
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                          analyticsSharing ? "translate-x-5" : "translate-x-0"
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Email Preferences Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
-                  Email Preferences
-                </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Choose what emails you want to receive.</p>
-
-                <div className="space-y-4">
-                  {/* Marketing Emails Toggle */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">Marketing emails</p>
-                      <p className="text-[12px] text-[#6b7280]">Tips, promotions, and special offers</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setMarketingEmails(!marketingEmails)}
-                      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
-                        marketingEmails ? "bg-[#8b5cf6]" : "bg-[#e5e7eb]"
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                          marketingEmails ? "translate-x-5" : "translate-x-0"
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* Product Updates Toggle */}
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">Product updates</p>
-                      <p className="text-[12px] text-[#6b7280]">New features and important changes</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setProductUpdates(!productUpdates)}
-                      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
-                        productUpdates ? "bg-[#8b5cf6]" : "bg-[#e5e7eb]"
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                          productUpdates ? "translate-x-5" : "translate-x-0"
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <PrivacyPanel
+              email={currentEmail}
+              initialPersonalized={(profile as { personalized_recommendations?: boolean }).personalized_recommendations !== false}
+              initialNewsletter={newsletter}
+            />
           )}
 
           {/* Payments Tab */}
@@ -3769,100 +3398,12 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       {/* Country Selector Modal */}
       <CountrySelectorModal isOpen={showCountryModal} onClose={() => setShowCountryModal(false)} selectedCountry={country} onSelect={setCountry} />
 
-      {/* Email Change Modal */}
-      <MobileBottomSheet isOpen={showEmailChangeModal} onClose={closeEmailChangeModal} title={emailChangeStep === "input" ? "Change Email Address" : "Verify Your New Email"}>
-        {emailChangeSuccess ? (
-          <div className="text-center py-6">
-            <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Check className="h-7 w-7 text-emerald-600" />
-            </div>
-            <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">Email Updated!</h3>
-            <p className="text-[13px] text-[#6b7280]">Your email has been successfully changed.</p>
-          </div>
-        ) : emailChangeStep === "input" ? (
-          <div className="space-y-4">
-            <p className="text-[13px] text-[#6b7280]">Enter your new email address. We&apos;ll send a verification code to confirm.</p>
-            <div className="space-y-1.5">
-              <Label className="text-[13px] font-medium text-[#374151]">Current Email</Label>
-              <Input value={currentEmail} disabled className="h-11 bg-[#f9fafb] border-[#e5e7eb] rounded-xl text-[14px]" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[13px] font-medium text-[#374151]">New Email</Label>
-              <Input
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="Enter new email address"
-                className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
-              />
-            </div>
-            {emailChangeError && <p className="text-[13px] text-red-600 bg-red-50 p-3 rounded-xl">{emailChangeError}</p>}
-            <button
-              type="button"
-              onClick={handleSendEmailChangeCode}
-              disabled={emailChangeLoading || !newEmail}
-              className="w-full h-11 text-[14px] font-medium bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:bg-[#c4b5fd] text-white rounded-xl transition-colors flex items-center justify-center gap-2"
-            >
-              {emailChangeLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Sending Code...
-                </>
-              ) : (
-                "Send Verification Code"
-              )}
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <p className="text-[13px] text-[#6b7280]">
-              Enter the 6-digit code we sent to <span className="font-medium text-[#1a1a2e]">{newEmail}</span>
-            </p>
-            <div className="flex justify-center gap-2">
-              {verificationCode.map((digit, index) => (
-                <input
-                  key={index}
-                  ref={(el) => {
-                    codeInputRefs.current[index] = el
-                  }}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e) => handleCodeInput(index, e.target.value)}
-                  onKeyDown={(e) => handleCodeKeyDown(index, e)}
-                  className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-bold border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
-                />
-              ))}
-            </div>
-            {emailChangeError && <p className="text-[13px] text-red-600 bg-red-50 p-3 rounded-xl text-center">{emailChangeError}</p>}
-            <button
-              type="button"
-              onClick={handleVerifyEmailChange}
-              disabled={emailChangeLoading || verificationCode.join("").length !== 6}
-              className="w-full h-11 text-[14px] font-medium bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:bg-[#c4b5fd] text-white rounded-xl transition-colors flex items-center justify-center gap-2"
-            >
-              {emailChangeLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Verifying...
-                </>
-              ) : (
-                "Verify & Change Email"
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEmailChangeStep("input")
-                setEmailChangeError(null)
-              }}
-              className="w-full text-[13px] text-[#6b7280] hover:text-[#374151] py-2"
-            >
-              Use a different email
-            </button>
-          </div>
-        )}
+      {/* Email Change Modal: a code to each address (account-panels.tsx) */}
+      <MobileBottomSheet isOpen={showEmailChangeModal} onClose={closeEmailChangeModal} title="Change email">
+        <EmailChangeFlow key={emailChangeRun} currentEmail={currentEmail} onChanged={(next) => {
+          setCurrentEmail(next)
+          router.refresh()
+        }} />
       </MobileBottomSheet>
 
       {/* Language Selector Modal */}
