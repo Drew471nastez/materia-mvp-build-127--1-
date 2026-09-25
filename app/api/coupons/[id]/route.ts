@@ -34,7 +34,16 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const input = readCouponInput(body, saved as Partial<CouponValues>)
   if (!input.ok) return NextResponse.json({ error: input.error }, { status: 400 })
 
-  if (!(await productsAreTheirs(who.supabase, who.creatorId, input.values.product_ids))) {
+  /*
+    Only the products this edit ADDS have to be theirs now. A product the code
+    already named and that has since been deleted stays named (the code then
+    takes nothing off it, which is what a code for a deleted product should
+    do); refusing it made that code impossible to edit, or even to turn off
+    from the list, which sends the saved products back with `is_active`.
+  */
+  const before = new Set(((saved.product_ids ?? []) as string[]).map(String))
+  const added = (input.values.product_ids ?? []).filter((pid) => !before.has(pid))
+  if (!(await productsAreTheirs(who.supabase, who.creatorId, added))) {
     return NextResponse.json({ error: "Some of those products could not be found." }, { status: 400 })
   }
   if (input.values.code !== String(saved.code).toUpperCase() && (await codeTaken(who.supabase, who.creatorId, input.values.code, id))) {
