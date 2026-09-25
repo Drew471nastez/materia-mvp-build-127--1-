@@ -56,7 +56,7 @@ function fromPreset(type: string, n = 0): SectionInstance {
 function draw(sec: SectionInstance, opts: { products?: Card[]; catalog?: Card[]; template?: string; inEditor?: boolean } = {}) {
   const data = opts.catalog ? storefrontData({ dynamic: {}, catalog: opts.catalog as never, menus: {} }) : undefined
   const r = renderStorelibSection(sec, theme, { template: opts.template ?? "index", in_editor: opts.inEditor }, {}, opts.products as never, data)
-  if (!r.ok) throw new Error(`${sec.type}: ${JSON.stringify(r.errors).slice(0, 400)}`)
+  if (r.ok === false) throw new Error(`${sec.type}: ${JSON.stringify((r as { errors?: unknown }).errors).slice(0, 400)}`)
   return r.html
 }
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
