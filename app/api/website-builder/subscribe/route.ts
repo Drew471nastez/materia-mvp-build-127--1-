@@ -88,35 +88,43 @@ export async function POST(req: NextRequest) {
 
   const { data: existing } = await db
     .from("subscribers")
-    .select("id")
+    .select("id, status")
     .eq("creator_id", creatorId)
     .eq("email", email)
     .maybeSingle()
 
+  /* A buyer who never asked for news is a customer contact
+     (lib/contacts/checkout-contact). Signing up here is that yes: they join
+     the list and get the welcome, like anybody new. */
+  const customer = existing?.status === "customer"
+
   // Already on the list: say the same thing as a fresh subscribe. The answer
   // must not differ, or it becomes a way to ask whether an address is known.
-  if (existing) return NextResponse.json({ ok: true })
+  if (existing && !customer) return NextResponse.json({ ok: true })
 
-  const { error } = await db.from("subscribers").insert({
-    email,
-    name: name || null,
-    /*
-      One source for every website sign-up, and deliberately the value that
-      has been in production since this route was written. An old setup
-      script declares `CHECK (source IN ('onepage', 'store_builder'))`, and
-      whether that constraint is live on a given database cannot be seen from
-      here. A new value into a constrained column fails every insert, so the
-      WHERE on the page goes in the consent line instead, which is free text.
-    */
-    source: "website_builder_newsletter",
-    creator_id: creatorId,
-    status: "subscribed",
-    is_active: true,
-    subscribed_at: new Date().toISOString(),
-    consent_text: consentFor(body.placement),
-    consent_timestamp: new Date().toISOString(),
-    unsubscribe_token: randomUUID(),
-  })
+  const now = new Date().toISOString()
+  const { error } = customer
+    ? await db.from("subscribers").update({ status: "subscribed", is_active: true, subscribed_at: now, consent_text: consentFor(body.placement), consent_timestamp: now }).eq("id", existing!.id).eq("status", "customer")
+    : await db.from("subscribers").insert({
+      email,
+      name: name || null,
+      /*
+        One source for every website sign-up, and deliberately the value that
+        has been in production since this route was written. An old setup
+        script declares `CHECK (source IN ('onepage', 'store_builder'))`, and
+        whether that constraint is live on a given database cannot be seen from
+        here. A new value into a constrained column fails every insert, so the
+        WHERE on the page goes in the consent line instead, which is free text.
+      */
+      source: "website_builder_newsletter",
+      creator_id: creatorId,
+      status: "subscribed",
+      is_active: true,
+      subscribed_at: new Date().toISOString(),
+      consent_text: consentFor(body.placement),
+      consent_timestamp: new Date().toISOString(),
+      unsubscribe_token: randomUUID(),
+    })
 
   if (error) {
     // A race with another submission of the same address lands here as a

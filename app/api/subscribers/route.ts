@@ -74,6 +74,10 @@ export async function POST(request: Request) {
             is_active: true,
             subscribed_at: new Date().toISOString(),
             unsubscribed_at: null,
+            /* A new yes, from somebody who left or a buyer who never asked
+               (lib/contacts/checkout-contact): the record says what it was. */
+            consent_text: "Subscribed from the creator's page",
+            consent_timestamp: new Date().toISOString(),
           })
           .eq("id", existing.id)
         if (updateError) {
