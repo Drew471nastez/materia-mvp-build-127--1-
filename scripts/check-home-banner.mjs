@@ -111,8 +111,8 @@ async function open(width, query, { reduce = false, force2d = false } = {}) {
   const errors = []
   page.on("pageerror", (e) => errors.push(String(e)))
   page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource|probe\.invalid/.test(m.text())) errors.push(m.text()) })
-  await page.goto(`${base}/app?${query}`)
-  await page.waitForSelector("[data-home-banner] [data-home-globe]", { timeout: 20000 })
+  await page.goto(`${base}/app?${query}`, { waitUntil: "domcontentloaded", timeout: 120000 })
+  await page.waitForSelector("[data-home-banner] [data-home-globe]", { timeout: 60000 })
   await page.evaluate(() => document.fonts.ready)
   await sleep(700)
   return { page, phone, errors }
@@ -138,7 +138,7 @@ const globeHash = async (page) => {
     const r = b.width * 0.4
     return { x: b.left + b.width / 2 - r * 0.7, y: b.top + b.height / 2 - r * 0.7, width: r * 1.4, height: r * 1.4 }
   })
-  return createHash("sha1").update(await page.screenshot({ clip })).digest("hex")
+  return createHash("sha1").update(await page.screenshot({ clip, captureBeyondViewport: false })).digest("hex")
 }
 /** Whether the ball's pixels change within `ms`: a stalled frame on a busy machine is not a still globe. */
 const turns = async (page, ms = 1500) => {

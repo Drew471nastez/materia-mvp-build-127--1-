@@ -127,7 +127,7 @@ const globeHash = async (page) => {
     const r = b.width * 0.28
     return { x: b.left + b.width / 2 - r, y: b.top + b.height / 2 - r, width: r * 2, height: r * 2 }
   })
-  return createHash("sha1").update(await page.screenshot({ clip })).digest("hex")
+  return createHash("sha1").update(await page.screenshot({ clip, captureBeyondViewport: false })).digest("hex")
 }
 
 try {
