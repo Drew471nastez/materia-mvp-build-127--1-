@@ -58,7 +58,9 @@ const SITE_PICTURE =
 
 const params = new URLSearchParams(location.search)
 const scenario = params.get("scenario")
-const withPicture = params.get("snapshot") === "1"
+/* `&snapshot=slow`: the same picture from the probe's server, answered late, so the cover's box can be measured before it arrives. */
+const slowPicture = params.get("snapshot") === "slow"
+const withPicture = params.get("snapshot") === "1" || slowPicture
 const full = scenario === "full"
 /* `?drafts=N` sets how many drafts sit beside the live website: 0 is a library of one, 3 makes the import the fifth. */
 const drafts = params.has("drafts") ? Number(params.get("drafts")) : full ? THEME_INSTALL_LIMIT - 1 : 2
@@ -68,7 +70,7 @@ let installs: WebsiteSummary[] = [
   scenario === "offline"
     ? { ...site("live-1", "Storelib Default", "unpublished", 4), published_at: ago(90) }
     : withPicture
-      ? { ...site("live-1", "Storelib Default", "published", 4), snapshot_url: SITE_PICTURE, snapshot_updated_at: ago(1) }
+      ? { ...site("live-1", "Storelib Default", "published", 4), snapshot_url: slowPicture ? "/slow-cover.svg" : SITE_PICTURE, snapshot_updated_at: ago(1) }
       : site("live-1", "Storelib Default", "published", 4),
   ...Array.from({ length: drafts }, (_, i) => site(`lib-${i}`, names[i], "draft", 60 * (i + 2))),
 ]

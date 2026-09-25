@@ -312,9 +312,10 @@ section("The page")
     check("the bar of settings doors is gone", !existsSync(join(process.cwd(), "app/app/website-builder/settings-strip.tsx")) && !/SettingsStrip/.test(client))
     /*
       THE TITLE ROW, SHOPIFY'S WAY. The owner asked for Settings to go down
-      beside Edit website, and for the title's line to carry light grey
-      Public and View website buttons, like Shopify's Public and View store.
-      On a phone the line holds View website alone.
+      beside Edit website, and for the title's line to carry Public and View
+      website buttons, like Shopify's Public and View store. Then: "too
+      grey; they need some depth, more Polaris like", so they are the shared
+      white secondary. On a phone the line holds View alone, with an eye.
     */
     const src = read("app/app/website-builder/website-builder-client.tsx")
     const depthSrc = read("components/ui/depth-button.ts")
@@ -326,17 +327,25 @@ section("The page")
         /<h1 className="min-w-0 truncate/.test(header) && !/sm:flex-row/.test(header))
     check("  Public is not drawn on a phone; View website is drawn at every width",
       /\{publicControl && \(\s*<div className="hidden sm:block">/.test(header) && !/hidden sm:block">\s*<a href=\{siteUrl\}/.test(header))
-    check("  both in the shared light grey, 36px with 10px corners from 640px, 44px on a phone",
-      /const HEADER_BUTTON = cn\(grayDepth, "-my-1 h-11 rounded-\[10px\] px-3\.5 text-\[14px\] sm:my-0 sm:h-9 sm:px-3"\)/.test(src) &&
-        /export const grayDepth = cn\(/.test(depthSrc) && /bg-\[#e3e3e3\] font-medium text-\[#303030\]/.test(depthSrc) &&
-        /hover:bg-\[#d4d4d4\] active:bg-\[#cccccc\] active:shadow-\[inset_0_1px_1px_rgba\(0,0,0,0\.12\)\]/.test(depthSrc) && !/border/.test(/export const grayDepth = cn\(([\s\S]*?)\n\)/.exec(depthSrc)?.[1] ?? "border"))
+    check("  both the shared white secondary with depth, 36px with 8px corners from 640px, 44px with 10px on a phone",
+      /const HEADER_BUTTON = cn\(secondaryDepth, "-my-1 h-11 rounded-\[10px\] px-3\.5 text-\[14px\] sm:my-0 sm:h-9 sm:rounded-lg sm:px-3"\)/.test(src) &&
+        /border border-\[#d9dbe0\] bg-white font-medium/.test(depthSrc) && /shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\),0_1px_0_rgba\(0,0,0,0\.05\)\]/.test(depthSrc) &&
+        !/grayDepth/.test(src) && !/export const grayDepth/.test(depthSrc))
+    check("  every depth button draws its keyboard outline: Tailwind 4's outline-none sets the style outline-2 reads to none",
+      (depthSrc.match(/"focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2/g) ?? []).length === 4 &&
+        !/focus-visible:outline-2 focus-visible:outline-offset-2/.test(depthSrc))
+    check("  View says View with an eye on a phone and View website from 640px, named View website at every width",
+      /function ViewLabel\(\) \{[\s\S]{0,200}<Eye aria-hidden className="h-4 w-4 text-\[#4b5563\] sm:hidden"[\s\S]{0,120}<span className="sm:hidden">View<\/span>\s*<span className="hidden sm:inline">View website<\/span>/.test(src) &&
+        (header.match(/aria-label="View website" data-control="view" className=\{HEADER_BUTTON\}>\s*<ViewLabel \/>/g) ?? []).length === 2)
+    check("  the eye is View's, so Public wears a globe, and the two never show the same mark",
+      /publicControl\.live \? \(\s*<Globe /.test(header) && !/<Eye className/.test(header))
     check("  Public says Take offline while a website is live, Unpublished says Publish again for the one that was, through the page's questions",
       /label: "Public",[\s\S]{0,120}items: \[\{ label: "Take offline", icon: <EyeOff \/>, onClick: \(\) => setUnpublishing\(live\), variant: "warning" \}\]/.test(src) &&
         /label: "Unpublished",[\s\S]{0,140}items: \[\{ label: "Publish again", icon: <Rocket \/>, onClick: \(\) => setPublishing\(offline\) \}\]/.test(src) &&
         /: null\s*\n/.test(src.slice(src.indexOf("const publicControl"), src.indexOf("const explore"))))
     check("  View website is a real anchor to a new tab while a site is live, and a disabled button while none is",
-      /live \? \(\s*<a href=\{siteUrl\} target="_blank" rel="noopener noreferrer" data-control="view" className=\{HEADER_BUTTON\}>/.test(src) &&
-        /<button type="button" disabled data-control="view" className=\{HEADER_BUTTON\}>/.test(src))
+      /live \? \(\s*<a href=\{siteUrl\} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view" className=\{HEADER_BUTTON\}>/.test(src) &&
+        /<button type="button" disabled aria-label="View website" data-control="view" className=\{HEADER_BUTTON\}>/.test(src))
     check("View website left the More menu, which now starts at Edit code", !/label: "View website"/.test(client) && !/SquareArrowOutUpRight/.test(client))
     check("Take offline stays in the live site's More menu, so a phone can still reach it",
       /items\.push\(\{ label: "Take offline", icon: <EyeOff \/>, onClick: \(\) => setUnpublishing\(i\)/.test(client))
@@ -364,26 +373,34 @@ section("The page")
         row.indexOf("className={MORE_ON_CARD}") > row.indexOf('data-control="settings"') && !/flex-wrap|flex-col/.test(row.slice(0, 80)) && !/View site/.test(live))
     check("  Settings opens the live site's Website Settings in the editor",
       /onClick=\{\(\) => go\(editorHref\(username, live\.id, "settings"\)\)\}/.test(row) && /className=\{SETTINGS_ON_CARD\}/.test(row))
-    check("  a 44px square with a gear on a phone, its name from 640px",
-      /const SETTINGS_ON_CARD = cn\(iconDepth, "h-11 w-11 rounded-xl px-0 text-\[14px\] text-\[#1a1a2e\] sm:w-auto sm:px-3\.5"\)/.test(src) &&
-        /aria-label="Settings"/.test(row) && /<Settings className=/.test(row) && /<span className="hidden sm:inline">Settings<\/span>/.test(row))
+    check("  a 44px gear square at every width, as on a phone, named Settings, with a Settings tooltip on a pointer",
+      /const SETTINGS_ON_CARD = cn\(iconDepth, "h-11 w-11 rounded-xl px-0 text-\[#4b5563\]"\)/.test(src) &&
+        /aria-label="Settings"/.test(row) && /<Settings className="h-\[18px\] w-\[18px\]"/.test(row) && !/sm:inline">Settings/.test(row) &&
+        /<Tooltip delayDuration=\{400\}>\s*<TooltipTrigger asChild>\s*<button/.test(row) && /<TooltipContent side="top" sideOffset=\{6\} className=\{TOOLTIP\}>\s*Settings\s*<\/TooltipContent>/.test(row))
     check("  Settings and More share the icon depth: a hairline, a 2px foot and a soft shadow, flat when pressed",
       /const MORE_ON_CARD = cn\(iconDepth, "h-11 w-11 rounded-xl px-0/.test(src) && /export const iconDepth = cn\(/.test(depthSrc) &&
         /shadow-\[inset_0_-2px_0_rgba\(0,0,0,0\.07\),0_1px_2px_rgba\(15,23,42,0\.08\)\]/.test(depthSrc) &&
         /active:shadow-\[inset_0_1px_2px_rgba\(0,0,0,0\.12\)\]/.test(depthSrc))
     check("  no numbers are counted for it any more", !/websitePerformanceFor/.test(read("app/app/website-builder/page.tsx")))
     /*
-      THE COVER IS THE SITE. "Why is it windows in a window? I want it full
-      width in the container." No stage, no browser window, no phone: the
-      desktop picture fills the cover area, flush with the card's edges.
+      THE COVER IS THE SITE, WITH ITS OWN CORNERS. "Why is it windows in a
+      window?" took the stage, the browser window and the phone away; then
+      flush with the card it ended in a straight cut through the site's text.
+      "Rounded, with depth, how it was before, but not in a screen preview
+      thing": the picture alone, set into the card as before the full bleed.
     */
     const frame = /const COVER_FRAME =\s*"([^"]+)"/.exec(client)?.[1] ?? ""
-    check("the cover area is flush with the card: no padding around it, 16:10, rounded to the card's inner radius",
-      /<div className="min-w-0">\s*<button[^>]*?\n?[\s\S]{0,200}?data-cover=""/.test(live) && /\baspect-\[16\/10\]/.test(frame) &&
-        /\brounded-t-\[15px\]/.test(frame) && /\blg:rounded-tr-none\b/.test(frame) && /\blg:rounded-bl-\[15px\]/.test(frame) &&
-        /\boverflow-hidden\b/.test(frame) && /className=\{COVER_FRAME\}/.test(live) && !/p-4 pb-3/.test(live))
-    check("  with a hairline over the picture where it meets the details: under it on a phone, on its right from lg",
-      /after:shadow-\[inset_0_-1px_0_rgba\(15,23,42,0\.08\)\]/.test(frame) && /lg:after:shadow-\[inset_-1px_0_0_rgba\(15,23,42,0\.08\)\]/.test(frame) && !/0_10px_28px/.test(frame))
+    check("the cover is set into the card with its padding, 16:10 on the frame itself, 12px corners on all four sides, clipped to them",
+      /<div className="min-w-0 p-4 pb-3 lg:pb-4 lg:pr-2">\s*<button[\s\S]{0,200}?data-cover=""/.test(live) && /\baspect-\[16\/10\]/.test(frame) &&
+        /\brounded-\[12px\]/.test(frame) && !/rounded-t-|rounded-tr-|rounded-bl-/.test(frame) &&
+        /\boverflow-hidden\b/.test(frame) && /\bisolate\b/.test(frame) && /\[transform:translateZ\(0\)\]/.test(frame) && /className=\{COVER_FRAME\}/.test(live) &&
+        /<div className="flex min-w-0 flex-col px-4 pb-4 pt-2 lg:p-6 lg:pl-4">/.test(live))
+    check("  with depth: a close and a wide soft shadow, and a hairline ring drawn over the picture",
+      /shadow-\[0_1px_2px_rgba\(15,23,42,0\.06\),0_10px_28px_-14px_rgba\(15,23,42,0\.22\)\]/.test(frame) &&
+        /after:rounded-\[inherit\] after:shadow-\[inset_0_0_0_1px_rgba\(15,23,42,0\.08\)\]/.test(frame))
+    check("  not a .group, so a tap on a phone does not take its shadow off; the tint is a pointer's, the focus an outline that draws",
+      !/(^|\s)group(\s|$)/.test(frame) && /pointer-fine:hover:before:bg-\[#1a1a2e\]\/\[0\.04\]/.test(frame) &&
+        /focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2/.test(frame) && !/group-hover|group-focus/.test(live.slice(live.indexOf("data-cover"), live.indexOf("</button>", live.indexOf("data-cover")))))
     check("  and it is one picture: no stage, no browser window, no phone, anywhere on the page",
       /<WebsiteCover install=\{live\} eager \/>/.test(live) && !/CoverStage|PHONE_FRAME|ThemeCoverPair|ThemePhoneCover|snapshot_mobile_url \?/.test(client) &&
         !/export function CoverStage|export const PHONE_FRAME|export function ThemeCoverPair|data-cover-stage|data-cover-window|data-cover-phone/.test(read("components/website-builder/theme-cover.tsx")))
@@ -399,7 +416,7 @@ section("The page")
    * checked in changed while the rule did not.
    */
   check("the live link is a real anchor that opens a new tab",
-    /<a href=\{siteUrl\} target="_blank" rel="noopener noreferrer" data-control="view"/.test(client) &&
+    /<a href=\{siteUrl\} target="_blank" rel="noopener noreferrer" aria-label="View website" data-control="view"/.test(client) &&
       !/window\.open\(siteUrl/.test(client))
   check("every cover on the page is the desktop picture alone: the live card, the library rows and Browse themes",
     !/ThemeCoverPair|ThemePhoneCover/.test(client) && /<ThemeCover spec=\{coverSpecFromDefinition\(def\)\} className="block h-full w-full" \/>/.test(client) &&
@@ -1481,7 +1498,7 @@ section("Two at once still make five, and an import that says what went wrong")
   check("  the secondary depth is unchanged: a hairline, a 1px foot, flat when pressed",
     /shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\),0_1px_0_rgba\(0,0,0,0\.05\)\]/.test(depth) && /active:shadow-\[inset_0_1px_1px_rgba\(0,0,0,0\.1\)\]/.test(depth))
   check("  the library's three dots wear the icon depth, the same as the live card's Settings and More",
-    /import \{ grayDepth, iconDepth \} from "@\/components\/ui\/depth-button"/.test(client) &&
+    /import \{ iconDepth, secondaryDepth \} from "@\/components\/ui\/depth-button"/.test(client) &&
       /const MORE_ON_ROW = cn\(\s*iconDepth,/.test(client) && /className=\{MORE_ON_ROW\}/.test(client) && /const MORE_ON_CARD = cn\(iconDepth,/.test(client))
   check("  and on a phone the row's button is 40px with a band to 48", /"relative h-10 w-10 rounded-\[10px\] px-0 text-\[#4b5563\] after:absolute after:-inset-1/.test(client))
 
