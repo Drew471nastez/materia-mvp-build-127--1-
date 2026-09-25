@@ -2,13 +2,13 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
-import { currentUserForRequest } from "@/lib/auth/request-scope";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { PayoutsClient } from "./payouts-client";
 import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile";
 import { getMarketExchangeRate } from "@/lib/exchange-rate";
-import { WaitingArea } from "@/components/ui/activity-spinner";
+import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/ui/shimmer";
+import { pageUser } from "@/lib/auth/page-user"
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -22,11 +22,10 @@ export default async function PayoutsPage() {
 
   /* The same answer the /app layout got, through the per-request cache
      (lib/auth/request-scope.ts): no second auth round trip on a full load. */
-  const { user } = await currentUserForRequest();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const user = await pageUser()
+  /* Supabase did not answer in time: the layout's gate recovers the
+     session in the browser. Not /login (lib/auth/page-user.ts). */
+  if (!user) return null
 
   const { data: creator, error: creatorError } = await adminSupabase
     .from("creators")
@@ -73,7 +72,7 @@ export default async function PayoutsPage() {
 
         {/* The heading and the frame arrive at once; Stripe's answers
             stream in behind them (PayoutsBody). */}
-        <Suspense fallback={<WaitingArea className="h-[420px]" />}>
+        <Suspense fallback={<PayoutsWaiting />}>
           {/* Called, not written as an element: this project's JSX types do not take
               an async component, and a promise is a child React waits on. */}
           {PayoutsBody({ creator })}
@@ -90,10 +89,55 @@ export default async function PayoutsPage() {
   well over a second. It used to be awaited before anything was sent, so a
   press on Payouts sat on the page you were on, then under the spinner. Now
   the page's heading and frame are sent as soon as the creator row is read,
-  the navigation lands on them, and this part streams in behind a
-  WaitingArea: nothing for half a second, then the spinner, in the room the
-  figures will take. Every read is the one it was.
+  the navigation lands on them, and this part streams in behind
+  PayoutsWaiting: nothing for 200ms, then the page's own shapes in light
+  gray. Every read is the one it was.
 */
+
+/**
+ * What Stripe's part of the page will be, drawn in light gray while it
+ * streams (components/ui/shimmer): the revenue card with its figure and
+ * plot, the cash out panel beside it from lg, and the list under them. The
+ * same boxes, radii and gaps as PayoutsClient, so the answer lands where
+ * the shapes were. It was an empty 420px box with the spinner in it.
+ */
+function PayoutsWaiting() {
+  return (
+    <Shimmer className="space-y-6" label="Loading payouts">
+      <div className="flex flex-col gap-5 lg:flex-row">
+        <div className="min-w-0 flex-1 rounded-2xl border border-[#e5e7eb]/60 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="space-y-2.5">
+              <ShimmerBlock className="h-3 w-16 rounded-full" />
+              <ShimmerBlock className="h-7 w-32 rounded-lg" />
+            </div>
+            <ShimmerBlock className="h-9 w-32 rounded-lg" />
+          </div>
+          <ShimmerChart height={192} bare />
+        </div>
+        <div className="shrink-0 rounded-2xl border border-[#e5e7eb] bg-[#f8fafc] p-5 sm:p-6 lg:w-[24rem] xl:w-[26.5rem]">
+          <div className="rounded-xl border border-[#e5e7eb] bg-white p-5">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <ShimmerBlock className="h-2.5 w-24 rounded-full" />
+                <ShimmerBlock className="h-8 w-24 rounded-lg" />
+              </div>
+              <div className="flex flex-col items-end space-y-3">
+                <ShimmerBlock className="h-2.5 w-20 rounded-full" />
+                <ShimmerBlock className="h-7 w-20 rounded-lg" />
+              </div>
+            </div>
+          </div>
+          <ShimmerBlock className="mt-5 h-11 w-full rounded-xl" />
+          <ShimmerBlock className="mt-4 h-3 w-48 rounded-full" />
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <ShimmerRows rows={3} rowHeight={56} cols={["30%", "18%", "12%"]} bare />
+      </div>
+    </Shimmer>
+  );
+}
 async function PayoutsBody({ creator }: { creator: any }) {
   const adminSupabase = createAdminClient();
 

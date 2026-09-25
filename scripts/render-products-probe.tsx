@@ -15,6 +15,7 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { LanguageProvider } from "@/lib/i18n"
 import { ProductsClient } from "@/app/app/products/products-client"
+import { SaveButton, barIconButton } from "@/app/app/products/new/editor-buttons"
 
 const many = location.hash.includes("many")
 const sidebar = location.hash.includes("sidebar")
@@ -66,6 +67,13 @@ createRoot(document.getElementById("app")!).render(
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: HEADER, background: "#fff", borderBottom: "1px solid #eceef1" }} />
     <div className="app-content-scroll" style={{ position: "fixed", top: HEADER, left: sidebar ? 240 : 0, right: 0, overflowY: "auto" }}>
       <ProductsClient products={products} creatorUsername="astrid" />
+    </div>
+    {/* The editor's own more button and Save, off screen, for the probe to hold the list's buttons against. */}
+    <div aria-hidden style={{ position: "fixed", left: -9999, top: 0 }}>
+      <button type="button" data-probe-more="" className={barIconButton} />
+      <span data-probe-save="">
+        <SaveButton phase="idle" disabled={false} onSave={() => {}} />
+      </span>
     </div>
   </LanguageProvider>,
 )

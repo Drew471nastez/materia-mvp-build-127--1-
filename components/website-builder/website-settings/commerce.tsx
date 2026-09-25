@@ -26,10 +26,10 @@ export function CommerceSettings({ ctx }: { ctx: SettingsContext }) {
       </Card>
 
       <Card title="Checkout">
-        <Row label="Checkout" hint="Buy opens Storelib checkout. Cards and Google Pay, through Stripe.">
+        <Row label="Checkout" hint="Buy opens Storelib checkout. Cards and Google Pay, through Stripe." inline>
           <span className="text-[14px] text-white/70">Storelib checkout</span>
         </Row>
-        <Row label="Currency" hint="Every price is charged in US dollars.">
+        <Row label="Currency" hint="Every price is charged in US dollars." inline>
           <span className="text-[14px] text-white/70">USD</span>
         </Row>
         <Row label="Payouts" hint="Where your earnings are paid.">

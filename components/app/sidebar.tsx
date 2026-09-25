@@ -4,30 +4,19 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
-  LayoutDashboard,
-  Package,
   Settings,
   LogOut,
-  ShoppingCart,
-  BarChart3,
-  Mail,
   CreditCard,
-  Link2,
   HelpCircle,
-  Zap,
   ChevronDown,
   ChevronRight,
   Compass,
   Library,
   Bell,
-  Wallet,
-  X,
   Sparkles,
   Store,
-  MonitorSmartphone,
   Search,
   Globe,
-  ContactRound,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
@@ -43,7 +32,8 @@ import { MobileMenuPage, MobileNavPill, pillBelongsOn, useLockAppScroll } from "
 /* The header draws it directly; the bar below does not carry it any more. */
 import { CompassIcon as ExploreIcon } from "@solar-icons/react/linear/compass"
 
-import { NotificationsModal, NotificationBadge } from "./notifications-modal"
+import { NotificationsModal, LiveNotificationBadge } from "./notifications-modal"
+import { AppSearch, type AppSearchHandle } from "@/components/app/app-search"
 import { useLanguage } from "@/lib/i18n"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { toOriginalImageUrl } from "@/lib/storage/image-url"
@@ -100,18 +90,6 @@ interface SidebarProps {
   setupProgress?: { completed: number; total: number }
 }
 
-const DISMISSED_NOTIFICATIONS_KEY = "storelib_dismissed_notifications"
-
-function getDismissedNotifications(): string[] {
-  if (typeof window === "undefined") return []
-  try {
-    const dismissed = localStorage.getItem(DISMISSED_NOTIFICATIONS_KEY)
-    return dismissed ? JSON.parse(dismissed) : []
-  } catch {
-    return []
-  }
-}
-
 type NotificationsHandle = { open: () => void }
 
 /**
@@ -124,15 +102,9 @@ const NotificationsHost = memo(forwardRef<NotificationsHandle, {
   stripeConnected: boolean
   stripeStatus: string
   onePagePublished: boolean
-  onClosed: () => void
-}>(function NotificationsHost({ stripeConnected, stripeStatus, onePagePublished, onClosed }, ref) {
+}>(function NotificationsHost({ stripeConnected, stripeStatus, onePagePublished }, ref) {
   const [open, setOpen] = useState(false)
   useImperativeHandle(ref, () => ({ open: () => setOpen(true) }), [])
-  const wasOpenRef = useRef(false)
-  useEffect(() => {
-    if (wasOpenRef.current && !open) onClosed()
-    wasOpenRef.current = open
-  }, [open, onClosed])
   return (
     <NotificationsModal
       open={open}
@@ -163,7 +135,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
      opening notifications does not re-render this whole sidebar. */
   const notificationsRef = useRef<NotificationsHandle>(null)
   const openNotifications = useCallback(() => notificationsRef.current?.open(), [])
-  const [dismissedNotifications, setDismissedNotifications] = useState<string[]>([])
   /* The row a click lights before its page arrives is not state here: this
      held a `pendingHref` that nothing ever read, and setting it re-rendered
      this whole shell on every click, at the moment the click should be
@@ -178,22 +149,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     setMobileMenuOpen(false)
     setProfileDropdownOpen(false)
     setHeaderProfileOpen(false)
-    setSearchOpen(false)
   }, [pathname])
-
-  // Load dismissed notifications from localStorage
-  useEffect(() => {
-    setDismissedNotifications(getDismissedNotifications())
-  }, [])
-
-  // Re-check dismissed notifications when notifications modal closes, and
-  // render only when the answer is different.
-  const refreshDismissed = useCallback(() => {
-    setDismissedNotifications((prev) => {
-      const next = getDismissedNotifications()
-      return next.join(",") === prev.join(",") ? prev : next
-    })
-  }, [])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -212,14 +168,15 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  // Calculate notification count (respecting dismissed notifications)
-  let notificationCount = 0
-  if ((!stripeConnected || (stripeStatus !== "enabled" && stripeStatus !== "connected")) && !dismissedNotifications.includes("payment-setup")) notificationCount++
-  if (!onePagePublished && !dismissedNotifications.includes("onepage-setup")) notificationCount++
+  /* The count on each bell is its own component (LiveNotificationBadge): it
+     reads what is unread from the store the panel writes to, so "Mark all as
+     read" empties it at once, and a new count draws the badge, not this
+     sidebar. */
+  const badgeProps = { stripeConnected, stripeStatus, onePagePublished }
 
   const handleSignOut = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: "local" })
     setMobileMenuOpen(false)
     setProfileDropdownOpen(false)
     if (isNativePlatform()) {
@@ -450,104 +407,13 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     </div>
   )
 
-  // Search modal state
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [searchResults, setSearchResults] = useState<{ label: string; href: string; icon: any; category: string }[]>([])
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  /* The search is its own component (components/app/app-search.tsx) with its
+     own open state, opened by reference like the notifications, so a key
+     typed in it does not render this whole sidebar again. */
+  const searchRef = useRef<AppSearchHandle>(null)
+  const openSearch = useCallback(() => searchRef.current?.open(), [])
   const headerProfileRef = useRef<HTMLDivElement>(null)
   const [headerProfileOpen, setHeaderProfileOpen] = useState(false)
-
-  // Search shortcut items (pill buttons in modal)
-  const searchShortcuts = [
-    { label: "Dashboard", href: "/app", icon: LayoutDashboard },
-    { label: "Products", href: "/app/products", icon: Package },
-    { label: "Orders", href: "/app/orders", icon: ShoppingCart },
-    { label: "Analytics", href: "/app/analytics", icon: BarChart3 },
-    { label: "Payouts", href: "/app/payouts", icon: Wallet },
-    { label: "Settings", href: "/app/settings", icon: Settings },
-    { label: "Emails", href: "/app/emails", icon: Mail },
-    { label: "OnePage", href: "/app/onepage", icon: Link2 },
-    { label: "Payments", href: "/app/settings/payments", icon: CreditCard },
-    { label: "Billing", href: "/app/settings/billing", icon: CreditCard },
-  ]
-
-  // All searchable items
-  const allSearchItems = [
-    { label: "Dashboard", href: "/app", icon: LayoutDashboard, category: "Pages" },
-    { label: "Products", href: "/app/products", icon: Package, category: "Pages" },
-    { label: "New Product", href: "/app/products/new", icon: Package, category: "Pages" },
-    { label: "Analytics", href: "/app/analytics", icon: BarChart3, category: "Pages" },
-    { label: "Orders", href: "/app/orders", icon: ShoppingCart, category: "Pages" },
-    /* A profile card, the same as the rail's own icon and for the same
-       reason: a plain silhouette is the account menu, not a page. */
-    { label: "Creator Page", href: "/creator-page", icon: ContactRound, category: "Pages" },
-    { label: "Website", href: "/app/website-builder", icon: MonitorSmartphone, category: "Pages" },
-    { label: "OnePage", href: "/app/onepage", icon: Link2, category: "Pages" },
-    { label: "Emails", href: "/app/emails", icon: Mail, category: "Pages" },
-    { label: "Payouts", href: "/app/payouts", icon: Wallet, category: "Pages" },
-    { label: "Settings", href: "/app/settings", icon: Settings, category: "Settings" },
-    { label: "Billing", href: "/app/settings/billing", icon: CreditCard, category: "Settings" },
-    { label: "Payment Methods", href: "/app/settings/billing", icon: CreditCard, category: "Settings" },
-    { label: "Profile Settings", href: "/app/settings", icon: Settings, category: "Settings" },
-    { label: "Orders", href: "/app/orders", icon: ShoppingCart, category: "Data" },
-    { label: "Customers", href: "/app/orders", icon: ShoppingCart, category: "Data" },
-    { label: "Customer Emails", href: "/app/orders", icon: Mail, category: "Data" },
-    { label: "Email Subscribers", href: "/app/emails", icon: Mail, category: "Data" },
-    { label: "Send Email", href: "/app/emails", icon: Mail, category: "Data" },
-    { label: "Email Campaigns", href: "/app/emails", icon: Mail, category: "Data" },
-    { label: "Revenue", href: "/app/payouts", icon: Wallet, category: "Data" },
-    { label: "Traffic", href: "/app/analytics", icon: BarChart3, category: "Data" },
-    { label: "Transactions", href: "/app/payouts", icon: Wallet, category: "Data" },
-    { label: "Refunds", href: "/app/orders", icon: ShoppingCart, category: "Data" },
-    { label: "Coupons", href: "/app/products", icon: Package, category: "Data" },
-    { label: "Digital Downloads", href: "/app/products", icon: Package, category: "Data" },
-    { label: "Explore", href: "/explore", icon: Compass, category: "Other" },
-    { label: "Library", href: "/library", icon: Library, category: "Other" },
-    { label: "Help", href: "/help", icon: HelpCircle, category: "Other" },
-    { label: "Upgrade to Pro", href: "/app/settings/billing/upgrade", icon: Zap, category: "Other" },
-  ]
-
-  // Search handler
-  const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query)
-    if (!query.trim()) {
-      setSearchResults([])
-      return
-    }
-    const q = query.toLowerCase()
-    const results = allSearchItems.filter(item =>
-      item.label.toLowerCase().includes(q) ||
-      item.category.toLowerCase().includes(q) ||
-      item.href.toLowerCase().includes(q)
-    )
-    setSearchResults(results)
-  }, [])
-
-  // Focus search input when modal opens
-  useEffect(() => {
-    if (searchOpen) {
-      setTimeout(() => searchInputRef.current?.focus(), 100)
-    } else {
-      setSearchQuery("")
-      setSearchResults([])
-    }
-  }, [searchOpen])
-
-  // Keyboard shortcut: Cmd/Ctrl+K opens search
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault()
-        setSearchOpen(true)
-      }
-      if (e.key === "Escape" && searchOpen) {
-        setSearchOpen(false)
-      }
-    }
-    document.addEventListener("keydown", handler)
-    return () => document.removeEventListener("keydown", handler)
-  }, [searchOpen])
 
   // Close header profile dropdown on outside click
   useEffect(() => {
@@ -717,21 +583,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             </div>
           </div>
 
-          {/* Center: Search bar */}
+          {/* Center: the search bar, which opens the search over the page. */}
           <div className="flex-1 flex justify-center px-6 relative" id="desktop-search-container">
-            <button
-              onClick={() => setSearchOpen(true)}
-              className={cn(
-                "flex items-center gap-2.5 w-full max-w-[480px] h-[36px] rounded-full bg-white/10 hover:bg-white/15 border border-white/10 px-4 transition-all cursor-text",
-                searchOpen && "opacity-0 pointer-events-none"
-              )}
-            >
-              <Search className="h-4 w-4 text-white/40 shrink-0" />
-              <span className="text-[13px] text-white/40 flex-1 text-left">Search...</span>
-              <kbd className="hidden lg:flex items-center gap-0.5 text-[11px] text-white/30 bg-white/5 border border-white/10 rounded px-1.5 py-0.5">
-                <span className="text-[10px]">⌘</span>K
-              </kbd>
-            </button>
+            <AppSearch ref={searchRef} />
           </div>
 
           {/* Right side: Nav icons + Storelib logo */}
@@ -751,7 +605,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 title="Notifications"
               >
                 <Bell className="h-[19px] w-[19px]" strokeWidth={1.5} />
-                <NotificationBadge count={notificationCount} />
+                <LiveNotificationBadge {...badgeProps} />
               </button>
               <Link
                 href="/app/settings"
@@ -788,134 +642,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         </div>
       </header>
 
-      {/* Search Modal — morphs from search bar position */}
-      <div
-        className={cn(
-          "fixed inset-0 z-[100] bg-black/20 hidden md:block transition-opacity duration-200",
-          searchOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        )}
-        onClick={() => setSearchOpen(false)}
-      />
-      <div
-        className={cn(
-          "fixed z-[101] hidden md:block left-1/2 -translate-x-1/2 w-full max-w-[560px] transition-all duration-250",
-          searchOpen
-            ? "top-[10px] opacity-100 scale-100 pointer-events-auto"
-            : "top-[10px] opacity-0 scale-[0.97] -translate-y-1 pointer-events-none"
-        )}
-        style={{ transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)' }}
-      >
-        <div
-          className="bg-white rounded-2xl shadow-2xl border border-neutral-200/70 overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Search Input */}
-          <div className="flex items-center gap-3 px-5 py-4 border-b border-neutral-100">
-            <Search className="h-5 w-5 text-neutral-400 shrink-0" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Search pages, settings, data..."
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="flex-1 text-[15px] text-neutral-900 placeholder:text-neutral-400 outline-none bg-transparent"
-            />
-            <button
-              onClick={() => setSearchOpen(false)}
-              className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100 hover:bg-neutral-200 transition-colors"
-            >
-              <X className="h-3.5 w-3.5 text-neutral-500" />
-            </button>
-          </div>
-
-          {/* Default: Shortcut Pills */}
-          {!searchQuery.trim() && searchOpen && (
-            <div className="px-5 py-4">
-              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-3">Quick Navigation</p>
-              <div className="flex flex-wrap gap-2">
-                {searchShortcuts.map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <button
-                      key={item.href}
-                      onClick={() => {
-                        setSearchOpen(false)
-                        // /explore always opens in external browser on native
-                        if (isNativeApp() && item.href === "/explore") {
-                          openExternal(EXPLORE_FULL_URL)
-                        } else if (!isNativePlatform() && (item.href.startsWith("/creator-page") || item.href.startsWith("/app/onepage"))) {
-                          window.location.href = item.href
-                        } else {
-                          router.push(item.href)
-                        }
-                      }}
-                      className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/60 text-[13px] font-medium text-neutral-700 hover:text-neutral-900 transition-all"
-                    >
-                      <Icon className="h-3.5 w-3.5 text-neutral-500" strokeWidth={1.5} />
-                      {item.label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Search Results */}
-          {searchQuery.trim() && searchOpen && (
-            <div className="max-h-[340px] overflow-y-auto">
-              {searchResults.length > 0 ? (
-                <div className="py-2">
-                  {Object.entries(
-                    searchResults.reduce((acc, item) => {
-                      if (!acc[item.category]) acc[item.category] = []
-                      acc[item.category].push(item)
-                      return acc
-                    }, {} as Record<string, typeof searchResults>)
-                  ).map(([category, items]) => (
-                    <div key={category}>
-                      <p className="px-5 py-1.5 text-[11px] font-medium text-neutral-400 uppercase tracking-wider">{category}</p>
-                      {items.map((item) => {
-                        const Icon = item.icon
-                        return (
-                          <button
-                            key={item.href + item.label}
-                            onClick={() => {
-                              setSearchOpen(false)
-                              // /explore always opens in external browser on native
-                              if (isNativeApp() && item.href === "/explore") {
-                                openExternal(EXPLORE_FULL_URL)
-                              } else if (!isNativePlatform() && (item.href.startsWith("/creator-page") || item.href.startsWith("/app/onepage"))) {
-                                window.location.href = item.href
-                              } else {
-                                router.push(item.href)
-                              }
-                            }}
-                            className="flex items-center gap-3 w-full px-5 py-2.5 hover:bg-neutral-50 transition-colors text-left"
-                          >
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100">
-                              <Icon className="h-4 w-4 text-neutral-600" strokeWidth={1.5} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[13px] font-medium text-neutral-900 truncate">{item.label}</p>
-                              <p className="text-[11px] text-neutral-400 truncate">{item.href}</p>
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-neutral-300 shrink-0" />
-                          </button>
-                        )
-                      })}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="px-5 py-8 text-center">
-                  <p className="text-[13px] text-neutral-400">No results for &quot;{searchQuery}&quot;</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Mobile Header - Dark background, content below has outward rounded top corners.
           Header total height = 68px + safe-area-inset-top (same as main's pt offset).
           Padding inside the flex row so content sits flush below the status bar. */}
@@ -948,6 +674,17 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
           {/* Right side: Explore, then Notifications */}
           <div className="flex items-center gap-0.5">
+            {/* The same search as the header's on a computer, as the whole screen. */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10"
+              aria-label="Search"
+              aria-haspopup="dialog"
+              onClick={openSearch}
+            >
+              <Search className="h-5 w-5" strokeWidth={1.75} />
+            </Button>
             {/*
               EXPLORE IS NOT ONE OF THIS PERSON'S PLACES.
 
@@ -977,7 +714,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5" />
-              <NotificationBadge count={notificationCount} />
+              <LiveNotificationBadge {...badgeProps} />
             </Button>
             {/* Home moved to the bar at the bottom. Two ways to the same
                 page, one of them out of reach, is one too many. */}
@@ -992,7 +729,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         stripeConnected={stripeConnected}
         stripeStatus={stripeStatus}
         onePagePublished={onePagePublished}
-        onClosed={refreshDismissed}
       />
 
       {/*

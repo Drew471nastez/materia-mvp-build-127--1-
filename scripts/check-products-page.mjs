@@ -3,7 +3,7 @@
  *  THE PRODUCTS PAGE, MEASURED
  * ===========================================================================
  * On a phone: the bar with the title, Export as a plain icon and New product
- * as the one dark button; a real search field with Sort beside it; one
+ * as the one violet button, the editor's Save to the letter; a real search field with Sort beside it; one
  * segmented control for the views; then the products straight on the page,
  * 72px rows with a 56px picture, the name, and the price and sales in grey,
  * a status only on a row that is not on sale. From 768px the same parts as a
@@ -11,6 +11,11 @@
  * and a word. Every press on a phone is 44px however small it is drawn,
  * nothing scrolls sideways, and nothing of the page's sits under the
  * navigation pill, whose box is read from components/app/sidebar-mobile-nav.
+ *
+ * A row's more button has the editor's more button's depth, held against
+ * the real one rendered off screen. Switching views keeps every row's
+ * element (the same <img> before and after), settles on opacity and
+ * transform, and never draws an empty frame.
  *
  *   node scripts/check-products-page.mjs          (a build's CSS if there is one, else the source's)
  *   PROBE_CSS=source node scripts/check-products-page.mjs
@@ -75,7 +80,7 @@ export const useRouter = () => ({ push(href) { (window.__pushed ||= []).push(hre
 export const useSearchParams = () => new URLSearchParams()
 `)
   writeFileSync(join(stubs, "link.jsx"), `import React from "react"
-export default React.forwardRef(function Link({ href, children, prefetch, ...rest }, ref) { return React.createElement("a", { href, ref, ...rest, onClick: (e) => { e.preventDefault(); rest.onClick && rest.onClick(e) } }, children) })
+export default React.forwardRef(function Link({ href, children, prefetch, ...rest }, ref) { return React.createElement("a", { href, ref, ...rest, onClick: (e) => { rest.onClick && rest.onClick(e); e.preventDefault() } }, children) })
 `)
   writeFileSync(join(stubs, "image.jsx"), `import React from "react"
 export default function Image({ src, alt, fill, sizes, priority, ...rest }) { return React.createElement("img", { src, alt, style: fill ? { position: "absolute", inset: 0, width: "100%", height: "100%" } : undefined, ...rest }) }
@@ -121,7 +126,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   }
   /* The one of two elements (phone list, computer table) that is drawn at this width. */
   const shown = `(sel) => [...document.querySelectorAll(sel)].find((el) => el.getBoundingClientRect().width > 0)`
-  const rowsShown = `() => window.__shown("section[aria-label=Products] ul, section[aria-label=Products] table").querySelectorAll("li, tbody tr")`
+  const rowsShown = `() => window.__shown("section[aria-label=Products] ul, section[aria-label=Products] table").querySelectorAll("li:not([hidden]), tbody tr:not([hidden])")`
 
   for (const [label, vp, hash] of [
     ["phone-360", phone(360)],
@@ -148,7 +153,9 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       const hitAbove = document.elementFromPoint(add.left + add.width / 2, add.top - 5)?.closest("a[data-new-product]") != null
       const hitBelow = document.elementFromPoint(add.left + add.width / 2, add.bottom + 5)?.closest("a[data-new-product]") != null
       const expLook = getComputedStyle(expBtn.firstElementChild)
+      const save = getComputedStyle(document.querySelector("[data-probe-save] button"))
       return {
+        addShadow: getComputedStyle(addEl).boxShadow, saveShadow: save.boxShadow, saveBg: save.backgroundColor,
         barH: Math.round(el.getBoundingClientRect().height), titleSize: getComputedStyle(h).fontSize,
         add: [Math.round(add.width), Math.round(add.height)], addBg: getComputedStyle(addEl).backgroundColor, addText: addEl.textContent.trim(),
         exp: [Math.round(exp.width), Math.round(exp.height)], expText: expBtn.innerText.trim(), expBorder: expLook.borderTopColor, expBg: expLook.backgroundColor,
@@ -159,7 +166,9 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     row.header = bar.barH
     expect(bar.barH === 66, "the bar is Orders' 66px", bar.barH)
     expect(bar.titleSize === (isPhone ? "24px" : "28px"), `the title is ${isPhone ? 24 : 28}px`, bar.titleSize)
-    expect(bar.addText === "New product" && bar.add[1] === 32 && bar.addBg === "rgb(26, 26, 46)", "New product is one compact dark button, 32px, #1a1a2e, not the violet", { add: bar.add, bg: bar.addBg })
+    row.newBg = bar.addBg
+    expect(bar.addText === "New product" && bar.add[1] === 32 && bar.addBg === "rgb(139, 92, 246)", "New product is one compact violet button, 32px, #8b5cf6", { add: bar.add, bg: bar.addBg })
+    expect(bar.addBg === bar.saveBg && bar.addShadow === bar.saveShadow, "with the editor's Save's colour and depth, to the letter", { newProduct: bar.addShadow, save: bar.saveShadow })
     if (isPhone) {
       expect(bar.expText === "" && bar.exp.join() === "32,32" && bar.expBg === "rgba(0, 0, 0, 0)" && bar.expBorder === "rgba(0, 0, 0, 0)", "Export is a plain icon on a phone, with no box drawn round it", bar)
       expect(bar.hitAbove && bar.hitBelow && bar.press.join() === "44,44", "and both are a 44px press: a finger 5px outside New product still lands on it", { press: bar.press, above: bar.hitAbove, below: bar.hitBelow })
@@ -219,12 +228,16 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(table === "none", "the table is not drawn on a phone", table)
       const section = await p.$eval("section[aria-label=Products]", (s) => { const c = getComputedStyle(s); return [c.borderTopWidth, c.backgroundColor, c.boxShadow] })
       expect(section[0] === "0px" && section[1] === "rgba(0, 0, 0, 0)" && section[2] === "none", "no card round the list on a phone: the rows sit on the page", section)
-      const rows = await p.$$eval("section[aria-label=Products] ul > li", (r) => r.map((li) => {
+      const rows = await p.$$eval("section[aria-label=Products] ul > li:not([hidden])", (r) => r.map((li) => {
         const box = li.getBoundingClientRect()
         const pic = li.querySelector("[data-thumb]")
         const pr = pic.getBoundingClientRect()
         const link = li.querySelector("a").getBoundingClientRect()
-        const menu = li.querySelector("button").getBoundingClientRect()
+        const menuEl = li.querySelector("button")
+        const menuBox = menuEl.getBoundingClientRect()
+        const ma = getComputedStyle(menuEl, "::after")
+        const grow = ma.content !== "none" && ma.position === "absolute" ? -parseFloat(ma.top) || 0 : 0
+        const menu = { left: menuBox.left, right: menuBox.right, width: menuBox.width + 2 * grow, height: menuBox.height + 2 * grow }
         const name = li.querySelector("[data-name]")
         const meta = li.querySelector("[data-meta]")
         const metaRight = Math.max(...[...meta.children].map((c) => c.getBoundingClientRect().right))
@@ -254,7 +267,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       const drafts = rows.filter((r) => r.status)
       expect(drafts.length === 2 && drafts.every((r) => r.status === "Draft" && r.statusBg === "rgba(0, 0, 0, 0)"), "only the two drafts say so, as a dot and a word with no badge; a live row says nothing", rows.map((r) => r.status || "-"))
       expect(rows.every((r) => r.link[0] === r.w && r.link[1] >= r.h - 1), "the whole row is the link", rows[0].link)
-      expect(rows.every((r) => r.menu[0] >= 44 && r.menu[1] >= 44), "the actions button is a 44px target", rows[0].menu)
+      expect(rows.every((r) => r.menu[0] >= 44 && r.menu[1] >= 44), "the actions button is a 44px target (drawn 40px, with 3px of press past its border)", rows[0].menu)
       expect(rows.every((r) => r.clear >= 0 && r.nameClear >= 0), "the name and the line under it never run under the actions button", rows.map((r) => Math.min(r.clear, r.nameClear)))
       const rules = await p.$$eval("section[aria-label=Products] ul > li", (r) => r.map((li) => {
         const b = getComputedStyle(li, "::before")
@@ -372,13 +385,81 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       const pre = await p.evaluate(() => window.__prefetched || [])
       expect(pre.length === 1 && pre[0][0] === "/app/products/p1" && pre[0][1] === "full", "a pointer resting on a row prefetches that product's editor in full, one passing over does not", pre)
       await p.click("section[aria-label=Products] tbody tr:nth-child(2) td:nth-child(2)")
+      /* The push runs inside the editor's move, a frame after the press; here no editor arrives, and the move gives up after 450ms. */
+      await wait(650)
       const pushed = await p.evaluate(() => window.__pushed || [])
       expect(pushed.length === 1 && pushed[0] === "/app/products/p1", "a click anywhere on a row opens the product", pushed)
       await p.mouse.move(5, 5)
     }
+    const depth = await p.evaluate(() => {
+      const look = (el) => { const c = getComputedStyle(el); const r = el.getBoundingClientRect(); return { shadow: c.boxShadow, border: `${c.borderTopWidth} ${c.borderTopColor}`, bg: c.backgroundColor, color: c.color, radius: c.borderTopLeftRadius, size: `${Math.round(r.width)}x${Math.round(r.height)}` } }
+      const btn = [...document.querySelectorAll("section[aria-label=Products] button[aria-label^='Actions for']")].find((b) => b.getBoundingClientRect().width > 0)
+      return { row: look(btn), editor: look(document.querySelector("[data-probe-more]")) }
+    })
+    row.menuShadow = depth.row.shadow === depth.editor.shadow ? "= editor" : "differs"
+    expect(["shadow", "border", "bg", "color", "radius", "size"].every((k) => depth.row[k] === depth.editor[k]), `the rows' more button has the editor's depth: the same shade, hairline, white and size (${depth.row.size})`, depth)
+
     const footer = await p.evaluate(() => { const f = document.querySelector("[data-footer]"); return f ? getComputedStyle(f).display : "missing" })
     expect(isPhone ? footer === "none" : footer === "flex", isPhone ? "no footer counting rows on a phone when there is one page" : "the footer counts what is shown", footer)
     await p.screenshot({ path: join(shots, `${label}-products-v2.png`) })
+
+    /*
+      SWITCHING VIEWS. All, Draft, Archived, All: every picture shown before is
+      the same <img> element after (none made again), rows move and fade on
+      opacity and transform only (the card's foot on clip-path), and every
+      frame has a row drawn at half strength or more, a leaving one or an
+      arriving one.
+    */
+    const swap = await p.evaluate(async () => {
+      const section = document.querySelector("section[aria-label=Products]")
+      const imgs = () => new Map([...section.querySelectorAll("[data-row]")].filter((r) => !r.hidden && r.getClientRects().length > 0).map((r) => [r.dataset.row, r.querySelector("img")]).filter(([, i]) => i))
+      const before = imgs()
+      const made = []
+      const mo = new MutationObserver((ms) => {
+        for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1 && !n.matches("[data-list-leaving]") && !n.closest("[data-list-leaving]") && (n.matches("img") || n.querySelector("img"))) made.push(n.tagName)
+      })
+      mo.observe(section, { childList: true, subtree: true })
+      const kind = (t) => (t.dataset?.row ? "row" : t === section ? "card" : t.matches?.("[data-list-leaving]") ? "leaving" : t.matches?.("[data-footer]") ? "footer" : t.matches?.("[data-empty]") ? "empty" : t.tagName)
+      const run = async (name) => {
+        const t0 = performance.now()
+        ;[...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === name).click()
+        /* React commits a click's update in a microtask; the move starts in that commit's layout effect. */
+        await new Promise((r) => setTimeout(r, 0))
+        const anims = document.getAnimations().filter((a) => a.effect?.target && section.contains(a.effect.target)).map((a) => ({
+          on: kind(a.effect.target),
+          props: [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k).filter((x) => !["offset", "easing", "composite", "computedOffset"].includes(x))))],
+          ms: a.effect.getTiming().duration,
+        }))
+        const frames = []
+        while (performance.now() - t0 < 420) {
+          const rows = [...section.querySelectorAll("[data-row]:not([hidden])")].filter((r) => r.getClientRects().length > 0)
+          const layer = section.querySelector("[data-list-leaving]")
+          const strongest = Math.max(0, ...rows.map((r) => +getComputedStyle(r).opacity), layer && layer.children.length ? +getComputedStyle(layer).opacity : 0)
+          frames.push({ t: Math.round(performance.now() - t0), rows: rows.length, leaving: layer ? layer.children.length : 0, strongest: +strongest.toFixed(2), empty: !!section.querySelector("[data-empty]") })
+          await new Promise((r) => requestAnimationFrame(r))
+        }
+        return { name, anims, frames }
+      }
+      const runs = []
+      for (const name of ["Draft", "Archived", "All"]) runs.push(await run(name))
+      mo.disconnect()
+      const after = imgs()
+      return { pictures: before.size, same: [...before].every(([id, img]) => after.get(id) === img), made, runs, left: section.querySelectorAll("[data-list-leaving]").length, minHeight: section.style.minHeight }
+    })
+    const allAnims = swap.runs.flatMap((r) => r.anims)
+    const allowed = { row: ["opacity", "transform"], leaving: ["opacity"], footer: ["transform"], empty: ["opacity"], card: ["clipPath"] }
+    const worst = Math.min(...swap.runs.flatMap((r) => r.frames.map((f) => f.strongest)))
+    row.swapFrames = swap.runs.map((r) => r.frames.length).join("/")
+    row.swapWeakest = worst
+    console.log(`        (switches: ${swap.runs.map((r) => `${r.name} ${r.frames.length} frames, ${r.anims.length} animations [${[...new Set(r.anims.map((a) => `${a.on}:${a.props.join("+")} ${a.ms}ms`))].join(", ")}]`).join("; ")})`)
+    expect(swap.pictures >= 10 && swap.same && swap.made.length === 0, "All, Draft, Archived, All: every picture is the same <img> element it was, none made again", { pictures: swap.pictures, same: swap.same, made: swap.made })
+    expect(allAnims.length > 0 && allAnims.every((a) => allowed[a.on] && a.props.every((x) => allowed[a.on].includes(x))), "the change is played on opacity and transform (the card's foot on clip-path), nothing that lays the page out", [...new Set(allAnims.map((a) => `${a.on}:${a.props.join("+")}`))])
+    expect(allAnims.every((a) => a.ms >= 140 && a.ms <= 220), "each part in 140 to 220ms", [...new Set(allAnims.map((a) => a.ms))])
+    expect(swap.runs.every((r) => r.frames.every((f) => f.rows + f.leaving > 0)) && worst >= 0.5, "no frame with an empty list: some row, leaving or arriving, is always drawn at half strength or more", { weakest: worst, frames: swap.runs.map((r) => r.frames.slice(0, 4)) })
+    expect(swap.left === 0 && swap.minHeight === "", "and when it has settled nothing is left behind: no copies, no held height", { copies: swap.left, minHeight: swap.minHeight })
+    const pics = await p.evaluate(() => [...document.querySelectorAll("section[aria-label=Products] [data-thumb]")].filter((t) => t.getClientRects().length > 0).map((t) => { const i = t.querySelector("img"); return { bg: getComputedStyle(t).backgroundColor, decoding: i?.decoding ?? null, w: i?.getAttribute("width") ?? null, h: i?.getAttribute("height") ?? null } }))
+    expect(pics.every((x) => x.bg === "rgb(236, 238, 241)") && pics.filter((x) => x.decoding !== null).every((x) => x.decoding === "async" && x.w && x.h), "each picture sits on grey (never white), decodes off the main thread, with its width and height set", pics.slice(0, 2))
+    await p.screenshot({ path: join(shots, `products-${label}-after-switch.png`) })
 
     /* Views: Draft holds the two drafts, and the segment slides under it. */
     await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === "Draft").click())
@@ -434,7 +515,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     expect(esc === "", "Escape in the field clears it", esc)
 
     /* A row's actions: a dropdown on a computer, a sheet on a phone, all five there. */
-    const btn = await p.$(isPhone ? "section[aria-label=Products] ul > li:first-child button[aria-label^='Actions for']" : "section[aria-label=Products] tbody tr:first-child button[aria-label^='Actions for']")
+    const btn = await p.$(isPhone ? "section[aria-label=Products] ul > li:not([hidden]) button[aria-label^='Actions for']" : "section[aria-label=Products] tbody tr:not([hidden]) button[aria-label^='Actions for']")
     await btn.click()
     await wait(isPhone ? 600 : 300)
     const menu = await p.evaluate(() => {
@@ -501,10 +582,10 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         controls: !!document.querySelector("[data-controls]"), export: !!document.querySelector("button[aria-label='Export products']"), barNew: !!document.querySelector("a[data-new-product]"), footer: !!card.querySelector("[data-footer]"),
       }
     })
-    expect(/No products yet/.test(e.text) && e.create && e.createBg === "rgb(26, 26, 46)" && !e.footer, "No products yet, with a dark Create product, and no footer counting nothing", e)
+    expect(/No products yet/.test(e.text) && e.create && e.createBg === "rgb(139, 92, 246)" && !e.footer, "No products yet, with a violet Create product, and no footer counting nothing", e)
     expect(e.createBox && e.createBox[1] >= 44, "Create product is a 44px press", e.createBox)
     expect(!e.controls && !e.export, "no search, sort, views or Export in an empty shop", { controls: e.controls, export: e.export })
-    expect(!e.barNew, "and no second New product in the bar: one dark button on the screen, not two", e.barNew)
+    expect(!e.barNew, "and no second New product in the bar: one violet button on the screen, not two", e.barNew)
     await p.screenshot({ path: join(shots, "phone-390-products-v2-empty.png") })
     await p.close()
   }
@@ -544,8 +625,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await p.evaluate(() => document.fonts.ready)
     await wait(300)
     const tabs = () => p.$$eval("[role=tab]", (t) => t.map((x) => x.textContent.trim()))
-    const view = async (name) => { await p.evaluate((name) => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === name).click(), name); await wait(80) }
-    const names = () => p.$$eval("section[aria-label=Products] table tbody tr", (r) => r.map((tr) => tr.querySelector("td a").textContent.trim()))
+    const view = async (name) => { await p.evaluate((name) => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === name).click(), name); await wait(350) }
+    const names = () => p.$$eval("section[aria-label=Products] table tbody tr:not([hidden])", (r) => r.map((tr) => tr.querySelector("td a").textContent.trim()))
     const act = async (title, label) => {
       await p.click(`table button[aria-label='Actions for ${title}']`)
       await wait(250)

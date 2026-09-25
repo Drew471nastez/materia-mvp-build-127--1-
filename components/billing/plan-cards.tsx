@@ -8,12 +8,27 @@
  * cannot drift apart again. Each screen decides what the button does; the
  * card decides how a plan looks.
  *
- * Pro is set apart by restrained means only: a slightly firmer border, a
- * little more depth, the dark primary button and dark checks. No badge, no
- * colour wash, no glow.
+ * DRAWN TO THE OWNER'S REFERENCE. A tall header in the plan's colour, which is
+ * the owner's own picture (deep blue for Free, near black for Pro, the
+ * Storelib mark standing at the right), holding a small label, the plan's
+ * name, the price large, a line under it and one line of description, all in
+ * white. Under it the plan's lines, each with a round check in the plan's
+ * colour (a grey cross for what Free does not have), a full width button in
+ * the same colour, and one line of small print.
+ *
+ * EVERY WORD IS TRUE. The lines come from lib/billing/plans.ts, which writes
+ * them from the tables that enforce them; the label and the small print are
+ * plain facts about the plan (no invented discount, no "most chosen"), and
+ * tests/pricing-plans.test.ts holds both.
+ *
+ * THE PICTURES THROUGH next/image, sized to the card: a phone is sent a
+ * version about as wide as its screen, not the 1672px original.
+ * scripts/check-pricing-cards.mjs measures that, the equal heights, the
+ * contrast of the white text on the picture, and the 44px buttons.
  */
+import Image from "next/image"
 import Link from "next/link"
-import { Check, Loader2 } from "lucide-react"
+import { ArrowRight, Check, Loader2, X } from "lucide-react"
 import { OFFERED_PLANS, type OfferedPlan, type OfferedPlanId } from "@/lib/billing/plans"
 
 export interface PlanCardAction {
@@ -25,33 +40,60 @@ export interface PlanCardAction {
   loading?: boolean
   /** Drawn quietly: the plan somebody is already on, or a change already scheduled. */
   settled?: boolean
+  /** The plan somebody is on now. */
+  current?: boolean
 }
 
-const BUTTON_BASE =
-  "inline-flex w-full h-11 items-center justify-center gap-2 rounded-[10px] px-4 text-[14px] font-semibold " +
-  "transition-colors duration-150 no-underline select-none " +
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#1a1a2e]/40"
+const PICTURE_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images"
 
-const BUTTON_PRIMARY =
-  "bg-[#1a1a2e] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(16,24,40,0.18)] " +
-  "hover:bg-[#2a2a40] active:bg-[#111122] disabled:opacity-70 disabled:cursor-not-allowed"
+/**
+ * Each plan's colour, as whole class names so Tailwind sees them. `ground`
+ * is the picture's own tone, painted under it, so the white text reads the
+ * same while the picture is still on its way.
+ */
+const LOOK: Record<OfferedPlanId, { picture: string; ground: string; dot: string; button: string; ring: string }> = {
+  free: {
+    picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2010_28_53%20AM.png`,
+    ground: "bg-[#0b43c2]",
+    dot: "bg-[#3f5ef5]",
+    button: "bg-[#3f5ef5] hover:bg-[#3452e6] active:bg-[#2c47cf]",
+    ring: "focus-visible:ring-[#3f5ef5]/45",
+  },
+  growth: {
+    picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2010_29_35%20AM.png`,
+    ground: "bg-[#1b1b1c]",
+    dot: "bg-[#111113]",
+    button: "bg-[#111113] hover:bg-[#26262b] active:bg-[#000000]",
+    ring: "focus-visible:ring-[#111113]/35",
+  },
+}
 
-const BUTTON_SECONDARY =
-  "bg-white text-[#1a1a2e] border border-[#d4d7dc] shadow-[0_1px_0_rgba(16,24,40,0.04)] " +
-  "hover:bg-[#f9fafb] hover:border-[#c4c8cf] active:bg-[#f3f4f6] disabled:opacity-70 disabled:cursor-not-allowed"
+/**
+ * How wide the card, and so its picture, is drawn: half of an 820px row from
+ * 768px up (a little more in the Billing tab), the screen less its gutters
+ * under that.
+ */
+export const PLAN_PICTURE_SIZES = "(min-width: 768px) 440px, calc(100vw - 32px)"
 
-const BUTTON_SETTLED = "bg-[#f3f4f6] text-[#4b5563] border border-[#e5e7eb] cursor-default"
-
-function PlanButton({ action, primary }: { action: PlanCardAction; primary: boolean }) {
-  const tone = action.settled ? BUTTON_SETTLED : primary ? BUTTON_PRIMARY : BUTTON_SECONDARY
-  const className = `${BUTTON_BASE} ${tone}`
+function PlanButton({ action, plan, compact }: { action: PlanCardAction; plan: OfferedPlanId; compact?: boolean }) {
+  const look = LOOK[plan]
+  const className =
+    `inline-flex w-full ${compact ? "h-12" : "h-14"} items-center justify-center gap-2 rounded-2xl px-5 ` +
+    "text-[14px] font-bold uppercase tracking-[0.06em] no-underline select-none transition-colors duration-150 " +
+    `focus-visible:outline-none focus-visible:ring-4 ${look.ring} ` +
+    (action.settled
+      ? "bg-[#f3f4f6] text-[#4b5563] cursor-default"
+      : `${look.button} text-white disabled:cursor-not-allowed disabled:opacity-70`)
   const content = action.loading ? (
     <>
       <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
       Processing
     </>
   ) : (
-    action.label
+    <>
+      <span className="min-w-0 truncate">{action.label}</span>
+      {action.settled ? null : <ArrowRight className="h-[18px] w-[18px] shrink-0" strokeWidth={2.25} aria-hidden="true" />}
+    </>
   )
 
   if (action.href && !action.disabled && !action.settled) {
@@ -86,58 +128,68 @@ function PlanCard({
   label?: string
   compact?: boolean
 }) {
-  const isPro = plan.id !== "free"
+  const look = LOOK[plan.id]
   const pad = compact ? "px-5" : "px-6 sm:px-7"
 
   return (
     <article
       data-plan-card={plan.id}
-      className={`flex flex-col rounded-2xl bg-white border ${
-        isPro
-          ? "border-[#d4d7dc] shadow-[0_1px_2px_rgba(16,24,40,0.05),0_12px_24px_-16px_rgba(16,24,40,0.18)]"
-          : "border-[#e5e7eb] shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
-      }`}
+      className="flex w-full flex-col overflow-hidden rounded-[28px] bg-white shadow-[0_32px_64px_-28px_rgba(16,24,40,0.28),0_2px_8px_rgba(16,24,40,0.05)] ring-1 ring-[#0f172a]/[0.06]"
     >
-      <div className={`${pad} ${compact ? "pt-5 pb-5" : "pt-6 pb-6 sm:pt-7"}`}>
-        <div className="flex items-center justify-between gap-3 min-h-[24px]">
-          <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{plan.name}</h3>
-          {label && (
-            <span className="rounded-md border border-[#e5e7eb] bg-[#f6f6f7] px-2 py-0.5 text-[12px] font-medium text-[#4b5563]">
-              {label}
-            </span>
-          )}
-        </div>
-
-        <p className="mt-3 flex items-baseline gap-1.5">
-          <span
-            className={`${compact ? "text-[34px]" : "text-[40px]"} font-semibold leading-none tracking-[-0.02em] text-[#1a1a2e] tabular-nums`}
-          >
-            {plan.price}
-          </span>
-          <span className="text-[14px] text-[#6b7280]">{plan.period}</span>
+      <div
+        data-plan-header=""
+        className={`relative isolate flex flex-col text-white ${look.ground} ${pad} ${
+          compact ? "min-h-[220px] pb-5 pt-5" : "min-h-[268px] pb-6 pt-6 sm:min-h-[292px] sm:pb-7 sm:pt-7"
+        }`}
+      >
+        <Image
+          src={look.picture}
+          alt=""
+          fill
+          sizes={PLAN_PICTURE_SIZES}
+          className="-z-10 object-cover object-right"
+          data-plan-picture=""
+        />
+        <span className="self-start rounded-full bg-white/15 px-3 py-1 text-[12px] font-semibold leading-[18px] text-white ring-1 ring-inset ring-white/25">
+          {label ?? plan.pill}
+        </span>
+        <h3 className={`${compact ? "mt-3" : "mt-5"} text-[20px] font-bold leading-tight`}>{plan.name}</h3>
+        <p
+          className={`mt-1.5 ${compact ? "text-[44px]" : "text-[56px] sm:text-[64px]"} font-extrabold leading-none tracking-[-0.035em] tabular-nums`}
+        >
+          {plan.price}
         </p>
-
-        <p className="mt-3 text-[14px] leading-[1.5] text-[#6b7280] sm:min-h-[42px]">{plan.summary}</p>
-
-        <div className="mt-5">
-          <PlanButton action={action} primary={isPro} />
-        </div>
+        <p className="mt-2 text-[14px] font-medium leading-[20px] text-white/85">{plan.priceNote}</p>
+        <p className={`mt-auto ${compact ? "pt-3" : "pt-5"} text-[15px] leading-[22px] text-white/90`}>{plan.summary}</p>
       </div>
 
-      <div className={`flex-1 rounded-b-2xl border-t border-[#eef0f2] bg-[#fafafb] ${pad} ${compact ? "py-4" : "py-5 sm:py-6"}`}>
-        <p className="text-[13px] font-medium text-[#1a1a2e]">{plan.featuresHeading}</p>
-        <ul className="mt-3 flex flex-col gap-2.5">
+      <div className={`flex flex-1 flex-col ${pad} ${compact ? "pb-5 pt-5" : "pb-6 pt-6 sm:pb-7 sm:pt-7"}`}>
+        <ul className={`flex flex-col ${compact ? "gap-2.5" : "gap-3.5"}`}>
           {plan.features.map((feature) => (
-            <li key={feature} className="flex items-start gap-2.5 text-[14px] leading-[1.45] text-[#374151]">
-              <Check
-                className={`mt-[3px] h-3.5 w-3.5 shrink-0 ${isPro ? "text-[#1a1a2e]" : "text-[#6b7280]"}`}
-                strokeWidth={2.5}
-                aria-hidden="true"
-              />
+            <li key={feature} className={`flex items-start gap-3 ${compact ? "text-[14px]" : "text-[15px]"} leading-[22px] text-[#1a1a2e]`}>
+              <span className={`mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${look.dot}`} aria-hidden="true">
+                <Check className="h-3 w-3 text-white" strokeWidth={3.25} />
+              </span>
               {feature}
             </li>
           ))}
+          {plan.excluded.map((feature) => (
+            <li key={feature} className={`flex items-start gap-3 ${compact ? "text-[14px]" : "text-[15px]"} leading-[22px] text-[#6b7280]`}>
+              <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#e5e7eb]" aria-hidden="true">
+                <X className="h-3 w-3 text-[#6b7280]" strokeWidth={3.25} />
+              </span>
+              <span>
+                <span className="sr-only">Not included: </span>
+                {feature}
+              </span>
+            </li>
+          ))}
         </ul>
+
+        <div className={`mt-auto ${compact ? "pt-5" : "pt-8"}`}>
+          <PlanButton action={action} plan={plan.id} compact={compact} />
+          <p className="mt-3 text-center text-[13px] leading-[18px] text-[#6b7280]">{plan.note}</p>
+        </div>
       </div>
     </article>
   )
@@ -147,21 +199,26 @@ export function PlanCards({
   actions,
   labels,
   compact,
+  lead,
   className = "",
 }: {
   actions: Record<OfferedPlanId, PlanCardAction>
-  /** A small quiet label beside a plan name, such as "Current plan". */
+  /** In place of the small label at the top of a card, such as "Current plan". */
   labels?: Partial<Record<OfferedPlanId, string>>
   compact?: boolean
+  /** On a phone, where the cards stack, this plan comes first: Pro for somebody already on Free. Side by side they keep their order. */
+  lead?: OfferedPlanId
   className?: string
 }) {
   return (
     <div
       data-plan-cards
-      className={`grid grid-cols-1 md:grid-cols-2 items-stretch ${compact ? "gap-3" : "gap-4 md:gap-5"} ${className}`}
+      className={`grid grid-cols-1 md:grid-cols-2 items-stretch ${compact ? "gap-3" : "gap-5 md:gap-6"} ${className}`}
     >
       {OFFERED_PLANS.map((plan) => (
-        <PlanCard key={plan.id} plan={plan} action={actions[plan.id]} label={labels?.[plan.id]} compact={compact} />
+        <div key={plan.id} data-plan-slot={plan.id} className={`flex ${lead === plan.id ? "order-first md:order-none" : ""}`}>
+          <PlanCard plan={plan} action={actions[plan.id]} label={labels?.[plan.id]} compact={compact} />
+        </div>
       ))}
     </div>
   )

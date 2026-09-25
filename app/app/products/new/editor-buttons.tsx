@@ -14,44 +14,70 @@
  * more button and Save line up: 40px on a phone and 32px from 640px, the
  * same 32px as the Orders and Products bars. On a phone the press area is
  * 44px high (an invisible band 2px above and below), inside the 56px bar.
+ *
+ * The Products page wears the same two depths: its rows' more buttons are
+ * secondaryDepth and New product is primaryDepth, so a button means the same
+ * thing on the list and in the editor.
  */
 
 import * as React from "react"
-import { Check } from "lucide-react"
+import { Check, ChevronLeft } from "lucide-react"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { cn } from "@/lib/utils"
+import { REST_SHADOW, criticalDepth, primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 
-/** The shade of a button at rest: a line inside its foot and a hairline under it. */
-export const REST_SHADOW = "inset 0 -1px 0 rgba(0,0,0,0.08), 0 1px 0 rgba(0,0,0,0.05)"
+/* The depth itself lives in components/ui/depth-button.ts, so every light
+   surface in /app presses the same way; it is re-exported here for the
+   editor's own sheets. */
+export { REST_SHADOW, secondaryDepth, primaryDepth, criticalDepth }
 
 /* Measured from the padding box, which is 1px inside a bordered button: 3px there is 2px past the border. */
 const PRESS_AREA = "relative after:absolute after:inset-x-0 after:-inset-y-[2px] after:content-[''] sm:after:hidden"
 const PRESS_AREA_BORDERED = "relative after:absolute after:inset-x-0 after:-inset-y-[3px] after:content-[''] sm:after:hidden"
-
-/** White, hairline border, a soft 1px foot. Flat and a step darker when pressed. */
-export const secondaryDepth = cn(
-  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap border border-[#d9dbe0] bg-white font-medium text-[#1a1a2e] outline-none",
-  "shadow-[inset_0_-1px_0_rgba(0,0,0,0.08),0_1px_0_rgba(0,0,0,0.05)] transition-[background-color,box-shadow] duration-100",
-  "hover:bg-[#f7f7f8] active:bg-[#f1f2f4] active:shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)]",
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
-  "disabled:cursor-not-allowed disabled:opacity-50",
-  "[-webkit-tap-highlight-color:transparent]",
-)
-
-/** Red, for the one action that throws work away. The same light and shade as the primary. */
-export const criticalDepth = cn(
-  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap bg-[#c4290c] font-semibold text-white outline-none",
-  "shadow-[inset_0_1px_0_rgba(255,255,255,0.2),inset_0_-1px_0_rgba(0,0,0,0.2),0_1px_1px_rgba(0,0,0,0.12)] transition-[background-color,box-shadow] duration-100",
-  "hover:bg-[#ab230a] active:bg-[#921e09] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]",
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c4290c]",
-  "[-webkit-tap-highlight-color:transparent]",
-)
 
 /** A labelled button in the bar. */
 export const barButton = cn(secondaryDepth, PRESS_AREA_BORDERED, "h-10 rounded-[10px] px-3.5 text-[15px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]")
 
 /** The more button: square, the same height as Save. */
 export const barIconButton = cn(secondaryDepth, PRESS_AREA_BORDERED, "h-10 w-10 rounded-[10px] text-[#4b5563] sm:h-8 sm:w-8 sm:rounded-lg")
+
+/**
+ * THE WAY OUT OF THE EDITOR: CANCEL, OR BACK.
+ *
+ * Cancel while there is something that would be lost: a change not saved,
+ * or a new product never saved. It asks before it throws a change away.
+ * Back once everything on the screen is saved: there is nothing to discard,
+ * so it says where it goes, with the chevron, and goes.
+ *
+ * Both words are always in the button, one over the other, and only the one
+ * that applies is seen, so the button is the width of the longer one and
+ * nothing in the bar moves when it changes. The change is a 150ms crossfade.
+ * A screen reader hears only the word that applies.
+ */
+export type LeaveMode = "cancel" | "back"
+export function LeaveButton({ mode, disabled = false, onLeave }: { mode: LeaveMode; disabled?: boolean; onLeave: () => void }) {
+  const back = mode === "back"
+  const word = "col-start-1 row-start-1 flex items-center justify-center transition-opacity duration-150 motion-reduce:transition-none"
+  return (
+    <button
+      type="button"
+      data-leave-button=""
+      data-mode={mode}
+      aria-label={back ? "Back" : "Cancel"}
+      disabled={disabled}
+      onClick={onLeave}
+      className={cn(barButton, "grid")}
+    >
+      <span aria-hidden className={cn(word, back ? "opacity-0" : "opacity-100")}>
+        Cancel
+      </span>
+      <span aria-hidden className={cn(word, "-ml-1 gap-0.5", back ? "opacity-100" : "opacity-0")}>
+        <ChevronLeft className="h-[18px] w-[18px] sm:h-4 sm:w-4" strokeWidth={2.25} />
+        Back
+      </span>
+    </button>
+  )
+}
 
 /**
  * What Save is doing: nothing, saving, or showing for a moment that it
@@ -62,11 +88,12 @@ export type SavePhase = "idle" | "saving" | "saved"
 export const SAVED_CHECK_MS = 900
 
 /**
- * THE SAVE BUTTON. The /app violet, solid.
+ * THE SAVE BUTTON. The /app violet, solid (primaryDepth).
  *
  * Its width never changes: the word stays in the layout the whole time and
- * only goes invisible while the spinner or the check is drawn over it, so
- * nothing in the bar moves when a save starts or ends.
+ * only goes invisible while the spinner or the check is drawn over it, and
+ * the box is always as wide as "Saved", so nothing in the bar moves when a
+ * save starts or ends, or when Save becomes Saved.
  *
  * While it saves it is busy, not disabled: it keeps its colour, says
  * aria-busy, and a second press does nothing. The editor's save also keeps
@@ -74,23 +101,29 @@ export const SAVED_CHECK_MS = 900
  *
  * Disabled (nothing to save, or no name yet) is grey with grey text and no
  * depth, the way Polaris draws it, so it cannot be mistaken for a button
- * that is waiting.
+ * that is waiting. After a save in this visit, until the next change, the
+ * grey button says Saved.
  */
 export function SaveButton({
   phase,
   disabled,
+  saved = false,
   onSave,
 }: {
   phase: SavePhase
   disabled: boolean
+  /** Saved in this visit and nothing changed since: the grey button says Saved. */
+  saved?: boolean
   onSave: () => void
 }) {
   const busy = phase !== "idle"
+  const word = !busy && disabled && saved ? "Saved" : "Save"
   return (
     <button
       type="button"
       data-save-button=""
       data-phase={phase}
+      data-saved={word === "Saved" ? "" : undefined}
       onClick={() => {
         if (!busy) onSave()
       }}
@@ -100,17 +133,16 @@ export function SaveButton({
       aria-keyshortcuts="Meta+S Control+S"
       className={cn(
         PRESS_AREA,
-        "inline-flex h-10 min-w-[64px] shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-[10px] px-4 text-[15px] font-semibold outline-none sm:h-8 sm:min-w-[60px] sm:rounded-lg sm:px-3 sm:text-[13px]",
-        "bg-[#8b5cf6] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.18),0_1px_1px_rgba(76,29,149,0.25)]",
-        "transition-[background-color,box-shadow,color] duration-100",
-        "hover:bg-[#7c3aed] active:bg-[#6d28d9] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)]",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
+        primaryDepth,
+        "h-10 min-w-[64px] rounded-[10px] px-4 text-[15px] sm:h-8 sm:min-w-[60px] sm:rounded-lg sm:px-3 sm:text-[13px]",
         "disabled:cursor-default disabled:bg-[#ebebef] disabled:text-[#a1a1aa] disabled:shadow-none",
         busy && "cursor-default hover:bg-[#8b5cf6] active:bg-[#8b5cf6] active:shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.18),0_1px_1px_rgba(76,29,149,0.25)]",
-        "[-webkit-tap-highlight-color:transparent]",
       )}
     >
-      <span className={cn(busy && "opacity-0")}>Save</span>
+      {/* The word, over an unseen "Saved" that holds the width. */}
+      <span className="grid after:invisible after:col-start-1 after:row-start-1 after:content-['Saved']">
+        <span className={cn("col-start-1 row-start-1 text-center", busy && "opacity-0")}>{word}</span>
+      </span>
       {phase === "saving" ? (
         <span aria-hidden className="absolute inset-0 flex items-center justify-center">
           <ActivitySpinner size={18} label="Saving" className="text-white" />

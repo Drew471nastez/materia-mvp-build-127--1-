@@ -8,8 +8,9 @@
  * many opened and clicked, which links, and the email itself as the reader
  * got it. Drawn the way an order is (app/app/orders/order-detail.tsx): the
  * bar with back, the subject, its status and what can be done now, on the
- * first frame; the cards under it fade in over 120ms (.orders-body); back is
- * immediate because the list under it was never unmounted.
+ * first frame. It comes in and goes back as one layer, with Orders' own move
+ * (app/app/orders/order-motion.ts, run by ./emails-client.tsx), so nothing
+ * inside it animates on its own; the list under it was never unmounted.
  *
  * Every number is read from the send's own rows by
  * app/api/email/campaigns/[id]/report, which checks the email is this

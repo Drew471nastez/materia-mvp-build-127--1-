@@ -1,7 +1,7 @@
 "use client"
 
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
-import { Card, Counter, GOES_LIVE, PageTitle, Row, Toggle, inputClass } from "./parts"
+import { Card, Counter, GOES_LIVE, PageTitle, Row, Toggle, inputClass, textAreaClass } from "./parts"
 import type { SettingsContext } from "./types"
 
 const str = (v: unknown) => (typeof v === "string" ? v : "")
@@ -41,7 +41,7 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
 
       {/* What a search result looks like, drawn from the same fallbacks the
           live page uses. Light, because a search results page is. */}
-      <div className="mt-6 rounded-2xl bg-white p-5 text-left md:p-6" aria-label="Search result preview">
+      <div className="mt-5 rounded-2xl bg-white p-4 text-left md:mt-6 md:p-6" aria-label="Search result preview">
         <p className="truncate text-[13px] text-[#4d5156]">{ctx.websiteUrlDisplay || "yourname.storelib.com"}</p>
         <p className="mt-1 truncate text-[19px] leading-snug text-[#1a0dab]">{preview.title}</p>
         <p className="mt-1 line-clamp-2 text-[13.5px] leading-snug text-[#4d5156]">{preview.description}</p>
@@ -70,7 +70,7 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
               rows={3}
               placeholder={preview.description}
               onChange={(e) => ctx.onSettingChange("seo_description", e.target.value)}
-              className="w-full resize-none rounded-lg border border-white/12 bg-[#171717] px-3.5 py-2.5 text-[14.5px] leading-relaxed text-white outline-none transition-colors duration-150 placeholder:text-white/30 focus:border-white/35"
+              className={textAreaClass}
             />
             <Counter value={description} max={160} />
           </div>
@@ -94,6 +94,7 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
         <Row
           label="Search engines"
           hint={listed ? "Google and others may list this website." : "Search engines are asked not to list this website."}
+          inline
         >
           <Toggle checked={listed} onChange={(on) => ctx.onSettingChange("seo_robots", on)} label="Let search engines list this website" />
         </Row>

@@ -7,6 +7,12 @@
  * Built the way Orders is (app/app/orders/orders-client.tsx), because the
  * owner asked for an email's page to open and close like an order's:
  *
+ *   the same move            an email comes in over the list and goes back
+ *                            with Orders' own motion (app/app/orders/
+ *                            order-motion.ts): pushed from the right edge on a
+ *                            phone, faded in on a computer, and popped the
+ *                            same way on Back, the row it came from tinted
+ *                            and fading so the eye lands where it left
  *   the list stays mounted   an email opens over it, in its own scroll
  *                            container, and Back shows again a list nobody
  *                            touched: same tab, same scroll, same search
@@ -42,6 +48,7 @@ import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
 import { buttonPrimary, buttonSecondary } from "../orders/order-parts"
+import { markRow, moveOrder, stillOrder } from "../orders/order-motion"
 import { EmailsHome, type CampaignRow, type EmailsTab, type FlowRow } from "./emails-home"
 import { EmailDetail, type EmailAction, type EmailSeed } from "./email-detail"
 import { TABS, campaignKey, isTab, loadReport, loadTab, reportKey, tabKey, type SentData, type SubscribersData } from "./emails-data"
@@ -165,8 +172,66 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   React.useEffect(() => {
     if (!openId) pushed.current = false
   }, [openId])
+
+  /*
+    THE EMAIL THAT IS LEAVING, as Orders keeps its leaving order: when the
+    address stops naming an email (Back, in any of its forms) its page stays
+    drawn, inert, while it moves off the list, and goes when that ends.
+    Worked out while rendering, in the render that closes it, so no frame
+    shows it gone and then back for its exit.
+  */
+  const [lastId, setLastId] = React.useState(openId)
+  const [leavingId, setLeavingId] = React.useState<string | null>(null)
+  if (openId !== lastId) {
+    setLastId(openId)
+    setLeavingId(openId === null ? lastId : null)
+  }
+  const displayedId = openId ?? leavingId
+
+  /* Each email starts at its top, before it is drawn. One on its way out keeps where it was. */
   React.useLayoutEffect(() => {
-    detailRef.current?.scrollTo({ top: 0 })
+    if (openId) detailRef.current?.scrollTo({ top: 0 })
+  }, [openId])
+
+  /*
+    A browser that already drew its own transition for this entry (Safari's
+    swipe back) says so on the popstate, and the email then just goes: a
+    second slide after the browser's own would be a double animation.
+  */
+  const browserMoved = React.useRef(false)
+  React.useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      browserMoved.current = Boolean((e as PopStateEvent & { hasUAVisualTransition?: boolean }).hasUAVisualTransition)
+    }
+    window.addEventListener("popstate", onPop, { capture: true })
+    return () => window.removeEventListener("popstate", onPop, { capture: true })
+  }, [])
+
+  /* THE MOVE, Orders' own, before the commit that draws or closes the email is painted. */
+  const settledId = React.useRef(openId)
+  React.useLayoutEffect(() => {
+    const was = settledId.current
+    settledId.current = openId
+    if (was === openId) return
+    const detail = detailRef.current
+    const list = listRef.current
+    if (!list) return
+    const skip = browserMoved.current
+    browserMoved.current = false
+    if (openId !== null) {
+      if (was !== null || !detail) return
+      markRow(list, openId, "held")
+      if (skip) return stillOrder(detail, list)
+      moveOrder("push", detail, list)
+      return
+    }
+    markRow(list, was, "fading")
+    if (!detail || skip) {
+      stillOrder(detail, list)
+      setLeavingId(null)
+      return
+    }
+    moveOrder("pop", detail, list, () => setLeavingId(null))
   }, [openId])
 
   /* What the bar can show on the first frame: the row that was clicked. */
@@ -327,16 +392,21 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     else await removeSubscriber(target.id)
   }
 
+  /* Under a settled email the list is hidden by the stage (app/globals.css,
+     `.orders-stage[data-order-open]`), and drawn again while anything moves. */
   const listCovered = openId !== null
 
   return (
-    <div className={cn("orders-stage relative h-full overflow-hidden bg-[#f8f9fa]", !openedOnEmail && "app-page-enter")} data-emails-page="">
+    <div
+      className={cn("orders-stage relative h-full overflow-hidden bg-[#f8f9fa]", !openedOnEmail && "app-page-enter")}
+      data-emails-page=""
+      data-order-open={listCovered ? "" : undefined}
+    >
       <div
         ref={listRef}
-        className="orders-pane page-scroll absolute inset-0 overflow-y-auto overflow-x-hidden"
+        className="orders-pane orders-list page-scroll absolute inset-0 overflow-y-auto overflow-x-hidden"
         inert={listCovered}
         aria-hidden={listCovered || undefined}
-        style={{ visibility: listCovered ? "hidden" : undefined }}
       >
         <AnnouncementBarMobile>
           <div className="mx-auto flex max-w-[1200px] items-center justify-center gap-2 text-center md:gap-3">
@@ -388,15 +458,19 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
         />
       </div>
 
-      {openId ? (
+      {displayedId ? (
         <div
           ref={detailRef}
           className="orders-pane orders-detail page-scroll absolute inset-0 overflow-y-auto overflow-x-hidden bg-[#f8f9fa]"
           role="region"
           aria-label="Email"
-          data-email-detail={openId}
+          data-email-detail={displayedId}
+          data-arrival="list"
+          data-leaving={openId ? undefined : ""}
+          inert={!openId}
+          aria-hidden={!openId || undefined}
         >
-          <EmailDetail key={openId} seed={seedFor(openId)} onBack={onBack} onAction={onEmailAction} onNotice={onNotice} />
+          <EmailDetail key={displayedId} seed={seedFor(displayedId)} onBack={onBack} onAction={onEmailAction} onNotice={onNotice} />
         </div>
       ) : null}
 

@@ -1,5 +1,6 @@
 import { createBrowserClient } from "@supabase/ssr"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
+import { fresherSession, readSessionFromCookies, sessionCookieRemovals, sessionCookieWrites, storedSessionKey } from "./session-jar"
 
 /**
  * createAdminClient is NOT re-exported here.
@@ -65,8 +66,11 @@ export function isNativePlatform(): boolean {
  *
  * supabase-js accepts async getItem/setItem/removeItem — the dynamic
  * import of @capacitor/preferences is cached after the first call.
+ *
+ * This is the DEVICE copy. The session key alone is also kept in step with
+ * the WebView's cookie jar by `capacitorStorage` below.
  */
-const capacitorStorage = {
+const deviceStorage = {
   async getItem(key: string): Promise<string | null> {
     // Try Preferences first (primary, process-safe storage).
     try {
@@ -106,6 +110,56 @@ const capacitorStorage = {
       await Preferences.remove({ key })
     } catch { /* ignore */ }
     try { localStorage.removeItem(key) } catch { /* ignore */ }
+  },
+}
+
+function readCookieHeader(): string {
+  try {
+    return typeof document === "undefined" ? "" : document.cookie
+  } catch {
+    return ""
+  }
+}
+
+function writeCookies(lines: string[]): void {
+  try {
+    for (const line of lines) document.cookie = line
+  } catch { /* no cookie jar: the device copy still holds the session */ }
+}
+
+const secureCookies = () => typeof location !== "undefined" && location.protocol === "https:"
+
+/**
+ * What the native client stores through.
+ *
+ * THE SESSION is one session in two places, never two sessions: read from
+ * whichever of the device copy and the cookie is newer, written to both,
+ * removed from both. lib/supabase/session-jar.ts has the reason, which is a
+ * sign-out nobody asked for. Every other key, the PKCE verifier included, is
+ * the device copy alone, exactly as before.
+ */
+export const capacitorStorage = {
+  async getItem(key: string): Promise<string | null> {
+    const device = await deviceStorage.getItem(key)
+    if (key !== storedSessionKey()) return device
+    const cookie = await readSessionFromCookies(key, readCookieHeader())
+    const newest = fresherSession(device, cookie)
+    /* The server renewed it last: bring the device copy up to date, so the
+       backup is never the one that falls behind. */
+    if (newest && newest !== device) await deviceStorage.setItem(key, newest)
+    return newest ?? device
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    if (key === storedSessionKey()) {
+      /* The cookie first, and synchronously: the next request the proxy sees
+         must carry this token and not the one it replaces. */
+      writeCookies(sessionCookieWrites(key, value, readCookieHeader(), secureCookies()))
+    }
+    await deviceStorage.setItem(key, value)
+  },
+  async removeItem(key: string): Promise<void> {
+    if (key === storedSessionKey()) writeCookies(sessionCookieRemovals(key, readCookieHeader(), secureCookies()))
+    await deviceStorage.removeItem(key)
   },
 }
 

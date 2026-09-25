@@ -10,11 +10,13 @@
  * empty and fills in, which reads as a slow tool for no gain.
  */
 
-import { notFound, redirect } from "next/navigation"
+import { notFound } from "next/navigation"
 
 import { EditorShell } from "@/components/sites/editor/editor-shell"
 import { getSite, readProject, siteRevisions } from "@/lib/sites/projects"
 import { createClient } from "@/lib/supabase/server"
+import { pageUser } from "@/lib/auth/page-user"
+import { SessionRecovery } from "@/components/auth/session-recovery"
 
 export const dynamic = "force-dynamic"
 
@@ -40,10 +42,11 @@ export default async function SiteEditorPage({
   const { brief } = await searchParams
 
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect(`/login?redirect=/sites/${siteId}`)
+  const user = await pageUser(`/login?redirect=/sites/${siteId}`)
+  /* Supabase did not answer in time. This route has no layout with a gate,
+     so it renders the gate itself: the session is recovered in the browser
+     rather than thrown away (lib/auth/page-user.ts). */
+  if (!user) return <SessionRecovery />
 
   /**
    * RLS decides. A site somebody else owns comes back null here exactly as a

@@ -97,6 +97,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (rep) return reply(200, report(rep[1]))
   const one = /^\/api\/email\/campaigns\/([^/?]+)$/.exec(url)
   if (one) return reply(200, { campaign: { id: one[1], subject: "Draft", body: "", status: "draft", updated_at: "2026-09-22T10:00:00Z" }, counts: null, upgraded: true })
+  if (/^\/api\/automations\/flows\/[^/]+\/status$/.test(url) && method === "POST") return reply(200, { ok: true, stopped: 0 })
   return reply(404, { error: "Not in the probe" })
 }
 

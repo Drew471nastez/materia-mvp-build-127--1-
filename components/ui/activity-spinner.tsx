@@ -45,12 +45,40 @@ export const SPINNER_WAIT_MS = 500
 export const SPINNER_SIZE = 26
 
 /**
+ * ===========================================================================
+ *  WHERE A SPINNER THAT STANDS IN FOR A WHOLE PAGE SITS
+ * ===========================================================================
+ * "Move that loading thing a little bit more up." The middle of the content
+ * area is the geometric middle, and on a tall phone that reads low: a page's
+ * weight is in its top half (the heading, the first card), and the eye looks
+ * for it there. So the spinner sits at the optical middle, 40% of the way
+ * down: three rows, 2fr, the spinner, 3fr. Its centre is at
+ * 0.4 * (height - 26) + 13, which is 40.3% of a 390x844 phone's content area
+ * and of a 1280x860 screen's (scripts/check-app-stage.mjs measures it).
+ *
+ * Grid rows, not a transform or a percentage top: nothing to strip inside a
+ * .group on a touch screen, and no number to keep in step with anything. The
+ * slow page's surface (components/app/app-stage.tsx) and the native cold
+ * start (app/app/cold-start.tsx) both use it, so a cold start and a slow
+ * page put the spinner in the same place.
+ */
+export function PageSpinner({ label }: { label?: string }) {
+  return (
+    <div data-page-spinner="" className="grid h-full w-full grid-rows-[2fr_auto_3fr] justify-items-center">
+      <ActivitySpinner label={label} className="row-start-2" />
+    </div>
+  )
+}
+
+/**
  * A PART OF A PAGE THAT IS STILL COMING: the room it will take, empty, and
- * the spinner in the middle of it only once SPINNER_WAIT_MS has passed. What
- * this replaced were grey drawings of rows and bars ("no skeleton loading
- * structure"), which flashed on every quick answer; most answers land before
- * the half second and this shows nothing at all. The delay is CSS, so a
- * server render needs no effect to start it.
+ * the spinner in the middle of it only once SPINNER_WAIT_MS has passed. The
+ * delay is CSS, so a server render needs no effect to start it.
+ *
+ * Charts, tables, lists and figures no longer use this: they draw their own
+ * shapes in light gray (components/ui/shimmer), as asked, "not the spinner
+ * in the charts loading and the tables loading". This is left for a slot
+ * with no shape worth drawing.
  *
  * `size` is for a slot the width of a line of text (a figure, a bank name),
  * where the full spinner would be taller than what it stands in for.

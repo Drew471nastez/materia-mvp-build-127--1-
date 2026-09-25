@@ -34,7 +34,7 @@ export function UserNavClient({ user, profile, isCreator }: UserNavClientProps) 
 
   const handleSignOut = async () => {
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: "local" })
     if (isNativePlatform()) {
       nativeLogOut()
     } else {

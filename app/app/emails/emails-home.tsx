@@ -36,12 +36,13 @@ import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/respo
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import { NOT_RECORDED, sourceView } from "@/lib/contacts/contact-source"
 import { TRIGGERS, isTriggerType, normalizeSteps, stepSummary } from "@/lib/automations/flow-model"
-import { ContactDetail } from "./contact-detail"
+import { ContactDetail, contactReady, prefetchContact } from "./contact-detail"
 import type { RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
-import { WaitingArea } from "@/components/ui/activity-spinner"
+import { ShimmerBlock, ShimmerRows, ShimmerSwap } from "@/components/ui/shimmer"
 import { ScrollEdge } from "@/components/app/scroll-edge"
 import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
+import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
 
 export type EmailsTab = "subscribers" | "flows" | "published" | "scheduled" | "drafts"
 
@@ -174,23 +175,33 @@ function rate(part: number, whole: number): string {
  */
 function usePress() {
   const [pressed, setPressed] = React.useState<string | null>(null)
+  const hover = React.useRef(0)
   const bind = (id: string, intent?: () => void) => ({
     "data-pressed": pressed === id ? "true" : undefined,
     onPointerDown: (e: React.PointerEvent) => {
+      intent?.()
       if ((e.target as HTMLElement).closest("button, input, [role=switch], [role=menu]")) return
       setPressed(id)
     },
     onPointerUp: () => setPressed(null),
-    onPointerLeave: () => setPressed(null),
+    onPointerLeave: () => {
+      window.clearTimeout(hover.current)
+      setPressed(null)
+    },
     onPointerCancel: () => setPressed(null),
-    onPointerEnter: intent,
+    /* A pointer resting on the row, as on Orders' rows: passing over it asks for nothing. */
+    onPointerEnter: (e: React.PointerEvent) => {
+      if (!intent || e.pointerType !== "mouse") return
+      window.clearTimeout(hover.current)
+      hover.current = window.setTimeout(intent, HOVER_PREFETCH_MS)
+    },
     onTouchStart: intent,
     onFocus: intent,
   })
   return bind
 }
 
-const pressable = "group cursor-pointer transition-colors duration-75 hover:bg-[#fafbfb] active:bg-[#f1f2f4] data-[pressed=true]:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
+const pressable = "group cursor-pointer transition-colors duration-75 hover:bg-[#fafbfb] active:bg-[#f4f5f7] data-[pressed=true]:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]"
 
 export function EmailsHome(props: EmailsHomeProps) {
   const { tab } = props
@@ -284,6 +295,12 @@ interface Reading {
  */
 function Metrics(props: EmailsHomeProps) {
   const readings = readingsFor(props)
+  /* Figures that were waited for fade in when they come; a tab read from
+     the cache draws its figures at once. */
+  const [waitedOn, setWaitedOn] = React.useState<EmailsTab | null>(props.loading ? props.tab : null)
+  if (props.loading && waitedOn !== props.tab) setWaitedOn(props.tab)
+  if (!props.loading && waitedOn !== null && waitedOn !== props.tab) setWaitedOn(null)
+  const waited = waitedOn === props.tab
   return (
     <section aria-label="Email metrics" className={cn(card, "mt-4 overflow-hidden")}>
       <div className="orders-strip flex overflow-x-auto">
@@ -299,8 +316,13 @@ function Metrics(props: EmailsHomeProps) {
           <div key={r.label} className={cn("flex min-w-[140px] flex-1 shrink-0 flex-col px-4 py-3", (i > 0 || props.tab === "published") && "border-l border-[#eef0f2]")}>
             <HelpLabel label={r.label} description={r.help} className="whitespace-nowrap text-[12px] font-medium text-[#4b5563]" />
             <div className="mt-1 flex h-6 items-baseline gap-2">
-              <span className="truncate text-[16px] font-semibold tabular-nums text-[#1a1a2e]">{props.loading ? "–" : r.value}</span>
-              {r.note && !props.loading ? <span className="truncate text-[12px] tabular-nums text-[#6b7280]">{r.note}</span> : null}
+              {/* A light gray shape until the figure is in. */}
+              {props.loading ? (
+                <ShimmerBlock className="shimmer-wait h-3.5 w-12 self-center rounded-full" />
+              ) : (
+                <span className={cn("truncate text-[16px] font-semibold tabular-nums text-[#1a1a2e]", waited && "shimmer-enter")}>{r.value}</span>
+              )}
+              {r.note && !props.loading ? <span className={cn("truncate text-[12px] tabular-nums text-[#6b7280]", waited && "shimmer-enter")}>{r.note}</span> : null}
             </div>
           </div>
         ))}
@@ -339,13 +361,16 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
     ]
   }
   if (p.tab === "published") {
-    const o = p.overview ?? { total_sent: 0, total_opened: 0, total_clicked: 0, total_unsubscribed: 0, open_rate: 0, click_rate: 0 }
+    /* While the answer is on its way the figures are light gray shapes
+       (Metrics). An answer without them says so with a dash, never a zero
+       that was not counted. */
+    const o = p.overview
     const used = p.usage.limit > 0 ? Math.min(100, Math.round((p.usage.sent / p.usage.limit) * 100)) : 0
     return [
-      { label: "Sent", help: "Emails delivered to subscribers in this period.", value: n(o.total_sent) },
-      { label: "Open rate", help: "Of the emails sent in this period, how many were opened.", value: `${o.open_rate}%`, note: n(o.total_opened) },
-      { label: "Click rate", help: "Of the emails sent in this period, how many had a link clicked.", value: `${o.click_rate}%`, note: n(o.total_clicked) },
-      { label: "Unsubscribed", help: "People who unsubscribed from an email sent in this period.", value: n(o.total_unsubscribed) },
+      { label: "Sent", help: "Emails delivered to subscribers in this period.", value: o ? n(o.total_sent) : "–" },
+      { label: "Open rate", help: "Of the emails sent in this period, how many were opened.", value: o ? `${o.open_rate}%` : "–", note: o ? n(o.total_opened) : undefined },
+      { label: "Click rate", help: "Of the emails sent in this period, how many had a link clicked.", value: o ? `${o.click_rate}%` : "–", note: o ? n(o.total_clicked) : undefined },
+      { label: "Unsubscribed", help: "People who unsubscribed from an email sent in this period.", value: o ? n(o.total_unsubscribed) : "–" },
       { label: "This month", help: "Emails sent this calendar month, against your plan's monthly limit.", value: n(p.usage.sent), note: `of ${n(p.usage.limit)} · ${used}%` },
     ]
   }
@@ -375,7 +400,7 @@ const td = "h-12 whitespace-nowrap px-3 text-[13px] text-[#1a1a2e]"
  * shadow at their right side once the rows have moved
  * (components/app/scroll-edge).
  */
-const sticky = "sticky left-0 z-[1] bg-white transition-colors duration-75 group-hover:bg-[#fafbfb] group-active:bg-[#f1f2f4] group-data-[pressed=true]:bg-[#f1f2f4]"
+const sticky = "orders-sticky sticky left-0 z-[1] bg-white transition-colors duration-75 group-hover:bg-[#fafbfb] group-active:bg-[#f4f5f7] group-data-[pressed=true]:bg-[#f4f5f7]"
 const stickyHead = "sticky left-0 z-[1] bg-[#fafbfb]"
 
 function Empty({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
@@ -388,9 +413,13 @@ function Empty({ title, body, action }: { title: string; body: string; action?: 
   )
 }
 
-/** The table's room (six 48px rows) and, past half a second, the spinner. */
+/**
+ * The table while its rows are coming: its header strip and five of its 48px
+ * rows, in light gray (components/ui/shimmer). Nothing for 200ms, so a quick
+ * answer shows only the table.
+ */
 function Loading() {
-  return <WaitingArea className="h-[288px]" />
+  return <ShimmerRows rows={5} header cols={["34%", "16%", "14%", "10%"]} label="Loading" />
 }
 
 function Pager({ page, pages, total, onPage }: { page: number; pages: number; total: number; onPage: (p: number) => void }) {
@@ -491,6 +520,24 @@ function SubscribersTable(props: EmailsHomeProps) {
   const [source, setSource] = React.useState("")
   const [open, setOpen] = React.useState<SubscriberRow | null>(null)
   const press = usePress()
+  /*
+    A contact's sheet rises with its content already in it: the tap waits
+    for the contact's automation runs (asked for when the finger landed), at
+    most a moment, and then opens it (./contact-detail). The row stays
+    pressed while it waits. The latest tap wins.
+  */
+  const opening = React.useRef<SubscriberRow | null>(null)
+  const [waiting, setWaiting] = React.useState<string | null>(null)
+  const openContact = (s: SubscriberRow) => {
+    opening.current = s
+    setWaiting(s.id)
+    void contactReady(s.email).then(() => {
+      if (opening.current !== s) return
+      opening.current = null
+      setWaiting(null)
+      setOpen(s)
+    })
+  }
   const q = props.search.trim().toLowerCase()
 
   /* Every contact's source, read once: the column, the filter and its counts. */
@@ -572,65 +619,72 @@ function SubscribersTable(props: EmailsHomeProps) {
         )}
       </div>
 
-      {props.loading ? (
-        <Loading />
-      ) : rows.length === 0 ? (
-        q || source ? (
-          <Empty title="No subscribers match" body="Try another email or name, or another source." />
+      <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
+        {props.loading ? null : rows.length === 0 ? (
+          q || source ? (
+            <Empty title="No subscribers match" body="Try another email or name, or another source." />
+          ) : (
+            <Empty title="No subscribers yet" body="People who sign up on your website, your Storelib profile or your OnePage show up here, and so do buyers who ask to hear from you." />
+          )
         ) : (
-          <Empty title="No subscribers yet" body="People who sign up on your website, your Storelib profile or your OnePage show up here, and so do buyers who ask to hear from you." />
-        )
-      ) : (
-        <ScrollEdge>
-          <table className="w-full min-w-[720px] border-collapse">
-            <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
-              <tr>
-                <th data-scroll-edge="" className={cn(th, stickyHead)}>Email</th>
-                <th className={th}>Name</th>
-                <th className={th}>Source</th>
-                <th className={th}>Status</th>
-                <th className={th}>Subscribed</th>
-                <th className={cn(th, "w-12")} aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#f1f2f4]">
-              {shown.map((s) => {
-                const v = views.get(s.id)
-                return (
-                  <tr key={s.id} className={pressable} onClick={() => setOpen(s)} {...press(s.id)}>
-                    <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}><span className="block max-w-[180px] truncate sm:max-w-[260px]">{s.email}</span></td>
-                    <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[180px] truncate">{s.name || "–"}</span></td>
-                    <td className={td} title={v ? [v.label, v.detail].filter(Boolean).join(" · ") : undefined}>
-                      {/* The website's address is the part that matters: it keeps its
-                          width, and the detail after it is what gets cut. */}
-                      <span className="flex max-w-[380px] items-baseline gap-1.5">
-                        <span className={cn("max-w-[230px] shrink-0 truncate", v?.label === NOT_RECORDED ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{v?.label ?? NOT_RECORDED}</span>
-                        {v?.detail ? <span className="min-w-0 truncate text-[12px] text-[#6b7280]">{v.detail}</span> : null}
-                      </span>
-                    </td>
-                    <td className={td}>
-                      <SubscriberStatus s={s} />
-                    </td>
-                    <td className={cn(td, "tabular-nums text-[#4b5563]")}>{formatDay(s.subscribed_at)}</td>
-                    <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
-                      <ResponsiveActionMenu
-                        title={s.email}
-                        align="end"
-                        trigger={<RowMenuButton label={`Actions for ${s.email}`} />}
-                        items={[
-                          { label: "Details", onClick: () => setOpen(s) },
-                          { label: "Copy email", onClick: () => props.onCopyEmail(s.email) },
-                          { label: "Remove", variant: "destructive", separatorBefore: true, onClick: () => props.onRemoveSubscriber(s.id) },
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </ScrollEdge>
-      )}
+          <ScrollEdge>
+            <table className="w-full min-w-[720px] border-collapse">
+              <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
+                <tr>
+                  <th data-scroll-edge="" className={cn(th, stickyHead, "w-px")}>Email</th>
+                  <th className={th}>Name</th>
+                  <th className={th}>Source</th>
+                  <th className={th}>Status</th>
+                  <th className={th}>Subscribed</th>
+                  <th className={cn(th, "w-12")} aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#f1f2f4]">
+                {shown.map((s) => {
+                  const v = views.get(s.id)
+                  return (
+                    <tr
+                      key={s.id}
+                      data-contact-row=""
+                      className={pressable}
+                      onClick={() => openContact(s)}
+                      {...press(s.id, () => prefetchContact(s.email))}
+                      {...(waiting === s.id ? { "data-pressed": "true" } : null)}
+                    >
+                      <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}><span className="block max-w-[180px] truncate sm:max-w-[260px]">{s.email}</span></td>
+                      <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[180px] truncate">{s.name || "–"}</span></td>
+                      <td className={td} title={v ? [v.label, v.detail].filter(Boolean).join(" · ") : undefined}>
+                        {/* The website's address is the part that matters: it keeps its
+                            width, and the detail after it is what gets cut. */}
+                        <span className="flex max-w-[380px] items-baseline gap-1.5">
+                          <span className={cn("max-w-[230px] shrink-0 truncate", v?.label === NOT_RECORDED ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{v?.label ?? NOT_RECORDED}</span>
+                          {v?.detail ? <span className="min-w-0 truncate text-[12px] text-[#6b7280]">{v.detail}</span> : null}
+                        </span>
+                      </td>
+                      <td className={td}>
+                        <SubscriberStatus s={s} />
+                      </td>
+                      <td className={cn(td, "tabular-nums text-[#4b5563]")}>{formatDay(s.subscribed_at)}</td>
+                      <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
+                        <ResponsiveActionMenu
+                          title={s.email}
+                          align="end"
+                          trigger={<RowMenuButton label={`Actions for ${s.email}`} />}
+                          items={[
+                            { label: "Details", onClick: () => openContact(s) },
+                            { label: "Copy email", onClick: () => props.onCopyEmail(s.email) },
+                            { label: "Remove", variant: "destructive", separatorBefore: true, onClick: () => props.onRemoveSubscriber(s.id) },
+                          ]}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </ScrollEdge>
+        )}
+      </ShimmerSwap>
       <Pager page={page} pages={pages} total={rows.length} onPage={setPage} />
       <ContactDetail contact={open} onClose={() => setOpen(null)} />
     </>
@@ -643,76 +697,76 @@ function FlowsTable(props: EmailsHomeProps) {
   const href = (f: FlowRow) => `/app/emails/flow/${f.id}`
   return (
     <>
-      {props.loading ? (
-        <Loading />
-      ) : props.flows.length === 0 ? (
-        <Empty
-          title="No automations yet"
-          body="Start from a welcome series, a thank you after a purchase, or your own. Each one is off until you turn it on."
-          action={
-            <Link href="/app/emails/flow/new" prefetch className={buttonAccent}>
-              <Plus className="h-4 w-4" />
-              Create an automation
-            </Link>
-          }
-        />
-      ) : (
-        <ScrollEdge>
-          <table className="w-full min-w-[720px] border-collapse">
-            <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
-              <tr>
-                <th data-scroll-edge="" className={cn(th, stickyHead)}>Automation</th>
-                <th className={th}>Starts when</th>
-                <th className={th}>Steps</th>
-                <th className={cn(th, "text-right")}>In progress</th>
-                <th className={cn(th, "text-right")}>Sent</th>
-                <th className={cn(th, "text-right")}>Opened</th>
-                <th className={th}>On</th>
-                <th className={cn(th, "w-12")} aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#f1f2f4]">
-              {props.flows.map((f) => {
-                const trigger = isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : "Not set"
-                const on = f.status === "active"
-                const t = f.totals
-                return (
-                  <tr key={f.id} className={pressable} data-flow-row={f.id} onClick={() => router.push(href(f))} {...press(f.id, () => router.prefetch(href(f)))}>
-                    <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}>
-                      <span className="flex max-w-[180px] items-center gap-2 sm:max-w-[260px]">
-                        <Link href={href(f)} prefetch={false} className="truncate outline-none focus-visible:underline" onClick={(e) => e.stopPropagation()}>
-                          {f.name}
-                        </Link>
-                        {t && t.failed > 0 ? <StatusBadge tone="critical">{t.failed} failed</StatusBadge> : null}
-                      </span>
-                    </td>
-                    <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[240px] truncate">{trigger}</span></td>
-                    <td className={cn(td, "text-[#4b5563]")}>{stepSummary(normalizeSteps(f.steps))}</td>
-                    <td className={cn(td, "text-right tabular-nums")}>{t ? t.in_progress.toLocaleString("en-US") : "–"}</td>
-                    <td className={cn(td, "text-right tabular-nums")}>{t ? t.sent.toLocaleString("en-US") : "–"}</td>
-                    <td className={cn(td, "text-right tabular-nums")}>{t && t.sent > 0 ? rate(t.opened, t.sent) : "–"}</td>
-                    <td className={td} onClick={(e) => e.stopPropagation()}>
-                      <Switch checked={on} onCheckedChange={() => props.onToggleFlow(f)} aria-label={`Send ${f.name} automatically`} />
-                    </td>
-                    <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
-                      <ResponsiveActionMenu
-                        title={f.name}
-                        align="end"
-                        trigger={<RowMenuButton label={`Actions for ${f.name}`} />}
-                        items={[
-                          { label: "Edit", onClick: () => router.push(href(f)) },
-                          { label: on ? "Turn off" : "Turn on", onClick: () => props.onToggleFlow(f) },
-                          { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteFlow(f.id) },
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </ScrollEdge>
-      )}
+      <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
+        {props.loading ? null : props.flows.length === 0 ? (
+          <Empty
+            title="No automations yet"
+            body="Start from a welcome series, a thank you after a purchase, or your own. Each one is off until you turn it on."
+            action={
+              <Link href="/app/emails/flow/new" prefetch className={buttonAccent}>
+                <Plus className="h-4 w-4" />
+                Create an automation
+              </Link>
+            }
+          />
+        ) : (
+          <ScrollEdge>
+            <table className="w-full min-w-[720px] border-collapse">
+              <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
+                <tr>
+                  <th data-scroll-edge="" className={cn(th, stickyHead)}>Automation</th>
+                  <th className={th}>Starts when</th>
+                  <th className={th}>Steps</th>
+                  <th className={cn(th, "text-right")}>In progress</th>
+                  <th className={cn(th, "text-right")}>Sent</th>
+                  <th className={cn(th, "text-right")}>Opened</th>
+                  <th className={th}>On</th>
+                  <th className={cn(th, "w-12")} aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#f1f2f4]">
+                {props.flows.map((f) => {
+                  const trigger = isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : "Not set"
+                  const on = f.status === "active"
+                  const t = f.totals
+                  return (
+                    <tr key={f.id} className={pressable} data-flow-row={f.id} onClick={() => router.push(href(f))} {...press(f.id, () => router.prefetch(href(f)))}>
+                      <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}>
+                        <span className="flex max-w-[180px] items-center gap-2 sm:max-w-[260px]">
+                          <Link href={href(f)} prefetch={false} className="truncate outline-none focus-visible:underline" onClick={(e) => e.stopPropagation()}>
+                            {f.name}
+                          </Link>
+                          {t && t.failed > 0 ? <StatusBadge tone="critical">{t.failed} failed</StatusBadge> : null}
+                        </span>
+                      </td>
+                      <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[240px] truncate">{trigger}</span></td>
+                      <td className={cn(td, "text-[#4b5563]")}>{stepSummary(normalizeSteps(f.steps))}</td>
+                      <td className={cn(td, "text-right tabular-nums")}>{t ? t.in_progress.toLocaleString("en-US") : "–"}</td>
+                      <td className={cn(td, "text-right tabular-nums")}>{t ? t.sent.toLocaleString("en-US") : "–"}</td>
+                      <td className={cn(td, "text-right tabular-nums")}>{t && t.sent > 0 ? rate(t.opened, t.sent) : "–"}</td>
+                      <td className={td} onClick={(e) => e.stopPropagation()}>
+                        <Switch checked={on} onCheckedChange={() => props.onToggleFlow(f)} aria-label={`Send ${f.name} automatically`} />
+                      </td>
+                      <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
+                        <ResponsiveActionMenu
+                          title={f.name}
+                          align="end"
+                          trigger={<RowMenuButton label={`Actions for ${f.name}`} />}
+                          items={[
+                            { label: "Edit", onClick: () => router.push(href(f)) },
+                            { label: on ? "Turn off" : "Turn on", onClick: () => props.onToggleFlow(f) },
+                            { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteFlow(f.id) },
+                          ]}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </ScrollEdge>
+        )}
+      </ShimmerSwap>
     </>
   )
 }
@@ -737,75 +791,75 @@ function CampaignsTable(props: EmailsHomeProps) {
 
   return (
     <>
-      {props.loading ? (
-        <Loading />
-      ) : props.campaigns.length === 0 ? (
-        <Empty
-          {...empty}
-          action={
-            <Link href="/app/emails/new" prefetch className={buttonSecondary}>
-              <Plus className="h-4 w-4" />
-              New email
-            </Link>
-          }
-        />
-      ) : (
-        <ScrollEdge>
-          <table className="w-full min-w-[640px] border-collapse">
-            <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
-              <tr>
-                <th data-scroll-edge="" className={cn(th, stickyHead)}>Subject</th>
-                <th className={th}>{sent ? "Sent" : tab === "scheduled" ? "Goes out" : "Edited"}</th>
-                <th className={cn(th, "text-right")}>Recipients</th>
-                {sent ? <th className={cn(th, "text-right")}>Opened</th> : null}
-                {sent ? <th className={cn(th, "text-right")}>Clicked</th> : null}
-                <th className={cn(th, "w-12")} aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#f1f2f4]">
-              {shown.map((c) => {
-                const recipients = c.recipient_count || c.audience_count || 0
-                const resent = /\(Resend\)/.test(c.subject ?? "")
-                const title = (c.subject ?? "").replace(/\s*\(Resend\)\s*$/, "") || "Untitled"
-                const items: ActionMenuItem[] = drafts
-                  ? [
-                      { label: "Edit", onClick: () => open(c) },
-                      { label: "Duplicate", onClick: () => props.onDuplicateCampaign(c) },
-                      { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) },
-                    ]
-                  : [
-                      { label: sent ? "View results" : "Open", onClick: () => open(c) },
-                      ...(tab === "scheduled" ? [{ label: "Edit", onClick: () => router.push(`/app/emails/edit/${c.id}`) }] : []),
-                      { label: "Duplicate", onClick: () => props.onDuplicateCampaign(c) },
-                      ...(c.status === "queued" || c.status === "sending" ? [] : [{ label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) }]),
-                    ]
-                return (
-                  <tr key={c.id} className={pressable} data-campaign-row={c.id} onClick={() => open(c)} {...press(c.id, () => props.onCampaignIntent(c))}>
-                    <td data-scroll-edge="" className={cn(td, sticky)}>
-                      {/* The limit is on the span: a table cell's own max-width is ignored.
-                          Narrow on a phone, so the columns scrolling under it still show. */}
-                      <span className="flex min-w-0 max-w-[180px] items-center gap-2 sm:max-w-[320px]">
-                        <span className="truncate font-medium">{title}</span>
-                        {resent ? <StatusBadge tone="neutral">Sent again</StatusBadge> : null}
-                        {sent ? <SendBadge status={c.status} /> : null}
-                      </span>
-                    </td>
-                    <td className={cn(td, "tabular-nums text-[#4b5563]")}>
-                      {sent ? formatDay(c.sent_at) : tab === "scheduled" ? formatWhen(c.scheduled_at) : formatDay(c.updated_at ?? c.created_at)}
-                    </td>
-                    <td className={cn(td, "text-right tabular-nums")}>{recipients ? recipients.toLocaleString("en-US") : "–"}</td>
-                    {sent ? <td className={cn(td, "text-right tabular-nums")}>{rate(c.unique_opens ?? 0, recipients)}</td> : null}
-                    {sent ? <td className={cn(td, "text-right tabular-nums")}>{rate(c.unique_clicks ?? 0, recipients)}</td> : null}
-                    <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
-                      <ResponsiveActionMenu title={title} align="end" trigger={<RowMenuButton label={`Actions for ${title}`} />} items={items} />
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </ScrollEdge>
-      )}
+      <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
+        {props.loading ? null : props.campaigns.length === 0 ? (
+          <Empty
+            {...empty}
+            action={
+              <Link href="/app/emails/new" prefetch className={buttonSecondary}>
+                <Plus className="h-4 w-4" />
+                New email
+              </Link>
+            }
+          />
+        ) : (
+          <ScrollEdge>
+            <table className="w-full min-w-[640px] border-collapse">
+              <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
+                <tr>
+                  <th data-scroll-edge="" className={cn(th, stickyHead)}>Subject</th>
+                  <th className={th}>{sent ? "Sent" : tab === "scheduled" ? "Goes out" : "Edited"}</th>
+                  <th className={cn(th, "text-right")}>Recipients</th>
+                  {sent ? <th className={cn(th, "text-right")}>Opened</th> : null}
+                  {sent ? <th className={cn(th, "text-right")}>Clicked</th> : null}
+                  <th className={cn(th, "w-12")} aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#f1f2f4]">
+                {shown.map((c) => {
+                  const recipients = c.recipient_count || c.audience_count || 0
+                  const resent = /\(Resend\)/.test(c.subject ?? "")
+                  const title = (c.subject ?? "").replace(/\s*\(Resend\)\s*$/, "") || "Untitled"
+                  const items: ActionMenuItem[] = drafts
+                    ? [
+                        { label: "Edit", onClick: () => open(c) },
+                        { label: "Duplicate", onClick: () => props.onDuplicateCampaign(c) },
+                        { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) },
+                      ]
+                    : [
+                        { label: sent ? "View results" : "Open", onClick: () => open(c) },
+                        ...(tab === "scheduled" ? [{ label: "Edit", onClick: () => router.push(`/app/emails/edit/${c.id}`) }] : []),
+                        { label: "Duplicate", onClick: () => props.onDuplicateCampaign(c) },
+                        ...(c.status === "queued" || c.status === "sending" ? [] : [{ label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) }]),
+                      ]
+                  return (
+                    <tr key={c.id} className={cn("orders-row", pressable)} data-campaign-row={c.id} data-order-id={c.id} onClick={() => open(c)} {...press(c.id, () => props.onCampaignIntent(c))}>
+                      <td data-scroll-edge="" className={cn(td, sticky)}>
+                        {/* The limit is on the span: a table cell's own max-width is ignored.
+                            Narrow on a phone, so the columns scrolling under it still show. */}
+                        <span className="flex min-w-0 max-w-[180px] items-center gap-2 sm:max-w-[320px]">
+                          <span className="truncate font-medium">{title}</span>
+                          {resent ? <StatusBadge tone="neutral">Sent again</StatusBadge> : null}
+                          {sent ? <SendBadge status={c.status} /> : null}
+                        </span>
+                      </td>
+                      <td className={cn(td, "tabular-nums text-[#4b5563]")}>
+                        {sent ? formatDay(c.sent_at) : tab === "scheduled" ? formatWhen(c.scheduled_at) : formatDay(c.updated_at ?? c.created_at)}
+                      </td>
+                      <td className={cn(td, "text-right tabular-nums")}>{recipients ? recipients.toLocaleString("en-US") : "–"}</td>
+                      {sent ? <td className={cn(td, "text-right tabular-nums")}>{rate(c.unique_opens ?? 0, recipients)}</td> : null}
+                      {sent ? <td className={cn(td, "text-right tabular-nums")}>{rate(c.unique_clicks ?? 0, recipients)}</td> : null}
+                      <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
+                        <ResponsiveActionMenu title={title} align="end" trigger={<RowMenuButton label={`Actions for ${title}`} />} items={items} />
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </ScrollEdge>
+        )}
+      </ShimmerSwap>
       <Pager page={page} pages={pages} total={props.campaigns.length} onPage={setPage} />
     </>
   )

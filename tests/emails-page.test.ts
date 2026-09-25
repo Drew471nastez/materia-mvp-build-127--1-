@@ -30,9 +30,9 @@ check("a tab switch replaces ?tab= in the address, with no request and no scroll
 check("each tab keeps its scroll, and the bar never drops back down", /scrolls\.current\.set\(tab/.test(page) && /pane\.scrollTop = Math\.max\(saved \?\? stick, stick\)/.test(page) && /min-h-full/.test(home))
 check("each tab's data is read once and kept, and read again behind what is shown", /export function useCached/.test(cache) && /Date\.now\(\) - e\.at > FRESH_MS/.test(cache) && /useCached<unknown>\(keyFor\(tab\)/.test(page))
 check("the other tabs are read while the browser is idle", /requestIdleCallback/.test(page) && /prefetch\(keyFor\(t\), loaderFor\(t\)/.test(page))
-check("rows darken while pressed and read ahead on hover or touch", /data-\[pressed=true\]:bg-\[#f1f2f4\]/.test(home) && /onPointerEnter: intent/.test(home) && /onTouchStart: intent/.test(home))
+check("rows darken while pressed and read ahead on hover or touch", /data-\[pressed=true\]:bg-\[#f4f5f7\]/.test(home) && /setTimeout\(intent, HOVER_PREFETCH_MS\)/.test(home) && /onTouchStart: intent/.test(home))
 check("an automation row opens its builder, prefetched", /router\.prefetch\(href\(f\)\)/.test(home) && /data-flow-row=/.test(home))
-check("the first column stays put on a phone", /const sticky = "sticky left-0/.test(home))
+check("the first column stays put on a phone", /const sticky = "orders-sticky sticky left-0/.test(home))
 check("rows are dense", /const td = "h-12 /.test(home))
 check("fifty to a page", /const PAGE_SIZE = 50/.test(home))
 check("a row's actions are the shared menu: a dropdown on a desktop, a sheet on a phone", (home.match(/<ResponsiveActionMenu/g) ?? []).length === 3)
@@ -66,9 +66,11 @@ console.log("\nTables that scroll sideways under a frozen column")
       && /\.scroll-edge\[data-start="true"\]::before,\s*\.scroll-edge\[data-end="true"\]::after \{\s*opacity: 1;/.test(css)
       && /@media \(prefers-reduced-motion: reduce\) \{\s*\.scroll-edge::before,\s*\.scroll-edge::after \{\s*transition: none;/.test(css))
   check("Emails' three tables use it, and mark the frozen column in the header and in every row",
-    (home.match(/<ScrollEdge>/g) ?? []).length === 3 && (home.match(/<th data-scroll-edge="" className=\{cn\(th, stickyHead\)\}>/g) ?? []).length === 3
+    (home.match(/<ScrollEdge>/g) ?? []).length === 3 && (home.match(/<th data-scroll-edge="" className=\{cn\(th, stickyHead[,)]/g) ?? []).length === 3
       && (home.match(/<td data-scroll-edge="" className=\{cn\(td, sticky/g) ?? []).length === 3)
-  check("the frozen cells are the row's own opaque colour, hover and press included", /const sticky = "sticky left-0 z-\[1\] bg-white[^"]*group-hover:bg-\[#fafbfb\][^"]*group-data-\[pressed=true\]:bg-\[#f1f2f4\]"/.test(home) && /const stickyHead = "sticky left-0 z-\[1\] bg-\[#fafbfb\]"/.test(home))
+  check("the subscribers' email column keeps to its content (w-px), so the scrolling columns stay in view on a phone", /<th data-scroll-edge="" className=\{cn\(th, stickyHead, "w-px"\)\}>Email<\/th>/.test(home))
+  check("the frozen cells are the row's own opaque colour, hover and press included, and Orders' sticky cells, so a picked row's tint leaves them pinned",
+    /const sticky = "orders-sticky sticky left-0 z-\[1\] bg-white[^"]*group-hover:bg-\[#fafbfb\][^"]*group-active:bg-\[#f4f5f7\][^"]*group-data-\[pressed=true\]:bg-\[#f4f5f7\]"/.test(home) && /const stickyHead = "sticky left-0 z-\[1\] bg-\[#fafbfb\]"/.test(home))
   const flow = read("app/app/emails/flow/[id]/builder.tsx")
   check("so does an automation's runs table", /<ScrollEdge>/.test(flow) && (flow.match(/data-scroll-edge="" className="sticky left-0 z-\[1\]/g) ?? []).length === 2)
   const orders = read("app/app/orders/orders-list.tsx")
@@ -85,12 +87,43 @@ console.log("\nTables that scroll sideways under a frozen column")
 console.log("\nAn email's page, opened over the list the way an order is")
 {
   check("?email= is pushed, so back closes it, and the list stays mounted under it", /writeAddress\(\(p\) => p\.set\("email", c\.id\), "push"\)/.test(page) && /window\.history\.back\(\)/.test(page) && /inert=\{listCovered\}/.test(page) && /orders-pane orders-detail/.test(page))
-  check("its bar is the order's, drawn on the first frame, and its cards fade in on the order's 120ms", /<OrderBarFrame/.test(detail) && /className=\{cn\("orders-body /.test(detail))
+  check("its bar is the order's, drawn on the first frame", /<OrderBarFrame/.test(detail))
+  check("it comes in and goes back with Orders' own move, not one of its own",
+    /import \{ markRow, moveOrder, stillOrder \} from "\.\.\/orders\/order-motion"/.test(page)
+      && /moveOrder\("push", detail, list\)/.test(page) && /moveOrder\("pop", detail, list, \(\) => setLeavingId\(null\)\)/.test(page)
+      && /hasUAVisualTransition/.test(page) && /data-order-open=\{listCovered \? "" : undefined\}/.test(page) && /orders-pane orders-list page-scroll/.test(page)
+      && /data-arrival="list"/.test(page) && /inert=\{!openId\}/.test(page) && !/visibility: listCovered/.test(page))
+  check("the row it came from is marked like an order's row, so the eye lands where it left", /className=\{cn\("orders-row", pressable\)\}[^>]*data-order-id=\{c\.id\}/.test(home) && /markRow\(list, openId, "held"\)/.test(page) && /markRow\(list, was, "fading"\)/.test(page))
   check("/app/emails/<id> lands on it", /redirect\(UUID\.test\(id\) \? `\/app\/emails\?tab=published&email=/.test(read("app/app/emails/[id]/page.tsx")))
   check("the email is shown as it went out, in the sandboxed preview", /<EmailPreview/.test(detail) && /sandbox="allow-same-origin"/.test(read("components/email/compose/email-preview.tsx")))
   const report = read("app/api/email/campaigns/[id]/report/route.ts")
   check("its numbers come from the send's own rows, for the creator's own email only", /requireCreator\(\)/.test(report) && /\.eq\("creator_id", ctx\.creatorId\)/.test(report) && /countRecipients\(/.test(report) && /"opened_at", "is", null/.test(report))
   check("and no reader's address is in the answer", !/email: r\.email|recipients:/.test(report))
+}
+
+/*
+ * A contact's sheet. It rose before its content: the runs were read once it
+ * was open, and the grey bars turned into the list half way up, a different
+ * height, so the top edge jumped (scripts/check-emails-page.mjs measured
+ * 360 then 390px, and a quick tap turned the sheet round twice). The content
+ * is read on the finger now, the tap waits a moment for it, and the sheet is
+ * always there on a phone so opening it is one render.
+ */
+console.log("\nA contact, opened from its row")
+{
+  const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+  const detail = code("app/app/emails/contact-detail.tsx")
+  const homeCode = code("app/app/emails/emails-home.tsx")
+  check("a finger on the row, or a pointer resting on it as long as on an order's row, asks for the contact's runs",
+    /\{\.\.\.press\(s\.id, \(\) => prefetchContact\(s\.email\)\)\}/.test(homeCode) && /onPointerDown: \(e: React\.PointerEvent\) => \{\s*intent\?\.\(\)/.test(homeCode)
+      && /hover\.current = window\.setTimeout\(intent, HOVER_PREFETCH_MS\)/.test(homeCode) && /import \{ HOVER_PREFETCH_MS \} from "\.\.\/orders\/order-prefetch"/.test(homeCode))
+  check("and the row stays pressed while its sheet waits", /\{\.\.\.\(waiting === s\.id \? \{ "data-pressed": "true" \} : null\)\}/.test(homeCode))
+  check("the tap waits for them, at most a moment, and the latest tap wins",
+    /export const OPEN_WAIT_MS = 300/.test(detail) && /void contactReady\(s\.email\)\.then\(\(\) => \{\s*if \(opening\.current !== s\) return/.test(homeCode) && /onClick=\{\(\) => openContact\(s\)\}/.test(homeCode))
+  check("the sheet is always there on a phone, so opening is one render",
+    /<BottomSheet isOpen=\{open\} onClose=\{onClose\} label=\{shown\?\.email \?\? "Contact"\} hideFrom="md">/.test(detail) && /if \(contact && contact !== shown\) setShown\(contact\)/.test(detail) && !/React\.useEffect\(\(\) => \{\s*if \(contact\) setShown\(contact\)/.test(detail))
+  check("its body is the contact's own and starts from what is known", /<ContactBody key=\{keyOf\(shown\.email\)\} contact=\{shown\} \/>/.test(detail) && /useState<RunLite\[\] \| null>\(\(\) => keptRuns\(contact\.email\)\)/.test(detail) && !/setRuns\(null\)/.test(detail))
+  check("a failed read is not kept", /if \(!error\) runsKept\.set\(key/.test(detail))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

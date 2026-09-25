@@ -13,6 +13,14 @@
  *   BACK           with an /app page behind it, Back is router.back() and
  *                  nothing is pushed; without one, it is a link to the
  *                  Billing tab
+ *   THE MARK       the Storelib logo in the bar is 28 by 28 at every width,
+ *                  square, and cannot be squeezed (it was drawn 28 by 24)
+ *   A PULL         what an iOS pull past the top shows above the bar is the
+ *                  bar's own white, and past the bottom the page's grey. The
+ *                  pull is reproduced the way WebKit draws it: the page moves
+ *                  and the scroller's own background shows in the gap. The
+ *                  pixel there is read from a real screenshot, and the same
+ *                  pull with the old one colour background is read beside it
  *   THE CARDS      one column on a phone, each the width of the page less
  *                  its gutters; three in a row from 1440, top aligned and the
  *                  same height; never wider than 1080px, centred; nothing
@@ -100,6 +108,49 @@ for (const [label, viewport] of [
   await page.goto(`${base}/`)
   await page.waitForSelector("[data-plan-card]")
   const m = await read()
+
+  /* The mark: its box, whatever the image file does. */
+  const logo = await page.evaluate(() => {
+    const el = document.querySelector("[data-upgrade-logo]")
+    const r = el.getBoundingClientRect()
+    const cs = getComputedStyle(el)
+    return { w: r.width, h: r.height, shrink: cs.flexShrink, fit: cs.objectFit }
+  })
+
+  /* A pull, drawn as WebKit draws one, and the pixel it reveals. */
+  const pixel = async (x, y) => {
+    const shot = await page.screenshot({ encoding: "base64", clip: { x, y, width: 1, height: 1 } })
+    return page.evaluate(async (src) => {
+      const img = new Image()
+      img.src = `data:image/png;base64,${src}`
+      await img.decode()
+      const c = document.createElement("canvas")
+      c.width = c.height = 1
+      const g = c.getContext("2d")
+      g.drawImage(img, 0, 0)
+      const [r, gr, b] = g.getImageData(0, 0, 1, 1).data
+      return `rgb(${r}, ${gr}, ${b})`
+    }, shot)
+  }
+  const pull = async (dy, oldBackground) => {
+    await page.evaluate(({ dy, oldBackground }) => {
+      const scroller = document.querySelector("[data-page-layer-scroll]")
+      scroller.style.backgroundImage = oldBackground ? "none" : ""
+      if (dy < 0) scroller.scrollTop = scroller.scrollHeight
+      document.querySelector("[data-upgrade-page]").style.transform = `translateY(${dy}px)`
+    }, { dy, oldBackground })
+    const at = dy > 0 ? 40 : viewport.height - 40
+    const colour = await pixel(Math.round(viewport.width / 2), at)
+    await page.evaluate(() => {
+      const scroller = document.querySelector("[data-page-layer-scroll]")
+      scroller.style.backgroundImage = ""
+      scroller.scrollTop = 0
+      document.querySelector("[data-upgrade-page]").style.transform = ""
+    })
+    return colour
+  }
+  const bar = await page.evaluate(() => getComputedStyle(document.querySelector("[data-upgrade-bar]")).backgroundColor)
+  const pulled = { top: await pull(120, false), bottom: await pull(-120, false), topBefore: await pull(120, true), bar }
   if (process.env.UPGRADE_SHOTS) await page.screenshot({ path: join(process.env.UPGRADE_SHOTS, `upgrade-${label}.png`), fullPage: false })
   await page.click("[data-upgrade-back]")
   const cold = await page.evaluate(() => ({ back: window.__back || 0, pushed: window.__pushed || [] }))
@@ -110,7 +161,7 @@ for (const [label, viewport] of [
   const warm = await page.evaluate(() => ({ back: window.__back || 0, pushed: window.__pushed || [] }))
   await page.close()
 
-  report[label] = { ...m, backCold: cold, backWarm: warm, errors }
+  report[label] = { ...m, logo, pulled, backCold: cold, backWarm: warm, errors }
   const at = `at ${label}:`
   const W = viewport.width
   if (errors.length) problems.push(`${at} the page threw: ${errors[0]}`)
@@ -122,6 +173,10 @@ for (const [label, viewport] of [
   if (cold.back !== 0 || cold.pushed[0] !== "/app/settings?tab=billing") problems.push(`${at} with nothing behind it Back should link to the Billing tab: ${JSON.stringify(cold)}`)
   if (warm.back !== 1 || warm.pushed.length) problems.push(`${at} with an /app page behind it Back should be router.back(): ${JSON.stringify(warm)}`)
   if (m.overflow > 0) problems.push(`${at} the page is ${m.overflow}px wider than the window`)
+  if (logo.w !== 28 || logo.h !== 28 || logo.shrink !== "0" || logo.fit !== "contain") problems.push(`${at} the mark is not a fixed 28px square: ${JSON.stringify(logo)}`)
+  if (pulled.bar !== "rgb(255, 255, 255)") problems.push(`${at} the bar is not solid white: ${pulled.bar}`)
+  if (pulled.top !== "rgb(255, 255, 255)") problems.push(`${at} a pull past the top shows ${pulled.top} above the white bar`)
+  if (pulled.bottom !== "rgb(248, 249, 250)") problems.push(`${at} a pull past the bottom shows ${pulled.bottom} under the grey page`)
   if (label === "390") {
     if (new Set(m.cards.map((c) => c.x)).size !== 1) problems.push(`${at} the cards are not one column`)
     if (m.cards.some((c) => c.w !== W - 32)) problems.push(`${at} a card is not the page width less 16px gutters: ${m.cards.map((c) => c.w).join(", ")}`)

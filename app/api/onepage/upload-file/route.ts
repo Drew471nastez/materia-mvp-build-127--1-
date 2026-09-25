@@ -1,111 +1,36 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { validateFile } from "@/lib/storage"
+import { readBufferHeader, scanFile } from "@/lib/storage/security"
+import { storageExtension } from "@/lib/storage/validation"
+import { safeStoredContentType } from "@/lib/storage/file-signature"
+import { preparePublicImage } from "@/lib/storage/public-image"
+import { UPLOAD_HEADERS, uploadRateLimit } from "@/lib/storage/upload-guard"
 
 // Runtime must be nodejs for file handling
 export const runtime = "nodejs"
-// Allow up to 300 seconds for upload processing
-export const maxDuration = 300
+export const maxDuration = 60
 
 const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
-// Use a very large positive number - 0/null would fall back to Supabase global default (often 50MB)
-const BUCKET_FILE_SIZE_LIMIT = 2000000000 // ~2GB — must fit int4 for older Supabase projects
+
+/** Vercel gives a function 4.5 MB of body; the page only sends small pictures here. */
+const MAX_BYTES = 25 * 1024 * 1024
 
 /**
- * Force-fix bucket configuration. Tries RPC (direct DB), then JS client, then REST API.
+ * POST - A small file for a link page, through the function.
+ *
+ * form: file, type ("image" or "digital")
+ *
+ * A picture must be one by its bytes, and loses its location metadata
+ * (lib/storage/public-image.ts). A file is checked against the blocklist and
+ * by its magic bytes, and stored with a Content-Type a browser will download
+ * rather than render. The name is always this route's.
+ *
+ * It used to reset the bucket's configuration on every request, three
+ * storage API calls before the upload, and stored whatever type the browser
+ * claimed, so an HTML page could be served from a public URL.
  */
-async function forceFixBucket(): Promise<void> {
-  const adminSupabase = createAdminClient()
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  // Method 0: RPC function (direct database update – most reliable)
-  try {
-    const { error: rpcErr } = await adminSupabase.rpc("fix_storage_bucket_limit", {
-      p_bucket_id: BUCKET_NAME,
-      p_file_size_limit: BUCKET_FILE_SIZE_LIMIT,
-    })
-    if (!rpcErr) {
-      console.log("[upload-file] Bucket fixed via RPC")
-      return
-    }
-    console.warn("[upload-file] RPC failed:", rpcErr.message)
-  } catch {
-    // RPC function may not exist yet
-  }
-
-  // Method 1: Admin JS client
-  try {
-    const { error: updateErr } = await adminSupabase.storage.updateBucket(BUCKET_NAME, {
-      public: true,
-      fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
-      allowedMimeTypes: null,
-    })
-    if (!updateErr) return
-
-    if (updateErr.message?.includes("not found") || updateErr.message?.includes("404")) {
-      const { error: createErr } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
-        public: true,
-        fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
-        allowedMimeTypes: null,
-      })
-      if (!createErr || createErr.message?.includes("already exists")) return
-    }
-  } catch {
-    // Fall through to REST
-  }
-
-  // Method 2: Direct REST API (no id/name in PUT body — they cause errors)
-  if (supabaseUrl && serviceRoleKey) {
-    const headers = {
-      Authorization: `Bearer ${serviceRoleKey}`,
-      apikey: serviceRoleKey,
-      "Content-Type": "application/json",
-    }
-
-    try {
-      const updateRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({
-          public: true,
-          file_size_limit: BUCKET_FILE_SIZE_LIMIT,
-          allowed_mime_types: null,
-        }),
-      })
-      if (updateRes.ok) return
-
-      if (updateRes.status === 404 || updateRes.status === 400) {
-        await fetch(`${supabaseUrl}/storage/v1/bucket`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            id: BUCKET_NAME,
-            name: BUCKET_NAME,
-            public: true,
-            file_size_limit: BUCKET_FILE_SIZE_LIMIT,
-            allowed_mime_types: null,
-          }),
-        }).catch(() => {})
-        // PUT again after create to ensure limit is set
-        const retryRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
-          method: "PUT",
-          headers,
-          body: JSON.stringify({
-            public: true,
-            file_size_limit: BUCKET_FILE_SIZE_LIMIT,
-            allowed_mime_types: null,
-          }),
-        })
-        if (retryRes.ok) return
-      }
-    } catch {
-      // continue
-    }
-  }
-}
-
-// POST - Upload a file for lead form (product images and digital products)
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -115,79 +40,98 @@ export async function POST(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
     }
 
-    const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).single()
+    const { data: creator } = await supabase.from("creators").select("id, subscription_plan_id").eq("user_id", user.id).single()
 
     if (!creator) {
-      return NextResponse.json({ error: "Creator not found" }, { status: 404 })
+      return NextResponse.json({ error: "Creator not found" }, { status: 404, headers: UPLOAD_HEADERS })
     }
 
-    // Get form data with the file
+    const limited = await uploadRateLimit(user.id, creator.subscription_plan_id)
+    if (limited) return limited
+
     let formData: FormData
     try {
       formData = await request.formData()
-    } catch (formError) {
-      console.error("[upload-file] FormData parse error:", formError)
+    } catch {
       return NextResponse.json(
-        {
-          error:
-            "Failed to parse upload data. File may be too large for direct upload - try the signed URL upload instead.",
-        },
-        { status: 413 },
+        { error: "The file is too large for this upload. Try again." },
+        { status: 413, headers: UPLOAD_HEADERS },
       )
     }
 
-    const file = formData.get("file") as File
-    const fileType = formData.get("type") as string // 'image' or 'digital'
+    const file = formData.get("file")
+    const isDigital = formData.get("type") === "digital"
 
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "No file provided" }, { status: 400, headers: UPLOAD_HEADERS })
+    }
+    if (file.size > MAX_BYTES) {
+      return NextResponse.json({ error: "That file is too large for this upload." }, { status: 413, headers: UPLOAD_HEADERS })
     }
 
-    // Force fix bucket before upload
-    await forceFixBucket()
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    let body: Uint8Array
+    let contentType: string
+    let ext: string
 
-    // Generate unique filename
-    const fileExt = file.name.split(".").pop() || "bin"
-    const subfolder = fileType === "digital" ? "digital-products" : "product-images"
-    const fileName = `${creator.id}/${subfolder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+    if (isDigital) {
+      const validation = validateFile(file.name, file.type || "application/octet-stream", file.size)
+      if (!validation.valid) {
+        return NextResponse.json({ error: validation.reason }, { status: 400, headers: UPLOAD_HEADERS })
+      }
+      const scan = scanFile(file.name, file.type || "application/octet-stream", readBufferHeader(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)))
+      if (!scan.safe) {
+        return NextResponse.json({ error: scan.reason }, { status: 400, headers: UPLOAD_HEADERS })
+      }
+      body = bytes
+      contentType = safeStoredContentType(file.type, bytes)
+      ext = storageExtension(file.name)
+    } else {
+      const picture = preparePublicImage(bytes)
+      if (!picture.ok) {
+        return NextResponse.json({ error: picture.error }, { status: picture.status, headers: UPLOAD_HEADERS })
+      }
+      body = picture.bytes
+      contentType = picture.mime
+      ext = picture.ext
+    }
 
-    // Convert File to buffer for upload
-    const arrayBuffer = await file.arrayBuffer()
-    const fileBuffer = new Uint8Array(arrayBuffer)
+    const subfolder = isDigital ? "digital-products" : "product-images"
+    const fileName = `${creator.id}/${subfolder}/${Date.now()}-${crypto.randomUUID().replace(/-/g, "")}.${ext}`
 
-    // Upload using admin client (bypasses RLS)
     const { data: uploadData, error: uploadError } = await adminSupabase.storage
       .from(BUCKET_NAME)
-      .upload(fileName, fileBuffer, {
-        contentType: file.type || "application/octet-stream",
+      .upload(fileName, body, {
+        contentType,
         cacheControl: "31536000",
-        upsert: true,
+        upsert: false,
       })
 
     if (uploadError) {
       console.error("[upload-file] Storage upload error:", uploadError)
-      return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 })
+      return NextResponse.json({ error: "The upload failed. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
     }
 
-    // Get the public URL
     const { data: urlData } = adminSupabase.storage.from(BUCKET_NAME).getPublicUrl(fileName)
 
     if (!urlData?.publicUrl) {
-      return NextResponse.json({ error: "Failed to get public URL" }, { status: 500 })
+      return NextResponse.json({ error: "Failed to get public URL" }, { status: 500, headers: UPLOAD_HEADERS })
     }
 
-    return NextResponse.json({
-      success: true,
-      url: urlData.publicUrl,
-      path: uploadData.path,
-      filename: file.name,
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        url: urlData.publicUrl,
+        path: uploadData.path,
+        filename: file.name,
+      },
+      { headers: UPLOAD_HEADERS },
+    )
   } catch (error) {
     console.error("[upload-file] Fatal error:", error)
-    const message = error instanceof Error ? error.message : "Internal server error"
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: "The upload failed. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
   }
 }

@@ -69,6 +69,7 @@ import {
   ORDER_WIDTH,
   OrderBarFrame,
 } from "./order-parts"
+import { activityUrl, cachedJson, hasPayoutSteps, paidLineOf, readJson, stripeTimelineUrl } from "./order-prefetch"
 
 export type OrderAction =
   | { kind: "refund"; line: OrderRow; amountCents: number; reason: string }
@@ -333,7 +334,7 @@ function Thumb({ line }: { line: OrderRow }) {
     <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-[#eceef1] bg-[#f4f5f7]">
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="" width={44} height={44} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+        <img src={src} alt="" width={44} height={44} decoding="async" className="h-full w-full object-cover" />
       ) : (
         <div className="flex h-full items-center justify-center text-[#9ca3af]">
           <Package className="h-4 w-4" />
@@ -609,46 +610,59 @@ const GLYPH_TONE: Record<TimelineTone, string> = {
   upcoming: "bg-white text-[#9ca3af] border-dashed border-[#c9ccd3]",
 }
 
+const activityOf = (json: unknown): OrderActivity[] | null =>
+  Array.isArray((json as { activity?: unknown } | null)?.activity) ? (json as { activity: OrderActivity[] }).activity : null
+const stepsOf = (json: unknown): StripeStep[] | null =>
+  Array.isArray((json as { timeline?: unknown } | null)?.timeline) ? (json as { timeline: StripeStep[] }).timeline : null
+
 /** The rail runs through the middle of the 22px glyph column. */
 const RAIL = "absolute left-[10.5px] w-px bg-[#e4e6ea]"
 
 function Timeline({ className, order, timeZone, now, revision }: { className?: string; order: Order; timeZone: string; now: number; revision: number }) {
-  const [activity, setActivity] = React.useState<OrderActivity[]>([])
-  const [stripe, setStripe] = React.useState<StripeStep[]>([])
+  const paidLine = paidLineOf(order)
+  const payouts = hasPayoutSteps(order)
+  /* What a finger on the row already read (./order-prefetch), so an order
+     opened from the list draws its whole timeline on its first frame. */
+  const [activity, setActivity] = React.useState<OrderActivity[]>(() => activityOf(cachedJson(activityUrl(order.id))) ?? [])
+  const [stripe, setStripe] = React.useState<StripeStep[]>(() =>
+    payouts && paidLine ? stepsOf(cachedJson(stripeTimelineUrl(paidLine.id))) ?? [] : [],
+  )
   const [open, setOpen] = React.useState<string | null>(null)
-  const paidLine = order.lines.find((l) => (l.amount_cents || 0) > 0 && l.stripe_payment_intent_id)
 
   /* History after the sale: receipts sent again, the email changed. Read
      again after every action on the page. */
   React.useEffect(() => {
     let alive = true
-    fetch(`/api/app/orders/${encodeURIComponent(order.id)}/activity`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => {
-        if (alive && Array.isArray(json?.activity)) setActivity(json.activity)
-      })
-      .catch(() => {})
+    readJson(activityUrl(order.id), revision > 0).then((json) => {
+      const list = activityOf(json)
+      if (alive && list) setActivity(list)
+    })
     return () => {
       alive = false
     }
   }, [order.id, revision])
 
-  /* Payout steps come from Stripe, a second or so later. What is still to
-     come is kept at the foot, so their arrival moves nothing above them. */
+  /* Payout steps come from Stripe, a second or so later when nobody asked
+     for them ahead. What is still to come is kept at the foot, so their
+     arrival moves nothing above them. A payment that changes here (a
+     refund) reads them again. */
+  const firstRead = React.useRef(true)
   React.useEffect(() => {
-    setStripe([])
-    if (!paidLine || order.payment === "failed" || order.payment === "pending") return
+    const again = !firstRead.current
+    firstRead.current = false
+    if (!paidLine || !payouts) {
+      setStripe([])
+      return
+    }
     let alive = true
-    fetch(`/api/stripe/order-timeline?orderId=${encodeURIComponent(paidLine.id)}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => {
-        if (alive && Array.isArray(json?.timeline)) setStripe(json.timeline)
-      })
-      .catch(() => {})
+    readJson(stripeTimelineUrl(paidLine.id), again).then((json) => {
+      const steps = stepsOf(json)
+      if (alive && steps) setStripe(steps)
+    })
     return () => {
       alive = false
     }
-  }, [paidLine?.id, order.payment])
+  }, [paidLine?.id, payouts, order.payment]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const groups = groupTimeline(orderEvents(order, activity, stripe), now, timeZone)
   const rows: Array<{ kind: "day"; key: string; label: string } | { kind: "event"; key: string; event: TimelineEvent; upcoming: boolean }> = []

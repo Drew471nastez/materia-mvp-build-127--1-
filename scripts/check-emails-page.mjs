@@ -16,11 +16,25 @@
  *   - the address says the tab (?tab=), replaced, not pushed; each tab
  *     keeps its own scroll, and a stuck bar never drops back down;
  *   - the other tabs are read while the browser is idle after the first;
- *   - a row darkens while pressed; hovering an email's row reads its page
- *     ahead; the email's page is drawn with its bar on the first frame
- *     after the click, the cards fade in over about 120ms, and Back shows
- *     the list on the next frame, on the same tab and scroll;
- *   - an automation's row reads ahead on hover and opens its builder.
+ *   - a row darkens while pressed; a pointer resting on an email's row, or
+ *     a finger on it, reads its page ahead;
+ *   - the email's page opens and goes back with Orders' own move
+ *     (app/app/orders/order-motion.ts), measured the way
+ *     scripts/check-orders-page.mjs measures an order: on the first frame
+ *     after the click, pushed from the right edge in about 300ms on a phone
+ *     and faded in about 150ms on a computer, the list drawn under it on
+ *     every frame of the way back, at the same tab and scroll, and the row
+ *     it came from tinted and then fading;
+ *   - an automation's row reads ahead on hover and opens its builder, and
+ *     its switch turns it on without opening it;
+ *   - the subscribers' table: fifty 48px rows to a page, a long address cut
+ *     and not wrapped, the first column pinned on a phone, the page never
+ *     scrolling sideways, a row's actions a sheet on a phone and a dropdown
+ *     on a computer;
+ *   - a contact opens on the shared sheet on a phone with everything in it
+ *     laid out on its first frame, rising once and going down once, and in
+ *     the side panel on a computer, also already filled (its runs are read
+ *     from a stand-in that answers after RUNS_DELAY_MS).
  *
  *   node scripts/check-emails-page.mjs      (no build needed: scripts/probe-css.mjs)
  */
@@ -51,6 +65,7 @@ const expect = (ok, what, got) => {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const ORIGIN = "https://storelib.test"
+const RUNS_DELAY_MS = 120
 
 try {
   writeFileSync(
@@ -70,9 +85,22 @@ const flows = [
   { id: "f2", name: "Thank you for buying", trigger_type: "purchase", status: "paused", steps: [], updated_at: "2026-09-01T00:00:00Z" },
 ]
 const tables = { creators: { id: "cr-1" }, subscribers, products: [{ id: "p1" }], orders: [{ buyer_email: "buyer@example.com" }, { buyer_email: "person1@example.com" }], email_flows: flows }
+const RUNS = {
+  "person1@example.com": [
+    { id: "r1", status: "active", exit_reason: null, started_at: "2026-09-20T10:00:00Z", flow_id: "f1", email_flows: { name: "Welcome" } },
+    { id: "r2", status: "completed", exit_reason: null, started_at: "2026-09-02T10:00:00Z", flow_id: "f2", email_flows: { name: "Thank you for buying" } },
+  ],
+}
 function from(table) {
+  let eqValue = null
   const q = {
-    select() { return q }, eq() { return q }, in() { return q }, order() { return q }, delete() { return q }, update() { return q },
+    select() { return q }, eq(_c, v) { eqValue = v; return q }, in() { return q }, order() { return q }, delete() { return q }, update() { return q },
+    /* A contact's automation runs (app/app/emails/contact-detail.tsx), answered late. */
+    limit() {
+      if (table !== "email_flow_runs") return q
+      ;(window.__runsAsked = window.__runsAsked || []).push(eqValue)
+      return new Promise((r) => setTimeout(() => r({ data: RUNS[eqValue] || [], error: null }), ${RUNS_DELAY_MS}))
+    },
     maybeSingle() { window.__requests.push({ method: "SUPABASE", url: table, at: performance.now() }); return new Promise((r) => setTimeout(() => r({ data: tables[table] ?? null, error: null }), LATENCY)) },
     then(res, rej) { window.__requests.push({ method: "SUPABASE", url: table, at: performance.now() }); return new Promise((r) => setTimeout(() => r({ data: tables[table] ?? [], error: null }), LATENCY)).then(res, rej) },
   }
@@ -141,12 +169,7 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
 
   const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
 
-  for (const [label, vp] of [
-    ["phone 360", { width: 360, height: 740, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
-    ["phone 390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
-    ["desktop 1440", { width: 1440, height: 900 }],
-  ]) {
-    console.log(`\n${label}`)
+  async function openPage(vp) {
     const p = await browser.newPage()
     await p.setViewport(vp)
     await p.setRequestInterception(true)
@@ -166,6 +189,114 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
     })
     await p.goto(`${ORIGIN}/app/emails`)
     await p.waitForSelector("[data-tab-content] tbody tr", { timeout: 8000 })
+    return { p, errors }
+  }
+
+  /*
+    Every frame of an email coming in or going back, read the way
+    scripts/check-orders-page.mjs reads an order's: where the layer is, how
+    opaque, whether the list is drawn, and how much of the stage neither
+    covers (a blank).
+  */
+  const recordFrames = (p, ms) => p.evaluate((ms) => {
+    window.__mf = []
+    window.__clickAt = null
+    const onClick = () => { if (window.__clickAt === null) window.__clickAt = performance.now() }
+    document.addEventListener("click", onClick, { capture: true, once: true })
+    document.addEventListener("touchend", onClick, { capture: true, once: true })
+    const t0 = performance.now()
+    const opacityOf = (el) => { let o = 1; for (let n = el; n && n !== document.body; n = n.parentElement) o *= Number(getComputedStyle(n).opacity); return o }
+    const tick = () => {
+      const stage = document.querySelector(".orders-stage").getBoundingClientRect()
+      const detail = document.querySelector("[data-email-detail]")
+      const list = document.querySelector(".orders-list")
+      const lr = list.getBoundingClientRect()
+      const dr = detail?.getBoundingClientRect()
+      const bar = detail?.querySelector("[data-orders-bar]")?.getBoundingClientRect()
+      const listShown = getComputedStyle(list).visibility !== "hidden"
+      const dOpacity = detail ? opacityOf(detail) : 0
+      const spans = []
+      if (listShown) spans.push([Math.max(stage.left, lr.left), Math.min(stage.right, lr.right)])
+      if (detail && dOpacity >= 0.999) spans.push([Math.max(stage.left, dr.left), Math.min(stage.right, dr.right)])
+      spans.sort((a, b) => a[0] - b[0])
+      let covered = 0
+      let reach = stage.left
+      for (const [a, b] of spans) {
+        if (b <= reach) continue
+        covered += b - Math.max(a, reach)
+        reach = b
+      }
+      window.__mf.push({
+        t: performance.now(),
+        detail: dr ? { left: dr.left, opacity: dOpacity, leaving: detail.hasAttribute("data-leaving"), title: detail.querySelector("h1")?.textContent ?? "" } : null,
+        bar: bar ? `${(bar.left - dr.left).toFixed(1)},${bar.width.toFixed(1)}x${bar.height.toFixed(1)}` : null,
+        listShown,
+        listLeft: lr.left,
+        listTop: list.scrollTop,
+        blank: Math.max(0, Math.round(stage.width - covered)),
+        picked: document.querySelector(".orders-list tr[data-picked]")?.dataset.picked ?? null,
+      })
+      if (performance.now() - t0 < ms) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }, ms)
+  const readFrames = (p) => p.evaluate(() => ({ frames: window.__mf, clickAt: window.__clickAt }))
+
+  function arrival({ frames, clickAt }) {
+    const after = frames.filter((f) => clickAt !== null && f.t >= clickAt)
+    const first = after.find((f) => f.detail)
+    const shown = after.filter((f) => f.detail)
+    const rest = shown.find((f) => Math.abs(f.detail.left) < 0.5 && f.detail.opacity >= 0.999)
+    const lefts = shown.map((f) => f.detail.left)
+    const opacities = shown.map((f) => f.detail.opacity)
+    return {
+      ms: first ? Math.round(first.t - clickAt) : null,
+      framesBefore: first ? after.indexOf(first) : null,
+      title: first?.detail.title ?? "",
+      firstLeft: first ? Math.round(first.detail.left) : null,
+      firstOpacity: first ? Number(first.detail.opacity.toFixed(3)) : null,
+      restMs: rest && first ? Math.round(rest.t - first.t) : null,
+      frames: shown.length,
+      monotonic: lefts.every((l, i) => i === 0 || l <= lefts[i - 1] + 0.5) && opacities.every((o, i) => i === 0 || o >= opacities[i - 1] - 0.001),
+      bars: [...new Set(shown.map((f) => f.bar))],
+      listDuring: shown.filter((f) => (rest ? f.t < rest.t : true)).every((f) => f.listShown),
+      listLeftMin: Math.round(Math.min(...after.map((f) => f.listLeft))),
+      listAfter: after.at(-1)?.listShown,
+      blank: Math.max(0, ...after.map((f) => f.blank)),
+      blankFrames: after.filter((f) => f.blank > 0).length,
+      picked: [...new Set(after.map((f) => f.picked))],
+    }
+  }
+
+  function departure({ frames, clickAt }) {
+    const after = frames.filter((f) => clickAt !== null && f.t >= clickAt)
+    const firstMove = after.find((f) => f.detail && (f.detail.left > 0.5 || f.detail.opacity < 0.999))
+    const gone = after.find((f) => !f.detail)
+    const lefts = after.filter((f) => f.detail).map((f) => f.detail.left)
+    const opacities = after.filter((f) => f.detail).map((f) => f.detail.opacity)
+    return {
+      startMs: firstMove ? Math.round(firstMove.t - clickAt) : null,
+      goneMs: gone ? Math.round(gone.t - clickAt) : null,
+      moveMs: gone && firstMove ? Math.round(gone.t - firstMove.t) : null,
+      framesWithoutList: after.filter((f) => !f.listShown).length,
+      blank: Math.max(0, ...after.map((f) => f.blank)),
+      monotonic: lefts.every((l, i) => i === 0 || l >= lefts[i - 1] - 0.5) && opacities.every((o, i) => i === 0 || o <= opacities[i - 1] + 0.001),
+      leavingInert: after.filter((f) => f.detail && f.detail.leaving).length,
+      listLeftFirst: after[0] ? Math.round(after[0].listLeft) : null,
+      listLeftLast: after.at(-1) ? Math.round(after.at(-1).listLeft) : null,
+      scrollTops: [...new Set(after.map((f) => f.listTop))],
+      picked: [...new Set(after.map((f) => f.picked))],
+    }
+  }
+
+  for (const [label, vp] of [
+    ["phone 360", { width: 360, height: 740, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
+    ["phone 390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
+    ["desktop 1440", { width: 1440, height: 900 }],
+  ]) {
+    console.log(`\n${label}`)
+    const phone = vp.width < 640
+    const { p, errors } = await openPage(vp)
     const tag = label.replace(/\s/g, "-")
 
     /* The header: title, New automation, New email. */
@@ -261,10 +392,10 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
     expect(pressed === "true" && pressedBg !== "rgba(0, 0, 0, 0)", "an automation's row darkens while pressed", pressedBg)
     expect(nav.includes("prefetch /app/emails/flow/f1") && (nav.includes("push /app/emails/flow/f1") || nav.includes("link /app/emails/flow/f1")), "it read the builder ahead on hover, and opened it", nav.slice(-3))
 
-    /* An email's page over the list. */
+    /* An email's page over the list, with Orders' own move. */
     await p.click('[data-tab="published"]')
     await sleep(250)
-    await p.evaluate(() => { document.querySelector("[data-emails-page] > .orders-pane").scrollTop = 260 })
+    await p.evaluate(() => { document.querySelector(".orders-list").scrollTop = 260 })
     await sleep(100)
     /* A row in plain view, not one scrolled under the bar. */
     const id = await p.evaluate(() => {
@@ -273,44 +404,45 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
       const seen = rows.find((r) => { const b = r.getBoundingClientRect(); return b.top > barBottom + 4 && b.bottom < innerHeight - 90 })
       return seen?.getAttribute("data-campaign-row") ?? null
     })
-    const row = await p.$(`[data-campaign-row="${id}"]`)
-    const rb = await row.boundingBox()
-    await p.mouse.move(rb.x + 40, rb.y + rb.height / 2)
-    await sleep(300)
+    const rb = await (await p.$(`[data-campaign-row="${id}"]`)).boundingBox()
+    const spot = { x: rb.x + 40, y: rb.y + rb.height / 2 }
+    const listScroll = await p.evaluate(() => document.querySelector(".orders-list").scrollTop)
+    const clsBefore = await p.evaluate(() => window.__cls)
+    if (phone) {
+      /* A finger on the row, a moment, then up. */
+      await p.touchscreen.touchStart(spot.x, spot.y)
+      await sleep(200)
+    } else {
+      await p.mouse.move(spot.x, spot.y)
+      await sleep(300)
+    }
     const readAhead = await p.evaluate((i) => window.__requests.some((q) => q.url.includes(`/campaigns/${i}/report`)), id)
-    expect(readAhead, "hovering an email's row read its page ahead")
-    const listScroll = await p.evaluate(() => document.querySelector("[data-emails-page] > .orders-pane").scrollTop)
-    await p.evaluate(() => {
-      window.__frames = []
-      window.__sampling = true
-      window.__clickAt = null
-      document.addEventListener("click", () => { window.__clickAt = performance.now() }, { capture: true, once: true })
-      const tick = (now) => {
-        if (!window.__sampling) return
-        const d = document.querySelector("[data-email-detail]")
-        const body = d?.querySelector(".orders-body")
-        const list = document.querySelector("[data-emails-page] > .orders-pane")
-        window.__frames.push({ at: now, detail: !!d, title: d?.querySelector("h1")?.textContent ?? "", bodyOpacity: body ? Number(getComputedStyle(body).opacity) : null, listHidden: getComputedStyle(list).visibility === "hidden" })
-        requestAnimationFrame(tick)
-      }
-      requestAnimationFrame(tick)
-    })
-    await p.mouse.down()
-    await p.mouse.up()
-    await sleep(400)
-    const open = await p.evaluate(() => {
-      window.__sampling = false
-      return { frames: window.__frames, search: location.search, clickAt: window.__clickAt }
-    })
-    /* rAF's timestamp is the frame's start: the first frame drawn after the click is the first one stamped after it. */
-    const afterClick = open.frames.filter((f) => f.at > open.clickAt)
-    const first = afterClick.find((f) => f.detail)
-    const firstIndex = afterClick.findIndex((f) => f.detail)
-    expect(firstIndex === 0 && first.title.length > 0 && first.listHidden, "the email's page and its bar are there on the first frame after the click", { firstIndex, title: first?.title })
-    const settled = open.frames.find((f) => f.bodyOpacity === 1)
-    const fadeMs = settled && first ? Math.round(settled.at - first.at) : null
-    expect(first && first.bodyOpacity !== null && first.bodyOpacity < 1 && fadeMs !== null && fadeMs <= 220, "its cards fade in, about 120ms", { from: first?.bodyOpacity, fadeMs })
-    expect(open.search.includes(`email=${id}`), "the address names the email", open.search)
+    expect(readAhead, phone ? "a finger on an email's row reads its page before it lifts" : "a pointer resting on an email's row reads its page ahead")
+    await recordFrames(p, 700)
+    if (phone) await p.touchscreen.touchEnd()
+    else {
+      await p.mouse.down()
+      await p.mouse.up()
+    }
+    await sleep(800)
+    const opening = arrival(await readFrames(p))
+    const clsOpen = (await p.evaluate(() => window.__cls)) - clsBefore
+    const search = await p.evaluate(() => location.search)
+    console.log(`  ..    click to the email's first frame: ${opening.ms}ms, ${opening.framesBefore} frames before it, ${phone ? `its left edge at ${opening.firstLeft}px of ${vp.width}` : `at opacity ${opening.firstOpacity}`}; at rest ${opening.restMs}ms later over ${opening.frames} frames; the list ${phone ? `moved to ${opening.listLeftMin}px and ` : ""}was drawn under it until then: ${opening.listDuring}, after: ${opening.listAfter}; blank frames ${opening.blankFrames}; bar in the layer ${JSON.stringify(opening.bars)}; layout shift ${clsOpen.toFixed(4)}`)
+    expect(opening.ms !== null && opening.framesBefore === 0 && opening.title.length > 0, "the email's page and its bar are there on the first frame after the click", { ms: opening.ms, title: opening.title })
+    if (phone) {
+      expect(opening.firstLeft >= vp.width * 0.77 && opening.monotonic, "on a phone it starts at the right edge, not at rest, and only moves left", { first: opening.firstLeft, monotonic: opening.monotonic })
+      expect(opening.restMs !== null && opening.restMs >= 240 && opening.restMs <= 360, "and is in place in about 300ms, as an order is", opening.restMs)
+      expect(opening.listDuring && opening.listAfter === false && Math.abs(opening.listLeftMin + vp.width * 0.3) <= 8, "the list stays drawn underneath, moving a third of the way left, then rests hidden", { min: opening.listLeftMin, after: opening.listAfter })
+    } else {
+      expect(opening.firstOpacity < 0.5 && opening.restMs !== null && opening.restMs >= 90 && opening.restMs <= 220 && opening.monotonic, "on a computer it fades in, quickly and only one way, as an order does", { first: opening.firstOpacity, restMs: opening.restMs })
+      expect(opening.listDuring && opening.listAfter === false, "the list is drawn under it while it fades, and not after", { during: opening.listDuring, after: opening.listAfter })
+    }
+    expect(opening.bars.length === 1, "its bar travels with it, at one size and place inside it", opening.bars)
+    expect(opening.blankFrames === 0, "no frame shows neither the list nor the email", opening.blank)
+    expect(opening.picked.includes("held"), "the row it came from is tinted under it", opening.picked)
+    expect(clsOpen < 0.001, "opening an email shifts nothing", clsOpen)
+    expect(search.includes(`email=${id}`), "the address names the email", search)
     await p.screenshot({ path: join(shots, `${tag}-email.png`) })
     await p.evaluate(() => { document.querySelector("[data-email-detail]").scrollTop = 900 })
     await sleep(150)
@@ -322,31 +454,211 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
     expect(iframe && iframe.sandbox === "allow-same-origin" && iframe.text, "the email is drawn in a sandbox with scripts off", iframe)
     const numbers = await p.evaluate(() => document.querySelector('[aria-label="How it did"]')?.textContent ?? "")
     expect(/Opened604/.test(numbers.replace(/\s/g, "")) && /Clicked139/.test(numbers.replace(/\s/g, "")), "the numbers are the report's", numbers.slice(0, 120))
+    await p.evaluate(() => { document.querySelector("[data-email-detail]").scrollTop = 0 })
+    await sleep(100)
 
-    await p.evaluate(() => {
-      window.__frames = []
-      window.__sampling = true
-      window.__clickAt = null
-      document.addEventListener("click", () => { window.__clickAt = performance.now() }, { capture: true, once: true })
-      const tick = (now) => {
-        if (!window.__sampling) return
-        const list = document.querySelector("[data-emails-page] > .orders-pane")
-        window.__frames.push({ at: now, detail: !!document.querySelector("[data-email-detail]"), listVisible: getComputedStyle(list).visibility !== "hidden", scroll: list.scrollTop })
-        requestAnimationFrame(tick)
-      }
-      requestAnimationFrame(tick)
-    })
-    await p.click('button[aria-label="Back to emails"]')
-    await sleep(350)
-    const back = await p.evaluate(() => {
-      window.__sampling = false
-      return { frames: window.__frames, search: location.search, clickAt: window.__clickAt }
-    })
-    /* history.back() lands on popstate, a task after the click: one frame of grace. */
-    const gone = back.frames.filter((f) => f.at > back.clickAt).findIndex((f) => !f.detail && f.listVisible)
-    expect(gone >= 0 && gone <= 1, "Back shows the list on the first or second frame after the click", gone)
-    expect(back.frames.at(-1).scroll === listScroll && back.search.includes("tab=published") && !back.search.includes("email="), "on the same tab and scroll, and the address forgets the email", { scroll: back.frames.at(-1).scroll, was: listScroll, search: back.search })
+    /* Back: the list drawn on every frame, the email off it and gone. */
+    await recordFrames(p, 700)
+    if (phone) await p.tap('button[aria-label="Back to emails"]')
+    else await p.click('button[aria-label="Back to emails"]')
+    await sleep(750)
+    const back = departure(await readFrames(p))
+    const afterBack = await p.evaluate(() => ({ detail: !!document.querySelector("[data-email-detail]"), search: location.search }))
+    console.log(`  ..    back: the email starts to go ${back.startMs}ms after the click and is gone at ${back.goneMs}ms (${back.moveMs}ms of ${phone ? "slide" : "fade"}); ${phone ? `the list from ${back.listLeftFirst}px to ${back.listLeftLast}px, ` : ""}frames without the list ${back.framesWithoutList}; blank ${back.blank}px; list scrollTop on every frame ${JSON.stringify(back.scrollTops)}; row tint ${JSON.stringify(back.picked)}`)
+    expect(!afterBack.detail && back.framesWithoutList === 0 && back.blank === 0, "back draws the list under the email on every frame", back.framesWithoutList)
+    if (phone) {
+      expect(back.monotonic && back.moveMs !== null && back.moveMs >= 220 && back.moveMs <= 360, "the email slides off to the right in about 300ms, only one way", back.moveMs)
+      expect(back.listLeftFirst <= -vp.width * 0.28 && back.listLeftLast === 0, "while the list slides back from a third of the way left", { first: back.listLeftFirst, last: back.listLeftLast })
+    } else {
+      expect(back.monotonic && back.moveMs !== null && back.moveMs <= 220, "the email fades off it, quickly and only one way", back.moveMs)
+    }
+    expect(back.leavingInert > 0, "the leaving email is marked leaving (inert) while it goes", back.leavingInert)
+    expect(back.scrollTops.length === 1 && back.scrollTops[0] === listScroll, "and the list is exactly as far down as it was, on every frame", { tops: back.scrollTops, was: listScroll })
+    expect(back.picked.includes("fading"), "the row the email came from is tinted, then fades", back.picked)
+    expect(afterBack.search.includes("tab=published") && !afterBack.search.includes("email="), "on the same tab, and the address forgets the email", afterBack.search)
 
+    /* The subscribers' table. */
+    await p.click('[data-tab="subscribers"]')
+    await sleep(250)
+    await p.evaluate(() => { document.querySelector(".orders-list").scrollTop = 0 })
+    await sleep(100)
+    const S = "section[aria-label=Subscribers]"
+    const rows = await p.$$eval(`${S} tbody tr`, (r) => r.map((x) => Math.round(x.getBoundingClientRect().height)))
+    expect(rows.length === 50 && rows.every((h) => h === 48), "fifty dense 48px rows to a page", { count: rows.length, heights: [...new Set(rows)] })
+    expect((await p.$$eval(`${S} button`, (b) => b.map((x) => x.textContent.trim()))).includes("Next"), "and a Next page")
+    const long = await p.$eval(`${S} tbody tr:nth-child(4) td span`, (el) => ({ cut: el.scrollWidth > el.clientWidth, h: Math.round(el.closest("td").getBoundingClientRect().height), ell: getComputedStyle(el).textOverflow }))
+    expect(long.cut && long.h === 48 && long.ell === "ellipsis", "a long address is cut, not wrapped", long)
+    const sideways = () => p.evaluate(() => { const l = document.querySelector(".orders-list"); return l.scrollWidth - l.clientWidth })
+    expect((await sideways()) === 0, "the page never scrolls sideways", await sideways())
+    if (phone) {
+      const cell = `${S} tbody tr td`
+      const before = await p.$eval(cell, (td) => Math.round(td.getBoundingClientRect().left))
+      await p.$eval(`${S} .overflow-x-auto`, (el) => { el.scrollLeft = 200 })
+      await sleep(50)
+      const after = await p.$eval(cell, (td) => Math.round(td.getBoundingClientRect().left))
+      expect(before === after, "the email column stays put while the table scrolls", { before, after })
+      const col = await p.$eval(cell, (td) => Math.round(td.getBoundingClientRect().width))
+      expect(col <= 220, "and is narrow enough to leave the scrolling columns in view", col)
+      await p.$eval(`${S} .overflow-x-auto`, (el) => { el.scrollLeft = 0 })
+    }
+    const btn = await p.$(`${S} tbody tr:first-child td:last-child button`)
+    await btn.evaluate((b) => b.scrollIntoView({ block: "center", inline: "end" }))
+    const hit = await btn.evaluate((b) => { const r = b.getBoundingClientRect(); return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest("button") === b })
+    expect(hit, "the actions button is not covered by the pinned column", hit)
+    await btn.click()
+    await sleep(450)
+    const menu = await p.evaluate(() => {
+      const sheet = [...document.querySelectorAll("[role=dialog]")].find((d) => /Copy email/.test(d.textContent))
+      const drop = document.querySelector("[role=menu]")
+      return { sheet: !!sheet, dropdown: !!drop && /Copy email/.test(drop.textContent) }
+    })
+    expect(phone ? menu.sheet && !menu.dropdown : menu.dropdown && !menu.sheet, `a row's actions are a ${phone ? "sheet" : "dropdown"}`, menu)
+    await p.screenshot({ path: join(shots, `${tag}-subscriber-actions.png`) })
+    await p.keyboard.press("Escape")
+    await sleep(450)
+
+    /* An automation switched on from its row, without opening it. */
+    await p.click('[data-tab="flows"]')
+    await sleep(250)
+    const navBefore = await p.evaluate(() => window.__nav.length)
+    await p.click('[data-flow-row="f2"] [role=switch]')
+    await sleep(400)
+    const toggled = await p.evaluate((n) => ({ nav: window.__nav.slice(n), requests: window.__requests.map((q) => q.url).filter((u) => u.includes("/flows/f2/status")), on: document.querySelector('[data-flow-row="f2"] [role=switch]').getAttribute("aria-checked") }), navBefore)
+    expect(toggled.requests.length === 1 && toggled.on === "true" && !toggled.nav.some((l) => /(push|link) \/app\/emails\/flow\/f2/.test(l)), "an automation is switched on from its row without opening it", toggled)
+
+    expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
+    await p.close()
+  }
+
+  /* ── A contact, opened from its row ─────────────────────────────────── */
+  const contactFrames = (p, ms) => p.evaluate((ms) => {
+    window.__cf = []
+    window.__tapAt = null
+    const at = () => { if (window.__tapAt === null) window.__tapAt = performance.now() }
+    document.addEventListener("touchend", at, { capture: true, once: true })
+    document.addEventListener("click", at, { capture: true, once: true })
+    const t0 = performance.now()
+    const tick = () => {
+      const panel = [...document.querySelectorAll("[data-sheet-panel], aside[role=dialog]")].find((x) => [...x.querySelectorAll("h3")].some((h) => h.textContent === "Automations"))
+      const r = panel?.getBoundingClientRect()
+      window.__cf.push({
+        t: performance.now(),
+        top: r ? Math.round(r.top) : null,
+        h: r ? Math.round(r.height) : null,
+        busy: panel ? panel.querySelectorAll("[aria-busy]").length : 0,
+        runs: panel ? panel.querySelectorAll("li").length : 0,
+      })
+      if (performance.now() - t0 < ms) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }, ms)
+  const readContact = (p) => p.evaluate(() => ({ frames: window.__cf, tapAt: window.__tapAt, asked: window.__runsAsked || [] }))
+  const rowSpot = (p, n) => p.evaluate((n) => {
+    const td = document.querySelector(`section[aria-label=Subscribers] tbody tr:nth-child(${n}) td:nth-child(2)`)
+    td.scrollIntoView({ block: "center" })
+    const r = td.getBoundingClientRect()
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+  }, n)
+  const opening = ({ frames, tapAt }) => {
+    const seen = frames.filter((f) => tapAt !== null && f.t >= tapAt && f.top !== null)
+    const first = seen[0]
+    const tops = seen.map((f) => f.top)
+    let turns = 0
+    for (let i = 2; i < tops.length; i++) if (Math.sign(tops[i] - tops[i - 1]) * Math.sign(tops[i - 1] - tops[i - 2]) < 0) turns++
+    const rest = seen.find((f, i) => i > 0 && f.top === tops.at(-1) && seen[i - 1].top === f.top)
+    return {
+      ms: first ? Math.round(first.t - tapAt) : null,
+      firstTop: first?.top ?? null,
+      firstBusy: first?.busy ?? null,
+      firstRuns: first?.runs ?? null,
+      heights: [...new Set(seen.map((f) => f.h))],
+      /* Sub-pixel rounding of a moving box can read a pixel either way. */
+      heightSpread: seen.length ? Math.max(...seen.map((f) => f.h)) - Math.min(...seen.map((f) => f.h)) : null,
+      runs: [...new Set(seen.map((f) => f.runs))],
+      busyFrames: seen.filter((f) => f.busy > 0).length,
+      rising: tops.every((t, i) => i === 0 || t <= tops[i - 1]),
+      turns,
+      restTop: tops.at(-1),
+      riseMs: rest && first ? Math.round(rest.t - first.t) : null,
+      frames: seen.length,
+    }
+  }
+
+  console.log("\na contact, 390 wide")
+  {
+    const { p, errors } = await openPage({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 })
+    await sleep(300)
+    const closedSheets = await p.evaluate(() => document.querySelectorAll("[data-sheet-panel]").length)
+    expect(closedSheets === 0, "no sheet is in the page until one is opened", closedSheets)
+
+    /* A thumb on the second row (person1, who has two automations), resting a moment, then up. */
+    const spot = await rowSpot(p, 2)
+    await contactFrames(p, 1100)
+    await p.touchscreen.touchStart(spot.x, spot.y)
+    await sleep(RUNS_DELAY_MS + 40)
+    await p.touchscreen.touchEnd()
+    await sleep(1100)
+    const a = await readContact(p)
+    const o = opening(a)
+    console.log(`  ..    tap to the sheet's first frame ${o.ms}ms, its top at ${o.firstTop}px (of 844) with ${o.firstRuns} runs laid out and ${o.firstBusy} loading blocks; rose to ${o.restTop}px in ${o.riseMs}ms over ${o.frames} frames; heights seen ${JSON.stringify(o.heights)}; turns ${o.turns}`)
+    expect(a.asked[0] === "person1@example.com", "the finger on the row asked for the contact's runs before it lifted", a.asked)
+    expect(o.firstTop !== null && o.firstTop >= 780, "the sheet's first frame is below the screen, not at rest", o.firstTop)
+    expect(o.firstBusy === 0 && o.firstRuns === 2 && o.busyFrames === 0 && o.runs.length === 1, "with its content already laid out on that frame, and nothing popping in after", { firstRuns: o.firstRuns, busyFrames: o.busyFrames, runs: o.runs })
+    expect(o.heightSpread !== null && o.heightSpread <= 1, "at one height on every frame", o.heights)
+    expect(o.rising && o.turns === 0, "rising once, one way, with no second animation", { rising: o.rising, turns: o.turns })
+    expect(o.riseMs !== null && o.riseMs >= 300 && o.riseMs <= 560, "in the shared sheet's time", o.riseMs)
+    await p.screenshot({ path: join(shots, "phone-contact.png") })
+
+    /* Down, with a tap outside it. */
+    await contactFrames(p, 700)
+    await p.touchscreen.tap(195, 60)
+    await sleep(750)
+    const down = (await readContact(p)).frames.filter((f) => f.top !== null)
+    const downTops = down.map((f) => f.top)
+    const gone = await p.evaluate(() => [...document.querySelectorAll("[data-sheet-panel]")].every((x) => x.getBoundingClientRect().top >= 843))
+    console.log(`  ..    down from ${downTops[0]}px to ${downTops.at(-1)}px over ${down.length} frames; content the same on each: ${new Set(down.map((f) => f.runs)).size === 1}`)
+    expect(downTops.every((t, i) => i === 0 || t >= downTops[i - 1]) && new Set(down.map((f) => f.runs)).size === 1 && gone, "a tap outside takes it down, one way, its content unchanged as it goes", downTops.slice(-3))
+
+    /* A quick tap on a contact nobody asked about yet: it waits for the runs, a moment, then rises once. */
+    const quick = await rowSpot(p, 5)
+    await contactFrames(p, 1100)
+    await p.touchscreen.tap(quick.x, quick.y)
+    await sleep(1100)
+    const q = opening(await readContact(p))
+    console.log(`  ..    a quick tap: first frame ${q.ms}ms after it, ${q.firstBusy} loading blocks, "None yet" laid out: ${q.firstRuns === 0 && q.firstBusy === 0}; heights ${JSON.stringify(q.heights)}; turns ${q.turns}`)
+    expect(q.firstBusy === 0 && q.busyFrames === 0 && q.heightSpread <= 1 && q.rising && q.turns === 0, "a quick tap too: the sheet rises once, already filled, at one height", q)
+    expect(q.ms !== null && q.ms <= RUNS_DELAY_MS + 120, "after waiting no longer than the answer took", q.ms)
+    await p.touchscreen.tap(195, 60)
+    await sleep(600)
+
+    /* The first contact again: known now, so it rises at once. */
+    const again = await rowSpot(p, 2)
+    await contactFrames(p, 900)
+    await p.touchscreen.tap(again.x, again.y)
+    await sleep(900)
+    const g = opening(await readContact(p))
+    console.log(`  ..    the same contact again: first frame ${g.ms}ms after the tap, ${g.firstRuns} runs on it`)
+    expect(g.firstRuns === 2 && g.firstBusy === 0 && g.ms !== null && g.ms <= 80, "a contact opened before opens at once, filled", g)
+    expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
+    await p.close()
+  }
+
+  console.log("\na contact, 1280 wide")
+  {
+    const { p, errors } = await openPage({ width: 1280, height: 860 })
+    const spot = await rowSpot(p, 2)
+    /* The pointer rests on the row, as a hand does before it clicks. */
+    await p.mouse.move(spot.x, spot.y)
+    await sleep(RUNS_DELAY_MS + 200)
+    await contactFrames(p, 700)
+    await p.mouse.click(spot.x, spot.y)
+    await sleep(700)
+    const o = opening(await readContact(p))
+    const panel = await p.evaluate(() => { const a = document.querySelector("aside[role=dialog]"); const r = a.getBoundingClientRect(); return { right: Math.round(r.right), width: Math.round(r.width), sheets: document.querySelectorAll("[data-sheet-panel]").length } })
+    console.log(`  ..    the side panel: first frame ${o.ms}ms after the click, ${o.firstRuns} runs and ${o.firstBusy} loading blocks on it; ${panel.width} wide to ${panel.right}`)
+    expect(o.firstBusy === 0 && o.firstRuns === 2 && o.busyFrames === 0 && panel.sheets === 0 && panel.width === 420, "on a computer the side panel opens, filled on its first frame, and no sheet", { o, panel })
+    expect(o.ms !== null && o.ms <= 80, "at once, the pointer resting on the row having asked already", o.ms)
+    await p.screenshot({ path: join(shots, "desktop-contact.png") })
     expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
     await p.close()
   }

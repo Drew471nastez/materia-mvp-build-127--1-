@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
+import { withoutMetadata } from "@/lib/images/compress"
 import { nativeLogOut } from "@/lib/native-bridge"
 import { ReturnLink } from "@/components/navigation/return-link"
 
@@ -204,7 +205,8 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
     setSaveError("")
     try {
       // Auto-compress images that exceed 2MB (common with camera captures)
-      let uploadBlob: Blob = file
+      // A photo that goes up as it came loses its location metadata first
+      let uploadBlob: Blob = await withoutMetadata(file)
       let ext = file.name.split(".").pop() || "jpg"
 
       if (file.size > 2 * 1024 * 1024) {
@@ -218,7 +220,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
       }
 
       const supabase = createClient()
-      const path = `avatars/${userId}.${ext}`
+      const path = `${userId}/avatar.${ext}` // the owner's folder first: storage only lets a person write there
 
       const { error: uploadError } = await supabase.storage
         .from("avatars")
@@ -263,7 +265,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
   const handleSignOut = useCallback(async () => {
     setSigningOut(true)
     const supabase = createClient()
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: "local" })
     if (isNativePlatform()) {
       nativeLogOut()
     } else {
@@ -327,7 +329,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
       const data = await response.json()
       if (response.ok) {
         const supabase = createClient()
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: "local" })
         if (isNativePlatform()) {
           nativeLogOut()
         } else {

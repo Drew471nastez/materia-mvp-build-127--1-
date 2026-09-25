@@ -5,21 +5,33 @@
  */
 
 import { type SupabaseClient } from "@supabase/supabase-js"
-import { STORAGE_BUCKET, PUBLIC_BUCKET, getPlanLimits } from "./plans"
+import { STORAGE_BUCKET, PUBLIC_BUCKET, DIGITAL_BUCKETS, getPlanLimits } from "./plans"
 
 /** Default signed URL expiry: 5 minutes (short-lived for security). */
-const SIGNED_URL_EXPIRY_SECONDS = 300
+export const SIGNED_DOWNLOAD_SECONDS = 300
+const SIGNED_URL_EXPIRY_SECONDS = SIGNED_DOWNLOAD_SECONDS
+
+/** Buckets a download URL may be signed for: the private file buckets, and the public one old lead magnets used. */
+const SIGNABLE_BUCKETS: readonly string[] = [...DIGITAL_BUCKETS, PUBLIC_BUCKET]
 
 /**
  * Generate a signed download URL for a digital asset.
  * Tries the primary bucket first, then fallback buckets.
- * URLs are time-limited (5 min default) so buyers can't share permanent links.
+ * URLs are time-limited (5 min default, never more than an hour) so buyers
+ * can't share permanent links.
+ *
+ * Only ever for a bucket in SIGNABLE_BUCKETS: `preferredBucket` comes from a
+ * database row, and a row naming any other bucket (the private message or
+ * chat attachment buckets, say) is ignored rather than trusted. The URL is
+ * made with `download`, so storage answers with Content-Disposition:
+ * attachment and the file is saved, never rendered, whatever it contains.
  */
 export async function generateSignedDownloadUrl(
   admin: SupabaseClient,
   filePath: string,
   expirySeconds: number = SIGNED_URL_EXPIRY_SECONDS,
   preferredBucket?: string,
+  downloadName?: string | null,
 ): Promise<{ url: string; bucket: string } | null> {
   if (!filePath) {
     console.error("[download] generateSignedDownloadUrl called with empty filePath")
@@ -44,16 +56,24 @@ export async function generateSignedDownloadUrl(
     }
   }
 
-  // Build bucket order: preferred first (if provided), then standard fallbacks
+  /* No path that climbs out of where it says it is. */
+  if (normalizedPath.split("/").some((p) => p === "..")) return null
+
+  const expiry = Math.max(30, Math.min(expirySeconds, 3600))
+  const name = typeof downloadName === "string" ? downloadName.replace(/[\r\n"\\/]/g, "_").trim().slice(0, 180) : ""
+  const options = { download: name || true }
+
+  // Build bucket order: preferred first (if provided and allowed), then standard fallbacks
   const standardBuckets = [STORAGE_BUCKET, "product-files", "digital-assets"]
-  const bucketsToTry = preferredBucket
-    ? [preferredBucket, ...standardBuckets.filter((b) => b !== preferredBucket)]
+  const preferred = preferredBucket && SIGNABLE_BUCKETS.includes(preferredBucket) ? preferredBucket : undefined
+  const bucketsToTry = preferred
+    ? [preferred, ...standardBuckets.filter((b) => b !== preferred)]
     : standardBuckets
 
   for (const bucket of bucketsToTry) {
     const { data, error } = await admin.storage
       .from(bucket)
-      .createSignedUrl(normalizedPath, expirySeconds, { download: true })
+      .createSignedUrl(normalizedPath, expiry, options)
 
     if (!error && data?.signedUrl) {
       return { url: data.signedUrl, bucket }
@@ -61,13 +81,15 @@ export async function generateSignedDownloadUrl(
   }
 
   // Try the original path as-is (might include subfolder structure)
-  for (const bucket of bucketsToTry) {
-    const { data, error } = await admin.storage
-      .from(bucket)
-      .createSignedUrl(filePath, expirySeconds, { download: true })
+  if (filePath !== normalizedPath && !filePath.includes("://") && !filePath.split("/").some((p) => p === "..")) {
+    for (const bucket of bucketsToTry) {
+      const { data, error } = await admin.storage
+        .from(bucket)
+        .createSignedUrl(filePath, expiry, options)
 
-    if (!error && data?.signedUrl) {
-      return { url: data.signedUrl, bucket }
+      if (!error && data?.signedUrl) {
+        return { url: data.signedUrl, bucket }
+      }
     }
   }
 
@@ -111,6 +133,10 @@ export async function logDownloadEvent(
 /**
  * Check rate limiting for downloads based on creator's plan.
  * Returns true if the download is allowed.
+ *
+ * Counts the downloads of THIS creator's files. It used to count every row in
+ * download_events, so once the whole platform passed a free plan's hourly
+ * number, every free creator's downloads were refused for the rest of the hour.
  */
 export async function checkDownloadRateLimit(
   admin: SupabaseClient,
@@ -129,7 +155,8 @@ export async function checkDownloadRateLimit(
 
   const { count, error } = await admin
     .from("download_events")
-    .select("id", { count: "exact", head: true })
+    .select("id, digital_assets!inner(product_id, products!inner(creator_id))", { count: "exact", head: true })
+    .eq("digital_assets.products.creator_id", creatorId)
     .gte("created_at", oneHourAgo)
 
   // If we can't check, allow (fail open for downloads)
@@ -141,6 +168,11 @@ export async function checkDownloadRateLimit(
 /**
  * Check rate limiting for uploads based on creator's plan.
  * Returns { allowed: true } or { allowed: false, reason }.
+ *
+ * digital_assets.uploaded_by holds the auth USER id, so that is what is
+ * counted; filtering it by the creator id (as this did) matched nothing and
+ * never refused anything. Routes use uploadRateLimit
+ * (lib/storage/upload-guard.ts), which counts every upload, pictures too.
  */
 export async function checkUploadRateLimit(
   admin: SupabaseClient,
@@ -148,11 +180,13 @@ export async function checkUploadRateLimit(
 ): Promise<{ allowed: true } | { allowed: false; reason: string }> {
   const { data: creator } = await admin
     .from("creators")
-    .select("subscription_plan_id")
+    .select("subscription_plan_id, user_id")
     .eq("id", creatorId)
     .single()
 
-  const limits = getPlanLimits(creator?.subscription_plan_id)
+  if (!creator?.user_id) return { allowed: true }
+
+  const limits = getPlanLimits(creator.subscription_plan_id)
 
   // Count completed uploads in the last hour
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
@@ -160,7 +194,7 @@ export async function checkUploadRateLimit(
   const { count, error } = await admin
     .from("digital_assets")
     .select("id", { count: "exact", head: true })
-    .eq("uploaded_by", creatorId)
+    .eq("uploaded_by", creator.user_id)
     .gte("created_at", oneHourAgo)
 
   // If we can't check, allow (fail open)

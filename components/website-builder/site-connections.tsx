@@ -55,9 +55,11 @@ export function useSiteActivity({
   recheck?: unknown
   /** New lines from the log, oldest first. Awaited before the next read. */
   onEvents: (events: ActivityEvent[]) => void | Promise<void>
-}): { brief: ConnectionsBrief | null; following: boolean } {
+}): { brief: ConnectionsBrief | null; following: boolean; settled: boolean } {
   const [brief, setBrief] = useState<ConnectionsBrief | null>(null)
   const [ready, setReady] = useState(false)
+  /** The first read has come back, with an answer or without one. */
+  const [settled, setSettled] = useState(false)
   const cursor = useRef<number | null>(null)
   const onEventsRef = useRef(onEvents)
   onEventsRef.current = onEvents
@@ -68,6 +70,7 @@ export function useSiteActivity({
     fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { ready?: boolean; cursor?: number; connections?: ConnectionsBrief } | null) => {
+        if (live) setSettled(true)
         if (!live || !d) return
         if (d.connections) setBrief(d.connections)
         /* Kept across a re-read, so a change made while settings were open
@@ -77,6 +80,7 @@ export function useSiteActivity({
       })
       .catch(() => {
         /* No mark and no following is the honest answer when the question could not be asked. */
+        if (live) setSettled(true)
       })
     return () => {
       live = false
@@ -146,7 +150,7 @@ export function useSiteActivity({
     }
   }, [connected, installId])
 
-  return { brief, following: connected }
+  return { brief, following: connected, settled }
 }
 
 /** Re-renders when the mark's "acted recently" runs out, and not otherwise. */
