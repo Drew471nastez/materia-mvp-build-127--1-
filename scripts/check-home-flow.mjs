@@ -14,10 +14,10 @@
  *              each with how far it has got
  *   AUTOPLAY   on a phone a card 60% on screen plays its hover after 2s and
  *              again every 5s, letting go 1.4s after each; nothing plays off
- *              screen, under a finger, in a hidden tab, with reduced motion,
- *              or anywhere a mouse can hover; while it plays only opacity,
- *              translate, rotate and scale move, frames keep up and no long
- *              task runs
+ *              screen, under a finger, under an open sheet, in a hidden tab,
+ *              with reduced motion, or anywhere a mouse can hover; while it
+ *              plays only opacity, translate, rotate and scale move, frames
+ *              keep up and no long task runs
  *   PLAN       every check is the same 18px light grey circle; white on the
  *              band under "Your Plan" is at least 7:1 at every pixel
  *   THUMBNAILS each quick action's picture is the optimiser's smallest width

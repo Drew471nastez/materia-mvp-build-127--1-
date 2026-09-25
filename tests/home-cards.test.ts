@@ -103,6 +103,7 @@ function main() {
   check("on a phone it plays after two seconds 60% on screen, then every five", /AUTOPLAY_AFTER_MS = 2000/.test(cards) && /AUTOPLAY_EVERY_MS = 5000/.test(cards) && /AUTOPLAY_IN_VIEW = 0\.6/.test(cards) && /new IntersectionObserver/.test(cards))
   check("  and stops off screen, under a finger, in a hidden tab, with a mouse and for reduced motion", /const may = inView && !touching && document\.visibilityState === "visible" && !mouse\.matches && !calm\.matches/.test(cards) && /"touchstart"/.test(cards) && /"visibilitychange"/.test(cards))
   check("  and every timer goes with it", /const stop = \(\) => \{\s*window\.clearTimeout\(start\)\s*window\.clearInterval\(cycle\)/.test(cards))
+  check("  and nothing plays while a sheet covers the page", /hasAttribute\("data-app-sheet-up"\) \|\| document\.body\.hasAttribute\("data-scroll-locked"\)\) return/.test(cards))
   check("all three cards play it", (cards.match(/= useHoverAutoplay</g) ?? []).length === 3)
   check("with reduced motion the bump is off", /prefers-reduced-motion: reduce\) \{\s*\.home-card\[data-bump\]/.test(homeCss))
 
