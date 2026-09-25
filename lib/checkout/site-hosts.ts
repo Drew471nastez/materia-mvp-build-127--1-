@@ -22,11 +22,18 @@ import "server-only"
  */
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
-import { LIVE_STATUSES } from "@/lib/custom-domains/store"
 import { servingHost } from "@/lib/custom-domains/hostname"
 import { checkoutReturnTarget, normalHost } from "./return-url"
 
-type Admin = ReturnType<typeof createAdminClient>
+type Admin = { from: ReturnType<typeof createAdminClient>["from"] }
+
+/**
+ * A domain whose DNS has been seen pointing at us: the same statuses as
+ * LIVE_STATUSES in lib/custom-domains/store.ts, named here so this file does
+ * not pull in that module's cache layer. A domain still being verified is
+ * not an address anybody is sent to.
+ */
+const VERIFIED_STATUSES = ["active", "ssl_provisioning"]
 
 /** A name as a subdomain label, the way getWebsiteShareUrl spells one. */
 function label(name: unknown): string {
@@ -51,18 +58,19 @@ async function rows<T>(read: () => PromiseLike<{ data: unknown; error: unknown }
 }
 
 /** Every host this creator's website answers at. Empty when none can be read. */
-export async function siteHostsFor(creatorId: string, admin: Admin = createAdminClient()): Promise<string[]> {
+export async function siteHostsFor(creatorId: string, admin?: Admin): Promise<string[]> {
   if (!creatorId) return []
+  const db: Admin = admin ?? createAdminClient()
   const main = getMainDomain().toLowerCase()
   const [creators, domains, handles, pastHandles] = await Promise.all([
-    rows<{ slug: string | null; user_id: string | null }>(() => admin.from("creators").select("slug, user_id").eq("id", creatorId).maybeSingle()),
-    rows<{ domain: string | null; status: string | null }>(() => admin.from("custom_domains").select("domain, status").eq("creator_id", creatorId)),
-    rows<{ handle: string | null }>(() => admin.from("website_addresses").select("handle").eq("creator_id", creatorId)),
-    rows<{ handle: string | null }>(() => admin.from("website_address_history").select("handle").eq("creator_id", creatorId)),
+    rows<{ slug: string | null; user_id: string | null }>(() => db.from("creators").select("slug, user_id").eq("id", creatorId).maybeSingle()),
+    rows<{ domain: string | null; status: string | null }>(() => db.from("custom_domains").select("domain, status").eq("creator_id", creatorId)),
+    rows<{ handle: string | null }>(() => db.from("website_addresses").select("handle").eq("creator_id", creatorId)),
+    rows<{ handle: string | null }>(() => db.from("website_address_history").select("handle").eq("creator_id", creatorId)),
   ])
   const creator = creators[0]
   const profiles = creator?.user_id
-    ? await rows<{ username: string | null }>(() => admin.from("profiles").select("username").eq("id", creator.user_id as string).maybeSingle())
+    ? await rows<{ username: string | null }>(() => db.from("profiles").select("username").eq("id", creator.user_id as string).maybeSingle())
     : []
 
   const names = [profiles[0]?.username, creator?.slug, ...handles.map((h) => h.handle), ...pastHandles.map((h) => h.handle)]
@@ -78,7 +86,7 @@ export async function siteHostsFor(creatorId: string, admin: Admin = createAdmin
     for (const n of names) hosts.add(`${n}.${main}`)
   }
   for (const d of domains) {
-    if (typeof d.domain !== "string" || !LIVE_STATUSES.includes(String(d.status))) continue
+    if (typeof d.domain !== "string" || !VERIFIED_STATUSES.includes(String(d.status))) continue
     const bare = normalHost(d.domain).replace(/^www\./, "")
     if (!bare) continue
     hosts.add(bare)

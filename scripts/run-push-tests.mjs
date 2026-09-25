@@ -26,6 +26,7 @@ const SUITES = [
   "tests/canvas-containment.test.ts",
   "tests/agent-rules.test.ts",
   "tests/agent-mcp.test.ts",
+  "tests/agent-brain.test.ts",
   "tests/section-integration.test.ts",
   "tests/site-seo.test.ts",
   "tests/page-seo.test.ts",
