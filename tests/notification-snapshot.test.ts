@@ -285,7 +285,15 @@ async function main() {
     check("the rest still read", one.payouts !== undefined && one.products !== undefined)
   }
   {
-    const recorded: ExistingRow[] = ["sales_1", "sales_10", "sales_100"].map((s, i) => ({ id: `x${i}`, creator_id: "c1", kind: "sales_milestone", category: "milestone", dedupe_key: `sales_milestone:${s}:`, subject_id: s, created_at: ago(100), read_at: null, dismissed_at: null, resolved_at: null, pushed_at: null, metadata: {} }))
+    /* A store with ten thousand products in the batch: the list hits its ceiling. */
+    const t = fixture()
+    t.products = [...t.products, ...Array.from({ length: 10_000 }, (_, i) => ({ id: `big${i}`, creator_id: "c3", title: `Pack ${i}`, status: "published", type: "digital", created_at: ago(30) }))]
+    const s = await supabaseSnapshots(new FakeDb(t)).load(["c1", "c2", "c3"], new Set(["creator", "products", "files"]), new Map(), NOW)
+    check("a batch whose product list hits its ceiling: the creator it could not finish is unknown, not empty", s.get("c3")?.products === undefined && s.get("c3")?.deliverable === undefined)
+    check("and the creators before it are read whole, an empty one as empty", s.get("c1")?.products?.length === 3 && s.get("c2")?.products?.length === 0)
+  }
+  {
+    const recorded: ExistingRow[] =["sales_1", "sales_10", "sales_100"].map((s, i) => ({ id: `x${i}`, creator_id: "c1", kind: "sales_milestone", category: "milestone", dedupe_key: `sales_milestone:${s}:`, subject_id: s, created_at: ago(100), read_at: null, dismissed_at: null, resolved_at: null, pushed_at: null, metadata: {} }))
     const d = new FakeDb(fixture())
     const s = await supabaseSnapshots(d).load(["c1"], new Set(["creator", "sales"]), new Map([["c1", recorded]]), NOW)
     check("every sales milestone recorded: orders are not read at all", !d.reads.includes("orders") && s.get("c1")?.sales?.truncated === true, d.reads)

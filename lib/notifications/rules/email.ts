@@ -105,13 +105,16 @@ export const subscribersNotEmailed: Rule = {
     if (ageDays(s.creator.createdAt, s.now) < QUIET_DAYS) return []
     const since = ageDays(s.lastCampaignSentAt, s.now)
     if (since < QUIET_DAYS) return []
-    const never = s.lastCampaignSentAt === null
+    /* No send in the window the loader reads (400 days): "yet" for an account younger than that, "in over a year" for an older one. */
+    const none = s.lastCampaignSentAt === null
+    const young = ageDays(s.creator.createdAt, s.now) < 400
+    const who = plural(n, "subscriber", "subscribers")
     return [
       {
         subject: "list",
         period: monthKey(s.now),
-        title: never ? `${plural(n, "subscriber", "subscribers")} and no email sent yet` : `${plural(n, "subscriber", "subscribers")} have not heard from you in ${Math.floor(since)} days`,
-        line: never ? `${plural(n, "subscriber", "subscribers")}, never emailed` : `${plural(n, "subscriber", "subscribers")}, no email in ${Math.floor(since)} days`,
+        title: !none ? `${who} have not heard from you in ${Math.floor(since)} days` : young ? `${who} and no email sent yet` : `${who} and no email in over a year`,
+        line: !none ? `${who}, no email in ${Math.floor(since)} days` : young ? `${who}, never emailed` : `${who}, no email in a year`,
         message: "A short note about what is new is often enough to bring buyers back.",
         href: "/app/emails/new",
         area: "Emails",

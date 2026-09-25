@@ -189,7 +189,7 @@ export interface CreatorSnapshot {
   domains?: DomainFacts[]
   /** Scheduled campaigns that failed or partly failed in the last 14 days. */
   failedCampaigns?: CampaignFacts[]
-  /** When the last campaign went out, or null when none ever has. */
+  /** When the last campaign went out, or null when none has in the last 400 days (snapshot.ts SENT_WINDOW_DAYS). */
   lastCampaignSentAt?: string | null
   emailHealth?: EmailHealth
   subscribers?: SubscriberFacts

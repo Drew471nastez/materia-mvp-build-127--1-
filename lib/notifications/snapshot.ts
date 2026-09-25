@@ -39,6 +39,8 @@ type Row = Record<string, any> // eslint-disable-line @typescript-eslint/no-expl
 
 /** Sale rows read per creator, oldest first: past the 100th sale for any real basket size. */
 export const SALES_READ = 400
+/** How far back a campaign counts as the last one sent; older reads as none lately. */
+export const SENT_WINDOW_DAYS = 400
 const PAGE = 1000
 const MAX_PAGES = 10
 /** Queries a batch runs side by side. */
@@ -58,6 +60,22 @@ async function readAll(make: () => any): Promise<Row[] | null> { // eslint-disab
     if (rows.length < PAGE) break
   }
   return out
+}
+
+/**
+ * A batch's rows of one kind, ordered by creator first, and which creators
+ * they are complete for. A list that reaches the ceiling (a store with
+ * thousands of products in the batch) is cut: the last creator in it may be
+ * partial and the ones after it were not reached, so those are left out,
+ * unknown for this run, rather than read as having nothing. Creator ids
+ * sort the same as text and as uuids.
+ */
+async function readByCreator(make: () => any, ids: string[]): Promise<{ rows: Row[]; known: Set<string> } | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  const rows = await readAll(make)
+  if (!rows) return null
+  if (rows.length < PAGE * MAX_PAGES) return { rows, known: new Set(ids) }
+  const last = String(rows[rows.length - 1].creator_id)
+  return { rows: rows.filter((r) => r.creator_id !== last), known: new Set(ids.filter((id) => id < last)) }
 }
 
 async function count(q: any): Promise<number | null> { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -132,11 +150,15 @@ export function supabaseSnapshots(db: Db): SnapshotSource {
 
       /* ─── Products and their files ──────────────────────────────── */
       if (want("products") || want("files") || want("traffic") || want("reviews")) {
-        const products = await readAll(() =>
-          db.from("products").select("id, creator_id, title, status, type, created_at").in("creator_id", ids).order("created_at", { ascending: true }).order("id"),
+        const read = await readByCreator(
+          () => db.from("products").select("id, creator_id, title, status, type, created_at").in("creator_id", ids).order("creator_id").order("created_at", { ascending: true }).order("id"),
+          ids,
         )
-        if (products) {
-          each((s) => (s.products = []))
+        const products = read?.rows ?? null
+        if (read && products) {
+          each((s, id) => {
+            if (read.known.has(id)) s.products = []
+          })
           for (const p of products) {
             snaps.get(p.creator_id)?.products?.push({ id: p.id, title: p.title ?? "", status: p.status ?? null, type: p.type ?? null, createdAt: p.created_at ?? null } satisfies ProductFacts)
           }
@@ -157,7 +179,7 @@ export function supabaseSnapshots(db: Db): SnapshotSource {
                 if (a.file_path && uploaded && !blocked) deliverable.add(a.product_id)
               }
             }
-            if (ok) each((s) => (s.deliverable = (s.products ?? []).filter((p) => deliverable.has(p.id)).map((p) => p.id)))
+            if (ok) each((s) => (s.deliverable = s.products ? s.products.filter((p) => deliverable.has(p.id)).map((p) => p.id) : undefined))
           }
         }
       }
@@ -213,7 +235,10 @@ export function supabaseSnapshots(db: Db): SnapshotSource {
           readAll(() =>
             db.from("email_campaigns").select("id, creator_id, subject, status, scheduled_at, created_at").in("creator_id", ids).in("status", ["failed", "partially_failed"]).not("scheduled_at", "is", null).gte("created_at", iso(now - 30 * DAY_MS)).order("id"),
           ),
-          readAll(() => db.from("email_campaigns").select("creator_id, sent_at").in("creator_id", ids).not("sent_at", "is", null).order("sent_at", { ascending: false }).order("id")),
+          /* The sends of the last SENT_WINDOW_DAYS only: a creator who emails daily has thousands of rows, and older than that reads as "none lately". */
+          readAll(() =>
+            db.from("email_campaigns").select("creator_id, sent_at").in("creator_id", ids).not("sent_at", "is", null).gte("sent_at", iso(now - SENT_WINDOW_DAYS * DAY_MS)).order("sent_at", { ascending: false }).order("id"),
+          ),
         ])
         if (failed) {
           each((s) => (s.failedCampaigns = []))
@@ -290,20 +315,26 @@ export function supabaseSnapshots(db: Db): SnapshotSource {
 
       /* ─── Traffic: the daily rollups ────────────────────────────── */
       if (want("traffic")) {
-        const rollups = await readAll(() =>
-          db
-            .from("analytics_daily_rollups")
-            .select("creator_id, product_id, total_views, total_orders, rollup_date")
-            .in("creator_id", ids)
-            .not("product_id", "is", null)
-            .gte("rollup_date", day(now - 15 * DAY_MS))
-            .lt("rollup_date", day(now))
-            .order("rollup_date")
-            .order("id"),
+        const read = await readByCreator(
+          () =>
+            db
+              .from("analytics_daily_rollups")
+              .select("creator_id, product_id, total_views, total_orders, rollup_date")
+              .in("creator_id", ids)
+              .not("product_id", "is", null)
+              .gte("rollup_date", day(now - 15 * DAY_MS))
+              .lt("rollup_date", day(now))
+              .order("creator_id")
+              .order("rollup_date")
+              .order("id"),
+          ids,
         )
+        const rollups = read?.rows ?? null
         /* No rows at all for the batch: the rollup job may not be running, so say nothing. */
-        if (rollups && rollups.length > 0) {
-          each((s) => (s.traffic = { views14: {}, orders14: {}, soldRecently: [] }))
+        if (read && rollups && rollups.length > 0) {
+          each((s, id) => {
+            if (read.known.has(id)) s.traffic = { views14: {}, orders14: {}, soldRecently: [] }
+          })
           for (const r of rollups) {
             const t = snaps.get(r.creator_id)?.traffic
             if (!t) continue

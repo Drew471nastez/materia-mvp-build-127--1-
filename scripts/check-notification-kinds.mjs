@@ -55,7 +55,8 @@ const read = (p) =>
   p.evaluate(() => {
     const vis = (el) => el && el.getBoundingClientRect().width > 0 && getComputedStyle(el).visibility !== "hidden"
     const list = [...document.querySelectorAll("[data-notifications-list]")].find(vis)
-    const items = list ? [...list.querySelectorAll("[data-notification-item]")] : []
+    /* The rows that are showing: a view hides the rest (`hidden`), it does not remove them. */
+    const items = list ? [...list.querySelectorAll("[data-notification-item]")].filter((i) => !i.hidden && i.getBoundingClientRect().height > 0) : []
     const box = list?.closest("[data-notifications-panel], [role=dialog]") ?? null
     const red = box
       ? [...box.querySelectorAll("*")].filter(vis).filter((el) => {
