@@ -39,7 +39,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   },
   growth: {
     storageQuotaBytes: 25 * 1024 * 1024 * 1024, // 25 GB
-    maxFileSizeBytes: 50 * 1024 * 1024 * 1024, // 50 GB
+    maxFileSizeBytes: 10 * 1024 * 1024 * 1024, // 10 GB: the per-file ceiling on every plan (lib/storage/security MAX_DIGITAL_PRODUCT_FILE_SIZE)
     maxDownloadsPerLink: 100,
     linkExpiryDays: 90,
     maxFilesPerProduct: 100,
@@ -47,7 +47,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   },
   pro: {
     storageQuotaBytes: 100 * 1024 * 1024 * 1024, // 100 GB
-    maxFileSizeBytes: Number.MAX_SAFE_INTEGER, // unlimited
+    maxFileSizeBytes: 10 * 1024 * 1024 * 1024, // 10 GB, the same ceiling
     maxDownloadsPerLink: 9999,
     linkExpiryDays: 365,
     maxFilesPerProduct: 100,

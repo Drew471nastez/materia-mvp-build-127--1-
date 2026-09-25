@@ -1,4 +1,5 @@
 import { notFound, permanentRedirect } from "next/navigation"
+import { listPrice } from "@/lib/pricing/list-price"
 import { plainSummary } from "@/lib/html-entities"
 import { productIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
@@ -821,6 +822,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       currency: "USD",
     }).format(cents / 100)
   }
+  /* The price under the title: free, pay what you want, or a price and its saving, by the rule every card uses. */
+  const headerPrice = listPrice({
+    price_cents: product.price_cents,
+    compare_at_cents: product.compare_at_cents,
+    pay_what_you_want: (product as { pay_what_you_want?: boolean | null }).pay_what_you_want ?? null,
+    pwyw_min_price_cents: (product as { pwyw_min_price_cents?: number | null }).pwyw_min_price_cents ?? null,
+  }, formatPrice)
 
   const creatorInitials = creatorProfile?.display_name
     ?.split(" ")
@@ -1071,19 +1079,17 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     className="text-2xl font-bold"
                     style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
                   >
-                    {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
+                    {headerPrice.main}
                   </div>
-                  {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+                  {headerPrice.was && (
                     <div className="flex items-center gap-2">
                       <span
                         className="text-base line-through"
                         style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
                       >
-                        {formatPrice(product.compare_at_cents)}
+                        {headerPrice.was}
                       </span>
-                      <Badge variant="destructive">
-                        {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
-                      </Badge>
+                      {headerPrice.off != null && <Badge variant="destructive">{headerPrice.off}% OFF</Badge>}
                     </div>
                   )}
                 </div>
@@ -1427,19 +1433,17 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   className="text-2xl font-bold tracking-tight"
                   style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
                 >
-                  {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
+                  {headerPrice.main}
                 </div>
-                {!!product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+                {headerPrice.was && (
                   <div className="flex items-center gap-2">
                     <span
                       className="text-base line-through"
                       style={{ color: themeColors.cardPriceColor || "var(--muted-foreground)" }}
                     >
-                      {formatPrice(product.compare_at_cents)}
+                      {headerPrice.was}
                     </span>
-                    <Badge variant="destructive">
-                      {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
-                    </Badge>
+                    {headerPrice.off != null && <Badge variant="destructive">{headerPrice.off}% OFF</Badge>}
                   </div>
                 )}
               </div>

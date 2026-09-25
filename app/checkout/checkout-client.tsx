@@ -342,8 +342,9 @@ export default function CheckoutPageClient({
     }
   }
 
-  const createIntent = async (contact?: { email?: string; name?: string }): Promise<IntentResult> => {
-    const res = await postJson<IntentResult>("/api/checkout/stripe-session", orderBody(contact))
+  const createIntent = async (contact?: { email?: string; name?: string }, methods?: string[]): Promise<IntentResult> => {
+    /* The ways to pay the form loaded with: the PaymentIntent is made for exactly those (lib/checkout/payment-methods). */
+    const res = await postJson<IntentResult>("/api/checkout/stripe-session", { ...orderBody(contact), paymentMethods: methods })
     if (!res.ok || !res.data.clientSecret) {
       const field = res.data.field as keyof BusinessDetails | undefined
       if (field) setBusinessErrors({ [field]: res.data.error || "Check this field." })

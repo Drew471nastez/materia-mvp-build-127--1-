@@ -9,7 +9,7 @@ import {
   readStoredHead,
   storedObjectSize,
 } from "@/lib/storage/upload-guard"
-import { scanFile } from "@/lib/storage/security"
+import { MAX_DIGITAL_PRODUCT_FILE_SIZE, scanFile } from "@/lib/storage/security"
 import { sniff } from "@/lib/storage/file-signature"
 import { scanAsset } from "@/lib/storage/scan-gate"
 
@@ -100,6 +100,11 @@ export async function POST(request: NextRequest) {
         await admin.storage.from(bucket).remove([pending.file_path]).catch(() => undefined)
         await admin.from("digital_assets").update({ upload_status: "failed", updated_at: new Date().toISOString() }).eq("id", pending.id)
         return NextResponse.json({ error: reason }, { status, headers: UPLOAD_HEADERS })
+      }
+
+      /* The 10 GB per file ceiling, on what arrived rather than what was declared. */
+      if (realSize > MAX_DIGITAL_PRODUCT_FILE_SIZE) {
+        return discard("That file is over 10 GB, the most one file can be.", 413)
       }
 
       /* Only the bytes beyond what was declared count as new here: the

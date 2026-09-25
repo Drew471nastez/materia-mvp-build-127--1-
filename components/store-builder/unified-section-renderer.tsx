@@ -75,6 +75,9 @@ export interface ProductData {
   thumbnail_url?: string | null
   price_cents: number
   compare_at_cents?: number
+  /* Pay what you want, listed from its minimum (lib/pricing/list-price). */
+  pay_what_you_want?: boolean | null
+  pwyw_min_price_cents?: number | null
   sales_count?: number
   description?: string | null
   whats_included?: string[]

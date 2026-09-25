@@ -29,6 +29,7 @@ import { Elements, ExpressCheckoutElement, LinkAuthenticationElement, PaymentEle
 import type { Appearance, StripeElementsOptions, StripeError } from "@stripe/stripe-js"
 import { cn } from "@/lib/utils"
 import { getStripePromise } from "./stripe-loader"
+import { METHOD_SETS, type CheckoutMethod } from "@/lib/checkout/payment-methods"
 import { OrDivider, PayButton } from "./ui"
 
 export const stripeAppearance: Appearance = {
@@ -83,7 +84,7 @@ export interface StripePayProps {
   onEmail: (email: string) => void
   /** What stops a payment, before anything is sent. Wallets bring their own name and email. */
   check: (mode: "card" | "express") => string | null
-  createIntent: (contact?: { email?: string; name?: string }) => Promise<IntentResult>
+  createIntent: (contact?: { email?: string; name?: string }, methods?: CheckoutMethod[]) => Promise<IntentResult>
   payerName: () => string
   onPaid: (paymentIntentId: string, status: string) => Promise<void>
   onError: (message: string | null) => void
@@ -97,19 +98,26 @@ export interface StripePayProps {
 }
 
 export function StripePay(props: StripePayProps) {
+  /* Which of the method lists this form is on (lib/checkout/payment-methods): the first, until Stripe refuses it. */
+  const [setIndex, setSetIndex] = React.useState(0)
+  const methods = METHOD_SETS[setIndex] as CheckoutMethod[]
   const options = React.useMemo<StripeElementsOptions>(
     () => ({
       mode: "payment",
       amount: props.amountCents,
       currency: "usd",
+      paymentMethodTypes: methods,
       appearance: stripeAppearance,
       fonts: FONTS,
     }),
-    [props.amountCents],
+    [props.amountCents, methods],
   )
+  const fallBack = React.useCallback(() => {
+    setSetIndex((i) => (i < METHOD_SETS.length - 1 ? i + 1 : i))
+  }, [])
   return (
-    <Elements stripe={getStripePromise()} options={options}>
-      <StripePayInner {...props} />
+    <Elements key={setIndex} stripe={getStripePromise()} options={options}>
+      <StripePayInner {...props} methods={methods} onRefused={setIndex < METHOD_SETS.length - 1 ? fallBack : undefined} />
     </Elements>
   )
 }
@@ -122,6 +130,8 @@ function returnUrl(): string {
 }
 
 function StripePayInner({
+  methods,
+  onRefused,
   creatorName,
   email,
   onEmail,
@@ -135,7 +145,7 @@ function StripePayInner({
   payLabel,
   contactExtra,
   beforePay,
-}: StripePayProps) {
+}: StripePayProps & { methods: CheckoutMethod[]; onRefused?: () => void }) {
   const stripe = useStripe()
   const elements = useElements()
   /** null while the wallets are being asked; then whether any can pay. */
@@ -157,7 +167,7 @@ function StripePayInner({
         onError(paymentErrorText(submitError))
         return
       }
-      const intent = await createIntent()
+      const intent = await createIntent(undefined, methods)
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         clientSecret: intent.clientSecret,
@@ -203,7 +213,7 @@ function StripePayInner({
                 layout: { maxColumns: 3, maxRows: 2, overflow: "auto" },
                 emailRequired: true,
                 business: { name: creatorName },
-                paymentMethods: { applePay: "auto", googlePay: "auto", link: "auto", paypal: "auto", amazonPay: "never", klarna: "never" },
+                paymentMethods: { applePay: "auto", googlePay: "auto", link: "auto", paypal: "never", amazonPay: "never", klarna: "never" },
               }}
               onReady={(e) => {
                 const available = e.availablePaymentMethods
@@ -233,7 +243,7 @@ function StripePayInner({
                   const walletEmail = e.billingDetails?.email || email
                   const walletName = e.billingDetails?.name || payerName()
                   if (walletEmail && walletEmail !== email) onEmail(walletEmail)
-                  const intent = await createIntent({ email: walletEmail, name: walletName })
+                  const intent = await createIntent({ email: walletEmail, name: walletName }, methods)
                   const { error, paymentIntent } = await stripe.confirmPayment({
                     elements,
                     clientSecret: intent.clientSecret,
@@ -279,6 +289,8 @@ function StripePayInner({
         <div className={cn("min-h-[180px] rounded-[10px] transition-opacity duration-200", !paymentReady && "checkout-shimmer")}>
           <PaymentElement
             onReady={() => setPaymentReady(true)}
+            /* Stripe refused this list of methods: the next one, which it takes. */
+            onLoadError={() => onRefused?.()}
             options={{
               layout: { type: "accordion", defaultCollapsed: false, radios: false, spacedAccordionItems: true },
               fields: { billingDetails: { name: "never", email: "never" } },
