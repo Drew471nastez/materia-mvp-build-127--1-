@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { CreateCouponClient } from "./create-coupon-client"
+import { CouponEditor } from "../coupon-editor"
 import { loadCouponArea } from "../load-coupons"
 
 export const dynamic = "force-dynamic"
@@ -13,12 +13,16 @@ interface PageProps {
   searchParams: Promise<{ edit?: string }>
 }
 
-/** A new code. The old `?edit=<id>` address goes to the code's own page. */
+/**
+ * A new code, drawn on the server with the products it can be limited to,
+ * so the editor is whole on its first frame. The old `?edit=<id>` address
+ * goes to the code's own page.
+ */
 export default async function NewCouponPage({ searchParams }: PageProps) {
   const { edit } = await searchParams
   if (edit) redirect(`/app/coupons/${encodeURIComponent(edit)}`)
   const load = await loadCouponArea(null)
   if (load.state === "signed-out") return null
   if (load.state === "no-creator") redirect("/signup/success")
-  return <CreateCouponClient products={load.products} initialCoupon={null} />
+  return <CouponEditor products={load.products} initialCoupon={null} />
 }

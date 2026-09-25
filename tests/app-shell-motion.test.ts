@@ -150,6 +150,9 @@ section("A slow page: no outline, a spinner")
   check("never for the product editor, new or saved, at any width",
     ["/app/products/new", "/app/products/8f0c2b1e-3a4d-4c5e-9f60-718293a4b5c6", "/app/products/abc/", "/app/products/new?from=x"]
       .every((h) => !waitsWithSpinner(h) && spinnerDelay(h, true) === null && spinnerDelay(h, false) === null))
+  check("nor for the coupon editor, which is framed the same way; the Coupons list still waits with it",
+    ["/app/coupons/new", "/app/coupons/8f0c2b1e-3a4d-4c5e-9f60-718293a4b5c6"].every((h) => !waitsWithSpinner(h) && spinnerDelay(h, true) === null)
+      && spinnerDelay("/app/coupons", true) === 500)
   check("nor for a page drawn over the whole shell, nor outside /app, nor an unknown address",
     !waitsWithSpinner("/app/settings/billing/upgrade") && !waitsWithSpinner("/explore") && !waitsWithSpinner("/application") && !waitsWithSpinner(null))
   check("no page draws an outline of itself on the way: the route outlines are gone",

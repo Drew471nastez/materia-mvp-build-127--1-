@@ -1,18 +1,29 @@
 /**
- * The Coupons list and the coupon form (app/app/coupons), with a creator's
- * worth of codes in every state, for scripts/check-coupons-page.mjs.
- * `?form` mounts the form for a new code, `?edit` the form for a saved one.
+ * The Coupons list and the coupon editor (app/app/coupons), with a creator's
+ * worth of codes in every state, for scripts/check-coupons-page.mjs. The
+ * editor is drawn through its real layouts (../new/layout, ../[id]/layout),
+ * in a shell shaped like app/app/layout.tsx: the phone header and the
+ * desktop header ([data-shell-chrome], z 50), the rail, and a nav pill at
+ * z 55, as scripts/render-page-layer.tsx draws them.
+ *
+ *   ?page=list | new | edit     which page (list by default; `?form` and
+ *                               `?edit` still work, as before)
+ *
+ * The API is stood in for: window.fetch records what the editor sends in
+ * window.__sent and answers as the routes do.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
 import { CouponsClient, type Coupon } from "@/app/app/coupons/coupons-client"
-import { CreateCouponClient } from "@/app/app/coupons/new/create-coupon-client"
+import { CouponEditor } from "@/app/app/coupons/coupon-editor"
+import NewCouponLayout from "@/app/app/coupons/new/layout"
+import EditCouponLayout from "@/app/app/coupons/[id]/layout"
 
 const day = 86_400_000
 const at = (d: number) => new Date(Date.now() + d * day).toISOString()
-const PIC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#c7b8f5"/></svg>')
+const PIC = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#d9dbe0"/></svg>')
 
-const products = Array.from({ length: 6 }, (_, i) => ({
+const products = Array.from({ length: 8 }, (_, i) => ({
   id: `0000000${i}-0000-4000-8000-000000000000`,
   title: i === 1 ? "The complete portrait retouching course, with every raw file" : `Product ${i + 1}`,
   price_cents: 1200 + i * 500,
@@ -30,17 +41,44 @@ const coupons: Coupon[] = [
   { ...base, id: "a6", code: "PORTRAIT15", discount_type: "percentage", discount_value: 15, product_ids: [products[1].id], is_active: false },
 ]
 
-const q = location.search
+type Sent = { url: string; method: string; body: unknown }
+const w = window as unknown as { __sent: Sent[]; __answer?: { status: number; body: unknown } }
+w.__sent = []
+window.fetch = (async (url: string, init?: RequestInit) => {
+  const body = init?.body ? JSON.parse(String(init.body)) : null
+  w.__sent.push({ url: String(url), method: init?.method || "GET", body })
+  const answer = w.__answer ?? { status: init?.method === "POST" ? 201 : 200, body: init?.method === "DELETE" ? { ok: true } : { coupon: { ...base, id: "new1", ...(body as object) } } }
+  return new Response(JSON.stringify(answer.body), { status: answer.status, headers: { "content-type": "application/json" } })
+}) as typeof fetch
+
+const q = new URLSearchParams(location.search)
+const which = q.get("page") || (q.has("form") ? "new" : q.has("edit") ? "edit" : "list")
+const saved = { ...coupons[0], product_ids: [products[0].id, products[1].id] }
+
+function Page() {
+  if (which === "new") return <NewCouponLayout><CouponEditor products={products} initialCoupon={null} /></NewCouponLayout>
+  if (which === "edit") return <EditCouponLayout><CouponEditor products={products} initialCoupon={saved} /></EditCouponLayout>
+  return <CouponsClient creatorId="c1" initialCoupons={coupons} products={products} />
+}
+
 createRoot(document.getElementById("app")!).render(
-  <div style={{ position: "fixed", inset: 0 }}>
-    <div className="h-full app-content-scroll">
-      {q.includes("form") ? (
-        <CreateCouponClient products={products} initialCoupon={null} />
-      ) : q.includes("edit") ? (
-        <CreateCouponClient products={products} initialCoupon={{ ...coupons[0], product_ids: [products[0].id, products[1].id] }} />
-      ) : (
-        <CouponsClient creatorId="c1" initialCoupons={coupons} products={products} />
-      )}
+  <div className="h-svh overflow-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar">
+    <header data-shell-chrome="" data-desktop-header="" className="fixed left-0 right-0 top-0 z-50 hidden pt-[env(safe-area-inset-top,_0px)] md:block">
+      <div className="h-[58px] bg-[#131316]" />
+    </header>
+    <header data-shell-chrome="" className="fixed left-0 right-0 top-0 z-50 bg-[#111111] md:hidden" style={{ height: "calc(68px + env(safe-area-inset-top, 0px))", transform: "translateZ(0)" }}>
+      <div className="flex h-[68px] items-center px-4" style={{ marginTop: "env(safe-area-inset-top, 0px)" }}>
+        <span className="text-[13px] text-white/90">AndrewRullz</span>
+      </div>
+    </header>
+    <aside data-shell-chrome="" data-rail="" className="fixed left-0 z-40 hidden w-[240px] bg-white md:flex" style={{ top: "calc(58px + env(safe-area-inset-top, 0px))", height: "calc(100svh - 58px - env(safe-area-inset-top, 0px))" }} />
+    <div data-app-nav-pill="" className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex items-end justify-center md:hidden" style={{ paddingBottom: "max(4px, env(safe-area-inset-bottom, 0px))" }}>
+      <button data-pill-tab="" className="pointer-events-auto mb-1.5 h-[58px] w-[300px] rounded-full bg-black" />
     </div>
+    <main className="h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[240px] bg-[#f8f9fa] md:bg-white rounded-t-[20px] md:rounded-none overflow-hidden app-main-content">
+      <div className="h-[calc(100svh_-_68px_-_env(safe-area-inset-top,_0px))] md:h-[calc(100svh-58px-env(safe-area-inset-top,_0px))] overflow-y-auto app-content-scroll">
+        <Page />
+      </div>
+    </main>
   </div>,
 )
