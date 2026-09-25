@@ -485,7 +485,10 @@ section("Sheets")
     /function leaveBehind\(root: HTMLElement, fromY: number, height: number, scrimOpacity: number\)/.test(sheet)
       && /useLayoutEffect\(\(\) => \{\s*const leave = leaveRef\s*return \(\) => leave\.current\(\)\s*\}, \[\]\)/.test(sheet)
       && /ghost\.setAttribute\("inert", ""\)/.test(sheet) && /a\.onfinish = done/.test(sheet))
-  check("a closing sheet gives the tap back at once", /style=\{isOpen \? undefined : \{ pointerEvents: "none" \}\}/.test(sheet))
+  /* ... and a kept sheet at rest is out of sight and takes no tap at all (REST_STYLE). */
+  check("a closing sheet gives the tap back at once",
+    /style=\{isOpen \? undefined : atRest \? REST_STYLE : \{ pointerEvents: "none" \}\}/.test(sheet)
+      && /const REST_STYLE: React\.CSSProperties = \{ visibility: "hidden", pointerEvents: "none" \}/.test(sheet))
   check("it opens over 440ms on the iOS curve and closes over 340ms on an ease in and out; a flick keeps the iOS curve",
     SHEET_OPEN_MS === 440 && SHEET_CLOSE_MS === 340 && SHEET_EASE === "cubic-bezier(0.32, 0.72, 0, 1)" && SHEET_CLOSE_EASE === "cubic-bezier(0.4, 0, 0.2, 1)"
       && /\}, v > 0 \? EASE : CLOSE_EASE\)/.test(sheet) && /\}, velocity > 0 \? EASE : CLOSE_EASE\)/.test(sheet))
@@ -515,12 +518,16 @@ section("Sheets")
   check("the account sheet decodes its photo ahead, and its links do not prefetch as they slide in",
     /preloadAvatar\(avatarSrc, 40\)/.test(menu) && /prefetch=\{false\}/.test(menu) && /SHEET_OPEN_MS \+ 60/.test(menu))
   const sheetCss = read("app/globals.css")
-  check("no sheet rule ends in a bare `*`, which restyled the whole document on every open and close",
-    !/html:has\([^{]*\) \[data-app-nav-pill\] \*/.test(sheetCss) && /\[data-app-nav-pill\] :is\(a, button, \.pointer-events-auto\)/.test(sheetCss))
+  /* The shared sheet is found by an attribute on <html>, not by :has(): a :has() on the root that changes its
+     answer restyled all 590 elements of the home page on every open and close (scripts/check-app-sheets-frames.mjs). */
+  check("no sheet rule ends in a bare `*` (the whole document) nor in `a, button` (every link and button in it), and the shared sheet is not found by :has()",
+    !/html:has\([^{]*\) \[data-app-nav-pill\] \*/.test(sheetCss) && /html\[data-app-sheet-up="open"\] \[data-app-nav-pill\] \.pointer-events-auto,/.test(sheetCss)
+      && !/\[data-app-nav-pill\] :is\(a, button/.test(sheetCss) && !/:has\(\[data-app-sheet/.test(sheetCss)
+      && /showSheetState\(key, pageState\)/.test(sheet) && /html\.setAttribute\("data-app-sheet-up", up\)/.test(sheet) && /data-sheet-root=""/.test(sheet))
   const css = read("app/globals.css")
   check("the pill is never hidden, faded or dropped under the page for a sheet",
-    /html:has\(\[data-app-sheet\]\) \[data-app-nav-pill\],[\s\S]{0,200}z-index: 39;/.test(css)
-      && !/html:has\(\[data-app-sheet[^\]]*\]\)[^{]*\[data-app-nav-pill\][^{]*\{[^}]*(opacity|visibility|display|transform)/.test(css))
+    /html\[data-app-sheet-up\] \[data-app-nav-pill\],[\s\S]{0,300}z-index: 39;/.test(css)
+      && !/html\[data-app-sheet-up[^\]]*\][^{]*\[data-app-nav-pill\][^{]*\{[^}]*(opacity|visibility|display|transform)/.test(css))
 }
 
 section("Navigation")

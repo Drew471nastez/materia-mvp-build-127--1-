@@ -103,7 +103,12 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
           setMobileProfileDropdownOpen((v) => !v)
         }}
         aria-haspopup="dialog"
-        aria-expanded={mobileProfileDropdownOpen}
+        /* data-open, not aria-expanded: an aria-expanded that changes is a
+           change under a :has() in the site builder's CSS, and Chromium
+           answers it by restyling the whole document on the tap
+           (scripts/check-app-sheets-frames.mjs). A button that opens a modal
+           dialog does not need it: focus moves into the dialog. */
+        data-open={mobileProfileDropdownOpen ? "" : undefined}
         className={cn(
           "flex items-center gap-2 w-fit justify-start rounded-xl px-2 py-1.5 transition-colors duration-200 ease-out",
           mobileProfileDropdownOpen ? "bg-white/15" : "hover:bg-white/10"
@@ -135,11 +140,13 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
         that cannot refuse the page's scroll slides against it.
       */}
     </div>
+    {/* Kept: built while the page is idle, so the tap only slides it up. */}
     <BottomSheet
       isOpen={mobileProfileDropdownOpen}
       onClose={closeMobileProfile}
       label="Account"
       hideFrom="md"
+      keepMounted
     >
       <div className="px-3 pb-3">
         {/* With the businesses known, they head the sheet (the current one checked); before, the account alone. */}

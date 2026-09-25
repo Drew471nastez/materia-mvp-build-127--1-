@@ -713,8 +713,13 @@ html.capacitor body {
   .onepage-live, .onepage-live * {
     caret-color: transparent !important;
   }
-  /* Force block wrapper divs that contain only whitespace to collapse */
-  .onepage-live .flex.flex-col > .w-full:has(> :only-child:is(p)) > p {
+  /* Force block wrapper divs that contain only whitespace to collapse.
+     `> p:only-child`, not `:has(> :only-child:is(p)) > p`, which selects
+     the same paragraph: the browser keeps one list of what any change under
+     any `:has()` restyles, and a `p` at the end of this one put every
+     paragraph in the document on it, restyled each time a sheet or dialog
+     opened or closed anywhere in the app (scripts/check-app-sheets-frames.mjs). */
+  .onepage-live .flex.flex-col > .w-full > p:only-child {
     overflow: hidden;
   }
 
@@ -3128,9 +3133,10 @@ html.capacitor .app-content-scroll {
    * not the pill, takes a tap that lands on it. The pointer rule is the
    * second lock on that door, for an overlay that is not full screen.
    *
-   * What counts as open: a sheet that says so ([data-app-sheet="open"]), any
-   * fixed modal dialog except the pill's own menu page, and Radix's scroll
-   * lock on <body>, which every Dialog, AlertDialog and Sheet sets. A dialog
+   * What counts as open: the shared sheet, which says so on <html>
+   * (`data-app-sheet-up`, components/ui/bottom-sheet.tsx), any other fixed
+   * modal dialog except the pill's own menu page, and Radix's scroll lock
+   * on <body>, which every Dialog, AlertDialog and Sheet sets. A dialog
    * kept in the page while closed says aria-hidden and is not counted: the
    * app search's panel, always mounted, turned the pill's buttons off on
    * every page, and taps went through it to the page underneath. A sheet
@@ -3150,15 +3156,34 @@ html.capacitor .app-content-scroll {
    * tap (the pill's `pointer-events-auto` parts, and any link or button)
    * gives the same result for a few elements. Radix's lock is an attribute
    * on <body> itself and needs no :has() at all.
+   *
+   * NOT EVERY LINK AND BUTTON EITHER. The browser decides what a change
+   * under `:has()` restyles from the rule's last part alone, so `a` and
+   * `button` there meant every link and button in the document, the page's
+   * and every sheet's, restyled on each open and close: 150 to 230
+   * elements, 20 to 30ms of the tap on a phone's CPU
+   * (scripts/check-app-sheets-frames.mjs). Everything in the pill that takes
+   * a tap is a `pointer-events-auto` part (the bar, the menu button), and
+   * the links and buttons inside them inherit `none` from them, so the
+   * class alone locks the same things and restyles only those.
+   *
+   * AND THE SHARED SHEET IS NOT FOUND BY :has(). Whenever the answer of a
+   * `:has()` on the root changes, the browser restyles every element in the
+   * document, whatever the rule after it names: 590 elements on the home
+   * page, on every open and every close, and on every change of an
+   * attribute any of these `:has()` names (Chromium's own trace, in
+   * scripts/check-app-sheets-frames.mjs). The sheet sets an attribute on
+   * <html> instead, which restyles the pill and nothing else, and marks its
+   * own root `data-sheet-root` so the rule for other dialogs leaves it out.
    */
-  html:has([data-app-sheet]) [data-app-nav-pill],
-  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"])) [data-app-nav-pill],
+  html[data-app-sheet-up] [data-app-nav-pill],
+  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"], [data-sheet-root])) [data-app-nav-pill],
   body[data-scroll-locked] [data-app-nav-pill] {
     z-index: 39;
   }
-  html:has([data-app-sheet="open"]) [data-app-nav-pill] :is(a, button, .pointer-events-auto),
-  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"])) [data-app-nav-pill] :is(a, button, .pointer-events-auto),
-  body[data-scroll-locked] [data-app-nav-pill] :is(a, button, .pointer-events-auto) {
+  html[data-app-sheet-up="open"] [data-app-nav-pill] .pointer-events-auto,
+  html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"], [data-sheet-root])) [data-app-nav-pill] .pointer-events-auto,
+  body[data-scroll-locked] [data-app-nav-pill] .pointer-events-auto {
     pointer-events: none !important;
   }
 
@@ -5671,21 +5696,11 @@ html.pop-in-flight #platform-header-root {
 /* The leaving step is gone from sight a little sooner than the new one settles. */
 .drp-out-next { animation: drp-out-next 180ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .drp-out-back { animation: drp-out-back 180ms cubic-bezier(0.32, 0.72, 0, 1) both; }
-/* A month arrives from the side it was asked for. It never starts invisible:
-   the days are readable from the first frame. */
-@keyframes drp-month-next {
-  from { opacity: 0.35; transform: translate3d(14px, 0, 0); }
-  to { opacity: 1; transform: none; }
-}
-@keyframes drp-month-back {
-  from { opacity: 0.35; transform: translate3d(-14px, 0, 0); }
-  to { opacity: 1; transform: none; }
-}
-.drp-month-next { animation: drp-month-next 220ms cubic-bezier(0.32, 0.72, 0, 1) both; }
-.drp-month-back { animation: drp-month-back 220ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+/* A month's arrival is played by the picker itself, on the grid it keeps
+   (RangePanel in components/app/date-range-picker.tsx). */
 @media (prefers-reduced-motion: reduce) {
   .drp-frame { transition: none; }
-  .drp-in-next, .drp-in-back, .drp-out-next, .drp-out-back, .drp-month-next, .drp-month-back { animation: none; }
+  .drp-in-next, .drp-in-back, .drp-out-next, .drp-out-back { animation: none; }
 }
 
 /* ─── The canvas is the page's window ──────────────────────────────────
@@ -5810,9 +5825,17 @@ html.pop-in-flight #platform-header-root {
  * page at z 9999 so nothing on a page can hide it, which also put it over
  * the phone menu's sheet on a first visit. While a sheet or a modal dialog
  * is open it is hidden (not removed: the choice is still owed), and it is
- * back the moment that closes.
+ * back the moment that closes. The shared sheet says it is open on <html>,
+ * not through :has() (see the pill's rules above for why), and a Radix
+ * dialog by the scroll lock it puts on <body>. It used to ask
+ * `:has([role="dialog"][data-state="open"])`, which named `data-state`
+ * under a :has() on the root: every tooltip, tab, switch and popover in the
+ * app changes its data-state, and each change restyled the whole document
+ * in Chromium (scripts/check-app-sheets-frames.mjs).
  */
-html:has([data-app-sheet="open"], [role="dialog"][aria-modal="true"], [role="dialog"][data-state="open"]) [data-cookie-banner] {
+html[data-app-sheet-up="open"] [data-cookie-banner],
+body[data-scroll-locked] [data-cookie-banner],
+html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie-banner] {
   visibility: hidden;
 }
 
