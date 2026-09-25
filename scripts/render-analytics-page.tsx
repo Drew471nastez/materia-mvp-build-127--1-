@@ -18,7 +18,7 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { AnalyticsClient } from "@/app/app/analytics/analytics-client"
 import { LanguageProvider } from "@/lib/i18n/context"
-import { buildOnePageReports, buildReports, type OnePageViewRow, type ViewRow } from "@/lib/analytics/reports"
+import { buildOnePageReports, buildReports, tallyVisits, type OnePageViewRow, type ViewRow } from "@/lib/analytics/reports"
 import type { OrderRow } from "@/lib/orders/order-view"
 
 const DAY = 86_400_000
@@ -78,12 +78,17 @@ const leads = pageViews.filter((_, i) => i % 20 === 0).map((v) => ({ created_at:
 type W = Window & {
   __fetches: Array<{ at: number; url: string }>
   __delay: number
+  /** How long after the figures the rest of a streamed answer comes (app/api/analytics/reports `stream=1`). */
+  __listsDelay: number
+  /** Take the page away and put it back, as leaving Analytics and coming back does. */
+  __remount: () => void
   __nav: Array<[string, string?]>
   __tick?: () => void
 }
 const w = window as unknown as W
 w.__fetches = []
 w.__delay = 120
+w.__listsDelay = 0
 w.__nav = []
 
 /*
@@ -117,14 +122,28 @@ w.fetch = (async (input: RequestInfo | URL) => {
       parseAgent: () => ({ device: "mobile", browser: "Safari", os: "iOS" }),
       hostOf: () => "",
     })
-    return new Response(JSON.stringify({ reports, allTime: { views: pageViews.length, clicks: clicks.length, subscribers: leads.length }, truncated: false, hasPage: true }), { headers: { "content-type": "application/json" } })
+    return new Response(JSON.stringify({ reports, allTime: { views: pageViews.length, clicks: clicks.length, subscribers: leads.length }, truncated: false, hasPage: true, viewer: "u1" }), { headers: { "content-type": "application/json" } })
   }
   const mine = product && product !== "all" ? orders.filter((o) => o.product_id === product) : orders
-  const reports = buildReports({
-    views, steps, orders: mine, window: window_, previous, timeZone, mainDomain: "storelib.com",
-    productTitles: Object.fromEntries(PRODUCTS.map((p) => [p.id, p.title])),
+  const base = { orders: mine, window: window_, previous, timeZone, mainDomain: "storelib.com", productTitles: Object.fromEntries(PRODUCTS.map((p) => [p.id, p.title])) }
+  const reports = buildReports({ ...base, views, steps })
+  const allTime = { views: views.length, orders: mine.length, salesCents: mine.reduce((a, o) => a + (o.amount_cents || 0), 0) }
+  const answer = { reports, allTime, truncated: false, viewer: "u1" }
+  if (!q.has("stream")) return new Response(JSON.stringify(answer), { headers: { "content-type": "application/json" } })
+  /* As the server streams it: the figures, counted without the lists, then everything. */
+  const tallied = tallyVisits({ views, steps, window: window_, previous, timeZone })
+  const quick = { cur: { ...tallied.cur, steps: undefined, groups: undefined }, prev: { ...tallied.prev, steps: undefined, groups: undefined } }
+  const figures = { part: "figures", reports: buildReports({ ...base, visits: quick }), allTime, truncated: false }
+  const enc = new TextEncoder()
+  const body = new ReadableStream({
+    async start(c) {
+      c.enqueue(enc.encode(JSON.stringify(figures) + "\n"))
+      await new Promise((r) => setTimeout(r, w.__listsDelay))
+      c.enqueue(enc.encode(JSON.stringify({ part: "all", ...answer }) + "\n"))
+      c.close()
+    },
   })
-  return new Response(JSON.stringify({ reports, allTime: { views: views.length, orders: mine.length, salesCents: mine.reduce((a, o) => a + (o.amount_cents || 0), 0) }, truncated: false }), { headers: { "content-type": "application/json" } })
+  return new Response(body, { headers: { "content-type": "application/x-ndjson" } })
 }) as typeof fetch
 
 const many = new URLSearchParams(location.search).get("products") === "many"
@@ -132,10 +151,17 @@ const products = many
   ? Array.from({ length: 14 }, (_, i) => ({ id: `p${i + 1}`, title: PRODUCTS[i % 4].title + (i >= 4 ? ` ${Math.floor(i / 4) + 1}` : "") }))
   : PRODUCTS
 
-createRoot(document.getElementById("app")!).render(
+const page = () => (
   <LanguageProvider>
     <div style={{ height: "100vh" }}>
       <AnalyticsClient creatorId="c1" userId="u1" products={products} />
     </div>
-  </LanguageProvider>,
+  </LanguageProvider>
 )
+let root = createRoot(document.getElementById("app")!)
+root.render(page())
+w.__remount = () => {
+  root.unmount()
+  root = createRoot(document.getElementById("app")!)
+  root.render(page())
+}

@@ -28,6 +28,8 @@ import { buildOnePageReports } from "../lib/analytics/reports"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "../lib/analytics/sources"
 import { isBotAgent, parseUserAgent } from "../lib/analytics/user-agent"
 import { lineMoney, moneyOf, spansToRead } from "../lib/analytics/reports"
+import { GROUP_COLUMNS, talliesFromWire, tallyArgs, tallyVisits, type VisitTallies, type VisitTally } from "../lib/analytics/reports"
+import { questionOf, reportKey, reportNow } from "../lib/analytics/report-cache"
 import { axisWidth, compactCount, compactMoney, compactPercent, niceScale } from "../lib/analytics/chart-scale"
 
 let passed = 0
@@ -162,7 +164,9 @@ console.log("\nAnalytics reports: everything together")
 console.log("\nAnalytics: the pieces that feed it")
 {
   const route = read("app/api/analytics/reports/route.ts")
-  check("the reports are read on the server, a page at a time", /\.range\(a, b\)/.test(route) && /const PAGE = 1000/.test(route))
+  /* Pages by keyset since the speed work: an OFFSET (`.range(a, b)`) made Postgres walk every earlier row again for each page. */
+  check("the reports are read on the server, a page at a time, each page from where the last ended",
+    /\.limit\(PAGE\)/.test(route) && /const PAGE = 1000/.test(route) && /created_at\.gt\."\$\{after\.t\}",id\.gt\.\$\{after\.id\}/.test(route) && !/\.range\(/.test(route))
   check("  for the signed-in creator only", /\.eq\("user_id", user\.id\)/.test(route) && /\.eq\("creator_id", creator\.id\)/.test(route))
   check("  and a product filter only for their own product", /productTitles\[wanted\]/.test(route))
   const client = read("app/app/analytics/analytics-client.tsx")
@@ -446,9 +450,119 @@ console.log("\nAnalytics: disputes, products and countries, from the accuracy au
 
   /* Pages of 1,000 read in an order with no ties, so none is read twice or missed. */
   const route = read("app/api/analytics/reports/route.ts")
-  const ranges = (route.match(/\.range\(a, b\)/g) ?? []).length
-  const tieBroken = (route.match(/\.order\("created_at", \{ ascending: true \}\)\s*\.order\("id", \{ ascending: true \}\)/g) ?? []).length
+  /* Counted by `.limit(PAGE)` since pages start where the last ended (keyset) instead of `.range(a, b)`. */
+  const ranges = (route.match(/\.limit\(PAGE\)/g) ?? []).length
+  const tieBroken = (route.match(/\.order\("created_at", \{ ascending: true \}\)\s*\.order\("id", \{ ascending: true \}\)\s*\.limit\(PAGE\)/g) ?? []).length
   check("every paged read is sorted by time and then by id", ranges === 5 && tieBroken === ranges, { ranges, tieBroken })
+}
+
+console.log("\nAnalytics: counted by the database or by Node, the same figures")
+{
+  /*
+    analytics_visit_tally counts in Postgres what tallyVisits counts here, and
+    answers in groups: the columns a breakdown reads, how many visits, and the
+    rank of the earliest. This is that answer made from Node's own tally, in
+    no particular order, read back by talliesFromWire: every figure has to
+    come out as the rows gave it. scripts/bench-analytics.mjs holds the real
+    database to the same, figure by figure.
+  */
+  const toWire = (t: VisitTallies, detail: boolean) => {
+    const one = (x: VisitTally) => ({
+      views: x.views,
+      view_buckets: x.viewBuckets,
+      sessions: x.sessions,
+      session_buckets: x.sessionBuckets,
+      ...(detail
+        ? {
+            steps: x.steps,
+            groups: Object.fromEntries(
+              Object.entries(x.groups!).map(([kind, groups]) => {
+                const cols = GROUP_COLUMNS[kind as keyof typeof GROUP_COLUMNS] as ReadonlyArray<keyof ViewRow>
+                return [kind, groups.map((g, i) => [...cols.map((c) => (g.first[c] as string | null) ?? null), g.n, i + 1]).reverse()]
+              }),
+            ),
+          }
+        : {}),
+    })
+    return { cur: one(t.cur), prev: one(t.prev) }
+  }
+  const w = { start: T0 + 7 * DAY, end: T0 + 14 * DAY }
+  const views: ViewRow[] = []
+  const sources = ["social_instagram", "direct", "organic_search", null, "referral"]
+  for (let i = 0; i < 400; i++) {
+    views.push(
+      view(`s${i % 150}`, 1 + (i % 13), {
+        id: `v${String(i).padStart(4, "0")}`,
+        source_category: sources[i % 5],
+        referrer_domain: ["www.google.com", "Google.com", null, "storelib.com"][i % 4],
+        country_code: ["RO", "ro", "US", null][i % 4],
+        country_name: [null, "Romania"][i % 2],
+        city: ["Cluj-Napoca", "S%C3%A3o%20Paulo", null][i % 3],
+        browser: ["chrome", "Chrome", "CHROME", null][i % 4],
+        utm_campaign: ["Autumn", "autumn", null][i % 3],
+        page_url: ["https://storelib.com/ana?fbclid=1", "https://storelib.com/ana", "https://anashop.ro/p/1", null][i % 4],
+        ...(i % 9 === 0 ? { session_id: null } : {}),
+      }, i % 24),
+    )
+  }
+  views.sort((a, b) => a.created_at.localeCompare(b.created_at) || String(a.id).localeCompare(String(b.id)))
+  const steps: StepRow[] = [
+    { event_type: "buy_click", session_id: "s3", created_at: at(8, 3) },
+    { event_type: "buy_click", session_id: null, visitor_id: null, created_at: at(8, 4) },
+    { event_type: "checkout_start", session_id: "s3", created_at: at(8, 5) },
+  ]
+  const orders = [order("o1", 8, { source: "website", buyer_country_code: "RO" }), order("o2", 9), order("o0", 2)]
+  for (const timeZone of ["UTC", "America/New_York", "Asia/Kolkata"]) {
+    const base = { orders, window: w, timeZone, mainDomain: "storelib.com", productTitles: { p1: "Presets" } }
+    const fromRows = buildReports({ ...base, views, steps })
+    const tallied = tallyVisits({ views, steps, window: w, timeZone })
+    const fromGroups = buildReports({ ...base, visits: talliesFromWire(JSON.parse(JSON.stringify(toWire(tallied, true))), true) })
+    check(`every figure and list is the same from the groups as from the rows (${timeZone})`, JSON.stringify(fromGroups) === JSON.stringify(fromRows))
+    const quick = buildReports({ ...base, visits: talliesFromWire(JSON.parse(JSON.stringify(toWire(tallied, false))), false) })
+    check(`  and the quick answer has every figure, marked partial, with the lists and funnel left to wait (${timeZone})`,
+      quick.partial === true && fromRows.partial === undefined
+        && (["views", "sessions", "conversion", "aov", "sales", "orders", "refunds", "salesByChannel", "salesByProduct"] as const).every((k) => JSON.stringify(quick[k]) === JSON.stringify(fromRows[k]))
+        && quick.funnel.length === 0 && quick.breakdowns.source.length === 0 && quick.breakdowns.country.length === 0)
+  }
+  const args = tallyArgs(w, null, "UTC")
+  check("the database is handed the chart's own buckets, and an empty comparison when there is none",
+    args.p_cur_starts.length === 7 && args.p_prev_starts.length === 0 && args.p_prev_start === args.p_prev_end)
+
+  const sql = read("supabase/migrations/20261002_analytics_report_speed.sql")
+  check("the functions are the server's alone: a creator id in, so nobody else may run them",
+    /REVOKE ALL ON FUNCTION public\.analytics_visit_tally\([^)]*\) FROM PUBLIC, anon, authenticated;/.test(sql)
+      && /REVOKE ALL ON FUNCTION public\.analytics_all_time\(uuid, uuid\) FROM PUBLIC, anon, authenticated;/.test(sql)
+      && !/SECURITY DEFINER/.test(sql))
+  check("the reads have indexes in the order they ask: creator or product, kind, time, id",
+    /ON public\.analytics_events \(creator_id, event_type, created_at, id\)/.test(sql) && /ON public\.analytics_events \(product_id, event_type, created_at, id\)/.test(sql)
+      && /ON public\.orders \(product_id, created_at, id\)/.test(sql))
+  const part = "supabase/sql/run-now/25_analytics_speed.sql"
+  check("the run-now part exists, is listed, and every line of it is one whole statement",
+    read(part).trim().split("\n").slice(1).every((l) => /;\s*$/.test(l)) && /25_analytics_speed\.sql/.test(read("supabase/sql/run-now/README.md"))
+      && /p25_analytics_speed/.test(read("supabase/sql/run-now/99_check_after.sql")))
+
+  const route = read("app/api/analytics/reports/route.ts")
+  check("the route counts in the database, and in Node from the rows while the functions are missing",
+    /\(admin, "analytics_visit_tally", \{ \.\.\.args, p_detail: true \}\)/.test(route) && /error\.code === "PGRST202"/.test(route) && /tallyVisits\(\{ views: views\.rows, steps: steps\.rows/.test(route))
+  check("the reads it still makes go side by side, not one after another",
+    /const reads = await Promise\.all\(\s*spans\.map/.test(route) && /const \[v, o, a\] = await Promise\.all\(\[visits, orders, allTime\]\)/.test(route))
+  check("an answer is kept a few seconds for the same person and the same whole question, never longer",
+    /const key = `\$\{user\.id\}\|\$\{question\}`/.test(route) && /const CACHE_MS = 15_000/.test(route) && /private, max-age=/.test(route) && /Vary: "Cookie, Authorization"/.test(route))
+
+  /* The page and the sidebar's prefetch ask the very same question. */
+  const q = { start: T0, end: T0 + DAY, compare: { start: T0 - DAY, end: T0 }, product: "all", mode: "store" as const, timeZone: "UTC" }
+  check("a question is its key without the moving end", questionOf(reportKey(q)) === questionOf(reportKey({ ...q, end: q.end + 5000, compare: { start: T0 - DAY, end: T0 + 5000 } })))
+  check("now is rounded up to ten seconds, never down", reportNow(T0 + 1) === T0 + 10_000 && reportNow(T0) === T0)
+  const cache = read("lib/analytics/report-cache.ts")
+  check("a kept answer is shown only to the person it was counted for",
+    /if \(!viewer \|\| k\.answer\.viewer !== viewer\) return null/.test(cache) && /viewer: q\.viewer/.test(route) && /viewer: userId,/.test(read("app/app/analytics/analytics-client.tsx")))
+  const reports = read("app/app/analytics/analytics-reports.tsx")
+  check("the figures go on screen first; the funnel and lists keep the last ones, softened, or wait in their shapes, for the rest",
+    /const l = r\?\.partial \? before : r/.test(reports) && /const listsBlank = !l \|\| l\.partial === true/.test(reports)
+      && /<VisitCards b=\{listsBlank \? null : l!\.breakdowns\} blank=\{listsBlank\}/.test(reports))
+  check("hovering Analytics in the sidebar, or Home going idle, fetches its numbers ahead",
+    /import\("@\/lib\/analytics\/report-cache"\)\.then\(\(m\) => m\.warmAnalytics\(\)\)/.test(read("lib/ui/app-navigation.ts"))
+      && /import\("@\/lib\/analytics\/report-cache"\)\.then\(\(m\) => m\.warmAnalytics\(\)\)/.test(read("components/shared/prefetch-links.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

@@ -297,10 +297,82 @@ try {
       const d = delta(before, await state(p))
       console.log(`  mode ${mode.source}:`, JSON.stringify(d), d.cls > 0 ? JSON.stringify(await why(p, before)) : "")
       expect(d.router === 0, `${mode.source}: no navigation, which would reload the page under its skeleton`, d.router)
-      expect(d.requests === 1, `${mode.source}: one read`, d.requests)
+      /* Back to the store within seconds: its answer is kept and fresh (lib/analytics/report-cache), so nothing is asked. */
+      const reads = /store/.test(mode.source) ? 0 : 1
+      expect(d.requests === reads, `${mode.source}: ${reads ? "one read" : "no read: the answer from seconds ago is kept"}`, d.requests)
       expect(d.svgMounts === 0 && d.placeholders === 0, `${mode.source}: the chart morphs, it is not redrawn from nothing`, [d.svgMounts, d.placeholders])
       expect(d.skeletons === 0, `${mode.source}: no skeleton flashes in the cards on a quick answer`, d.skeletons)
       expect(d.cls < 0.005, `${mode.source}: nothing moves but text the new numbers change the width of`, d.cls)
+    }
+
+    /*
+      8. FIGURES FIRST. "It takes too long, and it gives users the idea that
+      it's not loading." The server sends the figures as soon as it has
+      counted them and the lists after (app/api/analytics/reports stream=1).
+      A new period with the lists a second behind: the four figures and the
+      chart are the new ones and sharp within a moment, the list cards keep
+      the last ones softened rather than dropping to shapes, and then fill in.
+    */
+    {
+      await p.evaluate(() => { window.__listsDelay = 1200 })
+      const before = await state(p)
+      await p.evaluate(() => [...document.querySelectorAll("button[aria-haspopup=dialog]")].find((b) => /Last 30 days/.test(b.textContent)).click())
+      await sleep(450)
+      await p.evaluate(() => document.querySelector('[data-row="last_90_days"]').click())
+      await sleep(700)
+      const mid = await p.evaluate(() => ({
+        figuresSoft: document.querySelectorAll("[role=tablist][aria-label=Metric] .blur-\\[2px\\]").length,
+        chartSoft: !!document.querySelector(".opacity-40.blur-\\[1\\.5px\\]"),
+        listsSoft: [...document.querySelectorAll("section")].filter((c) => c.classList.contains("opacity-60")).length,
+        shapes: document.querySelectorAll("section [data-shimmer]").length,
+        views: document.querySelector('[data-tab="views"]').textContent,
+      }))
+      await sleep(1500)
+      const end = await p.evaluate(() => ({
+        listsSoft: [...document.querySelectorAll("section")].filter((c) => c.classList.contains("opacity-60")).length,
+        shapes: document.querySelectorAll("section [data-shimmer]").length,
+      }))
+      const d = delta(before, await state(p))
+      console.log("  figures first:", JSON.stringify({ mid, end, ...d }))
+      expect(mid.figuresSoft === 0 && !mid.chartSoft, "the new figures and the chart are on screen, sharp, before the lists", mid)
+      expect(mid.listsSoft === 6 && mid.shapes === 0, "the funnel and the five list cards keep the last ones, softened, not shapes", [mid.listsSoft, mid.shapes])
+      expect(end.listsSoft === 0 && end.shapes === 0, "and fill in when the rest lands", end)
+      expect(d.requests === 1 && d.svgMounts === 0 && d.placeholders === 0, "one read, the chart morphing, no placeholder", [d.requests, d.svgMounts, d.placeholders])
+      expect(d.cls < 0.005, "nothing moves but text the new numbers change the width of", d.cls)
+      await p.evaluate(() => { window.__listsDelay = 0 })
+    }
+
+    /*
+      9. COMING BACK. Leaving Analytics and opening it again: the last numbers
+      are on the first frame (lib/analytics/report-cache), and an answer only
+      seconds old is not asked for again.
+    */
+    {
+      const before = await state(p)
+      /* The first frame the page is on screen at all, read before it is painted. */
+      const first = await p.evaluate(() => new Promise((resolve) => {
+        window.__remount()
+        const look = () => {
+          if (!document.querySelector('[data-tab="views"]')) return requestAnimationFrame(look)
+          resolve({
+            placeholder: !!document.querySelector("[data-chart-loading='true']"),
+            figuresSoft: document.querySelectorAll("[role=tablist][aria-label=Metric] .blur-\\[2px\\]").length,
+            shapes: document.querySelectorAll("section [data-shimmer]").length,
+            views: document.querySelector('[data-tab="views"]').textContent,
+          })
+        }
+        requestAnimationFrame(look)
+      }))
+      await sleep(900)
+      const d = delta(before, await state(p))
+      console.log("  coming back:", JSON.stringify({ first, requests: d.requests }))
+      expect(!first.placeholder && first.figuresSoft === 0 && first.shapes === 0, "the last figures, chart and lists are on the first frame, sharp", first)
+      expect(d.requests === 0, "and an answer seconds old is not asked for again", d.requests)
+      /* The period the steps after this one start from. */
+      await p.evaluate(() => [...document.querySelectorAll("button[aria-haspopup=dialog]")].find((b) => /Last 90 days/.test(b.textContent)).click())
+      await sleep(450)
+      await p.evaluate(() => document.querySelector('[data-row="last_30_days"]').click())
+      await sleep(1400)
     }
 
     /*
