@@ -258,6 +258,28 @@ const IMAGE_LIBRARY = [
   { id: "nature2", url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=800&q=80", label: "Forest" },
 ]
 
+/*
+  THE PHONE SHEETS ARE TAKEN AWAY ONLY ONCE THEY HAVE SLID OUT. Each slides
+  down over 400ms (the transform transition on the sheet), and used to be
+  unmounted at 220ms, so it vanished halfway down, which read as a jump on
+  every close.
+*/
+const SHEET_SLIDE_MS = 400
+
+/*
+  Opened again while it slides out: the close is called off and it slides
+  back up, rather than the old close shutting the new open. Returns true, so
+  an open reads setShowX(sheetOpening(...)).
+*/
+function sheetOpening(timer: { current: ReturnType<typeof setTimeout> | null }, mounted: boolean, setPresented: (v: boolean) => void): true {
+  if (timer.current) {
+    clearTimeout(timer.current)
+    timer.current = null
+    if (mounted) setPresented(true)
+  }
+  return true
+}
+
 // Block categories with integrations
 const blockCategories = [
   {
@@ -1134,7 +1156,7 @@ export function LinksTab() {
       setSearchQuery("")
       setInsertAfterId(null)
       setAddToGroupId(null)
-    }, 220)
+    }, SHEET_SLIDE_MS)
   }
 
   const closeSocialSheet = () => {
@@ -1160,7 +1182,7 @@ export function LinksTab() {
       setSocialUrl("")
       setSearchQuery("")
       setSocialUrlError(null)
-    }, 220)
+    }, SHEET_SLIDE_MS)
   }
 
   const closeThumbnailSheet = () => {
@@ -1184,7 +1206,7 @@ export function LinksTab() {
       setShowIconLibraryInModal(false)
       setIconSearchQuery("")
       setIconCategory("all")
-    }, 220)
+    }, SHEET_SLIDE_MS)
   }
 
   const focusAndScrollToBlock = (blockId: string) => {
@@ -1795,7 +1817,7 @@ export function LinksTab() {
                       setSelectedSocial(platform)
                       setSocialUrl(social_links?.[platform as keyof typeof social_links] || "")
                       setIsSocialSheetPresented(false)
-                      setShowSocialModal(true)
+                      setShowSocialModal(sheetOpening(socialSheetCloseTimerRef, showSocialModal, setIsSocialSheetPresented))
                     }}
                   >
                     <SocialIcon platform={platform} size={14} color={markOn(config?.color || "#6366F1")} />
@@ -1815,7 +1837,7 @@ export function LinksTab() {
             <button
               onClick={() => {
                 setIsSocialSheetPresented(false)
-                setShowSocialModal(true)
+                setShowSocialModal(sheetOpening(socialSheetCloseTimerRef, showSocialModal, setIsSocialSheetPresented))
               }}
               className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 transition-colors cursor-pointer"
             >
@@ -1832,7 +1854,7 @@ export function LinksTab() {
           setAddButtonClicked(true)
           setTimeout(() => setAddButtonClicked(false), 300)
           setIsAddSheetPresented(false)
-          setShowAddModal(true)
+          setShowAddModal(sheetOpening(addSheetCloseTimerRef, showAddModal, setIsAddSheetPresented))
         }}
         className="w-full h-11 bg-violet-500 hover:bg-violet-600 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group cursor-pointer select-none active:scale-[0.98]"
       >
@@ -1991,9 +2013,9 @@ export function LinksTab() {
                 onOpenImageLibrary={(blockId, fieldType) => { setImageBlockId(blockId); setImageFieldType(fieldType || null); setShowImageLibrary(true) }}
                 onOpenSocialModal={() => {
                   setIsSocialSheetPresented(false)
-                  setShowSocialModal(true)
+                  setShowSocialModal(sheetOpening(socialSheetCloseTimerRef, showSocialModal, setIsSocialSheetPresented))
                 }}
-                onOpenThumbnailModal={(blockId) => { setThumbnailBlockId(blockId); setShowThumbnailModal(true); setShowIconLibraryInModal(false) }}
+                onOpenThumbnailModal={(blockId) => { setThumbnailBlockId(blockId); setShowThumbnailModal(sheetOpening(thumbnailSheetCloseTimerRef, showThumbnailModal, setIsThumbnailSheetPresented)); setShowIconLibraryInModal(false) }}
                 onUrlChangeWithAutoFetch={handleUrlChangeWithAutoFetch}
                 onOpenStreamingModal={(platform, index, data, updateFn) => {
                   setStreamingPlatform(platform)
@@ -2016,7 +2038,7 @@ export function LinksTab() {
                 onOpenAddBlockModal={(groupId) => {
                   setAddToGroupId(groupId)
                   setIsAddSheetPresented(false)
-                  setShowAddModal(true)
+                  setShowAddModal(sheetOpening(addSheetCloseTimerRef, showAddModal, setIsAddSheetPresented))
                 }}
               />
             </div>
@@ -2028,7 +2050,7 @@ export function LinksTab() {
                   onClick={() => {
                     setInsertAfterId(block.id)
                     setIsAddSheetPresented(false)
-                    setShowAddModal(true)
+                    setShowAddModal(sheetOpening(addSheetCloseTimerRef, showAddModal, setIsAddSheetPresented))
                   }}
                   className="absolute inset-x-0 -top-4 -bottom-4 flex items-center justify-center px-1 focus:outline-none"
                   tabIndex={0}
@@ -2059,7 +2081,7 @@ export function LinksTab() {
       <Dialog open={showAddModal} onOpenChange={(open) => {
         if (open) {
           setIsAddSheetPresented(false)
-          setShowAddModal(true)
+          setShowAddModal(sheetOpening(addSheetCloseTimerRef, showAddModal, setIsAddSheetPresented))
           return
         }
         closeAddSheet()
@@ -2371,7 +2393,7 @@ export function LinksTab() {
       <Dialog open={showSocialModal} onOpenChange={(open) => {
         if (open) {
           setIsSocialSheetPresented(false)
-          setShowSocialModal(true)
+          setShowSocialModal(sheetOpening(socialSheetCloseTimerRef, showSocialModal, setIsSocialSheetPresented))
           return
         }
         closeSocialSheet()
@@ -2853,7 +2875,7 @@ export function LinksTab() {
       <Dialog open={showThumbnailModal} onOpenChange={(open) => {
         if (open) {
           setIsThumbnailSheetPresented(false)
-          setShowThumbnailModal(true)
+          setShowThumbnailModal(sheetOpening(thumbnailSheetCloseTimerRef, showThumbnailModal, setIsThumbnailSheetPresented))
           return
         }
         closeThumbnailSheet()
@@ -4638,7 +4660,7 @@ function BlockItem({
     if (statsSheetCloseTimerRef.current) clearTimeout(statsSheetCloseTimerRef.current)
     statsSheetCloseTimerRef.current = setTimeout(() => {
       setShowStatsModal(false)
-    }, 220)
+    }, SHEET_SLIDE_MS)
   }, [showStatsModal, isMobileStatsViewport])
 
   const closeAnimationSheet = useCallback(() => {
@@ -4656,7 +4678,7 @@ function BlockItem({
     if (animationSheetCloseTimerRef.current) clearTimeout(animationSheetCloseTimerRef.current)
     animationSheetCloseTimerRef.current = setTimeout(() => {
       setShowAnimationSheet(false)
-    }, 220)
+    }, SHEET_SLIDE_MS)
   }, [showAnimationSheet, isMobileStatsViewport])
 
   // Fetch stats when modal is opened or timeframe changes
@@ -4917,7 +4939,7 @@ function BlockItem({
                 e.stopPropagation()
                 if (isMobileStatsViewport) {
                   setIsAnimationSheetPresented(false)
-                  setShowAnimationSheet(true)
+                  setShowAnimationSheet(sheetOpening(animationSheetCloseTimerRef, showAnimationSheet, setIsAnimationSheetPresented))
                   return
                 }
                 setShowAnimationMenu(!showAnimationMenu)
@@ -4972,7 +4994,7 @@ function BlockItem({
           <Dialog open={showAnimationSheet} onOpenChange={(open) => {
             if (open) {
               setIsAnimationSheetPresented(false)
-              setShowAnimationSheet(true)
+              setShowAnimationSheet(sheetOpening(animationSheetCloseTimerRef, showAnimationSheet, setIsAnimationSheetPresented))
               return
             }
             closeAnimationSheet()
@@ -5087,7 +5109,7 @@ function BlockItem({
                 e.stopPropagation()
                 setIsStatsSheetPresented(false)
                 /* Opening the dialog fetches, in the effect that watches it. */
-                setShowStatsModal(true)
+                setShowStatsModal(sheetOpening(statsSheetCloseTimerRef, showStatsModal, setIsStatsSheetPresented))
               }}
               className="flex items-center gap-1 px-1.5 py-1 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100"
               title="View Stats"
@@ -5102,7 +5124,7 @@ function BlockItem({
             <Dialog open={showStatsModal} onOpenChange={(open) => {
               if (open) {
                 setIsStatsSheetPresented(false)
-                setShowStatsModal(true)
+                setShowStatsModal(sheetOpening(statsSheetCloseTimerRef, showStatsModal, setIsStatsSheetPresented))
                 return
               }
               closeStatsSheet()
