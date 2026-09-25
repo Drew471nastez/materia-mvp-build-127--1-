@@ -13,13 +13,16 @@
  * the list stays mounted and the order is drawn over it, in its own scroll
  * container, and closing it shows again a list nobody touched.
  *
- * NO SLIDE. The order used to slide in (320ms on a phone, a 240ms slide and
- * fade wider) with its top bar inside the moving layer, so the bar arrived
- * late and drifted into place: "too smooth and flowy", "the top bar takes
- * long and glitchy to load". Now the order and its bar are there on the
- * first frame after the click, and only the cards under the bar fade in,
- * over 120ms (.orders-body in globals.css). Back is immediate: the list was
- * never unmounted, so it is where it was, filters and scroll and all.
+ * HOW IT MOVES. A slide came out once ("too smooth and flowy", "the top bar
+ * takes long and glitchy to load": it was a class put on after the order had
+ * drawn, so the bar arrived late and drifted), and the cut that replaced it
+ * read as "direct" and "clunky". Now it is the phone's own push and pop,
+ * started before the order's first frame is painted and run on the
+ * compositor (./order-motion.ts): on a phone the order slides in from the
+ * right, bar and all, over a list that moves a little left and stays drawn
+ * underneath; back slides it off again and the list is exactly where it
+ * was, with the row it came from tinted for a moment. Wider, a quick fade.
+ * Stepping to the previous or next order only fades the cards under the bar.
  *
  * The address still says which order is open (`?order=`), pushed as a real
  * history entry: the browser's back button, the Android back gesture and a
@@ -50,7 +53,8 @@ import { rememberTimeZone, viewerTimeZone } from "@/lib/orders/time-zone"
 import { readMetrics } from "@/lib/orders/metrics"
 import { DEFAULT_PRESET, RANGE_COOKIE, firstDayOf, rangeWindow, readOrdersPeriod, serializePeriod } from "@/lib/orders/range"
 import { OrdersList } from "./orders-list"
-import { ExportOrdersDialog } from "./export-dialog"
+import { ExportOrders } from "./export-dialog"
+import { markRow, moveOrder, stillOrder } from "./order-motion"
 import { hasConsent } from "@/lib/consent/client"
 import { todayIn, type CompareValue, type RangeValue } from "@/lib/date-range/range"
 import { writePeriod } from "@/lib/date-range/params"
@@ -274,11 +278,79 @@ export function OrdersClient(props: OrdersClientProps) {
      in as a whole, so its bar is at full strength on the first frame. */
   const [openedOnOrder] = React.useState(() => shown !== null)
 
+  /*
+    THE ORDER THAT IS LEAVING. When the address stops naming an order (back,
+    in any of its forms) the order is still drawn, inert, while it slides or
+    fades off the list, and taken away when that ends. Worked out while
+    rendering, in the same render that closes it, so there is no frame in
+    which the order is gone and then back for its exit. How it arrived: from
+    the list, or by a step to the previous or next order, which only fades
+    the cards.
+  */
+  const shownId = shown?.id ?? null
+  const [lastId, setLastId] = React.useState(shownId)
+  const [leavingId, setLeavingId] = React.useState<string | null>(null)
+  const [arrival, setArrival] = React.useState<"list" | "step">("list")
+  if (shownId !== lastId) {
+    setLastId(shownId)
+    setLeavingId(shownId === null ? lastId : null)
+    if (shownId !== null) setArrival(lastId === null ? "list" : "step")
+  }
+  const leaving = shown ? null : findOrder(orders, leavingId)
+  const displayed = shown ?? leaving
+
   /* Each order starts at its top, before it is drawn: after the paint, the
-     next order showed for a frame at the last one's scroll position. */
+     next order showed for a frame at the last one's scroll position. An
+     order on its way out keeps where it was. */
   React.useLayoutEffect(() => {
-    detailRef.current?.scrollTo({ top: 0 })
-  }, [shown?.id])
+    if (shownId) detailRef.current?.scrollTo({ top: 0 })
+  }, [shownId])
+
+  /*
+    A browser that already drew its own transition for this entry (Safari's
+    swipe back, which slides a picture of the list in) says so on the
+    popstate, and the order then just goes: a second slide after the
+    browser's own is the double animation this page had once.
+  */
+  const browserMoved = React.useRef(false)
+  React.useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      browserMoved.current = Boolean((e as PopStateEvent & { hasUAVisualTransition?: boolean }).hasUAVisualTransition)
+    }
+    window.addEventListener("popstate", onPop, { capture: true })
+    return () => window.removeEventListener("popstate", onPop, { capture: true })
+  }, [])
+
+  /*
+    THE MOVE, before the commit that draws or closes the order is painted.
+    Opening from the list pushes; a step between orders changes nothing but
+    the cards; closing pops, and the leaving order goes once it is off.
+  */
+  const settledId = React.useRef(shownId)
+  React.useLayoutEffect(() => {
+    const was = settledId.current
+    settledId.current = shownId
+    if (was === shownId) return
+    const detail = detailRef.current
+    const list = listRef.current
+    if (!list) return
+    const skip = browserMoved.current
+    browserMoved.current = false
+    if (shownId !== null) {
+      if (was !== null || !detail) return
+      markRow(list, shownId, "held")
+      if (skip) return stillOrder(detail, list)
+      moveOrder("push", detail, list)
+      return
+    }
+    markRow(list, was, "fading")
+    if (!detail || skip) {
+      stillOrder(detail, list)
+      setLeavingId(null)
+      return
+    }
+    moveOrder("pop", detail, list, () => setLeavingId(null))
+  }, [shownId])
 
   /* An address naming an order that is not this creator's, or not there. */
   React.useEffect(() => {
@@ -297,9 +369,10 @@ export function OrdersClient(props: OrdersClientProps) {
     if (pushed.current) window.history.back()
     else writeAddress((p) => p.delete("order"), "replace")
   }
-  const at = shown ? filtered.findIndex((o) => o.id === shown.id) : -1
+  const at = displayed ? filtered.findIndex((o) => o.id === displayed.id) : -1
   const onStep = (dir: -1 | 1) => {
-    const next = filtered[at + dir]
+    /* Not from an order on its way out (its arrow keys are still listening). */
+    const next = shown ? filtered[at + dir] : undefined
     if (!next) return
     writeAddress((p) => p.set("order", next.id), "replace")
   }
@@ -394,21 +467,26 @@ export function OrdersClient(props: OrdersClientProps) {
     }
   }
 
-  /* Export opens the dialog; which orders and which file are chosen there. */
+  /* Export opens its sheet or panel; which orders and which file are chosen
+     there. The Export button opens it and, on a computer, closes it again. */
   const [exporting, setExporting] = React.useState(false)
-  const onExport = useStable(() => setExporting(true))
+  const onExport = useStable(() => setExporting((open) => !open))
   const filtering = Boolean(searchText.trim()) || query.source !== "any" || Boolean(query.product) || query.view !== "all"
 
+  /* Under a settled order the list is hidden by the stage (app/globals.css,
+     `.orders-stage[data-order-open]`), and drawn again while anything moves. */
   const listCovered = shown !== null
 
   return (
-    <div className={cn("orders-stage relative h-full overflow-hidden bg-[#f8f9fa]", !openedOnOrder && "app-page-enter")}>
+    <div
+      className={cn("orders-stage relative h-full overflow-hidden bg-[#f8f9fa]", !openedOnOrder && "app-page-enter")}
+      data-order-open={listCovered ? "" : undefined}
+    >
       <div
         ref={listRef}
-        className="orders-pane page-scroll absolute inset-0 overflow-y-auto overflow-x-hidden"
+        className="orders-pane orders-list page-scroll absolute inset-0 overflow-y-auto overflow-x-hidden"
         inert={listCovered}
         aria-hidden={listCovered || undefined}
-        style={{ visibility: listCovered ? "hidden" : undefined }}
       >
         <OrdersListMemo
           allOrders={orders}
@@ -438,15 +516,19 @@ export function OrdersClient(props: OrdersClientProps) {
         />
       </div>
 
-      {shown ? (
+      {displayed ? (
         <div
           ref={detailRef}
           className="orders-pane orders-detail page-scroll absolute inset-0 overflow-y-auto overflow-x-hidden bg-[#f8f9fa]"
           role="region"
-          aria-label={`Order ${shown.number}`}
+          aria-label={`Order ${displayed.number}`}
+          data-arrival={arrival}
+          data-leaving={shown ? undefined : ""}
+          inert={!shown}
+          aria-hidden={!shown || undefined}
         >
           <OrderDetail
-            order={shown}
+            order={displayed}
             timeZone={timeZone}
             now={now}
             onBack={onBack}
@@ -459,7 +541,7 @@ export function OrdersClient(props: OrdersClientProps) {
         </div>
       ) : null}
 
-      <ExportOrdersDialog
+      <ExportOrders
         open={exporting}
         onClose={() => setExporting(false)}
         all={orders}

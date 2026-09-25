@@ -51,6 +51,7 @@ import {
   LIST_WIDTH,
   PaneBar,
 } from "./order-parts"
+import { HOVER_PREFETCH_MS, prefetchOrder } from "./order-prefetch"
 
 export interface OrdersListProps {
   allOrders: Order[]
@@ -90,9 +91,12 @@ export function OrdersList(props: OrdersListProps) {
         <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Orders</h1>
         <button
           type="button"
-          className={buttonAccent}
+          /* 32px to see, 44px to tap on a phone: the reach is a box around it. */
+          className={cn(buttonAccent, "relative before:absolute before:-inset-y-1.5 before:inset-x-0 before:content-[''] sm:before:hidden")}
           onClick={() => props.onExport()}
           disabled={allOrders.length === 0}
+          data-orders-export=""
+          aria-haspopup="dialog"
         >
           <Download className="h-4 w-4" />
           Export
@@ -327,11 +331,22 @@ function OrdersTable(props: OrdersListProps) {
                 return (
                   <tr
                     key={order.id}
-                    className="group h-10 cursor-pointer"
+                    data-order-id={order.id}
+                    className="orders-row group h-10 cursor-pointer"
                     onClick={(e) => {
                       if ((e.target as HTMLElement).closest("a,button,input,label")) return
                       onOpen(order.id)
                     }}
+                    /* A finger on the row, or a pointer resting on it, reads
+                       what the order's timeline will ask for (./order-prefetch). */
+                    onPointerDown={() => prefetchOrder(order)}
+                    onPointerEnter={(e) => {
+                      if (e.pointerType !== "mouse") return
+                      const row = e.currentTarget
+                      window.clearTimeout(Number(row.dataset.prefetch))
+                      row.dataset.prefetch = String(window.setTimeout(() => prefetchOrder(order), HOVER_PREFETCH_MS))
+                    }}
+                    onPointerLeave={(e) => window.clearTimeout(Number(e.currentTarget.dataset.prefetch))}
                   >
                     <td className={cn("orders-sticky left-0 w-10 border-t border-[#f0f1f3] p-0", rowBg)}>
                       <label className="flex h-10 w-10 cursor-pointer items-center pl-3">
