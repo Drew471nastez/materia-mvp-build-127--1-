@@ -228,7 +228,7 @@ function main() {
   const gradientLines = cards.split("\n").filter((l) => /bg-gradient|linear-gradient/.test(l))
   check("no glow or floated badge on the cards", !/radial-gradient|glow|btn-shine|absolute -top-3/.test(cards))
   check("the only gradients are the fade over the bottom of the picture", gradientLines.length > 0 && gradientLines.every((l) => /absolute inset-x-0 bottom-0 -z-10/.test(l)))
-  check("the header pictures go through next/image, sized to the card", /import Image from "next\/image"/.test(cards) && /<Image[\s\S]*?fill[\s\S]*?sizes=\{PLAN_PICTURE_SIZES\}/.test(cards) && /PLAN_PICTURE_SIZES = "\(min-width: 768px\) 440px, calc\(100vw - 32px\)"/.test(cards))
+  check("the header pictures go through next/image, sized to the card", /import Image from "next\/image"/.test(cards) && /<Image[\s\S]*?fill[\s\S]*?sizes=\{PLAN_PICTURE_SIZES\}/.test(cards) && /PLAN_PICTURE_SIZES = "\(min-width: 768px\) 360px, calc\(100vw - 32px\)"/.test(cards))
   check("both pictures are on the host next.config lets the optimizer fetch", (cards.match(/skgtqglupjcnfhfscink\.supabase\.co/g) ?? []).length === 1 && /hostname: 'skgtqglupjcnfhfscink\.supabase\.co'/.test(readSource("next.config.mjs")))
   check("the billing tab no longer upsells from Pro to the $99 plan", !/nextUpgradePlan/.test(readCode("components/app/billing/billing-page-client.tsx")))
 

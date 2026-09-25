@@ -9,7 +9,7 @@
  * card decides how a plan looks.
  *
  * DRAWN TO THE OWNER'S REFERENCE. A tall header in the plan's colour, which is
- * the owner's own picture (deep indigo for Free, near black for Pro, the
+ * the owner's own picture (near black for Free, deep indigo for Pro, the
  * Storelib mark standing at the right), holding a small label, the plan's
  * name, the price large, a line under it and one line of description, all in
  * white. Under it the plan's lines, each with a round check in the plan's
@@ -49,26 +49,30 @@ const PICTURE_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object
 /**
  * Each plan's colour, as whole class names so Tailwind sees them. `ground`
  * is the picture's own tone, painted under it, so the white text reads the
- * same while the picture is still on its way.
+ * same while the picture is still on its way. `blur` is a 24px copy of the
+ * picture inlined in the markup, shown blurred until the real one arrives,
+ * so the header never pops from flat colour to picture.
  */
-const LOOK: Record<OfferedPlanId, { picture: string; ground: string; dim: string; fade: string; dot: string; button: string; ring: string }> = {
+const LOOK: Record<OfferedPlanId, { picture: string; blur: string; ground: string; dim: string; fade: string; dot: string; button: string; ring: string }> = {
   free: {
-    picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
-    ground: "bg-[#2a1a8f]",
-    dim: "brightness-[0.68] saturate-[0.95]",
-    fade: "from-[#1a1070]/85",
-    dot: "bg-[#5a43ee]",
-    button: "bg-[#5a43ee] hover:bg-[#4d37dd] active:bg-[#412dc4]",
-    ring: "focus-visible:ring-[#5a43ee]/45",
-  },
-  growth: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2010_29_35%20AM.png`,
-    ground: "bg-[#1b1b1c]",
-    dim: "brightness-[0.78]",
+    blur: "data:image/webp;base64,UklGRkgAAABXRUJQVlA4IDwAAAAwAwCdASoYAA4APrVInkm3JCKhMAgC4BaJaQAAelPp0aAAAP7w3blrXGLU+JE1tbFf8V/YdHwlAu9pAAA=",
+    ground: "bg-[#161617]",
+    dim: "brightness-[0.7] contrast-[0.94]",
     fade: "from-[#0b0b0c]/85",
     dot: "bg-[#111113]",
     button: "bg-[#111113] hover:bg-[#26262b] active:bg-[#000000]",
     ring: "focus-visible:ring-[#111113]/35",
+  },
+  growth: {
+    picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
+    blur: "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAABQAwCdASoYAA4APrVMoUq3JCMhsAgC4BaJYgAAesFl7Y4P1AD+5WYnJTUuz//yU/+8r/XdyP1rncUch4oVkh+Ip7UA+Bb1kTZGrQXedRNyS4sSL7u3PKU5zEv/HrIHYtVHAAAA",
+    ground: "bg-[#24178a]",
+    dim: "brightness-[0.62] contrast-[0.95] saturate-[0.95]",
+    fade: "from-[#170e66]/85",
+    dot: "bg-[#5a43ee]",
+    button: "bg-[#5a43ee] hover:bg-[#4d37dd] active:bg-[#412dc4]",
+    ring: "focus-visible:ring-[#5a43ee]/45",
   },
 }
 
@@ -76,7 +80,7 @@ const LOOK: Record<OfferedPlanId, { picture: string; ground: string; dim: string
  * How wide the card, and so its picture, is drawn: half of a 720px row from
  * 768px up, the screen less its gutters under that.
  */
-export const PLAN_PICTURE_SIZES = "(min-width: 768px) 440px, calc(100vw - 32px)"
+export const PLAN_PICTURE_SIZES = "(min-width: 768px) 360px, calc(100vw - 32px)"
 
 function PlanButton({ action, plan, compact }: { action: PlanCardAction; plan: OfferedPlanId; compact?: boolean }) {
   const look = LOOK[plan]
@@ -151,6 +155,8 @@ function PlanCard({
           alt=""
           fill
           sizes={PLAN_PICTURE_SIZES}
+          loading="eager"
+          placeholder={look.blur}
           draggable={false}
           className={`-z-10 object-cover object-right select-none pointer-events-none ${look.dim}`}
           data-plan-picture=""
