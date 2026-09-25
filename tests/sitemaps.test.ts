@@ -153,8 +153,13 @@ section("Every host answers its own robots.txt and sitemap")
 section("Pages a visitor can reach but no index should hold carry noindex")
 {
   const site = code("app/(site)/w/[username]/render-site.tsx")
-  check("a site page names its absolute canonical at the site's origin", /alternates: \{ canonical: url \}/.test(site) && /const url = pageUrl\(await siteOrigin\(creator\.id, username\), pageKey\)/.test(site))
-  check("a site with nothing published is noindex", /if \(!install\) \{\s*return \{ title: \{ absolute: [^\n]*robots: \{ index: false, follow: true \} \}/.test(site))
+  check("a site page names its absolute canonical at the site's origin", /alternates: \{ canonical: url \}/.test(site) && /const url = pageUrl\(await siteOrigin\(creator\.creatorId, username\), pageKey\)/.test(site))
+  check("a site with nothing published is noindex", /if \(found\.kind !== "site"\) \{\s*return \{ title: \{ absolute: [^\n]*robots: \{ index: false, follow: true \} \}/.test(site))
+  /* The name a website was given in Website Settings › Domains is a name the
+     page answers to, so it has to be one the metadata answers to as well. */
+  check("a site page's metadata finds its creator the way the page does, website names included",
+    /const creator = await creatorByName\(username\)/.test(site) && /const found = await publishedShopByName\(username\)/.test(site)
+      && !/\.or\(`slug\.eq\./.test(site) && /creatorIdByHandle\(lower, admin\)/.test(code("lib/website-builder/published-site.ts")))
   check("a preview is noindex", /return \{ title: "Preview", robots: \{ index: false, follow: false \} \}/.test(site))
   for (const layout of ["app/app/layout.tsx", "app/website-builder/layout.tsx", "app/library/layout.tsx", "app/creator-page/layout.tsx", "app/dashboard/layout.tsx", "app/store/[creatorSlug]/themes/[installId]/editor/page.tsx"]) {
     check(`  ${layout} is noindex`, /export const metadata: Metadata = \{ robots: \{ index: false, follow: false \} \}/.test(code(layout)))

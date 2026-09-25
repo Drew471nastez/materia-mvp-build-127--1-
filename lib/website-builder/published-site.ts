@@ -110,6 +110,8 @@ export type SiteLookup =
 interface NameMatch {
   creatorId: string
   displayName: string
+  /** The creator's slug, which a site's default title names. Optional: an entry cached before it was added has none. */
+  slug?: string | null
 }
 
 /**
@@ -135,8 +137,8 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
       .maybeSingle()
     if (creator) {
       const p = profile as { display_name?: string | null; username?: string | null }
-      const c = creator as { id: string; display_name?: string | null }
-      return { creatorId: c.id, displayName: c.display_name || p.display_name || p.username || name }
+      const c = creator as { id: string; slug?: string | null; display_name?: string | null }
+      return { creatorId: c.id, displayName: c.display_name || p.display_name || p.username || name, slug: c.slug ?? null }
     }
   }
 
@@ -147,7 +149,7 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
     .maybeSingle()
   if (bySlug) {
     const c = bySlug as { id: string; slug?: string | null; display_name?: string | null }
-    return { creatorId: c.id, displayName: c.display_name || c.slug || name }
+    return { creatorId: c.id, displayName: c.display_name || c.slug || name, slug: c.slug ?? null }
   }
 
   /*
@@ -162,7 +164,7 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
     const { data: creator } = await admin.from("creators").select("id, slug, display_name").eq("id", byHandle).maybeSingle()
     if (creator) {
       const c = creator as { id: string; slug?: string | null; display_name?: string | null }
-      return { creatorId: c.id, displayName: c.display_name || c.slug || name }
+      return { creatorId: c.id, displayName: c.display_name || c.slug || name, slug: c.slug ?? null }
     }
   }
   return null

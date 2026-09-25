@@ -21,7 +21,7 @@ import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { prerenderStorelibSections } from "@/lib/website-builder/storefront-render"
 import { mayPreview, pageSections, previewTokenFrom, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
-import { publishedSiteByName } from "@/lib/website-builder/published-site"
+import { creatorByName, publishedShopByName, publishedSiteByName } from "@/lib/website-builder/published-site"
 import { SiteNotPublished } from "./not-published"
 import { shopProducts } from "@/lib/website-builder/shop-products"
 import { chromeOf, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
@@ -63,51 +63,38 @@ export async function siteMetadata(
   }
 
   /**
-   * THE ADMIN CLIENT, NOT THE VIEWER'S. A published site's title, description
-   * and favicon are the same for everybody, and reading them through the
-   * viewer's client meant calling `cookies()` — which makes the whole route
-   * dynamic and uncacheable no matter what else it does. Nothing here is
-   * per-viewer, so nothing here needs to know who is asking.
+   * THE SAME LOOKUP THE PAGE MAKES. This read `creators` by slug or username
+   * and nothing else, so a site reached by the name it was given in Website
+   * Settings › Domains was drawn by the page and described by nothing: a
+   * title of "Not Found", no canonical, no description, no share card.
+   * creatorByName and publishedShopByName are the page's own resolution
+   * (lib/website-builder/published-site.ts), username, creator slug and
+   * website name alike, and both are cached, so asking them here is free.
+   *
+   * THE ADMIN CLIENT, NOT THE VIEWER'S, is what they read through. A
+   * published site's title, description and favicon are the same for
+   * everybody, and reading them through the viewer's client meant calling
+   * `cookies()`, which makes the whole route dynamic and uncacheable.
    */
-  const supabase = createAdminClient()
-
-  const { data: creator } = await supabase
-    .from("creators")
-    .select("id, slug, display_name")
-    .or(`slug.eq.${username},username.eq.${username}`)
-    .maybeSingle()
-
+  const creator = await creatorByName(username)
   if (!creator) return { title: "Not Found" }
+  const found = await publishedShopByName(username)
 
-  // Pull published theme settings so we can use brand_name, seo fields and favicon.
-  // Use admin client — published installs must be readable by anyone and
-  // `store_theme_*` tables are locked down by RLS to the owning creator.
-  const adminForMeta = createAdminClient()
-  const { data: install } = await adminForMeta
-    .from("store_theme_installs")
-    .select(`
-      id,
-      store_theme_settings ( settings, draft_settings )
-    `)
-    .eq("creator_id", creator.id)
-    .eq("status", "published")
-    .order("sort_order", { ascending: true })
-    .limit(1)
-    .maybeSingle()
+  // Default format: "{username} | Storelib" — prefer the creator's platform
+  // username/slug over the brand_name so the tab title matches the URL.
+  const defaultHandle = creator.slug || username || creator.displayName || "Storelib"
 
-  const settingsRow: any =
-    (install as any)?.store_theme_settings?.[0] ??
-    (install as any)?.store_theme_settings ??
-    {}
+  /* Nothing published: the page says so, and is not a page to index. */
+  if (found.kind !== "site") {
+    return { title: { absolute: `${defaultHandle} | Storelib` }, robots: { index: false, follow: true } }
+  }
+
   // PUBLISHED ONLY. This fell back to `draft_settings` "so a freshly uploaded
   // favicon shows up before a re-publish", which is a draft title, description
   // and favicon on a public page — the same leak the body of this page was
   // fixed for. A favicon shows up when it is published, like everything else.
-  const settings: ThemeSettingsValues = settingsRow.settings ?? {}
-
-  // Default format: "{username} | Storelib" — prefer the creator's platform
-  // username/slug over the brand_name so the tab title matches the URL.
-  const defaultHandle = creator.slug || username || creator.display_name || "Storelib"
+  // The published site is built from published values alone (buildSite).
+  const settings: ThemeSettingsValues = found.site.themeSettings ?? {}
   const siteTitle = typeof settings.seo_title === "string" && settings.seo_title.trim()
     ? settings.seo_title.trim()
     : `${defaultHandle} | Storelib`
@@ -136,12 +123,7 @@ export async function siteMetadata(
    * it knows between them. The canonical names the one the creator gives
    * out: lib/website-builder/site-seo-data.ts.
    */
-  const url = pageUrl(await siteOrigin(creator.id, username), pageKey)
-
-  /* Nothing published: the page says so, and is not a page to index. */
-  if (!install) {
-    return { title: { absolute: `${defaultHandle} | Storelib` }, robots: { index: false, follow: true } }
-  }
+  const url = pageUrl(await siteOrigin(creator.creatorId, username), pageKey)
 
   return {
     title: { absolute: rawTitle },
