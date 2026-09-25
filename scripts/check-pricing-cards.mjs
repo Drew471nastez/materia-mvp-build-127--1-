@@ -325,7 +325,9 @@ try {
         expect(Math.abs(free.height - pro.height) <= 1, "equal heights", `${free.height}px and ${pro.height}px`)
         expect(free.headerH === pro.headerH && free.firstLineTop === pro.firstLineTop && free.buttonTop === pro.buttonTop, "headers, first lines and buttons level across the two", { headers: [free.headerH, pro.headerH], lines: [free.firstLineTop, pro.firstLineTop], buttons: [free.buttonTop, pro.buttonTop] })
       } else {
-        expect(pro.top >= free.bottom, "stacked, Free above Pro", `Free ends ${free.bottom}, Pro starts ${pro.top}`)
+        /* The upgrade page leads with Pro for somebody on Free (PlanCards lead); everywhere else Free comes first. */
+        if (name === "upgrade") expect(free.top >= pro.bottom, "stacked, Pro above Free for somebody on Free", `Pro ends ${pro.bottom}, Free starts ${free.top}`)
+        else expect(pro.top >= free.bottom, "stacked, Free above Pro", `Free ends ${free.bottom}, Pro starts ${pro.top}`)
         expect(free.width === pro.width, "the same width", `${free.width}px and ${pro.width}px`)
         expect(free.left >= 16 && free.right >= 16, "at least 16px from each edge", `${free.left}/${free.right}px`)
       }
