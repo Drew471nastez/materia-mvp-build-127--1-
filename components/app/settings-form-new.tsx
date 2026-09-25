@@ -17,7 +17,7 @@ import {
   X, Check, Loader2, AlertCircle, Mail, Lock,
   CreditCard, Shield, Settings, Wallet, Landmark,
   ExternalLink, ChevronRight, Globe,
-  User, FileText, Search, ChevronLeft,
+  User, FileText, ChevronLeft,
   ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
@@ -32,6 +32,7 @@ import { TIME_ZONE_STORAGE_KEY, validTimeZone } from "@/lib/account/time-zone"
 import { BillingPageClient } from "@/components/app/billing/billing-page-client"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { TimeZonePicker } from "@/components/app/time-zone-picker"
+import { CountryPicker } from "@/components/app/settings/country-picker"
 import { ProfilePhoto } from "@/components/app/settings/profile-photo"
 import { DomainsPanel, type DomainsData } from "@/components/app/settings/domains-panel"
 import { creatorPageHostFrom, websiteHostFrom } from "@/lib/custom-domains/client"
@@ -40,85 +41,11 @@ import { WaitingArea } from "@/components/ui/activity-spinner"
 import { ShareStorelib } from "@/components/app/share/share-storelib"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { EmailChangeFlow, PrivacyPanel, SecurityPanel } from "@/components/app/settings/account-panels"
-import { profileAvatar } from "@/lib/account/avatar"
+import { useShellAvatar } from "@/lib/account/avatar-store"
 import { applyBusinessSession } from "@/lib/businesses/switch-client"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 
-// Countries list
-const COUNTRIES = [
-  { code: "US", name: "United States" },
-  { code: "GB", name: "United Kingdom" },
-  { code: "CA", name: "Canada" },
-  { code: "AU", name: "Australia" },
-  { code: "DE", name: "Germany" },
-  { code: "FR", name: "France" },
-  { code: "ES", name: "Spain" },
-  { code: "IT", name: "Italy" },
-  { code: "NL", name: "Netherlands" },
-  { code: "BE", name: "Belgium" },
-  { code: "AT", name: "Austria" },
-  { code: "CH", name: "Switzerland" },
-  { code: "SE", name: "Sweden" },
-  { code: "NO", name: "Norway" },
-  { code: "DK", name: "Denmark" },
-  { code: "FI", name: "Finland" },
-  { code: "IE", name: "Ireland" },
-  { code: "PT", name: "Portugal" },
-  { code: "PL", name: "Poland" },
-  { code: "CZ", name: "Czech Republic" },
-  { code: "HU", name: "Hungary" },
-  { code: "RO", name: "Romania" },
-  { code: "BG", name: "Bulgaria" },
-  { code: "HR", name: "Croatia" },
-  { code: "SK", name: "Slovakia" },
-  { code: "SI", name: "Slovenia" },
-  { code: "EE", name: "Estonia" },
-  { code: "LV", name: "Latvia" },
-  { code: "LT", name: "Lithuania" },
-  { code: "GR", name: "Greece" },
-  { code: "CY", name: "Cyprus" },
-  { code: "MT", name: "Malta" },
-  { code: "LU", name: "Luxembourg" },
-  { code: "JP", name: "Japan" },
-  { code: "KR", name: "South Korea" },
-  { code: "CN", name: "China" },
-  { code: "IN", name: "India" },
-  { code: "SG", name: "Singapore" },
-  { code: "HK", name: "Hong Kong" },
-  { code: "TW", name: "Taiwan" },
-  { code: "MY", name: "Malaysia" },
-  { code: "TH", name: "Thailand" },
-  { code: "ID", name: "Indonesia" },
-  { code: "PH", name: "Philippines" },
-  { code: "VN", name: "Vietnam" },
-  { code: "NZ", name: "New Zealand" },
-  { code: "BR", name: "Brazil" },
-  { code: "MX", name: "Mexico" },
-  { code: "AR", name: "Argentina" },
-  { code: "CL", name: "Chile" },
-  { code: "CO", name: "Colombia" },
-  { code: "PE", name: "Peru" },
-  { code: "ZA", name: "South Africa" },
-  { code: "NG", name: "Nigeria" },
-  { code: "EG", name: "Egypt" },
-  { code: "KE", name: "Kenya" },
-  { code: "AE", name: "United Arab Emirates" },
-  { code: "SA", name: "Saudi Arabia" },
-  { code: "IL", name: "Israel" },
-  { code: "TR", name: "Turkey" },
-  { code: "RU", name: "Russia" },
-  { code: "UA", name: "Ukraine" },
-  { code: "IS", name: "Iceland" },
-  { code: "PR", name: "Puerto Rico" },
-  { code: "PA", name: "Panama" },
-  { code: "CR", name: "Costa Rica" },
-  { code: "EC", name: "Ecuador" },
-  { code: "UY", name: "Uruguay" },
-  { code: "PK", name: "Pakistan" },
-  { code: "BD", name: "Bangladesh" },
-  { code: "LK", name: "Sri Lanka" },
-  { code: "NP", name: "Nepal" },
-].sort((a, b) => a.name.localeCompare(b.name))
+/* The country field is components/app/settings/country-picker: every country, with its flag. */
 
 
 const TABS = [
@@ -301,102 +228,6 @@ function DesktopSettingsModal({
   )
 }
 
-// Country Selector Modal
-function CountrySelectorModal({
-  isOpen,
-  onClose,
-  selectedCountry,
-  onSelect,
-}: {
-  isOpen: boolean
-  onClose: () => void
-  selectedCountry: string
-  onSelect: (country: string) => void
-}) {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isMobile, setIsMobile] = useState(false)
-  const searchInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    // Check if mobile
-    setIsMobile(window.innerWidth < 768)
-  }, [])
-
-  useEffect(() => {
-    if (isOpen) {
-      setSearchQuery("")
-      // Only auto-focus on desktop to prevent keyboard popup on mobile
-      if (!isMobile) {
-        setTimeout(() => searchInputRef.current?.focus(), 100)
-      }
-    }
-  }, [isOpen, isMobile])
-
-  const filteredCountries = COUNTRIES.filter(
-    (country) =>
-      country.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      country.code.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  const handleSelect = (countryName: string) => {
-    onSelect(countryName)
-    onClose()
-  }
-
-  return (
-    <MobileBottomSheet isOpen={isOpen} onClose={onClose} title="Select Country">
-      <div className="space-y-3">
-        {/* Search Input */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9ca3af]" />
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search countries..."
-            readOnly={isMobile}
-            onFocus={(e) => {
-              if (isMobile) {
-                e.currentTarget.readOnly = false
-              }
-            }}
-            className="w-full h-11 pl-10 pr-4 border border-[#e5e7eb] rounded-xl text-[16px] sm:text-[14px] outline-none transition-[border-color,box-shadow] duration-150 focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]"
-          />
-        </div>
-
-        {/* Countries List */}
-        <div className="max-h-[50vh] overflow-y-auto -mx-1 px-1">
-          {filteredCountries.length === 0 ? (
-            <p className="text-center text-[13px] text-[#6b7280] py-4">No countries found</p>
-          ) : (
-            <div className="space-y-1">
-              {filteredCountries.map((country) => (
-                <button
-                  key={country.code}
-                  onClick={() => handleSelect(country.name)}
-                  className={`w-full text-left px-3 py-3 rounded-xl text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
-                    selectedCountry === country.name
-                      ? "bg-[#f5f3ff] text-[#8b5cf6]"
-                      : "text-[#374151] hover:bg-[#f3f4f6] active:bg-[#e5e7eb]"
-                  }`}
-                >
-                  <span>{country.name}</span>
-                  {selectedCountry === country.name && (
-                    <Check className="h-4 w-4 text-[#8b5cf6]" />
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </MobileBottomSheet>
-  )
-}
-
-
-
 export function SettingsFormNew({ profile, creator, accountTimeZone = null, websitePublished = false, newsletter = false, website = null, onePageLive = false, sharePlatforms = [], initialTab = "general" }: SettingsFormProps) {
   const router = useRouter()
   const { language: currentLanguage, setLanguage, t } = useLanguage()
@@ -530,25 +361,26 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const [domainsData, setDomainsData] = useState<DomainsData | null>(null)
 
   /*
-    THE PROFILE'S PHOTO, OR THE INITIALS: the one answer the header gives too
-    (lib/account/avatar). This walked the creator row, the creator page
-    header, the OnePage and the Google picture, so Settings and the header
-    could each show a different photo, and a removed one came back.
+    THE PROFILE'S PHOTO, OR THE INITIALS, READ FROM THE SAME PLACE THE HEADER
+    READS IT (lib/account/avatar-store): the server's answer, or the one this
+    page or another tab has just saved. It walked the creator row, the creator
+    page header, the OnePage and the Google picture once, so Settings and the
+    header could each show a different photo. It is saved the moment it is
+    changed (components/app/settings/profile-photo), so it is not one of the
+    fields the save bar asks about.
   */
-  const getDefaultAvatarUrl = () => profileAvatar(profile.avatar_url) ?? ""
+  const avatarUrl = useShellAvatar(profile.avatar_url) ?? ""
 
   // Profile fields
   const [firstName, setFirstName] = useState(profile.first_name || profile.display_name?.split(" ")[0] || "")
   const [lastName, setLastName] = useState(profile.last_name || profile.display_name?.split(" ").slice(1).join(" ") || "")
   const [username, setUsername] = useState(profile.username || creator.slug || "")
-  const [avatarUrl, setAvatarUrl] = useState(getDefaultAvatarUrl())
 
   // Track initial values for unsaved changes detection
   const initialValues = useRef({
     firstName: profile.first_name || profile.display_name?.split(" ")[0] || "",
     lastName: profile.last_name || profile.display_name?.split(" ").slice(1).join(" ") || "",
     username: profile.username || creator.slug || "",
-    avatarUrl: getDefaultAvatarUrl(),
     addressLine1: profile.address_line1 || "",
     city: profile.city || "",
     state: profile.state || "",
@@ -571,15 +403,11 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const [postalCode, setPostalCode] = useState(profile.postal_code || "")
   const [country, setCountry] = useState(profile.country || "")
 
-  // Country selector
-  const [showCountryModal, setShowCountryModal] = useState(false)
-
   // Detect unsaved changes
   const hasUnsavedChanges =
     firstName !== initialValues.current.firstName ||
     lastName !== initialValues.current.lastName ||
     username !== initialValues.current.username ||
-    avatarUrl !== initialValues.current.avatarUrl ||
     addressLine1 !== initialValues.current.addressLine1 ||
     city !== initialValues.current.city ||
     state !== initialValues.current.state ||
@@ -1107,7 +935,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         firstName,
         lastName,
         username: cleanUsername,
-        avatarUrl,
         addressLine1,
         city,
         state,
@@ -1338,16 +1165,22 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       */}
       <div data-settings-page="" className="overflow-x-clip bg-[#fafafa]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-clip">
-        {/* Header with the address pill */}
-        <div className="mb-6 flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-[22px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("settings.title")}</h1>
-            <p className="text-[14px] text-[#6b7280] mt-1">{t("settings.subtitle")}</p>
-          </div>
-          <div className="flex min-w-0 max-w-[58%] shrink-0 justify-end pt-0.5 sm:max-w-[300px] sm:pt-1">
+        {/*
+          THE HEADER AND THE ADDRESS PILL. On a phone the pill took the right
+          half of the row the title and the subtitle shared, and "Manage your
+          account and preferences" wrapped into three short lines under
+          "Settings". Now the title and the pill share the first row, centred
+          on each other, and the subtitle has the whole width under them. From
+          640px it is as it was: the title over the subtitle on the left, the
+          pill at the top right.
+        */}
+        <div data-settings-header="" className="mb-6 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 sm:items-start sm:gap-y-0">
+          <h1 className="col-start-1 row-start-1 text-[22px] font-bold text-[#1a1a2e] sm:text-[28px]">{t("settings.title")}</h1>
+          <div data-settings-pill="" className="col-start-2 row-start-1 flex min-w-0 justify-end sm:row-span-2 sm:max-w-[300px] sm:justify-self-end sm:pt-1">
             <ShareStorelib size="sm" className="md:hidden" addresses={shareAddresses} platforms={sharePlatforms} />
             <ShareStorelib className="hidden md:inline-flex" addresses={shareAddresses} platforms={sharePlatforms} />
           </div>
+          <p className="col-span-2 row-start-2 text-[14px] text-[#6b7280] sm:col-span-1 sm:col-start-1 sm:mt-1">{t("settings.subtitle")}</p>
         </div>
 
         {/* Pill-shaped Tab Navigation - Hidden scrollbar, fixed height to prevent layout shift */}
@@ -1483,10 +1316,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   userId={profile.id}
                   src={avatarUrl || null}
                   name={`${firstName} ${lastName}`.trim() || username || "You"}
-                  onChanged={(url) => {
-                    /* Saved already: not a change for the save bar to ask about. */
-                    setAvatarUrl(url ?? "")
-                    initialValues.current.avatarUrl = url ?? ""
+                  onChanged={() => {
+                    /* Saved and announced already (the header has it); the server's pages catch up. */
                     router.refresh()
                   }}
                 />
@@ -1712,14 +1543,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                     <Label htmlFor="country" className="text-[13px] font-medium text-[#374151]">
                       Country
                     </Label>
-                    <button
-                      type="button"
-                      onClick={() => setShowCountryModal(true)}
-                      className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
-                    >
-                      <span className={country ? "text-[#1a1a2e]" : "text-[#9ca3af]"}>{country || "Select country"}</span>
-                      <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
-                    </button>
+                    {/* The Language and Time zone field: a popover on a computer, the shared sheet on a phone, every country with its flag. */}
+                    <CountryPicker id="country" value={country} onChange={setCountry} />
                   </div>
                 </div>
               </div>
@@ -2046,6 +1871,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               }}
               websiteAddress={getWebsiteUrlDisplay(website?.handle || settingsHandleBase)}
               creatorPageAddress={getStoreUrlDisplay(settingsHandleBase)}
+              handle={(username || settingsHandleBase).toLowerCase()}
               locked={userPlan === "free" || userPlan === null}
               planLoading={planLoading}
             />
@@ -2057,7 +1883,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
       {/* Sticky Save Bar - Smooth fade animation */}
       {(() => {
-        const barUp = hasUnsavedChanges && !showEmailChangeModal && !showCountryModal && !showDeleteModal
+        const barUp = hasUnsavedChanges && !showEmailChangeModal && !showDeleteModal
         return (
       <div
         /*
@@ -2095,7 +1921,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 setFirstName(initialValues.current.firstName)
                 setLastName(initialValues.current.lastName)
                 setUsername(initialValues.current.username)
-                setAvatarUrl(initialValues.current.avatarUrl)
                 setAddressLine1(initialValues.current.addressLine1)
                 setCity(initialValues.current.city)
                 setState(initialValues.current.state)
@@ -2129,9 +1954,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       </div>
         )
       })()}
-
-      {/* Country Selector Modal */}
-      <CountrySelectorModal isOpen={showCountryModal} onClose={() => setShowCountryModal(false)} selectedCountry={country} onSelect={setCountry} />
 
       {/* Email Change Modal: a code to each address (account-panels.tsx) */}
       <MobileBottomSheet isOpen={showEmailChangeModal} onClose={closeEmailChangeModal} title="Change email">

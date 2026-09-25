@@ -21,7 +21,9 @@
  *
  * So the page does not recompute it. It calls this, and so does the renderer.
  */
-import { avatarSizeMap, type AvatarSizeChoice } from "./defaults"
+import { avatarSizeMap } from "./defaults"
+/* The type is types.ts's; defaults.ts only imports it. */
+import type { AvatarSizeChoice } from "./types"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 
 export interface HeaderAvatarSettings {

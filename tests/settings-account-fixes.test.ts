@@ -80,12 +80,15 @@ console.log("\n2. One profile photo")
   check("removing saves through the route and tells the shell at once", /await savePhoto\(null\)[\s\S]{0,200}announceAvatar\(null\)/.test(photo) && /await savePhoto\(publicUrl\)\s*announceAvatar\(publicUrl\)/.test(photo))
   check("and no longer writes the profile straight from the browser", !/from\("profiles"\)\.update\(\{ avatar_url/.test(photo))
   const route = readCode("app/api/account/avatar/route.ts")
+  /* The writes moved into lib/account/avatar-save (the choice first, then the profile, read back): tests/avatar-one-source runs them. */
+  const save = readCode("lib/account/avatar-save.ts")
   check("the route writes the profile on the person's own client and marks the choice on the account",
-    /supabase\.from\("profiles"\)\.update\(\{ avatar_url: url \}\)\.eq\("id", user\.id\)/.test(route) && /supabase\.auth\.updateUser\(\{ data: \{ \[AVATAR_CHOSEN\]: true \} \}\)/.test(route))
+    /saveProfilePhoto\(supabase as unknown as PhotoClient, user, url\)/.test(route)
+      && /supabase\.from\("profiles"\)\.update\(\{ avatar_url: url \}\)\.eq\("id", user\.id\)/.test(save) && /supabase\.auth\.updateUser\(\{ data: \{ \[AVATAR_CHOSEN\]: true \} \}\)/.test(save))
   check("and only takes a photo from the person's own folder", /\/storage\/v1\/object\/public\/avatars\/\$\{userId\}\//.test(route))
 
   const settings = readCode("app/app/settings/_server.ts")
-  check("Settings reads no other photo to fall back to", !/googleAvatarUrl|storeBuilderAvatarUrl|onepageAvatarUrl/.test(settings + form) && /profileAvatar\(profile\.avatar_url\) \?\? ""/.test(form))
+  check("Settings reads no other photo to fall back to", !/googleAvatarUrl|storeBuilderAvatarUrl|onepageAvatarUrl/.test(settings + form) && /useShellAvatar\(profile\.avatar_url\) \?\? ""/.test(form))
   for (const f of ["app/library/page.tsx", "app/library/settings/page.tsx", "components/marketing/header.tsx", "components/marketing/header-client.tsx", "components/platform/platform-header-client.tsx"]) {
     check(`${f}: no Google fallback either`, !/user_metadata\??\.(avatar_url|picture)|googleAvatar/.test(readCode(f)))
   }
