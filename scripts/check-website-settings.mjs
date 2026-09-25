@@ -263,7 +263,15 @@ console.log("\ndesktop, 1280 wide")
   await sleep(300)
   expect(await p.evaluate(() => window.__calls.includes("POST /api/domains/verify")), "and Check DNS asks whether they are in place")
   expect((await overflow(p)) === 0, "the records fit without scrolling sideways", await overflow(p))
+  const wideSetup = await p.evaluate(() => ({
+    steps: document.querySelectorAll("[data-dns-setup] ol > li").length,
+    picker: Boolean(document.querySelector("[data-dns-registrar]")),
+    header: [...document.querySelectorAll("[data-dns-table] [role=columnheader]")].filter((h) => h.getBoundingClientRect().width > 0).map((h) => h.textContent),
+  }))
+  expect(wideSetup.steps === 3 && wideSetup.picker && wideSetup.header.join() === "Type,Name,Value,TTL,Status", "the records are the same three steps as Settings, with the provider picker and the table", wideSetup)
   await p.screenshot({ path: join(shots, "desktop-domains-add.png") })
+  await p.evaluate(() => document.querySelector("[data-dns-setup]")?.scrollIntoView({ block: "start" }))
+  await p.screenshot({ path: join(shots, "domains2-website-settings-1280.png") })
 
   /* Pages & Navigation: each page's search result, edited in place. */
   await clickText(p, "nav[aria-label='Website settings'] button", "Pages & Navigation")
@@ -369,12 +377,17 @@ console.log("\nphone, 390 wide")
   await sleep(120)
   await clickText(p, "main button", "Replace")
   await sleep(300)
-  const records = await p.evaluate(() => [...document.querySelectorAll("button[aria-label^='Copy the']")].map((b) => b.getBoundingClientRect()).map((r) => ({ right: Math.round(r.right), h: Math.round(r.height) })))
-  expect(records.length === 3 && records.every((r) => r.right <= 390 - 16) && (await overflow(p)) === 0, "a new domain's three records fit the phone, each copy button in reach", records)
-  const cut = await p.evaluate(() => [...document.querySelectorAll("button[aria-label^='Copy the']")].map((b) => b.previousElementSibling.lastElementChild).filter((v) => v.scrollWidth > v.clientWidth).map((v) => v.textContent))
+  const records = await p.evaluate(() => ({
+    rows: document.querySelectorAll("[data-dns-record]").length,
+    copies: [...document.querySelectorAll("[data-dns-copy]")].map((b) => b.getBoundingClientRect()).map((r) => ({ right: Math.round(r.right), w: Math.round(r.width), h: Math.round(r.height) })),
+  }))
+  expect(records.rows === 3 && records.copies.length === 3 && records.copies.every((r) => r.right <= 390 - 16 && r.w >= 44 && r.h >= 44) && (await overflow(p)) === 0, "a new domain's three records fit the phone, each copy button in reach and 44px", records)
+  const cut = await p.evaluate(() => [...document.querySelectorAll("[data-dns-value]")].filter((v) => v.scrollWidth > v.clientWidth + 1).map((v) => v.textContent))
   expect(cut.length === 0, "and every value is there in full, to be typed by hand if need be", cut)
-  await p.evaluate(() => document.querySelector("button[aria-label^='Copy the']")?.scrollIntoView({ block: "center" }))
+  await p.evaluate(() => document.querySelector("[data-dns-copy]")?.scrollIntoView({ block: "center" }))
   await p.screenshot({ path: join(shots, "phone-domains-records.png") })
+  await p.evaluate(() => document.querySelector("[data-dns-setup]")?.scrollIntoView({ block: "start" }))
+  await p.screenshot({ path: join(shots, "domains2-website-settings-390.png") })
   await clickText(p, "main button", "Website Settings")
   await sleep(150)
   await clickText(p, "nav[aria-label='Website settings'] button", "Pages & Navigation")
