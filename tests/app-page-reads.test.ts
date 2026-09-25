@@ -150,8 +150,14 @@ section("Settings: six trips to three")
   const src = code("app/app/settings/_server.ts")
   const first = batchAfter(src, /pageUser\(\)/)
   check("the profile and the creator row together", /\.from\("profiles"\)/.test(first) && /\.from\("creators"\)/.test(first))
-  /* Their photos were read only for the avatar's fallback chain, which is gone (lib/account/avatar). */
-  check("and no OnePage, store header or Google photo is read for the avatar", !/\.from\("onepages"\)/.test(src) && !/store_builder_configs/.test(src) && !/googleAvatarUrl/.test(src))
+  /* Their photos were read only for the avatar's fallback chain, which is gone (lib/account/avatar).
+     The OnePage and the creator page header are read again for the share pill (whether the
+     OnePage is live, and the platforms both link to), and for that alone: never a photo, and
+     only the header's socials rather than the whole page config. */
+  const onePageRead = src.match(/\.from\("onepages"\)\s*\.select\("([^"]*)"\)/)?.[1] ?? ""
+  const headerRead = src.match(/\.from\("store_builder_configs"\)\s*\.select\("([^"]*)"\)/)?.[1] ?? ""
+  check("and no OnePage, store header or Google photo is read for the avatar",
+    !/avatar/i.test(onePageRead) && !/avatar/i.test(headerRead) && (!headerRead || /headerSettings->socialLinks/.test(headerRead)) && !/googleAvatarUrl/.test(src))
   const second = batchAfter(src, /redirect\("\/onboarding"\)/)
   check("then the published website and its address together, by the creator's id",
     /\.from\("store_theme_installs"\)[\s\S]*\.eq\("creator_id", creator\.id\)/.test(second) && /websiteHandleOf\(creator\.id\)/.test(second))

@@ -256,6 +256,7 @@ export default async function AppDashboard() {
       websitePublished={!!publishedSite}
       subscriptionPlanId={creator.subscription_plan_id || "free"}
       sharePlatforms={sharePlatforms}
+      onePageLive={onepage?.status === "published"}
     />
   )
 }

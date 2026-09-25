@@ -18,11 +18,11 @@ import {
   CreditCard, Shield, Settings, Wallet, Landmark,
   ExternalLink, ChevronRight, Globe,
   User, FileText, Search, ChevronLeft,
-  ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, MonitorSmartphone
+  ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
-import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl, getStoreUrlDisplay, getWebsiteUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
+import { getLinksShareUrl, getLinksUrlDisplay, getStoreShareUrl, getStoreUrl, getStoreUrlDisplay, getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
 import { useLanguage, type LanguageCode } from "@/lib/i18n"
@@ -34,26 +34,13 @@ import { AppAvatar } from "@/components/app/app-avatar"
 import { TimeZonePicker } from "@/components/app/time-zone-picker"
 import { ProfilePhoto } from "@/components/app/settings/profile-photo"
 import { DomainsPanel, type DomainsData } from "@/components/app/settings/domains-panel"
-import { creatorPageHostFrom } from "@/lib/custom-domains/client"
+import { creatorPageHostFrom, websiteHostFrom } from "@/lib/custom-domains/client"
 import { AddressList, type SettingsWebsite } from "@/components/app/settings/addresses"
 import { WaitingArea } from "@/components/ui/activity-spinner"
-import { STORELIB_LOGO } from "@/lib/brand/logo"
+import { ShareStorelib } from "@/components/app/share/share-storelib"
+import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { EmailChangeFlow, PrivacyPanel, SecurityPanel } from "@/components/app/settings/account-panels"
 import { profileAvatar } from "@/lib/account/avatar"
-
-function ChainLinkIcon({ className = "w-3 h-3", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      <path
-        d="M10.0002 13C10.4297 13.5741 10.9776 14.0491 11.6067 14.3929C12.2359 14.7367 12.9317 14.9411 13.6468 14.9923C14.362 15.0435 15.0798 14.9403 15.7515 14.6897C16.4233 14.4392 17.0333 14.047 17.5402 13.54L20.5402 10.54C21.451 9.59695 21.955 8.33394 21.9436 7.02296C21.9322 5.71198 21.4063 4.45791 20.4793 3.53087C19.5523 2.60383 18.2982 2.07799 16.9872 2.0666C15.6762 2.0552 14.4132 2.55918 13.4702 3.46997L11.7502 5.17997M14.0002 11C13.5707 10.4258 13.0228 9.95078 12.3936 9.60703C11.7645 9.26327 11.0687 9.05885 10.3535 9.00763C9.63841 8.95641 8.92061 9.0596 8.24885 9.31018C7.5771 9.56077 6.96709 9.9529 6.4602 10.46L3.4602 13.46C2.54941 14.403 2.04544 15.666 2.05683 16.977C2.06822 18.288 2.59407 19.542 3.52111 20.4691C4.44815 21.3961 5.70221 21.9219 7.01319 21.9333C8.32418 21.9447 9.58719 21.4408 10.5302 20.53L12.2402 18.82"
-        stroke={stroke}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
 
 // Countries list
 const COUNTRIES = [
@@ -182,6 +169,10 @@ interface SettingsFormProps {
   newsletter?: boolean
   /** The published website, and the name it answers to when it has one of its own. */
   website?: SettingsWebsite | null
+  /** The OnePage is published, so its address opens. */
+  onePageLive?: boolean
+  /** The platforms the creator is on, for the share pill's "My platforms". */
+  sharePlatforms?: ConnectedPlatform[]
   initialTab?: TabId
 }
 
@@ -404,7 +395,7 @@ function CountrySelectorModal({
 
 
 
-export function SettingsFormNew({ profile, creator, accountTimeZone = null, websitePublished = false, newsletter = false, website = null, initialTab = "general" }: SettingsFormProps) {
+export function SettingsFormNew({ profile, creator, accountTimeZone = null, websitePublished = false, newsletter = false, website = null, onePageLive = false, sharePlatforms = [], initialTab = "general" }: SettingsFormProps) {
   const router = useRouter()
   const { language: currentLanguage, setLanguage, t } = useLanguage()
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>(currentLanguage)
@@ -1267,38 +1258,47 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     setShowEmailChangeModal(false)
   }
 
-  // Header quick access
-  const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false)
-  const quickAccessRef = useRef<HTMLDivElement | null>(null)
-
+  /*
+    THE ADDRESS PILL, THE SAME ONE AS THE HOME PAGE (components/app/share).
+    It replaced a chip that said @handle and opened a list called Quick
+    access: the three addresses are now the pill's panel, with Copy, the QR
+    code and the places to post them, so Settings and the home page hand
+    out a link the same way.
+  */
   const settingsHandleBase = creator?.username || profile?.username || storeUrlDisplay.split(".")[0] || "store"
-  const settingsHandleLabel = `@${settingsHandleBase}`
-  /* The creator page's own domain (and so the OnePage's, at /links), from the list read on load. */
+  /* The creator page's own domain (and so the OnePage's, at /links) and the website's, from the list read on load, given out as the home page does. */
   const connectedDomain = creatorPageHostFrom(domainsData)
-  // Canonical subdomain URLs for display text and clipboard copy
-  const onepageUrl = connectedDomain ? `https://${connectedDomain}/links` : getLinksShareUrl(settingsHandleBase)
-  const storeUrlWithDomain = connectedDomain ? `https://${connectedDomain}` : getStoreShareUrl(settingsHandleBase)
-  /**
-   * The third surface. <name>.storelib.com is the WEBSITE; storelib.com/<name>
-   * is the creator PAGE. Quick access listed the page and the OnePage and
-   * stopped, so the address a creator is most often asked for was the one
-   * missing from the list.
-   */
-  const websiteUrl = websitePublished && settingsHandleBase ? getWebsiteUrl(settingsHandleBase) : ""
-  // Internal-path URLs for in-app navigation (preserves auth in Capacitor)
-  const navOnepageUrl = connectedDomain ? `https://${connectedDomain}/links` : getLinksUrl(settingsHandleBase)
-  const navStoreUrlWithDomain = connectedDomain ? `https://${connectedDomain}` : storeUrl
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-      if (quickAccessRef.current && !quickAccessRef.current.contains(target)) {
-        setIsQuickAccessOpen(false)
-      }
+  const websiteDomain = websiteHostFrom(domainsData)
+  const shareAddresses: ShareAddress[] = (() => {
+    const domainIsWebsite = !!websiteDomain && websitePublished
+    const domainIsPage = !!connectedDomain && (!websitePublished || connectedDomain !== websiteDomain)
+    /* The website answers to its own name when it has one (its Domains), and to the username otherwise. */
+    const websiteHandle = website?.handle || settingsHandleBase
+    const list: ShareAddress[] = [
+      {
+        surface: "creator",
+        label: "Creator page",
+        url: domainIsPage ? `https://${connectedDomain}` : getStoreShareUrl(settingsHandleBase),
+        display: domainIsPage ? (connectedDomain as string) : getStoreUrlDisplay(settingsHandleBase),
+      },
+      {
+        surface: "onepage",
+        label: "OnePage",
+        url: connectedDomain ? `https://${connectedDomain}/links` : getLinksShareUrl(settingsHandleBase),
+        display: connectedDomain ? `${connectedDomain}/links` : getLinksUrlDisplay(settingsHandleBase),
+        live: onePageLive,
+      },
+    ]
+    if (websitePublished) {
+      list.push({
+        surface: "website",
+        label: "Website",
+        url: domainIsWebsite ? `https://${websiteDomain}` : getWebsiteShareUrl(websiteHandle),
+        display: domainIsWebsite ? (websiteDomain as string) : getWebsiteUrlDisplay(websiteHandle),
+      })
     }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
+    return list
+  })()
 
   return (
     <>
@@ -1330,102 +1330,17 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       */}
       <div data-settings-page="" className="overflow-x-clip bg-[#fafafa]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-clip">
-        {/* Header with Handle pill */}
+        {/* Header with the address pill */}
         <div className="mb-6 flex items-start justify-between gap-3">
           <div>
             <h1 className="text-[22px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("settings.title")}</h1>
             <p className="text-[14px] text-[#6b7280] mt-1">{t("settings.subtitle")}</p>
           </div>
-          <div ref={quickAccessRef} className="relative shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                if (isMobileViewport) {
-                  setIsQuickAccessOpen(true)
-                  return
-                }
-                setIsQuickAccessOpen((v) => !v)
-              }}
-              className="relative inline-flex items-center gap-1.5 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] sm:text-[14px] font-medium text-[#4b5563] hover:text-[#111827] hover:border-[#d1d5db] hover:bg-white transition-all cursor-pointer overflow-hidden"
-            >
-              <span className="absolute -inset-px rounded-full opacity-45 pointer-events-none animate-[spin_12s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(139,92,246,0.30)_320deg,transparent_360deg)]" />
-              <span className="absolute inset-[1px] rounded-full bg-white/95" />
-              <span className="relative z-[1] inline-flex items-center gap-1.5 sm:gap-2">
-                {settingsHandleLabel}
-                <ExternalLink className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#9ca3af]" />
-              </span>
-            </button>
-
-            {!isMobileViewport && isQuickAccessOpen && (
-              <div className="absolute right-0 top-full mt-2 w-[280px] rounded-2xl border border-[#e5e7eb] bg-white shadow-xl p-2 z-50 origin-top-right animate-in fade-in zoom-in-95 duration-200">
-                <p className="px-2 pt-1 pb-2 text-[11px] text-[#6b7280]">Quick access</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsQuickAccessOpen(false)
-                    openExternal(onepageUrl || navOnepageUrl)
-                  }}
-                  className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
-                >
-                  <p className="text-[13px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-2.5 h-2.5" stroke="#ffffff" /></span>OnePage</p>
-                  <p className="text-[11px] text-[#6b7280] truncate mt-1">{onepageUrl}</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsQuickAccessOpen(false)
-                    openExternal(storeUrlWithDomain || navStoreUrlWithDomain)
-                  }}
-                  className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
-                >
-                  <p className="text-[13px] font-semibold text-[#111827] flex items-center gap-2"><img src={STORELIB_LOGO} alt="" width={20} height={20} className="w-5 h-5 shrink-0 object-contain" loading="eager" decoding="async" />Creator page</p>
-                  <p className="text-[11px] text-[#6b7280] truncate mt-1">{storeUrlWithDomain}</p>
-                </button>
-                {websiteUrl && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsQuickAccessOpen(false)
-                      openExternal(websiteUrl)
-                    }}
-                    className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
-                  >
-                    <p className="text-[13px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-[#1a1a2e] flex items-center justify-center"><MonitorSmartphone className="w-3 h-3 text-white" /></span>Website</p>
-                    <p className="text-[11px] text-[#6b7280] truncate mt-1">{websiteUrl.replace(/^https?:\/\//, "")}</p>
-                  </button>
-                )}
-              </div>
-            )}
+          <div className="flex min-w-0 max-w-[58%] shrink-0 justify-end pt-0.5 sm:max-w-[300px] sm:pt-1">
+            <ShareStorelib size="sm" className="md:hidden" addresses={shareAddresses} platforms={sharePlatforms} />
+            <ShareStorelib className="hidden md:inline-flex" addresses={shareAddresses} platforms={sharePlatforms} />
           </div>
         </div>
-
-        <MobileBottomSheet isOpen={isMobileViewport && isQuickAccessOpen} onClose={() => setIsQuickAccessOpen(false)} title="Quick access">
-          <div className="space-y-2">
-            <button type="button" onClick={() => {
-              setIsQuickAccessOpen(false)
-              openExternal(onepageUrl || navOnepageUrl)
-            }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
-              <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-3 h-3" stroke="#ffffff" /></span>OnePage</p>
-              <p className="text-[12px] text-[#6b7280] truncate mt-1">{onepageUrl}</p>
-            </button>
-            <button type="button" onClick={() => {
-              setIsQuickAccessOpen(false)
-              openExternal(storeUrlWithDomain || navStoreUrlWithDomain)
-            }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
-              <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><img src={STORELIB_LOGO} alt="" width={24} height={24} className="w-6 h-6 shrink-0 object-contain" loading="eager" decoding="async" />Creator page</p>
-              <p className="text-[12px] text-[#6b7280] truncate mt-1">{storeUrlWithDomain}</p>
-            </button>
-            {websiteUrl && (
-              <button type="button" onClick={() => {
-                setIsQuickAccessOpen(false)
-                openExternal(websiteUrl)
-              }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
-                <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#1a1a2e] flex items-center justify-center"><MonitorSmartphone className="w-3.5 h-3.5 text-white" /></span>Website</p>
-                <p className="text-[12px] text-[#6b7280] truncate mt-1">{websiteUrl.replace(/^https?:\/\//, "")}</p>
-              </button>
-            )}
-          </div>
-        </MobileBottomSheet>
 
         {/* Pill-shaped Tab Navigation - Hidden scrollbar, fixed height to prevent layout shift */}
         <div ref={tabNavRef} data-settings-tabs="" className="mb-6 sm:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">

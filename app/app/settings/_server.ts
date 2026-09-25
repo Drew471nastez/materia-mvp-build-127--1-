@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { readNewsletter } from "@/lib/account/preferences"
 import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import { accountTimeZone } from "@/lib/account/time-zone"
+import { connectedBioPlatforms } from "@/components/app/share/share-data"
 
 export type SettingsTab = "general" | "security" | "privacy" | "billing" | "payments" | "domains"
 
@@ -27,9 +28,15 @@ export async function loadSettingsData() {
      recovers the session in the browser (lib/auth/page-user.ts). */
   if (!user) return null
 
-  const [{ data: profile }, { data: creator }, newsletter] = await Promise.all([
+  const [{ data: profile }, { data: creator }, { data: onepage }, newsletter] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
     supabase.from("creators").select("*").eq("user_id", user.id).maybeSingle(),
+    /* The share pill: whether the OnePage is live, and the platforms it links to. */
+    supabase
+      .from("onepages")
+      .select("status, social_links, instagram, tiktok, youtube")
+      .eq("owner_id", user.id)
+      .maybeSingle(),
     /* The Privacy tab's newsletter switch: is this account's address on
        Storelib's own list. The table is closed to browsers. */
     (async () => {
@@ -43,7 +50,7 @@ export async function loadSettingsData() {
 
   if (!creator) redirect("/onboarding")
 
-  const [{ data: publishedSite }, websiteHandle] = await Promise.all([
+  const [{ data: publishedSite }, websiteHandle, { data: pageSocials }] = await Promise.all([
     /**
      * PUBLISHED, not "has an install". Every account is seeded with theme
      * installs the first time it opens the website builder, so existence would
@@ -60,7 +67,28 @@ export async function loadSettingsData() {
     /* The name the website answers to when it has one of its own (set in its
        Domains); null means it is at the username. Fails soft to null. */
     websiteHandleOf(creator.id),
+    /* The creator page header's socials, for the share pill's "My platforms". Only that path of the config, not the whole page. */
+    supabase
+      .from("store_builder_configs")
+      .select("published:published_config->headerSettings->socialLinks, draft:draft_config->headerSettings->socialLinks")
+      .eq("creator_id", creator.id)
+      .eq("page_type", "shop")
+      .maybeSingle(),
   ])
+
+  /* The platforms the creator is on: the creator page first, the OnePage second, as the home page reads them (app/app/page.tsx). */
+  const oneSocials = (onepage?.social_links as Record<string, string | null> | null) ?? {}
+  const sharePlatforms = connectedBioPlatforms({
+    creatorPage: ((pageSocials as { published?: unknown; draft?: unknown } | null)?.published ??
+      (pageSocials as { published?: unknown; draft?: unknown } | null)?.draft ??
+      null) as Parameters<typeof connectedBioPlatforms>[0]["creatorPage"],
+    onePage: {
+      ...oneSocials,
+      instagram: oneSocials.instagram ?? onepage?.instagram ?? null,
+      tiktok: oneSocials.tiktok ?? onepage?.tiktok ?? null,
+      youtube: oneSocials.youtube ?? onepage?.youtube ?? null,
+    },
+  })
 
   let finalProfile = profile
   if (!finalProfile) {
@@ -103,6 +131,8 @@ export async function loadSettingsData() {
     /* The account's time zone (lib/account/time-zone): the column, else the one kept on the account. */
     timeZone: accountTimeZone((safeProfile as { timezone?: unknown }).timezone, user.user_metadata),
     websitePublished: !!publishedSite,
+    onePageLive: onepage?.status === "published",
+    sharePlatforms,
     /* General shows the published website's address and opens its settings. */
     website: publishedSite
       ? { installId: (publishedSite as { id: string }).id, name: (publishedSite as { name?: string | null }).name ?? null, handle: websiteHandle }

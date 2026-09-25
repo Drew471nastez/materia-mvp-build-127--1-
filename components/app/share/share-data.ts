@@ -29,6 +29,23 @@ export interface ShareAddress {
   url: string
   /** The address without https://, as a person would type it. */
   display: string
+  /**
+   * False while nothing answers at the address yet: a OnePage that has not
+   * been published. It is still offered, so the creator can find it, with a
+   * line saying it opens once published. Missing means live.
+   */
+  live?: boolean
+}
+
+/**
+ * One line under the address saying what each one opens, because "Creator
+ * page", "OnePage" and "Website" are three names for three different things
+ * and the switch between them said nothing about which is which.
+ */
+export const SURFACE_HINT: Record<ShareSurface, string> = {
+  creator: "Your page with everything you sell",
+  onepage: "Your link in bio page",
+  website: "The website you published",
 }
 
 export type BioPlatform =
@@ -297,11 +314,4 @@ export function shareTargetUrl(target: ShareTarget, url: string): string {
     case "email":
       return `mailto:?body=${u}`
   }
-}
-
-/** The pill's text: past 23 characters the address ends in an ellipsis rather than pushing the row apart. */
-export const PILL_MAX_CHARS = 23
-
-export function pillText(display: string): string {
-  return display.length > PILL_MAX_CHARS ? `${display.slice(0, PILL_MAX_CHARS)}…` : display
 }

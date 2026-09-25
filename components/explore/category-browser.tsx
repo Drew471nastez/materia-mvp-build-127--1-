@@ -15,10 +15,10 @@
  *   says which one you are on
  *
  *   a category with subcategories opens into a level of its own, with a back
- *   row on top, and the two levels SLIDE: the new one comes in from the
- *   right over the old one, which moves a little left and dims, and back
- *   reverses it. Each level is its own scroller, so coming back puts you
- *   where you were in the list
+ *   row on top. The two levels CROSS: the old one fades as it drifts a
+ *   little left, the new one fades in as it settles from a little right, and
+ *   back reverses it. Each level is its own scroller, so coming back puts
+ *   you where you were in the list
  *
  *   an optional search on top, which finds a category or a subcategory by
  *   name and chooses it on Enter
@@ -26,8 +26,8 @@
  * It lays itself out in whatever box it is given (`flex-1 min-h-0` inside a
  * box of a definite height): a popover on a computer, the shared bottom
  * sheet (components/ui/bottom-sheet.tsx) in `fill` mode on a phone. The
- * levels move by transform and opacity only, so a slide never lays anything
- * out and never touches the sheet's own drag.
+ * levels move by transform and opacity only, so a change of level never lays
+ * anything out and never touches the sheet's own drag.
  *
  * Data-agnostic: Explore gives it its CATEGORIES, the header gives it its
  * own list, and each decides what a pick does.
@@ -40,14 +40,28 @@ export type BrowseItem = { id: string; label: string }
 export type BrowseGroup = { id: string; label: string; items: readonly BrowseItem[] }
 
 /**
- * The slide. Not the sheet's presentation curve: that one covers almost half
- * the distance in its first frame, which for a level crossing the whole
- * width reads as a jump. This one starts moving at once and settles long.
+ * THE CROSS, NOT A SLIDE. The levels used to slide the whole width: the new
+ * one came in from the right with a shadow along its edge while the old one
+ * slid a third of the way out and dimmed. "Too laggy", and the shadow read
+ * as a bar coming in. A full width move is a long way for the eye to follow
+ * on a list this simple, and the blurred edge was re-rastered on every frame
+ * of it.
+ *
+ * Now each level moves a few pixels and fades: the one leaving goes quickly,
+ * the one arriving follows a moment later and settles on the sheet's own
+ * curve, so the two are barely on screen together. Transform and opacity
+ * only, nothing laid out and nothing re-rastered.
  */
-export const BROWSE_SLIDE_MS = 360
-const EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)"
-/** How far the level being covered moves, as iOS does: a third, not all of it. */
-const PARALLAX = "-30%"
+export const BROWSE_SLIDE_MS = 280
+/** The level arriving fades in over this, a moment after the one leaving starts to go. */
+const FADE_IN_MS = 220
+const FADE_DELAY_MS = 50
+/** The level leaving is gone before the one arriving is half in. */
+const FADE_OUT_MS = 140
+const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+/** How far each level travels: the one opening comes from the right, the one it covers drifts left. */
+const SHIFT_IN = "24px"
+const SHIFT_OUT = "-16px"
 
 function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -337,7 +351,8 @@ export function CategoryBrowser({
   ) : null
 
   const still = reducedMotion()
-  const move = still ? "none" : `transform ${BROWSE_SLIDE_MS}ms ${EASE}, opacity ${BROWSE_SLIDE_MS}ms ${EASE}`
+  const arrive = still ? "none" : `transform ${BROWSE_SLIDE_MS}ms ${EASE}, opacity ${FADE_IN_MS}ms ${EASE} ${FADE_DELAY_MS}ms`
+  const leave = still ? "none" : `transform ${BROWSE_SLIDE_MS}ms ${EASE}, opacity ${FADE_OUT_MS}ms ${EASE}`
   const pane = "absolute inset-0 overflow-y-auto overscroll-contain bg-white"
 
   return (
@@ -368,9 +383,9 @@ export function CategoryBrowser({
           onKeyDown={onKeys(() => rootRef.current)}
           className={pane}
           style={{
-            transform: inSub ? `translate3d(${PARALLAX}, 0, 0)` : "translate3d(0, 0, 0)",
-            opacity: inSub ? 0.55 : 1,
-            transition: move,
+            transform: inSub ? `translate3d(${SHIFT_OUT}, 0, 0)` : "translate3d(0, 0, 0)",
+            opacity: inSub ? 0 : 1,
+            transition: inSub ? leave : arrive,
             touchAction: "pan-y",
           }}
         >
@@ -388,11 +403,10 @@ export function CategoryBrowser({
           }}
           className={pane}
           style={{
-            transform: inSub ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)",
-            transition: move,
+            transform: inSub ? "translate3d(0, 0, 0)" : `translate3d(${SHIFT_IN}, 0, 0)`,
+            opacity: inSub ? 1 : 0,
+            transition: inSub ? arrive : leave,
             touchAction: "pan-y",
-            /* The edge of the level coming in, so it reads as over the other one. */
-            boxShadow: "-10px 0 24px -16px rgba(15, 23, 42, 0.28)",
             visibility: heldGroup ? "visible" : "hidden",
           }}
         >

@@ -1927,14 +1927,27 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             phone
             heading="Browse categories"
             rootTop={
+              <>
               <div className="px-4 pt-1">
+                {/*
+                  THE BUTTONS THE MENU HAD BEFORE THE CATEGORY LIST CHANGED,
+                  asked back: full width and stacked, violet Sign in over the
+                  near black Discover, each with its icon, the same pair the
+                  marketing pages' menu shows above.
+                */}
                 {!user && (
-                  <div className="mb-2 flex gap-2">
-                    <Link href="/login" onClick={(e) => { onCanonicalNav(e, "/login"); setMobileMenuOpen(false) }} className="flex h-11 flex-1 items-center justify-center rounded-[10px] bg-[#111113] text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)] active:bg-black">
-                      Sign in
+                  <div className="mb-2">
+                    <Link href="/login" onClick={(e) => { onCanonicalNav(e, "/login"); setMobileMenuOpen(false) }} className="block mb-2">
+                      <Button className="w-full h-[42px] rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
+                        <LogIn className="h-4 w-4" />
+                        Sign in
+                      </Button>
                     </Link>
-                    <Link href="/explore" onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }} className="flex h-11 flex-1 items-center justify-center rounded-[10px] border border-neutral-200 bg-white text-[15px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(15,23,42,0.05)] active:bg-[#f1f2f4]">
-                      Discover
+                    <Link href="/explore" onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }} className="block">
+                      <Button className="w-full h-[42px] rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
+                        <Compass className="h-4 w-4" />
+                        Discover
+                      </Button>
                     </Link>
                   </div>
                 )}
@@ -1951,17 +1964,23 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                   </Link>
                 )}
               </div>
+              {/* My Library sits under the buttons, above the categories, rather than at the foot of the list. */}
+              <div className="border-b border-[#eef0f2] pb-1">
+                <MenuRow href="/library" label="My Library" onNav={(e) => { onCanonicalNav(e, "/library"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/library")} />
+              </div>
+              </>
             }
             rootBottom={
+              user ? (
               <div className="border-t border-[#eef0f2] pb-2 pt-1">
-                <MenuRow href="/library" label="My Library" onNav={(e) => { onCanonicalNav(e, "/library"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/library")} />
-                {user && hasCompletedSellerOnboarding && (
+                {hasCompletedSellerOnboarding && (
                   <MenuRow href={dashboardHref} label="Dashboard" onNav={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath(dashboardHref)} />
                 )}
-                {user && !hasCompletedSellerOnboarding && (
+                {!hasCompletedSellerOnboarding && (
                   <MenuRow href="/onboarding" label="Become a Seller" onNav={(e) => { onCanonicalNav(e, "/onboarding"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/onboarding")} />
                 )}
               </div>
+              ) : null
             }
           />
         )}

@@ -55,7 +55,9 @@ function main() {
   check("a panel on a computer", /PopoverPrimitive\.Content/.test(picker) && /data-category-panel/.test(picker))
   check("the shared sheet on a phone, at a fixed height", /<BottomSheet\b[\s\S]*?\bfill\b[\s\S]*?height="min\(78dvh, 680px\)"/.test(picker))
   check("the list draws its own marks and imports no icon set", !/lucide-react/.test(browser))
-  check("the levels move by transform and opacity only", /`transform \$\{BROWSE_SLIDE_MS\}ms \$\{EASE\}, opacity \$\{BROWSE_SLIDE_MS\}ms \$\{EASE\}`/.test(browser) && !/transition:\s*`(?:width|height|left|top)/.test(browser))
+  check("the levels move by transform and opacity only", /`transform \$\{BROWSE_SLIDE_MS\}ms \$\{EASE\}, opacity \$\{FADE_IN_MS\}ms \$\{EASE\} \$\{FADE_DELAY_MS\}ms`/.test(browser) && /`transform \$\{BROWSE_SLIDE_MS\}ms \$\{EASE\}, opacity \$\{FADE_OUT_MS\}ms \$\{EASE\}`/.test(browser) && !/transition:\s*`(?:width|height|left|top)/.test(browser))
+  /* The level crosses a few pixels and fades; the full width slide with a shadow along its edge was the "bar coming in". */
+  check("a level crosses, it does not slide the width under a shadow", !/boxShadow/.test(browser) && !/translate3d\(100%/.test(browser) && /opacity: inSub \? 0 : 1/.test(browser))
   check("each level scrolls itself, so back returns to where you were", (browser.match(/data-browse-level=/g) || []).length === 2 && /absolute inset-0 overflow-y-auto/.test(browser))
   check("the level out of sight takes no focus", /inert=\{inSub \|\| undefined\}/.test(browser) && /inert=\{!inSub \|\| undefined\}/.test(browser))
   check("a category held by More is named on it", /moreHolds \?/.test(page))

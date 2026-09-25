@@ -60,7 +60,7 @@ const LazyAreaChart = dynamic(
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { getLinksShareUrl, getLinksUrlDisplay, getStoreShareUrl, getStoreUrlDisplay, getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
-import { SharePill, ShareStorelibSheet } from "@/components/app/share/share-storelib"
+import { ShareStorelib } from "@/components/app/share/share-storelib"
 import { HomeCards, bumpGettingStarted, type StartStep } from "@/components/app/home/home-cards"
 import { BannerGlobe } from "@/components/app/home/globe"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
@@ -399,6 +399,8 @@ interface DashboardClientProps {
   subscriptionPlanId?: string
   /** The platforms the creator is on, for the share sheet's "My platforms" (app/app/page.tsx). */
   sharePlatforms?: ConnectedPlatform[]
+  /** The OnePage is published, so its address opens (app/app/page.tsx). */
+  onePageLive?: boolean
 }
 
 // Helper function to calculate percentage change
@@ -618,6 +620,7 @@ export function DashboardClient({
   websitePublished = false,
   subscriptionPlanId = "free",
   sharePlatforms = [],
+  onePageLive = false,
 }: DashboardClientProps) {
   /**
    * THE PERIOD, from the date picker every page in /app shares, remembered
@@ -640,7 +643,6 @@ export function DashboardClient({
     return resolveValue(saved, dashToday, "last_7_days")
   })
   const periodKey = `${period.preset}:${period.start}:${period.end}`
-  const [isShareOpen, setIsShareOpen] = useState(false)
 
   useHideNativeSplash()
 
@@ -785,6 +787,8 @@ export function DashboardClient({
 
   /* null until the first read: a count of 0 drawn and then replaced by the
      real one was a figure that changed in front of you. */
+  /* Each address pill opens its own panel; this asks whichever one is on screen to open (Getting started's "Make your first sale"). */
+  const [shareSignal, setShareSignal] = useState(0)
   const [liveVisitors, setLiveVisitors] = useState<number | null>(null)
   const { t } = useLanguage()
   /* The greeting follows the creator's own clock: the server's guess first
@@ -975,7 +979,6 @@ export function DashboardClient({
   // Derive completion status from steps
   const hasProducts = initialSetupSteps.find((s) => s.id === "product")?.completed || false
   const hasPayouts = initialSetupSteps.find((s) => s.id === "payouts")?.completed || false
-  const hasOnePageSetup = initialSetupSteps.find((s) => s.id === "onepage")?.completed || false
   const hasFirstSale = initialSetupSteps.find((s) => s.id === "sale")?.completed || false
   /**
    * THE ADDRESSES A CREATOR HANDS OUT, for the pill and the share sheet
@@ -987,9 +990,11 @@ export function DashboardClient({
    * (Settings, Domains), and each is given to the one it opens. A website
    * domain answers with the creator page while no website is published
    * (proxy.ts), and before the database knew purposes there was one domain
-   * for both, which is why the page also takes it then. The
-   * OnePage is only offered once it has been set up, and the website only
-   * once it has been published, never because a theme was installed.
+   * for both, which is why the page also takes it then. The OnePage is
+   * always offered, because every creator has one to hand out beside their
+   * page; until it is published the sheet says so under its address. The
+   * website is only offered once it has been published, never because a
+   * theme was installed.
    */
   const shareAddresses = useMemo<ShareAddress[]>(() => {
     if (!creatorHandle) return []
@@ -1003,14 +1008,13 @@ export function DashboardClient({
         display: domainIsPage ? (connectedDomain as string) : getStoreUrlDisplay(creatorHandle),
       },
     ]
-    if (hasOnePageSetup) {
-      list.push({
-        surface: "onepage",
-        label: "OnePage",
-        url: connectedDomain ? `https://${connectedDomain}/links` : getLinksShareUrl(creatorHandle),
-        display: connectedDomain ? `${connectedDomain}/links` : getLinksUrlDisplay(creatorHandle),
-      })
-    }
+    list.push({
+      surface: "onepage",
+      label: "OnePage",
+      url: connectedDomain ? `https://${connectedDomain}/links` : getLinksShareUrl(creatorHandle),
+      display: connectedDomain ? `${connectedDomain}/links` : getLinksUrlDisplay(creatorHandle),
+      live: onePageLive,
+    })
     if (websitePublished) {
       list.push({
         surface: "website",
@@ -1020,7 +1024,7 @@ export function DashboardClient({
       })
     }
     return list
-  }, [creatorHandle, connectedDomain, websiteDomain, websitePublished, hasOnePageSetup])
+  }, [creatorHandle, connectedDomain, websiteDomain, websitePublished, onePageLive])
 
   /**
    * GETTING STARTED (components/app/home/home-cards): the six things a new
@@ -1040,7 +1044,7 @@ export function DashboardClient({
     { id: "domain", label: "Connect your domain", done: !!(connectedDomain || websiteDomain), href: "/app/settings?tab=domains" },
     hasFirstSale || shareAddresses.length === 0
       ? { id: "sale", label: "Make your first sale", done: hasFirstSale, href: "/app/orders" }
-      : { id: "sale", label: "Make your first sale", done: false, onSelect: () => setIsShareOpen(true) },
+      : { id: "sale", label: "Make your first sale", done: false, onSelect: () => setShareSignal((n) => n + 1) },
   ], [hasProducts, websitePublished, hasPayouts, connectedDomain, websiteDomain, hasFirstSale, shareAddresses.length])
   const completedSteps = startSteps.filter((s) => s.done).length
   const totalSteps = startSteps.length
@@ -1144,17 +1148,13 @@ export function DashboardClient({
           The period and the live count sit where quick access used to, next
           to the greeting they describe. The right of the row is the creator's
           address in a grey pill (components/app/share): the one thing on this
-          page they hand to other people, and what opens the share sheet. On a
-          phone the pill sits above the greeting where the @handle chip was,
-          and the period and live count keep their own row below.
+          page they hand to other people, and what opens the share panel. On a
+          phone all three share one row under the greeting: the live count and
+          the period keep their size and the pill takes what is left, its
+          address fading out where the room runs out.
         */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div className="min-w-0">
-            {shareAddresses.length > 0 && (
-              <div className="mb-2 flex justify-end md:hidden">
-                <SharePill size="sm" display={shareAddresses[0].display} onOpen={() => setIsShareOpen(true)} />
-              </div>
-            )}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">
                 {t(`dashboard.greeting.${greetingPart}` as Parameters<typeof t>[0])}
@@ -1170,18 +1170,24 @@ export function DashboardClient({
             <p className="text-[14px] text-[#6b7280] mt-1">{t("dashboard.subtitle")}</p>
           </div>
 
-          {/* Desktop: the address, which opens the share sheet */}
+          {/* Desktop: the address, which opens the share panel in place */}
           {shareAddresses.length > 0 && (
-            <div className="hidden md:flex min-w-0 shrink-0 items-center">
-              <SharePill display={shareAddresses[0].display} onOpen={() => setIsShareOpen(true)} />
+            <div className="hidden md:flex min-w-0 max-w-[300px] shrink-0 items-center">
+              <ShareStorelib addresses={shareAddresses} platforms={sharePlatforms} openSignal={shareSignal} />
             </div>
           )}
 
-          {/* Mobile: Live Indicator + Timeframe Button */}
-          <div className="md:hidden flex items-center gap-2">
-            {/* Live Indicator Pill - Mobile */}
-            <LivePill count={liveVisitors} label={t("dashboard.liveVisitors")} className="px-2.5 py-2 rounded-xl h-[38px]" textClassName="text-[12px]" />
-            <DateRangePicker value={period} onChange={setPeriod} today={dashToday} align="end" className="h-[38px] rounded-xl px-3" />
+          {/* Mobile: the live count, the period and the address, on one row */}
+          <div className="md:hidden flex min-w-0 items-center gap-2">
+            <LivePill count={liveVisitors} label={t("dashboard.liveVisitors")} className="shrink-0 px-2.5 rounded-xl h-9" textClassName="text-[12px] whitespace-nowrap" />
+            <div className="shrink-0">
+              <DateRangePicker value={period} onChange={setPeriod} today={dashToday} align="start" className="h-9 rounded-xl px-3" />
+            </div>
+            {shareAddresses.length > 0 && (
+              <div className="ml-auto flex min-w-0 flex-1 justify-end">
+                <ShareStorelib size="sm" addresses={shareAddresses} platforms={sharePlatforms} openSignal={shareSignal} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -1557,7 +1563,6 @@ export function DashboardClient({
       </div>{/* end below-the-bar area that hosts the pull indicator */}
 
       {/* Bottom sheets rendered OUTSIDE transform wrapper — iOS position:fixed requires no ancestor transform */}
-      <ShareStorelibSheet open={isShareOpen} onOpenChange={setIsShareOpen} addresses={shareAddresses} platforms={sharePlatforms} />
     </div>
   )
 }

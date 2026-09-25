@@ -174,6 +174,17 @@ function leaveBehind(root: HTMLElement, fromY: number, height: number, scrimOpac
   window.setTimeout(done, ms + 400)
 }
 
+/**
+ * Whether `scroller` has room to scroll the way a finger moving `dy` would
+ * take it: up the list (finger down) needs something above, down the list
+ * (finger up) needs something below.
+ */
+function canScroll(scroller: HTMLElement | null, dy: number): boolean {
+  if (!scroller) return false
+  if (dy > 0) return scroller.scrollTop > 1
+  return scroller.scrollTop < scroller.scrollHeight - scroller.clientHeight - 1
+}
+
 /** The nearest thing between the finger and the sheet that scrolls vertically. */
 function scrollerAt(target: EventTarget | null, stop: HTMLElement): HTMLElement | null {
   let el = target as HTMLElement | null
@@ -520,7 +531,17 @@ export function BottomSheet({
         const dy = y - lastYRef.current
         const dx = e.touches[0].clientX - startXRef.current
         if (Math.abs(dy) < SLOP_PX && Math.abs(dx) < SLOP_PX) {
-          if (e.cancelable && fromHandleRef.current) e.preventDefault()
+          /**
+           * THE FIRST PIXELS ARE THE SHEET'S TOO. They were left to the
+           * browser unless the finger was on the handle, so on a list that
+           * could not scroll the way the finger went (a short sub-list, or
+           * any list at its end) the browser chained them to the page, and a
+           * page that has started to scroll keeps the finger: the list sat
+           * still and the page behind the sheet moved. Held now, unless the
+           * list under the finger can take them itself.
+           */
+          const vertical = dy !== 0 && Math.abs(dy) >= Math.abs(dx)
+          if (e.cancelable && (fromHandleRef.current || (vertical && !canScroll(scrollerRef.current, dy)))) e.preventDefault()
           return
         }
         pendingRef.current = false
@@ -704,7 +725,7 @@ export function BottomSheet({
           {header}
         </div>
         {fill ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden" style={{ touchAction: "pan-x pan-y", contain: "layout paint" }}>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden overscroll-contain" style={{ touchAction: "pan-x pan-y", contain: "layout paint" }}>
             {shownRef.current}
           </div>
         ) : (

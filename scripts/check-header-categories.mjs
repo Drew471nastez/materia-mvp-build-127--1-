@@ -158,12 +158,13 @@ console.log("\n  phone 390")
     if (!panel) return null
     const b = panel.getBoundingClientRect()
     const rows = [...panel.querySelectorAll("[data-browse-level=root] [data-browse-row]")]
-    return { top: Math.round(b.top), h: Math.round(b.height), rows: rows.length, rowH: Math.round(rows[1]?.getBoundingClientRect().height ?? 0), lucide: panel.querySelectorAll("[data-browse-level] svg.lucide").length, signIn: /Sign in/.test(panel.textContent), library: /My Library/.test(panel.textContent) }
+    return { top: Math.round(b.top), h: Math.round(b.height), rows: rows.length, rowH: Math.round(rows[1]?.getBoundingClientRect().height ?? 0), lucide: panel.querySelectorAll("[data-browse-level] [data-browse-row] svg.lucide").length, signIn: /Sign in/.test(panel.textContent), library: /My Library/.test(panel.textContent), libraryUnderButtons: (() => { const lib = [...panel.querySelectorAll("a")].find((a) => a.textContent.trim() === "My Library"); const disc = [...panel.querySelectorAll("a")].find((a) => a.textContent.trim() === "Discover"); const first = panel.querySelector("[data-browse-group]"); return !!lib && !!disc && !!first && lib.getBoundingClientRect().top > disc.getBoundingClientRect().bottom && lib.getBoundingClientRect().bottom <= first.getBoundingClientRect().top + 1 })() }
   })
   await p.screenshot({ path: join(shots, "header-390-open.png") })
   expect(s && s.rows === 12, "the menu sheet lists the categories", s)
   expect(s && s.rowH >= 47 && s.rowH <= 50 && s.lucide <= 1, "48px plain rows", s && { rowH: s.rowH, lucide: s.lucide })
   expect(s && s.signIn && s.library, "sign in and My Library are still in it", s && { signIn: s.signIn, library: s.library })
+  expect(s && s.libraryUnderButtons, "My Library sits under Sign in and Discover, above the categories", s?.libraryUnderButtons)
   await p.evaluate(() => {
     window.__slide = []
     const sub = document.querySelector("[data-app-sheet] [data-browse-level=sub]")
@@ -179,13 +180,40 @@ console.log("\n  phone 390")
   await sleep(800)
   const slide = await p.evaluate(() => window.__slide)
   const xs = slide.map((f) => f.x)
-  expect(xs.every((x, i) => i === 0 || x <= xs[i - 1] + 0.5) && xs.at(-1) < 1 && xs.filter((x) => x > 1 && x < 389).length >= 6, "Marketing's level slides in from the right over several frames", xs.filter((_, i) => i % 3 === 0).map(Math.round))
+  expect(xs.every((x, i) => i === 0 || x <= xs[i - 1] + 0.5) && xs.at(-1) < 1 && Math.max(...xs) <= 30 && xs.filter((x) => x > 1 && x < 30).length >= 6, "Marketing's level settles in from a little to the right over several frames", xs.filter((_, i) => i % 3 === 0).map(Math.round))
   expect(new Set(slide.map((f) => f.top)).size === 1, "and the sheet's top does not move", [...new Set(slide.map((f) => f.top))])
   await p.screenshot({ path: join(shots, "header-390-marketing.png") })
   await p.tap("[data-app-sheet] [data-browse-back]")
   await sleep(500)
-  const backAt = await p.evaluate(() => new DOMMatrixReadOnly(getComputedStyle(document.querySelector("[data-app-sheet] [data-browse-level=sub]")).transform).m41)
-  expect(backAt >= 389, "back slides it away", Math.round(backAt))
+  const backAt = await p.evaluate(() => {
+    const sub = document.querySelector("[data-app-sheet] [data-browse-level=sub]")
+    return { x: new DOMMatrixReadOnly(getComputedStyle(sub).transform).m41, o: Number(getComputedStyle(sub).opacity) }
+  })
+  expect(backAt.x >= 20 && backAt.o === 0, "back fades it away", backAt)
+  /*
+    THE PAGE BEHIND DOES NOT TAKE THE FINGER. The first few pixels of a touch
+    used to be left to the browser, which chained them to the page when the
+    list under the finger could not scroll that way. A 3px move is sent on
+    the list at its top, both ways: down the list it can scroll, so it is
+    left alone; up the list it cannot, so the sheet holds it.
+  */
+  const bleed = await p.evaluate(() => {
+    const level = document.querySelector("[data-app-sheet] [data-browse-level=root]")
+    const row = level.querySelector("[data-browse-row]")
+    level.scrollTop = 0
+    const b = row.getBoundingClientRect()
+    const x = b.left + 40, y0 = b.top + 20
+    const touch = (yy) => new Touch({ identifier: 2, target: row, clientX: x, clientY: yy })
+    const send = (dy) => {
+      row.dispatchEvent(new TouchEvent("touchstart", { touches: [touch(y0)], changedTouches: [touch(y0)], bubbles: true, cancelable: true }))
+      const move = new TouchEvent("touchmove", { touches: [touch(y0 + dy)], changedTouches: [touch(y0 + dy)], bubbles: true, cancelable: true })
+      row.dispatchEvent(move)
+      row.dispatchEvent(new TouchEvent("touchend", { touches: [], changedTouches: [touch(y0 + dy)], bubbles: true, cancelable: true }))
+      return move.defaultPrevented
+    }
+    return { scrolls: level.scrollHeight > level.clientHeight + 1, downTheList: send(-3), upTheList: send(3) }
+  })
+  expect(bleed.scrolls && !bleed.downTheList && bleed.upTheList, "the list keeps the moves it can scroll, and the sheet holds the ones it cannot", bleed)
   const drag = await p.evaluate(async () => {
     const panel = document.querySelector("[data-sheet-panel]")
     const handle = panel.querySelector("[data-sheet-handle]")

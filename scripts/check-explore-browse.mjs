@@ -153,6 +153,8 @@ const PANEL = `(() => {
     kind: sheet ? "sheet" : "panel", top: Math.round(b.top), left: Math.round(b.left), width: Math.round(b.width), height: Math.round(b.height),
     rows: rows.length, rowH, maxSvgPerRow: Math.max(0, ...svgs), imgs, lucide,
     subTransform: sub ? getComputedStyle(sub).transform : null,
+    subOpacity: sub ? Number(getComputedStyle(sub).opacity) : null,
+    subShadow: sub ? getComputedStyle(sub).boxShadow : null,
     rootTransform: rootLevel ? getComputedStyle(rootLevel).transform : null,
     subX: sub ? Math.round(sub.getBoundingClientRect().left - b.left) : null,
     firstLabels: rows.slice(0, 4).map((r) => r.textContent.trim()),
@@ -186,15 +188,16 @@ console.log("\n2. The More picker")
   await sleep(450)
   const inSub = await p.evaluate(PANEL)
   await p.screenshot({ path: join(shots, "more-1280-design.png") })
-  expect(mid > 0, "the subcategories slide in from the right", Math.round(mid))
-  expect(inSub.subX === 0 && /matrix\(1, 0, 0, 1, -/.test(inSub.rootTransform), "and come to rest over the list, which has moved a little left", { subX: inSub.subX, root: inSub.rootTransform })
+  expect(mid > 0 && mid <= 30, "the subcategories settle in from a little to the right, not the whole width", Math.round(mid))
+  expect(inSub.subX === 0 && /matrix\(1, 0, 0, 1, -/.test(inSub.rootTransform), "and come to rest over the list, which has drifted a little left", { subX: inSub.subX, root: inSub.rootTransform })
+  expect(inSub.subOpacity === 1 && inSub.subShadow === "none", "fully in, and no shadow along its edge", { opacity: inSub.subOpacity, shadow: inSub.subShadow })
   const back = await p.evaluate(() => document.querySelector("[data-browse-back]")?.textContent.trim())
   expect(back === "Design", "a back row names the category", back)
   await p.keyboard.press("ArrowLeft")
   await p.click("[data-browse-back]").catch(() => {})
   await sleep(450)
   const out = await p.evaluate(PANEL)
-  expect(out.subTransform !== "none" && Number(out.subTransform.split(",")[4]) >= out.width - 1, "back slides it out again", out.subTransform)
+  expect(out.subTransform !== "none" && Number(out.subTransform.split(",")[4]) >= 20 && out.subOpacity === 0, "back fades it out as it drifts right", { t: out.subTransform, o: out.subOpacity })
 
   /* search and pick */
   await p.focus("[data-browse-search]")
@@ -259,8 +262,8 @@ console.log("\n2. The More picker")
   const xs = slide.map((f) => f.x)
   const tops = [...new Set(slide.map((f) => f.top))]
   const monotone = xs.every((x, i) => i === 0 || x <= xs[i - 1] + 0.5)
-  const moving = xs.filter((x) => x > 1 && x < 389).length
-  expect(monotone && xs[xs.length - 1] < 1, "the level slides in from the right and only ever moves left", xs.filter((_, i) => i % 3 === 0).map(Math.round))
+  const moving = xs.filter((x) => x > 1 && x < 30).length
+  expect(monotone && xs[xs.length - 1] < 1 && Math.max(...xs) <= 30, "the level settles in from a little to the right and only ever moves left", xs.filter((_, i) => i % 3 === 0).map(Math.round))
   expect(moving >= 6, "over several frames rather than a jump", moving)
   expect(tops.length === 1, "the sheet's top edge does not move while it slides", tops)
   await p.screenshot({ path: join(shots, "more-390-design.png") })

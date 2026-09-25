@@ -16,6 +16,8 @@ export default async function SettingsPage() {
       creator={data.creator}
       accountTimeZone={data.timeZone}
       websitePublished={data.websitePublished}
+      onePageLive={data.onePageLive}
+      sharePlatforms={data.sharePlatforms}
       website={data.website}
       newsletter={data.newsletter}
       initialTab="general"

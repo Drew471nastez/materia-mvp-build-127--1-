@@ -308,8 +308,8 @@ function main() {
         && /data-app-sheet=\{isOpen \? "open" : "closing"\}/.test(read("components/ui/bottom-sheet.tsx"))
         && /role="dialog"\s*aria-modal="true"/.test(read("components/ui/bottom-sheet.tsx"))
         && shared.every((f) => /<BottomSheet\b/.test(read(f)) && !/translateY\(100%\)|translate3d\(0, ?100%, ?0\)/.test(read(f)))
-        && /<ShareStorelibSheet\b/.test(read("components/app/dashboard-client.tsx"))
-        && /<BottomSheet\s+isOpen=\{open\}\s+onClose=\{close\}[\s\S]{0,80}hideFrom="md"/.test(read("components/app/share/share-storelib.tsx"))
+        && /<ShareStorelib\b/.test(read("components/app/dashboard-client.tsx"))
+        && /<BottomSheet\s+isOpen=\{sheetOpen\}\s+onClose=\{close\}[\s\S]{0,80}hideFrom="md"/.test(read("components/app/share/share-storelib.tsx"))
         && !/data-dashboard-sheet/.test(read("components/app/dashboard-client.tsx")))
   }
   check("a sheet takes focus when it opens and hands it back when it closes, without scrolling",

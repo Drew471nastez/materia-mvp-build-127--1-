@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ProductCard } from "./product-card"
 import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ArrowLeft, Music, Camera, Video, ShoppingBag, GraduationCap, Code, Grid3X3, LayoutGrid, ChevronDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { useEntranceOnChange } from "@/lib/ui/use-entrance-on-change"
 
 // Categories with icons and subcategories
@@ -297,6 +298,16 @@ const MAX_VISIBLE_PILLS = 7
 
 type ViewMode = "grid" | "compact"
 
+/*
+  THE CATEGORY PAGE'S TWO PHONE SHEETS ARE THE APP'S ONE SHEET
+  (components/ui/bottom-sheet.tsx), like Explore's More and Filters. They
+  were sheets of their own: React state on every frame of a drag, a
+  backdrop blur behind them, a body scroll lock, and a close that waited
+  400ms on a timer before it told anybody. Now they open and close on the
+  compositor, follow the thumb without a render per frame, and close on a
+  pull down or a tap outside the same way every other sheet does.
+*/
+
 // Mobile Filter Bottom Sheet
 function MobileFilterSheet({
   isOpen,
@@ -323,64 +334,6 @@ function MobileFilterSheet({
   resetFilters: () => void
   activeFilterCount: number
 }) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const startY = useRef(0)
-  const sheetRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
-      document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => { setIsAnimating(true) })
-      })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-      const timer = setTimeout(() => { setIsVisible(false); setDragY(0) }, 400)
-      return () => clearTimeout(timer)
-    }
-    return () => { document.body.style.overflow = ""; document.documentElement.style.overscrollBehavior = ''; document.body.style.overscrollBehavior = '' }
-  }, [isOpen, isVisible])
-
-  const handleClose = () => {
-    setIsAnimating(false)
-    setDragY(0)
-    setTimeout(() => { onClose() }, 400)
-  }
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const sheetElement = sheetRef.current
-    if (!sheetElement) return
-    const sheetRect = sheetElement.getBoundingClientRect()
-    const touchYInSheet = touch.clientY - sheetRect.top
-    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
-      startY.current = touch.clientY
-      setIsDragging(true)
-    }
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const diff = e.touches[0].clientY - startY.current
-    if (diff > 0) { e.preventDefault(); setDragY(diff * 0.8) }
-  }
-
-  const handleTouchEnd = () => {
-    if (!isDragging) return
-    setIsDragging(false)
-    if (dragY > 80) handleClose()
-    else setDragY(0)
-  }
-
   const toggleSubcategory = (subId: string) => {
     if (selectedSubcategories.includes(subId)) {
       setSelectedSubcategories(selectedSubcategories.filter(s => s !== subId))
@@ -389,105 +342,91 @@ function MobileFilterSheet({
     }
   }
 
-  if (!isVisible) return null
-
   return (
-    <div className="fixed inset-0 z-[100] md:hidden" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-      <div
-        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
-        style={{ transitionDuration: '400ms' }}
-        onClick={handleClose}
-      />
-      <div
-        ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
-        style={{
-          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
-          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          maxHeight: '85vh',
-        }}
-      >
-        <div className="pt-3 pb-2 shrink-0">
-          <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
-            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100 shrink-0">
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      label="Filters"
+      hideFrom="md"
+      fill
+      maxHeight="min(85dvh, 720px)"
+      className="rounded-t-[24px]"
+      header={
+        <div className="flex items-center justify-between px-4 pb-2 pt-2 border-b border-neutral-100">
           <h3 className="text-lg font-semibold text-neutral-900">Filters</h3>
           {activeFilterCount > 0 && (
             <button onClick={resetFilters} className="text-sm text-violet-600 font-medium cursor-pointer">Reset all</button>
           )}
         </div>
-
-        <div className="overflow-y-auto overscroll-contain p-4 space-y-6 flex-1 min-h-0">
-          {availableSubcategories.length > 0 && (
-            <div>
-              <h4 className="text-sm font-semibold text-neutral-900 mb-3">Subcategories</h4>
-              <div className="flex flex-wrap gap-2">
-                {availableSubcategories.map((sub) => (
-                  <button
-                    key={sub.id}
-                    onClick={() => toggleSubcategory(sub.id)}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
-                      selectedSubcategories.includes(sub.id)
-                        ? "bg-violet-600 text-white"
-                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                    }`}
-                  >
-                    {selectedSubcategories.includes(sub.id) && <Check className="w-3.5 h-3.5" />}
-                    {sub.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
+      }
+    >
+      <div className="overflow-y-auto overscroll-contain p-4 space-y-6 flex-1 min-h-0" style={{ touchAction: "pan-y" }}>
+        {availableSubcategories.length > 0 && (
           <div>
-            <h4 className="text-sm font-semibold text-neutral-900 mb-3">Price Range</h4>
+            <h4 className="text-sm font-semibold text-neutral-900 mb-3">Subcategories</h4>
             <div className="flex flex-wrap gap-2">
-              {PRICE_FILTERS.map((filter) => (
+              {availableSubcategories.map((sub) => (
                 <button
-                  key={filter.id}
-                  onClick={() => setPriceFilter(filter.id)}
+                  key={sub.id}
+                  onClick={() => toggleSubcategory(sub.id)}
                   className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
-                    priceFilter === filter.id
-                      ? "bg-neutral-900 text-white"
+                    selectedSubcategories.includes(sub.id)
+                      ? "bg-violet-600 text-white"
                       : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
                   }`}
                 >
-                  {priceFilter === filter.id && <Check className="w-3.5 h-3.5" />}
-                  {filter.label}
+                  {selectedSubcategories.includes(sub.id) && <Check className="w-3.5 h-3.5" />}
+                  {sub.label}
                 </button>
               ))}
             </div>
           </div>
+        )}
 
-          <div>
-            <h4 className="text-sm font-semibold text-neutral-900 mb-3">Sort By</h4>
-            <div className="space-y-1">
-              {SORT_OPTIONS.map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() => setSortBy(option.id)}
-                  className={`flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
-                    sortBy === option.id ? "bg-neutral-100 text-neutral-900" : "text-neutral-600 hover:bg-neutral-50"
-                  }`}
-                >
-                  <span>{option.label}</span>
-                  {sortBy === option.id && <Check className="w-5 h-5 text-violet-600" />}
-                </button>
-              ))}
-            </div>
+        <div>
+          <h4 className="text-sm font-semibold text-neutral-900 mb-3">Price Range</h4>
+          <div className="flex flex-wrap gap-2">
+            {PRICE_FILTERS.map((filter) => (
+              <button
+                key={filter.id}
+                onClick={() => setPriceFilter(filter.id)}
+                className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  priceFilter === filter.id
+                    ? "bg-neutral-900 text-white"
+                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                }`}
+              >
+                {priceFilter === filter.id && <Check className="w-3.5 h-3.5" />}
+                {filter.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="flex items-center gap-3 px-4 pt-4 border-t border-neutral-100 bg-white shrink-0" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-          <button onClick={resetFilters} className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer">Reset</button>
-          <button onClick={handleClose} className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer">Apply Filters</button>
+        <div>
+          <h4 className="text-sm font-semibold text-neutral-900 mb-3">Sort By</h4>
+          <div className="space-y-1">
+            {SORT_OPTIONS.map((option) => (
+              <button
+                key={option.id}
+                onClick={() => setSortBy(option.id)}
+                className={`flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  sortBy === option.id ? "bg-neutral-100 text-neutral-900" : "text-neutral-600 hover:bg-neutral-50"
+                }`}
+              >
+                <span>{option.label}</span>
+                {sortBy === option.id && <Check className="w-5 h-5 text-violet-600" />}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+
+      <div className="flex items-center gap-3 px-4 pt-4 pb-1 border-t border-neutral-100 bg-white shrink-0">
+        <button onClick={resetFilters} className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer">Reset</button>
+        <button onClick={onClose} className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer">Apply Filters</button>
+      </div>
+    </BottomSheet>
   )
 }
 
@@ -509,128 +448,56 @@ function MobileSubcategorySheet({
   onSelectAll: () => void
   categoryLabel: string
 }) {
-  const [isVisible, setIsVisible] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [dragY, setDragY] = useState(0)
-  const [isDragging, setIsDragging] = useState(false)
-  const startY = useRef(0)
-  const sheetRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
-      document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => { setIsAnimating(true) })
-      })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
-      const timer = setTimeout(() => { setIsVisible(false); setDragY(0) }, 400)
-      return () => clearTimeout(timer)
-    }
-    return () => { document.body.style.overflow = ""; document.documentElement.style.overscrollBehavior = ''; document.body.style.overscrollBehavior = '' }
-  }, [isOpen, isVisible])
-
-  const handleClose = () => {
-    setIsAnimating(false)
-    setDragY(0)
-    setTimeout(() => { onClose() }, 400)
-  }
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const el = sheetRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    const touchYInSheet = touch.clientY - rect.top
-    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
-      startY.current = touch.clientY
-      setIsDragging(true)
-    }
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
-    const diff = e.touches[0].clientY - startY.current
-    if (diff > 0) { e.preventDefault(); setDragY(diff * 0.8) }
-  }
-
-  const handleTouchEnd = () => {
-    if (!isDragging) return
-    setIsDragging(false)
-    if (dragY > 80) handleClose()
-    else setDragY(0)
-  }
-
-  if (!isVisible) return null
-
   return (
-    <div className="fixed inset-0 z-[100] md:hidden" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-      <div
-        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
-        style={{ transitionDuration: '400ms' }}
-        onClick={handleClose}
-      />
-      <div
-        ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
-        style={{
-          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
-          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          maxHeight: '70vh',
-        }}
-      >
-        <div className="pt-3 pb-2 shrink-0">
-          <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
-            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
-          </button>
-        </div>
-
-        <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100 shrink-0">
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      label={`${categoryLabel} subcategories`}
+      hideFrom="md"
+      fill
+      maxHeight="min(70dvh, 640px)"
+      className="rounded-t-[24px]"
+      header={
+        <div className="flex items-center justify-between px-4 pb-2 pt-2 border-b border-neutral-100">
           <h3 className="text-lg font-semibold text-neutral-900">{categoryLabel} Subcategories</h3>
-          <button onClick={handleClose} className="p-1.5 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer">
+          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer">
             <X className="w-5 h-5 text-neutral-500" />
           </button>
         </div>
-
-        <div className="overflow-y-auto overscroll-contain p-4 flex-1 min-h-0">
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => { onSelectAll(); handleClose() }}
-              className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
-                selectedSubcategories.length === 0
-                  ? "bg-neutral-900 text-white"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-              }`}
-            >
-              All {categoryLabel}
-            </button>
-            {subcategories.map((sub) => {
-              const isSelected = selectedSubcategories.includes(sub.id)
-              return (
-                <button
-                  key={sub.id}
-                  onClick={() => { onSelectSubcategory(sub.id); handleClose() }}
-                  className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
-                    isSelected
-                      ? "bg-violet-600 text-white"
-                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                  }`}
-                >
-                  {isSelected && <Check className="w-3.5 h-3.5" />}
-                  {sub.label}
-                </button>
-              )
-            })}
-          </div>
+      }
+    >
+      <div className="overflow-y-auto overscroll-contain p-4 flex-1 min-h-0" style={{ touchAction: "pan-y" }}>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => { onSelectAll(); onClose() }}
+            className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
+              selectedSubcategories.length === 0
+                ? "bg-neutral-900 text-white"
+                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+            }`}
+          >
+            All {categoryLabel}
+          </button>
+          {subcategories.map((sub) => {
+            const isSelected = selectedSubcategories.includes(sub.id)
+            return (
+              <button
+                key={sub.id}
+                onClick={() => { onSelectSubcategory(sub.id); onClose() }}
+                className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  isSelected
+                    ? "bg-violet-600 text-white"
+                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                }`}
+              >
+                {isSelected && <Check className="w-3.5 h-3.5" />}
+                {sub.label}
+              </button>
+            )
+          })}
         </div>
       </div>
-    </div>
+    </BottomSheet>
   )
 }
 

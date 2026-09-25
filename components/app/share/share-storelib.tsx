@@ -4,16 +4,18 @@
  * ===========================================================================
  *  SHARE YOUR STORELIB
  * ===========================================================================
- * The grey address pill on the home page, and what it opens.
+ * The grey address pill on the home page and in Settings, and what it opens.
  *
- * On a computer it is a modal; on a phone the app's shared bottom sheet
+ * On a computer it opens IN PLACE: a panel that drops from the pill itself,
+ * with no dimmed page and no centred box, and closes on a click anywhere
+ * else. On a phone it is the app's shared bottom sheet
  * (components/ui/bottom-sheet), so it rises, follows the thumb and closes
- * like every other sheet in /app. Both draw the same three views:
+ * like every other sheet in /app: a pull down or a tap outside, no X. Both
+ * draw the same three views:
  *
- *   SHARE      which address (creator page, OnePage, website: only the ones
- *              that exist), the address with Copy, a QR code to scan on a
- *              computer, the platforms the creator is on, and a row of places
- *              to post it.
+ *   SHARE      which address (creator page, OnePage, website), the address
+ *              with Copy, a QR code to scan on a computer, the platforms the
+ *              creator is on, and a row of places to post it.
  *   PLATFORM   how to put the link in that platform's bio: a picture of
  *              where it goes, the steps, the link again with Copy, and a way
  *              into the app.
@@ -22,13 +24,18 @@
  * The QR card is left off phones: it asks to be scanned by a phone, and the
  * person holding one is already on it. "My platforms" does that job there.
  *
+ * NOTHING INSIDE SCROLLS on a computer. The panel is sized to what it holds,
+ * the QR card sits beside its words rather than above them, and the rows of
+ * round buttons scroll sideways with no fade over their end.
+ *
  * Moving between views, the content slides a short way and the surface eases
- * to its new height, so the sheet never jumps. Nothing here fetches: every
- * address and platform arrives with the page (app/app/page.tsx).
+ * to its new height, so nothing jumps. Nothing here fetches: every address
+ * and platform arrives with the page.
  */
 
 import * as React from "react"
-import * as DialogPrimitive from "@radix-ui/react-dialog"
+import Link from "next/link"
+import * as PopoverPrimitive from "@radix-ui/react-popover"
 import type { IconType } from "react-icons"
 import {
   SiFacebook,
@@ -53,13 +60,13 @@ import { StorelibMark, STORELIB_S_PATH, STORELIB_S_TRANSFORM } from "@/component
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import { downloadBlob } from "@/lib/platform/save-file"
 import { cn } from "@/lib/utils"
-import { StorelibOutlineMark } from "./storelib-outline-mark"
+import { StorelibGlyph, StorelibTile } from "./storelib-share-marks"
 import { PlatformArt } from "./platform-art"
 import {
   BIO_HOW_TO,
   DEFAULT_BIO_PLATFORMS,
   SHARE_TARGETS,
-  pillText,
+  SURFACE_HINT,
   shareTargetUrl,
   type BioPlatform,
   type ConnectedPlatform,
@@ -126,19 +133,55 @@ const TARGET_MARK: Record<ShareTarget, { bg: string; fg: string; Mark: (p: { siz
 /* ─── The pill ────────────────────────────────────────────────────────── */
 
 /**
- * Light grey, the outline mark and the address in a very dark grey, and the
+ * The address, cut by the room it has rather than by a character count, and
+ * faded over its last few letters where it is cut instead of ending on "…".
+ * Whether it is cut is measured, so an address that fits is never faded.
+ */
+function FadeText({ text, className }: { text: string; className?: string }) {
+  const ref = React.useRef<HTMLSpanElement>(null)
+  const [cut, setCut] = React.useState(false)
+  React.useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const measure = () => setCut(el.scrollWidth > el.clientWidth + 1)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [text])
+  return (
+    <span
+      ref={ref}
+      data-cut={cut ? "" : undefined}
+      className={cn(
+        "block min-w-0 overflow-hidden whitespace-nowrap",
+        cut && "[mask-image:linear-gradient(to_right,#000_calc(100%-26px),transparent)] [-webkit-mask-image:linear-gradient(to_right,#000_calc(100%-26px),transparent)]",
+        className,
+      )}
+    >
+      {text}
+    </span>
+  )
+}
+
+/**
+ * Light grey, the Storelib S and the address in a very dark grey, and the
  * share glyph. A hairline and a lit top edge give it the slightest lift off
- * the page; no border, no violet, nothing spinning.
+ * the page. It gives way before anything beside it does: on a phone it shares
+ * a row with the live count and the period, and the address fades out where
+ * the room runs out.
  */
 export function SharePill({
   display,
   onOpen,
   size = "md",
+  expanded,
   className,
 }: {
   display: string
   onOpen: () => void
   size?: "md" | "sm"
+  expanded?: boolean
   className?: string
 }) {
   const md = size === "md"
@@ -147,22 +190,24 @@ export function SharePill({
       type="button"
       onClick={onOpen}
       aria-haspopup="dialog"
+      aria-expanded={expanded}
       aria-label={`Share ${display}`}
       title={display}
       data-share-pill=""
       className={cn(
-        "inline-flex min-w-0 max-w-full cursor-pointer select-none items-center rounded-full bg-[#efeff1] text-[#1f1f23] outline-none",
+        "inline-flex h-9 min-w-0 max-w-full cursor-pointer select-none items-center rounded-full bg-[#efeff1] text-[#1f1f23] outline-none",
         "shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_1px_2px_rgba(16,24,40,0.06)] ring-1 ring-black/[0.05]",
         "transition-[background-color,box-shadow] duration-150 hover:bg-[#e8e8eb] active:bg-[#e2e2e6] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)]",
+        "aria-expanded:bg-[#e6e6ea]",
         "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]",
         "[-webkit-tap-highlight-color:transparent]",
-        md ? "h-10 gap-2 pl-3.5 pr-3 text-[14.5px]" : "h-[34px] gap-1.5 pl-3 pr-2.5 text-[13px]",
+        md ? "gap-2 pl-3 pr-2.5 text-[13.5px]" : "gap-1.5 pl-2.5 pr-2 text-[12.5px]",
         className,
       )}
     >
-      <StorelibOutlineMark size={md ? 18 : 16} className="shrink-0 text-[#26262b]" />
-      <span className="min-w-0 truncate font-medium tracking-[-0.005em]">{pillText(display)}</span>
-      <Share className={cn("shrink-0 text-[#3a3a40]", md ? "h-[17px] w-[17px]" : "h-[15px] w-[15px]")} strokeWidth={1.75} aria-hidden />
+      <StorelibGlyph size={md ? 16 : 15} className="shrink-0 text-[#1f1f23]" />
+      <FadeText text={display} className="font-medium tracking-[-0.005em]" />
+      <Share className={cn("shrink-0 text-[#3a3a40]", md ? "h-4 w-4" : "h-[15px] w-[15px]")} strokeWidth={1.8} aria-hidden />
     </button>
   )
 }
@@ -242,6 +287,36 @@ function useCopy() {
   return { copied, copy }
 }
 
+/**
+ * Whatever is inside eases in (a short rise and a fade) each time `swapKey`
+ * changes: the address when the switch above it moves, so the new one
+ * arrives rather than blinking into place. On the Web Animations API, so it
+ * runs on the compositor and needs no keyframes in globals.css.
+ */
+function EaseIn({ swapKey, children, className }: { swapKey: string; children: React.ReactNode; className?: string }) {
+  const ref = React.useRef<HTMLSpanElement>(null)
+  const first = React.useRef(true)
+  React.useLayoutEffect(() => {
+    if (first.current) {
+      first.current = false
+      return
+    }
+    if (reducedMotion()) return
+    ref.current?.animate(
+      [
+        { opacity: 0, transform: "translateY(3px)" },
+        { opacity: 1, transform: "none" },
+      ],
+      { duration: 220, easing: EASE },
+    )
+  }, [swapKey])
+  return (
+    <span ref={ref} className={className}>
+      {children}
+    </span>
+  )
+}
+
 function LinkRow({
   address,
   copied,
@@ -256,20 +331,22 @@ function LinkRow({
   className?: string
 }) {
   return (
-    <div className={cn("flex h-14 items-center gap-1.5 rounded-2xl border border-[#e5e7eb] bg-white pl-3.5 pr-2", className)}>
-      <StorelibOutlineMark size={18} className="shrink-0 text-[#26262b]" />
+    <div className={cn("flex h-[52px] items-center gap-1 rounded-2xl border border-[#e5e7eb] bg-white pl-3 pr-1.5", className)}>
+      <StorelibTile size={24} />
       <button
         type="button"
         onClick={onOpen}
         title={`Open ${address.display}`}
-        className="min-w-0 flex-1 cursor-pointer truncate px-1 text-left text-[14px] text-[#1a1a2e] outline-none underline-offset-2 hover:underline focus-visible:underline sm:text-[15px]"
+        className="min-w-0 flex-1 cursor-pointer overflow-hidden px-1.5 text-left text-[14px] text-[#1a1a2e] outline-none underline-offset-2 hover:underline focus-visible:underline sm:text-[14.5px]"
       >
-        {address.display}
+        <EaseIn swapKey={address.url} className="block truncate">
+          {address.display}
+        </EaseIn>
       </button>
       <button type="button" onClick={onOpen} aria-label={`Open ${address.label}`} className={iconButton}>
         <ArrowUpRight className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
       </button>
-      <button type="button" onClick={onCopy} data-share-copy="" className={cn(inkDepth, "h-9 min-w-[66px] rounded-[10px] px-3 text-[14px] sm:min-w-[76px] sm:px-3.5")}>
+      <button type="button" onClick={onCopy} data-share-copy="" className={cn(inkDepth, "h-9 min-w-[70px] rounded-[10px] px-3 text-[14px]")}>
         {copied ? (
           <>
             <Check className="h-4 w-4" strokeWidth={2.25} aria-hidden />
@@ -279,6 +356,56 @@ function LinkRow({
           "Copy"
         )}
       </button>
+    </div>
+  )
+}
+
+/**
+ * CREATOR PAGE, ONEPAGE, WEBSITE. A white thumb slides under the one chosen,
+ * on the sheet's curve, rather than the highlight jumping from one tab to the
+ * next; the address below eases in to match (LinkRow).
+ */
+function SurfaceSwitch({
+  addresses,
+  current,
+  onSurface,
+}: {
+  addresses: ShareAddress[]
+  current: ShareAddress
+  onSurface: (s: ShareSurface) => void
+}) {
+  const index = Math.max(0, addresses.findIndex((a) => a.surface === current.surface))
+  return (
+    <div role="tablist" aria-label="What to share" className="relative grid auto-cols-fr grid-flow-col rounded-xl bg-[#f1f2f4] p-1">
+      <span
+        aria-hidden
+        data-share-thumb=""
+        className="absolute bottom-1 left-1 top-1 rounded-[9px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_1px_rgba(16,24,40,0.04)] transition-transform duration-300 will-change-transform motion-reduce:transition-none"
+        style={{
+          width: `calc((100% - 8px) / ${addresses.length})`,
+          transform: `translateX(${index * 100}%)`,
+          transitionTimingFunction: EASE,
+        }}
+      />
+      {addresses.map((a) => {
+        const active = a.surface === current.surface
+        return (
+          <button
+            key={a.surface}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onSurface(a.surface)}
+            className={cn(
+              "relative z-[1] h-8 min-w-0 cursor-pointer truncate rounded-[9px] px-2 text-[13px] font-medium outline-none transition-colors duration-200",
+              "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-[#8b5cf6] [-webkit-tap-highlight-color:transparent]",
+              active ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
+            )}
+          >
+            {a.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -309,17 +436,17 @@ function QrCode({ url, size }: { url: string; size: number }) {
   }, [url])
   const mark = Math.round(size * 0.2)
   return (
-    <div className="relative" style={{ width: size, height: size }} role="img" aria-label={`QR code for ${url.replace(/^https?:\/\//, "")}`}>
+    <div className="relative shrink-0" style={{ width: size, height: size }} role="img" aria-label={`QR code for ${url.replace(/^https?:\/\//, "")}`}>
       {svg ? (
         /* The library's own output for our own address: path data, no text. */
-        <div className="h-full w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: svg }} />
+        <div data-share-qr="" className="h-full w-full [&>svg]:block [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: svg }} />
       ) : (
         <div className="h-full w-full animate-pulse rounded-lg bg-[#f1f2f4] motion-reduce:animate-none" />
       )}
       {svg && (
         <span
           className="absolute left-1/2 top-1/2 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[22%] bg-white"
-          style={{ width: mark + 10, height: mark + 10 }}
+          style={{ width: mark + Math.max(6, Math.round(size * 0.05)), height: mark + Math.max(6, Math.round(size * 0.05)) }}
         >
           <span className="block" style={{ width: mark, height: mark }}>
             <StorelibMark className="block h-full w-full" />
@@ -370,49 +497,73 @@ function RoundButton({
   bg,
   children,
   onClick,
+  plain = false,
 }: {
   label: string
-  bg: string
+  bg?: string
   children: React.ReactNode
   onClick: () => void
+  /** The circle is drawn by the child (the Storelib tile), not by a background here. */
+  plain?: boolean
 }) {
   return (
     /*
       NO `group` HERE. globals.css flattens every transform inside a `.group`
-      on touch screens, which put the outline mark's S at the corner of its
-      square, and it bans scale on hover in groups anyway. The circle darkens
-      a step on hover and press instead, which reads the same and moves nothing.
+      on touch screens, and it bans scale on hover in groups anyway. The
+      circle darkens a step on hover and press instead, which reads the same
+      and moves nothing.
     */
     <button
       type="button"
       onClick={onClick}
-      className="flex w-[70px] shrink-0 cursor-pointer flex-col items-center gap-1.5 rounded-xl py-1 outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-[#8b5cf6] [-webkit-tap-highlight-color:transparent] [&:active>[data-circle]]:brightness-90 [&:hover>[data-circle]]:brightness-95"
+      className="flex w-[68px] shrink-0 cursor-pointer flex-col items-center gap-1.5 rounded-xl py-1 outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-[#8b5cf6] [-webkit-tap-highlight-color:transparent] [&:active>[data-circle]]:brightness-90 [&:hover>[data-circle]]:brightness-95"
     >
       <span
         data-circle=""
-        className="grid h-[50px] w-[50px] place-items-center rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] transition-[filter] duration-150 motion-reduce:transition-none"
-        style={{ background: bg }}
+        className={cn(
+          "grid h-12 w-12 place-items-center rounded-full transition-[filter] duration-150 motion-reduce:transition-none",
+          !plain && "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
+        )}
+        style={bg ? { background: bg } : undefined}
       >
         {children}
       </span>
-      <span className="max-w-full truncate text-[12px] leading-4 text-[#4b5563]">{label}</span>
+      {/* Not cut: "My Storelib" is a hair wider than its column in some fonts, and the gap beside it has room. */}
+      <span className="whitespace-nowrap text-[12px] leading-4 text-[#4b5563]">{label}</span>
     </button>
   )
 }
 
 /**
- * A row that scrolls sideways. `data-sheet-no-drag` keeps the phone sheet's
- * drag from taking a sideways swipe; the fade at the right edge says there is
- * more.
+ * A row that scrolls sideways, edge to edge of the surface it sits in, with
+ * no fade over its end: the circle the edge cuts is what says there is more.
+ * `data-sheet-no-drag` keeps the phone sheet's drag from taking a sideways
+ * swipe. A mouse wheel turned over it scrolls it sideways, since a mouse has
+ * no other way to.
  */
 function SideRow({ children, className }: { children: React.ReactNode; className?: string }) {
+  const ref = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return
+      const max = el.scrollWidth - el.clientWidth
+      if (max <= 0) return
+      const next = Math.max(0, Math.min(max, el.scrollLeft + e.deltaY))
+      if (next === el.scrollLeft) return
+      e.preventDefault()
+      el.scrollLeft = next
+    }
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => el.removeEventListener("wheel", onWheel)
+  }, [])
   return (
     <div
+      ref={ref}
       data-sheet-no-drag=""
-      className={cn(
-        "scrollbar-hide flex gap-1 overflow-x-auto overscroll-x-contain [mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)]",
-        className,
-      )}
+      data-share-row=""
+      className={cn("scrollbar-hide flex gap-0.5 overflow-x-auto overscroll-x-contain", className)}
     >
       {children}
     </div>
@@ -454,7 +605,7 @@ function ShareView({
   canNativeShare: boolean
   onNativeShare: () => void
 }) {
-  /* Read on the first render: this view only exists once the sheet is open, in the browser, so the card never pops in a frame late. */
+  /* Read on the first render: this view only exists once the panel is open, in the browser, so the card never pops in a frame late. */
   const [qrHidden, setQrHidden] = React.useState(() => {
     if (typeof window === "undefined") return true
     try {
@@ -472,81 +623,80 @@ function ShareView({
     }
   }
   const shown: ConnectedPlatform[] = platforms.length > 0 ? platforms : DEFAULT_BIO_PLATFORMS.map((key) => ({ key, profileUrl: null }))
+  const live = current.live !== false
 
   return (
     <>
-      <div className="px-5 pb-5 sm:px-6">
-        {addresses.length > 1 && (
-          <div role="tablist" aria-label="What to share" className="mb-3 grid auto-cols-fr grid-flow-col gap-1 rounded-xl bg-[#f1f2f4] p-1">
-            {addresses.map((a) => {
-              const active = a.surface === current.surface
-              return (
-                <button
-                  key={a.surface}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => onSurface(a.surface)}
-                  className={cn(
-                    "h-8 min-w-0 cursor-pointer truncate rounded-[9px] px-2 text-[13px] font-medium outline-none transition-[background-color,color,box-shadow] duration-150",
-                    "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-[#8b5cf6] [-webkit-tap-highlight-color:transparent]",
-                    active
-                      ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_rgba(16,24,40,0.04)]"
-                      : "text-[#6b7280] hover:text-[#1a1a2e]",
-                  )}
-                >
-                  {a.label}
-                </button>
-              )
-            })}
-          </div>
-        )}
+      <div className="px-4 pb-4 sm:px-5">
+        {addresses.length > 1 && <SurfaceSwitch addresses={addresses} current={current} onSurface={onSurface} />}
 
-        <LinkRow address={current} copied={copied} onCopy={onCopy} onOpen={onOpen} />
+        <LinkRow className={addresses.length > 1 ? "mt-2.5" : undefined} address={current} copied={copied} onCopy={onCopy} onOpen={onOpen} />
+
+        <EaseIn swapKey={current.surface} className="mt-2 block px-1 text-[12.5px] leading-[1.45] text-[#6b7280]">
+          {live ? (
+            SURFACE_HINT[current.surface]
+          ) : (
+            <>
+              Not live yet. It opens once you publish your OnePage.{" "}
+              <Link href="/app/onepage" className="font-medium text-[#1a1a2e] underline underline-offset-2">
+                Open OnePage
+              </Link>
+            </>
+          )}
+        </EaseIn>
 
         {!phone && !qrHidden && (
-          <div data-share-qr-hint="" className="relative mt-3 flex flex-col items-center rounded-2xl border border-[#e5e7eb] px-6 pb-5 pt-6 text-center">
-            <button type="button" onClick={hideQr} aria-label="Hide the QR code" className={cn(iconButton, "absolute right-2.5 top-2.5 h-8 w-8")}>
+          <div data-share-qr-hint="" className="relative mt-3 flex items-center gap-3.5 rounded-2xl border border-[#e5e7eb] p-3 pr-9">
+            <button type="button" onClick={hideQr} aria-label="Hide the QR code" className={cn(iconButton, "absolute right-1.5 top-1.5 h-8 w-8")}>
               <X className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             </button>
-            <QrCode url={current.url} size={128} />
-            <p className="mt-4 text-[15px] font-semibold text-[#1a1a2e]">Add it to your Instagram bio</p>
-            <p className="mt-0.5 text-[14px] text-[#6b7280]">Scan with your phone</p>
+            <button
+              type="button"
+              onClick={onQr}
+              aria-label="Show the QR code larger"
+              className="shrink-0 cursor-pointer rounded-lg outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]"
+            >
+              <QrCode url={current.url} size={84} />
+            </button>
+            <div className="min-w-0">
+              <p className="text-[13.5px] font-semibold leading-5 text-[#1a1a2e]">Add it to your Instagram bio</p>
+              <p className="mt-0.5 text-[13px] leading-[1.4] text-[#6b7280]">Scan with your phone to open it there</p>
+            </div>
           </div>
         )}
 
-        <p className="mt-5 text-[13px] font-semibold text-[#1a1a2e]">My platforms</p>
-        <SideRow className="-mx-1 mt-2">
+        <p className="mt-4 text-[13px] font-semibold text-[#1a1a2e]">My platforms</p>
+        <SideRow className="-mx-4 mt-1.5 px-3 sm:-mx-5 sm:px-4">
           {shown.map((p) => {
             const m = BIO_MARK[p.key]
             return (
               <RoundButton key={p.key} label={BIO_HOW_TO[p.key].name} bg={m.bg} onClick={() => onPlatform(p.key)}>
-                <m.Mark size={22} color={m.fg} />
+                <m.Mark size={21} color={m.fg} />
               </RoundButton>
             )
           })}
         </SideRow>
       </div>
 
-      <div className="border-t border-[#eceef1] px-4 pb-4 pt-3.5 sm:px-5">
-        <SideRow>
-          <RoundButton label="My Storelib" bg="#f1f2f4" onClick={onOpen}>
-            <StorelibOutlineMark size={22} className="text-[#26262b]" />
+      <div className="border-t border-[#eceef1] pb-3 pt-3">
+        <SideRow className="px-3 sm:px-4">
+          <RoundButton label="My Storelib" plain onClick={onOpen}>
+            <StorelibTile size={48} round />
           </RoundButton>
           <RoundButton label="QR code" bg="#f1f2f4" onClick={onQr}>
-            <QrCodeIcon className="h-[21px] w-[21px] text-[#26262b]" strokeWidth={1.75} aria-hidden />
+            <QrCodeIcon className="h-5 w-5 text-[#26262b]" strokeWidth={1.75} aria-hidden />
           </RoundButton>
           {SHARE_TARGETS.map((t) => {
             const m = TARGET_MARK[t.key]
             return (
               <RoundButton key={t.key} label={t.label} bg={m.bg} onClick={() => onTarget(t.key)}>
-                <m.Mark size={21} color={m.fg} />
+                <m.Mark size={20} color={m.fg} />
               </RoundButton>
             )
           })}
           {canNativeShare && (
             <RoundButton label="More" bg="#f1f2f4" onClick={onNativeShare}>
-              <MoreHorizontal className="h-[22px] w-[22px] text-[#26262b]" strokeWidth={1.75} aria-hidden />
+              <MoreHorizontal className="h-[21px] w-[21px] text-[#26262b]" strokeWidth={1.75} aria-hidden />
             </RoundButton>
           )}
         </SideRow>
@@ -569,7 +719,7 @@ function PlatformView({
   const how = BIO_HOW_TO[platform.key]
   const m = BIO_MARK[platform.key]
   return (
-    <div className="px-5 pb-5 sm:px-6 sm:pb-6">
+    <div className="px-4 pb-4 sm:px-5 sm:pb-5">
       <PlatformArt platform={platform.key} address={address.display} />
       {how.needs && (
         <p className="mt-4 rounded-xl bg-[#f7f7f8] px-3.5 py-2.5 text-[13.5px] leading-[1.5] text-[#4b5563]">
@@ -590,7 +740,7 @@ function PlatformView({
       )}
       <ol className="mt-4 space-y-2.5">
         {how.steps.map((step, i) => (
-          <li key={i} className="flex gap-3 text-[14.5px] leading-[1.45] text-[#374151]">
+          <li key={i} className="flex gap-3 text-[14px] leading-[1.45] text-[#374151]">
             <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#f1f2f4] text-[12px] font-semibold text-[#4b5563]">{i + 1}</span>
             <span className="pt-[2px]">
               <Step text={step} />
@@ -607,7 +757,7 @@ function PlatformView({
       <button
         type="button"
         onClick={() => openExternal(platform.profileUrl ?? how.home)}
-        className={cn(secondaryDepth, "mt-2.5 h-12 w-full gap-2.5 rounded-xl text-[15px]")}
+        className={cn(secondaryDepth, "mt-2.5 h-11 w-full gap-2.5 rounded-xl text-[15px]")}
       >
         <span className="grid h-6 w-6 place-items-center rounded-full" style={{ background: m.bg }}>
           <m.Mark size={13} color={m.fg} />
@@ -633,13 +783,13 @@ function QrView({ address, phone, copied, onCopy }: { address: ShareAddress; pho
     }
   }
   return (
-    <div className="flex flex-col items-center px-5 pb-6 text-center sm:px-6">
-      <div className="rounded-3xl border border-[#e5e7eb] bg-white p-5">
-        <QrCode url={address.url} size={phone ? 200 : 216} />
+    <div className="flex flex-col items-center px-4 pb-5 text-center sm:px-5">
+      <div className="rounded-3xl border border-[#e5e7eb] bg-white p-4">
+        <QrCode url={address.url} size={phone ? 200 : 188} />
       </div>
-      <p className="mt-4 max-w-full truncate text-[15px] font-medium text-[#1a1a2e]">{address.display}</p>
+      <p className="mt-3.5 max-w-full truncate text-[15px] font-medium text-[#1a1a2e]">{address.display}</p>
       <p className="mt-1 text-[13.5px] text-[#6b7280]">Point a phone camera at it to open your page.</p>
-      <div className={cn("mt-5 grid w-full gap-2.5", canDownload ? "grid-cols-2" : "grid-cols-1")}>
+      <div className={cn("mt-4 grid w-full gap-2.5", canDownload ? "grid-cols-2" : "grid-cols-1")}>
         {canDownload && (
           <button type="button" onClick={download} disabled={saving} className={cn(secondaryDepth, "h-11 rounded-xl text-[15px]")}>
             <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
@@ -691,11 +841,11 @@ function Swap({ viewKey, forward, children }: { viewKey: string; forward: boolea
     const from = last.current
     const to = el.offsetHeight
     if (from != null && from !== to) {
-      el.animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: 260, easing: EASE })
+      el.animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: 280, easing: EASE })
     }
     content.animate(
       [
-        { opacity: 0, transform: `translateX(${forward ? 16 : -16}px)` },
+        { opacity: 0, transform: `translateX(${forward ? 14 : -14}px)` },
         { opacity: 1, transform: "none" },
       ],
       { duration: 240, easing: EASE },
@@ -714,53 +864,78 @@ function Header({
   title,
   onBack,
   onClose,
-  asTitle,
 }: {
   title: string
   onBack?: () => void
-  onClose: () => void
-  /** The modal names its dialog with this; the sheet passes a plain heading. */
-  asTitle?: (heading: React.ReactElement) => React.ReactElement
+  /** A computer's panel has a close button; a phone's sheet does not, it is pulled down or tapped away. */
+  onClose?: () => void
 }) {
-  const heading = <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold leading-6 text-[#1a1a2e]">{title}</h2>
+  const heading = <h2 className="min-w-0 flex-1 truncate text-[16px] font-semibold leading-6 text-[#1a1a2e]">{title}</h2>
   return (
-    <div className="flex h-14 items-center gap-2 px-3 sm:h-16 sm:px-4">
+    <div className={cn("flex items-center gap-1.5", onClose ? "h-14 px-2.5 sm:px-3" : "h-12 px-2.5")}>
       {onBack ? (
         <button type="button" onClick={onBack} aria-label="Back" className={iconButton}>
           <ArrowLeft className="h-[19px] w-[19px]" strokeWidth={1.75} aria-hidden />
         </button>
       ) : (
-        <span className="w-2" aria-hidden />
+        <span className={onClose ? "w-2" : "w-1.5"} aria-hidden />
       )}
-      {asTitle ? asTitle(heading) : heading}
-      <button type="button" onClick={onClose} aria-label="Close" className={cn(iconButton, "bg-[#f1f2f4] hover:bg-[#e7e8eb]")}>
-        <X className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-      </button>
+      {heading}
+      {onClose && (
+        <button type="button" onClick={onClose} aria-label="Close" className={cn(iconButton, "h-8 w-8 bg-[#f1f2f4] hover:bg-[#e7e8eb]")}>
+          <X className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+        </button>
+      )}
     </div>
   )
 }
 
-/* ─── The sheet ───────────────────────────────────────────────────────── */
+/* ─── The pill and what it opens ──────────────────────────────────────── */
 
-export function ShareStorelibSheet({
-  open,
-  onOpenChange,
+/**
+ * The pill, and the panel or sheet it opens. Each pill owns its own: the home
+ * page draws one for computers and one for phones, and whichever is on screen
+ * is the one that is tapped.
+ */
+export function ShareStorelib({
   addresses,
   platforms,
+  size = "md",
+  openSignal = 0,
+  className,
 }: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
   /** The creator page first: it is what the pill shows and what is selected on open. */
   addresses: ShareAddress[]
   platforms: ConnectedPlatform[]
+  size?: "md" | "sm"
+  /**
+   * Opens it from elsewhere on the page each time the number goes up (the
+   * home page's "Make your first sale"). Only the pill that is on screen
+   * answers, so of a page's computer and phone pills exactly one opens.
+   */
+  openSignal?: number
+  className?: string
 }) {
   const phone = useIsPhone()
+  const [open, setOpen] = React.useState(false)
   const [view, setView] = React.useState<View>({ kind: "share" })
   const [forward, setForward] = React.useState(true)
   const [surface, setSurface] = React.useState<ShareSurface | null>(addresses[0]?.surface ?? null)
   const { copied, copy } = useCopy()
   const [canNativeShare, setCanNativeShare] = React.useState(false)
   React.useEffect(() => setCanNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function"), [])
+  const anchorRef = React.useRef<HTMLSpanElement>(null)
+  const panelRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    if (!openSignal) return
+    const anchor = anchorRef.current
+    /* A pill under display: none has no boxes: that is the other width's. */
+    if (!anchor || anchor.getClientRects().length === 0) return
+    const b = anchor.getBoundingClientRect()
+    if (b.top < 0 || b.bottom > window.innerHeight) anchor.scrollIntoView({ block: "nearest" })
+    setOpen(true)
+  }, [openSignal])
 
   /* Every open starts at the share view on the creator page. Set during render, like the sheet's own open state, so no frame shows the last view. */
   const [prevOpen, setPrevOpen] = React.useState(open)
@@ -776,7 +951,7 @@ export function ShareStorelibSheet({
   const current = addresses.find((a) => a.surface === surface) ?? addresses[0]
   if (!current) return null
 
-  const close = () => onOpenChange(false)
+  const close = () => setOpen(false)
   const go = (next: View) => {
     setForward(true)
     setView(next)
@@ -829,44 +1004,67 @@ export function ShareStorelibSheet({
     </Swap>
   )
 
-  if (phone) {
-    return (
+  const sheetOpen = open && phone
+  const panelOpen = open && !phone
+
+  return (
+    <>
+      <PopoverPrimitive.Root open={panelOpen} onOpenChange={(next) => !next && close()}>
+        <PopoverPrimitive.Anchor asChild>
+          <span ref={anchorRef} className={cn("inline-flex min-w-0 max-w-full", className)}>
+            <SharePill size={size} display={addresses[0].display} expanded={open} onOpen={() => setOpen((v) => !v)} />
+          </span>
+        </PopoverPrimitive.Anchor>
+        <PopoverPrimitive.Portal>
+          <PopoverPrimitive.Content
+            ref={panelRef}
+            data-share-sheet=""
+            data-surface="panel"
+            data-view={view.kind}
+            role="dialog"
+            aria-label={title}
+            tabIndex={-1}
+            align="end"
+            side="bottom"
+            sideOffset={10}
+            collisionPadding={16}
+            /* Focus goes to the panel itself, not its first button, so nothing is ringed on a click. */
+            onOpenAutoFocus={(e) => {
+              e.preventDefault()
+              panelRef.current?.focus({ preventScroll: true })
+            }}
+            /* A click on the pill is the pill's to answer (it toggles), not an outside click that closes and then reopens. */
+            onInteractOutside={(e) => {
+              if (anchorRef.current?.contains(e.target as Node)) e.preventDefault()
+            }}
+            className={cn(
+              "scrollbar-hide z-[200] w-[min(396px,calc(100vw-32px))] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto overscroll-contain rounded-[20px] border border-[#e5e7eb] bg-white outline-none",
+              "shadow-[0_18px_48px_-16px_rgba(17,24,39,0.28),0_4px_12px_-4px_rgba(17,24,39,0.08)]",
+              "origin-(--radix-popover-content-transform-origin) duration-200",
+              "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97] data-[state=open]:slide-in-from-top-1",
+              "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-[0.97] data-[state=closed]:duration-150",
+              "motion-reduce:animate-none",
+            )}
+            style={{ animationTimingFunction: EASE }}
+          >
+            <Header title={title} onBack={view.kind === "share" ? undefined : back} onClose={close} />
+            {body}
+          </PopoverPrimitive.Content>
+        </PopoverPrimitive.Portal>
+      </PopoverPrimitive.Root>
+
       <BottomSheet
-        isOpen={open}
+        isOpen={sheetOpen}
         onClose={close}
         label={title}
         hideFrom="md"
-        maxHeight="min(86dvh, 700px)"
         scrollKey={viewKey}
-        header={<Header title={title} onBack={view.kind === "share" ? undefined : back} onClose={close} />}
+        header={<Header title={title} onBack={view.kind === "share" ? undefined : back} />}
       >
         <div data-share-sheet="" data-surface="sheet" data-view={view.kind}>
           {body}
         </div>
       </BottomSheet>
-    )
-  }
-
-  return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[200] bg-black/40 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 motion-reduce:animate-none" />
-        <DialogPrimitive.Content
-          data-share-sheet=""
-          data-surface="modal"
-          data-view={view.kind}
-          aria-describedby={undefined}
-          className="fixed left-1/2 top-1/2 z-[200] flex max-h-[min(88dvh,820px)] w-[calc(100%-2rem)] max-w-[460px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[22px] border border-[#e5e7eb] bg-white shadow-[0_24px_60px_-18px_rgba(17,24,39,0.32),0_2px_6px_rgba(17,24,39,0.06)] outline-none duration-150 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 motion-reduce:animate-none"
-        >
-          <Header
-            title={title}
-            onBack={view.kind === "share" ? undefined : back}
-            onClose={close}
-            asTitle={(heading) => <DialogPrimitive.Title asChild>{heading}</DialogPrimitive.Title>}
-          />
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{body}</div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+    </>
   )
 }

@@ -116,11 +116,11 @@ function main() {
     "the three addresses are still there",
     /label: "Creator page"/.test(dash) && /label: "OnePage"/.test(dash) && /label: "Website"/.test(dash),
   )
-  /* And the mark on the pill is the real S, not a fourth logo file. */
-  const outline = read("components/app/share/storelib-outline-mark.tsx")
+  /* And the marks on the pill and in the sheet are the real S, not a fourth logo file. */
+  const marks = read("components/app/share/storelib-share-marks.tsx")
   check(
-    "its Storelib mark draws the shared S",
-    !/image2vector/.test(dash) && /STORELIB_S_PATH/.test(outline) && /export const STORELIB_S_PATH/.test(read("components/storelib-mark.tsx")),
+    "its Storelib marks draw the shared S",
+    !/image2vector/.test(dash) && /STORELIB_S_PATH/.test(marks) && /export const STORELIB_S_PATH/.test(read("components/storelib-mark.tsx")),
   )
 
   /* ---------------------------------------------------------------------
