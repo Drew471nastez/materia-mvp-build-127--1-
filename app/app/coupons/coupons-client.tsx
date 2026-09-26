@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
-import { LAYER_MOTION_MS } from "@/components/app/page-layer"
+import { LAYER_LEAVE_MS } from "@/components/app/page-layer"
 import { prefetchAppPage } from "@/lib/ui/app-navigation"
 import { COUPON_STATE_LABEL, couponState, type CouponState } from "@/lib/checkout/coupons"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonSecondary, card } from "../orders/order-parts"
@@ -166,7 +166,7 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
     }
     const targets = row.tagName === "TR" ? (Array.from(row.children) as HTMLElement[]) : [row]
     for (const el of targets) {
-      el.animate([{ backgroundColor: EDITED_TINT }, { backgroundColor: "rgba(236, 238, 241, 0)" }], { duration: EDITED_FADE_MS, delay: LAYER_MOTION_MS, easing: "ease-out", fill: "backwards" })
+      el.animate([{ backgroundColor: EDITED_TINT }, { backgroundColor: "rgba(236, 238, 241, 0)" }], { duration: EDITED_FADE_MS, delay: LAYER_LEAVE_MS, easing: "ease-out", fill: "backwards" })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
