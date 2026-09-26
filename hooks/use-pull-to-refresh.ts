@@ -82,6 +82,15 @@ export function rubberBandInverse(offset: number, limit: number, tension: number
   return (offset * limit) / (tension * (limit - offset))
 }
 
+/**
+ * Where a touch belongs to something that moves sideways: the metric strips
+ * (components/app/use-tab-strip SCROLL_X_ATTR) and the charts' scrub layer
+ * (components/app/chart-scrub).
+ */
+const LATERAL = "[data-scroll-x], [data-chart-touch-shield]"
+/** How far such a touch moves before it is called a pull or a sideways swipe. */
+const LATERAL_DECIDE_PX = 3
+
 /* ── The settle spring ─────────────────────────────────────────────────────
    Stepped in rAF, transform only. ζ = 24 / (2·√260) = 0.74, so it overshoots
    by about 3% of the travel (a pixel and a half off a 48px snap) and is still
@@ -434,6 +443,15 @@ export function usePullToRefresh(
     if (!el) return
 
     let startY = 0
+    /* Where the finger landed, unadjusted, for telling a pull from a sideways swipe. */
+    let downX = 0
+    let downY = 0
+    /**
+     * The touch began on something a sideways swipe belongs to: a row that
+     * scrolls sideways, or a chart that scrubs. Such a gesture is a pull only
+     * once its first movement says it is going down rather than across.
+     */
+    let lateral = false
     let tracking = false
     let pendingDy = 0
     let queued = 0
@@ -473,6 +491,10 @@ export function usePullToRefresh(
          the top of it. */
       cancelFrame()
       const held = offsetRef.current
+      downX = e.touches[0].clientX
+      downY = e.touches[0].clientY
+      /* A page already held down mid settle is a pull being caught, whatever it lands on. */
+      lateral = held === 0 && !!(e.target as Element | null)?.closest?.(LATERAL)
       pendingDy = held > 0 ? rubberBandInverse(held, maxPull, tension) : 0
       startY = e.touches[0].clientY - pendingDy
       tracking = true
@@ -493,6 +515,27 @@ export function usePullToRefresh(
 
     const onTouchMove = (e: TouchEvent) => {
       if (!tracking) return
+
+      /*
+        A SIDEWAYS SWIPE IS NOT A PULL. At the top of Home this cancelled
+        every move with any downward drift, including a swipe along the
+        metric tabs, so the row froze and the page came down instead: "it
+        thinks I want to scroll up or down". A gesture that starts on a
+        sideways row or a chart is judged by its first few pixels: across is
+        theirs, and it is left alone, uncancelled, for the rest of the
+        gesture; down is a pull, as anywhere else.
+      */
+      if (lateral) {
+        const ax = Math.abs(e.touches[0].clientX - downX)
+        const ay = Math.abs(e.touches[0].clientY - downY)
+        if (ax < LATERAL_DECIDE_PX && ay < LATERAL_DECIDE_PX) return
+        lateral = false
+        if (ax >= ay) {
+          stopTracking()
+          return
+        }
+      }
+
       const dy = e.touches[0].clientY - startY
 
       if (dy <= 0) {

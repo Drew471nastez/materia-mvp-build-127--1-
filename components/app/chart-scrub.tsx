@@ -44,7 +44,8 @@
  * gesture says so: a sideways drag scrubs and the page stays put; a hold of
  * 100ms scrubs too; a drag that goes down the screen first is a scroll and
  * the chart lets go of it, even after a hold, so a slow thumb is never
- * trapped. Each point crossed is a light tick, the first a firmer one.
+ * trapped. And once the page is moving (a move the browser will not let be
+ * cancelled) the gesture is the page's for good. Each point crossed is a light tick, the first a firmer one.
  * Nothing cancels a touchstart, so the browser can always still scroll.
  *
  * ONE STABLE THING FOR A FINGER TO LAND ON. A touch belongs to the node it
@@ -306,6 +307,25 @@ function ChartScrubLayer({
       const dx = Math.abs(t.clientX - start.x)
       const dy = Math.abs(t.clientY - start.y)
       if (dx > SLOP_X) moved = true
+
+      /*
+        THE BROWSER ALREADY HAS IT. A move that cannot be cancelled is one
+        the page is scrolling with: the chart never starts a scrub under a
+        moving page, and lets go of one that is showing. Without this a
+        thumb going down the page at a slant could open the readout halfway
+        down, because nothing stopped a later sideways step from claiming a
+        gesture the page had already taken.
+      */
+      if (!e.cancelable) {
+        if (hold) clearTimeout(hold)
+        hold = null
+        lock = "vertical"
+        if (scrubbing) {
+          scrubbing = false
+          leave()
+        }
+        return
+      }
 
       if (scrubbing) {
         /* A hold that turns into a scroll is a scroll. */
