@@ -230,7 +230,12 @@ for (const [label, vp] of [["desktop-1440", DESKTOP], ["phone-390", PHONE]]) {
   await p.screenshot({ path: join(shots, `${label}-themes-more.png`) })
   await p.click("[data-theme-card=riso]")
   await sleep(600)
-  const picked = await p.$eval("[data-theme-card=riso]", (b) => ({ pressed: b.getAttribute("aria-pressed"), check: !!b.querySelector("svg") }))
+  /* The check is always there now, faded in on the pick (editor-kit CheckMark): read that it is shown here and not on another card. */
+  const picked = await p.$eval("[data-theme-card=riso]", (b) => {
+    const shown = (card) => Number(getComputedStyle(card.querySelector("[data-check-mark]")).opacity) > 0.95
+    const other = document.querySelector("[data-theme-card]:not([data-theme-card=riso])")
+    return { pressed: b.getAttribute("aria-pressed"), check: shown(b) && !!other && !shown(other) }
+  })
   expect(picked.pressed === "true" && picked.check, "a pick is marked with the dark border and a check", picked)
   if (vp.width >= 768) {
     const preview = await p.evaluate(() => {
@@ -258,7 +263,11 @@ for (const [label, vp] of [["desktop-1440", DESKTOP], ["phone-390", PHONE]]) {
   expect(groups.drawn === 16, "every square draws its pattern with the page's own function", groups.drawn)
   await p.click('[data-pattern-choice="dots"]')
   await sleep(400)
-  const on = await p.$eval('[data-pattern-choice="dots"]', (b) => ({ pressed: b.getAttribute("aria-pressed"), check: !!b.querySelector("svg") }))
+  const on = await p.$eval('[data-pattern-choice="dots"]', (b) => {
+    const shown = (tile) => Number(getComputedStyle(tile.querySelector("[data-check-mark]")).opacity) > 0.95
+    const other = document.querySelector('[data-pattern-choice="none"]')
+    return { pressed: b.getAttribute("aria-pressed"), check: shown(b) && !!other && !shown(other) }
+  })
   expect(on.pressed === "true" && on.check, "a pick is marked with the dark border and a check", on)
   const purple = await purpleIn(p, "[data-pattern-choice]")
   expect(purple.length === 0, "no violet", purple.slice(0, 3))
