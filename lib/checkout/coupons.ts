@@ -18,6 +18,12 @@
  */
 
 import { apportionFee } from "./cart-items"
+import { CODE_PATTERN } from "./coupon-state"
+
+/* What the Coupons page also draws in the browser lives in ./coupon-state, which
+   has no server import; this file reaches the admin cookie (adminSignedIn), so a
+   client component importing it broke the production build. */
+export { CODE_PATTERN, COUPON_STATE_LABEL, couponState, type CouponState } from "./coupon-state"
 
 type Db = { from: (table: string) => any; rpc?: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -269,9 +275,6 @@ export async function recordCouponUse(db: Db, couponId: string | null | undefine
  * these are the ones that count.
  */
 
-/* A code as a buyer types it: in ./coupon-state, which the browser imports too. */
-import { CODE_PATTERN } from "./coupon-state"
-export { CODE_PATTERN }
 
 export interface CouponValues {
   code: string
@@ -363,9 +366,6 @@ export function readCouponInput(body: unknown, base?: Partial<CouponValues> | nu
     },
   }
 }
-
-/* Where a code stands, and its word: in ./coupon-state, which the browser can import (this file reaches the admin's server only code). */
-export { COUPON_STATE_LABEL, couponState, type CouponState } from "./coupon-state"
 
 /** A Postgres or PostgREST error saying a column the query named is not there yet. */
 export function isMissingColumn(error: { code?: string; message?: string } | null | undefined, column: string): boolean {

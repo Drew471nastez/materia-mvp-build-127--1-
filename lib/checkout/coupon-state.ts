@@ -1,9 +1,9 @@
 /**
- * WHERE A DISCOUNT CODE STANDS, AND ITS WORD. Split from ./coupons because
- * the Coupons list draws these in the browser, and ./coupons reaches the
- * admin's server only code (a dynamic import of lib/admin-blog-auth, which
- * reads next/headers): a client component importing it failed the build.
- * Nothing here touches the server.
+ * The parts of a discount code the Coupons page draws in the browser: the
+ * pattern a code must match and where a code stands right now. Kept apart
+ * from lib/checkout/coupons.ts, which reads the admin console cookie on the
+ * server and so cannot be bundled into a client component. That file
+ * re-exports all of these, so server code imports them from there as before.
  */
 import type { CouponRow } from "./coupons"
 
@@ -32,4 +32,3 @@ export const COUPON_STATE_LABEL: Record<CouponState, string> = {
   used_up: "Used up",
   off: "Off",
 }
-
