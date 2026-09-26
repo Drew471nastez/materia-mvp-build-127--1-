@@ -10,9 +10,10 @@
  *   node scripts/check-editor-scroll.mjs            (bundle first: see below)
  */
 import { execFileSync } from "node:child_process"
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { appCss } from "./probe-css.mjs"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const root = process.cwd()
@@ -100,9 +101,9 @@ if (!existsSync(bundle)) {
 /* Other probes that need the real editor (scripts/check-sheet-reach.mjs)
    build it through here, so the stubs live in one place. */
 if (process.env.EDITOR_BUNDLE_ONLY === "1") process.exit(0)
-const cssDir = join(root, ".next/static/chunks")
-if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first.")
-const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
+/* The built stylesheet when there is one, and the same source compiled when
+   there is not (a worktree), so this runs without a production build. */
+const css = await appCss(root)
 const out = mkdtempSync(join(tmpdir(), "storelib-editor-"))
 
 
