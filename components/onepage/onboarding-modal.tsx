@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 import { StorelibMark as StorelibLogo } from "@/components/storelib-mark"
 import { isNativeApp } from "@/lib/native-bridge"
+import { THEME_TEMPLATES } from "./tabs/design-tab"
 
 // Storelib logo SVG component - inlined for instant loading
 
@@ -29,409 +30,7 @@ const GOAL_ICON_URLS = {
   business: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/53112.svg",
 }
 
-// Theme templates - exact copy from design-tab.tsx
-const THEME_TEMPLATES = [
-  {
-    id: "default",
-    name: "Default",
-    category: "light",
-    isDefault: true,
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#ffffff",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#000000",
-      secondary_text_color: "#000000",
-      button_color: "#000000",
-      button_text_color: "#ffffff",
-      button_style: "filled" as const,
-      button_border_radius: 8,
-      button_border_width: 0,
-      button_border_color: "#000000",
-      button_shadow: "subtle",
-      font_family: "'Inter', sans-serif",
-      title_font: "'Inter', sans-serif",
-      title_color: "#000000",
-      social_icon_color: "#000000",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      header_layout: "classic",
-      background_pattern: "none",
-      laser_glow_enabled: false,
-    },
-    profile_layout: "classic" as const,
-    skipLayoutDialog: true,
-    share_style: "white",
-    subscribe_style: "white",
-    light_button_text_color: "#000000",
-  },
-  {
-    id: "air",
-    name: "Air",
-    category: "light",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#f8fafc",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#0f172a",
-      secondary_text_color: "#64748b",
-      button_color: "#0f172a",
-      button_text_color: "#ffffff",
-      button_style: "filled" as const,
-      button_border_radius: 8,
-      button_border_width: 0,
-      button_border_color: "#0f172a",
-      button_shadow: "subtle",
-      font_family: "'Inter', sans-serif",
-      title_font: "'Inter', sans-serif",
-      title_color: "#0f172a",
-      social_icon_color: "#64748b",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      laser_glow_enabled: true,
-      laser_glow_color: "#dbdbdb",
-      laser_glow_intensity: "medium",
-    },
-    light_button_text_color: "#0f172a",
-    share_style: "white",
-    subscribe_style: "white",
-  },
-  {
-    id: "astrid",
-    name: "Astrid",
-    category: "dark",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#0a0a0a",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#ffffff",
-      secondary_text_color: "#a1a1aa",
-      button_color: "#27272a",
-      button_text_color: "#ffffff",
-      button_style: "filled" as const,
-      button_border_radius: 12,
-      button_border_width: 1,
-      button_border_color: "#3f3f46",
-      button_shadow: "none",
-      font_family: "'Inter', sans-serif",
-      title_font: "'Montserrat', sans-serif",
-      title_color: "#ffffff",
-      social_icon_color: "#a1a1aa",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      laser_glow_enabled: true,
-      laser_glow_color: "#303030",
-      laser_glow_intensity: "medium",
-    },
-    share_style: "glassmorphism",
-    subscribe_style: "glassmorphism",
-  },
-  {
-    id: "blocks",
-    name: "Blocks",
-    category: "gradient",
-    theme_config: {
-      background_type: "gradient" as const,
-      background_color: "#7c3aed",
-      background_gradient: "linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #ec4899 100%)",
-      background_image_url: "",
-      text_color: "#ffffff",
-      secondary_text_color: "#e9d5ff",
-      button_color: "#ffffff",
-      button_text_color: "#7c3aed",
-      button_style: "filled" as const,
-      button_border_radius: 12,
-      button_border_width: 0,
-      button_border_color: "#ffffff",
-      button_shadow: "hard",
-      button_shadow_color: "#6a197b",
-      font_family: "'Poppins', sans-serif",
-      title_font: "'Poppins', sans-serif",
-      title_color: "#ffffff",
-      social_icon_color: "#ffffff",
-      social_icon_style: "filled",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      laser_glow_enabled: false,
-      background_pattern: "grid",
-      pattern_opacity: "low",
-      pattern_color: "#c9c9c990",
-    },
-    solid_button_text_color: "#7c3aed",
-    outline_button_text_color: "#ffffff",
-    glass_button_text_color: "#ffffff",
-    share_style: "white",
-    subscribe_style: "white",
-  },
-  {
-    id: "ocean",
-    name: "Ocean",
-    category: "gradient",
-    theme_config: {
-      background_type: "gradient" as const,
-      background_color: "#0ea5e9",
-      background_gradient: "linear-gradient(180deg, #0c4a6e 0%, #0369a1 50%, #0ea5e9 100%)",
-      background_image_url: "",
-      text_color: "#ffffff",
-      secondary_text_color: "#bae6fd",
-      button_color: "rgba(255, 255, 255, 0.15)",
-      button_text_color: "#ffffff",
-      button_style: "glass" as const,
-      button_border_radius: 24,
-      button_border_width: 1,
-      button_border_color: "rgba(255, 255, 255, 0.2)",
-      button_shadow: "subtle",
-      font_family: "'Nunito', sans-serif",
-      title_font: "'Nunito', sans-serif",
-      title_color: "#ffffff",
-      social_icon_color: "#bae6fd",
-      social_icon_style: "outline",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      background_pattern: "waves",
-      pattern_opacity: "low",
-      pattern_color: "#428ad790",
-    },
-    share_style: "white",
-    subscribe_style: "white",
-  },
-  {
-    id: "sunset",
-    name: "Sunset",
-    category: "gradient",
-    theme_config: {
-      background_type: "gradient" as const,
-      background_color: "#f97316",
-      background_gradient: "linear-gradient(135deg, #f97316 0%, #ef4444 50%, #ec4899 100%)",
-      background_image_url: "",
-      text_color: "#ffffff",
-      secondary_text_color: "#fed7aa",
-      button_color: "#ffffff",
-      button_text_color: "#ea580c",
-      button_style: "filled" as const,
-      button_border_radius: 16,
-      button_border_width: 0,
-      button_border_color: "#ffffff",
-      button_shadow: "strong",
-      font_family: "'Poppins', sans-serif",
-      title_font: "'Playfair Display', serif",
-      title_color: "#ffffff",
-      social_icon_color: "#ffffff",
-      social_icon_style: "filled",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      background_pattern: "organic",
-      pattern_opacity: "low",
-      pattern_color: "#ffcccc90",
-    },
-    share_style: "white",
-    subscribe_style: "white",
-    solid_button_text_color: "#ea580c",
-    outline_button_text_color: "#ffffff",
-    glass_button_text_color: "#ffffff",
-  },
-  {
-    id: "midnight",
-    name: "Midnight",
-    category: "dark",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#020617",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#f8fafc",
-      secondary_text_color: "#94a3b8",
-      button_color: "rgba(255, 255, 255, 0.1)",
-      button_text_color: "#ffffff",
-      button_style: "glass" as const,
-      button_border_radius: 10,
-      button_border_width: 1,
-      button_border_color: "#182b49",
-      button_shadow: "subtle",
-      font_family: "'Inter', sans-serif",
-      title_font: "'Oswald', sans-serif",
-      title_color: "#f8fafc",
-      social_icon_color: "#3b82f6",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      header_layout: "hero",
-      laser_glow_enabled: false,
-      button_hover_animation: "zoom",
-      allowed_patterns: ["none", "stars"],
-      background_pattern: "stars",
-      pattern_color: "#ffffff",
-      pattern_opacity: "medium",
-    },
-    profile_layout: "hero" as const,
-    share_style: "glassmorphism",
-    subscribe_style: "glassmorphism",
-  },
-  {
-    id: "cream",
-    name: "Cream",
-    category: "light",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#fffbeb",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#1c1917",
-      secondary_text_color: "#78716c",
-      button_color: "#1c1917",
-      button_text_color: "#363221",
-      button_style: "outline" as const,
-      button_border_radius: 24,
-      button_border_width: 2,
-      button_border_color: "#363221",
-      button_shadow: "none",
-      font_family: "'Lora', serif",
-      title_font: "'Playfair Display', serif",
-      title_color: "#362f2b",
-      social_icon_color: "#78716c",
-      social_icon_style: "filled",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      header_layout: "classic",
-      laser_glow_enabled: false,
-      background_pattern: "zigzag",
-      pattern_color: "#e2dc9c90",
-      pattern_opacity: "low",
-    },
-    profile_layout: "classic" as const,
-    share_style: "black",
-    subscribe_style: "black",
-    outline_button_text_color: "#363221",
-    solid_button_text_color: "#fffcf0",
-    glass_button_text_color: "#37342a",
-  },
-  {
-    id: "space",
-    name: "Space",
-    category: "dark",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#000000",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#ffffff",
-      secondary_text_color: "#a1a1aa",
-      button_color: "rgba(255, 255, 255, 0.1)",
-      button_text_color: "#ffffff",
-      button_style: "glass" as const,
-      button_border_radius: 12,
-      button_border_width: 1,
-      button_border_color: "rgba(255, 255, 255, 0.2)",
-      button_shadow: "none",
-      font_family: "'Space Grotesk', sans-serif",
-      title_font: "'Space Grotesk', sans-serif",
-      title_color: "#ffffff",
-      social_icon_color: "#ffffff",
-      social_icon_style: "filled",
-      background_pattern: "stars",
-      pattern_color: "#ffffff",
-      pattern_opacity: "high",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      header_layout: "classic",
-    },
-    profile_layout: "classic" as const,
-    share_style: "black",
-    subscribe_style: "black",
-  },
-  {
-    id: "aurora",
-    name: "Aurora",
-    category: "gradient",
-    theme_config: {
-      background_type: "gradient" as const,
-      background_color: "#0f0f23",
-      background_gradient: "linear-gradient(135deg, #0f0f23 0%, #1a1a3e 25%, #2d1b4e 50%, #1e3a5f 75%, #0f0f23 100%)",
-      background_image_url: "",
-      text_color: "#ffffff",
-      secondary_text_color: "#94a3b8",
-      button_color: "rgba(139, 92, 246, 0.3)",
-      button_text_color: "#ffffff",
-      button_style: "glass" as const,
-      button_border_radius: 16,
-      button_border_width: 1,
-      button_border_color: "rgba(139, 92, 246, 0.5)",
-      button_shadow: "none",
-      font_family: "'Space Grotesk', sans-serif",
-      title_font: "'Space Grotesk', sans-serif",
-      title_color: "#ffffff",
-      social_icon_color: "#a78bfa",
-      background_pattern: "morph",
-      pattern_color: "#ffffff90",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      animated_gradient: false,
-    },
-  },
-  {
-    id: "neon",
-    name: "Neon",
-    category: "dark",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#09090b",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#fafafa",
-      secondary_text_color: "#a1a1aa",
-      button_color: "#18181b",
-      button_text_color: "#22d3ee",
-      button_style: "glass" as const,
-      button_border_radius: 10,
-      button_border_width: 1,
-      button_border_color: "#22d3ee",
-      button_shadow: "strong",
-      button_shadow_color: "#ffffff",
-      font_family: "'JetBrains Mono', monospace",
-      title_font: "'Orbitron', sans-serif",
-      title_color: "#22d3ee",
-      social_icon_color: "#22d3ee",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      header_layout: "hero",
-      background_pattern: "none",
-    },
-    profile_layout: "hero" as const,
-    share_style: "glassmorphism",
-    subscribe_style: "glassmorphism",
-  },
-  {
-    id: "nature",
-    name: "Nature",
-    category: "image",
-    theme_config: {
-      background_type: "image" as const,
-      background_color: "#1a2e1a",
-      background_gradient: "",
-      background_image_url: "https://images.unsplash.com/photo-1418065460487-3e41a6c84dc5?w=1920&q=95",
-      text_color: "#ffffff",
-      secondary_text_color: "#d1fae5",
-      button_color: "rgba(255, 255, 255, 0.9)",
-      button_text_color: "#065f46",
-      button_style: "filled" as const,
-      button_border_radius: 24,
-      button_border_width: 0,
-      button_border_color: "#ffffff",
-      button_shadow: "subtle",
-      font_family: "'Nunito', sans-serif",
-      title_font: "'Lora', serif",
-      title_color: "#ffffff",
-      social_icon_color: "#d1fae5",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      image_brightness: 40,
-      image_noise: true,
-      noise_strength: 30,
-    },
-  },
-]
+/* The themes are the Design tab's own list, not a copy of it that drifts: the onboarding offers what the tab offers. */
 
 // TikTok icon component
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -474,7 +73,7 @@ function Confetti({ show }: { show: boolean }) {
     canvas.width = window.innerWidth
     canvas.height = window.innerHeight
 
-    const colors = ["#ff6b6b", "#4ecdc4", "#ffe66d", "#a78bfa", "#f472b6", "#34d399", "#60a5fa", "#fbbf24", "#8b5cf6", "#ec4899"]
+    const colors = ["#ff6b6b", "#4ecdc4", "#ffe66d", "#1a1a2e", "#f472b6", "#34d399", "#60a5fa", "#fbbf24", "#b2846c", "#ec4899"]
     const confettiPieces: Array<{
       x: number
       y: number
@@ -1533,7 +1132,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             <div className="flex justify-center pt-4 sm:pt-8 shrink-0">
               <div className="w-[160px] sm:w-[200px] h-[6px] sm:h-[8px] bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-purple-600 transition-all duration-500 ease-out rounded-full"
+                  className="h-full bg-[#1a1a2e] transition-all duration-500 ease-out rounded-full"
                   style={{ width: `${progressWidth}%` }}
                 />
               </div>
@@ -1908,7 +1507,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                             onClick={() => setSelectedTemplate(template.id)}
                             className={cn(
                               "aspect-[3/4] rounded-xl overflow-hidden relative transition-all duration-300",
-                              isSelected ? "ring-2 ring-purple-600 ring-offset-2" : ""
+                              isSelected ? "ring-2 ring-[#1a1a2e] ring-offset-2" : ""
                             )}
                           >
                             {isImageBg && (
@@ -2087,7 +1686,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                               />
                             </div>
                             {isSelected && (
-                              <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center z-20">
+                              <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-[#1a1a2e] flex items-center justify-center z-20">
                                 <Check className="w-3 h-3 text-white" />
                               </div>
                             )}
@@ -2301,7 +1900,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                               onClick={() => setSelectedTemplate(template.id)}
                               className={cn(
                                 "flex-1 min-w-[140px] aspect-[3/4] rounded-2xl overflow-hidden relative transition-all duration-300",
-                                isSelected ? "ring-2 ring-purple-600 ring-offset-2" : ""
+                                isSelected ? "ring-2 ring-[#1a1a2e] ring-offset-2" : ""
                               )}
                             >
                               {/* Background layer for image themes */}
@@ -2389,7 +1988,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
 
                               {/* Selected checkmark */}
                               {isSelected && (
-                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center z-20">
+                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-[#1a1a2e] flex items-center justify-center z-20">
                                   <Check className="w-3 h-3 text-white" />
                                 </div>
                               )}
@@ -2430,7 +2029,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                         onClick={() => setCarouselIndex(i)}
                         className={cn(
                           "w-2 h-2 rounded-full transition-colors",
-                          i === carouselIndex ? "bg-purple-600" : "bg-gray-300 hover:bg-gray-400"
+                          i === carouselIndex ? "bg-[#1a1a2e]" : "bg-gray-300 hover:bg-gray-400"
                         )}
                       />
                     ))}
@@ -2445,8 +2044,8 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   <div className="relative mb-4 sm:mb-6 mt-4 sm:mt-0">
                     {isSettingUp && (
                       <>
-                        <div className="absolute inset-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-purple-400/30 animate-ping" />
-                        <div className="absolute inset-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-purple-400/20 animate-pulse" />
+                        <div className="absolute inset-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#1a1a2e]/30 animate-ping" />
+                        <div className="absolute inset-0 w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#1a1a2e]/20 animate-pulse" />
                       </>
                     )}
                     <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shadow-lg bg-white flex items-center justify-center">
@@ -2461,14 +2060,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                         <h1 className="text-lg sm:text-2xl font-bold">
                           Setting up your OnePage
                         </h1>
-                        <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 animate-spin" />
+                        <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-[#1a1a2e] animate-spin" />
                       </div>
                     ) : isSettingUp && setupPhase === "just-a-moment" ? (
                       <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 animate-in fade-in duration-300">
                         <h1 className="text-lg sm:text-2xl font-bold">
                           Almost there
                         </h1>
-                        <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 animate-spin" />
+                        <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-[#1a1a2e] animate-spin" />
                       </div>
                     ) : setupComplete ? (
                       <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 animate-in fade-in zoom-in duration-500">
@@ -2536,7 +2135,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                     className={cn(
                       "px-7 sm:px-8 py-3 sm:py-3 rounded-xl font-semibold text-sm sm:text-sm transition-all min-w-[110px] sm:min-w-[140px]",
                       canProceed()
-                        ? "bg-purple-600 text-white hover:bg-purple-700 shadow-md hover:shadow-lg"
+                        ? "bg-[#1a1a2e] text-white hover:bg-[#2a2a40] shadow-md hover:shadow-lg"
                         : "bg-gray-200 text-gray-400 cursor-not-allowed"
                     )}
                   >
@@ -2746,7 +2345,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
                   <button
                     onClick={handleCropComplete}
                     disabled={uploadingAvatar}
-                    className="flex-1 py-3 rounded-xl font-medium text-sm bg-purple-600 text-white hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 py-3 rounded-xl font-medium text-sm bg-[#1a1a2e] text-white hover:bg-[#2a2a40] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {uploadingAvatar ? <><Loader2 className="h-4 w-4 animate-spin" />Saving...</> : "Save"}
                   </button>

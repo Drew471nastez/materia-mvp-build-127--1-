@@ -189,6 +189,116 @@ for (const [label, vp] of [["desktop-1440", DESKTOP], ["phone-390", PHONE]]) {
   await p.close()
 }
 
+/* Purple is a hue between 250 and 300 degrees with some colour in it, in any colour a subtree paints, gradients included. */
+const purpleIn = (p, sel) => p.$$eval(sel, (roots) => {
+  const found = []
+  const hue = (r, g, b) => {
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b)
+    if (mx - mn < 30) return null
+    let h = mx === r ? (g - b) / (mx - mn) : mx === g ? 2 + (b - r) / (mx - mn) : 4 + (r - g) / (mx - mn)
+    h *= 60
+    return h < 0 ? h + 360 : h
+  }
+  for (const root of roots) for (const el of [root, ...root.querySelectorAll("*")]) {
+    const cs = getComputedStyle(el)
+    for (const prop of ["borderTopColor", "backgroundColor", "backgroundImage", "boxShadow", "color"]) {
+      for (const m of String(cs[prop]).matchAll(/rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)/g)) {
+        if (m[4] !== undefined && Number(m[4]) < 0.05) continue
+        const h = hue(+m[1], +m[2], +m[3])
+        if (h !== null && h >= 250 && h <= 300) found.push(`${root.getAttribute("data-theme-card") || root.getAttribute("data-pattern-choice") || ""} ${prop} ${m[0]}`)
+      }
+    }
+  }
+  return found
+})
+
+/* ── THEMES: every one a small page, none of them violet, two new ── */
+for (const [label, vp] of [["desktop-1440", DESKTOP], ["phone-390", PHONE]]) {
+  console.log(`\n${label}: themes`)
+  const { p, errors } = await open(vp)
+  await p.click('[data-nav-row="theme"]')
+  await sleep(900)
+  const cards = await p.$$eval("[data-theme-card]", (els) => els.map((e) => e.getAttribute("data-theme-card")))
+  expect(cards.length === 18 && cards.includes("riso") && cards.includes("olive"), "eighteen themes, Riso and Olive among them", cards)
+  const purple = await purpleIn(p, "[data-theme-card]")
+  expect(purple.length === 0, "no violet in any of them", purple.slice(0, 4))
+  const faces = await p.$$eval("[data-theme-card]", (els) => new Set(els.map((e) => getComputedStyle(e.querySelector("span span.font-bold")).fontFamily.split(",")[0])).size)
+  expect(faces >= 8, "the names are drawn in their themes' own title faces", { faces })
+  await p.screenshot({ path: join(shots, `${label}-themes.png`) })
+  await p.evaluate(() => document.querySelector("[data-theme-card=olive]")?.scrollIntoView({ block: "center" }))
+  await sleep(300)
+  await p.screenshot({ path: join(shots, `${label}-themes-more.png`) })
+  await p.click("[data-theme-card=riso]")
+  await sleep(600)
+  const picked = await p.$eval("[data-theme-card=riso]", (b) => ({ pressed: b.getAttribute("aria-pressed"), check: !!b.querySelector("svg") }))
+  expect(picked.pressed === "true" && picked.check, "a pick is marked with the dark border and a check", picked)
+  if (vp.width >= 768) {
+    const preview = await p.evaluate(() => {
+      const phone = [...document.querySelectorAll(".hidden.md\\:block")].find((e) => e.querySelector("[data-wallpaper-pattern]"))
+      return phone ? phone.querySelector("[data-wallpaper-pattern]").getAttribute("data-wallpaper-pattern") : null
+    })
+    expect(preview === "dots", "and the preview beside it takes the theme, texture and all", preview)
+  }
+  expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
+  await p.close()
+}
+
+/* ── PATTERNS: squares of the page's own wallpaper, textures and patterns apart ── */
+for (const [label, vp] of [["desktop-1440", DESKTOP], ["phone-390", PHONE]]) {
+  console.log(`\n${label}: patterns`)
+  const { p, errors } = await open(vp)
+  await p.click('[data-nav-row="wallpaper"]')
+  await sleep(600)
+  const groups = await p.evaluate(() => ({
+    textures: [...document.querySelectorAll('[data-pattern-group="textures"] [data-pattern-choice]')].map((b) => b.getAttribute("data-pattern-choice")),
+    patterns: document.querySelectorAll('[data-pattern-group="patterns"] [data-pattern-choice]').length,
+    drawn: [...document.querySelectorAll("[data-pattern-choice] [data-wallpaper-pattern]")].filter((e) => getComputedStyle(e).backgroundImage.startsWith('url("data:image/svg')).length,
+  }))
+  expect(groups.textures.join() === "none,grain,paper,linen" && groups.patterns === 13, "None and the three textures, then thirteen patterns", groups)
+  expect(groups.drawn === 16, "every square draws its pattern with the page's own function", groups.drawn)
+  await p.click('[data-pattern-choice="dots"]')
+  await sleep(400)
+  const on = await p.$eval('[data-pattern-choice="dots"]', (b) => ({ pressed: b.getAttribute("aria-pressed"), check: !!b.querySelector("svg") }))
+  expect(on.pressed === "true" && on.check, "a pick is marked with the dark border and a check", on)
+  const purple = await purpleIn(p, "[data-pattern-choice]")
+  expect(purple.length === 0, "no violet", purple.slice(0, 3))
+  await p.evaluate(() => document.querySelector('[data-pattern-group="textures"]')?.scrollIntoView({ block: "start" }))
+  await sleep(300)
+  await p.screenshot({ path: join(shots, `${label}-patterns.png`) })
+  expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
+  await p.close()
+}
+
+/* ── THE LIVE PAGE IN EVERY THEME ── */
+{
+  console.log("\nlive-390: every theme")
+  const ids = ["default", "air", "studio", "cream", "riso", "blocks", "sunset", "peach", "ocean", "aurora", "olive", "astrid", "night", "midnight", "space", "neon", "nature", "fusion"]
+  const p = await browser.newPage()
+  await p.setViewport(PHONE)
+  const errors = []
+  p.on("pageerror", (e) => errors.push(String(e)))
+  const seen = []
+  for (const id of ids) {
+    await p.goto(`${base}/app/onepage?live&template=${id}`)
+    await p.waitForSelector(".onepage-live")
+    await sleep(350)
+    const r = await p.evaluate(() => {
+      const shown = [...document.querySelectorAll(".onepage-live")].find((e) => e.getClientRects().length)
+      const pattern = shown?.querySelector("[data-wallpaper-pattern]")
+      const btn = [...(shown?.querySelectorAll("a, button") ?? [])].find((b) => b.textContent.trim() === "Shop the prints")
+      return { pattern: pattern ? pattern.getAttribute("data-wallpaper-pattern") : null, button: !!btn, font: shown ? getComputedStyle(shown).fontFamily.split(",")[0] : null }
+    })
+    seen.push({ id, ...r })
+    if (["riso", "olive", "blocks", "sunset", "aurora", "night", "fusion", "air"].includes(id)) await p.screenshot({ path: join(shots, `live-390-${id}.png`) })
+  }
+  expect(seen.every((x) => x.button), "every theme draws the page and its buttons", seen.filter((x) => !x.button).map((x) => x.id))
+  const want = { riso: "dots", olive: "linen", blocks: "grid", sunset: "grain", aurora: null, night: null }
+  const wrong = Object.entries(want).filter(([id, pat]) => seen.find((x) => x.id === id)?.pattern !== pat)
+  expect(wrong.length === 0, "the new and redrawn themes draw their textures on the live page", seen.filter((x) => x.id in want).map((x) => `${x.id}:${x.pattern}:${x.font}`))
+  expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
+  await p.close()
+}
+
 /* ── SHARE YOUR ONEPAGE: the app's sheet on a phone, a dialog from 768px ── */
 for (const [label, vp] of [["desktop-1440", DESKTOP], ["phone-390", PHONE]]) {
   console.log(`\n${label}: share`)
