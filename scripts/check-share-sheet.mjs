@@ -148,16 +148,20 @@ try {
         outline: el.querySelector("svg rect") != null,
         fill: path?.getAttribute("fill"),
         lit: /^url\(#storelib-s-/.test(path?.getAttribute("filter") || ""),
+        open: !!el.querySelector("svg.lucide-external-link"),
+        spin: [...el.querySelectorAll("span")].some((s) => /conic-gradient/.test(getComputedStyle(s).backgroundImage) && getComputedStyle(s).animationName === "spin"),
       }
     })
-    expect(pill.h === 36, "the pill is 36px tall", pill.h)
+    expect(pill.h === (phone ? 36 : 32), `the pill is ${phone ? 36 : 32}px tall`, pill.h)
     if (phone) expect(pill.text === "View" && !pill.fill, "on a phone it is an eye and View", pill)
     else {
-      expect(pill.text === "storelib.com/andrewrullz", "it carries the whole address, no ellipsis", pill.text)
-      expect(pill.fill === "#8b56fa" && !pill.lit && !pill.outline, "the S in flat violet, no square around it", pill)
+      /* "How it was before": the handle with an @, the open glyph, the violet light running round its edge. */
+      expect(pill.text === "@andrewrullz", "it says @username, from the creator page's address", pill.text)
+      expect(pill.open && !pill.fill && pill.spin, "with the open glyph and the light round its edge, no S", pill)
     }
-    const depth = await p.$eval(pillSel, (el) => ({ bg: getComputedStyle(el).backgroundColor, shadow: getComputedStyle(el).boxShadow }))
-    expect(depth.bg === "rgb(244, 244, 246)" && !/inset/.test(depth.shadow), "light grey with almost no depth", depth)
+    const depth = await p.$eval(pillSel, (el) => ({ bg: getComputedStyle(el).backgroundColor, image: getComputedStyle(el).backgroundImage, border: getComputedStyle(el).borderTopColor, shadow: getComputedStyle(el).boxShadow }))
+    if (phone) expect(depth.bg === "rgb(244, 244, 246)" && /linear-gradient/.test(depth.image) && /inset/.test(depth.shadow) && /2px 6px -2px/.test(depth.shadow), "light grey, lit along its top, with a soft shadow under it: a little depth", depth)
+    else expect(depth.bg === "rgb(255, 255, 255)" && depth.border === "rgb(229, 231, 235)" && /0px 1px 1px 0px$/.test(depth.shadow) && !/2px 6px/.test(depth.shadow), "white with a hairline and an extremely small shadow", depth)
     if (!phone) expect(!pill.cut, "an address that fits is not faded", pill.cut)
     const pageSide = () => p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
     expect((await pageSide()) === 0, "the page does not scroll sideways", await pageSide())
@@ -203,7 +207,8 @@ try {
         right: +b.right.toFixed(2),
         tabs: [...el.querySelectorAll("[role=tab]")].map((t) => t.textContent.trim()),
         rows: [...el.querySelectorAll("[data-share-row]")].filter((r) => r.getClientRects().length).map((r) => ({ what: r.getAttribute("data-share-row"), address: r.querySelector("[data-share-address]").textContent.trim(), copy: !!r.querySelector("[data-share-copy]") })),
-        logo: !!el.querySelector("[data-share-row=creator] svg[aria-label=Storelib]"),
+        logo: !!el.querySelector("[data-share-row=creator] [data-mark=creator].rounded-full svg path[data-keep-transform]"),
+        marks: [...el.querySelectorAll("[data-mark]")].filter((m) => m.getClientRects().length).map((m) => ({ what: m.dataset.mark, round: getComputedStyle(m).borderRadius === "9999px" || parseFloat(getComputedStyle(m).borderRadius) >= m.getBoundingClientRect().width / 2, gradient: /linear-gradient/.test(getComputedStyle(m).backgroundImage), depth: /inset/.test(getComputedStyle(m).boxShadow), globe: !!m.querySelector("svg.lucide-globe") })),
         quick: [...document.querySelectorAll("h2")].some((h) => h.textContent.trim() === "Quick access" && h.getClientRects().length > 0),
         ink: [...el.querySelectorAll("button")].filter((b) => b.getClientRects().length && getComputedStyle(b).backgroundColor === "rgb(26, 26, 46)").length,
         address: el.querySelector("[data-share-address]")?.textContent.trim(),
@@ -221,7 +226,9 @@ try {
     expect(/Quick access/.test(surface.text) || surface.quick, "it is Quick access", surface.text.slice(0, 40))
     expect(surface.rows.map((r) => r.what).join("|") === "creator|onepage|website" && surface.rows[0].address === "storelib.com/andrewrullz", "every address at once, a row each, the creator page first", surface.rows)
     expect(surface.rows.every((r) => r.copy), "each with its own Copy pill", surface.rows)
-    expect(surface.logo, "the creator page carries the Storelib logo", surface.logo)
+    expect(surface.logo, "the creator page carries the Storelib S in a circle", surface.logo)
+    expect(surface.marks.length === 3 && surface.marks.every((m) => m.round && m.gradient && m.depth), "all three marks are circles with a gradient and depth", surface.marks)
+    expect(surface.marks.find((m) => m.what === "website")?.globe, "the website's mark is a plain globe", surface.marks)
     expect(surface.ink === 0 && !/QR code/.test(surface.text), "no black button and no QR code", { ink: surface.ink })
     const gone = ["My platforms", "Instagram", "TikTok", "WhatsApp", "Facebook", "Telegram", "Reddit", "My Storelib", "Add it to your Instagram bio"].filter((w) => surface.text.includes(w))
     expect(gone.length === 0, "no platforms, no QR card, no row of share targets", gone)
