@@ -47,10 +47,19 @@ const PEEK_PX = 40
  * the row from being handed on sideways (on Android that is the back swipe).
  * The vertical axis is left alone, so a vertical swipe still reaches the page.
  *
+ * `overflow-y: hidden`, because `overflow-x: auto` alone makes the other axis
+ * `auto` too, and the row is 84.5px tall. A half pixel that rounds into a
+ * vertical scroll range of a device pixel is all a browser needs to hand an
+ * up and down swipe to the ROW, which then moves by nothing while the page
+ * stays put. Chromium measures no such range today; a native scroll view
+ * rounding differently is exactly where it would appear. With the axis
+ * closed the row is never a vertical scroller, on any engine.
+ *
  * No scroll snapping: a snap point pulls the row back after you let go, which
  * is a fight with the thumb, not a help.
  */
 export const TAB_STRIP_STYLE: CSSProperties = {
+  overflowY: "hidden",
   touchAction: "pan-x pan-y",
   overscrollBehaviorX: "contain",
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * ===========================================================================
- *  THE METRIC STRIP FOLLOWS THE TAB, AND KEEPS A SIDEWAYS SWIPE
+ *  THE METRIC STRIP FOLLOWS THE TAB
  * ===========================================================================
  * Four tabs above each chart, in a row that scrolls sideways on a phone.
  *
@@ -9,17 +9,13 @@
  * left the tab just chosen half out of sight. What has to be true is where
  * the row ENDS UP, in pixels, after each tap: the chosen tab fully in view,
  * the edge of the next one showing, and no movement when there was nothing to
- * reveal.
+ * reveal. Driven against the real hook on a strip with the product's widths.
  *
- * AND THE DRAG SOMETIMES WENT TO THE PAGE. "Sometimes it doesn't work, it
- * thinks I want to scroll up or down." So four swipes are driven across the
- * row — flat, steep, and one either side of the cone — and each is asked the
- * only question that matters: did the strip take it, and was the page told
- * no. A gesture the strip claims must be prevented; one it declines must NOT
- * be, or scrolling the page off this row stops working, which is the bug the
- * previous fix here was for.
- *
- * Both are driven against the real hook on a strip with the product's widths.
+ * Whose a swipe on the row is, the row's or the page's, is the browser's call
+ * now, and it is measured with real touch input on the real pages by
+ * scripts/check-metric-tabs-gesture.mjs. TouchEvent objects dispatched from
+ * script, which this probe used to send, never scroll anything, so they could
+ * only ever measure a hand written gesture handler.
  *
  * WHAT IS MEASURED, AND HOW. The strip is scrolled with the browser's own
  * smooth scrolling, and a smooth scroll needs frames that headless Chromium
@@ -30,7 +26,7 @@
  * when motion is allowed is a single word in the source, pinned in
  * tests/tab-strip.test.ts.
  *
- *   node scripts/check-tab-reveal.mjs
+ *   node scripts/check-tab-strip.mjs
  */
 import { execFileSync } from "node:child_process"
 import { writeFileSync, rmSync, existsSync, mkdirSync } from "node:fs"
@@ -88,49 +84,6 @@ function placeOf(name) {
   return { left: Math.round(left), right: Math.round(right), clipped: left < -1 || right > s.clientWidth + 1 }
 }
 
-/*
-  A swipe, in real touch events. The angle is what is under test, so it is
-  given in degrees from horizontal and turned into a straight line of moves.
-*/
-const swipe = async (degrees, distance) => {
-  const s = strip()
-  const box = s.getBoundingClientRect()
-  const from = { x: box.left + box.width * 0.6, y: box.top + box.height / 2 }
-  const rad = (degrees * Math.PI) / 180
-  const before = s.scrollLeft
-  let prevented = 0
-  let moves = 0
-
-  const touchAt = (x, y) => new Touch({ identifier: 1, target: s, clientX: x, clientY: y })
-  const send = (type, x, y) => {
-    const touch = touchAt(x, y)
-    const e = new TouchEvent(type, {
-      bubbles: true, cancelable: type !== "touchend",
-      touches: type === "touchend" ? [] : [touch],
-      targetTouches: type === "touchend" ? [] : [touch],
-      changedTouches: [touch],
-    })
-    s.dispatchEvent(e)
-    if (type === "touchmove") { moves++; if (e.defaultPrevented) prevented++ }
-  }
-
-  send("touchstart", from.x, from.y)
-  for (let i = 1; i <= 10; i++) {
-    const travelled = (distance * i) / 10
-    /* Leftwards and downwards, which is a thumb pushing the row forward. */
-    send("touchmove", from.x - Math.cos(rad) * travelled, from.y + Math.sin(rad) * travelled)
-  }
-  send("touchend", from.x - Math.cos(rad) * distance, from.y + Math.sin(rad) * distance)
-  await tick()
-  return {
-    moved: Math.round(strip().scrollLeft - before),
-    prevented,
-    moves,
-    /* Every move after the decision should go the same way as the first. */
-    claimed: prevented > 0,
-  }
-}
-
 const press = async (name) => {
   const before = strip().scrollLeft
   strip().querySelector('[data-tab="' + name + '"]').click()
@@ -166,23 +119,6 @@ async function measure() {
   out.backToViews = await press("views")
   /* And the tab already chosen, which has nothing to reveal. */
   out.sameAgain = await press("views")
-
-  /*
-    ── WHOSE GESTURE IS IT ────────────────────────────────────────────────
-    Back to the start of the row first, so every swipe has somewhere to go.
-  */
-  strip().scrollLeft = 0
-  await tick()
-  out.flat = await swipe(0, 120)
-  strip().scrollLeft = 0
-  await tick()
-  out.shallow = await swipe(30, 120)
-  strip().scrollLeft = 0
-  await tick()
-  out.steep = await swipe(70, 120)
-  strip().scrollLeft = 0
-  await tick()
-  out.vertical = await swipe(90, 120)
 
   document.getElementById("out").textContent = JSON.stringify(out)
 }
@@ -262,32 +198,7 @@ addEventListener("load", () => setTimeout(measure, 300))
     "and the strip is left alone, without naming a breakpoint to do it",
     `${wide.toRevenue.moved} and ${wide.toConversion.moved}`)
 
-  console.log("\nAnd whose gesture each swipe is\n")
-  for (const [label, r] of [["flat, 0°", phone.flat], ["shallow, 30°", phone.shallow], ["steep, 70°", phone.steep], ["vertical, 90°", phone.vertical]]) {
-    console.log(`  ${label.padEnd(14)} ${r.claimed ? "the strip" : "the page "}   row moved ${String(r.moved).padStart(4)}px   ${r.prevented} of ${r.moves} moves prevented`)
-  }
-  console.log("")
-
-  expect(phone.flat.claimed && phone.flat.moved > 0, "a flat sideways swipe scrolls the row", JSON.stringify(phone.flat))
-  expect(phone.shallow.claimed && phone.shallow.moved > 0,
-    "and so does one 30° off horizontal, which the browser alone was calling vertical",
-    JSON.stringify(phone.shallow))
-  /*
-    The other side of the cone, and the reason it is not wider. A swipe this
-    steep is somebody scrolling the page with a thumb that happened to land on
-    the row, and taking it would be the bug the previous fix here was for.
-  */
-  expect(!phone.steep.claimed && phone.steep.moved === 0,
-    "a swipe 70° off horizontal is the page's, and the row does not move",
-    JSON.stringify(phone.steep))
-  expect(!phone.vertical.claimed && phone.vertical.moved === 0,
-    "a straight up and down swipe likewise",
-    JSON.stringify(phone.vertical))
-  expect(phone.steep.prevented === 0 && phone.vertical.prevented === 0,
-    "and neither is prevented, so the page really can scroll from here",
-    `${phone.steep.prevented} and ${phone.vertical.prevented} moves prevented`)
-
-  console.log(`\n${broken === 0 ? "The strip follows the tab you chose, and keeps the swipes that are its own." : `${broken} failed`}`)
+  console.log(`\n${broken === 0 ? "The strip follows the tab you chose." : `${broken} failed`}`)
   process.exit(broken === 0 ? 0 : 1)
 } finally {
   rmSync(work, { recursive: true, force: true })

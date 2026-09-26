@@ -1,18 +1,19 @@
 /**
  * ===========================================================================
- *  THE METRIC STRIP FOLLOWS THE TAB, AND KEEPS A SIDEWAYS SWIPE
+ *  THE METRIC STRIP FOLLOWS THE TAB, AND THE BROWSER SCROLLS IT
  * ===========================================================================
  * The metric strip above each chart is four tabs in a row that scrolls
- * sideways on a phone. Two things were wrong with it: it did not follow the
- * tab you chose, and a sideways swipe on it was often taken by the page.
+ * sideways on a phone, on Home and on Analytics. It follows the tab you
+ * choose, and a swipe on it is the browser's: sideways scrolls the row, up
+ * and down scrolls the page, with no script in between.
  *
- * scripts/check-tab-strip.mjs clicks the real buttons and drives real swipes
- * at four angles, which is where both of those are settled. Three things it
- * cannot check are here instead: that the scroll it asks for is a SMOOTH one,
- * a single word the probe's own runs have to suppress to measure anything at
- * all; that the swipe listener is registered in the one way that lets it say
- * no to the page; and that every tab in both strips is tagged and both strips
- * are wired, which a probe of the hook alone would never notice.
+ * scripts/check-tab-strip.mjs clicks the real buttons and reads where the row
+ * lands; scripts/check-metric-tabs-gesture.mjs swipes the real pages with real
+ * touch input. What they cannot see is here: that the scroll asked for is a
+ * SMOOTH one, a word the reveal probe has to suppress to measure at all; that
+ * no gesture code creeps back into the hook; that the pull to refresh and the
+ * chart above and below the row leave its swipe alone; and that every tab in
+ * both strips is tagged and both strips are wired.
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
@@ -88,52 +89,81 @@ function main() {
     /strip\.scrollTo\(\{ left: target/.test(hook),
     "nothing competes with this scroll, so animating it by hand buys nothing")
 
-  console.log("\nAnd a sideways swipe on the row belongs to the row")
+  console.log("\nThe row is the browser's to scroll: no script in the swipe")
 
   /*
-    THE SECOND REPORT. With both axes permitted the browser arbitrates, and on
-    a row 72px tall inside a long page it calls anything but a dead flat swipe
-    vertical — then keeps the gesture whatever the thumb does next. So the
-    strip decides for itself, the way the chart one card below already does.
+    "200 fps smooth, not laggish, and make sure it doesn't misunderstand what
+    I want: when I want to scroll up and down, ensure this doesn't happen."
+    The hook used to drive the row by hand: a non passive touchmove, a 52
+    degree cone that took slanted page scrolls, scrollLeft written on the main
+    thread every move and a flick of its own. All of it is gone, and it must
+    not come back: the browser scrolls the row on the compositor, with the
+    platform's momentum, and picks row or page from the first movement
+    (measured in scripts/check-metric-tabs-gesture.mjs).
   */
-  check("the gesture is decided once, early, and by the strip",
-    /const DECIDE_PX = 5/.test(hook)
-      && /owner = Math\.abs\(dx\) \* SIDEWAYS_BIAS > Math\.abs\(dy\) \? "strip" : "page"/.test(hook))
-  check("through a cone wider than 45 degrees, because sideways is what this row is for",
-    /const SIDEWAYS_BIAS = 1\.3/.test(hook))
+  const code = strip(hook)
+  check("the hook listens to no touch at all",
+    !/addEventListener\(\s*"touch/.test(code) && !/onTouch(Start|Move|End)/.test(code),
+    "a touch listener on the row puts script back in the swipe")
+  check("and never cancels a move, writes scrollLeft or runs a flick of its own",
+    !/preventDefault/.test(code) && !/scrollLeft\s*=[^=]/.test(code) && !/requestAnimationFrame/.test(code)
+      && !/SIDEWAYS_BIAS|DECIDE_PX|GLIDE_DECAY/.test(code),
+    "a hand driven scroller runs on the main thread and loses the platform's momentum")
+  check("the row keeps both axes, contains sideways overscroll, closes its own vertical axis, and does not snap",
+    /export const TAB_STRIP_STYLE: CSSProperties = \{\s*overflowY: "hidden",\s*touchAction: "pan-x pan-y",\s*overscrollBehaviorX: "contain",\s*\}/.test(hook)
+      && !/scrollSnap|snap-x|snap-mandatory/.test(code),
+    "pan-x alone forbids scrolling the page from the row; an open vertical axis can take a vertical swipe")
   /*
-    The half that keeps the previous fix here alive: a gesture handed to the
-    page must never be taken back, or a thumb curling sideways halfway down a
-    scroll snatches the row out from under it.
+    Both strips draw the one style, so they cannot drift, and carry the
+    attribute the pull to refresh reads to leave a sideways swipe alone.
   */
-  check("and a gesture given to the page is never taken back",
-    /if \(owner === "page"\) return/.test(hook))
+  check("both strips draw that one style, with no touch-action of their own",
+    /import \{ TAB_STRIP_STYLE, useTabStrip \} from "@\/components\/app\/use-tab-strip"/.test(home)
+      && /import \{ TAB_STRIP_STYLE, useTabStrip \} from "@\/components\/app\/use-tab-strip"/.test(analytics)
+      && /<div ref=\{kpiStripRef\} role="tablist" aria-label="Metric" data-scroll-x className="[^"]*" style=\{TAB_STRIP_STYLE\}>/.test(home)
+      && /ref=\{metricStripRef\}\s*role="tablist"\s*aria-label="Metric"\s*data-scroll-x\s*className="[^"]*"\s*style=\{TAB_STRIP_STYLE\}/.test(analytics)
+      && !/touchAction: ["']pan-x/.test(strip(home)) && !/touchAction: ["']pan-x/.test(strip(analytics)))
+  check("the attribute is named once, beside the style",
+    /export const SCROLL_X_ATTR = "data-scroll-x"/.test(hook))
+
+  console.log("\nAnd nothing above the row takes its swipe")
+
   /*
-    preventDefault on a passive listener is ignored, with a console warning
-    and no effect — the page would scroll anyway and the row would move too.
+    AT THE TOP OF HOME THE PULL TO REFRESH TOOK IT. It cancelled every move
+    with any downward drift, so a slanted swipe along the tabs froze the row
+    and pulled the page down: "it thinks I want to scroll up or down". A
+    touch that starts on a sideways row or a chart is judged by its first few
+    pixels now, and a sideways one is left alone, uncancelled.
   */
-  check("the swipe listener is not passive, which is the only way it can say no",
-    /strip\.addEventListener\("touchmove", onMove, \{ passive: false \}\)/.test(hook)
-      && /if \(e\.cancelable\) e\.preventDefault\(\)/.test(hook),
-    "a passive listener's preventDefault is ignored, so the page takes the swipe anyway")
-  check("and only the ones it claims are prevented",
-    /if \(owner === "page"\) return\s*\n[\s\S]{0,400}?e\.preventDefault\(\)/.test(hook),
-    "preventing before the decision cancels the page's scroll for the whole gesture")
-  check("a flick carries on afterwards, and stops at the end of the row",
-    /const GLIDE_DECAY = 0\.94/.test(hook)
-      && /if \(strip\.scrollLeft === before\) return/.test(hook),
-    "a hand-driven scroller that stops dead under the thumb is the tell that it is hand-driven")
-  check("nothing glides for somebody who asked for less motion",
-    /if \(window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches\) return\s*\n\s*\n\s*\/\*/.test(hook))
-  check("and the listeners come off with the strip",
-    (hook.match(/removeEventListener/g) ?? []).length === 4
-      && /cancelAnimationFrame\(glide\.current\)\s*\n\s*strip\.removeEventListener/.test(hook))
+  const ptr = read("hooks/use-pull-to-refresh.ts")
+  check("the pull to refresh knows the rows and the charts that move sideways",
+    /const LATERAL = "\[data-scroll-x\], \[data-chart-touch-shield\]"/.test(ptr)
+      && /lateral = held === 0 && !!\(e\.target as Element \| null\)\?\.closest\?\.\(LATERAL\)/.test(ptr))
+  check("and gives a sideways gesture up before it cancels anything",
+    /if \(lateral\) \{[\s\S]{0,300}?if \(ax < LATERAL_DECIDE_PX && ay < LATERAL_DECIDE_PX\) return[\s\S]{0,80}?if \(ax >= ay\) \{\s*stopTracking\(\)\s*return/.test(ptr)
+      && ptr.indexOf("if (lateral) {") < ptr.indexOf("e.preventDefault()", ptr.indexOf("const onTouchMove")),
+    "a pull that cancels the first sideways move takes the row's swipe for the whole gesture")
+  check("deciding within a few pixels, before the browser would start a scroll",
+    /const LATERAL_DECIDE_PX = 3/.test(ptr))
   /*
-    Naming one axis in CSS takes the other away: `pan-x` alone is what stopped
-    the page scrolling from this row in the first place.
+    THE CHART UNDER IT. A move the browser will not let be cancelled is one
+    the page is already scrolling with, so the scrub must not start then, or
+    a slanted scroll opens the readout halfway down the page.
   */
-  check("both axes stay permitted in CSS, because the strip is what decides",
-    /touchAction: 'pan-x pan-y'/.test(home) && !/touchAction: 'pan-x'/.test(analytics))
+  const scrub = strip(read("components/app/chart-scrub.tsx"))
+  check("the chart lets go of any gesture the page is already scrolling with",
+    /if \(!e\.cancelable\) \{[\s\S]{0,200}?lock = "vertical"[\s\S]{0,120}?leave\(\)[\s\S]{0,40}?return\s*\}\s*if \(scrubbing\) \{/.test(scrub),
+    "a scrub claimed after the page has started moving shows the readout under a scrolling page")
+  check("and neither of them cancels a touchstart",
+    /addEventListener\("touchstart", onStart, \{ passive: true \}\)/.test(scrub)
+      && /el\.addEventListener\("touchstart", onTouchStart, \{ passive: true \}\)/.test(ptr))
+  /*
+    WKWebView ignores overscroll-behavior before iOS 16, so this guard stays.
+    It leaves a gesture on a sideways scroller alone, and must keep doing so.
+  */
+  const guard = read("components/platform/capacitor-bounce-guard.tsx")
+  check("the native bounce guard still leaves a sideways scroller's gesture alone",
+    /if \(mode === "ignore" \|\| mode === "free"\) return/.test(guard) && /mode = "free"/.test(guard))
 
   console.log("\nEvery tab in both strips is tagged, and both strips are wired")
 
@@ -169,8 +199,8 @@ function main() {
       && JSON.stringify(onepageOrder) === JSON.stringify(["views", "clicks", "subscribers", "ctr"]),
     `tagged ${analyticsTabs.join(", ")}`)
   check("and they are one row that scrolls sideways on a phone, four columns wider up, like the home page's",
-    /ref=\{metricStripRef\}\s*role="tablist"\s*aria-label="Metric"\s*className="relative flex divide-x divide-\[#e5e7eb\]\/60 overflow-x-auto scrollbar-hide md:grid md:grid-cols-4"/.test(analytics)
-      && /style=\{\{ touchAction: "pan-x pan-y"/.test(analytics)
+    /ref=\{metricStripRef\}\s*role="tablist"\s*aria-label="Metric"\s*data-scroll-x\s*className="relative flex divide-x divide-\[#e5e7eb\]\/60 overflow-x-auto scrollbar-hide md:grid md:grid-cols-4"/.test(analytics)
+      && /style=\{TAB_STRIP_STYLE\}/.test(analytics)
       && (analytics.match(/className=\{STRIP_TAB\}/g) ?? []).length === 8
       && /const STRIP_TAB = "flex-shrink-0 min-w-\[130px\] md:min-w-0"/.test(analytics)
       && /data-tab=\{tab\}/.test(tabSrc))
@@ -210,12 +240,17 @@ function main() {
 
   check("the probe clicks real buttons and reads the row's position",
     /\.click\(\)/.test(probe) && /scrollLeft: Math\.round/.test(probe))
-  check("and drives real swipes at four angles, asking whose each one is",
-    /new TouchEvent\(/.test(probe)
-      && /await swipe\(0, 120\)/.test(probe) && /await swipe\(30, 120\)/.test(probe)
-      && /await swipe\(70, 120\)/.test(probe) && /await swipe\(90, 120\)/.test(probe))
-  check("checking the steep ones are left unprevented, so the page can still scroll",
-    /neither is prevented, so the page really can scroll from here/.test(probe))
+  check("and no longer fakes swipes with scripted TouchEvents, which never scroll anything",
+    !/new TouchEvent\(/.test(probe) && /scripts\/check-metric-tabs-gesture\.mjs/.test(probe))
+  const gesture = read("scripts/check-metric-tabs-gesture.mjs")
+  check("the swipes are real touch input on the real Home and Analytics, at 360, 390 and 430",
+    /Input\.dispatchTouchEvent/.test(gesture) && /homeProbePage\(/.test(gesture) && /render-analytics-page\.tsx/.test(gesture)
+      && /\?\? "360,390,430"/.test(gesture))
+  check("asking of each one: row or page, moves cancelled, React commits, long tasks, and whether a tab got chosen",
+    /cancelled: got\.moves\.filter\(\(m\) => m\.p\)\.length/.test(gesture) && /onCommitFiberRoot/.test(gesture)
+      && /type: "longtask"/.test(gesture) && /selects no tab/.test(gesture) && /a tap on \$\{r\.tap\.tab\} selects it/.test(gesture))
+  check("and reads every touch listener on the row's path from the browser",
+    /DOMDebugger\.getEventListeners/.test(gesture) && /no touch listener on the row or its tabs/.test(gesture))
   check("checking the chosen tab is unclipped and the next one shows",
     /leaves it fully in view/.test(probe) && /of the tab after it showing/.test(probe))
   check("at a width where the row overflows, and one where it does not",

@@ -18,7 +18,11 @@
  * Everything else is this checkout's, so a before and an after differ only
  * in those.
  *
- * Used by scripts/check-home-banner.mjs and scripts/check-home-scroll.mjs.
+ * `{ swaps: { "@/some/module": "/abs/file" } }` puts other files in place of
+ * single modules, for a probe that measures an older version of one of them.
+ *
+ * Used by scripts/check-home-banner.mjs, scripts/check-home-scroll.mjs and
+ * scripts/check-metric-tabs-gesture.mjs.
  */
 import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
@@ -27,7 +31,7 @@ import { join } from "node:path"
 import { build } from "esbuild"
 import { appCss, interFaces } from "./probe-css.mjs"
 
-export async function homeProbePage(root = process.cwd(), { before = null } = {}) {
+export async function homeProbePage(root = process.cwd(), { before = null, swaps: extra = {} } = {}) {
   const dir = join(root, `.home-banner-${process.pid}${before ? "-before" : ""}-probe`)
   mkdirSync(dir, { recursive: true })
   /* The old files go beside the new ones (in folders the repository ignores), so their own relative imports still resolve. */
@@ -122,6 +126,8 @@ export function isNativePlatform() { return false }
       },
       plugins: [redirect({
         ...swaps,
+        /* A probe's own replacements for single modules (scripts/check-metric-tabs-gesture.mjs). */
+        ...extra,
         "next/navigation": join(dir, "navigation.js"),
         "next/link": join(dir, "link.jsx"),
         "next/image": join(dir, "image.jsx"),
