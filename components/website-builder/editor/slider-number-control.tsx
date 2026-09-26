@@ -40,6 +40,7 @@ export function SliderNumberControl({
   step = 1,
   unit,
   className,
+  onLiveChange,
 }: {
   value: number
   onChange: (v: number) => void
@@ -48,6 +49,13 @@ export function SliderNumberControl({
   step?: number
   unit?: string
   className?: string
+  /**
+   * Every value the thumb is drawn at, as it is drawn, before the once a frame
+   * commit: for a caller that answers the finger itself (the OnePage editor's
+   * sliders tick at their stops, components/onepage/editor-kit RangeRow).
+   * This control stays silent.
+   */
+  onLiveChange?: (v: number) => void
 }) {
   const [inputStr, setInputStr] = useState<string>(String(value))
   const focusedRef = useRef(false)
@@ -70,6 +78,7 @@ export function SliderNumberControl({
   }, [value])
 
   const set = (v: number) => {
+    onLiveChange?.(v)
     setShown(v)
     if (!focusedRef.current) setInputStr(String(v))
     sent.current = v

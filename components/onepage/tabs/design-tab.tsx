@@ -2892,7 +2892,7 @@ function WallpaperSection() {
       />
       {(theme as any)[field] ? (
         <div className="mt-3">
-          <RangeRow label="Grain strength" value={(theme as any).noise_strength || 15} min={5} max={50} step={5} onChange={(v) => updateTheme({ noise_strength: v } as any)} format={(v) => `${v}%`} ends={["Subtle", "Strong"]} />
+          <RangeRow label="Grain strength" value={(theme as any).noise_strength || 15} min={5} max={50} step={5} onChange={(v) => updateTheme({ noise_strength: v } as any)} unit="%" ends={["Subtle", "Strong"]} />
         </div>
       ) : null}
     </>
@@ -2997,8 +2997,8 @@ function WallpaperSection() {
           {theme.background_image_url ? (
             <PanelSection>
               <div className="space-y-5">
-                <RangeRow label="Brightness" value={(theme as any).image_brightness || 100} min={20} max={150} step={5} onChange={(v) => updateTheme({ image_brightness: v } as any)} format={(v) => `${v}%`} />
-                <RangeRow label="Blur" value={(theme as any).image_blur || 0} min={0} max={20} step={1} onChange={(v) => updateTheme({ image_blur: v } as any)} format={(v) => (v ? `${v}px` : "None")} />
+                <RangeRow label="Brightness" value={(theme as any).image_brightness || 100} min={20} max={150} step={5} onChange={(v) => updateTheme({ image_brightness: v } as any)} unit="%" />
+                <RangeRow label="Blur" value={(theme as any).image_blur || 0} min={0} max={20} step={1} onChange={(v) => updateTheme({ image_blur: v } as any)} unit="px" />
                 <div>{noiseRows("image_noise")}</div>
               </div>
             </PanelSection>
@@ -3476,8 +3476,8 @@ function ButtonsSection() {
 
       <PanelSection>
         <div className="space-y-5">
-          <RangeRow label="Corners" value={radius} min={0} max={24} step={2} onChange={(v) => updateTheme({ button_border_radius: v })} format={(v) => `${v}px`} ends={["Square", "Round"]} />
-          <RangeRow label="Border" value={theme.button_border_width ?? 0} min={0} max={4} step={1} onChange={(v) => updateTheme({ button_border_width: v })} format={(v) => (v ? `${v}px` : "None")} />
+          <RangeRow label="Corners" value={radius} min={0} max={24} step={2} onChange={(v) => updateTheme({ button_border_radius: v })} unit="px" ends={["Square", "Round"]} />
+          <RangeRow label="Border" value={theme.button_border_width ?? 0} min={0} max={4} step={1} onChange={(v) => updateTheme({ button_border_width: v })} unit="px" />
         </div>
       </PanelSection>
 

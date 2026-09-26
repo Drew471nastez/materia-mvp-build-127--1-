@@ -64,8 +64,10 @@ if (location.search.includes("live")) {
     button_color: "#f4efe9",
     button_text_color: "#1a1a2e",
   }
+  /* A probe can hand a whole theme of its own (a template, say): scripts/check-onepage-design.mjs. */
+  const live_theme = (globalThis as any).PROBE_LIVE_THEME ? { ...defaultTheme, ...(globalThis as any).PROBE_LIVE_THEME } : theme
   const header = { id: "h", type: "header", enabled: true, sort_order: -1, data: { show_avatar: true, show_name: true, show_bio: true } }
-  const live = { ...onepage, theme, blocks: [header, ...onepage.draft_blocks.filter((b) => !b.schedule)], seller_id: "seller_probe" }
+  const live = { ...onepage, theme: live_theme, blocks: [header, ...onepage.draft_blocks.filter((b) => !b.schedule)], seller_id: "seller_probe" }
   createRoot(document.getElementById("app")!).render(<PublicOnePage onepage={live as any} />)
 } else {
   createRoot(document.getElementById("app")!).render(<OnePageEditor initialOnePage={onepage} />)

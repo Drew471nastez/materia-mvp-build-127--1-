@@ -63,7 +63,7 @@ function BlockToggle({ checked, onCheckedChange, label }: { checked: boolean; on
 }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { ColorRow, Switch } from "@/components/onepage/editor-kit"
+import { ColorRow, RangeRow, Switch } from "@/components/onepage/editor-kit"
 import { primaryDepth } from "@/components/ui/depth-button"
 import { DeletedIcon, SaveNotification } from "@/components/ui/save-notification"
 import {
@@ -73,7 +73,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Slider } from "@/components/ui/slider"
 import {
   Plus,
   GripVertical,
@@ -6706,34 +6705,8 @@ function BlockEditor({
 
             {/* Padding Controls */}
             <div className="space-y-4 pt-4 border-t border-gray-100">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium">Top Padding</Label>
-                  <span className="text-xs text-muted-foreground">{(block.data as SocialRowBlockData).padding_top ?? 0}px</span>
-                </div>
-                <Slider
-                  value={[(block.data as SocialRowBlockData).padding_top ?? 0]}
-                  onValueChange={([value]) => updateData({ padding_top: value })}
-                  min={0}
-                  max={48}
-                  step={4}
-                  className="w-full"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium">Bottom Padding</Label>
-                  <span className="text-xs text-muted-foreground">{(block.data as SocialRowBlockData).padding_bottom ?? 0}px</span>
-                </div>
-                <Slider
-                  value={[(block.data as SocialRowBlockData).padding_bottom ?? 0]}
-                  onValueChange={([value]) => updateData({ padding_bottom: value })}
-                  min={0}
-                  max={48}
-                  step={4}
-                  className="w-full"
-                />
-              </div>
+              <RangeRow compact label="Top padding" value={(block.data as SocialRowBlockData).padding_top ?? 0} min={0} max={48} step={4} unit="px" onChange={(value) => updateData({ padding_top: value })} />
+              <RangeRow compact label="Bottom padding" value={(block.data as SocialRowBlockData).padding_bottom ?? 0} min={0} max={48} step={4} unit="px" onChange={(value) => updateData({ padding_bottom: value })} />
             </div>
           </div>
         )
@@ -6795,16 +6768,7 @@ function BlockEditor({
                 ))}
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Height: {data.height}px</Label>
-              <Slider
-                value={[data.height]}
-                onValueChange={([value]) => updateData({ height: value })}
-                min={8}
-                max={64}
-                step={4}
-              />
-            </div>
+            <RangeRow compact label="Height" value={data.height} min={8} max={64} step={4} unit="px" onChange={(value) => updateData({ height: value })} />
           </div>
         )
       }
@@ -8257,10 +8221,7 @@ function BlockEditor({
                   ))}
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Height: {d.height || 24}px</Label>
-                <Slider value={[d.height || 24]} onValueChange={([v]) => updateChildData({ height: v })} min={8} max={64} step={4} />
-              </div>
+              <RangeRow compact label="Height" value={d.height || 24} min={8} max={64} step={4} unit="px" onChange={(v) => updateChildData({ height: v })} />
             </div>
           )
         }
