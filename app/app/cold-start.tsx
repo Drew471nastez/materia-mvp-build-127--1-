@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { PageSpinner } from "@/components/ui/activity-spinner"
 
 /**
@@ -28,13 +29,17 @@ import { PageSpinner } from "@/components/ui/activity-spinner"
  * HTML shows until its script has run (components/app/app-layout-wrapper),
  * so a page that arrives as a document goes from the slow page's spinner to
  * this one in the same place, not 120ms of rail to the left of it.
+ *
+ * The screen of a switch between businesses (components/app/business-
+ * switch-screen) is this same frame with its own words under the spinner,
+ * so the two never disagree about where the header ends or the rail is.
  */
-export default function AppColdStart() {
+export default function AppColdStart({ children }: { children?: ReactNode } = {}) {
   return (
     <div data-app-cold-start="" className="fixed inset-0 bg-[#111111] md:bg-[#131316]">
       <div className="absolute bottom-0 left-0 top-[calc(58px+env(safe-area-inset-top,0px))] hidden w-[240px] border-r border-neutral-200/60 bg-white md:block" />
       <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] rounded-t-[20px] bg-[#f8f9fa] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:rounded-none">
-        <PageSpinner />
+        {children ?? <PageSpinner />}
       </div>
     </div>
   )

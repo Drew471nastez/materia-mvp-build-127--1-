@@ -13,6 +13,12 @@
  *            what is folded cannot be reached by Tab. Rows are 44px in the
  *            dropdown and 52px in the phone sheet, New business 36px and
  *            44px, and nothing overflows
+ *   PLUS     with room for a second business, a "New business" square sits
+ *            on the row just left of the chevron: 28px in the dropdown, 30px
+ *            in the sheet, centred on the row, clear of the name and the
+ *            chevron, answering a press anywhere in the 44px around it. A
+ *            real mouse press on it starts the new business and does not
+ *            open or fold the list. With two businesses there is no plus
  *   SCREEN   the start screen fills a 390 phone and a 1280 window with no
  *            sideways scroll; Create business is 48px and full width; the
  *            full state offers only the way back
@@ -41,7 +47,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 try {
   /* Creating a business is a request and a reload; here it is recorded and never answers, so the row's waiting state can be read. */
-  writeFileSync(join(work, "switch-client.js"), `export const switchBusiness = () => new Promise(() => {})\nexport const createBusiness = () => { window.__created = (window.__created || 0) + 1; return new Promise(() => {}) }\n`)
+  writeFileSync(join(work, "switch-client.js"), `export const SWITCH_FAILED = "That business could not be opened. Try again."\nexport const switchBusiness = () => new Promise(() => {})\nexport const createBusiness = () => { window.__created = (window.__created || 0) + 1; return new Promise(() => {}) }\n`)
   writeFileSync(join(work, "navigation.js"), `export const useRouter = () => ({ push: (h) => (window.__pushed = h), replace() {}, refresh() {}, prefetch() {}, back() {} })\nexport const usePathname = () => "/app"\nexport const useSearchParams = () => new URLSearchParams()\n`)
   execFileSync("npx", ["esbuild", "scripts/render-business-switcher.tsx", "--bundle", "--format=iife", "--jsx=automatic", '--define:process.env.NODE_ENV="production"', "--alias:@=.", "--banner:js=var process={env:{NODE_ENV:'production'}};", `--alias:next/navigation=./.business-probe/navigation.js`, `--alias:@/lib/businesses/switch-client=./.business-probe/switch-client.js`, `--outfile=${join(work, "app.js")}`, "--log-level=error"], { cwd: root, stdio: "inherit" })
   const js = readFileSync(join(work, "app.js"), "utf8")
@@ -71,13 +77,47 @@ try {
   const toggle = async (sel) => { await p.evaluate((s) => document.querySelector(`${s} [data-business-row=current]`).click(), sel); await sleep(400) }
 
   await p.screenshot({ path: join(shots, "business-menus-folded-1440.png") })
+  /* The folded rows up close, at twice the pixels, to look at the plus itself. */
+  await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 })
+  await sleep(150)
+  await p.screenshot({ path: join(shots, "business-rows-folded-closeup.png"), clip: { x: 0, y: 0, width: 1440, height: 140 } })
+  await p.setViewport({ width: 1440, height: 900 })
+  await sleep(150)
   for (const [sel, rowH, addH] of [["[data-probe=dropdown-two]", 44, 36], ["[data-probe=dropdown-one]", 44, 36], ["[data-probe=sheet-two]", 52, 44], ["[data-probe=sheet-one]", 52, 44]]) {
     const folded = await read(sel)
     expect(folded.rows.length === 1 && folded.rows[0].current && folded.rows[0].text.includes("@andrewrullz") && folded.rows[0].chevron && folded.rows[0].expanded === "false" && !folded.add && !folded.label,
       `${sel}: one row, the business you are in with its handle and a chevron, and no label`, folded)
     expect(folded.rows[0].h >= rowH && folded.over <= 0, `${sel}: a ${rowH}px row, nothing overflows`, folded.rows[0].h)
-    const tabbable = await p.evaluate((s) => [...document.querySelectorAll(`${s} button`)].filter((b) => !b.closest("[inert]")).length, sel)
-    expect(tabbable === 1, `${sel}: folded, Tab reaches the one row only`, tabbable)
+    const tabbable = await p.evaluate((s) => [...document.querySelectorAll(`${s} button`)].filter((b) => !b.closest("[inert]")).map((b) => b.getAttribute("aria-label") || b.getAttribute("data-business-row")), sel)
+    const one = sel.includes("one")
+    expect(one ? tabbable.join() === "current,New business" : tabbable.join() === "current",
+      `${sel}: folded, Tab reaches the row${one ? " and its plus" : ""} only`, tabbable)
+    /* The plus: where it sits, how big it is, and what a press around it lands on. */
+    const plus = await p.evaluate((s) => {
+      const el = document.querySelector(`${s} [data-business-add]`)
+      if (!el) return null
+      const row = document.querySelector(`${s} [data-business-row=current]`).getBoundingClientRect()
+      const chev = document.querySelector(`${s} [data-business-row=current] svg[aria-label]`).getBoundingClientRect()
+      const name = document.querySelector(`${s} [data-business-row=current] .truncate`)
+      const range = document.createRange(); range.selectNodeContents(name)
+      const text = range.getBoundingClientRect()
+      const b = el.getBoundingClientRect()
+      const cx = b.left + b.width / 2, cy = b.top + b.height / 2
+      /* 21px out from the centre each way: the corners of a 42px square, inside the 44. */
+      const hits = [[-21, -21], [21, -21], [-21, 21], [21, 21], [0, 0]].map(([dx, dy]) => !!document.elementFromPoint(cx + dx, cy + dy)?.closest("[data-business-add]"))
+      const cs = getComputedStyle(el)
+      return { w: Math.round(b.width), h: Math.round(b.height), centred: Math.abs(cy - (row.top + row.height / 2)) <= 0.5, gapToChevron: Math.round(chev.left - b.right), gapToName: Math.round(b.left - text.right), hits, label: el.getAttribute("aria-label"), shadow: cs.boxShadow, border: cs.borderTopWidth }
+    }, sel)
+    if (one) {
+      const size = sel.includes("sheet") ? 30 : 28
+      expect(!!plus && plus.w === size && plus.h === size && plus.centred && plus.label === "New business",
+        `${sel}: a ${size}px plus named New business, centred on the row`, plus)
+      expect(!!plus && plus.gapToChevron >= 8 && plus.gapToName >= 8 && plus.border === "1px" && /inset/.test(plus.shadow),
+        `${sel}: left of the chevron, clear of the name, with a hairline and the icon buttons' depth`, plus && { gapToChevron: plus.gapToChevron, gapToName: plus.gapToName, border: plus.border })
+      expect(!!plus && plus.hits.every(Boolean), `${sel}: a press anywhere in the 44px around it lands on the plus`, plus && plus.hits)
+    } else {
+      expect(plus === null, `${sel}: two businesses already, so no plus`, plus)
+    }
     await toggle(sel)
     const open = await read(sel)
     const two = sel.includes("two")
@@ -97,10 +137,31 @@ try {
   await toggle("[data-probe=dropdown-two]")
   const shut = await read("[data-probe=dropdown-two]")
   expect(shut.rows.length === 1 && shut.rows[0].expanded === "false", "a second tap folds it away again", shut.rows.length)
+  /* A real mouse press on the sheet's plus, with its list folded first: it makes the business and leaves the list alone. */
+  await toggle("[data-probe=sheet-one]")
+  const plusAt = await p.evaluate(() => {
+    const el = document.querySelector("[data-probe=sheet-one] [data-business-add]")
+    el.scrollIntoView({ block: "center" })
+    const b = el.getBoundingClientRect()
+    return { x: b.left + b.width / 2, y: b.top + b.height / 2 }
+  })
+  await p.mouse.click(plusAt.x, plusAt.y)
+  await sleep(400)
+  const pressed = await p.evaluate(() => ({
+    created: window.__created ?? 0,
+    pushed: window.__pushed ?? null,
+    expanded: document.querySelector("[data-probe=sheet-one] [data-business-row=current]").getAttribute("aria-expanded"),
+    spinning: !!document.querySelector("[data-probe=sheet-one] [data-business-add] .animate-spin"),
+    busy: document.querySelector("[data-probe=sheet-one] [data-business-add]").getAttribute("aria-busy"),
+  }))
+  expect(pressed.created === 1 && pressed.pushed === null && pressed.expanded === "false" && pressed.spinning && pressed.busy === "true",
+    "the plus starts the new business right there, spins while it works, and does not open the list", pressed)
+  await p.evaluate(() => document.querySelector("[data-probe=sheet-one]").scrollIntoView())
+  await p.screenshot({ path: join(shots, "business-plus-waiting.png") })
   await p.evaluate(() => document.querySelector("[data-probe=dropdown-one] [data-business-new]").click())
   await sleep(150)
-  const made = await p.evaluate(() => ({ created: window.__created, pushed: window.__pushed ?? null, text: document.querySelector("[data-probe=dropdown-one] [data-business-new]").textContent.trim(), spinning: !!document.querySelector("[data-probe=dropdown-one] [data-business-new] .animate-spin") }))
-  expect(made.created === 1 && made.pushed === null && made.spinning && made.text === "Setting up your new business", "New business starts it right there, no page in between, and says it is setting up", made)
+  const made = await p.evaluate(() => ({ created: window.__created, pushed: window.__pushed ?? null, text: document.querySelector("[data-probe=dropdown-one] [data-business-new]").textContent.trim(), spinning: !!document.querySelector("[data-probe=dropdown-one] [data-business-new] .animate-spin"), plusSpinning: !!document.querySelector("[data-probe=dropdown-one] [data-business-add] .animate-spin") }))
+  expect(made.created === 2 && made.pushed === null && made.spinning && made.plusSpinning && made.text === "Setting up your new business", "New business in the list does the same, no page in between, says it is setting up, and the plus waits with it", made)
   await p.screenshot({ path: join(shots, "business-new-waiting.png") })
   if (errors.length) expect(false, "no errors on the page", errors)
   await browser.close()

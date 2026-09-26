@@ -94,7 +94,7 @@ const GroupSection = React.memo(function GroupSection({ index, phone, built }: {
 
 const GroupTabs = React.memo(function GroupTabs({ phone, active, onJump }: { phone: boolean; active: string | null; onJump: (id: string) => void }) {
   return (
-    <div className={cn("flex shrink-0 items-center justify-between border-t border-[#eef0f2]", phone ? "px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-1.5" : "px-1.5 py-1")}>
+    <div className={cn("flex shrink-0 items-center justify-between border-t border-[#eef0f2]", phone ? "px-3 pb-2 pt-1.5" : "px-1.5 py-1")}>
       {EMOJI_GROUPS.map((group) => (
         <button
           key={group.id}

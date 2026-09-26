@@ -3098,7 +3098,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         </Dialog>
       )}
       <MobileSheet isOpen={showCtaSheet} onClose={() => setShowCtaSheet(false)} kept={isMobileViewport}>
-        <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+        <div className="px-5 pb-6 space-y-1">
           <h3 className="text-base font-semibold text-gray-900 mb-3">Call to Action</h3>
           {["I want this!", "Buy Now", "Get Access", "Download Now", "Purchase", "Add to Cart", "Join Now", "Get it Now", "Start Now"].map((cta) => (
             <button
@@ -3120,7 +3120,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
 
       {/* Refund Policy Bottom Sheet */}
       <MobileSheet isOpen={showRefundPolicySheet} onClose={() => setShowRefundPolicySheet(false)} maxHeight="85vh" kept={isMobileViewport}>
-        <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+        <div className="px-5 pb-6 space-y-1">
           <h3 className="text-base font-semibold text-gray-900 mb-3">Refund Policy</h3>
           {[
             { value: "no_refunds", label: "No refunds allowed" },

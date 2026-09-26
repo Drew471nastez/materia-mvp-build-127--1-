@@ -34,6 +34,7 @@ import { ExtraBlock } from "@/components/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
 import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 
 const stripHtmlToPlainText = (value?: string | null) => {
@@ -2314,21 +2315,30 @@ export function MobilePreviewContent() {
         </div>
       )}
 
-      {/* PDF Preview Modal */}
-      {pdfModalOpen && pdfModalData && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 animate-in fade-in duration-200"
-          onClick={() => setPdfModalOpen(false)}
-        >
-          <div
-            className="relative w-full max-w-md bg-white rounded-t-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300"
-            style={{ maxHeight: "90vh", minHeight: "70vh" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      {/*
+        THE PDF SHEET IS THE SHARED SHEET (components/ui/bottom-sheet.tsx).
+        It was a panel that animated in with a class and vanished on close,
+        with no drag at all. Now it rises, follows the thumb, flicks closed
+        and slides out like every other sheet; the preview's own page list
+        scrolls, and a pull down from its top closes the sheet.
+      */}
+      <BottomSheet
+        isOpen={pdfModalOpen && !!pdfModalData}
+        onClose={() => setPdfModalOpen(false)}
+        label={pdfModalData?.title || "PDF Document"}
+        hideFrom={null}
+        fill
+        maxHeight="90dvh"
+        className="mx-auto max-w-md min-h-[70vh]"
+      >
+        {pdfModalData && (
+          <>
             {/* Top Bar */}
             <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
               <button
-                onClick={() => setPdfModalOpen(false)}
+                type="button"
+                /* The sheet closes itself, and the preview hears a frame later (A BUTTON INSIDE CAN CLOSE IT). */
+                data-sheet-close=""
                 className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2339,7 +2349,9 @@ export function MobilePreviewContent() {
                 {pdfModalData.title || "PDF Document"}
               </h3>
               <button
-                onClick={() => setPdfModalOpen(false)}
+                type="button"
+                /* The sheet closes itself, and the preview hears a frame later (A BUTTON INSIDE CAN CLOSE IT). */
+                data-sheet-close=""
                 className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2401,9 +2413,9 @@ export function MobilePreviewContent() {
                 {pdfModalData.buttonText || "View full PDF"}
               </a>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </BottomSheet>
 
       {/* Calendly Modal */}
       {calendlyModalOpen && calendlyModalData && (

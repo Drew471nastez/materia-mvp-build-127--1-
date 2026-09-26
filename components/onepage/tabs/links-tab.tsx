@@ -1,7 +1,6 @@
 "use client"
 
 import { hapticTap } from "@/lib/native-bridge"
-import { sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import { useLinkReorder } from "@/components/onepage/link-reorder"
 
 import { useOnePage } from "@/lib/onepage/context"
@@ -72,6 +71,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
+import { usePhoneWidth } from "@/components/ui/choice-list"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import {
   Plus,
@@ -253,26 +254,15 @@ const IMAGE_LIBRARY = [
 ]
 
 /*
-  THE PHONE SHEETS ARE TAKEN AWAY ONLY ONCE THEY HAVE SLID OUT. Each slides
-  down over 400ms (the transform transition on the sheet), and used to be
-  unmounted at 220ms, so it vanished halfway down, which read as a jump on
-  every close.
+  THE PHONE SHEETS ARE THE SHARED SHEET. Add block, the social link, the
+  thumbnail, and each block's animation and stats were a dialog pushed to
+  the bottom by hand, dragged through React state (one render of the whole
+  list per finger event) and taken away on a timer once their slide had run.
+  Under 640px they are components/ui/bottom-sheet.tsx now, through
+  SheetDialog, and move exactly like Quick access and the account sheet; the
+  sheet keeps what it showed on screen until it has slid out, so a close
+  resets its fields at once. From 640px they are the dialogs they were.
 */
-const SHEET_SLIDE_MS = 400
-
-/*
-  Opened again while it slides out: the close is called off and it slides
-  back up, rather than the old close shutting the new open. Returns true, so
-  an open reads setShowX(sheetOpening(...)).
-*/
-function sheetOpening(timer: { current: ReturnType<typeof setTimeout> | null }, mounted: boolean, setPresented: (v: boolean) => void): true {
-  if (timer.current) {
-    clearTimeout(timer.current)
-    timer.current = null
-    if (mounted) setPresented(true)
-  }
-  return true
-}
 
 // Block categories with integrations
 const blockCategories = [
@@ -508,23 +498,8 @@ export function LinksTab() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isDragOver, setIsDragOver] = useState(false)
   const [showArchiveView, setShowArchiveView] = useState(false)
-  const [isMobileModalViewport, setIsMobileModalViewport] = useState(false)
-  const [addSheetDragY, setAddSheetDragY] = useState(0)
-  const [isAddSheetDragging, setIsAddSheetDragging] = useState(false)
-  const addSheetStartYRef = useRef(0)
-  const [socialSheetDragY, setSocialSheetDragY] = useState(0)
-  const [isSocialSheetDragging, setIsSocialSheetDragging] = useState(false)
-  const socialSheetStartYRef = useRef(0)
-  const [isAddSheetPresented, setIsAddSheetPresented] = useState(false)
-  const [isSocialSheetPresented, setIsSocialSheetPresented] = useState(false)
-  const addSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const socialSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const addSheetLastYRef = useRef(0)
-  const addSheetLastTimeRef = useRef(0)
-  const addSheetVelocityRef = useRef(0)
-  const socialSheetLastYRef = useRef(0)
-  const socialSheetLastTimeRef = useRef(0)
-  const socialSheetVelocityRef = useRef(0)
+  /* Below 640px the editor's dialogs are the shared sheet (see THE PHONE SHEETS above). */
+  const isMobileModalViewport = usePhoneWidth()
 
   // Thumbnail modal state
   const [showThumbnailModal, setShowThumbnailModal] = useState(false)
@@ -534,66 +509,6 @@ export function LinksTab() {
   const [iconSearchQuery, setIconSearchQuery] = useState("")
   const [iconCategory, setIconCategory] = useState("all")
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
-  const [isThumbnailSheetPresented, setIsThumbnailSheetPresented] = useState(false)
-  const [thumbnailSheetDragY, setThumbnailSheetDragY] = useState(0)
-  const [isThumbnailSheetDragging, setIsThumbnailSheetDragging] = useState(false)
-  const thumbnailSheetStartYRef = useRef(0)
-  const thumbnailSheetLastYRef = useRef(0)
-  const thumbnailSheetLastTimeRef = useRef(0)
-  const thumbnailSheetVelocityRef = useRef(0)
-  const thumbnailSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    const checkViewport = () => {
-      if (typeof window === 'undefined') return
-      setIsMobileModalViewport(window.innerWidth < 640)
-    }
-
-    checkViewport()
-    window.addEventListener('resize', checkViewport)
-    return () => window.removeEventListener('resize', checkViewport)
-  }, [])
-
-  useEffect(() => {
-    if (!showAddModal || !isMobileModalViewport) return
-    const raf1 = requestAnimationFrame(() => {
-      const raf2 = requestAnimationFrame(() => {
-        setIsAddSheetPresented(true)
-      })
-      return () => cancelAnimationFrame(raf2)
-    })
-    return () => cancelAnimationFrame(raf1)
-  }, [showAddModal, isMobileModalViewport])
-
-  useEffect(() => {
-    if (!showSocialModal || !isMobileModalViewport) return
-    const raf1 = requestAnimationFrame(() => {
-      const raf2 = requestAnimationFrame(() => {
-        setIsSocialSheetPresented(true)
-      })
-      return () => cancelAnimationFrame(raf2)
-    })
-    return () => cancelAnimationFrame(raf1)
-  }, [showSocialModal, isMobileModalViewport])
-
-  useEffect(() => {
-    if (!showThumbnailModal || !isMobileModalViewport) return
-    const raf1 = requestAnimationFrame(() => {
-      const raf2 = requestAnimationFrame(() => {
-        setIsThumbnailSheetPresented(true)
-      })
-      return () => cancelAnimationFrame(raf2)
-    })
-    return () => cancelAnimationFrame(raf1)
-  }, [showThumbnailModal, isMobileModalViewport])
-
-  useEffect(() => {
-    return () => {
-      if (addSheetCloseTimerRef.current) clearTimeout(addSheetCloseTimerRef.current)
-      if (socialSheetCloseTimerRef.current) clearTimeout(socialSheetCloseTimerRef.current)
-      if (thumbnailSheetCloseTimerRef.current) clearTimeout(thumbnailSheetCloseTimerRef.current)
-    }
-  }, [])
 
   // Pull-to-refresh prevention is handled by the Dialog/Sheet components themselves
   // (scoped to their portals, so it doesn't block normal page interactions)
@@ -1181,78 +1096,30 @@ export function LinksTab() {
     return false
   }
 
+  /* The sheet holds what it showed until it has slid out, so the fields reset at once on either surface. */
   const closeAddSheet = () => {
     if (!showAddModal) return
-
-    if (!isMobileModalViewport) {
-      setShowAddModal(false)
-      setSearchQuery("")
-      setInsertAfterId(null)
-      setAddToGroupId(null)
-      return
-    }
-
-    setIsAddSheetDragging(false)
-    setAddSheetDragY(0)
-    setIsAddSheetPresented(false)
-
-    if (addSheetCloseTimerRef.current) clearTimeout(addSheetCloseTimerRef.current)
-    addSheetCloseTimerRef.current = setTimeout(() => {
-      setShowAddModal(false)
-      setSearchQuery("")
-      setInsertAfterId(null)
-      setAddToGroupId(null)
-    }, SHEET_SLIDE_MS)
+    setShowAddModal(false)
+    setSearchQuery("")
+    setInsertAfterId(null)
+    setAddToGroupId(null)
   }
 
   const closeSocialSheet = () => {
     if (!showSocialModal) return
-
-    if (!isMobileModalViewport) {
-      setShowSocialModal(false)
-      setSelectedSocial(null)
-      setSocialUrl("")
-      setSearchQuery("")
-      setSocialUrlError(null)
-      return
-    }
-
-    setIsSocialSheetDragging(false)
-    setSocialSheetDragY(0)
-    setIsSocialSheetPresented(false)
-
-    if (socialSheetCloseTimerRef.current) clearTimeout(socialSheetCloseTimerRef.current)
-    socialSheetCloseTimerRef.current = setTimeout(() => {
-      setShowSocialModal(false)
-      setSelectedSocial(null)
-      setSocialUrl("")
-      setSearchQuery("")
-      setSocialUrlError(null)
-    }, SHEET_SLIDE_MS)
+    setShowSocialModal(false)
+    setSelectedSocial(null)
+    setSocialUrl("")
+    setSearchQuery("")
+    setSocialUrlError(null)
   }
 
   const closeThumbnailSheet = () => {
     if (!showThumbnailModal) return
-
-    if (!isMobileModalViewport) {
-      setShowThumbnailModal(false)
-      setShowIconLibraryInModal(false)
-      setIconSearchQuery("")
-      setIconCategory("all")
-      return
-    }
-
-    setIsThumbnailSheetDragging(false)
-    setThumbnailSheetDragY(0)
-    setIsThumbnailSheetPresented(false)
-
-    if (thumbnailSheetCloseTimerRef.current) clearTimeout(thumbnailSheetCloseTimerRef.current)
-    thumbnailSheetCloseTimerRef.current = setTimeout(() => {
-      setShowThumbnailModal(false)
-      setShowIconLibraryInModal(false)
-      setIconSearchQuery("")
-      setIconCategory("all")
-    }, SHEET_SLIDE_MS)
+    setShowThumbnailModal(false)
+    setShowIconLibraryInModal(false)
+    setIconSearchQuery("")
+    setIconCategory("all")
   }
 
   const focusAndScrollToBlock = (blockId: string) => {
@@ -1522,8 +1389,7 @@ export function LinksTab() {
                     onClick={() => {
                       setSelectedSocial(platform)
                       setSocialUrl(social_links?.[platform as keyof typeof social_links] || "")
-                      setIsSocialSheetPresented(false)
-                      setShowSocialModal(sheetOpening(socialSheetCloseTimerRef, showSocialModal, setIsSocialSheetPresented))
+                      setShowSocialModal(true)
                     }}
                   >
                     <SocialIcon platform={platform} size={14} color={markOn(config?.color || "#6366F1")} />
@@ -1542,8 +1408,7 @@ export function LinksTab() {
             })}
             <button
               onClick={() => {
-                setIsSocialSheetPresented(false)
-                setShowSocialModal(sheetOpening(socialSheetCloseTimerRef, showSocialModal, setIsSocialSheetPresented))
+                setShowSocialModal(true)
               }}
               className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 transition-colors cursor-pointer"
             >
@@ -1559,8 +1424,7 @@ export function LinksTab() {
           setInsertAfterId(null)
           setAddButtonClicked(true)
           setTimeout(() => setAddButtonClicked(false), 300)
-          setIsAddSheetPresented(false)
-          setShowAddModal(sheetOpening(addSheetCloseTimerRef, showAddModal, setIsAddSheetPresented))
+          setShowAddModal(true)
         }}
         /* The page's one primary action: the app's near black, with its line of light and its press (depth-button). */
         className={cn(primaryDepth, "group h-11 w-full gap-2 rounded-xl text-[15px]")}
@@ -1727,10 +1591,9 @@ export function LinksTab() {
                 socialLinks={social_links}
                 onOpenImageLibrary={(blockId, fieldType) => { setImageBlockId(blockId); setImageFieldType(fieldType || null); setShowImageLibrary(true) }}
                 onOpenSocialModal={() => {
-                  setIsSocialSheetPresented(false)
-                  setShowSocialModal(sheetOpening(socialSheetCloseTimerRef, showSocialModal, setIsSocialSheetPresented))
+                  setShowSocialModal(true)
                 }}
-                onOpenThumbnailModal={(blockId) => { setThumbnailBlockId(blockId); setShowThumbnailModal(sheetOpening(thumbnailSheetCloseTimerRef, showThumbnailModal, setIsThumbnailSheetPresented)); setShowIconLibraryInModal(false) }}
+                onOpenThumbnailModal={(blockId) => { setThumbnailBlockId(blockId); setShowThumbnailModal(true); setShowIconLibraryInModal(false) }}
                 onUrlChangeWithAutoFetch={handleUrlChangeWithAutoFetch}
                 onOpenStreamingModal={(platform, index, data, updateFn) => {
                   setStreamingPlatform(platform)
@@ -1747,8 +1610,7 @@ export function LinksTab() {
                 onMoveChildToMainList={handleMoveChildToMainList}
                 onOpenAddBlockModal={(groupId) => {
                   setAddToGroupId(groupId)
-                  setIsAddSheetPresented(false)
-                  setShowAddModal(sheetOpening(addSheetCloseTimerRef, showAddModal, setIsAddSheetPresented))
+                  setShowAddModal(true)
                 }}
               />
             </div>
@@ -1759,8 +1621,7 @@ export function LinksTab() {
                   type="button"
                   onClick={() => {
                     setInsertAfterId(block.id)
-                    setIsAddSheetPresented(false)
-                    setShowAddModal(sheetOpening(addSheetCloseTimerRef, showAddModal, setIsAddSheetPresented))
+                    setShowAddModal(true)
                   }}
                   className="absolute inset-x-0 -top-4 -bottom-4 flex items-center justify-center px-1 focus:outline-none"
                   tabIndex={0}
@@ -1788,84 +1649,19 @@ export function LinksTab() {
       )}
 
       {/* Add Block Modal - Linktree style without sidebar */}
-      <Dialog open={showAddModal} onOpenChange={(open) => {
-        if (open) {
-          setIsAddSheetPresented(false)
-          setShowAddModal(sheetOpening(addSheetCloseTimerRef, showAddModal, setIsAddSheetPresented))
-          return
-        }
-        closeAddSheet()
-      }}>
-        <DialogContent
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          showCloseButton
-          disableDefaultAnimations={isMobileModalViewport}
-          overlayClassName={isMobileModalViewport ? cn("bg-black/40 scrim-graduated transition-opacity duration-400", isAddSheetPresented ? "opacity-100" : "opacity-0") : undefined}
-          onTouchStart={(e) => {
-            if (!isMobileModalViewport) return
-            const touchY = e.touches[0]?.clientY ?? 0
-            const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
-            if (touchY - bounds.top <= 72) {
-              addSheetStartYRef.current = touchY
-              addSheetLastYRef.current = touchY
-              addSheetLastTimeRef.current = Date.now()
-              addSheetVelocityRef.current = 0
-              setIsAddSheetDragging(true)
-            }
-          }}
-          onTouchMove={(e) => {
-            if (!isMobileModalViewport || !isAddSheetDragging) return
-            const currentY = e.touches[0]?.clientY ?? 0
-            const diff = currentY - addSheetStartYRef.current
-            if (diff > 0) {
-              e.preventDefault()
-              const now = Date.now()
-              const dt = Math.max(1, now - addSheetLastTimeRef.current)
-              addSheetVelocityRef.current = (currentY - addSheetLastYRef.current) / dt
-              addSheetLastYRef.current = currentY
-              addSheetLastTimeRef.current = now
-
-              const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
-              setAddSheetDragY(resisted)
-            }
-          }}
-          onTouchEnd={() => {
-            if (!isMobileModalViewport || !isAddSheetDragging) return
-            setIsAddSheetDragging(false)
-            if (addSheetDragY > 92 || addSheetVelocityRef.current > 0.55) {
-              closeAddSheet()
-              return
-            }
-            setAddSheetDragY(0)
-          }}
-          className={cn(
-            "h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
-            isMobileModalViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
-              : "w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
-          )}
-          style={isMobileModalViewport ? {
-            position: 'fixed',
-            top: 'auto',
-            left: 0,
-            right: 0,
-            ...sheetAboveKeyboard(0.75),
-            transform: isAddSheetPresented ? `translate3d(0, ${addSheetDragY}px, 0)` : "translate3d(0, 100%, 0)",
-            willChange: 'transform',
-            backfaceVisibility: 'hidden' as const,
-            transition: isAddSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          } : undefined}
-        >
-          {isMobileModalViewport && (
-            <div className="pt-3 pb-2 flex justify-center cursor-pointer" data-sheet-handle>
-              <div className="h-1.5 w-10 rounded-full bg-gray-300" />
-            </div>
-          )}
+      <SheetDialog
+        open={showAddModal}
+        onClose={closeAddSheet}
+        phone={isMobileModalViewport}
+        label={addToGroupId ? "Add to Group" : "Add Block"}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
+      >
           {/* Header with title and close button */}
           <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 bg-white shrink-0 border-b border-gray-100">
-            <DialogTitle className="text-lg sm:text-xl font-semibold">
+            <SheetDialogTitle className="text-lg sm:text-xl font-semibold">
               {addToGroupId ? "Add to Group" : "Add Block"}
-            </DialogTitle>
+            </SheetDialogTitle>
             {addToGroupId && (
               <p className="text-xs text-muted-foreground mt-1">
                 Adding block to group. Some block types are not available.
@@ -2096,87 +1892,21 @@ export function LinksTab() {
               </div>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+      </SheetDialog>
 
       {/* Social Links Modal - Modern Scrollable Vertical List */}
-      <Dialog open={showSocialModal} onOpenChange={(open) => {
-        if (open) {
-          setIsSocialSheetPresented(false)
-          setShowSocialModal(sheetOpening(socialSheetCloseTimerRef, showSocialModal, setIsSocialSheetPresented))
-          return
-        }
-        closeSocialSheet()
-      }}>
-        <DialogContent
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          showCloseButton
-          disableDefaultAnimations={isMobileModalViewport}
-          overlayClassName={isMobileModalViewport ? cn("bg-black/40 scrim-graduated transition-opacity duration-400", isSocialSheetPresented ? "opacity-100" : "opacity-0") : undefined}
-          onTouchStart={(e) => {
-            if (!isMobileModalViewport) return
-            const touchY = e.touches[0]?.clientY ?? 0
-            const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
-            if (touchY - bounds.top <= 72) {
-              socialSheetStartYRef.current = touchY
-              socialSheetLastYRef.current = touchY
-              socialSheetLastTimeRef.current = Date.now()
-              socialSheetVelocityRef.current = 0
-              setIsSocialSheetDragging(true)
-            }
-          }}
-          onTouchMove={(e) => {
-            if (!isMobileModalViewport || !isSocialSheetDragging) return
-            const currentY = e.touches[0]?.clientY ?? 0
-            const diff = currentY - socialSheetStartYRef.current
-            if (diff > 0) {
-              e.preventDefault()
-              const now = Date.now()
-              const dt = Math.max(1, now - socialSheetLastTimeRef.current)
-              socialSheetVelocityRef.current = (currentY - socialSheetLastYRef.current) / dt
-              socialSheetLastYRef.current = currentY
-              socialSheetLastTimeRef.current = now
-
-              const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
-              setSocialSheetDragY(resisted)
-            }
-          }}
-          onTouchEnd={() => {
-            if (!isMobileModalViewport || !isSocialSheetDragging) return
-            setIsSocialSheetDragging(false)
-            if (socialSheetDragY > 92 || socialSheetVelocityRef.current > 0.55) {
-              closeSocialSheet()
-              return
-            }
-            setSocialSheetDragY(0)
-          }}
-          className={cn(
-            "p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
-            isMobileModalViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
-              : "w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
-          )}
-          style={isMobileModalViewport ? {
-            position: 'fixed',
-            top: 'auto',
-            left: 0,
-            right: 0,
-            ...sheetAboveKeyboard(0.75),
-            transform: isSocialSheetPresented ? `translate3d(0, ${socialSheetDragY}px, 0)` : "translate3d(0, 100%, 0)",
-            transition: isSocialSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-            willChange: 'transform',
-            backfaceVisibility: 'hidden',
-          } : undefined}
-        >
-          {isMobileModalViewport && (
-            <div className="pt-3 pb-2 flex justify-center cursor-pointer" data-sheet-handle>
-              <div className="h-1.5 w-10 rounded-full bg-gray-300" />
-            </div>
-          )}
+      <SheetDialog
+        open={showSocialModal}
+        onClose={closeSocialSheet}
+        phone={isMobileModalViewport}
+        label={selectedSocial ? "Edit Social Link" : "Add Social Link"}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
+      >
           <DialogHeader className="p-4 sm:p-5 border-b border-gray-100 shrink-0">
-            <DialogTitle className="text-base sm:text-lg font-semibold">
+            <SheetDialogTitle className="text-base sm:text-lg font-semibold">
               {selectedSocial ? "Edit Social Link" : "Add Social Link"}
-            </DialogTitle>
+            </SheetDialogTitle>
           </DialogHeader>
 
           {!selectedSocial ? (
@@ -2342,8 +2072,7 @@ export function LinksTab() {
               })()}
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+      </SheetDialog>
 
 
       <SaveNotification
@@ -2582,86 +2311,25 @@ export function LinksTab() {
       </Dialog>
 
       {/* Thumbnail Edit Modal - Centered with overlay */}
-      <Dialog open={showThumbnailModal} onOpenChange={(open) => {
-        if (open) {
-          setIsThumbnailSheetPresented(false)
-          setShowThumbnailModal(sheetOpening(thumbnailSheetCloseTimerRef, showThumbnailModal, setIsThumbnailSheetPresented))
-          return
-        }
-        closeThumbnailSheet()
-      }}>
-        <DialogContent
-          disableDefaultAnimations={isMobileModalViewport}
-          overlayClassName={isMobileModalViewport ? cn("bg-black/40 scrim-graduated transition-opacity duration-400", isThumbnailSheetPresented ? "opacity-100" : "opacity-0") : undefined}
-          onTouchStart={(e) => {
-            if (!isMobileModalViewport) return
-            const touchY = e.touches[0]?.clientY ?? 0
-            const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
-            if (touchY - bounds.top <= 72) {
-              thumbnailSheetStartYRef.current = touchY
-              thumbnailSheetLastYRef.current = touchY
-              thumbnailSheetLastTimeRef.current = Date.now()
-              thumbnailSheetVelocityRef.current = 0
-              setIsThumbnailSheetDragging(true)
-            }
-          }}
-          onTouchMove={(e) => {
-            if (!isMobileModalViewport || !isThumbnailSheetDragging) return
-            const currentY = e.touches[0]?.clientY ?? 0
-            const diff = currentY - thumbnailSheetStartYRef.current
-            if (diff > 0) {
-              e.preventDefault()
-              const now = Date.now()
-              const dt = Math.max(1, now - thumbnailSheetLastTimeRef.current)
-              thumbnailSheetVelocityRef.current = (currentY - thumbnailSheetLastYRef.current) / dt
-              thumbnailSheetLastYRef.current = currentY
-              thumbnailSheetLastTimeRef.current = now
-
-              const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
-              setThumbnailSheetDragY(resisted)
-            }
-          }}
-          onTouchEnd={() => {
-            if (!isMobileModalViewport || !isThumbnailSheetDragging) return
-            setIsThumbnailSheetDragging(false)
-            if (thumbnailSheetDragY > 92 || thumbnailSheetVelocityRef.current > 0.55) {
-              closeThumbnailSheet()
-              return
-            }
-            setThumbnailSheetDragY(0)
-          }}
-          className={cn(
-            "p-0 gap-0 overflow-hidden mx-auto transition-all duration-200 flex flex-col border-[#ececf1]",
-            isMobileModalViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
-              : showIconLibraryInModal
-                ? "rounded-2xl w-[calc(100%-32px)] sm:max-w-[572px] max-w-[650px]"
-                : "rounded-2xl w-[calc(100%-32px)] sm:max-w-[416px] max-w-[455px]"
-          )}
-          style={isMobileModalViewport ? {
-            position: 'fixed',
-            top: 'auto',
-            left: 0,
-            right: 0,
-            ...sheetAboveKeyboard(0.75),
-            transform: isThumbnailSheetPresented ? `translate3d(0, ${thumbnailSheetDragY}px, 0)` : 'translate3d(0, 100%, 0)',
-            willChange: 'transform',
-            backfaceVisibility: 'hidden' as const,
-            transition: isThumbnailSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          } : undefined}
-        >
+      <SheetDialog
+        open={showThumbnailModal}
+        onClose={closeThumbnailSheet}
+        phone={isMobileModalViewport}
+        label={showIconLibraryInModal ? "Choose Icon" : getThumbnailBlockType() === 'product' ? 'Edit Custom Thumbnail' : 'Edit Thumbnail'}
+        className={cn(
+          "p-0 gap-0 overflow-hidden mx-auto transition-all duration-200 flex flex-col border-[#ececf1]",
+          showIconLibraryInModal
+            ? "rounded-2xl w-[calc(100%-32px)] sm:max-w-[572px] max-w-[650px]"
+            : "rounded-2xl w-[calc(100%-32px)] sm:max-w-[416px] max-w-[455px]"
+        )}
+      >
           {/* Main Options View */}
           {!showIconLibraryInModal && (
             <>
-              {isMobileModalViewport && (
-                <div className="pt-3 pb-2 flex justify-center cursor-pointer" data-sheet-handle>
-                  <div className="h-1.5 w-10 rounded-full bg-gray-300" />
-                </div>
-              )}
               <DialogHeader className="p-4 border-b">
-                <DialogTitle className="text-base font-semibold">
+                <SheetDialogTitle className="text-base font-semibold">
                   {getThumbnailBlockType() === 'product' ? 'Edit Custom Thumbnail' : 'Edit Thumbnail'}
-                </DialogTitle>
+                </SheetDialogTitle>
               </DialogHeader>
               <div className="p-4 space-y-3">
                 {/* Current thumbnail preview */}
@@ -2779,11 +2447,6 @@ export function LinksTab() {
           {/* Icon Library Full Page View */}
           {showIconLibraryInModal && (
             <>
-              {isMobileModalViewport && (
-                <div className="pt-3 pb-2 flex justify-center cursor-pointer" data-sheet-handle>
-                  <div className="h-1.5 w-10 rounded-full bg-gray-300" />
-                </div>
-              )}
               <DialogHeader className="p-4 border-b">
                 <div className="flex items-center gap-3">
                   <button
@@ -2797,7 +2460,7 @@ export function LinksTab() {
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
-                  <DialogTitle className="text-base font-semibold">Choose Icon</DialogTitle>
+                  <SheetDialogTitle className="text-base font-semibold">Choose Icon</SheetDialogTitle>
                 </div>
               </DialogHeader>
 
@@ -2882,7 +2545,8 @@ export function LinksTab() {
                 {/* Icon grid */}
                 <div className={cn(
                   "flex-1 overflow-y-auto",
-                  isMobileModalViewport ? "p-3 pb-[max(16px,env(safe-area-inset-bottom))]" : "p-4"
+                  /* The sheet keeps clear of the home indicator itself. */
+                  isMobileModalViewport ? "p-3" : "p-4"
                 )}>
                   <div className={cn(
                     "grid gap-2",
@@ -2966,8 +2630,7 @@ export function LinksTab() {
             onChange={handleThumbnailUploadForModal}
             className="hidden"
           />
-        </DialogContent>
-      </Dialog>
+      </SheetDialog>
 
       {/* Image Library Modal / File Upload Modal */}
       <Dialog open={showImageLibrary} onOpenChange={(open) => {
@@ -4239,23 +3902,10 @@ function BlockItem({
   const statsTimeZone = useMemo(() => viewerTimeZone(), [])
   const statsToday = todayIn(statsTimeZone, Date.now())
   const [statsPeriod, setStatsPeriod] = useState<RangeValue>(() => resolveValue({ preset: 'last_7_days' }, statsToday, 'last_7_days'))
-  const [isMobileStatsViewport, setIsMobileStatsViewport] = useState(false)
-  const [isStatsSheetPresented, setIsStatsSheetPresented] = useState(false)
-  const [statsSheetDragY, setStatsSheetDragY] = useState(0)
-  const [isStatsSheetDragging, setIsStatsSheetDragging] = useState(false)
-  const statsSheetStartYRef = useRef(0)
-  const statsSheetLastYRef = useRef(0)
-  const statsSheetLastTimeRef = useRef(0)
-  const statsSheetVelocityRef = useRef(0)
-  const statsSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [isAnimationSheetPresented, setIsAnimationSheetPresented] = useState(false)
-  const [animationSheetDragY, setAnimationSheetDragY] = useState(0)
-  const [isAnimationSheetDragging, setIsAnimationSheetDragging] = useState(false)
-  const animationSheetStartYRef = useRef(0)
-  const animationSheetLastYRef = useRef(0)
-  const animationSheetLastTimeRef = useRef(0)
-  const animationSheetVelocityRef = useRef(0)
-  const animationSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  /* Below 640px the animation and stats dialogs are the shared sheet (see THE PHONE SHEETS at the top). */
+  const isMobileStatsViewport = usePhoneWidth()
+  /* A row tapped in the phone sheet: applied once the sheet has slid out, so the page's render does not hold up the slide. */
+  const pendingAnimationRef = useRef<string | null>(null)
   const animationMenuRef = useRef<HTMLDivElement>(null)
   const buttonTextMenuRef = useRef<HTMLDivElement>(null)
 
@@ -4294,81 +3944,16 @@ function BlockItem({
     }
   }, [showButtonTextMenu])
 
-  useEffect(() => {
-    const checkViewport = () => {
-      if (typeof window === 'undefined') return
-      setIsMobileStatsViewport(window.innerWidth < 640)
-    }
-
-    checkViewport()
-    window.addEventListener('resize', checkViewport)
-    return () => window.removeEventListener('resize', checkViewport)
-  }, [])
-
-  useEffect(() => {
-    if (!showStatsModal || !isMobileStatsViewport) return
-    const raf1 = requestAnimationFrame(() => {
-      const raf2 = requestAnimationFrame(() => {
-        setIsStatsSheetPresented(true)
-      })
-      return () => cancelAnimationFrame(raf2)
+  const setAnimation = (id: string) => {
+    updateBlock(block.id, {
+      data: {
+        ...block.data,
+        animation_type: id as 'none' | 'pulse' | 'bounce' | 'shake' | 'glow' | 'swipe'
+      }
     })
-    return () => cancelAnimationFrame(raf1)
-  }, [showStatsModal, isMobileStatsViewport])
-
-  useEffect(() => {
-    if (!showAnimationSheet || !isMobileStatsViewport) return
-    const raf1 = requestAnimationFrame(() => {
-      const raf2 = requestAnimationFrame(() => {
-        setIsAnimationSheetPresented(true)
-      })
-      return () => cancelAnimationFrame(raf2)
-    })
-    return () => cancelAnimationFrame(raf1)
-  }, [showAnimationSheet, isMobileStatsViewport])
-
-  useEffect(() => {
-    return () => {
-      if (statsSheetCloseTimerRef.current) clearTimeout(statsSheetCloseTimerRef.current)
-      if (animationSheetCloseTimerRef.current) clearTimeout(animationSheetCloseTimerRef.current)
-    }
-  }, [])
-
-  const closeStatsSheet = useCallback(() => {
-    if (!showStatsModal) return
-
-    if (!isMobileStatsViewport) {
-      setShowStatsModal(false)
-      return
-    }
-
-    setIsStatsSheetDragging(false)
-    setStatsSheetDragY(0)
-    setIsStatsSheetPresented(false)
-
-    if (statsSheetCloseTimerRef.current) clearTimeout(statsSheetCloseTimerRef.current)
-    statsSheetCloseTimerRef.current = setTimeout(() => {
-      setShowStatsModal(false)
-    }, SHEET_SLIDE_MS)
-  }, [showStatsModal, isMobileStatsViewport])
-
-  const closeAnimationSheet = useCallback(() => {
-    if (!showAnimationSheet) return
-
-    if (!isMobileStatsViewport) {
-      setShowAnimationSheet(false)
-      return
-    }
-
-    setIsAnimationSheetDragging(false)
-    setAnimationSheetDragY(0)
-    setIsAnimationSheetPresented(false)
-
-    if (animationSheetCloseTimerRef.current) clearTimeout(animationSheetCloseTimerRef.current)
-    animationSheetCloseTimerRef.current = setTimeout(() => {
-      setShowAnimationSheet(false)
-    }, SHEET_SLIDE_MS)
-  }, [showAnimationSheet, isMobileStatsViewport])
+  }
+  const closeStatsSheet = useCallback(() => setShowStatsModal(false), [])
+  const closeAnimationSheet = useCallback(() => setShowAnimationSheet(false), [])
 
   // Fetch stats when modal is opened or timeframe changes
   const fetchStats = async (period: RangeValue) => {
@@ -4612,8 +4197,7 @@ function BlockItem({
               onClick={(e) => {
                 e.stopPropagation()
                 if (isMobileStatsViewport) {
-                  setIsAnimationSheetPresented(false)
-                  setShowAnimationSheet(sheetOpening(animationSheetCloseTimerRef, showAnimationSheet, setIsAnimationSheetPresented))
+                  setShowAnimationSheet(true)
                   return
                 }
                 setShowAnimationMenu(!showAnimationMenu)
@@ -4665,82 +4249,25 @@ function BlockItem({
         )}
 
         {hasAnimation && (
-          <Dialog open={showAnimationSheet} onOpenChange={(open) => {
-            if (open) {
-              setIsAnimationSheetPresented(false)
-              setShowAnimationSheet(sheetOpening(animationSheetCloseTimerRef, showAnimationSheet, setIsAnimationSheetPresented))
-              return
-            }
-            closeAnimationSheet()
-          }}>
-            <DialogContent
-              showCloseButton
-              disableDefaultAnimations={isMobileStatsViewport}
-              overlayClassName={isMobileStatsViewport ? cn("bg-black/40 scrim-graduated transition-opacity duration-400", isAnimationSheetPresented ? "opacity-100" : "opacity-0") : undefined}
-              onTouchStart={(e) => {
-                if (!isMobileStatsViewport) return
-                const touchY = e.touches[0]?.clientY ?? 0
-                const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
-                if (touchY - bounds.top <= 72) {
-                  animationSheetStartYRef.current = touchY
-                  animationSheetLastYRef.current = touchY
-                  animationSheetLastTimeRef.current = Date.now()
-                  animationSheetVelocityRef.current = 0
-                  setIsAnimationSheetDragging(true)
-                }
-              }}
-              onTouchMove={(e) => {
-                if (!isMobileStatsViewport || !isAnimationSheetDragging) return
-                const currentY = e.touches[0]?.clientY ?? 0
-                const diff = currentY - animationSheetStartYRef.current
-                if (diff > 0) {
-                  e.preventDefault()
-                  const now = Date.now()
-                  const dt = Math.max(1, now - animationSheetLastTimeRef.current)
-                  animationSheetVelocityRef.current = (currentY - animationSheetLastYRef.current) / dt
-                  animationSheetLastYRef.current = currentY
-                  animationSheetLastTimeRef.current = now
-
-                  const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
-                  setAnimationSheetDragY(resisted)
-                }
-              }}
-              onTouchEnd={() => {
-                if (!isMobileStatsViewport || !isAnimationSheetDragging) return
-                setIsAnimationSheetDragging(false)
-                if (animationSheetDragY > 92 || animationSheetVelocityRef.current > 0.55) {
-                  closeAnimationSheet()
-                  return
-                }
-                setAnimationSheetDragY(0)
-              }}
-              className={cn(
-                "p-0 gap-0 overflow-hidden mx-auto border-[#ececf1]",
-                isMobileStatsViewport
-                  ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
-                  : "w-[calc(100%-32px)] max-w-[360px] rounded-2xl"
-              )}
-              style={isMobileStatsViewport ? {
-                position: 'fixed',
-                top: 'auto',
-                left: 0,
-                right: 0,
-                ...sheetAboveKeyboard(0.75),
-                transform: isAnimationSheetPresented ? `translate3d(0, ${animationSheetDragY}px, 0)` : 'translate3d(0, 100%, 0)',
-                willChange: 'transform',
-                backfaceVisibility: 'hidden' as const,
-                transition: isAnimationSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-              } : undefined}
-            >
-              {isMobileStatsViewport && (
-                <div className="pt-3 pb-2 flex justify-center cursor-pointer" data-sheet-handle>
-                  <div className="h-1.5 w-10 rounded-full bg-gray-300" />
-                </div>
-              )}
+          <SheetDialog
+            open={showAnimationSheet}
+            onClose={closeAnimationSheet}
+            phone={isMobileStatsViewport}
+            label="Animation"
+            className="p-0 gap-0 overflow-hidden mx-auto border-[#ececf1] w-[calc(100%-32px)] max-w-[360px] rounded-2xl"
+            sheet={{
+              onClosed: () => {
+                const next = pendingAnimationRef.current
+                pendingAnimationRef.current = null
+                if (next) setAnimation(next)
+              },
+            }}
+          >
               <DialogHeader className="p-4 border-b">
-                <DialogTitle className="text-base font-semibold">Animation</DialogTitle>
+                <SheetDialogTitle className="text-base font-semibold">Animation</SheetDialogTitle>
               </DialogHeader>
-              <div className="p-3 max-h-[65vh] overflow-y-auto pb-[max(16px,env(safe-area-inset-bottom))]">
+              {/* The sheet keeps clear of the home indicator itself; the dialog needs the room. */}
+              <div className={cn("p-3 max-h-[65vh] overflow-y-auto", !isMobileStatsViewport && "pb-4")}>
                 <div className="space-y-1">
                   {animationOptions.map((anim) => {
                     const currentAnimation = (block.data as any).animation_type || 'none'
@@ -4748,13 +4275,14 @@ function BlockItem({
                       <button
                         key={anim.id}
                         type="button"
+                        /* On a phone the sheet closes itself first (data-sheet-close), and the choice lands once it has gone. */
+                        data-sheet-close={isMobileStatsViewport ? "" : undefined}
                         onClick={() => {
-                          updateBlock(block.id, {
-                            data: {
-                              ...block.data,
-                              animation_type: anim.id as 'none' | 'pulse' | 'bounce' | 'shake' | 'glow' | 'swipe'
-                            }
-                          })
+                          if (isMobileStatsViewport) {
+                            pendingAnimationRef.current = anim.id
+                            return
+                          }
+                          setAnimation(anim.id)
                           closeAnimationSheet()
                         }}
                         className={cn(
@@ -4770,8 +4298,7 @@ function BlockItem({
                   })}
                 </div>
               </div>
-            </DialogContent>
-          </Dialog>
+          </SheetDialog>
         )}
 
         {/* Stats control for link buttons and email capture */}
@@ -4781,9 +4308,8 @@ function BlockItem({
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
-                setIsStatsSheetPresented(false)
                 /* Opening the dialog fetches, in the effect that watches it. */
-                setShowStatsModal(sheetOpening(statsSheetCloseTimerRef, showStatsModal, setIsStatsSheetPresented))
+                setShowStatsModal(true)
               }}
               className="flex items-center gap-1 px-1.5 py-1 rounded-lg transition-colors text-gray-400 hover:text-gray-600 hover:bg-gray-100"
               title="View Stats"
@@ -4795,83 +4321,19 @@ function BlockItem({
             </button>
 
             {/* Stats Modal */}
-            <Dialog open={showStatsModal} onOpenChange={(open) => {
-              if (open) {
-                setIsStatsSheetPresented(false)
-                setShowStatsModal(sheetOpening(statsSheetCloseTimerRef, showStatsModal, setIsStatsSheetPresented))
-                return
-              }
-              closeStatsSheet()
-            }}>
-              <DialogContent
-                showCloseButton
-                disableDefaultAnimations={isMobileStatsViewport}
-                overlayClassName={isMobileStatsViewport ? cn("bg-black/40 scrim-graduated transition-opacity duration-400", isStatsSheetPresented ? "opacity-100" : "opacity-0") : undefined}
-                onTouchStart={(e) => {
-                  if (!isMobileStatsViewport) return
-                  const touchY = e.touches[0]?.clientY ?? 0
-                  const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
-                  if (touchY - bounds.top <= 72) {
-                    statsSheetStartYRef.current = touchY
-                    statsSheetLastYRef.current = touchY
-                    statsSheetLastTimeRef.current = Date.now()
-                    statsSheetVelocityRef.current = 0
-                    setIsStatsSheetDragging(true)
-                  }
-                }}
-                onTouchMove={(e) => {
-                  if (!isMobileStatsViewport || !isStatsSheetDragging) return
-                  const currentY = e.touches[0]?.clientY ?? 0
-                  const diff = currentY - statsSheetStartYRef.current
-                  if (diff > 0) {
-                    e.preventDefault()
-                    const now = Date.now()
-                    const dt = Math.max(1, now - statsSheetLastTimeRef.current)
-                    statsSheetVelocityRef.current = (currentY - statsSheetLastYRef.current) / dt
-                    statsSheetLastYRef.current = currentY
-                    statsSheetLastTimeRef.current = now
-
-                    const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
-                    setStatsSheetDragY(resisted)
-                  }
-                }}
-                onTouchEnd={() => {
-                  if (!isMobileStatsViewport || !isStatsSheetDragging) return
-                  setIsStatsSheetDragging(false)
-                  if (statsSheetDragY > 92 || statsSheetVelocityRef.current > 0.55) {
-                    closeStatsSheet()
-                    return
-                  }
-                  setStatsSheetDragY(0)
-                }}
-                className={cn(
-                  "p-0 gap-0 overflow-hidden mx-auto border-[#ececf1]",
-                  isMobileStatsViewport
-                    ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
-                    : "w-[calc(100%-32px)] max-w-[420px] rounded-2xl"
-                )}
-                style={isMobileStatsViewport ? {
-                  position: 'fixed',
-                  top: 'auto',
-                  left: 0,
-                  right: 0,
-                  ...sheetAboveKeyboard(0.75),
-                  transform: isStatsSheetPresented ? `translate3d(0, ${statsSheetDragY}px, 0)` : 'translate3d(0, 100%, 0)',
-                  willChange: 'transform',
-                  backfaceVisibility: 'hidden' as const,
-                  transition: isStatsSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-                } : undefined}
-              >
-                {isMobileStatsViewport && (
-                  <div className="pt-3 pb-2 flex justify-center cursor-pointer">
-                    <div className="h-1.5 w-10 rounded-full bg-gray-300" />
-                  </div>
-                )}
+            <SheetDialog
+              open={showStatsModal}
+              onClose={closeStatsSheet}
+              phone={isMobileStatsViewport}
+              label={isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : isPDFDocument ? "PDF Stats" : isImage ? "Image Stats" : "Link Stats"}
+              className="p-0 gap-0 overflow-hidden mx-auto border-[#ececf1] w-[calc(100%-32px)] max-w-[420px] rounded-2xl"
+            >
                 <DialogHeader className="p-4 border-b">
-                  <DialogTitle className="text-base font-semibold">{isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : isPDFDocument ? "PDF Stats" : isImage ? "Image Stats" : "Link Stats"}</DialogTitle>
+                  <SheetDialogTitle className="text-base font-semibold">{isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : isPDFDocument ? "PDF Stats" : isImage ? "Image Stats" : "Link Stats"}</SheetDialogTitle>
                 </DialogHeader>
 
-                <div className={cn("p-4", isMobileStatsViewport && "max-h-[75vh] overflow-y-auto pb-[max(16px,env(safe-area-inset-bottom))]")}>
+                {/* In the sheet this scrolls under the title, and a pull down from its top closes the sheet. */}
+                <div className={cn("p-4", isMobileStatsViewport && "min-h-0 overflow-y-auto overscroll-contain")}>
                   {/* The period: the same picker as every page in /app. */}
                   <div className="mb-4">
                     <DateRangePicker value={statsPeriod} onChange={setStatsPeriod} today={statsToday} inline />
@@ -4887,8 +4349,7 @@ function BlockItem({
                     endIsToday={statsPeriod.end === statsToday}
                   />
                 </div>
-              </DialogContent>
-            </Dialog>
+            </SheetDialog>
           </>
         )}
 

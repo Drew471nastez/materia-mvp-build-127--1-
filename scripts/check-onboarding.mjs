@@ -200,10 +200,10 @@ for (const [label, viewport] of [
   const tops = new Set(swap.frames.map((f) => f.sy))
   if (heights.size > 1 || tops.size > 1) problems.push(`${at} the panel the steps are in moved while they changed (heights ${[...heights]}, tops ${[...tops]})`)
 
-  /* Step 2, where the row of buttons is at its longest: Back, Other, Skip, Next. */
+  /* Step 2, where the row of buttons is at its longest: Back, Skip, Next. Other is among the categories, beside See more. */
   await wait(120)
   const footer = await page.evaluate(`(() => { const box = ${box.toString()}
-    const names = ["Back", "Other", "Skip", "Next"]
+    const names = ["Back", "Skip", "Next"]
     const found = names.map((n) => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === n)).filter(Boolean)
     const doc = document.scrollingElement
     const panel = document.querySelector("[data-onboarding-step]").parentElement
@@ -213,7 +213,17 @@ for (const [label, viewport] of [
       sideways: Math.max(doc.scrollWidth - doc.clientWidth, panel.scrollWidth - panel.clientWidth),
     }
   })()`)
-  if (footer.buttons.length !== 4) problems.push(`${at} step 2 drew ${footer.buttons.length} of its four buttons`)
+  if (footer.buttons.length !== 3) problems.push(`${at} step 2 drew ${footer.buttons.length} of its three buttons`)
+  const other = await page.evaluate(`(() => { const box = ${box.toString()}
+    const pills = document.querySelector("[data-onboarding-categories]")
+    const other = document.querySelector("[data-onboarding-other]")
+    const more = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "See more")
+    return other && more && pills ? { inPills: pills.contains(other), other: box(other), more: box(more) } : null })()`)
+  if (!other) problems.push(`${at} Other or See more is missing on the category step`)
+  else {
+    if (!other.inPills) problems.push(`${at} Other is not among the categories`)
+    if (Math.abs(other.other.midY - other.more.midY) > 1 || other.other.x - other.more.right > 12 || other.other.x < other.more.right) problems.push(`${at} Other is not beside See more (${JSON.stringify(other)})`)
+  }
   for (const b of footer.buttons) {
     if (b.x < 0 || b.right > footer.width) problems.push(`${at} ${b.label} runs off the screen (${b.x} to ${b.right} of ${footer.width})`)
     if (b.h < 44) problems.push(`${at} ${b.label} is ${b.h}px tall, under a 44px press`)
@@ -224,10 +234,67 @@ for (const [label, viewport] of [
   }
   if (footer.sideways > 0) problems.push(`${at} the step scrolls sideways by ${footer.sideways}px`)
 
+  /*
+    ON TO THE PLAN, WHERE A PHONE SCROLLS. What runs under the top row or
+    the Back button fades there instead of being cut in a hard line; before
+    anything has scrolled, the top is sharp.
+  */
+  const clickText = (t) => page.evaluate((t) => { const b = [...document.querySelectorAll("button")].find((x) => x.textContent.trim() === t && !x.disabled); if (b) b.click(); return !!b }, t)
+  await clickText("Next")
+  await page.waitForFunction(() => document.querySelector("[data-onboarding-step]")?.getAttribute("data-onboarding-step") === "3", { timeout: 5000 }).catch(() => {})
+  await wait(400)
+  await clickText("Next")
+  await page.waitForFunction(() => document.querySelector("[data-onboarding-step]")?.getAttribute("data-onboarding-step") === "4", { timeout: 5000 }).catch(() => {})
+  await wait(500)
+  const edges = await page.evaluate(async () => {
+    const sc = document.querySelector("[data-onboarding-scroller]")
+    const read = () => ({ top: sc.style.getPropertyValue("--fade-top"), bottom: sc.style.getPropertyValue("--fade-bottom") })
+    sc.scrollTop = 0
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+    const atTop = read()
+    const room = sc.scrollHeight - sc.clientHeight
+    sc.scrollTop = Math.round(room / 2)
+    sc.dispatchEvent(new Event("scroll"))
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+    const middle = read()
+    return { room, atTop, middle, mask: getComputedStyle(sc).maskImage || getComputedStyle(sc).webkitMaskImage }
+  })
+  if (process.env.SHOTS) await page.screenshot({ path: join(process.env.SHOTS, `onboarding-plan-${label}.png`) })
+  if (!/gradient/.test(edges.mask || "")) problems.push(`${at} the step panel has no edge fade`)
+  if (edges.atTop.top !== "0px") problems.push(`${at} the top edge fades before anything has scrolled under it`)
+  if (edges.room > 40) {
+    if (edges.middle.top !== "20px" || edges.middle.bottom !== "20px") problems.push(`${at} scrolled part way, the plans are cut rather than faded at the edges (${JSON.stringify(edges.middle)})`)
+  }
+
+  /*
+    THE LAST STEP. Starting free goes to setup; the probe's database refuses,
+    so it ends on the error state, which is enough to see the mark: whole,
+    nothing clipping it, at 64px (72 from 640).
+  */
+  await clickText("Start free")
+  await page.waitForFunction(() => !!document.querySelector("[data-onboarding-setup]"), { timeout: 8000 }).catch(() => {})
+  await wait(900)
+  const setup = await page.evaluate(`(() => { const box = ${box.toString()}
+    const wrap = document.querySelector("[data-onboarding-setup]")
+    if (!wrap) return null
+    const mark = wrap.querySelector("svg[aria-label=Storelib]")
+    let clipped = null
+    for (let n = mark && mark.parentElement; n && n !== wrap; n = n.parentElement) if (getComputedStyle(n).overflow !== "visible") clipped = n.className
+    return { state: wrap.getAttribute("data-onboarding-setup"), mark: mark ? box(mark) : null, clipped, heading: (wrap.querySelector("h1") || {}).textContent }
+  })()`)
+  if (process.env.SHOTS) await page.screenshot({ path: join(process.env.SHOTS, `onboarding-setup-${label}.png`) })
+  if (!setup) problems.push(`${at} Start free did not reach the setup screen`)
+  else {
+    if (!setup.mark) problems.push(`${at} the setup screen has no Storelib mark`)
+    else if (setup.mark.w !== (phone ? 64 : 72)) problems.push(`${at} the mark is ${setup.mark.w}px, not ${phone ? 64 : 72}`)
+    if (setup.clipped) problems.push(`${at} the mark sits in a box that clips it (${setup.clipped})`)
+  }
+
   report[label] = {
     gap: top.gap, backMid: top.back?.midY, barMid: top.bar.midY, backBox: top.back ? `${top.back.w}x${top.back.h}` : null,
     room: [top.leftRoom, top.rightRoom], fadeFrames: fading, slidePositions: sliding, animates: swap.declared,
     footer: footer.buttons.map((b) => `${b.label} ${b.x}-${b.right}`), sideways: footer.sideways,
+    planScrollRoom: edges.room, edgesScrolled: edges.middle, setup: setup && { state: setup.state, mark: setup.mark && setup.mark.w, heading: setup.heading },
   }
   if (errors.length) problems.push(`${at} ${errors.length} error(s): ${errors[0]}`)
   await page.close()
