@@ -178,7 +178,17 @@ async function main() {
   }
   const page = read("app/checkout/checkout-client.tsx")
   check("no 'Secured checkout by Stripe' line", !/Secured checkout by Stripe/.test(page))
-  check("the tip and the code are kept", /Add a tip for/.test(read("app/checkout/parts/order-summary.tsx")) && /Enter discount code/.test(read("app/checkout/parts/order-summary.tsx")))
+  /* The tip was redrawn as one folded "Add a tip" line (the owner found the
+     old heading, row of four and field too much to read on the way to
+     paying); the creator it is for is still named, to a screen reader and on
+     its choices, and the same None/$1/$3/$5/own amount are sent. */
+  {
+    const summary = read("app/checkout/parts/order-summary.tsx")
+    check(
+      "the tip and the code are kept (the tip now one folded Add a tip line, still naming the creator)",
+      /"Add a tip"/.test(summary) && /<span className="sr-only"> for \{creatorName\}<\/span>/.test(summary) && /const TIPS = \[0, 100, 300, 500\] as const/.test(summary) && /Enter discount code/.test(summary),
+    )
+  }
   check("Link, wallets and PayPal come from Stripe's own elements", /ExpressCheckoutElement/.test(read("app/checkout/parts/stripe-pay.tsx")) && /LinkAuthenticationElement/.test(read("app/checkout/parts/stripe-pay.tsx")))
 
   console.log(`\n${passed} passed, ${failed} failed`)

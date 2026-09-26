@@ -234,11 +234,26 @@ export function DiscountForm({
 }
 
 const TIPS = [0, 100, 300, 500] as const
+/** The last choice: an amount of the buyer's own. */
+const OTHER = -1
+const CHOICES: readonly number[] = [...TIPS, OTHER]
 
 /**
- * A tip, as four choices and your own amount. The choices sit in a light
- * grey track and the chosen one lifts out of it in white, the way iOS and
- * Stripe draw a choice of a few: nothing on the page turns black.
+ * ===========================================================================
+ *  A TIP, ASKED QUIETLY
+ * ===========================================================================
+ * It used to be a heading, a row of four and a field, all open all the time:
+ * three things to read on the way to paying for something else. Now it is
+ * one line of the order, "Add a tip", folded. Pressed, it opens to a single
+ * row of choices; the field for an amount of your own appears only when
+ * Other is chosen. With a tip on, the line reads "Tip" and the amount, like
+ * the discount above it, so it can be folded again and still be seen.
+ *
+ * The amounts sent are the ones this always sent: None, $1, $3 and $5 go to
+ * onPreset, an amount typed goes to onCustom, and the page works the tip out
+ * from those exactly as before. The choices sit in a light grey track and
+ * the chosen one lifts out of it in white, the way iOS and Stripe draw a
+ * choice of a few: nothing on the page turns black.
  */
 export function TipPicker({
   creatorName,
@@ -256,84 +271,127 @@ export function TipPicker({
   idSuffix: string
 }) {
   const usingCustom = custom !== ""
+  const [open, setOpen] = React.useState(tipCents > 0)
+  /* Other chosen and nothing typed yet: still Other, and no tip until there is an amount. */
+  const [otherChosen, setOtherChosen] = React.useState(false)
+  const other = usingCustom || otherChosen
+  const inputRef = React.useRef<HTMLInputElement>(null)
   const id = `tip-custom${idSuffix}`
+  const panelId = `tip-choices${idSuffix}`
   /* One tab stop for the group, arrows between the choices, as a radio group
      is used everywhere else. */
-  const current = usingCustom ? -1 : TIPS.findIndex((c) => c === tipCents)
+  const current = other ? CHOICES.length - 1 : CHOICES.findIndex((c) => c === tipCents)
   const focusable = current >= 0 ? current : 0
+  const choose = (i: number) => {
+    const cents = CHOICES[i]
+    if (cents === OTHER) {
+      setOtherChosen(true)
+      if (!usingCustom) onPreset(0)
+      requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }))
+      return
+    }
+    setOtherChosen(false)
+    onPreset(cents)
+  }
   const onArrows = (e: React.KeyboardEvent<HTMLButtonElement>, i: number) => {
     const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0
     if (!step) return
     e.preventDefault()
-    const next = (i + step + TIPS.length) % TIPS.length
-    onPreset(TIPS[next])
+    const next = (i + step + CHOICES.length) % CHOICES.length
+    choose(next)
     ;(e.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus()
   }
   return (
-    <fieldset data-tip="">
-      <legend className="mb-2 text-[14px] font-medium text-[#1a1a2e]">Add a tip for {creatorName}</legend>
-      <div role="radiogroup" aria-label="Tip" className="grid grid-cols-4 gap-[3px] rounded-[9px] bg-[#e9ebee] p-[3px]">
-        {TIPS.map((cents, i) => {
-          const on = !usingCustom && tipCents === cents
-          return (
-            <button
-              key={cents}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              tabIndex={i === focusable ? 0 : -1}
-              onKeyDown={(e) => onArrows(e, i)}
-              onClick={() => onPreset(cents)}
-              className={cn(
-                "h-9 cursor-pointer rounded-[7px] text-[14px] font-medium tabular-nums outline-none transition-[background-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 [-webkit-tap-highlight-color:transparent]",
-                on
-                  ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.12),0_0_0_1px_rgba(16,24,40,0.04)]"
-                  : "text-[#4b5563] hover:bg-white/60 hover:text-[#1a1a2e]",
-              )}
-            >
-              {cents === 0 ? "None" : money(cents).replace(".00", "")}
-            </button>
-          )
-        })}
-      </div>
-      <div className="relative mt-2">
-        <label htmlFor={id} className="sr-only">
-          Your own tip, in dollars
-        </label>
-        <span aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[15px] text-[#9ca3af]">
-          $
+    <div data-tip="" data-tip-open={open ? "" : undefined}>
+      <button
+        type="button"
+        data-tip-toggle=""
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className="-mx-2 flex h-9 w-[calc(100%+1rem)] cursor-pointer items-center justify-between gap-3 rounded-[7px] px-2 text-left text-[14px] transition-colors duration-150 hover:bg-black/[0.035] active:bg-black/[0.06] [-webkit-tap-highlight-color:transparent]"
+      >
+        <span className={tipCents > 0 ? "text-[#6b7280]" : "text-[#4b5563]"}>
+          {tipCents > 0 ? "Tip" : "Add a tip"}
+          <span className="sr-only"> for {creatorName}</span>
         </span>
-        <TextInput
-          id={id}
-          inputMode="decimal"
-          placeholder="Your own amount"
-          value={custom}
-          onChange={(e) => {
-            /* Dollars and cents, up to the $1,000 the server takes: what is
-               typed is what the total uses, never a clamped figure behind it. */
-            const typed = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1")
-            const [whole, frac] = typed.split(".")
-            const capped = Number(whole || 0) > 1000 ? "1000" : whole
-            onCustom(frac !== undefined ? `${capped}.${frac.slice(0, 2)}` : capped)
-          }}
-          className="pl-7"
-        />
-      </div>
-    </fieldset>
+        <span className="flex items-center gap-1.5">
+          {tipCents > 0 ? <span className="tabular-nums text-[#6b7280]">{money(tipCents)}</span> : null}
+          <ChevronDown
+            aria-hidden
+            className={cn("h-4 w-4 text-[#9ca3af] transition-[rotate] duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none", open && "rotate-180")}
+          />
+        </span>
+      </button>
+
+      <Reveal open={open} id={panelId} pad className="-mx-[3px]">
+        <div className="pt-1.5">
+          <div role="radiogroup" aria-label={`Tip for ${creatorName}`} className="grid grid-cols-5 gap-[3px] rounded-[9px] bg-[#e9ebee] p-[3px]">
+            {CHOICES.map((cents, i) => {
+              const on = i === current
+              return (
+                <button
+                  key={cents}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  tabIndex={i === focusable ? 0 : -1}
+                  onKeyDown={(e) => onArrows(e, i)}
+                  onClick={() => choose(i)}
+                  className={cn(
+                    "h-8 min-w-0 cursor-pointer rounded-[7px] text-[13px] font-medium tabular-nums outline-none transition-[background-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 [-webkit-tap-highlight-color:transparent]",
+                    on
+                      ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.12),0_0_0_1px_rgba(16,24,40,0.04)]"
+                      : "text-[#4b5563] hover:bg-white/60 hover:text-[#1a1a2e]",
+                  )}
+                >
+                  {cents === OTHER ? "Other" : cents === 0 ? "None" : money(cents).replace(".00", "")}
+                </button>
+              )
+            })}
+          </div>
+          <Reveal open={other} pad className="-mx-[3px]">
+            <div className="relative pt-2">
+              <label htmlFor={id} className="sr-only">
+                Your own tip, in dollars
+              </label>
+              <span aria-hidden className="pointer-events-none absolute bottom-0 left-3.5 flex h-11 items-center text-[15px] text-[#a2a7b0]">
+                $
+              </span>
+              <TextInput
+                ref={inputRef}
+                id={id}
+                inputMode="decimal"
+                placeholder="Amount"
+                value={custom}
+                onChange={(e) => {
+                  /* Dollars and cents, up to the $1,000 the server takes: what is
+                     typed is what the total uses, never a clamped figure behind it. */
+                  const typed = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1")
+                  const [whole, frac] = typed.split(".")
+                  const capped = Number(whole || 0) > 1000 ? "1000" : whole
+                  onCustom(frac !== undefined ? `${capped}.${frac.slice(0, 2)}` : capped)
+                }}
+                className="pl-7 tabular-nums"
+              />
+            </div>
+          </Reveal>
+        </div>
+      </Reveal>
+    </div>
   )
 }
 
 /**
  * The arithmetic, in two parts around the tip: "top" is the subtotal with the
- * promotion code under it and the discount; "bottom" is the tip and the total
- * due under a hairline.
+ * promotion code under it and the discount; "bottom" is the total due under a
+ * hairline. The tip's own line, with its amount, is the TipPicker's row.
  */
 export function Totals({
   part,
   subtotal,
   discountCents,
   discountLabel,
-  tipCents,
   total,
   isPwyw,
   promo,
@@ -342,7 +400,6 @@ export function Totals({
   subtotal: number
   discountCents: number
   discountLabel?: string
-  tipCents: number
   total: number
   isPwyw?: boolean
   /** The promotion code's button or field, under the subtotal where Stripe puts it. */
@@ -367,12 +424,6 @@ export function Totals({
   }
   return (
     <dl data-totals="bottom" className="text-[14px]">
-      {tipCents > 0 ? (
-        <div className="checkout-rise mb-3 flex justify-between gap-4">
-          <dt className="text-[#6b7280]">Tip</dt>
-          <dd className="tabular-nums text-[#6b7280]">{money(tipCents)}</dd>
-        </div>
-      ) : null}
       <div className="flex items-baseline justify-between gap-4 border-t border-black/[0.07] pt-4">
         <dt className="text-[15px] font-semibold text-[#1a1a2e]">Total due</dt>
         <dd className="text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{money(total)}</dd>

@@ -630,7 +630,7 @@ export default function CheckoutPageClient({
     />
   )
 
-  /* The order, as Stripe lays it out: the line, the subtotal with the promotion code under it, the tip, the total due. */
+  /* The order, as Stripe lays it out: the line, the subtotal with the promotion code under it, the tip as one more line of it, the total due. */
   const details = (suffix: string) => (
     <div className="space-y-6">
       <LineItem product={product} variant={variant} variants={allVariants} onVariant={chooseVariant} priceCents={subtotal} isPwyw={pwywNow} />
@@ -640,14 +640,15 @@ export default function CheckoutPageClient({
           subtotal={subtotal}
           discountCents={discountCents}
           discountLabel={applied?.code}
-          tipCents={tipCents}
           total={total}
           isPwyw={pwywNow}
           promo={discount(suffix)}
         />
+        <div className="mt-2">{tip(suffix)}</div>
+        <div className="mt-3">
+          <Totals part="bottom" subtotal={subtotal} discountCents={discountCents} total={total} />
+        </div>
       </div>
-      {tip(suffix)}
-      <Totals part="bottom" subtotal={subtotal} discountCents={discountCents} tipCents={tipCents} total={total} />
     </div>
   )
 
