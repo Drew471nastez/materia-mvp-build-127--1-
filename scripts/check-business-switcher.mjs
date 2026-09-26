@@ -7,21 +7,29 @@
  *   MENU     the business you are in is one row with its @handle and an up
  *            and down chevron, and nothing else shows until it is tapped: no
  *            "Businesses" label, no second row. A tap opens the list in
- *            place. Two businesses: the other one, saying it is being set up,
- *            and no New business (two is the most); one business: New
- *            business alone, a slim line. A second tap folds it away, and
- *            what is folded cannot be reached by Tab. Rows are 44px in the
- *            dropdown and 52px in the phone sheet, New business 36px and
- *            44px, and nothing overflows
- *   PLUS     with room for a second business, a "New business" square sits
+ *            place. Three businesses: the other two, and no New business
+ *            (three is the most, lib/businesses/rules MAX_BUSINESSES); two:
+ *            the other one, saying it is being set up, and New business under
+ *            it; one business: New business alone, a slim line. A second tap
+ *            folds it away, and what is folded cannot be reached by Tab. Rows
+ *            are 44px in the dropdown and 52px in the phone sheet, New
+ *            business 36px and 44px, and nothing overflows
+ *   PLUS     with room for another business, a "New business" square sits
  *            on the row just left of the chevron: 28px in the dropdown, 30px
  *            in the sheet, centred on the row, clear of the name and the
  *            chevron, answering a press anywhere in the 44px around it. A
  *            real mouse press on it starts the new business and does not
- *            open or fold the list. With two businesses there is no plus
- *   SCREEN   the start screen fills a 390 phone and a 1280 window with no
- *            sideways scroll; Create business is 48px and full width; the
- *            full state offers only the way back
+ *            open or fold the list. With three businesses there is no plus
+ *   CREATE   a press puts the plain white screen up at once, "Setting up
+ *            your new business" under the spinner, fading in on opacity;
+ *            the rows under it keep their size and their words, with no
+ *            spinner of their own. The server's yes moves the line to
+ *            "Opening your new business"; a refusal takes the screen away
+ *            and the menu says why, and the menu can be pressed again
+ *   SETUP    the setup page's screen (NewBusinessScreen) puts that spinner
+ *            and that line at the very same pixels, so the reload between
+ *            them shows nothing, and when the setup opens they fade out
+ *            while the white stays
  *
  *   PROBE_CSS=source node scripts/check-business-switcher.mjs
  */
@@ -46,8 +54,13 @@ const expect = (ok, what, got) => { console.log(`  ${ok ? "ok  " : "FAIL"}  ${wh
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 try {
-  /* Creating a business is a request and a reload; here it is recorded and never answers, so the row's waiting state can be read. */
-  writeFileSync(join(work, "switch-client.js"), `export const SWITCH_FAILED = "That business could not be opened. Try again."\nexport const switchBusiness = () => new Promise(() => {})\nexport const createBusiness = () => { window.__created = (window.__created || 0) + 1; return new Promise(() => {}) }\n`)
+  /*
+    Creating a business is a request and a reload; here it is recorded and
+    answers only when the probe says: window.__opening() is the server's yes
+    (the session held, the setup about to be asked for), window.__refuse(m)
+    a refusal with the server's sentence.
+  */
+  writeFileSync(join(work, "switch-client.js"), `export const SWITCH_FAILED = "That business could not be opened. Try again."\nexport const switchBusiness = () => new Promise(() => {})\nexport const createBusiness = (steps = {}) => { window.__created = (window.__created || 0) + 1; return new Promise((_, reject) => { window.__opening = () => steps.onOpening && steps.onOpening(); window.__refuse = (m) => reject(new Error(m)) }) }\n`)
   writeFileSync(join(work, "navigation.js"), `export const useRouter = () => ({ push: (h) => (window.__pushed = h), replace() {}, refresh() {}, prefetch() {}, back() {} })\nexport const usePathname = () => "/app"\nexport const useSearchParams = () => new URLSearchParams()\n`)
   execFileSync("npx", ["esbuild", "scripts/render-business-switcher.tsx", "--bundle", "--format=iife", "--jsx=automatic", '--define:process.env.NODE_ENV="production"', "--alias:@=.", "--banner:js=var process={env:{NODE_ENV:'production'}};", `--alias:next/navigation=./.business-probe/navigation.js`, `--alias:@/lib/businesses/switch-client=./.business-probe/switch-client.js`, `--outfile=${join(work, "app.js")}`, "--log-level=error"], { cwd: root, stdio: "inherit" })
   const js = readFileSync(join(work, "app.js"), "utf8")
@@ -83,15 +96,17 @@ try {
   await p.screenshot({ path: join(shots, "business-rows-folded-closeup.png"), clip: { x: 0, y: 0, width: 1440, height: 140 } })
   await p.setViewport({ width: 1440, height: 900 })
   await sleep(150)
-  for (const [sel, rowH, addH] of [["[data-probe=dropdown-two]", 44, 36], ["[data-probe=dropdown-one]", 44, 36], ["[data-probe=sheet-two]", 52, 44], ["[data-probe=sheet-one]", 52, 44]]) {
+  const COUNT = { one: 1, two: 2, three: 3 }
+  for (const [sel, rowH, addH] of ["dropdown", "sheet"].flatMap((v) => ["three", "two", "one"].map((n) => [`[data-probe=${v}-${n}]`, v === "sheet" ? 52 : 44, v === "sheet" ? 44 : 36]))) {
+    const count = COUNT[/-(one|two|three)\]/.exec(sel)[1]]
+    const room = count < 3
     const folded = await read(sel)
     expect(folded.rows.length === 1 && folded.rows[0].current && folded.rows[0].text.includes("@andrewrullz") && folded.rows[0].chevron && folded.rows[0].expanded === "false" && !folded.add && !folded.label,
       `${sel}: one row, the business you are in with its handle and a chevron, and no label`, folded)
     expect(folded.rows[0].h >= rowH && folded.over <= 0, `${sel}: a ${rowH}px row, nothing overflows`, folded.rows[0].h)
     const tabbable = await p.evaluate((s) => [...document.querySelectorAll(`${s} button`)].filter((b) => !b.closest("[inert]")).map((b) => b.getAttribute("aria-label") || b.getAttribute("data-business-row")), sel)
-    const one = sel.includes("one")
-    expect(one ? tabbable.join() === "current,New business" : tabbable.join() === "current",
-      `${sel}: folded, Tab reaches the row${one ? " and its plus" : ""} only`, tabbable)
+    expect(room ? tabbable.join() === "current,New business" : tabbable.join() === "current",
+      `${sel}: folded, Tab reaches the row${room ? " and its plus" : ""} only`, tabbable)
     /* The plus: where it sits, how big it is, and what a press around it lands on. */
     const plus = await p.evaluate((s) => {
       const el = document.querySelector(`${s} [data-business-add]`)
@@ -108,7 +123,7 @@ try {
       const cs = getComputedStyle(el)
       return { w: Math.round(b.width), h: Math.round(b.height), centred: Math.abs(cy - (row.top + row.height / 2)) <= 0.5, gapToChevron: Math.round(chev.left - b.right), gapToName: Math.round(b.left - text.right), hits, label: el.getAttribute("aria-label"), shadow: cs.boxShadow, border: cs.borderTopWidth }
     }, sel)
-    if (one) {
+    if (room) {
       const size = sel.includes("sheet") ? 30 : 28
       expect(!!plus && plus.w === size && plus.h === size && plus.centred && plus.label === "New business",
         `${sel}: a ${size}px plus named New business, centred on the row`, plus)
@@ -116,13 +131,16 @@ try {
         `${sel}: left of the chevron, clear of the name, with a hairline and the icon buttons' depth`, plus && { gapToChevron: plus.gapToChevron, gapToName: plus.gapToName, border: plus.border })
       expect(!!plus && plus.hits.every(Boolean), `${sel}: a press anywhere in the 44px around it lands on the plus`, plus && plus.hits)
     } else {
-      expect(plus === null, `${sel}: two businesses already, so no plus`, plus)
+      expect(plus === null, `${sel}: three businesses already, so no plus`, plus)
     }
     await toggle(sel)
     const open = await read(sel)
-    const two = sel.includes("two")
-    if (two) {
-      expect(open.rows.length === 2 && open.rows[1].text.includes("Setting up") && !open.rows[1].current && !open.add, `${sel}: open, the other business says it is being set up, and no New business with two already`, open.rows)
+    if (count === 3) {
+      expect(open.rows.length === 3 && open.rows[1].text.includes("Setting up") && open.rows[2].text.includes("@lindstudio") && !open.rows[1].current && !open.rows[2].current && !open.add,
+        `${sel}: open, the other two businesses, and no New business with three already`, open.rows.map((r) => r.text))
+    } else if (count === 2) {
+      expect(open.rows.length === 2 && open.rows[1].text.includes("Setting up") && !open.rows[1].current && open.add && open.addH >= addH && open.addH < rowH,
+        `${sel}: open, the other business says it is being set up, and New business under it: two is not the most any more`, { rows: open.rows.map((r) => r.text), add: open.add })
     } else {
       expect(open.rows.length === 1 && open.add && open.addH >= addH && open.addH < rowH, `${sel}: open, New business under it, a slim ${addH}px line`, { rows: open.rows.length, add: open.add, addH: open.addH })
     }
@@ -131,38 +149,129 @@ try {
   await p.screenshot({ path: join(shots, "business-menus-open-1440.png") })
   await p.setViewport({ width: 390, height: 900, deviceScaleFactor: 2 })
   await sleep(200)
+  await p.evaluate(() => document.querySelector("[data-probe=sheet-three]").scrollIntoView())
+  await p.screenshot({ path: join(shots, "business-sheet-three-open-390.png") })
   await p.evaluate(() => document.querySelector("[data-probe=sheet-one]").scrollIntoView())
   await p.screenshot({ path: join(shots, "business-sheet-open-390.png") })
   await p.setViewport({ width: 1440, height: 900 })
   await toggle("[data-probe=dropdown-two]")
   const shut = await read("[data-probe=dropdown-two]")
   expect(shut.rows.length === 1 && shut.rows[0].expanded === "false", "a second tap folds it away again", shut.rows.length)
+
+  console.log("\nNew business")
   /* A real mouse press on the sheet's plus, with its list folded first: it makes the business and leaves the list alone. */
   await toggle("[data-probe=sheet-one]")
   const plusAt = await p.evaluate(() => {
     const el = document.querySelector("[data-probe=sheet-one] [data-business-add]")
     el.scrollIntoView({ block: "center" })
     const b = el.getBoundingClientRect()
+    window.__plusBefore = { w: b.width, h: b.height, html: el.innerHTML }
     return { x: b.left + b.width / 2, y: b.top + b.height / 2 }
   })
+  /* The screen's opacity on each of the first frames after the press. */
+  await p.evaluate(() => {
+    window.__frames = []
+    const t0 = performance.now()
+    const tick = () => {
+      const el = document.querySelector("[data-business-switch-screen]")
+      window.__frames.push({ t: Math.round(performance.now() - t0), o: el ? Number(getComputedStyle(el).opacity) : null })
+      if (performance.now() - t0 < 400) requestAnimationFrame(tick)
+    }
+    addEventListener("pointerdown", () => requestAnimationFrame(tick), { once: true, capture: true })
+  })
   await p.mouse.click(plusAt.x, plusAt.y)
-  await sleep(400)
-  const pressed = await p.evaluate(() => ({
-    created: window.__created ?? 0,
-    pushed: window.__pushed ?? null,
-    expanded: document.querySelector("[data-probe=sheet-one] [data-business-row=current]").getAttribute("aria-expanded"),
-    spinning: !!document.querySelector("[data-probe=sheet-one] [data-business-add] .animate-spin"),
-    busy: document.querySelector("[data-probe=sheet-one] [data-business-add]").getAttribute("aria-busy"),
+  await sleep(450)
+  const pressed = await p.evaluate(() => {
+    const el = document.querySelector("[data-probe=sheet-one] [data-business-add]")
+    const b = el.getBoundingClientRect()
+    const scr = document.querySelector("[data-business-switch-screen]")
+    return {
+      created: window.__created ?? 0,
+      pushed: window.__pushed ?? null,
+      expanded: document.querySelector("[data-probe=sheet-one] [data-business-row=current]").getAttribute("aria-expanded"),
+      rowSpinner: !!document.querySelector("[data-business-switcher] .animate-spin"),
+      busy: el.getAttribute("aria-busy"),
+      sameBox: Math.abs(b.width - window.__plusBefore.w) < 0.5 && Math.abs(b.height - window.__plusBefore.h) < 0.5 && el.innerHTML === window.__plusBefore.html,
+      screen: scr && { surface: scr.getAttribute("data-surface"), step: scr.getAttribute("data-step"), line: scr.querySelector("[data-switch-line]:not([aria-hidden])")?.textContent, bg: getComputedStyle(scr.querySelector("[data-switch-middle]").parentElement).backgroundColor },
+      frames: window.__frames,
+    }
+  })
+  expect(pressed.created === 1 && pressed.pushed === null && pressed.expanded === "false" && pressed.busy === "true",
+    "the plus starts the new business right there and does not open the list", pressed)
+  expect(!!pressed.screen && pressed.screen.surface === "plain" && pressed.screen.step === "creating" && pressed.screen.line === "Setting up your new business" && pressed.screen.bg === "rgb(255, 255, 255)",
+    "the plain white screen is up, saying it is setting up your new business", pressed.screen)
+  expect(!pressed.rowSpinner && pressed.sameBox, "  the rows under it keep their size and their icon: no spinner of their own", { rowSpinner: pressed.rowSpinner, sameBox: pressed.sameBox })
+  const seen = pressed.frames.filter((f) => f.o !== null)
+  expect(seen.length > 0 && seen[0].o > 0 && seen[0].o < 1 && seen.every((f, i) => i === 0 || f.o >= seen[i - 1].o) && seen[seen.length - 1].o === 1,
+    "  it comes up in a short fade that is already moving on its first frame, and never dips", seen.slice(0, 6))
+  await p.screenshot({ path: join(shots, "business-new-creating.png") })
+  /* Where its spinner and line are, to hold the setup page's screen to. */
+  const geometry = () => p.evaluate(() => {
+    const scr = document.querySelector("[data-business-switch-screen]")
+    /* The box the spinner turns in, not the turning drawing: a turned box's bounds change with its angle. */
+    const sp = scr.querySelector("[data-switch-middle] > div > span").getBoundingClientRect()
+    const line = scr.querySelector("[data-switch-line]:not([aria-hidden])")
+    const lr = line.getBoundingClientRect()
+    return { spinner: [sp.left, sp.top, sp.width].map(Math.round), line: [lr.left, lr.top, lr.width, lr.height].map(Math.round), text: line.textContent, font: getComputedStyle(line).font, color: getComputedStyle(line).color }
+  })
+  await p.evaluate(() => window.__opening())
+  await sleep(700)
+  const opening = await geometry()
+  expect(opening.text === "Opening your new business", "the server's yes moves the line on: opening your new business", opening.text)
+  await p.screenshot({ path: join(shots, "business-new-opening.png") })
+  await p.evaluate(() => window.__refuse("You already have three businesses, the most one login can have."))
+  await sleep(500)
+  const refused = await p.evaluate(() => ({
+    screen: !!document.querySelector("[data-business-switch-screen]"),
+    error: document.querySelector("[data-probe=sheet-one] [role=alert]")?.textContent ?? null,
+    plusFree: !document.querySelector("[data-probe=sheet-one] [data-business-add]").disabled,
   }))
-  expect(pressed.created === 1 && pressed.pushed === null && pressed.expanded === "false" && pressed.spinning && pressed.busy === "true",
-    "the plus starts the new business right there, spins while it works, and does not open the list", pressed)
+  expect(!refused.screen && refused.error === "You already have three businesses, the most one login can have." && refused.plusFree,
+    "a refusal takes the screen away, the menu says why in the server's words, and it can be pressed again", refused)
   await p.evaluate(() => document.querySelector("[data-probe=sheet-one]").scrollIntoView())
-  await p.screenshot({ path: join(shots, "business-plus-waiting.png") })
-  await p.evaluate(() => document.querySelector("[data-probe=dropdown-one] [data-business-new]").click())
-  await sleep(150)
-  const made = await p.evaluate(() => ({ created: window.__created, pushed: window.__pushed ?? null, text: document.querySelector("[data-probe=dropdown-one] [data-business-new]").textContent.trim(), spinning: !!document.querySelector("[data-probe=dropdown-one] [data-business-new] .animate-spin"), plusSpinning: !!document.querySelector("[data-probe=dropdown-one] [data-business-add] .animate-spin") }))
-  expect(made.created === 2 && made.pushed === null && made.spinning && made.plusSpinning && made.text === "Setting up your new business", "New business in the list does the same, no page in between, says it is setting up, and the plus waits with it", made)
-  await p.screenshot({ path: join(shots, "business-new-waiting.png") })
+  await p.screenshot({ path: join(shots, "business-new-refused.png") })
+
+  console.log("\nThe setup page opens on the same screen")
+  const s = await browser.newPage()
+  s.on("pageerror", (e) => errors.push(e.message))
+  await s.setViewport({ width: 1440, height: 900 })
+  await s.goto(`file://${join(work, "index.html")}?view=setup`)
+  await sleep(300)
+  const setup = await s.evaluate(() => {
+    const scr = document.querySelector("[data-business-switch-screen]")
+    /* The box the spinner turns in, not the turning drawing: a turned box's bounds change with its angle. */
+    const sp = scr.querySelector("[data-switch-middle] > div > span").getBoundingClientRect()
+    const line = scr.querySelector("[data-switch-line]:not([aria-hidden])")
+    const lr = line.getBoundingClientRect()
+    return { spinner: [sp.left, sp.top, sp.width].map(Math.round), line: [lr.left, lr.top, lr.width, lr.height].map(Math.round), text: line.textContent, font: getComputedStyle(line).font, color: getComputedStyle(line).color }
+  })
+  expect(JSON.stringify(setup) === JSON.stringify(opening), "the spinner and the line at the very same pixels, in the same type, as the menu's last frame", { menu: opening, setup })
+  await s.screenshot({ path: join(shots, "business-setup-first-frame.png") })
+  await s.evaluate(() => {
+    window.__fade = []
+    const t0 = performance.now()
+    const mid = document.querySelector("[data-switch-middle]")
+    const surface = mid.parentElement
+    const tick = () => {
+      window.__fade.push({ t: Math.round(performance.now() - t0), mid: Number(getComputedStyle(mid).opacity), bg: getComputedStyle(surface).backgroundColor, surface: Number(getComputedStyle(surface).opacity) })
+      if (performance.now() - t0 < 450) requestAnimationFrame(tick)
+    }
+    window.__leave()
+    requestAnimationFrame(tick)
+  })
+  await sleep(600)
+  const fade = await s.evaluate(() => window.__fade)
+  expect(fade.length > 4 && fade.some((f) => f.mid > 0 && f.mid < 1) && fade[fade.length - 1].mid === 0 && fade.every((f, i) => i === 0 || f.mid <= fade[i - 1].mid),
+    "when the setup opens, the spinner and the line fade out on opacity, never back up", fade.filter((_, i) => i % 3 === 0).map((f) => [f.t, Math.round(f.mid * 100) / 100]))
+  expect(fade.every((f) => f.bg === "rgb(255, 255, 255)" && f.surface === 1), "  and the white under them stays, so nothing behind it shows", fade[fade.length - 1])
+  for (const [w, h] of [[390, 844], [1280, 800]]) {
+    await s.setViewport({ width: w, height: h, deviceScaleFactor: 2 })
+    await s.reload()
+    await sleep(300)
+    const box = await s.evaluate(() => ({ over: document.documentElement.scrollWidth - innerWidth, sp: document.querySelector(".activity-spinner").getBoundingClientRect().top + 13, h: innerHeight }))
+    expect(box.over <= 0 && Math.abs(box.sp / box.h - 0.4) < 0.02, `  at ${w}: no sideways scroll, the spinner 40% down as every slow page has it`, { over: box.over, at: Math.round((box.sp / box.h) * 1000) / 10 })
+    await s.screenshot({ path: join(shots, `business-setup-${w}.png`) })
+  }
   if (errors.length) expect(false, "no errors on the page", errors)
   await browser.close()
   console.log(`\nshots: ${shots}`)

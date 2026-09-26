@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation"
 import { PricingSection } from "@/components/marketing/pricing-section"
 import { isNativeApp } from "@/lib/native-bridge"
 import { StorelibMark } from "@/components/storelib-mark"
+import { ActivitySpinner } from "@/components/ui/activity-spinner"
 
 /**
  * How long a step takes to leave, in ms. It is the CSS duration and the
@@ -2010,31 +2011,39 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         </DialogContent>
       </Dialog>
 
+      {/*
+        ON THE WAY TO THE DASHBOARD. It was a purple ring, "Setting things
+        up..." and "Redirecting to your dashboard." on white: a third loading
+        look after the setup step and before the app's own. Now it is the one
+        every slow page and every switch of business shows: the light gray
+        spinner 40% down (components/ui/activity-spinner PageSpinner's rows)
+        with one plain line under it, on the white the setup was on.
+      */}
       {isRedirecting && (
         <div
-          className="fixed inset-0 z-[2147483647] bg-white flex items-center justify-center px-6 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+          data-onboarding-redirect=""
+          className="fixed inset-0 z-[2147483647] grid grid-rows-[2fr_auto_3fr] justify-items-center bg-white px-6 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] animate-in fade-in duration-200 motion-reduce:animate-none"
           role="status"
           aria-live="polite"
         >
-          <div className="w-full max-w-sm text-center">
-            <div
-              className="mx-auto mb-5 h-12 w-12 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin"
-              aria-hidden="true"
-            />
-            <h2 className="text-xl font-semibold text-gray-900">Setting things up...</h2>
-            <p className="mt-2 text-sm text-gray-500">Redirecting to your dashboard.</p>
-
-            {redirectFailed && (
-              <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                <p className="text-sm text-gray-700">This is taking longer than expected. You can continue manually.</p>
-                <button
-                  onClick={startDashboardRedirect}
-                  className="mt-3 inline-flex h-11 items-center justify-center rounded-xl bg-purple-600 px-4 text-sm font-medium text-white hover:bg-purple-700"
-                >
-                  Go to Dashboard
-                </button>
-              </div>
-            )}
+          <div className="relative row-start-2">
+            <span aria-hidden className="block">
+              <ActivitySpinner label="" />
+            </span>
+            <div className="absolute left-1/2 top-full ml-[-150px] mt-4 w-[300px] text-center">
+              <p className="text-[15px] font-medium leading-[22px] text-[#1a1a2e]">Opening your dashboard</p>
+              {redirectFailed && (
+                <div className="mt-4 animate-in fade-in duration-200 motion-reduce:animate-none">
+                  <p className="text-[14px] leading-5 text-[#6b7280]">This is taking longer than usual.</p>
+                  <button
+                    onClick={startDashboardRedirect}
+                    className={cn("mt-3 inline-flex h-11 items-center justify-center rounded-xl px-5 text-[14px] font-semibold transition-[background-color,box-shadow]", NEXT_ON)}
+                  >
+                    Go to dashboard
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

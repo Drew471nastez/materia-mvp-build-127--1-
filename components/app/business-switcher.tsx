@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useId, useRef, useState } from "react"
-import { ChevronsUpDown, Loader2, Plus } from "lucide-react"
+import { ChevronsUpDown, Plus } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { SwitchingScreen, type SwitchingHandle } from "@/components/app/business-switch-screen"
 import { iconDepth } from "@/components/ui/depth-button"
@@ -53,7 +53,13 @@ import { cn } from "@/lib/utils"
  *
  * "New business" makes the new account right there and goes straight
  * into the creator onboarding, the same "Name your store" everyone starts
- * with. No page in between: the row says it is setting up while it works.
+ * with. No page in between. While it works the same screen as a switch
+ * comes up, on the plain white the onboarding is drawn on: "Setting up your
+ * new business", then "Opening your new business" once the browser holds
+ * its session, and /signup/success opens on those same words in the same
+ * place (components/app/business-switch-screen NewBusinessScreen). The rows
+ * under it stay as they are, pressed and waiting, with no spinner of their
+ * own and no words that change their width: one loading state, not three.
  *
  * A PLUS ON THE ROW, LEFT OF THE CHEVRON. The owner: "Where the switcher is,
  * to the left of it, add a plus icon button, with a little bit more depth,
@@ -68,8 +74,8 @@ import { cn } from "@/lib/utils"
  * with an invisible 44px hit area around it (a `::before` a little bigger
  * than the square), because a finger in the phone's sheet needs the 44 and
  * an iPad uses the dropdown. It calls the same `add` as the "New business"
- * line, so both share one busy state: the plus turns into a spinner while
- * the account is made, and neither can start a second one.
+ * line, so both share one busy state: while the account is made neither
+ * can start a second one, and the screen above says what is happening.
  *
  * IT IS NOT INSIDE THE ROW'S BUTTON. A button inside a button is invalid
  * HTML, and a press on it would also toggle the list. So the row keeps its
@@ -147,9 +153,12 @@ export function BusinessSwitcher({
   const [expanded, setExpanded] = useState(false)
   /* The business being switched to, while its screen is up. */
   const [switching, setSwitching] = useState<BusinessRow | null>(null)
+  /* A new business being made, while its screen is up. */
+  const [creating, setCreating] = useState(false)
   const screen = useRef<SwitchingHandle | null>(null)
   const screenGone = useCallback(() => {
     setSwitching(null)
+    setCreating(false)
     setBusy(null)
   }, [])
   const listId = useId()
@@ -190,11 +199,14 @@ export function BusinessSwitcher({
     if (busy) return
     setError(null)
     setBusy("new")
+    setCreating(true)
     try {
-      await createBusiness()
+      await createBusiness({ onOpening: () => screen.current?.opening() })
     } catch (e) {
-      setBusy(null)
-      setError(e instanceof Error ? e.message : "The business could not be created. Try again.")
+      setError(e instanceof Error && e.message ? e.message : "The business could not be created. Try again.")
+      /* As a failed switch: busy until the screen has gone, then the menu under it says why. */
+      if (screen.current) screen.current.fail()
+      else screenGone()
     }
   }
 
@@ -278,11 +290,7 @@ export function BusinessSwitcher({
             )}
             style={{ right: plus.right, width: plus.size, height: plus.size }}
           >
-            {busy === "new" ? (
-              <Loader2 className={cn("animate-spin text-neutral-500", sheet ? "h-4 w-4" : "h-3.5 w-3.5")} aria-hidden />
-            ) : (
-              <Plus className={sheet ? "h-4 w-4" : "h-3.5 w-3.5"} strokeWidth={2} aria-hidden />
-            )}
+            <Plus className={sheet ? "h-4 w-4" : "h-3.5 w-3.5"} strokeWidth={2} aria-hidden />
           </button>
         )}
       </div>
@@ -319,6 +327,7 @@ export function BusinessSwitcher({
                 type="button"
                 disabled={!!busy}
                 onClick={add}
+                aria-busy={busy === "new" || undefined}
                 data-business-new=""
                 className={cn(
                   "flex w-full items-center font-medium text-neutral-600 transition-colors [-webkit-tap-highlight-color:transparent]",
@@ -326,13 +335,9 @@ export function BusinessSwitcher({
                 )}
               >
                 <span className="grid shrink-0 place-items-center text-neutral-400" style={{ width: avatarSize }}>
-                  {busy === "new" ? (
-                    <Loader2 className={cn("animate-spin", sheet ? "h-[18px] w-[18px]" : "h-4 w-4")} aria-hidden />
-                  ) : (
-                    <Plus className={sheet ? "h-[18px] w-[18px]" : "h-4 w-4"} strokeWidth={1.75} />
-                  )}
+                  <Plus className={sheet ? "h-[18px] w-[18px]" : "h-4 w-4"} strokeWidth={1.75} />
                 </span>
-                {busy === "new" ? "Setting up your new business" : "New business"}
+                New business
               </button>
             )}
           </div>
@@ -344,6 +349,7 @@ export function BusinessSwitcher({
         </p>
       )}
       {switching && <SwitchingScreen name={switching.name} ready={switching.ready} handleRef={screen} onGone={screenGone} />}
+      {creating && <SwitchingScreen mode="create" name="" ready={false} handleRef={screen} onGone={screenGone} />}
     </div>
   )
 }

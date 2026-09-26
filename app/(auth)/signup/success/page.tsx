@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState, useEffect } from "react"
+import { Suspense, use, useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Loader2 } from "lucide-react"
@@ -10,6 +10,7 @@ import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import Image from "next/image"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { switchBusiness } from "@/lib/businesses/switch-client"
+import { NewBusinessScreen } from "@/components/app/business-switch-screen"
 
 /**
  * A SECOND BUSINESS (lib/businesses) is always a creator: it goes straight
@@ -60,6 +61,8 @@ function SuccessContent() {
   const stripeTier = searchParams.get("tier") as "growth" | "pro" | null
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [firstBusiness, setFirstBusiness] = useState<{ userId: string; name: string } | null>(null)
+  /* Arrived from New business in the account menu (lib/businesses/switch-client createBusiness). */
+  const newBusiness = searchParams.get("business") === "new"
 
   // Check if user already completed onboarding - database is the source of truth
   // Uses auth state listener + retry to handle post-OAuth session delays.
@@ -272,6 +275,33 @@ function SuccessContent() {
     setShowCreatorOnboarding(false)
   }
 
+  /*
+    A NEW BUSINESS ARRIVES ON THE SCREEN IT LEFT. The account menu's last
+    frame was "Opening your new business" on plain white (components/app/
+    business-switch-screen), and this page's first HTML draws the same
+    (SignupSuccessPage's fallback below), then keeps it while the session is
+    found. When the setup opens, its first step fades in over the same white
+    as the spinner and the line fade out under it: no frame of the welcome
+    choice, which a new business never makes, and no second spinner.
+  */
+  const switchBack = firstBusiness
+    ? { name: firstBusiness.name, onSwitch: () => switchBusiness(firstBusiness.userId, "/app", { arrival: firstBusiness.name }) }
+    : null
+  const settled = !isCheckingAuth && !isRouting
+  if (newBusiness && (!settled || showCreatorOnboarding)) {
+    return (
+      <>
+        <NewBusinessScreen leaving={settled && showCreatorOnboarding} />
+        <CreatorOnboardingModal
+          open={settled && showCreatorOnboarding}
+          onClose={handleCreatorOnboardingComplete}
+          resumeFromStripe={stripeSuccess === "1" && stripeTier ? { planId: stripeTier } : null}
+          switchBack={switchBack}
+        />
+      </>
+    )
+  }
+
   // Show full-screen loader while auth is checking or route transition
   if (isCheckingAuth || isRouting) {
     return <AuthResolvingScreen />
@@ -440,15 +470,17 @@ function SuccessContent() {
             ? { planId: stripeTier }
             : null
         }
-        switchBack={firstBusiness ? { name: firstBusiness.name, onSwitch: () => switchBusiness(firstBusiness.userId) } : null}
+        switchBack={switchBack}
       />
     </>
   )
 }
 
-export default function SignupSuccessPage() {
+export default function SignupSuccessPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  /* Read on the server too, so a new business's first HTML is the screen the account menu ended on, not a different spinner. */
+  const newBusiness = use(searchParams).business === "new"
   return (
-    <Suspense fallback={<AuthResolvingScreen />}>
+    <Suspense fallback={newBusiness ? <NewBusinessScreen /> : <AuthResolvingScreen />}>
       <SuccessContent />
     </Suspense>
   )

@@ -114,13 +114,34 @@ export async function switchBusiness(to: string, next = "/app", steps: SwitchSte
   await applyBusinessSession(data.session as BusinessSession, next, steps)
 }
 
-/** Make the second business and open its onboarding. */
-export async function createBusiness(): Promise<void> {
-  const { ok, status, data } = await post("/api/businesses", {})
+/** Whatever went wrong making a business, when the server said nothing better. */
+export const CREATE_FAILED = "The business could not be created. Try again."
+/** Making one is an account, a link and a session: longer than a switch, never forever. */
+export const CREATE_TIMEOUT_MS = 30_000
+export const CREATE_NO_ANSWER = "No answer in time. Reload the page to see if your new business is here."
+
+/**
+ * Make another business and open its onboarding. Resolves only if it fails;
+ * on success the page loads the setup. `onOpening` as for a switch: the
+ * session is held and the setup is about to be asked for. No answer in
+ * CREATE_TIMEOUT_MS is a failure, so the screen over the menu never waits
+ * forever; every failure is a sentence (the server's own when it gave one,
+ * such as the limit), never a browser's "Failed to fetch".
+ */
+export async function createBusiness(steps: Pick<SwitchSteps, "onOpening"> = {}): Promise<void> {
+  let answer: Awaited<ReturnType<typeof post>>
+  try {
+    answer = await post("/api/businesses", {}, CREATE_TIMEOUT_MS)
+  } catch (e) {
+    /* No answer in time: the server may still have made it, so the words say where to look rather than to press again. */
+    throw new Error(e instanceof DOMException && e.name === "AbortError" ? CREATE_NO_ANSWER : CREATE_FAILED)
+  }
+  const { ok, status, data } = answer
   if (status === 202) {
+    /* Made, but no session came with it: it is in the account menu of the business you are in. */
     window.location.replace("/app")
     return
   }
-  if (!ok || !data.session) throw new Error(typeof data.error === "string" ? data.error : "The business could not be created. Try again.")
-  await applyBusinessSession(data.session as BusinessSession, "/signup/success?action=become-creator&business=new")
+  if (!ok || !data.session) throw new Error(typeof data.error === "string" && data.error ? data.error : CREATE_FAILED)
+  await applyBusinessSession(data.session as BusinessSession, "/signup/success?action=become-creator&business=new", steps)
 }

@@ -102,6 +102,31 @@ function switchScreen() {
     /setSwitching\(b\)/.test(switcher) && /switchBusiness\(b\.userId, "\/app", \{ arrival: b\.ready \? b\.name : undefined, onOpening: \(\) => screen\.current\?\.opening\(\) \}\)/.test(switcher)
       && /<SwitchingScreen name=\{switching\.name\} ready=\{switching\.ready\}/.test(switcher))
   check("  and the row's own spinner is gone: one loading state, not two", !/busy === b\.userId && <Loader2/.test(switcher))
+  /*
+    Changed on purpose (owner: "the loading states should be very smooth,
+    clean"): New business used to spin in the plus and rewrite its own line
+    ("Setting up your new business"), then reload onto a different spinner
+    on white. Now it has the switch's screen, on the plain white its setup
+    is drawn on, and /signup/success opens on the same words in the same place.
+  */
+  check("New business puts the same screen up, in its create mode, and moves it on once the session is held",
+    /setCreating\(true\)/.test(switcher) && /await createBusiness\(\{ onOpening: \(\) => screen\.current\?\.opening\(\) \}\)/.test(switcher)
+      && /\{creating && <SwitchingScreen mode="create"/.test(switcher))
+  check("  its rows keep their icon and their words while it works: no spinner of their own, nothing changes width", !/Loader2/.test(switcher) && !/Setting up your new business/.test(switcher))
+  check("  a failed one takes the screen away and the menu says why, as a switch does", /catch \(e\) \{\s*setError\(e instanceof Error && e\.message \? e\.message : "The business could not be created\. Try again\."\)\s*\/\*[^*]*\*\/\s*if \(screen\.current\) screen\.current\.fail\(\)/.test(switcher))
+  check("its two lines say what is happening, in plain words", switchLine("creating", "") === "Setting up your new business" && switchLine("starting", "") === "Opening your new business")
+  const created = read("lib/businesses/switch-client.ts")
+  check("making one never waits forever, and no answer in time says where to look rather than to press again",
+    /post\("\/api\/businesses", \{\}, CREATE_TIMEOUT_MS\)/.test(created) && /CREATE_TIMEOUT_MS = 30_000/.test(created) && /CREATE_NO_ANSWER/.test(created) && /"\/signup\/success\?action=become-creator&business=new", steps\)/.test(created))
+  const success = read("app/(auth)/signup/success/page.tsx")
+  check("the setup page's first HTML is that screen for a new business, read from the address on the server",
+    /use\(searchParams\)\.business === "new"/.test(success) && /<Suspense fallback=\{newBusiness \? <NewBusinessScreen \/> : <AuthResolvingScreen \/>\}>/.test(success))
+  check("  kept while the session is found, fading out under the setup's first step, never the welcome choice",
+    /if \(newBusiness && \(!settled \|\| showCreatorOnboarding\)\)/.test(success) && /<NewBusinessScreen leaving=\{settled && showCreatorOnboarding\} \/>/.test(success)
+      && success.indexOf("if (newBusiness && (!settled") < success.indexOf("return <AuthResolvingScreen />"))
+  check("  the same surface, spinner and line as the menu's screen, fading on opacity only",
+    /export function NewBusinessScreen\(\{ leaving = false \}/.test(read("components/app/business-switch-screen.tsx")) && /<Screen step="starting" name="" ready=\{false\} surface="plain" leaving=\{leaving\} \/>/.test(read("components/app/business-switch-screen.tsx"))
+      && /surface=\{creating \? "plain" : "app"\}/.test(read("components/app/business-switch-screen.tsx")) && /transition-opacity ease-out motion-reduce:transition-none/.test(read("components/app/business-switch-screen.tsx")))
   check("a failed switch takes the screen away and says why in the menu", /screen\.current\.fail\(\)/.test(switcher) && /setError\(e instanceof Error && e\.message \? e\.message : SWITCH_FAILED\)/.test(switcher))
   const client = read("lib/businesses/switch-client.ts")
   const cookieAt = client.indexOf("document.cookie = switchCookie(steps.arrival")
@@ -126,6 +151,10 @@ function switchScreen() {
   check("everything on the screen moves on opacity and translate only", keyframes.length >= 4 && [...props].every((p) => p === "opacity" || p === "translate"), [...props])
   check("reduced motion: no movement on the lines, no fade in or out of the screen", /const rise = still \? 0 : LINE_RISE_PX/.test(screen) && (screen.match(/reducedMotion\(\) \|\| typeof el\.animate !== "function"/g) ?? []).length >= 3)
   check("its spinner turns on across the reload", /\[data-business-switch-screen\] \.activity-spinner \{\s*animation-delay: var\(--switch-spin-delay, 0ms\);/.test(read("app/globals.css")))
+  const onboarding = read("components/app/creator-onboarding-modal.tsx")
+  const redirect = /\{isRedirecting && \(([\s\S]*?)\n      \)\}/.exec(onboarding)?.[1] ?? ""
+  check("the setup's last screen, on the way to the dashboard, is the same calm spinner and one line: no purple ring, no dots",
+    /<ActivitySpinner label="" \/>/.test(redirect) && /grid-rows-\[2fr_auto_3fr\]/.test(redirect) && />Opening your dashboard</.test(redirect) && !/purple|animate-spin|\.\.\./.test(redirect))
   check("the probe that measures it is there", existsSync(join(root, "scripts/check-business-switch.mjs")) && existsSync(join(root, "scripts/render-business-switch-tree.tsx")))
 }
 
@@ -242,7 +271,7 @@ function main() {
   check("the layout reads the businesses beside everything else", /listBusinesses\(user\.id\)\.catch\(\(\) => \[\]\)/.test(read("app/app/layout.tsx")) && /businesses=\{businesses\}/.test(read("app/app/layout.tsx")))
   check("both account menus list them", /<BusinessSwitcher businesses=\{businesses\} variant="dropdown"/.test(read("components/app/sidebar.tsx")) && /<BusinessSwitcher businesses=\{businesses\} variant="sheet"/.test(read("components/app/mobile-account-menu.tsx")))
   check("New business makes it right there and goes straight into the creator onboarding, no page in between",
-    /onClick=\{add\}/.test(read("components/app/business-switcher.tsx")) && /await createBusiness\(\)/.test(read("components/app/business-switcher.tsx")) &&
+    /onClick=\{add\}/.test(read("components/app/business-switcher.tsx")) && /* Changed on purpose: it now hands the screen its next step. */ /await createBusiness\(\{ onOpening:/.test(read("components/app/business-switcher.tsx")) &&
       /"\/signup\/success\?action=become-creator&business=new"/.test(read("lib/businesses/switch-client.ts")) && /redirect\("\/app"\)/.test(read("app/(auth)/onboarding/business/page.tsx")))
   const switcher = read("components/app/business-switcher.tsx")
   /*
@@ -271,7 +300,7 @@ function main() {
   check("Settings on the phone's sheet only: on a desktop the rail beside it has Settings",
     !/"\/app\/settings"/.test(desktopMenu) && /"\/app\/settings"/.test(phoneMenu) && /href="\/app\/settings"/.test(read("components/app/sidebar-desktop-nav.tsx")))
   check("a second business goes straight into onboarding with its way back",
-    /const first = await firstBusinessIfSecond\(\)/.test(read("app/(auth)/signup/success/page.tsx")) && /switchBack=\{firstBusiness \?/.test(read("app/(auth)/signup/success/page.tsx")) && /data-onboarding-switch-back/.test(read("components/app/creator-onboarding-modal.tsx")))
+    /const first = await firstBusinessIfSecond\(\)/.test(read("app/(auth)/signup/success/page.tsx")) && /* Changed on purpose: the way back is one value both of the page's paths hand the onboarding, and it carries the switch's screen into /app. */ /const switchBack = firstBusiness\s*\?\s*\{ name: firstBusiness\.name, onSwitch: \(\) => switchBusiness\(firstBusiness\.userId, "\/app", \{ arrival: firstBusiness\.name \}\) \}/.test(read("app/(auth)/signup/success/page.tsx")) && (read("app/(auth)/signup/success/page.tsx").match(/switchBack=\{switchBack\}/g) ?? []).length === 2 && /data-onboarding-switch-back/.test(read("components/app/creator-onboarding-modal.tsx")))
   check("the onboarding is the whole screen in the app", /setNativeFullScreen\(isNativeApp\(\)\)/.test(read("components/app/creator-onboarding-modal.tsx")))
   const del = read("app/api/auth/delete-account/route.ts")
   /* Changed on purpose: a login can have two businesses besides its first, so deleting it deletes each of them. */

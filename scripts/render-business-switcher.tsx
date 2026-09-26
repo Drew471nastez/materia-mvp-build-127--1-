@@ -1,35 +1,53 @@
 /**
  * The account menu's business switcher (components/app/business-switcher) in
  * both of its sizes, for scripts/check-business-switcher.mjs.
- * Fixture businesses: the one you are in, a second still being set up.
+ * Fixture businesses: the one you are in, a second still being set up, and a
+ * third that is ready. One, two and three of them: a login can have three
+ * (lib/businesses/rules MAX_BUSINESSES), so two still offers New business and
+ * three does not.
+ *
+ * `?view=setup` is the other side of New business: the screen /signup/success
+ * opens on (NewBusinessScreen), which window.__leave() fades out as the
+ * setup's first step would.
  */
-import React from "react"
+import React, { useEffect, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { BusinessSwitcher, type BusinessRow } from "@/components/app/business-switcher"
+import { NewBusinessScreen } from "@/components/app/business-switch-screen"
 
-const TWO: BusinessRow[] = [
+const THREE: BusinessRow[] = [
   { userId: "00000000-0000-4000-8000-00000000000a", name: "AndrewRullz", handle: "andrewrullz", avatarUrl: null, ready: true, current: true, role: "owner" },
   { userId: "00000000-0000-4000-8000-00000000000b", name: "Loudlib", handle: "loudlib", avatarUrl: null, ready: false, current: false, role: "member" },
+  { userId: "00000000-0000-4000-8000-00000000000c", name: "Lind Studio", handle: "lindstudio", avatarUrl: null, ready: true, current: false, role: "member" },
 ]
-const ONE: BusinessRow[] = [TWO[0]]
+const TWO: BusinessRow[] = THREE.slice(0, 2)
+const ONE: BusinessRow[] = [THREE[0]]
+const FIXTURES = { one: ONE, two: TWO, three: THREE } as const
 
 function Menus() {
   return (
     <div style={{ display: "flex", gap: 24, padding: 24, background: "#f3f4f6", minHeight: "100vh", alignItems: "flex-start", flexWrap: "wrap" }}>
-      <div data-probe="dropdown-two" className="w-[248px] rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
-        <BusinessSwitcher businesses={TWO} variant="dropdown" onNavigate={() => {}} />
-      </div>
-      <div data-probe="dropdown-one" className="w-[248px] rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
-        <BusinessSwitcher businesses={ONE} variant="dropdown" onNavigate={() => {}} />
-      </div>
-      <div data-probe="sheet-two" className="w-[390px] rounded-t-2xl bg-white px-3 pb-3 pt-3">
-        <BusinessSwitcher businesses={TWO} variant="sheet" onNavigate={() => {}} />
-      </div>
-      <div data-probe="sheet-one" className="w-[390px] rounded-t-2xl bg-white px-3 pb-3 pt-3">
-        <BusinessSwitcher businesses={ONE} variant="sheet" onNavigate={() => {}} />
-      </div>
+      {(["three", "two", "one"] as const).map((n) => (
+        <div key={`d-${n}`} data-probe={`dropdown-${n}`} className="w-[248px] rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
+          <BusinessSwitcher businesses={FIXTURES[n]} variant="dropdown" onNavigate={() => {}} />
+        </div>
+      ))}
+      {(["three", "two", "one"] as const).map((n) => (
+        <div key={`s-${n}`} data-probe={`sheet-${n}`} className="w-[390px] rounded-t-2xl bg-white px-3 pb-3 pt-3">
+          <BusinessSwitcher businesses={FIXTURES[n]} variant="sheet" onNavigate={() => {}} />
+        </div>
+      ))}
     </div>
   )
 }
 
-createRoot(document.getElementById("app")!).render(<Menus />)
+function Setup() {
+  const [leaving, setLeaving] = useState(false)
+  useEffect(() => {
+    ;(window as unknown as { __leave: () => void }).__leave = () => setLeaving(true)
+  }, [])
+  return <NewBusinessScreen leaving={leaving} />
+}
+
+const view = new URLSearchParams(location.search).get("view")
+createRoot(document.getElementById("app")!).render(view === "setup" ? <Setup /> : <Menus />)

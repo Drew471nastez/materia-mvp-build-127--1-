@@ -29,7 +29,26 @@
  * words, the timing and the cookie to account.
  */
 
-export type SwitchStep = "asking" | "opening" | "arriving"
+export type SwitchStep = "asking" | "opening" | "arriving" | "creating" | "starting"
+
+/**
+ * A NEW BUSINESS HAS THE SAME SCREEN, WITH ITS OWN TWO STEPS. "New business"
+ * in the account menu makes an account and opens its setup (the creator
+ * onboarding on /signup/success), which is a switch in all but name:
+ *
+ *   CREATING  the server makes the account, links it to the login and
+ *             makes a session for it (app/api/businesses). "Setting up your
+ *             new business", the moment the row is pressed.
+ *   STARTING  the browser holds that session and asks for the setup page.
+ *             "Opening your new business", on the page you were on, then
+ *             on the setup page's first frame, the same words in the same
+ *             place, until the setup's first step is ready to show.
+ *
+ * The setup is drawn on white, not in the app's frame, so this screen is
+ * the plain white one (`surface: "plain"` in components/app/business-switch-
+ * screen) on both sides of the reload.
+ */
+export const NEW_BUSINESS_STEPS = ["creating", "starting"] as const satisfies readonly SwitchStep[]
 
 /**
  * THE NAME, CLEANED. It is shown in the lines and carried across the reload
@@ -49,6 +68,8 @@ export function cleanSwitchName(raw: unknown): string | null {
 export function switchLine(step: SwitchStep, name: string, { ready = true }: { ready?: boolean } = {}): string {
   if (step === "asking") return `Switching to ${name}`
   if (step === "opening") return ready ? `Opening ${name}'s store` : `Opening ${name}'s setup`
+  if (step === "creating") return "Setting up your new business"
+  if (step === "starting") return "Opening your new business"
   return "Loading your dashboard"
 }
 

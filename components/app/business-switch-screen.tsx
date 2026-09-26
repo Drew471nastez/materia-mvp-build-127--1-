@@ -6,6 +6,7 @@ import AppColdStart from "@/app/app/cold-start"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { playEntrance } from "@/components/app/app-stage"
 import { NAV_ENTER_EASE } from "@/lib/ui/app-navigation"
+import { cn } from "@/lib/utils"
 import {
   ARRIVAL_BUSY_MIN_AREA,
   ARRIVAL_CAP_MS,
@@ -49,6 +50,15 @@ import {
  *   Then one 200ms fade, with the page under it taking the stage's own 2px
  *   rise (app-stage playEntrance), the rise only: the screen's fade is the
  *   page's fade, and fading both would multiply them.
+ *
+ *   A NEW BUSINESS (SwitchingScreen with `mode="create"`, then
+ *   NewBusinessScreen on /signup/success). The same spinner and the same
+ *   line at the same height, on the plain white the setup is drawn on
+ *   rather than in the app's frame: "Setting up your new business" while
+ *   the server makes it, "Opening your new business" once the browser holds
+ *   its session, and the same words on the setup page's first frame. When
+ *   the setup's first step opens, the spinner and the line fade out under
+ *   it and the white stays, so no frame shows the page behind.
  *
  * A line changes by fading: the old one out and up 4px, the new one in from
  * 4px below, a little after, so the two never sit on top of each other at
@@ -122,31 +132,61 @@ function Lines({ lineKey, text }: { lineKey: string; text: string }) {
  * is nothing drawn yet for it to restyle; set on the <html> of a page already
  * drawn, it would restyle the whole page in the frame the screen comes up in.
  */
-function Screen({ step, name, ready, spin, screenRef }: { step: SwitchStep; name: string; ready: boolean; spin?: string; screenRef: React.Ref<HTMLDivElement> }) {
+/** Where the screen is drawn: the app's own frame for a switch, plain white for a new business's setup. */
+export type ScreenSurface = "app" | "plain"
+
+function Screen({
+  step,
+  name,
+  ready,
+  spin,
+  screenRef,
+  surface = "app",
+  leaving = false,
+}: {
+  step: SwitchStep
+  name: string
+  ready: boolean
+  spin?: string
+  screenRef?: React.Ref<HTMLDivElement>
+  surface?: ScreenSurface
+  /** The page under it is taking over: the spinner and the line fade out, the surface stays. */
+  leaving?: boolean
+}) {
   const text = switchLine(step, name, { ready })
+  /* The spinner exactly where PageSpinner puts it (40% down), the line under it without moving it. */
+  const middle = (
+    <div
+      data-switch-middle=""
+      className={cn(
+        "grid h-full w-full grid-rows-[2fr_auto_3fr] justify-items-center transition-opacity ease-out motion-reduce:transition-none",
+        leaving && "opacity-0",
+      )}
+      style={{ transitionDuration: `${HANDOVER_MS}ms` }}
+    >
+      <div className="relative row-start-2">
+        <span aria-hidden className="block">
+          <ActivitySpinner label="" />
+        </span>
+        <div className="absolute left-1/2 top-full ml-[-150px] mt-4 w-[300px]">
+          <Lines lineKey={step} text={text} />
+        </div>
+      </div>
+    </div>
+  )
   return (
     <div
       ref={screenRef}
       data-business-switch-screen=""
+      data-surface={surface}
       data-step={step}
       role="status"
       aria-live="polite"
+      aria-busy={!leaving}
       className="fixed inset-0 z-[500] touch-none select-none"
       style={spin ? ({ "--switch-spin-delay": spin } as React.CSSProperties) : undefined}
     >
-      <AppColdStart>
-        {/* The spinner exactly where PageSpinner puts it (40% down), the line under it without moving it. */}
-        <div className="grid h-full w-full grid-rows-[2fr_auto_3fr] justify-items-center">
-          <div className="relative row-start-2">
-            <span aria-hidden className="block">
-              <ActivitySpinner label="" />
-            </span>
-            <div className="absolute left-1/2 top-full ml-[-150px] mt-4 w-[300px]">
-              <Lines lineKey={step} text={text} />
-            </div>
-          </div>
-        </div>
-      </AppColdStart>
+      {surface === "app" ? <AppColdStart>{middle}</AppColdStart> : <div className="absolute inset-0 bg-white">{middle}</div>}
     </div>
   )
 }
@@ -197,20 +237,24 @@ export type SwitchingHandle = {
 /**
  * The screen from the account menu, drawn over the whole page. `onGone` once
  * a failed switch's screen has faded away. `handle` is how the switch moves
- * it on.
+ * it on. `mode="create"` is New business: its own two lines, on the plain
+ * white its setup is drawn on.
  */
 export function SwitchingScreen({
   name,
   ready,
   handleRef,
   onGone,
+  mode = "switch",
 }: {
   name: string
   ready: boolean
   handleRef: React.MutableRefObject<SwitchingHandle | null>
   onGone: () => void
+  mode?: "switch" | "create"
 }) {
-  const { step, go, shown } = useSteps("asking")
+  const creating = mode === "create"
+  const { step, go, shown } = useSteps(creating ? "creating" : "asking")
   const ref = useRef<HTMLDivElement>(null)
   /* Its spinner's turn, from the wall clock, as the new document's will be. */
   const [spin] = useState(() => spinDelay(Date.now(), reducedMotion()))
@@ -228,7 +272,7 @@ export function SwitchingScreen({
 
   useEffect(() => {
     handleRef.current = {
-      opening: () => go("opening", { atOnce: true }),
+      opening: () => go(creating ? "starting" : "opening", { atOnce: true }),
       fail: () => {
         const el = ref.current
         if (!el || reducedMotion() || typeof el.animate !== "function") { onGone(); return }
@@ -241,10 +285,10 @@ export function SwitchingScreen({
       },
     }
     return () => { handleRef.current = null }
-  }, [go, handleRef, onGone])
+  }, [creating, go, handleRef, onGone])
 
   /* Only ever drawn after a press, so there is a document to put it in. */
-  return createPortal(<Screen step={step} name={name} ready={ready} spin={spin} screenRef={ref} />, document.body)
+  return createPortal(<Screen step={step} name={name} ready={ready} spin={spin} screenRef={ref} surface={creating ? "plain" : "app"} />, document.body)
 }
 
 /* ── On the new /app ────────────────────────────────────────────────────── */
@@ -348,4 +392,18 @@ export function BusinessSwitchArrival({ name }: { name: string }) {
 
   if (gone) return null
   return <Screen step={step} name={name} ready screenRef={ref} />
+}
+
+/* ── On the new business's setup ────────────────────────────────────────── */
+
+/**
+ * The screen as /signup/success draws it for a new business (`?business=new`,
+ * lib/businesses/switch-client createBusiness): from its first HTML, while it
+ * finds the session, and under the setup once that opens. The same surface,
+ * spinner and line as the menu's last frame ("Opening your new business"),
+ * so the reload between them shows nothing. `leaving` once the setup's first
+ * step is up: the spinner and the line fade out under it, the white stays.
+ */
+export function NewBusinessScreen({ leaving = false }: { leaving?: boolean }) {
+  return <Screen step="starting" name="" ready={false} surface="plain" leaving={leaving} />
 }
