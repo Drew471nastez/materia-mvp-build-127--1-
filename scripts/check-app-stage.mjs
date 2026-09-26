@@ -667,7 +667,7 @@ for (const [label, viewport] of [
         dy: Math.round(r.top + r.height / 2 - (area.top + area.height / 2)),
         y: Math.round(((r.top + r.height / 2 - area.top) / area.height) * 1000) / 1000,
       },
-      surface: { top: Math.round(area.top), background: getComputedStyle(surface).backgroundColor, radius: getComputedStyle(surface).borderTopLeftRadius },
+      surface: { top: Math.round(area.top), background: getComputedStyle(surface).backgroundColor, radius: getComputedStyle(surface).borderTopLeftRadius, corner: getComputedStyle(document.documentElement).getPropertyValue("--app-top-corner").trim() },
       animation: getComputedStyle(box).animationName + " " + getComputedStyle(box).animationDuration + " " + getComputedStyle(box).animationTimingFunction,
       willChange: getComputedStyle(box).willChange,
       tag: box.tagName,
@@ -715,7 +715,7 @@ for (const [label, viewport] of [
   if (spin.colour !== "rgb(156, 163, 175)") problems.push(`the spinner is ${spin.colour}, not the light gray #9ca3af`)
   if (spin.size[0] !== 26 || spin.size[1] !== 26 || spin.drawn[0] !== 26) problems.push(`the spinner is ${spin.size.join("x")} (drawn ${spin.drawn.join("x")}), not 26x26`)
   if (Math.abs(spin.centredIn.dx) > 1 || spin.centredIn.y < 0.38 || spin.centredIn.y > 0.42) problems.push(`the spinner is ${spin.centredIn.dx}px off centre across and at ${spin.centredIn.y} of the height, not 0.38 to 0.42`)
-  if (spin.surface.top !== 68 || spin.surface.background !== "rgb(248, 249, 250)" || spin.surface.radius !== "20px") problems.push(`the surface is not the content area: ${JSON.stringify(spin.surface)}`)
+  if (spin.surface.top !== 68 || spin.surface.background !== "rgb(248, 249, 250)" || spin.surface.radius !== spin.surface.corner) problems.push(`the surface is not the content area: ${JSON.stringify(spin.surface)}`)
   if (!/^activity-spin 1s linear$/.test(spin.animation)) problems.push(`the spinner turns on ${spin.animation}, not one turn a second, linear`)
   if (spin.tag !== "SPAN" || spin.willChange !== "transform") problems.push(`the turn is on a ${spin.tag} with will-change ${spin.willChange}, not an HTML box on its own layer`)
   if (smooth.repeatedFrames > 2) problems.push(`the spinner held still for ${smooth.repeatedFrames} of ${smooth.frames} frames`)
