@@ -6032,6 +6032,27 @@ html.pop-in-flight #platform-header-root {
 }
 .checkout-enter { animation: checkout-enter 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 
+/* The checkout's skeleton: its blocks breathe, together, slowly, rather than a sheen racing across each one. */
+@keyframes checkout-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.checkout-shimmer-soft { animation: checkout-breathe 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .checkout-shimmer-soft { animation: none; }
+}
+
+/* Leaving the checkout: the page as it was fades into the page Back lands on (checkout-client leaveWithFade). */
+html[data-checkout-motion]::view-transition-old(root),
+html[data-checkout-motion]::view-transition-new(root) {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-checkout-motion]::view-transition-old(root),
+  html[data-checkout-motion]::view-transition-new(root) { animation: none; }
+}
+
 @keyframes checkout-shimmer {
   from { background-position: 100% 0; }
   to { background-position: -100% 0; }

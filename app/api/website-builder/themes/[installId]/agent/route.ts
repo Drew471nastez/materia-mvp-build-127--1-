@@ -293,9 +293,22 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * dearer tier eventually would, and the bill is theirs.
          */
         /* On the creator's own AI when they have connected one: see resolveForCreator. */
-        const resolved = await resolveForCreator((creator as { id: string }).id, { requested: body.provider, tier: body.tier })
+        /**
+         * THE BETTER MODEL WHEN THE ASK IS PLAINLY A BUILD.
+         *
+         * `tier` is the creator's switch and this never lowers it. But
+         * "build me a proper pricing section" on the everyday model is the
+         * run most likely to come back thin, and the classifier already
+         * recognises that shape (./ambition, `ambitious`): a page built once
+         * badly costs more than the difference between the two models. A
+         * tweak, a question and a chat all stay on what they chose.
+         */
+        const wantsTier = shape.ambitious && body.tier !== "strong" ? "strong" : body.tier
+        const resolved = await resolveForCreator((creator as { id: string }).id, { requested: body.provider, tier: wantsTier })
         /* Whose account answers, so the chat can say "On your Claude key" and not count it as Storelib AI. */
         send({ type: "account", own: resolved.own })
+        /* Said out loud: the run is on a model they did not pick, and on their own account it is their bill. */
+        if (wantsTier !== body.tier) send({ type: "thinking", text: "Using the stronger model for this one." })
         const notice = substitutionNotice(resolved)
         if (notice) send({ type: "thinking", text: notice })
         /**
@@ -411,11 +424,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           code,
           model: resolved.model,
           maxTurns: shape.maxTurns,
+          /* Reads the catalogue up front and gives the model room to write a filled section (lib/website-builder/agent/loop). */
+          ambitious: shape.ambitious,
           /**
            * Thinking depth, where the provider has such a dial. A build is
            * the case that repays it; a one-word change is not.
            */
-          effort: shape.scope === "build" ? "high" : "medium",
+          effort: shape.wholePage ? "xhigh" : shape.scope === "build" ? "high" : "medium",
           prompt: body.prompt,
           images,
           page: body.page,

@@ -178,12 +178,61 @@ export async function findCoupon(db: Db, creatorId: string, code: string): Promi
   return String((data as CouponRow).code).toLowerCase() === code.toLowerCase() ? (data as CouponRow) : null
 }
 
+/**
+ * ===========================================================================
+ *  THE PLATFORM ADMIN'S OWN CODE
+ * ===========================================================================
+ * 100% off any product, for Storelib's admin to buy anything to check it.
+ * The code alone does nothing: it is honoured only for a request that
+ * carries a signed-in admin console session (the /admin cookie, checked on
+ * the server by lib/admin-blog-auth), so seeing it written down, here or
+ * anywhere, gives nobody else a free product. For everyone else it is an
+ * unknown code, answered like any other.
+ *
+ * It has no row: no id, no limit, so no hold is taken and no use counted
+ * (lib/checkout/coupon-holds, recordCouponUse). The order still records the
+ * code it was bought with.
+ */
+export const ADMIN_CODE = "STORELIB100"
+
+export function isAdminCode(code: string): boolean {
+  return code.trim().toUpperCase() === ADMIN_CODE
+}
+
+export function adminCoupon(creatorId: string): CouponRow {
+  return {
+    id: "",
+    code: ADMIN_CODE,
+    creator_id: creatorId,
+    discount_type: "percentage",
+    discount_value: 100,
+    starts_at: null,
+    expires_at: null,
+    usage_limit: null,
+    usage_count: 0,
+    product_ids: null,
+    is_active: true,
+  }
+}
+
+async function adminSignedIn(): Promise<boolean> {
+  try {
+    const { isAdminAuthenticated } = await import("@/lib/admin-blog-auth")
+    return await isAdminAuthenticated()
+  } catch {
+    return false
+  }
+}
+
 export async function validateCoupon(
   db: Db,
   opts: { creatorId: string; productId: string; code: unknown; priceCents: number },
 ): Promise<CouponCheck> {
   const code = normaliseCode(opts.code)
   if (!code) return { ok: false, error: "That code is not valid." }
+  if (isAdminCode(code) && (await adminSignedIn())) {
+    return checkCoupon(adminCoupon(opts.creatorId), { productId: opts.productId, priceCents: opts.priceCents })
+  }
   return checkCoupon(await findCoupon(db, opts.creatorId, code), { productId: opts.productId, priceCents: opts.priceCents })
 }
 

@@ -3631,6 +3631,63 @@ section("Asking for something good has to get the good model")
   )
 }
 
+/**
+ * ===========================================================================
+ *  A BUILD GETS THE BETTER MODEL, THE CATALOGUE AND ROOM TO WRITE
+ * ===========================================================================
+ * "Make sure the AI is very smart, to have the best output." Three things
+ * were being left on the table on exactly the runs that needed them:
+ *
+ *   the model   `strong` was computed and nothing read it, so "build me a
+ *               proper pricing section" ran on the everyday model.
+ *   the shop    the catalogue was fetched only when the sentence tripped
+ *               STORE_WORDS, and "add a testimonials section" does not.
+ *   the room    8,000 output tokens is where six blocks of real copy in one
+ *               turn gets cut off, and that arrives as a half-written
+ *               section rather than as an error.
+ */
+{
+  const ambitious = ["build me a proper pricing section", "design a complete FAQ section", "make me a great hero"]
+  const missed = ambitious.filter((p) => !classifyRequest(p).ambitious)
+  check("an ask that plainly says build is marked ambitious", missed.length === 0, missed.join(" | "))
+
+  const chat = ["what can you do?", "why is my header dark?", "change the heading to Hello"]
+  const overreach = chat.filter((p) => classifyRequest(p).ambitious)
+  check("a question or a one-thing change is not", overreach.length === 0, overreach.join(" | "))
+
+  const pages = ["build me a landing page for my sample packs", "make the whole website", "design a home page from scratch"]
+  const short = pages.filter((p) => classifyRequest(p).maxTurns < 36 || !classifyRequest(p).wholePage)
+  check("a whole page is recognised and gets the turns six sections take", short.length === 0, short.join(" | "))
+  check("and one section is still one section's worth of turns", classifyRequest("design a complete FAQ section").maxTurns === 24)
+
+  const loop = readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")
+  check(
+    "an ambitious run reads the catalogue up front, whatever the sentence says",
+    /const aboutTheBusiness = STORE_WORDS\.test\(prompt\) \|\| images\.length > 0 \|\| !!input\.ambitious/.test(loop),
+  )
+  check(
+    "and is given room to write a filled section in one turn",
+    /maxOutputTokens: input\.ambitious \? 16_000 : 8_000/.test(loop),
+  )
+  check(
+    "a type says how many entries finished means, before its controls are listed",
+    /FINISHED MEANS \$\{expected\} ENTRIES/.test(loop) && /finishedLooksLike\(wanted, schemas\)/.test(loop),
+  )
+  check(
+    "and a whole page is built in a running order, not as a pile",
+    /A WHOLE PAGE IS AN ORDER, NOT A PILE/.test(loop),
+  )
+
+  const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"), "utf8")
+  check(
+    "the endpoint lifts an ambitious run to the stronger model, never lowers their choice, and says so",
+    /shape\.ambitious && body\.tier !== "strong" \? "strong" : body\.tier/.test(route) &&
+      /wantsTier !== body\.tier/.test(route) &&
+      /Using the stronger model for this one/.test(route),
+  )
+  check("and hands the run its ambition and its thinking depth", /ambitious: shape\.ambitious/.test(route) && /shape\.wholePage \? "xhigh"/.test(route))
+}
+
 check(
   "the endpoint uses this editor's classifier, not the code agent's",
   (() => {

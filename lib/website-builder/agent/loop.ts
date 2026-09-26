@@ -175,6 +175,7 @@ Rules:
     3. Write ALL of its content. A section that takes blocks needs them FULL — a pricing table with three named tiers, each with its price, its feature list and its button; an FAQ with six real questions and real answers; testimonials with named people; a feature grid with every cell filled. Half-filled is the single most common way this comes out looking cheap.
     4. Set the controls that make it look designed: heading and subheading, the layout or style option, the columns, the padding, the colours that match this page.
     5. Read it back with read_section and ask yourself whether you would ship it. If a field is empty that should not be, fill it.
+- A WHOLE PAGE IS AN ORDER, NOT A PILE. When the ask is a landing page, a home page or a whole site, decide the running order first and build it in that order: what it is and who it is for, then the proof, then what they get, then what it costs, then the questions, then the ask. Five or six sections, each finished before you start the next, alternating background against the one above it so the page has a rhythm. One long section is not a page, and six sections that each shout is not a page either.
 - "COMPLEX" AND "COMPLETE" MEAN CONTENT, NOT DECORATION. Nobody asking for a complex section wants louder colours; they want a section with real substance in it — more entries, better written, properly organised. Fill it up.
 - DO NOT STOP EARLY. If you have made two or three operations and the section is not finished, keep going. Running out of turns having done thorough work is fine; stopping at a third of the job because it technically answers the request is not.
 - WRITE COPY ABOUT THE REAL BUSINESS. Call read_store before you write anything that mentions what they sell, what it costs, or who it is for — the catalogue is there and inventing one produces a page that contradicts the shop behind it. When the STORE is already shown with the request, it has been read for you: do not read it again. Never "Lorem ipsum" and never "Your headline here".
@@ -670,6 +671,20 @@ export interface ThemeAgentInput {
   effort?: "low" | "medium" | "high" | "xhigh" | "max"
   signal?: AbortSignal
   maxTurns?: number
+  /**
+   * THIS REQUEST IS ASKING FOR SOMETHING TO BE BUILT (./ambition). Two things
+   * follow from it, and both were measured against runs that came out thin:
+   *
+   *   THE CATALOGUE IS READ UP FRONT. Copy for a section is about the
+   *   business whether or not the sentence mentions it, and "add a
+   *   testimonials section" does not trip STORE_WORDS. The model was left to
+   *   spend a turn on read_store, or to write around a shop it had not seen.
+   *
+   *   IT IS GIVEN ROOM TO WRITE. A filled section is six blocks of real copy
+   *   in one turn, and 8,000 output tokens is where that gets cut off — which
+   *   arrives as a half-written section, not as an error.
+   */
+  ambitious?: boolean
   /** How many times the run may be handed its own work back. */
   maxReviews?: number
   /** Ids for new sections. Injected so a test gets stable ones. */
@@ -775,7 +790,7 @@ export async function* themeAgent(
   }
 
   let store: StoreFacts | null | undefined
-  const aboutTheBusiness = STORE_WORDS.test(prompt) || images.length > 0
+  const aboutTheBusiness = STORE_WORDS.test(prompt) || images.length > 0 || !!input.ambitious
   if (aboutTheBusiness && input.readStore) {
     const said = trail.next(progress("products", PROGRESS_LABELS.products))
     if (said) yield said
@@ -846,7 +861,8 @@ export async function* themeAgent(
         system: SYSTEM_PROMPT,
         turns: [...turns],
         tools: toolSpecs(addable, schemas, !!input.code),
-        maxOutputTokens: 8_000,
+        /* A filled section is a lot of copy in one turn; cut off, it arrives half written. See `ambitious`. */
+        maxOutputTokens: input.ambitious ? 16_000 : 8_000,
         cacheKey: input.cacheKey,
         effort: input.effort,
         signal,
@@ -1199,6 +1215,31 @@ export async function* themeAgent(
 }
 
 /** The tools that only read. A second identical read in a run is answered from the first. */
+/**
+ * WHAT THIS TYPE LOOKS LIKE FINISHED, said before its controls are listed.
+ *
+ * The preset was already handed over, but as a JSON dump trimmed to 2,000
+ * characters — a rich preset's blocks are the first thing that trimming
+ * takes, so the one number that says "this is how many entries a finished
+ * one has" was the thing most likely to be missing. The review says it
+ * afterwards (./review, thinFindings) and being told at the end to go back
+ * and add three more entries is a worse run than being told at the start.
+ *
+ * Taken from the type's own first preset, so it cannot drift from what the
+ * section actually ships with, and phrased as the standard rather than as a
+ * limit: more entries than the preset is fine, fewer is a section that looks
+ * unfinished.
+ */
+function finishedLooksLike(type: string, schemas?: SchemaMap): string {
+  const schema = schemaOf(schemas, type)
+  const blockTypes = schema?.blocks ?? []
+  if (blockTypes.length === 0) return ""
+  const expected = (schema?.presets?.[0]?.blocks ?? []).length
+  if (expected < 2) return ""
+  const names = blockTypes.map((b) => b.type).filter(Boolean).join(", ")
+  return `FINISHED MEANS ${expected} ENTRIES. This section holds its content in blocks${names ? ` (${names})` : ""}, and its preset ships with ${expected}. That is what one looks like when it is done: ${expected} entries, each written properly about this store. Fewer reads as unfinished rather than concise, and add_section alone gives you the preset's demo copy, not content. More than ${expected} is fine when the creator has more to say.`
+}
+
 const READ_TOOLS = new Set(["read_section", "read_section_type", "read_section_code"])
 
 /**
@@ -1500,6 +1541,7 @@ function execute(
       return {
         output: [
           `${wanted} — ${schema.name}${schema.description ? `: ${schema.description}` : ""}`,
+          finishedLooksLike(wanted, schemas),
           `CONTROLS\n${describeFields(wanted, schemas)}`,
           specimen
             ? `WHAT IT LOOKS LIKE WHEN ADDED (its preset)\n${JSON.stringify(

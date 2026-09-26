@@ -39,6 +39,19 @@ export interface RequestShape {
   maxTurns: number
   /** Whether this run should reach for the stronger model. */
   strong: boolean
+  /**
+   * The request PLAINLY asks for something to be built, designed or made
+   * good, rather than merely not being tiny. This is the narrow signal, and
+   * it is what the route promotes the model on: "build me a proper pricing
+   * section" is worth the better model, "what does this button do" is not.
+   */
+  ambitious: boolean
+  /**
+   * A whole page, not one section: "build me a landing page", "make the
+   * whole home page", "a complete website for my samples". Several sections
+   * that have to work together, which is a different size of job.
+   */
+  wholePage: boolean
 }
 
 /**
@@ -63,6 +76,16 @@ const TWEAK_SUBJECTS =
 const AMBITION =
   /\b(complex|complete|comprehensive|detailed|rich|full|proper|properly|thorough|premium|professional|beautiful|great|impressive|polished|stunning|world.?class|high.?end|build|create|design|redesign|overhaul|rebuild|from scratch)\b/i
 
+/**
+ * A WHOLE PAGE, NOT ONE SECTION. "Build me a landing page" is six sections
+ * that have to agree with each other, and it was getting the same two dozen
+ * turns as "add a pricing section". Each section done properly is a read, an
+ * add, its controls and a block per entry, so a page of six is four times
+ * the work of one.
+ */
+const WHOLE_PAGE =
+  /\b(whole|entire|complete|full)\s+(site|website|page|home ?page|landing ?page)\b|\b(land(ing)? ?page|home ?page|web ?site)\b.{0,20}\b(from scratch|for (me|my)|build|create|design|make)\b|\b(build|create|design|make|redesign|rebuild)\b.{0,30}\b(land(ing)? ?page|home ?page|web ?site|whole page|entire page)\b/i
+
 /** Short, one clause, no "and". The shape of a request that is one change. */
 function looksTiny(prompt: string): boolean {
   const text = prompt.trim()
@@ -74,8 +97,12 @@ function looksTiny(prompt: string): boolean {
 
 export function classifyRequest(prompt: string): RequestShape {
   if (looksTiny(prompt)) {
-    return { scope: "tweak", maxTurns: 8, strong: false }
+    return { scope: "tweak", maxTurns: 8, strong: false, ambitious: false, wholePage: false }
   }
+
+  const wholePage = WHOLE_PAGE.test(prompt)
+  /* A whole page is ambitious whether or not it says "proper": it is six sections that have to agree. */
+  const ambitious = AMBITION.test(prompt) || wholePage
 
   /**
    * Twenty-four, not sixteen. Building a section properly is: read the type,
@@ -84,5 +111,12 @@ export function classifyRequest(prompt: string): RequestShape {
    * edit settings, and a model that senses it is running out of room does the
    * rational thing and stops early — which is the behaviour being fixed.
    */
-  return { scope: "build", maxTurns: AMBITION.test(prompt) ? 24 : 16, strong: true }
+  return {
+    scope: "build",
+    /* Thirty-six for a whole page: six sections at a read, an add, its controls and its blocks. */
+    maxTurns: wholePage ? 36 : ambitious ? 24 : 16,
+    strong: true,
+    ambitious,
+    wholePage,
+  }
 }

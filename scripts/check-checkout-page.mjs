@@ -102,6 +102,13 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     const left = await p.evaluate(() => ({ shimmers: document.querySelectorAll(".checkout-shimmer").length, failed: !!document.querySelector("[data-pay-failed]") }))
     expect(left.shimmers === 0 && !left.failed, "and no skeleton or failure is left", left)
 
+    const payWidth = () => p.evaluate(() => {
+      const f = [...document.querySelectorAll("iframe")].filter((f) => f.name.startsWith("__privateStripeFrame")).sort((a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height)[0]
+      const col = document.querySelector("[data-pay]").getBoundingClientRect().width
+      return { frame: Math.round(f.getBoundingClientRect().width), column: Math.round(col) }
+    })
+    const w0 = await payWidth()
+    expect(w0.frame >= w0.column && w0.frame <= w0.column + 10, "the card form fills the column", w0)
     const layout = await p.evaluate(() => {
       const s = document.querySelector("[data-summary]").getBoundingClientRect()
       const f = document.querySelector("main").getBoundingClientRect()
@@ -119,13 +126,37 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         total: document.querySelector("[data-total]").textContent,
         promo: document.querySelector('[data-promo="add"]')?.textContent,
         promoBg: getComputedStyle(document.querySelector('[data-promo="add"]')).backgroundColor,
-        tipOn: on && getComputedStyle(on).backgroundColor,
+        tipOn: getComputedStyle(document.querySelector("[data-tip-thumb]")).backgroundColor,
+        tipUnder: (() => { const t = document.querySelector("[data-tip-thumb]").getBoundingClientRect(); const b = on.getBoundingClientRect(); return Math.abs(t.left - b.left) < 1.5 && Math.abs(t.width - b.width) < 1.5 })(),
       }
     })
     expect(order.qty && !order.badge, "ORDER: Qty 1 on the line, nothing on the picture", order)
     expect(order.total === "$9,999.00", "the big total", order.total)
     expect(order.promo === "Add promotion code" && order.promoBg === "rgb(233, 235, 238)", "Add promotion code is a light grey button", order)
-    expect(order.tipOn === "rgb(255, 255, 255)", "the chosen tip is white in its track, not black", order.tipOn)
+    expect(order.tipOn === "rgb(255, 255, 255)" && order.tipUnder, "the chosen tip has the white thumb under it, not black", order)
+    /* The tip: open it, pick $3, and the one thumb slides there. */
+    await p.evaluate(() => { if (!document.querySelector("[data-tip-open]")) document.querySelector("[data-tip-toggle]").click() })
+    await sleep(350)
+    await p.evaluate(() => [...document.querySelectorAll('[data-tip] [role="radio"]')].find((b) => b.textContent === "$3").click())
+    const mid = await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(getComputedStyle(document.querySelector("[data-tip-thumb]")).translate)))))
+    await sleep(350)
+    const tipAfter = await p.evaluate(() => {
+      const on = [...document.querySelectorAll('[data-tip] [role="radio"]')].find((b) => b.getAttribute("aria-checked") === "true")
+      const t = document.querySelector("[data-tip-thumb]").getBoundingClientRect(), b = on.getBoundingClientRect()
+      return { on: on.textContent, under: Math.abs(t.left - b.left) < 1.5, line: document.querySelector("[data-tip-toggle]").textContent, colour: getComputedStyle(document.querySelector("[data-tip-toggle] span")).color }
+    })
+    expect(tipAfter.on === "$3" && tipAfter.under && typeof mid === "string", "TIP: the thumb slides to $3, and the row says Tip $3.00 in full ink", { ...tipAfter, mid })
+    expect(tipAfter.colour === "rgb(26, 26, 46)", "the tip row reads in full ink, not faded", tipAfter.colour)
+    await p.evaluate(() => [...document.querySelectorAll('[data-tip] [role="radio"]')].find((b) => b.textContent === "None").click())
+    await sleep(300)
+    /* Buying for a business: the fields open, and nothing takes the focus or moves the page. */
+    const before = await p.evaluate(() => ({ y: scrollY, focus: document.activeElement?.id || document.activeElement?.tagName }))
+    await p.evaluate(() => document.getElementById("buying-for-business").click())
+    await sleep(450)
+    const after = await p.evaluate(() => ({ y: scrollY, focus: document.activeElement?.id || document.activeElement?.tagName, open: document.querySelector("[data-business]").getAttribute("data-business") }))
+    expect(after.open === "open" && after.focus !== "business-company" && after.y === before.y, "BUSINESS: ticking it opens the fields and focuses nothing", { before, after })
+    await p.evaluate(() => document.getElementById("buying-for-business").click())
+    await sleep(400)
     await p.click('[data-promo="add"]')
     await sleep(250)
     const promoOpen = await p.evaluate(() => ({ open: !!document.querySelector('[data-promo="open"]'), focused: document.activeElement?.id }))
@@ -157,13 +188,23 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       const open = await p.evaluate(() => document.querySelector("[data-line-item]").getBoundingClientRect().height > 0 && document.querySelector('[aria-controls="checkout-details"]').getAttribute("aria-expanded"))
       expect(open === "true", "PHONE: the order is open as the page arrives", open)
       await p.screenshot({ path: join(shots, `${label}-top.png`) })
+      /* The fold, timed on a phone-speed CPU: every frame of it, not just where it ends. */
+      const cdp = await p.createCDPSession()
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+      await p.evaluate(() => { window.__gaps = []; let last = performance.now(); const end = last + 600; const f = (t) => { window.__gaps.push(t - last); last = t; if (t < end) requestAnimationFrame(f) }; requestAnimationFrame(f) })
       await p.click('[aria-controls="checkout-details"]')
-      await sleep(450)
+      await sleep(700)
+      const gaps = await p.evaluate(() => window.__gaps.slice(1))
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      const worst = Math.round(Math.max(...gaps)), long = gaps.filter((g) => g > 34).length
+      expect(worst <= 50 && long <= 2, "and folds without a stutter, at a phone's speed", { worst, long, frames: gaps.length })
       const folded = await p.evaluate(() => Math.round(document.getElementById("checkout-details").getBoundingClientRect().height))
       expect(folded === 0, "and folds with Hide details", folded)
       await p.click('[aria-controls="checkout-details"]')
       await sleep(450)
     }
+    const w1 = await payWidth()
+    expect(w1.frame >= w1.column && w1.frame <= w1.column + 10, "and still fills it after the tip, the code and the business fields", w1)
     const sideways = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth)
     expect(sideways <= 0, "nothing scrolls sideways", sideways)
 
