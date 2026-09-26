@@ -426,8 +426,19 @@ async function timedMove(p, cdp, { sel, pressed, kind }) {
 /** The same move, paused and photographed at each fraction. */
 async function frozenMove(p, cdp, { sel, label, layer, which }) {
   const n = await moveCount(p)
+  /*
+    The move holds itself at its first position and lets go with play()
+    (page-layer startWhenFramesFlow); for the pictures, play() does nothing
+    until the walk is over, so every one of them is taken at the time the
+    walk sets, the first while the move is still held where it starts.
+  */
   await p.evaluate(() => {
-    window.__pauseNext = true
+    if (!window.__play) window.__play = Animation.prototype.play
+    window.__freeze = true
+    Animation.prototype.play = function () {
+      if (window.__freeze) return
+      return window.__play.call(this)
+    }
   })
   await p.$eval(sel, (el) => el.click())
   let m = null
@@ -448,14 +459,9 @@ async function frozenMove(p, cdp, { sel, label, layer, which }) {
     pics.push({ at: f, top: y === null ? null : Math.round(y), ink, header: header ? header.bad : null })
   }
   /* The first frame, taken while the move is held there (a paused move set back to its start is not always drawn there again). */
-  const heldAtStart = await p.evaluate((which) => document.getAnimations().some((a) => a.effect?.pseudoElement === which && a.playState === "paused"), which)
+  await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+  const heldAtStart = await p.evaluate((which) => document.getAnimations().some((a) => a.effect?.pseudoElement === which && a.playState === "paused" && (a.currentTime ?? 0) === 0), which)
   if (heldAtStart) await shoot(0, /new/.test(which) ? vp.height : 0)
-  /* The move is held at its start until the screen keeps up (page-layer startWhenFramesFlow), and let go by a play() that would undo a pause taken before it: so the walk waits for it to be let go. */
-  for (let i = 0; i < 40; i++) {
-    const going = await p.evaluate((which) => document.getAnimations().some((a) => a.effect?.pseudoElement === which && a.playState === "running"), which)
-    if (going) break
-    await sleep(15)
-  }
   const info = await p.evaluate((which) => {
     const all = document.getAnimations().filter((a) => a.effect?.pseudoElement?.startsWith("::view-transition"))
     for (const a of all) a.pause()
@@ -475,8 +481,6 @@ async function frozenMove(p, cdp, { sel, label, layer, which }) {
         let y = null
         for (const a of document.getAnimations()) {
           if (!a.effect?.pseudoElement?.startsWith("::view-transition")) continue
-          /* Played and paused again, so the compositor takes the new time too (a paused move set back to 0 kept its first frame there). */
-          a.play()
           a.pause()
           a.currentTime = ms
           if (a.effect.pseudoElement === which) {
@@ -508,6 +512,8 @@ async function frozenMove(p, cdp, { sel, label, layer, which }) {
     await shoot(f, y)
   }
   await p.evaluate(() => {
+    window.__freeze = false
+    Animation.prototype.play = window.__play
     for (const a of document.getAnimations()) if (a.effect?.pseudoElement?.startsWith("::view-transition")) a.play()
   })
   await waitMove(p, n)
