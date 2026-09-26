@@ -8,8 +8,11 @@ import { isTraversing, markTraversal, prefetchAppPage } from "@/lib/ui/app-navig
  * ===========================================================================
  *  BETWEEN THE PRODUCTS LIST AND A PRODUCT
  * ===========================================================================
- * Both ways are one move of the editor's layer (moveLayer): in from the
- * list, out to it. What else the round trip keeps:
+ * Both ways are one move of the editor's layer (components/app/page-layer):
+ * it rises from the bottom over the list, and drops back down to it. The
+ * list and the editor draw their own answer to the press (the row's tint,
+ * Cancel's spinner), so moveLayer is told not to add one. What else the
+ * round trip keeps:
  *
  *   THE HISTORY STAYS HONEST. An editor the list opened sits on the history
  *   entry right after the list's, so Back, Cancel and Discard go back in
@@ -61,10 +64,14 @@ const PUSH_KEPT_MS = 10_000
 
 /** Open a product, or a new one, from the list. */
 export function openEditor(router: Router, href: string) {
-  moveLayer("enter", () => {
-    pushedAt = Date.now()
-    router.push(href)
-  })
+  moveLayer(
+    "enter",
+    () => {
+      pushedAt = Date.now()
+      router.push(href)
+    },
+    false,
+  )
 }
 
 /**
@@ -99,15 +106,19 @@ export function returnToProducts(router: Router, productId: string | null) {
   returnTo = PRODUCTS_HREF
   const back = fromList
   fromList = false
-  moveLayer("leave", () => {
-    if (back) {
-      /* A popstate: the app marks it a return itself (navigation-loading-bar). */
-      router.back()
-    } else {
-      markTraversal()
-      router.replace(PRODUCTS_HREF)
-    }
-  })
+  moveLayer(
+    "leave",
+    () => {
+      if (back) {
+        /* A popstate: the app marks it a return itself (navigation-loading-bar). */
+        router.back()
+      } else {
+        markTraversal()
+        router.replace(PRODUCTS_HREF)
+      }
+    },
+    false,
+  )
 }
 
 /*

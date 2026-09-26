@@ -65,6 +65,10 @@ export const barIconButton = cn(quietDepth, PRESS_AREA_BORDERED, "h-10 w-10 roun
  * A screen reader hears only the word that applies.
  */
 export type LeaveMode = "cancel" | "back"
+/** A pressed control's content: dimmed at once, gone after LAYER_PRESS_WAIT_MS (app/globals.css press-content-out). */
+export const PRESS_CONTENT_OUT = "[animation:press-content-out_120ms_ease-out_100ms_both]"
+/** The spinner that takes its place, from LAYER_PRESS_WAIT_MS on. */
+export const PRESS_SPINNER_IN = "[animation:press-spinner-in_120ms_ease-out_100ms_both]"
 export function LeaveButton({
   mode,
   disabled = false,
@@ -91,15 +95,22 @@ export function LeaveButton({
       onClick={leaving ? undefined : onLeave}
       className={cn(barButton, "grid", leaving && "bg-[#f1f2f4] shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)]")}
     >
-      <span aria-hidden className={cn(word, back || leaving ? "opacity-0" : "opacity-100")}>
+      {/*
+        The press: the word dims at once, and if the list is not here
+        LAYER_PRESS_WAIT_MS later the spinner takes its place (the same
+        answer components/app/page-layer holdPress gives every other way out
+        of a layer). A warm list is there well inside it, so most presses
+        show the dim alone.
+      */}
+      <span aria-hidden className={cn(word, back ? "opacity-0" : "opacity-100", leaving && !back && PRESS_CONTENT_OUT)}>
         Cancel
       </span>
-      <span aria-hidden className={cn(word, "-ml-1 gap-0.5", back && !leaving ? "opacity-100" : "opacity-0")}>
+      <span aria-hidden className={cn(word, "-ml-1 gap-0.5", back ? "opacity-100" : "opacity-0", leaving && back && PRESS_CONTENT_OUT)}>
         <ChevronLeft className="h-[18px] w-[18px] sm:h-4 sm:w-4" strokeWidth={2.25} />
         Back
       </span>
       {leaving ? (
-        <span className={cn(word, "opacity-100")}>
+        <span className={cn(word, PRESS_SPINNER_IN)}>
           <ActivitySpinner size={16} label="Going back to products" className="text-[#4b5563]" />
         </span>
       ) : null}

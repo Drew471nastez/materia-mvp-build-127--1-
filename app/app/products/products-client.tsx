@@ -19,7 +19,7 @@ import { holdLanding } from "@/lib/ui/app-navigation"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { playList, shootList, type ListShot } from "./list-motion"
-import { LAYER_MOTION_MS } from "@/components/app/page-layer"
+import { LAYER_LEAVE_MS, LAYER_PRESS_WAIT_MS } from "@/components/app/page-layer"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
@@ -417,7 +417,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     back as it was left (the view, order, search and page below, the scroll
     the stage puts back, the rows the router kept), so it asks the stage for
     no landing (lib/ui/app-navigation holdLanding). On a phone the editor's
-    own Back slides it off as a layer, which lands nothing either; the
+    own Back drops it off as a layer, which lands nothing either; the
     browser's back there did land, and no longer does. A fresh visit still
     lands. scripts/check-lists-back.mjs measures it.
   */
@@ -731,19 +731,20 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   )
 
   /*
-    OPENING THE EDITOR SLIDES IT IN over the list (../list-return,
-    components/app/page-layer moveLayer), the way it slides out again. A
-    press with a modifier key, or not the main button, is left to the link:
-    a new tab or window, as the browser does.
+    OPENING THE EDITOR RAISES IT from the bottom over the list (../list-return,
+    components/app/page-layer), the way it drops away again. A press with a
+    modifier key, or not the main button, is left to the link: a new tab or
+    window, as the browser does.
   */
   /*
     THE PRESS IS ANSWERED ON ITS OWN FRAME. The editor is read on the server
     (the account, the product, its files and variants), and on a slow line
     that took seconds with the row looking untouched. Now the row you
-    pressed holds its pressed tint with a spinner where its Preview was, the
-    app's loading bar is told, and further presses wait for this one. On a
-    phone the move waits one painted frame, so the spinner is what the view
-    transition holds while the editor is on its way.
+    pressed holds its pressed tint at once, a spinner fades in where its
+    Preview was if the editor is not here a tenth of a second later
+    (OpeningMark), the app's loading bar is told, and further presses wait
+    for this one. The list stays live while the editor is on its way, so the
+    spinner turns; the editor rises the moment it is ready.
   */
   const [opening, setOpening] = useState<string | null>(null)
   useEffect(() => {
@@ -765,7 +766,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     else warm(id)
     setOpening(id)
     startNavigationLoading(href)
-    requestAnimationFrame(() => requestAnimationFrame(() => openEditor(router, href)))
+    openEditor(router, href)
   }
   const openFromLink = (id: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
@@ -795,7 +796,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     const targets = row.tagName === "TR" ? (Array.from(row.children) as HTMLElement[]) : [row]
     const rest = row.tagName === "TR" ? "#ffffff" : "rgba(243, 239, 254, 0)"
     for (const el of targets) {
-      el.animate([{ backgroundColor: EDITED_TINT }, { backgroundColor: rest }], { duration: EDITED_FADE_MS, delay: LAYER_MOTION_MS, easing: "ease-out", fill: "backwards" })
+      el.animate([{ backgroundColor: EDITED_TINT }, { backgroundColor: rest }], { duration: EDITED_FADE_MS, delay: LAYER_LEAVE_MS, easing: "ease-out", fill: "backwards" })
     }
   }, [])
 
@@ -1461,10 +1462,19 @@ const TableRow = memo(function TableRow({
   )
 })
 
-/** Where a pressed row's Preview was while its editor is on its way: the spinner, in the button's own box. */
+/**
+ * Where a pressed row's Preview was while its editor is on its way: the
+ * spinner, in the button's own box, fading in only once the wait has lasted
+ * LAYER_PRESS_WAIT_MS (components/app/page-layer), so a warm editor, which
+ * rises well inside that, shows the tint alone.
+ */
 function OpeningMark({ size }: { size: "phone" | "table" }) {
   return (
-    <span data-row-opening="" className={cn("relative z-[1] grid shrink-0 place-items-center", size === "phone" ? "h-8 w-8" : "h-7 w-7 lg:h-[31px] lg:w-[31px]")}>
+    <span
+      data-row-opening=""
+      className={cn("relative z-[1] grid shrink-0 place-items-center", size === "phone" ? "h-8 w-8" : "h-7 w-7 lg:h-[31px] lg:w-[31px]")}
+      style={{ animation: `press-spinner-in 120ms ease-out ${LAYER_PRESS_WAIT_MS}ms both` }}
+    >
       <ActivitySpinner size={16} label="Opening" className="text-[#4b5563]" />
     </span>
   )
