@@ -46,7 +46,7 @@ export default function AppColdStart() {
   return (
     <div data-app-cold-start="" className="fixed inset-0 bg-[#111111] md:bg-[#131316]">
       <div className="absolute bottom-0 left-0 top-[calc(58px+env(safe-area-inset-top,0px))] hidden w-[240px] border-r border-neutral-200/60 bg-white md:block" />
-      <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] bg-[#f8f9fa] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))]">
+      <div data-cold-page="" className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] bg-[#f8f9fa] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))]">
         <PageSpinner />
       </div>
       <div className="absolute inset-x-0 top-0 h-[calc(68px+env(safe-area-inset-top,0px))] text-[#111111] md:h-[calc(58px+env(safe-area-inset-top,0px))] md:text-[#131316]">

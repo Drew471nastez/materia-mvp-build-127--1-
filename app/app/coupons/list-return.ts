@@ -14,8 +14,10 @@ export type { CouponReturn }
  * The same round trip as the products list and the product editor
  * (app/app/products/list-return.ts), for the coupon editor:
  *
- *   ONE MOVE EACH WAY. On a phone the editor slides in over the list and off
- *   it again (moveLayer); from 768px the page lands as every page does.
+ *   ONE MOVE EACH WAY. On a phone the editor rises from the bottom over the
+ *   list and drops back down to it (components/app/page-layer), and the
+ *   press that did it answers on its own frame (moveLayer); from 768px the
+ *   page lands as every page does.
  *
  *   THE HISTORY STAYS HONEST. An editor the list opened is one history entry
  *   after it, so leaving is router.back(); one opened any other way (a link,

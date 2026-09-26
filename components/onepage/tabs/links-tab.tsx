@@ -65,13 +65,9 @@ import { cn } from "@/lib/utils"
 import { ColorRow, RangeRow, Switch } from "@/components/onepage/editor-kit"
 import { primaryDepth } from "@/components/ui/depth-button"
 import { DeletedIcon, SaveNotification } from "@/components/ui/save-notification"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
+import { DialogHeader } from "@/components/ui/dialog"
+import { SHEET_DIALOG_MAX_HEIGHT, SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
+import { CardMark, ChoiceMark } from "@/components/onepage/choice-marks"
 import { usePhoneWidth } from "@/components/ui/choice-list"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import {
@@ -1655,6 +1651,14 @@ export function LinksTab() {
         phone={isMobileModalViewport}
         label={addToGroupId ? "Add to Group" : "Add Block"}
         onOpenAutoFocus={(e) => e.preventDefault()}
+        /*
+          AS THE NOTIFICATIONS SHEET IS: built while the page is idle and
+          kept, so the tap only slides it up (it was built on the tap: 250ms
+          before it moved on a phone slowed four times), and a fixed height,
+          so a category with fewer blocks does not move its top edge.
+          closeAddSheet resets what was typed.
+        */
+        sheet={{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT }}
         className="h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
       >
           {/* Header with title and close button */}
@@ -1901,6 +1905,8 @@ export function LinksTab() {
         phone={isMobileModalViewport}
         label={selectedSocial ? "Edit Social Link" : "Add Social Link"}
         onOpenAutoFocus={(e) => e.preventDefault()}
+        /* Built ahead and kept, as Add block is; closeSocialSheet resets what was typed. */
+        sheet={{ keepMounted: true }}
         className="p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
       >
           <DialogHeader className="p-4 sm:p-5 border-b border-gray-100 shrink-0">
@@ -2104,20 +2110,23 @@ export function LinksTab() {
       />
 
       {/* Streaming Service URL Modal */}
-      <Dialog open={showStreamingUrlModal} onOpenChange={(open) => {
-        setShowStreamingUrlModal(open)
-        if (!open) {
+      <SheetDialog
+        open={showStreamingUrlModal}
+        onClose={() => {
+          setShowStreamingUrlModal(false)
           setStreamingPlatform(null)
           setStreamingPlatformIndex(-1)
           setStreamingUrl("")
           setStreamingUrlError(null)
-        }
-      }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+        }}
+        phone={isMobileModalViewport}
+        label={streamingUrl ? "Edit Streaming Link" : "Add Streaming Link"}
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-4 sm:p-5 border-b">
-            <DialogTitle className="text-base sm:text-lg font-semibold">
+            <SheetDialogTitle className="text-base sm:text-lg font-semibold">
               {streamingUrl ? "Edit Streaming Link" : "Add Streaming Link"}
-            </DialogTitle>
+            </SheetDialogTitle>
           </DialogHeader>
 
           <div className="p-4 sm:p-5 space-y-4">
@@ -2255,14 +2264,18 @@ export function LinksTab() {
               )
             })()}
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
       {/* Name & Bio Edit Modal */}
-      <Dialog open={showNameBioModal} onOpenChange={setShowNameBioModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <SheetDialog
+        open={showNameBioModal}
+        onClose={() => setShowNameBioModal(false)}
+        phone={isMobileModalViewport}
+        label="Edit Profile"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-4 sm:p-5 border-b">
-            <DialogTitle className="text-base sm:text-lg font-semibold">Edit Profile</DialogTitle>
+            <SheetDialogTitle className="text-base sm:text-lg font-semibold">Edit Profile</SheetDialogTitle>
           </DialogHeader>
 
           <div className="p-4 sm:p-5 space-y-4">
@@ -2307,8 +2320,7 @@ export function LinksTab() {
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
       {/* Thumbnail Edit Modal - Centered with overlay */}
       <SheetDialog
@@ -2633,22 +2645,29 @@ export function LinksTab() {
       </SheetDialog>
 
       {/* Image Library Modal / File Upload Modal */}
-      <Dialog open={showImageLibrary} onOpenChange={(open) => {
-        setShowImageLibrary(open)
-        if (!open) {
+      <SheetDialog
+        open={showImageLibrary}
+        onClose={() => {
+          setShowImageLibrary(false)
           setImageBlockId(null)
           setImageFieldType(null)
-        }
-      }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+        }}
+        phone={isMobileModalViewport}
+        label={imageFieldType === 'digital_product_file' ? 'Upload Digital File'
+                : imageFieldType === 'product_image' ? 'Product Image'
+                : imageFieldType === 'pdf_file' ? 'Upload PDF File'
+                : imageFieldType === 'thumbnail_url' ? 'Upload Thumbnail'
+                : 'Choose an Image'}
+        className="w-[calc(100%-32px)] max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-4 sm:p-5 border-b">
-            <DialogTitle className="text-base sm:text-lg font-semibold">
+            <SheetDialogTitle className="text-base sm:text-lg font-semibold">
               {imageFieldType === 'digital_product_file' ? 'Upload Digital File'
                 : imageFieldType === 'product_image' ? 'Product Image'
                 : imageFieldType === 'pdf_file' ? 'Upload PDF File'
                 : imageFieldType === 'thumbnail_url' ? 'Upload Thumbnail'
                 : 'Choose an Image'}
-            </DialogTitle>
+            </SheetDialogTitle>
           </DialogHeader>
           <div className="p-4 sm:p-5 max-h-[60vh] overflow-y-auto">
             {/* File Upload Section for digital product file, product image, PDF file, or thumbnail */}
@@ -3138,14 +3157,18 @@ export function LinksTab() {
               </div>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
       {/* Avatar Edit Modal */}
-      <Dialog open={showAvatarEditModal} onOpenChange={setShowAvatarEditModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <SheetDialog
+        open={showAvatarEditModal}
+        onClose={() => setShowAvatarEditModal(false)}
+        phone={isMobileModalViewport}
+        label="Profile Image"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-5 border-b">
-            <DialogTitle className="text-lg font-semibold text-center">Profile Image</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold text-center">Profile Image</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
             <button onClick={() => { setShowAvatarEditModal(false); setShowAvatarUploadModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
@@ -3167,15 +3190,19 @@ export function LinksTab() {
               </button>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
       {/* Avatar Upload Modal */}
-      <Dialog open={showAvatarUploadModal} onOpenChange={setShowAvatarUploadModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <SheetDialog
+        open={showAvatarUploadModal}
+        onClose={() => setShowAvatarUploadModal(false)}
+        phone={isMobileModalViewport}
+        label="Upload media"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowAvatarUploadModal(false); setShowAvatarEditModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload media</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload media</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5">
             <div
@@ -3225,23 +3252,27 @@ export function LinksTab() {
               className="hidden"
             />
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
       {/* Image Crop Modal - Square style like Design tab */}
-      <Dialog open={showAvatarCropModal} onOpenChange={(open) => {
-        setShowAvatarCropModal(open)
-        if (!open && tempImageUrl) {
-          URL.revokeObjectURL(tempImageUrl)
-          setTempImageUrl(null)
-          setTempImageFile(null)
-          setCropBox({ x: 50, y: 50, size: 200 })
-        }
-      }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <SheetDialog
+        open={showAvatarCropModal}
+        onClose={() => {
+          setShowAvatarCropModal(false)
+          if (tempImageUrl) {
+            URL.revokeObjectURL(tempImageUrl)
+            setTempImageUrl(null)
+            setTempImageFile(null)
+            setCropBox({ x: 50, y: 50, size: 200 })
+          }
+        }}
+        phone={isMobileModalViewport}
+        label="Crop Image"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowAvatarCropModal(false); setShowAvatarUploadModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Image</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Image</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-4">
             {tempImageUrl && (
@@ -3249,6 +3280,8 @@ export function LinksTab() {
                 {/* Square crop preview with draggable crop box */}
                 <div
                   ref={cropContainerRef}
+                  /* In the phone's sheet, the crop keeps its finger: the sheet does not drag from here. */
+                  data-sheet-no-drag=""
                   className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden touch-none"
                   style={{ width: '300px', height: '300px' }}
                   onMouseMove={(e) => {
@@ -3533,15 +3566,19 @@ export function LinksTab() {
               </>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
       {/* Video Selection Modal */}
-      <Dialog open={showVideoModal} onOpenChange={setShowVideoModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <SheetDialog
+        open={showVideoModal}
+        onClose={() => setShowVideoModal(false)}
+        phone={isMobileModalViewport}
+        label="Profile Video"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowVideoModal(false); setShowAvatarEditModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Profile Video</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Profile Video</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
             <button onClick={() => videoFileInputRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
@@ -3574,33 +3611,35 @@ export function LinksTab() {
               className="hidden" 
             />
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
       {/* Video Crop Modal - Simple 1:1 crop like image crop */}
-      <Dialog open={showVideoCropModal} onOpenChange={(open) => {
-        setShowVideoCropModal(open)
-        if (!open && tempVideoUrl) {
-          URL.revokeObjectURL(tempVideoUrl)
-          setTempVideoUrl(null)
-          setTempVideoFile(null)
-          setVideoCropBox({ x: 10, y: 10, width: 80, height: 80 })
-        }
-      }}>
-        <DialogContent
-          className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-        >
+      <SheetDialog
+        open={showVideoCropModal}
+        onClose={() => {
+          setShowVideoCropModal(false)
+          if (tempVideoUrl) {
+            URL.revokeObjectURL(tempVideoUrl)
+            setTempVideoUrl(null)
+            setTempVideoFile(null)
+            setVideoCropBox({ x: 10, y: 10, width: 80, height: 80 })
+          }
+        }}
+        phone={isMobileModalViewport}
+        label="Crop Video"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+        dialog={{ onPointerDownOutside: (e) => e.preventDefault(), onInteractOutside: (e) => e.preventDefault() }}
+      >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Video</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Video</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-4">
             {tempVideoUrl && (
               <>
                 <div
                   ref={videoContainerRef}
+                  data-sheet-no-drag=""
                   className="relative mx-auto bg-black rounded-xl select-none overflow-hidden"
                   style={{ width: '300px', height: '300px', touchAction: 'none' }}
                 >
@@ -3839,8 +3878,7 @@ export function LinksTab() {
               </>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
     </div>
   )
 }
@@ -3952,7 +3990,14 @@ function BlockItem({
       }
     })
   }
-  const closeStatsSheet = useCallback(() => setShowStatsModal(false), [])
+  /*
+    ON A PHONE THE NUMBERS ARE ASKED FOR ONCE THE SHEET HAS ARRIVED, as the
+    notifications sheet refreshes after its slide (BottomSheet onOpened):
+    the loading state and the chart the answer draws land after the slide,
+    not in the middle of it. A computer's dialog asks at once, as before.
+  */
+  const [statsSheetArrived, setStatsSheetArrived] = useState(false)
+  const closeStatsSheet = useCallback(() => { setShowStatsModal(false); setStatsSheetArrived(false) }, [])
   const closeAnimationSheet = useCallback(() => setShowAnimationSheet(false), [])
 
   // Fetch stats when modal is opened or timeframe changes
@@ -3976,9 +4021,9 @@ function BlockItem({
 
   // Refetch when timeframe changes
   useEffect(() => {
-    if (showStatsModal) fetchStats(statsPeriod)
+    if (showStatsModal && (!isMobileStatsViewport || statsSheetArrived)) fetchStats(statsPeriod)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statsPeriod.preset, statsPeriod.start, statsPeriod.end, showStatsModal])
+  }, [statsPeriod.preset, statsPeriod.start, statsPeriod.end, showStatsModal, statsSheetArrived])
 
   // Fetch click count on mount for link buttons and email capture
   useEffect(() => {
@@ -4325,6 +4370,7 @@ function BlockItem({
               open={showStatsModal}
               onClose={closeStatsSheet}
               phone={isMobileStatsViewport}
+              sheet={{ onOpened: () => setStatsSheetArrived(true) }}
               label={isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : isPDFDocument ? "PDF Stats" : isImage ? "Image Stats" : "Link Stats"}
               className="p-0 gap-0 overflow-hidden mx-auto border-[#ececf1] w-[calc(100%-32px)] max-w-[420px] rounded-2xl"
             >
@@ -4982,11 +5028,9 @@ function BlockEditor({
                 aria-pressed={on}
                 data-layout-choice={o.id}
                 onClick={() => updateData({ layout_type: o.id })}
-                className={cn(
-                  "flex cursor-pointer flex-col items-stretch rounded-2xl border bg-white p-2 outline-none transition-[border-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]",
-                  on ? "border-[#1a1a2e] shadow-[0_0_0_0.5px_#1a1a2e]" : "border-[#e3e4e8] hover:border-[#c9cbd1]",
-                )}
+                className="relative flex cursor-pointer flex-col items-stretch rounded-2xl border border-[#e3e4e8] bg-white p-2 outline-none hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
               >
+                <ChoiceMark on={on} />
                 <span className="grid aspect-[4/3] place-items-center rounded-xl bg-[#f7f7f8] px-3">
                   {o.id === "default" ? (
                     <span className="flex h-9 w-full items-center gap-2 rounded-lg border border-[#e3e4e8] bg-white px-2">
@@ -5022,13 +5066,9 @@ function BlockEditor({
                     key={mode.id}
                     type="button"
                     onClick={() => updateData({ display_mode: mode.id as 'cover' | 'contain' | 'full' })}
-                    className={cn(
-                      "p-2.5 rounded-lg border-2 text-center transition-all",
-                      currentDisplayMode === mode.id
-                        ? "border-[#1a1a2e] bg-[#f4f4f6]"
-                        : "border-gray-200 hover:border-gray-300 bg-white"
-                    )}
+                    className="relative p-2.5 rounded-lg border-2 text-center isolate border-gray-200 hover:border-gray-300 bg-white"
                   >
+                    <CardMark on={currentDisplayMode === mode.id} tint="#f4f4f6" />
                     <div className="text-xs font-medium">{mode.label}</div>
                     <div className="text-[10px] text-muted-foreground mt-0.5">{mode.desc}</div>
                   </button>
@@ -5897,13 +5937,9 @@ function BlockEditor({
                 <button
                   type="button"
                   onClick={() => updateData({ layout_type: 'default' as EmailCaptureLayoutType })}
-                  className={cn(
-                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
-                    (data.layout_type || 'default') === 'default'
-                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
-                      : "border-gray-200 hover:border-gray-300 bg-white"
-                  )}
+                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
                 >
+                  <CardMark on={(data.layout_type || 'default') === 'default'} tint="#f7f7f8" />
                   {/* Visual Preview */}
                   <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex flex-col items-center justify-center overflow-hidden p-2">
                     <div className="w-full space-y-1.5">
@@ -5919,12 +5955,10 @@ function BlockEditor({
                   {/* Label */}
                   <div className="flex items-center gap-2">
                     <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
                       (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
-                      {(data.layout_type || 'default') === 'default' && (
-                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
-                      )}
+                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", (data.layout_type || 'default') === 'default' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
                     <span className="font-medium text-sm">Default</span>
                   </div>
@@ -5935,13 +5969,9 @@ function BlockEditor({
                 <button
                   type="button"
                   onClick={() => updateData({ layout_type: 'pro' as EmailCaptureLayoutType })}
-                  className={cn(
-                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
-                    data.layout_type === 'pro'
-                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
-                      : "border-gray-200 hover:border-gray-300 bg-white"
-                  )}
+                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
                 >
+                  <CardMark on={data.layout_type === 'pro'} tint="#f7f7f8" />
                   {/* Visual Preview */}
                   <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
                     <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
@@ -5962,12 +5992,10 @@ function BlockEditor({
                   {/* Label */}
                   <div className="flex items-center gap-2">
                     <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
                       data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
-                      {data.layout_type === 'pro' && (
-                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
-                      )}
+                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", data.layout_type === 'pro' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
                     <span className="font-medium text-sm">Featured</span>
                     <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
@@ -6111,13 +6139,9 @@ function BlockEditor({
                   <button
                     key={id}
                     onClick={() => updateData({ style: id })}
-                    className={cn(
-                      "flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all",
-                      data.style === id
-                        ? "border-[#1a1a2e] bg-[#f4f4f6]"
-                        : "border-gray-200 hover:border-gray-300 bg-white"
-                    )}
+                    className="relative flex flex-col items-center gap-1.5 p-2 rounded-lg border isolate border-gray-200 hover:border-gray-300 bg-white"
                   >
+                    <CardMark on={data.style === id} width={1} tint="#f4f4f6" />
                     <div className="w-full h-4 flex items-center justify-center">
                       {preview}
                     </div>
@@ -6649,13 +6673,9 @@ function BlockEditor({
                 <button
                   type="button"
                   onClick={() => updateData({ layout_type: 'default' as PDFDocumentLayoutType })}
-                  className={cn(
-                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
-                    (data.layout_type || 'default') === 'default'
-                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
-                      : "border-gray-200 hover:border-gray-300 bg-white"
-                  )}
+                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
                 >
+                  <CardMark on={(data.layout_type || 'default') === 'default'} tint="#f7f7f8" />
                   {/* Visual Preview */}
                   <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
                     <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex items-center justify-center gap-2">
@@ -6667,12 +6687,10 @@ function BlockEditor({
                   {/* Label */}
                   <div className="flex items-center gap-2">
                     <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
                       (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
-                      {(data.layout_type || 'default') === 'default' && (
-                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
-                      )}
+                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", (data.layout_type || 'default') === 'default' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
                     <span className="font-medium text-sm">Default</span>
                   </div>
@@ -6683,13 +6701,9 @@ function BlockEditor({
                 <button
                   type="button"
                   onClick={() => updateData({ layout_type: 'pro' as PDFDocumentLayoutType })}
-                  className={cn(
-                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
-                    data.layout_type === 'pro'
-                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
-                      : "border-gray-200 hover:border-gray-300 bg-white"
-                  )}
+                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
                 >
+                  <CardMark on={data.layout_type === 'pro'} tint="#f7f7f8" />
                   {/* Visual Preview */}
                   <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
                     <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
@@ -6708,12 +6722,10 @@ function BlockEditor({
                   {/* Label */}
                   <div className="flex items-center gap-2">
                     <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
                       data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
-                      {data.layout_type === 'pro' && (
-                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
-                      )}
+                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", data.layout_type === 'pro' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
                     <span className="font-medium text-sm">Featured</span>
                     <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
@@ -6914,13 +6926,9 @@ function BlockEditor({
                 <button
                   type="button"
                   onClick={() => updateData({ layout_type: 'default' as PDFDocumentLayoutType })}
-                  className={cn(
-                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
-                    (data.layout_type || 'default') === 'default'
-                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
-                      : "border-gray-200 hover:border-gray-300 bg-white"
-                  )}
+                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
                 >
+                  <CardMark on={(data.layout_type || 'default') === 'default'} tint="#f7f7f8" />
                   {/* Visual Preview */}
                   <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
                     <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex items-center justify-center gap-2">
@@ -6932,12 +6940,10 @@ function BlockEditor({
                   {/* Label */}
                   <div className="flex items-center gap-2">
                     <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
                       (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
-                      {(data.layout_type || 'default') === 'default' && (
-                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
-                      )}
+                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", (data.layout_type || 'default') === 'default' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
                     <span className="font-medium text-sm">Default</span>
                   </div>
@@ -6948,13 +6954,9 @@ function BlockEditor({
                 <button
                   type="button"
                   onClick={() => updateData({ layout_type: 'pro' as PDFDocumentLayoutType })}
-                  className={cn(
-                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
-                    data.layout_type === 'pro'
-                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
-                      : "border-gray-200 hover:border-gray-300 bg-white"
-                  )}
+                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
                 >
+                  <CardMark on={data.layout_type === 'pro'} tint="#f7f7f8" />
                   {/* Visual Preview */}
                   <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
                     <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
@@ -6973,12 +6975,10 @@ function BlockEditor({
                   {/* Label */}
                   <div className="flex items-center gap-2">
                     <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
                       data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
-                      {data.layout_type === 'pro' && (
-                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
-                      )}
+                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", data.layout_type === 'pro' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
                     <span className="font-medium text-sm">Featured</span>
                     <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
@@ -7132,13 +7132,9 @@ function BlockEditor({
                 <button
                   type="button"
                   onClick={() => updateData({ layout_type: 'default' as PDFDocumentLayoutType })}
-                  className={cn(
-                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
-                    (data.layout_type || 'default') === 'default'
-                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
-                      : "border-gray-200 hover:border-gray-300 bg-white"
-                  )}
+                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
                 >
+                  <CardMark on={(data.layout_type || 'default') === 'default'} tint="#f7f7f8" />
                   {/* Visual Preview */}
                   <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
                     <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm flex items-center justify-center gap-2">
@@ -7150,12 +7146,10 @@ function BlockEditor({
                   {/* Label */}
                   <div className="flex items-center gap-2">
                     <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
                       (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
-                      {(data.layout_type || 'default') === 'default' && (
-                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
-                      )}
+                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", (data.layout_type || 'default') === 'default' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
                     <span className="font-medium text-sm">Default</span>
                   </div>
@@ -7166,13 +7160,9 @@ function BlockEditor({
                 <button
                   type="button"
                   onClick={() => updateData({ layout_type: 'pro' as PDFDocumentLayoutType })}
-                  className={cn(
-                    "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
-                    data.layout_type === 'pro'
-                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
-                      : "border-gray-200 hover:border-gray-300 bg-white"
-                  )}
+                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
                 >
+                  <CardMark on={data.layout_type === 'pro'} tint="#f7f7f8" />
                   {/* Visual Preview */}
                   <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
                     <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
@@ -7191,12 +7181,10 @@ function BlockEditor({
                   {/* Label */}
                   <div className="flex items-center gap-2">
                     <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
                       data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
-                      {data.layout_type === 'pro' && (
-                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
-                      )}
+                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", data.layout_type === 'pro' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                     </div>
                     <span className="font-medium text-sm">Featured</span>
                     <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
@@ -7799,13 +7787,9 @@ function BlockEditor({
             <button
               type="button"
               onClick={() => updateData({ layout: "stack" as const })}
-              className={cn(
-                "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
-                groupData.layout === "stack"
-                  ? "border-[#1a1a2e] bg-[#f7f7f8]"
-                  : "border-gray-200 hover:border-gray-300 bg-white"
-              )}
+              className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
             >
+              <CardMark on={groupData.layout === "stack"} tint="#f7f7f8" />
               {/* Visual Preview */}
               <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex flex-col items-center justify-center overflow-hidden p-2 gap-1.5">
                 <div className="w-full h-6 bg-white rounded border border-gray-200" />
@@ -7816,12 +7800,10 @@ function BlockEditor({
               {/* Label */}
               <div className="flex items-center gap-2">
                 <div className={cn(
-                  "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                  "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
                   groupData.layout === "stack" ? "border-[#1a1a2e]" : "border-gray-300"
                 )}>
-                  {groupData.layout === "stack" && (
-                    <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
-                  )}
+                  <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", groupData.layout === "stack" ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                 </div>
                 <span className="font-medium text-sm">Stack</span>
               </div>
@@ -7832,13 +7814,9 @@ function BlockEditor({
             <button
               type="button"
               onClick={() => updateData({ layout: "carousel" as const })}
-              className={cn(
-                "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
-                groupData.layout === "carousel"
-                  ? "border-[#1a1a2e] bg-[#f7f7f8]"
-                  : "border-gray-200 hover:border-gray-300 bg-white"
-              )}
+              className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
             >
+              <CardMark on={groupData.layout === "carousel"} tint="#f7f7f8" />
               {/* Visual Preview */}
               <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2 gap-1.5">
                 <div className="w-[40%] h-full bg-white rounded border border-gray-200 shrink-0" />
@@ -7849,12 +7827,10 @@ function BlockEditor({
               {/* Label */}
               <div className="flex items-center gap-2">
                 <div className={cn(
-                  "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                  "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
                   groupData.layout === "carousel" ? "border-[#1a1a2e]" : "border-gray-300"
                 )}>
-                  {groupData.layout === "carousel" && (
-                    <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
-                  )}
+                  <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", groupData.layout === "carousel" ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
                 </div>
                 <span className="font-medium text-sm">Carousel</span>
               </div>

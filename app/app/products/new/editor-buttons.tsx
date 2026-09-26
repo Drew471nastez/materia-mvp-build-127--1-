@@ -65,42 +65,86 @@ export const barIconButton = cn(quietDepth, PRESS_AREA_BORDERED, "h-10 w-10 roun
  * A screen reader hears only the word that applies.
  */
 export type LeaveMode = "cancel" | "back"
+/** A pressed control's content: dimmed at once, gone after LAYER_PRESS_WAIT_MS (app/globals.css press-content-out). */
+export const PRESS_CONTENT_OUT = "[animation:press-content-out_120ms_ease-out_100ms_both]"
+/** The spinner that takes its place, from LAYER_PRESS_WAIT_MS on. */
+export const PRESS_SPINNER_IN = "[animation:press-spinner-in_120ms_ease-out_100ms_both]"
 export function LeaveButton({
   mode,
   disabled = false,
   leaving = false,
+  asks = false,
+  label = "Going back to products",
   onLeave,
 }: {
   mode: LeaveMode
   disabled?: boolean
   /** The press has been taken and the list is on its way: a spinner where the word was, and no second press. */
   leaving?: boolean
+  /** The press asks before it goes (a change would be lost): the question is the answer, so the button does not dim. */
+  asks?: boolean
+  /** What the spinner says to a screen reader. */
+  label?: string
   onLeave: () => void
 }) {
+  /*
+    ANSWERED BY THE BUTTON ITSELF. `leaving` comes from the whole editor
+    drawing again, which on a slow phone is several frames after the finger.
+    A press that goes straight away is answered here first, by this button
+    alone, on the next frame. A press that went nowhere after all (shown
+    again from the back cache) lets go.
+  */
+  const [pressed, setPressed] = React.useState(false)
+  React.useEffect(() => {
+    if (!pressed) return
+    const reset = () => setPressed(false)
+    const t = window.setTimeout(reset, 10_000)
+    window.addEventListener("pageshow", reset)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener("pageshow", reset)
+    }
+  }, [pressed])
+  const going = leaving || pressed
   const back = mode === "back"
   const word = "col-start-1 row-start-1 flex items-center justify-center transition-opacity duration-150 motion-reduce:transition-none"
   return (
     <button
       type="button"
       data-leave-button=""
+      data-answers-press=""
       data-mode={mode}
-      data-leaving={leaving ? "" : undefined}
+      data-leaving={going ? "" : undefined}
       aria-label={back ? "Back" : "Cancel"}
-      aria-busy={leaving || undefined}
+      aria-busy={going || undefined}
       disabled={disabled}
-      onClick={leaving ? undefined : onLeave}
-      className={cn(barButton, "grid", leaving && "bg-[#f1f2f4] shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)]")}
+      onClick={
+        going
+          ? undefined
+          : () => {
+              if (!asks) setPressed(true)
+              onLeave()
+            }
+      }
+      className={cn(barButton, "grid", going && "bg-[#f1f2f4] shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)]")}
     >
-      <span aria-hidden className={cn(word, back || leaving ? "opacity-0" : "opacity-100")}>
+      {/*
+        The press: the word dims at once, and if the list is not here
+        LAYER_PRESS_WAIT_MS later the spinner takes its place (the same
+        answer components/app/page-layer holdPress gives every other way out
+        of a layer). A warm list is there well inside it, so most presses
+        show the dim alone.
+      */}
+      <span aria-hidden className={cn(word, back ? "opacity-0" : "opacity-100", going && !back && PRESS_CONTENT_OUT)}>
         Cancel
       </span>
-      <span aria-hidden className={cn(word, "-ml-1 gap-0.5", back && !leaving ? "opacity-100" : "opacity-0")}>
+      <span aria-hidden className={cn(word, "-ml-1 gap-0.5", back ? "opacity-100" : "opacity-0", going && back && PRESS_CONTENT_OUT)}>
         <ChevronLeft className="h-[18px] w-[18px] sm:h-4 sm:w-4" strokeWidth={2.25} />
         Back
       </span>
-      {leaving ? (
-        <span className={cn(word, "opacity-100")}>
-          <ActivitySpinner size={16} label="Going back to products" className="text-[#4b5563]" />
+      {going ? (
+        <span className={cn(word, PRESS_SPINNER_IN)}>
+          <ActivitySpinner size={16} label={label} className="text-[#4b5563]" />
         </span>
       ) : null}
     </button>

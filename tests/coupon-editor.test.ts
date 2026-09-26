@@ -166,7 +166,7 @@ console.log("\nThe frame: the product editor's")
     /className="page-scroll h-full overflow-y-auto overflow-x-hidden bg-\[#f8f9fa\] max-md:\[\[data-page-layer\]_&\]:pb-\[calc\(32px\+env\(safe-area-inset-bottom\)\)\] lg:flex lg:flex-col"/.test(editor))
   check("below lg one bar at the top, under the status bar on a phone: the way out and Save",
     /data-editor-bar=""[\s\S]{0,200}"sticky top-0 z-30 bg-\[#f8f9fa\] transition-shadow duration-150 max-md:\[\[data-page-layer\]_&\]:pt-\[env\(safe-area-inset-top\)\] lg:hidden"/.test(editor)
-      && /<LeaveButton mode=\{leaveMode\} disabled=\{busy\} onLeave=\{\(\) => void leave\(\)\} \/>\s*<CouponSaveButton/.test(editor))
+      && /<LeaveButton mode=\{leaveMode\} disabled=\{busy\} asks=\{dirty\} label="Going back to coupons" onLeave=\{\(\) => void leave\(\)\} \/>\s*<CouponSaveButton/.test(editor))
   check("from lg the 1200px page, 24px under the header, a page header with the way back",
     /data-editor-page="" className="mx-auto w-full max-w-\[760px\] px-4 pb-6 pt-3 sm:px-6 sm:pb-16 sm:pt-4 lg:max-w-\[1200px\] lg:px-8 lg:pb-8 lg:pt-6"/.test(editor)
       && /data-editor-head="" className="mb-5 hidden min-h-9 items-center gap-2 lg:flex"/.test(editor) && /aria-label="Back to coupons"/.test(editor))

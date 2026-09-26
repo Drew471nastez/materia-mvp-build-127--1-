@@ -31,7 +31,8 @@
  *   pnpm build && node scripts/check-nav-drawer.mjs
  */
 import { execFileSync, spawn } from "node:child_process"
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
+import { appCss } from "./probe-css.mjs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -40,9 +41,8 @@ const root = process.cwd()
 const fail = (m) => { console.error(`\n${m}\n`); process.exit(1) }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
-const cssDir = join(root, ".next/static/chunks")
-if (!existsSync(cssDir)) fail("No production build found. Run `pnpm build` first.")
-const css = readdirSync(cssDir).filter((f) => f.endsWith(".css")).map((f) => readFileSync(join(cssDir, f), "utf8")).join("\n")
+/* The build's stylesheet, or globals.css compiled on the spot (probe-css.mjs). */
+const css = await appCss(root)
 
 const out = mkdtempSync(join(tmpdir(), "storelib-drawer-"))
 const stubs = join(root, ".drawer-probe")

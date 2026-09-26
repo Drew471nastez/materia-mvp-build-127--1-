@@ -9,4 +9,5 @@ import { renderToString } from "react-dom/server"
 import { NewTree } from "./render-business-switch-tree"
 
 const name = process.argv[2] || "Lind Studio"
-process.stdout.write(JSON.stringify({ arriving: renderToString(<NewTree arriving={name} />), plain: renderToString(<NewTree arriving={null} />) }))
+const photo = process.argv[3] || null
+process.stdout.write(JSON.stringify({ arriving: renderToString(<NewTree arriving={{ name, photo }} />), plain: renderToString(<NewTree arriving={null} />) }))

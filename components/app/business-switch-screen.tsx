@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
+import { ShellHeaderStill } from "@/components/app/shell-header-still"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { AppTopCorners } from "@/components/app/app-top-corners"
 import { playEntrance } from "@/components/app/app-stage"
@@ -56,6 +57,18 @@ import {
  * step of the switch is happening (lib/businesses/switch-screen). Nothing
  * else: no card, no photo that might decode a frame late on the other side,
  * no second spinner.
+ *
+ * THE BAR IS NOT AN EMPTY BAND. "There's the black top bar there showing,
+ * which I don't understand why." The frame's bar used to be bare black from
+ * the press to the new page. It draws the business you are going to now,
+ * its photo and its name where the real header puts them, with the icons on
+ * the right (components/app/shell-header-still), from the cookie's name and
+ * photo on the new document too. The photo was fetched and decoded when the
+ * menu's list opened, so it is there on the first frame on both sides.
+ *
+ * WHY THE SWITCH IS STILL A NEW DOCUMENT: see lib/businesses/switch-client.
+ * In short, the app keeps per account things outside React that only a new
+ * document is sure to empty.
  *
  *   ON THE PAGE YOU WERE ON (SwitchingScreen, from the account menu). Up on
  *   the frame after the press, over everything, the menu too, on a 140ms
@@ -182,7 +195,7 @@ export type ScreenSurface = "app" | "plain"
  * the shell's shape belongs to the page, and the page draws it itself a
  * moment later.
  */
-function SwitchSurface({ children }: { children?: ReactNode }) {
+function SwitchSurface({ children, header }: { children?: ReactNode; header?: ReactNode }) {
   return (
     <div data-switch-surface="" className="absolute inset-0 bg-white">
       <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] md:top-[calc(58px+env(safe-area-inset-top,0px))]">
@@ -190,6 +203,8 @@ function SwitchSurface({ children }: { children?: ReactNode }) {
       </div>
       <div className="absolute inset-x-0 top-0 h-[calc(68px+env(safe-area-inset-top,0px))] bg-[#111111] text-[#111111] md:h-[calc(58px+env(safe-area-inset-top,0px))] md:bg-[#131316] md:text-[#131316]">
         <AppTopCorners />
+        {/* The business you are going to, drawn where the real header puts it: the bar is never an empty band. */}
+        {header}
       </div>
     </div>
   )
@@ -198,6 +213,7 @@ function SwitchSurface({ children }: { children?: ReactNode }) {
 function Screen({
   step,
   name,
+  photo = null,
   ready,
   spin,
   screenRef,
@@ -206,6 +222,8 @@ function Screen({
 }: {
   step: SwitchStep
   name: string
+  /** The business's photo, for the bar (components/app/shell-header-still). */
+  photo?: string | null
   ready: boolean
   spin?: string
   screenRef?: React.Ref<HTMLDivElement>
@@ -225,12 +243,13 @@ function Screen({
       style={{ transitionDuration: `${HANDOVER_MS}ms` }}
     >
       <div className="relative row-start-2">
-        <span aria-hidden className="block">
-          <ActivitySpinner label="" />
-        </span>
+        {/* The line before the spinner in the markup (it is placed under it all the same): a document painted before it is fully read shows the words first. */}
         <div className="absolute left-1/2 top-full ml-[-150px] mt-4 w-[300px]">
           <Lines lineKey={step} text={text} />
         </div>
+        <span aria-hidden className="block">
+          <ActivitySpinner label="" />
+        </span>
       </div>
     </div>
   )
@@ -246,7 +265,7 @@ function Screen({
       className="fixed inset-0 z-[500] touch-none select-none"
       style={spin ? ({ "--switch-spin-delay": spin } as React.CSSProperties) : undefined}
     >
-      {surface === "app" ? <SwitchSurface>{middle}</SwitchSurface> : <div className="absolute inset-0 bg-white">{middle}</div>}
+      {surface === "app" ? <SwitchSurface header={<ShellHeaderStill name={name} photo={photo} />}>{middle}</SwitchSurface> : <div className="absolute inset-0 bg-white">{middle}</div>}
     </div>
   )
 }
@@ -302,12 +321,14 @@ export type SwitchingHandle = {
  */
 export function SwitchingScreen({
   name,
+  photo = null,
   ready,
   handleRef,
   onGone,
   mode = "switch",
 }: {
   name: string
+  photo?: string | null
   ready: boolean
   handleRef: React.MutableRefObject<SwitchingHandle | null>
   onGone: () => void
@@ -348,7 +369,7 @@ export function SwitchingScreen({
   }, [creating, go, handleRef, onGone])
 
   /* Only ever drawn after a press, so there is a document to put it in. */
-  return createPortal(<Screen step={step} name={name} ready={ready} spin={spin} screenRef={ref} surface={creating ? "plain" : "app"} />, document.body)
+  return createPortal(<Screen step={step} name={name} photo={photo} ready={ready} spin={spin} screenRef={ref} surface={creating ? "plain" : "app"} />, document.body)
 }
 
 /* ── On the new /app ────────────────────────────────────────────────────── */
@@ -416,7 +437,7 @@ async function whenAppReady(screen: HTMLElement): Promise<void> {
  * line the page before ended on, says "Loading your dashboard" only if the
  * page takes long enough to read it, and hands over once the page is ready.
  */
-export function BusinessSwitchArrival({ name }: { name: string }) {
+export function BusinessSwitchArrival({ name, photo = null }: { name: string; photo?: string | null }) {
   const { step, go, shown, settle } = useSteps("opening")
   const ref = useRef<HTMLDivElement>(null)
   const [gone, setGone] = useState(false)
@@ -451,7 +472,7 @@ export function BusinessSwitchArrival({ name }: { name: string }) {
   }, [go, settle, shown])
 
   if (gone) return null
-  return <Screen step={step} name={name} ready screenRef={ref} />
+  return <Screen step={step} name={name} photo={photo} ready screenRef={ref} />
 }
 
 /* ── On the new business's setup ────────────────────────────────────────── */

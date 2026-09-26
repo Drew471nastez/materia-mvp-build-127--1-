@@ -67,7 +67,7 @@ Click a section, in the canvas or the list, and its settings open in the sidebar
 - **Colour scheme** comes first: pick one of the website's schemes and every colour in the section follows it. **Advanced colors** overrides single colours (background, text, heading, accent, border, and the two buttons with their hover colours) for this section only. **Reset to scheme** undoes that.
 - **Text** picks the heading style and the body style from the theme's text styles, or **Custom** to set font, weight, size per screen, line height, letter spacing and case for this section.
 - **The section's own settings** follow, in the order its file declares them, each with its help text. A setting marked responsive has a Desktop, Tablet, Phone switch above it.
-- **Blocks**, if it has any. Each block can be moved up or down, duplicated, deleted, and opened to edit its own settings. **Add** adds another, until the section's `limit` for that kind of block or its `max_blocks`. Clicking a block in the canvas opens it in the list.
+- **Blocks**, if it has any. Each block has a grip to drag it up or down with a mouse or a finger, or with the arrow keys. It can also be duplicated, deleted, and opened to edit its own settings. **Add** adds another, until the section's `limit` for that kind of block or its `max_blocks`. Clicking a block in the canvas opens it in the list.
 - **Hide**, **Duplicate** and **Delete** are pinned along the bottom.
 
 A section's file decides which of these it offers; see [Schema](/developers/schema#top-level). With the inspector on, a selected section also shows a small toolbar at its top right: Ask AI, Move up, Move down, Duplicate, Hide and Delete.

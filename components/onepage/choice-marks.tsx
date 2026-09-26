@@ -77,3 +77,19 @@ export function ChipFill({ on, className }: { on: boolean; className?: string })
     />
   )
 }
+
+/**
+ * A picked option card in a block's settings (a layout, a divider, how an
+ * image fits): its dark border and its grey tint, under the card's
+ * content and over its white, faded in. The card must be `relative isolate`.
+ */
+export function CardMark({ on, width = 2, tint = "#f7f7f8" }: { on: boolean; width?: number; tint?: string }) {
+  return (
+    <span
+      aria-hidden
+      data-choice-mark=""
+      className={cn("pointer-events-none absolute -z-10 rounded-[inherit] border-solid border-[#1a1a2e]", markMotion, on ? "scale-100 opacity-100" : "scale-[0.985] opacity-0")}
+      style={{ inset: -width, borderWidth: width, background: tint }}
+    />
+  )
+}

@@ -29,17 +29,21 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 /* Where the panel is this frame, running animation included; null when there is no sheet. */
 const panelY = (p) => p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => {
-  const el = document.querySelector("[data-app-sheet] [data-sheet-panel]")
+  /* The open one: a sheet that opens another (a step after a step) is still leaving under it. */
+  const el = document.querySelector('[data-app-sheet="open"] [data-sheet-panel]') || document.querySelector("[data-app-sheet] [data-sheet-panel]")
   r(el ? new DOMMatrixReadOnly(getComputedStyle(el).transform).m42 : null)
 }))))
 
 /* Every frame of the panel from now for `ms`, into window.__frames. */
 const record = (p, ms) => p.evaluate((ms) => {
   const frames = (window.__frames = [])
+  const els = (window.__frameEls = [])
   const t0 = performance.now()
   const tick = () => {
-    const el = document.querySelector("[data-app-sheet] [data-sheet-panel]")
-    if (el) frames.push({ y: new DOMMatrixReadOnly(getComputedStyle(el).transform).m42, h: el.offsetHeight })
+    const el = document.querySelector('[data-app-sheet="open"] [data-sheet-panel]') || document.querySelector("[data-app-sheet] [data-sheet-panel]")
+    /* Which panel each frame is of, so a sheet opened from another is read on its own. */
+    if (el && !els.includes(el)) els.push(el)
+    if (el) frames.push({ y: new DOMMatrixReadOnly(getComputedStyle(el).transform).m42, h: el.offsetHeight, el: els.indexOf(el) })
     if (performance.now() - t0 < ms) requestAnimationFrame(tick)
   }
   requestAnimationFrame(tick)
@@ -58,7 +62,7 @@ async function drag(s, from, dy, { steps = 8, pauseMs = 40, measure = false } = 
   return lag
 }
 const grabber = (p) => p.evaluate(() => {
-  const r = document.querySelector("[data-app-sheet] [data-sheet-handle]").getBoundingClientRect()
+  const r = (document.querySelector('[data-app-sheet="open"] [data-sheet-handle]') || document.querySelector("[data-app-sheet] [data-sheet-handle]")).getBoundingClientRect()
   return { x: r.left + r.width / 2, y: r.top + 6 }
 })
 
@@ -91,7 +95,12 @@ export async function readSheet(s, { name, label, opener, list, expect }) {
     }
   })
   expect(seen.state === "open" && seen.panel && seen.label === label && !seen.radix, `it is the shared sheet, "${label}", and no dialog is drawn with it`, seen)
-  const frames = await p.evaluate(() => window.__frames)
+  /* The frames of the sheet that is open now (a step opened from another sheet: not the one it replaced). */
+  const frames = await p.evaluate(() => {
+    const open = document.querySelector('[data-app-sheet="open"] [data-sheet-panel]')
+    const k = window.__frameEls.indexOf(open)
+    return window.__frames.filter((f) => k < 0 || f.el === k)
+  })
   const first = frames[0]
   const backwards = frames.slice(1).filter((f, i) => f.y > frames[i].y + 0.5).length
   const rest = await panelY(p)

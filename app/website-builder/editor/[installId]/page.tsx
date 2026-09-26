@@ -38,6 +38,7 @@ import { MobileEditorSheet, sheetMoveMs } from "@/components/website-builder/mob
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { Collapse } from "@/components/website-builder/editor/collapse"
+import { SectionBlockList } from "@/components/website-builder/editor/section-block-list"
 import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
 import { SectionLibrary } from "@/components/website-builder/editor/section-library"
 import { useEchoedValue } from "@/components/website-builder/echo-field"
@@ -90,6 +91,7 @@ import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
 import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAncestors, revealWithin, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
+import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
 import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 
@@ -5772,87 +5774,46 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <p className="text-xs font-semibold mb-3">
                   {schema.blocks[0]?.name ? `${schema.blocks[0].name}s` : "Blocks"}
                 </p>
-                <div className="space-y-2">
-                  {(section.blocks ?? []).map(block => {
+                {/* Grip, name, Duplicate, Delete, chevron: section-block-list.tsx.
+                    A drag commits once, on release, through reorderBlocks. */}
+                <SectionBlockList
+                  blocks={section.blocks ?? []}
+                  selectedId={selectedBlockId}
+                  onSelect={setSelectedBlockId}
+                  onReorder={next => reorderBlocks(section.id, next)}
+                  // The real one: it checks there is room, gives the copy its
+                  // own id, and records an undo step.
+                  onDuplicate={blockId => duplicateBlock(section.id, blockId)}
+                  onRemove={blockId => removeBlock(section.id, blockId)}
+                  title={block => ({
+                    name: schema.blocks?.find(b => b.type === block.type)?.name ?? block.type,
+                    detail: block.settings.author ? String(block.settings.author) : undefined,
+                  })}
+                  fields={block => {
                     const blockSchema = schema.blocks?.find(b => b.type === block.type)
                     return (
-                      <details
-                        key={block.id}
-                        data-block-row={block.id}
-                        open={selectedBlockId === block.id ? true : undefined}
-                        onToggle={e => { if ((e.currentTarget as HTMLDetailsElement).open) setSelectedBlockId(block.id) }}
-                        className={cn(
-                          "group border rounded-lg overflow-hidden transition-colors",
-                          selectedBlockId === block.id
-                            ? "border-foreground/40 ring-1 ring-foreground/15"
-                            : "border-border",
-                        )}
-                      >
-                        <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer list-none bg-muted/30 hover:bg-muted/50">
-                          <span className="text-sm font-medium">
-                            {blockSchema?.name ?? block.type}
-                            {!!block.settings.author && <span className="ml-1 opacity-50">{String(block.settings.author)}</span>}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            {(() => {
-                              const list = section.blocks ?? []
-                              const at = list.findIndex(b => b.id === block.id)
-                              const move = (to: number) => {
-                                const next = [...list]
-                                next.splice(at, 1)
-                                next.splice(to, 0, block)
-                                reorderBlocks(section.id, next)
-                              }
-                              // The real one: it checks there is room, gives
-                              // the copy its own id, and records an undo step.
-                              const copy = () => duplicateBlock(section.id, block.id)
-                              return (
-                                <>
-                                  <button type="button" aria-label="Move up" disabled={at <= 0} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-muted disabled:opacity-30" onClick={e => { e.preventDefault(); move(at - 1) }}>
-                                    <ChevronDown className="h-3 w-3 rotate-180" />
-                                  </button>
-                                  <button type="button" aria-label="Move down" disabled={at >= list.length - 1} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-muted disabled:opacity-30" onClick={e => { e.preventDefault(); move(at + 1) }}>
-                                    <ChevronDown className="h-3 w-3" />
-                                  </button>
-                                  <button type="button" aria-label="Duplicate" className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:bg-muted" onClick={e => { e.preventDefault(); copy() }}>
-                                    <Copy className="h-3 w-3" />
-                                  </button>
-                                </>
-                              )
-                            })()}
-                            <button
-                              className="h-6 w-6 flex items-center justify-center rounded hover:bg-red-50 text-red-400 hover:text-red-600"
-                              onClick={e => { e.preventDefault(); removeBlock(section.id, block.id) }}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-open:rotate-180 transition-transform" />
-                          </div>
-                        </summary>
-                        <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
-                          <SiblingSettingsProvider settings={block.settings}>
-                          {visibleFields(blockSchema?.fields ?? [], block.settings, { fields: schema.fields ?? [], saved: section.settings }).map(field => (
-                            <div key={field.id}>
-                              {!fieldCarriesOwnLabel(field) && (
-                                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                              )}
-                              <FieldEditor
-                                field={field}
-                                value={block.settings[field.id]}
-                                onChange={val => updateBlockSetting(section.id, block.id, field.id, val)}
-                              />
-                            </div>
-                          ))}
-                          </SiblingSettingsProvider>
+                      <SiblingSettingsProvider settings={block.settings}>
+                      {visibleFields(blockSchema?.fields ?? [], block.settings, { fields: schema.fields ?? [], saved: section.settings }).map(field => (
+                        <div key={field.id}>
+                          {!fieldCarriesOwnLabel(field) && (
+                            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                          )}
+                          <FieldEditor
+                            field={field}
+                            value={block.settings[field.id]}
+                            onChange={val => updateBlockSetting(section.id, block.id, field.id, val)}
+                          />
                         </div>
-                      </details>
+                      ))}
+                      </SiblingSettingsProvider>
                     )
-                  })}
-                </div>
+                  }}
+                />
 
                 {(!schema.max_blocks || (section.blocks?.length ?? 0) < schema.max_blocks) && (
                   <button
-                    className="mt-2 w-full flex items-center justify-center gap-1.5 py-2.5 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-neutral-400 rounded-lg transition-colors"
+                    type="button"
+                    className="mt-2 w-full flex h-10 max-sm:h-12 items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-neutral-400 rounded-lg transition-colors"
                     onClick={() => addBlock(section.id, schema.blocks![0].type)}
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -7563,6 +7524,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               touchingCanvas.current = true
               if (!isMobileView) return
               const el = e.currentTarget
+              /* Not under the site's open menu: the canvas is held still for
+                 it, and this nudge was the one thing still moving it. */
+              if (el.hasAttribute(SITE_DRAWER_OPEN_ATTRIBUTE)) return
               const max = el.scrollHeight - el.clientHeight
               if (max <= 2) return
               if (el.scrollTop <= 0) el.scrollTop = 1

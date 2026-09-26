@@ -59,6 +59,7 @@ export function SheetDialog({
   showCloseButton = true,
   onOpenAutoFocus,
   sheet,
+  dialog,
   children,
 }: {
   open: boolean
@@ -74,6 +75,8 @@ export function SheetDialog({
   onOpenAutoFocus?: (e: Event) => void
   /** Anything the sheet should do other than the defaults above. */
   sheet?: Partial<SheetOptions>
+  /** Anything else the dialog should do on a computer (a crop that must not close on a press outside, say). */
+  dialog?: Omit<React.ComponentProps<typeof DialogContent>, "className" | "children" | "showCloseButton" | "onOpenAutoFocus">
   children: React.ReactNode
 }) {
   if (phone) {
@@ -97,7 +100,7 @@ export function SheetDialog({
   }
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent className={className} showCloseButton={showCloseButton} onOpenAutoFocus={onOpenAutoFocus}>
+      <DialogContent {...dialog} className={className} showCloseButton={showCloseButton} onOpenAutoFocus={onOpenAutoFocus}>
         {children}
       </DialogContent>
     </Dialog>

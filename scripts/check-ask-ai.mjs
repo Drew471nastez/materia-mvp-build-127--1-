@@ -36,16 +36,19 @@
  *                 the history slides in
  *   askai2 (ONLY=askai2), screenshots askai2-*
  *     GLASS       the pill: 95% white over a light 10px blur, a hairline,
- *                 ink shadows only; the open conversation solid white with
- *                 no backdrop filter; no halo and no blurred band; no
- *                 blurred layer under a fading one, frame by frame, so the
- *                 blur never switches off mid fade
+ *                 ink shadows only; round it five rings that blur the page
+ *                 and hold no colour; the open conversation solid white
+ *                 with no backdrop filter; no halo and not the old masked
+ *                 band; no blurred layer under a fading one, frame by
+ *                 frame, so the blur never switches off mid fade
  *     NO GLOW     on a flat dark canvas at 1280 and 1440, every pixel within
  *                 90px of the pill is at most 2 of 255 lighter than the page
  *                 (the old glow, put back, is measured the same way)
- *     FADE        the band round the pill: over a photo it adds no light
- *                 (the band's mean is unchanged); over fine stripes it goes
- *                 from sharp to blurred row by row with no step
+ *     THE RAMP    the softening round the pill, read off the page: over fine
+ *                 stripes it runs from untouched out past the rings to
+ *                 nothing at the pill, row by row, never back; and with
+ *                 every mask taken off, as WebKit takes them off, it still
+ *                 arrives in steps rather than in one cut
  *     PICTURES    a sent picture is a loaded 64px thumbnail; read back after
  *                 a reload (stubbed route) it is one again, and one that is
  *                 gone is a "Picture no longer available" tile; never the
@@ -263,11 +266,11 @@ async function desktop(browser, vp, label, full) {
 
   const glass = await p.evaluate(() => {
     const g = getComputedStyle(document.querySelector("[data-ask-glass]"))
-    return { glass: g.backdropFilter, fill: g.backgroundColor, halo: !!document.querySelector("[data-ask-halo]"), band: !!document.querySelector("[data-ask-fade]") }
+    return { glass: g.backdropFilter, fill: g.backgroundColor, halo: !!document.querySelector("[data-ask-halo]"), band: !!document.querySelector("[data-ask-fade]"), rings: document.querySelectorAll("[data-ask-soften]").length }
   })
   expect(/blur\(10px\)/.test(glass.glass) && /(, 0\.95\)| \/ 0\.95\))$/.test(glass.fill), "the pill is near solid white: 95% over a light 10px blur", glass)
-  /* No glow and no blurred band round it: its pixels are measured in askai2 (NO GLOW, NO BAND). */
-  expect(!glass.halo && !glass.band, "nothing round it: no halo, no blurred band", glass)
+  /* Round it, the page softening into it and nothing else: the pixels are measured in askai2 (NO GLOW, THE RAMP). */
+  expect(!glass.halo && !glass.band && glass.rings === 5, "round it, five rings of blur and nothing else: no halo, no old band", glass)
   const mic0 = await p.$("[data-ask-mic]")
   expect(!!mic0, "with a recogniser, the microphone is there")
   await p.screenshot({ path: join(shots, `${PREFIX}${label}-pill.png`) })
@@ -600,7 +603,7 @@ async function glassStyles(browser, vp) {
       const c = getComputedStyle(e)
       return { backdrop: c.backdropFilter || c.webkitBackdropFilter, fill: c.backgroundColor, border: `${c.borderTopWidth} ${c.borderTopColor}`, shadow: c.boxShadow, opacity: c.opacity, mask: c.maskImage || c.webkitMaskImage, radius: c.borderTopLeftRadius }
     }
-    return { glass: style("[data-ask-glass]"), card: style("[data-ask-card]"), surface: style("[data-ask-surface]"), halo: !!document.querySelector("[data-ask-halo]"), band: !!document.querySelector("[data-ask-fade]") }
+    return { glass: style("[data-ask-glass]"), card: style("[data-ask-card]"), surface: style("[data-ask-surface]"), halo: !!document.querySelector("[data-ask-halo]"), band: !!document.querySelector("[data-ask-fade]"), rings: [...document.querySelectorAll("[data-ask-soften]")].map((e) => { const c = getComputedStyle(e); return { backdrop: c.backdropFilter || c.webkitBackdropFilter, fill: c.backgroundColor, shadow: c.boxShadow, mask: c.maskImage || c.webkitMaskImage } }) }
   })
   /* Every shadow layer: its colour, and whether it is inside. */
   const layers = (shadow) => (shadow.match(/rgba?\([^)]*\)[^,]*(?:,|$)/g) ?? []).map((l) => {
@@ -619,7 +622,12 @@ async function glassStyles(browser, vp) {
   const drawn = outside.filter((l) => l.a > 0)
   expect(drawn.length >= 4 && drawn.every((l) => l.r <= 60 && l.g <= 60 && l.b <= 60), "a hairline and three shadows for depth, every one of them ink and none of them light", drawn)
   expect(!folded.halo, "and no halo element at all")
-  expect(!folded.band, "and no blurred band round it, so there is no edge to see")
+  expect(!folded.band, "and not the one masked band that ended in a hard edge")
+  expect(
+    folded.rings.length === 5 && folded.rings.every((r) => /blur\(/.test(r.backdrop) && r.mask && r.mask !== "none" && /, 0\)$/.test(r.fill) && r.shadow === "none"),
+    "what is round it instead: five rings that only blur the page, each feathered by its own mask, none of them holding a colour",
+    folded.rings.map((r) => r.backdrop),
+  )
   await p.screenshot({ path: join(shots, `${P2}${label}-pill.png`) })
 
   /* THE BLUR STAYS ON WHILE IT FADES: no glass layer has an ancestor below full opacity, frame by frame, opening and closing. */
@@ -700,30 +708,69 @@ async function noGlow(browser, vp) {
   await closeWith(p)
 }
 
-/* ── NO BAND: the page round the pill is left sharp, so there is no edge ── */
-async function fadeBand(browser, vp) {
-  const label = `noband-${vp.width}`
+/* ── THE RAMP: the page softens into the pill, and stops being touched ── */
+async function softenRamp(browser, vp) {
+  const label = `soften-${vp.width}`
   console.log(`\n${label}`)
   /*
     "The blur around the pill is not fading, disappearing smoothly. It's very
-    cut around." Safari draws a backdrop blur but not the mask that feathers
-    it, so the band ended in a hard edge. It is gone: over fine stripes, the
-    rows just above the pill are as sharp as the rows further out.
+    cut around." That was one masked band, and WebKit draws a backdrop blur
+    but not the mask that feathers it, so it ended in a hard edge. It is
+    five rings now (SOFTEN_RINGS), and this reads the ramp off the page
+    rather than off the CSS: over fine stripes, the contrast of each row
+    above the pill, as a share of the page's own contrast further out.
+
+    Sharp out there, nothing left at the pill, and no jump between one row
+    and the next — and then the masks are taken off every ring, which is
+    what WebKit does to them, and it is measured again. That fallback is
+    the whole reason there are five of them: without a mask the rings are
+    still a staircase of five blur radii, not a cut.
   */
   const s = await openAt(browser, vp, "speech=none&canvas=stripes")
   const sp = await rect(s, "[data-ask-pill]")
   await s.screenshot({ path: join(shots, `${P2}${label}-stripes.png`), clip: { x: sp.x - 60, y: sp.y - 60, width: 240, height: sp.h + 90 } })
   const cx = Math.round(sp.x + sp.w / 2)
-  const above = await grab(s, { x: cx - 8, y: Math.round(sp.y - 48), width: 16, height: 40 })
   const contrast = (px, row) => { let mn = 255, mx = 0; for (let x = 0; x < px.w; x++) { const v = px.lum[row * px.w + x]; mn = Math.min(mn, v); mx = Math.max(mx, v) } return mx - mn }
-  const rows = Array.from({ length: above.h }, (_, r) => contrast(above, r))
-  const full = Math.max(...rows.slice(0, 6))
-  const profile = rows.map((c) => +(c / full).toFixed(3))
-  const masked = await s.evaluate(() => [...document.querySelectorAll("[data-ask-dock] *")].filter((e) => { const c = getComputedStyle(e); return (c.maskImage && c.maskImage !== "none") || (c.webkitMaskImage && c.webkitMaskImage !== "none") }).length)
+  const ramp = async () => {
+    const above = await grab(s, { x: cx - 8, y: Math.round(sp.y - 48), width: 16, height: 40 })
+    const rows = Array.from({ length: above.h }, (_, r) => contrast(above, r))
+    const full = Math.max(...rows.slice(0, 6))
+    return rows.map((c) => +(c / full).toFixed(3))
+  }
+  const shape = (profile) => {
+    let step = 0
+    let rises = 0
+    let steps = 0
+    for (let i = 1; i < profile.length; i++) {
+      step = Math.max(step, Math.abs(profile[i] - profile[i - 1]))
+      if (profile[i] > profile[i - 1] + 0.02) rises++
+      if (profile[i] < profile[i - 1] - 0.03) steps++
+    }
+    return { far: profile[0], atPill: profile[profile.length - 1], biggestStep: +step.toFixed(3), steps, rises }
+  }
+  const rings = await s.$$eval("[data-ask-soften]", (e) => e.length)
+  const masked = await s.evaluate(() => [...document.querySelectorAll("[data-ask-soften]")].filter((e) => { const c = getComputedStyle(e); const m = c.maskImage || c.webkitMaskImage; return m && m !== "none" }).length)
+  const withMask = await ramp()
+  /* What WebKit is left with: the same rings, their masks dropped. */
+  await s.evaluate(() => { document.querySelectorAll("[data-ask-soften]").forEach((e) => { e.style.maskImage = "none"; e.style.webkitMaskImage = "none" }) })
+  await sleep(160)
+  const noMask = await ramp()
+  await s.screenshot({ path: join(shots, `${P2}${label}-stripes-unmasked.png`), clip: { x: sp.x - 60, y: sp.y - 60, width: 240, height: sp.h + 90 } })
   await closeWith(s)
-  measures[label] = { stripes: { rows: profile }, masked }
-  expect(masked === 0, "no element in the dock carries a mask", masked)
-  expect(profile.every((v) => v >= 0.8), "the page just above the pill is as sharp as the page further out: no band, no edge", profile)
+  const a = shape(withMask), b = shape(noMask)
+  measures[label] = { rings, masked, withMask: { profile: withMask, ...a }, noMask: { profile: noMask, ...b } }
+  expect(rings >= 3 && masked === rings, "every ring is feathered by a mask of its own", { rings, masked })
+  expect(a.far >= 0.95 && a.atPill <= 0.1 && a.rises === 0 && a.biggestStep <= 0.16, "the page runs from untouched, out past the rings, to fully softened at the pill, one row at a time and never back", a)
+  /*
+    Stripes every other pixel are the finest thing a screen can hold, and
+    the worst case there is: the first ring that touches them at all takes
+    half their contrast whatever its radius, so what is asked of the
+    fallback is that the softening ARRIVES IN STEPS — four or more of them,
+    none taking the page all the way — rather than in the single cut one
+    masked band left behind. On ordinary page content (see the blue canvas
+    in scripts/check-ask-dock.mjs) the same staircase is not visible at all.
+  */
+  expect(b.far >= 0.95 && b.atPill <= 0.3 && b.steps >= 4 && b.biggestStep <= 0.6, "and with the masks dropped, as WebKit drops them, the softening still arrives in steps and never in one cut", b)
 }
 
 /* ── PICTURES: a thumbnail now, and after a reload ─────────────────────── */
@@ -1000,7 +1047,7 @@ async function askai2(browser) {
   await glassStyles(browser, { width: 1280, height: 800 })
   await noGlow(browser, { width: 1280, height: 800 })
   await noGlow(browser, { width: 1440, height: 900 })
-  await fadeBand(browser, { width: 1280, height: 800 })
+  await softenRamp(browser, { width: 1280, height: 800 })
   await pictures(browser, { width: 1280, height: 800 })
   await sounds(browser)
   await actions(browser, { width: 1280, height: 800 })

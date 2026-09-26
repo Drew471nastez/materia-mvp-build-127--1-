@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client"
 import { switchCookie } from "@/lib/businesses/switch-screen"
+import { clearAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 
 /**
  * ===========================================================================
@@ -18,10 +19,23 @@ import { switchCookie } from "@/lib/businesses/switch-screen"
  * cookie can trail the device store by a request.
  *
  * The account menu shows a screen while this works (components/app/business-
- * switch-screen). `arrival` names the business for the new /app to carry
- * that screen on with (lib/businesses/switch-screen SWITCH_COOKIE), and
+ * switch-screen). `arrival` names the business and its photo for the new
+ * /app to carry that screen on with (lib/businesses/switch-screen
+ * SWITCH_COOKIE), `business` is who this browser is from now on, and
  * `onOpening` is called once the session is held, just before the new page
- * is asked for. Neither is needed: without them a switch is what it was.
+ * is asked for. None is needed: without them a switch is what it was.
+ *
+ * WHY A RELOAD AND NOT A SWITCH IN PLACE. The app keeps things per account
+ * outside React's tree, in module memory and in this browser's storage: the
+ * Website settings' last domains and backups, the email lists, the globe's
+ * last figures, the own AI keys' state, the Supabase client's own session
+ * and its realtime channels, the router's prefetched pages. A switch in
+ * place would have to find and empty every one of them, today's and every
+ * one added later, or show one business's data under the other's name.
+ * A new document empties all of them by construction. What the reload used
+ * to cost (an empty black band, a flash) is the screen's to hide, and it
+ * does: its header draws the business you are going to from the press to
+ * the new page's first frame (components/app/shell-header-still).
  */
 
 export interface BusinessSession {
@@ -29,9 +43,20 @@ export interface BusinessSession {
   refresh_token: string
 }
 
+/** The business being opened, as the account menu showed it. */
+export interface SwitchedTo {
+  userId: string
+  name: string
+  handle: string | null
+  avatarUrl: string | null
+  ready: boolean
+}
+
 export interface SwitchSteps {
-  /** The business's name, when the new /app should open on the switch's screen. */
-  arrival?: string
+  /** The business's name and photo, when the new /app should open on the switch's screen. */
+  arrival?: { name: string; photo?: string | null }
+  /** Who this browser is from now on: the public site's header starts from it (lib/auth/auth-snapshot) instead of the business before. */
+  business?: SwitchedTo
   /** The session is this browser's now, and the new page is about to be asked for. */
   onOpening?: () => void
 }
@@ -67,9 +92,29 @@ export async function applyBusinessSession(session: BusinessSession, next: strin
   } catch {
     /* private mode: nothing kept anyway */
   }
+  /*
+    The public site's header opens on a snapshot of who was signed in
+    (lib/auth/auth-snapshot) and the photo beside it. Left alone they would
+    say the business before until that header had asked again: now they say
+    the one being opened, or, when the menu did not say who that is, nothing
+    at all, so the header asks before it draws anybody. Clearing first also
+    drops the saved listings and follows kept on the device for the account
+    before (the same as signing out does), which are that account's, not
+    this one's.
+  */
+  try {
+    clearAuthSnapshot()
+    const b = steps.business
+    if (b) {
+      writeAuthSnapshot({ signedIn: true, userId: b.userId, avatarUrl: b.avatarUrl, displayName: b.name, username: b.handle, isSeller: b.ready })
+      if (b.avatarUrl) localStorage.setItem("_sl_avatar", b.avatarUrl)
+    }
+  } catch {
+    /* storage refused: that header corrects itself once it has asked */
+  }
   if (steps.arrival) {
     try {
-      document.cookie = switchCookie(steps.arrival, { secure: location.protocol === "https:" })
+      document.cookie = switchCookie(steps.arrival.name, { secure: location.protocol === "https:", photo: steps.arrival.photo ?? null })
     } catch {
       /* cookies refused: the new page arrives without the screen, as it used to */
     }

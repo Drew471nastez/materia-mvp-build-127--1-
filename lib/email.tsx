@@ -2538,6 +2538,16 @@ function payoutEmailHtml(params: {
 </html>`
 }
 
+/*
+  THE SELLER'S OWN MAIL GOES TO THE PERSON. The payout, bank, verification,
+  dispute and tax emails below are sent to the seller's profile address, and
+  a second or third business of a login has the owner's address with a tag
+  (lib/businesses/email-alias). Each of them writes to ownerAddress(to): the
+  owner's real inbox, as the sale and refund emails already do
+  (resolveCreatorIdentity above), so a provider that does not deliver "+"
+  addresses still gets the payout email. An ordinary account's address is
+  unchanged by it.
+*/
 export async function sendPayoutCreatedEmail(params: PayoutEmailParams): Promise<void> {
   const baseUrl = getStableBaseUrl()
   const formattedAmount = formatPayoutAmount(params.amountCents, params.currency)
@@ -2547,7 +2557,7 @@ export async function sendPayoutCreatedEmail(params: PayoutEmailParams): Promise
       async () => {
         const result = await sendEmail({
           from: buildFromHeaderLocal("Storelib"),
-          to: params.to,
+          to: ownerAddress(params.to) || params.to,
           subject: `Your payout is on the way`,
           html: payoutEmailHtml({
             sellerName: params.sellerName,
@@ -2614,7 +2624,7 @@ export async function sendPayoutStatusEmail(params: PayoutEmailParams): Promise<
       async () => {
         const result = await sendEmail({
           from: buildFromHeaderLocal("Storelib"),
-          to: params.to,
+          to: ownerAddress(params.to) || params.to,
           subject: config.subject,
           html: payoutEmailHtml({
             sellerName: params.sellerName,
@@ -2658,7 +2668,7 @@ export async function sendFirstPayoutEmail(params: {
       async () => {
         const result = await sendEmail({
           from: buildFromHeaderLocal("Storelib"),
-          to: params.to,
+          to: ownerAddress(params.to) || params.to,
           subject: `You just received your first payout 🎉`,
           html: payoutEmailHtml({
             sellerName: params.sellerName,
@@ -2702,7 +2712,7 @@ export async function sendBankUpdatedEmail(params: {
         const bankDisplay = params.bankName ? `${params.bankName} ••••${params.bankLast4}` : `Bank account ••••${params.bankLast4}`
         const result = await sendEmail({
           from: buildFromHeaderLocal("Storelib"),
-          to: params.to,
+          to: ownerAddress(params.to) || params.to,
           subject: `Your payout details were updated`,
           html: `<!DOCTYPE html>
 <html lang="en">
@@ -2828,7 +2838,7 @@ export async function sendPayoutsPausedEmail(params: {
       async () => {
         const result = await sendEmail({
           from: buildFromHeaderLocal("Storelib"),
-          to: params.to,
+          to: ownerAddress(params.to) || params.to,
           subject: `Some of your funds are temporarily unavailable`,
           html: `<!DOCTYPE html>
 <html lang="en">
@@ -3010,7 +3020,7 @@ export async function sendVerificationRequiredEmail(params: {
       async () => {
         const result = await sendEmail({
           from: buildFromHeaderLocal("Storelib"),
-          to: params.to,
+          to: ownerAddress(params.to) || params.to,
           subject: params.isPastDue
             ? "Action required: complete verification to keep receiving payouts"
             : "Verification needed to enable payouts",
@@ -3333,7 +3343,7 @@ export async function sendDisputeCreatedEmail(params: {
       async () => {
         const result = await sendEmail({
           from: buildFromHeaderLocal("Storelib"),
-          to: params.to,
+          to: ownerAddress(params.to) || params.to,
           subject: `A payment was disputed — ${fmtAmt(params.disputedAmountCents)} held`,
           html: `<!DOCTYPE html>
 <html lang="en">
@@ -3492,7 +3502,7 @@ export async function sendDisputeWonEmail(params: {
       async () => {
         const result = await sendEmail({
           from: buildFromHeaderLocal("Storelib"),
-          to: params.to,
+          to: ownerAddress(params.to) || params.to,
           subject: `Dispute resolved in your favor — ${fmtAmt(params.amountCents)} restored`,
           html: `<!DOCTYPE html>
 <html lang="en">
@@ -3604,7 +3614,7 @@ export async function sendDisputeLostEmail(params: {
       async () => {
         const result = await sendEmail({
           from: buildFromHeaderLocal("Storelib"),
-          to: params.to,
+          to: ownerAddress(params.to) || params.to,
           subject: `Dispute lost — ${fmtAmt(params.amountCents)} deducted permanently`,
           html: `<!DOCTYPE html>
 <html lang="en">
@@ -3736,7 +3746,7 @@ export async function send1099KNotificationEmail(params: {
       async () => {
         const result = await sendEmail({
           from: buildFromHeaderLocal("Storelib"),
-          to: params.to,
+          to: ownerAddress(params.to) || params.to,
           subject: params.isEligible
             ? `Your ${params.taxYear} 1099-K is available`
             : `Your ${params.taxYear} earnings summary is ready`,

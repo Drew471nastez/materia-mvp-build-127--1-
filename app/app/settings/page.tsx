@@ -20,6 +20,7 @@ export default async function SettingsPage() {
       sharePlatforms={data.sharePlatforms}
       website={data.website}
       newsletter={data.newsletter}
+      otherStores={data.otherStores}
       initialTab="general"
     />
   )

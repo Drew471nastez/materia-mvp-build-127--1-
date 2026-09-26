@@ -44,6 +44,7 @@ import { EmailChangeFlow, PrivacyPanel, SecurityPanel } from "@/components/app/s
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { applyBusinessSession } from "@/lib/businesses/switch-client"
 import { ownerAddress } from "@/lib/businesses/email-alias"
+import { countWord } from "@/lib/businesses/rules"
 
 /* The country field is components/app/settings/country-picker: every country, with its flag. */
 
@@ -102,6 +103,13 @@ interface SettingsFormProps {
   onePageLive?: boolean
   /** The platforms the creator is on, for the share pill's "My platforms". */
   sharePlatforms?: ConnectedPlatform[]
+  /**
+   * How many other stores on this login go when this account goes: none
+   * unless this account is the login's first (app/app/settings/_server.ts).
+   * Deleting is one plain thing here, the same on every store; this is only
+   * so the confirmation can name everything it removes.
+   */
+  otherStores?: number
   initialTab?: TabId
 }
 
@@ -228,7 +236,7 @@ function DesktopSettingsModal({
   )
 }
 
-export function SettingsFormNew({ profile, creator, accountTimeZone = null, websitePublished = false, newsletter = false, website = null, onePageLive = false, sharePlatforms = [], initialTab = "general" }: SettingsFormProps) {
+export function SettingsFormNew({ profile, creator, accountTimeZone = null, websitePublished = false, newsletter = false, website = null, onePageLive = false, sharePlatforms = [], otherStores = 0, initialTab = "general" }: SettingsFormProps) {
   const router = useRouter()
   const { language: currentLanguage, setLanguage, t } = useLanguage()
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>(currentLanguage)
@@ -1137,7 +1145,14 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       const data = await response.json()
 
       if (response.ok) {
-        /* A second business was deleted: back into the first one, signed in (lib/businesses). */
+        /*
+          One of the login's other stores was deleted: this browser is put
+          into the login's first store, signed in, and /app is loaded fresh
+          (lib/businesses). The fresh load is also what takes the deleted
+          store out of the account menu, with no reload asked of anybody:
+          the menu's list is read on the server for that page
+          (app/app/layout.tsx listBusinesses), and the link is gone.
+        */
         if (data.firstBusiness?.session) {
           await applyBusinessSession(data.firstBusiness.session, "/app")
           return
@@ -2064,8 +2079,20 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 </div>
                 <div>
                   <p className="font-medium text-white text-[14px]">This action cannot be undone</p>
+                  {/*
+                    What goes, in one sentence, the way it always read. The
+                    last clause appears only on a login that has other stores
+                    (they are accounts of this one and cannot be signed into
+                    without it, so they go with it: app/api/auth/delete-
+                    account). It is part of the list of what is removed, not
+                    a feature being explained.
+                  */}
                   <p className="text-[13px] text-[#9ca3af] mt-1">
                     Deleting your account will permanently remove all your data, including products, customers, and sales history.
+                    {otherStores > 0 &&
+                      (otherStores === 1
+                        ? " The other store on this login goes with it."
+                        : ` The other ${countWord(otherStores)} stores on this login go with it.`)}
                   </p>
                 </div>
               </div>

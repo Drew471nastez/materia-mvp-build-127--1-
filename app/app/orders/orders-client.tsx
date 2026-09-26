@@ -16,11 +16,12 @@
  * HOW IT MOVES. A slide came out once ("too smooth and flowy", "the top bar
  * takes long and glitchy to load": it was a class put on after the order had
  * drawn, so the bar arrived late and drifted), and the cut that replaced it
- * read as "direct" and "clunky". Now it is the phone's own push and pop,
+ * read as "direct" and "clunky", and the push from the right after it as
+ * "not that sliding". Now it is the motion every page layer in /app has,
  * started before the order's first frame is painted and run on the
- * compositor (./order-motion.ts): on a phone the order slides in from the
- * right, bar and all, over a list that moves a little left and stays drawn
- * underneath; back slides it off again and the list is exactly where it
+ * compositor (./order-motion.ts): on a phone the order rises from the
+ * bottom, bar and all, over a list that holds still and stays drawn
+ * underneath; back drops it down again and the list is exactly where it
  * was, with the row it came from tinted for a moment. Wider, the order's
  * cards fade in under its bar, and back takes it away at once with the list
  * there whole, where it was: it used to settle in from half faded and 2px
@@ -383,6 +384,8 @@ export function OrdersClient(props: OrdersClientProps) {
   }, [openId])
 
   const onOpen = useStable((id: string) => {
+    /* The row answers the press on its own frame, before the order is drawn (which on a slow phone takes a while): the same tint it keeps while the order covers it. */
+    if (listRef.current) markRow(listRef.current, id, "held")
     pushed.current = true
     writeAddress((p) => p.set("order", id), "push")
   })

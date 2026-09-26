@@ -36,6 +36,107 @@ export const OPEN_MS = 260
 export const CLOSE_MS = 200
 export const SLIDE_MS = 320
 
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   THE PAGE SOFTENING AROUND THE FOLDED PILL
+  ═══════════════════════════════════════════════════════════════════════════
+  "Around the pill shape there, there needs to be some smooth clean blur
+  applied around it, very smooth." The pill was a sticker: 95% white stops
+  dead at its hairline and the page behind it — in the screenshot a bright
+  blue site being edited — is untouched right up to that line.
+
+  WHY FIVE RINGS AND NOT ONE MASKED BAND. There was one masked band here
+  before (FADE_REACH/FADE_BLUR, one element, `linear-gradient` ramps
+  intersected). It looked right in Chrome and wrong everywhere else: WebKit
+  draws a backdrop filter but does not carry the element's mask into it, so
+  the feathered band came out as a hard blurred pill — "it's very cut
+  around" — and the whole thing was pulled out.
+
+  So the fade is built twice over, and the two ways do not depend on each
+  other:
+
+    THE STAIRCASE   five rings, each a little wider than the last and each
+                    blurring a little less. Backdrop filters stack: a ring's
+                    backdrop is what the ring outside it already drew, so
+                    the blur adds up in quadrature towards the pill — 0.9,
+                    1.3, 1.8, 2.7, 4.3px at the five edges, the last of them
+                    near the 5px the old band was approved at — and is gone
+                    by the outer edge. No mask is involved, so this much
+                    survives in any engine, and a step between two rings is
+                    a step between two blur radii, not between blurred and
+                    sharp.
+
+                    FIVE, because of what one step costs. A blur of radius σ
+                    leaves exp(−2π²σ²f²) of a detail f across; the finest
+                    thing a screen can hold is a stripe every other pixel,
+                    and keeping each ring's edge from taking more than about
+                    a third of that at once means σ can only grow by so much
+                    per ring. Five is what it takes to get from nothing to
+                    4.3px that way, and under a pixel the rasteriser rounds
+                    the ring away to nothing at all, so 0.9 is where it
+                    starts. scripts/check-ask-ai.mjs measures it
+                    with the masks taken off, which is what WebKit does.
+    THE FEATHER     on top of that, each ring carries a mask that ramps its
+                    own outer `fade` px away to nothing. Where masks reach
+                    backdrop filters the staircase dissolves into one smooth
+                    ramp; where they do not, the staircase is what is left,
+                    which is the point.
+
+  NO LIGHT, NO INK, NO RING. Not one of them has a background: all they do
+  is blur and very slightly desaturate the page's own pixels (the five
+  multiplied out come to about 0.94 at the pill). saturate() keeps
+  luminance, so this cannot lighten a white page or darken a dark one —
+  scripts/check-ask-dock.mjs measures exactly that, over a photograph, over
+  stripes, over flat dark and over the blue — but it does take the edge off
+  a saturated page, which is the one thing a blur alone cannot do over flat
+  colour.
+
+  COST. Outermost first (it is painted first and every inner ring reads it),
+  reach in px from the pill's box on every side. 24px keeps the softening
+  to about twice the pill's own area and no more, and inside the 20px
+  DOCK_GAP but for a few pixels the canvas clips anyway; each ring is its
+  own compositor layer because a backdrop filter always is; none of them
+  animates, and nothing but their opacity ever changes.
+*/
+export interface SoftenRing {
+  /** How far past the pill's box this ring reaches, on every side. */
+  reach: number
+  /** Its own blur radius; they add up in quadrature towards the pill. */
+  blur: number
+  /** A touch of the saturation out of the page. Luminance is untouched. */
+  saturate: number
+  /** The width of the ramp that takes its own outer edge to nothing. */
+  fade: number
+}
+export const SOFTEN_RINGS: SoftenRing[] = [
+  { reach: 24, blur: 0.9, saturate: 0.995, fade: 11 },
+  { reach: 19, blur: 0.9, saturate: 0.992, fade: 10 },
+  { reach: 14, blur: 1.3, saturate: 0.988, fade: 9 },
+  { reach: 9, blur: 2, saturate: 0.984, fade: 8 },
+  { reach: 5, blur: 3.3, saturate: 0.98, fade: 7 },
+]
+/** The folded pill's corner radius (`rounded-[27px]`), which the rings grow out of. */
+export const PILL_RADIUS = 27
+/**
+ * A ring's mask: a ramp in from each side, the two intersected, so the
+ * plateau is a rounded band with no line anywhere in it.
+ *
+ * The ramp is eased, not straight. A straight ramp reaches nothing with the
+ * slope it had all the way along, and that corner is visible as the place
+ * where the softening stops — over fine detail it reads as the edge of a
+ * band. These are the stops of 3t² − 2t³, which leaves and arrives flat, so
+ * the blur has no end you can point at.
+ */
+const RAMP = [0, 0.043, 0.156, 0.32, 0.5, 0.68, 0.844, 0.957, 1]
+const rampIn = (fade: number) =>
+  RAMP.map((a, i) => `rgba(0, 0, 0, ${a}) ${+((i / (RAMP.length - 1)) * fade).toFixed(2)}px`).join(", ")
+const rampOut = (fade: number) =>
+  RAMP.map((a, i) => `rgba(0, 0, 0, ${a}) calc(100% - ${+((i / (RAMP.length - 1)) * fade).toFixed(2)}px)`)
+    .reverse()
+    .join(", ")
+export const softenMask = (fade: number) =>
+  (["to right", "to bottom"] as const).map((way) => `linear-gradient(${way}, ${rampIn(fade)}, ${rampOut(fade)})`).join(", ")
+
 export interface DockGeometry {
   pillW: number
   /** The pill's bottom edge above the canvas's bottom. */

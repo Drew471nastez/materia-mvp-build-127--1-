@@ -205,6 +205,23 @@ function main() {
       && /<CheckMark on=\{selected\}/.test(design) && /<CheckMark on=\{on\} small/.test(design) && !/on \? choiceOn : choiceOff/.test(design))
     check("a chip's fill and a swatch's ring fade too", /<ChipFill on=\{filter === f\} \/>/.test(design) && /<SwatchMark on=\{theme\.background_gradient === grad\}/.test(design) && /<SwatchMark on=\{on\} className="rounded-full" \/>/.test(read("components/onepage/color-picker.tsx")))
     check("a block's size and alignment are one thumb that slides", /data-segment-thumb=""/.test(read("components/onepage/extra-blocks.tsx")) && /transition-\[translate\]/.test(read("components/onepage/extra-blocks.tsx")))
+    /*
+      EVERY SHEET ON A PHONE IS THE SHARED ONE. The name and bio, the
+      profile picture's and video's steps, the crops, the image library, the
+      streaming link and the layout questions were centred Radix dialogs on
+      a phone; they are SheetDialog now (a dialog on a computer, as they
+      were). scripts/check-onepage-sheets.mjs reads each one it can open.
+    */
+    const linksSrc = read("components/onepage/tabs/links-tab.tsx")
+    check("no centred dialog is left in the Links or Design tab", !/<Dialog open=/.test(linksSrc) && !/<Dialog open=/.test(design))
+    check("a crop keeps its finger from the sheet", (linksSrc.match(/data-sheet-no-drag=""/g) ?? []).length >= 2 && (design.match(/data-sheet-no-drag=""/g) ?? []).length >= 5)
+    check("Add block, the social link and Share are built ahead and kept, as the notifications sheet is",
+      /sheet=\{\{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT \}\}/.test(linksSrc) && /sheet=\{\{ keepMounted: true \}\}/.test(linksSrc)
+      && /title="Share your OnePage" hideFrom="md" keepMounted/.test(read("components/onepage/onepage-editor.tsx")))
+    check("a block's layout, display and divider cards fade their mark, and the radio dot scales in", (linksSrc.match(/<CardMark on=\{/g) ?? []).length >= 12 && !/\? "border-\[#1a1a2e\] bg-\[#f7f7f8\]"/.test(linksSrc) && /scale-0 opacity-0/.test(linksSrc))
+    check("Settings' section chips fade their fill", /<ChipFill on=\{activeSection === section\.id\} \/>/.test(read("components/onepage/tabs/settings-tab.tsx")))
+    check("a link's stats are asked for once its sheet has arrived on a phone, as the notifications are", /sheet=\{\{ onOpened: \(\) => setStatsSheetArrived\(true\) \}\}/.test(linksSrc) && /!isMobileStatsViewport \|\| statsSheetArrived/.test(linksSrc))
+    check("the day and time sheet sits on the keyboard", /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title=\{label\} aboveKeyboard>/.test(read("components/onepage/date-time-field.tsx")))
     check("the dial turns with pointer events and keeps its rotation on a touch screen", /function DirectionDial[\s\S]{0,2400}setPointerCapture[\s\S]{0,2400}data-keep-transform=""/.test(design))
   }
 

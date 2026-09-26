@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { ChipFill } from "@/components/onepage/choice-marks"
 import {
   Copy,
   Check,
@@ -1086,14 +1087,12 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
             <button
               key={section.id}
               onClick={() => setActiveSection(section.id)}
-              className={cn(
-                "px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-colors whitespace-nowrap cursor-pointer",
-                activeSection === section.id
-                  ? "bg-[#1a1a2e] text-white"
-                  : "bg-white text-[#4b5563] ring-1 ring-[#e5e7eb] hover:bg-[#f7f7f8]"
-              )}
+              aria-pressed={activeSection === section.id}
+              className="relative px-3.5 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap cursor-pointer bg-white ring-1 ring-[#e5e7eb] [-webkit-tap-highlight-color:transparent]"
             >
-              {section.label}
+              {/* The chosen chip's dark fill fades in as the last one's fades out (components/onepage/choice-marks). */}
+              <ChipFill on={activeSection === section.id} />
+              <span className={cn("relative transition-colors duration-[180ms]", activeSection === section.id ? "text-white" : "text-[#4b5563]")}>{section.label}</span>
             </button>
           ))}
         </div>

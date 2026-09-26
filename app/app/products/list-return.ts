@@ -8,8 +8,11 @@ import { isTraversing, markTraversal, prefetchAppPage } from "@/lib/ui/app-navig
  * ===========================================================================
  *  BETWEEN THE PRODUCTS LIST AND A PRODUCT
  * ===========================================================================
- * Both ways are one move of the editor's layer (moveLayer): in from the
- * list, out to it. What else the round trip keeps:
+ * Both ways are one move of the editor's layer (components/app/page-layer):
+ * it rises from the bottom over the list, and drops back down to it, and
+ * the press that did it is answered on its own frame (moveLayer: the row is
+ * tinted, New product and the back arrow dim; Cancel and Back answer
+ * themselves). What else the round trip keeps:
  *
  *   THE HISTORY STAYS HONEST. An editor the list opened sits on the history
  *   entry right after the list's, so Back, Cancel and Discard go back in
