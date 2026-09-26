@@ -94,15 +94,16 @@ section("Nothing else rounds the top by a number of its own")
   }
 }
 
-section("The Try Pro strip: in the rounded top, and calmer")
+section("The Try Pro strip: in the rounded top, the violet band it was")
 {
   const strip = code("components/app/announcement-bar-mobile.tsx")
   check("one strip for Analytics, Emails and Payouts, from one component",
     ["app/app/analytics/analytics-client.tsx", "app/app/emails/emails-client.tsx", "app/app/payouts/page.tsx"].every((f) => /<TryProStrip \/>/.test(code(f)) && !/<AnnouncementBarMobile>/.test(code(f))))
-  check("a pale violet tint with the page's dark type and a hairline, not a solid violet band in white",
-    /STRIP_TINT = "bg-\[#f5f3ff\] text-\[#1a1a2e\]"/.test(strip) && /shadow-\[inset_0_-1px_0_#ede9fe\]/.test(strip) && !/bg-\[#8b5cf6\] text-white/.test(strip.replace(/STRIP_ACTION =[\s\S]*?"\n/, "")))
-  check("one solid violet button, no gradient, no sparkle, no sweep",
-    /STRIP_ACTION =\s*"inline-flex shrink-0 items-center rounded-full bg-\[#8b5cf6\][^"]*text-white/.test(strip) && !/gradient|Sparkles|laser-sweep/.test(strip))
+  /* "The announcement bar background colour: I want it purple like it was before." */
+  check("the solid violet band in white type, as it was, with no hairline under it",
+    /STRIP_TINT = "bg-\[#8b5cf6\] text-white"/.test(strip) && /STRIP_TITLE = "font-semibold text-white"/.test(strip) && !/#f5f3ff|shadow-\[inset_0_-1px_0_#ede9fe\]/.test(strip))
+  check("the near black Upgrade pill with its white hairline and the sparkle, solid rather than a gradient, no sweep",
+    /STRIP_ACTION =\s*"inline-flex shrink-0 items-center gap-1 rounded-full bg-\[#111111\][^"]*shadow-\[inset_0_0_0_1px_rgba\(255,255,255,0\.3\)\]/.test(strip) && /<Sparkles className=\{STRIP_SPARKLE\}/.test(strip) && !/gradient|laser-sweep/.test(strip))
   check("the same heights as before, so nothing under it moves", /h-\[38px\] md:h-\[40px\]/.test(strip))
   check("the same link, to the plans", /<Link href="\/upgrade" className=\{STRIP_ACTION\}>/.test(strip))
   check("no \"use client\": Payouts renders it on the server", !/^"use client"/m.test(read("components/app/announcement-bar-mobile.tsx")))
@@ -112,7 +113,7 @@ section("The Try Pro strip: in the rounded top, and calmer")
   check("Home's rotating strip wears the same tint and the same button on every slide",
     /data-page-strip="" className=\{STRIP_TINT\}/.test(bar) && (bar.match(/className=\{STRIP_ACTION\}/g) ?? []).length === 3)
   check("and keeps its links and its clock", /href="\/app\/settings\/billing\/upgrade"/.test(bar) && /href="\/app\/settings\?tab=payments"/.test(bar) && /onClick=\{bumpGettingStarted\}/.test(bar) && /announce-progress/.test(bar))
-  check("with no gradient, sparkle or sweep left in it", !/gradient|Sparkles|laser-sweep|bg-\[#8b5cf6\] text-white|text-white\/9/.test(bar))
+  check("with no gradient or sweep, and the sparkle only on Upgrade", !/gradient|laser-sweep/.test(bar) && (bar.match(/<Sparkles /g) ?? []).length === 1)
   check("and the sweep's keyframes went with it", !/@keyframes laser-sweep/.test(dash))
 }
 

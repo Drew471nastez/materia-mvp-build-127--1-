@@ -61,11 +61,21 @@ const PICTURE_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object
  * cost nothing to draw. Drawn once, as an SVG tile in the stylesheet: no
  * image to fetch, no canvas, nothing that moves. It sits under the text.
  */
+/*
+  FINE, NOT COARSE. The tile was drawn at 160 units and shown at 160 CSS
+  pixels, so on a phone at 3x every speck was scaled up to three device
+  pixels and read as a coarse, blotchy texture. Now the noise is drawn at
+  three times the resolution (GRAIN_DENSITY) and shown in the same 160px,
+  so a speck is about one device pixel on a phone: a denser, finer grain
+  that reads as texture rather than dirt, and a little lighter (the `grain`
+  opacities below).
+*/
 const GRAIN_TILE = 160
+const GRAIN_DENSITY = 3
 const GRAIN_SVG =
-  `<svg xmlns='http://www.w3.org/2000/svg' width='${GRAIN_TILE}' height='${GRAIN_TILE}'>` +
+  `<svg xmlns='http://www.w3.org/2000/svg' width='${GRAIN_TILE * GRAIN_DENSITY}' height='${GRAIN_TILE * GRAIN_DENSITY}'>` +
   "<filter id='g' x='0' y='0' width='100%' height='100%' color-interpolation-filters='sRGB'>" +
-  "<feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch' result='n'/>" +
+  "<feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch' result='n'/>" +
   /*
     Light specks where the noise is high, dark where it is low. The dark ones
     are weighted heavier: on pictures this dark a light speck shows far more
@@ -102,7 +112,7 @@ export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:imag
     filter: "brightness(0.7) contrast(0.94) brightness(0.95)",
     ground: "bg-[#151516]",
     fade: "from-[#0b0b0c]/85",
-    grain: 0.28,
+    grain: 0.2,
     dot: "bg-[#111113]",
     button: "bg-[#111113] hover:bg-[#26262b] active:bg-[#000000]",
     ring: "focus-visible:ring-[#111113]/35",
@@ -113,7 +123,7 @@ export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:imag
     filter: "brightness(0.42) contrast(0.9)",
     ground: "bg-[#1d1270]",
     fade: "from-[#130b55]/85",
-    grain: 0.28,
+    grain: 0.2,
     dot: "bg-[#5a43ee]",
     button: "bg-[#5a43ee] hover:bg-[#4d37dd] active:bg-[#412dc4]",
     ring: "focus-visible:ring-[#5a43ee]/45",
