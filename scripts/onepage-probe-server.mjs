@@ -33,7 +33,8 @@ export const useLinkStatus = () => ({ pending: false })
   writeFileSync(join(dir, "image.jsx"), `import React from "react"
 export default function Image({ src, alt, fill, priority, unoptimized, sizes, quality, placeholder, blurDataURL, loader, ...rest }) { return React.createElement("img", { src: typeof src === "string" ? src : src && src.src, alt, ...rest }) }
 `)
-  writeFileSync(join(dir, "supabase.js"), `const result = { data: { onboarding_completed: true }, error: null }
+  /* One answer for every query: an empty list (the Products tab maps it) that also says onboarding is done (the editor reads that off a single row). */
+  writeFileSync(join(dir, "supabase.js"), `const result = { data: Object.assign([], { onboarding_completed: true }), error: null }
 const q = new Proxy(function () {}, { get: (_, k) => k === "then" ? (r) => r(result) : q, apply: () => q })
 export function createClient() { return { auth: { getUser: async () => ({ data: { user: { id: "probe-user" } } }), getSession: async () => ({ data: { session: null } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) }, from: () => q, storage: { from: () => q }, channel: () => ({ on() { return this }, subscribe() { return this } }), removeChannel() {} } }
 `)
