@@ -29,7 +29,6 @@
  */
 
 import * as React from "react"
-import { flushSync } from "react-dom"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { addressWordsFor, needsPostalCode, taxIdFor, type BusinessDetails } from "@/lib/checkout/business"
@@ -37,7 +36,7 @@ import { COUNTRIES } from "@/lib/checkout/countries"
 import { CheckRow, Field, TextInput, inputClass } from "./ui"
 
 /** The reveal's length, shared by the class below and the wait before scrolling the first box into view. */
-export const BUSINESS_REVEAL_MS = 220
+export const BUSINESS_REVEAL_MS = 300
 
 /** Postal codes that are digits only, where a phone's number pad is the right keyboard. */
 const DIGIT_POSTAL = new Set(["DE", "FR", "ES", "IT", "AU", "AT", "BE", "CH", "DK", "NO", "FI"])
@@ -103,25 +102,13 @@ export function BusinessFields({
   const tax = taxIdFor(value.country)
   const described = (id: string, key: keyof BusinessDetails) => (errors[key] ? `${id}-error` : undefined)
 
-  const toggle = (next: boolean) => {
-    if (!next) return onToggle(false)
-    /* Open now, in this press, so the box can take the cursor and a phone
-       raises its keyboard: focus from a later frame is not a tap's. */
-    flushSync(() => onToggle(true))
-    const box = companyRef.current
-    if (!box) return
-    box.focus({ preventScroll: true })
-    /* Once it has opened, the first box is brought into view if the fold hides it, and no further. */
-    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-    window.setTimeout(
-      () => {
-        const r = box.getBoundingClientRect()
-        const bottom = window.visualViewport?.height ?? window.innerHeight
-        if (r.bottom > bottom - 16 || r.top < 0) box.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" })
-      },
-      reduced ? 0 : BUSINESS_REVEAL_MS + 20,
-    )
-  }
+  /*
+    TICKING IT OPENS THE FIELDS, AND THAT IS ALL. It used to put the cursor in
+    Company name as well, which on a phone raised the keyboard and scrolled
+    the page while the fields were still opening: a jump nobody asked for.
+    The buyer taps the field they want.
+  */
+  const toggle = (next: boolean) => onToggle(next)
 
   return (
     <div data-business={on ? "open" : "closed"}>
@@ -134,7 +121,7 @@ export function BusinessFields({
         id="business-details"
         data-business-reveal=""
         className={cn(
-          "grid transition-[grid-template-rows] ease-out motion-reduce:transition-none",
+          "grid transition-[grid-template-rows] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
           on ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
         )}
         style={{ transitionDuration: `${BUSINESS_REVEAL_MS}ms` }}
@@ -146,7 +133,7 @@ export function BusinessFields({
           <div
             data-business-fields=""
             className={cn(
-              "grid grid-cols-1 gap-x-3 gap-y-3.5 pb-1 pt-4 transition-[opacity,translate] ease-out motion-reduce:transition-none min-[380px]:grid-cols-2",
+              "grid grid-cols-1 gap-x-3 gap-y-3.5 pb-1 pt-4 transition-[opacity,translate] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none min-[380px]:grid-cols-2",
               on ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0",
             )}
             style={{ transitionDuration: `${BUSINESS_REVEAL_MS}ms` }}

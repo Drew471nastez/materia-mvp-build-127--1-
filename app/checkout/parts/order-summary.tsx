@@ -299,7 +299,8 @@ export function TipPicker({
     e.preventDefault()
     const next = (i + step + CHOICES.length) % CHOICES.length
     choose(next)
-    ;(e.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus()
+    /* The thumb is the group's first child; the choices follow it. */
+    ;(e.currentTarget.parentElement?.querySelectorAll<HTMLElement>('[role="radio"]')[next])?.focus()
   }
   return (
     <div data-tip="" data-tip-open={open ? "" : undefined}>
@@ -311,22 +312,34 @@ export function TipPicker({
         aria-controls={panelId}
         className="-mx-2 flex h-9 w-[calc(100%+1rem)] cursor-pointer items-center justify-between gap-3 rounded-[7px] px-2 text-left text-[14px] transition-colors duration-150 hover:bg-black/[0.035] active:bg-black/[0.06] [-webkit-tap-highlight-color:transparent]"
       >
-        <span className={tipCents > 0 ? "text-[#6b7280]" : "text-[#4b5563]"}>
+        <span className="font-medium text-[#1a1a2e]">
           {tipCents > 0 ? "Tip" : "Add a tip"}
           <span className="sr-only"> for {creatorName}</span>
         </span>
         <span className="flex items-center gap-1.5">
-          {tipCents > 0 ? <span className="tabular-nums text-[#6b7280]">{money(tipCents)}</span> : null}
+          {tipCents > 0 ? <span className="checkout-rise font-medium tabular-nums text-[#1a1a2e]">{money(tipCents)}</span> : null}
           <ChevronDown
             aria-hidden
-            className={cn("h-4 w-4 text-[#9ca3af] transition-[rotate] duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none", open && "rotate-180")}
+            className={cn("h-4 w-4 text-[#6b7280] transition-[rotate] duration-[300ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none", open && "rotate-180")}
           />
         </span>
       </button>
 
       <Reveal open={open} id={panelId} pad className="-mx-[3px]">
         <div className="pt-1.5">
-          <div role="radiogroup" aria-label={`Tip for ${creatorName}`} className="grid grid-cols-5 gap-[3px] rounded-[9px] bg-[#e9ebee] p-[3px]">
+          {/*
+            ONE WHITE THUMB THAT SLIDES. The chosen tip used to switch its own
+            background on and the last one's off, which read as a blink. Now a
+            single raised thumb moves under the choices to the one pressed,
+            and only the words change colour: quick, and it says which is on.
+          */}
+          <div role="radiogroup" aria-label={`Tip for ${creatorName}`} className="relative grid grid-cols-5 gap-[3px] rounded-[9px] bg-[#e7e9ec] p-[3px]">
+            <span
+              aria-hidden
+              data-tip-thumb=""
+              className="pointer-events-none absolute bottom-[3px] left-[3px] top-[3px] rounded-[7px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.14),0_0_0_1px_rgba(16,24,40,0.05)] transition-[translate] duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+              style={{ width: "calc((100% - 18px) / 5)", translate: `calc(${Math.max(0, current)} * (100% + 3px)) 0` }}
+            />
             {CHOICES.map((cents, i) => {
               const on = i === current
               return (
@@ -339,10 +352,8 @@ export function TipPicker({
                   onKeyDown={(e) => onArrows(e, i)}
                   onClick={() => choose(i)}
                   className={cn(
-                    "h-8 min-w-0 cursor-pointer rounded-[7px] text-[13px] font-medium tabular-nums outline-none transition-[background-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 [-webkit-tap-highlight-color:transparent]",
-                    on
-                      ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.12),0_0_0_1px_rgba(16,24,40,0.04)]"
-                      : "text-[#4b5563] hover:bg-white/60 hover:text-[#1a1a2e]",
+                    "relative h-8 min-w-0 cursor-pointer rounded-[7px] text-[13px] font-medium tabular-nums outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 [-webkit-tap-highlight-color:transparent]",
+                    on ? "text-[#1a1a2e]" : "text-[#4b5563] hover:text-[#1a1a2e]",
                   )}
                 >
                   {cents === OTHER ? "Other" : cents === 0 ? "None" : money(cents).replace(".00", "")}

@@ -328,6 +328,46 @@ export default function CheckoutPageClient({
 
   const plainClick = (e: React.MouseEvent) => e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     LEAVING IS A CROSS-FADE, NOT A CUT
+    ═══════════════════════════════════════════════════════════════════════
+    history.back() brings the product page back in well under a tenth of a
+    second, and it used to arrive as a hard cut from one page to the other.
+    Where the browser has View Transitions, the way out is wrapped in one:
+    the checkout as it is, fading into the page Back lands on, over 240ms
+    (globals.css, html[data-checkout-motion]). The transition waits until the
+    checkout has actually left the screen, and gives up after 1.2 seconds so
+    a slow page is never held frozen; with reduced motion, or no support,
+    it is the plain navigation it always was.
+  */
+  const leaveWithFade = (go: () => void) => {
+    const doc = document as Document & { startViewTransition?: (cb: () => Promise<void>) => { finished: Promise<void> } }
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    if (!doc.startViewTransition || reduced) return go()
+    const html = document.documentElement
+    html.setAttribute("data-checkout-motion", "leave")
+    try {
+      const t = doc.startViewTransition(
+        () =>
+          new Promise<void>((resolve) => {
+            go()
+            const start = performance.now()
+            const tick = () => {
+              const gone = !document.querySelector('[data-page="checkout"]')
+              if (gone || performance.now() - start > 1200) resolve()
+              else requestAnimationFrame(tick)
+            }
+            requestAnimationFrame(tick)
+          }),
+      )
+      t.finished.finally(() => html.removeAttribute("data-checkout-motion"))
+    } catch {
+      html.removeAttribute("data-checkout-motion")
+      go()
+    }
+  }
+
   /**
    * CONTINUE SHOPPING goes to the product page. When that is the page behind
    * this one, it goes back to it (instant, with its scroll); otherwise the
@@ -340,7 +380,7 @@ export default function CheckoutPageClient({
     if (going) return
     setGoing("shop")
     if (canReturnTo(shopUrl)) {
-      window.history.back()
+      leaveWithFade(() => window.history.back())
       return
     }
     const path = ownPath(shopUrl)
@@ -348,7 +388,7 @@ export default function CheckoutPageClient({
       window.location.replace(shopUrl)
       return
     }
-    router.replace(path)
+    leaveWithFade(() => router.replace(path))
   }
 
   const goBack = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -372,7 +412,7 @@ export default function CheckoutPageClient({
       }
     })()
     if (canReturnInApp() || (cameFrom !== null && cameFrom === target && window.history.length > 1)) {
-      window.history.back()
+      leaveWithFade(() => window.history.back())
       return
     }
     const path = ownPath(productUrl)
@@ -380,7 +420,7 @@ export default function CheckoutPageClient({
       window.location.replace(productUrl)
       return
     }
-    router.replace(path)
+    leaveWithFade(() => router.replace(path))
   }
   /**
    * AFTER PAYING: the creator's website when the link asked for it and the
@@ -906,10 +946,10 @@ export default function CheckoutPageClient({
         ═══════════════════════════════════════════════════════════════════
          THE BAR ACROSS THE TOP
         ═══════════════════════════════════════════════════════════════════
-        White, on a shadow in three layers (a hairline, a short contact
-        shadow, a long soft one) so it sits over both halves of the page.
-        Back on the left as a raised circle, with a 44px target around its
-        36px face; the creator beside it, which opens their page; Continue
+        White, on a hairline and one soft shadow, just enough to sit over
+        both halves of the page. Back on the left as a quiet rounded square
+        with a faint lip (no circle, no raised disc), with a 44px target
+        around its 36px face; the creator beside it, which opens their page; Continue
         shopping on the right, which goes to the product. Its edges line up
         with the two columns under it. Not animated in with the halves: it is
         the frame they arrive into. Its presses use named groups (group/back,
@@ -919,7 +959,7 @@ export default function CheckoutPageClient({
       */}
       <header
         data-checkout-bar=""
-        className="relative z-10 bg-white pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(17,17,19,0.06),0_2px_4px_-2px_rgba(17,17,19,0.06),0_10px_24px_-14px_rgba(17,17,19,0.16)]"
+        className="relative z-10 bg-white pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(17,17,19,0.06),0_6px_16px_-12px_rgba(17,17,19,0.12)]"
       >
         <div className="mx-auto flex h-14 max-w-[1120px] items-center gap-1.5 px-4 sm:px-7 lg:h-16 lg:px-[60px]">
           <ReturnLink
@@ -928,11 +968,11 @@ export default function CheckoutPageClient({
             aria-label={backLabel}
             title={backLabel}
             data-back=""
-            className="group/back grid h-11 w-11 shrink-0 place-items-center rounded-full outline-none [-webkit-tap-highlight-color:transparent]"
+            className="group/back grid h-11 w-11 shrink-0 place-items-center rounded-[12px] outline-none [-webkit-tap-highlight-color:transparent]"
           >
             <span
               data-back-face=""
-              className="relative grid h-9 w-9 place-items-center rounded-full border border-black/[0.07] bg-white text-[#1a1a2e] shadow-[inset_0_1px_0_#ffffff,0_1px_1px_rgba(17,17,19,0.06),0_2px_6px_-1px_rgba(17,17,19,0.10),0_8px_16px_-10px_rgba(17,17,19,0.22)] transition-[scale] duration-150 ease-out group-hover/back:bg-[#fafafb] group-active/back:scale-[0.92] group-active/back:bg-[#f3f4f6] group-active/back:shadow-[inset_0_1px_2px_rgba(17,17,19,0.08)] group-focus-visible/back:outline-2 group-focus-visible/back:outline-offset-2 group-focus-visible/back:outline-[#1a1a2e] motion-reduce:transition-none"
+              className="relative grid h-9 w-9 place-items-center rounded-[10px] border border-black/[0.06] bg-white text-[#1a1a2e] shadow-[0_1px_1px_rgba(17,17,19,0.04),0_1px_3px_-1px_rgba(17,17,19,0.06)] transition-[scale,background-color] duration-150 ease-out group-hover/back:bg-[#f7f7f8] group-active/back:scale-[0.94] group-active/back:bg-[#f1f2f4] group-focus-visible/back:outline-2 group-focus-visible/back:outline-offset-2 group-focus-visible/back:outline-[#1a1a2e] motion-reduce:transition-none"
             >
               <ArrowLeft
                 aria-hidden
@@ -974,7 +1014,7 @@ export default function CheckoutPageClient({
             data-continue=""
             className="group/shop ml-auto mr-1 grid min-h-[44px] shrink-0 place-items-center outline-none [-webkit-tap-highlight-color:transparent]"
           >
-            <span className="inline-flex h-9 items-center rounded-[9px] border border-[#e1e3e7] bg-white px-3.5 text-[13.5px] font-medium text-[#1a1a2e] shadow-[0_1px_1px_rgba(17,17,19,0.04),0_2px_5px_-2px_rgba(17,17,19,0.10)] transition-[scale] duration-150 ease-out group-hover/shop:border-[#d2d5da] group-hover/shop:bg-[#fafafb] group-active/shop:scale-[0.97] group-active/shop:bg-[#f3f4f6] group-focus-visible/shop:outline-2 group-focus-visible/shop:outline-offset-2 group-focus-visible/shop:outline-[#1a1a2e] motion-reduce:transition-none">
+            <span className="inline-flex h-9 items-center rounded-[9px] border border-[#e1e3e7] bg-white px-3.5 text-[13.5px] font-medium text-[#1a1a2e] shadow-[0_1px_1px_rgba(17,17,19,0.04)] transition-[scale] duration-150 ease-out group-hover/shop:border-[#d2d5da] group-hover/shop:bg-[#fafafb] group-active/shop:scale-[0.97] group-active/shop:bg-[#f3f4f6] group-focus-visible/shop:outline-2 group-focus-visible/shop:outline-offset-2 group-focus-visible/shop:outline-[#1a1a2e] motion-reduce:transition-none">
               Continue shopping
             </span>
           </Link>
