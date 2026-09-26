@@ -101,6 +101,30 @@ function main() {
   check("the bar's growth is the width alone, and stops for a person who asked for less motion",
     /transition-\[width\] duration-500 ease-out motion-reduce:transition-none/.test(creator))
 
+  /* "in the store category step, make sure the Other button is next to See more, not in the bar at the bottom with Back, Skip, Next." */
+  check("Other sits beside See more among the categories, and the row at the bottom is Back, Skip and Next",
+    /data-onboarding-other=""/.test(creator) && creator.indexOf("See more") < creator.indexOf("data-onboarding-other") && creator.indexOf("data-onboarding-other") < creator.indexOf("{/* Back, on the left */}")
+      && !/See more\.{2,}/.test(creator))
+  check("a chosen category changes colour, not size: the ring is a shadow",
+    /const CATEGORY_ON = "bg-\[#1a1a2e\] text-white shadow-\[0_0_0_1px_#1a1a2e/.test(creator) && /aria-pressed=\{selectedCategory === category\}/.test(creator))
+  /* "text font size better, the heading, subheading ... cohesive." */
+  check("one heading and one line under it on every step, in the app's own ink",
+    (creator.match(/<h1 className=\{HEADING\}>/g) ?? []).length === 4 && (creator.match(/<p className=\{SUBHEADING\}>/g) ?? []).length === 4
+      && /const HEADING = "text-\[26px\] font-bold leading-\[1\.15\] tracking-\[-0\.02em\] text-\[#1a1a2e\] sm:text-\[36px\]"/.test(creator)
+      && /const SUBHEADING = "mt-2 text-\[15px\]/.test(creator) && !/text-gray-500 text-xs sm:text-base/.test(creator))
+  /* "cutted there, up": the plans ran into the top row and the Back button in a hard line. */
+  check("the step panel's edges fade where more is behind them, set from the scroll and not from state",
+    /onScroll=\{updateScrollEdges\}/.test(creator) && /el\.style\.setProperty\("--fade-top", above \? "20px" : "0px"\)/.test(creator) && /maskImage: SCROLL_EDGE_MASK, WebkitMaskImage: SCROLL_EDGE_MASK/.test(creator))
+  /* "the last step, it's the old Storelib logo, and it's cut badly in the corners." */
+  check("the setup screen draws the one Storelib mark, whole, with no copy of it in this file",
+    /import \{ StorelibMark \} from "@\/components\/storelib-mark"/.test(creator) && /<StorelibMark className="h-16 w-16 drop-shadow/.test(creator)
+      && !/const StorelibLogo/.test(creator) && !/animate-ping/.test(creator))
+  check("its line crossfades from phase to phase over marks that fill, and says plainly when it failed",
+    /<div key=\{state\} className="animate-in fade-in slide-in-from-bottom-1 duration-300 motion-reduce:animate-none">/.test(creator)
+      && /Creating your store/.test(creator) && /Applying your settings/.test(creator) && /Your store was not saved/.test(creator) && /scaleX\(/.test(creator))
+  check("a failed way back clears itself: on the next step, and after six seconds",
+    /setSwitchBackError\(null\)\n\s*setSlideDirection\(direction\)/.test(creator) && /setTimeout\(\(\) => setSwitchBackError\(null\), 6000\)/.test(creator))
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {
     console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
