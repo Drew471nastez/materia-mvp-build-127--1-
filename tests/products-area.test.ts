@@ -499,7 +499,7 @@ check("  a press on the way in or out answers on its own frame, and a spinner ta
 /* "200 fps smooth": nothing of the pages' own lands in the frames of a move (scripts/check-layer-motion.mjs measures 0 dropped frames at 4x CPU). */
 check("  a move is held at its first position until frames arrive a frame apart again, at most 400ms, then played whole",
   /export function startWhenFramesFlow\(animations: Animation\[\]\)/.test(layer) && /const FRAMES_FLOW_CAP_MS = 400/.test(layer) && /const FRAME_FLOWS_MS = 24/.test(layer)
-    && /for \(const a of animations\) a\.pause\(\)/.test(layer) && /if \(next === "enter" \|\| next === "leave"\) layerMoveWhenDrawn\(move\)/.test(layer)
+    && /for \(const a of animations\) a\.playbackRate = 0/.test(layer) && /if \(next === "enter" \|\| next === "leave"\) layerMoveWhenDrawn\(move\)/.test(layer)
     && /move\.ready\.catch\(\(\) => \{\}\)\s*layerMoveWhenDrawn\(move\)/.test(layer) && /startWhenFramesFlow\(anims\)/.test(code("app/app/orders/order-motion.ts")))
 check("  a page's own redraw waits for the move (afterLayerMove), let go when the move ends or after 1.5s",
   /export function afterLayerMove\(fn: \(\) => void\): \(\) => void/.test(layer) && /const AFTER_MOVE_CAP_MS = 1500/.test(layer) && (layer.match(/runAfterMove\(\)/g) ?? []).length >= 2

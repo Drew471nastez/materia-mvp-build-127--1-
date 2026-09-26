@@ -183,12 +183,13 @@ const FRAME_FLOWS_MS = 24
 
 export function startWhenFramesFlow(animations: Animation[]) {
   if (typeof window === "undefined" || animations.length === 0) return
-  for (const a of animations) a.pause()
+  /* Held by a rate of 0, not a pause: a held move still runs on the compositor, so what it moves is drawn during the wait and not in its first moving frame. */
+  for (const a of animations) a.playbackRate = 0
   const began = performance.now()
   let last = -1
   const tick = (t: number) => {
     if ((last >= 0 && t - last < FRAME_FLOWS_MS) || performance.now() - began > FRAMES_FLOW_CAP_MS) {
-      for (const a of animations) if (a.playState === "paused") a.play()
+      for (const a of animations) if (a.playbackRate === 0) a.playbackRate = 1
       return
     }
     last = t

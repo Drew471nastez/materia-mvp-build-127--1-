@@ -439,6 +439,14 @@ async function frozenMove(p, cdp, { sel, label, layer, which }) {
       if (window.__freeze) return
       return window.__play.call(this)
     }
+    /* ...and a move held by a rate of 0 is not let go either. */
+    const rate = Object.getOwnPropertyDescriptor(Animation.prototype, "playbackRate")
+    if (!window.__rate) window.__rate = rate
+    Object.defineProperty(Animation.prototype, "playbackRate", {
+      configurable: true,
+      get() { return rate.get.call(this) },
+      set(v) { if (window.__freeze && v !== 0) return; rate.set.call(this, v) },
+    })
   })
   await p.$eval(sel, (el) => el.click())
   let m = null
@@ -460,7 +468,7 @@ async function frozenMove(p, cdp, { sel, label, layer, which }) {
   }
   /* The first frame, taken while the move is held there (a paused move set back to its start is not always drawn there again). */
   await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
-  const heldAtStart = await p.evaluate((which) => document.getAnimations().some((a) => a.effect?.pseudoElement === which && a.playState === "paused" && (a.currentTime ?? 0) === 0), which)
+  const heldAtStart = await p.evaluate((which) => document.getAnimations().some((a) => a.effect?.pseudoElement === which && (a.playState === "paused" || a.playbackRate === 0) && (a.currentTime ?? 0) === 0), which)
   if (heldAtStart) await shoot(0, /new/.test(which) ? vp.height : 0)
   const info = await p.evaluate((which) => {
     const all = document.getAnimations().filter((a) => a.effect?.pseudoElement?.startsWith("::view-transition"))
@@ -514,6 +522,8 @@ async function frozenMove(p, cdp, { sel, label, layer, which }) {
   await p.evaluate(() => {
     window.__freeze = false
     Animation.prototype.play = window.__play
+    Object.defineProperty(Animation.prototype, "playbackRate", window.__rate)
+    for (const a of document.getAnimations()) if (a.playbackRate === 0) a.playbackRate = 1
     for (const a of document.getAnimations()) if (a.effect?.pseudoElement?.startsWith("::view-transition")) a.play()
   })
   await waitMove(p, n)
