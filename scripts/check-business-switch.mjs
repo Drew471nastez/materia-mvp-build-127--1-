@@ -30,6 +30,14 @@
  *   NEVER NOTHING     no frame, from the press to the end, that is white,
  *                     empty, or the cold start's bare spinner: always the old
  *                     page, the screen, or the new page
+ *   THE BAR           "there's the black top bar there showing, which I don't
+ *                     understand why": on every frame on the glass the black
+ *                     bar has something drawn in it (never an empty band);
+ *                     from the screen being up it names the business you are
+ *                     going to, with its photo drawn, on both sides of the
+ *                     reload; and every piece of the screen's bar (photo,
+ *                     name, chevron, icons, search, logo) is within a pixel
+ *                     of where the real header puts it
  *   READY FIRST       the screen starts to go only once the new page is
  *                     there, its chart answered and its pictures decoded;
  *                     the hand over is one fade through part-way frames

@@ -180,12 +180,13 @@ function Screen({
       style={{ transitionDuration: `${HANDOVER_MS}ms` }}
     >
       <div className="relative row-start-2">
-        <span aria-hidden className="block">
-          <ActivitySpinner label="" />
-        </span>
+        {/* The line before the spinner in the markup (it is placed under it all the same): a document painted before it is fully read shows the words first. */}
         <div className="absolute left-1/2 top-full ml-[-150px] mt-4 w-[300px]">
           <Lines lineKey={step} text={text} />
         </div>
+        <span aria-hidden className="block">
+          <ActivitySpinner label="" />
+        </span>
       </div>
     </div>
   )
