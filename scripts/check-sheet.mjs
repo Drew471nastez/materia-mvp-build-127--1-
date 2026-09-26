@@ -262,7 +262,8 @@ if (!r.afterSmallDrag.stillOpen || r.afterSmallDrag.y !== 0) problems.push(`A 60
 if (r.pullUp.atTheFloor !== "the sheet") problems.push(`Pulling up uncovered ${r.pullUp.atTheFloor} at the bottom of the screen. Whatever is behind the sheet is not meant to be seen under it.`)
 /* The lift is deliberate — a pull should give a little. What matters is
    that it stops giving, and that the skirt covers whatever it opens up. */
-if (r.pullUp.lift > 32) problems.push(`Pulling 140px up lifted the sheet ${r.pullUp.lift}px. The give is capped at 28px; past that a long drag walks the sheet off the bottom of the screen.`)
+/* A scroll view's rubber band, the builder sheet's (sheet-gestures rubberBand): 140px of finger is about 39px of sheet, and it never reaches 80. */
+if (r.pullUp.lift > 45) problems.push(`Pulling 140px up lifted the sheet ${r.pullUp.lift}px. The give is a rubber band capped at 80px; past that a long drag walks the sheet off the bottom of the screen.`)
 if (!r.tapAway.closed || r.tapAway.stillOpen) problems.push(`Tapping off the sheet left it ${r.tapAway.stillOpen ? "on screen" : "half closed"} (${JSON.stringify(r.tapAway)}).`)
 if (!r.afterFlick.closed) problems.push(`A flick did not close the sheet. Distance alone means a fast short flick springs back, which reads as the sheet fighting you.`)
 

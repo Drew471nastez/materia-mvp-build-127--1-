@@ -199,7 +199,7 @@ check(
 )
 check(
   "and it is padded into the content, so the field being typed into is reachable",
-  /paddingBottom: sheetBottomReserve\(chromeGap, keyboardInset, visibleTop > 0\)/.test(sheet),
+  /paddingBottom: (?:composerKeys \? sheetBottomReserve\(chromeGap, 0\) : )?sheetBottomReserve\(chromeGap, keyboardInset, visibleTop > 0\)/.test(sheet),
 )
 check(
   /**

@@ -11,38 +11,49 @@
  * each corner: drag one and the picture grows or shrinks, as a share of the
  * text's width (10% to 100%), with the share shown while it moves. A
  * centred picture grows from both sides, so its corner stays under the
- * pointer. Over it, one small bar:
+ * pointer. Over it, one short row, the same on a phone and a computer:
  *
- *   left · centre · right        where it sits in the text
- *   S · M · L · Full             33, 50, 75 and 100% wide
- *   Original · 16:9 · 4:3 · 1:1 · 3:4
- *                                the shape it is cut to (object-fit cover)
- *   up · down                    one block earlier or later in the text
- *   Alt                          a description for people who cannot see it
+ *   position        one button: left, centre, right, and round again
+ *   S M L Full      33, 50, 75 and 100% wide, as one segmented control
+ *   shape           a menu: Original, 16:9, 4:3, 1:1, 3:4 (object-fit cover)
+ *   Alt             a description for people who cannot see it
  *   remove
+ *   more            a menu: move it one block up or down in the text
  *
  * What it writes is what lib/rich-text/policy.ts keeps: `data-align`, and a
  * style with only a width in % and an aspect ratio (pictureStyle). Nothing
  * else survives the save, so nothing else is written.
  *
- * NO REACT RENDER PER FRAME. The frame and the bar follow the picture while
+ * WHERE THE ROW GOES. Centred on the picture, above it when there is room,
+ * else below it, else over its top edge, and always inside the text. Every
+ * control in it has a fixed width, so the row is the same width whatever is
+ * picked and never shifts sideways when a setting changes.
+ *
+ * HOW IT COMES AND GOES. It is placed before it is first painted, so there
+ * is no frame in which it sits at the text's corner and slides across. Then
+ * it fades in with a small rise from the picture's side (160ms), and fades
+ * out the same way when the picture is let go. The menus open from their
+ * button the same way. Only opacity and transform move, as Web Animations,
+ * so the compositor runs them.
+ *
+ * NO REACT RENDER PER FRAME. The frame and the row follow the picture while
  * the text scrolls, the window resizes or a handle is dragged, from one
  * animation frame loop that writes their position straight onto the nodes.
  * React renders only when a setting changes.
  *
- * ON A PHONE the handles are 28px targets (the dot drawn is 12px), the bar
- * wraps onto a second row rather than hiding controls off its edge, and a
- * drag never scrolls the page (`touch-action: none` on the handles only).
+ * ON A PHONE the handles are 28px targets (the dot drawn is 12px), the row's
+ * controls are 36px tall, and a drag never scrolls the page (`touch-action:
+ * none` on the handles only). Hover shades are for a mouse only.
  */
 
 import * as React from "react"
-import { createPortal } from "react-dom"
 import {
   AlignCenter,
   AlignLeft,
   AlignRight,
   ArrowDown,
   ArrowUp,
+  MoreHorizontal,
   Trash2,
 } from "lucide-react"
 import * as TooltipPrimitive from "@radix-ui/react-tooltip"
@@ -57,13 +68,26 @@ const SIZES: Array<{ label: string; pct: number; name: string }> = [
   { label: "Full", pct: 100, name: "Full width" },
 ]
 
-const RATIOS: Array<{ label: string; value: string | null; name: string }> = [
-  { label: "Original", value: null, name: "Its own shape" },
-  { label: "16:9", value: "16 / 9", name: "Wide, 16 by 9" },
-  { label: "4:3", value: "4 / 3", name: "4 by 3" },
-  { label: "1:1", value: "1 / 1", name: "Square" },
-  { label: "3:4", value: "3 / 4", name: "Tall, 3 by 4" },
+const RATIOS: Array<{ label: string; value: string | null; w: number; h: number }> = [
+  { label: "Original", value: null, w: 14, h: 10 },
+  { label: "16:9", value: "16 / 9", w: 16, h: 9 },
+  { label: "4:3", value: "4 / 3", w: 4, h: 3 },
+  { label: "1:1", value: "1 / 1", w: 1, h: 1 },
+  { label: "3:4", value: "3 / 4", w: 3, h: 4 },
 ]
+
+const PLACES: Array<{ value: PictureAlign; name: string; icon: typeof AlignLeft }> = [
+  { value: "left", name: "Left", icon: AlignLeft },
+  { value: "center", name: "Centre", icon: AlignCenter },
+  { value: "right", name: "Right", icon: AlignRight },
+]
+
+/** One curve for everything here that comes and goes. */
+const EASE = "cubic-bezier(0.2, 0, 0, 1)"
+const IN_MS = 160
+const OUT_MS = 120
+
+const reducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
 /** The picture's width as a share of the text, 100 when it has none of its own. */
 export function pictureWidth(img: HTMLImageElement): number {
@@ -94,6 +118,28 @@ function setRatio(img: HTMLImageElement, ratio: string | null) {
   if (!img.getAttribute("style")) img.removeAttribute("style")
 }
 
+/** A small outline of a shape, drawn to its proportions; dashed for the picture's own. */
+function RatioGlyph({ w, h, own }: { w: number; h: number; own?: boolean }) {
+  const s = 12 / Math.max(w, h)
+  const gw = Math.max(5, w * s)
+  const gh = Math.max(5, h * s)
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0">
+      <rect
+        x={(16 - gw) / 2}
+        y={(16 - gh) / 2}
+        width={gw}
+        height={gh}
+        rx="1.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeDasharray={own ? "2.2 1.8" : undefined}
+      />
+    </svg>
+  )
+}
+
 /** A label that shows on hover with a mouse, after a moment; never on touch. */
 export function Tip({ label, children, side = "top" }: { label: string; children: React.ReactElement; side?: "top" | "bottom" }) {
   return (
@@ -113,13 +159,16 @@ export function Tip({ label, children, side = "top" }: { label: string; children
   )
 }
 
+/* Every control has a fixed width (see WHERE THE ROW GOES). */
 const barButton =
-  "inline-flex h-8 min-w-8 shrink-0 cursor-pointer select-none items-center justify-center rounded-md px-1.5 text-[12px] font-medium text-white/75 outline-none transition-colors duration-100 hover:bg-white/10 hover:text-white focus-visible:bg-white/15 [-webkit-tap-highlight-color:transparent] max-sm:h-9 max-sm:min-w-9"
+  "inline-flex h-8 w-8 shrink-0 cursor-pointer select-none items-center justify-center rounded-md text-[12px] font-medium text-white/75 outline-none transition-colors duration-100 focus-visible:bg-white/15 [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-white/10 [@media(hover:hover)_and_(pointer:fine)]:hover:text-white max-sm:h-9"
 const barOn = "bg-white/15 text-white"
-const barRule = <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-white/15" />
+const barRule = <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-white/15 max-sm:hidden" />
 
 export function PictureControls({
   img,
+  open = true,
+  onExited,
   root,
   frameRef,
   onChange,
@@ -127,15 +176,11 @@ export function PictureControls({
   onAlt,
   onRemove,
   onDone,
-  dock,
 }: {
   img: HTMLImageElement
-  /**
-   * On a phone, where the text is narrow and a floating bar would cover the
-   * picture and its handles: a strip under the field's toolbar to hold the
-   * bar instead. On a computer it floats over the picture.
-   */
-  dock?: HTMLElement | null
+  /** False once the picture is let go: the controls fade out, then call onExited. */
+  open?: boolean
+  onExited?: () => void
   /** The editable text the picture is in: its width is what a share is of. */
   root: HTMLElement
   /** The box the controls are drawn in, positioned over the text. */
@@ -149,61 +194,105 @@ export function PictureControls({
 }) {
   const boxRef = React.useRef<HTMLDivElement>(null)
   const barRef = React.useRef<HTMLDivElement>(null)
+  const barInnerRef = React.useRef<HTMLDivElement>(null)
   const readoutRef = React.useRef<HTMLSpanElement>(null)
+  const shapeRef = React.useRef<HTMLButtonElement>(null)
+  const moreRef = React.useRef<HTMLButtonElement>(null)
+  /** Which side of the picture the row is on, for the direction it rises from. */
+  const sideRef = React.useRef<"above" | "below">("above")
   const [, setTick] = React.useState(0)
   const refresh = () => setTick((n) => n + 1)
-  const [ratioOpen, setRatioOpen] = React.useState(false)
+  const [menu, setMenu] = React.useState<"shape" | "more" | null>(null)
 
   const align = (img.getAttribute("data-align") as PictureAlign | null) ?? null
   const width = pictureWidth(img)
   const ratio = pictureRatio(img)
 
-  /* Follow the picture, every frame, straight onto the nodes. */
-  React.useEffect(() => {
-    let raf = 0
-    const place = () => {
-      const frame = frameRef.current
-      const box = boxRef.current
-      const bar = barRef.current
-      if (frame && box && img.isConnected) {
-        const f = frame.getBoundingClientRect()
-        const r = img.getBoundingClientRect()
-        const x = r.left - f.left
-        const y = r.top - f.top
-        box.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`
-        box.style.width = `${Math.round(r.width)}px`
-        box.style.height = `${Math.round(r.height)}px`
-      }
-      if (frame && bar && !dock && img.isConnected) {
-        const f = frame.getBoundingClientRect()
-        const r = img.getBoundingClientRect()
-        const x = r.left - f.left
-        const y = r.top - f.top
-        /* The bar centred on the picture, kept inside the text: above it when
-           there is room, else below it, and only over it when neither fits,
-           so it never sits on the corner handles if it can help it. */
-        const bw = bar.offsetWidth
-        const bh = bar.offsetHeight
-        const bx = Math.max(6, Math.min(f.width - bw - 6, x + r.width / 2 - bw / 2))
-        const above = y - bh - 10
-        const below = y + r.height + 10
-        const by = above >= 4 ? above : below + bh <= f.height - 4 ? below : Math.max(4, Math.min(f.height - bh - 4, y + 8))
-        bar.style.transform = `translate3d(${Math.round(bx)}px, ${Math.round(by)}px, 0)`
-      }
-      raf = requestAnimationFrame(place)
+  /** Frame on the picture, row centred over or under it, clamped inside the text. */
+  const place = React.useCallback(() => {
+    const frame = frameRef.current
+    const box = boxRef.current
+    const bar = barRef.current
+    if (!frame || !img.isConnected) return
+    const f = frame.getBoundingClientRect()
+    const r = img.getBoundingClientRect()
+    const x = r.left - f.left
+    const y = r.top - f.top
+    if (box) {
+      box.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`
+      box.style.width = `${Math.round(r.width)}px`
+      box.style.height = `${Math.round(r.height)}px`
     }
-    raf = requestAnimationFrame(place)
+    if (bar) {
+      const bw = bar.offsetWidth
+      const bh = bar.offsetHeight
+      const bx = Math.max(6, Math.min(f.width - bw - 6, x + r.width / 2 - bw / 2))
+      const above = y - bh - 10
+      const below = y + r.height + 10
+      let by: number
+      if (above >= 4) {
+        by = above
+        sideRef.current = "above"
+      } else if (below + bh <= f.height - 4) {
+        by = below
+        sideRef.current = "below"
+      } else {
+        by = Math.max(4, Math.min(f.height - bh - 4, y + 8))
+        sideRef.current = "below"
+      }
+      bar.style.transform = `translate3d(${Math.round(bx)}px, ${Math.round(by)}px, 0)`
+      bar.style.visibility = "visible"
+    }
+  }, [img, frameRef])
+
+  /* Placed before the first paint, then followed every frame. */
+  React.useLayoutEffect(() => {
+    place()
+    let raf = 0
+    const loop = () => {
+      place()
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(raf)
-  }, [img, frameRef, dock])
+  }, [place])
+
+  /* In, and out: opacity and a few pixels of rise, nothing sideways. */
+  const onExitedRef = React.useRef(onExited)
+  React.useEffect(() => {
+    onExitedRef.current = onExited
+  })
+  React.useLayoutEffect(() => {
+    const inner = barInnerRef.current
+    const box = boxRef.current
+    if (!inner || !box) return
+    const quick = reducedMotion()
+    const dy = sideRef.current === "above" ? 4 : -4
+    inner.style.transformOrigin = sideRef.current === "above" ? "50% 100%" : "50% 0%"
+    const hidden = { opacity: 0, transform: quick ? "none" : `translate3d(0, ${dy}px, 0) scale(0.96)` }
+    const shown = { opacity: 1, transform: "none" }
+    const opts: KeyframeAnimationOptions = { duration: quick ? 1 : open ? IN_MS : OUT_MS, easing: EASE, fill: "both" }
+    const a = inner.animate(open ? [hidden, shown] : [shown, hidden], opts)
+    const b = box.animate(open ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }], opts)
+    if (!open) {
+      setMenu(null)
+      a.onfinish = () => onExitedRef.current?.()
+    }
+    return () => {
+      a.cancel()
+      b.cancel()
+    }
+  }, [open])
 
   /* Escape lets go; a picture that leaves the text lets go too. */
   React.useEffect(() => {
+    if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onDone()
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [onDone])
+  }, [onDone, open])
 
   const contentWidth = () => {
     const cs = getComputedStyle(root)
@@ -221,13 +310,21 @@ export function PictureControls({
     const both = img.getAttribute("data-align") === "center" ? 2 : 1
     const readout = readoutRef.current
     if (readout) readout.style.opacity = "1"
+    let pct = Math.round((startW / full) * 100)
+    let frame = 0
     const move = (ev: PointerEvent) => {
       const w = startW + side * (ev.clientX - startX) * both
-      const pct = Math.max(10, Math.min(100, Math.round((w / full) * 100)))
-      setWidth(img, pct)
-      if (readout) readout.textContent = `${pct}%`
+      pct = Math.max(10, Math.min(100, Math.round((w / full) * 100)))
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        setWidth(img, pct)
+        if (readout) readout.textContent = `${pct}%`
+      })
     }
     const up = () => {
+      if (frame) cancelAnimationFrame(frame)
+      setWidth(img, pct)
       handle.removeEventListener("pointermove", move)
       handle.removeEventListener("pointerup", up)
       handle.removeEventListener("pointercancel", up)
@@ -267,13 +364,23 @@ export function PictureControls({
     refresh()
   }
 
+  /* Round the three places; a picture with none of its own sits at the left, so the first tap centres it. */
+  const current = PLACES.find((p) => p.value === align) ?? null
+  const next = current ? PLACES[(PLACES.indexOf(current) + 1) % PLACES.length] : PLACES[1]
+  const PlaceIcon = (current ?? PLACES[0]).icon
+  const shape = RATIOS.find((r) => r.value === ratio) ?? RATIOS[0]
+  const closeMenu = React.useCallback(() => setMenu(null), [])
+
   return (
     <TooltipPrimitive.Provider delayDuration={350} skipDelayDuration={150}>
       {/* The frame and its handles. */}
       <div
         ref={boxRef}
         data-picture-frame=""
-        className="pointer-events-none absolute left-0 top-0 rounded-[10px] shadow-[0_0_0_2px_#111113,0_0_0_4px_rgba(255,255,255,0.9)]"
+        className={cn(
+          "absolute left-0 top-0 rounded-[10px] shadow-[0_0_0_2px_#111113,0_0_0_4px_rgba(255,255,255,0.9)]",
+          open ? "pointer-events-none" : "pointer-events-none [&_*]:!pointer-events-none",
+        )}
       >
         {handle("tl")}
         {handle("tr")}
@@ -288,193 +395,246 @@ export function PictureControls({
         </span>
       </div>
 
-      {/* The bar: floating over the picture, or docked under the toolbar on a phone. */}
-      {(() => {
-        const bar = (
+      {/* The row. The outer box is only ever moved; the inner one fades and rises. */}
       <div
         ref={barRef}
-        role="toolbar"
-        aria-label="Picture"
-        data-picture-bar=""
-        onMouseDown={(e) => {
-          /* The text keeps its focus and its caret while the bar is used. */
-          if ((e.target as HTMLElement).tagName !== "INPUT") e.preventDefault()
-        }}
-        data-docked={dock ? "" : undefined}
-        className={cn(
-          "pointer-events-auto flex items-center gap-0.5 rounded-xl bg-[#111113]/95 p-1 shadow-[0_12px_28px_-10px_rgba(0,0,0,0.5),0_2px_6px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-          dock ? "relative mx-auto w-fit max-w-full flex-wrap justify-center" : "absolute left-0 top-0 max-w-[calc(100%-12px)] overflow-x-auto",
-        )}
+        className={cn("absolute left-0 top-0 max-w-[calc(100%-12px)]", open ? "pointer-events-auto" : "pointer-events-none")}
+        style={{ visibility: "hidden" }}
       >
-        {(["left", "center", "right"] as const).map((a) => {
-          const Icon = a === "left" ? AlignLeft : a === "center" ? AlignCenter : AlignRight
-          const name = a === "left" ? "Left" : a === "center" ? "Centre" : "Right"
-          return (
-            <Tip key={a} label={name}>
-              <button
-                type="button"
-                aria-label={`Align ${name.toLowerCase()}`}
-                aria-pressed={align === a}
-                onClick={() => set(() => img.setAttribute("data-align", a))}
-                className={cn(barButton, align === a && barOn)}
-              >
-                <Icon className="h-4 w-4" />
-              </button>
-            </Tip>
-          )
-        })}
-        {barRule}
-        {SIZES.map((s) => (
-          <Tip key={s.label} label={s.name}>
+        <div
+          ref={barInnerRef}
+          role="toolbar"
+          aria-label="Picture"
+          data-picture-bar=""
+          onMouseDown={(e) => {
+            /* The text keeps its focus and its caret while the row is used. */
+            if ((e.target as HTMLElement).tagName !== "INPUT") e.preventDefault()
+          }}
+          className="flex items-center gap-0.5 overflow-x-auto rounded-xl bg-[#111113]/95 p-1 shadow-[0_12px_28px_-10px_rgba(0,0,0,0.5),0_2px_6px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ opacity: 0 }}
+        >
+          <Tip label={`Position: ${(current ?? PLACES[0]).name}, then ${next.name.toLowerCase()}`}>
             <button
               type="button"
-              aria-label={s.name}
-              aria-pressed={width === s.pct}
-              onClick={() =>
-                set(() => {
-                  setWidth(img, s.pct)
-                  /* A picture narrower than the text sits somewhere: centred unless told. */
-                  if (s.pct < 100 && !img.getAttribute("data-align")) img.setAttribute("data-align", "center")
-                })
-              }
-              className={cn(barButton, width === s.pct && barOn)}
+              data-picture-position={align ?? ""}
+              aria-label={`Position, ${current ? current.name.toLowerCase() : "not set"}`}
+              onClick={() => set(() => img.setAttribute("data-align", next.value))}
+              className={cn(barButton, current && barOn)}
             >
-              {s.label}
+              <PlaceIcon className="h-4 w-4" />
             </button>
           </Tip>
-        ))}
-        {barRule}
-        <div className="relative shrink-0">
-          <Tip label="Shape">
+          {barRule}
+          <div role="group" aria-label="Size" className="flex shrink-0 items-center rounded-lg bg-white/[0.06] p-px">
+            {SIZES.map((s) => (
+              <Tip key={s.label} label={s.name}>
+                <button
+                  type="button"
+                  aria-label={s.name}
+                  aria-pressed={width === s.pct}
+                  onClick={() =>
+                    set(() => {
+                      setWidth(img, s.pct)
+                      /* A picture narrower than the text sits somewhere: centred unless told. */
+                      if (s.pct < 100 && !img.getAttribute("data-align")) img.setAttribute("data-align", "center")
+                    })
+                  }
+                  className={cn(barButton, "h-7 max-sm:h-8", s.label === "Full" ? "w-9 max-sm:w-8" : "w-7 max-sm:w-[26px]", width === s.pct && barOn)}
+                >
+                  {s.label}
+                </button>
+              </Tip>
+            ))}
+          </div>
+          {barRule}
+          <Tip label={`Shape: ${shape.label}`}>
             <button
+              ref={shapeRef}
               type="button"
               aria-label="Shape"
               aria-haspopup="menu"
-              aria-expanded={ratioOpen}
-              onClick={() => setRatioOpen((o) => !o)}
-              className={cn(barButton, "gap-1 px-2", (ratio || ratioOpen) && barOn)}
+              aria-expanded={menu === "shape"}
+              onClick={() => setMenu((m) => (m === "shape" ? null : "shape"))}
+              className={cn(barButton, "w-10 gap-0.5 max-sm:w-9", (ratio || menu === "shape") && barOn)}
             >
-              {RATIOS.find((r) => r.value === ratio)?.label ?? "Original"}
-              <svg aria-hidden viewBox="0 0 10 6" className="h-1.5 w-2.5"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <RatioGlyph w={shape.w} h={shape.h} own={!shape.value} />
+              <svg aria-hidden viewBox="0 0 10 6" className="h-1.5 w-2 shrink-0 opacity-70"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+          </Tip>
+          <Tip label="Describe it for screen readers">
+            <button type="button" aria-label="Alt text" onClick={onAlt} className={cn(barButton, "tracking-wide")}>
+              Alt
+            </button>
+          </Tip>
+          <Tip label="Remove picture">
+            <button type="button" aria-label="Remove picture" onClick={onRemove} className={barButton}>
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </Tip>
+          <Tip label="More">
+            <button
+              ref={moreRef}
+              type="button"
+              aria-label="More"
+              aria-haspopup="menu"
+              aria-expanded={menu === "more"}
+              onClick={() => setMenu((m) => (m === "more" ? null : "more"))}
+              className={cn(barButton, menu === "more" && barOn)}
+            >
+              <MoreHorizontal className="h-4 w-4" />
             </button>
           </Tip>
         </div>
-        {barRule}
-        <Tip label="Move up">
-          <button type="button" aria-label="Move up" onClick={() => onMove(-1)} className={barButton}>
-            <ArrowUp className="h-4 w-4" />
-          </button>
-        </Tip>
-        <Tip label="Move down">
-          <button type="button" aria-label="Move down" onClick={() => onMove(1)} className={barButton}>
-            <ArrowDown className="h-4 w-4" />
-          </button>
-        </Tip>
-        {barRule}
-        <Tip label="Describe it for screen readers">
-          <button type="button" aria-label="Alt text" onClick={onAlt} className={cn(barButton, "px-2 tracking-wide")}>
-            Alt
-          </button>
-        </Tip>
-        <Tip label="Remove picture">
-          <button type="button" aria-label="Remove picture" onClick={onRemove} className={barButton}>
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </Tip>
       </div>
-        )
-        return dock ? createPortal(bar, dock) : bar
-      })()}
 
-      {/* The shapes, as a short list under the bar. */}
-      {ratioOpen ? (
-        <RatioMenu
-          barRef={barRef}
-          frameRef={frameRef}
-          docked={!!dock}
-          value={ratio}
-          onPick={(v) => {
-            setRatioOpen(false)
-            set(() => setRatio(img, v))
-          }}
-          onClose={() => setRatioOpen(false)}
-        />
-      ) : null}
+      <BarMenu open={menu === "shape"} label="Shape" anchorRef={shapeRef} frameRef={frameRef} barRef={barRef} onClose={closeMenu}>
+        {RATIOS.map((r) => {
+          const on = r.value === ratio
+          return (
+            <button
+              key={r.label}
+              type="button"
+              role="menuitemradio"
+              aria-checked={on}
+              onClick={() => {
+                setMenu(null)
+                set(() => setRatio(img, r.value))
+              }}
+              className={cn(menuItem, on && "bg-white/10 text-white")}
+            >
+              <RatioGlyph w={r.w} h={r.h} own={!r.value} />
+              <span>{r.label}</span>
+            </button>
+          )
+        })}
+      </BarMenu>
+      <BarMenu open={menu === "more"} label="More" anchorRef={moreRef} frameRef={frameRef} barRef={barRef} onClose={closeMenu}>
+        <button type="button" role="menuitem" onClick={() => onMove(-1)} className={menuItem}>
+          <ArrowUp aria-hidden className="h-4 w-4 shrink-0" />
+          <span>Move up</span>
+        </button>
+        <button type="button" role="menuitem" onClick={() => onMove(1)} className={menuItem}>
+          <ArrowDown aria-hidden className="h-4 w-4 shrink-0" />
+          <span>Move down</span>
+        </button>
+      </BarMenu>
     </TooltipPrimitive.Provider>
   )
 }
 
-function RatioMenu({
+const menuItem =
+  "flex h-9 w-full items-center gap-2 whitespace-nowrap rounded-lg px-2.5 text-left text-[13px] text-white/80 outline-none transition-colors focus-visible:bg-white/10 [-webkit-tap-highlight-color:transparent] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-white/10 [@media(hover:hover)_and_(pointer:fine)]:hover:text-white max-sm:h-10"
+
+/**
+ * A short list that opens from a button in the row: under the row when the
+ * text has room below it, else over it, centred on its button and kept
+ * inside the text. It fades and rises in from the row's side, and out the
+ * same way; it stays in the document until its exit has finished.
+ */
+function BarMenu({
+  open,
+  label,
+  anchorRef,
   barRef,
   frameRef,
-  docked,
-  value,
-  onPick,
   onClose,
+  children,
 }: {
+  open: boolean
+  label: string
+  anchorRef: React.RefObject<HTMLButtonElement | null>
   barRef: React.RefObject<HTMLDivElement | null>
   frameRef: React.RefObject<HTMLDivElement | null>
-  /** The bar is docked above the text: the list opens at the top of the text, under it. */
-  docked: boolean
-  value: string | null
-  onPick: (v: string | null) => void
   onClose: () => void
+  children: React.ReactNode
 }) {
-  const ref = React.useRef<HTMLDivElement>(null)
-  React.useEffect(() => {
+  const [mounted, setMounted] = React.useState(open)
+  if (open && !mounted) setMounted(true)
+  const outerRef = React.useRef<HTMLDivElement>(null)
+  const innerRef = React.useRef<HTMLDivElement>(null)
+  const belowRef = React.useRef(true)
+
+  React.useLayoutEffect(() => {
+    if (!mounted) return
     let raf = 0
     const place = () => {
+      const anchor = anchorRef.current
       const bar = barRef.current
       const frame = frameRef.current
-      const menu = ref.current
-      if (bar && frame && menu) {
+      const menu = outerRef.current
+      if (anchor && bar && frame && menu) {
         const f = frame.getBoundingClientRect()
+        const a = anchor.getBoundingClientRect()
         const b = bar.getBoundingClientRect()
-        const x = Math.max(6, Math.min(f.width - menu.offsetWidth - 6, b.left - f.left + b.width / 2 - menu.offsetWidth / 2))
-        const below = docked ? 6 : b.bottom - f.top + 6
-        const y = docked || below + menu.offsetHeight <= f.height ? below : Math.max(4, b.top - f.top - menu.offsetHeight - 6)
+        const mw = menu.offsetWidth
+        const mh = menu.offsetHeight
+        const x = Math.max(6, Math.min(f.width - mw - 6, a.left - f.left + a.width / 2 - mw / 2))
+        const below = b.bottom - f.top + 6
+        belowRef.current = below + mh <= f.height - 4
+        const y = belowRef.current ? below : Math.max(4, b.top - f.top - mh - 6)
         menu.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0)`
+        menu.style.visibility = "visible"
       }
-      raf = requestAnimationFrame(place)
     }
-    raf = requestAnimationFrame(place)
+    place()
+    const loop = () => {
+      place()
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [mounted, anchorRef, barRef, frameRef])
+
+  React.useLayoutEffect(() => {
+    const inner = innerRef.current
+    if (!mounted || !inner) return
+    const quick = reducedMotion()
+    const dy = belowRef.current ? -4 : 4
+    inner.style.transformOrigin = belowRef.current ? "50% 0%" : "50% 100%"
+    const hidden = { opacity: 0, transform: quick ? "none" : `translate3d(0, ${dy}px, 0) scale(0.96)` }
+    const shown = { opacity: 1, transform: "none" }
+    const a = inner.animate(open ? [hidden, shown] : [shown, hidden], { duration: quick ? 1 : open ? IN_MS : OUT_MS, easing: EASE, fill: "both" })
+    if (!open) a.onfinish = () => setMounted(false)
+    return () => a.cancel()
+  }, [open, mounted])
+
+  React.useEffect(() => {
+    if (!open) return
     const onDown = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node) && !barRef.current?.contains(e.target as Node)) onClose()
+      const t = e.target as Node
+      if (!outerRef.current?.contains(t) && !anchorRef.current?.contains(t)) onClose()
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation()
+        onClose()
+      }
     }
     document.addEventListener("pointerdown", onDown, true)
+    window.addEventListener("keydown", onKey, true)
     return () => {
-      cancelAnimationFrame(raf)
       document.removeEventListener("pointerdown", onDown, true)
+      window.removeEventListener("keydown", onKey, true)
     }
-  }, [barRef, frameRef, docked, onClose])
+  }, [open, onClose, anchorRef])
 
+  if (!mounted) return null
   return (
     <div
-      ref={ref}
-      role="menu"
-      aria-label="Shape"
-      onMouseDown={(e) => e.preventDefault()}
-      className="pointer-events-auto absolute left-0 top-0 z-[1] w-44 rounded-xl bg-[#111113]/95 p-1 shadow-[0_12px_28px_-10px_rgba(0,0,0,0.5),0_2px_6px_rgba(0,0,0,0.18)] backdrop-blur-sm animate-in fade-in-0 zoom-in-[0.98] duration-150"
+      ref={outerRef}
+      className={cn("absolute left-0 top-0 z-[1]", open ? "pointer-events-auto" : "pointer-events-none")}
+      style={{ visibility: "hidden" }}
     >
-      {RATIOS.map((r) => {
-        const on = r.value === value
-        return (
-          <button
-            key={r.label}
-            type="button"
-            role="menuitemradio"
-            aria-checked={on}
-            onClick={() => onPick(r.value)}
-            className={cn(
-              "flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-left text-[13px] text-white/80 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:bg-white/10",
-              on && "text-white",
-            )}
-          >
-            <span>{r.label}</span>
-            <span className="text-[12px] text-white/45">{r.value ? r.name : "As uploaded"}</span>
-          </button>
-        )
-      })}
+      <div
+        ref={innerRef}
+        role="menu"
+        aria-label={label}
+        onMouseDown={(e) => e.preventDefault()}
+        className="min-w-[128px] rounded-xl bg-[#111113]/95 p-1 shadow-[0_12px_28px_-10px_rgba(0,0,0,0.5),0_2px_6px_rgba(0,0,0,0.18)] backdrop-blur-sm"
+        style={{ opacity: 0 }}
+      >
+        {children}
+      </div>
     </div>
   )
 }

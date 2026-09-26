@@ -33,6 +33,19 @@
  *   ESTIMATE     the same with the half-screen keyboard ESTIMATE published on
  *                <html>, which is what padded the band before: a platform
  *                that reported a keyboard is not given the estimate
+ *   OPEN, CLOSE  the sheet mounts as the button is pressed, and its first
+ *                frame is closed with the backdrop clear; it then rises on
+ *                transform to its stop in about 320ms, never backwards, the
+ *                backdrop fading in; closing slides it down, still drawn,
+ *                and hides it only once it is off the screen
+ *   NO JUMP      the owner's screen recording: the thread jumped as the
+ *                keyboard opened and left a band of white where it had been
+ *                as it closed. The AI sheet is a "composer" sheet now, so
+ *                the sheet keeps its size and place and only the composer's
+ *                row rides up, on a transform. Measured every frame through
+ *                the keyboard opening and closing: the sheet's box, the
+ *                thread's height, the header; and at the end, the thread's
+ *                newest line against the composer (no gap either way)
  *
  * The safe area is set through CDP where the browser supports it
  * (Emulation.setSafeAreaInsetsOverride) and reported as 0 where it does not.
@@ -109,6 +122,14 @@ const CODE = `<section class="hero" style="${"padding:0 24px;".repeat(20)}">`
 */
 const PRELUDE = `
 window.__err = [];
+/* Every frame from the first one the sheet exists: where it is and how dark the backdrop is. */
+window.__openFrames = [];
+(function sample() {
+  var s = document.querySelector("[data-mobile-bottom-sheet]");
+  var o = document.querySelector("[data-wb-sheet-overlay]");
+  if (s) window.__openFrames.push({ y: new DOMMatrixReadOnly(getComputedStyle(s).transform).m42, o: o ? +getComputedStyle(o).opacity : null, so: +getComputedStyle(s).opacity, t: performance.now() });
+  if (window.__openFrames.length < 80) requestAnimationFrame(sample);
+})();
 window.addEventListener("error", function (e) { window.__err.push(String(e.message)) });
 window.process = { env: { NODE_ENV: "production" } };
 (function () {
@@ -238,6 +259,15 @@ const READ = `(() => {
   const field = sheet.querySelector("textarea")
   const thread = document.querySelector("[data-chat-thread]") || [...sheet.querySelectorAll("div")].find((d) => /overflow-y-auto/.test(d.className) && d.querySelector("ul, p"))
   const composer = document.querySelector("[data-chat-composer]") || (field && field.parentElement)
+  /* The row that rides the keyboard: the mode switch and the box, with its 10px of padding. */
+  const footer = document.querySelector("[data-ask-footer]")
+  /* The thread's newest line: the last thing in it before the keyboard's spacer. */
+  const lastLine = (() => {
+    const inner = thread && thread.firstElementChild
+    if (!inner) return null
+    const kids = [...inner.children].filter((k) => !k.hasAttribute("data-ask-keys-room"))
+    return kids.length ? kids[kids.length - 1] : null
+  })()
   /* The chat column: the sheet variant's root, which holds the composer's row and its padding. */
   const column = thread && (thread.closest("[data-ask-sheet]") || thread.parentElement)
   const header = [...document.querySelectorAll("span")].find((s) => s.textContent.trim() === "Ask Storelib")
@@ -256,6 +286,9 @@ const READ = `(() => {
     composerTop: composer ? composer.getBoundingClientRect().top : null,
     /* The chat column's bottom: the composer's row, its 10px of padding included. */
     columnBottom: column ? column.getBoundingClientRect().bottom : null,
+    footerBottom: footer ? footer.getBoundingClientRect().bottom : null,
+    footerTop: footer ? footer.getBoundingClientRect().top : null,
+    lastBottom: lastLine ? lastLine.getBoundingClientRect().bottom : null,
     threadHeight: thread ? thread.clientHeight : null,
     threadSW: thread ? thread.scrollWidth : null, threadCW: thread ? thread.clientWidth : null,
     threadLeft: thread ? thread.scrollLeft : null,
@@ -292,6 +325,7 @@ const shot = async (name) => {
   writeFileSync(join(process.env.SHOTS, `${name}.png`), Buffer.from(data, "base64"))
 }
 
+const openFrames = JSON.parse(await js("JSON.stringify(window.__openFrames)"))
 const errs0 = await js("JSON.stringify(window.__err)")
 if (!(await js(`!!document.querySelector("[data-mobile-bottom-sheet] textarea")`))) fail("The chat never mounted: " + errs0)
 
@@ -367,6 +401,43 @@ const withKeyboard = async (keys, pan, estimate = 0) => {
   await frames(3)
   return read()
 }
+/*
+  EVERY FRAME, through the keyboard coming up and going: what moved. The
+  sheet's box and the thread's height must not change at all; only the
+  footer travels. Sampled on requestAnimationFrame for 600ms after the
+  viewport reports the change.
+*/
+const SAMPLE = (ms) => `new Promise((done) => {
+  const sheet = document.querySelector("[data-mobile-bottom-sheet]")
+  const thread = document.querySelector("[data-chat-thread]")
+  const header = document.querySelector("[data-ask-header]")
+  const footer = document.querySelector("[data-ask-footer]")
+  const out = []
+  const t0 = performance.now()
+  const tick = () => {
+    const s = sheet.getBoundingClientRect()
+    out.push({ sheetTop: s.top, sheetH: s.height, threadH: thread.clientHeight, headerTop: header.getBoundingClientRect().top, footerBottom: footer.getBoundingClientRect().bottom })
+    if (performance.now() - t0 < ${ms}) requestAnimationFrame(tick)
+    else done(JSON.stringify(out))
+  }
+  requestAnimationFrame(tick)
+})`
+await js(`(() => { const t = document.querySelector("[data-chat-thread]"); t.scrollTop = t.scrollHeight })()`)
+await frames(3)
+r.beforeKb = await read()
+await js(`document.querySelector("textarea").focus({ preventScroll: true })`)
+await js(`window.__keyboard(${KEYS}, 0)`)
+r.openFrames = JSON.parse(await js(SAMPLE(600)))
+await sleep(400)
+r.kbOpened = await read()
+await shot("keyboard-open")
+await js(`window.__keyboard(0, 0)`)
+await js(`document.activeElement && document.activeElement.blur()`)
+r.closeFrames = JSON.parse(await js(SAMPLE(600)))
+await sleep(400)
+r.kbClosed = await read()
+await shot("keyboard-closed")
+
 r.kb = await withKeyboard(KEYS, 0)
 await shot("keyboard")
 r.kbPan = await withKeyboard(KEYS, 188)
@@ -377,6 +448,21 @@ await js(`document.documentElement.style.setProperty("--kb-inset", "0px")`)
 await js(`document.activeElement && document.activeElement.blur()`)
 await sleep(700)
 r.closed = await read()
+/* Put away: every frame of the close, and whether it is still drawn. */
+r.closeMove = JSON.parse(await js(`new Promise((done) => {
+  const s = document.querySelector("[data-mobile-bottom-sheet]")
+  const o = document.querySelector("[data-wb-sheet-overlay]")
+  const out = []
+  const t0 = performance.now()
+  window.__setOpen(false)
+  const tick = () => {
+    const cs = getComputedStyle(s)
+    out.push({ y: new DOMMatrixReadOnly(cs.transform).m42, o: +getComputedStyle(o).opacity, so: +cs.opacity, shown: cs.visibility === "visible", t: performance.now() - t0 })
+    if (performance.now() - t0 < 700) requestAnimationFrame(tick)
+    else done(JSON.stringify(out))
+  }
+  requestAnimationFrame(tick)
+})`))
 r.errors = JSON.parse(await js("JSON.stringify(window.__err)"))
 
 /* ── 320: the narrowest phone, the same thread ───────────────────────── */
@@ -425,7 +511,7 @@ proc.kill()
 const f = (v) => (v === null || v === undefined ? String(v) : Math.round(v * 10) / 10)
 const kbLine = (name, s, keys, pan) => {
   const visibleBottom = s.vvTop + s.vvHeight
-  console.log(`  ${name.padEnd(13)} vv ${f(s.vvHeight)} tall, panned ${f(s.vvTop)}: chat bottom ${f(s.columnBottom)} vs visible bottom ${f(visibleBottom)} (${f(s.columnBottom - visibleBottom)}px), composer box ${f(s.composerBottom)}; header top ${f(s.headerTop)} vs visible top + safe area ${f(s.vvTop + safeTop)}; sheet ${f(s.sheetTop)}..${f(s.sheetBottom)} padded ${f(s.padBottom)}; thread ${f(s.threadHeight)}px; document scrollY ${f(s.scrollY)}`)
+  console.log(`  ${name.padEnd(13)} vv ${f(s.vvHeight)} tall, panned ${f(s.vvTop)}: composer row bottom ${f(s.footerBottom)} vs visible bottom ${f(visibleBottom)} (${f(s.footerBottom - visibleBottom)}px), composer box ${f(s.composerBottom)}; newest line ${f(s.lastBottom)} vs row top ${f(s.footerTop)}; header top ${f(s.headerTop)} vs visible top + safe area ${f(s.vvTop + safeTop)}; sheet ${f(s.sheetTop)}..${f(s.sheetBottom)} padded ${f(s.padBottom)}; thread ${f(s.threadHeight)}px; document scrollY ${f(s.scrollY)}`)
 }
 console.log(`\nAsk Storelib in the editor's AI sheet at ${W}x${H}, safe area top ${safeTop}\n`)
 console.log(`  at rest       sheet top ${f(r.rest.sheetTop)}, header top ${f(r.rest.headerTop)}; the bar's violet button ${f(r.rest.publishTop)}..${f(r.rest.publishBottom)}`)
@@ -442,7 +528,20 @@ kbLine("panned all", r.kbPanAll, KEYS, KEYS)
 console.log(`                (that one with the half-screen estimate, ${Math.round(H * 0.5)}px, published on <html>)`)
 kbLine("no report", r.kbNoReport, 0, 0)
 console.log(`                (a web view that reports nothing, with a ${KEYS}px estimate published)`)
+{
+  const moving = openFrames.filter((x) => x.y > 0.5)
+  const ms = openFrames.length ? Math.round((openFrames.find((x) => x.y <= 0.5)?.t ?? openFrames[openFrames.length - 1].t) - openFrames[0].t) : 0
+  console.log(`  sheet in      ${openFrames.length} frames: first at ${f(openFrames[0]?.y)}px down, sheet opacity ${f(openFrames[0]?.so)}, backdrop ${f(openFrames[0]?.o)}; at rest after ${ms}ms over ${moving.length} frames, opacity ${f(openFrames[openFrames.length - 1]?.so)}`)
+  const last = r.closeMove[r.closeMove.length - 1]
+  const hiddenAt = r.closeMove.find((x) => !x.shown)
+  console.log(`  sheet out     ${r.closeMove.length} frames: ends ${f(last.y)}px down, sheet opacity ${f(last.so)}, backdrop ${f(last.o)}; hidden at ${hiddenAt ? Math.round(hiddenAt.t) + "ms, " + f(hiddenAt.y) + "px down" : "never"}`)
+}
 console.log(`  closed again  sheet top ${f(r.closed.sheetTop)}, padded ${f(r.closed.padBottom)}`)
+const spread = (list, key) => { const v = list.map((x) => x[key]); return `${f(Math.min(...v))}..${f(Math.max(...v))}` }
+for (const [name, list] of [["opening", r.openFrames], ["closing", r.closeFrames]]) {
+  console.log(`  keys ${name.padEnd(8)} ${list.length} frames: sheet top ${spread(list, "sheetTop")}, sheet height ${spread(list, "sheetH")}, thread height ${spread(list, "threadH")}, header top ${spread(list, "headerTop")}, composer row bottom ${spread(list, "footerBottom")}`)
+}
+console.log(`  settled       open: thread ${f(r.kbOpened.threadGap)}px from its end, newest line ${f(r.kbOpened.lastBottom)} vs row top ${f(r.kbOpened.footerTop)}; closed: ${f(r.kbClosed.threadGap)}px from its end, newest line ${f(r.kbClosed.lastBottom)} vs row top ${f(r.kbClosed.footerTop)}`)
 console.log(`  320 phone     thread ${r.narrow.threadSW}/${r.narrow.threadCW}, column ${r.narrow.columnSW}/${r.narrow.columnCW}, sheet ${r.narrow.sheetSW}/${r.narrow.sheetCW}, document ${r.narrow.docSW}/${r.narrow.docCW}${r.narrow.overflowing.length ? `; past the edge: ${r.narrow.overflowing.join(" | ")}` : ""}`)
 console.log(`  1280 column   thread ${r.desktop.threadSW}/${r.desktop.threadCW}, column ${r.desktop.columnSW}/${r.desktop.columnCW}, scrollLeft after a script set 400: ${r.desktop.left}; code block ${r.desktop.preSW}/${r.desktop.preCW}`)
 if (r.errors.length) console.log(`  page errors: ${r.errors.join(" | ")}`)
@@ -467,15 +566,38 @@ expect(r.narrow.threadSW === r.narrow.threadCW && r.narrow.columnSW === r.narrow
 expect(r.narrow.overflowing.length === 0, "at 320px no element in the sheet reaches past the screen's edge")
 for (const [name, s] of [["keyboard", r.kb], ["panned 188", r.kbPan], ["panned all", r.kbPanAll]]) {
   const visibleBottom = s.vvTop + s.vvHeight
-  expect(Math.abs(s.columnBottom - visibleBottom) <= 1, `${name}: the composer's row ends on the keyboard, within 1px of the visible bottom`)
+  expect(Math.abs(s.footerBottom - visibleBottom) <= 1, `${name}: the composer's row ends on the keyboard, within 1px of the visible bottom`)
   expect(s.headerTop >= s.vvTop + safeTop - 0.5, `${name}: the header is below the visible top and the safe area`)
-  expect(s.threadHeight > 40, `${name}: the thread shrinks and stays usable (${f(s.threadHeight)}px)`)
+  expect(s.threadHeight === r.rest.threadHeight, `${name}: the thread keeps its height; only the composer moves (${f(s.threadHeight)}px)`)
+  expect(Math.abs(s.sheetTop - r.rest.sheetTop) <= 1 && Math.abs(s.sheetHeight - r.rest.sheetHeight) <= 1, `${name}: the sheet is not resized or moved for it`)
   expect(s.scrollY === 0, `${name}: the document is put back where it was`)
 }
-expect(Math.abs(r.kbNoReport.columnBottom - (H - KEYS)) <= 1, "a web view that reports nothing still gets the estimate")
+expect(Math.abs(r.kbNoReport.footerBottom - (H - KEYS)) <= 1, "a web view that reports nothing still gets the estimate")
+const still = (list, key) => Math.max(...list.map((x) => x[key])) - Math.min(...list.map((x) => x[key])) <= 0.5
+for (const [name, list] of [["opening", r.openFrames], ["closing", r.closeFrames]]) {
+  expect(list.length > 10 && still(list, "sheetTop") && still(list, "sheetH"), `${name} the keyboard, the sheet does not move or resize in any frame`)
+  expect(still(list, "threadH") && still(list, "headerTop"), `${name} the keyboard, the thread's height and the header do not change in any frame`)
+}
+expect(r.kbOpened.threadGap <= 2 && r.kbOpened.lastBottom <= r.kbOpened.footerTop + 1, "with the keyboard up the thread is at its end and its newest line is above the composer")
+expect(r.kbClosed.threadGap <= 2 && r.kbClosed.footerTop - r.kbClosed.lastBottom < 40, "with it gone the thread is at its end again, flush with the composer: no band of white")
 expect(Math.abs(r.closed.sheetTop - r.rest.sheetTop) <= 1 && r.closed.padBottom === r.rest.padBottom, "and with the keyboard gone the sheet is back where it was")
 expect(r.desktop.threadSW === r.desktop.threadCW && r.desktop.columnSW === r.desktop.columnCW && r.desktop.left === 0, "at 1280, the desktop column's thread is not wider than itself either")
+{
+  const ys = openFrames.map((x) => x.y)
+  const rising = ys.every((y, i) => i === 0 || y <= ys[i - 1] + 0.5)
+  const at = openFrames.find((x) => x.y <= 0.5)
+  const took = at ? at.t - openFrames[0].t : Infinity
+  expect(ys[0] > r.rest.sheetHeight * 0.9 && openFrames[0].o < 0.05 && openFrames[0].so < 0.1, `the first frame of the sheet is closed and faded out, with the backdrop clear (${f(ys[0])}px down, sheet ${f(openFrames[0].so)}, backdrop ${f(openFrames[0].o)})`)
+  expect(openFrames[openFrames.length - 1].so === 1 && openFrames[openFrames.length - 1].o === 1, "and it lands solid, with the backdrop in")
+  expect(rising && took >= 250 && took <= 520, `and it rises to its stop, never backwards, in about 320ms (${Math.round(took)}ms)`)
+  const cys = r.closeMove.map((x) => x.y)
+  const falling = cys.every((y, i) => i === 0 || y >= cys[i - 1] - 0.5)
+  const hiddenAt = r.closeMove.find((x) => !x.shown)
+  const drawn = r.closeMove.filter((x) => x.shown && x.y > 1 && x.y < r.rest.sheetHeight - 1).length
+  expect(falling && drawn >= 8, `closing slides it down, still drawn for ${drawn} frames of the move`)
+  expect(!!hiddenAt && hiddenAt.y >= r.rest.sheetHeight - 1 && r.closeMove[r.closeMove.length - 1].o < 0.01 && r.closeMove[r.closeMove.length - 1].so < 0.01, "and it is hidden only once it is off the screen, faded, the backdrop gone")
+}
 expect(r.errors.length === 0, "no page errors")
 console.log("")
 if (bad) fail(`${bad} measurement${bad === 1 ? "" : "s"} failed.`)
-console.log("The composer sits on the keyboard, the header stays below the status bar, and the thread only scrolls up and down.\n")
+console.log("The composer rides the keyboard, the sheet and the thread stay still, the header stays below the status bar, and the thread only scrolls up and down.\n")

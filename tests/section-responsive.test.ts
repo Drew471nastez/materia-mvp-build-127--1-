@@ -1824,7 +1824,7 @@ check(
     !/viewportTop/.test(sheetSrc) &&
     /function browserChromeGap\(\): number/.test(sheetSrc) &&
     /probe\.getBoundingClientRect\(\)\.top/.test(sheetSrc) &&
-    /paddingBottom: sheetBottomReserve\(chromeGap, keyboardInset, visibleTop > 0\)/.test(sheetSrc) &&
+    /paddingBottom: (?:composerKeys \? sheetBottomReserve\(chromeGap, 0\) : )?sheetBottomReserve\(chromeGap, keyboardInset, visibleTop > 0\)/.test(sheetSrc) &&
     // and the height grows by it too, or padding just pushes content out again
     /const safe = safeAreaBottom\(\) \+ browserChromeGap\(\)/.test(sheetSrc),
 )
@@ -1853,7 +1853,7 @@ check(
    */
   "a sheet grows by the keyboard, up to a ceiling that keeps its top edge out from under the status bar",
   /const ceiling = keyboardCeiling\(\{ viewport, tallestHeight: natural, safeTop, visibleTop, barBottom: barEdge \}\)/.test(sheetSrc) &&
-    /const height = sheetHeightWithKeyboard\(detentHeight, keyboardInset, ceiling\)/.test(sheetSrc),
+    /const height = (?:composerKeys \? detentHeight : )?sheetHeightWithKeyboard\(detentHeight, keyboardInset, ceiling\)/.test(sheetSrc),
 )
 
 check(
@@ -2552,7 +2552,7 @@ check(
       protecting nothing extra.
     */
     /const motion = dragging\s*\n?\s*\? "none"/.test(sheetSrc) &&
-    /transform \$\{SNAP_DURATION_MS\}ms \$\{SNAP_EASING\}/.test(sheetSrc) &&
+    /transform \$\{(?:SNAP_DURATION_MS|moveMs)\}ms \$\{SNAP_EASING\}/.test(sheetSrc) &&
     /transform: `translateY\(\$\{renderY\}px\)`/.test(sheetSrc) &&
     /transition: motion,/.test(sheetSrc) &&
     /opacity: renderOpacity,/.test(sheetSrc) &&

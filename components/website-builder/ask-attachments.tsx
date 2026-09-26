@@ -70,6 +70,70 @@ export function ProgressRing({ fraction, size = 26, className }: { fraction: num
   )
 }
 
+/**
+ * ===========================================================================
+ *  A PICTURE THAT ARRIVES WITHOUT MOVING ANYTHING
+ * ===========================================================================
+ * Its box is its final size from the first frame, so nothing around it
+ * shifts when the pixels come. Until they have been DECODED (not only
+ * loaded: a loaded picture can still paint in a stripe at a time on a
+ * phone) the box shows a neutral shimmer, and then the picture fades in
+ * over it on opacity. A new `src` for the same box (the file, then the
+ * prepared copy) keeps the old picture up until the new one is ready, which
+ * is what the browser does for a swapped `src` anyway, so it does not blink.
+ */
+export function FadeImage({
+  src,
+  alt,
+  className,
+  imgClassName,
+  lazy = false,
+  onError,
+}: {
+  src: string
+  alt: string
+  /** The box: its size and shape. */
+  className?: string
+  imgClassName?: string
+  lazy?: boolean
+  onError?: () => void
+}) {
+  const ref = React.useRef<HTMLImageElement>(null)
+  const [shown, setShown] = React.useState(false)
+  const reveal = React.useCallback(() => {
+    const img = ref.current
+    if (!img) return
+    const ready = typeof img.decode === "function" ? img.decode() : Promise.resolve()
+    ready.catch(() => {}).then(() => setShown(true))
+  }, [])
+  /* Already in the cache, and so loaded before React was listening. */
+  React.useEffect(() => {
+    const img = ref.current
+    if (img && img.complete && img.naturalWidth > 0) reveal()
+  }, [reveal])
+  return (
+    <span data-ask-image={shown ? "shown" : "loading"} className={cn("relative block overflow-hidden", !shown && "ask-shimmer", className)}>
+      {src && (
+        /* eslint-disable-next-line @next/next/no-img-element -- the creator's own picture: bytes in hand, or a URL signed for this read. */
+        <img
+          ref={ref}
+          src={src}
+          alt={alt}
+          loading={lazy ? "lazy" : undefined}
+          decoding="async"
+          onLoad={reveal}
+          onError={onError}
+          className={cn(
+            "relative block h-full w-full object-cover transition-opacity duration-200 ease-out motion-reduce:transition-none",
+            shown ? "opacity-100" : "opacity-0",
+            imgClassName,
+          )}
+        />
+      )}
+    </span>
+  )
+}
+
 export function PictureTray({
   items,
   onRemove,
@@ -109,12 +173,10 @@ export function PictureTray({
               item.state === "failed" ? "border-[#b45309]/40" : "border-[#e5e7eb]",
             )}
           >
-            {item.url && (
-              /* eslint-disable-next-line @next/next/no-img-element -- the creator's own file, drawn from memory. */
-              <img src={item.url} alt="" decoding="async" className={cn("h-full w-full object-cover", item.state === "failed" && "opacity-40")} />
-            )}
+            {/* The creator's own file, drawn from memory: a shimmer at the thumbnail's size until it has decoded. */}
+            <FadeImage src={item.url} alt="" className={cn("h-full w-full", item.state === "failed" && "opacity-40")} />
             {item.state === "preparing" && (
-              <span data-ask-preparing="" className="absolute inset-0 flex items-center justify-center bg-white/55">
+              <span data-ask-preparing="" className="ask-fade absolute inset-0 flex items-center justify-center bg-white/55">
                 <ProgressRing fraction={item.progress > 0 ? item.progress : null} />
               </span>
             )}

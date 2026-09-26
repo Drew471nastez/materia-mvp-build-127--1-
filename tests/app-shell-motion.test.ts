@@ -509,9 +509,14 @@ section("Sheets")
   check("a closing sheet gives the tap back at once",
     /style=\{isOpen \? undefined : atRest \? REST_STYLE : \{ pointerEvents: "none" \}\}/.test(sheet)
       && /const REST_STYLE: React\.CSSProperties = \{ visibility: "hidden", pointerEvents: "none" \}/.test(sheet))
-  check("it opens over 440ms on the iOS curve and closes over 340ms on an ease in and out; a flick keeps the iOS curve",
-    SHEET_OPEN_MS === 440 && SHEET_CLOSE_MS === 340 && SHEET_EASE === "cubic-bezier(0.32, 0.72, 0, 1)" && SHEET_CLOSE_EASE === "cubic-bezier(0.4, 0, 0.2, 1)"
-      && /\}, v > 0 \? EASE : CLOSE_EASE\)/.test(sheet) && /\}, velocity > 0 \? EASE : CLOSE_EASE\)/.test(sheet))
+  /* The open is the website builder's sheet's (SNAP_DURATION_MS, SNAP_EASING in mobile-editor-sheet.tsx); a tap outside keeps its ease in and out. */
+  check("it opens over 360ms on the iOS curve and closes over 340ms on an ease in and out, the scrim fades evenly, and a release leaves at the finger's speed",
+    SHEET_OPEN_MS === 360 && SHEET_CLOSE_MS === 340 && SHEET_EASE === "cubic-bezier(0.32, 0.72, 0, 1)" && SHEET_CLOSE_EASE === "cubic-bezier(0.4, 0, 0.2, 1)"
+      && /easing: FADE_EASE \}\)/.test(sheet) && /const motion = velocity > 0 \? snapMotion\(travel, velocity\) : null/.test(sheet)
+      && /\}, motion \? curveCss\(motion\.curve\) : CLOSE_EASE\)/.test(sheet) && /const motion = snapMotion\(rest - from, velocity\)/.test(sheet))
+  check("the parent hears about a close once the slide has had a frame, not before its first one",
+    /tell\.raf = requestAnimationFrame\(\(\) => \{ tell\.timer = window\.setTimeout\(tellNow, 0\) \}\)/.test(sheet)
+      && /if \(rootRef\.current\) rootRef\.current\.style\.pointerEvents = "none"/.test(sheet))
   check("focus moves after the slide, not on its first frames", /window\.setTimeout\(\(\) => \{\s*const panel = sheetRef\.current/.test(sheet))
   check("what is inside a sheet is laid out and painted on its own, and the big blurred shadow is gone",
     (sheet.match(/contain: "layout paint"/g) || []).length === 2 && !/0_-8px_40px/.test(sheet))
@@ -524,8 +529,8 @@ section("Sheets")
   */
   check("a control marked data-sheet-no-drag keeps its touches from the sheet",
     /if \(target\?\.closest\?\.\("\[data-sheet-no-drag\]"\)\) \{\s*pendingRef\.current = false/.test(sheet))
-  check("a release velocity is read over the last 80ms, not one noisy pair of events",
-    /const VELOCITY_WINDOW_MS = 80/.test(sheet) && /velocityRef\.current = \(y - first\.y\) \/ span/.test(sheet))
+  check("a release velocity is read over the last 100ms of event times, not one noisy pair of events",
+    /releaseVelocity\(samplesRef\.current, eventTime\(e\)\)/.test(sheet) && /samples\.push\(\{ t: eventTime\(e\), y \}\)/.test(sheet))
   check("a sheet that edits the page behind it can leave that page undimmed, and still close on a tap",
     /scrim === "clear" \? "bg-transparent" : "bg-black\/40"/.test(sheet) && /onClick=\{requestClose\}/.test(sheet))
   check("a fresh open can wait for its pictures to decode, never longer than 120ms",

@@ -96,7 +96,10 @@ check("its fields start from the server's rows", /useState\(\(\) => initialForm\
 const idPage = code("app/app/products/[id]/page.tsx")
 check("/app/products/<id> draws the editor with the product, not a redirect", /loadProductEditor\(id\)/.test(idPage) && /<ProductEditor/.test(idPage) && !/new\?edit=/.test(idPage))
 const loader = code("app/app/products/load-editor.ts")
-check("the server reads the five things together", /Promise\.all\(\[/.test(loader) && /product_variants/.test(loader) && /digital_assets/.test(loader) && /profiles/.test(loader))
+/* The creator and profile rows through the request's own copies, which the /app layout shares on a full load; the product by its named columns, not `*`, with `*` only when a column is refused. */
+check("the server reads the five things together", /Promise\.all\(\[/.test(loader) && /product_variants/.test(loader) && /digital_assets/.test(loader) && /creatorForRequest\(user\.id\),\s*profileForRequest\(user\.id\)/.test(loader)
+  && /\.from\("products"\)\.select\(PRODUCT_COLUMNS\)/.test(loader) && /missingColumn\(productRes\.error\) \? supabase\.from\("products"\)\.select\("\*"\)/.test(loader))
+check("variants that could not be read are not taken as all removed", /variantsUnread: !!variantsRead\.error/.test(loader) && /keepUnlisted: variantsUnread\.current/.test(editor))
 check("and only hands over a product that is the creator's", /product\.creator_id !== creator\.id/.test(loader))
 /* No loading.tsx under /app, and no outline for the editor: "the whole page should not have a loading
    skeleton when I click to edit a product". The page you were on stays until the editor is ready. */
@@ -269,7 +272,7 @@ check("on a phone, first on the screen as a layer over the app's header, it star
     && !/(^|[\s"])\[\[data-page-layer\]_&\]/.test(barSource + editor))
 check("a layer on a phone only: both editor addresses ask for it, and from md it is a page in the shell",
   /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/app/products/new/layout.tsx")) && /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/app/products/[id]/layout.tsx")))
-check("the editor scrolls as a page-scroll pane, so the pill's room is the shared 104px and nothing else", /className="page-scroll h-full overflow-y-auto/.test(editor) && !/pb-24 sm:pb-8/.test(editor))
+check("the editor scrolls as a page-scroll pane, so the pill's room is the shared 104px and nothing else", /className=\{cn\(FIELD_FOCUS, "page-scroll h-full overflow-y-auto/.test(editor) && !/pb-24 sm:pb-8/.test(editor))
 check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g) ?? []).length >= 4)
 
 console.log("\nThe Products list: a shelf of pictures on a phone, a light table from 768px")

@@ -174,7 +174,11 @@ export function QuestionChoices({
   const chosen = chosenOption(question, answer)
   return (
     <div data-ask-question={answered ? "answered" : "open"} className="min-w-0">
-      <p data-ask-question-text="" className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[#1a1a2e]">
+      {/* The same size and weight as the rest of the thread: a size up on a phone. */}
+      <p
+        data-ask-question-text=""
+        className={cn("whitespace-pre-wrap leading-relaxed text-[#1a1a2e]", phone ? "text-[15px] font-[450]" : "text-[13.5px]")}
+      >
         {question.question}
       </p>
       {question.why && (
@@ -198,7 +202,7 @@ export function QuestionChoices({
                 onClick={() => onAnswer(option)}
                 className={cn(
                   "min-w-0 max-w-full rounded-[22px] border text-left transition-colors duration-150",
-                  phone ? "min-h-[44px] px-4 py-[10px] text-[14px] leading-[22px]" : "min-h-8 px-3 py-[5px] text-[13px] leading-5",
+                  phone ? "min-h-[44px] px-4 py-[10px] text-[15px] leading-[22px]" : "min-h-8 px-3 py-[5px] text-[13px] leading-5",
                   !answered && "border-[#1a1a2e]/15 bg-white font-medium text-[#1a1a2e] hover:border-[#1a1a2e]/35 active:bg-black/[0.03]",
                   answered && picked && "border-transparent bg-[#f1f2f4] font-medium text-[#1a1a2e]",
                   answered && !picked && "border-[#e5e7eb] bg-transparent text-[#6b7280]/80",

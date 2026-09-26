@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Check, ArrowRight, CheckCircle, ChevronRight, Download, Files, Infinity, Star, Heart } from "lucide-react"
+import { Check, ArrowRight, CheckCircle, ChevronRight, Star, Heart } from "lucide-react"
 import { BuyButton } from "@/components/checkout/buy-button"
 import { PurchaseStatusWrapper } from "@/components/checkout/purchase-status-wrapper"
 import { ViewInLibraryButton } from "@/components/checkout/view-in-library-button"
@@ -69,24 +69,22 @@ import { RichDescriptionContent } from "@/components/store-builder/description-r
 import { productPageTone } from "@/lib/store-builder/product-page-tone"
 import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
 
-// Icon mapping for what's included items
-function getIncludedItemIcon(item: string, iconColor?: string) {
-  const lowerItem = item.toLowerCase()
-  const colorStyle = iconColor ? { color: iconColor } : undefined
-  const defaultClass = iconColor ? "h-4 w-4 mt-0.5 shrink-0" : "h-4 w-4 mt-0.5 shrink-0 text-black"
-
-  if (lowerItem.includes("instant") || lowerItem.includes("download")) {
-    return <Download className={defaultClass} style={colorStyle} />
-  }
-  if (lowerItem.includes("files") || lowerItem.includes("included")) {
-    return <Files className={defaultClass} style={colorStyle} />
-  }
-  if (lowerItem.includes("lifetime") || lowerItem.includes("access")) {
-    return <Infinity className={defaultClass} style={colorStyle} />
-  }
-  // For check icon, use iconColor if provided, otherwise default green
-  const checkClass = iconColor ? "h-4 w-4 mt-0.5 shrink-0" : "h-4 w-4 mt-0.5 shrink-0 text-green-600"
-  return <Check className={checkClass} style={colorStyle} />
+/*
+  WHAT'S INCLUDED, ONE PLAIN MARK A LINE. It used to pick a picture for each
+  line from its words (a download arrow, a stack of files, an infinity sign)
+  and a green check for the rest: "the green check and purple icons look AI".
+  Now every line has the same thin check, in the theme's icon colour when it
+  sets one and a quiet grey when it does not.
+*/
+function getIncludedItemIcon(_item: string, iconColor?: string) {
+  return (
+    <Check
+      aria-hidden
+      strokeWidth={2}
+      className={iconColor ? "mt-0.5 h-4 w-4 shrink-0" : "mt-0.5 h-4 w-4 shrink-0 text-[#6b7280]"}
+      style={iconColor ? { color: iconColor } : undefined}
+    />
+  )
 }
 
 export const dynamic = "force-dynamic"

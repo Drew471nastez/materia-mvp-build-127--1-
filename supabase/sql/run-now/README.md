@@ -56,11 +56,12 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `32_orders_keep_sales.sql` | Sales kept when a product is deleted: each order carries its creator (filled for every order already there, and by a trigger from then on), deleting a product leaves its orders with no product rather than deleting them, a disputed payment can be written, and the all time line under Analytics counts by the creator. Run after `25`. Until it runs, the app reads orders through their product as before, and deleting a product still deletes its orders. | 16 | 4,776 |
 | `33_site_customers.sql` | Customer accounts on websites, as a Shopify store has them: an email and a six digit code sign a visitor in, and a new email makes the account. The customers (one per website and email), the codes (kept only as a keyed hash, ten minutes, five tries, used once) and each customer's saved products. Not a Storelib login: nothing here touches auth.users, profiles or creators. Server only. Needs nothing else. Until it runs, Sign in on a website says it is not available yet. | 18 | 3,051 |
 | `34_theme_chat_attachments.sql` | Ask Storelib pictures: the private bucket a conversation's pictures are kept in for thirty days, and a row per picture naming its message, read only by the creator who owns the website and written by the server only. Run after `24`. Until it runs, a picture shows while the chat is open and reads back as "Picture no longer available", and the chat says pictures are not kept yet. | 10 | 2,031 |
+| `35_product_variants_columns.sql` | Product variants: the compare at price and purchase limit columns the editor saves, the old one variant per position rule removed so variants can be moved up and down, and the indexes the product page and checkout read them by. Changes nothing where there is no variants table. Until it runs, a variant with a compare at price can fail to save, and moving a variant can fail. | 7 | 1,429 |
 | `90_storage_policies_needs_owner.sql` | LAST, ON ITS OWN. Replaces the storage.objects policies. Needs the owner of storage.objects; see README if it says "must be owner". | 2 | 3,896 |
 | `91_storage_policies_to_remove.sql` | Read only. For the dashboard route: the storage policies to delete. | 2 | 1,242 |
 | `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 10,683 |
 
-Parts `01` to `34` all run as the editor's normal role. `90` is the one
+Parts `01` to `35` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
 Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:

@@ -1,0 +1,7 @@
+/* Product variants save and reorder: the compare at price and purchase limit columns the editor writes (scripts/055 was never in these parts), the old one variant per position rule taken off (it refused moving a variant up or down), the index the product page and checkout read variants by, and the one checkout counts sold options by. Needs product_variants and orders.variant_id; on a database without product_variants it changes nothing. Until it runs, saving a variant with a compare at price can fail with "column does not exist", and moving a variant can fail with a duplicate key error. */
+ALTER TABLE IF EXISTS public.product_variants ADD COLUMN IF NOT EXISTS compare_at_price_cents integer;
+ALTER TABLE IF EXISTS public.product_variants ADD COLUMN IF NOT EXISTS max_purchases integer;
+ALTER TABLE IF EXISTS public.product_variants DROP CONSTRAINT IF EXISTS product_variants_product_position_unique;
+DO $$ BEGIN IF to_regclass('public.product_variants') IS NOT NULL THEN CREATE INDEX IF NOT EXISTS idx_product_variants_position ON public.product_variants (product_id, position); END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'variant_id') THEN CREATE INDEX IF NOT EXISTS idx_orders_variant_status ON public.orders (variant_id, status) WHERE variant_id IS NOT NULL; END IF; END $$;
+notify pgrst, 'reload schema';

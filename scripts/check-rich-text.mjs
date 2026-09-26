@@ -12,6 +12,13 @@
  *                at 16px or more on a phone, so iOS does not zoom; focusing
  *                the field does not move or resize anything; the field grows
  *                with its text to a limit and then scrolls inside itself
+ *   the row      on a phone the end with more controls past it fades, with a
+ *                chevron, and both go when that end is reached; a finger that
+ *                moves more than 8px presses nothing, a tap presses, and a
+ *                swipe scrolls the row
+ *   resizing     the bar at the foot has a 32px or taller target on a phone,
+ *                follows a finger from its first pixel without scrolling the
+ *                page, darkens while held, and stops at 70% of the screen
  *   editing      typing, bold and a list produce the HTML they should; the
  *                toolbar shows what the caret is in; headings and quotes
  *                toggle; a link refuses javascript: and accepts a web
@@ -23,7 +30,9 @@
  *                of it is saved until it has its storage address; then it is
  *                saved with its size, alt text is written in place, and it
  *                can be removed; a failed upload says so and leaves nothing;
- *                it is never wider than the text, in the editor or the page
+ *                it is never wider than the text, in the editor or the page;
+ *                its bar is one short row centred on it, fades in without
+ *                sliding sideways, and its menus are short
  *   limits       a description over 200 KB says so while it is typed
  *   rendering    a description the old editor saved draws without its
  *                handlers, buttons or scripts, its YouTube embed at 16:9;
@@ -202,6 +211,74 @@ try {
     const blue = (c) => { const m = /rgba?\((\d+), (\d+), (\d+)/.exec(c); return !!m && Number(m[3]) > Number(m[1]) + 40 }
     expect(!!drawn && !blue(ring.border) && !ring.shadow.split(/,(?![^(]*\))/).some((x) => blue(x) && !/, 0\)/.test(x)), "and draws a soft grey halo, not a blue ring", ring)
 
+    /* The row's ends: a fade and a chevron where there is more, and none where there is not. */
+    const ends = () => p.evaluate(() => {
+      const strip = document.querySelector("[data-toolbar-strip]")
+      const wrap = strip.parentElement
+      const op = (side) => getComputedStyle(wrap.querySelector(`[data-toolbar-hint=${side}]`)).opacity
+      const cs = getComputedStyle(strip)
+      return { fade: strip.dataset.fade, mask: cs.maskImage || cs.webkitMaskImage, start: op("start"), end: op("end"), x: Math.round(strip.scrollLeft) }
+    })
+    const atStart = await ends()
+    if (phone) {
+      expect(atStart.fade === "end" && /gradient/.test(atStart.mask) && atStart.end === "1" && atStart.start === "0", "the row's far end fades, with a chevron, and its near end does not", atStart)
+      await p.evaluate(() => { const s = document.querySelector("[data-toolbar-strip]"); s.scrollLeft = s.scrollWidth })
+      await sleep(250)
+      const atEnd = await ends()
+      expect(atEnd.fade === "start" && atEnd.end === "0" && atEnd.start === "1", "scrolled to the end, that fade and chevron go and the other end's come", atEnd)
+      await p.evaluate(() => { document.querySelector("[data-toolbar-strip]").scrollLeft = 0 })
+      await sleep(250)
+      expect((await ends()).fade === "end", "and back at the start, back as they were", await ends())
+
+      /* A finger that moves presses nothing; one that stays put does. Pointer events as a phone sends them. */
+      const press = (label, dx, detail = 1) => p.evaluate((label, dx, detail) => {
+        const b = document.querySelector(`[role=toolbar] button[aria-label="${label}"]`)
+        const r = b.getBoundingClientRect()
+        const x = r.left + r.width / 2
+        const y = r.top + r.height / 2
+        const at = (type, d) => b.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 11, pointerType: "touch", isPrimary: true, clientX: x + d, clientY: y }))
+        at("pointerdown", 0)
+        at("pointermove", dx / 2)
+        at("pointermove", dx)
+        at("pointerup", dx)
+        b.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail, clientX: x + dx, clientY: y }))
+      }, label, dx, detail)
+      await press("Italic", -12)
+      await sleep(80)
+      expect((await pressed(p, "Italic")) === "false", "a finger that moves 12px across a control before it lifts does not press it", await pressed(p, "Italic"))
+      await press("Italic", 3)
+      await sleep(80)
+      expect((await pressed(p, "Italic")) === "true", "one that moves 3px is a tap, and presses it", await pressed(p, "Italic"))
+      await press("Italic", -12, 0)
+      await sleep(80)
+      expect((await pressed(p, "Italic")) === "false", "and a keyboard press always goes through", await pressed(p, "Italic"))
+      await sleep(200)
+      expect(!(await p.$("[role=toolbar] [data-pressing]")), "no control is left shaded afterwards")
+
+      /* The same with a real finger: a swipe scrolls the row and presses nothing, a tap presses. */
+      const cdp = await p.target().createCDPSession()
+      const finger = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] })
+      const it = await box(p, '[role=toolbar] button[aria-label="Underline"]')
+      const fx = it.x + it.w / 2
+      const fy = it.y + it.h / 2
+      await finger("touchStart", fx, fy)
+      for (let i = 1; i <= 10; i++) { await finger("touchMove", fx - i * 12, fy); await sleep(16) }
+      await finger("touchEnd")
+      await sleep(400)
+      const swiped = await p.evaluate(() => Math.round(document.querySelector("[data-toolbar-strip]").scrollLeft))
+      expect(swiped > 0 && (await pressed(p, "Underline")) === "false", "a swipe across the row scrolls it and presses nothing on the way", { scrolled: swiped, underline: await pressed(p, "Underline") })
+      await p.evaluate(() => { document.querySelector("[data-toolbar-strip]").scrollLeft = 0 })
+      await sleep(100)
+      await p.touchscreen.tap(fx, fy)
+      await sleep(120)
+      expect((await pressed(p, "Underline")) === "true", "a tap presses it", await pressed(p, "Underline"))
+      await p.touchscreen.tap(fx, fy)
+      await sleep(120)
+      await cdp.detach()
+    } else {
+      expect(atStart.fade === "none" && atStart.start === "0" && atStart.end === "0", "a row that fits has no fade and no chevrons", atStart)
+    }
+
     await p.keyboard.type("Hello ")
     await tool(p, "Bold")
     await p.keyboard.type("world")
@@ -353,9 +430,40 @@ try {
       }
     })
     expect(picked.frame !== null && picked.frame <= 3 && picked.handles === 4 && !!picked.bar, "the new picture is picked: a frame on it with four corner handles, and its bar", picked)
-    expect(["Align left", "Align centre", "Align right", "Medium, half the width", "Shape", "Move up", "Move down", "Alt text", "Remove picture"].every((t) => picked.tools.includes(t)), "the bar places it, sizes it, shapes it, moves it, describes it and removes it", picked.tools)
+    expect(picked.tools.length === 9 && picked.tools[0].startsWith("Position") && ["Small, a third of the width", "Medium, half the width", "Large, three quarters of the width", "Full width", "Shape", "Alt text", "Remove picture", "More"].every((t) => picked.tools.includes(t)),
+      "the bar places it, sizes it, shapes it, describes it and removes it, and keeps moving it in a menu", picked.tools)
     const barButtons = await p.$$eval("[data-picture-bar] button", (bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height)))
-    expect(barButtons.every((h) => h >= (phone ? 36 : 32)), `its buttons are ${phone ? 36 : 32}px or taller`, barButtons)
+    expect(barButtons.every((h) => h >= 28) && barButtons.filter((h) => h >= (phone ? 36 : 32)).length >= 5, `its buttons are ${phone ? 36 : 32}px tall, the sizes a little less inside their group`, barButtons)
+    const row = await p.evaluate(() => {
+      const bar = document.querySelector("[data-picture-bar]").getBoundingClientRect()
+      const img = document.querySelector("[role=textbox] img").getBoundingClientRect()
+      const field = document.querySelector("[role=textbox]").getBoundingClientRect()
+      return { h: Math.round(bar.height), w: Math.round(bar.width), off: Math.round(bar.left + bar.width / 2 - (img.left + img.width / 2)), inside: bar.left >= field.left && bar.right <= field.right, above: bar.bottom <= img.top, overflow: document.querySelector("[data-picture-bar]").scrollWidth - document.querySelector("[data-picture-bar]").clientWidth }
+    })
+    expect(row.h <= (phone ? 46 : 42) && row.inside && row.overflow <= 0 && Math.abs(row.off) <= 2, "one short row, all of it showing, centred on the picture and inside the text", row)
+    expect(!(await p.$("[data-picture-dock]")), "on a phone as well: nothing docked under the toolbar")
+
+    /* Let go and picked again: it fades in where it will stay, never sliding in from a side. */
+    const para = await box(p, "[role=textbox] p")
+    await p.mouse.click(para.x + 8, para.y + 8)
+    await sleep(350)
+    expect(!(await p.$("[data-picture-bar]")), "a tap in the text lets the picture go, and its bar fades out")
+    const frames = await p.evaluate(() => new Promise((done) => {
+      document.querySelector("[role=textbox] img").dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))
+      const out = []
+      const tick = () => {
+        const bar = document.querySelector("[data-picture-bar]")
+        if (bar && getComputedStyle(bar.parentElement).visibility === "visible") {
+          const r = bar.getBoundingClientRect()
+          out.push({ cx: Math.round(r.left + r.width / 2), o: +(+getComputedStyle(bar).opacity).toFixed(2) })
+        }
+        if (out.length < 14) requestAnimationFrame(tick)
+        else done(out)
+      }
+      requestAnimationFrame(tick)
+    }))
+    const xs = new Set(frames.map((f) => f.cx))
+    expect(xs.size === 1 && frames[0].o < 1 && frames[frames.length - 1].o === 1, "picked again, the bar fades in on the spot: no frame of it anywhere else", frames.map((f) => `${f.cx}@${f.o}`).join(" "))
 
     const room = shown.room
     const measure = () => p.$eval("[role=textbox] img", (img) => { const r = img.getBoundingClientRect(); const box = img.closest("[role=textbox]").getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), left: Math.round(r.left - box.left), right: Math.round(box.right - r.right) } })
@@ -381,20 +489,31 @@ try {
 
     /* A shape: square. */
     await p.click('[data-picture-bar] button[aria-label="Shape"]')
-    await sleep(120)
+    await sleep(220)
+    const shapes = await p.evaluate(() => {
+      const menu = document.querySelector("[role=menu][aria-label=Shape]")
+      const r = menu.getBoundingClientRect()
+      const field = document.querySelector("[role=textbox]").getBoundingClientRect()
+      return { labels: [...menu.querySelectorAll("[role=menuitemradio]")].map((b) => b.textContent.trim()), w: Math.round(r.width), inside: r.left >= field.left && r.right <= field.right, o: getComputedStyle(menu).opacity }
+    })
+    expect(shapes.labels.join(",") === "Original,16:9,4:3,1:1,3:4" && shapes.w <= 180 && shapes.inside && shapes.o === "1", "the shapes open as a short list with short names, inside the text", shapes)
     await p.evaluate(() => [...document.querySelectorAll("[role=menuitemradio]")].find((b) => b.textContent.startsWith("1:1")).click())
     await sleep(120)
     m = await measure()
     expect(Math.abs(m.w - m.h) <= 2 && /aspect-ratio: 1 \/ 1; object-fit: cover/.test(await value(p)), "a shape cuts it to that ratio, and is saved", { ...m })
 
     /* Right, then up above the words. */
-    await p.click('[data-picture-bar] button[aria-label="Align right"]')
+    const position = await p.$eval("[data-picture-bar] button[data-picture-position]", (b) => b.getAttribute("data-picture-position"))
+    expect(position === "center", "the position button says where it is: centred, after Medium", position)
+    await p.click("[data-picture-bar] button[data-picture-position]")
     await sleep(120)
     m = await measure()
-    expect(m.right <= 16 && m.left > m.right && /data-align="right"/.test(await value(p)), "Right puts it against the right edge of the text", m)
-    await p.click('[data-picture-bar] button[aria-label="Move up"]')
+    expect(m.right <= 16 && m.left > m.right && /data-align="right"/.test(await value(p)), "a second tap moves it right, against the right edge of the text", m)
+    await p.click('[data-picture-bar] button[aria-label="More"]')
+    await sleep(220)
+    await p.evaluate(() => [...document.querySelectorAll("[role=menu][aria-label=More] [role=menuitem]")].find((b) => b.textContent.trim() === "Move up").click())
     await sleep(150)
-    expect(/^<p><img [^>]+><\/p><p>Before the picture\.<\/p>$/.test(await value(p)), "Move up puts it before the paragraph above it", await value(p))
+    expect(/^<p><img [^>]+><\/p><p>Before the picture\.<\/p>$/.test(await value(p)), "Move up, from the More menu, puts it before the paragraph above it", await value(p))
     expect((await sideways(p)) <= 0, "the page does not scroll sideways with the bar out", await sideways(p))
     await p.screenshot({ path: join(shots, `picture-controls-${label}.png`), fullPage: true })
 
@@ -410,7 +529,7 @@ try {
     await p.keyboard.press("Enter")
     await sleep(80)
     await p.click('[data-picture-bar] button[aria-label="Remove picture"]')
-    await sleep(120)
+    await sleep(350)
     expect(!/<img/.test(await value(p)) && !(await p.$("[role=textbox] img")) && !(await p.$("[data-picture-bar]")), "Remove takes it out, and its bar with it", await value(p))
 
     /* An emoji, where the caret was. */
@@ -419,8 +538,16 @@ try {
     await tool(p, "Emoji")
     await sleep(phone ? 600 : 200)
     const panel = await p.evaluate(() => { const el = document.querySelector("[data-emoji-panel]"); if (!el) return null; const r = el.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), cells: el.querySelectorAll("button[aria-label]").length } })
-    expect(!!panel && panel.cells > 200 && panel.w <= vp.width, `the Emoji control opens the picker ${phone ? "in a sheet" : "under it"}`, panel)
+    expect(!!panel && panel.cells > 60 && panel.w <= vp.width, `the Emoji control opens the picker ${phone ? "in a sheet" : "under it"}`, panel)
     await p.screenshot({ path: join(shots, `emoji-${label}.png`) })
+    /* The groups further down are made as the list comes to them. */
+    for (let k = 0; k < 12; k++) {
+      await p.evaluate(() => { const l = document.querySelector("[data-emoji-panel] .overflow-y-auto"); l.scrollTop = l.scrollHeight })
+      await sleep(80)
+    }
+    const all = await p.evaluate(() => ({ cells: document.querySelectorAll("[data-emoji-panel] [data-emoji]").length, lazy: [...document.querySelectorAll("[data-emoji-panel] [data-emoji-group]")].every((s) => getComputedStyle(s).contentVisibility === "auto") }))
+    expect(all.cells >= 491 && all.lazy, "scrolled to the end, every group is there, each drawn only while on screen", all)
+    await p.evaluate(() => { document.querySelector("[data-emoji-panel] .overflow-y-auto").scrollTop = 0 })
     await p.type("[aria-label='Search emoji']", "fire")
     await sleep(120)
     await p.evaluate(() => document.querySelector('[data-emoji-panel] button[aria-label="🔥"]').click())
@@ -487,6 +614,55 @@ try {
     await sleep(120)
     expect(/<a href="mailto:hello@example\.com">Email me<\/a>/.test(await value(p)), "an email address becomes a mailto link with the words given", await value(p))
     await p.screenshot({ path: join(shots, "link-phone.png") })
+    await p.close()
+  }
+
+  console.log("\nThe resize bar, phone")
+  {
+    const { p, errors } = await open(viewports[0][1], "view=editor&resizable=1&value=" + encodeURIComponent("<p>Words</p>"))
+    await p.evaluate(() => window.scrollTo(0, 0))
+    const bar = await p.evaluate(() => {
+      const h = document.querySelector("[data-rich-text-resize]")
+      const r = h.getBoundingClientRect()
+      const above = -parseFloat(getComputedStyle(h, "::before").top)
+      const pill = h.querySelector("span").getBoundingClientRect()
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top - above + 2)
+      return { h: Math.round(r.height), reach: Math.round(r.height + above), pill: { w: Math.round(pill.width), h: Math.round(pill.height) }, hitTop: hit === h, touch: getComputedStyle(h).touchAction }
+    })
+    expect(bar.reach >= 32 && bar.hitTop && bar.pill.h <= 4 && bar.touch === "none", "a small pill with a 32px or taller target, taken right to its top edge", bar)
+    const cdp = await p.target().createCDPSession()
+    const finger = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] })
+    const h0 = await box(p, field)
+    const hb = await box(p, "[data-rich-text-resize]")
+    const x = hb.x + hb.w / 2
+    const y = hb.y + hb.h / 2
+    const pillColour = () => p.$eval("[data-rich-text-resize] span", (s) => getComputedStyle(s).backgroundColor)
+    const restColour = await pillColour()
+    await finger("touchStart", x, y)
+    await finger("touchMove", x, y + 2)
+    await sleep(40)
+    const first = await box(p, field)
+    for (let i = 1; i <= 8; i++) { await finger("touchMove", x, y + 2 + i * 15); await sleep(20) }
+    await sleep(200)
+    const held = { dragging: await p.$eval("[data-rich-text-resize]", (h) => h.hasAttribute("data-dragging")), colour: await pillColour() }
+    await finger("touchEnd")
+    await sleep(150)
+    const h1 = await box(p, field)
+    const scrolled = await p.evaluate(() => window.scrollY)
+    expect(Math.abs(first.h - h0.h) <= 3, "no jump when the drag starts: two pixels of finger, two pixels of field", { before: h0.h, first: first.h })
+    expect(Math.abs(h1.h - h0.h - 122) <= 4 && scrolled === 0, "a finger drags it 122px taller, one to one, and the page does not scroll", { before: h0.h, after: h1.h, scrolled })
+    expect(held.dragging && held.colour !== restColour, "the pill darkens while it is held", { rest: restColour, held: held.colour })
+    expect(!(await p.$("[data-rich-text-resize][data-dragging]")), "and goes back when it is let go")
+    const hb2 = await box(p, "[data-rich-text-resize]")
+    await finger("touchStart", x, hb2.y + hb2.h / 2)
+    for (let i = 1; i <= 10; i++) { await finger("touchMove", x, hb2.y + hb2.h / 2 + i * 200); await sleep(16) }
+    await finger("touchEnd")
+    await sleep(150)
+    const h2 = await box(p, field)
+    expect(h2.h <= Math.round(844 * 0.7) + 1 && h2.h >= Math.round(844 * 0.7) - 1, "and stops at 70% of the screen", h2.h)
+    await cdp.detach()
+    await p.screenshot({ path: join(shots, "resize-phone.png") })
+    expect(errors.length === 0, "nothing in the console", errors)
     await p.close()
   }
 

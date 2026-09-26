@@ -30,6 +30,9 @@
  *             globe's box outside the ball, scrolls the page; a mouse gets a
  *             hand and a closed hand; with reduced motion it does not turn
  *             by itself and the text does not slide.
+ *   FADES     a change of slide, by the clock, a segment or a swipe, is a
+ *             crossfade (opacity only, 250ms); the text never rides the
+ *             finger like a carousel.
  *
  *   node scripts/check-home-banner.mjs
  *   SHOTS=/some/dir node scripts/check-home-banner.mjs
@@ -305,9 +308,17 @@ try {
           await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: t.x + (dx < 0 ? 120 : 0) + (dx * i) / 10, y: t.y + i * 0.5 }] })
           await sleep(16)
         }
+        /* Mid swipe the text stays where it is, whole: it does not ride the finger like a carousel. */
+        const mid = await page.evaluate(() => {
+          const stack = document.querySelector("[data-home-banner] .home-banner-stack")
+          const slide = stack.querySelector('.home-banner-slide[data-slide="active"]')
+          return { translate: getComputedStyle(stack).translate, opacity: getComputedStyle(stack).opacity, slide: getComputedStyle(slide).opacity }
+        })
+        followed.push(mid)
         await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
         await sleep(200)
       }
+      const followed = []
       const s0 = await active(page)
       await swipe(-110)
       const s1 = await active(page)
@@ -315,6 +326,14 @@ try {
       await swipe(110)
       expect((await active(page)) === s0, "and to the right the one before", [s1, await active(page)])
       expect((await page.evaluate(() => document.querySelector("[data-home-banner] .home-banner-stack").getAttribute("aria-live"))) === "polite", "a change asked for is read out")
+      expect(followed.every((m) => (m.translate === "none" || /^0px/.test(m.translate)) && m.opacity === "1"), "the text does not follow the finger: a swipe only picks the slide", followed)
+      /* The change itself is a crossfade: opacity alone, about a quarter of a second. */
+      const fade = await page.evaluate(() => {
+        const cs = getComputedStyle(document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"]'))
+        const title = getComputedStyle(document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"] .home-banner-title'))
+        return { property: cs.transitionProperty, duration: cs.transitionDuration, titleTranslate: title.translate, titleTransition: title.transitionProperty }
+      })
+      expect(/^opacity, visibility$/.test(fade.property) && /^0\.25s/.test(fade.duration) && (fade.titleTranslate === "none" || /^0px/.test(fade.titleTranslate)), "a slide changes by a crossfade, opacity only, 250ms", fade)
       await cdp.send("Animation.setPlaybackRate", { playbackRate: 10 })
     } else {
       /* A mouse over it holds it. */

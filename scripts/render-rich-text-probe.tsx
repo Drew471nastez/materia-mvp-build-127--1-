@@ -8,7 +8,8 @@
  *   ?view=hydrate      both, rendered to a string first and then hydrated,
  *                      the way the server and the browser meet
  *
- * `&value=` sets the starting value. Every value the field hands up is kept
+ * `&value=` sets the starting value; `&resizable=1` gives the field its
+ * resize bar, as the product editor does. Every value the field hands up is kept
  * in window.__values, the last one in window.__value.
  *
  * The product description's picture upload is stubbed: it waits
@@ -72,6 +73,7 @@ function Field({ start }: { start: string }) {
               placeholder="What it is, who it is for, and what they get"
               uploadImage={stubUpload}
               checkSize={descriptionTooLong}
+              resizable={params.get("resizable") === "1"}
             />
           </div>
           <button type="button" data-reset onClick={() => setValue("<p>Reset from outside</p>")} className="mt-3 text-[13px] text-[#6b7280]">

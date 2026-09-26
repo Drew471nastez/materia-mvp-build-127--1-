@@ -19,9 +19,10 @@
  * segment under the text; it waits while a mouse is over the banner, while
  * focus is inside it, while a finger is on it, while it is off screen and
  * while the tab is hidden. The segments pick a slide (arrow keys move
- * between them), a sideways swipe on a phone does too. A change is the text
- * alone: it fades and slides a few pixels, line by line, in the one fixed
- * height, so nothing under it moves. The clock is a CSS animation on
+ * between them), a sideways swipe on a phone does too. A change is a plain
+ * crossfade of the text, opacity alone over 250ms, in the one fixed height:
+ * nothing slides, nothing follows the finger, nothing under it moves. "Not
+ * like a swipe carousel ... make it fade out, normal regular." The clock is a CSS animation on
  * `transform`, run by the compositor, and the slide changes when it ends:
  * no timer runs, and a slide change renders the banner and nothing else.
  * Screen readers hear a change they asked for and none they did not
@@ -39,7 +40,7 @@
  * Buttons go where the sidebar's rows go and the same way
  * (components/app/app-link).
  */
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react"
 import { AppLink } from "@/components/app/app-link"
 import { announcementsFor, fromFacts, type Announcement, type SalesSummary } from "@/lib/home/announcements"
 import type { ProgressFacts } from "@/lib/home/progress"
@@ -77,7 +78,6 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
   const count = list.length
   const [currentId, setCurrentId] = useState(list[0]?.id)
   const [leavingId, setLeavingId] = useState<string | null>(null)
-  const [dir, setDir] = useState(1)
   /* A change the reader asked for is read out; one the clock made is not. */
   const [live, setLive] = useState<"off" | "polite">("off")
   const rootRef = useRef<HTMLElement>(null)
@@ -90,13 +90,12 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
   const current = list[index]
 
   const go = useCallback(
-    (to: number, direction: number, asked: boolean) => {
+    (to: number, asked: boolean) => {
       if (count < 2) return
       const next = list[((to % count) + count) % count]
       if (!next || next.id === current?.id) return
       setLeavingId(current?.id ?? null)
       setCurrentId(next.id)
-      setDir(direction)
       setLive(asked ? "polite" : "off")
     },
     [count, list, current],
@@ -146,31 +145,18 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
 
   /* ── Swipe, on a touch screen ───────────────────────────────────────── */
   /*
-    THE TEXT RIDES THE FINGER, THEN LEAVES THE WAY IT WAS THROWN. It used to
-    move 30% of the finger's way, at most 28px, and spring back before the
-    next slide faded in: a nudge and a jump. Now it follows the finger 1:1
-    (with resistance past 90px) and fades as it goes; let go past a third of
-    the text's width, or with a flick, and it carries on out on the same
-    curve while the next slide comes in from the other side. Short of that
-    it settles back. All on `translate` and `opacity` of one element, set as
-    styles, so nothing in React renders until the slide actually changes.
+    A SWIPE PICKS THE NEXT SLIDE, AND THE CHANGE IS THE SAME FADE AS EVERY
+    OTHER. The text used to ride the finger and leave the way it was thrown,
+    like a carousel; now nothing moves under the finger. A sideways swipe
+    past a quarter of the text's width, or a flick, crossfades to the next
+    slide (left) or the one before (right) once the finger lifts. The width
+    is read once, when the finger lands, never per move.
   */
-  const swipe = useRef<{ id: number; x: number; y: number; dx: number; on: boolean; t: number; v: number } | null>(null)
-  const setTrack = (dx: number, ms: number) => {
-    const t = trackRef.current
-    if (!t) return
-    t.style.transition = ms ? `translate ${ms}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${ms}ms cubic-bezier(0.22, 1, 0.36, 1)` : "none"
-    t.style.translate = dx ? `${dx}px 0` : ""
-    t.style.opacity = dx ? String(Math.max(0, 1 - Math.abs(dx) / 220)) : ""
-  }
-  const resist = (dx: number) => {
-    const a = Math.abs(dx)
-    return Math.sign(dx) * (a <= 90 ? a : 90 + (a - 90) * 0.35)
-  }
+  const swipe = useRef<{ id: number; x: number; y: number; dx: number; on: boolean; t: number; v: number; w: number } | null>(null)
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "mouse") return
     setBit(TOUCH, true)
-    swipe.current = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, on: false, t: e.timeStamp, v: 0 }
+    swipe.current = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, on: false, t: e.timeStamp, v: 0, w: trackRef.current?.clientWidth || 240 }
   }
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const s = swipe.current
@@ -183,31 +169,16 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
     s.v = s.v * 0.5 + ((dx - s.dx) / dt) * 0.5
     s.t = e.timeStamp
     s.dx = dx
-    setTrack(resist(dx), 0)
   }
   const onPointerEnd = (e: ReactPointerEvent<HTMLDivElement>) => {
     const s = swipe.current
     if (!s || s.id !== e.pointerId) return
     swipe.current = null
     window.setTimeout(() => setBit(TOUCH, false), 250)
-    const width = trackRef.current?.getBoundingClientRect().width ?? 240
     const flick = Math.abs(s.v) > 0.35 && Math.sign(s.v) === Math.sign(s.dx)
-    const far = Math.abs(s.dx) > width / 3
-    if (e.type !== "pointerup" || !s.on || !(far || flick) || count < 2) {
-      setTrack(0, 420)
-      return
-    }
-    const way = s.dx < 0 ? 1 : -1
-    /* Out the way it was thrown, then the next slide in from the other side, the text back in place under it. */
-    setTrack(-way * 120, 200)
-    window.setTimeout(() => {
-      /* The slide it threw is already gone: it does not come back to fade out a second time. */
-      const t = trackRef.current
-      t?.setAttribute("data-thrown", "")
-      go(index + way, way, true)
-      setTrack(0, 0)
-      window.setTimeout(() => t?.removeAttribute("data-thrown"), 600)
-    }, 170)
+    const far = Math.abs(s.dx) > s.w / 4
+    if (e.type !== "pointerup" || !s.on || !(far || flick) || count < 2) return
+    go(index + (s.dx < 0 ? 1 : -1), true)
   }
 
   /* ── The segments, as tabs ──────────────────────────────────────────── */
@@ -216,7 +187,7 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
     if (!(e.key in keys)) return
     e.preventDefault()
     const to = ((keys[e.key] % count) + count) % count
-    go(to, to > index || (e.key === "ArrowRight" && to === 0) ? 1 : -1, true)
+    go(to, true)
     const tab = tabsRef.current?.querySelectorAll<HTMLButtonElement>("[role=tab]")[to]
     tab?.focus()
   }
@@ -249,7 +220,6 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
             ref={trackRef}
             className="home-banner-stack"
             aria-live={live}
-            style={{ "--in": `${dir * 14}px`, "--out": `${dir * -10}px` } as CSSProperties}
           >
             {list.map((a, i) => {
               const state = a.id === current?.id ? "active" : a.id === leavingId ? "leaving" : "idle"
@@ -307,7 +277,7 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
                     tabIndex={on ? 0 : -1}
                     className="home-banner-tab"
                     data-on={on ? "" : undefined}
-                    onClick={() => go(i, i >= index ? 1 : -1, true)}
+                    onClick={() => go(i, true)}
                   >
                     <span className="home-banner-tab-track">
                       {/*
@@ -320,7 +290,7 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
                       <span
                         className="home-banner-tab-fill"
                         style={{ animationDuration: `${SLIDE_MS}ms` }}
-                        onAnimationEnd={on ? () => go(index + 1, 1, false) : undefined}
+                        onAnimationEnd={on ? () => go(index + 1, false) : undefined}
                       />
                     </span>
                   </button>
@@ -449,43 +419,26 @@ const BANNER_CSS = `
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+}
+/*
+  A CROSSFADE, AND NOTHING ELSE. The slide going out and the one coming in
+  sit in the same place and trade opacity over the same 250ms, on the whole
+  slide at once: no slide, no stagger, only the compositor at work. The one
+  going out turns hidden (out of the accessibility tree) once it has faded.
+*/
+.home-banner-slide {
   visibility: hidden;
+  opacity: 0;
+  transition: opacity 250ms ease, visibility 0s linear 250ms;
 }
 .home-banner-slide > * {
   /* Never squeezed: a title or a line clipped to fit would be a sentence cut in half. */
   flex-shrink: 0;
-  opacity: 0;
-  translate: var(--in) 0;
-  transition: none;
 }
-.home-banner-slide[data-slide="active"] { visibility: visible; }
-.home-banner-slide[data-slide="active"] > * {
+.home-banner-slide[data-slide="active"] {
+  visibility: visible;
   opacity: 1;
-  translate: 0 0;
-  transition:
-    opacity 380ms cubic-bezier(0.22, 1, 0.36, 1),
-    translate 520ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.home-banner-slide[data-slide="active"] > :nth-child(2) { transition-delay: 40ms; }
-.home-banner-slide[data-slide="active"] > :nth-child(3) { transition-delay: 80ms; }
-.home-banner-slide[data-slide="active"] > :nth-child(4) { transition-delay: 120ms; }
-.home-banner-slide[data-slide="leaving"] {
-  visibility: hidden;
-  transition: visibility 0s linear 300ms;
-}
-.home-banner-slide[data-slide="leaving"] > * {
-  opacity: 0;
-  translate: var(--out) 0;
-  transition:
-    opacity 220ms cubic-bezier(0.4, 0, 1, 1),
-    translate 300ms cubic-bezier(0.4, 0, 1, 1);
-}
-
-.home-banner-stack[data-thrown] .home-banner-slide[data-slide="leaving"],
-.home-banner-stack[data-thrown] .home-banner-slide[data-slide="leaving"] > * {
-  visibility: hidden;
-  opacity: 0;
-  transition: none;
+  transition: opacity 250ms ease, visibility 0s;
 }
 
 .home-banner-eyebrow {
@@ -615,16 +568,15 @@ const BANNER_CSS = `
   to { transform: scaleX(1); }
 }
 
-/* Reduced motion keeps the clock and loses the movement: the text changes in place, and the segment
-   under it only marks which slide is showing. */
+/* Reduced motion keeps the clock and loses the movement: a shorter fade, and the segment under the text
+   only marks which slide is showing. */
 @keyframes home-banner-fill-still {
   from { transform: scaleX(1); }
   to { transform: scaleX(1); }
 }
 @media (prefers-reduced-motion: reduce) {
   .home-banner-tab[data-on] .home-banner-tab-fill { animation-name: home-banner-fill-still; }
-  .home-banner-slide > *,
-  .home-banner-slide[data-slide="active"] > *,
-  .home-banner-slide[data-slide="leaving"] > * { translate: 0 0; transition: opacity 160ms linear; transition-delay: 0ms; }
+  .home-banner-slide { transition-duration: 160ms, 0s; transition-delay: 0s, 160ms; }
+  .home-banner-slide[data-slide="active"] { transition-delay: 0s, 0s; }
 }
 `

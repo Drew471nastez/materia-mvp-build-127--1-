@@ -89,7 +89,7 @@ import {
 } from "@/components/website-builder/ask-activity"
 import { AskHistory, type DeletedTarget, type HistoryTarget } from "@/components/website-builder/ask-history"
 import { ModelPicker } from "@/components/website-builder/ask-model-picker"
-import { PictureTray, ProgressRing, type ComposerPicture } from "@/components/website-builder/ask-attachments"
+import { FadeImage, PictureTray, ProgressRing, type ComposerPicture } from "@/components/website-builder/ask-attachments"
 import { ConnectAiButton, ModeSwitch, QuestionChoices, ScopeChip, SuggestionChips, type AskMode } from "@/components/website-builder/ask-parts"
 import { PrepareError, preparePicture, prepareStills } from "@/components/website-builder/ask-attach-prepare"
 import { useVoiceInput } from "@/components/website-builder/ask-voice"
@@ -224,6 +224,14 @@ const ENGINE_KEY = "storelib.theme-chat.engine"
 const PIN_SLACK_PX = 64
 /** Long enough for a smooth scroll to the end to finish. */
 const AUTO_SCROLL_MS = 700
+/**
+ * How long the phone's composer takes to ride up onto a keyboard or back
+ * down: iOS animates its keyboard in about a quarter of a second, and the
+ * composer keeps time with it rather than arriving first and waiting.
+ */
+const KEYBOARD_RIDE_MS = 250
+/** A finger that moved further than this on the box was scrolling, not tapping it. */
+const TAP_SLOP_PX = 10
 
 function prefersReducedMotion(): boolean {
   try {
@@ -414,9 +422,20 @@ const ExchangeItem = React.memo(function ExchangeItem({
   const [broken, setBroken] = React.useState<string[]>([])
   const pictures = (exchange.images ?? []).filter((image) => image.url && !broken.includes(image.id))
   const gone = (exchange.missingImages ?? 0) + (exchange.images?.length ?? 0) - pictures.length
+  /*
+    ARRIVING, NOT APPEARING. A message sent in this sitting (it has a start
+    time; one read back from the history does not) rises a few pixels into
+    place as it fades in, and so does its answer when that lands. Transform
+    and opacity, once, on mount: `ask-in` in globals.css. A thread read back
+    is simply there.
+  */
+  const fresh = exchange.startedAt !== undefined
+  const arrive = fresh ? "ask-in" : undefined
+  /* A phone reads the thread at arm's length: a size up, a touch heavier. */
+  const words = phone ? "text-[15px] font-[450]" : "text-[13.5px]"
 
   return (
-    <li data-ask-exchange={exchange.running ? "running" : exchange.error ? "failed" : "done"} className="space-y-2.5">
+    <li data-ask-exchange={exchange.running ? "running" : exchange.error ? "failed" : "done"} className={cn("space-y-2.5", arrive)}>
       {(pictures.length > 0 || gone > 0) && (
         <div data-ask-sent-images="" className="flex flex-wrap justify-end gap-1.5">
           {pictures.map((image, index) => (
@@ -428,17 +447,16 @@ const ExchangeItem = React.memo(function ExchangeItem({
               aria-label={`Open ${image.name}`}
               className="relative block overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f1f2f4] transition-opacity hover:opacity-90"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element -- bytes this thread already holds, or a signed URL made for this read. */}
-              <img
-                src={image.url}
+              {/* Held at its final size, a neutral shimmer until the picture has decoded, then faded in over it. */}
+              <FadeImage
+                src={image.url ?? ""}
                 alt={image.name}
-                loading="lazy"
-                decoding="async"
+                lazy
                 onError={() => setBroken((was) => (was.includes(image.id) ? was : [...was, image.id]))}
-                className="h-16 w-16 object-cover"
+                className="h-16 w-16"
               />
               {exchange.running && !exchange.sent && (
-                <span data-ask-sending="" className="absolute inset-0 flex items-center justify-center bg-white/60">
+                <span data-ask-sending="" className="ask-fade absolute inset-0 flex items-center justify-center bg-white/60">
                   <ProgressRing fraction={exchange.upload ?? null} />
                 </span>
               )}
@@ -461,7 +479,7 @@ const ExchangeItem = React.memo(function ExchangeItem({
       <div className="flex justify-end">
         <p
           data-ask-prompt=""
-          className="max-w-[85%] whitespace-pre-wrap rounded-[18px] bg-[#f1f2f4] px-3.5 py-2 text-[13.5px] leading-[1.5] text-[#1a1a2e]"
+          className={cn("max-w-[85%] whitespace-pre-wrap rounded-[18px] bg-[#f1f2f4] px-3.5 py-2 leading-[1.5] text-[#1a1a2e]", words)}
         >
           {exchange.prompt}
         </p>
@@ -504,20 +522,20 @@ const ExchangeItem = React.memo(function ExchangeItem({
         <QuestionChoices question={question} answer={answer} canAnswer={!exchange.running} onAnswer={onAnswer} phone={phone} />
       ) : (
         exchange.reply && (
-          <p data-ask-reply="" className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[#1a1a2e]">
+          <p data-ask-reply="" className={cn("whitespace-pre-wrap leading-relaxed text-[#1a1a2e]", words, arrive)}>
             {exchange.reply}
           </p>
         )
       )}
       {detail && (
-        <p data-ask-detail="" className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[#1a1a2e]">
+        <p data-ask-detail="" className={cn("whitespace-pre-wrap leading-relaxed text-[#1a1a2e]", words, arrive)}>
           {detail}
         </p>
       )}
 
       {exchange.error && (
-        <div className="space-y-1.5">
-          <p className="flex items-start gap-1.5 text-[12.5px] text-red-600">
+        <div className={cn("space-y-1.5", arrive)}>
+          <p className={cn("flex items-start gap-1.5 text-red-600", phone ? "text-[14px]" : "text-[12.5px]")}>
             <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
             {exchange.error}
           </p>
@@ -819,6 +837,8 @@ function ThemeChatPanel({
   /** The conversation's own scroller, and the only thing a new message scrolls. */
   const threadRef = React.useRef<HTMLDivElement>(null)
   const fieldRef = React.useRef<HTMLTextAreaElement>(null)
+  /** Where a finger came down on the box, to tell a tap on it from a scroll. */
+  const fieldTap = React.useRef<{ x: number; y: number } | null>(null)
 
   const selectedSection = React.useMemo(
     () => (selectedSectionId ? sections.find((s) => s.id === selectedSectionId) : undefined),
@@ -910,6 +930,37 @@ function ThemeChatPanel({
       thread.removeEventListener("pointerdown", onReader)
       ro.disconnect()
     }
+  }, [])
+  /*
+    ─────────────────────────────────────────────────────────────────────────
+     A KEYBOARD COMING UP KEEPS THE NEWEST LINE IN VIEW
+    ─────────────────────────────────────────────────────────────────────────
+    On a phone the composer rides up over the end of the thread rather than
+    the thread shrinking (see the footer below), and the spacer at the end of
+    the thread grows by the same amount. A reader who was at the end is
+    glided to the new end, alongside the composer, so the last line sits just
+    above it. Going the other way needs nothing: the spacer shrinks, the
+    browser clamps the scroll to the new end, and the thread is flush with
+    the composer again with no gap to close.
+  */
+  const keysRoomRef = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    const room = keysRoomRef.current
+    const thread = threadRef.current
+    if (!room || !thread) return
+    let last = room.offsetHeight
+    const ro = new ResizeObserver(() => {
+      const now = room.offsetHeight
+      const grew = now > last
+      last = now
+      if (!grew || !pinned.current) return
+      const end = Math.max(0, thread.scrollHeight - thread.clientHeight)
+      autoScrollUntil.current = performance.now() + AUTO_SCROLL_MS
+      if (prefersReducedMotion()) thread.scrollTop = end
+      else thread.scrollTo({ top: end, behavior: "smooth" })
+    })
+    ro.observe(room)
+    return () => ro.disconnect()
   }, [])
   React.useEffect(() => {
     const thread = threadRef.current
@@ -2352,6 +2403,8 @@ function ThemeChatPanel({
               )}
             </>
           )}
+          {/* Room for the composer while a keyboard has lifted it over the thread's end: `--sheet-keys`, 0 otherwise. */}
+          {phone && <div ref={keysRoomRef} aria-hidden data-ask-keys-room="" className="shrink-0" style={{ height: "var(--sheet-keys, 0px)" }} />}
         </div>
       </div>
     </div>
@@ -2440,7 +2493,23 @@ function ThemeChatPanel({
       {voice.error && (
         <p data-ask-voice-error="" role="alert" className="mb-2 flex items-start gap-1.5 px-0.5 text-[12.5px] leading-snug text-[#b45309]">
           <TriangleAlert className="mt-[3px] h-3 w-3 shrink-0" />
-          <span className="min-w-0 flex-1">{voice.error}</span>
+          <span className="min-w-0 flex-1">
+            {voice.error}
+            {/* A refusal in the app: one tap to the switch that undoes it. */}
+            {voice.canOpenSettings && (
+              <button
+                type="button"
+                data-ask-voice-settings=""
+                onClick={() => {
+                  voice.clearError()
+                  voice.openSettings()
+                }}
+                className="relative ml-1 font-medium text-[#1a1a2e] underline underline-offset-2 after:absolute after:-inset-2 after:content-['']"
+              >
+                Open Settings
+              </button>
+            )}
+          </span>
           <button
             type="button"
             onClick={voice.clearError}
@@ -2639,6 +2708,40 @@ function ThemeChatPanel({
         setDraft(event.target.value)
       }}
       onFocus={dock ? openDock : undefined}
+      /*
+        ON A PHONE THE TAP THAT OPENS THE KEYBOARD FOCUSES WITHOUT A SCROLL.
+        Left to itself, a tap on a box at the bottom of the screen makes the
+        browser scroll whatever it can to bring the box above where the
+        keyboard will be, before any code here can say the composer is about
+        to ride up by itself. So a plain tap on the box (not a scroll that
+        started on it, and not a tap on a box that already has the caret)
+        is answered here: its default is cancelled and the box is focused
+        with `preventScroll`, which still brings the keyboard up because it
+        happens inside the tap. The sheet holds the document where it was
+        for anything that scrolls it anyway (mobile-editor-sheet.tsx).
+      */
+      onTouchStart={
+        phone
+          ? (event) => {
+              const t = event.touches[0]
+              fieldTap.current = t ? { x: t.clientX, y: t.clientY } : null
+            }
+          : undefined
+      }
+      onTouchEnd={
+        phone
+          ? (event) => {
+              const start = fieldTap.current
+              fieldTap.current = null
+              const el = event.currentTarget
+              const t = event.changedTouches[0]
+              if (!start || !t || document.activeElement === el || !event.cancelable) return
+              if (Math.hypot(t.clientX - start.x, t.clientY - start.y) > TAP_SLOP_PX) return
+              event.preventDefault()
+              el.focus({ preventScroll: true })
+            }
+          : undefined
+      }
       onKeyDown={(event) => {
         if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
           event.preventDefault()
@@ -2835,6 +2938,16 @@ function ThemeChatPanel({
         */
         className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col bg-background [overflow-x:clip]"
         data-ask-sheet=""
+        /*
+          THE PAGE PANNED, SO THE CONVERSATION FOLLOWS IT DOWN. When iOS pans
+          the visible area down the page to show the field anyway, the sheet
+          (fixed) is left behind with its header above the screen. The whole
+          column is moved down by exactly the pan, which the sheet reads from
+          the same viewport in the same frame (`--sheet-pan`): a transform,
+          so nothing inside is laid out again. Zero, and so nothing, with no
+          keyboard and on every platform that does not pan.
+        */
+        style={{ transform: "translate3d(0, var(--sheet-pan, 0px), 0)" }}
         {...dropHandlers}
       >
         {dropTarget}
@@ -2844,7 +2957,39 @@ function ThemeChatPanel({
           {threadPane}
           {historyPane}
         </div>
-        <div className="min-w-0 shrink-0 px-2.5 pb-2.5 pt-1.5">
+        {/*
+          ═══════════════════════════════════════════════════════════════════
+           THE COMPOSER RIDES THE KEYBOARD, AND NOTHING ELSE MOVES
+          ═══════════════════════════════════════════════════════════════════
+          The sheet used to make room for a keyboard by growing and padding
+          itself, which laid the whole thread out again on every frame iOS
+          reported the keyboard moving: the thread jumped as it opened, and
+          as it closed the padding went a beat before the keys did and left
+          a band of white where the thread should have been. The owner's
+          screen recording showed both.
+
+          Now the sheet is a "composer" sheet (mobile-editor-sheet.tsx): it
+          keeps its size and its place, and says how far the keyboard
+          reaches into it as `--sheet-keys`. This row, the mode switch and
+          the box, is moved up by exactly that on a transform, over the
+          keyboard's own quarter second, and the thread keeps its height. At
+          the end of the thread a spacer of the same height lets its newest
+          line be scrolled clear of the composer (see `keysRoomRef`).
+
+          ABOVE THE THREAD, WITH A LITTLE DEPTH. It is drawn over the thread
+          (the thread scrolls under it, and the keyboard lifts it over the
+          thread's last lines), so it has the panel's own background and a
+          soft shadow up onto the thread, with a hairline, rather than
+          sitting flat against the words.
+        */}
+        <div
+          data-ask-footer=""
+          className="relative z-[1] min-w-0 shrink-0 bg-background px-2.5 pb-2.5 pt-2 shadow-[0_-1px_0_rgba(15,23,42,0.05),0_-10px_22px_-14px_rgba(15,23,42,0.22)]"
+          style={{
+            transform: "translate3d(0, calc(-1 * var(--sheet-keys, 0px)), 0)",
+            transition: reducedMotion ? "none" : `transform ${KEYBOARD_RIDE_MS}ms ${EASE}`,
+          }}
+        >
           {tray}
           {composer}
         </div>
