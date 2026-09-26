@@ -554,7 +554,9 @@ if (wants("sheets")) {
   const list = [
     ["Add block", "links", clickText("Add")],
     ["Share", "links", `document.querySelector("[data-onepage-share]").click(), true`],
-    ["Social icons", "links", `(() => { const b = [...document.querySelectorAll("button")].find((e) => /social/i.test(e.getAttribute("aria-label") || e.title || e.textContent) && e.getClientRects().length); if (b) b.click(); return !!b })()`],
+    ["Social icons", "links", `(() => { const b = [...document.querySelectorAll("[data-scroll-container] button.w-7.h-7")].find((e) => e.getClientRects().length); if (b) b.click(); return !!b })()`],
+    ["Name and bio", "links", `(() => { const b = [...document.querySelectorAll("button")].find((e) => e.querySelector("h2") && e.getClientRects().length); if (b) b.click(); return !!b })()`],
+    ["Button colour", "design", `(async () => { document.querySelector('[data-nav-row="buttons"]').click(); await new Promise((r) => setTimeout(r, 900)); const b = document.querySelector("[data-color-field]"); if (b) b.click(); return !!b })()`],
     ["Page font", "design", `(async () => { document.querySelector('[data-nav-row="text"]').click(); await new Promise((r) => setTimeout(r, 900)); document.querySelector('[data-font-picker="Page font"]').click(); return true })()`],
   ]
   const rows = []
@@ -564,10 +566,11 @@ if (wants("sheets")) {
       const el = document.querySelector("[data-app-sheet] [data-sheet-panel]")
       return { y: el ? Math.round(new DOMMatrixReadOnly(getComputedStyle(el).transform).m42) : null }
     }
-    const rec = s.p.evaluate((ms, fn) => window.__rec(ms, new Function(`return (${fn})()`)), 1400, FIRST.toString())
+    const rec = s.p.evaluate((ms, fn) => window.__rec(ms, new Function(`return (${fn})()`)), 2400, FIRST.toString())
     await sleep(40)
     const found = await s.p.evaluate(opener)
     const { gaps, painted } = await rec
+    /* The last press is the one that opened the sheet (an opener may go to a panel first). */
     const tapAt = await s.p.evaluate(() => window.__downs.at(-1) ?? null)
     const firstMove = painted.find((f, i) => f.y !== null && i > 0 && painted[i - 1].y !== null && f.y < painted[i - 1].y - 0.5)
     const rest = painted.find((f) => f.y !== null && Math.abs(f.y) < 0.5)
