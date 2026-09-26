@@ -434,7 +434,15 @@ function main() {
        * would become framable, and a login form in a frame is the setup for
        * clickjacking a password. Each of these is checked by name.
        */
-      const escaped = reserved.filter((r) => asks(`/${r}`))
+      /*
+        ONE RESERVED ROUTE IS FRAMED ON PURPOSE: /onepage-preview, the OnePage
+        editor's preview (components/onepage/live-preview). It reads nothing
+        and shows only the page its parent on this origin posts to it, so it
+        is framed on the same terms as the code editor, and named here so
+        every other reserved route is still held to the rule.
+      */
+      check("and the OnePage editor's preview frame", asks("/onepage-preview"))
+      const escaped = reserved.filter((r) => r !== "onepage-preview" && asks(`/${r}`))
       check("no reserved route is framable on its own", escaped.length === 0, `framable: ${escaped.join(", ")}`)
       /**
        * `p` and `u` are in the reserved list so that /p and /u alone are not

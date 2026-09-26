@@ -55,6 +55,8 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "login",
   "native-start",
   "onboarding",
+  /* The OnePage editor's preview frame (components/onepage/live-preview). */
+  "onepage-preview",
   "p",
   "pricing",
   "privacy",

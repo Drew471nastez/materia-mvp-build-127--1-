@@ -225,6 +225,8 @@ export default async function Page() {
   return <OnePageEditor initialOnePage={FIXTURE as never} />
 }
 `)
+/* The editor preview's frame, the repo's own route (components/onepage/live-preview). */
+put("app/onepage-preview/page.tsx", `export { default, metadata } from "@/app/onepage-preview/page"\n`)
 /* What the editor and the shell ask the server, answered. The saves are counted. */
 put("app/api/onepage/route.ts", `export async function PUT() {
   await new Promise((r) => setTimeout(r, 120))
