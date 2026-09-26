@@ -5350,6 +5350,36 @@ html.pop-in-flight #platform-header-root {
   animation-timing-function: linear;
   animation-fill-mode: both;
 }
+/*
+  THE PURPLE BAR'S SLIDES (components/app/dashboard-client AnnouncementBar):
+  every slide in one grid cell, the one showing marked data-on. The one
+  leaving fades and drops 4px in 160ms and is hidden; the one arriving waits
+  those 160ms, then rises into place. Two slides' words are never on screen
+  at the same time, on opacity and translate only.
+*/
+.announce-stack > .announce-slide {
+  grid-area: 1 / 1;
+  opacity: 0;
+  visibility: hidden;
+  translate: 0 4px;
+  transition:
+    opacity 160ms cubic-bezier(0.4, 0, 1, 1),
+    translate 160ms cubic-bezier(0.4, 0, 1, 1),
+    visibility 0s linear 160ms;
+}
+.announce-stack > .announce-slide[data-on] {
+  opacity: 1;
+  visibility: visible;
+  translate: 0 0;
+  transition:
+    opacity 300ms cubic-bezier(0.22, 1, 0.36, 1) 170ms,
+    translate 420ms cubic-bezier(0.22, 1, 0.36, 1) 170ms,
+    visibility 0s linear 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .announce-stack > .announce-slide,
+  .announce-stack > .announce-slide[data-on] { translate: 0 0; }
+}
 @keyframes announce-progress {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
