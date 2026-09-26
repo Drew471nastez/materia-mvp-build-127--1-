@@ -6,7 +6,8 @@
  * One component for every place a plan is offered (the landing page,
  * /pricing, onboarding, the upgrade page and the Billing tab) so the cards
  * cannot drift apart again. Each screen decides what the button does; the
- * card decides how a plan looks.
+ * card decides how a plan looks, and PLAN_ART below is the only place the
+ * pictures, their dimming and their grain are written down.
  *
  * DRAWN TO THE OWNER'S REFERENCE. A tall header in the plan's colour, which is
  * the owner's own picture (near black for Free, deep indigo for Pro, the
@@ -24,7 +25,9 @@
  * THE PICTURES THROUGH next/image, sized to the card: a phone is sent a
  * version about as wide as its screen, not the 1672px original.
  * scripts/check-pricing-cards.mjs measures that, the equal heights, the
- * contrast of the white text on the picture, and the 44px buttons.
+ * contrast of the white text on the picture, and the 44px buttons;
+ * scripts/check-billing-tab.mjs measures the Monthly and Yearly switch frame
+ * by frame, and the pictures' brightness and grain.
  */
 import * as React from "react"
 import Image from "next/image"
@@ -48,19 +51,58 @@ export interface PlanCardAction {
 const PICTURE_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images"
 
 /**
- * Each plan's colour, as whole class names so Tailwind sees them. `ground`
- * is the picture's own tone, painted under it, so the white text reads the
- * same while the picture is still on its way. `blur` is a 24px copy of the
- * picture inlined in the markup, shown blurred until the real one arrives,
- * so the header never pops from flat colour to picture.
+ * FILM GRAIN OVER THE PICTURES. A tile of fractal noise turned into light
+ * and dark specks, each with its own transparency, laid over the picture in
+ * the ordinary way. It used to be grey noise in `mix-blend-mode: overlay`,
+ * which does almost nothing over a dark picture (overlay scales with what is
+ * under it, and both pictures are dark), so on a phone it all but vanished;
+ * and a blended layer is one a phone has to composite against the picture
+ * whenever anything above it animates. Plain specks read at any density and
+ * cost nothing to draw. Drawn once, as an SVG tile in the stylesheet: no
+ * image to fetch, no canvas, nothing that moves. It sits under the text.
  */
-const LOOK: Record<OfferedPlanId, { picture: string; blur: `data:image/${string}`; ground: string; dim: string; fade: string; dot: string; button: string; ring: string }> = {
+const GRAIN_TILE = 160
+const GRAIN_SVG =
+  `<svg xmlns='http://www.w3.org/2000/svg' width='${GRAIN_TILE}' height='${GRAIN_TILE}'>` +
+  "<filter id='g' x='0' y='0' width='100%' height='100%' color-interpolation-filters='sRGB'>" +
+  "<feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch' result='n'/>" +
+  /*
+    Light specks where the noise is high, dark where it is low. The dark ones
+    are weighted heavier: on pictures this dark a light speck shows far more
+    than a dark one, and even specks would lift the whole header, undoing the
+    dimming below (scripts/check-billing-tab.mjs reads the header's average).
+  */
+  "<feColorMatrix in='n' result='light' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1.3 0 0 0 -0.66'/>" +
+  "<feColorMatrix in='n' result='dark' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2 0 0 0 1'/>" +
+  "<feMerge><feMergeNode in='dark'/><feMergeNode in='light'/></feMerge>" +
+  "</filter><rect width='100%' height='100%' filter='url(#g)'/></svg>"
+export const PLAN_GRAIN = `url("data:image/svg+xml,${encodeURIComponent(GRAIN_SVG)}")`
+
+/**
+ * EACH PLAN'S ART, in one place, for every card on every surface.
+ *
+ * `filter` dims the picture itself (not the text, not the grain). Pro's is a
+ * step darker than it was (brightness 0.52 to 0.42) with its saturation put
+ * back to 1, so the indigo stays indigo instead of going grey as it darkens.
+ * Free's is exactly what it was with `brightness(0.95)` added at the end:
+ * the last function in a filter scales every channel of what came before, so
+ * the picture is 5% darker than before and nothing else moves. An overlay
+ * would have done the same to the picture but also to the grain above it.
+ *
+ * `ground` is the picture's own tone, painted under it, so the white text
+ * reads the same while the picture is still on its way; it is dimmed with
+ * the picture. `blur` is a 24px copy of the picture inlined in the markup,
+ * shown blurred until the real one arrives, so the header never pops from
+ * flat colour to picture. `grain` is the grain layer's opacity.
+ */
+export const PLAN_ART: Record<OfferedPlanId, { picture: string; blur: `data:image/${string}`; filter: string; ground: string; fade: string; grain: number; dot: string; button: string; ring: string }> = {
   free: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2010_29_35%20AM.png`,
     blur: "data:image/webp;base64,UklGRkgAAABXRUJQVlA4IDwAAAAwAwCdASoYAA4APrVInkm3JCKhMAgC4BaJaQAAelPp0aAAAP7w3blrXGLU+JE1tbFf8V/YdHwlAu9pAAA=",
-    ground: "bg-[#161617]",
-    dim: "brightness-[0.7] contrast-[0.94]",
+    filter: "brightness(0.7) contrast(0.94) brightness(0.95)",
+    ground: "bg-[#151516]",
     fade: "from-[#0b0b0c]/85",
+    grain: 0.28,
     dot: "bg-[#111113]",
     button: "bg-[#111113] hover:bg-[#26262b] active:bg-[#000000]",
     ring: "focus-visible:ring-[#111113]/35",
@@ -68,9 +110,10 @@ const LOOK: Record<OfferedPlanId, { picture: string; blur: `data:image/${string}
   growth: {
     picture: `${PICTURE_BASE}/ChatGPT%20Image%20Sep%2025,%202026,%2001_00_00%20PM.png`,
     blur: "data:image/webp;base64,UklGRnAAAABXRUJQVlA4IGQAAABQAwCdASoYAA4APrVMoUq3JCMhsAgC4BaJYgAAesFl7Y4P1AD+5WYnJTUuz//yU/+8r/XdyP1rncUch4oVkh+Ip7UA+Bb1kTZGrQXedRNyS4sSL7u3PKU5zEv/HrIHYtVHAAAA",
-    ground: "bg-[#24178a]",
-    dim: "brightness-[0.52] contrast-[0.9] saturate-[0.92]",
-    fade: "from-[#170e66]/85",
+    filter: "brightness(0.42) contrast(0.9)",
+    ground: "bg-[#1d1270]",
+    fade: "from-[#130b55]/85",
+    grain: 0.28,
     dot: "bg-[#5a43ee]",
     button: "bg-[#5a43ee] hover:bg-[#4d37dd] active:bg-[#412dc4]",
     ring: "focus-visible:ring-[#5a43ee]/45",
@@ -82,58 +125,68 @@ const LOOK: Record<OfferedPlanId, { picture: string; blur: `data:image/${string}
  * 768px up, the screen less its gutters under that.
  */
 export const PLAN_PICTURE_SIZES = "(min-width: 768px) 360px, calc(100vw - 32px)"
+/** The same where the cards fill their section (the Billing tab), up to about 420px each. */
+export const PLAN_PICTURE_SIZES_FILL = "(min-width: 768px) 420px, calc(100vw - 32px)"
 
 /**
- * FILM GRAIN OVER THE PICTURES. A tile of fractal noise with the colour
- * taken out, laid over each header picture in overlay at a low opacity, so
- * the pictures read as printed rather than rendered. Drawn once as an SVG
- * tile the size of a stamp: no image to fetch, nothing that moves.
+ * THE SWITCH'S TIMING, shared by the pill's thumb and every line that
+ * changes, so they move as one: 240ms on a curve that starts quickly and
+ * settles softly, on position and opacity only, both done by the compositor.
  */
-const GRAIN =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0.33 0.33 0.33 0 0 0 0 0 0 1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E\")"
-
-/* The curve the pill's thumb and the price share, so they move as one. */
-const SWITCH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+const SWITCH_MS = 240
+const SWITCH_EASE = "cubic-bezier(0.2, 0, 0, 1)"
 
 /**
  * MONTHLY AND YEARLY ARE BOTH ALREADY THERE. Every line that differs between
  * the two (the price, the words under it, the small print, the button) is
- * drawn twice in the same grid cell and only the one that applies is shown.
- * Switching fades one out as it drifts away and the other in as it settles,
- * on the pill's curve, and because both are always laid out the card never
- * changes size: nothing jumps, nothing is remounted, nothing pops in late.
- * The one going leaves quickly and the one coming waits a beat, so the two
- * are barely on screen together.
+ * drawn twice in the same grid cell and only the one that applies is shown,
+ * so the card never changes size and nothing is mounted when the pill moves.
+ *
+ * The one going fades out in 90ms; the one coming waits 70ms and fades in
+ * over 150ms, so the two are never both clearly on screen (at worst both at
+ * 8%). Both drift a fifth of a line as they go, the old one
+ * away and the new one into place. Each line keeps a little room above and
+ * below its letters (padding, taken back by a negative margin) so the box a
+ * phone composites while it fades never cuts through a glyph.
+ *
+ * With reduced motion the lines swap in one frame and do not move.
  */
 function Morph<K extends string>({
   value,
   items,
   align = "start",
+  fill = false,
   className = "",
 }: {
   value: K
   items: Record<K, React.ReactNode>
   align?: "start" | "center"
+  /** As wide as its container, for the button. */
+  fill?: boolean
   className?: string
 }) {
   const keys = Object.keys(items) as K[]
   const at = keys.indexOf(value)
   return (
-    <span className={`inline-grid ${align === "center" ? "justify-items-center" : "justify-items-start"} ${className}`}>
+    <span
+      data-morph-group=""
+      className={`${fill ? "grid w-full justify-items-stretch" : `inline-grid ${align === "center" ? "justify-items-center" : "justify-items-start"}`} ${className}`}
+    >
       {keys.map((key, i) => {
         const on = key === value
         return (
           <span
             key={key}
             aria-hidden={on ? undefined : true}
+            inert={on ? undefined : true}
             data-morph={on ? "on" : "off"}
-            className="[grid-area:1/1] motion-reduce:!transition-none"
+            className={`[grid-area:1/1] ${fill ? "" : "-my-[0.12em] py-[0.12em]"} motion-reduce:!transition-none motion-reduce:!transform-none`}
             style={{
               opacity: on ? 1 : 0,
-              translate: on ? "0 0" : `0 ${i < at ? "-0.35em" : "0.35em"}`,
+              transform: `translate3d(0, ${on ? "0" : i < at ? "-0.2em" : "0.2em"}, 0)`,
               transition: on
-                ? `opacity 240ms ${SWITCH_EASE} 70ms, translate 380ms ${SWITCH_EASE}`
-                : `opacity 130ms ease-out, translate 380ms ${SWITCH_EASE}`,
+                ? `opacity 150ms linear 70ms, transform ${SWITCH_MS}ms ${SWITCH_EASE}`
+                : `opacity 90ms linear, transform ${SWITCH_MS}ms ${SWITCH_EASE}`,
               pointerEvents: on ? undefined : "none",
             }}
           >
@@ -145,11 +198,11 @@ function Morph<K extends string>({
   )
 }
 
-function PlanButton({ action, plan, compact, label }: { action: PlanCardAction; plan: OfferedPlanId; compact?: boolean; label?: React.ReactNode }) {
-  const look = LOOK[plan]
+function PlanButton({ action, plan, compact }: { action: PlanCardAction; plan: OfferedPlanId; compact?: boolean }) {
+  const look = PLAN_ART[plan]
   const className =
     `inline-flex w-full ${compact ? "h-11" : "h-12"} items-center justify-center gap-2 rounded-xl px-5 ` +
-    "text-[13px] font-bold uppercase tracking-[0.06em] no-underline select-none transition-colors duration-300 " +
+    "text-[13px] font-bold uppercase tracking-[0.06em] no-underline select-none transition-colors duration-200 " +
     `focus-visible:outline-none focus-visible:ring-4 ${look.ring} ` +
     (action.settled
       ? "bg-[#f3f4f6] text-[#4b5563] cursor-default"
@@ -160,12 +213,10 @@ function PlanButton({ action, plan, compact, label }: { action: PlanCardAction; 
       Processing
     </>
   ) : (
-    label ?? (
-      <>
-        <span className="min-w-0 truncate">{action.label}</span>
-        {action.settled ? null : <ArrowRight className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden="true" />}
-      </>
-    )
+    <>
+      <span className="min-w-0 truncate">{action.label}</span>
+      {action.settled ? null : <ArrowRight className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden="true" />}
+    </>
   )
 
   if (action.href && !action.disabled && !action.settled) {
@@ -195,14 +246,16 @@ function PlanCard({
   label,
   compact,
   interval,
+  sizes,
 }: {
   plan: OfferedPlan
   action: PlanCardAction
   label?: string
   compact?: boolean
   interval: BillingInterval
+  sizes: string
 }) {
-  const look = LOOK[plan.id]
+  const look = PLAN_ART[plan.id]
   const monthly = pricedFor(plan, "monthly")
   const yearly = pricedFor(plan, "yearly")
   /* Yearly Pro is shown, not sold, until its Stripe price exists (lib/billing/plans). */
@@ -210,13 +263,8 @@ function PlanCard({
     const held = i === "yearly" && plan.priceCents > 0 && !YEARLY_BILLING_LIVE && !action.settled
     return held ? { label: "Yearly opens soon", settled: true } : action
   }
-  const shownAction = heldAction(interval)
-  const buttonLabel = (a: PlanCardAction) => (
-    <span className="inline-flex min-w-0 items-center gap-2">
-      <span className="min-w-0 truncate">{a.label}</span>
-      {a.settled ? null : <ArrowRight className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden="true" />}
-    </span>
-  )
+  const monthlyAction = heldAction("monthly")
+  const yearlyAction = heldAction("yearly")
   const pad = compact ? "px-5" : "px-6"
 
   return (
@@ -235,11 +283,12 @@ function PlanCard({
           src={look.picture}
           alt=""
           fill
-          sizes={PLAN_PICTURE_SIZES}
+          sizes={sizes}
           loading="eager"
           placeholder={look.blur}
           draggable={false}
-          className={`-z-10 object-cover object-right select-none pointer-events-none ${look.dim}`}
+          className="-z-10 object-cover object-right select-none pointer-events-none"
+          style={{ filter: look.filter }}
           data-plan-picture=""
         />
         {/*
@@ -253,14 +302,15 @@ function PlanCard({
         <span
           aria-hidden="true"
           data-plan-grain=""
-          className="pointer-events-none absolute inset-0 -z-10 opacity-[0.28] mix-blend-overlay"
-          style={{ backgroundImage: GRAIN, backgroundSize: "180px 180px" }}
+          className="pointer-events-none absolute inset-0 -z-10"
+          style={{ backgroundImage: PLAN_GRAIN, backgroundSize: `${GRAIN_TILE}px ${GRAIN_TILE}px`, opacity: look.grain }}
         />
         <span className="self-start rounded-full bg-white/15 px-2.5 py-0.5 text-[11.5px] font-semibold leading-[18px] text-white ring-1 ring-inset ring-white/25">
           {label ?? plan.pill}
         </span>
         <h3 className={`${compact ? "mt-3" : "mt-4"} ${compact ? "text-[16px]" : "text-[18px]"} font-bold leading-tight`}>{plan.name}</h3>
         <p
+          data-plan-price=""
           className={`mt-1.5 ${compact ? "text-[38px]" : "text-[44px] sm:text-[48px]"} font-extrabold leading-none tracking-[-0.035em] tabular-nums`}
         >
           <Morph value={interval} items={{ monthly: monthly.price, yearly: yearly.price }} />
@@ -295,16 +345,26 @@ function PlanCard({
         </ul>
 
         <div className={`mt-auto ${compact ? "pt-5" : "pt-6"}`}>
-          <PlanButton
-            action={shownAction}
-            plan={plan.id}
-            compact={compact}
-            label={
-              shownAction.loading ? undefined : (
-                <Morph align="center" className="w-full min-w-0" value={interval} items={{ monthly: buttonLabel(heldAction("monthly")), yearly: buttonLabel(heldAction("yearly")) }} />
-              )
-            }
-          />
+          {/*
+            ONE BUTTON WHEN BOTH INTERVALS DO THE SAME THING, two in one cell
+            when they differ (Pro's yearly price is shown before it is sold).
+            Each keeps its own element for good, a link or a button, so the
+            switch crossfades between two that already exist instead of
+            swapping a link for a button in place, which remounted it and made
+            it blink.
+          */}
+          {monthlyAction === yearlyAction ? (
+            <PlanButton action={monthlyAction} plan={plan.id} compact={compact} />
+          ) : (
+            <Morph
+              fill
+              value={interval}
+              items={{
+                monthly: <PlanButton action={monthlyAction} plan={plan.id} compact={compact} />,
+                yearly: <PlanButton action={yearlyAction} plan={plan.id} compact={compact} />,
+              }}
+            />
+          )}
           <p className="mt-2.5 text-center text-[12px] leading-[16px] text-[#6b7280]">
             <Morph align="center" value={interval} items={{ monthly: monthly.note, yearly: yearly.note }} />
           </p>
@@ -319,6 +379,7 @@ export function PlanCards({
   labels,
   compact,
   lead,
+  heading,
   className = "",
   interval: controlled,
   onInterval,
@@ -332,6 +393,13 @@ export function PlanCards({
   compact?: boolean
   /** On a phone, where the cards stack, this plan comes first: Pro for somebody already on Free. Side by side they keep their order. */
   lead?: OfferedPlanId
+  /**
+   * A section heading. Given one, the cards sit in a section of a page (the
+   * Billing tab): the heading at the left of one row with a small pill at
+   * its right, and the cards as wide as the section. Without one they are
+   * the page's subject: the pill centred above two cards in a 720px row.
+   */
+  heading?: React.ReactNode
   className?: string
 }) {
   const [own, setOwn] = React.useState<BillingInterval>("monthly")
@@ -340,63 +408,101 @@ export function PlanCards({
     setOwn(next)
     onInterval?.(next)
   }
+  const inSection = heading != null
   return (
     <>
-    <IntervalSwitch value={interval} onChange={pick} compact={compact} />
-    <div
-      data-plan-cards
-      className={`mx-auto grid w-full max-w-[720px] grid-cols-1 md:grid-cols-2 items-stretch ${compact ? "gap-3" : "gap-5"} ${className}`}
-    >
-      {OFFERED_PLANS.map((plan) => (
-        <div key={plan.id} data-plan-slot={plan.id} className={`flex ${lead === plan.id ? "order-first md:order-none" : ""}`}>
-          <PlanCard plan={plan} action={actions[plan.id]} label={labels?.[plan.id]} compact={compact} interval={interval} />
+      {inSection ? (
+        /* On one row when they fit; on a narrow phone the pill wraps under the heading, flush left. */
+        <div data-plan-heading-row="" className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2.5">
+          {heading}
+          <IntervalSwitch value={interval} onChange={pick} size="small" />
         </div>
-      ))}
-    </div>
+      ) : (
+        <div className={`flex justify-center ${compact ? "mb-3" : "mb-5 sm:mb-6"}`}>
+          <IntervalSwitch value={interval} onChange={pick} />
+        </div>
+      )}
+      <div
+        data-plan-cards
+        className={`${inSection ? "" : "mx-auto max-w-[720px]"} grid w-full grid-cols-1 md:grid-cols-2 items-stretch ${compact ? "gap-3" : "gap-5"} ${className}`}
+      >
+        {OFFERED_PLANS.map((plan) => (
+          <div key={plan.id} data-plan-slot={plan.id} className={`flex ${lead === plan.id ? "order-first md:order-none" : ""}`}>
+            <PlanCard
+              plan={plan}
+              action={actions[plan.id]}
+              label={labels?.[plan.id]}
+              compact={compact}
+              interval={interval}
+              sizes={inSection ? PLAN_PICTURE_SIZES_FILL : PLAN_PICTURE_SIZES}
+            />
+          </div>
+        ))}
+      </div>
     </>
   )
 }
 
 /**
  * MONTHLY OR YEARLY, as one pill with a white thumb that slides between the
- * two, the way Shopify's plans page asks. Yearly carries what it saves. Only
- * the thumb moves; the words stay where they are.
+ * two, the way Shopify's plans page asks. Yearly carries what it saves.
+ *
+ * The two options share one grid of two equal columns, so the thumb is
+ * exactly one column wide by construction and moving it is a shift by
+ * its own width (100%): nothing to measure, nothing laid out again, and the
+ * words never move. The words change colour at once; only the thumb slides,
+ * on the same 240ms curve the prices use.
+ *
+ * `small` is the pill for a section heading's row: 32px tall with 13px words,
+ * each option still a 44px press (its ::after reaches past the pill above
+ * and below).
  */
-function IntervalSwitch({ value, onChange, compact }: { value: BillingInterval; onChange: (next: BillingInterval) => void; compact?: boolean }) {
+function IntervalSwitch({ value, onChange, size = "regular" }: { value: BillingInterval; onChange: (next: BillingInterval) => void; size?: "regular" | "small" }) {
   const yearly = value === "yearly"
+  const small = size === "small"
   return (
-    <div className={`flex justify-center ${compact ? "mb-3" : "mb-5 sm:mb-6"}`}>
-      <div
-        role="radiogroup"
-        aria-label="Billing"
-        data-billing-interval={value}
-        className="relative inline-grid grid-cols-2 rounded-full bg-[#eceef1] p-1 shadow-[inset_0_1px_2px_rgba(16,24,40,0.10),inset_0_0_0_1px_rgba(16,24,40,0.04)]"
-      >
-        <span
-          aria-hidden="true"
-          className="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.12),0_4px_10px_-4px_rgba(16,24,40,0.18),inset_0_-1px_0_rgba(16,24,40,0.04)] transition-[translate] duration-[380ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
-          style={{ translate: yearly ? "100% 0" : "0 0" }}
-        />
-        {(["monthly", "yearly"] as const).map((option) => {
-          const on = value === option
-          return (
-            <button
-              key={option}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              data-interval-option={option}
-              onClick={() => onChange(option)}
-              className={`relative z-[1] inline-flex h-9 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[13px] font-semibold outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-[#111113]/25 [-webkit-tap-highlight-color:transparent] sm:px-5 ${on ? "text-[#111113]" : "text-[#4b5260] hover:text-[#1a1a2e]"}`}
-            >
-              {option === "monthly" ? "Monthly" : "Yearly"}
-              {option === "yearly" ? (
-                <span className="rounded-full bg-[#111113] px-1.5 py-px text-[10.5px] font-semibold leading-4 text-white">Save {YEARLY_SAVING_PERCENT}%</span>
-              ) : null}
-            </button>
-          )
-        })}
-      </div>
+    <div
+      role="radiogroup"
+      aria-label="Billing"
+      data-billing-interval={value}
+      className={`relative inline-grid shrink-0 grid-cols-2 rounded-full bg-[#eceef1] shadow-[inset_0_1px_2px_rgba(16,24,40,0.10),inset_0_0_0_1px_rgba(16,24,40,0.04)] ${small ? "p-[3px]" : "p-1"}`}
+    >
+      <span
+        aria-hidden="true"
+        data-interval-thumb=""
+        className={`pointer-events-none absolute rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.12),0_4px_10px_-4px_rgba(16,24,40,0.18),inset_0_-1px_0_rgba(16,24,40,0.04)] motion-reduce:!transition-none ${
+          small ? "inset-y-[3px] left-[3px] w-[calc(50%-3px)]" : "inset-y-1 left-1 w-[calc(50%-4px)]"
+        }`}
+        style={{
+          transform: `translate3d(${yearly ? "100%" : "0"}, 0, 0)`,
+          transition: `transform ${SWITCH_MS}ms ${SWITCH_EASE}`,
+        }}
+      />
+      {(["monthly", "yearly"] as const).map((option) => {
+        const on = value === option
+        return (
+          <button
+            key={option}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            data-interval-option={option}
+            onClick={() => onChange(option)}
+            className={`relative z-[1] inline-flex cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-full text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/25 [-webkit-tap-highlight-color:transparent] ${
+              small
+                ? "h-[26px] gap-1.5 px-3 after:absolute after:inset-x-0 after:-inset-y-[9px] after:content-['']"
+                : "h-9 gap-1.5 px-4 sm:px-5"
+            } ${on ? "text-[#111113]" : "text-[#4b5260] hover:text-[#1a1a2e]"}`}
+          >
+            {option === "monthly" ? "Monthly" : "Yearly"}
+            {option === "yearly" ? (
+              <span className={`rounded-full bg-[#111113] font-semibold text-white ${small ? "px-1.5 text-[10.5px] leading-[16px]" : "px-1.5 py-px text-[10.5px] leading-4"}`}>
+                Save {YEARLY_SAVING_PERCENT}%
+              </span>
+            ) : null}
+          </button>
+        )
+      })}
     </div>
   )
 }

@@ -456,7 +456,7 @@ section("One scrollbar track on a computer, always there, never moving")
       && /el\.setAttribute\("data-app-landing", ""\)/.test(stage)
       && /a\.finished\.catch\(\(\) => undefined\)/.test(stage) && /window\.setTimeout\(release, NAV_ENTER_MS \+ 120\)/.test(stage))
   check("the billing tab, drawn inside Settings, is not a scroller of its own: no second, empty track down its side",
-    /className=\{embedded \? "overflow-x-clip bg-\[#fafafa\]" : "h-full overflow-y-scroll/.test(code("components/app/billing/billing-page-client.tsx")))
+    /className=\{embedded \? "bg-\[#fafafa\]" : "h-full overflow-y-scroll/.test(code("components/app/billing/billing-page-client.tsx")))
   /* "Search inputs across /app: on focus the border turns heavy black, too much weight." Every search field focuses the description editor's way now: a #c9ccd3 hairline and a 3px halo at 6%, measured by scripts/check-search-focus. */
   {
     const HALO_WITHIN = /focus-within:border-\[#c9ccd3\] focus-within:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
