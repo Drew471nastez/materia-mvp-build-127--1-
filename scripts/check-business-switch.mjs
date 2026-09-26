@@ -67,6 +67,8 @@ const JS_MS = 250
 const PHOTO_MS = 500
 const FIGURES_MS = 600
 const NEW_NAME = "Lind Studio"
+const NEW_PHOTO = "/photos/studio.png"
+const OLD_NAME = "Mara Lind"
 const NEW_ID = "00000000-0000-4000-8000-00000000000b"
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 
@@ -119,7 +121,7 @@ const clientJs = bundle(join(root, "scripts/render-business-switch.tsx"), join(d
   '--banner:js=var process=globalThis.process||{env:{NODE_ENV:"production"},browser:true,versions:{},platform:"browser",cwd:function(){return "/"},nextTick:function(f){setTimeout(f,0)}};globalThis.process=process;',
 ])
 bundle(join(root, "scripts/render-business-switch-ssr.tsx"), join(dir, "ssr.cjs"), ["--format=cjs", "--platform=node"])
-const ssr = JSON.parse(execFileSync("node", [join(dir, "ssr.cjs"), NEW_NAME], { encoding: "utf8", maxBuffer: 64 << 20 }))
+const ssr = JSON.parse(execFileSync("node", [join(dir, "ssr.cjs"), NEW_NAME, NEW_PHOTO], { encoding: "utf8", maxBuffer: 64 << 20 }))
 rmSync(dir, { recursive: true, force: true })
 
 const css = `${await appCss(root)}\n${interFaces(root).replace(/url\(file:\/\//g, "url(/__font?p=")}`
@@ -156,7 +158,8 @@ const server = createServer((req, res) => {
   if (u.pathname === "/client.js") return setTimeout(() => send(200, "text/javascript", clientJs), u.searchParams.get("doc") ? JS_MS : 0)
   const src = u.pathname === "/_next/image" ? new URL(u.searchParams.get("url") || "/", "http://probe").pathname : u.pathname
   const photo = src.match(/^\/photos\/([\w-]+\.png)$/)
-  if (photo && photos[photo[1]]) return setTimeout(() => send(200, "image/png", photos[photo[1]]), /studio|new-/.test(photo[1]) ? PHOTO_MS : 0)
+  /* Cached as the image optimizer and storage answer them: a photo fetched once is not fetched again. */
+  if (photo && photos[photo[1]]) return setTimeout(() => send(200, "image/png", photos[photo[1]], { "cache-control": "public, max-age=3600" }), /studio|new-/.test(photo[1]) ? PHOTO_MS : 0)
   if (u.pathname === "/api/businesses/switch" && req.method === "POST") {
     const chunks = []
     req.on("data", (c) => chunks.push(c))
@@ -175,7 +178,11 @@ const server = createServer((req, res) => {
     /* As app/app/layout.tsx reads it (lib/businesses/switch-screen readSwitchCookie). */
     const raw = /(?:^|;\s*)storelib_switching=([^;]*)/.exec(req.headers.cookie || "")?.[1]
     let arriving = null
-    try { arriving = raw ? decodeURIComponent(raw) : null } catch { arriving = null }
+    try {
+      const value = raw ? decodeURIComponent(raw) : null
+      const at = value ? value.indexOf("\n") : -1
+      arriving = value ? { name: at === -1 ? value : value.slice(0, at), photo: at === -1 ? null : value.slice(at + 1) } : null
+    } catch { arriving = null }
     seen.cookie = arriving
     return setTimeout(() => send(200, "text/html", newHtml(arriving)), DOC_MS)
   }
@@ -204,6 +211,52 @@ const RECORDER = `(() => {
     return (Math.atan2(b, a) * 180 / Math.PI + 360) % 360
   }
   const SKIP = new Set(["offset", "computedOffset", "easing", "composite"])
+  const shown = (el) => { if (!el) return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 }
+  const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map((n) => Math.round(n * 10) / 10) }
+  /* What the black bar shows: the screen's still bar while the screen is mostly up, the real header otherwise. */
+  function barOf(scr) {
+    if (scr && +getComputedStyle(scr).opacity >= 0.5) {
+      const bar = Array.from(scr.querySelectorAll("[data-still-bar]")).find(shown)
+      if (!bar) return { still: true, name: null, photo: null }
+      const img = bar.querySelector("[data-still=avatar] img")
+      return { still: true, name: (bar.querySelector("[data-still=name]") || {}).textContent || null, photo: img ? img.complete && img.naturalWidth > 0 : null }
+    }
+    const phone = document.getElementById("account-trigger")
+    const trigger = shown(phone) ? phone : Array.from(document.querySelectorAll("header[data-shell-chrome] button")).find(shown)
+    const img = trigger && trigger.querySelector("[data-app-avatar] img")
+    return { still: false, name: trigger ? ((trigger.querySelector("span.truncate") || {}).textContent || null) : null, photo: img ? img.complete && img.naturalWidth > 0 && +getComputedStyle(img).opacity > 0.99 : null }
+  }
+  /* Where each piece of the bar is: the still one (once, while the screen is whole) and the real one (once, after the screen has gone). */
+  function stillGeo(scr) {
+    const bar = Array.from(scr.querySelectorAll("[data-still-bar]")).find(shown)
+    if (!bar) return null
+    const q = (k) => bar.querySelector("[data-still=" + k + "]")
+    const svg = (k) => q(k) && (q(k).tagName.toLowerCase() === "svg" ? q(k) : q(k).querySelector("svg"))
+    const g = { avatar: box(q("avatar")), name: box(q("name")), chevron: box(q("chevron")) }
+    if (bar.dataset.stillBar === "phone") Object.assign(g, { explore: box(svg("explore")), bell: box(svg("bell")) })
+    else Object.assign(g, { search: box(q("search")), compass: box(svg("compass")), bell: box(svg("bell")), settings: box(svg("settings")), logo: box(q("logo") && q("logo").querySelector("img")) })
+    return g
+  }
+  function realGeo() {
+    const phone = document.getElementById("account-trigger")
+    if (shown(phone)) {
+      const svgs = phone.querySelectorAll("svg")
+      return {
+        avatar: box(phone.querySelector("[data-app-avatar]")), name: box(phone.querySelector("span.truncate")), chevron: box(svgs[svgs.length - 1]),
+        explore: box(document.querySelector('button[aria-label="Explore"] svg')), bell: box(Array.from(document.querySelectorAll('button[aria-label="Notifications"] svg')).find(shown)),
+      }
+    }
+    const header = Array.from(document.querySelectorAll("header[data-shell-chrome]")).find(shown)
+    if (!header) return null
+    const trigger = header.querySelector("button")
+    const svgs = trigger.querySelectorAll("svg")
+    return {
+      avatar: box(trigger.querySelector("[data-app-avatar]")), name: box(trigger.querySelector("span.truncate")), chevron: box(svgs[svgs.length - 1]),
+      search: box(header.querySelector('button[aria-label="Search"]')), compass: box(header.querySelector('a[title="Discover"] svg')), bell: box(header.querySelector('button[title="Notifications"] svg')),
+      settings: box(header.querySelector('a[title="Settings"] svg')), logo: box(header.querySelector('a[href="/app"] img')),
+    }
+  }
+  let geoStill = null, geoReal = null, goneFrames = 0
   function tick() {
     const scr = document.querySelector("[data-business-switch-screen]")
     const lines = scr ? Array.from(scr.querySelectorAll("[data-switch-line]")).map((p) => { const cs = getComputedStyle(p); return { text: p.textContent, o: Math.round(+cs.opacity * 1000) / 1000, tr: cs.translate } }) : []
@@ -218,7 +271,10 @@ const RECORDER = `(() => {
     }
     const app = document.getElementById("app")
     const neu = document.querySelector('[data-probe-page="new"]')
+    if (scr && !geoStill && +getComputedStyle(scr).opacity >= 0.999) geoStill = stillGeo(scr)
+    if (!scr && neu && doc === "/app" && ++goneFrames > 3 && !geoReal) geoReal = realGeo()
     window.__probeRec({
+      bar: barOf(scr), geoStill, geoReal,
       t: performance.timeOrigin + performance.now(), doc,
       parsed: !!(app && app.firstElementChild),
       screen: scr ? Math.round(+getComputedStyle(scr).opacity * 1000) / 1000 : null,
@@ -284,7 +340,13 @@ await reader.evaluate(() => {
       if (x > x1) x1 = x
       if (y > y1) y1 = y
     }
-    return { white: white / all, ink, w: ink ? x1 - x0 : 0, h: ink ? y1 - y0 : 0, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 }
+    /* The black bar: whatever in it is not the bar's own colour (the photo, the name, the icons). An empty band has none. */
+    let barInk = 0
+    for (let y = 2; y < o.HEADER - 4; y += 2) for (let x = 2; x < o.W - 2; x += 2) {
+      const i = px(x, y)
+      if (Math.max(Math.abs(data[i] - o.BAR[0]), Math.abs(data[i + 1] - o.BAR[1]), Math.abs(data[i + 2] - o.BAR[2])) > 40) barInk++
+    }
+    return { white: white / all, ink, w: ink ? x1 - x0 : 0, h: ink ? y1 - y0 : 0, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, barInk }
   }
 })
 const kindOf = (f) => {
@@ -313,7 +375,7 @@ const ALLOWED = new Set(["opacity", "transform", "translate"])
 async function run(W, { scenario = "switch", reduced = false } = {}) {
   const phone = W < 768
   const H = phone ? 844 : 900
-  const o = { W, H, HEADER: phone ? 68 : 58, RAIL: phone ? 0 : 240 }
+  const o = { W, H, HEADER: phone ? 68 : 58, RAIL: phone ? 0 : 240, BAR: phone ? [17, 17, 17] : [19, 19, 22] }
   mode = scenario === "fail" ? "fail" : "ok"
   seen.switchBody = null
   seen.cookie = null
@@ -409,7 +471,17 @@ async function run(W, { scenario = "switch", reduced = false } = {}) {
   expect(off.length === 0, "the screen and the page move on opacity, transform and translate only", `${[...props].join(", ") || "nothing"}`)
   if (errors.length) expect(false, "no script errors", errors.slice(0, 3).join(" | "))
 
+  /* THE BAR IS NEVER AN EMPTY BAND: on every frame on the glass, from the press to the end, something is drawn in it. */
+  const BAR_MIN = 40
+  const barLow = frames.filter((f) => f.barInk < BAR_MIN)
+  const barInks = frames.map((f) => f.barInk)
+  expect(barLow.length === 0, "the black bar is never an empty band: a photo and a name are in it on every frame",
+    barLow.length ? `${barLow.length} frames under ${BAR_MIN}, first at ${ms(barLow[0].at - press)}` : `${frames.length} frames, the least ${Math.min(...barInks)} points drawn in the bar`)
+  barLow.slice(0, 2).forEach((f, i) => save(`empty-bar-${i}`, f))
+
   if (scenario === "fail") {
+    const lastBar = [...A].reverse().find((r) => r.bar)?.bar
+    expect(!!lastBar && !lastBar.still && lastBar.name === OLD_NAME, "  and once the screen has gone, the bar is the business you are still in", lastBar ? `${lastBar.still ? "still" : "real"}: ${lastBar.name}` : "-")
     const gone = A.findIndex((r, i) => i > firstUp && r.screen == null)
     const fading = A.filter((r, i) => i > firstUp && r.screen != null && r.screen < 0.96 && r.screen > 0.04 && r.t > press + SWITCH_MS)
     const last = recs[recs.length - 1]
@@ -429,7 +501,24 @@ async function run(W, { scenario = "switch", reduced = false } = {}) {
   expect(seq[0] === `Switching to ${NEW_NAME}` && seq.includes(`Opening ${NEW_NAME}'s store`), "the lines follow the steps", seq.join(" > "))
   expect(seq.every((l) => !/[\u2014\u2013]/.test(l)), "  in plain words, no dashes")
   expect(seen.switchBody?.to === NEW_ID, "the switch asked for the other business", JSON.stringify(seen.switchBody))
-  expect(seen.cookie === NEW_NAME, "the new /app was asked for with the switch's cookie", String(seen.cookie))
+  expect(seen.cookie?.name === NEW_NAME && seen.cookie?.photo === NEW_PHOTO, "the new /app was asked for with the switch's cookie: the name and the photo", JSON.stringify(seen.cookie))
+
+  /* THE BAR SAYS WHERE YOU ARE GOING, from the screen being up to the end, and where the real one will. */
+  const barWrong = after.filter((r) => r.bar && (r.bar.still || r.doc === "/app") && r.bar.name !== NEW_NAME)
+  expect(barWrong.length === 0, "from the screen being up, the bar names the business you are going to, across the reload and after it",
+    barWrong.length ? `${barWrong.length} frames, e.g. ${barWrong[0].doc} ${barWrong[0].bar.still ? "still" : "real"}: ${barWrong[0].bar.name}` : `${after.filter((r) => r.bar?.still).length} frames of the still bar`)
+  const firstStillA = A.find((r) => r.bar?.still)
+  const firstStillB = B.find((r) => r.parsed && r.bar?.still)
+  expect(firstStillA?.bar.photo === true && firstStillB?.bar.photo === true, "  its photo drawn in it on the screen's first frame and on the new document's first",
+    `old page ${firstStillA?.bar.photo}, new document ${firstStillB?.bar.photo}`)
+  const lastReal = [...B].reverse().find((r) => r.bar && !r.bar.still)
+  expect(!!lastReal && lastReal.bar.photo === true, "  and the real header under it has the same photo, drawn, when the screen goes", lastReal ? String(lastReal.bar.photo) : "-")
+  const gStill = after.find((r) => r.geoStill)?.geoStill
+  const gReal = [...after].reverse().find((r) => r.geoReal)?.geoReal
+  const drift = gStill && gReal ? Object.keys(gReal).map((k) => [k, gStill[k] && gReal[k] ? Math.max(...gReal[k].map((v, i) => Math.abs(v - gStill[k][i]))) : Infinity]) : []
+  const worst = drift.reduce((m, [, d]) => Math.max(m, d), 0)
+  expect(!!gStill && !!gReal && worst <= 1, "  every piece of the still bar where the real header puts it, within a pixel",
+    drift.length ? drift.map(([k, d]) => `${k} ${Number.isFinite(d) ? Math.round(d * 10) / 10 : "missing"}`).join(", ") : "not measured")
   const changeFrames = after.filter((r) => r.lines.length > 1 && r.lines.some((l) => partWay(l.o)))
   const lineMoves = new Set(after.flatMap((r) => r.lines.filter((l) => partWay(l.o)).map((l) => l.tr)))
   expect(changeFrames.length >= 3, "each line change is a fade through part-way frames", `${changeFrames.length} frames with a line part way`)

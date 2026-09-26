@@ -26,7 +26,7 @@ import { AppAvatar } from "@/components/app/app-avatar"
 import { AppTopCorners } from "@/components/app/app-top-corners"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { MobileAccountMenu } from "@/components/app/mobile-account-menu"
-import { AccountFilm, FILM } from "@/components/app/account-film"
+import { AccountFilm, FILM, pressHandlers, release } from "@/components/app/account-film"
 import { BusinessSwitcher, type BusinessRow } from "@/components/app/business-switcher"
 import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
 import type { NavIconPair } from "@/components/app/sidebar-desktop-nav"
@@ -514,7 +514,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           {/* Left side: Profile dropdown */}
           <div ref={headerProfileRef} className="relative shrink-0">
             <button
-              onClick={() => setHeaderProfileOpen(!headerProfileOpen)}
+              {...pressHandlers}
+              onClick={(e) => {
+                release(e)
+                setHeaderProfileOpen(!headerProfileOpen)
+              }}
               data-open={headerProfileOpen ? "" : undefined}
               className="group/acct relative isolate flex items-center gap-2.5 rounded-full px-2.5 py-1.5 [-webkit-tap-highlight-color:transparent]"
             >

@@ -10,7 +10,7 @@ import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
 import { prefetchAppPage } from "@/lib/ui/app-navigation"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import { BusinessSwitcher, SWITCHER_AVATAR, type BusinessRow } from "@/components/app/business-switcher"
-import { AccountFilm, FILM } from "@/components/app/account-film"
+import { AccountFilm, FILM, pressHandlers, release } from "@/components/app/account-film"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
 
@@ -104,8 +104,13 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
     <div className="relative flex-1 z-[60]">
       <button
         id="account-trigger"
-        onPointerDown={() => preloadAvatar(avatarSrc, sheetAvatar)}
-        onClick={() => {
+        {...pressHandlers}
+        onPointerDown={(e) => {
+          pressHandlers.onPointerDown(e)
+          preloadAvatar(avatarSrc, sheetAvatar)
+        }}
+        onClick={(e) => {
+          release(e)
           onOpening()
           setMobileProfileDropdownOpen((v) => !v)
         }}
