@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Plus } from "lucide-react"
@@ -13,6 +13,7 @@ import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, butt
 import { withReturn } from "./coupon-form"
 import { Pill, inkDepth, usePill } from "./coupon-parts"
 import { isReturning, openCoupon, peekReturn, takeReturn } from "./list-return"
+import { holdLanding } from "@/lib/ui/app-navigation"
 import { whenIdle } from "../products/list-return"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -124,7 +125,16 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
     setSeen(initialCoupons)
     setCoupons(initialCoupons)
   }
-  const [view, setView] = useState<View>(() => (isReturning() && leftAt ? leftAt : "all"))
+  /*
+    BACK TO THE LIST IS THE LIST, AS IT WAS, with no landing: the Products
+    list's reason (app/app/products/products-client.tsx), for the coupon
+    editor's way back and the browser's. A fresh visit still lands.
+  */
+  const [returning] = useState(isReturning)
+  useLayoutEffect(() => {
+    if (returning) holdLanding()
+  }, [returning])
+  const [view, setView] = useState<View>(() => (returning && leftAt ? leftAt : "all"))
   useEffect(() => {
     leftAt = view
   }, [view])

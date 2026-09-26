@@ -21,7 +21,10 @@
  * compositor (./order-motion.ts): on a phone the order slides in from the
  * right, bar and all, over a list that moves a little left and stays drawn
  * underneath; back slides it off again and the list is exactly where it
- * was, with the row it came from tinted for a moment. Wider, a quick fade.
+ * was, with the row it came from tinted for a moment. Wider, the order's
+ * cards fade in under its bar, and back takes it away at once with the list
+ * there whole, where it was: it used to settle in from half faded and 2px
+ * low, the same "bump" Emails lost (./order-motion `settle: false`).
  * Stepping to the previous or next order only fades the cards under the bar.
  *
  * The address still says which order is open (`?order=`), pushed as a real
@@ -55,6 +58,7 @@ import { DEFAULT_PRESET, RANGE_COOKIE, firstDayOf, rangeWindow, readOrdersPeriod
 import { OrdersList } from "./orders-list"
 import { ExportOrders } from "./export-dialog"
 import { markRow, moveOrder, stillOrder } from "./order-motion"
+import { holdLanding, isTraversing } from "@/lib/ui/app-navigation"
 import { hasConsent } from "@/lib/consent/client"
 import { todayIn, type CompareValue, type RangeValue } from "@/lib/date-range/range"
 import { writePeriod } from "@/lib/date-range/params"
@@ -133,6 +137,22 @@ function findOrder(orders: Order[], id: string | null): Order | null {
 
 export function OrdersClient(props: OrdersClientProps) {
   const searchParams = useSearchParams()
+
+  /*
+    BACK TO THE LIST IS THE LIST, AS IT WAS. Coming back to Orders from
+    another page by the browser's back (or forward) is a return: the stage
+    has already put the list's scroll back, the router kept the rows, and
+    the view, search, filters and page are in the address. So, as the
+    Emails list does (app/app/emails/emails-client.tsx), it asks the stage
+    for no landing (lib/ui/app-navigation holdLanding): no fade from
+    nothing, no 2px rise of the whole page. Decided on the first render,
+    while the return is still marked; a visit from the rail or the pill
+    lands as any page does. scripts/check-lists-back.mjs measures it.
+  */
+  const [returning] = React.useState(() => isTraversing())
+  React.useLayoutEffect(() => {
+    if (returning) holdLanding()
+  }, [returning])
 
   /* ── Data ─────────────────────────────────────────────────────────────── */
   const [rows, setRows] = React.useState(props.rows)
@@ -349,7 +369,8 @@ export function OrdersClient(props: OrdersClientProps) {
       setLeavingId(null)
       return
     }
-    moveOrder("pop", detail, list, () => setLeavingId(null))
+    /* Back shows the list at once, whole, where it was: no settling in (order-motion, `settle`). */
+    moveOrder("pop", detail, list, () => setLeavingId(null), { settle: false })
   }, [shownId])
 
   /* An address naming an order that is not this creator's, or not there. */

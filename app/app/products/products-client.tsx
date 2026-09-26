@@ -15,6 +15,7 @@ import { accentDepth } from "@/components/ui/depth-button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import { isReturning, listShown, openEditor, takeEdited, warmEditor, whenIdle } from "./list-return"
+import { holdLanding } from "@/lib/ui/app-navigation"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { playList, shootList, type ListShot } from "./list-motion"
@@ -407,7 +408,24 @@ function compare(sort: Sort) {
 export function ProductsClient({ products: initialProducts, creatorUsername }: ProductsClientProps) {
   const { t } = useLanguage()
   const [products, setProducts] = useState<Product[]>(initialProducts)
-  const [resumed] = useState(() => (isReturning() ? leftAt : null))
+  /*
+    BACK TO THE LIST IS THE LIST, AS IT WAS. From 768px the editor is a page
+    in the shell, not a layer (components/app/page-layer), so the way back
+    from it, the editor's Back as much as the browser's, was a new page to
+    the stage, which played its landing: every box of the list faded in from
+    nothing and rose 2px, the "bump" Emails and Orders lost. A return comes
+    back as it was left (the view, order, search and page below, the scroll
+    the stage puts back, the rows the router kept), so it asks the stage for
+    no landing (lib/ui/app-navigation holdLanding). On a phone the editor's
+    own Back slides it off as a layer, which lands nothing either; the
+    browser's back there did land, and no longer does. A fresh visit still
+    lands. scripts/check-lists-back.mjs measures it.
+  */
+  const [returning] = useState(isReturning)
+  useLayoutEffect(() => {
+    if (returning) holdLanding()
+  }, [returning])
+  const [resumed] = useState(() => (returning ? leftAt : null))
   const [view, setView] = useState<View>(resumed?.view ?? "all")
   const [sort, setSort] = useState<Sort>(resumed?.sort ?? "newest")
   const [page, setPage] = useState(resumed?.page ?? 1)
