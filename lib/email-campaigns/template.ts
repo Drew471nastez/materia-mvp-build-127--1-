@@ -17,9 +17,12 @@
  *   styles       every one inline. The <style> block only adds dark mode
  *                and the phone padding, where it is read.
  *   dark mode    `color-scheme: light dark` and a dark palette for Apple Mail
- *                and Outlook.com ([data-ogsc]); a logo sits on a white plate
- *                there, so a dark logo on a transparent picture stays seen.
- *                Buttons keep their fill in both.
+ *                and Outlook.com ([data-ogsc]). Buttons keep their fill in
+ *                both. The logo is drawn as it was uploaded, in both: no
+ *                border, no padding, no plate behind it. It used to sit on a
+ *                white plate in dark mode, which read as a white frame round
+ *                the logo in the preview and in a dark inbox ("I don't know
+ *                why there's a white border applied to the logo").
  *   preheader    the line after the subject in the inbox, hidden in the
  *                body, followed by spacers so the inbox does not fill the
  *                rest of the line with the first words of the email.
@@ -95,7 +98,6 @@ const DARK = `
 .sl-body hr,.sl-rule{border-color:#34343c!important;}
 .sl-product{border-color:#34343c!important;}
 .sl-foot,.sl-foot a{color:#a1a1aa!important;}
-.sl-logo{background-color:#ffffff!important;border-radius:6px!important;padding:4px 6px!important;}
 .sl-btn{border:1px solid #7a7a85!important;}
 }
 [data-ogsc] .sl-body p,[data-ogsc] .sl-body li,[data-ogsc] .sl-body ul,[data-ogsc] .sl-body ol,[data-ogsc] .sl-body blockquote{color:#e4e4e7!important;}
