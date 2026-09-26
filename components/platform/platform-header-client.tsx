@@ -1928,23 +1928,26 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             heading="Browse categories"
             rootTop={
               <>
-              <div className="px-4 pt-1">
+              <div className="px-4 pt-3">
                 {/*
                   THE BUTTONS THE MENU HAD BEFORE THE CATEGORY LIST CHANGED,
                   asked back: full width and stacked, violet Sign in over the
                   near black Discover, each with its icon, the same pair the
-                  marketing pages' menu shows above.
+                  marketing pages' menu shows above. "A bit more space between
+                  the drag pill and the buttons" (pt-3, 16px under the pill
+                  where it was 8px), and labels at 550: at 500 they read slim
+                  in white on a dark fill.
                 */}
                 {!user && (
                   <div className="mb-2">
                     <Link href="/login" onClick={(e) => { onCanonicalNav(e, "/login"); setMobileMenuOpen(false) }} className="block mb-2">
-                      <Button className="w-full h-[42px] rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
+                      <Button data-menu-sign-in="" className="w-full h-[42px] rounded-lg text-sm font-[550] bg-violet-600 text-white hover:bg-violet-700 gap-2">
                         <LogIn className="h-4 w-4" />
                         Sign in
                       </Button>
                     </Link>
                     <Link href="/explore" onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }} className="block">
-                      <Button className="w-full h-[42px] rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
+                      <Button data-menu-discover="" className="w-full h-[42px] rounded-lg text-sm font-[550] bg-gray-900 text-white hover:bg-gray-800 gap-2">
                         <Compass className="h-4 w-4" />
                         Discover
                       </Button>

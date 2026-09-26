@@ -165,6 +165,15 @@ console.log("\n  phone 390")
   expect(s && s.rowH >= 47 && s.rowH <= 50 && s.lucide <= 1, "48px plain rows", s && { rowH: s.rowH, lucide: s.lucide })
   expect(s && s.signIn && s.library, "sign in and My Library are still in it", s && { signIn: s.signIn, library: s.library })
   expect(s && s.libraryUnderButtons, "My Library sits under Sign in and Discover, above the categories", s?.libraryUnderButtons)
+  /* "A bit more space between the drag pill and the buttons", and their labels at 550, not 500. */
+  const top = await p.evaluate(() => {
+    const pill = document.querySelector("[data-app-sheet] [data-sheet-handle] > div").getBoundingClientRect()
+    const signIn = document.querySelector("[data-app-sheet] [data-menu-sign-in]")
+    const discover = document.querySelector("[data-app-sheet] [data-menu-discover]")
+    return { gap: Math.round(signIn.getBoundingClientRect().top - pill.bottom), signIn: getComputedStyle(signIn).fontWeight, discover: getComputedStyle(discover).fontWeight }
+  })
+  expect(top.gap >= 14 && top.gap <= 20, "16px or so between the drag pill and Sign in", top.gap)
+  expect(top.signIn === "550" && top.discover === "550", "Sign in and Discover are labelled at 550", top)
   await p.evaluate(() => {
     window.__slide = []
     const sub = document.querySelector("[data-app-sheet] [data-browse-level=sub]")
