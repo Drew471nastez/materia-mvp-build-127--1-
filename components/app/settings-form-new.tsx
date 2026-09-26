@@ -3,7 +3,7 @@
 import { announceChange } from "@/lib/seo/announce-client"
 import type React from "react"
 import { BottomSheet, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { nativeLogOut } from "@/lib/native-bridge"
@@ -343,6 +343,12 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const tabNavRef = useRef<HTMLDivElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const activeTabRef = useRef<HTMLButtonElement>(null)
+  /* The outline that slides from one tab to the next (see the layout effect by the tab bar's auto scroll). */
+  const tabRingRef = useRef<HTMLSpanElement>(null)
+  const [tabRingOn, setTabRingOn] = useState(false)
+  /* A tab was pressed, not opened by the address on load: only then do the outline and the new panel move. */
+  const tabPressedRef = useRef(false)
+  const [panelEntrance, setPanelEntrance] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [showSaveToast, setShowSaveToast] = useState(false)
@@ -721,6 +727,58 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     }
   }, [activeTab])
 
+  /*
+    THE SELECTED TAB'S OUTLINE SLIDES TO THE NEXT ONE.
+    One outline over the whole bar, placed on the selected tab by measuring
+    it, instead of a border on each tab that went out on one and came on at
+    another. On a press it moves there in 200ms on transform alone: it is
+    drawn at its new place and width, and starts from the old one by a
+    translate and a scaleX that end at none, so it rests at scale 1 and its
+    round ends are never stretched. A press during the slide starts from
+    where the outline is on screen, not where it was going.
+
+    The tab's own border stays until the outline is placed, before the first
+    paint, so there is never a frame with no selection. A change in the tab's
+    size (Inter arriving after the fallback) moves it without a slide, and so
+    does a tab opened by the address on load. Nothing slides when the system
+    asks for less motion.
+  */
+  useLayoutEffect(() => {
+    const ring = tabRingRef.current
+    const tab = activeTabRef.current
+    if (!ring || !tab) return
+    const place = (slide: boolean) => {
+      const x = tab.offsetLeft
+      const w = tab.offsetWidth
+      let from: { x: number; w: number } | null = null
+      if (slide && ring.style.width && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const at = ring.getBoundingClientRect()
+        const bar = (ring.offsetParent as HTMLElement | null)?.getBoundingClientRect()
+        if (bar && at.width > 0) from = { x: at.left - bar.left, w: at.width }
+      }
+      ring.getAnimations().forEach((a) => a.cancel())
+      ring.style.top = `${tab.offsetTop}px`
+      ring.style.height = `${tab.offsetHeight}px`
+      ring.style.width = `${w}px`
+      ring.style.transform = `translateX(${x}px)`
+      if (from && (Math.abs(from.x - x) > 0.5 || Math.abs(from.w - w) > 0.5)) {
+        ring.animate(
+          [{ transform: `translateX(${from.x}px) scaleX(${from.w / w})` }, { transform: `translateX(${x}px)` }],
+          { duration: 200, easing: "cubic-bezier(0.33, 1, 0.68, 1)" },
+        )
+      }
+    }
+    place(tabPressedRef.current)
+    tabPressedRef.current = false
+    setTabRingOn(true)
+    /* Its first report is the size just placed; only a real change re-places it, so it never cuts the slide short. */
+    const resized = new ResizeObserver(() => {
+      if (ring.style.width !== `${tab.offsetWidth}px` || ring.style.height !== `${tab.offsetHeight}px`) place(false)
+    })
+    resized.observe(tab)
+    return () => resized.disconnect()
+  }, [activeTab])
+
   // fetchDomains moved above the URL params useEffect to avoid TDZ
 
   // Tab change with skeleton loading animation
@@ -765,6 +823,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       const formTop = form.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
       form.style.minHeight = `${Math.max(0, Math.ceil(scroller.scrollTop + scroller.clientHeight - formTop))}px`
     }
+    /* The outline slides and the new panel fades in, for a press only (not on load, not on a re-render). */
+    tabPressedRef.current = true
+    setPanelEntrance(true)
     setActiveTab(newTab)
     if (newTab === "domains") fetchDomains()
     // Persist tab in URL so refresh stays on the same tab
@@ -1186,7 +1247,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
         {/* Pill-shaped Tab Navigation - Hidden scrollbar, fixed height to prevent layout shift */}
         <div ref={tabNavRef} data-settings-tabs="" className="mb-6 sm:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <div className="flex gap-1 p-1 w-fit h-[44px] sm:h-[48px] items-center">
+          <div className="relative flex gap-1 p-1 w-fit h-[44px] sm:h-[48px] items-center">
             {TABS.map((tab) => {
               const Icon = tab.icon
               const tabLabel = tab.id === "general" ? t("settings.general") :
@@ -1200,9 +1261,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   key={tab.id}
                   ref={activeTab === tab.id ? activeTabRef : undefined}
                   onClick={() => handleTabChange(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-colors whitespace-nowrap cursor-pointer border ${
+                  className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-colors duration-200 whitespace-nowrap cursor-pointer border ${
                     activeTab === tab.id
-                      ? "bg-[#f3f4f6] text-[#1a1a2e] border-[#d1d5db]"
+                      ? `bg-[#f3f4f6] text-[#1a1a2e] ${tabRingOn ? "border-transparent" : "border-[#d1d5db]"}`
                       : "bg-[#f9fafb] text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] border-transparent"
                   }`}
                 >
@@ -1211,6 +1272,13 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 </button>
               )
             })}
+            {/* The selected tab's outline, over the tabs and never in the way of a press. */}
+            <span
+              ref={tabRingRef}
+              aria-hidden
+              data-settings-tab-ring=""
+              className={`pointer-events-none absolute left-0 top-0 origin-left rounded-full border border-[#d1d5db] ${tabRingOn ? "" : "invisible"}`}
+            />
           </div>
         </div>
 
@@ -1222,11 +1290,12 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
             nodes. Without the key nothing is ever new, so nothing can
             animate, and the content changes under you in a single frame.
 
-            120ms, opacity and a 4px rise. Short because this is a tab, not
-            a page: anything long enough to admire is long enough to be in
-            the way the fourth time you use it.
+            The fade (app/globals.css, .settings-panel) is only put on once a
+            tab has been pressed, so the page's first paint and a tab opened
+            by the address on load are simply there, and a re-render never
+            replays it: the key, and so the element, only changes with the tab.
           */}
-          <div key={activeTab} data-settings-panel={activeTab} className="settings-panel">
+          <div key={activeTab} data-settings-panel={activeTab} className={panelEntrance ? "settings-panel" : undefined}>
           {/*
             NO SKELETON BETWEEN TABS.
             There used to be one here: forty-five lines of shimmering grey
@@ -1387,7 +1456,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 </div>
                 <div className="mt-5">
                   <p className="mb-2 text-[13px] font-medium text-[#374151]">Your addresses</p>
-                  <AddressList username={username} website={website} />
+                  <AddressList username={username} website={website} websiteDomain={websiteDomain} />
                 </div>
               </div>
 
@@ -1573,7 +1642,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   </a>
                   <button
                     type="button"
-                    onClick={() => { setActiveTab("domains" as TabId); window.scrollTo({ top: 0, behavior: "smooth" }) }}
+                    onClick={() => { handleTabChange("domains"); window.scrollTo({ top: 0, behavior: "smooth" }) }}
                     className="w-full flex items-center justify-between p-4 hover:bg-[#f9fafb] transition-colors cursor-pointer border-b border-[#e5e7eb]"
                   >
                     <div className="flex items-center gap-3">

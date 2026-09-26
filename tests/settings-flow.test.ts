@@ -79,8 +79,22 @@ check(
 )
 check(
   "the panel is keyed on the tab, so one replaces another instead of being edited into it",
-  /<div key=\{activeTab\} data-settings-panel=\{activeTab\} className="settings-panel">/.test(settings),
+  /<div key=\{activeTab\} data-settings-panel=\{activeTab\} className=\{panelEntrance \? "settings-panel" : undefined\}>/.test(settings),
 )
+{
+  /* The fade is put on by a press and nothing else: not the first paint, not ?tab= on load, not a re-render. */
+  const handler = settings.slice(settings.indexOf("const handleTabChange = (newTab: TabId) => {"), settings.indexOf("const handleSubmit = async"))
+  check(
+    "the fade comes on with a press of a tab, and only then",
+    /useState\(false\)/.test(settings.slice(settings.indexOf("const [panelEntrance, setPanelEntrance]"), settings.indexOf("const [panelEntrance, setPanelEntrance]") + 80)) &&
+      (settings.match(/setPanelEntrance\(true\)/g) ?? []).length === 1 &&
+      /setPanelEntrance\(true\)/.test(handler),
+  )
+  check(
+    "the General tab's Custom Domain row switches tab the same way, so it fades too",
+    /onClick=\{\(\) => \{ handleTabChange\("domains"\);/.test(settings) && !/setActiveTab\("domains" as TabId\)/.test(settings),
+  )
+}
 
 {
   const swap = css.slice(css.indexOf(".settings-panel {"), css.indexOf(".settings-panel {") + 420)
@@ -89,7 +103,15 @@ check(
      never from nothing, so no frame is empty under the tabs. */
   check(
     "it settles in tone only: no rise, no frame with nothing under the tabs",
-    /from \{ opacity: 0\.4; \}/.test(swap) && !/translate|transform|height|width|background/.test(swap),
+    /from \{ opacity: 0\.2; \}/.test(swap) && !/translate|transform|height|width|background/.test(swap),
+  )
+  /* "Not that direct": 140ms from 0.4 was over before it was seen. */
+  check(
+    "long enough to be seen as a fade, on an ease out",
+    (() => {
+      const m = swap.match(/animation: settings-panel-in (\d+)ms cubic-bezier\(0\.33, 1, 0\.68, 1\) backwards/)
+      return m !== null && Number(m[1]) >= 180
+    })(),
   )
   check(
     "a switch keeps the scroll, so the tab bar does not jump under the finger",
@@ -104,10 +126,30 @@ check(
     "and it is short enough to switch through repeatedly",
     (() => {
       const m = swap.match(/animation: settings-panel-in (\d+)ms/)
-      return m !== null && Number(m[1]) <= 160
+      return m !== null && Number(m[1]) <= 220
     })(),
   )
-  check("off where motion is not wanted", /prefers-reduced-motion: reduce\)[\s\S]{0,120}settings-panel/.test(css))
+  check("off where motion is not wanted", /prefers-reduced-motion: reduce\)\s*\{\s*\.settings-panel \{ animation: none; \}/.test(css))
+}
+
+{
+  /* The selected tab's outline slides between tabs, on transform alone, and stays put when motion is not wanted. */
+  const slide = settings.slice(settings.indexOf("useLayoutEffect(() => {\n    const ring = tabRingRef.current"), settings.indexOf("}, [activeTab])", settings.indexOf("const ring = tabRingRef.current")))
+  check(
+    "the tab outline slides on transform only, 200ms",
+    /ring\.animate\(\s*\[\{ transform: `translateX\(\$\{from\.x\}px\) scaleX\(\$\{from\.w \/ w\}\)` \}, \{ transform: `translateX\(\$\{x\}px\)` \}\],\s*\{ duration: 200, easing: "cubic-bezier\(0\.33, 1, 0\.68, 1\)" \},?\s*\)/.test(slide) &&
+      !/ring\.animate\([\s\S]*(width|left|height):/.test(slide),
+  )
+  check(
+    "it slides only after a press, and never when less motion is asked for",
+    /place\(tabPressedRef\.current\)/.test(slide) &&
+      /slide && ring\.style\.width && !window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches/.test(slide) &&
+      /tabPressedRef\.current = true/.test(settings.slice(settings.indexOf("const handleTabChange"), settings.indexOf("const handleSubmit = async"))),
+  )
+  check(
+    "the tab keeps its own border until the outline is placed, so no frame is without a selection",
+    /tabRingOn \? "border-transparent" : "border-\[#d1d5db\]"/.test(settings) && /data-settings-tab-ring=""/.test(settings),
+  )
 }
 
 // ---------------------------------------------------------------------------

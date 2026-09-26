@@ -1099,25 +1099,34 @@ html.capacitor body {
    * in the browser. A fake loading state makes a change of tab look slower
    * AND cheaper than simply doing it.
    *
-   * 140ms, opacity only. Short because this is a tab, not a page — long
-   * enough to read as one thing replacing another, short enough that the
-   * fourth switch in a row does not make you wait for it.
+   * Opacity only, short because this is a tab, not a page: long enough to
+   * read as one thing replacing another, short enough that the fourth
+   * switch in a row does not make you wait for it.
    */
 
   /*
-    THE BUMP WAS THIS RULE. The panel used to rise 4px as it faded in, and
+    THE BUMP WAS A RISE. The panel used to rise 4px as it faded in, and
     scripts/check-settings-tabs measured exactly that on every switch at 390
     and 1440: the new tab's first card drawn 4px low and then moving up. A
     content switch under a tab bar that does not move is read as the page
-    jolting, not as an entrance. Opacity only now, and from 0.4 rather than
-    0, so there is never a frame with nothing under the tabs: the new tab is
-    there at once, in its final place, and only settles in tone.
+    jolting, not as an entrance. So it does not move: the new tab is there
+    at once, in its final place, and only settles in tone.
+
+    TOO DIRECT AT 140ms FROM 0.4. "Make it a little bit smooth when I switch
+    and content appears, not that direct." From 0.4 over 140ms on a curve
+    that is done in the first 60ms, the change was over before it was seen.
+    Now 200ms from 0.2 on an ease out (easeOutCubic): half way by 40ms, 90%
+    by 100ms, so it is visible as a fade and still over well inside the
+    time it takes to look down at the panel. 0.2, not 0, so no frame is
+    empty under the tabs. The old panel goes at once, with no fade out, and
+    the class is only put on after a tab is pressed (components/app/
+    settings-form-new), so the first paint does not fade.
   */
   .settings-panel {
-    animation: settings-panel-in 140ms cubic-bezier(0.2, 0, 0, 1) backwards;
+    animation: settings-panel-in 200ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
   }
   @keyframes settings-panel-in {
-    from { opacity: 0.4; }
+    from { opacity: 0.2; }
     to { opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) {

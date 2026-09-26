@@ -206,6 +206,38 @@ console.log("\n7. No Stores tab")
   check("the billing page's copy of the tabs has none either", !/"stores"/.test(readCode("components/app/billing/billing-page-client.tsx")))
 }
 
+/*
+  "On mobile there's too much text, that one text shrinks the rest." The
+  Website row carried "Published: Luca Dragoste. A custom domain is set in its
+  Domains." and four controls, so at 390 its text had a third of the row and
+  ran seven lines. Measured by scripts/check-settings-addresses.mjs.
+*/
+console.log("\n8. Your addresses: a name, an address, three controls")
+{
+  const list = readCode("components/app/settings/addresses.tsx")
+  check("no row explains itself", !/Published:|custom domain is set|Its own address|until you give it|note=/.test(list))
+  check("the Website row shows its connected domain, else its storelib address", /return domain \? \{ display: domain, url: `https:\/\/\$\{domain\}` \} : \{ display: getWebsiteUrlDisplay\(siteName\), url: getWebsiteUrl\(siteName\) \}/.test(list))
+  check("and General hands it the domain the share pill uses", /<AddressList username=\{username\} website=\{website\} websiteDomain=\{websiteDomain\} \/>/.test(form))
+  check(
+    "on a phone the address has the whole line under the name, cut only at its end",
+    /data-address-display=""[\s\S]{0,200}"col-span-2 row-start-2 truncate text-\[13px\] leading-5 sm:col-span-1"/.test(list) &&
+      /grid grid-cols-\[minmax\(0,1fr\)_auto\]/.test(list),
+  )
+  check("every row has Copy and Open", (list.match(/aria-label=\{`Copy the \$\{label\.toLowerCase\(\)\} address`\}/g) ?? []).length === 1 && /aria-label=\{`Open the \$\{label\.toLowerCase\(\)\}`\}/.test(list))
+  check(
+    "the Website's third control is Edit, a menu of where it went before and the editor",
+    /data-address-menu=""/.test(list) &&
+      ["{ label: \"Edit website\", href: editor }", "href: `${editor}?settings=domains`", "href: `${editor}?settings=seo`", "href: `${editor}?settings=general`"].every((s) => list.includes(s)) &&
+      /<ResponsiveActionMenu/.test(list),
+  )
+  check("the creator page and OnePage still edit where they did", /href="\/creator-page"/.test(list) && /href="\/app\/onepage"/.test(list) && /href="\/app\/website-builder"/.test(list))
+  check(
+    "44px targets on a phone, 32px on a computer, and Edit never wraps",
+    /"inline-flex h-11 w-11 shrink-0[^"]*sm:h-8 sm:w-8"/.test(list) && /"inline-flex h-11 min-w-\[60px\] shrink-0[^"]*whitespace-nowrap[^"]*sm:h-8/.test(list),
+  )
+  check("no box inside the card: rows and hairlines", /data-address-list="" className="divide-y divide-\[#f0f1f3\] border-t border-\[#f0f1f3\]"/.test(list) && !/rounded-xl border border-\[#eceef1\]/.test(list))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
