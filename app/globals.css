@@ -3713,39 +3713,80 @@ html.capacitor.has-page-layer {
   }
 }
 
-/* ── A layer comes and goes (moveLayer, components/app/page-layer.tsx) ─────
-   A view transition: ::view-transition-old(root) is a picture of the screen
-   as it was, ::view-transition-new(root) the live page after the router's
-   commit. Only the layer moves; the page under it holds still and is drawn
-   the whole time, so no frame is ever empty.
+/* ── A layer rises and drops (components/app/page-layer.tsx) ──────────────
+   A view transition each way: React's at the commit coming in, one of the
+   layer's own around the navigation going back. The layer is its own
+   picture, named page-layer; everything else is root.
 
-   On a phone the layer slides in from the right edge and back out to it,
-   with a soft shade along its leading edge, over the list. From 768px the
-   editor is a page in the shell and moveLayer plays no move there (it would
-   take the header and the rail with it); the fade with a 12px rise below is
-   what any wider window that does get a move shows. Duration and curve are
-   custom properties set by the script from one pair of numbers
-   (LAYER_MOTION_MS, LAYER_MOTION_EASE).
+   Coming in, the layer rises from the bottom edge over a picture of the page
+   it was opened from, which holds still: that picture is
+   ::view-transition-old(root), and the new root (the shell with the layer
+   taken out of it, nothing to see) is not shown. Going back, the layer's last
+   picture drops to the bottom edge over the page it went to, and the old
+   root is not shown. So every frame has a page in it, and the /app header,
+   part of root, is only ever under the layer.
+
+   Transform alone, on the compositor, on the iOS sheet curve. The times and
+   the curve are custom properties set by the script from one set of numbers
+   (LAYER_MOTION_MS, LAYER_LEAVE_MS, LAYER_MOTION_EASE). Nothing else in the
+   app starts a view transition, so root is never faded: a transition that
+   moves no layer (a wide window, reduced motion, one layer for another, a
+   layer at a new address) swaps in one frame.
 
    The navigation pill has a name of its own while a layer moves, so it is
    taken out of the page's picture and stays put over both. */
-@keyframes layer-slide-in {
-  from { transform: translateX(100%); }
+@keyframes layer-rise {
+  from { transform: translateY(100%); }
 }
-@keyframes layer-slide-out {
-  to { transform: translateX(100%); }
+@keyframes layer-drop {
+  to { transform: translateY(100%); }
 }
-@keyframes layer-rise-in {
-  from { opacity: 0; transform: translateY(12px); }
+::view-transition-old(root),
+::view-transition-new(root),
+::view-transition-old(page-layer),
+::view-transition-new(page-layer) {
+  animation: none;
+  /* The browser adds two pictures together (plus-lighter) for its own
+     crossfade; a page over another must cover it instead. */
+  mix-blend-mode: normal;
 }
-@keyframes layer-sink-out {
-  to { opacity: 0; transform: translateY(12px); }
+/* No group morphs either: the screen and the layer keep their boxes. The
+   root's group would otherwise run the browser's 250ms default and hold the
+   page behind its picture, taking no presses, for nothing. */
+::view-transition-group(root),
+::view-transition-group(page-layer) {
+  animation: none;
+}
+/* React names the layer itself for its own transition; the way back of our
+   own (dropLayer) names it here, from before its picture is taken. */
+html[data-layer-motion] [data-page-layer] {
+  view-transition-name: page-layer;
+}
+html[data-layer-motion="enter"]::view-transition-new(root) {
+  opacity: 0;
+}
+html[data-layer-motion="enter"]::view-transition-new(page-layer) {
+  animation: layer-rise var(--layer-motion-ms, 360ms) var(--layer-motion-ease, ease-out) both;
+  box-shadow: 0 -10px 30px -12px rgba(17, 24, 39, 0.22);
+}
+html[data-layer-motion="leave"]::view-transition-old(root) {
+  opacity: 0;
+}
+html[data-layer-motion="leave"]::view-transition-old(page-layer) {
+  animation: layer-drop var(--layer-leave-ms, 300ms) var(--layer-motion-ease, ease-out) both;
+  box-shadow: 0 -10px 30px -12px rgba(17, 24, 39, 0.22);
 }
 html[data-layer-motion] [data-app-nav-pill] {
   view-transition-name: app-nav-pill;
 }
 html[data-layer-motion]::view-transition-group(app-nav-pill) {
   animation: none;
+}
+/* A layer drawn without the pill (the plans page) moves over it: the pill
+   comes into view as it drops away, rather than over it. A layer with the
+   pill keeps it on top, where the order of the pictures already puts it. */
+html[data-layer-motion]:not([data-layer-pill])::view-transition-group(page-layer) {
+  z-index: 1;
 }
 html[data-layer-motion]::view-transition-old(app-nav-pill) {
   animation: none;
@@ -3754,40 +3795,55 @@ html[data-layer-motion]::view-transition-old(app-nav-pill) {
 html[data-layer-motion]::view-transition-new(app-nav-pill) {
   animation: none;
 }
-/* The browser adds the two pictures together (plus-lighter) for its own
-   crossfade; a page moving over another must cover it instead. */
-html[data-layer-motion]::view-transition-old(root),
-html[data-layer-motion]::view-transition-new(root) {
-  mix-blend-mode: normal;
-}
-html[data-layer-motion="enter"]::view-transition-old(root) {
-  animation: none;
-}
-html[data-layer-motion="enter"]::view-transition-new(root) {
-  animation: layer-rise-in var(--layer-motion-ms, 300ms) var(--layer-motion-ease, ease-out) both;
-}
-html[data-layer-motion="leave"]::view-transition-new(root) {
-  animation: none;
-}
-html[data-layer-motion="leave"]::view-transition-old(root) {
-  z-index: 1;
-  animation: layer-sink-out var(--layer-motion-ms, 300ms) var(--layer-motion-ease, ease-out) both;
-}
-@media (max-width: 767px) {
-  html[data-layer-motion="enter"]::view-transition-new(root) {
-    animation-name: layer-slide-in;
-    box-shadow: -8px 0 24px rgba(17, 24, 39, 0.12);
-  }
-  html[data-layer-motion="leave"]::view-transition-old(root) {
-    animation-name: layer-slide-out;
-    box-shadow: -8px 0 24px rgba(17, 24, 39, 0.12);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
-  html[data-layer-motion]::view-transition-old(root),
-  html[data-layer-motion]::view-transition-new(root) {
+  html[data-layer-motion]::view-transition-new(page-layer),
+  html[data-layer-motion]::view-transition-old(page-layer) {
     animation: none;
   }
+}
+
+/* ── The press that opens or leaves a layer (page-layer.tsx holdPress) ─────
+   Dimmed on the next frame, the way an iOS bar button is under a finger; a
+   row takes the list's pressed grey instead. Past LAYER_PRESS_WAIT_MS the
+   spinner takes the place of what the control shows, fading in over 120ms. */
+[data-layer-press=""] > :not([data-layer-press-spinner]) {
+  opacity: 0.4;
+  transition: none;
+}
+[data-layer-press="wait"] > :not([data-layer-press-spinner]) {
+  opacity: 0;
+  transition: none;
+}
+[data-layer-press="wait"] {
+  color: transparent;
+}
+[data-layer-press^="row"],
+tr[data-layer-press^="row"] > td {
+  background-color: #eef0f2;
+}
+[data-layer-press-spinner] {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  pointer-events: none;
+  animation: press-spinner-in 120ms ease-out both;
+}
+[data-layer-press="row-wait"] > [data-layer-press-spinner] {
+  justify-content: flex-end;
+  padding-right: 16px;
+}
+@keyframes press-spinner-in {
+  from { opacity: 0; }
+}
+/* The same answer drawn by a control itself (the product editor's Cancel and
+   back arrow): its content at 0.4 from the press, gone from 100ms, with
+   press-spinner-in on the spinner over the same 100ms delay. */
+@keyframes press-content-out {
+  from { opacity: 0.4; }
+  to { opacity: 0; }
 }
 
 html.capacitor.cp-fullscreen {

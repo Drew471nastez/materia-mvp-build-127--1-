@@ -308,7 +308,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
       >
         <h1 className="sr-only">{isEdit ? `Edit coupon ${title}` : "New coupon"}</h1>
         <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 px-4 sm:h-16 sm:px-6">
-          <LeaveButton mode={leaveMode} disabled={busy} onLeave={() => void leave()} />
+          <LeaveButton mode={leaveMode} disabled={busy} asks={dirty} label="Going back to coupons" onLeave={() => void leave()} />
           <CouponSaveButton saving={saving} disabled={!canSave} onSave={() => void save()} />
         </div>
       </div>
@@ -706,7 +706,7 @@ export function CouponEditor({ products, initialCoupon }: { products: CouponProd
             <span className={cn("truncate", saveState === "unsaved" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{stateLine}</span>
           </p>
           <div className="flex shrink-0 items-center gap-2">
-            <LeaveButton mode={leaveMode} disabled={busy} onLeave={() => void leave()} />
+            <LeaveButton mode={leaveMode} disabled={busy} asks={dirty} label="Going back to coupons" onLeave={() => void leave()} />
             <CouponSaveButton saving={saving} disabled={!canSave} onSave={() => void save()} />
           </div>
         </div>

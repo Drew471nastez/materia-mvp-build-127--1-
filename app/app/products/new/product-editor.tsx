@@ -1,7 +1,7 @@
 "use client"
 
 import { announceChange } from "@/lib/seo/announce-client"
-import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo } from "react"
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo, startTransition } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { getProductShareUrl } from "@/lib/url-helpers"
@@ -9,7 +9,6 @@ import { isNativeApp } from "@/lib/platform-utils"
 import { hapticTap, openExternal } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -54,7 +53,7 @@ import {
   type ProductVariant,
   type UploadedFile,
 } from "./editor-form"
-import { LeaveButton, SAVED_CHECK_MS, SaveButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
+import { LeaveButton, PRESS_CONTENT_OUT, PRESS_SPINNER_IN, SAVED_CHECK_MS, SaveButton, barIconButton, secondaryDepth, type SavePhase } from "./editor-buttons"
 import { StatusBadge, iconButton } from "../../orders/order-parts"
 import { PRODUCTS_HREF, returnToProducts, useListOrigin, warmProducts } from "../list-return"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
@@ -391,8 +390,22 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
   const [compareAtPrice, setCompareAtPrice] = useState(initial.compareAtPrice)
   /* The compare-at field shows when there is one, or once its chip is pressed. */
   const [compareOpen, setCompareOpen] = useState(() => !!initial.compareAtPrice)
-  /* The search engine listing's fields, opened from its card's pencil. */
+  /* The search engine listing's fields, folded open under its card by the pencil. */
   const [seoOpen, setSeoOpen] = useState(false)
+  const seoFieldsRef = useRef<HTMLDivElement>(null)
+  /* Opened at the foot of the page: once the fields have their height, the card's foot is brought into view, smoothly, and only as far as it needs. */
+  const showSeoCard = (smooth: boolean) =>
+    seoFieldsRef.current?.closest<HTMLElement>("[data-seo-card]")?.scrollIntoView({ block: "nearest", behavior: smooth ? "smooth" : "auto" })
+  const toggleSeo = () => {
+    const opening = !seoOpen
+    setSeoOpen(opening)
+    /* No transition to wait for under reduced motion: the fields are there on the next frame. */
+    if (opening && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) requestAnimationFrame(() => showSeoCard(false))
+  }
+  const onSeoOpened = (e: React.TransitionEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget || e.propertyName !== "grid-template-rows" || !seoOpen) return
+    showSeoCard(true)
+  }
   const compareRef = useRef<HTMLInputElement>(null)
   const [slug, setSlug] = useState(initial.slug)
   const [productType] = useState<"digital" | "course">(initial.productType)
@@ -1369,7 +1382,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     product is saved and nothing has changed since. With unsaved changes it
     asks first, as a sheet on a phone: Discard goes, Keep editing stays.
     Saving is the bar's Save, so the question does not offer a third way
-    out. Either way the editor slides off over the list, which is already
+    out. Either way the editor drops away over the list, which is already
     drawn underneath, at the scroll it was left at: back in history when the
     list opened this editor, in place of it otherwise (../list-return).
   */
@@ -1378,16 +1391,22 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     THE PRESS IS ANSWERED ON ITS OWN FRAME. The list comes back from the
     server (the page reads the account and every product), which on a slow
     line took seconds with nothing on the screen saying the press had
-    landed. Now the button turns into a spinner at once, the app's loading
-    bar is told, and a second press does nothing. On a phone the move waits
-    one painted frame first, so the spinner is what the view transition
-    holds while the list is on its way, not the button as it was.
+    landed. Now the button dims at once and turns into a spinner if the list
+    is not here a tenth of a second later (LeaveButton), the app's loading
+    bar is told, and a second press does nothing. The editor stays live
+    while the list is on its way, so the spinner turns, and the editor drops
+    away the moment the list is ready (components/app/page-layer).
   */
   const [leaving, setLeaving] = useState(false)
+  /* The lock, at once: `leaving` is drawn as a transition, a frame or more after the press. */
+  const leavingRef = useRef(false)
   useEffect(() => {
     if (!leaving) return
     /* Still here after all: shown again from the browser's back cache, or a navigation that never happened. The editor comes back to life. */
-    const reset = () => setLeaving(false)
+    const reset = () => {
+      leavingRef.current = false
+      setLeaving(false)
+    }
     const t = window.setTimeout(reset, 10_000)
     window.addEventListener("pageshow", reset)
     return () => {
@@ -1396,7 +1415,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     }
   }, [leaving])
   const handleCancel = async () => {
-    if (leaving) return
+    if (leaving || leavingRef.current) return
     if (hasUnsavedChanges) {
       const leave = await ask(
         productId
@@ -1406,9 +1425,13 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       if (!leave) return
       setHasUnsavedChanges(false)
     }
-    setLeaving(true)
+    /* The editor draws its leaving state when it can; the button has already answered (LeaveButton). */
+    leavingRef.current = true
+    window.setTimeout(() => {
+      leavingRef.current = false
+    }, 10_000)
+    startTransition(() => setLeaving(true))
     startNavigationLoading(PRODUCTS_HREF)
-    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
     returnToProducts(router, productId)
   }
 
@@ -1780,7 +1803,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       >
         <h1 className="sr-only">{productId ? "Edit product" : "New product"}</h1>
         <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 px-4 sm:h-16 sm:px-6">
-          <LeaveButton mode={leaveMode} disabled={saveBusy} leaving={leaving} onLeave={() => void handleCancel()} />
+          <LeaveButton mode={leaveMode} disabled={saveBusy} leaving={leaving} asks={hasUnsavedChanges} onLeave={() => void handleCancel()} />
           <div className="flex items-center gap-2">
             {moreMenu}
             <SaveButton phase={savePhase} disabled={!canSave} saved={savedThisVisit} onSave={() => void handleSaveChanges()} />
@@ -1813,7 +1836,10 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
             onClick={() => void handleCancel()}
             className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]", leaving && "bg-[#eceef1]")}
           >
-            {leaving ? <ActivitySpinner size={18} label="Going back to products" className="text-[#4b5563]" /> : <ArrowLeft className="h-5 w-5" />}
+            <span className="grid place-items-center">
+              <ArrowLeft className={cn("col-start-1 row-start-1 h-5 w-5", leaving && PRESS_CONTENT_OUT)} />
+              {leaving ? <ActivitySpinner size={18} label="Going back to products" className={cn("col-start-1 row-start-1 text-[#4b5563]", PRESS_SPINNER_IN)} /> : null}
+            </span>
           </button>
           <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">
             {productId ? savedTitle.trim() || "Untitled" : "New product"}
@@ -2864,8 +2890,18 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                 SEARCH ENGINE LISTING, FOLDED. It fills itself in from the
                 title and the description, so most people never need to open
                 it: the card shows how the product reads in a search result,
-                and the pencil opens the fields (a dialog on a computer, the
-                editor's sheet on a phone).
+                and the pencil folds the fields open right under it, in the
+                card, at every width. "It should just slide down and reveal
+                the other settings", not a sheet or a dialog over the page.
+
+                The height goes through grid rows, 0fr to 1fr, which reaches
+                the fields' own height without measuring it, and the fields
+                fade and settle 4px as they come; closing is the same played
+                backwards. Nothing above the card moves: it only grows
+                downwards. Closed, the fields are inert, so the Tab key and a
+                screen reader skip them. Once open, the card is brought into
+                view if its foot is below the screen. No motion under
+                reduced motion.
               */}
               <div className={CARD} data-seo-card="">
                 <div className="flex items-start justify-between gap-3">
@@ -2875,12 +2911,15 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                   </div>
                   <button
                     type="button"
-                    aria-label="Edit the search engine listing"
+                    aria-label={seoOpen ? "Close the search engine listing" : "Edit the search engine listing"}
+                    aria-expanded={seoOpen}
+                    aria-controls="seo-fields"
                     data-seo-edit=""
-                    onClick={() => setSeoOpen(true)}
-                    className={cn(secondaryDepth, "h-8 w-8 shrink-0 rounded-lg p-0")}
+                    onClick={toggleSeo}
+                    className={cn(secondaryDepth, "grid h-8 w-8 shrink-0 place-items-center rounded-lg p-0", seoOpen && "bg-[#f1f2f4]")}
                   >
-                    <Pencil className="h-3.5 w-3.5 text-[#4b5563]" aria-hidden />
+                    <Pencil aria-hidden className={cn("col-start-1 row-start-1 h-3.5 w-3.5 text-[#4b5563] transition-opacity duration-150 motion-reduce:transition-none", seoOpen ? "opacity-0" : "opacity-100")} />
+                    <ChevronUp aria-hidden className={cn("col-start-1 row-start-1 h-4 w-4 text-[#4b5563] transition-opacity duration-150 motion-reduce:transition-none", seoOpen ? "opacity-100" : "opacity-0")} />
                   </button>
                 </div>
                 <div className="min-w-0">
@@ -2891,6 +2930,97 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                   <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-[#4d5156]">
                     {plainSearchPreviewDescription || "Add a description and it shows here."}
                   </p>
+                </div>
+                <div
+                  ref={seoFieldsRef}
+                  id="seo-fields"
+                  data-seo-fields=""
+                  data-open={seoOpen ? "" : undefined}
+                  inert={!seoOpen}
+                  aria-hidden={!seoOpen || undefined}
+                  onTransitionEnd={onSeoOpened}
+                  className={cn(
+                    "!mt-0 grid transition-[grid-template-rows,opacity] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+                    seoOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+                  )}
+                >
+                  <div className="min-h-0 overflow-hidden">
+                    <div
+                      className={cn(
+                        FIELD_FOCUS,
+                        "-mx-[3px] space-y-4 px-[3px] pb-[3px] pt-3 transition-[translate] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none sm:pt-4",
+                        seoOpen ? "translate-y-0" : "-translate-y-1",
+                      )}
+                    >
+                      <div className="space-y-1.5 border-t border-[#eceef1] pt-4 sm:pt-5">
+                        <Label htmlFor="seoTitle" className="text-xs sm:text-sm font-medium text-gray-700">
+                          SEO title
+                        </Label>
+                        <Input
+                          id="seoTitle"
+                          placeholder="Product title for search engines"
+                          value={seoTitle}
+                          onChange={(e) => setSeoTitle(e.target.value)}
+                          className="h-11 border-gray-200 text-sm sm:text-base"
+                        />
+                        <p className="text-[10px] sm:text-xs text-gray-400">
+                          {seoTitle.length}/60 characters
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="seoDescription" className="text-xs sm:text-sm font-medium text-gray-700">
+                          SEO description
+                        </Label>
+                        <Textarea
+                          id="seoDescription"
+                          placeholder="Auto-generated from your product description"
+                          value={seoDescription}
+                          onChange={(e) => {
+                            seoManuallyEditedRef.current = true // Track that user manually edited
+                            setSeoDescription(e.target.value)
+                          }}
+                          className="border-gray-200 min-h-[80px] sm:min-h-[100px] text-sm sm:text-base"
+                        />
+                        <p className="text-[10px] sm:text-xs text-gray-400">
+                          {seoDescription.length}/160 characters {seoDescription.length > 160 && <span className="text-amber-500">Recommended: under 160</span>}
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="productUrl" className="text-xs sm:text-sm font-medium text-gray-700">
+                          Product URL
+                        </Label>
+                        {/* The address in front of the slug, the way every link to it reads. */}
+                        <div className="flex items-center gap-0">
+                          <div className="h-11 px-3 bg-gray-100 border border-r-0 border-gray-200 rounded-l-lg flex items-center">
+                            <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
+                              {/* The address every link uses: storelib.com/<handle>/<slug> (lib/url-helpers getProductShareUrl). */}
+                              storelib.com/{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/
+                            </span>
+                          </div>
+                          <Input
+                            id="productUrl"
+                            placeholder="product-url"
+                            value={slug}
+                            onChange={(e) => {
+                              // Only allow lowercase letters, numbers, and hyphens
+                              const newSlug = e.target.value
+                                .toLowerCase()
+                                .replace(/[^a-z0-9-]/g, '-')
+                                .replace(/--+/g, '-')
+                                .replace(/^-|-$/g, '')
+                              setSlug(newSlug)
+                            }}
+                            className="h-11 border-gray-200 rounded-l-none text-sm sm:text-base flex-1"
+                          />
+                        </div>
+                        <p className="text-[10px] sm:text-xs text-gray-400">
+                          Lowercase letters, numbers and hyphens only.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
           </div>
@@ -2932,171 +3062,13 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
             <span className={cn("truncate", saveState === "Unsaved changes" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{saveState}</span>
           </p>
           <div className="flex shrink-0 items-center gap-2">
-            <LeaveButton mode={leaveMode} disabled={saveBusy} leaving={leaving} onLeave={() => void handleCancel()} />
+            <LeaveButton mode={leaveMode} disabled={saveBusy} leaving={leaving} asks={hasUnsavedChanges} onLeave={() => void handleCancel()} />
             <SaveButton phase={savePhase} disabled={!canSave} saved={savedThisVisit} onSave={() => void handleSaveChanges()} />
           </div>
         </div>
       </div>
 
       {/* CTA Bottom Sheet */}
-      {/* The search engine listing's fields: the editor's sheet on a phone, a dialog on a computer. */}
-      {isMobileViewport ? (
-        <MobileSheet isOpen={seoOpen} onClose={() => setSeoOpen(false)} maxHeight="88dvh">
-          <div className={cn(FIELD_FOCUS, "space-y-4 px-4 pb-5 pt-1")}>
-            <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Search engine listing</h2>
-                <div className="space-y-1.5">
-              <Label htmlFor="seoTitle" className="text-xs sm:text-sm font-medium text-gray-700">
-                SEO title
-              </Label>
-              <Input
-                id="seoTitle"
-                placeholder="Product title for search engines"
-                value={seoTitle}
-                onChange={(e) => setSeoTitle(e.target.value)}
-                className="h-11 border-gray-200 text-sm sm:text-base"
-              />
-              <p className="text-[10px] sm:text-xs text-gray-400">
-                {seoTitle.length}/60 characters
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="seoDescription" className="text-xs sm:text-sm font-medium text-gray-700">
-                SEO description
-              </Label>
-              <Textarea
-                id="seoDescription"
-                placeholder="Auto-generated from your product description"
-                value={seoDescription}
-                onChange={(e) => {
-                  seoManuallyEditedRef.current = true // Track that user manually edited
-                  setSeoDescription(e.target.value)
-                }}
-                className="border-gray-200 min-h-[80px] sm:min-h-[100px] text-sm sm:text-base"
-              />
-              <p className="text-[10px] sm:text-xs text-gray-400">
-                {seoDescription.length}/160 characters {seoDescription.length > 160 && <span className="text-amber-500">• Recommended: under 160</span>}
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="productUrl" className="text-xs sm:text-sm font-medium text-gray-700">
-                Product URL
-              </Label>
-              {/* The address in front of the slug, the way every link to it reads. */}
-              <div className="flex items-center gap-0">
-                <div className="h-11 px-3 bg-gray-100 border border-r-0 border-gray-200 rounded-l-lg flex items-center">
-                  <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
-                    {/* The address every link uses: storelib.com/<handle>/<slug> (lib/url-helpers getProductShareUrl). */}
-                    storelib.com/{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/
-                  </span>
-                </div>
-                <Input
-                  id="productUrl"
-                  placeholder="product-url"
-                  value={slug}
-                  onChange={(e) => {
-                    // Only allow lowercase letters, numbers, and hyphens
-                    const newSlug = e.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9-]/g, '-')
-                      .replace(/--+/g, '-')
-                      .replace(/^-|-$/g, '')
-                    setSlug(newSlug)
-                  }}
-                  className="h-11 border-gray-200 rounded-l-none text-sm sm:text-base flex-1"
-                />
-              </div>
-              <p className="text-[10px] sm:text-xs text-gray-400">
-                Customize your product's URL. Use lowercase letters, numbers, and hyphens only.
-              </p>
-            </div>
-
-            <button type="button" onClick={() => setSeoOpen(false)} className={cn(secondaryDepth, "h-11 w-full rounded-xl text-[15px]")}>
-              Done
-            </button>
-          </div>
-        </MobileSheet>
-      ) : (
-        <Dialog open={seoOpen} onOpenChange={setSeoOpen}>
-          <DialogContent className={cn(FIELD_FOCUS, "max-w-[520px] gap-4 rounded-2xl p-6")}>
-            <DialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">Search engine listing</DialogTitle>
-                <div className="space-y-1.5">
-              <Label htmlFor="seoTitle" className="text-xs sm:text-sm font-medium text-gray-700">
-                SEO title
-              </Label>
-              <Input
-                id="seoTitle"
-                placeholder="Product title for search engines"
-                value={seoTitle}
-                onChange={(e) => setSeoTitle(e.target.value)}
-                className="h-11 border-gray-200 text-sm sm:text-base"
-              />
-              <p className="text-[10px] sm:text-xs text-gray-400">
-                {seoTitle.length}/60 characters
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="seoDescription" className="text-xs sm:text-sm font-medium text-gray-700">
-                SEO description
-              </Label>
-              <Textarea
-                id="seoDescription"
-                placeholder="Auto-generated from your product description"
-                value={seoDescription}
-                onChange={(e) => {
-                  seoManuallyEditedRef.current = true // Track that user manually edited
-                  setSeoDescription(e.target.value)
-                }}
-                className="border-gray-200 min-h-[80px] sm:min-h-[100px] text-sm sm:text-base"
-              />
-              <p className="text-[10px] sm:text-xs text-gray-400">
-                {seoDescription.length}/160 characters {seoDescription.length > 160 && <span className="text-amber-500">• Recommended: under 160</span>}
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="productUrl" className="text-xs sm:text-sm font-medium text-gray-700">
-                Product URL
-              </Label>
-              {/* The address in front of the slug, the way every link to it reads. */}
-              <div className="flex items-center gap-0">
-                <div className="h-11 px-3 bg-gray-100 border border-r-0 border-gray-200 rounded-l-lg flex items-center">
-                  <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
-                    {/* The address every link uses: storelib.com/<handle>/<slug> (lib/url-helpers getProductShareUrl). */}
-                    storelib.com/{(creator?.username || creator?.slug || "yourstore").toLowerCase()}/
-                  </span>
-                </div>
-                <Input
-                  id="productUrl"
-                  placeholder="product-url"
-                  value={slug}
-                  onChange={(e) => {
-                    // Only allow lowercase letters, numbers, and hyphens
-                    const newSlug = e.target.value
-                      .toLowerCase()
-                      .replace(/[^a-z0-9-]/g, '-')
-                      .replace(/--+/g, '-')
-                      .replace(/^-|-$/g, '')
-                    setSlug(newSlug)
-                  }}
-                  className="h-11 border-gray-200 rounded-l-none text-sm sm:text-base flex-1"
-                />
-              </div>
-              <p className="text-[10px] sm:text-xs text-gray-400">
-                Customize your product's URL. Use lowercase letters, numbers, and hyphens only.
-              </p>
-            </div>
-
-            <div className="flex justify-end">
-              <button type="button" onClick={() => setSeoOpen(false)} className={cn(secondaryDepth, "h-9 rounded-lg px-4 text-[14px]")}>
-                Done
-              </button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
       <MobileSheet isOpen={showCtaSheet} onClose={() => setShowCtaSheet(false)} kept={isMobileViewport}>
         <div className="px-5 pb-6 space-y-1">
           <h3 className="text-base font-semibold text-gray-900 mb-3">Call to Action</h3>

@@ -241,7 +241,7 @@ section("Upgrade opens and closes")
   check(
     "Back goes back when there is somewhere in the app to go back to, and is a link to the Billing tab otherwise",
     /<Link\s+href="\/app\/settings\?tab=billing"\s+onClick=\{goBack\}/.test(upgrade) &&
-      /if \(!hasInAppHistory\(\)\) return\s+e\.preventDefault\(\)\s+router\.back\(\)/.test(upgrade),
+      /if \(!hasInAppHistory\(\)\) return\s+e\.preventDefault\(\)\s+moveLayer\("leave", \(\) => router\.back\(\), false\)/.test(upgrade),
   )
   check(
     "it is its own page: a layer over the whole shell, with the pill stepping aside under it",

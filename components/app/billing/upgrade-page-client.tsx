@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import { hasInAppHistory } from "@/lib/ui/app-navigation"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
+import { moveLayer } from "@/components/app/page-layer"
 import { isNativeApp } from "@/lib/native-bridge"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
@@ -103,7 +104,8 @@ export function UpgradePageClient({
     startNavigationLoading("/app/settings?tab=billing")
     if (!hasInAppHistory()) return
     e.preventDefault()
-    router.back()
+    /* On a phone the page drops away over the one it goes back to, the way every page layer leaves (components/app/page-layer.tsx). */
+    moveLayer("leave", () => router.back(), false)
   }
 
   const handleUpgrade = async (planId: string) => {

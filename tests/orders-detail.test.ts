@@ -311,12 +311,17 @@ async function main() {
       /React\.useLayoutEffect\(\(\) => \{\s*const was = settledId\.current[\s\S]{0,900}moveOrder\("push", detail, list\)[\s\S]{0,300}moveOrder\("pop", detail, list, \(\) => setLeavingId\(null\), \{ settle: false \}\)\s*\}, \[shownId\]\)/.test(client))
     check("  a step to the previous or next order moves nothing but the cards",
       /if \(was !== null \|\| !detail\) return/.test(client) && /\.orders-detail\[data-arrival="step"\] \.orders-body \{\s*animation: orders-body-in 120ms ease-out backwards;/.test(css) && !/^\.orders-body \{/m.test(css))
-    check("  on transform and opacity alone, as Web Animations, never a layout property",
-      /detail\.animate\(\[\{ transform: `translate3d\(\$\{detailX\}px, 0, 0\)` \}/.test(motion) && /list\.animate\(\[\{ transform:/.test(motion) && /body\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: ORDER_FADE_IN_MS/.test(motion)
-        && !/\.animate\(\[\{ (left|top|width|height|margin)/.test(motion))
-    check("  about 300ms on iOS's curve on a phone, a short fade wider, decided by the sheets' phone width",
-      /export const ORDER_PUSH_MS = 300/.test(motion) && /export const ORDER_POP_MS = 280/.test(motion) && /export const ORDER_EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(motion)
+    /* Changed on purpose: "not that sliding". On a phone the order rises from the bottom over a list that holds still, the page layer's own motion, where it was pushed in from the right edge over a list moving left. */
+    check("  on transform and opacity alone, as Web Animations, never a layout property: on a phone the order rises and drops on translateY, the list holds still",
+      /detail\.animate\(\[\{ transform: `translate3d\(0, \$\{detailY\}px, 0\)` \}, \{ transform: `translate3d\(0, \$\{detailTo\}px, 0\)` \}\]/.test(motion) && !/list\.animate\(/.test(motion) && !/translate3d\(\$\{detailX\}px/.test(motion)
+        && /const detailTo = kind === "push" \? 0 : height/.test(motion) && /body\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: ORDER_FADE_IN_MS/.test(motion)
+        && !/\.animate\(\[\{ (left|top|width|height|margin)/.test(motion) && !/ORDER_PARALLAX/.test(motion))
+    check("  the page layer's times and curve on a phone (one number in one place), a short fade wider, decided by the sheets' phone width",
+      /export const ORDER_PUSH_MS = LAYER_MOTION_MS/.test(motion) && /export const ORDER_POP_MS = LAYER_LEAVE_MS/.test(motion) && /export const ORDER_EASE = LAYER_MOTION_EASE/.test(motion)
+        && /import \{ LAYER_LEAVE_MS, LAYER_MOTION_EASE, LAYER_MOTION_MS \} from "@\/components\/app\/page-layer"/.test(motion)
         && /export const ORDER_FADE_IN_MS = 150/.test(motion) && /export const ORDER_PHONE_QUERY = "\(max-width: 639px\)"/.test(motion))
+    check("  the row answers the press on its own frame, before the order is drawn",
+      /const onOpen = useStable\(\(id: string\) => \{[\s\S]{0,300}if \(listRef\.current\) markRow\(listRef\.current, id, "held"\)[\s\S]{0,80}writeAddress\(\(p\) => p\.set\("order", id\), "push"\)/.test(client))
     /* "When I open an order the top bar blends in with a delay, it looks
        cheap." On a computer the bar is never faded over the list's bar. */
     /* The list used to settle in after Back on a computer, from half faded and
@@ -334,7 +339,7 @@ async function main() {
     check("  and coming back to Orders from another page (the browser's back) lands nothing: the list is as it was left",
       /const \[returning\] = React\.useState\(\(\) => isTraversing\(\)\)/.test(client) && /React\.useLayoutEffect\(\(\) => \{\s*if \(returning\) holdLanding\(\)\s*\}, \[returning\]\)/.test(client))
     check("  interrupted, it starts from where the layer is, read before the running move is cancelled",
-      /const detailX = moving \? xOf\(detail\)/.test(motion) && motion.indexOf("const detailX") < motion.indexOf("stop(detail)"))
+      /const detailY = moving \? yOf\(detail\)/.test(motion) && motion.indexOf("const detailY") < motion.indexOf("stop(detail)") && /return new DOMMatrixReadOnly\(t\)\.m42/.test(motion))
     check("  the pop holds its last frame until the order is taken away, so it cannot snap back",
       /fill: kind === "pop" \? "forwards" : "none"/.test(motion))
     check("  and reduced motion moves nothing", /if \(reducedMotion\(\) \|\| typeof detail\.animate !== "function"\) \{\s*settle\(detail, list\)\s*done\?\.\(\)/.test(motion))

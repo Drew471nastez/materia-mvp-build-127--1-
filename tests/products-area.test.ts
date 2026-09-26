@@ -135,7 +135,7 @@ check("no row of section tabs on any width, and no scroll spy behind one",
   !/role="tablist"|role="tab"|aria-label="Sections"|PILL_SECTIONS|getPillForSection|activeSection|pillScrollRef|pillRefs|completedSections/.test(editor))
 check("a failed check still brings its card into view, the files check its own card", /const scrollToSection = \(sectionId: SectionId\)/.test(editor) && /showToast\("Upload a file"\)[\s\S]{0,160}scrollToSection\("files"\)/.test(editor) && /sectionRefs\.current\.files = el/.test(editor))
 check("no fixed Save and Cancel strip over a phone's foot", !/fixed bottom-0 left-0 right-0/.test(editor) && !/Bottom Action Bar/.test(read("app/app/products/new/product-editor.tsx")))
-check("the top bar is sticky at the top below lg and holds Cancel (or Back) and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30 [^"]* lg:hidden"/.test(editor) && /<SaveButton phase=\{savePhase\}/.test(editor) && /<LeaveButton mode=\{leaveMode\} disabled=\{saveBusy\} leaving=\{leaving\} onLeave=\{\(\) => void handleCancel\(\)\} \/>/.test(editor))
+check("the top bar is sticky at the top below lg and holds Cancel (or Back) and Save", /data-editor-bar=""/.test(editor) && /"sticky top-0 z-30 [^"]* lg:hidden"/.test(editor) && /<SaveButton phase=\{savePhase\}/.test(editor) && /<LeaveButton mode=\{leaveMode\} disabled=\{saveBusy\} leaving=\{leaving\} asks=\{hasUnsavedChanges\} onLeave=\{\(\) => void handleCancel\(\)\} \/>/.test(editor))
 check("Cmd or Ctrl and S saves", /e\.metaKey \|\| e\.ctrlKey/.test(editor) && /key\.toLowerCase\(\) !== "s"/.test(editor))
 const barSource = editor.slice(editor.indexOf('data-editor-bar=""'), editor.indexOf('data-editor-page=""'))
 check("the bar names no product: the name is in the title field", barSource.length > 0 && !/savedTitle|\{title\}|"Untitled product"/.test(barSource) && /<h1 className="sr-only">\{productId \? "Edit product" : "New product"\}<\/h1>/.test(barSource))
@@ -212,11 +212,15 @@ check("Save's colour and depth are one exported set (primaryDepth), near black",
 check("and the violet one New product wears is exported beside it (accentDepth): #8b5cf6, darker on hover and pressed, no hover shadow",
   /export const accentDepth = cn\([\s\S]{0,300}bg-\[#8b5cf6\][\s\S]{0,300}hover:bg-\[#7c3aed\] active:bg-\[#6d28d9\]/.test(buttons) && !/hover:shadow/.test(buttons.slice(buttons.indexOf("export const accentDepth"), buttons.indexOf("export const criticalDepth"))))
 check("Cancel and Back are one button holding both words, crossfading, so the bar never moves",
-  /export function LeaveButton/.test(buttons) && /data-leave-button=""/.test(buttons) && /aria-label=\{back \? "Back" : "Cancel"\}/.test(buttons) && /<ChevronLeft/.test(buttons) && /transition-opacity duration-150 motion-reduce:transition-none/.test(buttons) && /cn\(barButton, "grid", leaving && /.test(buttons))
+  /export function LeaveButton/.test(buttons) && /data-leave-button=""/.test(buttons) && /aria-label=\{back \? "Back" : "Cancel"\}/.test(buttons) && /<ChevronLeft/.test(buttons) && /transition-opacity duration-150 motion-reduce:transition-none/.test(buttons) && /cn\(barButton, "grid", going && /.test(buttons))
 /* "When I click Cancel or Back nothing happens, then five seconds later it goes back": the press is answered on its own frame. */
-check("Cancel and Back answer the press at once: a spinner in the button, the loading bar told, no second press",
-  /data-leaving=\{leaving \? "" : undefined\}/.test(buttons) && /onClick=\{leaving \? undefined : onLeave\}/.test(buttons) && /<ActivitySpinner size=\{16\}/.test(buttons)
-    && /setLeaving\(true\)\s*startNavigationLoading\(PRODUCTS_HREF\)/.test(editor))
+/* Changed on purpose: the button answers by itself on the next frame (its own state, not the whole editor drawing again, which on a slow phone took several frames), dims at once, and shows its spinner only if the list is not there LAYER_PRESS_WAIT_MS later. */
+check("Cancel and Back answer the press at once: the button itself dims on the next frame, a spinner past 100ms, the loading bar told, no second press",
+  /data-leaving=\{going \? "" : undefined\}/.test(buttons) && /const going = leaving \|\| pressed/.test(buttons) && /if \(!asks\) setPressed\(true\)\s*onLeave\(\)/.test(buttons) && /<ActivitySpinner size=\{16\} label=\{label\}/.test(buttons)
+    && /data-answers-press=""/.test(buttons) && /export const PRESS_SPINNER_IN = "\[animation:press-spinner-in_120ms_ease-out_100ms_both\]"/.test(buttons)
+    && /@keyframes press-content-out \{\s*from \{ opacity: 0\.4; \}\s*to \{ opacity: 0; \}/.test(read("app/globals.css"))
+    && /leavingRef\.current = true[\s\S]{0,120}startTransition\(\(\) => setLeaving\(true\)\)\s*startNavigationLoading\(PRODUCTS_HREF\)\s*returnToProducts\(router, productId\)/.test(editor)
+    && /if \(leaving \|\| leavingRef\.current\) return/.test(editor) && !/requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) => resolve\(\)\)\)/.test(editor))
 check("busy is aria-busy and not disabled, and a press while busy does nothing", /aria-busy=\{phase === "saving" \|\| undefined\}/.test(buttons) && /disabled=\{!busy && disabled\}/.test(buttons) && /if \(!busy\) onSave\(\)/.test(buttons))
 check("a check for SAVED_CHECK_MS after a save", /export const SAVED_CHECK_MS = 900/.test(buttons) && /data-save-check=""/.test(buttons) && /setTimeout\(\(\) => setSavedFlash\(false\), SAVED_CHECK_MS\)/.test(editor))
 check("disabled is Polaris grey with no depth", /disabled:bg-\[#ebebef\] disabled:text-\[#a1a1aa\] disabled:shadow-none/.test(buttons))
@@ -398,7 +402,7 @@ check("price and sales are quiet grey 12px text under the name, ending in an ell
 check("a phone row names its status only when it is not on sale, as a dot and a word, not a badge",
   /view === "all" && status !== "live"/.test(list) && /function StatusMark/.test(list) && !/StatusBadge/.test(list) && /bg-\[#e0a100\]/.test(list))
 check("a product with no picture shows its first letter, not a box icon", /Array\.from\(title\.trim\(\)\)\[0\]/.test(list) && !/<Package/.test(list))
-check("table rows are 56px (62 from 1024px, 70 from 1280px), the whole row opens the product, and nothing from a menu's portal does", /className="group h-14 cursor-pointer lg:h-\[62px\] xl:h-\[70px\] /.test(list) && /openRow: open,/.test(list) && /api\.current\?\.openRow\(product\.id\)/.test(list) && /requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) => openEditor\(router, href\)\)\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
+check("table rows are 56px (62 from 1024px, 70 from 1280px), the whole row opens the product, and nothing from a menu's portal does", /className="group h-14 cursor-pointer lg:h-\[62px\] xl:h-\[70px\] /.test(list) && /openRow: open,/.test(list) && /api\.current\?\.openRow\(product\.id\)/.test(list) && /openEditor\(router, href\)\s*requestAnimationFrame\(\(\) => setOpening\(id\)\)/.test(list) && /!e\.currentTarget\.contains\(target\)/.test(list) && !/\{t\("products\.edit"\)\}/.test(list))
 check("no grey heading band in the table", !/bg-\[#f7f7f8\] pl-4/.test(list) && /<th scope="col" className="border-b border-\[#eef0f2\] pl-4 pr-3 font-medium lg:pl-\[18px\] lg:pr-\[13px\] xl:pl-\[22px\]">Product<\/th>/.test(list))
 check("numbers right aligned in figures of one width, Sales from 1024px", /text-right font-medium tabular-nums text-\[#1a1a2e\]/.test(list) && /hidden w-\[97px\] border-b border-\[#eef0f2\] px-3 text-right font-medium lg:table-cell lg:px-\[13px\] xl:w-\[110px\]">Sales/.test(list))
 check("fifty to a page, with the footer's count and arrows, the count left off a phone with one page", /const PAGE_SIZE = 50/.test(list) && /data-footer=""/.test(list) && /aria-label="Next page"/.test(list) && /pages === 1 && "max-md:hidden"/.test(list))
@@ -452,24 +456,46 @@ check("but only on a return: a fresh visit from the sidebar or the pill starts a
   /const \[returning\] = useState\(isReturning\)/.test(list) && /const \[resumed\] = useState\(\(\) => \(returning \? leftAt : null\)\)/.test(list)
     && /useState<Sort>\(resumed\?\.sort \?\? "newest"\)/.test(list) && /useState\(resumed\?\.page \?\? 1\)/.test(list) && /useState\(resumed\?\.search \?\? ""\)/.test(list)
     && !/leftAt\?\./.test(list) && /listShown\(\)/.test(list))
-check("the row you came back from is tinted as the list comes back, after the layer's move", /const id = takeEdited\(\)/.test(list) && /delay: LAYER_MOTION_MS/.test(list))
+check("the row you came back from is tinted as the list comes back, after the layer's drop", /const id = takeEdited\(\)/.test(list) && /delay: LAYER_LEAVE_MS/.test(list))
 check("rows and New product open the editor with the layer's move; a press with a modifier is left to the link",
   /openEditor\(router, href\)/.test(list) && /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(list) && (list.match(/onClick=\{openFromLink\(/g) ?? []).length >= 2
     && (list.match(/onClick=\{\(e\) => api\.current\?\.open\(product\.id\)\(e\)\}/g) ?? []).length === 2 && /open: openFromLink,/.test(list))
 
 const layer = code("components/app/page-layer.tsx")
-check("the editor comes and goes as one view transition, waiting only for the router's commit, capped at LAYER_WAIT_MS",
-  /export const LAYER_MOTION_MS = 300/.test(layer) && /export const LAYER_MOTION_EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(layer) && /export const LAYER_WAIT_MS = 450/.test(layer)
-    && /doc\.startViewTransition\(\(\) => \{\s*navigate\(\)/.test(layer) && /move\.skipTransition\(\)/.test(layer) && /if \(waiting\?\.motion === "enter"\) waiting\.landed\(\)/.test(layer) && /if \(waiting\?\.motion === "leave"\) waiting\.landed\(\)/.test(layer))
+/*
+  Changed on purpose: "It should not slide to the left or right. It should come from the bottom, very smooth and clean.
+  When I click back or cancel, the same thing reversed." The layer rises from the bottom and drops back; coming in it is
+  React's own view transition at the commit (so the page you pressed on stays live while the next one is on its way),
+  going back it is one of the layer's own around the navigation (React draws a popstate at once, with none).
+  scripts/check-layer-motion.mjs measures it frame by frame.
+*/
+check("the layer rises in React's own view transition at the commit, named page-layer, with nothing for an update or a swap",
+  /export const LAYER_MOTION_MS = 360/.test(layer) && /export const LAYER_LEAVE_MS = 300/.test(layer) && /export const LAYER_MOTION_EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(layer)
+    && /const ReactViewTransition = \(React as unknown as \{ ViewTransition\?: React\.ComponentType<ViewTransitionProps> \}\)\.ViewTransition \?\? null/.test(layer)
+    && /<ReactViewTransition\s+name=\{LAYER_NAME\}\s+enter=\{moves \? "layer-rise" : "none"\}\s+exit=\{moves \? "layer-drop" : "none"\}\s+update="none"\s+share="none"\s+default="none"\s*>/.test(layer)
+    && /export const LAYER_NAME = "page-layer"/.test(layer))
+check("  the page under a rising layer stays: React's hiding of the root's picture is undone before the first frame",
+  /function keepPageUnder\(move: ViewTransitionLike\)/.test(layer) && /effect\?\.pseudoElement !== "::view-transition-group\(root\)"/.test(layer) && /if \(next === "enter"\) keepPageUnder\(move\)/.test(layer))
+check("the way back drops the layer in a view transition of its own, waiting only for the layer to unmount, capped at LAYER_WAIT_MS, and let go at once when a popstate brought no page",
+  /export const LAYER_WAIT_MS = 450/.test(layer) && /if \(motion === "leave"\) dropLayer\(navigate\)/.test(layer) && /move = doc\.startViewTransition\(\(\) => \{/.test(layer)
+    && /move\.skipTransition\(\)/.test(layer) && /leaving\?\.\(\)/.test(layer) && /window\.addEventListener\("popstate", onPop, \{ once: true \}\)/.test(layer)
+    && /manual = true\s*flushSync\(\(\) => \{/.test(layer) && /const reactMoves = \(\) => layerMotionOn\(\) && !manual/.test(layer))
 check("no move under reduced motion, without view transitions, or from 768px where the editor is a page in the shell: the page swaps and lands as any other",
-  /if \(waiting \|\| reduced \|\| !phone \|\| typeof doc\.startViewTransition !== "function"\) \{\s*navigate\(\)\s*return/.test(layer)
-    && /const phone = !!window\.matchMedia\?\.\(LAYER_PHONE\)\.matches/.test(layer) && /export const LAYER_PHONE = "\(max-width: 767px\)"/.test(layer))
-check("the duration and curve reach the CSS from the script, one number in one place", /html\.style\.setProperty\("--layer-motion-ms", `\$\{LAYER_MOTION_MS\}ms`\)/.test(layer) && /html\.style\.setProperty\("--layer-motion-ease", LAYER_MOTION_EASE\)/.test(layer))
+  /return window\.matchMedia\(LAYER_PHONE\)\.matches && !window\.matchMedia\(REDUCED\)\.matches/.test(layer) && /export const LAYER_PHONE = "\(max-width: 767px\)"/.test(layer)
+    && /if \(leaving \|\| manual \|\| doc\.__reactViewTransition \|\| !layerMotionOn\(\) \|\| typeof doc\.startViewTransition !== "function" \|\| !document\.querySelector\("\[data-page-layer\]"\)\) \{\s*navigate\(\)\s*return/.test(layer)
+    && /if \(!move \|\| !reactMoves\(\)\) return/.test(layer))
+check("the duration and curve reach the CSS from the script, one number in one place", /html\.style\.setProperty\("--layer-motion-ms", `\$\{LAYER_MOTION_MS\}ms`\)/.test(layer) && /html\.style\.setProperty\("--layer-leave-ms", `\$\{LAYER_LEAVE_MS\}ms`\)/.test(layer) && /html\.style\.setProperty\("--layer-motion-ease", LAYER_MOTION_EASE\)/.test(layer))
 const css = read("app/globals.css")
-check("on a phone the layer slides in from the right edge and back out to it; the fade with a 12px rise is kept for a wider move",
-  /@keyframes layer-slide-out \{\s*to \{ transform: translateX\(100%\); \}/.test(css) && /@keyframes layer-sink-out \{\s*to \{ opacity: 0; transform: translateY\(12px\); \}/.test(css)
-    && /html\[data-layer-motion="leave"\]::view-transition-new\(root\) \{\s*animation: none;/.test(css) && /html\[data-layer-motion="leave"\]::view-transition-old\(root\) \{\s*z-index: 1;/.test(css)
-    && /animation: layer-sink-out var\(--layer-motion-ms, 300ms\) var\(--layer-motion-ease, ease-out\) both/.test(css) && /mix-blend-mode: normal/.test(css))
+check("on a phone the layer rises from the bottom edge and drops back to it, on transform alone; nothing slides sideways and the page under it never fades",
+  /@keyframes layer-rise \{\s*from \{ transform: translateY\(100%\); \}/.test(css) && /@keyframes layer-drop \{\s*to \{ transform: translateY\(100%\); \}/.test(css)
+    && /html\[data-layer-motion="enter"\]::view-transition-new\(page-layer\) \{\s*animation: layer-rise var\(--layer-motion-ms, 360ms\) var\(--layer-motion-ease, ease-out\) both;/.test(css)
+    && /html\[data-layer-motion="leave"\]::view-transition-old\(page-layer\) \{\s*animation: layer-drop var\(--layer-leave-ms, 300ms\) var\(--layer-motion-ease, ease-out\) both;/.test(css)
+    && /::view-transition-old\(root\),\s*::view-transition-new\(root\),\s*::view-transition-old\(page-layer\),\s*::view-transition-new\(page-layer\) \{\s*animation: none;[\s\S]{0,160}mix-blend-mode: normal;/.test(css)
+    && /html\[data-layer-motion\] \[data-page-layer\] \{\s*view-transition-name: page-layer;/.test(css)
+    && !/layer-slide-in|layer-slide-out/.test(css))
+check("  a press on the way in or out answers on its own frame, and a spinner takes its place past LAYER_PRESS_WAIT_MS",
+  /export const LAYER_PRESS_WAIT_MS = 100/.test(layer) && /export function holdPress\(/.test(layer) && /if \(press !== false\) holdPress\(press \?\? recentPress\(\)\)/.test(layer)
+    && /\[data-layer-press=""\] > :not\(\[data-layer-press-spinner\]\) \{\s*opacity: 0\.4;/.test(css) && /@keyframes press-spinner-in/.test(css))
 check("the pill keeps its place while a layer moves under it", /html\[data-layer-motion\] \[data-app-nav-pill\] \{\s*view-transition-name: app-nav-pill;/.test(css))
 check("the stage plays no landing of its own under a layer's move (the mark read on the commit, and again on the frame the landing would start)",
   /const layered = !!document\.documentElement\.dataset\.layerMotion\s*requestAnimationFrame\(\(\) => \{\s*const s = scrollers\(\)\s*if \(!s \|\| layered \|\| document\.documentElement\.dataset\.layerMotion( \|\| isLandingHeld\(\))?\) return\s*playEntrance\(s\.outer/.test(code("components/app/app-stage.tsx")))

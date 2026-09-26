@@ -5,10 +5,18 @@
  * "Clicking an order should feel smoother and cleaner, and going back should
  * feel cleaner and smoother, not so direct or clunky."
  *
- * On a phone it is the system's own push and pop: the order slides in from
- * the right edge, bar and all, as one layer, while the list moves a third of
- * the way left underneath it; back runs the same motion the other way. The
- * list is never unmounted, so underneath it is exactly where it was left.
+ * "I don't like the page transition when I click on the order sub page and
+ * then go back from it to the orders list. It needs to be something more
+ * smooth and clean, not that sliding."
+ *
+ * On a phone the order rises from the bottom of the page area, bar and all,
+ * as one layer over the list, which holds still underneath it; back drops it
+ * down again over the same list. The same motion as every page layer in
+ * /app (components/app/page-layer.tsx: the product and coupon editors, the
+ * composer), on the same curve and the same times. It used to be a push from
+ * the right edge with the list moving a third of the way left. The list is
+ * never unmounted, so underneath it is exactly where it was left, scroll and
+ * all.
  * Wider, where nothing on a desktop slides in from an edge, the order's bar
  * is there on the first frame and only its cards fade in under it; back
  * takes the order away at once. The list used to settle in over 180ms after
@@ -41,20 +49,21 @@
  * the list carries `data-moving` and is drawn.
  */
 
-/** The width below which an order is pushed rather than faded: the shared sheets' phone width. */
+import { LAYER_LEAVE_MS, LAYER_MOTION_EASE, LAYER_MOTION_MS } from "@/components/app/page-layer"
+
+/** The width below which an order rises rather than fades: the shared sheets' phone width. */
 export const ORDER_PHONE_QUERY = "(max-width: 639px)"
-export const ORDER_PUSH_MS = 300
-export const ORDER_POP_MS = 280
+/** Up and down: the page layer's own times, one number in one place. */
+export const ORDER_PUSH_MS = LAYER_MOTION_MS
+export const ORDER_POP_MS = LAYER_LEAVE_MS
 export const ORDER_FADE_IN_MS = 150
 export const ORDER_FADE_OUT_MS = 130
 /** Back on a computer: how long the list takes to settle in. */
 export const ORDER_LIST_BACK_MS = 180
-/** iOS's navigation curve: off quickly, settles slowly, never past the edge. */
-export const ORDER_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-/** How far the list moves left under an order coming in, as a share of its width. */
-export const ORDER_PARALLAX = 0.3
-/** The edge of the order while it moves, so it reads as a layer over the list. */
-const EDGE_SHADOW = "-6px 0 24px -8px rgba(17, 24, 39, 0.16)"
+/** The iOS sheet curve: off quickly, settles slowly, never past the edge. */
+export const ORDER_EASE = LAYER_MOTION_EASE
+/** The top edge of the order while it moves, so it reads as a layer over the list: the page layer's shade. */
+const EDGE_SHADOW = "0 -10px 30px -12px rgba(17, 24, 39, 0.22)"
 
 type Kind = "push" | "pop"
 
@@ -68,10 +77,10 @@ export function orderMotionOnPhone(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.(ORDER_PHONE_QUERY).matches
 }
 
-function xOf(el: HTMLElement): number {
+function yOf(el: HTMLElement): number {
   const t = getComputedStyle(el).transform
   if (!t || t === "none") return 0
-  return new DOMMatrixReadOnly(t).m41
+  return new DOMMatrixReadOnly(t).m42
 }
 
 function stop(el: HTMLElement) {
@@ -105,12 +114,11 @@ function settle(detail: HTMLElement, list: HTMLElement) {
  */
 export function moveOrder(kind: Kind, detail: HTMLElement, list: HTMLElement, done?: () => void, { settle: settleIn = true }: { settle?: boolean } = {}) {
   const phone = orderMotionOnPhone()
-  const width = detail.clientWidth || window.innerWidth || 1
-  /* Where each layer is right now, running animation included, read before
-     that animation is cancelled. */
+  const height = detail.clientHeight || window.innerHeight || 1
+  /* Where the order is right now, running animation included, read before
+     that animation is cancelled. The list never moves. */
   const moving = running.has(detail) || running.has(list)
-  const detailX = moving ? xOf(detail) : kind === "push" ? width : 0
-  const listX = moving ? xOf(list) : kind === "push" ? 0 : -width * ORDER_PARALLAX
+  const detailY = moving ? yOf(detail) : kind === "push" ? height : 0
   stop(detail)
   stop(list)
 
@@ -123,17 +131,19 @@ export function moveOrder(kind: Kind, detail: HTMLElement, list: HTMLElement, do
   list.dataset.moving = ""
   const anims: Animation[] = []
   if (phone) {
-    const detailTo = kind === "push" ? 0 : width
-    const listTo = kind === "push" ? -width * ORDER_PARALLAX : 0
+    const detailTo = kind === "push" ? 0 : height
     /* The whole way takes the whole time; what is left takes its share. */
     const whole = kind === "push" ? ORDER_PUSH_MS : ORDER_POP_MS
-    const ms = Math.max(120, Math.round(whole * Math.min(1, Math.abs(detailTo - detailX) / width)))
-    const timing: KeyframeAnimationOptions = { duration: ms, easing: ORDER_EASE, fill: kind === "pop" ? "forwards" : "none" }
+    const ms = Math.max(120, Math.round(whole * Math.min(1, Math.abs(detailTo - detailY) / height)))
     detail.style.willChange = "transform"
     detail.style.boxShadow = EDGE_SHADOW
-    list.style.willChange = "transform"
-    anims.push(detail.animate([{ transform: `translate3d(${detailX}px, 0, 0)` }, { transform: `translate3d(${detailTo}px, 0, 0)` }], timing))
-    anims.push(list.animate([{ transform: `translate3d(${listX}px, 0, 0)` }, { transform: `translate3d(${listTo}px, 0, 0)` }], { ...timing, fill: "none" }))
+    anims.push(
+      detail.animate([{ transform: `translate3d(0, ${detailY}px, 0)` }, { transform: `translate3d(0, ${detailTo}px, 0)` }], {
+        duration: ms,
+        easing: ORDER_EASE,
+        fill: kind === "pop" ? "forwards" : "none",
+      }),
+    )
   } else {
     /* The list is not drawn under a settled order, so nothing shows through. */
     delete list.dataset.moving
