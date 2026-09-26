@@ -1,6 +1,6 @@
 "use client"
 
-import { useTabStrip } from "@/components/app/use-tab-strip"
+import { TAB_STRIP_STYLE, useTabStrip } from "@/components/app/use-tab-strip"
 import { MetricTab } from "@/components/app/metric-tab"
 import { memo, useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
 import { PULL_TO_REFRESH, usePullToRefresh } from "@/hooks/use-pull-to-refresh"
@@ -694,7 +694,7 @@ export function DashboardClient({
      the answer rather than showing over the chart before it. */
   const [figuresReady, setFiguresReady] = useState(false)
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")
-  /* Follows the chosen tab, and keeps a sideways swipe off the page. */
+  /* Follows the chosen tab; the swipe itself is the browser's. */
   const kpiStripRef = useTabStrip<HTMLDivElement>(openKPIModal ?? "views", KPI_TAB_ORDER)
   const [chartExpanded, setChartExpanded] = useState(() => {
     if (typeof window !== "undefined") {
@@ -1213,24 +1213,10 @@ export function DashboardClient({
         {/* Stats Cards + Chart Section */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 overflow-hidden">
           {/* KPI Metric Tabs - horizontally scrollable on mobile.
-              The strip follows the chosen tab and arbitrates its own
-              gestures; see components/app/use-tab-strip. */}
-          <div ref={kpiStripRef} role="tablist" aria-label="Metric" className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={{
-              /*
-                BOTH AXES. This was `pan-x`, which does not mean "prefer
-                horizontal" — it means vertical panning is not allowed here at
-                all. So a thumb that landed on Views or Revenue and pulled down
-                could not scroll the page, and the row looked frozen. With both
-                named, the browser decides from the gesture: sideways scrolls
-                the row, down scrolls the page.
-              */
-              /* Both axes stay permitted: use-tab-strip decides which of the
-                 two this gesture is and hands back the ones that are the
-                 page's, so naming one axis here would only take the other
-                 away from it. */
-              touchAction: 'pan-x pan-y',
-              WebkitOverflowScrolling: 'touch',
-            }}>
+              The strip follows the chosen tab; the browser scrolls it, and
+              decides from the swipe whether it is the row's or the page's
+              (components/app/use-tab-strip). */}
+          <div ref={kpiStripRef} role="tablist" aria-label="Metric" data-scroll-x className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60" style={TAB_STRIP_STYLE}>
             {/* The four figures: components/app/metric-tab, the same tab Analytics draws. */}
             <MetricTab
               tab="views"

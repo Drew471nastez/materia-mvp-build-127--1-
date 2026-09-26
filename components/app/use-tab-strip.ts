@@ -1,60 +1,78 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef } from "react"
+import { useLayoutEffect, useRef, type CSSProperties } from "react"
 
 /**
  * ===========================================================================
- *  THE METRIC STRIP: IT FOLLOWS THE TAB YOU CHOSE, AND IT KEEPS YOUR SWIPE
+ *  THE METRIC STRIP: IT FOLLOWS THE TAB YOU CHOSE, AND THE BROWSER SCROLLS IT
  * ===========================================================================
  * Four tabs above each chart, in a row that scrolls sideways on a phone and
- * is a four column grid on a desktop. Two things were wrong with it.
+ * is a four column grid on a desktop. Home and Analytics both use this.
  *
- * IT DID NOT FOLLOW. The fourth tab is off the edge, so tapping along the row
- * left the tab just chosen half out of sight and everything past it hidden
- * until you dragged the row yourself.
+ * IT FOLLOWS. The fourth tab is off the edge, so choosing along the row
+ * brings the chosen tab, and the edge of the next one, into view.
  *
- * AND THE DRAG SOMETIMES WENT TO THE PAGE. "Sometimes it doesn't work, it
- * thinks I want to scroll up or down." That is the browser arbitrating: with
- * both axes permitted it waits for movement, decides which scroller the
- * gesture belongs to, and on a row 72px tall inside a long page it decides
- * vertical on anything but a dead flat swipe. Once it has decided, the rest
- * of that gesture belongs to the page whatever your thumb then does.
+ * AND NOTHING HERE TOUCHES THE SWIPE. For a few days this hook drove the row
+ * by hand: a non passive touchmove that claimed any swipe within 52 degrees
+ * of horizontal, wrote scrollLeft on the main thread every move and ran its
+ * own flick. That was the lag ("200 fps smooth, not laggish"), and the wide
+ * cone was the other complaint ("when I want to scroll up and down, ensure
+ * this doesn't happen"): a thumb going down the page at 50 degrees moved the
+ * tabs instead.
  *
- * So the strip decides for itself, which is the same thing the chart does one
- * card below with SLOP_X and SLOP_Y. The cone is deliberately generous: a
- * swipe up to about 52 degrees off horizontal is a sideways one, because on
- * this row that is what it is meant to be. Anything steeper is handed
- * straight back and never touched again for the rest of the gesture, so
- * scrolling the page off the strip keeps working exactly as it did.
+ * The browser already does this properly. With both axes permitted it picks
+ * the scroller from the direction of the first movement, and then scrolls it
+ * on the compositor with the platform's own momentum. Measured with real
+ * touches in headless Chromium (scripts/check-metric-tabs-gesture.mjs): 45
+ * degrees and flatter scroll the row, 55 and steeper scroll the page, and
+ * neither moves the other.
+ *
+ * What made sideways swipes "go to the page" before was not the browser. At
+ * the top of Home the pull to refresh cancelled every move with any downward
+ * drift, the strip's included; it now leaves a gesture that starts on a
+ * sideways row and goes sideways alone (hooks/use-pull-to-refresh).
  */
 
 /** How much of the next tab to bring into view: enough to read as "more that way". */
 const PEEK_PX = 40
 
 /**
- * How far a finger travels before the gesture is given to one scroller or the
- * other. Small, because the browser makes its own decision at around this
- * distance and the first `preventDefault` after that is already too late.
+ * The strip's own gesture rules, one object for both strips.
+ *
+ * BOTH AXES, NOT `pan-x`. `pan-x` does not mean "prefer horizontal": it
+ * forbids vertical panning from here, so a thumb that lands on a tab could not
+ * scroll the page at all (measured: 0px of page at every angle).
+ *
+ * `overscroll-behavior-x: contain` keeps a flick that reaches either end of
+ * the row from being handed on sideways (on Android that is the back swipe).
+ * The vertical axis is left alone, so a vertical swipe still reaches the page.
+ *
+ * `overflow-y: hidden`, because `overflow-x: auto` alone makes the other axis
+ * `auto` too, and the row is 84.5px tall. A half pixel that rounds into a
+ * vertical scroll range of a device pixel is all a browser needs to hand an
+ * up and down swipe to the ROW, which then moves by nothing while the page
+ * stays put. Chromium measures no such range today; a native scroll view
+ * rounding differently is exactly where it would appear. With the axis
+ * closed the row is never a vertical scroller, on any engine.
+ *
+ * No scroll snapping: a snap point pulls the row back after you let go, which
+ * is a fight with the thumb, not a help.
  */
-const DECIDE_PX = 5
+export const TAB_STRIP_STYLE: CSSProperties = {
+  overflowY: "hidden",
+  touchAction: "pan-x pan-y",
+  overscrollBehaviorX: "contain",
+}
 
 /**
- * The cone. `|dx| * 1.3 > |dy|` is everything within about 52 degrees of
- * horizontal. Wider than 45 on purpose — the complaint was sideways swipes
- * being read as vertical — but nowhere near wide enough to swallow the
- * downward swipe that is meant to scroll the page.
+ * The attribute the strips carry so an ancestor gesture (the pull to refresh)
+ * can tell that a touch began on a row that scrolls sideways.
  */
-const SIDEWAYS_BIAS = 1.3
-
-/** A flick carries on afterwards, losing this much of its speed each frame. */
-const GLIDE_DECAY = 0.94
-/** And stops when it is moving less than this, which is under a pixel a frame. */
-const GLIDE_STOP = 0.4
+export const SCROLL_X_ATTR = "data-scroll-x"
 
 export function useTabStrip<T extends HTMLElement>(active: string, order: readonly string[]) {
   const ref = useRef<T>(null)
   const previous = useRef(active)
-  const glide = useRef(0)
 
   /* ── it follows the tab you chose ──────────────────────────────────────── */
   useLayoutEffect(() => {
@@ -73,9 +91,6 @@ export function useTabStrip<T extends HTMLElement>(active: string, order: readon
     const was = order.indexOf(from)
     const now = order.indexOf(active)
     if (was < 0 || now < 0 || was === now) return
-
-    /* A flick still running would fight the reveal, and win at first. */
-    cancelAnimationFrame(glide.current)
 
     /*
       offsetLeft is measured from the strip itself, which is `position:
@@ -103,109 +118,12 @@ export function useTabStrip<T extends HTMLElement>(active: string, order: readon
     if (Math.abs(target - visibleLeft) < 1) return
 
     /*
-      The browser's own smooth scroll, not a hand-rolled one. It is the only
-      scroll here that nothing is competing with, a finger landing on the row
-      interrupts it for free, and animating scrollLeft by hand for it would be
-      main-thread work bought for nothing.
+      The browser's own smooth scroll, not a hand-rolled one. A finger landing
+      on the row interrupts it for free, and it runs off the main thread.
     */
     const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     strip.scrollTo({ left: target, behavior: calm ? "auto" : "smooth" })
   }, [active, order])
-
-  /* ── and it keeps a sideways swipe ─────────────────────────────────────── */
-  useEffect(() => {
-    const strip = ref.current
-    if (!strip) return
-
-    let startX = 0
-    let startY = 0
-    let startScroll = 0
-    let lastX = 0
-    let lastAt = 0
-    let speed = 0
-    /** null while the gesture is still anyone's; then whose it is. */
-    let owner: "strip" | "page" | null = null
-
-    const onStart = (e: TouchEvent) => {
-      if (e.touches.length !== 1) return
-      cancelAnimationFrame(glide.current)
-      const touch = e.touches[0]
-      startX = lastX = touch.clientX
-      startY = touch.clientY
-      startScroll = strip.scrollLeft
-      lastAt = e.timeStamp
-      speed = 0
-      owner = null
-    }
-
-    const onMove = (e: TouchEvent) => {
-      if (e.touches.length !== 1) return
-      const touch = e.touches[0]
-      const dx = touch.clientX - startX
-      const dy = touch.clientY - startY
-
-      if (owner === null) {
-        if (Math.abs(dx) < DECIDE_PX && Math.abs(dy) < DECIDE_PX) return
-        owner = Math.abs(dx) * SIDEWAYS_BIAS > Math.abs(dy) ? "strip" : "page"
-      }
-      /*
-        Handed back, and not asked about again. Once a gesture is the page's
-        it stays the page's: a thumb that curls sideways halfway down a scroll
-        must not snatch the row out from under it.
-      */
-      if (owner === "page") return
-
-      /*
-        Ours, so the page is told no. This is why the listener is not passive:
-        a sideways swipe on this row scrolls this row and nothing else.
-      */
-      if (e.cancelable) e.preventDefault()
-
-      const dt = e.timeStamp - lastAt
-      if (dt > 0) speed = (touch.clientX - lastX) / dt
-      lastX = touch.clientX
-      lastAt = e.timeStamp
-      strip.scrollLeft = startScroll - dx
-    }
-
-    const onEnd = () => {
-      const mine = owner === "strip"
-      owner = null
-      if (!mine) return
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
-
-      /*
-        A flick carries on. Without it the row stops dead under your thumb,
-        which is the one thing that makes a hand-driven scroller feel unlike
-        every other scroller on the phone. Pixels per frame, from pixels per
-        millisecond at sixty frames a second, and the sign flips because a
-        finger moving right scrolls the content left.
-      */
-      let perFrame = -speed * 16
-      const step = () => {
-        if (Math.abs(perFrame) < GLIDE_STOP) return
-        const before = strip.scrollLeft
-        strip.scrollLeft = before + perFrame
-        /* Ran out of row: stop rather than grind against the end. */
-        if (strip.scrollLeft === before) return
-        perFrame *= GLIDE_DECAY
-        glide.current = requestAnimationFrame(step)
-      }
-      glide.current = requestAnimationFrame(step)
-    }
-
-    strip.addEventListener("touchstart", onStart, { passive: true })
-    strip.addEventListener("touchmove", onMove, { passive: false })
-    strip.addEventListener("touchend", onEnd, { passive: true })
-    strip.addEventListener("touchcancel", onEnd, { passive: true })
-    return () => {
-      cancelAnimationFrame(glide.current)
-      strip.removeEventListener("touchstart", onStart)
-      strip.removeEventListener("touchmove", onMove)
-      strip.removeEventListener("touchend", onEnd)
-      strip.removeEventListener("touchcancel", onEnd)
-    }
-  }, [])
 
   return ref
 }

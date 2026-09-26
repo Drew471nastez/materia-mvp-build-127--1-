@@ -609,9 +609,14 @@ check(
      * not allowed in this element at all — so a thumb that landed on a KPI
      * tile and pulled down could not scroll the page, and the row read as
      * frozen. Both axes named lets the browser decide from the gesture.
+     * Home and Analytics draw one style for the row now
+     * (components/app/use-tab-strip TAB_STRIP_STYLE), measured by
+     * scripts/check-metric-tabs-gesture.mjs.
      */
     const src = code("components/app/dashboard-client.tsx")
-    return /touchAction: 'pan-x pan-y'/.test(src) && !/touchAction: 'pan-x'/.test(src)
+    const hook = code("components/app/use-tab-strip.ts")
+    return /aria-label="Metric" data-scroll-x className="[^"]*" style=\{TAB_STRIP_STYLE\}>/.test(src)
+      && /touchAction: "pan-x pan-y"/.test(hook) && !/touchAction: ["']pan-x["']/.test(hook + src)
   })(),
 )
 

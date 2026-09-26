@@ -47,7 +47,7 @@ import { AnalyticsReports, useAnalyticsReports } from "./analytics-reports"
 import { reportNow } from "@/lib/analytics/report-cache"
 import { AnalyticsChartWithTooltip, CHART_COLORS } from "@/components/app/analytics-chart"
 import { MetricTab } from "@/components/app/metric-tab"
-import { useTabStrip } from "@/components/app/use-tab-strip"
+import { TAB_STRIP_STYLE, useTabStrip } from "@/components/app/use-tab-strip"
 import { HoverNote } from "@/components/app/help-label"
 import { LoadingLine } from "@/components/app/loading-line"
 
@@ -330,7 +330,7 @@ export function AnalyticsClient({ products, userId }: AnalyticsClientProps) {
    * draws once and never draws Store lines over One page numbers.
    */
   const trendMode: AnalyticsMode = answer?.mode ?? analyticsMode
-  /* The row follows the chosen tab on a phone, and keeps a sideways swipe. */
+  /* The row follows the chosen tab on a phone; the swipe itself is the browser's. */
   const metricStripRef = useTabStrip<HTMLDivElement>(
     trendMode === "store" ? chartMetricFilter : onePageChartFilter,
     trendMode === "store" ? STORE_TAB_ORDER : ONE_PAGE_TAB_ORDER,
@@ -502,8 +502,9 @@ export function AnalyticsClient({ products, userId }: AnalyticsClientProps) {
             ref={metricStripRef}
             role="tablist"
             aria-label="Metric"
+            data-scroll-x
             className="relative flex divide-x divide-[#e5e7eb]/60 overflow-x-auto scrollbar-hide md:grid md:grid-cols-4"
-            style={{ touchAction: "pan-x pan-y", WebkitOverflowScrolling: "touch" }}
+            style={TAB_STRIP_STYLE}
           >
             {trendMode === "store" ? (
               <>
