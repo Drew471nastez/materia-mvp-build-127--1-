@@ -269,8 +269,9 @@ export async function recordCouponUse(db: Db, couponId: string | null | undefine
  * these are the ones that count.
  */
 
-/** A code as a buyer types it: letters, digits, - and _, 3 to 32 of them. */
-export const CODE_PATTERN = /^[A-Z0-9_-]{3,32}$/
+/* A code as a buyer types it: in ./coupon-state, which the browser imports too. */
+import { CODE_PATTERN } from "./coupon-state"
+export { CODE_PATTERN }
 
 export interface CouponValues {
   code: string

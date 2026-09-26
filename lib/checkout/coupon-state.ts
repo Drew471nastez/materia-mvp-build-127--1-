@@ -7,6 +7,9 @@
  */
 import type { CouponRow } from "./coupons"
 
+/** A code as a buyer types it: letters, digits, - and _, 3 to 32 of them. */
+export const CODE_PATTERN = /^[A-Z0-9_-]{3,32}$/
+
 export type CouponState = "active" | "scheduled" | "expired" | "used_up" | "off"
 
 /** Where a code stands right now, in the order a buyer would meet it. */
