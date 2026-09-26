@@ -157,6 +157,8 @@ export const useSearchParams = () => new URLSearchParams()
       expect(shut.open === "false" && shut.opacity === "0", "on a phone the bar is away until a text has the caret", shut)
       const foot = await p.$eval("[data-compose-foot]", (f) => { const r = f.getBoundingClientRect(); return { bottom: Math.round(r.bottom), shown: f.dataset.hidden === "false" } })
       expect(foot.shown && Math.abs(foot.bottom - vp.height) <= 1, "Preview and Send are at the foot of the screen", foot)
+      const frames = await p.$$eval("iframe", (f) => f.length)
+      expect(frames === 0, "and no preview is drawn while writing, until it is asked for", frames)
     }
 
     /* ── Writing, with the keyboard up on a phone ── */
@@ -290,22 +292,22 @@ export const useSearchParams = () => new URLSearchParams()
       await p.evaluate(() => {
         window.__frames = []
         window.__long = 0
-        try { new PerformanceObserver((l) => { window.__long += l.getEntries().length }).observe({ type: "longtask" }) } catch {}
+        window.__longMs = []; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) { window.__long++; window.__longMs.push(Math.round(e.duration)) } }).observe({ type: "longtask" }) } catch {}
       })
       await p.click('[data-open-preview="foot"]')
       const rise = await p.evaluate(async () => {
         const out = []
+        const props = new Set()
         const t0 = performance.now()
         while (performance.now() - t0 < 460) {
           await new Promise((r) => requestAnimationFrame(r))
           const el = document.querySelector("[data-preview-layer]")
           if (!el) continue
+          for (const a of el.getAnimations()) for (const k of a.effect.getKeyframes()) for (const x of Object.keys(k)) if (!["offset", "easing", "composite", "computedOffset"].includes(x)) props.add(x)
           const m = new DOMMatrix(getComputedStyle(el).transform)
           out.push(Math.round(m.m42))
         }
-        const el = document.querySelector("[data-preview-layer]")
-        const props = el.getAnimations().flatMap((a) => a.effect.getKeyframes().flatMap((k) => Object.keys(k).filter((x) => !["offset", "easing", "composite", "computedOffset"].includes(x))))
-        return { ys: out, props: [...new Set(props)] }
+        return { ys: out, props: [...props] }
       })
       const between = rise.ys.filter((y) => y > 0 && y < vp.height)
       expect(between.length >= 5 && rise.ys.at(-1) === 0, "Preview rises from the bottom edge with several part-way frames", { partway: between.length, first: rise.ys.slice(0, 4), last: rise.ys.at(-1) })
@@ -329,12 +331,12 @@ export const useSearchParams = () => new URLSearchParams()
           if (!el) { out.push("gone"); break }
           out.push(Math.round(new DOMMatrix(getComputedStyle(el).transform).m42))
         }
-        return { ys: out, long: window.__long }
+        return { ys: out, long: window.__long, longMs: window.__longMs }
       })
       const down = fall.ys.filter((y) => typeof y === "number" && y > 0 && y < vp.height)
       expect(down.length >= 4 && fall.ys.at(-1) === "gone", "Done takes it down the same way, then it is gone", { partway: down.length, end: fall.ys.at(-1) })
-      expect(fall.long === 0, "no long task while it comes and goes", fall.long)
-      expect(rise.props.every((x) => x === "transform" || x === "opacity"), "the move animates transform and opacity only", rise.props)
+      expect(fall.long === 0, "no long task while it comes and goes", fall.longMs)
+      expect(rise.props.length > 0 && rise.props.every((x) => x === "transform" || x === "opacity"), "the move animates transform and opacity only", rise.props)
     } else {
       await sleep(400)
       const aside = await p.evaluate(() => {

@@ -50,6 +50,7 @@ import { ComposeDialog, StatusBadge, buttonAccent, buttonPrimary, buttonSecondar
 import { PreviewLayer } from "./preview-layer"
 import { StarterList } from "./starter-list"
 import { starterDraft, type StarterId } from "@/lib/email-campaigns/starters"
+import { useMedia } from "./format-bar"
 import { SendStatus } from "./send-status"
 
 export interface ComposerProps {
@@ -128,6 +129,8 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   const [previewOpen, setPreviewOpen] = React.useState(false)
   /* A field or the text has the keyboard: the foot's Preview and Send step aside for it. */
   const [typing, setTyping] = React.useState(false)
+  /* From 1024px the preview is beside the writing. Below, it is not drawn at all until it is asked for: no frame rebuilt on every word typed. */
+  const wide = useMedia("(min-width: 1024px)")
   /* A phone at life size reads at the width of the preview column; a computer is shown scaled. */
   const [previewMode, setPreviewMode] = React.useState<PreviewMode>("mobile")
   const [dialog, setDialog] = React.useState<null | "send" | "schedule" | "test" | "leave">(null)
@@ -804,7 +807,9 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
               style={{ top: "calc(var(--compose-bar, 60px) + 16px)" }}
             >
               <div className={cn(card, "overflow-hidden lg:max-h-[var(--compose-room)] lg:overflow-y-auto")}>
+                {editable && !wide ? null : (
                 <EmailPreview html={previewHtml} senderName={me.name || "You"} subject={personalizeSubject(subject, { name: me.name })} previewText={previewText} mode={previewMode} onMode={setPreviewMode} />
+                )}
               </div>
             </aside>
           </div>

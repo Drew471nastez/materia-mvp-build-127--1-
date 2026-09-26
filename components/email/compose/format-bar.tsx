@@ -125,19 +125,21 @@ function queryState(command: string): boolean {
   }
 }
 
-/** Below 768px, the width the page layer and the pill switch at. */
-const PHONE = "(max-width: 767px)"
-export function usePhoneLayout(): boolean {
+/** Whether a media query matches, kept current; false on the server. */
+export function useMedia(query: string): boolean {
   return React.useSyncExternalStore(
     (on) => {
-      const mq = window.matchMedia(PHONE)
+      const mq = window.matchMedia(query)
       mq.addEventListener("change", on)
       return () => mq.removeEventListener("change", on)
     },
-    () => window.matchMedia(PHONE).matches,
+    () => window.matchMedia(query).matches,
     () => false,
   )
 }
+
+/** Below 768px, the width the page layer and the pill switch at. */
+export const usePhoneLayout = () => useMedia("(max-width: 767px)")
 
 const TOOL =
   "inline-flex h-11 min-w-11 shrink-0 cursor-pointer select-none items-center justify-center rounded-[10px] px-0 text-[#4b5563] transition-colors duration-100 [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] disabled:cursor-default disabled:opacity-40 md:h-8 md:min-w-8 md:rounded-lg [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#eef0f2] [@media(hover:hover)_and_(pointer:fine)]:hover:text-[#1a1a2e] active:bg-[#e6e8eb]"
