@@ -2099,6 +2099,100 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     </>
   )
 
+  /* The PDF panel's contents: in the phone's sheet (whose own close is data-sheet-close) or the centred panel. */
+  const pdfBody = (
+    pdfModalData: { title?: string; description?: string; pdfUrl: string; previewButtonText?: string },
+    closeProps: { onClick?: () => void; "data-sheet-close"?: string },
+  ) => (
+    <>
+      {/* Top Bar */}
+      <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
+        <button
+          type="button"
+          {...closeProps}
+          className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
+          {pdfModalData.title || "PDF Document"}
+        </h3>
+        <button
+          type="button"
+          {...closeProps}
+          className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Preview Area */}
+      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-hidden min-h-0">
+        {/* PDF Preview Frame */}
+        <div
+          ref={pdfContainerRef}
+          className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
+        >
+          {/* Page Counter */}
+          <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
+            {pdfLoading ? "Loading..." : `${pdfCurrentPage} of ${pdfTotalPages}`}
+          </div>
+
+          {/* PDF Pages - Scrollable container */}
+          <div
+            ref={pdfScrollRef}
+            className="aspect-[3/4] w-full bg-white overflow-y-auto overflow-x-hidden"
+            onScroll={handlePdfScroll}
+          >
+            {pdfLoading ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="animate-spin w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full" />
+              </div>
+            ) : pdfPages.length > 0 ? (
+              <div className="flex flex-col">
+                {pdfPages.map((pageImg, index) => (
+                  <img
+                    key={index}
+                    src={pageImg}
+                    alt={`Page ${index + 1}`}
+                    className="w-full h-auto"
+                  />
+                ))}
+              </div>
+            ) : (
+              <iframe
+                src={`${pdfModalData.pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
+                className="w-full h-full border-0"
+                title={pdfModalData.title || "PDF Document"}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Description under preview */}
+        {pdfModalData.description && (
+          <p className="mt-4 text-sm text-gray-500 text-center max-w-xs">
+            {pdfModalData.description}
+          </p>
+        )}
+      </div>
+
+      {/* Bottom View Button */}
+      <div className="px-6 pb-6 sm:pb-8 pt-4 shrink-0">
+        <a
+          href={pdfModalData.pdfUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center w-full py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-semibold rounded-2xl transition-colors"
+        >
+          {pdfModalData.previewButtonText || "View full PDF"}
+        </a>
+      </div>
+    </>
+  )
+
   return (
     <ModalVisibilityContext.Provider value={modalVisibilityContextValue}>
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
@@ -2479,8 +2573,29 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         </div>
       )}
 
-      {/* PDF Modal - rendered at root level for proper z-index stacking */}
-      {pdfModalOpen && pdfModalData && (
+      {/*
+        THE PDF (and a menu, which opens the same way) ON A PHONE IS THE SHARED
+        SHEET (components/ui/bottom-sheet.tsx), as the Spotify, Apple Music and
+        checkout panels already were: it rises, follows the thumb, flicks closed
+        and slides out. It was a full screen panel that vanished on close. The
+        editor's phone preview had been given the sheet on its own copy of this
+        panel; the preview is this page now (components/onepage/live-preview),
+        so the page has it, for visitors too. From 640px it is the centred
+        panel it was.
+      */}
+      {isPhone ? (
+        <BottomSheet
+          isOpen={pdfModalOpen && !!pdfModalData}
+          onClose={closePdfModal}
+          label={pdfModalData?.title || "PDF Document"}
+          hideFrom="sm"
+          fill
+          maxHeight="90svh"
+          className="mx-auto max-w-md min-h-[70vh]"
+        >
+          {pdfModalData && pdfBody(pdfModalData, { "data-sheet-close": "" })}
+        </BottomSheet>
+      ) : pdfModalOpen && pdfModalData && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 sm:bg-black/50 animate-in fade-in duration-200"
           onClick={closePdfModal}
@@ -2489,89 +2604,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             className="relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-md sm:mx-4 bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-4 duration-300"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Top Bar */}
-            <div className="flex items-center justify-between px-4 py-4 border-b shrink-0">
-              <button
-                onClick={closePdfModal}
-                className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M19 12H5M12 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h3 className="text-base font-semibold text-gray-900 truncate flex-1 text-center px-2">
-                {pdfModalData.title || "PDF Document"}
-              </h3>
-              <button
-                onClick={closePdfModal}
-                className="p-2 -mr-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Preview Area */}
-            <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 overflow-hidden min-h-0">
-              {/* PDF Preview Frame */}
-              <div
-                ref={pdfContainerRef}
-                className="relative w-full max-w-xs bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden shadow-sm"
-              >
-                {/* Page Counter */}
-                <div className="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/95 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 shadow-sm">
-                  {pdfLoading ? "Loading..." : `${pdfCurrentPage} of ${pdfTotalPages}`}
-                </div>
-
-                {/* PDF Pages - Scrollable container */}
-                <div
-                  ref={pdfScrollRef}
-                  className="aspect-[3/4] w-full bg-white overflow-y-auto overflow-x-hidden"
-                  onScroll={handlePdfScroll}
-                >
-                  {pdfLoading ? (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <div className="animate-spin w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full" />
-                    </div>
-                  ) : pdfPages.length > 0 ? (
-                    <div className="flex flex-col">
-                      {pdfPages.map((pageImg, index) => (
-                        <img
-                          key={index}
-                          src={pageImg}
-                          alt={`Page ${index + 1}`}
-                          className="w-full h-auto"
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <iframe
-                      src={`${pdfModalData.pdfUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
-                      className="w-full h-full border-0"
-                      title={pdfModalData.title || "PDF Document"}
-                    />
-                  )}
-                </div>
-              </div>
-
-              {/* Description under preview */}
-              {pdfModalData.description && (
-                <p className="mt-4 text-sm text-gray-500 text-center max-w-xs">
-                  {pdfModalData.description}
-                </p>
-              )}
-            </div>
-
-            {/* Bottom View Button */}
-            <div className="px-6 pb-6 sm:pb-8 pt-4 shrink-0">
-              <a
-                href={pdfModalData.pdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center w-full py-4 bg-gray-900 hover:bg-gray-800 text-white text-base font-semibold rounded-2xl transition-colors"
-              >
-                {pdfModalData.previewButtonText || "View full PDF"}
-              </a>
-            </div>
+            {pdfBody(pdfModalData, { onClick: closePdfModal })}
           </div>
         </div>
       )}

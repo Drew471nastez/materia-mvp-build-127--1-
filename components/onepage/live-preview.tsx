@@ -27,6 +27,9 @@ import { publicOnePageFromDraft, type PublicOnePageData } from "@/lib/onepage/pu
 import { ONEPAGE_PREVIEW_CHANNEL, ONEPAGE_PREVIEW_PATH, type PreviewMessage } from "@/lib/onepage/preview-channel"
 import { cn } from "@/lib/utils"
 
+/** How long a frame has to say it is ready before it is loaded once more. */
+const FRAME_READY_MS = 6000
+
 /** The width the page is drawn at: a phone's, the one the live page is designed at. */
 export const PREVIEW_PHONE_WIDTH = 390
 
@@ -109,6 +112,21 @@ export function LivePreviewFrame({
     return () => window.removeEventListener("message", onMessage)
   }, [send])
 
+  /*
+    A FRAME THAT NEVER ANSWERS IS LOADED ONCE MORE. A document that did not
+    arrive (a dropped connection, a deploy landing between the editor and
+    its frame) never says "ready", and the phone stayed the page's colour
+    with nothing on it, for good. One more load after FRAME_READY_MS; the
+    editor's own loader has long gone by then (ARRIVE_CAP_MS), so this
+    holds nothing up.
+  */
+  const [attempt, setAttempt] = useState(0)
+  useEffect(() => {
+    if (attempt > 0) return
+    const id = window.setTimeout(() => { if (!ready.current) setAttempt(1) }, FRAME_READY_MS)
+    return () => window.clearTimeout(id)
+  }, [attempt])
+
   /* Every change, at most once a frame. */
   useEffect(() => {
     if (!ready.current) return
@@ -127,7 +145,7 @@ export function LivePreviewFrame({
     >
       <iframe
         ref={frame}
-        src={ONEPAGE_PREVIEW_PATH}
+        src={attempt ? `${ONEPAGE_PREVIEW_PATH}&again=${attempt}` : ONEPAGE_PREVIEW_PATH}
         title={title}
         data-onepage-preview-frame=""
         data-drawn={drawn ? "" : undefined}
