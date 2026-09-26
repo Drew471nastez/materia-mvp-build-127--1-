@@ -3,7 +3,7 @@
 import { useTabStrip } from "@/components/app/use-tab-strip"
 import { MetricTab } from "@/components/app/metric-tab"
 import { memo, useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
-import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
+import { PULL_TO_REFRESH, usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "./pull-to-refresh-indicator"
 import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
 import Link from "next/link"
@@ -1107,33 +1107,28 @@ export function DashboardClient({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodKey])
 
-  const { pullDistance, phase: pullPhase } = usePullToRefresh(scrollRef, handlePullRefresh)
-
-  // Content translateY: slides down while pulling, snaps back when done.
-  // Small offset (34px) when refreshing — just enough to show the 20px spinner
-  // with breathing room, matching the compact iOS-style indicator.
   /**
-   * The gap held open while refreshing. Shared with the indicator so the ring is
-   * centred in the SAME gap the content opens — it used to be a literal 10px
-   * against this 34, which was never actually centred and would have drifted
-   * silently the moment either number was touched.
+   * The gap held open while refreshing. Shared with the indicator and the hook
+   * so the ring is centred in the SAME gap the content opens — it used to be a
+   * literal 10px against this 34, which was never actually centred and would
+   * have drifted silently the moment either number was touched.
    */
-  const REFRESH_HOLD = 34
+  const REFRESH_HOLD = PULL_TO_REFRESH.refreshHold
 
-  const contentTranslateY =
-    pullPhase === "pulling" || pullPhase === "ready"
-      ? pullDistance
-      : pullPhase === "refreshing"
-        ? REFRESH_HOLD
-        : 0
-
-  // Ultra-smooth spring-like ease for the snap-back / pin animation.
-  // 0.4s with cubic-bezier(0.25,1,0.5,1) gives that native iOS feel:
-  // fast start, gentle deceleration, no bounce.
-  const contentTransition =
-    pullPhase === "idle" || pullPhase === "refreshing"
-      ? "transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)"
-      : "none"
+  /**
+   * THE PULL DOES NOT RENDER THIS PAGE.
+   *
+   * It used to: the hook held the distance in state, so every touchmove
+   * re-rendered this component — the chart, the cards, the order list, all of
+   * it — and then recomputed a translateY and a transition string from the new
+   * props. That is why the drag could not hold a frame rate.
+   *
+   * The hook writes the two elements below directly instead, one write per
+   * frame, and this component renders once. There is no pull value in scope
+   * here to render from.
+   */
+  const { contentRef, indicatorRef } =
+    usePullToRefresh(scrollRef, handlePullRefresh, { refreshHold: REFRESH_HOLD })
 
   return (
     <div
@@ -1163,19 +1158,14 @@ export function DashboardClient({
       */}
       <div className="relative">
         <PullToRefreshIndicator
-          pullDistance={pullDistance}
-          phase={pullPhase}
+          ref={indicatorRef}
           topOffset={0}
           refreshHold={REFRESH_HOLD}
         />
 
-        <div
-          style={{
-            transform: `translateY(${contentTranslateY}px)`,
-            transition: contentTransition,
-            willChange: "transform",
-          }}
-        >
+        {/* What slides down. The hook owns its transform and its will-change;
+            neither is written here, so neither costs a render. */}
+        <div ref={contentRef}>
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
 
