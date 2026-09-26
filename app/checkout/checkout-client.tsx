@@ -573,7 +573,7 @@ export default function CheckoutPageClient({
   const namesAndNews = (
     <div className="space-y-3">
       <Field id="checkout-name" label="Full name">
-        <TextInput id="checkout-name" autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value.slice(0, 121))} />
+        <TextInput id="checkout-name" autoComplete="name" placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value.slice(0, 121))} />
       </Field>
       <CheckRow id="checkout-news" checked={emailOptIn} onChange={setEmailOptIn}>
         Email me news and offers from {creator.name}
@@ -590,6 +590,7 @@ export default function CheckoutPageClient({
         autoComplete="email"
         autoCapitalize="none"
         spellCheck={false}
+        placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value.slice(0, 254))}
       />

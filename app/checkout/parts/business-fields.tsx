@@ -35,7 +35,7 @@ export function CountrySelect({
         autoComplete={autoComplete}
         aria-invalid={invalid || undefined}
         onChange={(e) => onChange(e.target.value)}
-        className={cn(inputClass, "cursor-pointer appearance-none pr-10", !value && "text-[#9ca3af]")}
+        className={cn(inputClass, "cursor-pointer appearance-none pr-10", !value && "text-[#a2a7b0]")}
       >
         <option value="" disabled>
           Country or region
@@ -85,28 +85,28 @@ export function BusinessFields({
         <div className="min-h-0 overflow-hidden">
           <div className="grid grid-cols-1 gap-3 pb-1 pt-4 sm:grid-cols-2">
             <Field id="business-company" label="Company name" error={errors.company} className="sm:col-span-2">
-              <TextInput id="business-company" autoComplete="organization" value={value.company} onChange={set("company")} invalid={!!errors.company} maxLength={120} />
+              <TextInput id="business-company" autoComplete="organization" placeholder="Company name" value={value.company} onChange={set("company")} invalid={!!errors.company} maxLength={120} />
             </Field>
             <Field id="business-tax" label="Tax ID (optional)" error={errors.taxId} hint="VAT, EIN, ABN or your country's equivalent." className="sm:col-span-2">
-              <TextInput id="business-tax" autoComplete="off" autoCapitalize="characters" spellCheck={false} value={value.taxId} onChange={set("taxId")} invalid={!!errors.taxId} maxLength={32} />
+              <TextInput id="business-tax" autoComplete="off" placeholder="Tax ID" autoCapitalize="characters" spellCheck={false} value={value.taxId} onChange={set("taxId")} invalid={!!errors.taxId} maxLength={32} />
             </Field>
             <Field id="business-country" label="Country or region" error={errors.country} className="sm:col-span-2">
               <CountrySelect id="business-country" value={value.country} onChange={(country) => onChange({ ...value, country })} invalid={!!errors.country} />
             </Field>
             <Field id="business-line1" label="Address" error={errors.line1} className="sm:col-span-2">
-              <TextInput id="business-line1" autoComplete="address-line1" value={value.line1} onChange={set("line1")} invalid={!!errors.line1} maxLength={120} />
+              <TextInput id="business-line1" autoComplete="address-line1" placeholder="Street address" value={value.line1} onChange={set("line1")} invalid={!!errors.line1} maxLength={120} />
             </Field>
             <Field id="business-line2" label="Apartment, suite, etc. (optional)" className="sm:col-span-2">
-              <TextInput id="business-line2" autoComplete="address-line2" value={value.line2} onChange={set("line2")} maxLength={120} />
+              <TextInput id="business-line2" autoComplete="address-line2" placeholder="Apartment, suite, etc." value={value.line2} onChange={set("line2")} maxLength={120} />
             </Field>
             <Field id="business-city" label="City" error={errors.city}>
-              <TextInput id="business-city" autoComplete="address-level2" value={value.city} onChange={set("city")} invalid={!!errors.city} maxLength={80} />
+              <TextInput id="business-city" autoComplete="address-level2" placeholder="City" value={value.city} onChange={set("city")} invalid={!!errors.city} maxLength={80} />
             </Field>
             <Field id="business-postal" label="Postal code" error={errors.postalCode}>
-              <TextInput id="business-postal" autoComplete="postal-code" value={value.postalCode} onChange={set("postalCode")} invalid={!!errors.postalCode} maxLength={20} />
+              <TextInput id="business-postal" autoComplete="postal-code" placeholder="Postal code" value={value.postalCode} onChange={set("postalCode")} invalid={!!errors.postalCode} maxLength={20} />
             </Field>
             <Field id="business-region" label="State, county or region (optional)" className="sm:col-span-2">
-              <TextInput id="business-region" autoComplete="address-level1" value={value.region} onChange={set("region")} maxLength={80} />
+              <TextInput id="business-region" autoComplete="address-level1" placeholder="State or region" value={value.region} onChange={set("region")} maxLength={80} />
             </Field>
           </div>
         </div>

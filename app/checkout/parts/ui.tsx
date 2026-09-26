@@ -76,7 +76,20 @@ export const TextInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttri
   },
 )
 
-/** A square box with a check, the size of a fingertip's target around it. */
+/**
+ * A square box with a check, the size of a fingertip's target around it.
+ *
+ * Ticking it moves only opacity and scale: the near-black fill grows out of
+ * the box's middle and the check follows it in a beat later with a little
+ * give; unticking is the same backwards and quicker, so it never lingers. The
+ * box itself sinks a touch while it is pressed, wherever on the row the press
+ * lands.
+ *
+ * A NAMED GROUP, group/check, and not `group`: on a touch screen globals.css
+ * switches off every transition inside a `.group` (the hover flash rule
+ * under `@media (hover: none)`), which is where this box used to lose its
+ * animation on every phone and only ever snapped.
+ */
 export function CheckRow({
   id,
   checked,
@@ -91,8 +104,11 @@ export function CheckRow({
   invalid?: boolean
 }) {
   return (
-    <label htmlFor={id} className="group flex cursor-pointer items-start gap-2.5 py-1 text-[14px] leading-[1.45] text-[#4b5563]">
-      <span className="relative mt-[1px] flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+    <label htmlFor={id} className="group/check flex cursor-pointer items-start gap-2.5 py-1 text-[14px] leading-[1.45] text-[#4b5563] [-webkit-tap-highlight-color:transparent]">
+      <span
+        data-check-box=""
+        className="relative mt-[1px] grid h-[18px] w-[18px] shrink-0 place-items-center transition-[scale] duration-150 ease-out group-active/check:scale-[0.9] motion-reduce:transition-none"
+      >
         <input
           id={id}
           type="checkbox"
@@ -100,15 +116,28 @@ export function CheckRow({
           onChange={(e) => onChange(e.target.checked)}
           aria-invalid={invalid || undefined}
           className={cn(
-            "peer h-[18px] w-[18px] cursor-pointer appearance-none rounded-[5px] border bg-white shadow-[0_1px_1px_rgba(0,0,0,0.04)] transition-colors duration-150",
+            "absolute inset-0 m-0 h-[18px] w-[18px] cursor-pointer appearance-none rounded-[5px] border bg-white shadow-[0_1px_1px_rgba(0,0,0,0.04)]",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]",
-            checked ? "border-[#1a1a2e] bg-[#1a1a2e]" : invalid ? "border-[#dc2626]" : "border-[#c9ccd2] group-hover:border-[#9ca3af]",
+            checked ? "border-[#1a1a2e]" : invalid ? "border-[#dc2626]" : "border-[#c9ccd2] group-hover/check:border-[#9ca3af]",
+          )}
+        />
+        <span
+          aria-hidden
+          data-check-fill=""
+          className={cn(
+            "pointer-events-none absolute inset-0 rounded-[5px] bg-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(17,17,19,0.22)] transition-[opacity,scale] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            checked ? "scale-100 opacity-100 duration-200" : "scale-[0.55] opacity-0 duration-150",
           )}
         />
         <Check
           aria-hidden
           strokeWidth={3}
-          className={cn("pointer-events-none absolute h-3 w-3 text-white transition-[opacity,scale] duration-150", checked ? "scale-100 opacity-100" : "scale-75 opacity-0")}
+          className={cn(
+            "pointer-events-none relative h-3 w-3 text-white transition-[opacity,scale] motion-reduce:transition-none",
+            checked
+              ? "scale-100 opacity-100 delay-[50ms] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+              : "scale-[0.4] opacity-0 duration-100 ease-out",
+          )}
         />
       </span>
       <span className="min-w-0">{children}</span>

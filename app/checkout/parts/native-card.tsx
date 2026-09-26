@@ -85,6 +85,7 @@ export function NativeCardFields({ value, onChange }: { value: NativeCard; onCha
         <TextInput
           id="native-card-name"
           autoComplete="cc-name"
+          placeholder="Full name on card"
           value={value.name}
           onChange={(e) => onChange({ ...value, name: e.target.value.slice(0, 80) })}
         />
