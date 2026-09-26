@@ -435,6 +435,9 @@ async function frozenMove(p, cdp, { sel, label, layer, which }) {
         let y = null
         for (const a of document.getAnimations()) {
           if (!a.effect?.pseudoElement?.startsWith("::view-transition")) continue
+          /* Played and paused again, so the compositor takes the new time too (a paused move set back to 0 kept its first frame there). */
+          a.play()
+          a.pause()
           a.currentTime = ms
           if (a.effect.pseudoElement === which) {
             let p = a.effect.getComputedTiming().progress ?? 0
