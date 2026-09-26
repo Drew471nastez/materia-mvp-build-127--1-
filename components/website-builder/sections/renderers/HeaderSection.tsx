@@ -18,7 +18,7 @@ import { useCallback, useState, useEffect, useRef, useLayoutEffect, type CSSProp
 import { createPortal } from "react-dom"
 import { ThemeSocials } from "../../theme/ThemeSocials"
 import { cn } from "@/lib/utils"
-import { DRAWER_BACKDROP_Z, DRAWER_CLOSE_MS, DRAWER_PANEL_Z, drawerFade, drawerSlide, useBackdropDismiss, useDrawerFrame } from "../../drawer-frame"
+import { DRAWER_BACKDROP_Z, DRAWER_CLOSE_MS, DRAWER_PANEL_Z, drawerFade, drawerSlide, useBackdropDismiss, useDrawerFrame, useDrawerTouchGuard, useHeaderUnderDrawer } from "../../drawer-frame"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { useSiteCart } from "../../site-cart"
 import { useStorefront } from "../../theme/storefront-context"
@@ -742,6 +742,7 @@ function HeaderCartDrawer({
   const onClose = useCallback(() => setOpen(false), [setOpen])
   const { mounted, target, positionClass, frameStyle } = useDrawerFrame(open, scopedToPreview, onClose)
   const dismissBackdrop = useBackdropDismiss(open, onClose)
+  const guardPanel = useDrawerTouchGuard()
   if (!mounted || !target) return null
 
   const panelTransition = drawerSlide(open)
@@ -753,6 +754,7 @@ function HeaderCartDrawer({
     <>
       <div
         aria-hidden
+        data-site-drawer-backdrop=""
         ref={dismissBackdrop}
         className={cn(positionClass, "left-0 right-0 bg-black/50", DRAWER_BACKDROP_Z)}
         style={{
@@ -764,9 +766,12 @@ function HeaderCartDrawer({
         }}
       />
       <aside
+        ref={guardPanel}
         role="dialog"
         aria-label="Cart"
         aria-hidden={!open}
+        /* See the menu drawer below for why this says so while it is open. */
+        aria-modal={open ? true : undefined}
         className={cn(
           positionClass,
           "right-0 flex flex-col",
@@ -954,6 +959,8 @@ function MobileDrawerInner({
   // slides to a sub-page showing just that item's children (iOS-style).
   // The back button on the sub-page returns us to the root by clearing it.
   const dismissBackdrop = useBackdropDismiss(open, onClose)
+  const guardPanel = useDrawerTouchGuard()
+  const railRef = useRef<HTMLDivElement | null>(null)
   const [activeSubmenuId, setActiveSubmenuId] = useState<string | null>(null)
   /* The saved count for the heart, and Sign in or Account for this visitor. */
   const account = useAccountLink()
@@ -965,7 +972,12 @@ function MobileDrawerInner({
       // Delay slightly so the reset happens AFTER the drawer has started
       // sliding off-screen — otherwise the user briefly sees the root
       // menu snap back into view during the close animation.
-      const t = window.setTimeout(() => setActiveSubmenuId(null), 280)
+      const t = window.setTimeout(() => {
+        setActiveSubmenuId(null)
+        /* And at the top of its list: the drawer stays mounted, so a list
+           scrolled halfway down opened halfway down next time. */
+        railRef.current?.querySelectorAll<HTMLElement>(":scope > div").forEach((pane) => { pane.scrollTop = 0 })
+      }, 280)
       return () => window.clearTimeout(t)
     }
   }, [open])
@@ -1043,6 +1055,7 @@ function MobileDrawerInner({
           overlay fully cover the sticky header when opened. */}
       <div
         aria-hidden
+        data-site-drawer-backdrop=""
         ref={dismissBackdrop}
         className={cn(positionClass, "left-0 right-0 bg-black/50", DRAWER_BACKDROP_Z)}
         style={{
@@ -1054,6 +1067,7 @@ function MobileDrawerInner({
         }}
       />
       <aside
+        ref={guardPanel}
         role="dialog"
         aria-label="Menu"
         aria-hidden={!open}
@@ -1087,6 +1101,20 @@ function MobileDrawerInner({
           has closed. See the note in the editor's onClickCapture.
         */
         data-self-nav=""
+        /*
+          ═══════════════════════════════════════════════════════════════════
+           OPEN, IT SAYS IT IS A MODAL, AND THE LOCK IS LEFT ALONE
+          ═══════════════════════════════════════════════════════════════════
+          The root layout mounts a guard on every page (StuckLayerGuard) that
+          takes back any lock on the body that no open modal accounts for,
+          after 400ms or at the next touch, whichever comes first. It asks
+          one question, `[aria-modal="true"]`, and this drawer never said it.
+          So the menu pinned the page, the guard unpinned it, and the first
+          drag in the menu scrolled the website behind it from the top: the
+          recording. Said only while open, so a closed drawer never keeps a
+          stale lock alive. Measured by scripts/check-storefront-mobile-drawer.
+        */
+        aria-modal={open ? true : undefined}
         className={cn(
           positionClass,
           "flex flex-col",
@@ -1169,6 +1197,7 @@ function MobileDrawerInner({
           style={{ overscrollBehavior: "contain" }}
         >
           <div
+            ref={railRef}
             className="absolute inset-0 flex"
             style={{
               width: "200%",
@@ -1394,6 +1423,13 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const { template: pageTemplate } = useStorelibPage()
   const s = section.settings
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  /* One function for the life of the header: the drawer's lock and its
+     touch guard should not be handed a new one on every render. */
+  const closeMobileNav = useCallback(() => setMobileNavOpen(false), [])
+  /* Whether a drawer is over the page, read by the scroll handler below
+     without making it a dependency. Set during render, so it is already
+     true when the lock's own scroll event arrives. */
+  const drawerOverPage = useRef(false)
 
   // Resolve color scheme (falls back to explicit bg/text colors if still set)
   const schemeKey = (str(s.color_scheme, "white") as HeaderColorScheme)
@@ -1596,6 +1632,16 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     sampleOrigin()
 
     const onScroll = () => {
+      /*
+        NOT WHILE A DRAWER IS OVER THE PAGE. Pinning the page for the menu
+        is itself a scroll: the document's offset drops to zero, and on the
+        way out it jumps back. Read as a visitor scrolling, the first showed
+        the header and the second hid it, so a header that was showing when
+        the menu opened was gone when it closed. Nothing the visitor did
+        happened in between, so nothing is recorded, and the offset after the
+        close is the same one the header last saw.
+      */
+      if (drawerOverPage.current) return
       const y = getY()
 
       /**
@@ -2534,6 +2580,14 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const useSticky = headerStickyEnabled || headerStickyOnScrollUp
 
   const headerRef = useRef<HTMLDivElement | null>(null)
+  /*
+    A DRAWER OVER THE PAGE, the menu or the bag: the header fades under it and
+    its show on scroll up stands still. See useHeaderUnderDrawer.
+  */
+  const { open: cartOpen } = useSiteCart()
+  const drawerOpen = mobileNavOpen || (showCart && cartOpen)
+  drawerOverPage.current = drawerOpen
+  useHeaderUnderDrawer(headerRef, drawerOpen)
   const [measuredH, setMeasuredH] = useState(0)
   useLayoutEffect(() => {
     // Measure for both the live fixed header (so the spacer reserves the
@@ -2727,7 +2781,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const mobileDrawer = (
     <HeaderMobileNavDrawer
       open={mobileNavOpen}
-      onClose={() => setMobileNavOpen(false)}
+      onClose={closeMobileNav}
       scheme={scheme}
       menuStyle={mobileMenuStyle(s.mobile_menu_style)}
       // CRITICAL: use `renderingInsideEditor`, NOT `isEditing`. `isEditing`

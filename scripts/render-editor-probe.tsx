@@ -40,7 +40,20 @@ function instance(type: string, i: number): SectionInstance {
 const PAGE = (globalThis as unknown as { PROBE_SHORT?: boolean }).PROBE_SHORT
   ? ["header", "hero_centered", "features_grid", "footer"]
   : ["header", "hero_centered", "features_grid", "text_rich", "proof_testimonials", "faq_accordion", "cta_simple", "text_image", "promo_newsletter", "footer"]
-const sections = PAGE.map((t, i) => instance(t, i))
+/**
+ * PROBE_HEADER sets the header's settings and gives it `links` menu links,
+ * the second of them with three children (scripts/check-storefront-mobile-
+ * drawer.mjs). Unset, the header is the schema's preset.
+ */
+const probeHeader = (globalThis as unknown as { PROBE_HEADER?: { settings?: Record<string, unknown>; links?: number } }).PROBE_HEADER
+function withProbeHeader(s: SectionInstance): SectionInstance {
+  if (s.type !== "header" || !probeHeader) return s
+  const n = probeHeader.links ?? 0
+  const links = Array.from({ length: n }, (_, k) => ({ id: `nav-${k}`, type: "nav_link", settings: { label: k === 1 ? "Services" : `Page ${k + 1}`, url: `#page-${k + 1}`, link_type: "custom" } as Record<string, unknown> }))
+  if (n > 1) for (let j = 0; j < 3; j++) links.push({ id: `nav-1-${j}`, type: "nav_link", settings: { label: `Service ${j + 1}`, url: `#service-${j + 1}`, link_type: "custom", parent_id: "nav-1" } })
+  return { ...s, settings: { ...s.settings, ...probeHeader.settings }, blocks: n ? links : s.blocks }
+}
+const sections = PAGE.map((t, i) => withProbeHeader(instance(t, i)))
 
 const now = new Date().toISOString()
 /**

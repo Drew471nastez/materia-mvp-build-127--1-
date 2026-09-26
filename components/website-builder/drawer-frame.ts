@@ -118,6 +118,112 @@ export function useBackdropDismiss(open: boolean, onClose: () => void) {
        that never produces one. It is not reached after a pointerdown,
        because that press has already taken this click. */
     node.addEventListener("click", dismiss)
+    /*
+      AND A DRAG ON IT MOVES NOTHING.
+
+      The press closes the menu, and the lock comes off with it, while the
+      finger is still going. The rest of that drag belongs to the backdrop
+      (a touch keeps the target it started on), so refusing its moves here
+      is what stops it scrolling the page the menu has just let go of.
+    */
+    node.addEventListener("touchmove", refuseMove, { passive: false })
+  }, [])
+}
+
+function refuseMove(e: TouchEvent) {
+  if (e.cancelable) e.preventDefault()
+}
+
+/**
+ * ===========================================================================
+ *  A FINGER IN THE MENU MOVES THE MENU, NEVER THE PAGE BEHIND IT
+ * ===========================================================================
+ * "When I try to scroll in that sidebar navigation, it scrolls the website."
+ *
+ * A scroll that reaches the end of the drawer's list is handed on to
+ * whatever scrolls behind it, and a list too short to scroll hands on the
+ * whole gesture. `overscroll-behavior: contain` says no to that, and WebKit
+ * inside the iOS app does not listen (its scroll is a native view; see
+ * components/platform/capacitor-bounce-guard.tsx). The lock stops the page
+ * itself; this stops the gesture ever being handed on.
+ *
+ * So a move is cancelled exactly when it would leave the drawer: nothing in
+ * it scrolls under the finger, or what does is already at the end the finger
+ * is pushing toward. Every other move is left to the browser, so the list
+ * scrolls natively and a tap is never touched (a tap has no moves).
+ *
+ * Decided once per gesture where it is expensive (which element scrolls),
+ * and per move only where it has to be (one scrollTop read).
+ */
+export interface GestureScroller {
+  scrollTop: number
+  scrollHeight: number
+  clientHeight: number
+}
+
+/**
+ * Would this move, left alone, carry past the drawer to the page? `dx` and
+ * `dy` are the finger's travel since the last move, positive right and down.
+ * A finger moving down drags the list toward its top.
+ */
+export function moveReachesPage(scroller: GestureScroller | null, dx: number, dy: number): boolean {
+  if (dx === 0 && dy === 0) return false
+  /* Nothing in a drawer scrolls sideways, so a sideways move is the page's. */
+  if (Math.abs(dx) > Math.abs(dy)) return true
+  if (!scroller) return true
+  const room = scroller.scrollHeight - scroller.clientHeight
+  if (room <= 1) return true
+  return dy > 0 ? scroller.scrollTop <= 0 : scroller.scrollTop >= room - 1
+}
+
+/** The element that scrolls under this finger, between it and the drawer. */
+function scrollerUnder(target: EventTarget | null, panel: HTMLElement): HTMLElement | null {
+  let el = target instanceof Element ? target : null
+  while (el && el !== panel.parentElement) {
+    const oy = getComputedStyle(el).overflowY
+    const h = el as HTMLElement
+    if ((oy === "auto" || oy === "scroll") && h.scrollHeight > h.clientHeight + 1) return h
+    if (el === panel) break
+    el = el.parentElement
+  }
+  return null
+}
+
+/**
+ * The drawer panel's half. A callback ref: the listeners go on with the
+ * node and come off with it, and they only ever hear gestures that start
+ * inside the drawer, which is only while it is open.
+ */
+export function useDrawerTouchGuard() {
+  return useCallback((panel: HTMLElement | null) => {
+    if (!panel) return
+    let scroller: HTMLElement | null = null
+    let lastX = 0
+    let lastY = 0
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0]
+      if (!t) return
+      lastX = t.clientX
+      lastY = t.clientY
+      scroller = scrollerUnder(e.target, panel)
+    }
+    const onMove = (e: TouchEvent) => {
+      /* Two fingers is a zoom, which is the visitor's to make. */
+      if (e.touches.length !== 1) return
+      const t = e.touches[0]
+      const dx = t.clientX - lastX
+      const dy = t.clientY - lastY
+      lastX = t.clientX
+      lastY = t.clientY
+      if (e.cancelable && moveReachesPage(scroller, dx, dy)) e.preventDefault()
+    }
+    /* Touchdown never cancels anything, so it does not make scrolling wait. */
+    panel.addEventListener("touchstart", onStart, { passive: true })
+    panel.addEventListener("touchmove", onMove, { passive: false })
+    return () => {
+      panel.removeEventListener("touchstart", onStart)
+      panel.removeEventListener("touchmove", onMove)
+    }
   }, [])
 }
 
@@ -132,15 +238,34 @@ export interface DrawerFrame {
   frameStyle: CSSProperties
 }
 
+/**
+ * The attribute the canvas carries while a site drawer holds it still. The
+ * editor's own touch handling reads it and stands down: its touchdown nudge
+ * moved the canvas a pixel under an open menu, which is a page that moved.
+ */
+export const SITE_DRAWER_OPEN_ATTRIBUTE = "data-site-drawer-open"
+
 export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose: () => void): DrawerFrame {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
 
   const [pin, setPin] = useState<{ top: number; height: number } | null>(null)
 
+  /*
+    THE LOCK IS TAKEN ONCE PER OPENING, NOT ONCE PER RENDER.
+
+    `onClose` was a dependency of the effect below, and the header passes a
+    new arrow every render. So every render of the header while the menu was
+    open let go of the page and took it again: the body unpinned, the window
+    scrolled back, the body pinned. Held in a ref, the lock follows `open`
+    and nothing else.
+  */
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeRef.current() }
     window.addEventListener("keydown", onKey)
 
     const undo: Array<() => void> = [() => window.removeEventListener("keydown", onKey)]
@@ -156,6 +281,7 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
       const prevTouch = scroller.style.touchAction
       scroller.style.overflow = "hidden"
       scroller.style.touchAction = "none"
+      scroller.setAttribute(SITE_DRAWER_OPEN_ATTRIBUTE, "")
 
       const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null
       ro?.observe(scroller)
@@ -166,6 +292,7 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
         window.removeEventListener("resize", measure)
         scroller.style.overflow = prevOverflow
         scroller.style.touchAction = prevTouch
+        scroller.removeAttribute(SITE_DRAWER_OPEN_ATTRIBUTE)
         // `overflow: hidden` can clamp the offset; put it back verbatim.
         scroller.scrollTop = startTop
       })
@@ -200,16 +327,25 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
         left: body.left,
         right: body.right,
         width: body.width,
-        overflow: body.overflow,
         paddingRight: body.paddingRight,
         rootOverflow: root.overflow,
       }
+      /*
+        THE BODY IS PINNED, BUT IT DOES NOT BECOME A SCROLLER.
+
+        It was `overflow: hidden` here too. That makes the body a scroll
+        container, and a sticky header sticks to its nearest scroll
+        container: the body, now pinned at -scrollY, so the header left the
+        screen with the page the moment the menu opened and came back when it
+        closed. The document's own overflow (below) is what hides the bar and
+        stops the page; the body only has to stay put, and with its overflow
+        left alone a sticky header stays exactly where it was on screen.
+      */
       body.position = "fixed"
       body.top = `-${scrollY}px`
       body.left = "0"
       body.right = "0"
       body.width = "100%"
-      body.overflow = "hidden"
       if (barWidth > 0) body.paddingRight = `${barWidth}px`
       root.overflow = "hidden"
       /*
@@ -237,17 +373,19 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
         body.left = prev.left
         body.right = prev.right
         body.width = prev.width
-        body.overflow = prev.overflow
         body.paddingRight = prev.paddingRight
         root.overflow = prev.rootOverflow
         document.documentElement.removeAttribute("data-drawer-open")
         if (scrollingEl !== document.documentElement && scrollingEl !== document.body) scrollingEl.style.overflow = prevScrollingOverflow
-        window.scrollTo(0, scrollY)
+        /* Instant, whatever the theme says. On a site whose stylesheet sets
+           `scroll-behavior: smooth` on the document this was a visible
+           scroll from the top of the page back to where the visitor was. */
+        window.scrollTo({ top: scrollY, left: 0, behavior: "instant" as ScrollBehavior })
       })
     }
 
     return () => { undo.forEach((fn) => fn()) }
-  }, [open, onClose, scopedToPreview])
+  }, [open, scopedToPreview])
 
   const previewRoot = mounted && scopedToPreview ? document.getElementById("wb-preview-root") : null
 
@@ -290,3 +428,48 @@ export function useDrawerFrame(open: boolean, scopedToPreview: boolean, onClose:
  */
 export const DRAWER_BACKDROP_Z = "z-[10000]"
 export const DRAWER_PANEL_Z = "z-[10001]"
+
+/**
+ * ===========================================================================
+ *  THE HEADER GOES UNDER THE MENU WHILE IT IS OPEN
+ * ===========================================================================
+ * "It's opening the mobile navigation sidebar, but it keeps the header open."
+ *
+ * The menu is a full height panel with its own top row, "Menu" and a close
+ * button, so the site's header has nothing left to do while it is open: its
+ * logo and icons stayed drawn beside the panel, and a header set to show on
+ * scroll up could be seen sliding about behind the backdrop. Shopify's menu
+ * drawer makes the same call from the other side, with a drawer below a
+ * header whose button becomes the close; here the drawer has the close, so
+ * the header steps back.
+ *
+ * It fades out as the backdrop fades in, at the backdrop's pace, and back as
+ * it goes. Opacity only, on the compositor, through the Web Animations API
+ * rather than a style: show on scroll up writes `transition` straight to the
+ * same node, so a transition written here would fight it.
+ */
+export function useHeaderUnderDrawer(ref: { current: HTMLElement | null }, drawerOpen: boolean) {
+  const fade = useRef<Animation | null>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof el.animate !== "function") return
+    /* Closed and never faded: nothing to put back. */
+    if (!drawerOpen && !fade.current) return
+    /* From wherever it is now, so a quick open and close does not jump. */
+    const from = Number(getComputedStyle(el).opacity)
+    fade.current?.cancel()
+    const still = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    const a = el.animate([{ opacity: from }, { opacity: drawerOpen ? 0 : 1 }], {
+      duration: still ? 0 : drawerOpen ? 300 : 220,
+      easing: drawerOpen ? DRAWER_OPEN_EASE : "cubic-bezier(0.4, 0, 0.6, 1)",
+      fill: "forwards",
+    })
+    fade.current = a
+    /* Back at full opacity the animation goes, so nothing is left holding
+       the header's opacity for the rest of the visit. */
+    if (!drawerOpen) {
+      a.finished.then(() => { if (fade.current === a) { a.cancel(); fade.current = null } }, () => {})
+    }
+  }, [drawerOpen, ref])
+  useEffect(() => () => { fade.current?.cancel() }, [])
+}
