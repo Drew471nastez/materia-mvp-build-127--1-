@@ -89,6 +89,7 @@ import {
 } from "@/components/website-builder/ask-activity"
 import { AskHistory, type DeletedTarget, type HistoryTarget } from "@/components/website-builder/ask-history"
 import { ModelPicker } from "@/components/website-builder/ask-model-picker"
+import { ownFor, useOwnAi } from "@/components/website-builder/use-own-ai"
 import { FadeImage, PictureTray, ProgressRing, type ComposerPicture } from "@/components/website-builder/ask-attachments"
 import { ConnectAiButton, ModeSwitch, QuestionChoices, ScopeChip, SuggestionChips, type AskMode } from "@/components/website-builder/ask-parts"
 import { PrepareError, preparePicture, prepareStills } from "@/components/website-builder/ask-attach-prepare"
@@ -856,6 +857,16 @@ function ThemeChatPanel({
   }, [selectedSectionId])
 
   const chosenEngine = ENGINES.find((e) => e.id === engine) ?? ENGINES[0]
+  /* Which models the creator's own AI answers, if they have connected one: "Your key" beside them in the menu. */
+  const ownAi = useOwnAi()
+  const ownByEngine = React.useMemo(() => {
+    const out: Record<string, string | null> = {}
+    for (const e of ENGINES) {
+      const source = ownFor(ownAi.keys, e.provider)
+      out[e.id] = source ? (source === "openrouter" ? "Your OpenRouter" : "Your key") : null
+    }
+    return out
+  }, [ownAi.keys])
 
   /**
    * Read at SEND time, like everything else in here: a run started thirty
@@ -2573,6 +2584,8 @@ function ThemeChatPanel({
           phone={phone}
           sounds={sounds}
           onSoundsChange={chooseSounds}
+          own={ownByEngine}
+          onOwnAi={onConnectAi}
         />
       </div>
       {listening && (

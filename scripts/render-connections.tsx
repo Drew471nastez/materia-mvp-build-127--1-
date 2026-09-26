@@ -61,6 +61,15 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     }
     return json({ connections: S.agents, ready: S.ready !== false })
   }
+  /* Your own AI (components/website-builder/website-settings/own-ai.tsx): nothing connected unless the probe says so. */
+  if (/\/api\/ai-keys/.test(url)) {
+    const own = (S as { ownAi?: { keys: unknown[] } }).ownAi ?? { keys: [] }
+    if (method === "POST") {
+      const source = (JSON.parse(String(init?.body ?? "{}")) as { source?: string }).source ?? "anthropic"
+      own.keys = [...own.keys, { source, hint: "7Qx2", connectedAt: new Date().toISOString(), lastUsedAt: null, lastError: null }]
+    }
+    return json({ keys: own.keys, setUp: true, storelib: true })
+  }
   if (/\/github/.test(url)) return json(S.github)
   return json({})
 }

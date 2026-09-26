@@ -291,5 +291,11 @@ DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_sche
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS business_details jsonb;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.orders'::regclass AND conname = 'orders_business_details_shape') THEN ALTER TABLE public.orders ADD CONSTRAINT orders_business_details_shape CHECK (business_details IS NULL OR (jsonb_typeof(business_details) = 'object' AND pg_column_size(business_details) <= 4096)) NOT VALID; END IF; END $$;
 
+-- part 37_own_ai_keys.sql
+/* A creator's own AI: their Claude key, OpenAI key or OpenRouter account, which Storelib AI then answers on, outside the plan's AI edits. One new table, sealed keys only (lib/ai-keys/crypto.ts), row level security on with no policy so only the server reads it. Needs nothing else. Until it runs, Connections says connecting your own AI is not switched on yet and Storelib AI answers as before. */
+CREATE TABLE IF NOT EXISTS public.creator_ai_keys (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, provider text NOT NULL CHECK (provider IN ('anthropic', 'openai', 'openrouter')), sealed_key text NOT NULL CHECK (length(sealed_key) BETWEEN 20 AND 2000), key_hint text NOT NULL DEFAULT '' CHECK (length(key_hint) <= 8), created_at timestamptz NOT NULL DEFAULT now(), last_used_at timestamptz, last_error text CHECK (last_error IS NULL OR length(last_error) <= 300), UNIQUE (creator_id, provider));
+ALTER TABLE public.creator_ai_keys ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.creator_ai_keys FROM anon, authenticated;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

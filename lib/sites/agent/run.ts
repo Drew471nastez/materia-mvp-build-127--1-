@@ -86,7 +86,9 @@ const RUN_BUDGET_MS = 300_000
  */
 const BUILD_RESERVE_MS = 120_000
 
-export async function monthlyQuotaError(creatorId: string, plan: SitePlan): Promise<string | null> {
+export async function monthlyQuotaError(creatorId: string, plan: SitePlan, providerId = ""): Promise<string | null> {
+  /* On their own AI there is no monthly allowance to run out of: the plan's AI edits are Storelib's. */
+  if (providerId.startsWith("own:")) return null
   const limit = siteLimits(plan).aiEditsPerMonth
   const since = new Date()
   since.setUTCDate(1)
@@ -96,14 +98,16 @@ export async function monthlyQuotaError(creatorId: string, plan: SitePlan): Prom
   // a creator counting their own usage through RLS could not see runs on a
   // site they have since deleted — which is exactly the loophole.
   const admin = createAdminClient()
+  /* Runs on the creator's own AI (provider "own:…") are theirs to pay for and do not count. */
   const { count } = await admin
     .from("site_agent_runs")
     .select("id", { count: "exact", head: true })
     .eq("creator_id", creatorId)
     .gte("created_at", since.toISOString())
+    .not("provider", "like", "own:%")
 
   if ((count ?? 0) < limit) return null
-  return `You have used all ${limit} AI edits this month on your plan. They reset on the 1st.`
+  return `You have used all ${limit} AI edits this month on your plan. They reset on the 1st, or connect your own Claude or ChatGPT (Website settings, Connections) to keep going on your account.`
 }
 
 export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
@@ -140,7 +144,7 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
     return { type: "error", message }
   }
 
-  const quota = await monthlyQuotaError(creatorId, plan)
+  const quota = await monthlyQuotaError(creatorId, plan, provider.id)
   if (quota) {
     yield await failEarly(quota)
     return
@@ -414,7 +418,8 @@ export async function* runAgent(input: RunInput): AsyncGenerator<AgentEvent> {
     }
   }
 
-  const cost = costOf(model, result.usage)
+  /* Zero on the creator's own account: Storelib's AI spend is what this column adds up to, and this run was not ours. */
+  const cost = provider.id.startsWith("own:") ? { usd: 0, priced: true } : costOf(model, result.usage)
 
   await admin
     .from("site_agent_runs")

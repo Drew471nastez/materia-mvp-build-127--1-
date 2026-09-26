@@ -200,6 +200,12 @@ export const LIMITS = {
    * and well short of a script walking somebody's customer list.
    */
   search: [{ limit: 60, seconds: 60 }],
+  /**
+   * Adding your own AI key, per signed in person. Each add asks the provider
+   * whether the key works; a person pastes one or two, a script with a list
+   * of stolen keys would use this as a free checker.
+   */
+  aiKey: [{ limit: 6, seconds: 600 }, { limit: 20, seconds: 86400 }],
 
   /*
     THE WEBSITE BUILDER, per signed in person, one bucket per route. Every

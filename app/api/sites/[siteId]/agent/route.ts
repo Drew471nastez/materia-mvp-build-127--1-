@@ -20,7 +20,7 @@ import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { currentCreatorId, getSite } from "@/lib/sites/projects"
 import { MissingKeyError } from "@/lib/sites/agent/openai-provider"
 import { chooseTier } from "@/lib/sites/agent/models"
-import { isConfigured, resolveProvider } from "@/lib/sites/agent/provider"
+import { canAnswer, modelFor, resolveForCreator } from "@/lib/sites/agent/provider"
 import { agentRateLimit } from "@/lib/sites/rate-limit"
 import { runAgent } from "@/lib/sites/agent/run"
 import type { AgentEvent } from "@/lib/sites/agent/types"
@@ -55,7 +55,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
   const prompt = typeof body.prompt === "string" ? body.prompt.trim().slice(0, MAX_PROMPT) : ""
   if (!prompt) return NextResponse.json({ error: "Describe what you want changed." }, { status: 400 })
 
-  if (!isConfigured("anthropic") && !isConfigured("openai")) {
+  /* Or the creator's own AI, when they have connected one. */
+  if (!(await canAnswer(creatorId))) {
     // 503, not 500: nothing is broken, the deployment is not configured. The
     // editor shows this sentence rather than "something went wrong".
     return NextResponse.json(
@@ -147,6 +148,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
       }
 
       try {
+        const resolved = await resolveForCreator(creatorId, { requested: undefined })
         for await (const event of runAgent({
           siteId,
           creatorId,
@@ -161,12 +163,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
            * answers the difficulty question exactly as `chooseModel` did; this
            * turns that answer into the right vendor's id.
            */
-          provider: resolveProvider({ requested: undefined }).provider,
-          pickModel: (fileCount) =>
-            resolveProvider({
-              requested: undefined,
-              tier: chooseTier(prompt, fileCount),
-            }).model,
+          /* On the creator's own AI when they have connected one, which also leaves the run out of the monthly AI edits. */
+          provider: resolved.provider,
+          pickModel: (fileCount) => modelFor(resolved.id, chooseTier(prompt, fileCount)),
           esbuild,
           /**
            * NOT `request.signal`. The client's connection is not permission
@@ -182,7 +181,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ si
           message:
             error instanceof MissingKeyError
               ? "Storelib AI is not configured yet — no model key is set."
-              : "The edit failed. Nothing was changed.",
+              : error instanceof Error && error.name === "OwnKeyError"
+                ? error.message
+                : "The edit failed. Nothing was changed.",
         })
       } finally {
         // Closing an already-closed controller throws too, and by this point

@@ -184,135 +184,156 @@ export function readUsage(usage: Anthropic.Usage | undefined): TokenUsage {
   }
 }
 
-export const anthropicProvider: AgentProvider = {
-  id: "anthropic",
+/**
+ * THE SAME PROVIDER ON SOMEBODY ELSE'S ACCOUNT. `client` is where the calls
+ * go: Storelib's key by default, a creator's own Claude key, or their
+ * OpenRouter account through its Anthropic compatible endpoint, where the
+ * model is named with a vendor prefix ("anthropic/claude-sonnet-5"). The
+ * prefix is added only on the wire: the model the run records and prices is
+ * the bare id, the same as on Storelib's key.
+ */
+export function createAnthropicProvider(client: () => Anthropic, options: { id?: string; modelPrefix?: string } = {}): AgentProvider {
+  const prefix = options.modelPrefix ?? ""
+  return {
+    id: options.id ?? "anthropic",
+    complete: (request) => completeWith(client, prefix, request),
+  }
+}
 
-  async complete(request: ProviderRequest): Promise<ProviderTurn> {
-    const rate = rateFor(request.model)
+/** A Claude client on a key that is not Storelib's. One retry: a creator's key that is refused should say so quickly. */
+export function anthropicClientFor(key: string, via: "anthropic" | "openrouter"): Anthropic {
+  return via === "openrouter"
+    ? new Anthropic({ apiKey: null, authToken: key, baseURL: "https://openrouter.ai/api", maxRetries: 1, defaultHeaders: { "HTTP-Referer": "https://storelib.com", "X-Title": "Storelib" } })
+    : new Anthropic({ apiKey: key, maxRetries: 1 })
+}
 
-    /**
-     * STREAMED, always, then collected into one message.
-     *
-     * The contract here is one round trip returning a whole turn — the
-     * progress the creator watches is streamed by the agent loop above this,
-     * not by the HTTP call. Streaming is used anyway because a non-streaming
-     * request with a large `max_tokens` can exceed the SDK's request timeout
-     * and fail after doing all the work. `finalMessage()` gives back exactly
-     * the object the non-streaming call would have returned, so nothing above
-     * has to know.
-     */
-    const stream = anthropic().messages.stream(
-      {
-        model: request.model,
-        max_tokens: Math.min(
-          request.maxOutputTokens,
-          rate?.maxOutputTokens ?? request.maxOutputTokens,
-        ),
+export const anthropicProvider: AgentProvider = createAnthropicProvider(anthropic)
+
+async function completeWith(client: () => Anthropic, prefix: string, request: ProviderRequest): Promise<ProviderTurn> {
+  const rate = rateFor(request.model)
+
+  /**
+   * STREAMED, always, then collected into one message.
+   *
+   * The contract here is one round trip returning a whole turn — the
+   * progress the creator watches is streamed by the agent loop above this,
+   * not by the HTTP call. Streaming is used anyway because a non-streaming
+   * request with a large `max_tokens` can exceed the SDK's request timeout
+   * and fail after doing all the work. `finalMessage()` gives back exactly
+   * the object the non-streaming call would have returned, so nothing above
+   * has to know.
+   */
+  const stream = client().messages.stream(
+    {
+      model: prefix + request.model,
+      max_tokens: Math.min(
+        request.maxOutputTokens,
+        rate?.maxOutputTokens ?? request.maxOutputTokens,
+      ),
+      /**
+       * Anthropic takes the system prompt as its own parameter rather than
+       * a message. Sent as a block with `cache_control` so the part that is
+       * identical on every turn of a run — and identical again on the
+       * creator's next request about the same site — is paid for once.
+       *
+       * Caching here is a PREFIX MATCH over tools then system then messages,
+       * so this only works while the tool list is stable. Both agents build
+       * theirs deterministically, which is what makes it safe to rely on.
+       */
+      system: [
+        {
+          type: "text" as const,
+          text: request.system,
+          cache_control: { type: "ephemeral" as const },
+        },
+      ],
+      /**
+       * `request.cacheKey` has no Anthropic equivalent and is deliberately
+       * not sent. OpenAI takes an explicit key; Anthropic caches on a PREFIX
+       * MATCH, which the `cache_control` above already asks for. Inventing a
+       * parameter to carry the key would be a 400.
+       */
+      /* With a breakpoint on the last block: see requestMessages. */
+      messages: requestMessages(request.turns),
+      tools: request.tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        input_schema: tool.parameters as Anthropic.Tool.InputSchema,
         /**
-         * Anthropic takes the system prompt as its own parameter rather than
-         * a message. Sent as a block with `cache_control` so the part that is
-         * identical on every turn of a run — and identical again on the
-         * creator's next request about the same site — is paid for once.
-         *
-         * Caching here is a PREFIX MATCH over tools then system then messages,
-         * so this only works while the tool list is stable. Both agents build
-         * theirs deterministically, which is what makes it safe to rely on.
+         * The same guarantee the OpenAI provider asks for: arguments that
+         * parse and carry the fields the executor reads. Every spec in both
+         * agents already declares `additionalProperties: false` and
+         * `required`, which is what this needs to be accepted.
          */
-        system: [
-          {
-            type: "text" as const,
-            text: request.system,
-            cache_control: { type: "ephemeral" as const },
-          },
-        ],
-        /**
-         * `request.cacheKey` has no Anthropic equivalent and is deliberately
-         * not sent. OpenAI takes an explicit key; Anthropic caches on a PREFIX
-         * MATCH, which the `cache_control` above already asks for. Inventing a
-         * parameter to carry the key would be a 400.
-         */
-        /* With a breakpoint on the last block: see requestMessages. */
-        messages: requestMessages(request.turns),
-        tools: request.tools.map((tool) => ({
-          name: tool.name,
-          description: tool.description,
-          input_schema: tool.parameters as Anthropic.Tool.InputSchema,
-          /**
-           * The same guarantee the OpenAI provider asks for: arguments that
-           * parse and carry the fields the executor reads. Every spec in both
-           * agents already declares `additionalProperties: false` and
-           * `required`, which is what this needs to be accepted.
-           */
-          strict: true,
-        })),
-        /**
-         * Adaptive thinking. On Sonnet 5 and Opus 5 this is the only on-mode —
-         * the fixed `budget_tokens` form is rejected with a 400 — and it is
-         * what makes the model plan a multi-step edit rather than answer the
-         * first thing it thought of.
-         *
-         * `display` is left at its default, which returns empty thinking text.
-         * The reasoning is not shown to creators: what the agent is DOING is
-         * worth watching, what it is thinking is not something to put on a
-         * customer's screen.
-         */
-        thinking: { type: "adaptive" as const },
-        ...(request.effort ? { output_config: { effort: request.effort } } : {}),
-      },
-      { signal: request.signal },
-    )
+        strict: true,
+      })),
+      /**
+       * Adaptive thinking. On Sonnet 5 and Opus 5 this is the only on-mode —
+       * the fixed `budget_tokens` form is rejected with a 400 — and it is
+       * what makes the model plan a multi-step edit rather than answer the
+       * first thing it thought of.
+       *
+       * `display` is left at its default, which returns empty thinking text.
+       * The reasoning is not shown to creators: what the agent is DOING is
+       * worth watching, what it is thinking is not something to put on a
+       * customer's screen.
+       */
+      thinking: { type: "adaptive" as const },
+      ...(request.effort ? { output_config: { effort: request.effort } } : {}),
+    },
+    { signal: request.signal },
+  )
 
-    const response = await stream.finalMessage()
+  const response = await stream.finalMessage()
 
-    const toolCalls: ToolCall[] = []
-    let text = ""
+  const toolCalls: ToolCall[] = []
+  let text = ""
 
-    for (const block of response.content) {
-      if (block.type === "text") {
-        text += block.text
-      } else if (block.type === "tool_use") {
-        /**
-         * `input` arrives as a parsed object here, where the rest of this
-         * codebase passes tool arguments around as JSON text and parses them
-         * in one place. Re-serialised rather than special-cased so both
-         * providers hand the executor the same thing.
-         */
-        toolCalls.push({
-          id: block.id,
-          name: block.name,
-          argumentsJson: JSON.stringify(block.input ?? {}),
-        })
-      }
+  for (const block of response.content) {
+    if (block.type === "text") {
+      text += block.text
+    } else if (block.type === "tool_use") {
+      /**
+       * `input` arrives as a parsed object here, where the rest of this
+       * codebase passes tool arguments around as JSON text and parses them
+       * in one place. Re-serialised rather than special-cased so both
+       * providers hand the executor the same thing.
+       */
+      toolCalls.push({
+        id: block.id,
+        name: block.name,
+        argumentsJson: JSON.stringify(block.input ?? {}),
+      })
     }
+  }
 
-    /**
-     * A REFUSAL IS AN OUTCOME, NOT A FAILURE. It arrives with HTTP 200, and
-     * reported as an error it would tell a creator their site failed to build
-     * when in fact the model declined and nothing broke.
-     */
-    if (response.stop_reason === "refusal") {
-      return {
-        text: text || "I can't help with that.",
-        toolCalls: [],
-        raw: response.content,
-        usage: readUsage(response.usage),
-        stop: "refusal",
-      }
-    }
-
+  /**
+   * A REFUSAL IS AN OUTCOME, NOT A FAILURE. It arrives with HTTP 200, and
+   * reported as an error it would tell a creator their site failed to build
+   * when in fact the model declined and nothing broke.
+   */
+  if (response.stop_reason === "refusal") {
     return {
-      text,
-      toolCalls,
+      text: text || "I can't help with that.",
+      toolCalls: [],
       raw: response.content,
       usage: readUsage(response.usage),
-      stop:
-        toolCalls.length > 0
-          ? "tool_calls"
-          : response.stop_reason === "max_tokens"
-            ? "length"
-            : "done",
+      stop: "refusal",
     }
-  },
+  }
+
+  return {
+    text,
+    toolCalls,
+    raw: response.content,
+    usage: readUsage(response.usage),
+    stop:
+      toolCalls.length > 0
+        ? "tool_calls"
+        : response.stop_reason === "max_tokens"
+          ? "length"
+          : "done",
+  }
 }
 
 /**

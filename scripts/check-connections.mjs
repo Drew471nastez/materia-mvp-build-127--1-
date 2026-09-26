@@ -136,7 +136,7 @@ const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-
 /** Every line: its id, what its status says, its header's buttons, whether it is open. */
 const rows = (p) =>
   p.evaluate(() =>
-    [...document.querySelectorAll("[data-connection]")].map((r) => ({
+    [...document.querySelectorAll("section[aria-label=Connections] [data-connection]")].map((r) => ({
       id: r.getAttribute("data-connection"),
       status: (r.querySelector("[data-connection-status]")?.textContent ?? "").replace(/\s+/g, " ").trim(),
       buttons: [...r.firstElementChild.querySelectorAll("button, a")].map((b) => b.textContent.trim()),
