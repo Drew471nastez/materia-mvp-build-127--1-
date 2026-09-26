@@ -1,7 +1,6 @@
 "use client"
 
 import { useOnePage } from "@/lib/onepage/context"
-import { sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -9,12 +8,7 @@ import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import { primaryDepth } from "@/components/ui/depth-button"
 import { createPortal } from "react-dom"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import {
   Plus,
   ShoppingBag,
@@ -36,7 +30,7 @@ import {
   Check,
   GraduationCap,
 } from "lucide-react"
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
@@ -112,14 +106,6 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
   const [notification, setNotification] = useState<{ message: string; visible: boolean }>({ message: "", visible: false })
   const [isMounted, setIsMounted] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
-  const [addProductSheetDragY, setAddProductSheetDragY] = useState(0)
-  const [isAddProductSheetDragging, setIsAddProductSheetDragging] = useState(false)
-  const [isAddProductSheetPresented, setIsAddProductSheetPresented] = useState(false)
-  const addProductSheetStartYRef = useRef(0)
-  const addProductSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const addProductSheetLastYRef = useRef(0)
-  const addProductSheetLastTimeRef = useRef(0)
-  const addProductSheetVelocityRef = useRef(0)
   const router = useRouter()
 
   // Show notification and auto-hide after 3 seconds
@@ -267,23 +253,8 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
     }, 500)
   }, [addBlock, updateBlock, goToLinks, addedProductIds, onepage?.draft_blocks])
 
-  const closeAddProductSheet = () => {
-    if (!showAddModal) return
-
-    if (!isMobileViewport) {
-      setShowAddModal(false)
-      return
-    }
-
-    setIsAddProductSheetDragging(false)
-    setAddProductSheetDragY(0)
-    setIsAddProductSheetPresented(false)
-
-    if (addProductSheetCloseTimerRef.current) clearTimeout(addProductSheetCloseTimerRef.current)
-    addProductSheetCloseTimerRef.current = setTimeout(() => {
-      setShowAddModal(false)
-    }, 400)
-  }
+  /* The phone sheet slides out on its own and keeps what it showed until it has gone. */
+  const closeAddProductSheet = () => setShowAddModal(false)
 
   // Handle modal option click
   const handleModalOptionClick = (option: typeof productTypeOptions[0] & { comingSoon?: boolean }) => {
@@ -318,22 +289,6 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
     return () => media.removeEventListener("change", sync)
   }, [])
 
-  useEffect(() => {
-    if (!showAddModal || !isMobileViewport) return
-    const raf1 = requestAnimationFrame(() => {
-      const raf2 = requestAnimationFrame(() => {
-        setIsAddProductSheetPresented(true)
-      })
-      return () => cancelAnimationFrame(raf2)
-    })
-    return () => cancelAnimationFrame(raf1)
-  }, [showAddModal, isMobileViewport])
-
-  useEffect(() => {
-    return () => {
-      if (addProductSheetCloseTimerRef.current) clearTimeout(addProductSheetCloseTimerRef.current)
-    }
-  }, [])
 
   // Filter products by search
   const filteredProducts = products.filter(p =>
@@ -368,10 +323,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
 
       {/* Add Product Button */}
       <Button
-        onClick={() => {
-          setIsAddProductSheetPresented(false)
-          setShowAddModal(true)
-        }}
+        onClick={() => setShowAddModal(true)}
         className={cn(primaryDepth, "w-full h-12 rounded-xl text-[15px]")}
         size="lg"
       >
@@ -537,88 +489,28 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
         </div>
       </div>
 
-      {/* Add Product Modal - desktop dialog + mobile bottom sheet */}
-      <Dialog open={showAddModal} onOpenChange={(open) => {
-        if (open) {
-          setIsAddProductSheetPresented(false)
-          setShowAddModal(true)
-          return
-        }
-        closeAddProductSheet()
-      }}>
-        <DialogContent
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          showCloseButton
-          disableDefaultAnimations={isMobileViewport}
-          overlayClassName={isMobileViewport ? cn("bg-black/40 scrim-graduated transition-opacity duration-400", isAddProductSheetPresented ? "opacity-100" : "opacity-0") : undefined}
-          onTouchStart={(e) => {
-            if (!isMobileViewport) return
-            const touchY = e.touches[0]?.clientY ?? 0
-            const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
-            if (touchY - bounds.top <= 72) {
-              addProductSheetStartYRef.current = touchY
-              addProductSheetLastYRef.current = touchY
-              addProductSheetLastTimeRef.current = Date.now()
-              addProductSheetVelocityRef.current = 0
-              setIsAddProductSheetDragging(true)
-            }
-          }}
-          onTouchMove={(e) => {
-            if (!isMobileViewport || !isAddProductSheetDragging) return
-            const currentY = e.touches[0]?.clientY ?? 0
-            const diff = currentY - addProductSheetStartYRef.current
-            if (diff > 0) {
-              e.preventDefault()
-              const now = Date.now()
-              const dt = Math.max(1, now - addProductSheetLastTimeRef.current)
-              addProductSheetVelocityRef.current = (currentY - addProductSheetLastYRef.current) / dt
-              addProductSheetLastYRef.current = currentY
-              addProductSheetLastTimeRef.current = now
-
-              const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
-              setAddProductSheetDragY(resisted)
-            }
-          }}
-          onTouchEnd={() => {
-            if (!isMobileViewport || !isAddProductSheetDragging) return
-            setIsAddProductSheetDragging(false)
-            if (addProductSheetDragY > 92 || addProductSheetVelocityRef.current > 0.55) {
-              closeAddProductSheet()
-              return
-            }
-            setAddProductSheetDragY(0)
-          }}
-          className={cn(
-            "p-0 gap-0 overflow-hidden border-[#ececf1]",
-            isMobileViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !translate-x-0 !translate-y-0"
-              : "max-w-[520px] max-h-[680px] rounded-2xl"
-          )}
-          style={isMobileViewport ? {
-            position: 'fixed',
-            top: 'auto',
-            left: 0,
-            right: 0,
-            ...sheetAboveKeyboard(0.75),
-            transform: isAddProductSheetPresented ? `translate3d(0, ${addProductSheetDragY}px, 0)` : "translate3d(0, 100%, 0)",
-            willChange: 'transform',
-            backfaceVisibility: 'hidden' as const,
-            transition: isAddProductSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          } : undefined}
-        >
-          {isMobileViewport && (
-            <div className="pt-3 pb-2 flex justify-center cursor-pointer">
-              <div className="h-1.5 w-10 rounded-full bg-gray-300" />
-            </div>
-          )}
-
+      {/*
+        Add Product: a dialog on a computer, and under 768px the shared sheet
+        (components/ui/sheet-dialog.tsx), which moves like every other sheet
+        in the app. It was a dialog pushed to the bottom by hand with its
+        drag in React state.
+      */}
+      <SheetDialog
+        open={showAddModal}
+        onClose={closeAddProductSheet}
+        phone={isMobileViewport}
+        label="Add Product"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="p-0 gap-0 overflow-hidden border-[#ececf1] max-w-[520px] max-h-[680px] rounded-2xl"
+      >
           {isMobileViewport ? (
             <>
               <div className="px-4 pt-2 pb-3 border-b border-gray-100">
-                <DialogTitle className="text-base font-semibold">Add Product</DialogTitle>
+                <SheetDialogTitle className="text-base font-semibold">Add Product</SheetDialogTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">Choose what you want to add to your page</p>
               </div>
-              <div className="max-h-[65vh] space-y-2 overflow-y-auto p-4 pb-[max(12px,env(safe-area-inset-bottom))]">
+              {/* The sheet keeps clear of the home indicator itself. */}
+              <div className="min-h-0 space-y-2 overflow-y-auto overscroll-contain p-4">
                 {productTypeOptions.map((option) => {
                   const Icon = option.icon
                   const isComingSoon = (option as any).comingSoon === true
@@ -648,7 +540,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
           ) : (
             <>
               <div className="p-6 pb-4 border-b">
-                <DialogTitle className="text-lg font-semibold">Add Product</DialogTitle>
+                <SheetDialogTitle className="text-lg font-semibold">Add Product</SheetDialogTitle>
                 <p className="text-sm text-muted-foreground mt-1">
                   Choose what you want to add to your page
                 </p>
@@ -696,8 +588,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
               </div>
             </>
           )}
-        </DialogContent>
-      </Dialog>
+      </SheetDialog>
       </div>
     </>
   )

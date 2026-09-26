@@ -157,13 +157,22 @@ function main() {
 
   console.log("\nEvery sheet scrim uses it")
 
+  /*
+    The Links and Products tabs' sheets were hand built, each with its own
+    graduated scrim. They are the shared sheet on a phone now, through
+    components/ui/sheet-dialog.tsx, and so have its scrim: the plain dim that
+    Quick access and the account sheet have, faded on the compositor. None
+    of them keeps a scrim of its own.
+  */
   for (const [file, count] of [
     ["components/onepage/tabs/links-tab.tsx", 5],
     ["components/onepage/tabs/products-tab.tsx", 1],
   ] as const) {
-    const used = (read(file).match(/scrim-graduated/g) ?? []).length
-    check(`${file.split("/").slice(-1)[0]}: ${count} scrim${count > 1 ? "s" : ""}`, used === count, `${used} of ${count}`)
+    const src = read(file)
+    const shared = (src.match(/<SheetDialog\b/g) ?? []).length
+    check(`${file.split("/").slice(-1)[0]}: ${count} shared sheet${count > 1 ? "s" : ""}, with its scrim`, shared === count && !/scrim-graduated/.test(src), `${shared} of ${count}`)
   }
+  check("sheet-dialog.tsx: a phone gets the shared sheet", /<BottomSheet\b/.test(read("components/ui/sheet-dialog.tsx")))
   /* The colour picker's phone sheet is the shared BottomSheet now (components/onepage/color-picker), which brings its own scrim; mobile-color-picker.tsx only wraps it. */
   check("color-picker.tsx: its phone sheet is the shared sheet, with its scrim", /<BottomSheet\n\s*isOpen=\{open\}/.test(read("components/onepage/color-picker.tsx")) && /<ColorField variant="swatch"/.test(read("components/onepage/mobile-color-picker.tsx")))
   /* The OnePage editor's two questions are the shared BottomSheet on a phone now, which brings its own scrim. */

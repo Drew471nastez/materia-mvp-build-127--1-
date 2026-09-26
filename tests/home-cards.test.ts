@@ -137,14 +137,16 @@ function main() {
   check("land at Bucharest, Paris, Chicago and Nairobi", near(44.43, 26.1, 2) && near(48.85, 2.35, 2) && near(41.88, -87.63, 2) && near(-1.29, 36.82, 2))
   check("none in the middle of the Pacific or the Atlantic", !near(0, -150, 4) && !near(30, -40, 4))
   check("it only runs while it can be seen", /IntersectionObserver/.test(globe) && /visibilitychange/.test(globe) && /cancelAnimationFrame/.test(globe))
-  /* The page's scroll comes first: turning under a scrolling finger doubled each touchmove's wait (check-home-scroll). It rests, then carries on from the same angle. */
-  check("the globe rests while the page scrolls and carries on after", /\(dragging \|\| !scrolling\)/.test(globe) && /if \(dragging\) return/.test(globe) && /scrolling = true\s*\n\s*sleep\(\)/.test(globe))
+  /* "Make sure it never stops, never glitches, never pauses." It turns through a scroll; the cost is kept down by a frame budget instead. */
+  check("the globe never rests while the page scrolls, and draws at most every 15ms when nobody holds it",
+    !/scrolling/.test(globe) && !/addEventListener\("scroll"/.test(globe) && /const IDLE_FRAME_MS = 15/.test(globe) && /!dragging && painted && now - painted < IDLE_FRAME_MS/.test(globe))
   check("one turn that never starts over: a remount carries on the same angle and the same context", /yaw = pose\.yaw \+/.test(globe) && /pose\.at = performance\.now\(\)/.test(globe) && /if \(!reuse\(\)\) mount\(true\)/.test(globe) && /KEEP_MS/.test(globe))
   check("a pause (hidden tab, off screen) resumes by one frame's step, not the pause's", /last = 0\s*\n\s*frame = requestAnimationFrame\(tick\)/.test(globe))
   check("it never renders React to turn", !/useState/.test(globe))
   /* "When I touch over the globe it should not scroll, it should just let me interact with the globe." */
-  /* Changed on purpose: a scroll that started on the ball caught the page on a phone ("laggy at the banner"). */
-  check("a finger turns the ball sideways and an up or down swipe on it scrolls the page: touch-action pan-y on the round grip", /data-home-globe-grip=""[\s\S]{0,400}touchAction: "pan-y"/.test(globe) && /rounded-full/.test(globe) && /if \(byMouse\) tilt = /.test(globe))
+  /* Round 7, the same ask again: a finger on the ball is the globe's, both ways, and the page does not scroll under it. */
+  check("a finger on the ball turns and tips it and never scrolls the page: touch-action none on the round grip",
+    /data-home-globe-grip=""[\s\S]{0,400}touchAction: "none"/.test(globe) && /rounded-full/.test(globe) && /\n\s*tilt = Math\.max\(TILT_MIN/.test(globe) && !/byMouse/.test(globe))
   check("the canvas takes no touches, so the rest of its box scrolls", /pointer-events:none/.test(globe))
   check("and the banner's text still scrolls the page", /\.home-banner-text \{[^}]*touch-action: pan-y;/.test(banner))
   check("grab, and grabbing while dragged", /cursor-grab/.test(globe) && /"grabbing"/.test(globe))
@@ -153,7 +155,13 @@ function main() {
   check("drawn with WebGL, the 2D canvas where WebGL would be software", /createGlRenderer\(canvas, ball\)/.test(globe) && /create2dRenderer\(canvas, ball\)/.test(globe) && /failIfMajorPerformanceCaveat: true/.test(read("components/app/home/globe-gl.ts")))
   check("never sharper than 2x", /MAX_DPR = 2\b/.test(read("components/app/home/globe-scene.ts")) && /Math\.min\(window\.devicePixelRatio \|\| 1, MAX_DPR\)/.test(globe))
   /* "Not like a swipe carousel ... make it fade out, normal regular." */
-  check("the banner changes slide by a crossfade: opacity only, 250ms", /\.home-banner-slide \{\s*visibility: hidden;\s*opacity: 0;\s*transition: opacity 250ms ease, visibility 0s linear 250ms;/.test(banner) && !/translate: var\(--in\)|--out|data-thrown/.test(banner))
+  check("the banner's old line fades out (150ms) before the next comes in (after 160ms), never both half there",
+    /\.home-banner-slide \{\s*visibility: hidden;\s*opacity: 0;\s*transition: opacity 150ms[^;]*visibility 0s linear 150ms;/.test(banner) && /\[data-slide="leaving"\] \{ translate: var\(--home-banner-out, 0 -3px\); \}/.test(banner) &&
+    /\.home-banner-stack\[data-dir\] > \.home-banner-slide\[data-slide="active"\] \{\s*animation: home-banner-in 380ms [^;]* 160ms both;/.test(banner) &&
+    !/opacity 250ms ease/.test(banner))
+  check("a swipe brings the next line from the side it was sent; the clock brings it with a small rise",
+    /\[data-dir="next"\] \{ --home-banner-in: 10px 0;/.test(banner) && /\[data-dir="prev"\] \{ --home-banner-in: -10px 0;/.test(banner) &&
+    /setDir\(asked \? \(to < index \? "prev" : "next"\) : "auto"\)/.test(banner))
   check("and a swipe picks the slide without the text following the finger", !/setTrack|t\.style\.translate/.test(banner) && /go\(index \+ \(s\.dx < 0 \? 1 : -1\), true\)/.test(banner))
   check("it is in the banner, and the banner is on Home", /<BannerGlobe/.test(banner) && /<HomeBanner /.test(dash))
   check("the text stops where the globe's atmosphere begins: one set of numbers places both", /padding: 18px calc\(var\(--gx\) \+ var\(--g\) \* 0\.452 \+ var\(--gap\)\)/.test(banner) && /right: calc\(var\(--gx\) - var\(--g\) \/ 2\);/.test(banner))

@@ -21,7 +21,7 @@
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
-const STEP = 2
+const STEP = 1.5
 const SOURCE = "https://cdn.jsdelivr.net/npm/world-atlas@2/land-50m.json"
 
 const topo = process.argv[2]

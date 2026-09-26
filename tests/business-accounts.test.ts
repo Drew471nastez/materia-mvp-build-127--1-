@@ -199,6 +199,23 @@ function main() {
     /onClick=\{add\}/.test(read("components/app/business-switcher.tsx")) && /await createBusiness\(\)/.test(read("components/app/business-switcher.tsx")) &&
       /"\/signup\/success\?action=become-creator&business=new"/.test(read("lib/businesses/switch-client.ts")) && /redirect\("\/app"\)/.test(read("app/(auth)/onboarding/business/page.tsx")))
   const switcher = read("components/app/business-switcher.tsx")
+  /*
+    The owner's plus: a small depth button on the row, left of the chevron,
+    that makes the business with the same handler as the New business line.
+    It is the row button's sibling, never its child, so a press on it cannot
+    open or fold the list (scripts/check-business-switcher.mjs presses it).
+  */
+  const plusButton = /<button\s[^>]*?data-business-add=""[\s\S]*?<\/button>/.exec(switcher)?.[0] ?? ""
+  /* From the row's marker to the end of its button (its onClick holds an arrow, so a [^>] match cannot reach the marker). */
+  const rowAt = switcher.indexOf('data-business-row="current"')
+  const rowButton = rowAt < 0 ? "" : switcher.slice(rowAt, switcher.indexOf("</button>", rowAt))
+  check("a plus on the row makes a new business, with the depth of the icon buttons and a name a screen reader reads",
+    /onClick=\{add\}/.test(plusButton) && /aria-label="New business"/.test(plusButton) && /iconDepth/.test(plusButton) &&
+      /import \{ iconDepth \} from "@\/components\/ui\/depth-button"/.test(switcher) && /\{canAdd && \(/.test(switcher))
+  check("and it sits beside the row's button, not inside it, so pressing it never toggles the list",
+    !!rowButton && !rowButton.includes("data-business-add") && switcher.indexOf('data-business-row="current"') < switcher.indexOf("data-business-add"))
+  check("its 44px hit area and its place over the gap the row leaves for it come from one set of numbers",
+    /const PLUS = \{/.test(switcher) && /style=\{\{ right: plus\.right, width: plus\.size, height: plus\.size \}\}/.test(switcher) && /style=\{\{ width: plus\.size, height: plus\.size \}\}/.test(switcher))
   check("no Businesses label on either menu: the business you are in is one row that opens to the rest",
     !/>Businesses</.test(switcher) && /aria-expanded=\{hasList \? expanded : undefined\}/.test(switcher) && /inert=\{!expanded\}/.test(switcher))
   check("and it folds back once the menu has gone", /open=\{headerProfileOpen\}/.test(read("components/app/sidebar.tsx")) && /open=\{mobileProfileDropdownOpen\}/.test(read("components/app/mobile-account-menu.tsx")))

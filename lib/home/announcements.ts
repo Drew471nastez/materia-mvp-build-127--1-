@@ -47,6 +47,8 @@ import { PRO_PRICE_CENTS } from "../billing/plans"
 import { homeProgress, nextSetupStep, type ProgressFacts } from "./progress"
 
 export type AnnouncementId =
+  | "welcome"
+  | "builder-intro"
   | "payouts"
   | "first-product"
   | "first-sale"
@@ -77,8 +79,12 @@ export interface Announcement {
   cta: string
   /** Where the button goes, a page in /app. */
   href: string
-  /** Instead of `href`: open the share sheet, as Getting started's first sale step does. */
-  action?: "share"
+  /**
+   * Instead of `href`: open the share sheet, as Getting started's first
+   * sale step does, or open Getting started's guide. Where the page gives no
+   * way to do either, the button is the link to `href`.
+   */
+  action?: "share" | "guide"
 }
 
 /** The sales Home holds, boiled down to what the rules ask. */
@@ -245,7 +251,33 @@ export function proSaving(p: HomeProgress): number {
 }
 const proSaves = (p: HomeProgress) => !isPaidPlan(p.plan) && proSaving(p) >= REAL_SAVING_CENTS
 
+/** Nothing done yet: no product, no payouts, no website, no sale. */
+const isNew = (p: HomeProgress) => !p.hasProduct && !p.hasPayouts && !p.websitePublished && !hasSale(p)
+
 export const RULES: readonly Rule[] = [
+  /*
+    A NEW ACCOUNT IS TOLD WHERE IT IS GOING. It used to open on two to do
+    items and nothing else, Connect Stripe and Add your first product, which
+    reads as a list of chores rather than a way to a first sale. The first
+    slide says what the three steps are and opens the guide that walks them;
+    the two steps follow it, and a last slide says what the website builder
+    can do before there is anything to put on a site. They go as the steps
+    are done: a product or payouts and the welcome has done its job.
+  */
+  {
+    id: "welcome",
+    priority: 110,
+    applies: isNew,
+    write: () => ({
+      tone: "next",
+      eyebrow: "Welcome to Storelib",
+      title: "Your store opens in three steps",
+      line: "A product, Stripe, then your link.",
+      cta: "Show me how",
+      href: "/app/products/new",
+      action: "guide",
+    }),
+  },
   {
     id: "payouts",
     priority: 100,
@@ -347,6 +379,19 @@ export const RULES: readonly Rule[] = [
       eyebrow: "Next step",
       title: "Publish your website",
       line: "Pick a theme and put your site live.",
+      cta: "Open builder",
+      href: "/app/website-builder",
+    }),
+  },
+  {
+    id: "builder-intro",
+    priority: 40,
+    applies: isNew,
+    write: () => ({
+      tone: "tip",
+      eyebrow: "Website",
+      title: "Describe a section, get it built",
+      line: "Ask Storelib writes it. Change it after.",
       cta: "Open builder",
       href: "/app/website-builder",
     }),
@@ -462,8 +507,8 @@ export function announcementsFor(p: HomeProgress, now: number, limit = MAX_ANNOU
   return out.sort((a, b) => rank(b) - rank(a)).slice(0, Math.max(1, limit))
 }
 
-/** What happened this week: ahead of any step. */
-const NEWS: readonly AnnouncementId[] = ["first-sale", "milestone"]
+/** What happened this week: ahead of any step. The welcome is what happened today. */
+const NEWS: readonly AnnouncementId[] = ["welcome", "first-sale", "milestone"]
 
 /** The announcements that say a Getting started step, by the step's id (lib/home/progress SetupStepId). */
 const LEADS: Record<string, readonly AnnouncementId[]> = {

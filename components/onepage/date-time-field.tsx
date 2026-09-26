@@ -367,7 +367,7 @@ export function DateTimeField({
       <>
         {trigger}
         <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={label}>
-          <div className="px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">{panel(true)}</div>
+          <div className="px-5 pb-4 pt-2">{panel(true)}</div>
         </BottomSheet>
       </>
     )
