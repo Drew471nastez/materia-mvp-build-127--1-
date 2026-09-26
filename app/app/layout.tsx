@@ -222,7 +222,11 @@ export default async function AppLayout({
             safe-area-inset-top padding the header adds in Capacitor.
             In a browser env() = 0, so md:pt stays exactly 58 px. */}
         {/* bg-[#f8f9fa] matches dashboard bg so any momentary overscroll gap never shows white */}
-        <main className="h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[240px] bg-[#f8f9fa] md:bg-white rounded-t-[20px] md:rounded-none overflow-hidden app-main-content">
+        {/* No rounding here: main starts at the top of the screen, under the
+            header, so its own rounded top was never on the glass. The rounded
+            corners where the page meets the bar hang from the header at every
+            width (components/app/app-top-corners.tsx). */}
+        <main className="h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[240px] bg-[#f8f9fa] md:bg-white overflow-hidden app-main-content">
           {/* pb ensures content at scroll-bottom is never hidden under the iOS home indicator
               or Android gesture-nav bar. env() = 0 in browsers so this is a no-op there. */}
           {/* pb-[env(safe-area-inset-bottom)] removed — globals.css already applies it

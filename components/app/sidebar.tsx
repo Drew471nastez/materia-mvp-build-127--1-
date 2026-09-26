@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation"
 import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react"
 // Sheet removed — mobile sidebar now uses pure CSS transitions for reliable close animation
 import { AppAvatar } from "@/components/app/app-avatar"
+import { AppTopCorners } from "@/components/app/app-top-corners"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { MobileAccountMenu } from "@/components/app/mobile-account-menu"
 import { BusinessSwitcher, type BusinessRow } from "@/components/app/business-switcher"
@@ -644,23 +645,15 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           </div>
         </div>
 
-        {/* Concave bottom corners - SVG curves on left and right */}
-        {/* 16px quarter circles, drawn with geometric precision so the arc is smooth at any
-            zoom, each with a 1px strip of the bar's own colour above it: the curve starts
-            inside the bar instead of meeting its edge, so no hairline seam shows between them. */}
-        <div className="relative h-4 pointer-events-none" style={{ marginTop: "-1px" }}>
-          {/* Left concave corner */}
-          <svg className="absolute left-0 top-0 h-[17px] w-4" viewBox="0 0 16 17" fill="none" shapeRendering="geometricPrecision" aria-hidden="true">
-            <path d="M16 0H0v17C0 8.163 7.163 1 16 1V0Z" fill="#131316" />
-          </svg>
-          {/* Right concave corner */}
-          <svg className="absolute right-0 top-0 h-[17px] w-4" viewBox="0 0 16 17" fill="none" shapeRendering="geometricPrecision" aria-hidden="true">
-            <path d="M0 0h16v17C16 8.163 8.837 1 0 1V0Z" fill="#131316" />
-          </svg>
-        </div>
+        {/* The rounded corners where the page meets the bar, the same ones the
+            phone's header draws (components/app/app-top-corners.tsx), from one
+            radius and one overlap in app/globals.css. Hung from the bar rather
+            than stacked under it in the flow, so the header's box ends with the
+            bar and the band under it no longer takes presses meant for the page. */}
+        <AppTopCorners className="text-[#131316]" />
       </header>
 
-      {/* Mobile Header - Dark background, content below has outward rounded top corners.
+      {/* Mobile Header - Dark background, with the page's rounded top corners hanging from it.
           Header total height = 68px + safe-area-inset-top (same as main's pt offset).
           Padding inside the flex row so content sits flush below the status bar. */}
       <header data-shell-chrome="" className="fixed top-0 left-0 right-0 z-50 md:hidden bg-[#111111]"
@@ -738,6 +731,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 page, one of them out of reach, is one too many. */}
           </div>
         </div>
+        {/* The desktop bar's rounded corners at the same size: the page meets
+            this bar the way it meets that one, on every page, with or without
+            a strip at its top, scrolled or not. */}
+        <AppTopCorners className="text-[#111111]" />
       </header>
 
 

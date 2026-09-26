@@ -15,16 +15,13 @@ import {
   DollarSign,
   TrendingUp,
   TrendingDown,
-  ChevronRight,
   ChevronDown,
   ChevronUp,
-  Sparkles,
   Image as ImageIcon,
   X,
   Camera,
   FileText,
   Type,
-  Wallet,
   Blocks,
   Globe,
 } from "lucide-react"
@@ -61,6 +58,7 @@ import { ShareStorelib } from "@/components/app/share/share-storelib"
 import { HomeCards, bumpGettingStarted } from "@/components/app/home/home-cards"
 import { QuickActions } from "@/components/app/home/quick-actions"
 import { AppLink } from "@/components/app/app-link"
+import { STRIP_ACTION, STRIP_TEXT, STRIP_TINT, STRIP_TITLE } from "@/components/app/announcement-bar-mobile"
 import { useHomeProgress } from "@/components/app/home/use-home-progress"
 import { HomeBanner } from "@/components/app/home/home-banner"
 import { NO_SALES, type SalesSummary } from "@/lib/home/announcements"
@@ -549,58 +547,43 @@ const AnnouncementBar = memo(function AnnouncementBar({
   }, [announceCycle])
 
   return (
-      <div ref={barRef} className="bg-[#8b5cf6] text-white">
+      <div ref={barRef} data-page-strip="" className={STRIP_TINT}>
         {/* 38px on a phone and 40px wider, the same as every other /app page's
-            bar (components/app/announcement-bar-mobile). It was 44 and 52. */}
+            strip, in the same calm colours and with the same one button
+            (components/app/announcement-bar-mobile). The black bar's rounded
+            corners are drawn over its top corners (components/app/app-top-corners). */}
         <div className="py-[5px] px-4 md:py-1">
           <div className="announce-stack max-w-[1200px] mx-auto grid h-7 md:h-8 text-center whitespace-nowrap">
             {slides.includes("upgrade") && (
               <div data-announce="upgrade" data-on={current === "upgrade" ? "" : undefined} inert={current !== "upgrade"} className="announce-slide flex items-center justify-center gap-2 md:gap-3">
-                <span className="text-[12px] md:text-[14px] text-white/90">
-                  <span className="font-semibold text-white">{t("dashboard.tryProFree")}</span>
-                  <span className="hidden md:inline text-white/85 ml-2">{t("dashboard.proSubtitle")}</span>
+                <span className="text-[12px] md:text-[14px]">
+                  <span className={STRIP_TITLE}>{t("dashboard.tryProFree")}</span>
+                  <span className={`hidden md:inline ml-2 ${STRIP_TEXT}`}>{t("dashboard.proSubtitle")}</span>
                 </span>
-                <AppLink
-                  href="/app/settings/billing/upgrade"
-                  className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
-                >
-                  <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
-                  {/* The sweep runs while hovered and not otherwise: it was an
-                    infinite animation on a layer at opacity 0, which kept the
-                    compositor producing frames for as long as the page was open. */}
-                <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 group-hover:[animation:laser-sweep_2s_linear_infinite] transition-opacity" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)' }} />
-                  <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
-                  <span className="relative z-10">{t("dashboard.upgrade")}</span>
+                <AppLink href="/app/settings/billing/upgrade" className={STRIP_ACTION}>
+                  {t("dashboard.upgrade")}
                 </AppLink>
               </div>
             )}
             {slides.includes("steps") && (
               <div data-announce="steps" data-on={current === "steps" ? "" : undefined} inert={current !== "steps"} className="announce-slide flex items-center justify-center gap-2 md:gap-3">
-                <span className="text-[12px] md:text-[14px] text-white/90">
-                  <span className="font-semibold text-white">{t("dashboard.completeSetup")}</span>
-                  <span className="md:hidden text-white/85 ml-1.5">{completedSteps}/{totalSteps}</span>
-                  <span className="hidden md:inline text-white/85 ml-2">{totalSteps - completedSteps} {t("dashboard.stepsRemaining")}</span>
+                <span className="text-[12px] md:text-[14px]">
+                  <span className={STRIP_TITLE}>{t("dashboard.completeSetup")}</span>
+                  <span className={`md:hidden ml-1.5 ${STRIP_TEXT}`}>{completedSteps}/{totalSteps}</span>
+                  <span className={`hidden md:inline ml-2 ${STRIP_TEXT}`}>{totalSteps - completedSteps} {t("dashboard.stepsRemaining")}</span>
                 </span>
-                <button
-                  onClick={bumpGettingStarted}
-                  className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
-                >
+                <button onClick={bumpGettingStarted} className={STRIP_ACTION}>
                   {t("common.continue")}
-                  <ChevronRight className="h-3 w-3 md:h-3.5 md:w-3.5" />
                 </button>
               </div>
             )}
             {slides.includes("payouts") && (
               <div data-announce="payouts" data-on={current === "payouts" ? "" : undefined} inert={current !== "payouts"} className="announce-slide flex items-center justify-center gap-2 md:gap-3">
-                <span className="text-[12px] md:text-[14px] text-white/90">
-                  <span className="font-semibold text-white">{t("dashboard.getPaid")}</span>
-                  <span className="hidden md:inline text-white/85 ml-2">{t("dashboard.connectPayoutsDesc")}</span>
+                <span className="text-[12px] md:text-[14px]">
+                  <span className={STRIP_TITLE}>{t("dashboard.getPaid")}</span>
+                  <span className={`hidden md:inline ml-2 ${STRIP_TEXT}`}>{t("dashboard.connectPayoutsDesc")}</span>
                 </span>
-                <AppLink
-                  href="/app/settings?tab=payments"
-                  className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
-                >
-                  <Wallet className="h-3 w-3 md:h-3.5 md:w-3.5" />
+                <AppLink href="/app/settings?tab=payments" className={STRIP_ACTION}>
                   {t("common.connect")}
                 </AppLink>
               </div>
@@ -608,13 +591,14 @@ const AnnouncementBar = memo(function AnnouncementBar({
           </div>
         </div>
         {/* How long until the next slide. Each slide runs it again from the
-            start; see "A NEW SLIDE PUTS NOTHING INTO THE PAGE". */}
-        <div className="h-[2px] bg-white/10 overflow-hidden">
+            start; see "A NEW SLIDE PUTS NOTHING INTO THE PAGE". Its track is
+            the strip's hairline. */}
+        <div className="h-[2px] bg-[#ede9fe] overflow-hidden">
           {slides.length > 1 && (
             <div
               key={lineKey}
               ref={lineRef}
-              className="announce-progress h-full bg-white/35"
+              className="announce-progress h-full bg-[#8b5cf6]/40"
               style={{ animationDuration: `${DURATION}ms`, animationPlayState: paused ? "paused" : "running" }}
               onAnimationEnd={next}
             />
@@ -1405,10 +1389,6 @@ export function DashboardClient({
 
       {/* Dashboard Scrollbar Styles */}
       <style jsx>{`
-        @keyframes laser-sweep {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(200%); }
-        }
         @keyframes pulse-glow {
           0%, 100% {
             opacity: 1;

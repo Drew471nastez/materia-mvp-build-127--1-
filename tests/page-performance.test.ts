@@ -523,7 +523,8 @@ check(
     const dash = read("components/app/dashboard-client.tsx")
     const indicator = code("components/app/pull-to-refresh-indicator.tsx")
 
-    const barAt = dash.indexOf('bg-[#8b5cf6] text-white')
+    /* Where Home renders its strip (AnnouncementBar), not where the strip is defined. */
+    const barAt = dash.indexOf("<AnnouncementBar slides=")
     const indicatorAt = dash.indexOf("<PullToRefreshIndicator")
     const slideAt = dash.indexOf("ref={contentRef}")
 
