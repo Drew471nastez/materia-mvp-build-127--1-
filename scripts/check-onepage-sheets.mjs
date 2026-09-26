@@ -24,7 +24,10 @@
  *   HANDS OFF   (Add block) a pull down on its list, at the list's top,
  *               moves the sheet rather than nothing
  *
- * And at 1440 Add block is still the centred dialog it was.
+ * The phone preview's PDF (components/onepage/phone-preview.tsx) and the
+ * published page's Spotify player (components/onepage/public-onepage.tsx)
+ * are read the same way at 390, and at 1440 it and Add block are still the
+ * centred dialogs they were.
  *
  *   node scripts/check-onepage-sheets.mjs
  *   SHOTS=/some/dir node scripts/check-onepage-sheets.mjs   (a picture of each, open)
@@ -73,11 +76,25 @@ try {
     { stdio: ["ignore", "ignore", "inherit"] })
 } catch { rmSync(dir, { recursive: true, force: true }); fail("the probe did not bundle") }
 const css = await appCss(root)
-const html = `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+const bundle = readFileSync(join(dir, "probe.js"), "utf8")
+const pageWith = (blocks) => `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
   `<style>${interFaces(root)}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>` +
-  `</head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}};window.PROBE_THEME={}</script><script>${readFileSync(join(dir, "probe.js"), "utf8")}</script></body></html>`
+  `</head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}};window.PROBE_THEME={};window.PROBE_BLOCKS=${JSON.stringify(blocks)}</script><script>${bundle}</script></body></html>`
+const html = pageWith(undefined)
+/* The published page with a Spotify link that opens its player (the sheet on a phone). */
+/* The editor with a PDF on the page, for the phone preview's PDF sheet (components/onepage/phone-preview.tsx). */
+const PDF_TITLE = "Price list"
+const pdf = pageWith([
+  { id: "p1", type: "pdf_document", enabled: true, sort_order: 0, data: { title: PDF_TITLE, pdf_file_url: "/files/price-list.pdf" } },
+])
+const SPOTIFY_LABEL = "Listen to the mix"
+const live = pageWith([
+  { id: "s1", type: "link_button", enabled: true, sort_order: 0, data: { label: SPOTIFY_LABEL, url: "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC", spotify_mode: "audio_preview" } },
+])
 rmSync(dir, { recursive: true, force: true })
 const server = createServer((req, res) => {
+  if (req.url.startsWith("/pdf")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(pdf) }
+  if (req.url.startsWith("/live")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(live) }
   if (req.url === "/" || req.url.startsWith("/app")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(html) }
   res.writeHead(200, { "content-type": "application/json" })
   if (req.url.startsWith("/api/billing/subscription")) return res.end(JSON.stringify({ currentPlan: { id: "pro" } }))
@@ -96,13 +113,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
 const PHONE = { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
 
-async function open(vp, hash) {
+async function open(vp, hash, path = "/app/onepage", ready = "[data-scroll-container]") {
   const p = await browser.newPage()
   await p.setViewport(vp)
   const errors = []
   p.on("pageerror", (e) => errors.push(String(e)))
-  await p.goto(`${base}/app/onepage#${hash}`)
-  await p.waitForSelector("[data-scroll-container]", { timeout: 8000 }).catch(() => { throw new Error(`the editor did not draw: ${errors.slice(0, 2).join(" | ")}`) })
+  await p.goto(`${base}${path}#${hash}`)
+  await p.waitForSelector(ready, { timeout: 8000 }).catch(() => { throw new Error(`the editor did not draw: ${errors.slice(0, 2).join(" | ")}`) })
   await sleep(900)
   return { p, errors, cdp: await p.target().createCDPSession() }
 }
@@ -147,12 +164,12 @@ const grabber = (p) => p.evaluate(() => {
  * is called; `list` (optional) is a selector for a list in it that should
  * hand a pull down at its top to the sheet.
  */
-async function sheet(hash, name, label, opener, list) {
+async function sheet(hash, name, label, opener, list, where = []) {
   console.log(`\n${name}`)
-  const s = await open(PHONE, hash)
+  const s = await open(PHONE, hash, ...where)
   const { p } = s
   const openIt = async () => {
-    await record(p, 700)
+    await record(p, 1300)
     const found = await p.evaluate(opener)
     await sleep(750)
     return found
@@ -215,6 +232,23 @@ async function sheet(hash, name, label, opener, list) {
   await sleep(900)
   const gone = await p.evaluate(() => !document.querySelector("[data-app-sheet]"))
   expect(gone, "a quick flick closes it")
+
+  /* A close button in it hands the close to the sheet (data-sheet-close): it slides out, over more than five frames. */
+  await openIt()
+  const closer = await p.evaluate(() => {
+    const b = document.querySelector("[data-app-sheet] [data-sheet-close]")
+    if (!b) return null
+    const r = b.getBoundingClientRect()
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+  })
+  if (closer) {
+    await record(p, 700)
+    await p.touchscreen.tap(closer.x, closer.y)
+    await sleep(800)
+    const slid = await p.evaluate(() => window.__frames.filter((f) => f.y > 1).length)
+    const shut = await p.evaluate(() => !document.querySelector("[data-app-sheet]"))
+    expect(shut && slid > 5, "its close button slides it out", { frames: slid, closed: shut })
+  }
   expect(s.errors.length === 0, "no errors on the page", s.errors.slice(0, 3))
   await p.close()
 }
@@ -227,6 +261,35 @@ await sheet("links", "A link's thumbnail", "Edit Thumbnail", `(() => { const b =
 await sheet("links", "A block's animation", "Animation", clickTitle("Animation"))
 await sheet("links", "A block's stats", "Link Stats", clickTitle("View Stats"))
 await sheet("products", "Add product", "Add Product", clickText("Add Product"))
+
+/* The phone preview's PDF: Preview, then the PDF on the page. */
+await sheet("links", "The phone preview's PDF", PDF_TITLE, `(async () => {
+  const find = () => [...document.querySelectorAll("button")].find((e) => e.textContent.includes(${JSON.stringify(PDF_TITLE)}) && e.getClientRects().length)
+  if (!find()) {
+    const preview = [...document.querySelectorAll("button")].find((e) => e.textContent.trim() === "Preview" && e.getClientRects().length)
+    if (!preview) return false
+    preview.click()
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  const b = find()
+  if (b) b.click()
+  return !!b
+})()`, null, ["/pdf/app/onepage"])
+
+/* The published page's Spotify player: a sheet on a phone, the dialog it was on a computer. */
+const LIVE = ["/live?live", ".onepage-live"]
+const clickSpotify = `(() => { const b = [...document.querySelectorAll("button")].find((e) => e.textContent.includes(${JSON.stringify(SPOTIFY_LABEL)}) && e.getClientRects().length); if (b) b.click(); return !!b })()`
+await sheet("", "The published page's Spotify player", SPOTIFY_LABEL, clickSpotify, null, LIVE)
+console.log("\nThe Spotify player at 1440")
+{
+  const { p, errors } = await open({ width: 1440, height: 900 }, "", ...LIVE)
+  const found = await p.evaluate(clickSpotify)
+  await sleep(600)
+  const seen = await p.evaluate(() => ({ dialog: !!document.querySelector(".fixed.inset-0 iframe[src*='open.spotify.com/embed']"), sheet: !!document.querySelector("[data-app-sheet]") }))
+  expect(found && seen.dialog && !seen.sheet, "it is the centred player it was", seen)
+  expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
+  await p.close()
+}
 
 console.log("\nAdd block at 1440")
 {
