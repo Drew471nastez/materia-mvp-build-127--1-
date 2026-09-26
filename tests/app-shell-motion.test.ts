@@ -404,7 +404,7 @@ section("Pages drawn over the whole shell")
     /if \(overShell\(\)\) return clear/.test(stage) && /getComputedStyle\(el\)\.position === "fixed"/.test(stage) && !/document\.querySelector\("\[data-page-layer\]"\)\) return clear/.test(stage))
   check("the pill steps aside only for a layer that does not keep it, and a layer that does gives the scroller room for it",
     /html:has\(\[data-page-layer=""\]\) \[data-app-nav-pill\] \{\s*visibility: hidden;/.test(css)
-      && /\[data-page-layer="pill"\] \[data-page-layer-scroll\] > \.page-scroll \{\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
+      && /\[data-page-layer="pill"\] \[data-page-layer-scroll\] > \.page-scroll \{\s*padding-bottom: var\(--app-nav-room\);/.test(css))
   const sidebar = read("components/app/sidebar.tsx")
   check("both headers and the rail say they are the shell's chrome", (sidebar.match(/data-shell-chrome=""/g) || []).length >= 3)
 }

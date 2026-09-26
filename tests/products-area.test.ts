@@ -269,7 +269,7 @@ check("on a phone, first on the screen as a layer over the app's header, it star
     && !/(^|[\s"])\[\[data-page-layer\]_&\]/.test(barSource + editor))
 check("a layer on a phone only: both editor addresses ask for it, and from md it is a page in the shell",
   /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/app/products/new/layout.tsx")) && /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/app/products/[id]/layout.tsx")))
-check("the editor scrolls as a page-scroll pane, so the pill's room is the shared 104px and nothing else", /className="page-scroll h-full overflow-y-auto/.test(editor) && !/pb-24 sm:pb-8/.test(editor))
+check("the editor scrolls as a page-scroll pane, so the pill's room is the shared --app-nav-room and nothing else", /className="page-scroll h-full overflow-y-auto/.test(editor) && !/pb-24 sm:pb-8/.test(editor))
 check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g) ?? []).length >= 4)
 
 console.log("\nThe Products list: a shelf of pictures on a phone, a light table from 768px")
@@ -481,7 +481,7 @@ check("a return is noted by address: the way back from the editor and every pops
   /window\.addEventListener\("popstate", \(\) => \{\s*returnTo = window\.location\.pathname/.test(ret) && /returnTo = PRODUCTS_HREF/.test(ret) && /return returnTo === PRODUCTS_HREF \|\| isTraversing\(\)/.test(ret))
 
 const probe = read("scripts/check-products-page.mjs")
-check("the probe reads the pill's box from its source and measures 360, 390, 430, 768 and 1280", /num\("BAR_H"\)/.test(probe) && /num\("SLOT"\)/.test(probe) && ["phone-360", "phone-390", "phone-430", "tablet-768", "desktop-1280"].every((w) => probe.includes(`"${w}"`)))
+check("the probe draws the pill's box from its variables and measures 360, 390, 430, 768 and 1280", /width: "var\(--app-nav-width\)"/.test(probe) && /bottom: "var\(--app-nav-lift\)"/.test(probe) && /const TABS = /.test(probe) && ["phone-360", "phone-390", "phone-430", "tablet-768", "desktop-1280"].every((w) => probe.includes(`"${w}"`)))
 check("the probe holds the row buttons and New product against the editor's own, and a view switch to the same <img> elements and no empty frame",
   /data-probe-more/.test(probe) && /data-probe-save/.test(probe) && /every picture is the same <img> element it was/.test(probe) && /no frame with an empty list/.test(probe))
 const editorProbe = read("scripts/check-product-editor.mjs")
