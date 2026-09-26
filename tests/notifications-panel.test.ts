@@ -194,7 +194,7 @@ console.log("\nWhat the rules engine writes: first, filed, marked, and covering 
 
   const route = readCode("app/api/notifications/route.ts")
   check("the route pins what needs the creator first, and drops what resolved", /\.in\("category", ATTENTION\)/.test(route) && /const ATTENTION = \["critical", "problem", "next_step"\]/.test(route) && /\.is\("resolved_at", null\)/.test(route))
-  check("before the engine's SQL it reads exactly what it always read", /if \(recent\.error && missingColumns\(recent\.error\)\)/.test(route) && /recentQuery\(LEGACY_COLUMNS, false\)/.test(route))
+  check("before the engine's SQL it reads exactly what it always read", /if \(recent\.error && missingColumns\(recent\.error\)\)/.test(route) && /recentQuery\(LEGACY_COLUMNS, false, false\)/.test(route))
   check("the bell's count answers covered too", /return NextResponse\.json\(\{ unreadCount, covered \}/.test(route))
   check("no database error text leaves the route or reaches its logs", !/console\.error\([^)]*, (error|notifError|legacy\.error|recent\.error)\)/.test(route))
 }

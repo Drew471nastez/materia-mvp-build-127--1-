@@ -239,8 +239,13 @@ const SUITES = [
   "tests/pricing-plans.test.ts",
   "tests/app-search.test.ts",
   "tests/notifications-panel.test.ts",
+  "tests/notify-unsubscribe.test.ts",
+  "tests/notify-center.test.ts",
   "tests/notification-rules.test.ts",
   "tests/notification-snapshot.test.ts",
+  "tests/notify-integration.test.ts",
+  "tests/notify-engine.test.ts",
+  "tests/notify-webhook.test.ts",
   "tests/rich-text.test.ts",
   "tests/upload-security.test.ts",
   "tests/direct-uploader.test.ts",
@@ -274,6 +279,7 @@ const SUITES = [
   "tests/onepage-blocks.test.ts",
   "tests/onepage-editor-ui.test.ts",
   "tests/checkout-loads.test.ts",
+  "tests/notify-templates.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

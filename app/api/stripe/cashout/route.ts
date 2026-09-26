@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
-import { sendPayoutCreatedEmail } from "@/lib/email"
+import { emit } from "@/lib/notify/outbox"
 import { getMarketExchangeRate } from "@/lib/exchange-rate"
 
 /**
@@ -299,33 +299,30 @@ export async function POST(request: Request) {
       { onConflict: "stripe_payout_id" },
     )
 
-    // Send email (non-blocking)
-    try {
-      const { data: profile } = await adminSupabase
-        .from("profiles")
-        .select("email, display_name")
-        .eq("user_id", user.id)
-        .single()
-
-      if (profile?.email) {
-        // Extract bank last4 for email
-        const destObj = stripePayout.destination as any
-        const bankLast4 = destObj?.last4 || (destination?.includes("••••") ? destination.split("••••")[1] : null)
-
-        await sendPayoutCreatedEmail({
-          to: profile.email,
-          sellerName: profile.display_name || "Seller",
-          amountCents: cashoutUsdCents,
-          currency: "usd",
-          payoutId: stripePayout.id,
-          status: stripePayout.status,
-          arrivalDate,
-          bankLast4,
-        })
-      }
-    } catch (emailErr) {
-      console.error("[Cashout] Email send failed (non-fatal):", emailErr)
-    }
+    /* PAYOUT_SCHEDULED through the notification engine, under the key
+       payout.created raises too (app/api/stripe/webhook), so it is told
+       once. The email sent here read profiles by a column it does not have
+       and was never sent. */
+    const bank = stripePayout.destination && typeof stripePayout.destination === "object" ? (stripePayout.destination as any) : null
+    await emit({
+      name: "payout.scheduled",
+      key: `payout:${stripePayout.id}:scheduled`,
+      userId: user.id,
+      creatorId: creator.id,
+      entityType: "payout",
+      entityId: stripePayout.id,
+      correlationId: stripePayout.id,
+      payload: {
+        payoutId: stripePayout.id,
+        amountCents: payoutAmountNative,
+        currency: payoutCurrency,
+        amountUsdCents: cashoutUsdCents,
+        arrivalDate,
+        method: stripePayout.method,
+        bankName: bank?.bank_name || null,
+        last4: bank?.last4 || null,
+      },
+    })
 
     return NextResponse.json({
       success: true,

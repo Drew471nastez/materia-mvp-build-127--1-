@@ -15,7 +15,7 @@ import { ComparePlans } from "@/components/billing/compare-plans"
 import { PlanFaq } from "@/components/billing/plan-faq"
 import { PLAN_FOOTNOTE, formatPlanPrice, offeredPlan, planHighlights, type OfferedPlanId } from "@/lib/billing/plans"
 
-const STORELIB_LOGO_URL = STORELIB_LOGO
+const EMAIL_LOGO_URL = STORELIB_LOGO
 
 interface UpgradePageClientProps {
   plans: any[]
@@ -258,7 +258,7 @@ export function UpgradePageClient({
             size, and it may not shrink or stretch to fit anything.
           */}
           <img
-            src={STORELIB_LOGO_URL}
+            src={EMAIL_LOGO_URL}
             alt="Storelib"
             width={28}
             height={28}

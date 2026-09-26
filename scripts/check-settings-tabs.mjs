@@ -99,7 +99,7 @@ await new Promise((r) => server.listen(0, "127.0.0.1", r))
 const base = `http://127.0.0.1:${server.address().port}`
 
 /* No Stores tab since 88d197a4 ("Get rid of the Stores tab in Settings"). */
-const TABS = ["security", "payments", "billing", "domains", "privacy", "general"]
+const TABS = ["security", "payments", "billing", "domains", "notifications", "privacy", "general"]
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"], headless: true })
 const problems = []
 const report = {}
@@ -110,7 +110,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const RECORDER = () => {
   window.__rec = []
   window.__shift = 0
-  const order = ["general", "security", "payments", "billing", "domains", "privacy"]
+  const order = ["general", "security", "payments", "billing", "domains", "notifications", "privacy"]
   try {
     new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) window.__shift += e.value }).observe({ type: "layout-shift", buffered: true })
   } catch { /* no layout shift API */ }
@@ -166,7 +166,7 @@ async function openPage(viewport, { query = "", reduced = false } = {}) {
 async function press(page, errors, tab) {
   const shift0 = await page.evaluate(() => window.__shift)
   const t0 = await page.evaluate((tab) => {
-    const order = ["general", "security", "payments", "billing", "domains", "privacy"]
+    const order = ["general", "security", "payments", "billing", "domains", "notifications", "privacy"]
     const b = document.querySelectorAll("[data-settings-tabs] button")[order.indexOf(tab)]
     if (!b) throw new Error("no tab button for " + tab + "; the page reads: " + document.body.innerText.slice(0, 300))
     const t = performance.now()

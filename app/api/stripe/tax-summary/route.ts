@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     const { data: profile } = await adminSupabase
       .from("profiles")
       .select("display_name, email")
-      .eq("user_id", user.id)
+      .eq("id", user.id)
       .single()
 
     // Fetch all products

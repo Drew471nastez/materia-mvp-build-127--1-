@@ -4,7 +4,8 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail, sendDisputeCreatedEmail, sendDisputeWonEmail, sendDisputeLostEmail } from "@/lib/email"
+import { createHash } from "node:crypto"
+import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
 import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
@@ -12,7 +13,8 @@ import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome
 import { fulfilCartSession, isCartSession } from "@/lib/checkout/fulfil-cart-session"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 import { disputedProductName, markPaymentDisputed, restorePaymentAfterWonDispute } from "@/lib/stripe/dispute-orders"
-import { maskEmail } from "@/lib/privacy/mask-email"
+import { emit, type EmitInput } from "@/lib/notify/outbox"
+import { raiseSaleEvents } from "@/lib/orders/sale-events"
 
 export const runtime = "nodejs"
 
@@ -40,6 +42,33 @@ function planIdFromPriceId(priceId?: string): "free" | "growth" | "pro" {
   if (priceId.includes("SzBWa")) return "growth"
   if (priceId.includes("SzBXS")) return "pro"
   return "free"
+}
+
+/**
+ * A Storelib plan event for the creator who pays for it (lib/notify/outbox).
+ * The engine reads the creator's user itself. Never throws: the webhook's
+ * answer to Stripe does not depend on it.
+ */
+async function raiseForCreator(creatorId: string, event: Omit<EmitInput, "userId" | "creatorId">): Promise<boolean> {
+  return (await emit({ ...event, creatorId })).ok
+}
+
+/** When a scheduled cancellation takes effect, from whichever field this API version fills. */
+function periodEndOf(sub: any): number | null {
+  const at = sub?.cancel_at || sub?.current_period_end || sub?.items?.data?.[0]?.current_period_end || null
+  return typeof at === "number" ? at : null
+}
+
+/** What a payout method notification may say about a bank account or card: never its number. */
+function payoutMethodFacts(ext: any): Record<string, unknown> {
+  return {
+    externalAccountId: ext?.id ?? null,
+    kind: ext?.object === "card" ? "card" : "bank_account",
+    bankName: ext?.bank_name || ext?.brand || null,
+    last4: ext?.last4 || null,
+    currency: ext?.currency || null,
+    country: ext?.country || null,
+  }
 }
 
 export async function POST(request: Request) {
@@ -585,32 +614,19 @@ export async function POST(request: Request) {
       console.error("[Webhook] Email sending failed (order still ok):", emailErr)
     }
 
-    // First sale email — fires once per seller lifetime
-    try {
-      const { count: totalOrders } = await supabaseAdmin
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("creator_id", creatorId)
-        .in("status", ["completed", "refunded"])
-
-      if (totalOrders === 1) {
-        const sellerEmail = await resolveSellerEmail(supabaseAdmin, creatorId)
-        const sellerNet = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
-          .format((totalAmount - applicationFeeAmount) / 100)
-
-        await sendFirstSaleEmail({
-          admin: supabaseAdmin,
-          sellerEmail,
-          creatorId,
-          productName: productTitle,
-          sellerNet,
-          buyerCountry: metadata.buyer_country || null,
-          saleTime: new Date().toISOString(),
-        })
-      }
-    } catch (firstSaleErr) {
-      console.error("[Webhook] First sale email error (non-fatal):", firstSaleErr)
-    }
+    /* The sale, the order and, once in the creator's life, the first sale:
+       the notification engine's events (lib/orders/sale-events.ts). The
+       first-sale email that used to be sent from here is the engine's
+       FIRST_SALE now, on the same guard (creators.first_sale_email_sent). */
+    await raiseSaleEvents(supabaseAdmin, {
+      creatorId,
+      purchase: { orderId: order.id, amountCents: totalAmount, lineCount: 1 },
+      lines: [{ orderId: order.id, productId, productTitle, amountCents: totalAmount, feeCents: applicationFeeAmount }],
+      currency: session.currency || "usd",
+      buyerEmail,
+      buyerCountry: metadata.buyer_country || null,
+      correlationId: event.id,
+    })
 
     // Push notification to seller — non-fatal
     try {
@@ -717,6 +733,15 @@ export async function POST(request: Request) {
         .eq("id", creatorId)
 
       console.log("[Subscription] Created successfully")
+
+      await raiseForCreator(creatorId, {
+        name: "subscription.created",
+        key: `subscription:${subscription.id}:created`,
+        entityType: "subscription",
+        entityId: subscription.id,
+        correlationId: event.id,
+        payload: { subscriptionId: subscription.id, planId, status: subscription.status },
+      })
     } catch (error) {
       console.error("[Subscription] Error creating:", error)
     }
@@ -792,6 +817,28 @@ export async function POST(request: Request) {
         isActive: isSubscriptionActive,
       })
 
+      /* A cancellation scheduled for the period's end (Settings, Billing, or
+         a downgrade to free): told once for that end date, so a cancel that
+         is undone and made again is told again. The end itself is
+         customer.subscription.deleted. */
+      const previous = (event.data as any).previous_attributes || {}
+      if (subscription.cancel_at_period_end === true && previous.cancel_at_period_end === false) {
+        const endsAt = periodEndOf(subscription)
+        await raiseForCreator(existingSubscription.creator_id, {
+          name: "subscription.cancelled",
+          key: `subscription:${subscription.id}:cancel_at:${endsAt ?? event.id}`,
+          entityType: "subscription",
+          entityId: subscription.id,
+          correlationId: event.id,
+          payload: {
+            subscriptionId: subscription.id,
+            planId: existingSubscription.plan_id ?? planId,
+            atPeriodEnd: true,
+            endsAt: endsAt ? new Date(endsAt * 1000).toISOString() : null,
+          },
+        })
+      }
+
       if (subscription.status === "active" && metadata.pending_plan_id) {
         await stripe.subscriptions.update(subscription.id, {
           metadata: { ...metadata, pending_plan_id: "" },
@@ -840,6 +887,15 @@ export async function POST(request: Request) {
         .eq("id", existingSubscription.creator_id)
 
       console.log("[Subscription] Reverted to free plan")
+
+      await raiseForCreator(existingSubscription.creator_id, {
+        name: "subscription.cancelled",
+        key: `subscription:${subscription.id}:ended`,
+        entityType: "subscription",
+        entityId: subscription.id,
+        correlationId: event.id,
+        payload: { subscriptionId: subscription.id, atPeriodEnd: false, ended: true, planId: "free" },
+      })
     } catch (error) {
       console.error("[Subscription] Error handling deletion:", error)
     }
@@ -885,6 +941,26 @@ export async function POST(request: Request) {
       }, { onConflict: "stripe_invoice_id" })
 
       console.log("[Invoice] Record saved")
+
+      /* A renewal, not the first invoice (that one is subscription.created).
+         invoice.paid and invoice.payment_succeeded both arrive for one
+         invoice: the key is the invoice. */
+      if ((invoice as any).billing_reason === "subscription_cycle") {
+        await raiseForCreator(subscription.creator_id, {
+          name: "subscription.renewed",
+          key: `invoice:${invoice.id}:paid`,
+          entityType: "subscription",
+          entityId: invoice.subscription as string,
+          correlationId: event.id,
+          payload: {
+            subscriptionId: invoice.subscription,
+            invoiceId: invoice.id,
+            amountCents: invoice.amount_paid,
+            currency: (invoice.currency || "usd").toLowerCase(),
+            periodEnd: invoice.period_end ? safeTimestamp(invoice.period_end) : null,
+          },
+        })
+      }
     } catch (error) {
       console.error("[Invoice] Error:", error)
     }
@@ -926,6 +1002,23 @@ export async function POST(request: Request) {
         .eq("id", subscription.creator_id)
 
       console.log("[Invoice] Subscription set to past_due")
+
+      /* Each attempt Stripe makes is its own event; the key is the invoice and the attempt. */
+      await raiseForCreator(subscription.creator_id, {
+        name: "subscription.payment_failed",
+        key: `invoice:${invoice.id}:failed:${(invoice as any).attempt_count ?? event.id}`,
+        entityType: "subscription",
+        entityId: invoice.subscription as string,
+        correlationId: event.id,
+        payload: {
+          subscriptionId: invoice.subscription,
+          invoiceId: invoice.id,
+          amountCents: invoice.amount_due,
+          currency: (invoice.currency || "usd").toLowerCase(),
+          attempt: (invoice as any).attempt_count ?? null,
+          nextAttemptAt: (invoice as any).next_payment_attempt ? safeTimestamp((invoice as any).next_payment_attempt) : null,
+        },
+      })
     } catch (error) {
       console.error("[Invoice] Error:", error)
     }
@@ -976,63 +1069,60 @@ export async function POST(request: Request) {
         const accountCreatorId = creator.id as string
         after(async () => (await import("@/lib/notifications/events")).noteStripeAccount(accountCreatorId, account as any))
 
-        // Email triggers (non-blocking)
-        try {
-          const userId = (creator as any).user_id
-          if (userId) {
-            const { data: profile } = await supabaseAdmin
-              .from("profiles")
-              .select("email, display_name")
-              .eq("user_id", userId)
-              .maybeSingle()
+        /* The engine's events for what changed (lib/notify/outbox). The
+           payouts-paused, bank-updated and verification-required emails that
+           were sent from here (with no dedupe: every account.updated with
+           requirements sent another) are the engine's notifications now.
+           Charges, payouts and onboarding themselves are raised by the
+           creators trigger as payment_setup.*, not here. */
+        const userId = ((creator as any).user_id as string | null) ?? null
+        const requirements = (account as any).requirements || {}
+        const pastDue: string[] = requirements.past_due || []
+        const currentlyDue: string[] = requirements.currently_due || []
+        const due = [...new Set([...pastDue, ...currentlyDue])].sort()
+        const paused = previousPayoutsEnabled && !payoutsEnabled
+        if (paused || (due.length > 0 && detailsSubmitted)) {
+          /* Paused is one transition, this event. Requirements are keyed by
+             what is asked and by when, so the same list is told once. */
+          const deadline = typeof requirements.current_deadline === "number" ? requirements.current_deadline : null
+          const asked = createHash("sha256").update(`${due.join(",")}|${deadline ?? ""}`).digest("hex").slice(0, 16)
+          await emit({
+            name: "payout.action_required",
+            key: paused ? `stripe:${event.id}` : `stripe_requirements:${account.id}:${asked}`,
+            userId,
+            creatorId: creator.id,
+            entityType: "payment_setup",
+            entityId: creator.id,
+            correlationId: event.id,
+            payload: {
+              reason: paused ? "payouts_paused" : "requirements_due",
+              payoutsEnabled,
+              chargesEnabled,
+              pastDue: pastDue.length > 0,
+              requirementCount: due.length,
+              requirements: due.slice(0, 10),
+              deadline: deadline ? new Date(deadline * 1000).toISOString() : null,
+              disabledReason: requirements.disabled_reason || null,
+            },
+          })
+        }
 
-            if (profile?.email) {
-              // Payouts paused email: was enabled, now disabled
-              if (previousPayoutsEnabled && !payoutsEnabled) {
-                await sendPayoutsPausedEmail({
-                  to: profile.email,
-                  sellerName: profile.display_name || "Seller",
-                })
-                console.log("[Connect] Sent payouts paused email to:", maskEmail(profile.email))
-              }
-
-              // Bank account updated email: check if external accounts changed
-              if (detailsSubmitted && account.external_accounts?.data?.length) {
-                const bankAccount = account.external_accounts.data[0] as any
-                if (bankAccount?.last4) {
-                  // Only send if the previous_attributes indicate a bank change
-                  const prevAttrs = (event.data as any).previous_attributes
-                  if (prevAttrs?.external_accounts || prevAttrs?.details_submitted) {
-                    await sendBankUpdatedEmail({
-                      to: profile.email,
-                      sellerName: profile.display_name || "Seller",
-                      bankName: bankAccount.bank_name || null,
-                      bankLast4: bankAccount.last4,
-                    })
-                    console.log("[Connect] Sent bank updated email to:", maskEmail(profile.email))
-                  }
-                }
-              }
-
-              // Verification required email: when Stripe adds new requirements
-              const requirements = (account as any).requirements || {}
-              const currentlyDue: string[] = requirements.currently_due || []
-              const pastDue: string[] = requirements.past_due || []
-              const allReqs = [...pastDue, ...currentlyDue]
-              if (allReqs.length > 0 && detailsSubmitted) {
-                await sendVerificationRequiredEmail({
-                  to: profile.email,
-                  sellerName: profile.display_name || "Seller",
-                  creatorId: creator.id,
-                  requirements: allReqs,
-                  isPastDue: pastDue.length > 0,
-                })
-                console.log("[Connect] Sent verification required email to:", maskEmail(profile.email))
-              }
-            }
-          }
-        } catch (emailErr) {
-          console.error("[Connect] Email trigger failed (non-fatal):", emailErr)
+        /* A bank account that changed, when Stripe says so on the account
+           (older API versions). account.external_account.* below says it
+           for the others, under the same key: the bank account. */
+        const prevAttrs = (event.data as any).previous_attributes
+        const bankAccount = account.external_accounts?.data?.[0] as any
+        if (detailsSubmitted && bankAccount?.id && prevAttrs?.external_accounts) {
+          await emit({
+            name: "payout_method.changed",
+            key: `payout_method:${bankAccount.id}`,
+            userId,
+            creatorId: creator.id,
+            entityType: "payment_setup",
+            entityId: creator.id,
+            correlationId: event.id,
+            payload: payoutMethodFacts(bankAccount),
+          })
         }
 
         // RE-ENFORCE manual payouts — Storelib controls when sellers cash out
@@ -1056,6 +1146,55 @@ export async function POST(request: Request) {
       console.error("[Connect] Error updating account:", error)
     }
 
+    return NextResponse.json({ received: true })
+  }
+
+  // ============================================================================
+  // PAYOUT METHOD EVENTS: a bank account or debit card added to, or made the
+  // default of, a connected account
+  // ============================================================================
+  /*
+    One event per bank account (payout_method:<id>), the same key the bank
+    change seen on account.updated uses, so one change is told once. Added
+    when it is the account's only payout method, changed when it joins or
+    replaces another. A new default among existing ones is a change too.
+  */
+  if (event.type === "account.external_account.created" || event.type === "account.external_account.updated") {
+    const ext = event.data.object as any
+    const connectedAccountId = (event as any).account as string | undefined
+    if (!connectedAccountId || !ext?.id) return NextResponse.json({ received: true })
+
+    const previous = (event.data as any).previous_attributes || {}
+    const becameDefault = event.type === "account.external_account.updated" && previous.default_for_currency === false && ext.default_for_currency === true
+    if (event.type === "account.external_account.updated" && !becameDefault) return NextResponse.json({ received: true })
+
+    const { data: creator } = await supabaseAdmin
+      .from("creators")
+      .select("id, user_id")
+      .eq("stripe_account_id", connectedAccountId)
+      .maybeSingle()
+    if (!creator) return NextResponse.json({ received: true })
+
+    let others = 0
+    if (event.type === "account.external_account.created") {
+      try {
+        const list = await stripe.accounts.listExternalAccounts(connectedAccountId, { limit: 3 })
+        others = list.data.filter((a: any) => a.id !== ext.id).length
+      } catch {
+        /* Unknown: told as added. */
+      }
+    }
+
+    await emit({
+      name: becameDefault || others > 0 ? "payout_method.changed" : "payout_method.added",
+      key: becameDefault ? `payout_method:${ext.id}:default` : `payout_method:${ext.id}`,
+      userId: (creator.user_id as string | null) ?? null,
+      creatorId: creator.id,
+      entityType: "payment_setup",
+      entityId: creator.id,
+      correlationId: event.id,
+      payload: payoutMethodFacts(ext),
+    })
     return NextResponse.json({ received: true })
   }
 
@@ -1217,64 +1356,53 @@ export async function POST(request: Request) {
       console.error("[Webhook] Ledger payout update failed (non-fatal):", ledgerPayoutErr)
     }
 
-    // Send email notification for status transitions
-    try {
-      const { data: profile } = await supabaseAdmin
-        .from("profiles")
-        .select("email, display_name")
-        .eq("user_id", creator.user_id)
-        .maybeSingle()
-
-      // Get bank last4 for email context
-      let bankLast4: string | null = null
-      try {
-        const destObj = payout.destination as any
-        if (destObj?.last4) bankLast4 = destObj.last4
-        else if (typeof destObj === "string" && destObj.includes("••••")) {
-          bankLast4 = destObj.split("••••")[1]?.trim() || null
-        }
-      } catch { /* non-fatal */ }
-
-      if (profile?.email) {
-        // Check if this is the first payout (celebration email)
-        if (event.type === "payout.paid") {
-          const { data: ledgerCheck } = await supabaseAdmin
-            .from("seller_ledger")
-            .select("lifetime_paid_out")
+    /*
+      The creator hears about the payout through the notification engine:
+      created is PAYOUT_SCHEDULED (the same key cashout and withdraw raise,
+      so a payout Storelib started is told once), paid is PAYOUT_SENT (with
+      whether it is the first ever), failed is PAYOUT_FAILED. The payout
+      emails sent from here before read profiles by a column it does not
+      have, and so were mostly never sent.
+    */
+    const payoutState =
+      event.type === "payout.created" ? "scheduled" : event.type === "payout.paid" ? "sent" : event.type === "payout.failed" ? "failed" : null
+    if (payoutState) {
+      let first = false
+      if (payoutState === "sent") {
+        try {
+          const { count } = await supabaseAdmin
+            .from("payouts")
+            .select("id", { count: "exact", head: true })
             .eq("creator_id", creator.id)
-            .single()
-
-          // lifetime_paid_out was just updated above — if it equals this payout amount,
-          // this is the first ever payout
-          const isFirstPayout = ledgerCheck && ledgerCheck.lifetime_paid_out <= payout.amount + 100
-
-          if (isFirstPayout) {
-            await sendFirstPayoutEmail({
-              to: profile.email,
-              sellerName: profile.display_name || "Seller",
-              amountCents: payout.amount,
-              currency: payout.currency,
-            })
-          }
-        }
-
-        if (event.type === "payout.paid" || event.type === "payout.failed" || event.type === "payout.created") {
-          await sendPayoutStatusEmail({
-            to: profile.email,
-            sellerName: profile.display_name || "Seller",
-            amountCents: payout.amount,
-            currency: payout.currency,
-            payoutId: payout.id,
-            status: payout.status,
-            arrivalDate,
-            failureMessage: (payout as any).failure_message || null,
-            eventType: event.type,
-            bankLast4,
-          })
+            .eq("status", "paid")
+            .neq("stripe_payout_id", payout.id)
+          first = count === 0
+        } catch {
+          /* Not known: an ordinary payout. */
         }
       }
-    } catch (emailErr) {
-      console.error("[Webhook] Payout email failed (non-fatal):", emailErr)
+      const bank = payout.destination && typeof payout.destination === "object" ? (payout.destination as any) : null
+      await emit({
+        name: `payout.${payoutState}` as "payout.scheduled" | "payout.sent" | "payout.failed",
+        key: `payout:${payout.id}:${payoutState}`,
+        userId: (creator.user_id as string | null) ?? null,
+        creatorId: creator.id,
+        entityType: "payout",
+        entityId: payout.id,
+        correlationId: event.id,
+        payload: {
+          payoutId: payout.id,
+          amountCents: payout.amount,
+          currency: payout.currency,
+          arrivalDate,
+          method: payout.method,
+          bankName: bank?.bank_name || null,
+          last4: bank?.last4 || null,
+          failureCode: (payout as any).failure_code || null,
+          failureMessage: (payout as any).failure_message || null,
+          first,
+        },
+      })
     }
 
     return NextResponse.json({ received: true })
@@ -1302,7 +1430,7 @@ export async function POST(request: Request) {
     try {
       const { data: creator } = await supabaseAdmin
         .from("creators")
-        .select("id")
+        .select("id, user_id")
         .eq("stripe_account_id", connectedAccountId)
         .single()
 
@@ -1316,6 +1444,14 @@ export async function POST(request: Request) {
       after(async () => (await import("@/lib/notifications/events")).noteDispute(disputeCreatorId))
 
       const disputeAmountCents = dispute.amount
+      const disputeUserId = ((creator as any).user_id as string | null) ?? null
+      const disputeFacts = {
+        disputeId: dispute.id,
+        amountCents: dispute.amount,
+        currency: (dispute.currency || "usd").toLowerCase(),
+        reason: dispute.reason || null,
+        status: dispute.status,
+      }
       // Stripe charges a $15 dispute fee for US accounts (1500 cents)
       const disputeFeeCents = (dispute as any).balance_transactions?.find(
         (bt: any) => bt.fee > 0
@@ -1435,35 +1571,21 @@ export async function POST(request: Request) {
           }
         }
 
-        // Send dispute created email to seller
-        try {
-          const sellerEmail = await resolveSellerEmail(supabaseAdmin, creator.id)
-          if (sellerEmail) {
-            const { data: profile } = await supabaseAdmin
-              .from("profiles")
-              .select("display_name")
-              .eq("user_id", (await supabaseAdmin.from("creators").select("user_id").eq("id", creator.id).single()).data?.user_id || "")
-              .single()
-
-            const evidenceDueBy = (dispute as any).evidence_details?.due_by
-              ? new Date((dispute as any).evidence_details.due_by * 1000).toISOString()
-              : null
-
-            await sendDisputeCreatedEmail({
-              to: sellerEmail,
-              sellerName: profile?.display_name || "Seller",
-              disputedAmountCents: disputeAmountCents,
-              disputeFeeCents,
-              currency: (dispute.currency || "usd").toLowerCase(),
-              productName,
-              disputeReason: dispute.reason || null,
-              evidenceDueBy,
-              disputeId: dispute.id,
-            })
-          }
-        } catch (emailErr) {
-          console.error("[Webhook] Dispute email failed (non-fatal):", emailErr)
-        }
+        /* The creator is told through the engine (DISPUTE_CREATED, and a
+           reminder while evidence is due), in place of the email sent here. */
+        const evidenceDueBy = (dispute as any).evidence_details?.due_by
+          ? new Date((dispute as any).evidence_details.due_by * 1000).toISOString()
+          : null
+        await emit({
+          name: "dispute.created",
+          key: `dispute:${dispute.id}:created`,
+          userId: disputeUserId,
+          creatorId: creator.id,
+          entityType: "dispute",
+          entityId: dispute.id,
+          correlationId: event.id,
+          payload: { ...disputeFacts, productName, evidenceDueBy },
+        })
       }
 
       if (event.type === "charge.dispute.closed") {
@@ -1547,27 +1669,16 @@ export async function POST(request: Request) {
             }
           }
 
-          // Send dispute won email
-          try {
-            const sellerEmail = await resolveSellerEmail(supabaseAdmin, creator.id)
-            if (sellerEmail) {
-              const { data: crRow } = await supabaseAdmin.from("creators").select("user_id").eq("id", creator.id).single()
-              const { data: profile } = await supabaseAdmin
-                .from("profiles")
-                .select("display_name")
-                .eq("user_id", crRow?.user_id || "")
-                .single()
-
-              await sendDisputeWonEmail({
-                to: sellerEmail,
-                sellerName: profile?.display_name || "Seller",
-                amountCents: totalRestored,
-                currency: (dispute.currency || "usd").toLowerCase(),
-              })
-            }
-          } catch (emailErr) {
-            console.error("[Webhook] Dispute won email failed (non-fatal):", emailErr)
-          }
+          await emit({
+            name: "dispute.closed",
+            key: `dispute:${dispute.id}:closed`,
+            userId: disputeUserId,
+            creatorId: creator.id,
+            entityType: "dispute",
+            entityId: dispute.id,
+            correlationId: event.id,
+            payload: { ...disputeFacts, outcome: "won", restoredCents: totalRestored },
+          })
         } else {
           // Lost — log it, funds already deducted
           await supabaseAdmin.from("ledger_events").insert({
@@ -1580,28 +1691,31 @@ export async function POST(request: Request) {
             description: `Dispute lost: $${(disputeAmountCents / 100).toFixed(2)} forfeited`,
           })
 
-          // Send dispute lost email
-          try {
-            const sellerEmail = await resolveSellerEmail(supabaseAdmin, creator.id)
-            if (sellerEmail) {
-              const { data: crRow } = await supabaseAdmin.from("creators").select("user_id").eq("id", creator.id).single()
-              const { data: profile } = await supabaseAdmin
-                .from("profiles")
-                .select("display_name")
-                .eq("user_id", crRow?.user_id || "")
-                .single()
-
-              await sendDisputeLostEmail({
-                to: sellerEmail,
-                sellerName: profile?.display_name || "Seller",
-                amountCents: disputeAmountCents,
-                currency: (dispute.currency || "usd").toLowerCase(),
-              })
-            }
-          } catch (emailErr) {
-            console.error("[Webhook] Dispute lost email failed (non-fatal):", emailErr)
-          }
+          await emit({
+            name: "dispute.closed",
+            key: `dispute:${dispute.id}:closed`,
+            userId: disputeUserId,
+            creatorId: creator.id,
+            entityType: "dispute",
+            entityId: dispute.id,
+            correlationId: event.id,
+            payload: { ...disputeFacts, outcome: dispute.status === "warning_closed" ? "warning_closed" : "lost" },
+          })
         }
+      }
+
+      /* Evidence submitted, a status that moved: each update is its own Stripe event. */
+      if (event.type === "charge.dispute.updated") {
+        await emit({
+          name: "dispute.updated",
+          key: `stripe:${event.id}`,
+          userId: disputeUserId,
+          creatorId: creator.id,
+          entityType: "dispute",
+          entityId: dispute.id,
+          correlationId: event.id,
+          payload: disputeFacts,
+        })
       }
     } catch (error: any) {
       console.error("[Webhook] Error processing dispute event:", error)

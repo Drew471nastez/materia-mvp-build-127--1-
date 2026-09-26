@@ -194,7 +194,8 @@ console.log("\n6. The time zone, saved and followed")
   check("an account with none is given the browser's, once", /fetch\("\/api\/account\/time-zone"/.test(readCode("components/app/time-zone-sync.tsx")) && /storelib_tz_asked/.test(readCode("components/app/time-zone-sync.tsx")))
   check("Home's greeting and the Orders page's first render follow it", /accountTimeZone\(null, user\.user_metadata\)\)/.test(readCode("app/app/page.tsx")) && /timeZone=\{accountTimeZone\(null, user\.user_metadata\) \?\? readTimeZone/.test(readCode("app/app/orders/sales/page.tsx")))
   const email = readCode("lib/email.tsx")
-  check("the sale email and the first sale email are written in it", /creatorTimeZone\(admin, creatorId\)/.test(email) && /timeZone: creatorZone/.test(email) && /formatForCreator\(params\.saleTime, await creatorTimeZone\(params\.admin, params\.creatorId\)\)/.test(email))
+  /* The first sale email is the notification engine's FIRST_SALE now (lib/notify), no longer a sender in lib/email.tsx. */
+  check("the sale email is written in it", /creatorTimeZone\(admin, creatorId\)/.test(email) && /timeZone: creatorZone/.test(email) && !/function sendFirstSaleEmail/.test(email))
   const picker = readCode("components/app/time-zone-picker.tsx")
   check("the picker lists every zone the browser knows, and offers this device's", /supportedValuesOf\?\.\("timeZone"\)/.test(picker) && /Use my current time zone/.test(picker))
 }

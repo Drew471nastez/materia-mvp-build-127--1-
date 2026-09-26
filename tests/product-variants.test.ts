@@ -241,7 +241,7 @@ async function main() {
   check("adds the two columns, drops the position rule, adds the indexes, each safe to run twice",
     /ALTER TABLE IF EXISTS public\.product_variants ADD COLUMN IF NOT EXISTS compare_at_price_cents integer;/.test(sql) && /ADD COLUMN IF NOT EXISTS max_purchases integer;/.test(sql)
       && /DROP CONSTRAINT IF EXISTS product_variants_product_position_unique;/.test(sql) && /CREATE INDEX IF NOT EXISTS idx_orders_variant_status/.test(sql))
-  check("99 has a column for it", /as p35_product_variants_columns;/.test(after))
+  check("99 has a column for it", /as p35_product_variants_columns[,;]/.test(after))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

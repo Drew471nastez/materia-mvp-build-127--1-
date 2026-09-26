@@ -168,7 +168,7 @@ function useSavedSwitch(initial: boolean, save: (value: boolean) => Promise<void
   return { value, busy, error, savedAt, change }
 }
 
-function Saved({ at }: { at: number }) {
+export function Saved({ at }: { at: number }) {
   const [shown, setShown] = useState(false)
   useEffect(() => {
     if (!at) return
@@ -482,6 +482,8 @@ function PasswordCard({ email }: { email: string }) {
         setError(accountErrorMessage(updateError))
         return
       }
+      /* "Your password was changed", if the auth.users trigger has not said it already (app/api/auth/password-changed). */
+      void fetch("/api/auth/password-changed", { method: "POST" }).catch(() => undefined)
       setDone(true)
       setPassword("")
       setConfirm("")

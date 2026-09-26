@@ -424,8 +424,9 @@ function main() {
       && /otherStores: group && group\.ownerId === user\.id \? groupIds\(group, user\.id\)\.length - 1 : 0/.test(read("app/app/settings/_server.ts")))
   check("the seller's mail reaches the owner", /ownerAddress\(sellerEmail\)/.test(read("lib/email.tsx")) && /ownerAddress\(replyTo\)/.test(read("lib/email.tsx")))
   /* Found in the audit: the payout, bank, verification, dispute and tax emails went to the tagged address. */
-  check("  the payout, bank, verification, dispute and 1099-K emails too: none is sent to a tagged address as it is",
-    (read("lib/email.tsx").match(/to: ownerAddress\(params\.to\) \|\| params\.to,/g) ?? []).length >= 10 && !/^\s*to: params\.to,$/m.test(read("lib/email.tsx")))
+  /* Those emails are the notification engine's now (lib/notify): every creator email it sends goes to ownerAddress, a customer's to the address given. */
+  check("  the payout, bank, verification and dispute emails too: none is sent to a tagged address as it is",
+    /entry\.recipient === "customer" \? given : ownerAddress\(given\)/.test(read("lib/notify/engine.ts")) && !/^\s*to: params\.to,$/m.test(read("lib/email.tsx")))
   for (const f of ["lib/checkout/invoice.ts", "lib/stripe/refund-sync.ts", "lib/automations/supabase-store.ts", "app/api/stripe/connect/start/route.ts"]) {
     check(`  and ${f} writes to the owner`, /ownerAddress\(/.test(read(f)))
   }

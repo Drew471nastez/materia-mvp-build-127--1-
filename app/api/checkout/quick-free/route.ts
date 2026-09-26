@@ -5,6 +5,7 @@ import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
+import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { channelOf, orderSourceFromRequest, originOf, tagOrderSource } from "@/lib/orders/order-source"
@@ -277,6 +278,15 @@ export async function POST(request: Request) {
     })
 
     console.log("[quick-free] Email results:", emailResults)
+
+    /* The notification engine's order and sale (lib/orders/sale-events.ts); a free claim is never the first sale. */
+    await raiseSaleEvents(admin, {
+      creatorId: product.creator.id,
+      purchase: { orderId: order.id, amountCents: 0, lineCount: 1 },
+      lines: [{ orderId: order.id, productId: product.id, productTitle: product.title, amountCents: 0, feeCents: 0 }],
+      buyerEmail: normalizedEmail,
+      correlationId: request.headers.get("x-vercel-id"),
+    })
 
     /* The creator's purchase automations: a free product is a purchase too. */
     try {

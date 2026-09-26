@@ -26,6 +26,7 @@ import {
   writeUnreadOnly,
 } from "@/lib/notifications/unread-state"
 import { labelOf, panelHref, panelOrder, staysOnOpen, toneOf } from "@/lib/notifications/panel"
+import { PAGE_SIZE, engineTypeOf, isExpired, levelOf, mergePage, oldestOf, relativeTime, type Level } from "@/lib/notifications/center"
 import { CATEGORIES, type Category, type DigestItem } from "@/lib/notifications/types"
 
 interface Notification {
@@ -45,6 +46,9 @@ interface Notification {
   area?: string | null
   /** A digest's lines, each its own link. */
   items?: DigestItem[] | null
+  /** From the notification engine (lib/notify): its priority, and that it is one of its rows. */
+  level?: Level | null
+  engine?: boolean
 }
 
 interface DbNotification {
@@ -59,6 +63,8 @@ interface DbNotification {
   kind?: string | null
   category?: string | null
   priority?: number | null
+  /** Once the notification engine's SQL has run: when it stops mattering. */
+  expires_at?: string | null
 }
 
 /** A row's category, if it is one the panel knows. */
@@ -174,6 +180,9 @@ export function NotificationsModal({
   const [dbNotifications, setDbNotifications] = useState<DbNotification[]>([])
   const [unreadOnly, setUnreadOnly] = useState(false)
   const [marking, setMarking] = useState(false)
+  /** Whether an older page follows what is shown, and where it starts. */
+  const [older, setOlder] = useState<{ hasMore: boolean; cursor: string | null }>({ hasMore: false, cursor: null })
+  const [loadingOlder, setLoadingOlder] = useState(false)
   const [markError, setMarkError] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -227,10 +236,12 @@ export function NotificationsModal({
   const fetchNotifications = useCallback(async () => {
     if (!loadedOnceRef.current) setIsLoading(true)
     try {
-      const res = await fetch("/api/notifications?limit=20")
+      const res = await fetch(`/api/notifications?limit=${PAGE_SIZE}`)
       if (res.ok && !markingRef.current) {
         const data = await res.json()
-        setDbNotifications(data.notifications || [])
+        const rows: DbNotification[] = data.notifications || []
+        setDbNotifications(rows)
+        setOlder({ hasMore: data.hasMore === true, cursor: typeof data.nextCursor === "string" ? data.nextCursor : oldestOf(rows) })
         if (typeof data.unreadCount === "number") setDbUnread(data.unreadCount)
         if (data && "covered" in data) setCovered(data.covered)
       }
@@ -244,6 +255,44 @@ export function NotificationsModal({
       setIsLoading(false)
     }
   }, [])
+
+  /**
+   * THE NEXT PAGE, when the foot of the list comes into view (or its button
+   * is pressed): the rows older than the last one shown, appended below.
+   * A row already in the list is kept as it is (lib/notifications/center.ts
+   * mergePage), so one read here meanwhile stays read.
+   */
+  const olderRef = useRef(false)
+  const loadOlder = useCallback(async () => {
+    if (olderRef.current || !older.hasMore || !older.cursor) return
+    olderRef.current = true
+    setLoadingOlder(true)
+    try {
+      const res = await fetch(`/api/notifications?limit=${PAGE_SIZE}&before=${encodeURIComponent(older.cursor)}`)
+      if (res.ok) {
+        const data = await res.json()
+        const rows: DbNotification[] = data.notifications || []
+        setDbNotifications((shown) => mergePage(shown, rows))
+        setOlder({ hasMore: data.hasMore === true && rows.length > 0, cursor: typeof data.nextCursor === "string" ? data.nextCursor : oldestOf(rows) })
+      }
+    } catch {
+      /* The button stays; a press asks again. */
+    } finally {
+      olderRef.current = false
+      setLoadingOlder(false)
+    }
+  }, [older])
+
+  const olderFootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const foot = olderFootRef.current
+    if (!open || !foot || !older.hasMore || typeof IntersectionObserver === "undefined") return
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) void loadOlder()
+    }, { root: listRef.current, rootMargin: "120px" })
+    io.observe(foot)
+    return () => io.disconnect()
+  }, [open, older.hasMore, loadOlder])
 
   /* On a phone the refresh waits for the sheet to arrive (BottomSheet
      onOpened below): the rows it brings back are drawn after the slide, not
@@ -336,7 +385,8 @@ export function NotificationsModal({
      follow, newest first (lib/notifications/panel.ts). */
   const notifications: Notification[] = panelOrder([
     ...generatedNotifications,
-    ...dbNotifications.map((n) => ({
+    /* One that expired while the panel was open goes too; the server leaves them out already. */
+    ...dbNotifications.filter((n) => !isExpired(n)).map((n) => ({
       id: n.id,
       type: n.type as Notification["type"],
       title: n.title,
@@ -350,6 +400,8 @@ export function NotificationsModal({
       priority: typeof n.priority === "number" ? n.priority : null,
       area: typeof n.metadata?.area === "string" ? n.metadata.area : null,
       items: itemsFrom(n.metadata?.items),
+      level: levelOf(n),
+      engine: engineTypeOf(n) !== null,
     })),
   ])
 
@@ -572,6 +624,19 @@ export function NotificationsModal({
                 {unreadOnly ? "No unread notifications" : t("notifications.empty")}
               </p>
             </div>
+            {older.hasMore ? (
+              /* The foot: seen, it asks for the next page; pressed, the same. */
+              <div ref={olderFootRef} className="flex shrink-0 justify-center border-t border-[#f1f2f4] py-2" data-notifications-older="">
+                <button
+                  type="button"
+                  onClick={() => void loadOlder()}
+                  disabled={loadingOlder}
+                  className="inline-flex h-11 items-center rounded-lg px-3 text-[13px] font-medium text-[#6b7280] outline-none transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_#1a1a2e] disabled:cursor-default disabled:hover:bg-transparent md:h-9"
+                >
+                  {loadingOlder ? "Loading" : "Show older"}
+                </button>
+              </div>
+            ) : null}
           </>
         )}
       </div>
@@ -630,23 +695,6 @@ export function NotificationsModal({
   )
 }
 
-/** "Today at 4:03 PM", "Yesterday at 9:12 AM", "Sep 11 at 4:03 PM", with the year only when it is not this one. */
-function whenOf(date: Date): string | null {
-  if (!date.getTime()) return null
-  const now = new Date()
-  const time = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-  const startOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-  const days = Math.round((startOf(now) - startOf(date)) / 86_400_000)
-  if (days === 0) return `Today at ${time}`
-  if (days === 1) return `Yesterday at ${time}`
-  const day = date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    ...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
-  })
-  return `${day} at ${time}`
-}
-
 /**
  * A ROW. No icon: where it came from and when, on one quiet line, then what
  * happened, then the detail. That first line is the only place a row's kind
@@ -669,7 +717,8 @@ function NotificationItem({
   /** Not in the view that is showing (see the list). */
   hidden?: boolean
 }) {
-  const when = whenOf(notification.createdAt)
+  /* "12m ago", "Yesterday": relativeTime in lib/notifications/center.ts. */
+  const when = relativeTime(notification.createdAt)
   const unread = !notification.read
   const tone = toneOf(notification)
   return (
@@ -723,7 +772,11 @@ function NotificationItem({
           {tone === "critical" ? <span className="sr-only">Needs you now: </span> : null}
           <span data-notification-label="" className={cn("truncate", tone === "critical" && "font-medium text-[#b42318]")}>{labelOf(notification)}</span>
           {when ? <span className="shrink-0 px-1.5 text-[#b6bac1]">&bull;</span> : null}
-          {when ? <span className="shrink-0">{when}</span> : null}
+          {when ? (
+            <time dateTime={notification.createdAt.toISOString()} className="shrink-0">
+              {when}
+            </time>
+          ) : null}
         </p>
         <p className={cn("mt-1 text-[14px] leading-5 text-[#1a1a2e]", unread ? "font-semibold" : "font-medium")}>
           {notification.title}

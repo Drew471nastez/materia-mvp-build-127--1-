@@ -22,8 +22,9 @@
  *           Opportunities), else Updates. Never blank.
  *
  *   TONE    A critical row's word is red with a small red dot before it; a
- *           problem's dot is amber. Nothing else changes colour: no red
- *           ground, no banner.
+ *           problem's dot is amber. The notification engine's critical and
+ *           important rows take the same two. Nothing else changes colour:
+ *           no red ground, no banner.
  *
  *   A TAP   On a critical row, a problem or a digest: it opens and is marked
  *           read, and stays until it is fixed (it then resolves and drops
@@ -40,6 +41,10 @@ export interface PanelItem {
   category?: Category | null
   kind?: string | null
   priority?: number | null
+  /** The notification engine's own priority (lib/notifications/center.ts levelOf). */
+  level?: "critical" | "important" | null
+  /** A row the notification engine (lib/notify) wrote. */
+  engine?: boolean
   createdAt: Date
 }
 
@@ -106,13 +111,20 @@ export function labelOf(n: { id: string; type: string; category?: Category | nul
 
 export type Tone = "critical" | "problem" | null
 
-export function toneOf(n: Pick<PanelItem, "category">): Tone {
-  return n.category === "critical" ? "critical" : n.category === "problem" ? "problem" : null
+/** The notification engine's critical is the red dot too, and its important the amber one. */
+export function toneOf(n: Pick<PanelItem, "category" | "level">): Tone {
+  if (n.category === "critical" || n.level === "critical") return "critical"
+  if (n.category === "problem" || n.level === "important") return "problem"
+  return null
 }
 
-/** A tap opens it and leaves it in the list, read, until it resolves. */
-export function staysOnOpen(n: Pick<PanelItem, "category" | "kind">): boolean {
-  return n.category === "critical" || n.category === "problem" || n.kind === "opportunity_digest"
+/**
+ * A tap opens it and leaves it in the list, read, until it resolves. The
+ * notification engine's rows are history (a sale, a payout sent), so a tap
+ * reads them and they stay, until they expire.
+ */
+export function staysOnOpen(n: Pick<PanelItem, "category" | "kind" | "engine">): boolean {
+  return n.category === "critical" || n.category === "problem" || n.kind === "opportunity_digest" || n.engine === true
 }
 
 /**

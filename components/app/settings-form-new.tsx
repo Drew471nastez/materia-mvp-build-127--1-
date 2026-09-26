@@ -18,7 +18,7 @@ import {
   CreditCard, Shield, Settings, Wallet, Landmark,
   ExternalLink, ChevronRight, Globe,
   User, FileText, ChevronLeft,
-  ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus
+  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
@@ -41,6 +41,7 @@ import { WaitingArea } from "@/components/ui/activity-spinner"
 import { ShareStorelib } from "@/components/app/share/share-storelib"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { EmailChangeFlow, PrivacyPanel, SecurityPanel } from "@/components/app/settings/account-panels"
+import { NotificationPreferencesPanel } from "@/components/app/settings/notification-preferences"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { applyBusinessSession } from "@/lib/businesses/switch-client"
 import { ownerAddress } from "@/lib/businesses/email-alias"
@@ -55,6 +56,7 @@ const TABS = [
   { id: "payments", label: "Payments", icon: Wallet },
   { id: "billing", label: "Billing", icon: CreditCard },
   { id: "domains", label: "Domains", icon: Globe },
+  { id: "notifications", label: "Notifications", icon: Bell },
   { id: "privacy", label: "Privacy", icon: ToggleLeft },
 ] as const
 /*
@@ -66,7 +68,7 @@ const TABS = [
 */
 
 type TabId = typeof TABS[number]["id"]
-const TAB_IDS: TabId[] = ["general", "security", "payments", "billing", "domains", "privacy"]
+const TAB_IDS: TabId[] = ["general", "security", "payments", "billing", "domains", "notifications", "privacy"]
 
 interface SettingsFormProps {
   profile: Profile & {
@@ -539,7 +541,14 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     const tab = params.get("tab") as TabId | null
     const stripeParam = params.get("stripe")
 
-    if (tab && TAB_IDS.includes(tab as TabId)) {
+    if (tab === "privacy" && window.location.hash === "#notifications") {
+      /* An older email's "notification settings" link: they have a tab of their own now. */
+      setActiveTab("notifications")
+      const url = new URL(window.location.href)
+      url.searchParams.set("tab", "notifications")
+      url.hash = ""
+      window.history.replaceState({}, "", url.pathname + url.search)
+    } else if (tab && TAB_IDS.includes(tab as TabId)) {
       setActiveTab(tab as TabId)
       if (tab === "domains") fetchDomains()
     } else if (tab) {
@@ -1279,6 +1288,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               const tabLabel = tab.id === "general" ? t("settings.general") :
                               tab.id === "security" ? t("settings.security") :
                               tab.id === "privacy" ? t("settings.privacy") :
+                              tab.id === "notifications" ? t("settings.notifications") :
                               tab.id === "billing" ? t("settings.billing") :
                               tab.id === "payments" ? t("settings.payments") :
                               "Domains"
@@ -1760,6 +1770,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               initialNewsletter={newsletter}
             />
           )}
+
+          {/* Notifications Tab: which notifications, by email and in app (notification-preferences.tsx) */}
+          {activeTab === "notifications" && <NotificationPreferencesPanel />}
 
           {/* Payments Tab */}
           {activeTab === "payments" && (

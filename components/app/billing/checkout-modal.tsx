@@ -26,7 +26,7 @@ const stripePromise = loadStripe(
   _isNative ? { advancedFraudSignals: false } : undefined,
 )
 
-const STORELIB_LOGO_URL = STORELIB_LOGO
+const EMAIL_LOGO_URL = STORELIB_LOGO
 
 interface CheckoutModalProps {
   mode: "subscription" | "setup"
@@ -97,7 +97,7 @@ export function CheckoutModal({
 
           {/* Storelib Logo */}
           <img
-            src={STORELIB_LOGO_URL}
+            src={EMAIL_LOGO_URL}
             alt="Storelib"
             className="h-6 sm:h-7 absolute left-1/2 -translate-x-1/2 rounded-[7px]"
           />

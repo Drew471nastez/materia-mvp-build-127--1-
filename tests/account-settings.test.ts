@@ -198,7 +198,8 @@ async function main() {
     check("a taken address is found in profiles, not the first page of users", /from\("profiles"\)[\s\S]{0,80}\.ilike\("email", cleanEmail\)/.test(send) && !/listUsers/.test(send))
     check("both codes are needed to finish", /codeMatches\(pending\.code, code\) && \(!needsCurrent \|\| codeMatches\(pending\.current_email_code, currentCode\)\)/.test(verify))
     check("wrong codes are counted and the change thrown away after five", /update\(\{ attempts: next \}\)/.test(verify) && /next >= MAX_CODE_ATTEMPTS/.test(verify))
-    check("the old address is told", /Your Storelib email was changed/.test(verify))
+    check("the old address is told once, by the notification engine from the auth.users trigger, with both addresses", /'user\.email_changed'[\s\S]{0,200}'previousEmail', OLD\.email, 'newEmail', NEW\.email/.test(readCode("supabase/sql/run-now/40_notification_engine.sql")) && !/sendEmail\(|user\.email_changed/.test(verify))
+    check("a password changed here is told too, after Supabase says yes", /fetch\("\/api\/auth\/password-changed", \{ method: "POST" \}\)/.test(panels))
     check("and the sheet asks for both", /Code sent to/.test(panels) && /double &&/.test(panels))
 
     const del = readCode("app/api/auth/delete-account/route.ts")

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
-import { sendPayoutCreatedEmail } from "@/lib/email"
+import { emit } from "@/lib/notify/outbox"
 
 export async function POST(request: Request) {
   try {
@@ -146,28 +146,27 @@ export async function POST(request: Request) {
       { onConflict: "stripe_payout_id" }
     )
 
-    // Send payout created email (async — don't block response)
-    try {
-      const { data: profile } = await adminSupabase
-        .from("profiles")
-        .select("email, display_name")
-        .eq("user_id", user.id)
-        .single()
-
-      if (profile?.email) {
-        await sendPayoutCreatedEmail({
-          to: profile.email,
-          sellerName: profile.display_name || "Seller",
-          amountCents: stripePayout.amount,
-          currency: stripePayout.currency,
-          payoutId: stripePayout.id,
-          status: stripePayout.status,
-          arrivalDate,
-        })
-      }
-    } catch (emailErr) {
-      console.error("[Withdraw] Email send failed (non-fatal):", emailErr)
-    }
+    /* PAYOUT_SCHEDULED through the notification engine, under the key
+       payout.created raises too (app/api/stripe/webhook), so it is told once. */
+    const bank = stripePayout.destination && typeof stripePayout.destination === "object" ? (stripePayout.destination as any) : null
+    await emit({
+      name: "payout.scheduled",
+      key: `payout:${stripePayout.id}:scheduled`,
+      userId: user.id,
+      creatorId: creator.id,
+      entityType: "payout",
+      entityId: stripePayout.id,
+      correlationId: stripePayout.id,
+      payload: {
+        payoutId: stripePayout.id,
+        amountCents: stripePayout.amount,
+        currency: stripePayout.currency,
+        arrivalDate,
+        method: stripePayout.method,
+        bankName: bank?.bank_name || null,
+        last4: bank?.last4 || null,
+      },
+    })
 
     return NextResponse.json({
       success: true,

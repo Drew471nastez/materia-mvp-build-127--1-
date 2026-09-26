@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 import { fullyRefunded } from "@/lib/orders/refund-state"
+import { emit } from "@/lib/notify/outbox"
 
 function tryCreateAdminClient() {
   try {
@@ -129,6 +130,28 @@ export async function POST(request: Request) {
     } catch {
       /* Older databases have no refund columns; the status above is enough. */
     }
+
+    /* The notification engine, under the key charge.refunded raises too
+       (lib/stripe/refund-sync.ts), so the refund is told once. */
+    await emit({
+      name: "order.refunded",
+      key: `refund:${orderId}:${refund.id}`,
+      userId: user.id,
+      creatorId: creator.id,
+      entityType: "order",
+      entityId: orderId,
+      correlationId: refund.id,
+      payload: {
+        orderId,
+        refundId: refund.id,
+        productId: order.product_id ?? null,
+        amountCents: refundAmountCents,
+        currency: (refund.currency || "usd").toLowerCase(),
+        full: refundedTotal >= (order.amount_cents || 0),
+        reason: reason || "requested_by_customer",
+        buyerEmail: order.customer_email || order.buyer_email || null,
+      },
+    })
 
     /* The seller's balance and the buyer's library, now rather than when
        charge.refunded arrives. Idempotent with the webhook: each refund is

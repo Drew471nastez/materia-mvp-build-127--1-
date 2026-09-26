@@ -24,7 +24,8 @@
  *              no amounts, no names, no addresses, no buyer's words.
  *
  *   EMAIL      The engine sends none. The events that deserve an email
- *              already send one from the Stripe webhook (EMAILED_ELSEWHERE),
+ *              are emailed by the notification engine in lib/notify, from
+ *              the events the Stripe webhook raises (EMAILED_ELSEWHERE),
  *              and a second copy from here would be the spam this is meant
  *              to prevent.
  */
@@ -75,11 +76,11 @@ export const LIMIT_ORDER: readonly Category[] = ["problem", "milestone", "next_s
  * relies on these and sends nothing itself.
  */
 export const EMAILED_ELSEWHERE: Record<string, string> = {
-  stripe_restricted: "sendPayoutsPausedEmail (account.updated, when payouts go off)",
-  stripe_requirements_due: "sendVerificationRequiredEmail (account.updated)",
-  payout_failed: "sendPayoutStatusEmail (payout.failed)",
-  dispute_opened: "sendDisputeCreatedEmail (charge.dispute.created)",
-  sales_milestone: "sendFirstSaleEmail (the first sale only)",
+  stripe_restricted: "PAYOUT_ACTION_REQUIRED, lib/notify (payout.action_required from account.updated, when payouts go off)",
+  stripe_requirements_due: "PAYOUT_ACTION_REQUIRED, lib/notify (payout.action_required from account.updated)",
+  payout_failed: "PAYOUT_FAILED, lib/notify (payout.failed)",
+  dispute_opened: "DISPUTE_CREATED, lib/notify (dispute.created)",
+  sales_milestone: "FIRST_SALE, lib/notify (sale.first_created, the first sale only)",
 }
 
 export const DAY_MS = 86_400_000

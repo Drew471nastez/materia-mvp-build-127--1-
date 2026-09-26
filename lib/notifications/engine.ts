@@ -37,6 +37,7 @@ import { HISTORY_DAYS, DAY_MS } from "./policy"
 import { pushPayloadOf, type NotificationPush } from "./push"
 import { DIGEST_KIND, RULES } from "./rules"
 import type { CreatorSnapshot, ExistingRow, Plan, PlannedRow, Rule, SnapshotPart } from "./types"
+import { NOTIFICATION_TYPES } from "@/lib/notify/types"
 
 export const ALL_PARTS: ReadonlySet<SnapshotPart> = new Set<SnapshotPart>([
   "creator",
@@ -58,7 +59,12 @@ export const ALL_PARTS: ReadonlySet<SnapshotPart> = new Set<SnapshotPart>([
   "website",
 ])
 
-export const KNOWN_KINDS: ReadonlySet<string> = new Set([...RULES.map((r) => r.kind), DIGEST_KIND])
+/*
+ * The notification engine (lib/notify) writes its bell rows into the same
+ * table, with its notification type as the kind. They are known here so a
+ * full run never retires them as a removed rule's rows.
+ */
+export const KNOWN_KINDS: ReadonlySet<string> = new Set([...RULES.map((r) => r.kind), DIGEST_KIND, ...NOTIFICATION_TYPES])
 
 /** A row as written: the plan's row and whose it is. */
 export interface NewRow extends PlannedRow {

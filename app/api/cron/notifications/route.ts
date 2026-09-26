@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { runNotificationEngine } from "@/lib/notifications/engine"
+import { runNotificationWork } from "@/lib/notify/worker"
 import { storelibPusher } from "@/lib/notifications/push-sender"
 import { supabaseSnapshots } from "@/lib/notifications/snapshot"
 import { supabaseNotificationStore } from "@/lib/notifications/supabase-store"
@@ -32,6 +33,9 @@ export const maxDuration = 300
 /** Stop taking batches with time left to finish the one in hand. */
 const RUN_BUDGET_MS = 240_000
 
+/** The notification worker's share, after the evaluation, inside maxDuration. */
+const NOTIFY_BUDGET_MS = 20_000
+
 export async function GET(request: Request) {
   const denied = requireBearerSecret(request, "CRON_SECRET")
   if (denied) return denied
@@ -45,7 +49,12 @@ export async function GET(request: Request) {
       pusher: storelibPusher,
       deadline: started + RUN_BUDGET_MS,
     })
+    /* The notification engine's worker too (lib/notify/worker.ts), briefly: /api/cron/notify does the bulk every five minutes. */
+    const work = await runNotificationWork(NOTIFY_BUDGET_MS).catch(() => null)
     const ms = Date.now() - started
+    console.log(
+      `[cron/notifications] notify worker: ${work ? `${work.jobs} jobs, ${work.sent} sent` : "failed"}`,
+    )
     console.log(
       `[cron/notifications] ${summary.available ? "ran" : "not available (its SQL has not run)"}: ${summary.creators} creators in ${summary.batches} batches, ${summary.inserted} new (${summary.critical} critical, ${summary.digests} digests), ${summary.resolved} resolved, ${summary.pushed} pushed, ${summary.deferred} held back, ${summary.errors} errors, ${ms}ms${summary.stoppedForTime ? ", stopped for time" : ""}`,
     )

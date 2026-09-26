@@ -7,6 +7,7 @@ import { UUID_RE } from "@/lib/admin/platform-metrics"
 import { refundableCents } from "@/lib/admin/views/common"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { emit } from "@/lib/notify/outbox"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -135,6 +136,30 @@ export async function POST(request: NextRequest) {
   if (rowError) {
     console.error("[admin] refund row update:", rowError.code, rowError.message)
     notes.push("The order row will update when Stripe's refund event arrives.")
+  }
+
+  /* The notification engine, under the key charge.refunded raises too (lib/stripe/refund-sync.ts). */
+  {
+    const creatorId = productOf(o)?.creator_id ?? null
+    await emit({
+      name: "order.refunded",
+      key: `refund:${o.id}:${refundId}`,
+      creatorId,
+      entityType: "order",
+      entityId: o.id,
+      correlationId: refundId,
+      payload: {
+        orderId: o.id,
+        refundId,
+        productId: o.product_id ?? null,
+        amountCents: plan.amount,
+        currency: (o.currency || "usd").toLowerCase(),
+        full: plan.total >= (o.amount_cents ?? 0),
+        reason: reason || "Refunded by Storelib",
+        byStorelib: true,
+        buyerEmail: o.buyer_email || o.customer_email || null,
+      },
+    })
   }
 
   /* The seller's balance and the buyer's library: the same code the webhook runs, once per refund. */

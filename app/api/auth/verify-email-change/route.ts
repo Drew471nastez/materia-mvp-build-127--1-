@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 import { readCurrentUser } from "@/lib/auth/current-user"
 import { accountErrorKind } from "@/lib/auth/account-errors"
 import { MAX_CODE_ATTEMPTS, codeMatches, wrongCodeMessage } from "@/lib/account/codes"
-import { codeEmail } from "@/lib/account/code-email"
 
 export const runtime = "nodejs"
 
@@ -19,7 +17,7 @@ export const runtime = "nodejs"
  * The change itself is made with the service role, confirmed, because both
  * addresses have just been proven. The session is not touched: the person
  * stays signed in on every device, now under the new address, and the old
- * address is told it happened.
+ * address is told it happened (EMAIL_CHANGED, lib/notify).
  */
 export async function POST(request: Request) {
   try {
@@ -76,7 +74,6 @@ export async function POST(request: Request) {
 
     await adminSupabase.from("email_change_codes").update({ verified: true }).eq("id", pending.id)
 
-    const previousEmail = user.email ?? null
     const { error: updateError } = await adminSupabase.auth.admin.updateUserById(user.id, {
       email: pending.new_email,
       email_confirm: true,
@@ -93,21 +90,10 @@ export async function POST(request: Request) {
     await adminSupabase.from("profiles").update({ email: pending.new_email }).eq("id", user.id)
     await adminSupabase.from("email_change_codes").delete().eq("user_id", user.id)
 
-    /* The old address hears about it, whatever it was used for. Best effort:
-       the change has already been made. */
-    if (previousEmail && isSmtpConfigured()) {
-      const notice = codeEmail({
-        heading: "Your Storelib email was changed",
-        lead: `Your account now signs in with ${pending.new_email}. This address, ${previousEmail}, is no longer used for it.`,
-        footer: "If you did not make this change, reply to this email and we will help you get your account back.",
-      })
-      try {
-        await sendEmail({ from: "Storelib <noreply@storelib.com>", to: previousEmail, subject: "Your Storelib email was changed", ...notice })
-      } catch {
-        /* the change stands either way */
-      }
-    }
-
+    /* The old address hears about it: EMAIL_CHANGED from the notification
+       engine, raised by the auth.users trigger (supabase/sql/run-now/36)
+       with the old and the new address, in the same transaction as the
+       change. Not raised here as well, so it is told once. */
     return NextResponse.json({ success: true, newEmail: pending.new_email })
   } catch (error) {
     console.error("[verify-email-change]", error)

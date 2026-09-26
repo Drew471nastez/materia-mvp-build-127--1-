@@ -4,6 +4,7 @@ import type Stripe from "stripe"
 import { sendRefundEmails } from "@/lib/email"
 import { allocateRefund, feeShare, type RefundLine } from "./refund-allocation"
 import { ownerAddress } from "@/lib/businesses/email-alias"
+import { emit } from "@/lib/notify/outbox"
 
 /**
  * ===========================================================================
@@ -272,6 +273,10 @@ export async function syncChargeRefund(db: Db, stripe: Stripe, charge: Stripe.Ch
       }
       await markRow(db, row, refund, share.cents, startedHere, already)
       await revokeIfFull(db, row, share.cents, already)
+      /* The notification engine hears about every row's refund, whoever
+         started it, under the key the Orders page and the admin refund use
+         too (lib/notify/outbox): told once. */
+      await raiseRefund(db, row, refund, share.cents, currency, already)
       if (!startedHere) touched.push({ row, cents: share.cents })
       /* Later refunds of the same charge see this one. */
       events.push({ order_id: row.id, stripe_refund_id: refund.id, amount_cents: share.cents })
@@ -319,5 +324,35 @@ async function emailRefund(db: Db, touched: Array<{ row: OrderRow; cents: number
     reason: refund.reason || "requested_by_customer",
     storeName: creator?.display_name || creator?.username || "Storelib",
     orderDate: first.created_at || undefined,
+  })
+}
+
+async function raiseRefund(db: Db, row: OrderRow, refund: Stripe.Refund, cents: number, currency: string, before: number) {
+  let creatorId = (row as { creator_id?: string | null }).creator_id ?? null
+  if (!creatorId && row.product_id) {
+    try {
+      const { data } = await db.from("products").select("creator_id").eq("id", row.product_id).maybeSingle()
+      creatorId = (data?.creator_id as string | undefined) ?? null
+    } catch {
+      /* Raised without the creator; the engine reads the order. */
+    }
+  }
+  await emit({
+    name: "order.refunded",
+    key: `refund:${row.id}:${refund.id}`,
+    creatorId,
+    entityType: "order",
+    entityId: row.id,
+    correlationId: refund.id,
+    payload: {
+      orderId: row.id,
+      refundId: refund.id,
+      productId: row.product_id,
+      amountCents: cents,
+      currency: currency.toLowerCase(),
+      full: before + cents >= (row.amount_cents ?? 0),
+      reason: refund.reason || null,
+      buyerEmail: row.buyer_email || row.customer_email || null,
+    },
   })
 }

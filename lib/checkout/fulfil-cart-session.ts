@@ -44,6 +44,7 @@ import { paymentFacts, recordSale } from "./fulfil-payment"
 import { cartFingerprint, cartReceiptToken } from "./cart-tokens"
 import { businessFromStripe, type BusinessDetails } from "./business"
 import { invoiceFilename, invoiceForOrder, renderInvoicePdf, type OrderRow } from "./invoice"
+import { raiseSaleEvents } from "@/lib/orders/sale-events"
 
 type Db = FulfilContext["admin"]
 
@@ -379,6 +380,20 @@ async function sideEffects(
       })
     })
   }
+
+  /* The notification engine: the purchase once, from the caller that owns
+     the basket, and a sale for each line this caller wrote, as the seller's
+     emails below are (lib/orders/sale-events.ts). */
+  await step("notify", () =>
+    raiseSaleEvents(admin, {
+      creatorId: ctx.creatorId,
+      purchase: s.ownsBasket ? { orderId: s.firstOrderId, amountCents: s.paidTotal, lineCount: s.created.length } : null,
+      lines: s.created.map((l) => ({ orderId: l.orderId, productId: l.productId, productTitle: titles.get(l.productId) ?? null, amountCents: l.amountCents })),
+      buyerEmail: ctx.buyerEmail ?? null,
+      buyerCountry: ctx.device?.country ?? null,
+      correlationId: ctx.sessionId,
+    }),
+  )
 
   /* The seller hears about each product this caller wrote. */
   for (const line of s.created) {

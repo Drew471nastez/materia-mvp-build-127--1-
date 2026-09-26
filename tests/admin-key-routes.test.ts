@@ -100,6 +100,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "email/click/route.ts": "a link in a sent email, keyed by its own token",
   "email/track/route.ts": "the open pixel in a sent email",
   "email/unsubscribe/route.ts": "the unsubscribe link, which must work without signing in",
+  "notify/unsubscribe/route.ts": "Storelib's own unsubscribe link: the signed token names the person and the category, and the page never shows an address",
   "automations/t/o/route.ts": "the open pixel in an automated email, keyed by its send's random token; it only ever sets opened_at once",
   "automations/t/c/route.ts": "a link in an automated email: the target is signed with the send's token, so it redirects only where the email said",
 

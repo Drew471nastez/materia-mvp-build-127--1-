@@ -30,13 +30,14 @@ export async function system(r: Reader): Promise<Omit<SystemPayload, "problems" 
  * late. When there is no trace to read, it says so rather than guessing.
  */
 async function cronChecks(r: Reader): Promise<CronCheck[]> {
-  const [lastFlowSend, lateFlows, lastRelease, overdueHolds, lastRollup, lastNotify] = await Promise.all([
+  const [lastFlowSend, lateFlows, lastRelease, overdueHolds, lastRollup, lastNotify, lateNotifyJobs] = await Promise.all([
     r.rows<{ sent_at: string | null }>("cron: flow sends", "scheduled_flow_emails", "sent_at", (q) => q.not("sent_at", "is", null).order("sent_at", { ascending: false }).limit(1)),
     r.count("cron: late flow emails", "scheduled_flow_emails", (q) => q.eq("status", "pending").lt("scheduled_for", isoMinutesAgo(120))),
     r.rows<{ created_at: string }>("cron: hold releases", "ledger_events", "created_at", (q) => q.eq("event_type", "hold_release").order("created_at", { ascending: false }).limit(1)),
     r.count("cron: overdue holds", "ledger_events", (q) => q.eq("event_type", "sale").is("released_at", null).lt("hold_until", isoDaysAgo(2))),
     r.rows<{ updated_at: string | null }>("cron: rollups", "analytics_daily_rollups", "updated_at", (q) => q.order("updated_at", { ascending: false }).limit(1)),
     r.rows<{ evaluated_at: string | null }>("cron: notifications", "notification_creator_state", "evaluated_at", (q) => q.not("evaluated_at", "is", null).order("evaluated_at", { ascending: false }).limit(1)),
+    r.count("cron: late notification jobs", "notification_jobs", (q) => q.eq("state", "pending").lt("run_at", isoMinutesAgo(30))),
   ])
 
   const byPath = (path: string) => CRON_JOBS.find((j) => j.path === path)!
@@ -86,6 +87,17 @@ async function cronChecks(r: Reader): Promise<CronCheck[]> {
             : old(notifySign, 3)
               ? "No creator has been evaluated in the last three hours."
               : "Creators evaluated within the last three hours.",
+    },
+    {
+      ...byPath("/api/cron/notify"),
+      lastSign: null,
+      state: lateNotifyJobs === null ? "unknown" : lateNotifyJobs > 0 ? "late" : "ok",
+      note:
+        lateNotifyJobs === null
+          ? r.reasonFor("cron: late notification jobs") ?? "Could not be read. Its SQL may not have run yet (supabase/sql/run-now/40_notification_engine.sql)."
+          : lateNotifyJobs > 0
+            ? `${lateNotifyJobs} notifications are more than half an hour past due.`
+            : "Nothing is waiting past its time.",
     },
   ]
 }

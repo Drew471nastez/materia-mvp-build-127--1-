@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import crypto from "crypto"
 import { ignoreError } from "@/lib/supabase/ignore-error"
+import { supabaseNotifyStore } from "@/lib/notify/store"
+import { handleMailgunWebhook } from "@/lib/notify/webhook"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -53,11 +55,25 @@ function masked(email: string): string {
 }
 
 /**
- * Mailgun webhook handler for email events:
- * - bounced: Hard bounces → suppress address
- * - complained: Spam complaints → suppress address + unsubscribe
- * - unsubscribed: One-click unsubscribe → mark unsubscribed
- * - failed: Permanent delivery failures → suppress address
+ * Mailgun webhook handler for email events.
+ *
+ * lib/notify/webhook.ts handleMailgunWebhook checks what this route always
+ * checked (a signing key is configured, the signature matches) and two more
+ * things: the timestamp is within five minutes, so a captured delivery
+ * cannot be replayed later, and the event id is recorded once in
+ * mailgun_webhook_events, so a retry by Mailgun changes nothing twice. Then:
+ *
+ * - the list subscribers and campaign rows, as before (handleListEvent):
+ *   - failed, permanent: the address marked bounced on every list
+ *   - complained: bounced, then unsubscribed
+ *   - unsubscribed: unsubscribed
+ *   - campaign recipient rows moved to delivered or bounced
+ *   - the event logged in email_events
+ * - the notification engine's own (lib/notify/tracking.ts): its delivery
+ *   row updated, a hard bounce suppressed for all email, a complaint for
+ *   optional email with the person's lifecycle, tips and marketing email
+ *   turned off, and an unsubscribe from an engine email turning off that
+ *   email's category.
  */
 export async function POST(request: Request) {
   try {
@@ -67,7 +83,6 @@ export async function POST(request: Request) {
     } catch {
       return NextResponse.json({ error: "Send JSON" }, { status: 400 })
     }
-    const eventData = body?.["event-data"] || body
 
     if (SIGNING_KEYS.length === 0) {
       console.error("[mailgun-webhook] MAILGUN_WEBHOOK_SIGNING_KEY is not configured; refusing the request")
@@ -78,78 +93,88 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
     }
 
-    const event = eventData?.event || ""
-    const recipient = (eventData?.recipient || "").toLowerCase().trim()
-    const severity = eventData?.severity || ""
-
-    if (!recipient) {
-      return NextResponse.json({ received: true })
-    }
-
-    console.log(`[mailgun-webhook] Event: ${event}, recipient: ${masked(recipient)}, severity: ${severity}`)
-
-    // Handle different event types
-    switch (event) {
-      case "failed": {
-        if (severity === "permanent") {
-          // Hard bounce — suppress this address
-          console.log(`[mailgun-webhook] Hard bounce for: ${masked(recipient)}`)
-          await suppressEmail(recipient, "bounced", eventData?.["delivery-status"]?.message || "Hard bounce")
-        }
-        break
-      }
-
-      case "complained": {
-        // Spam complaint — suppress and unsubscribe
-        console.log(`[mailgun-webhook] Spam complaint from: ${masked(recipient)}`)
-        await suppressEmail(recipient, "complained", "Spam complaint received")
-        await unsubscribeEmail(recipient)
-        break
-      }
-
-      case "unsubscribed": {
-        // One-click unsubscribe via List-Unsubscribe header
-        console.log(`[mailgun-webhook] Unsubscribe via header: ${masked(recipient)}`)
-        await unsubscribeEmail(recipient)
-        break
-      }
-
-      default:
-        // Log other events (delivered, opened, clicked) for analytics
-        break
-    }
-
-    await recordCampaignDelivery(event, severity, eventData)
-
-    // Log the event in email_events table
-    // `.catch()` here threw instead of logging — a PostgREST builder has no
-    // `catch` — so this webhook answered 500 on every delivery event.
-    //
-    // The address goes in `email`: 20260203_rebuild_email_sent_system.sql
-    // rebuilt this table without recipient_email, so every write from here
-    // was refused and the admin bounce list stayed empty. A Mailgun name the
-    // table's event_type does not allow ("accepted", "rejected", "stored")
-    // would be refused the same way, so it is not written at all.
-    if (LOGGED_EVENTS.has(event)) {
-      const logged = await ignoreError(
-        supabaseAdmin.from("email_events").insert({
-          email: recipient,
-          event_type: event,
-          metadata: {
-            severity,
-            message_id: eventData?.message?.headers?.["message-id"] || null,
-            reason: eventData?.reason || eventData?.["delivery-status"]?.message || null,
-            timestamp: eventData?.timestamp || null,
-          },
-        }),
-      )
-      if (logged === null) console.warn("[mailgun-webhook] Failed to log event")
-    }
-
-    return NextResponse.json({ received: true })
+    const answer = await handleMailgunWebhook(body, {
+      signingKeys: SIGNING_KEYS,
+      store: supabaseNotifyStore(supabaseAdmin),
+      legacy: handleListEvent,
+    })
+    if (answer.status !== 200) console.error(`[mailgun-webhook] Refused: ${String(answer.body.error ?? answer.status)}`)
+    return NextResponse.json(answer.body, { status: answer.status })
   } catch (error) {
     console.error("[mailgun-webhook] Error processing webhook:", error instanceof Error ? error.message : "unknown error")
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+/**
+ * What an event means for creators' lists and campaigns, as this route has
+ * always handled it. Runs once per Mailgun event id.
+ */
+async function handleListEvent(eventData: any) {
+  const event = eventData?.event || ""
+  const recipient = (eventData?.recipient || "").toLowerCase().trim()
+  const severity = eventData?.severity || ""
+
+  if (!recipient) return
+
+  console.log(`[mailgun-webhook] Event: ${event}, recipient: ${masked(recipient)}, severity: ${severity}`)
+
+  // Handle different event types
+  switch (event) {
+    case "failed": {
+      if (severity === "permanent") {
+        // Hard bounce — suppress this address
+        console.log(`[mailgun-webhook] Hard bounce for: ${masked(recipient)}`)
+        await suppressEmail(recipient, "bounced", eventData?.["delivery-status"]?.message || "Hard bounce")
+      }
+      break
+    }
+
+    case "complained": {
+      // Spam complaint — suppress and unsubscribe
+      console.log(`[mailgun-webhook] Spam complaint from: ${masked(recipient)}`)
+      await suppressEmail(recipient, "complained", "Spam complaint received")
+      await unsubscribeEmail(recipient)
+      break
+    }
+
+    case "unsubscribed": {
+      // One-click unsubscribe via List-Unsubscribe header
+      console.log(`[mailgun-webhook] Unsubscribe via header: ${masked(recipient)}`)
+      await unsubscribeEmail(recipient)
+      break
+    }
+
+    default:
+      // Log other events (delivered, opened, clicked) for analytics
+      break
+  }
+
+  await recordCampaignDelivery(event, severity, eventData)
+
+  // Log the event in email_events table
+  // `.catch()` here threw instead of logging — a PostgREST builder has no
+  // `catch` — so this webhook answered 500 on every delivery event.
+  //
+  // The address goes in `email`: 20260203_rebuild_email_sent_system.sql
+  // rebuilt this table without recipient_email, so every write from here
+  // was refused and the admin bounce list stayed empty. A Mailgun name the
+  // table's event_type does not allow ("accepted", "rejected", "stored")
+  // would be refused the same way, so it is not written at all.
+  if (LOGGED_EVENTS.has(event)) {
+    const logged = await ignoreError(
+      supabaseAdmin.from("email_events").insert({
+        email: recipient,
+        event_type: event,
+        metadata: {
+          severity,
+          message_id: eventData?.message?.headers?.["message-id"] || null,
+          reason: eventData?.reason || eventData?.["delivery-status"]?.message || null,
+          timestamp: eventData?.timestamp || null,
+        },
+      }),
+    )
+    if (logged === null) console.warn("[mailgun-webhook] Failed to log event")
   }
 }
 

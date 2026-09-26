@@ -37,6 +37,7 @@ import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/o
 import { recordCouponUse } from "./coupons"
 import { businessFromMetadata } from "./business"
 import { invoiceFilename, invoiceForOrder, renderInvoicePdf } from "./invoice"
+import { raiseSaleEvents } from "@/lib/orders/sale-events"
 
 type Db = { from: (table: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -326,6 +327,20 @@ export async function fulfilPaymentIntent(
       }),
     )
   }
+
+  /* The notification engine's order, sale and first sale, under the keys
+     the webhook's other paths use too (lib/orders/sale-events.ts). */
+  await step("notify", () =>
+    raiseSaleEvents(admin, {
+      creatorId,
+      purchase: { orderId: order.id, amountCents: total, lineCount: 1 },
+      lines: [{ orderId: order.id, productId, productTitle: m.product_title || null, amountCents: total, feeCents }],
+      currency: pi.currency || "usd",
+      buyerEmail: buyerEmail || null,
+      buyerCountry: row.buyer_country,
+      correlationId: pi.id,
+    }),
+  )
 
   await step("push", async () => {
     const { data: creator } = await admin.from("creators").select("user_id").eq("id", creatorId).maybeSingle()

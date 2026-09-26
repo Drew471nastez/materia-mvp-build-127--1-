@@ -1,0 +1,3 @@
+/* Receipt email records made server only: row level security on, nothing for visitors or signed in users, everything for the service role. They were readable and writable by any signed in user (GRANT ALL TO authenticated, no row level security), and every reader and writer is server code with the service role (lib/email.tsx, receipt resend, the admin console). Changes no rows. Changes nothing where the table does not exist. Source: supabase/migrations/20261007_email_logs_rls.sql. */
+DO $$ BEGIN IF to_regclass('public.email_logs') IS NOT NULL THEN ALTER TABLE public.email_logs ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE public.email_logs FROM anon, authenticated; GRANT ALL ON TABLE public.email_logs TO service_role; END IF; END $$;
+notify pgrst, 'reload schema';
