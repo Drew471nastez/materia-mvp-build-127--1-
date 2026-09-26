@@ -1,4 +1,4 @@
-"""Builds supabase/sql/run-four/ from supabase/sql/run-now/, part by part, text unchanged. Run: python3 scripts/build-run-four.py"""
+"""Builds supabase/sql/run-four/ from supabase/sql/run-now/, part by part, text unchanged, and copies the same four files to supabase/sql/all-last-three-days/ (the owner asked for a folder named for when the work landed: every part in run-now/ was written on 2026-09-24 to 26, so the two folders hold the same SQL). Run: python3 scripts/build-run-four.py"""
 import re
 import os
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))+'/'
@@ -54,5 +54,12 @@ out=["-- STORELIB DATABASE, FILE 4 of 4",
      "-- part 99_check_after.sql: every column should read true. p90_storage_policies reads false if the step above was skipped; see README.",
      chk_stmt[0]]
 open(OUT+'4_of_4_storage_policies_and_check.sql','w').write("\n".join(out)+"\n")
+# The same four files under the name the owner asked for. Copied, never edited
+# by hand, so the two folders cannot drift apart.
+import shutil
+DAYS=ROOT+'supabase/sql/all-last-three-days/'
+os.makedirs(DAYS,exist_ok=True)
+for f in sorted(os.listdir(OUT)):
+    if f.endswith('.sql'): shutil.copyfile(OUT+f,DAYS+f)
 for f in sorted(os.listdir(OUT)):
     if f.endswith('.sql'): print(f, os.path.getsize(OUT+f), sum(1 for l in open(OUT+f) if l.strip() and not l.startswith('--')))
