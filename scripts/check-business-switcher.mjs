@@ -7,15 +7,20 @@
  *   MENU     the business you are in is one row with its @handle and an up
  *            and down chevron, and nothing else shows until it is tapped: no
  *            "Businesses" label, no second row. A tap opens the list in
- *            place. Three businesses: the other two, and in place of New
- *            business a plain line saying three is the most (lib/businesses/
- *            rules MAX_BUSINESSES, LIMIT_REACHED), nothing to press; two: the
- *            other one and New business under it; one business: New business
- *            alone, a slim line. The same signed in to a business that is not
- *            the first (member-two, member-three). A second tap folds it
- *            away, and what is folded cannot be reached by Tab. Rows are 44px
- *            in the dropdown and 52px in the phone sheet, New business 36px
- *            and 44px, and nothing overflows
+ *            place. Three businesses: the other two and New business under
+ *            them, the same slim line as at one or at two, and not a word
+ *            about the limit anywhere in the menu; two: the other one and New
+ *            business under it; one business: New business alone. The same
+ *            signed in to a business that is not the first (member-two,
+ *            member-three). A second tap folds it away, and what is folded
+ *            cannot be reached by Tab. Rows are 44px in the dropdown and 52px
+ *            in the phone sheet, New business 36px and 44px, and nothing
+ *            overflows
+ *   LIMIT    with three already, a press on New business says so then and
+ *            there, on the menu's one alert line (lib/businesses/rules
+ *            LIMIT_REACHED), and asks the server nothing. The owner: "I don't
+ *            want to show that text ... when I click create, it should show
+ *            that, just only"
  *   PLUS     on every business, whatever the count: a "+" square on the row
  *            just left of the chevron, 28px in the dropdown, 30px in the
  *            sheet, centred on the row, clear of the name and the chevron,
@@ -87,6 +92,7 @@ try {
       addH: add ? Math.round(add.getBoundingClientRect().height) : 0,
       h: Math.round(el.getBoundingClientRect().height),
       label: el.textContent.includes("Businesses"),
+      text: el.textContent,
       over: el.scrollWidth - el.clientWidth,
     }
   })
@@ -141,8 +147,9 @@ try {
     expect(open.rows[0].expanded === "true" && createdAfter === createdBefore, `${sel}: the plus opens the list and makes no business`, { expanded: open.rows[0].expanded, created: createdAfter - createdBefore })
     const others = open.rows.filter((r) => !r.current)
     if (count === 3) {
-      expect(open.rows.length === 3 && others.length === 2 && !open.add && !!limit && limit.text === LIMIT && !limit.button && limit.h >= addH,
-        `${sel}: open, the other two businesses, and in place of New business a line saying three is the most`, { rows: open.rows.map((r) => r.text), limit })
+      expect(open.rows.length === 3 && others.length === 2 && open.add && !limit && !open.text.includes(LIMIT) && open.addH >= addH && open.addH < rowH,
+        `${sel}: open, the other two businesses and New business under them, with nothing about the limit anywhere in the menu`,
+        { rows: open.rows.map((r) => r.text), add: open.add, limit })
     } else if (count === 2) {
       expect(open.rows.length === 2 && others.length === 1 && open.add && !limit && open.addH >= addH && open.addH < rowH,
         `${sel}: open, the other business, and New business under it`, { rows: open.rows.map((r) => r.text), add: open.add })
@@ -160,7 +167,45 @@ try {
   await p.screenshot({ path: join(shots, "business-sheet-member-two-open-390.png") })
   await p.evaluate(() => document.querySelector("[data-probe=sheet-one]").scrollIntoView())
   await p.screenshot({ path: join(shots, "business-sheet-open-390.png") })
+
+  /*
+    THE LIMIT, SAID ON THE PRESS. Every list is open above and not one of
+    them has said a word about three being the most. Press New business on a
+    login that has three and the sentence arrives, on the menu's one alert
+    line, with no screen and no request: the count is read in the menu
+    (lib/businesses/rules canAddBusiness). The phone first, so its shot is
+    taken at 390 where the sheet lives.
+  */
+  console.log("\nthe limit, on the press")
+  for (const [sel, width] of [["[data-probe=sheet-three]", 390], ["[data-probe=sheet-member-three]", 390], ["[data-probe=dropdown-three]", 1440], ["[data-probe=dropdown-member-three]", 1440]]) {
+    if (width !== (await p.viewport()).width) {
+      await p.setViewport(width === 390 ? { width: 390, height: 900, deviceScaleFactor: 2 } : { width: 1440, height: 900 })
+      await sleep(200)
+    }
+    const before = await p.evaluate(() => window.__created ?? 0)
+    const quiet = await p.evaluate((s2) => document.querySelector(`${s2} [role=alert]`) === null, sel)
+    await p.evaluate((s2) => {
+      const el = document.querySelector(`${s2} [data-business-new]`)
+      el.scrollIntoView({ block: "center" })
+      el.click()
+    }, sel)
+    await sleep(250)
+    const said = await p.evaluate((s2) => {
+      const add = document.querySelector(`${s2} [data-business-new]`)
+      return {
+        alerts: document.querySelectorAll(`${s2} [role=alert]`).length,
+        text: document.querySelector(`${s2} [role=alert]`)?.textContent?.trim() ?? null,
+        screen: !!document.querySelector("[data-business-switch-screen]"),
+        pressable: !!add && !add.disabled && add.textContent.trim() === "New business",
+        created: window.__created ?? 0,
+      }
+    }, sel)
+    expect(quiet && said.text === LIMIT && said.alerts === 1 && !said.screen && said.pressable && said.created === before,
+      `${sel}: nothing said until New business is pressed, then the limit on the menu's one alert line, with no request`, { quiet, ...said })
+    await p.screenshot({ path: join(shots, `business-limit-said-${sel.replace(/\[data-probe=|\]/g, "")}-${width}.png`) })
+  }
   await p.setViewport({ width: 1440, height: 900 })
+  await sleep(150)
   await toggle("[data-probe=dropdown-two]")
   const shut = await read("[data-probe=dropdown-two]")
   expect(shut.rows.length === 1 && shut.rows[0].expanded === "false", "a second tap folds it away again", shut.rows.length)

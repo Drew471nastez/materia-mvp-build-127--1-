@@ -368,8 +368,24 @@ function main() {
     /onClick=\{\(\) => setExpanded\(\(v\) => !v\)\}/.test(rowButton) && !/onClick=\{add\}/.test(rowButton))
   check("  and it is on every business: no count or role decides whether it shows",
     !/\{canAdd && \(\s*\/\*[^]*?\*\/\s*<button[^]*?data-business-add/.test(switcher) && !/role === "owner"/.test(switcher) && !/current\.role/.test(switcher))
-  check("New business, in the list, is what makes one; with three already, the list says so instead and there is nothing to press",
-    /\{canAdd \? \(\s*<button[\s\S]*?onClick=\{add\}[\s\S]*?data-business-new=""/.test(switcher) && /data-business-limit=""[\s\S]*?\{LIMIT_REACHED\}/.test(switcher) && /if \(busy \|\| !canAdd\) return/.test(switcher))
+  /*
+    Changed on purpose. The owner: "I don't want to show that text, 'you
+    already have three businesses, the most one' thing. Don't show it. When I
+    click create, it should show that, just only." The list no longer swaps
+    New business for a sentence about the limit; New business is there on
+    every login, and a press with three already puts LIMIT_REACHED on the
+    menu's one alert line, asking the server nothing
+    (scripts/check-business-switcher.mjs presses it).
+  */
+  check("New business is in the list whatever the count: nothing about the limit sits in the menu at rest",
+    /data-business-new=""/.test(switcher) && !/data-business-limit/.test(switcher) && !/canAdd \?/.test(switcher) && !/\{canAdd &&/.test(switcher))
+  check("  a press with three already says so on the press, on the same line a refusal uses, and makes no request",
+    /if \(!canAdd\) \{\s*setError\(LIMIT_REACHED\)\s*return\s*\}/.test(switcher) && /if \(busy\) return/.test(switcher)
+      && switcher.indexOf("setError(LIMIT_REACHED)") < switcher.indexOf("await createBusiness(")
+      && /<p role="alert"[\s\S]*?\{error\}/.test(switcher) && (switcher.match(/<p role="alert"/g) ?? []).length === 1)
+  check("  and the limit is still the server's and the database's to keep, not the menu's",
+    /if \(!canAddBusiness\(groupIds\(group, caller\.id\)\.length\)\) return \{ error: LIMIT_REACHED, status: 409 \}/.test(read("lib/businesses/server.ts"))
+      && /raise exception 'One login can have at most 3 businesses'/.test(read("supabase/sql/run-now/38_business_limit_three.sql")))
   check("no Businesses label on either menu: the business you are in is one row that opens to the rest",
     !/>Businesses</.test(switcher) && /aria-expanded=\{expanded\}/.test(switcher) && /inert=\{!expanded\}/.test(switcher))
   check("and it folds back once the menu has gone", /open=\{headerProfileOpen\}/.test(read("components/app/sidebar.tsx")) && /open=\{mobileProfileDropdownOpen\}/.test(read("components/app/mobile-account-menu.tsx")))

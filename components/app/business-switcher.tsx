@@ -20,8 +20,7 @@ import { cn } from "@/lib/utils"
  * switcher people already know. A tap anywhere on the row, the "+" included,
  * opens the list in place, under it: the login's other businesses (up to two
  * more, lib/businesses/rules MAX_BUSINESSES), then "New business" as a slim
- * line while there is room for one. Another tap, or closing the menu, folds
- * it away again.
+ * line, always. Another tap, or closing the menu, folds it away again.
  *
  * No heading. The row is the business, so a label saying "Businesses" over
  * it was a word explaining a picture that already said it.
@@ -41,11 +40,25 @@ import { cn } from "@/lib/utils"
  * ON EVERY BUSINESS. "It doesn't matter which business I am on: when I
  * switch to Calvin, my other business, there is no plus icon there." The
  * square, the list and "New business" are on every business of the login,
- * the first or any other (lib/businesses/rules canAddBusiness). A business
- * made from the second is linked to the first all the same (lib/businesses/
- * server createBusinessAccount), so the login stays one group. When the
- * login already has three, the list's last line says so in plain words
- * (LIMIT_REACHED) in place of "New business", and nothing is made.
+ * the first or any other. A business made from the second is linked to the
+ * first all the same (lib/businesses/server createBusinessAccount), so the
+ * login stays one group.
+ *
+ * THE LIMIT IS SAID ON THE PRESS, NOT LEFT LYING IN THE MENU. The list used
+ * to swap "New business" for a sentence about the limit as soon as the login
+ * had three, so a full group read a paragraph every time it opened its own
+ * account menu. The owner: "I don't want to show that text, 'you already
+ * have three businesses, the most one' thing. Don't show it. When I click
+ * create, it should show that, just only." So "New business" is there and
+ * pressable on every business, whatever the count, and a press with three
+ * already puts LIMIT_REACHED (lib/businesses/rules) on the one line this
+ * menu says anything on: the role="alert" line at the bottom, the same line
+ * a failed switch and a refused create use, in the same words. The count is
+ * read here (canAddBusiness) so a press that cannot succeed never becomes a
+ * request; the server checks it again and so does the database (run-now part
+ * 38), because the menu's count is a courtesy and theirs is the rule. A
+ * refusal that comes back from the server is the same sentence in the same
+ * place, so there is one answer to "why not", wherever it was decided.
  *
  * The square wears iconDepth (components/ui/depth-button): the hairline and
  * 2px foot the Website page's icon buttons have, 28px in the dropdown and
@@ -190,7 +203,18 @@ export function BusinessSwitcher({
   }
 
   const add = async () => {
-    if (busy || !canAdd) return
+    if (busy) return
+    /*
+      Three already: the sentence belongs here, at the press, and nowhere
+      else. Decided from the count the menu was drawn with, so a press that
+      cannot succeed is not a request the server has to refuse; the server
+      and the database refuse it anyway if this count is stale, and that
+      refusal lands on this very line with these very words.
+    */
+    if (!canAdd) {
+      setError(LIMIT_REACHED)
+      return
+    }
     setError(null)
     setBusy("new")
     setCreating(true)
@@ -293,33 +317,32 @@ export function BusinessSwitcher({
               {nameAndHandle(b)}
             </button>
           ))}
-          {canAdd ? (
-            <button
-              type="button"
-              disabled={!!busy}
-              onClick={add}
-              aria-busy={busy === "new" || undefined}
-              data-business-new=""
-              className={cn(
-                lastLine,
-                "text-neutral-600 transition-colors [-webkit-tap-highlight-color:transparent]",
-                sheet ? "active:bg-neutral-100" : "hover:bg-neutral-50 hover:text-neutral-900",
-              )}
-            >
-              <span className="grid shrink-0 place-items-center text-neutral-400" style={{ width: avatarSize }}>
-                <Plus className={sheet ? "h-[18px] w-[18px]" : "h-4 w-4"} strokeWidth={1.75} />
-              </span>
-              New business
-            </button>
-          ) : (
-            /* Three already: the line says so, and there is nothing to press. */
-            <p data-business-limit="" className={cn(lastLine, "font-normal text-neutral-500", sheet ? "text-[13px]" : "text-[12px]")}>
-              <span className="shrink-0" style={{ width: avatarSize }} aria-hidden="true" />
-              <span className="min-w-0 flex-1">{LIMIT_REACHED}</span>
-            </p>
-          )}
+          {/* Always here, whatever the count: with three already a press says so below instead of making one. */}
+          <button
+            type="button"
+            disabled={!!busy}
+            onClick={add}
+            aria-busy={busy === "new" || undefined}
+            data-business-new=""
+            className={cn(
+              lastLine,
+              "text-neutral-600 transition-colors [-webkit-tap-highlight-color:transparent]",
+              sheet ? "active:bg-neutral-100" : "hover:bg-neutral-50 hover:text-neutral-900",
+            )}
+          >
+            <span className="grid shrink-0 place-items-center text-neutral-400" style={{ width: avatarSize }}>
+              <Plus className={sheet ? "h-[18px] w-[18px]" : "h-4 w-4"} strokeWidth={1.75} />
+            </span>
+            New business
+          </button>
         </div>
       </div>
+      {/*
+        The one place this menu says anything: a failed switch, a refused
+        create, and the limit on a press of New business, all in the same
+        sentence shape in the same spot. It goes with the menu, not with the
+        list, so nothing is left sitting here at rest.
+      */}
       {error && (
         <p role="alert" className={cn("px-3 pt-1 text-red-600", sheet ? "text-[13px]" : "text-[12px]")}>
           {error}
