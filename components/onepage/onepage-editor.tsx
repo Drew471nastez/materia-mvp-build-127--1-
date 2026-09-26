@@ -838,6 +838,20 @@ function EditorLayout() {
   // Check onboarding status directly from database on mount
   useEffect(() => {
     if (!onepage?.id || onboardingChecked || completedThisSessionRef.current) return
+    /*
+      THE PAGE ALREADY SAYS. The server read the whole row a moment ago
+      (app/app/onepage/page.tsx), onboarding_completed with it. Asking the
+      database again from the browser was a second round trip on every open,
+      and when that one failed (a flaky connection, a slow phone) and this
+      browser had no note of its own, the first visit's full screen wizard
+      came up over an editor somebody had set up long ago. Asked only when
+      the row did not say.
+    */
+    if ((onepage as { onboarding_completed?: boolean | null }).onboarding_completed === true) {
+      setShowOnboarding(false)
+      setOnboardingChecked(true)
+      return
+    }
     
     const checkOnboardingStatus = async () => {
       const supabase = createClient()

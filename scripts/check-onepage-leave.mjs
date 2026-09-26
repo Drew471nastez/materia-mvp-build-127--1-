@@ -361,7 +361,7 @@ async function open(viewport = DESKTOP) {
 
 const state = (page) => page.evaluate(() => {
   const discard = document.querySelector("[data-unsaved-discard]")
-  /* A row is a link, or a button for OnePage (a whole document load, forceNavigation). */
+  /* A row is a link (OnePage too now: it goes by the router), or a button. */
   const lit = [...document.querySelectorAll("aside a, aside button")].find((a) => a.querySelector("[data-nav-icon='filled']"))
   return {
     path: location.pathname + location.search,
@@ -665,9 +665,14 @@ try {
     await page.goto(`${base}/app`, { waitUntil: "domcontentloaded" })
     await page.waitForSelector("[data-page='dashboard']")
     await wait(500)
-    await press(page, "OnePage")
-    await page.waitForSelector("[data-onepage-editor] header", { timeout: 20000 })
-    await wait(900)
+    /*
+      THE EDITOR AS A DOCUMENT OF ITS OWN, behind Home's. The rail's row went
+      by a whole document load when this was written (forceNavigation); it
+      goes by the router now (scripts/check-onepage-open.mjs), and Back from
+      there is the held Back above. A Back to another document is still what
+      a bookmark or a typed address gives, so it is opened that way here.
+    */
+    await openEditor(page)
     await tab(page, "settings")
     await edit(page)
     page.answer = "dismiss"
