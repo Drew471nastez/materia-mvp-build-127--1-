@@ -47,12 +47,41 @@ const w = window as unknown as W
 w.__slowMs = 0
 w.__commits = []
 
-const pic = (hue: number) =>
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720"><rect width="1280" height="720" fill="hsl(${hue},60%,78%)"/></svg>`)
-const cover = (hue: number) =>
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="hsl(${hue},45%,72%)"/><circle cx="40" cy="44" r="18" fill="hsl(${hue},40%,35%)"/></svg>`)
+/*
+  PICTURES AS THE APP HAS THEM: bitmaps (JPEG), not SVG. Chromium decodes a
+  bitmap off the main thread; an SVG <img> is drawn on it, every time it is
+  painted, which put a picture drawing inside the frames of every move here
+  that the app, whose pictures are JPEG and WebP, never has.
+*/
+function jpeg(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void): string {
+  const c = document.createElement("canvas")
+  c.width = w
+  c.height = h
+  const g = c.getContext("2d")
+  if (!g) return ""
+  draw(g)
+  return c.toDataURL("image/jpeg", 0.8)
+}
+const pics = new Map<string, string>()
+const pic = (hue: number) => {
+  const key = `pic${hue}`
+  if (!pics.has(key)) pics.set(key, jpeg(640, 360, (g) => { g.fillStyle = `hsl(${hue},60%,78%)`; g.fillRect(0, 0, 640, 360) }))
+  return pics.get(key) as string
+}
+const cover = (hue: number) => {
+  const key = `cover${hue}`
+  if (!pics.has(key)) {
+    pics.set(key, jpeg(80, 80, (g) => {
+      g.fillStyle = `hsl(${hue},45%,72%)`
+      g.fillRect(0, 0, 80, 80)
+      g.fillStyle = `hsl(${hue},40%,35%)`
+      g.beginPath()
+      g.arc(40, 44, 18, 0, Math.PI * 2)
+      g.fill()
+    }))
+  }
+  return pics.get(key) as string
+}
 
 function loadedFor(id: string): LoadedProduct {
   return {
@@ -100,6 +129,13 @@ const shelf = Array.from({ length: 24 }, (_, i) => ({
 
 const now = Date.UTC(2026, 8, 20, 12)
 const orderRows = fixtureRows(now)
+/* The same objects on every draw, as the server page hands them once: a new array each time made the memoised list draw again. */
+const orderProducts = [
+  { id: "p1", title: "Lightroom preset pack" },
+  { id: "p2", title: "Brush set for Procreate" },
+  { id: "p3", title: "Portrait course" },
+]
+const noColumns: never[] = []
 
 /*
   The composer's server, stood in for: the audience it reads as it opens,
@@ -181,13 +217,9 @@ function Page({ path }: { path: string }) {
     return (
       <OrdersClient
         rows={orderRows}
-        products={[
-          { id: "p1", title: "Lightroom preset pack" },
-          { id: "p2", title: "Brush set for Procreate" },
-          { id: "p3", title: "Portrait course" },
-        ]}
+        products={orderProducts}
+        hiddenColumns={noColumns}
         stripeConnected
-        hiddenColumns={[]}
         initialRange={null}
         timeZone="UTC"
         now={now}

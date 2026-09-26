@@ -163,6 +163,11 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewp
   }
 </script></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
 writeFileSync(join(stubs, "index.html"), html)
+/* BUILD_ONLY=1: write the page and say where, for a profile of one move by hand. */
+if (process.env.BUILD_ONLY) {
+  console.log(join(stubs, "index.html"))
+  process.exit(0)
+}
 
 /* ── In the page ──────────────────────────────────────────────────────── */
 
@@ -380,15 +385,32 @@ async function timedMove(p, cdp, { sel, pressed, kind }) {
     from = moving[0]?.t ?? began
     to = moving[moving.length - 1]?.t ?? began
   }
-  const inMove = data.frames.filter((f) => f.t >= from - 1 && f.t <= to + 1)
+  const inWindow = data.frames.filter((f) => f.t >= from - 1 && f.t <= to + 1)
+  /*
+    The move proper: from the last frame at its starting place (the layer is
+    held there until the screen keeps up, page-layer startWhenFramesFlow) to
+    the end. A frame that is late while nothing has moved yet is the wait
+    before the move, reported as `held`, not a dropped frame of it.
+  */
+  const y0 = inWindow.find((f) => f.y !== null)?.y ?? null
+  const firstMoving = inWindow.findIndex((f) => f.y !== null && y0 !== null && Math.abs(f.y - y0) > 1)
+  const started = firstMoving > 0 ? inWindow.slice(firstMoving - 1) : inWindow
+  /* ...to the first frame at its destination: what runs after it (an order taken out of the page once it is down) is after the move. */
+  const yEnd = [...started].reverse().find((f) => f.y !== null)?.y ?? null
+  const arrived = started.findIndex((f) => f.y !== null && yEnd !== null && Math.abs(f.y - yEnd) <= 1)
+  const inMove = arrived >= 0 ? started.slice(0, arrived + 1) : started
+  const held = firstMoving > 0 ? +(inWindow[firstMoving - 1].t - inWindow[0].t).toFixed(0) : 0
   const gaps = inMove.slice(1).map((f, i) => +(f.t - inMove[i].t).toFixed(1))
   const dropped = gaps.slice(1).filter((g) => g > 20).length
   const ys = inMove.map((f) => f.y).filter((y) => y !== null)
   const partway = ys.filter((y) => y > 2 && y < (kind === "order" ? 2000 : 2000) && Math.abs(y) > 2).length
   /* Tasks that begin while it moves: the commit itself (the new page drawn, inside the transition's update) ends before the first frame of the move. */
-  const long = data.long.filter((l) => l.t >= from && l.t < to).map((l) => +l.d.toFixed(0))
+  const moveFrom = inMove[0]?.t ?? from
+  const moveTo = inMove[inMove.length - 1]?.t ?? to
+  const long = data.long.filter((l) => l.t >= moveFrom && l.t < moveTo).map((l) => +l.d.toFixed(0))
   return {
     move: window_ ? { ready: !!window_.ready, skipped: !!window_.skipped, waitedMs: window_.ready ? +(window_.ready - window_.at).toFixed(1) : null, ms: window_.done && window_.ready ? +(window_.done - window_.ready).toFixed(0) : null } : null,
+    held,
     frames: inMove.length,
     firstGap: gaps[0] ?? null,
     maxGap: gaps.length > 1 ? Math.max(...gaps.slice(1)) : null,
@@ -404,8 +426,27 @@ async function timedMove(p, cdp, { sel, pressed, kind }) {
 /** The same move, paused and photographed at each fraction. */
 async function frozenMove(p, cdp, { sel, label, layer, which }) {
   const n = await moveCount(p)
+  /*
+    The move holds itself at its first position and lets go with play()
+    (page-layer startWhenFramesFlow); for the pictures, play() does nothing
+    until the walk is over, so every one of them is taken at the time the
+    walk sets, the first while the move is still held where it starts.
+  */
   await p.evaluate(() => {
-    window.__pauseNext = true
+    if (!window.__play) window.__play = Animation.prototype.play
+    window.__freeze = true
+    Animation.prototype.play = function () {
+      if (window.__freeze) return
+      return window.__play.call(this)
+    }
+    /* ...and a move held by a rate of 0 is not let go either. */
+    const rate = Object.getOwnPropertyDescriptor(Animation.prototype, "playbackRate")
+    if (!window.__rate) window.__rate = rate
+    Object.defineProperty(Animation.prototype, "playbackRate", {
+      configurable: true,
+      get() { return rate.get.call(this) },
+      set(v) { if (window.__freeze && v !== 0) return; rate.set.call(this, v) },
+    })
   })
   await p.$eval(sel, (el) => el.click())
   let m = null
@@ -415,6 +456,20 @@ async function frozenMove(p, cdp, { sel, label, layer, which }) {
     await sleep(15)
   }
   if (!m?.ready) return { ready: false }
+  const vp = p.viewport()
+  const pics = []
+  const shoot = async (f, y) => {
+    const { data: png } = await cdp.send("Page.captureScreenshot", { format: "png" })
+    const file = `layer-motion-${label}-${String(Math.round(f * 100)).padStart(3, "0")}.png`
+    writeFileSync(join(shots, file), Buffer.from(png, "base64"))
+    const ink = await inkOf(p, png, 80, vp.height - 90)
+    const header = layer ? await headerOverLayer(p, png, y ?? 0) : null
+    pics.push({ at: f, top: y === null ? null : Math.round(y), ink, header: header ? header.bad : null })
+  }
+  /* The first frame, taken while the move is held there (a paused move set back to its start is not always drawn there again). */
+  await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+  const heldAtStart = await p.evaluate((which) => document.getAnimations().some((a) => a.effect?.pseudoElement === which && (a.playState === "paused" || a.playbackRate === 0) && (a.currentTime ?? 0) === 0), which)
+  if (heldAtStart) await shoot(0, /new/.test(which) ? vp.height : 0)
   const info = await p.evaluate((which) => {
     const all = document.getAnimations().filter((a) => a.effect?.pseudoElement?.startsWith("::view-transition"))
     for (const a of all) a.pause()
@@ -427,16 +482,13 @@ async function frozenMove(p, cdp, { sel, label, layer, which }) {
       motion: document.documentElement.dataset.layerMotion ?? null,
     }
   }, which)
-  const out = { ready: true, ...info, shots: [] }
-  const vp = p.viewport()
-  for (const f of [0, 0.25, 0.5, 0.75, 0.9, 1]) {
+  const out = { ready: true, ...info, shots: pics }
+  for (const f of heldAtStart ? [0.25, 0.5, 0.75, 0.9, 1] : [0, 0.25, 0.5, 0.75, 0.9, 1]) {
     const y = await p.evaluate(
       (ms, which) => {
         let y = null
         for (const a of document.getAnimations()) {
           if (!a.effect?.pseudoElement?.startsWith("::view-transition")) continue
-          /* Played and paused again, so the compositor takes the new time too (a paused move set back to 0 kept its first frame there). */
-          a.play()
           a.pause()
           a.currentTime = ms
           if (a.effect.pseudoElement === which) {
@@ -465,14 +517,13 @@ async function frozenMove(p, cdp, { sel, label, layer, which }) {
     )
     /* Two frames for the paused position to reach the screen: the first capture otherwise shows where the move was when it was paused. */
     await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
-    const { data: png } = await cdp.send("Page.captureScreenshot", { format: "png" })
-    const file = `layer-motion-${label}-${String(Math.round(f * 100)).padStart(3, "0")}.png`
-    writeFileSync(join(shots, file), Buffer.from(png, "base64"))
-    const ink = await inkOf(p, png, 80, vp.height - 90)
-    const header = layer ? await headerOverLayer(p, png, y ?? 0) : null
-    out.shots.push({ at: f, top: y === null ? null : Math.round(y), ink, header: header ? header.bad : null })
+    await shoot(f, y)
   }
   await p.evaluate(() => {
+    window.__freeze = false
+    Animation.prototype.play = window.__play
+    Object.defineProperty(Animation.prototype, "playbackRate", window.__rate)
+    for (const a of document.getAnimations()) if (a.playbackRate === 0) a.playbackRate = 1
     for (const a of document.getAnimations()) if (a.effect?.pseudoElement?.startsWith("::view-transition")) a.play()
   })
   await waitMove(p, n)
@@ -524,7 +575,7 @@ async function productsTrip(p, cdp, label, { isNew }) {
 }
 
 function report(name, r, kind) {
-  console.log(`        (${name}: ${JSON.stringify({ move: r.move, frames: r.frames, firstGap: r.firstGap, maxGap: r.maxGap, dropped: r.dropped, partway: r.partway, long: r.long, latency: r.latency, compositor: r.compositor })})`)
+  console.log(`        (${name}: ${JSON.stringify({ move: r.move, held: r.held, frames: r.frames, firstGap: r.firstGap, maxGap: r.maxGap, dropped: r.dropped, partway: r.partway, long: r.long, latency: r.latency, compositor: r.compositor })})`)
   console.log(`        (${name} translateY by frame: ${r.ys.join(" ")})`)
   if (!kind.startsWith("order")) expect(!!r.move?.ready && !r.move.skipped, `${name}: one move, started at the commit`, r.move)
   const dir = kind === "leave" || kind === "order-back" ? 1 : -1
@@ -741,11 +792,13 @@ try {
       const u = r.url()
       if (u.startsWith("data:")) return r.continue()
       if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      /* The page for an /app address and a small "not here" for anything else (the favicon the browser asks for): answered with the page, a 3MB reply was decoded inside a move. */
+      if (!u.startsWith("http://probe.test/app") && u.startsWith("http://probe.test/") && !u.startsWith("http://probe.test/__file")) return r.respond({ status: 404, contentType: "application/json", body: "{}" })
       if (u.startsWith("http://probe.test/")) return r.respond({ status: 200, contentType: "text/html", body: html })
       if (u.startsWith("file:")) return r.continue()
       r.abort()
     })
-    await p.setViewport({ width, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 })
+    await p.setViewport({ width, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: Number(process.env.DPR ?? 2) })
     const cdp = await p.createCDPSession()
     await p.goto("http://probe.test/app/products")
     await sleep(1200)
@@ -780,6 +833,8 @@ try {
       const u = r.url()
       if (u.startsWith("data:")) return r.continue()
       if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      /* The page for an /app address and a small "not here" for anything else (the favicon the browser asks for): answered with the page, a 3MB reply was decoded inside a move. */
+      if (!u.startsWith("http://probe.test/app") && u.startsWith("http://probe.test/") && !u.startsWith("http://probe.test/__file")) return r.respond({ status: 404, contentType: "application/json", body: "{}" })
       if (u.startsWith("http://probe.test/")) return r.respond({ status: 200, contentType: "text/html", body: html })
       r.abort()
     })
@@ -814,6 +869,8 @@ try {
       const u = r.url()
       if (u.startsWith("data:")) return r.continue()
       if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      /* The page for an /app address and a small "not here" for anything else (the favicon the browser asks for): answered with the page, a 3MB reply was decoded inside a move. */
+      if (!u.startsWith("http://probe.test/app") && u.startsWith("http://probe.test/") && !u.startsWith("http://probe.test/__file")) return r.respond({ status: 404, contentType: "application/json", body: "{}" })
       if (u.startsWith("http://probe.test/")) return r.respond({ status: 200, contentType: "text/html", body: html })
       r.abort()
     })
