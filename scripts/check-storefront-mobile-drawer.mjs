@@ -71,8 +71,9 @@ const check = (ok, what) => { lines.push(`  ${ok ? "ok  " : "FAIL"} ${what}`); i
 const HELPERS = `
 window.__drawer = () => document.querySelector('[role="dialog"][aria-label="Menu"]')
 window.__backdrop = () => document.querySelector('[data-site-drawer-backdrop]') || (window.__drawer() && window.__drawer().previousElementSibling)
-/* The header's own menu button: it says Open menu or Close menu, and it is the one with aria-expanded. */
-window.__menuBtn = () => Array.from(document.querySelectorAll('button[aria-expanded][aria-label$=" menu"]')).find((b) => !b.closest('[role="dialog"]')) || null
+/* The site header's own menu button: it says Open menu or Close menu, and it is the one with aria-expanded.
+   Inside the canvas when there is one, because the editor has an "Open menu" of its own. */
+window.__menuBtn = () => Array.from((document.getElementById("wb-preview-root") || document).querySelectorAll('button[aria-expanded][aria-label$=" menu"]')).find((b) => !b.closest('[role="dialog"]')) || null
 window.__pane = () => { const d = window.__drawer(); return d ? d.querySelector('nav > div > div') : null }
 window.__rect = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { top: Math.round(r.top), left: Math.round(r.left), right: Math.round(r.right), bottom: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) } }
 `
@@ -179,7 +180,8 @@ async function measureOpenMenu(p, { label, pageTop, long, width }) {
   /* The header is under the drawer and the backdrop, and faded out. */
   const cover = await page.evaluate((h) => {
     const y = Math.round(h.rect.top + h.rect.h / 2)
-    const points = [[Math.round(h.btn.left + h.btn.w / 2), y], [window.innerWidth - 12, y], [Math.round(window.innerWidth / 2), y]]
+    /* The button, the header's far end (where the bag is) and its middle. */
+    const points = [[Math.round(h.btn.left + h.btn.w / 2), y], [h.rect.right - 12, y], [Math.round(h.rect.left + h.rect.w / 2), y]]
     return points.map(([x, yy]) => {
       const el = document.elementFromPoint(x, yy)
       const d = window.__drawer()
@@ -290,7 +292,9 @@ const liveCases = [
   { q: "links=6", name: "not sticky, at the top", y: 0 },
   { q: "links=16&sticky=1&style=right", name: "from the right", long: true },
 ]
-for (const width of [360, 390, 430]) {
+/* ONLY=live or ONLY=canvas runs one half. */
+const ONLY = process.env.ONLY ?? ""
+for (const width of ONLY === "canvas" ? [] : [360, 390, 430]) {
   for (const c of width === 390 ? liveCases : liveCases.slice(0, 3)) {
     const label = `live ${width} ${c.name}`
     const p = await openPage(`file://${join(out, "live.html")}?${c.q}`, { width, height: 780 })
@@ -302,6 +306,59 @@ for (const width of [360, 390, 430]) {
     if (c.reveal) { await p.page.evaluate(() => window.scrollTo(0, 1300)); await sleep(500) }
     lines.push(`\n${label}`)
     await measureOpenMenu(p, { label, pageTop: LIVE_TOP, long: c.long, width })
+    if (p.errors.length) check(false, `${label}: page errors: ${p.errors.slice(0, 3).join(" | ")}`)
+    await p.page.close()
+  }
+}
+
+/* ------------------------------------------------------------------------ */
+/*  The builder canvas: the real editor, on phones and on a desktop         */
+/* ------------------------------------------------------------------------ */
+writeFileSync(join(out, "editor.html"), `${HEAD}<body><div id="app"></div><script>window.PROBE_SHORT=false;window.PROBE_HEADER=JSON.parse(decodeURIComponent(location.hash.slice(1)||"%7B%7D"))</script><script src="editor-probe.js"></script></body></html>`)
+const CANVAS_TOP = `() => document.getElementById("wb-preview-root").scrollTop`
+const canvasCases = [
+  { header: { links: 4, settings: { header_sticky_enabled: true } }, name: "sticky, 4 links" },
+  { header: { links: 16, settings: { header_sticky_enabled: true } }, name: "sticky, 16 links", long: true },
+  { header: { links: 16, settings: { header_sticky_on_scroll_up: true } }, name: "shows on scroll up", long: true },
+]
+const views = [
+  { width: 390, height: 844, name: "phone 390" },
+  { width: 360, height: 780, name: "phone 360", only: 1 },
+  { width: 430, height: 932, name: "phone 430", only: 1 },
+  { width: 1280, height: 900, name: "desktop 1280, phone frame", desktop: true },
+]
+for (const v of ONLY === "live" ? [] : views) {
+  for (const c of v.only ? canvasCases.slice(0, v.only + 1) : canvasCases) {
+    const label = `canvas ${v.name} ${c.name}`
+    const p = await openPage(`file://${join(out, "editor.html")}#${encodeURIComponent(JSON.stringify(c.header))}`, { width: v.width, height: v.height })
+    const drawn = () => p.page.waitForFunction(() => (document.getElementById("wb-preview-root")?.querySelectorAll("[id^=wb-section-]").length ?? 0) >= 3, { timeout: 30000 }).then(() => true, () => false)
+    let ready = await drawn()
+    await sleep(1200)
+    if (ready && v.desktop) {
+      const pressed = await p.page.evaluate(() => { const b = Array.from(document.querySelectorAll("button")).find((x) => (x.getAttribute("aria-label") || "") === "Switch to phone preview"); b?.click(); return !!b })
+      await sleep(1500)
+      ready = pressed && (await drawn())
+    }
+    ready = ready && (await p.page.evaluate(() => { const b = window.__menuBtn(); return !!b && b.getBoundingClientRect().width > 0 }))
+    lines.push(`\n${label}`)
+    if (!ready) { check(false, `${label}: the editor never drew the canvas with a menu button in reach`); await p.page.close(); continue }
+    await p.page.evaluate(() => { document.getElementById("wb-preview-root").scrollTop = 900 })
+    await sleep(400)
+    if (c.header.settings.header_sticky_on_scroll_up) { await p.page.evaluate(() => { document.getElementById("wb-preview-root").scrollTop = 800 }); await sleep(500) }
+    await measureOpenMenu(p, { label, pageTop: CANVAS_TOP, long: c.long, width: v.width })
+
+    /* A wheel over the menu, the desktop's way of scrolling the phone frame. */
+    if (v.desktop && c.long) {
+      await p.page.evaluate(() => window.__menuBtn().click())
+      await sleep(900)
+      const at = await p.page.evaluate(() => window.__rect(window.__pane()))
+      const before = await p.page.evaluate(() => [document.getElementById("wb-preview-root").scrollTop, window.__pane().scrollTop])
+      for (let i = 0; i < 6; i++) { await p.wheel(Math.round(at.left + at.w / 2), Math.round(at.top + at.h / 2), 120); await sleep(60) }
+      for (let i = 0; i < 20; i++) { await p.wheel(Math.round(at.left + at.w / 2), Math.round(at.top + at.h / 2), 120); await sleep(30) }
+      await sleep(500)
+      const after = await p.page.evaluate(() => [document.getElementById("wb-preview-root").scrollTop, window.__pane().scrollTop])
+      check(after[0] === before[0] && after[1] > before[1], `${label}: a mouse wheel over the menu scrolls the menu (${before[1]} to ${after[1]}) and not the canvas (${before[0]} to ${after[0]}), past the list's end too`)
+    }
     if (p.errors.length) check(false, `${label}: page errors: ${p.errors.slice(0, 3).join(" | ")}`)
     await p.page.close()
   }

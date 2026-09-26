@@ -54,6 +54,7 @@ const SUITES = [
   "tests/own-reviews.test.ts",
   "tests/review-columns.test.ts",
   "tests/nav-drawer.test.ts",
+  "tests/storefront-mobile-drawer.test.ts",
   "tests/editor-navigation.test.ts",
   "tests/library-and-pages.test.ts",
   "tests/creator-page-products.test.ts",

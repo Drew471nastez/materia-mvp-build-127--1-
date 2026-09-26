@@ -960,6 +960,7 @@ function MobileDrawerInner({
   // The back button on the sub-page returns us to the root by clearing it.
   const dismissBackdrop = useBackdropDismiss(open, onClose)
   const guardPanel = useDrawerTouchGuard()
+  const railRef = useRef<HTMLDivElement | null>(null)
   const [activeSubmenuId, setActiveSubmenuId] = useState<string | null>(null)
   /* The saved count for the heart, and Sign in or Account for this visitor. */
   const account = useAccountLink()
@@ -971,7 +972,12 @@ function MobileDrawerInner({
       // Delay slightly so the reset happens AFTER the drawer has started
       // sliding off-screen — otherwise the user briefly sees the root
       // menu snap back into view during the close animation.
-      const t = window.setTimeout(() => setActiveSubmenuId(null), 280)
+      const t = window.setTimeout(() => {
+        setActiveSubmenuId(null)
+        /* And at the top of its list: the drawer stays mounted, so a list
+           scrolled halfway down opened halfway down next time. */
+        railRef.current?.querySelectorAll<HTMLElement>(":scope > div").forEach((pane) => { pane.scrollTop = 0 })
+      }, 280)
       return () => window.clearTimeout(t)
     }
   }, [open])
@@ -1067,20 +1073,6 @@ function MobileDrawerInner({
         aria-hidden={!open}
         /*
           ═══════════════════════════════════════════════════════════════════
-           OPEN, IT SAYS IT IS A MODAL, AND THE LOCK IS LEFT ALONE
-          ═══════════════════════════════════════════════════════════════════
-          The root layout mounts a guard on every page (StuckLayerGuard) that
-          takes back any lock on the body that no open modal accounts for,
-          after 400ms or at the next touch, whichever comes first. It asks
-          one question, `[aria-modal="true"]`, and this drawer never said it.
-          So the menu pinned the page, the guard unpinned it, and the first
-          drag in the menu scrolled the website behind it from the top: the
-          recording. Said only while open, so a closed drawer never keeps a
-          stale lock alive.
-        */
-        aria-modal={open ? true : undefined}
-        /*
-          ═══════════════════════════════════════════════════════════════════
            THIS IS THE HEADER'S NAVIGATION, WHEREVER IT IS DRAWN
           ═══════════════════════════════════════════════════════════════════
           The editor's canvas cancels a link's default and then follows it
@@ -1109,6 +1101,20 @@ function MobileDrawerInner({
           has closed. See the note in the editor's onClickCapture.
         */
         data-self-nav=""
+        /*
+          ═══════════════════════════════════════════════════════════════════
+           OPEN, IT SAYS IT IS A MODAL, AND THE LOCK IS LEFT ALONE
+          ═══════════════════════════════════════════════════════════════════
+          The root layout mounts a guard on every page (StuckLayerGuard) that
+          takes back any lock on the body that no open modal accounts for,
+          after 400ms or at the next touch, whichever comes first. It asks
+          one question, `[aria-modal="true"]`, and this drawer never said it.
+          So the menu pinned the page, the guard unpinned it, and the first
+          drag in the menu scrolled the website behind it from the top: the
+          recording. Said only while open, so a closed drawer never keeps a
+          stale lock alive. Measured by scripts/check-storefront-mobile-drawer.
+        */
+        aria-modal={open ? true : undefined}
         className={cn(
           positionClass,
           "flex flex-col",
@@ -1191,6 +1197,7 @@ function MobileDrawerInner({
           style={{ overscrollBehavior: "contain" }}
         >
           <div
+            ref={railRef}
             className="absolute inset-0 flex"
             style={{
               width: "200%",

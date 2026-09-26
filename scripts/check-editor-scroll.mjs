@@ -254,6 +254,19 @@ const DRIVE = `
         return "declared=" + (sc2.style.opacity || "(none)") + " computed=" + c2.opacity + " pe=" + c2.pointerEvents + " sheetModal=" + (sh.getAttribute("aria-modal") || "-")
       })(),
       scrollLocked: document.body.hasAttribute("data-scroll-locked"),
+      /**
+       * THE SITE'S OWN MENU, OPEN ON THE CANVAS. Tapping the header's
+       * hamburger opens it, and it holds the canvas still on purpose
+       * (overflow hidden, touch-action none) while a finger belongs to the
+       * menu. That is a layer doing its job, like a sheet, not a freeze.
+       */
+      siteDrawerOpen: !!sc.querySelector('[role=dialog][aria-modal=true]'),
+      centreOnSiteDrawer: (function () {
+        var d = sc.querySelector('[role=dialog][aria-modal=true]')
+        if (!d || !top) return false
+        var b = sc.querySelector("[data-site-drawer-backdrop]")
+        return d.contains(top) || (!!b && (b === top || b.contains(top)))
+      })(),
       /** Every Radix layer that says it is open, and what kind it is. */
       openLayers: Array.prototype.map.call(
         document.querySelectorAll("[data-state=open][role], [aria-modal=true], [data-radix-popper-content-wrapper]"),
@@ -317,12 +330,25 @@ const DRIVE = `
     var caught = (window.__prevented || []).splice(0)
     var m = judge(measure(label))
     m.touch = { on: describe(target), cancelled: cancelled, of: total, chain: touchActionChain(sc), movedBy: sc.scrollTop - before, by: caught.slice(0, 2).map(function (c) { return c.stack }) }
-    if (cancelled > 0) { m.userCanScroll = false; m.why.push(cancelled + " of " + total + " touchmoves over the canvas were cancelled by a listener") }
+    /* Under an open site menu a cancelled move is the menu keeping the finger off the page. */
+    if (cancelled > 0 && !m.heldBySiteMenu) { m.userCanScroll = false; m.why.push(cancelled + " of " + total + " touchmoves over the canvas were cancelled by a listener") }
     return m
   }
 
   function judge(m) {
     var why = []
+    /**
+     * An open site menu owns the canvas: the lock is the point. What would
+     * be wrong is the lock with the menu not actually in front, so that is
+     * the one thing asked, and a closed menu is judged like anything else.
+     */
+    if (m.siteDrawerOpen) {
+      if (!m.centreOnSiteDrawer) why.push("the site menu is open and holds the canvas, but a touch at the centre lands on " + m.topAtCentre)
+      m.userCanScroll = why.length === 0
+      m.why = why
+      m.heldBySiteMenu = true
+      return m
+    }
     if (m.overflowY !== "auto" && m.overflowY !== "scroll") why.push("overflow is " + m.overflowY)
     if (!m.canScroll) why.push("nothing to scroll (" + m.scrollHeight + "/" + m.clientHeight + ")")
     /**
@@ -544,6 +570,20 @@ const DRIVE = `
       })
     } else {
       steps.push({ label: "no control in view inside a section to tap", message: "found " + focusables.length + " focusable elements, none fully in view" })
+    }
+
+    /**
+     * THE CONTROL IN VIEW IS OFTEN THE HEADER'S HAMBURGER, pinned at the top
+     * of the canvas, and a tap on it opens the site's menu over the canvas.
+     * That is a layer, judged as one (see judge), and it is put away here so
+     * every step after this measures the canvas it means to.
+     */
+    if (scrollerForKeep.querySelector("[role=dialog][aria-modal=true]")) {
+      steps.push(touchDrag("a finger with the site's menu open (the tap above opened it)"))
+      var menuAt = scrollerForKeep.scrollTop
+      escape(); await sleep(700)
+      steps.push(touchDrag("a finger after the site's menu closed"))
+      steps.push({ label: "the site's menu closed where it opened", keptScroll: scrollerForKeep.scrollTop, beforeTap: menuAt, lowest: scrollerForKeep.scrollTop, room: scrollerForKeep.scrollHeight - scrollerForKeep.clientHeight, heightBefore: scrollerForKeep.scrollHeight, heightAfter: scrollerForKeep.scrollHeight, clientAfter: scrollerForKeep.clientHeight })
     }
 
     /**
@@ -883,6 +923,7 @@ for (const [w, h, label] of [[390, 844, "phone"], [1280, 900, "desktop"]]) {
     if (s.sections === undefined) { console.log(`  ${s.label}`); continue }
     const scrolled = s.askedFor !== undefined ? `  set ${s.askedFor} → ${s.scrollTop} ${s.took ? "OK" : "DID NOT TAKE"}` : ""
     console.log(`  ${s.label}: ${s.sections} sections, ${s.scrollHeight}/${s.clientHeight} (${s.canScroll ? "scrollable" : "NOT SCROLLABLE"}) overflow=${s.overflowY} box=${s.box}${scrolled}`)
+    if (s.heldBySiteMenu) console.log(`      held still by the site's open menu, on purpose; a touch at the centre lands on ${s.centreOnSiteDrawer ? "the menu" : s.topAtCentre}`)
     if (s.backdrop) console.log(`      sheet backdrop: ${s.backdrop}`)
     if (s.touch) console.log(`      finger: ${s.touch.cancelled}/${s.touch.of} moves cancelled on ${s.touch.on}${s.touch.chain.length ? "  touch-action: " + s.touch.chain.join(", ") : ""}${s.touch.by && s.touch.by.length ? "\n      cancelled by: " + s.touch.by.join("\n                    ") : ""}`)
     console.log(`      touch at centre lands on ${s.topAtCentre}${s.centreInsideScroller ? "" : "  ← OUTSIDE THE CANVAS"}${s.pointerEventsNoneOn ? "  pointer-events:none on " + s.pointerEventsNoneOn : ""}${s.coveredBy.length ? "\n      covered by: " + s.coveredBy.join("; ") : ""}${s.ghosts && s.ghosts.length ? "\n      INVISIBLE AND TAKING TOUCHES: " + s.ghosts.join("; ") : ""}${s.sheetOpen ? "  sheet OPEN" : ""}${s.scrollLocked ? "  body[data-scroll-locked]" : ""}${s.openLayers && s.openLayers.length ? "\n      open layers: " + s.openLayers.join(", ") : ""}${s.bodyPE !== "-" ? "  body.pointer-events=" + s.bodyPE : ""}`)
