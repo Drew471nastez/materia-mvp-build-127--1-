@@ -517,6 +517,11 @@ section("Sheets")
   check("the parent hears about a close once the slide has had a frame, not before its first one",
     /tell\.raf = requestAnimationFrame\(\(\) => \{ tell\.timer = window\.setTimeout\(tellNow, 0\) \}\)/.test(sheet)
       && /if \(rootRef\.current\) rootRef\.current\.style\.pointerEvents = "none"/.test(sheet))
+  /* Explore's filters: "closing must be smoother". The scrim is a layer while a finger dims it, and a button inside can close the sheet the way a tap outside does, the slide before the parent. */
+  check("the scrim is its own layer on every sheet, and a control marked data-sheet-close closes the sheet as a tap outside does",
+    /style=\{\{ opacity: 0, touchAction: "none", willChange: "opacity" \}\}/.test(sheet)
+      && /const closer = \(e\.target as HTMLElement \| null\)\?\.closest\?\.\("\[data-sheet-close\]"\)\s*if \(closer && e\.currentTarget\.contains\(closer\)\) requestClose\(\)/.test(sheet)
+      && /data-sheet-panel=""\s*tabIndex=\{-1\}\s*onClick=\{onPanelClick\}/.test(sheet))
   check("focus moves after the slide, not on its first frames", /window\.setTimeout\(\(\) => \{\s*const panel = sheetRef\.current/.test(sheet))
   check("what is inside a sheet is laid out and painted on its own, and the big blurred shadow is gone",
     (sheet.match(/contain: "layout paint"/g) || []).length === 2 && !/0_-8px_40px/.test(sheet))

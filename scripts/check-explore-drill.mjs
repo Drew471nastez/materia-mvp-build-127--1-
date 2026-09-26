@@ -32,8 +32,9 @@
  *   a tap that wobbles by a couple of pixels, as a thumb does
  *   a tap on another category the moment back has been pressed
  *
- * The same sheet's other ask is measured on the Filters sheet (section 3):
- * the circled check.
+ * The same sheet's other asks are measured on the Filters sheet (section 3):
+ * the circled check, the speed a release leaves at, and Done moving the
+ * sheet before the page behind re-renders.
  *
  * Screenshots go to SHOTS_DIR (a temporary folder by default).
  *
@@ -356,13 +357,19 @@ results.header = await cases(
   "marketing",
 )
 /* ========================================================================= */
-console.log("\n3. The filters sheet: the check")
+console.log("\n3. The filters sheet: the check, the drag and the close")
 /*
-  "Picking an option feels too abrupt." Read off the page every frame:
+  "Picking an option feels too abrupt", "closing must be smoother". Each is
+  read off the page every frame:
 
     THE CHECK   the chosen row's circled check grows in over several frames
                 (scale and opacity), the old one shrinks away, and no row's
                 text changes weight
+    THE HAND-OFF  let go past the threshold, the sheet leaves at about the
+                finger's speed (a close that ignored the finger measured five
+                to thirteen times it here)
+    DONE        the sheet takes its first step down no later than the page
+                behind re-renders (the Filters button stops looking pressed)
 */
 async function openFilters() {
   const p = await open("explore", "#page")
@@ -411,6 +418,83 @@ async function openFilters() {
   results.filters = { check: { framesBetween: between("next") } }
   await p.close()
 }
+/*
+  THE DRAG and THE HAND-OFF, twice: a slow pull let go past the threshold
+  (about a quarter of a pixel a millisecond, the case that was yanked away),
+  and a quicker release near a pixel a millisecond. The hand-off is read as
+  the editor's feel probe reads it (scripts/check-sheet-feel.mjs): the
+  sheet's speed from the frame it leaves the release position over the next
+  one, against the finger's speed over its last 80ms.
+*/
+async function release(stepPx, moves, pauseMs) {
+  const p = await openFilters()
+  const handle = await boxOf(p, "[data-sheet-handle]")
+  await p.evaluate(() => {
+    const rec = (window.__drag = { moves: [], frames: [], startY: null, liftedAt: null })
+    const t0 = performance.now()
+    window.addEventListener("touchstart", (e) => { rec.startY = e.touches[0].clientY }, { once: true })
+    window.addEventListener("touchmove", (e) => { rec.moves.push({ t: performance.now() - t0, finger: e.touches[0].clientY - rec.startY }) })
+    window.addEventListener("touchend", () => { rec.liftedAt = performance.now() - t0 }, { once: true })
+    const tick = () => {
+      const el = document.querySelector("[data-sheet-panel]")
+      rec.frames.push({ t: performance.now() - t0, y: el ? new DOMMatrixReadOnly(getComputedStyle(el).transform).m42 : null })
+      if (performance.now() - t0 < 3000) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })
+  await p.touchscreen.touchStart(handle.x, handle.y)
+  for (let i = 1; i <= moves; i++) {
+    await p.touchscreen.touchMove(handle.x, handle.y + i * stepPx)
+    if (pauseMs) await sleep(pauseMs)
+  }
+  await p.touchscreen.touchEnd()
+  await sleep(900)
+  const d = await p.evaluate(() => window.__drag)
+  const gone = await p.evaluate(() => !document.querySelector("[data-app-sheet]"))
+  await p.close()
+  const dragging = d.moves.filter((m) => m.finger >= 8)
+  const last = d.moves[d.moves.length - 1]
+  const tail = d.moves.filter((m) => m.t >= last.t - 80)
+  const finger = (tail[tail.length - 1].finger - tail[0].finger) / Math.max(1, tail[tail.length - 1].t - tail[0].t)
+  const after = d.frames.filter((f) => f.t > d.liftedAt && f.y !== null)
+  const k = after.findIndex((f) => f.y > last.finger + 0.5)
+  const a = after[Math.max(0, k - 1)], b = after[k]
+  const v1 = k > 0 ? (b.y - a.y) / (b.t - a.t) : null
+  const stalled = k > 0 ? Math.round(a.t - d.liftedAt) : null
+  return { moves: dragging.length, finger: Math.round(finger * 100) / 100, v1: v1 && Math.round(v1 * 100) / 100, ratio: v1 && finger > 0 ? Math.round((v1 / finger) * 10) / 10 : null, stillAfterLiftMs: stalled, gone }
+}
+{
+  const slow = await release(8, 16, 14)
+  const quick = await release(24, 8, 0)
+  expect(slow.moves >= 12 && slow.ratio != null && slow.ratio <= 2.5 && slow.gone, "a slow pull let go past the threshold leaves near the finger's speed, not yanked away, and closes", slow)
+  expect(quick.moves >= 6 && quick.ratio != null && quick.ratio >= 0.6 && quick.ratio <= 1.6 && quick.gone, "a quicker release leaves at the finger's speed (0.6 to 1.6 times) and closes", quick)
+  results.filters = { ...results.filters, slow, quick }
+}
+{
+  /* DONE */
+  const p = await openFilters()
+  const record = p.evaluate(() => new Promise((resolve) => {
+    const frames = []
+    const t0 = performance.now()
+    const tick = () => {
+      const el = document.querySelector("[data-sheet-panel]")
+      frames.push({ t: Math.round(performance.now() - t0), y: el ? new DOMMatrixReadOnly(getComputedStyle(el).transform).m42 : null, expanded: document.querySelector("[data-filters-button]").getAttribute("aria-expanded") })
+      if (performance.now() - t0 < 900) requestAnimationFrame(tick)
+      else resolve(frames)
+    }
+    requestAnimationFrame(tick)
+  }))
+  const done = await boxOf(p, "[data-filters-done]")
+  await tap(p, done.x, done.y)
+  const frames = await record
+  const moved = frames.findIndex((f) => f.y === null || f.y > 0.5)
+  const heard = frames.findIndex((f) => f.expanded === "false")
+  const falls = frames.every((f, i) => i === 0 || f.y === null || frames[i - 1].y === null || f.y >= frames[i - 1].y - 0.5)
+  expect(moved >= 0 && heard >= 0 && moved <= heard && falls && frames[frames.length - 1].y === null,
+    "Done: the sheet takes its first step down no later than the page behind re-renders, only falls, and is gone", { firstStep: frames[moved]?.t, pageRerendered: frames[heard]?.t })
+  results.filtersDone = { firstStep: frames[moved]?.t, pageRerendered: frames[heard]?.t }
+  await p.close()
+}
 
 writeFileSync(join(shots, "drill.json"), JSON.stringify(results, null, 1))
 
@@ -418,4 +502,4 @@ await browser.close()
 if (!process.env.KEEP) rmSync(stubs, { recursive: true, force: true })
 console.log(`\nScreenshots: ${shots}`)
 if (broken) fail(`${broken} check(s) failed.`)
-console.log("\nOne tap opens a category in both sheets, and the filters sheet's check grows in and shrinks away.")
+console.log("\nOne tap opens a category in both sheets, and the filters sheet's check and close measure as asked.")

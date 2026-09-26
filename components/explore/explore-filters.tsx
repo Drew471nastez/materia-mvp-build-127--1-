@@ -230,10 +230,19 @@ export function ExploreFilters({
           {choices(true)}
         </div>
         <div className="shrink-0 border-t border-[#eef0f2] px-4 pt-3">
+          {/*
+            THE SHEET CLOSES ITSELF, THEN THE PAGE HEARS. This called
+            onOpenChange(false) itself, so the whole page behind re-rendered
+            before the sheet could take its first step down (about 90ms at a
+            phone's speed, measured). `data-sheet-close` hands the close to
+            the sheet, which starts the slide and tells the page a frame
+            later (components/ui/bottom-sheet.tsx, A BUTTON INSIDE CAN CLOSE
+            IT).
+          */}
           <button
             type="button"
             data-filters-done=""
-            onClick={() => onOpenChange(false)}
+            data-sheet-close=""
             className="h-12 w-full cursor-pointer rounded-[12px] bg-[#111113] text-[16px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] outline-none transition-[background-color,scale] duration-100 active:scale-[0.99] active:bg-black [-webkit-tap-highlight-color:transparent]"
           >
             {results}

@@ -145,6 +145,19 @@
  * its ease in and out: iOS's curve covers a quarter of the way in its first
  * two frames, and on a close that read as the sheet vanishing rather than
  * going down.
+ *
+ *   THE DIM IS ITS OWN LAYER. While a finger drags the sheet, the scrim's
+ *   opacity is written every frame. The panel is a layer of its own by its
+ *   3D transform, the scrim was not, so each of those frames repainted the
+ *   whole screen under it on the main thread. With `will-change: opacity`
+ *   it is an opacity on the compositor, for every sheet, not only a kept one.
+ *
+ *   A BUTTON INSIDE CAN CLOSE IT THE SAME WAY (`data-sheet-close`). A
+ *   control that closed its sheet by telling the parent (Explore's "Show 30
+ *   results") had the parent's whole render before the slide could start:
+ *   the sheet only moved once the page behind had re-rendered. Marked
+ *   `data-sheet-close`, its tap closes the sheet as a tap outside does: the
+ *   slide first, the parent a frame later.
  */
 
 import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
@@ -790,6 +803,13 @@ export function BottomSheet({
 
   const requestClose = useCallback(() => { dismiss(0) }, [dismiss])
 
+  /* A control inside marked `data-sheet-close` closes the sheet as a tap outside does (A BUTTON INSIDE CAN CLOSE IT). */
+  const onPanelClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.defaultPrevented) return
+    const closer = (e.target as HTMLElement | null)?.closest?.("[data-sheet-close]")
+    if (closer && e.currentTarget.contains(closer)) requestClose()
+  }, [requestClose])
+
   /* ── The drag ───────────────────────────────────────────────────────── */
   useEffect(() => {
     if (!mounted || !present) return
@@ -1009,13 +1029,16 @@ export function BottomSheet({
         onClick={requestClose}
         className={cn("absolute inset-0", scrim === "clear" ? "bg-transparent" : "bg-black/40")}
         /* Below the screen and invisible on the very first paint, before any
-           script has run: there is no frame in which the sheet is at rest. */
-        style={{ opacity: 0, touchAction: "none", willChange: keepMounted ? "opacity" : undefined }}
+           script has run: there is no frame in which the sheet is at rest.
+           Its own layer, so a drag's dimming is the compositor's (THE DIM IS
+           ITS OWN LAYER). */
+        style={{ opacity: 0, touchAction: "none", willChange: "opacity" }}
       />
       <div
         ref={sheetRef}
         data-sheet-panel=""
         tabIndex={-1}
+        onClick={onPanelClick}
         className={cn("absolute inset-x-0 bottom-0 rounded-t-[20px] bg-white outline-none", className)}
         style={{
           transform: "translate3d(0, 100%, 0)",

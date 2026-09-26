@@ -104,6 +104,7 @@ function main() {
   check("a panel on a computer, the shared sheet on a phone", /data-filters-panel/.test(filters) && /<BottomSheet\b/.test(filters))
   check("the phone's button says how many results", /Show \$\{resultCount\}/.test(filters))
   check("a sort choice moves the circled check, and no row's weight changes", /<CheckDisc on=\{on\} \/>/.test(filters) && !/on && "font-medium"/.test(filters) && !/\bTick\b/.test(filters))
+  check("the phone's button hands its close to the sheet, which moves before the page re-renders", /data-filters-done=""\s*data-sheet-close=""/.test(filters) && !/data-filters-done=""\s*onClick=/.test(filters))
   check("the Active: row under the pills is gone", !/>\s*Active:\s*</.test(page))
   check("For you keeps its own order", /mainCategory === FOR_YOU_ID && !searching \? "for-you"/.test(page))
 
