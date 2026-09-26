@@ -88,7 +88,12 @@ function main() {
   /* Changed back on purpose: "the texture that was the first time, not the one with the dots". */
   const band = homeCss.slice(homeCss.indexOf(".home-plan-head {"), homeCss.indexOf(".home-plan-check {"))
   check("the band is the first deep violet sky: clouds and grain over the violet", /feTurbulence type='fractalNoise' baseFrequency='0\.010 0\.032'/.test(band) && /#1f0b4a 0%, #321170 46%, #4c1d95 100%/.test(band), band.slice(0, 160))
-  check("  no dots, and nothing in it moves", !/home-plan-dots/.test(homeCss) && !/home-plan-dots/.test(cards) && !/\.home-plan-head[^{]*\{[^}]*transition/.test(homeCss))
+  check("  no dots", !/home-plan-dots/.test(homeCss) && !/home-plan-dots/.test(cards))
+  /* Changed on purpose: it was "nothing in it moves". Asked for again: "when I hover, the sky texture moved very smooth, and when I hovered out it goes back very smooth". */
+  check("  its clouds drift on hover as they first did, a layer slid on translate, and the band itself never transitions", /\.home-plan-head::before \{[^}]*baseFrequency='0\.010 0\.032'[^}]*transition: translate \d+ms/.test(band) && !/\.home-plan-head \{[^}]*transition/.test(band) && /\.home-card:hover \.home-plan-head::before \{ translate: -\d+px 0; \}/.test(homeCss))
+  check("  the darker left edge lies over the clouds, so the white name reads wherever they are", /\.home-plan-head::after \{[^}]*linear-gradient\(90deg, rgba\(18, 6, 46, 0\.62\)/.test(band))
+  /* The card rises as well as darkening its edge: "the container moved very smoothly" when hovered in and out. */
+  check("the card rises a little on hover, on translate, with a strip under it so a still mouse on its edge keeps it", /\.home-card:hover \{ translate: 0 -\d+px; \}/.test(homeCss) && /\.home-card \{[^}]*translate \d+ms/.test(homeCss) && /\.home-card::after \{[^}]*top: 100%;/.test(homeCss))
   check("  clipped to the card's corners by a mask too, for iPhone", /\.home-plan-head \{[^}]*mask-image/.test(band))
   check("  the same 46px, the plan's name in white on it", /home-plan-head flex h-\[46px\] shrink-0 items-center rounded-t-\[19px\] px-5/.test(cards) && /id="your-plan-title" className="text-\[13\.5px\] font-semibold text-white"/.test(cards))
 

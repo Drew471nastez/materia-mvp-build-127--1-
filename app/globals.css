@@ -5993,7 +5993,22 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 .home-card {
   isolation: isolate;
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 2px 6px -2px rgba(16, 24, 40, 0.05);
-  transition: scale 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  /* The lift rises and settles on the same long ease as its shadow, in and out. */
+  transition:
+    scale 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    translate 700ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+/*
+  A strip under the card, as tall as the lift, that counts as the card: a
+  mouse resting on its bottom edge stays on it once it rises, so the card
+  does not drop and rise again under a still pointer.
+*/
+.home-card::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  height: 5px;
 }
 /* The lift: over the card's edge (the 1px ring) and under it (the two soft shadows). 19px: the card's 20 less its border. */
 .home-card::before {
@@ -6155,9 +6170,9 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
   Your Plan: the deep violet sky it first had, clouded and grained, with the
   plan's name in white. It went to dots, then to a flat light band; asked
   for again as "the texture that was the first time, not the one with the
-  dots". Painted once: nothing in it moves, so it costs nothing after the
-  first frame. The grain is a second background, not a blended layer, and
-  the band clips itself to the card's top corners (a mask as well as the
+  dots". The violet and the grain are painted once; only the clouds move
+  (below). The grain is a second background, not a blended layer, and the
+  band clips itself to the card's top corners (a mask as well as the
   radius, which WebKit on iPhone honours for layers too).
 */
 .home-plan-head {
@@ -6167,12 +6182,42 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
   mask-image: linear-gradient(#000, #000);
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.6 0 0 0 -0.18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 160px 160px,
-    linear-gradient(90deg, rgba(18, 6, 46, 0.62) 0%, rgba(18, 6, 46, 0.35) 34%, rgba(18, 6, 46, 0) 60%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='560' height='120'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.010 0.032' numOctaves='5' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.8 0 0 0 0 0.74 0 0 0 0 1 1.2 0 0 0 -0.53'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3C/svg%3E") 0 50% / 560px 120px,
     radial-gradient(80% 190% at 92% -30%, rgba(139, 92, 246, 0.45), rgba(139, 92, 246, 0) 62%),
     radial-gradient(70% 170% at 4% 130%, rgba(20, 6, 52, 0.9), rgba(20, 6, 52, 0) 70%),
     linear-gradient(100deg, #1f0b4a 0%, #321170 46%, #4c1d95 100%);
-  background-blend-mode: soft-light, normal, normal, normal, normal, normal;
+  background-blend-mode: soft-light, normal, normal, normal;
+}
+/*
+  THE CLOUDS DRIFT ON HOVER, as they did the first time: "the sky texture
+  moved very smooth, and when I hovered out it goes back very smooth". They
+  were a background-position, repainted on every frame; now they are a layer
+  a little wider than the band, slid on translate, so the compositor moves
+  them and the way back is the same long ease as the way there.
+*/
+.home-plan-head::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc(100% + 96px);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='560' height='120'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.010 0.032' numOctaves='5' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.8 0 0 0 0 0.74 0 0 0 0 1 1.2 0 0 0 -0.53'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3C/svg%3E") 0 50% / 560px 120px;
+  will-change: translate;
+  backface-visibility: hidden;
+  transition: translate 1600ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+/* The darker left edge, over the clouds wherever they drift, so the white name always reads. */
+.home-plan-head::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(18, 6, 46, 0.62) 0%, rgba(18, 6, 46, 0.35) 34%, rgba(18, 6, 46, 0) 60%);
+  pointer-events: none;
+}
+.home-plan-head > * {
+  position: relative;
+  z-index: 1;
 }
 /* The checks: a light grey circle with a lit top edge and the faintest shade under it. */
 .home-plan-check {
@@ -6192,6 +6237,8 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
   .home-card:hover [data-pay-tile="paypal"] { translate: -4px -10px; rotate: -19deg; }
   .home-card:hover [data-pay-tile="visa"] { translate: 2px -14px; rotate: -1deg; transition-delay: 40ms; }
   .home-card:hover [data-pay-tile="stripe"] { translate: 6px -9px; rotate: 17deg; transition-delay: 80ms; }
+  .home-card:hover { translate: 0 -4px; }
+  .home-card:hover .home-plan-head::before { translate: -72px 0; }
   .home-guide:hover .home-guide-thumb { translate: -6px -6px; }
   .home-guide:hover .home-guide-light { translate: -23% -18%; }
   .home-guide:hover .home-guide-play { scale: 1.08; }
@@ -6202,6 +6249,8 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 .home-card[data-play] [data-pay-tile="paypal"] { translate: -4px -10px; rotate: -19deg; }
 .home-card[data-play] [data-pay-tile="visa"] { translate: 2px -14px; rotate: -1deg; transition-delay: 40ms; }
 .home-card[data-play] [data-pay-tile="stripe"] { translate: 6px -9px; rotate: 17deg; transition-delay: 80ms; }
+.home-card[data-play] { translate: 0 -4px; }
+.home-card[data-play] .home-plan-head::before { translate: -72px 0; }
 .home-guide[data-play] .home-guide-thumb { translate: -6px -6px; }
 .home-guide[data-play] .home-guide-light { translate: -23% -18%; }
 .home-guide[data-play] .home-guide-play { scale: 1.08; }
@@ -6219,7 +6268,9 @@ html.capacitor .home-card :is(a, button):active {
   opacity: 1;
 }
 html.capacitor .home-card.home-guide {
-  transition: scale 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    scale 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    translate 700ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 html.capacitor .home-card [data-next-step]:active,
 html.capacitor .home-card li > :is(a, button):active {
@@ -6230,9 +6281,11 @@ html.capacitor .home-card li > :is(a, button):active {
   .home-card[data-bump],
   .home-card[data-bump] [data-pay-tile] { animation: none; }
   [data-pay-tile],
+  .home-card,
   .home-card::before,
   .home-guide-thumb,
-  .home-guide-light { transition-duration: 0ms; }
+  .home-guide-light,
+  .home-plan-head::before { transition-duration: 0ms; }
 }
 
 /*

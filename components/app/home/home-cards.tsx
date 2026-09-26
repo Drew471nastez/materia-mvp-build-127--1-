@@ -30,8 +30,9 @@
  * lines are that plan's own, from lib/billing/plans.ts, the same table the
  * pricing cards read. On Free the button is Upgrade to Pro.
  *
- * HOVER, AND ITS STAND IN ON A PHONE. The lift (a deeper shadow on a layer
- * of its own, the tiles tipping, the guide's light drifting) is CSS in
+ * HOVER, AND ITS STAND IN ON A PHONE. The lift (the card rising a little
+ * with a deeper shadow on a layer of its own, the tiles tipping, the guide's
+ * light drifting, the plan's clouds drifting) is CSS in
  * app/globals.css (HOME CARDS), on opacity, translate,
  * rotate and scale only, and behind (hover: hover) and (pointer: fine), so a
  * tap never leaves it stuck. A phone cannot hover, so there it plays by
@@ -483,7 +484,7 @@ export function PlanCard({ planId }: { planId: string }) {
 
   return (
     <section ref={ref} aria-labelledby="your-plan-title" className={`${CARD} min-h-[392px]`}>
-      {/* The deep violet sky it first had, clouded and grained (globals.css, home-plan-head). */}
+      {/* The deep violet sky it first had, clouded and grained, its clouds drifting on hover (globals.css, home-plan-head). */}
       <div className="home-plan-head flex h-[46px] shrink-0 items-center rounded-t-[19px] px-5">
         <h2 id="your-plan-title" className="text-[13.5px] font-semibold text-white">
           Your Plan
