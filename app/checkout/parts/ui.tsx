@@ -216,11 +216,19 @@ export function OrDivider() {
   )
 }
 
-export function Spinner({ className }: { className?: string }) {
+/**
+ * `late`: fades in only after 250ms. For a wait that is usually over before
+ * then (a Back through history lands in well under a tenth of a second), so
+ * a quick one shows nothing rather than a flicker, and a slow one still says
+ * it is on its way. Written inline because both animations share one
+ * `animation` property; the fade is globals.css's checkout-paid-in.
+ */
+export function Spinner({ className, late = false }: { className?: string; late?: boolean }) {
   return (
     <span
       aria-hidden
       className={cn("inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent", className)}
+      style={late ? { animation: "spin 1s linear infinite, checkout-paid-in 180ms ease-out 250ms both" } : undefined}
     />
   )
 }

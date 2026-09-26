@@ -33,7 +33,8 @@ import { cn } from "@/lib/utils"
 import { isNativeApp } from "@/lib/platform-utils"
 import { getProductUrl } from "@/lib/url-helpers"
 import { ReturnLink } from "@/components/navigation/return-link"
-import { canReturnInApp } from "@/lib/navigation/in-app-history"
+import { canReturnInApp, canReturnTo } from "@/lib/navigation/in-app-history"
+import { creatorPageHref } from "@/lib/navigation/back-plan"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
 import { paidReturnUrl, returnHostLabel } from "@/lib/checkout/return-url"
@@ -197,6 +198,12 @@ export default function CheckoutPageClient({
   const from = searchParams.get("from") || ""
   const productUrl = backTo ?? (from.startsWith("/") && !from.startsWith("//") ? from : getProductUrl(creator.username, product.slug))
   const siteHost = returnHostLabel(backTo ?? returnTo)
+  /* Continue shopping: the product page itself, whatever came before it (the
+     creator's page when the product has no page of its own: getProductUrl
+     falls back to it), or the creator's website page the server checked. */
+  const shopUrl = backTo ?? getProductUrl(creator.username, product.slug)
+  /* The creator's page on Storelib, "#" when there is no handle to make one from. */
+  const creatorHref = creatorPageHref(creator.username)
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -216,15 +223,23 @@ export default function CheckoutPageClient({
     answered on the same frame: the control shows a spinner and the page
     dims, whatever the network does.
   */
-  const [leaving, setLeaving] = React.useState(false)
+  /*
+    WHICH WAY OUT was pressed: Back, Continue shopping, or the creator. The
+    page answers each the same way, and only when it needs to: the arrow
+    turns into a spinner and the page dims only 250ms after the press, so a
+    Back through history (under a tenth of a second) shows nothing at all
+    and a slow fetch still says it is on its way. No white sheet, no flash.
+  */
+  const [going, setGoing] = React.useState<null | "back" | "shop" | "creator">(null)
+  const leaving = going === "back"
   React.useEffect(() => {
-    if (!leaving) return
-    const t = window.setTimeout(() => setLeaving(false), 8000)
+    if (!going) return
+    const t = window.setTimeout(() => setGoing(null), 8000)
     return () => window.clearTimeout(t)
-  }, [leaving])
+  }, [going])
   /* A page brought back from the browser's cache is not still leaving. */
   React.useEffect(() => {
-    const reset = () => setLeaving(false)
+    const reset = () => setGoing(null)
     window.addEventListener("pageshow", reset)
     return () => window.removeEventListener("pageshow", reset)
   }, [])
@@ -237,18 +252,68 @@ export default function CheckoutPageClient({
       return null
     }
   }
-  /* The product page warmed while the buyer is here, so a Back that must fetch it is quick. */
+  /*
+    THE WAYS OUT, WARMED. The product page and the creator's page are asked
+    for whole (a "full" prefetch: with no loading boundary on those routes an
+    ordinary one brings back almost nothing), once the checkout has drawn
+    and the browser is idle, so Stripe's own loading goes first. The router
+    keeps them for staleTimes (next.config.mjs), and a press on Back,
+    Continue shopping or the creator then lands on the next frame, on the
+    client, with no document load.
+  */
   React.useEffect(() => {
-    const path = ownPath(productUrl)
-    if (path) router.prefetch(path)
-  }, [productUrl, router])
+    const paths = [...new Set([ownPath(productUrl), ownPath(shopUrl), creatorHref === "#" ? null : creatorHref])].filter(
+      (p): p is string => !!p,
+    )
+    const warm = () => {
+      for (const path of paths) {
+        try {
+          router.prefetch(path, { kind: "full" } as never)
+        } catch {
+          /* a prefetch that fails is a press that waits, nothing worse */
+        }
+      }
+    }
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(warm, { timeout: 2000 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(warm, 800)
+    return () => window.clearTimeout(t)
+  }, [productUrl, shopUrl, creatorHref, router])
+
+  const plainClick = (e: React.MouseEvent) => e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey
+
+  /**
+   * CONTINUE SHOPPING goes to the product page. When that is the page behind
+   * this one, it goes back to it (instant, with its scroll); otherwise the
+   * product page REPLACES the checkout, for the same reason Back does: a push
+   * would leave the checkout one back away from the product page.
+   */
+  const goShopping = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!plainClick(e)) return
+    e.preventDefault()
+    if (going) return
+    setGoing("shop")
+    if (canReturnTo(shopUrl)) {
+      window.history.back()
+      return
+    }
+    const path = ownPath(shopUrl)
+    if (!path) {
+      window.location.replace(shopUrl)
+      return
+    }
+    router.replace(path)
+  }
 
   const goBack = (e: React.MouseEvent<HTMLAnchorElement>) => {
     /* A new tab, a new window, a context menu: the browser's. */
-    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+    if (!plainClick(e)) return
     e.preventDefault()
-    if (leaving) return
-    setLeaving(true)
+    if (going) return
+    setGoing("back")
     const cameFrom = (() => {
       try {
         return document.referrer ? new URL(document.referrer).origin : null
@@ -765,18 +830,25 @@ export default function CheckoutPageClient({
     )
   }
 
-  /* The creator, as the summary's heading and Back's label. */
+  /* The creator, as the bar's name and Back's label. */
   const initials = creator.name.trim().charAt(0).toUpperCase() || "S"
+  const backLabel = backTo && siteHost ? `Back to ${siteHost}` : "Back"
+  const creatorFace = (
+    <span className="relative grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full bg-[#e5e7eb] text-[12px] font-semibold text-[#4b5563] shadow-[0_0_0_1px_rgba(17,17,19,0.06),0_1px_2px_rgba(17,17,19,0.08)]">
+      {creator.avatar_url ? <Image src={creator.avatar_url} alt="" fill sizes="28px" className="object-cover" /> : initials}
+    </span>
+  )
 
   return (
     <div
       data-page="checkout"
-      data-leaving={leaving ? "" : undefined}
+      data-leaving={going ? "" : undefined}
       /* Under the paid check, nothing behind it can be reached. */
       inert={!!paid}
       className={cn(
         "relative min-h-screen bg-white transition-opacity duration-200 lg:bg-[#f6f7f8]",
-        leaving && "pointer-events-none opacity-60",
+        /* Dimmed only if the next page is slow to come: a quick one never shows it. */
+        going && "pointer-events-none opacity-70 delay-[250ms]",
       )}
     >
       <HtmlClass name="with-page-checkout" />
@@ -787,33 +859,94 @@ export default function CheckoutPageClient({
       */}
       <div aria-hidden className="pointer-events-none fixed inset-y-0 right-0 hidden w-1/2 bg-white shadow-[-12px_0_32px_-16px_rgba(17,24,39,0.16)] lg:block" />
 
+      {/*
+        ═══════════════════════════════════════════════════════════════════
+         THE BAR ACROSS THE TOP
+        ═══════════════════════════════════════════════════════════════════
+        White, on a shadow in three layers (a hairline, a short contact
+        shadow, a long soft one) so it sits over both halves of the page.
+        Back on the left as a raised circle, with a 44px target around its
+        36px face; the creator beside it, which opens their page; Continue
+        shopping on the right, which goes to the product. Its edges line up
+        with the two columns under it. Not animated in with the halves: it is
+        the frame they arrive into. Its presses use named groups (group/back,
+        group/shop): on a touch screen globals.css stops every transition
+        inside a plain `.group`, which would make the press and the held-back
+        spinner snap on exactly the phones they are for.
+      */}
+      <header
+        data-checkout-bar=""
+        className="relative z-10 bg-white pt-[env(safe-area-inset-top)] shadow-[0_1px_0_rgba(17,17,19,0.06),0_2px_4px_-2px_rgba(17,17,19,0.06),0_10px_24px_-14px_rgba(17,17,19,0.16)]"
+      >
+        <div className="mx-auto flex h-14 max-w-[1120px] items-center gap-1.5 px-4 sm:px-7 lg:h-16 lg:px-[60px]">
+          <ReturnLink
+            href={productUrl}
+            onClick={goBack}
+            aria-label={backLabel}
+            title={backLabel}
+            data-back=""
+            className="group/back grid h-11 w-11 shrink-0 place-items-center rounded-full outline-none [-webkit-tap-highlight-color:transparent]"
+          >
+            <span
+              data-back-face=""
+              className="relative grid h-9 w-9 place-items-center rounded-full border border-black/[0.07] bg-white text-[#1a1a2e] shadow-[inset_0_1px_0_#ffffff,0_1px_1px_rgba(17,17,19,0.06),0_2px_6px_-1px_rgba(17,17,19,0.10),0_8px_16px_-10px_rgba(17,17,19,0.22)] transition-[scale] duration-150 ease-out group-hover/back:bg-[#fafafb] group-active/back:scale-[0.92] group-active/back:bg-[#f3f4f6] group-active/back:shadow-[inset_0_1px_2px_rgba(17,17,19,0.08)] group-focus-visible/back:outline-2 group-focus-visible/back:outline-offset-2 group-focus-visible/back:outline-[#1a1a2e] motion-reduce:transition-none"
+            >
+              <ArrowLeft
+                aria-hidden
+                strokeWidth={2}
+                className={cn(
+                  "h-[18px] w-[18px] transition-[opacity,translate] duration-200 ease-out",
+                  leaving ? "opacity-0 delay-[250ms]" : "group-hover/back:-translate-x-px",
+                )}
+              />
+              {leaving ? (
+                <Spinner late className="absolute h-4 w-4 text-[#6b7280]" />
+              ) : null}
+            </span>
+          </ReturnLink>
+
+          {creatorHref !== "#" ? (
+            <ReturnLink
+              href={creatorHref}
+              onClick={(e) => {
+                if (plainClick(e)) setGoing("creator")
+              }}
+              data-creator-link=""
+              className="flex min-h-[44px] min-w-0 items-center gap-2 rounded-full py-1 pl-1 pr-2.5 text-[14px] font-medium text-[#1a1a2e] outline-none transition-[opacity] duration-150 hover:bg-black/[0.035] focus-visible:outline-2 focus-visible:outline-[#1a1a2e]/40 active:opacity-70 [-webkit-tap-highlight-color:transparent]"
+            >
+              {creatorFace}
+              <span className="truncate">{creator.name}</span>
+            </ReturnLink>
+          ) : (
+            <span className="flex min-w-0 items-center gap-2 py-1 pl-1 pr-2.5 text-[14px] font-medium text-[#1a1a2e]">
+              {creatorFace}
+              <span className="truncate">{creator.name}</span>
+            </span>
+          )}
+
+          <Link
+            href={shopUrl}
+            prefetch={false}
+            onClick={goShopping}
+            data-continue=""
+            className="group/shop ml-auto mr-1 grid min-h-[44px] shrink-0 place-items-center outline-none [-webkit-tap-highlight-color:transparent]"
+          >
+            <span className="inline-flex h-9 items-center rounded-[9px] border border-[#e1e3e7] bg-white px-3.5 text-[13.5px] font-medium text-[#1a1a2e] shadow-[0_1px_1px_rgba(17,17,19,0.04),0_2px_5px_-2px_rgba(17,17,19,0.10)] transition-[scale] duration-150 ease-out group-hover/shop:border-[#d2d5da] group-hover/shop:bg-[#fafafb] group-active/shop:scale-[0.97] group-active/shop:bg-[#f3f4f6] group-focus-visible/shop:outline-2 group-focus-visible/shop:outline-offset-2 group-focus-visible/shop:outline-[#1a1a2e] motion-reduce:transition-none">
+              Continue shopping
+            </span>
+          </Link>
+        </div>
+      </header>
+
       <div className="relative mx-auto grid max-w-[1120px] lg:grid-cols-2">
         {/* ── The order ─────────────────────────────────────────────── */}
         <section
           aria-label="Order summary"
           data-summary=""
-          className="checkout-enter border-b border-black/[0.06] bg-[#f6f7f8] px-5 pb-6 pt-[max(1rem,env(safe-area-inset-top))] sm:px-8 lg:border-b-0 lg:bg-transparent lg:px-16 lg:pb-16 lg:pt-14"
+          className="checkout-enter border-b border-black/[0.06] bg-[#f6f7f8] px-5 pb-6 pt-6 sm:px-8 lg:border-b-0 lg:bg-transparent lg:px-16 lg:pb-16 lg:pt-12"
         >
-          <div className="mx-auto w-full max-w-[440px] lg:ml-auto lg:mr-0 lg:sticky lg:top-14">
-            <ReturnLink
-              href={productUrl}
-              onClick={goBack}
-              aria-label={backTo && siteHost ? `Back to ${siteHost}` : "Back to product"}
-              data-back=""
-              className="group -ml-2 inline-flex min-h-[44px] max-w-full items-center gap-2 rounded-[8px] px-2 text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-black/[0.04]"
-            >
-              {leaving ? (
-                <Spinner className="h-4 w-4 shrink-0 text-[#6b7280]" />
-              ) : (
-                <ArrowLeft aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280] transition-[translate] duration-150 group-hover:-translate-x-0.5" />
-              )}
-              <span className="relative grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded-full bg-[#e5e7eb] text-[11px] font-semibold text-[#4b5563]">
-                {creator.avatar_url ? <Image src={creator.avatar_url} alt="" fill sizes="24px" className="object-cover" /> : initials}
-              </span>
-              <span className="truncate">{backTo && siteHost ? siteHost : creator.name}</span>
-            </ReturnLink>
-
-            <div className="mt-5 lg:mt-8">
+          <div className="mx-auto w-full max-w-[440px] lg:ml-auto lg:mr-0 lg:sticky lg:top-12">
+            <div>
               <p className="text-[15px] font-medium text-[#6b7280]">Pay {creator.name}</p>
               <p data-total="" className="mt-1 text-[32px] font-semibold leading-tight tracking-[-0.02em] tabular-nums text-[#1a1a2e] sm:text-[36px]">
                 {money(total)}
@@ -850,7 +983,7 @@ export default function CheckoutPageClient({
         </section>
 
         {/* ── The form ──────────────────────────────────────────────── */}
-        <main className="checkout-enter px-5 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-7 sm:px-8 lg:px-16 lg:pb-16 lg:pt-14 [animation-delay:60ms]">
+        <main className="checkout-enter px-5 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-7 sm:px-8 lg:px-16 lg:pb-16 lg:pt-12 [animation-delay:60ms]">
           <div className="mx-auto w-full max-w-[440px] lg:ml-0 lg:mr-auto">
             {payment}
             {isFree ? (
