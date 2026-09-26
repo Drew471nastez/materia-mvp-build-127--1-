@@ -8,6 +8,7 @@
  */
 import { ChevronDown } from "lucide-react"
 
+import { cn } from "@/lib/utils"
 import { MAIN_MENU } from "@/lib/website-builder/storefront-data"
 import { useEditorFieldEnv } from "./context"
 import { NOTE, SELECT, TEXT_BUTTON } from "./styles"
@@ -50,7 +51,8 @@ export function MenuPickerControl({
               : ""}
         </p>
         {env?.openMenus && (
-          <button type="button" className={TEXT_BUTTON} onClick={env.openMenus}>
+          /* -mr-1.5 pulls its padding back, so the words end on the field's right edge, as the note beside it starts on its left. */
+          <button type="button" className={cn(TEXT_BUTTON, "-mr-1.5")} onClick={env.openMenus}>
             Edit menus
           </button>
         )}

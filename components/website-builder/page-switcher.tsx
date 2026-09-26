@@ -98,6 +98,44 @@ const SKIN: Record<Tone, {
 /** The menu's exit, in globals.css (`.wb-pages-menu[data-state="closed"]`), and a frame to spare. */
 const MENU_EXIT_MS = 140
 
+/**
+ * ===========================================================================
+ *  ONE GRID, AND EVERY ROW ON IT
+ * ===========================================================================
+ * "This kind of UI misaligned should never happen." The menu was placed a
+ * row at a time: a group's label started 34px into its section, its own
+ * children's 28px, so a child's name sat six pixels to the LEFT of the group
+ * it belongs to; and the children's highlights were pushed in by a `pl-4` on
+ * their `ul` while the group's highlight ran the full width, so the
+ * backgrounds stepped in and out down the list.
+ *
+ * One grid now, and nothing is placed off it:
+ *
+ *   ROW_PAD_X    12   a row's own side padding. Every row's background,
+ *                     group rows included, runs the full width of the list's
+ *                     content box, so the highlights are one clean column.
+ *   CHEVRON_COL  22   the chevron on a group row plus its gap (14 + 8). A
+ *                     group's label starts at ROW_PAD_X + CHEVRON_COL = 34.
+ *   CHILD_STEP   12   how much further in a child's label sits than its
+ *                     group's. One step, the same for every child: 46.
+ *   The right column   a group's count, the tick on the page being edited
+ *                     and a page's bin all end ROW_PAD_X from the row's
+ *                     right edge, so the right side is one x as well.
+ *
+ * The classes below carry these numbers literally (Tailwind reads them from
+ * the source, so they cannot be built at runtime); tests/library-and-pages
+ * .test.ts pins them to this table, and scripts/check-builder-menu-align.mjs
+ * measures the rendered menu against it.
+ */
+export const PAGE_MENU_GRID = {
+  rowPadX: 12,
+  chevronCol: 22,
+  childStep: 12,
+  /** Where a label starts, from the row's own left edge. */
+  groupLabelX: 34,
+  childLabelX: 46,
+} as const
+
 type RowItem =
   | { kind: "page"; page: SwitcherPage }
   | { kind: "product"; product: SwitcherProduct }
@@ -243,19 +281,31 @@ export function PageList({
     else rows[next]?.focus()
   }
 
-  const rowClass = (on: boolean) =>
+  /**
+   * A row. `indented` is a child of a group heading, which is every row in
+   * the collapsible menu: its label sits one step in from its group's, and
+   * its background still runs the full width, so the highlights line up.
+   */
+  const rowClass = (on: boolean, indented = false) =>
     cn(
       "flex w-full min-w-0 items-center gap-3 text-left outline-none transition-colors duration-100",
       boxed ? "rounded-none" : "rounded-lg",
       "focus-visible:ring-2 focus-visible:ring-inset",
       tone === "dark" ? "focus-visible:ring-white/30" : "focus-visible:ring-[#1a1a2e]/20",
-      touch ? "h-12 pl-3 pr-14 text-[15px]" : "h-10 pl-3 pr-10 text-[14px]",
+      touch ? "h-12 pr-14 text-[15px]" : "h-10 pr-10 text-[14px]",
+      /* PAGE_MENU_GRID: 12 on its own, 46 under a group heading. */
+      indented ? "pl-[46px]" : "pl-3",
       on ? skin.rowOn : skin.row,
     )
-  /* The slot on the right of every row, where the tick or a page's delete goes, so every address lines up. */
-  const slot = touch ? "right-1 w-11" : "right-1 w-8"
+  /**
+   * The slot on the right of every row, where the tick or a page's delete
+   * goes. It is as wide as a thumb needs (44px), and its glyph is pushed to
+   * the right column: 4px of offset plus 8px of padding is the same 12px a
+   * group's count ends at, so ticks, bins and counts share one edge.
+   */
+  const slot = cn("right-1 justify-end pr-2", touch ? "w-11" : "w-8")
 
-  const pageRow = (p: SwitcherPage) => {
+  const pageRow = (p: SwitcherPage, indented = false) => {
     const active = p.key === current && !(p.key === "product" && productRows)
     return (
       <li key={p.key} className="group/row relative">
@@ -264,12 +314,12 @@ export function PageList({
           data-page-row={p.key}
           aria-current={active ? "page" : undefined}
           onClick={() => choose(() => onSelect(p.key))}
-          className={rowClass(active)}
+          className={rowClass(active, indented)}
         >
           <span className="min-w-0 flex-1 truncate">{p.name}</span>
         </button>
         {active && (
-          <span aria-hidden className={cn("pointer-events-none absolute top-1/2 flex -translate-y-1/2 justify-center", slot, skin.check)}>
+          <span aria-hidden className={cn("pointer-events-none absolute top-1/2 flex -translate-y-1/2", slot, skin.check)}>
             <Check className="h-4 w-4" strokeWidth={2.25} />
           </span>
         )}
@@ -311,7 +361,7 @@ export function PageList({
                * list is not a column of bins.
                */
               className={cn(
-                "absolute top-1/2 flex -translate-y-1/2 items-center justify-center rounded-md transition-[color,background-color,opacity]",
+                "absolute top-1/2 flex -translate-y-1/2 items-center rounded-md transition-[color,background-color,opacity]",
                 slot,
                 touch ? "h-11" : "h-8 opacity-100 focus-visible:opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100",
                 skin.trash,
@@ -326,7 +376,7 @@ export function PageList({
     )
   }
 
-  const productRow = (pr: SwitcherProduct) => {
+  const productRow = (pr: SwitcherProduct, indented = false) => {
     const active = current === "product" && currentProduct === pr.title
     return (
       <li key={`product:${pr.id}`} className="relative">
@@ -335,12 +385,12 @@ export function PageList({
           data-page-row={`product:${pr.id}`}
           aria-current={active ? "page" : undefined}
           onClick={() => choose(() => onSelectProduct?.(pr.id))}
-          className={rowClass(active)}
+          className={rowClass(active, indented)}
         >
           <span className="min-w-0 flex-1 truncate">{pr.title}</span>
         </button>
         {active && (
-          <span aria-hidden className={cn("pointer-events-none absolute top-1/2 flex -translate-y-1/2 justify-center", slot, skin.check)}>
+          <span aria-hidden className={cn("pointer-events-none absolute top-1/2 flex -translate-y-1/2", slot, skin.check)}>
             <Check className="h-4 w-4" strokeWidth={2.25} />
           </span>
         )}
@@ -348,13 +398,13 @@ export function PageList({
     )
   }
 
-  const moreRow = (n: number) => (
+  const moreRow = (n: number, indented = false) => (
     <li key="more">
       <button
         type="button"
         data-page-row="more"
         onClick={() => setAllProducts(true)}
-        className={cn(rowClass(false), "font-medium", tone === "dark" ? "text-white/60" : "text-[#6b7280]")}
+        className={cn(rowClass(false, indented), "font-medium", tone === "dark" ? "text-white/60" : "text-[#6b7280]")}
       >
         Show all {n} products
       </button>
@@ -362,11 +412,17 @@ export function PageList({
   )
 
   const light = tone === "light"
+  /**
+   * The light list's side padding, measured once here and used by both the
+   * search above the list and the list itself, so the search box is exactly
+   * as wide as the rows under it.
+   */
+  const sidePad = boxed ? (touch ? "px-4" : "px-3") : "px-2"
   return (
     <div data-page-list="" className={cn("flex min-h-0 flex-col", className)} onKeyDown={onListKey}>
       {searchable &&
         (light ? (
-          <div className={cn("shrink-0", touch ? "px-4 pb-2 pt-1" : "px-3 pb-2 pt-3")}>
+          <div className={cn("shrink-0", sidePad, touch ? "pb-2 pt-1" : "pb-2 pt-3")}>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
               <input
@@ -401,7 +457,8 @@ export function PageList({
             </div>
           </div>
         ) : (
-          <div className="flex h-11 shrink-0 items-center gap-2.5 border-b border-white/10 px-3.5">
+          /* pl-3.5 puts what is typed at 40px, where a group's label starts; pr-4 puts the clear button's glyph on the counts' column. */
+          <div className="flex h-11 shrink-0 items-center gap-2.5 border-b border-white/10 pl-3.5 pr-4">
             <Search className="h-4 w-4 shrink-0 text-white/50" strokeWidth={2} />
             <input
               ref={searchRef}
@@ -437,11 +494,14 @@ export function PageList({
         data-sheet-scroll=""
         className={cn(
           "wb-slim-scroll min-h-0 overflow-y-auto overscroll-contain",
-          light ? (boxed ? (touch ? "flex-1 px-4 pb-6" : "flex-1 px-3 pb-4") : touch ? "flex-1 px-2 pb-6" : "flex-1 px-2 pb-4") : "max-h-[min(360px,calc(100vh-160px))] p-1.5",
+          light ? cn("flex-1", sidePad, touch ? "pb-6" : "pb-4") : "max-h-[min(360px,calc(100vh-160px))] p-1.5",
         )}
       >
         {groups.map((g, i) => {
-          const rows = g.rows.map((row) => (row.kind === "page" ? pageRow(row.page) : row.kind === "product" ? productRow(row.product) : moreRow(row.count)))
+          /* In the collapsible menu every row is a child of its group heading, so it takes the child indent. */
+          const rows = g.rows.map((row) =>
+            row.kind === "page" ? pageRow(row.page, collapsible) : row.kind === "product" ? productRow(row.product, collapsible) : moreRow(row.count, collapsible),
+          )
           const createAction = light && g.key === "pages" && onCreate && (
             <button
               type="button"
@@ -477,7 +537,8 @@ export function PageList({
                 {/* Opens by its rows' height on the grid, so the menu grows smoothly instead of jumping. */}
                 <div className={cn("grid transition-[grid-template-rows] duration-200 ease-out", expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
                   <div className="min-h-0 overflow-hidden" inert={!expanded}>
-                    <ul role="list" className="pb-1 pl-4">{rows}</ul>
+                    {/* No padding of its own: a child's indent is in its row, so its highlight keeps its group's edges. */}
+                    <ul role="list" className="pb-1">{rows}</ul>
                   </div>
                 </div>
               </section>
@@ -486,7 +547,8 @@ export function PageList({
           if (boxed) {
             return (
               <section key={g.key} data-page-group={g.key} aria-label={g.label} className={i === 0 ? "pt-1" : "pt-4"}>
-                <div className={cn("flex items-center justify-between px-1", touch ? "min-h-8 pb-1" : "pb-1.5")}>
+                {/* 13px: the box's border and a row's 12px padding, so the heading starts where the rows' names do. */}
+                <div className={cn("flex items-center justify-between px-[13px]", touch ? "min-h-8 pb-1" : "pb-1.5")}>
                   <h3 className="text-[12px] font-semibold text-[#1a1a2e]">{g.label}</h3>
                   {createAction}
                 </div>
@@ -513,11 +575,13 @@ export function PageList({
       </div>
 
       {!light && onCreate && (
-        <div className="shrink-0 border-t border-white/10 p-2">
+        /* p-1.5, the list's own padding, so this row's background has the same left and right edges as the rows above it. */
+        <div className="shrink-0 border-t border-white/10 p-1.5">
           <button
             type="button"
             onClick={() => choose(onCreate)}
-            className={cn("flex h-10 w-full items-center gap-2.5 rounded-lg px-3 text-left text-[14px] font-medium transition-colors", skin.action)}
+            /* 12 + 16 + 6 = 34: the plus sits in the chevrons' column and the words start where a group's label does. */
+            className={cn("flex h-10 w-full items-center gap-1.5 rounded-lg px-3 text-left text-[14px] font-medium transition-colors", skin.action)}
           >
             <Plus className="h-4 w-4 shrink-0" strokeWidth={2} />
             Create page
