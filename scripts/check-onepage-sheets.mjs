@@ -38,6 +38,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
 import { appCss, interFaces } from "./probe-css.mjs"
+import { readSheet } from "./sheet-feel-kit.mjs"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const root = process.cwd()
@@ -124,133 +125,16 @@ async function open(vp, hash, path = "/app/onepage", ready = "[data-scroll-conta
   return { p, errors, cdp: await p.target().createCDPSession() }
 }
 
-/* Where the panel is this frame, running animation included; null when there is no sheet. */
-const panelY = (p) => p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => {
-  const el = document.querySelector("[data-app-sheet] [data-sheet-panel]")
-  r(el ? new DOMMatrixReadOnly(getComputedStyle(el).transform).m42 : null)
-}))))
-
-/* Every frame of the panel from now for `ms`, into window.__frames. */
-const record = (p, ms) => p.evaluate((ms) => {
-  const frames = (window.__frames = [])
-  const t0 = performance.now()
-  const tick = () => {
-    const el = document.querySelector("[data-app-sheet] [data-sheet-panel]")
-    if (el) frames.push({ y: new DOMMatrixReadOnly(getComputedStyle(el).transform).m42, h: el.offsetHeight })
-    if (performance.now() - t0 < ms) requestAnimationFrame(tick)
-  }
-  requestAnimationFrame(tick)
-}, ms)
-
-async function drag(s, from, dy, { steps = 8, pauseMs = 40, measure = false } = {}) {
-  let lag = 0
-  await s.cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: from.x, y: from.y }] })
-  for (let k = 1; k <= steps; k++) {
-    await s.cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: from.x, y: from.y + (dy * k) / steps }] })
-    if (pauseMs) await sleep(pauseMs)
-    /* From the second step: Chromium keeps its own 15px touch slop to itself. */
-    if (measure && k >= 2) lag = Math.max(lag, Math.abs((await panelY(s.p)) - (dy * k) / steps))
-  }
-  await s.cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
-  return lag
-}
-const grabber = (p) => p.evaluate(() => {
-  const r = document.querySelector("[data-app-sheet] [data-sheet-handle]").getBoundingClientRect()
-  return { x: r.left + r.width / 2, y: r.top + 6 }
-})
-
 /**
- * One sheet, every claim. `opener` opens it in the page; `label` is what it
- * is called; `list` (optional) is a selector for a list in it that should
- * hand a pull down at its top to the sheet.
+ * One sheet in the editor (or on the published page) at 390px: opened on
+ * its own page, every claim in scripts/sheet-feel-kit.mjs, and no errors.
  */
 async function sheet(hash, name, label, opener, list, where = []) {
   console.log(`\n${name}`)
   const s = await open(PHONE, hash, ...where)
-  const { p } = s
-  const openIt = async () => {
-    await record(p, 1300)
-    const found = await p.evaluate(opener)
-    await sleep(750)
-    return found
-  }
-  const found = await openIt()
-  expect(found, "its button is on the page")
-  if (!found) { await p.close(); return }
-  if (process.env.SHOTS) await p.screenshot({ path: join(process.env.SHOTS, `${name.replace(/\W+/g, "-").toLowerCase()}.png`) })
-  const seen = await p.evaluate(() => {
-    const root = document.querySelector("[data-app-sheet]")
-    return {
-      label: root?.getAttribute("aria-label") ?? null,
-      state: root?.getAttribute("data-app-sheet") ?? null,
-      panel: !!root?.querySelector("[data-sheet-panel]"),
-      radix: !!document.querySelector("[data-slot=dialog-content]"),
-    }
-  })
-  expect(seen.state === "open" && seen.panel && seen.label === label && !seen.radix, `it is the shared sheet, "${label}", and no dialog is drawn with it`, seen)
-  const frames = await p.evaluate(() => window.__frames)
-  const first = frames[0]
-  const backwards = frames.slice(1).filter((f, i) => f.y > frames[i].y + 0.5).length
-  const rest = await panelY(p)
-  expect(!!first && first.y >= first.h * 0.9 && backwards === 0 && Math.abs(rest) < 0.5,
-    "it rises from below the screen, only ever up, and comes to rest", { first: first && Math.round(first.y), h: first?.h, backwards, rest })
-
-  const g = await grabber(p)
-  const lag = await drag(s, g, 120, { steps: 8, pauseMs: 60, measure: true })
-  await sleep(700)
-  expect(lag <= 2, "a drag from the grabber: the panel is where the finger put it, within 2px", Math.round(lag * 10) / 10)
-  expect(Math.abs(await panelY(p)) < 0.5, "a slow short pull let go springs back to rest")
-
-  /* The rubber band is read off the frames: the lowest the panel went while the finger pulled it up. */
-  await record(p, 900)
-  await drag(s, g, -220, { steps: 8, pauseMs: 30 })
-  const up = await p.evaluate(() => Math.min(...window.__frames.map((f) => f.y)))
-  await sleep(700)
-  expect(up < -1 && up >= -80.5 && Math.abs(await panelY(p)) < 0.5, "a pull up gives, never past 80px, and comes back", Math.round(up))
-
-  if (list) {
-    const box = await p.evaluate((sel) => {
-      const el = document.querySelector(`[data-app-sheet] ${sel}`)
-      if (!el) return null
-      el.scrollTop = 0
-      const r = el.getBoundingClientRect()
-      return { x: r.left + r.width / 2, y: r.top + 40, scrolls: el.scrollHeight > el.clientHeight + 1 }
-    }, list)
-    if (!box) expect(false, "its list is there")
-    else {
-      await record(p, 900)
-      await drag(s, box, 90, { steps: 6, pauseMs: 40 })
-      const moved = await p.evaluate(() => Math.max(...window.__frames.map((f) => f.y)))
-      await sleep(700)
-      expect(moved > 40, "a pull down on its list, at the list's top, moves the sheet", { moved: Math.round(moved), listScrolls: box.scrolls })
-      if ((await panelY(p)) === null) await openIt()
-    }
-  }
-
-  const g2 = await grabber(p)
-  await drag(s, g2, 110, { steps: 4, pauseMs: 0 })
-  await sleep(900)
-  const gone = await p.evaluate(() => !document.querySelector("[data-app-sheet]"))
-  expect(gone, "a quick flick closes it")
-
-  /* A close button in it hands the close to the sheet (data-sheet-close): it slides out, over more than five frames. */
-  await openIt()
-  const closer = await p.evaluate(() => {
-    const b = document.querySelector("[data-app-sheet] [data-sheet-close]")
-    if (!b) return null
-    const r = b.getBoundingClientRect()
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
-  })
-  if (closer) {
-    await record(p, 700)
-    await p.touchscreen.tap(closer.x, closer.y)
-    await sleep(800)
-    const slid = await p.evaluate(() => window.__frames.filter((f) => f.y > 1).length)
-    const shut = await p.evaluate(() => !document.querySelector("[data-app-sheet]"))
-    expect(shut && slid > 5, "its close button slides it out", { frames: slid, closed: shut })
-  }
+  await readSheet(s, { name, label, opener, list, expect })
   expect(s.errors.length === 0, "no errors on the page", s.errors.slice(0, 3))
-  await p.close()
+  await s.p.close()
 }
 
 const clickText = (text) => `(() => { const b = [...document.querySelectorAll("button")].find((e) => e.textContent.trim() === ${JSON.stringify(text)} && e.getClientRects().length); if (b) b.click(); return !!b })()`

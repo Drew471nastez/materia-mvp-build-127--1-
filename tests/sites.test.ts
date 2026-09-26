@@ -1940,8 +1940,9 @@ check(
     const shell = read("components/sites/editor/editor-shell.tsx")
     return (
       /h-12 w-full/.test(sheet) &&
-      /env\(safe-area-inset-bottom\)/.test(sheet) &&
-      /md:hidden/.test(sheet) &&
+      /* The shared sheet (components/ui/bottom-sheet.tsx) keeps clear of the
+         home indicator and is not drawn from 768px. */
+      /<BottomSheet[\s\S]{0,200}hideFrom="md"/.test(sheet) &&
       /<span className="md:hidden">/.test(shell) &&
       /<span className="hidden md:block">/.test(shell)
     )
