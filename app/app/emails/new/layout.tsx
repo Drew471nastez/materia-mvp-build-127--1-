@@ -13,5 +13,5 @@ import { PageLayer } from "@/components/app/page-layer"
  * it and the black bar above it.
  */
 export default function NewEmailLayout({ children }: { children: React.ReactNode }) {
-  return <PageLayer inset="bar" phoneOnly>{children}</PageLayer>
+  return <PageLayer inset="page" phoneOnly>{children}</PageLayer>
 }
