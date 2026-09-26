@@ -22,6 +22,7 @@ import { LanguageProvider } from "@/lib/i18n/context"
 import { NO_FACTS, salesFrom, type ProgressFacts } from "@/lib/home/progress"
 import { salesSummary } from "@/lib/home/announcements"
 import type { OrderRow } from "@/lib/orders/order-view"
+import { buildReports, tallyVisits, type ViewRow } from "@/lib/analytics/reports"
 
 class Boundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -75,6 +76,66 @@ const orders = f.sales.map((days, i) => ({
   refund_amount_cents: 0,
 }))
 
+/*
+  `&reports=1`: the Analytics answer the chart draws, built from this
+  state's orders and a few hundred views with the same code the server
+  uses (lib/analytics/reports), after `window.__reportsMs` (the figures
+  line) and `window.__listsMs` more (everything). Every request is logged
+  in `window.__reportFetches`. For scripts/check-home-chart.mjs; without it
+  the reads answer at once with nothing, as before.
+*/
+if (params.get("reports")) {
+  type W = Window & { __reportsMs: number; __listsMs: number; __reportFetches: Array<{ at: number; url: string }> }
+  const w = window as unknown as W
+  w.__reportsMs = w.__reportsMs ?? 450
+  w.__listsMs = w.__listsMs ?? 600
+  w.__reportFetches = []
+  let seed = 7
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+  const views: ViewRow[] = Array.from({ length: 900 }, (_, i) => ({
+    session_id: `s${i}`,
+    visitor_id: `v${i % 600}`,
+    created_at: new Date(Date.now() - 120 * DAY * Math.pow(rnd(), 1.4)).toISOString(),
+    source_category: "direct",
+    referrer_domain: "Direct",
+    country_code: "RO",
+    country_name: "Romania",
+    city: "Bucharest",
+    device_type: "mobile",
+    browser: "Safari",
+    os: "iOS",
+    page_url: "https://storelib.com/andrewrullz",
+    utm_campaign: null,
+  }))
+  const realFetch = window.fetch.bind(window)
+  window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    if (!url.includes("/api/analytics/reports")) return realFetch(input, init)
+    w.__reportFetches.push({ at: performance.now(), url })
+    await new Promise((r) => setTimeout(r, w.__reportsMs))
+    const q = new URL(url, location.href).searchParams
+    const span = { start: Date.parse(q.get("start")!), end: Date.parse(q.get("end")!) }
+    const cs = q.get("cstart")
+    const previous = cs ? { start: Date.parse(cs), end: Date.parse(q.get("cend")!) } : null
+    const timeZone = q.get("tz") || "UTC"
+    const steps = views.filter((_, i) => i % 7 === 0).map((v) => ({ event_type: "buy_click", session_id: v.session_id, created_at: v.created_at }))
+    const base = { orders: orders as OrderRow[], window: span, previous, timeZone, mainDomain: "storelib.com", productTitles: { "product-0": "Preset pack" } }
+    const allTime = { views: views.length, orders: orders.length, salesCents: orders.reduce((a, o) => a + o.amount_cents, 0) }
+    const tallied = tallyVisits({ views, steps, window: span, previous, timeZone })
+    const quick = { cur: { ...tallied.cur, steps: undefined, groups: undefined }, prev: { ...tallied.prev, steps: undefined, groups: undefined } }
+    const enc = new TextEncoder()
+    const body = new ReadableStream({
+      async start(c) {
+        c.enqueue(enc.encode(JSON.stringify({ part: "figures", reports: buildReports({ ...base, visits: quick as never }), allTime, truncated: false }) + "\n"))
+        await new Promise((r) => setTimeout(r, w.__listsMs))
+        c.enqueue(enc.encode(JSON.stringify({ part: "all", reports: buildReports({ ...base, views, steps }), allTime, truncated: false, viewer: "probe-viewer" }) + "\n"))
+        c.close()
+      },
+    })
+    return new Response(body, { headers: { "content-type": "application/x-ndjson" } })
+  }) as typeof fetch
+}
+
 const facts: ProgressFacts = {
   ...NO_FACTS,
   products: f.product ? 2 : 0,
@@ -113,6 +174,7 @@ createRoot(document.getElementById("app")!).render(
     websiteDomain: f.domain ? "andrewrullz.com" : null,
     websitePublished: f.site,
     subscriptionPlanId: params.get("plan") || f.plan,
+    viewerId: "probe-viewer",
     sharePlatforms: [],
     onePageLive: f.product,
   } as never))),
