@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { ScrollEdge } from "@/components/app/scroll-edge"
 import { canReturnTo } from "@/lib/navigation/in-app-history"
+import { leaveLayer } from "../../layer-nav"
 import {
   CONDITIONS,
   MAX_STEPS,
@@ -358,10 +359,11 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
    * the browser's own back: instant, with the list where it was scrolled.
    * From anywhere else (a link opened cold, a new tab) it goes to the list.
    */
-  const leave = () => {
-    if (canReturnTo("/app/emails")) router.back()
-    else router.push(EMAILS)
-  }
+  const leave = () =>
+    leaveLayer(() => {
+      if (canReturnTo("/app/emails")) router.back()
+      else router.push(EMAILS)
+    })
   const back = () => {
     if (dirty) setConfirmLeave(true)
     else leave()
@@ -482,7 +484,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
         <span className="min-w-0 truncate">{subtitle}</span>
       </div>
 
-      <div className={cn("mx-auto w-full pb-8 pt-3 md:pt-5", FLOW_WIDTH, FLOW_GUTTER)}>
+      <div className={cn("mx-auto w-full pb-[calc(32px+env(safe-area-inset-bottom))] pt-3 md:pb-8 md:pt-5", FLOW_WIDTH, FLOW_GUTTER)}>
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="min-w-0">
             <StateLine
