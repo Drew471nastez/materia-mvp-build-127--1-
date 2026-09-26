@@ -1,6 +1,7 @@
 /**
- * The Products list, the product editor (new and saved) and the Orders page,
- * as the app draws them, with the shell pieces that decide how a page
+ * The Products list, the product editor (new and saved), the Orders page
+ * and the email composer (in its real route layout, left through the real
+ * app/app/emails/layer-nav.ts) as the app draws them, with the shell pieces that decide how a page
  * arrives (AppStage, the navigation bar's listeners) and a router of a few
  * addresses in place of Next's. Bundled by scripts/check-layer-motion.mjs
  * against the React the app router runs (Next's own build, which has
@@ -29,6 +30,11 @@ import { AppStage } from "@/components/app/app-stage"
 import { NavigationLoadingBar } from "@/components/app/navigation-loading-bar"
 import { LanguageProvider } from "@/lib/i18n"
 import { fixtureRows } from "./render-orders-probe"
+import NewEmailLayout from "@/app/app/emails/new/layout"
+import { ComposePage } from "@/components/email/compose/compose-page"
+import { layerLinkClick } from "@/app/app/emails/layer-nav"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 type W = Window & {
   __slowMs: number
@@ -95,6 +101,53 @@ const shelf = Array.from({ length: 24 }, (_, i) => ({
 const now = Date.UTC(2026, 8, 20, 12)
 const orderRows = fixtureRows(now)
 
+/*
+  The composer's server, stood in for: the audience it reads as it opens,
+  and nothing else it needs to open and close.
+*/
+const realFetch = window.fetch.bind(window)
+window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+  const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } })
+  if (url.startsWith("/api/email/audience")) {
+    return reply(200, {
+      options: [{ type: "all", label: "All subscribers", count: 1204 }],
+      segments: [],
+      plan: { limit: 2000, used: 212 },
+      brand: { name: "Ana Pop Studio", logoUrl: null, storeUrl: "https://storelib.com/anapop", accent: "#0f766e", address: "12 Harbour Street", avatarUrl: null },
+      upgraded: true,
+    })
+  }
+  if (url.startsWith("/api/")) return reply(404, { error: "Not in the probe" })
+  return realFetch(input, init)
+}
+
+/*
+  The Emails page, stood in for by its bar and a list of rows (the real one
+  reads its lists from the server): New email is the real link, opened
+  through app/app/emails/layer-nav.ts as emails-home.tsx opens it.
+*/
+function EmailsStandIn() {
+  const router = useRouter()
+  return (
+    <div className="page-scroll h-full overflow-y-auto bg-[#f8f9fa]" data-emails-stand-in="">
+      <div className="mx-auto max-w-[1200px] px-4 py-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-[24px] font-bold text-[#1a1a2e]">Emails</h1>
+          <Link href="/app/emails/new" onClick={layerLinkClick(router, "/app/emails/new")} data-new-email="" className="inline-flex h-10 items-center rounded-lg bg-[#8b5cf6] px-3 text-[15px] font-medium text-white">
+            New email
+          </Link>
+        </div>
+        {Array.from({ length: 16 }, (_, i) => (
+          <div key={i} className="mt-3 flex h-16 items-center rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 text-[15px] text-[#1a1a2e]">
+            Campaign {i + 1}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 type Route = { path: string; search: string; gate: Promise<void> | null }
 const gateFor = () => (w.__slowMs > 0 ? new Promise<void>((resolve) => window.setTimeout(resolve, w.__slowMs)) : null)
 
@@ -114,6 +167,14 @@ function Page({ path }: { path: string }) {
       <PageLayer pill inset="bar" phoneOnly>
         <ProductEditor key={path} creator={{ id: "c1", slug: "astrid", username: "astrid" }} loaded={id === "new" ? null : loadedFor(id)} />
       </PageLayer>
+    )
+  }
+  if (path === "/app/emails") return <EmailsStandIn />
+  if (path === "/app/emails/new") {
+    return (
+      <NewEmailLayout>
+        <ComposePage campaignId={null} />
+      </NewEmailLayout>
     )
   }
   if (path === "/app/orders") {

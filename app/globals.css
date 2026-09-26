@@ -3750,6 +3750,10 @@ html.capacitor.has-page-layer {
      crossfade; a page over another must cover it instead. */
   mix-blend-mode: normal;
 }
+/* No group morphs either: the screen and the layer keep their boxes. The
+   root's group would otherwise run the browser's 250ms default and hold the
+   page behind its picture, taking no presses, for nothing. */
+::view-transition-group(root),
 ::view-transition-group(page-layer) {
   animation: none;
 }

@@ -97,6 +97,17 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
 writeFileSync(join(stubs, "image.jsx"), `import React from "react"
 export default function Image({ src, alt, fill, sizes, priority, quality, ...rest }) { return React.createElement("img", { src, alt, style: fill ? { position: "absolute", inset: 0, width: "100%", height: "100%" } : undefined, ...rest }) }
 `)
+/* The database, for the composer's own reads as it opens (who is sending): answered with a studio's rows, nothing written. */
+writeFileSync(join(stubs, "supabase-client.js"), `const rows = { profiles: { display_name: "Ana Pop", username: "anapop", avatar_url: null, email: "ana@example.com" }, creators: { id: "cr-1", support_email: "hello@anapop.studio" } }
+function from(table) {
+  const q = { select() { return q }, eq() { return q }, order() { return q }, limit() { return q }, in() { return q }, is() { return q }, neq() { return q },
+    single() { return Promise.resolve({ data: rows[table] ?? null, error: null }) },
+    maybeSingle() { return Promise.resolve({ data: rows[table] ?? null, error: null }) },
+    then(res, rej) { return Promise.resolve({ data: [], error: null }).then(res, rej) } }
+  return q
+}
+export function createClient() { return { auth: { getUser: async () => ({ data: { user: { id: "u-1", email: "ana@example.com" } } }), getSession: async () => ({ data: { session: null } }) }, from, storage: { from: () => ({ upload: async () => ({ data: null, error: null }), getPublicUrl: () => ({ data: { publicUrl: "" } }) }) } } }
+`)
 writeFileSync(join(stubs, "description-action.js"), `export async function cleanDescription(html) { return { ok: true, html: String(html ?? "") } }
 `)
 
@@ -114,6 +125,7 @@ await build({
     react: compiled("react"),
     "react-dom": compiled("react-dom"),
     "next/navigation": join(stubs, "navigation.js"),
+    "@/lib/supabase/client": join(stubs, "supabase-client.js"),
     "next/link": join(stubs, "link.jsx"),
     "next/image": join(stubs, "image.jsx"),
   },
@@ -448,6 +460,8 @@ async function frozenMove(p, cdp, { sel, label, layer, which }) {
       f * out.dur,
       which,
     )
+    /* Two frames for the paused position to reach the screen: the first capture otherwise shows where the move was when it was paused. */
+    await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
     const { data: png } = await cdp.send("Page.captureScreenshot", { format: "png" })
     const file = `layer-motion-${label}-${String(Math.round(f * 100)).padStart(3, "0")}.png`
     writeFileSync(join(shots, file), Buffer.from(png, "base64"))
@@ -509,7 +523,7 @@ async function productsTrip(p, cdp, label, { isNew }) {
 function report(name, r, kind) {
   console.log(`        (${name}: ${JSON.stringify({ move: r.move, frames: r.frames, firstGap: r.firstGap, maxGap: r.maxGap, dropped: r.dropped, partway: r.partway, long: r.long, latency: r.latency, compositor: r.compositor })})`)
   console.log(`        (${name} translateY by frame: ${r.ys.join(" ")})`)
-  if (kind !== "order") expect(!!r.move?.ready && !r.move.skipped, `${name}: one move, started at the commit`, r.move)
+  if (!kind.startsWith("order")) expect(!!r.move?.ready && !r.move.skipped, `${name}: one move, started at the commit`, r.move)
   const dir = kind === "leave" || kind === "order-back" ? 1 : -1
   const mono = r.ys.every((y, i) => i === 0 || (y - r.ys[i - 1]) * dir >= -1)
   expect(r.partway >= 8 && mono, `${name}: from the bottom edge and back to it, on translateY alone, ${r.partway} frames part way, never backwards`, { partway: r.partway, first: r.ys[0], last: r.ys[r.ys.length - 1] })
@@ -526,6 +540,30 @@ function pictures(name, s, kind) {
   expect(s.dur >= 280 && s.dur <= 380, `${name}: 280 to 380ms`, s.dur)
   expect(s.shots.every((f) => f.ink > 0.01), `${name}: a page in every frame (ink in the page area)`, s.shots.map((f) => f.ink))
   expect(s.shots.every((f) => !f.header), `${name}: the black header never shows where the layer already is`, s.shots.map((f) => ({ at: f.at, top: f.top, header: f.header })))
+}
+
+const COMPOSER_BACK = "button[aria-label='Back to emails']"
+
+async function emailsTrip(p, cdp, label) {
+  console.log(`  -- emails -> New email -> the composer's Back (app/app/emails/layer-nav.ts)`)
+  await p.evaluate(() => window.__navigate("/app/emails"))
+  await sleep(700)
+  const up = await timedMove(p, cdp, { sel: "[data-new-email]", pressed: "[data-new-email][data-layer-press]", kind: "enter" })
+  report("composer in", up, "enter")
+  await sleep(700)
+  const onScreen = await p.evaluate(() => ({ layer: !!document.querySelector("[data-page-layer]"), path: window.__path, back: !!document.querySelector("button[aria-label='Back to emails']") }))
+  expect(onScreen.layer && onScreen.back && onScreen.path === "/app/emails/new", "the composer is up, as a layer, with its Back", onScreen)
+  const down = await timedMove(p, cdp, { sel: COMPOSER_BACK, pressed: `${COMPOSER_BACK}[data-layer-press]`, kind: "leave" })
+  report("composer back", down, "leave")
+  await sleep(300)
+  const back = await p.evaluate(() => ({ layer: !!document.querySelector("[data-page-layer]"), path: window.__path }))
+  expect(!back.layer && back.path === "/app/emails", "Back leaves the Emails page on the screen", back)
+  const shotIn = await frozenMove(p, cdp, { sel: "[data-new-email]", label: `email-in-${label}`, layer: true, which: "::view-transition-new(page-layer)" })
+  pictures("composer in", shotIn, "enter")
+  await sleep(900)
+  const shotOut = await frozenMove(p, cdp, { sel: COMPOSER_BACK, label: `email-back-${label}`, layer: true, which: "::view-transition-old(page-layer)" })
+  pictures("composer back", shotOut, "leave")
+  await sleep(300)
 }
 
 async function ordersTrip(p, cdp, label) {
@@ -721,6 +759,7 @@ try {
       await sleep(900)
       await seoFold(p, label)
     }
+    await emailsTrip(p, cdp, label)
     await p.evaluate(() => window.__navigate("/app/orders"))
     await sleep(900)
     await ordersTrip(p, cdp, label)
