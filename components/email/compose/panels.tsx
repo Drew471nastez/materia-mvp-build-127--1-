@@ -1,8 +1,9 @@
 "use client"
 
 /**
- * The settings of a selected block that is not text: a button's words and
- * link, an image's picture, size and description, a product, a space. They
+ * The settings of a selected block that is not text: a button's link, colour
+ * and place (its words are typed on the button), an image's picture, size
+ * and description, a product, a space. They
  * open under the block, in the page's flow, so they never cover the email
  * and never leave the screen on a phone.
  */
@@ -19,7 +20,7 @@ const ALIGN: { value: Align; label: string }[] = [
   { value: "right", label: "Right" },
 ]
 
-const panel = "mt-2 grid gap-4 rounded-xl border border-[#e3e4e8] bg-[#f9fafb] p-4 sm:grid-cols-2"
+const panel = "mt-2 grid gap-4 rounded-xl bg-[#f4f5f7] p-4 sm:grid-cols-2"
 
 function linkError(v: string): string | null {
   if (!v.trim()) return null
@@ -31,10 +32,8 @@ export function ButtonPanel({ block, onChange, brand }: { block: ButtonBlock; on
   const urlError = linkError(block.url)
   return (
     <div className={panel} data-block-panel="button">
-      <Field label="Button text" htmlFor={`${id}-label`}>
-        <input id={`${id}-label`} className={inputClass} value={block.label} maxLength={60} placeholder="Shop the new collection" onChange={(e) => onChange({ label: e.target.value })} />
-      </Field>
-      <Field label="Link" htmlFor={`${id}-url`} error={urlError}>
+      {/* The words are written on the button itself (./block-editor.tsx ButtonView). */}
+      <Field label="Link" htmlFor={`${id}-url`} error={urlError} className="sm:col-span-2">
         <input
           id={`${id}-url`}
           className={inputClass}

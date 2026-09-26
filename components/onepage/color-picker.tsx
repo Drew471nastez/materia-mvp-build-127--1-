@@ -59,6 +59,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { usePhone } from "@/components/app/date-range-picker"
 import { primaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
+import { SwatchMark } from "@/components/onepage/choice-marks"
 import {
   RECENT_COLORS_KEY,
   hsvFromHex,
@@ -391,16 +392,15 @@ function SwatchRow({ title, colors, value, onPick, compact }: { title: string; c
               data-swatch={c}
               onClick={() => onPick(c)}
               className={cn(
-                "cursor-pointer rounded-full outline-none transition-[box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]",
+                "relative cursor-pointer rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]",
                 compact ? "aspect-square w-full max-w-10" : "aspect-square w-full",
-                on
-                  ? "shadow-[0_0_0_2px_#fff,0_0_0_3.5px_#1a1a2e]"
-                  : isNearWhite(c)
-                    ? "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.14)]"
-                    : "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
+                isNearWhite(c) ? "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.14)]" : "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
               )}
               style={{ backgroundColor: c }}
-            />
+            >
+              {/* The ring round the chosen colour fades and grows in; the last one's fades out (editor-kit SwatchMark). */}
+              <SwatchMark on={on} className="rounded-full" />
+            </button>
           )
         })}
       </div>

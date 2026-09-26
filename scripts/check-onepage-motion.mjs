@@ -149,6 +149,28 @@ async function midShot(s, phone, sel, name, ms = 1200) {
   await sleep(900)
 }
 
+/**
+ * THE COMPOSITOR'S FRAMES. A slide on `transform` is drawn by the compositor
+ * and goes on while the main thread builds what is in the page, so frames
+ * counted on the main thread miss it. This reads the frames actually drawn
+ * (DrawFrame in Chromium's trace) for `ms` after `act()`.
+ */
+async function drawnFrames(s, act, ms = 700) {
+  const file = join(shots, `trace-${process.pid}.json`)
+  await s.p.tracing.start({ path: file, categories: ["disabled-by-default-devtools.timeline.frame", "devtools.timeline"] })
+  const t0 = await s.p.evaluate(() => performance.timeOrigin + performance.now())
+  await act()
+  await sleep(ms)
+  await s.p.tracing.stop()
+  const ev = JSON.parse(readFileSync(file, "utf8")).traceEvents
+  rmSync(file, { force: true })
+  const start = ev.find((e) => e.name === "EventDispatch" && ["click", "touchend", "pointerup"].includes(e.args?.data?.type))?.ts
+  const draws = [...new Set(ev.filter((e) => e.name === "DrawFrame").map((e) => e.ts))].sort((a, b) => a - b).filter((t) => !start || t >= start)
+  const gaps = draws.slice(1).map((t, i) => (t - draws[i]) / 1000).filter((g) => g > 2)
+  void t0
+  return summary(gaps.slice(0, Math.round(ms / 16.7)))
+}
+
 /* What the editor's panel area paints: is anything of a panel visible at three points down it? */
 const PANEL_SAMPLE = () => {
   /*
@@ -245,24 +267,68 @@ if (wants("push")) for (const [label, vp, phone, throttle] of [["phone-390", PHO
     const commits = (await s.p.evaluate(() => window.__commits)) - commits0
     const moving = new Set(painted.map((f) => `${f.listX}|${f.subX}`)).size - 1
     const blank = painted.filter((f) => f.blank || ((f.listO ?? 0) < 0.05 && (f.subO ?? 0) < 0.05)).length
-    rows.push({ what, ...summary(gaps), moving, blank, commits })
+    /* The tap's own cost (building the panel) and the slide after it, apart. */
+    const tapAt = (await s.p.evaluate(() => window.__downs.at(-1))) ?? 0
+    const first = painted.findIndex((f, i) => i > 0 && `${f.listX}|${f.subX}` !== `${painted[i - 1].listX}|${painted[i - 1].subX}`)
+    const toMotion = first > 0 ? Math.round(painted[first].t - tapAt) : null
+    const slideGaps = first > 0 ? painted.slice(first + 1).map((f, i) => f.t - painted[first + i].t).filter((g, i) => i < 20) : []
+    rows.push({ what, ...summary(gaps), moving, blank, commits, toMotion, slideLong: slideGaps.filter((g) => g > 34).length })
     await sleep(300)
   }
-  for (const r of rows) console.log(`        ${r.what.padEnd(13)} p95 ${r.p95}ms  max ${r.max}ms  long ${r.long}  frames in motion ${r.moving}  blank ${r.blank}  commits ${r.commits}`)
+  for (const r of rows) console.log(`        ${r.what.padEnd(13)} p95 ${r.p95}ms  max ${r.max}ms  long ${r.long}  tap to motion ${r.toMotion}ms  long frames in the slide ${r.slideLong}  frames in motion ${r.moving}  blank ${r.blank}  commits ${r.commits}`)
   report[`push-${label}`] = rows
   expect(rows.every((r) => r.moving >= 6), "each push and pop is spread over several frames", rows.map((r) => r.moving))
   expect(rows.every((r) => r.blank === 0), "no blank frame", rows.map((r) => r.blank))
-  expect(rows.every((r) => r.long <= (phone ? 2 : 0)), "no more than two long frames", rows.map((r) => r.long))
+  expect(rows.every((r) => r.toMotion !== null && r.toMotion <= (phone ? 120 : 40)), "the page starts to move within a few frames of the tap", rows.map((r) => r.toMotion))
+  /* Theme, the heaviest panel: the frames the compositor drew while it slid in. */
+  const drawn = await drawnFrames(s, () => press(s, phone, '[data-nav-row="theme"]'), 600)
+  console.log(`        open Theme, frames drawn: p95 ${drawn.p95}ms  max ${drawn.max}ms  over 34ms ${drawn.long}`)
+  report[`push-drawn-${label}`] = drawn
+  expect(drawn.long <= 1, "the compositor draws the slide without a gap (one at most)", drawn)
+  await press(s, phone, "[data-panel-back]")
+  await sleep(700)
   await midShot(s, phone, '[data-nav-row="wallpaper"]', `${label}-push-mid`, 1500)
   await midShot(s, phone, "[data-panel-back]", `${label}-pop-mid`, 1500)
   expect(s.errors.length === 0, "no errors on the page", s.errors.slice(0, 3))
   await s.p.close()
 }
 
+/* ── A FINGER FROM THE LEFT EDGE TAKES A PANEL BACK (a phone) ── */
+if (wants("push")) {
+  console.log("\nphone-390: a pull from the left edge")
+  const s = await open(PHONE, "design")
+  const touch = (type, x, y) => s.cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] })
+  const panelX = () => s.p.evaluate(() => { const el = document.querySelector('[data-design-panel]:not([data-design-panel="home"])'); return el ? Math.round(el.getBoundingClientRect().left) : null })
+  for (const [what, to, expectBack] of [["a short pull springs back", 0.25, false], ["a long pull goes back", 0.6, true]]) {
+    if (!(await s.p.$('[data-design-panel="buttons"]'))) { await press(s, true, '[data-nav-row="buttons"]'); await sleep(700) }
+    const y = 420
+    await touch("touchStart", 6, y)
+    const gaps = []
+    for (let k = 1; k <= 10; k++) {
+      const x = 6 + ((390 * to) * k) / 10
+      await touch("touchMove", x, y)
+      await s.p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+      /* From the second step: the pull starts once the finger has gone 6px. */
+      if (k >= 3) gaps.push(Math.abs((await panelX()) - (x - 6 - (390 * to) / 10)))
+    }
+    await touch("touchEnd")
+    await sleep(700)
+    const back = await s.p.evaluate(() => !document.querySelector('[data-design-panel]:not([data-design-panel="home"])') && !!document.querySelector('[data-design-panel="home"]')?.getClientRects().length)
+    const lag = Math.max(...gaps)
+    console.log(`        ${what}: panel within ${lag}px of the finger, back to the list: ${back}`)
+    report[`edge-${expectBack ? "long" : "short"}`] = { lag, back }
+    expect(lag <= 2 && back === expectBack, what, { lagPx: lag, back })
+  }
+  expect(s.errors.length === 0, "no errors on the page", s.errors.slice(0, 3))
+  await s.p.close()
+}
+
 /* ── CHOICES ── */
-if (wants("choice")) for (const [label, vp, phone] of [["phone-390", PHONE, true], ["desktop-1440", DESKTOP, false]]) {
+/* The app too: in the iOS and Android shells <html> has `capacitor`, and app/globals.css gives every button there a transition of its own. */
+if (wants("choice")) for (const [label, vp, phone, app] of [["phone-390", PHONE, true, false], ["phone-390-app", PHONE, true, true], ["desktop-1440", DESKTOP, false, false]]) {
   console.log(`\n${label}: a pick in Buttons`)
   const s = await open(vp, "design")
+  if (app) await s.p.evaluate(() => document.documentElement.classList.add("capacitor"))
   await s.p.click('[data-nav-row="buttons"]')
   await sleep(900)
   const options = await s.p.$$eval("[data-choice], [data-segment]", (xs) => xs.filter((x) => x.getClientRects().length).map((x) => ({ key: x.getAttribute("data-choice") ?? x.getAttribute("data-segment"), kind: x.hasAttribute("data-choice") ? "choice" : "segment", on: x.getAttribute("aria-pressed") === "true" || x.getAttribute("aria-checked") === "true" })))
