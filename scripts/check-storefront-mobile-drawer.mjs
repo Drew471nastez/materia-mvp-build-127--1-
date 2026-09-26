@@ -75,6 +75,9 @@ window.__backdrop = () => document.querySelector('[data-site-drawer-backdrop]') 
    Inside the canvas when there is one, because the editor has an "Open menu" of its own. */
 window.__menuBtn = () => Array.from((document.getElementById("wb-preview-root") || document).querySelectorAll('button[aria-expanded][aria-label$=" menu"]')).find((b) => !b.closest('[role="dialog"]')) || null
 window.__pane = () => { const d = window.__drawer(); return d ? d.querySelector('nav > div > div') : null }
+/* Long tasks on the main thread, for the open and the close. */
+window.__long = []
+try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__long.push(Math.round(e.duration)) }).observe({ type: "longtask", buffered: true }) } catch {}
 window.__rect = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { top: Math.round(r.top), left: Math.round(r.left), right: Math.round(r.right), bottom: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) } }
 `
 
@@ -116,7 +119,7 @@ async function sampleWhile(page, pageTop, action, ms) {
       if (!window.__sampling) return
       const h = window.__menuBtn()
       const hdr = h && h.closest("[data-chrome]")
-      window.__samples.push({ page: read(), hdrTop: hdr ? Math.round(hdr.getBoundingClientRect().top) : null })
+      window.__samples.push({ page: read(), hdrTop: hdr ? Math.round(hdr.getBoundingClientRect().top) : null, t: performance.now() })
       requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
@@ -155,6 +158,7 @@ async function measureOpenMenu(p, { label, pageTop, long, width }) {
     clicked directly and the report says so; everything after the opening is
     still driven by touch.
   */
+  await page.evaluate(() => { window.__long = [] })
   let openSamples = await sampleWhile(page, pageTop, () => tap(centre(hdrBefore.btn).x, centre(hdrBefore.btn).y), 900)
   const openedByTap = await page.evaluate(() => { const d = window.__drawer(); return !!d && d.getAttribute("aria-hidden") !== "true" })
   if (!openedByTap) {
@@ -173,6 +177,12 @@ async function measureOpenMenu(p, { label, pageTop, long, width }) {
   })
   check(state.open, `${label}: a tap on the menu button opens the drawer`)
   if (!state.open) return
+  const gap = (ss) => Math.round(Math.max(0, ...ss.slice(1).map((s, i) => s.t - ss[i].t)))
+  const openLong = await page.evaluate(() => window.__long.splice(0))
+  lines.push(`  time ${label}: opening, ${openSamples.length} frames in 900ms, slowest ${gap(openSamples)}ms, long tasks ${openLong.length ? openLong.join("/") + "ms" : "none"}`)
+  /* In the editor the same tap selects the header and opens its settings,
+     which is the editor's own work and is reported rather than judged here. */
+  if (!pageTop.includes("wb-preview-root")) check(openLong.every((d) => d < 50), `${label}: no long task while the menu opens`)
   check(state.modal === "true", `${label}: the open drawer says aria-modal="true" (so the root layout's lock guard leaves its lock alone), got ${state.modal}`)
   const moved = openSamples.filter((s) => s.page !== before)
   check(moved.length === 0, `${label}: the page does not move while the menu opens (${openSamples.length} frames, ${moved.length} moved${moved.length ? ", to " + [...new Set(moved.map((s) => s.page))].slice(0, 4).join("/") : ""})`)
@@ -269,7 +279,11 @@ async function measureOpenMenu(p, { label, pageTop, long, width }) {
 
   /* Close with the X: the page is where it was on every frame. */
   const x = await page.evaluate(() => window.__rect(window.__drawer().querySelector('button[aria-label="Close menu"]')))
+  await page.evaluate(() => { window.__long = [] })
   const closeSamples = await sampleWhile(page, pageTop, () => tap(centre(x).x, centre(x).y), 900)
+  const closeLong = await page.evaluate(() => window.__long.splice(0))
+  lines.push(`  time ${label}: closing, ${closeSamples.length} frames in 900ms, slowest ${gap(closeSamples)}ms, long tasks ${closeLong.length ? closeLong.join("/") + "ms" : "none"}`)
+  if (!pageTop.includes("wb-preview-root")) check(closeLong.every((d) => d < 50), `${label}: no long task while the menu closes`)
   const after = await readPage()
   const hdrAfter = await headerOf()
   const jumped = closeSamples.filter((s) => s.page !== before)
