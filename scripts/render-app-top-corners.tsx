@@ -46,16 +46,6 @@ w.__go = (href) => {
 window.fetch = (async () => new Response("{}", { status: 200 })) as typeof fetch
 window.open = (() => null) as typeof window.open
 
-const DAY = 86_400_000
-const orders = Array.from({ length: 60 }, (_, i) => ({
-  id: `o${i}`,
-  product_id: `p${i % 6}`,
-  amount_cents: 900 + ((i * 731) % 5000),
-  status: "completed",
-  created_at: new Date(Date.now() - (i % 30) * DAY - i * 3_600_000).toISOString(),
-  stripe_session_id: `cs_${i}`,
-  refund_amount_cents: 0,
-}))
 const steps = ["welcome", "branding", "product", "payouts", "onepage", "sale"].map((id, i) => ({
   id, title: id, description: `${id} step`, tooltip: "", completed: i < 4, href: "/app",
 }))
@@ -87,11 +77,9 @@ function Page({ path }: { path: string }) {
         displayName="Calvin"
         initialSetupSteps={steps as never}
         productIds={["p0", "p1", "p2", "p3", "p4", "p5"]}
-        initialOrders={orders as never}
         creatorHandle="calvin"
         websiteDomain="calvin.com"
         websitePublished
-        brandingDetail={{ hasAvatar: true, hasName: true, hasBio: true } as never}
         sharePlatforms={[]}
       />
     )
