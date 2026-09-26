@@ -406,6 +406,22 @@ export interface ReceiptEmailModel {
   supportEmail: string
   /** Every order row the email covers: one, or each line of a basket. */
   orderIds?: string[]
+  /**
+   * The PDF that goes with the email (lib/checkout/invoice.ts): "invoice"
+   * when a company is billed, "receipt" otherwise, and the address that
+   * draws it again, which the receipt token opens as the receipt link does.
+   */
+  document?: { kind: "invoice" | "receipt"; link: string } | null
+}
+
+/** The line under the totals that says the PDF is attached, and where to get it again. */
+function documentLine(m: ReceiptEmailModel): { html: string; text: string } | null {
+  if (!m.document) return null
+  const noun = m.document.kind === "invoice" ? "invoice" : "receipt"
+  return {
+    html: `<p style="margin:14px 0 0;font-size:13px;line-height:1.5;color:#6b7280;">Your ${noun} is attached as a PDF. <a href="${escapeHtml(m.document.link)}" style="color:#1a1a2e;text-decoration:underline;">Download it again</a></p>`,
+    text: `Your ${noun} is attached as a PDF. Download it again: ${m.document.link}`,
+  }
 }
 
 export function buyerReceiptEmailHtml(m: ReceiptEmailModel): string {
@@ -464,6 +480,7 @@ export function buyerReceiptEmailHtml(m: ReceiptEmailModel): string {
                 ${sumRow("Total", m.totalText, true)}
                 ${m.refundedText ? sumRow("Refunded", m.refundedText) : ""}
               </table>
+              ${documentLine(m)?.html ?? ""}
             </td>
           </tr>
           <tr>
@@ -505,6 +522,7 @@ export function buyerReceiptEmailText(m: ReceiptEmailModel): string {
     m.refundedText ? `Refunded: ${m.refundedText}` : null,
     "",
     `${m.buttonLabel}: ${m.link}`,
+    documentLine(m)?.text ?? null,
     "",
     "Reply to this email to reach the seller.",
   ]
@@ -820,6 +838,14 @@ export async function sendBuyerDownloadEmail(
     supportEmail: replyTo,
     fallback: { productTitle, variantName, amountCents: params.amountCents, orderId },
   })
+  /* The PDF this email carries (lib/checkout/invoice.ts names it Invoice-… or Receipt-…). */
+  const pdf = attachments?.find((a) => a.contentType === "application/pdf")
+  if (pdf) {
+    model.document = {
+      kind: /^Invoice-/.test(pdf.filename) ? "invoice" : "receipt",
+      link: buildUrl(`/api/checkout/invoice?token=${encodeURIComponent(receiptToken)}`, baseUrl),
+    }
+  }
   const firstTitle = model.items[0]?.title ?? productTitle
   const subject =
     model.items.length > 1

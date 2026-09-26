@@ -2,20 +2,33 @@ import "server-only"
 
 /**
  * ===========================================================================
- *  THE BUYER'S INVOICE
+ *  THE BUYER'S RECEIPT, OR INVOICE, AS A PDF
  * ===========================================================================
  * A formal document for one paid order: who sold it, who bought it (the
  * company, its tax number and address when the buyer bought for a
  * business), what was bought, every amount that made the total, and how
- * and when it was paid. It is what an accountant files, so it says only
- * what is true of the payment: no tax line the checkout never charged, no
- * figure that is not the order's own.
+ * and when it was paid. It is called an Invoice when the buyer gave a
+ * company to bill, and a Receipt otherwise; the two are the same document.
+ * It is what an accountant files, so it says only what is true of the
+ * payment: no tax line the checkout never charged, no reverse charge note
+ * for a tax that was never worked out, no figure that is not the order's.
+ *
+ * ONE NUMBER, FOREVER. "SL-20260923-1A2B3C4D" is the day the order was
+ * written and its id, both fixed in the database the moment the order
+ * exists. The PDF emailed after paying, the one downloaded from the
+ * receipt a year later and the one drawn by a webhook retry therefore all
+ * carry the same number, with nothing stored and nothing to race over. A
+ * basket's number is its first line's.
  *
  * Where each value comes from:
- *   the order row      amounts, the card, the date, the product and variant
- *   the PaymentIntent  what the checkout recorded when it priced the order:
+ *   the order rows     amounts, the card, the date, the products and options,
+ *                      and the company (`business_details`, part 35)
+ *   the PaymentIntent  what the checkout recorded when it priced one product:
  *                      the discount and its code, the price before it, and
- *                      the business details (lib/checkout/business.ts)
+ *                      the company again (lib/checkout/business.ts)
+ *   the Checkout       a basket's lines as they were priced (quantity, unit
+ *   Session            price, what a code took) and the company Stripe's
+ *                      page asked for
  *   the creator        the seller's name and contact address
  *
  * Drawn by pdfkit in Inter, which is in the repository (lib/checkout/fonts,
@@ -26,21 +39,34 @@ import "server-only"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { stripe } from "@/lib/stripe"
-import { businessFromMetadata, addressLines, type BusinessDetails } from "./business"
+import { businessFromFields, businessFromMetadata, businessFromStripe, addressLines, taxIdFor, type BusinessDetails } from "./business"
 import { countryName } from "./countries"
+import { unpackItems, type PackedItem } from "./cart-items"
 import { fullyRefunded } from "@/lib/orders/refund-state"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
+export interface InvoiceLine {
+  description: string
+  detail: string | null
+  quantity: number
+  unitCents: number
+  /** Quantity times unit price, before any code. */
+  amountCents: number
+}
+
 export interface InvoiceData {
   number: string
+  /** "invoice" when a company is billed, "receipt" otherwise. */
+  kind: "invoice" | "receipt"
   issuedAt: Date
   status: "paid" | "refunded" | "partially_refunded" | "disputed"
+  currency: string
   seller: { name: string; email: string | null; url: string | null }
   buyer: { name: string; email: string; business: BusinessDetails | null }
   /** Every line of the payment: one for a checkout, one per product for a basket. */
-  lines: { description: string; detail: string | null; amountCents: number }[]
+  lines: InvoiceLine[]
   /** What has gone back to the buyer, when any has. */
   refundedCents: number
   subtotalCents: number
@@ -53,9 +79,9 @@ export interface InvoiceData {
   orderId: string
 }
 
-/** "SL-20260923-1A2B3C4D": the day it was paid and the order it is for. */
-export function invoiceNumber(orderId: string, at: Date): string {
-  const day = at.toISOString().slice(0, 10).replace(/-/g, "")
+/** "SL-20260923-1A2B3C4D": the day the order was written and the order it is for. */
+export function invoiceNumber(orderId: string, at: Date | string): string {
+  const day = new Date(at).toISOString().slice(0, 10).replace(/-/g, "")
   return `SL-${day}-${orderId.replace(/-/g, "").slice(0, 8).toUpperCase()}`
 }
 
@@ -82,23 +108,33 @@ export function paymentLabel(order: { payment_method?: string | null; card_brand
   return method === "card" ? "Card" : method.replace(/_/g, " ")
 }
 
-interface OrderRow {
+export interface OrderRow {
   id: string
   created_at: string
   status: string | null
   amount_cents: number | null
   tip_cents: number | null
+  currency?: string | null
   buyer_email: string | null
   buyer_first_name: string | null
   buyer_last_name: string | null
   payment_method: string | null
   card_brand: string | null
   card_last4: string | null
+  product_id?: string | null
+  variant_id?: string | null
   variant_name: string | null
   stripe_payment_intent_id: string | null
   stripe_session_id?: string | null
   refund_amount_cents?: number | null
+  /** The company the buyer bought for, when the database has the column (part 35). */
+  business_details?: unknown
   product: { title: string | null; creator_id: string | null } | null
+}
+
+/** A basket's rows in the order they were written: the first is the one the number is drawn from. */
+function inOrder(rows: OrderRow[]): OrderRow[] {
+  return [...rows].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
 }
 
 /**
@@ -123,50 +159,106 @@ export async function invoiceForReceipt(admin: Db, receiptToken: string): Promis
       .eq("stripe_session_id", order.stripe_session_id)
       .order("created_at", { ascending: true })
       .limit(50)
-    if (rows && rows.length > 1) return invoiceForOrder(admin, order as OrderRow, undefined, rows as OrderRow[])
+    if (rows && rows.length > 0) return invoiceForOrder(admin, order as OrderRow, { basket: rows as OrderRow[] })
   }
   return invoiceForOrder(admin, order as OrderRow)
 }
 
-export async function invoiceForOrder(
-  admin: Db,
-  order: OrderRow,
-  knownMetadata?: Record<string, string>,
-  basket?: OrderRow[],
-): Promise<InvoiceData | null> {
-  const rows = basket && basket.length > 0 ? basket : [order]
+export interface InvoiceContext {
+  /** The PaymentIntent's metadata, when the caller already has it. */
+  metadata?: Record<string, string>
+  /** Every row of a basket's payment. */
+  basket?: OrderRow[]
+  /** A basket's lines as they were priced, when the caller already has them. */
+  items?: PackedItem[]
+  /** The company, when the caller already has it. */
+  business?: BusinessDetails | null
+  discountCode?: string | null
+}
+
+export async function invoiceForOrder(admin: Db, order: OrderRow, context: InvoiceContext = {}): Promise<InvoiceData | null> {
+  const rows = inOrder(context.basket && context.basket.length > 0 ? context.basket : [order])
+  const first = rows[0]
+  const isBasket = !!first.stripe_session_id
   const total = rows.reduce((n, r) => n + Math.max(0, Number(r.amount_cents) || 0), 0)
-  if (total <= 0 || !order.stripe_payment_intent_id) return null
+  if (total <= 0 || !rows.some((r) => r.stripe_payment_intent_id)) return null
   /* Only a payment that went through has an invoice: one that is pending,
      failed or disputed would be printed "paid". A refunded sale keeps its
      invoice, as a record of the sale the refund reverses. */
   const orderStatus = String((order as { status?: string | null }).status ?? "completed")
   if (orderStatus !== "completed" && orderStatus !== "refunded") return null
 
-  let meta: Record<string, string> = knownMetadata ?? {}
-  if (!knownMetadata) {
+  /* What the checkout recorded: a product's PaymentIntent, or a basket's Checkout Session. */
+  let meta: Record<string, string> = context.metadata ?? {}
+  let items = context.items ?? null
+  /* Given by the caller, even as "none", it is the answer; otherwise the row's, then the payment's. */
+  const businessKnown = context.business !== undefined
+  let business = businessKnown ? (context.business ?? null) : businessFromFields(first.business_details)
+  let discountCode = context.discountCode ?? null
+  if (isBasket) {
+    if ((!items || (!business && !businessKnown)) && first.stripe_session_id?.startsWith("cs_")) {
+      try {
+        const session = await stripe.checkout.sessions.retrieve(first.stripe_session_id)
+        items = items ?? unpackItems((session.metadata ?? {}) as Record<string, string>)
+        if (!businessKnown) business = business ?? businessFromStripe(session.customer_details)
+        discountCode = discountCode ?? (session.metadata?.coupon_code || null)
+      } catch {
+        /* The rows alone still make the document: one line each, as charged. */
+      }
+    }
+  } else if (!context.metadata && first.stripe_payment_intent_id) {
     try {
-      meta = (await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id)).metadata ?? {}
+      meta = (await stripe.paymentIntents.retrieve(first.stripe_payment_intent_id)).metadata ?? {}
     } catch {
-      /* The order alone still makes an invoice: no discount line, no company. */
+      /* The order alone still makes an invoice: no discount line, no company from the payment. */
     }
   }
+  if (!businessKnown) business = business ?? businessFromMetadata(meta)
 
   /* `amount_cents` is what each row was charged, the tip inside it. */
   const tip = rows.reduce((n, r) => n + Math.max(0, Number(r.tip_cents) || 0), 0)
-  const discount = rows.length === 1 ? Math.max(0, Number(meta.discount_cents) || 0) : 0
-  /* The price before the code, as the checkout recorded it; failing that,
-     worked back from what was paid. */
-  const recordedBase = Number(meta.base_price_cents)
-  const subtotal = rows.length === 1 && Number.isFinite(recordedBase) && recordedBase > 0 ? recordedBase : total - tip + discount
-  const lines: InvoiceData["lines"] =
-    rows.length === 1
-      ? [{ description: order.product?.title || meta.product_title || "Digital product", detail: order.variant_name || null, amountCents: subtotal }]
-      : rows.map((r) => ({
+  let lines: InvoiceLine[]
+  let discount: number
+  if (!isBasket) {
+    const recordedDiscount = Math.max(0, Number(meta.discount_cents) || 0)
+    const recordedBase = Number(meta.base_price_cents)
+    /* The price before the code, as the checkout recorded it, when it adds
+       up to what was charged; otherwise what was paid, with no discount
+       line, because a document whose figures do not add up is worse. */
+    const adds = Number.isFinite(recordedBase) && recordedBase > 0 && recordedBase - recordedDiscount + tip === total
+    const base = adds ? recordedBase : total - tip
+    discount = adds ? recordedDiscount : 0
+    discountCode = discount > 0 ? discountCode ?? (meta.coupon_code || null) : null
+    lines = [{ description: first.product?.title || meta.product_title || "Digital product", detail: first.variant_name || null, quantity: 1, unitCents: base, amountCents: base }]
+  } else {
+    /* Each row with the line it was priced as: its quantity, its unit price and what a code took off it. */
+    const left = [...(items ?? [])]
+    const priced = rows.map((r) => {
+      const at = left.findIndex((i) => i.productId === r.product_id && (i.variantId ?? null) === (r.variant_id ?? null))
+      const item = at >= 0 ? left.splice(at, 1)[0] : null
+      const charged = Math.max(0, (Number(r.amount_cents) || 0) - (Number(r.tip_cents) || 0))
+      const quantity = item ? Math.max(1, item.quantity) : 1
+      const gross = item ? item.priceCents * quantity : charged
+      const off = item ? Math.max(0, item.discountCents ?? 0) : 0
+      /* Only a line whose pricing adds up to what it was charged is shown with it. */
+      const fits = item !== null && gross - off === charged
+      return {
+        line: {
           description: r.product?.title || "Digital product",
           detail: r.variant_name || null,
-          amountCents: Math.max(0, (Number(r.amount_cents) || 0) - (Number(r.tip_cents) || 0)),
-        }))
+          quantity: fits ? quantity : 1,
+          unitCents: fits && item ? item.priceCents : charged,
+          amountCents: fits ? gross : charged,
+        },
+        off: fits ? off : 0,
+      }
+    })
+    lines = priced.map((p) => p.line)
+    discount = priced.reduce((n, p) => n + p.off, 0)
+    if (discount === 0) discountCode = null
+  }
+  const subtotal = lines.reduce((n, l) => n + l.amountCents, 0)
+
   const refunded = rows.reduce((n, r) => {
     if (r.status !== "refunded") return n
     const charged = Math.max(0, Number(r.amount_cents) || 0)
@@ -181,7 +273,7 @@ export async function invoiceForOrder(
         ? "partially_refunded"
         : "paid"
 
-  const creatorId = order.product?.creator_id ?? null
+  const creatorId = first.product?.creator_id ?? order.product?.creator_id ?? null
   let seller: InvoiceData["seller"] = { name: meta.creator_name || "Storelib seller", email: null, url: null }
   if (creatorId) {
     const { data: creator } = await admin
@@ -203,33 +295,36 @@ export async function invoiceForOrder(
     }
   }
 
-  const issuedAt = new Date(order.created_at)
+  const issuedAt = new Date(first.created_at)
   return {
-    number: invoiceNumber(order.id, issuedAt),
+    number: invoiceNumber(first.id, issuedAt),
+    kind: business ? "invoice" : "receipt",
     issuedAt,
     status,
+    currency: String(first.currency || "usd").toUpperCase(),
     seller,
     buyer: {
-      name: [order.buyer_first_name, order.buyer_last_name].filter(Boolean).join(" ").trim(),
-      email: order.buyer_email || meta.buyer_email || "",
-      business: businessFromMetadata(meta),
+      name: [first.buyer_first_name, first.buyer_last_name].filter(Boolean).join(" ").trim(),
+      email: first.buyer_email || meta.buyer_email || "",
+      business,
     },
     lines,
     refundedCents: refunded,
     subtotalCents: subtotal,
     discountCents: discount,
-    discountCode: meta.coupon_code || null,
+    discountCode,
     tipCents: tip,
     totalCents: total,
-    payment: paymentLabel(order),
-    reference: order.stripe_payment_intent_id,
-    orderId: order.id,
+    payment: paymentLabel(first),
+    reference: first.stripe_payment_intent_id,
+    orderId: first.id,
   }
 }
 
 /* ─── Drawing ─────────────────────────────────────────────────────────── */
 
 const INK = "#1a1a2e"
+const BODY = "#374151"
 const MUTED = "#6b7280"
 const RULE = "#e5e7eb"
 
@@ -251,20 +346,31 @@ function latin1(text: string): string {
   return text.normalize("NFKD").replace(/[^\u0000-ÿ]/g, "")
 }
 
-export const moneyText = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format((cents || 0) / 100)
+export function moneyText(cents: number, currency = "USD"): string {
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency }).format((cents || 0) / 100)
+  } catch {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format((cents || 0) / 100)
+  }
+}
 
 const dateText = (d: Date) => new Intl.DateTimeFormat("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }).format(d)
 
-export async function renderInvoicePdf(inv: InvoiceData): Promise<Buffer> {
+/**
+ * The PDF. `trace`, when given, is handed every piece of text as it is
+ * drawn, which is how the tests read what the document says without a PDF
+ * reader of their own.
+ */
+export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Promise<Buffer> {
   // @ts-ignore - pdfkit ships CJS without bundled types
   const pdfkit = await import("pdfkit")
   const PDFDocument = (pdfkit.default || pdfkit) as any // eslint-disable-line @typescript-eslint/no-explicit-any
 
+  const title = inv.kind === "invoice" ? "Invoice" : "Receipt"
   const doc = new PDFDocument({
     size: "A4",
     margins: { top: 56, bottom: 56, left: 56, right: 56 },
-    info: { Title: `Invoice ${inv.number}`, Author: inv.seller.name, Subject: inv.lines.map((l) => l.description).join(", ").slice(0, 200), Creator: "Storelib" },
+    info: { Title: `${title} ${inv.number}`, Author: inv.seller.name, Subject: inv.lines.map((l) => l.description).join(", ").slice(0, 200), Creator: "Storelib" },
   })
   const chunks: Buffer[] = []
   doc.on("data", (c: Buffer) => chunks.push(c))
@@ -278,138 +384,169 @@ export async function renderInvoicePdf(inv: InvoiceData): Promise<Buffer> {
   const REG = f ? "Body" : "Helvetica"
   const BOLD = f ? "Strong" : "Helvetica-Bold"
   const t = (s: string) => (f ? s : latin1(s))
+  /** Every string on the page goes through here. */
+  const put = (text: string, x: number, y: number, options?: Record<string, unknown>) => {
+    const s = t(text)
+    trace?.push(s)
+    doc.text(s, x, y, options)
+    return doc.y as number
+  }
+  const money = (cents: number) => moneyText(cents, inv.currency)
 
   const left = 56
   const right = doc.page.width - 56
   const width = right - left
+  const pageBottom = doc.page.height - 56 - 40
 
-  /* Title and status */
-  doc.font(BOLD).fontSize(22).fillColor(INK).text("Invoice", left, 56)
+  /* ── Header: what this is, and whose ─────────────────────────────── */
+  doc.font(BOLD).fontSize(22).fillColor(INK)
+  put(title, left, 52, { width: width / 2, lineBreak: false })
+  doc.font(BOLD).fontSize(11).fillColor(INK)
+  put(inv.seller.name, left + width / 2, 54, { width: width / 2, align: "right" })
+  doc.font(REG).fontSize(9).fillColor(MUTED)
+  put("Sold through Storelib", left + width / 2, doc.y + 2, { width: width / 2, align: "right" })
+
   const STATUS: Record<InvoiceData["status"], [string, string]> = {
     paid: ["Paid", "#067647"],
     refunded: ["Refunded", "#b42318"],
     partially_refunded: ["Partially refunded", "#b54708"],
     disputed: ["Disputed", "#b42318"],
   }
-  const [status, statusColor] = STATUS[inv.status]
-  doc.font(BOLD).fontSize(11).fillColor(statusColor).text(status, left, 64, { width, align: "right" })
 
-  /* The facts, as a small table */
-  let y = 100
-  const facts: [string, string][] = [
-    ["Invoice number", inv.number],
+  /* ── The facts ───────────────────────────────────────────────────── */
+  let y = 104
+  const facts: [string, string, string?][] = [
+    [`${title} number`, inv.number],
     ["Date of issue", dateText(inv.issuedAt)],
-    ["Date paid", dateText(inv.issuedAt)],
-    ["Order", inv.orderId],
+    ["Order date", dateText(inv.issuedAt)],
+    ["Order", inv.orderId.replace(/-/g, "").slice(0, 8).toUpperCase()],
+    ["Payment", inv.payment],
+    ...(inv.reference ? ([["Payment reference", inv.reference]] as [string, string][]) : []),
+    ["Status", STATUS[inv.status][0], STATUS[inv.status][1]],
   ]
-  for (const [k, v] of facts) {
-    doc.font(REG).fontSize(9.5).fillColor(MUTED).text(k, left, y, { width: 110 })
-    doc.font(REG).fontSize(9.5).fillColor(INK).text(t(v), left + 110, y, { width: width - 110 })
-    y += 16
+  for (const [k, v, color] of facts) {
+    doc.font(REG).fontSize(9.5).fillColor(MUTED)
+    put(k, left, y, { width: 104 })
+    doc.font(color ? BOLD : REG).fontSize(9.5).fillColor(color ?? INK)
+    put(v, left + 104, y, { width: width - 104 })
+    y += 15
   }
 
-  /* From and Bill to, side by side */
-  y += 18
-  const col = (width - 24) / 2
-  const block = (x: number, heading: string, lines: string[], strong: string) => {
-    doc.font(BOLD).fontSize(9.5).fillColor(INK).text(heading, x, y, { width: col })
-    let yy = y + 16
-    doc.font(BOLD).fontSize(10).fillColor(INK).text(t(strong), x, yy, { width: col })
-    yy = doc.y + 2
+  /* ── Billed to, and From ─────────────────────────────────────────── */
+  y += 20
+  const col = (width - 32) / 2
+  const block = (x: number, heading: string, strong: string, lines: string[]) => {
+    doc.font(REG).fontSize(9).fillColor(MUTED)
+    put(heading, x, y, { width: col })
+    doc.font(BOLD).fontSize(10.5).fillColor(INK)
+    let yy = put(strong, x, y + 15, { width: col }) + 2
     for (const line of lines) {
-      doc.font(REG).fontSize(9.5).fillColor("#374151").text(t(line), x, yy, { width: col })
-      yy = doc.y + 1
+      doc.font(REG).fontSize(9.5).fillColor(BODY)
+      yy = put(line, x, yy, { width: col }) + 1.5
     }
     return yy
   }
-  const sellerLines = [inv.seller.email, inv.seller.url].filter(Boolean) as string[]
-  const fromEnd = block(left, "From", sellerLines, inv.seller.name)
   const b = inv.buyer.business
+  const taxLabel = b ? taxIdFor(b.country).label : "Tax ID"
   const billLines = b
     ? [
-        ...(b.taxId ? [`Tax ID: ${b.taxId}`] : []),
+        ...(b.taxId ? [`${taxLabel} ${b.taxId}`] : []),
         ...addressLines(b, countryName),
         ...(inv.buyer.name ? [`Attn: ${inv.buyer.name}`] : []),
         inv.buyer.email,
       ]
-    : [inv.buyer.email]
-  const billEnd = block(left + col + 24, "Bill to", billLines.filter(Boolean), b ? b.company : inv.buyer.name || inv.buyer.email)
+    : inv.buyer.name
+      ? [inv.buyer.email]
+      : []
+  const billEnd = block(left, b ? "Billed to" : "Paid by", b ? b.company : inv.buyer.name || inv.buyer.email, billLines.filter(Boolean))
+  const fromEnd = block(left + col + 32, "Sold by", inv.seller.name, [inv.seller.email, inv.seller.url].filter(Boolean) as string[])
   y = Math.max(fromEnd, billEnd) + 26
 
-  /* The headline figure */
-  const headline = inv.status === "refunded" ? `${moneyText(inv.totalCents)} USD refunded` : `${moneyText(inv.totalCents)} USD paid on ${dateText(inv.issuedAt)}`
-  doc.font(BOLD).fontSize(15).fillColor(INK).text(headline, left, y, { width })
-  y = doc.y + 22
+  /* ── The headline figure ─────────────────────────────────────────── */
+  doc.font(BOLD).fontSize(15).fillColor(INK)
+  put(
+    inv.status === "refunded"
+      ? `${money(inv.totalCents)} ${inv.currency} refunded`
+      : `${money(inv.totalCents)} ${inv.currency} paid on ${dateText(inv.issuedAt)}`,
+    left,
+    y,
+    { width },
+  )
+  y = doc.y + 20
 
-  /* Lines */
-  const cQty = left + width * 0.58
-  const cUnit = left + width * 0.68
-  const cAmt = left + width * 0.84
-  const head = (label: string, x: number, w: number, align: "left" | "right") =>
-    doc.font(REG).fontSize(9).fillColor(MUTED).text(label, x, y, { width: w, align })
-  head("Description", left, cQty - left - 8, "left")
-  head("Qty", cQty, cUnit - cQty - 8, "right")
-  head("Unit price", cUnit, cAmt - cUnit - 8, "right")
-  head("Amount", cAmt, right - cAmt, "right")
-  y += 16
-  doc.moveTo(left, y).lineTo(right, y).lineWidth(0.75).strokeColor(RULE).stroke()
-  y += 10
+  /* ── The lines ───────────────────────────────────────────────────── */
+  const cQty = left + width * 0.56
+  const cUnit = left + width * 0.66
+  const cAmt = left + width * 0.83
+  const header = () => {
+    doc.font(REG).fontSize(9).fillColor(MUTED)
+    put("Description", left, y, { width: cQty - left - 8 })
+    put("Qty", cQty, y, { width: cUnit - cQty - 8, align: "right" })
+    put("Unit price", cUnit, y, { width: cAmt - cUnit - 8, align: "right" })
+    put("Amount", cAmt, y, { width: right - cAmt, align: "right" })
+    y += 16
+    doc.moveTo(left, y).lineTo(right, y).lineWidth(0.75).strokeColor(RULE).stroke()
+    y += 10
+  }
+  header()
   for (const line of inv.lines) {
-    doc.font(REG).fontSize(10).fillColor(INK).text(t(line.description), left, y, { width: cQty - left - 8 })
-    let lineEnd = doc.y
-    if (line.detail) {
-      doc.font(REG).fontSize(9).fillColor(MUTED).text(t(line.detail), left, lineEnd + 1, { width: cQty - left - 8 })
-      lineEnd = doc.y
+    if (y > pageBottom - 40) {
+      doc.addPage()
+      y = 56
+      header()
     }
     doc.font(REG).fontSize(10).fillColor(INK)
-    doc.text("1", cQty, y, { width: cUnit - cQty - 8, align: "right" })
-    doc.text(moneyText(line.amountCents), cUnit, y, { width: cAmt - cUnit - 8, align: "right" })
-    doc.text(moneyText(line.amountCents), cAmt, y, { width: right - cAmt, align: "right" })
-    y = lineEnd + 12
+    let lineEnd = put(line.description, left, y, { width: cQty - left - 8 })
+    if (line.detail) {
+      doc.font(REG).fontSize(9).fillColor(MUTED)
+      lineEnd = put(line.detail, left, lineEnd + 1, { width: cQty - left - 8 })
+    }
+    doc.font(REG).fontSize(10).fillColor(INK)
+    put(String(line.quantity), cQty, y, { width: cUnit - cQty - 8, align: "right" })
+    put(money(line.unitCents), cUnit, y, { width: cAmt - cUnit - 8, align: "right" })
+    put(money(line.amountCents), cAmt, y, { width: right - cAmt, align: "right" })
+    y = lineEnd + 11
     doc.moveTo(left, y).lineTo(right, y).lineWidth(0.75).strokeColor(RULE).stroke()
-    y += 12
+    y += 11
   }
 
-  /* Totals, right-hand */
+  /* ── The sums, right hand ────────────────────────────────────────── */
+  if (y > pageBottom - 150) {
+    doc.addPage()
+    y = 56
+  }
   const tLabel = left + width * 0.5
   const row = (label: string, value: string, strong = false) => {
-    doc.font(strong ? BOLD : REG).fontSize(strong ? 10.5 : 10).fillColor(strong ? INK : "#374151")
-    doc.text(t(label), tLabel, y, { width: cAmt - tLabel - 8 })
-    doc.text(value, cAmt - 40, y, { width: right - cAmt + 40, align: "right" })
+    doc.font(strong ? BOLD : REG).fontSize(strong ? 10.5 : 10).fillColor(strong ? INK : BODY)
+    put(label, tLabel, y, { width: cAmt - tLabel - 8 })
+    put(value, cAmt - 60, y, { width: right - cAmt + 60, align: "right" })
     y += strong ? 20 : 17
   }
-  row("Subtotal", moneyText(inv.subtotalCents))
-  if (inv.discountCents > 0) row(inv.discountCode ? `Discount (${inv.discountCode})` : "Discount", `-${moneyText(inv.discountCents)}`)
-  if (inv.tipCents > 0) row("Tip", moneyText(inv.tipCents))
+  row("Subtotal", money(inv.subtotalCents))
+  if (inv.discountCents > 0) row(inv.discountCode ? `Discount (${inv.discountCode})` : "Discount", `−${money(inv.discountCents)}`)
+  if (inv.tipCents > 0) row("Tip", money(inv.tipCents))
   y += 2
   doc.moveTo(tLabel, y).lineTo(right, y).lineWidth(0.75).strokeColor(RULE).stroke()
   y += 10
-  row("Total", moneyText(inv.totalCents), true)
-  row("Amount paid", `${moneyText(inv.totalCents)} USD`, true)
-  if (inv.refundedCents > 0) row("Refunded", `-${moneyText(inv.refundedCents)} USD`, true)
+  row("Total", money(inv.totalCents), true)
+  row("Amount paid", `${money(inv.totalCents)} ${inv.currency}`, true)
+  if (inv.refundedCents > 0) row("Refunded", `−${money(inv.refundedCents)} ${inv.currency}`, true)
 
-  /* Payment */
-  y += 14
-  doc.font(BOLD).fontSize(9.5).fillColor(INK).text("Payment", left, y)
-  y = doc.y + 4
-  doc.font(REG).fontSize(9.5).fillColor("#374151").text(t(`${inv.payment}, ${dateText(inv.issuedAt)}`), left, y, { width })
-  if (inv.reference) {
-    doc.font(REG).fontSize(9).fillColor(MUTED).text(`Payment reference ${inv.reference}`, left, doc.y + 2, { width })
-  }
-
-  /* Footer */
-  const footer = t(
-    `Sold by ${inv.seller.name} through Storelib (storelib.com). Amounts are in US dollars.` +
-      (inv.seller.email ? ` Questions about this purchase: ${inv.seller.email}.` : ""),
-  )
+  /* ── The small print, at the foot of the last page ───────────────── */
+  const footer =
+    `${title} for a completed payment. Sold by ${inv.seller.name} through Storelib (storelib.com). ` +
+    `Amounts are in ${inv.currency === "USD" ? "US dollars" : inv.currency}.` +
+    (inv.seller.email ? ` Questions about this purchase: ${inv.seller.email}.` : "")
   /* Inside the bottom margin, which pdfkit would otherwise answer with a new page. */
   doc.page.margins.bottom = 0
-  doc.font(REG).fontSize(8.5).fillColor(MUTED).text(footer, left, doc.page.height - 56 - 30, { width, align: "left" })
+  doc.moveTo(left, doc.page.height - 56 - 44).lineTo(right, doc.page.height - 56 - 44).lineWidth(0.75).strokeColor(RULE).stroke()
+  doc.font(REG).fontSize(8.5).fillColor(MUTED)
+  put(footer, left, doc.page.height - 56 - 32, { width, align: "left" })
 
   doc.end()
   return done
 }
 
-export function invoiceFilename(inv: Pick<InvoiceData, "number">): string {
-  return `Invoice-${inv.number}.pdf`
+export function invoiceFilename(inv: Pick<InvoiceData, "number"> & Partial<Pick<InvoiceData, "kind">>): string {
+  return `${inv.kind === "invoice" ? "Invoice" : "Receipt"}-${inv.number}.pdf`
 }

@@ -63,6 +63,7 @@ const SUITES = [
   "tests/site-cart.test.ts",
   "tests/cart-checkout.test.ts",
   "tests/checkout-safety.test.ts",
+  "tests/checkout-receipt.test.ts",
   "tests/return-to.test.ts",
   "tests/no-image-transforms.test.ts",
   "tests/page-performance.test.ts",

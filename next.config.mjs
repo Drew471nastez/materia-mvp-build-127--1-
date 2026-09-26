@@ -46,11 +46,12 @@ const nextConfig = {
     /*
       THE INVOICE'S TYPEFACE. lib/checkout/invoice.ts reads Inter from
       lib/checkout/fonts by path, which tracing cannot see, for every route
-      that draws an invoice: the download, and the two that email one with a
-      business purchase.
+      that draws one: the download, and the three that email the receipt
+      PDF with a paid order (a product, and a basket on its return).
     */
     '/api/checkout/invoice': ['./lib/checkout/fonts/**'],
     '/api/checkout/confirm-payment': ['./lib/checkout/fonts/**'],
+    '/api/checkout/cart/complete': ['./lib/checkout/fonts/**'],
     '/api/stripe/webhook': ['./lib/checkout/fonts/**'],
   },
   typescript: {
