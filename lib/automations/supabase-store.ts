@@ -64,7 +64,11 @@ export async function contactStanding(db: Db, creatorId: string, email: string):
     .eq("creator_id", creatorId)
     .eq("email", email.toLowerCase().trim())
     .maybeSingle()
-  if (error || !data) return { suppressed: false, unsubscribeToken: null, subscribed: false, status: null }
+  /* A read that failed says nothing either way: `subscribed` is left unknown, so a
+     welcome is not ended over a dropped connection (engine processJob). No row is
+     a real answer: not on the list. */
+  if (error) return { suppressed: false, unsubscribeToken: null, status: null }
+  if (!data) return { suppressed: false, unsubscribeToken: null, subscribed: false, status: null }
   const status = typeof data.status === "string" ? data.status : "subscribed"
   const suppressed = SUPPRESSED.has(status) || data.is_active === false
   return {
@@ -73,6 +77,44 @@ export async function contactStanding(db: Db, creatorId: string, email: string):
     subscribed: !suppressed && status === "subscribed",
     status: suppressed ? null : status === "customer" ? "customer" : status === "subscribed" ? "subscribed" : null,
   }
+}
+
+/**
+ * ENDS THIS PERSON'S RUNS WITH THIS CREATOR, NOW: every active one, or only
+ * those of one trigger. Each run is marked exited with the reason and its
+ * waiting job cancelled, in that order, each only where it is still active
+ * or queued, so it is safe to repeat and never touches a finished run.
+ *
+ * Used for a purchase (a checkout reminder they were partway through has no
+ * reason left, `trigger` "abandoned_checkout") and for an unsubscribe
+ * (app/api/email/unsubscribe, every trigger). The engine checks both again
+ * before every step anyway (engine.ts processJob), so this is not what keeps
+ * an email from going; it is what makes the builder and the contact's page
+ * say "Left" the moment they left, rather than "In progress" until their
+ * next step comes up, days later, and finds them gone.
+ *
+ * A job already running is left to its worker, which sees the run is over
+ * and cancels itself. Returns how many runs it ended; 0 before the engine's
+ * tables exist.
+ */
+export async function exitContactRuns(db: Db, creatorId: string, email: string, reason: string, trigger?: TriggerType): Promise<number> {
+  const now = new Date().toISOString()
+  let q = db
+    .from("email_flow_runs")
+    .update({ status: "exited", exit_reason: reason, finished_at: now, updated_at: now })
+    .eq("creator_id", creatorId)
+    .eq("email", email.trim().toLowerCase())
+  if (trigger) q = q.eq("trigger_type", trigger)
+  const { data, error } = await q.eq("status", "active").select("id")
+  if (error) {
+    if (isMissing(error)) return 0
+    fail("end the runs", error)
+  }
+  const ids = (Array.isArray(data) ? data : []).map((r: { id: string }) => r.id)
+  if (ids.length > 0) {
+    await db.from("email_flow_jobs").update({ state: "cancelled", last_error: reason, finished_at: now, updated_at: now }).in("run_id", ids).eq("state", "queued")
+  }
+  return ids.length
 }
 
 export function supabaseStore(db: Db): Store {
@@ -304,25 +346,8 @@ export function supabaseStore(db: Db): Store {
       return (count ?? 0) === 0
     },
 
-    async exitRuns(creatorId, email, trigger, reason) {
-      const now = new Date().toISOString()
-      const { data, error } = await db
-        .from("email_flow_runs")
-        .update({ status: "exited", exit_reason: reason, finished_at: now, updated_at: now })
-        .eq("creator_id", creatorId)
-        .eq("email", email.trim().toLowerCase())
-        .eq("trigger_type", trigger)
-        .eq("status", "active")
-        .select("id")
-      if (error) {
-        if (isMissing(error)) return 0
-        fail("end the runs", error)
-      }
-      const ids = (Array.isArray(data) ? data : []).map((r: { id: string }) => r.id)
-      if (ids.length > 0) {
-        await db.from("email_flow_jobs").update({ state: "cancelled", last_error: reason, finished_at: now, updated_at: now }).in("run_id", ids).eq("state", "queued")
-      }
-      return ids.length
+    exitRuns(creatorId, email, trigger, reason) {
+      return exitContactRuns(db, creatorId, email, reason, trigger)
     },
 
     async links(run): Promise<RunLinks> {

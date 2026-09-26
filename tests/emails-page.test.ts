@@ -5,6 +5,7 @@
  */
 import { readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
+import { listBehindShows } from "@/app/app/emails/list-return"
 
 let passed = 0
 let failed = 0
@@ -90,7 +91,7 @@ console.log("\nAn email's page, opened over the list the way an order is")
   check("its bar is the order's, drawn on the first frame", /<OrderBarFrame/.test(detail))
   check("it comes in and goes back with Orders' own move, not one of its own",
     /import \{ markRow, moveOrder, stillOrder \} from "\.\.\/orders\/order-motion"/.test(page)
-      && /moveOrder\("push", detail, list\)/.test(page) && /moveOrder\("pop", detail, list, \(\) => setLeavingId\(null\)\)/.test(page)
+      && /moveOrder\("push", detail, list\)/.test(page) && /moveOrder\("pop", detail, list, \(\) => setLeavingId\(null\), \{ settle: false \}\)/.test(page)
       && /hasUAVisualTransition/.test(page) && /data-order-open=\{listCovered \? "" : undefined\}/.test(page) && /orders-pane orders-list page-scroll/.test(page)
       && /data-arrival="list"/.test(page) && /inert=\{!openId\}/.test(page) && !/visibility: listCovered/.test(page))
   check("the row it came from is marked like an order's row, so the eye lands where it left", /className=\{cn\("orders-row", pressable\)\}[^>]*data-order-id=\{c\.id\}/.test(home) && /markRow\(list, rowOf\(openId\), "held"\)/.test(page) && /markRow\(list, was && rowOf\(was\), "fading"\)/.test(page))
@@ -126,6 +127,40 @@ console.log("\nA contact, opened from its row")
       && /props\.onOpenContact\(s\)/.test(homeCode) && !/<ContactDetail/.test(homeCode))
   check("its body is the contact's own and starts from what is known", /<ContactBody key=\{keyOf\(contact\.email\)\} contact=\{contact\} \/>/.test(detail) && /useState<RunLite\[\] \| null>\(\(\) => keptRuns\(contact\.email\)\)/.test(detail) && !/setRuns\(null\)/.test(detail))
   check("a failed read is not kept", /if \(!error\) runsKept\.set\(key/.test(detail))
+}
+
+/*
+ * "When I click on an email to go to its sub page and then I go back, there
+ * is an animation bump throughout the whole page, coming up and down."
+ * Three ways back, each now showing the list at once where it was left:
+ * an email or a contact over the list (the list's settle in is gone), an
+ * automation or a draft (a history back, with the stage's landing held),
+ * and the draft composer's own back arrow (a history back when the list is
+ * right behind it, on the right tab).
+ */
+console.log("\nBack to the list is the list, as it was")
+{
+  const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+  const client = code("app/app/emails/emails-client.tsx")
+  const motion = code("app/app/orders/order-motion.ts")
+  check("an email or a contact closed on a computer leaves the list whole at once: no half faded, 2px low settle",
+    /\{ settle: settleIn = true \}: \{ settle\?: boolean \} = \{\}/.test(motion) && /done\?\.\(\)\s*if \(!settleIn\) return\s*for \(const layer of list\.children\)/.test(motion)
+      && /\{ settle: false \}/.test(client))
+  check("a return to the page asks the stage for no landing, decided on its first render",
+    /const \[returning\] = React\.useState\(\(\) => isTraversing\(\)\)/.test(client) && /React\.useLayoutEffect\(\(\) => \{\s*if \(returning\) holdLanding\(\)\s*\}, \[returning\]\)/.test(client))
+  const stage = code("components/app/app-stage.tsx")
+  check("and the stage lands nothing for a page that held it",
+    /requestAnimationFrame\(\(\) => \{\s*const s = scrollers\(\)\s*if \(!s \|\| layered \|\| document\.documentElement\.dataset\.layerMotion \|\| isLandingHeld\(\)\) return\s*playEntrance/.test(stage))
+  const nav = code("lib/ui/app-navigation.ts")
+  check("the hold lets go on its own, two frames on, so it cannot swallow the next page's landing",
+    /requestAnimationFrame\(\(\) => requestAnimationFrame\(release\)\)/.test(nav) && /window\.setTimeout\(release, 500\)/.test(nav))
+  check("the first draw leaves the scroll the stage put back; only a switch of tab places it",
+    /if \(!tabShown\.current\) \{\s*tabShown\.current = true\s*return\s*\}/.test(client))
+  check("the list notes its address for the composer's way back", /noteListAddress\(address\)/.test(client))
+  check("the composer goes back in history when the list is right behind it on the right tab, and pushes it otherwise",
+    /if \(tab && listBehindShows\(tab, canReturnTo\("\/app\/emails"\)\)\) router\.back\(\)\s*else router\.push\(/.test(code("components/email/compose/compose-page.tsx")))
+  check("the list behind is the list on that tab", listBehindShows("drafts", true, "tab=drafts") && listBehindShows("subscribers", true, "") && !listBehindShows("scheduled", true, "tab=drafts"))
+  check("not an email or a contact open over it, and not a page that is not the list", !listBehindShows("published", true, "tab=published&email=abc") && !listBehindShows("subscribers", true, "contact=s1") && !listBehindShows("drafts", false, "tab=drafts") && !listBehindShows("drafts", true, null))
 }
 
 console.log("\nCustomers: buyers who did not ask for news")

@@ -472,6 +472,48 @@ export function takeTraversal() {
   return t
 }
 
+/**
+ * ===========================================================================
+ *  A PAGE THAT COMES BACK AS IT WAS, WITH NO LANDING
+ * ===========================================================================
+ * "When I click on an email to go to its sub page and then I go back, there
+ * is an animation bump throughout the whole page, coming up and down."
+ * Going back from an automation or a draft to the Emails list was a new
+ * page to the stage, so it played its landing (components/app/app-stage.tsx
+ * playEntrance): every box of the list faded in from nothing and rose 2px,
+ * the whole page, on every Back. The way in keeps its landing; the way back
+ * is the list you left, so it should simply be there.
+ *
+ * A page that knows it is being returned to (it read isTraversing, or its
+ * own note of a return, while it rendered its first state) calls this from
+ * its first layout effect, which runs in the commit that draws it, before
+ * the frame the stage would start the landing on. The stage reads it on that
+ * frame and lands nothing. It lets go two frames later on its own, so a hold
+ * the stage never read (a page that arrived in a later commit than the
+ * address) cannot swallow the next page's landing.
+ *
+ * Per page, not for every Back in /app: a page opts in when what it draws on
+ * a return is exactly what was there (the Emails list keeps its tab, its
+ * rows and its scroll). Other pages keep their landing until they do.
+ */
+let landingHeld = false
+let holds = 0
+
+export function holdLanding() {
+  if (typeof window === "undefined") return
+  landingHeld = true
+  const mine = ++holds
+  const release = () => { if (holds === mine) landingHeld = false }
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => requestAnimationFrame(release))
+  /* A tab in the background runs no frames: let go anyway. */
+  window.setTimeout(release, 500)
+}
+
+/** Read by the stage on the frame it would start a landing: is the page coming back as it was? */
+export function isLandingHeld() {
+  return landingHeld
+}
+
 /** One more page landed on in this tab without a reload. */
 export function markLanded() {
   landed++

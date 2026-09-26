@@ -89,8 +89,16 @@ function settle(detail: HTMLElement, list: HTMLElement) {
  * where it was sent, and not at all if another move takes over first.
  * A pop's last frame is held (`fill: forwards`) until the page takes the
  * order away, so there is no frame in which it snaps back over the list.
+ *
+ * `settle: false` is for a page whose list comes back exactly as it was
+ * and should be seen that way: back on a computer then takes the page away
+ * and shows the list at once, whole, where it was, with nothing in it
+ * fading or rising. Emails asks for it (app/app/emails/emails-client.tsx):
+ * "an animation bump throughout the whole page, coming up and down" was the
+ * list's settle in, every row, card and tab starting half faded and 2px
+ * low on every Back. Orders keeps its settle unless it asks the same.
  */
-export function moveOrder(kind: Kind, detail: HTMLElement, list: HTMLElement, done?: () => void) {
+export function moveOrder(kind: Kind, detail: HTMLElement, list: HTMLElement, done?: () => void, { settle: settleIn = true }: { settle?: boolean } = {}) {
   const phone = orderMotionOnPhone()
   const width = detail.clientWidth || window.innerWidth || 1
   /* Where each layer is right now, running animation included, read before
@@ -127,6 +135,7 @@ export function moveOrder(kind: Kind, detail: HTMLElement, list: HTMLElement, do
     if (kind === "pop") {
       settle(detail, list)
       done?.()
+      if (!settleIn) return
       /* Back on a computer: the order goes at once and the list settles in
          from half opacity and 2px down, so it arrives rather than snaps.
          It never starts from nothing, so there is no empty frame.

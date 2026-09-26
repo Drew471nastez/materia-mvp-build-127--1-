@@ -1,5 +1,21 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { exitContactRuns } from "@/lib/automations/supabase-store"
+
+/**
+ * Their automations end with them: every run of this address with this
+ * creator is marked "Unsubscribed." and its waiting email cancelled, so the
+ * builder and the contact's page say they left at once. Nothing more would
+ * have been sent either way (the engine reads their standing before every
+ * step); this keeps the records true. Never a reason to fail the unsubscribe.
+ */
+async function endAutomations(db: ReturnType<typeof createAdminClient>, subscriber: { creator_id: string; email: string }) {
+  try {
+    await exitContactRuns(db, subscriber.creator_id, subscriber.email, "Unsubscribed.")
+  } catch {
+    console.error("[unsubscribe] Could not end the automations of an address that left")
+  }
+}
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -46,6 +62,7 @@ export async function GET(request: NextRequest) {
     console.error("[unsubscribe] Update error:", updateError)
     return renderPage("Error", "There was an error processing your request. Please try again later.", "error")
   }
+  await endAutomations(adminSupabase, subscriber)
 
   // Record the unsubscribe event
   // Find the most recent campaign sent to this subscriber to associate the unsubscribe
@@ -156,6 +173,7 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       return NextResponse.json({ error: "Failed to unsubscribe" }, { status: 500 })
     }
+    await endAutomations(adminSupabase, subscriber)
 
     // Record the event
     await adminSupabase.from("email_events").insert({

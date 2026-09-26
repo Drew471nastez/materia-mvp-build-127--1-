@@ -56,12 +56,27 @@ export function clickUrl(token: string, target: string): string | null {
   return `${APP_URL}/api/automations/t/c?k=${token}&u=${Buffer.from(target, "utf8").toString("base64url")}&s=${sig}`
 }
 
-export function decodeTarget(u: string | null): string | null {
+/**
+ * THE ADDRESS AS IT WAS SIGNED, AND WHERE IT GOES. A click link carries the
+ * address its signature was made over (`written`); the reader is sent to
+ * the same address read as a URL (`href`).
+ *
+ * The two used to be one, and they are not always the same string: a
+ * browser's reading of "https://shop.com" is "https://shop.com/", of
+ * "https://Shop.com/a b" is "https://shop.com/a%20b". The link was signed
+ * over what the creator wrote and checked against the URL's reading of it,
+ * so every link to a bare domain (the commonest link in an email, "visit my
+ * shop") failed its check and sent the reader to storelib.com instead of
+ * the creator's page. Links are signed over the URL's reading now
+ * (trackLinks), and a link in an email already sent, signed over what was
+ * written, is checked against that (t/c route: either one).
+ */
+export function readTarget(u: string | null): { written: string; href: string } | null {
   if (!u || u.length > 4096) return null
   try {
-    const target = Buffer.from(u, "base64url").toString("utf8")
-    const url = new URL(target)
-    return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null
+    const written = Buffer.from(u, "base64url").toString("utf8")
+    const url = new URL(written)
+    return url.protocol === "https:" || url.protocol === "http:" ? { written, href: url.toString() } : null
   } catch {
     return null
   }
@@ -75,10 +90,13 @@ export function decodeTarget(u: string | null): string | null {
 export function trackLinks(html: string, token: string): string {
   if (!key()) return html
   return html.replace(/href\s*=\s*(["'])(https?:\/\/[^"'\s>]+)\1/gi, (whole, quote: string, raw: string) => {
-    const target = raw.replace(/&amp;/g, "&")
-    if (/\/unsubscribe\b/.test(target)) return whole
+    const written = raw.replace(/&amp;/g, "&")
+    if (/\/unsubscribe\b/.test(written)) return whole
+    /* Signed over the URL's own reading of it, which is what the click route
+       checks and where it sends the reader (readTarget). */
+    let target: string
     try {
-      new URL(target)
+      target = new URL(written).toString()
     } catch {
       return whole
     }

@@ -1,7 +1,7 @@
 import { NextResponse, after, type NextRequest } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { APP_URL } from "@/lib/email-automation"
-import { decodeTarget, isToken, verifyTarget } from "@/lib/automations/tracking"
+import { isToken, readTarget, verifyTarget } from "@/lib/automations/tracking"
 import { recordClick } from "@/lib/automations/track-events"
 
 export const runtime = "nodejs"
@@ -19,8 +19,11 @@ export const dynamic = "force-dynamic"
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams
   const token = q.get("k")
-  const target = decodeTarget(q.get("u"))
-  if (!isToken(token) || !target || !verifyTarget(token, target, q.get("s"))) {
+  const target = readTarget(q.get("u"))
+  const sig = q.get("s")
+  /* Signed over the URL's reading of the address, or, in an email sent
+     before that, over the address as it was written (readTarget). */
+  if (!target || !isToken(token) || !(verifyTarget(token, target.href, sig) || verifyTarget(token, target.written, sig))) {
     return NextResponse.redirect(APP_URL, 302)
   }
   after(async () => {
@@ -30,5 +33,5 @@ export async function GET(request: NextRequest) {
       /* A click that is not counted still arrives. */
     }
   })
-  return NextResponse.redirect(target, 302)
+  return NextResponse.redirect(target.href, 302)
 }

@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { PageSpinner } from "@/components/ui/activity-spinner"
 import {
   endAppNavigation,
+  isLandingHeld,
   markCommitted,
   markLanded,
   NAV_ENTER_EASE,
@@ -300,7 +301,9 @@ export function AppStage() {
     const layered = !!document.documentElement.dataset.layerMotion
     requestAnimationFrame(() => {
       const s = scrollers()
-      if (!s || layered || document.documentElement.dataset.layerMotion) return
+      /* A page that comes back exactly as it was left asked for no landing
+         (lib/ui/app-navigation holdLanding): the Emails list on a Back. */
+      if (!s || layered || document.documentElement.dataset.layerMotion || isLandingHeld()) return
       playEntrance(s.outer, { fade: !slowSurfaceIsUp() })
     })
   }, [key, pathname, search])

@@ -71,6 +71,7 @@ import {
 import { fieldsFor } from "@/lib/automations/merge-fields"
 import { joinedSentence } from "@/lib/contacts/contact-source"
 import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "../../../orders/order-parts"
+import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { RUN_STATUS } from "../../contact-detail"
 import { BodyEditor } from "../body-editor"
 import { FlowTopBar, StepMark, backButton } from "../flow-parts"
@@ -128,6 +129,23 @@ const FLOW_GUTTER = "px-4 sm:px-6 lg:px-8"
 
 /** The name, where it is edited: the bar's size on a phone, the page title's from 768px. */
 const nameText = "text-[17px] font-semibold text-[#1a1a2e] md:text-[24px] md:font-bold lg:text-[28px]"
+
+/*
+  THE BUTTONS THAT DO THE WORK, WITH THE APP'S DEPTH (components/ui/
+  depth-button): Save near black with its line of light, Discard and the
+  step's Move up and Move down white with a hairline and a soft foot, the
+  way the product and coupon editors draw theirs. They were the flat order
+  buttons, which beside the product editor read as a different app. Pressed,
+  each goes flat, as a key does.
+
+  Remove is the one that throws a step away, so it stays words in red with
+  no box round it: a third bordered button in that row gave the panel's foot
+  as much weight as the fields above it.
+*/
+const DEPTH_PRIMARY = cn(primaryDepth, "disabled:cursor-not-allowed disabled:opacity-50")
+const PANEL_BUTTON = cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px] max-sm:h-10 max-sm:rounded-[10px]")
+const PANEL_REMOVE =
+  "ml-auto inline-flex h-8 cursor-pointer select-none items-center rounded-lg px-3 text-[13px] font-medium text-[#b42318] transition-colors duration-100 hover:bg-[#fef3f2] active:bg-[#fde8e6] max-sm:h-10 [-webkit-tap-highlight-color:transparent]"
 
 const EMAILS = "/app/emails?tab=flows"
 
@@ -425,7 +443,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
                 onChange={(e) => update({ name: e.target.value })}
                 className={cn(
                   nameText,
-                  "col-start-1 row-start-1 h-9 w-full min-w-[4ch] truncate rounded-lg bg-transparent px-1.5 outline-none transition-colors hover:bg-[#eef0f2] focus:bg-white focus:shadow-[0_0_0_1px_#1a1a2e] md:h-10",
+                  "col-start-1 row-start-1 h-9 w-full min-w-[4ch] truncate rounded-lg bg-transparent px-1.5 outline-none transition-colors hover:bg-[#eef0f2] focus:bg-white focus:shadow-[0_0_0_1px_#c9ccd3,0_0_0_4px_rgba(17,17,19,0.06)] md:h-10",
                 )}
               />
             </span>
@@ -440,7 +458,7 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
             <button
               type="button"
               data-primary=""
-              className={cn(buttonPrimary, "h-10 rounded-[10px] px-4 text-[15px] md:h-9 md:rounded-lg md:px-3.5 md:text-[13px]", primary.phoneOnly && "md:hidden")}
+              className={cn(DEPTH_PRIMARY, "h-10 rounded-[10px] px-4 text-[15px] md:h-9 md:rounded-lg md:px-3.5 md:text-[13px]", primary.phoneOnly && "md:hidden")}
               disabled={busy}
               onClick={primary.run}
             >
@@ -531,10 +549,10 @@ export function FlowBuilder({ data }: { data: BuilderData }) {
               {saving ? "Saving" : dirty ? "Unsaved changes" : ""}
             </p>
             <div className="flex items-center gap-2">
-              <button type="button" className={cn(buttonSecondary, "h-9 px-3.5")} disabled={busy} onClick={discard}>
+              <button type="button" className={cn(secondaryDepth, "h-9 rounded-lg px-3.5 text-[13px]")} disabled={busy} onClick={discard}>
                 Discard
               </button>
-              <button type="button" className={cn(buttonPrimary, "h-9 min-w-[64px] px-3.5")} disabled={busy} onClick={() => void save()}>
+              <button type="button" className={cn(DEPTH_PRIMARY, "h-9 min-w-[64px] rounded-lg px-3.5 text-[13px]")} disabled={busy} onClick={() => void save()}>
                 {saving ? "Saving" : "Save"}
               </button>
             </div>
@@ -696,7 +714,21 @@ function StateLine(props: {
 const node =
   "group relative flex w-full cursor-pointer items-start gap-3 rounded-2xl border bg-white px-3.5 py-3 text-left transition-[box-shadow,border-color] duration-150 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]"
 const nodeRest = "border-[#e5e7eb]/80 shadow-[0_1px_0_rgba(17,24,39,0.03),0_1px_3px_rgba(17,24,39,0.06)] hover:border-[#d5d7dd] hover:shadow-[0_1px_0_rgba(17,24,39,0.03),0_6px_16px_-8px_rgba(17,24,39,0.18)]"
-const nodeOn = "border-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e,0_6px_16px_-8px_rgba(17,24,39,0.22)]"
+/*
+  THE STEP THAT IS OPEN, SAID QUIETLY. It used to take a near black border
+  and a second near black ring outside it, 2px of ink round a white card:
+  "too much visual weight", the loudest thing on the page for what is only
+  "this is the one in the panel". Now it is the app's calm edge, the one a
+  focused field and every /app search box wear (app/app/coupons/
+  coupon-editor.tsx FIELD): a 1px border a step darker than the resting
+  one, a 3px halo of near black at 6%, and the soft lift a card gets on
+  hover, held. It reads as picked out, not outlined.
+
+  No hover class on it on purpose: under `@media (hover: none)` a class
+  naming hover:shadow loses its shadow while the finger's :hover sticks
+  (app/globals.css), and this is the state a tap leaves behind.
+*/
+const nodeOn = "border-[#b9bdc5] shadow-[0_0_0_3px_rgba(17,17,19,0.06),0_6px_16px_-10px_rgba(17,24,39,0.2)]"
 
 function Canvas(props: {
   draft: Draft
@@ -806,7 +838,14 @@ function Connector({ onAdd, label }: { onAdd: (type: StepType) => void; label?: 
 
 /* ─── The panel ──────────────────────────────────────────────────────── */
 
-const field = "h-9 w-full rounded-lg border border-[#d5d7dd] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:shadow-[0_0_0_1px_#1a1a2e] sm:text-[13px]"
+/*
+  A field in the panel, focused with the app's calm edge (a lighter hairline
+  and a soft 3px halo, as the coupon editor's fields and every /app search
+  box), not the black ring it had: the panel is full of fields, and a black
+  ring on whichever one has the caret was the heaviest line on the screen.
+*/
+const CALM_FOCUS = "transition-[border-color,box-shadow] duration-150 focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]"
+const field = cn("h-9 w-full rounded-lg border border-[#d5d7dd] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:text-[13px]", CALM_FOCUS)
 const labelText = "mb-1.5 block text-[13px] font-medium text-[#1a1a2e]"
 const hint = "mt-1.5 text-[12px] leading-[1.45] text-[#6b7280]"
 
@@ -827,7 +866,8 @@ function Choice({ checked, onChange, label, detail, disabled, children }: { chec
     <label
       className={cn(
         "flex cursor-pointer items-start gap-2.5 rounded-xl border px-3 py-2.5 transition-colors",
-        checked ? "border-[#1a1a2e] bg-white shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e3e4e8] bg-white hover:border-[#c9ccd3]",
+        /* The radio already says which; the card only lifts a little with it, as an open step does (nodeOn). */
+        checked ? "border-[#b9bdc5] bg-white shadow-[0_0_0_3px_rgba(17,17,19,0.05)]" : "border-[#e3e4e8] bg-white hover:border-[#c9ccd3]",
         disabled && "cursor-not-allowed opacity-60",
       )}
     >
@@ -931,7 +971,7 @@ function TriggerPanel({ draft, on, products, onChange, onClose }: { draft: Draft
                       max={365}
                       value={rule.days}
                       onChange={(e) => setRule({ mode: "after", days: Math.max(1, Math.min(365, Number(e.target.value) || 1)) })}
-                      className="h-8 w-16 rounded-lg border border-[#d5d7dd] px-2 text-center text-[16px] outline-none focus:border-[#1a1a2e] sm:text-[13px]"
+                      className={cn("h-8 w-16 rounded-lg border border-[#d5d7dd] px-2 text-center text-[16px] outline-none sm:text-[13px]", CALM_FOCUS)}
                     />
                     days of their last time
                   </span>
@@ -979,13 +1019,13 @@ function StepPanel(props: {
         {step.type === "condition" ? <CheckFields steps={steps} step={step} onChange={props.onChange} /> : null}
       </div>
       <div className="flex flex-wrap items-center gap-2 border-t border-[#eef0f2] px-4 py-3">
-        <button type="button" className={cn(buttonSecondary, "max-sm:h-10")} disabled={i <= 0} onClick={() => props.onMove(-1)}>
+        <button type="button" className={PANEL_BUTTON} disabled={i <= 0} onClick={() => props.onMove(-1)}>
           Move up
         </button>
-        <button type="button" className={cn(buttonSecondary, "max-sm:h-10")} disabled={i >= steps.length - 1} onClick={() => props.onMove(1)}>
+        <button type="button" className={PANEL_BUTTON} disabled={i >= steps.length - 1} onClick={() => props.onMove(1)}>
           Move down
         </button>
-        <button type="button" className="ml-auto inline-flex h-8 items-center rounded-lg px-3 text-[13px] font-medium text-[#c4290c] hover:bg-[#fef1ee] max-sm:h-10" onClick={props.onRemove}>
+        <button type="button" className={PANEL_REMOVE} onClick={props.onRemove}>
           Remove
         </button>
       </div>
@@ -1048,7 +1088,7 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
         <p className="min-w-0 text-[12px] text-[#4b5563]">
           {props.accountEmail ? <>Send this one to <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{props.accountEmail}</span>, as it is now.</> : "Your account has no email address for a test."}
         </p>
-        <button type="button" className={cn(buttonSecondary, "max-sm:h-10")} disabled={testing || !props.accountEmail} onClick={() => void test()}>
+        <button type="button" className={PANEL_BUTTON} disabled={testing || !props.accountEmail} onClick={() => void test()}>
           {testing ? "Sending" : "Send test"}
         </button>
       </div>
@@ -1204,7 +1244,7 @@ function Activity({ data, on, steps }: { data: BuilderData; on: boolean; steps: 
           </p>
         ) : null}
         {data.failedJobs > 0 && on ? (
-          <button type="button" className={cn(buttonSecondary, "ml-auto")} disabled={retrying} onClick={() => void retry()}>
+          <button type="button" className={cn(PANEL_BUTTON, "ml-auto")} disabled={retrying} onClick={() => void retry()}>
             {retrying ? "Retrying" : "Try failed again"}
           </button>
         ) : null}

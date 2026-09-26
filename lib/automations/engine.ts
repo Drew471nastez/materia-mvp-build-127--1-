@@ -497,9 +497,10 @@ export async function processJob(ctx: Ctx, job: JobRow): Promise<JobOutcome> {
      * or the run ends. A job that exists and is not done (this job run a
      * second time after a crash, or one that failed) is left to itself.
      */
-    const moveOn = async (fromId: string, runAt: number, note?: string): Promise<JobOutcome> => {
+    /* `fromId` null is from the very start: the run's first step was removed (resolveStep). */
+    const moveOn = async (fromId: string | null, runAt: number, note?: string): Promise<JobOutcome> => {
       let after = fromId
-      let next = stepAfter(steps, fromId)
+      let next = fromId === null ? steps[0] ?? null : stepAfter(steps, fromId)
       for (let n = 0; next && n <= steps.length; n++) {
         const wrote = await store.enqueue({ runId: run.id, flowId: flow.id, creatorId: run.creator_id, stepId: next.id, afterStepId: after, runAt: iso(runAt) })
         if (wrote || (await store.jobState(run.id, next.id)) !== "done") break
@@ -514,12 +515,23 @@ export async function processJob(ctx: Ctx, job: JobRow): Promise<JobOutcome> {
     if (step.id !== job.step_id) {
       /* The step this job was for was removed; the one now in its place is
          queued as its own job, so it too runs once. */
-      return moveOn(job.after_step_id!, ctx.now(), "Step removed; moved on.")
+      return moveOn(job.after_step_id ?? null, ctx.now(), "Step removed; moved on.")
     }
 
     const standing = await store.standing(run.creator_id, run.email)
     if (standing.suppressed) return cancel("exited", "Unsubscribed.")
     const trigger = isTriggerType(flow.trigger_type) ? flow.trigger_type : null
+    /*
+      A WELCOME IS FOR PEOPLE ON THE LIST. "Someone joins your email list"
+      is about their place on it, so the series goes on only while they
+      have one. Unsubscribing was caught above; an address the creator
+      deleted from their contacts (a request to be forgotten, a typo
+      cleaned up) was not: no row reads as "not suppressed", so the rest of
+      the welcome kept going out to it, with no unsubscribe link, because
+      the link is the row. `false`, not "not true": a store that does not
+      say (an older one) is taken at its word on `suppressed` alone.
+    */
+    if (trigger === "new_subscriber" && standing.subscribed === false) return cancel("exited", "No longer on your list.")
     if (trigger && audienceOf(trigger, flow.trigger_config) === "subscribers") {
       if (!agreedToNews(standing, run)) return cancel("exited", "Did not ask for news from you.")
       /* Marketing always carries its way out; without a token there is none. */
