@@ -1,16 +1,17 @@
 "use client"
 
 import { announceChange } from "@/lib/seo/announce-client"
-import { forwardRef, memo, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
+import { forwardRef, memo, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
-import { ArrowUpDown, Check, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Search, X } from "lucide-react"
+import { ArrowUpDown, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Search, X } from "lucide-react"
 import { getProductUrl } from "@/lib/url-helpers"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { PickSheet } from "./pick-sheet"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { GUTTER, LIST_BAR, PaneBar, RowMenuButton, buttonSecondary, formatMoney } from "../orders/order-parts"
-import { primaryDepth, quietDepth } from "./new/editor-buttons"
+import { quietDepth } from "./new/editor-buttons"
+import { accentDepth } from "@/components/ui/depth-button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import { isReturning, listShown, openEditor, takeEdited, warmEditor, whenIdle } from "./list-return"
@@ -91,9 +92,14 @@ const EXPORT_LOOK = cn(SECONDARY_LOOK, BAR_BUTTON_SIZE)
 const DOWNLOAD_LOOK =
   "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#eef0f2] bg-white text-[#4b5563] transition-colors duration-100 group-hover/press:bg-[#f7f7f8] group-active/press:border-[#e5e7eb] group-active/press:bg-[#f1f2f4]"
 
-/** Sort beside the search field, from 768px: the field's own white box and hairline. On a phone it is DOWNLOAD_LOOK's. */
-const SORT_LOOK =
-  "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e3e5e8] bg-white text-[#4b5563] transition-colors duration-100 group-hover/press:bg-[#f7f7f8] group-active/press:bg-[#f1f2f4] lg:h-[35px] lg:w-[35px]"
+/**
+ * SORT, AT THE END OF THE TOOLBAR ON EVERY WIDTH: Download's quiet square,
+ * 32px, and 35px from 1024px with the rest of the page (the 7% and the 3%).
+ * It sat beside a boxed search above the table on a computer, in that
+ * field's heavier hairline; the computer has the phone's toolbar now, so it
+ * wears the phone's faintest one.
+ */
+const SORT_LOOK = cn(DOWNLOAD_LOOK, "lg:h-[35px] lg:w-[35px]")
 /** And when an order other than Newest is on. */
 const SORT_ON = "border-transparent bg-[#eceef1] text-[#1a1a2e] group-hover/press:bg-[#e5e7eb]"
 
@@ -131,10 +137,16 @@ const Press = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonEleme
 })
 
 /**
- * The New product button: the editor's near black Save (primaryDepth), at the
- * bar's 32px (35 from 1024px), with the 44px press on a phone.
+ * THE NEW PRODUCT BUTTON, VIOLET. "The New product button needs to be purple
+ * there, both on mobile and desktop." It had gone near black with the rest
+ * of the app's primaries (primaryDepth, the editor's Save); now it is the
+ * shared violet one (accentDepth, components/ui/depth-button), the only
+ * violet button on the page, the same on a phone and a computer. At the
+ * bar's 32px (35 from 1024px), with the 44px press on a phone. An empty
+ * shop's Create product, the one way forward in the middle of the card,
+ * wears it too.
  */
-const NEW_LOOK = cn(primaryDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px]", BAR_BUTTON_SIZE)
+const NEW_LOOK = cn(accentDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px]", BAR_BUTTON_SIZE)
 
 /**
  * A ROW'S TWO BUTTONS: Preview (the eye) and the more button, the same size
@@ -407,9 +419,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [notification, setNotification] = useState<{ message: string; visible: boolean; type: "success" | "error" }>({ message: "", visible: false, type: "success" })
-  /* Two fields, one search: the phone's in the list's toolbar and the computer's above the table. */
+  /* One field on every width, in the card's toolbar. */
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const phoneSearchRef = useRef<HTMLInputElement>(null)
 
   const exportPDF = () => {
     generateProductsPDF(products, formatMoney)
@@ -424,7 +435,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     { label: "Export as PDF", onClick: exportPDF },
   ]
 
-  /* Polaris's order, and as on Orders only the views with something in them, plus the open one. One view alone is not drawn. */
+  /* Polaris's order, and as on Orders only the views with something in them, plus the open one. The view's button is there even with All alone, as it always was on a phone: the toolbar keeps its shape. */
   const views = useMemo(
     () =>
       ([
@@ -643,7 +654,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     setSort(next)
     setPage(1)
   }
-  /* The phone's two sheets hand over their pick once they have gone (./pick-sheet). */
+  /* The toolbar's two picks: on a phone a sheet, which hands over its pick once it has gone; from 768px a dropdown, at once (./pick-sheet). */
   const pickView = (next: string) => showView(next as View)
   const pickSort = (next: string) => sortBy(next as Sort)
   const search = (q: string) => {
@@ -652,22 +663,14 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   }
   const clearSearch = () => {
     search("")
-    const field = [phoneSearchRef.current, searchInputRef.current].find((f) => f && f.getClientRects().length > 0)
-    field?.focus({ preventScroll: true })
+    searchInputRef.current?.focus({ preventScroll: true })
   }
-  /* What both fields share: the value, the typing, and Escape to clear. */
-  const searchField = {
-    type: "search",
-    enterKeyHint: "search" as const,
-    "aria-label": "Search products",
-    value: searchQuery,
-    onChange: (e: ChangeEvent<HTMLInputElement>) => search(e.target.value),
-    onKeyDown: (e: ReactKeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Escape" && searchQuery) {
-        e.preventDefault()
-        search("")
-      }
-    },
+  /* Escape clears the field, as its clear button does. */
+  const searchKey = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape" && searchQuery) {
+      e.preventDefault()
+      search("")
+    }
   }
 
   /*
@@ -854,15 +857,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
             ? "No active products"
             : "Every product is archived"
 
-  const viewIndex = Math.max(0, views.findIndex((v) => v.value === view))
-  const viewLabel = views[viewIndex]?.label ?? t("products.all")
-
-  /* The computer's Sort menu: the orders, a check on the one that is on. */
-  const sortItems = SORTS.map((o) => ({
-    label: o.label,
-    icon: <Check className={o.value === sort ? "opacity-100" : "opacity-0"} />,
-    onClick: () => sortBy(o.value),
-  }))
+  const viewLabel = views.find((v) => v.value === view)?.label ?? t("products.all")
 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
@@ -884,9 +879,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         grey, with Preview and the more button at the right. A row only says
         its status when it is not on sale. The bar keeps the title, Download
         and New product, top right, so nothing floats over the list or the
-        navigation pill. From 768px the same parts are a light table in the
-        same card, with the views and the search above it, where there is
-        room to show them all.
+        navigation pill. From 768px the same card and the same toolbar, over
+        a light table instead of the list: the view opens a dropdown under
+        it rather than a sheet, and nothing sits between the bar and the card.
       */}
       <PaneBar width={PAGE_WIDTH} className={cn(LIST_BAR, PAGE_BAR, PAGE_GUTTER)}>
         <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[28px] lg:leading-[35px]">{t("products.title")}</h1>
@@ -935,108 +930,44 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         ) : null}
       </PaneBar>
 
-      <div className={cn("@container mx-auto pb-2 md:pb-8", PAGE_WIDTH, GUTTER, PAGE_GUTTER)}>
-        {/*
-          FROM 768px: the views and the search above the card. Stacked (the
-          field, then the views) until the column is 700px wide, then one row
-          with the views on the left and the field on the right. By the
-          column's own width, not the window's: at 768px the sidebar leaves
-          the page 528px, and one row did not fit.
-        */}
-        {products.length > 0 ? (
-          <div data-controls="" className="hidden flex-col gap-2 pt-1 md:flex @min-[700px]:flex-row-reverse @min-[700px]:items-center @min-[700px]:justify-between @min-[700px]:gap-4">
-            <div className="flex min-w-0 items-center gap-2 lg:gap-[9px]">
-              <label data-search="" className="flex h-8 min-w-0 flex-1 cursor-text items-center lg:h-[35px] @min-[700px]:w-[240px] @min-[700px]:flex-none lg:@min-[700px]:w-[265px] xl:@min-[700px]:w-[298px]">
-                <span className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#e3e5e8] bg-white px-2.5 transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] lg:h-[35px] lg:gap-[9px] lg:px-[11px]">
-                  <Search className="h-[15px] w-[15px] shrink-0 text-[#9ca3af] lg:h-4 lg:w-4" aria-hidden />
-                  <input
-                    ref={searchInputRef}
-                    {...searchField}
-                    placeholder="Search products"
-                    className="min-w-0 flex-1 bg-transparent text-[13px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] lg:text-[14.5px] [&::-webkit-search-cancel-button]:hidden"
-                  />
-                  {searchQuery ? (
-                    <button type="button" aria-label="Clear search" className="-mr-1.5 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#9ca3af] hover:text-[#4b5563] lg:h-[27px] lg:w-[27px]" onClick={clearSearch}>
-                      <X className="h-4 w-4" />
-                    </button>
-                  ) : null}
-                </span>
-              </label>
-              <ResponsiveActionMenu
-                title="Sort by"
-                align="end"
-                menuWidth="w-52"
-                trigger={
-                  <Press aria-label="Sort" title="Sort" look={cn(SORT_LOOK, sort !== "newest" && SORT_ON)}>
-                    <ArrowUpDown className="h-[15px] w-[15px] lg:h-4 lg:w-4" />
-                  </Press>
-                }
-                items={sortItems}
-              />
-            </div>
-
-            {/*
-              THE VIEWS, AS ONE SEGMENTED CONTROL. A grey track and a white
-              segment that slides to the open view on transform alone. Equal
-              columns, so the segment is one column wide and moves by whole
-              widths of itself. Only when there is more than one view to be
-              in: a shop with nothing drafted or archived has nothing to
-              switch between.
-            */}
-            {views.length > 1 ? (
-              <div
-                role="tablist"
-                aria-label="Views"
-                data-views=""
-                className="relative grid h-8 w-[calc(var(--views)*84px)] shrink-0 lg:h-[35px] lg:w-[calc(var(--views)*93px)] xl:w-[calc(var(--views)*101px)]"
-                style={{ gridTemplateColumns: `repeat(${views.length}, minmax(0, 1fr))`, ["--views" as string]: views.length }}
-              >
-                <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[9px] bg-[#eceef1] lg:rounded-[10px]" />
-                <span
-                  aria-hidden
-                  data-segment=""
-                  className="pointer-events-none absolute bottom-[2px] left-[2px] top-[2px] rounded-[7px] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.08),0_0_0_0.5px_rgba(17,24,39,0.06)] transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
-                  style={{ width: `calc((100% - 4px) / ${views.length})`, transform: `translateX(${viewIndex * 100}%)` }}
-                />
-                {views.map((option) => {
-                  const selected = view === option.value
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      role="tab"
-                      aria-selected={selected}
-                      onClick={() => showView(option.value)}
-                      className={cn(
-                        "relative min-w-0 cursor-pointer truncate rounded-[7px] px-2 text-[13px] font-medium outline-none transition-colors duration-100 focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e] lg:text-[14.5px]",
-                        selected ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
-                      )}
-                    >
-                      {option.label}
-                    </button>
-                  )
-                })}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
+      <div className={cn("mx-auto pb-2 md:pb-8", PAGE_WIDTH, GUTTER, PAGE_GUTTER)}>
         <section
           ref={sectionRef}
           aria-label="Products"
-          className="relative mt-1 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-2.5 lg:mt-[11px]"
+          className="relative mt-1 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-2 lg:mt-[9px]"
         >
           {/*
-            THE PHONE'S TOOLBAR, THE CARD'S FIRST ROW. The view as a word and
-            an up and down chevron, opening a sheet of the views alone; a
-            search with no box of its own, 16px so iOS does not zoom into it;
-            a thin divider; and Sort, the arrows drawn 32px with the faintest
-            border, opening a sheet of the orders alone (./pick-sheet). Every
-            press 44px. Then the column's name.
+            THE TOOLBAR, THE CARD'S FIRST ROW, ON EVERY WIDTH. The view as a
+            word and an up and down chevron, opening the views alone; a
+            search with no box of its own that takes the rest of the row; a
+            thin divider; and Sort, the arrows in the faintest square,
+            opening the orders alone. Then the column's name on a phone, and
+            the table's heading from 768px.
+
+            "On desktop large screens, the search input is different from
+            that row thing, and the tabs are up there instead of being like
+            on the mobile version. Make it more good and clean: like mobile,
+            with an inline modal for All / Active / Draft / Archived." A
+            computer had a segmented control of the views and a boxed search
+            with Sort above the card, and a phone this row inside it. Now it
+            is this row everywhere, one element with one field, and only its
+            sizes and what a pick opens change with the width (./pick-sheet:
+            a sheet on a phone, the app's dropdown from 768px).
+
+            A PHONE: 48px, every press 44px, the search in 16px so iOS does
+            not zoom into it. FROM 768px: the buttons, the field and Sort at
+            the bar's 32px, in 48px, and from 1024px the page's 7% and 3%
+            (35px in 53px, 14.5px words). The row's insides line up with the
+            table under it: the view's word starts where the Product column
+            does (16px, 18 from 1024px, 22 from 1280px) and Sort ends where
+            the rows' more buttons end (12, 13 and 18px from the right).
           */}
           {products.length > 0 ? (
-            <div className="md:hidden">
-              <div data-toolbar="" className="flex h-12 items-center gap-1 border-b border-[#eef0f2] pl-0.5 pr-1.5">
+            <>
+              <div
+                data-toolbar=""
+                className="flex h-12 items-center gap-1 border-b border-[#eef0f2] pl-0.5 pr-1.5 md:pl-2 md:pr-3 lg:h-[53px] lg:gap-[5px] lg:pl-[9px] lg:pr-[13px] xl:pl-[13px] xl:pr-[18px]"
+              >
                 <PickSheet
                   name="views"
                   title="View"
@@ -1048,45 +979,51 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                       type="button"
                       data-view-select=""
                       aria-label={`Showing ${viewLabel}. Change view`}
-                      className="flex h-11 shrink-0 cursor-pointer items-center gap-1 rounded-lg pl-2.5 pr-2 text-[15px] font-semibold text-[#1a1a2e] outline-none transition-colors duration-100 active:bg-[#f1f2f4] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e] [-webkit-tap-highlight-color:transparent]"
+                      className="flex h-11 shrink-0 cursor-pointer items-center gap-1 rounded-lg pl-2.5 pr-2 text-[15px] font-semibold text-[#1a1a2e] outline-none transition-colors duration-100 active:bg-[#f1f2f4] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e] [-webkit-tap-highlight-color:transparent] md:h-8 md:px-2 md:text-[13px] md:hover:bg-[#f4f4f6] md:data-open:bg-[#ececef] lg:h-[35px] lg:gap-[5px] lg:px-[9px] lg:text-[14.5px]"
                     >
                       {viewLabel}
-                      <ChevronsUpDown className="h-4 w-4 text-[#6b7280]" aria-hidden />
+                      <ChevronsUpDown className="h-4 w-4 text-[#6b7280] md:h-[15px] md:w-[15px] lg:h-4 lg:w-4" aria-hidden />
                     </button>
                   }
                 />
-                <label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center gap-2 pl-1.5">
-                  <Search className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
+                <label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center gap-2 pl-1.5 md:h-8 md:pl-2 lg:h-[35px] lg:gap-[9px] lg:pl-[9px]">
+                  <Search className="h-4 w-4 shrink-0 text-[#9ca3af] md:h-[15px] md:w-[15px] lg:h-4 lg:w-4" aria-hidden />
                   <input
-                    ref={phoneSearchRef}
-                    {...searchField}
-                    placeholder="Search and filter"
-                    className="h-11 min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] [&::-webkit-search-cancel-button]:hidden"
+                    ref={searchInputRef}
+                    type="search"
+                    enterKeyHint="search"
+                    aria-label="Search products"
+                    value={searchQuery}
+                    onChange={(e) => search(e.target.value)}
+                    onKeyDown={searchKey}
+                    placeholder="Search products"
+                    className="h-11 min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] md:h-8 md:text-[13px] lg:h-[35px] lg:text-[14.5px] [&::-webkit-search-cancel-button]:hidden"
                   />
                   {searchQuery ? (
-                    <button type="button" aria-label="Clear search" className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center text-[#9ca3af] active:text-[#4b5563]" onClick={clearSearch}>
+                    <button type="button" aria-label="Clear search" className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[#9ca3af] active:text-[#4b5563] md:h-8 md:w-8 md:hover:text-[#4b5563] lg:h-[35px] lg:w-[35px]" onClick={clearSearch}>
                       <X className="h-4 w-4" />
                     </button>
                   ) : null}
                 </label>
-                <span aria-hidden data-divider="" className="h-6 w-px shrink-0 bg-[#e5e7eb]" />
+                <span aria-hidden data-divider="" className="h-6 w-px shrink-0 bg-[#e5e7eb] md:h-5 lg:h-[22px]" />
                 <PickSheet
                   name="sort"
                   title="Sort by"
                   options={SORTS}
                   value={sort}
                   onPick={pickSort}
+                  align="end"
                   trigger={
-                    <Press aria-label="Sort" data-sort="" look={cn(DOWNLOAD_LOOK, sort !== "newest" && SORT_ON)}>
-                      <ArrowUpDown className="h-4 w-4" />
+                    <Press aria-label="Sort" data-sort="" look={cn(SORT_LOOK, sort !== "newest" && SORT_ON, "group-data-open/press:bg-[#ececef]")}>
+                      <ArrowUpDown className="h-4 w-4 md:h-[15px] md:w-[15px] lg:h-4 lg:w-4" />
                     </Press>
                   }
                 />
               </div>
-              <div data-list-head="" aria-hidden hidden={pageProducts.length === 0} className="flex h-9 items-center border-b border-[#eef0f2] px-3 text-[12px] font-medium text-[#6b7280]">
+              <div data-list-head="" aria-hidden hidden={pageProducts.length === 0} className="flex h-9 items-center border-b border-[#eef0f2] px-3 text-[12px] font-medium text-[#6b7280] md:hidden">
                 Product
               </div>
-            </div>
+            </>
           ) : null}
 
           {/*

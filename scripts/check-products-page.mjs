@@ -3,19 +3,22 @@
  *  THE PRODUCTS PAGE, MEASURED
  * ===========================================================================
  * On a phone: the bar with the title, Download (the quiet icon with the
- * faintest border) and New product as the one violet button, the editor's
- * Save to the letter; then the list as one white card whose first row is
- * its toolbar (the view with an up and down chevron, a borderless search, a
- * thin divider, Sort with the faintest border), then the column's name,
- * then 64px rows with a 50px picture, the name, the price and sales in
- * grey, and at the right Preview and the more button, 32px each in 44px
- * presses, on one centre line. The view opens a sheet of the views alone,
- * Sort a sheet of the orders alone. No search field or views above the
- * card. From 768px the same parts as a light table in the card (56px rows,
- * a 40px picture, 13px text; 64px rows and a 44px picture from 1280px),
- * with the views and the search above it, and from 1024px every size 7%
- * bigger and then 3% more (1200px column to 1284px, then 1323px), printed
- * against what it was before the 3%. A phone keeps its sizes. Every press
+ * faintest border) and New product as the one violet button (accentDepth,
+ * the violet the app's primary had before it went near black); then the
+ * list as one white card whose first row is its toolbar (the view with an
+ * up and down chevron, a borderless search, a thin divider, Sort with the
+ * faintest border), then the column's name, then 64px rows with a 50px
+ * picture, the name, the price and sales in grey, and at the right Preview
+ * and the more button, 32px each in 44px presses, on one centre line. The
+ * view opens a sheet of the views alone, Sort a sheet of the orders alone.
+ * No search field or views above the card. From 768px the same card with
+ * the same toolbar as its first row (the bar's 32px buttons in a 48px row,
+ * 35 in 53 from 1024px, lined up with the table's first and last columns),
+ * the view and Sort each opening the app's dropdown under their button
+ * instead of a sheet, over a light table (56px rows, a 40px picture, 13px
+ * text; 64px rows and a 44px picture from 1280px), and from 1024px every
+ * size 7% bigger and then 3% more (1200px column to 1284px, then 1323px),
+ * printed against what it was before the 3%. A phone keeps its sizes. Every press
  * on a phone is 44px however small it is drawn, nothing scrolls sideways,
  * nothing moves after the first frame (CLS 0), and nothing of the page's
  * sits under the navigation pill, whose box is read from
@@ -164,14 +167,14 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     xl measured before the 3%, for the before and after.
   */
   const SIZES = {
-    md: { bar: 66, btn: 32, btnText: "13px", search: 32, searchText: "13px", track: 32, segment: 28, tab: 32, tabText: "13px", head: 36, row: 56, pic: 40, radius: "9px", name: "13px", table: "13px", footer: 40, arrows: "32,28", title: "25px", rowBtn: 28, rowGap: 8 },
-    lg: { bar: 73, btn: 35, btnText: "14.5px", search: 35, searchText: "14.5px", track: 35, segment: 31, tab: 35, tabText: "14.5px", head: 40, row: 62, pic: 44, radius: "10px", name: "14.5px", table: "14.5px", footer: 44, arrows: "35,31", title: "28px", rowBtn: 31, rowGap: 9 },
-    xl: { bar: 73, btn: 35, btnText: "14.5px", search: 35, searchText: "14.5px", track: 35, segment: 31, tab: 35, tabText: "14.5px", head: 44, row: 70, pic: 48, radius: "11px", name: "15.5px", table: "14.5px", footer: 48, arrows: "35,31", title: "28px", rowBtn: 31, rowGap: 9 },
+    md: { bar: 66, btn: 32, btnText: "13px", search: 32, searchText: "13px", toolbar: 48, viewIn: 16, sortIn: 12, head: 36, row: 56, pic: 40, radius: "9px", name: "13px", table: "13px", footer: 40, arrows: "32,28", title: "25px", rowBtn: 28, rowGap: 8 },
+    lg: { bar: 73, btn: 35, btnText: "14.5px", search: 35, searchText: "14.5px", toolbar: 53, viewIn: 18, sortIn: 13, head: 40, row: 62, pic: 44, radius: "10px", name: "14.5px", table: "14.5px", footer: 44, arrows: "35,31", title: "28px", rowBtn: 31, rowGap: 9 },
+    xl: { bar: 73, btn: 35, btnText: "14.5px", search: 35, searchText: "14.5px", toolbar: 53, viewIn: 22, sortIn: 18, head: 44, row: 70, pic: 48, radius: "11px", name: "15.5px", table: "14.5px", footer: 48, arrows: "35,31", title: "28px", rowBtn: 31, rowGap: 9 },
   }
   /* What lg and xl measured with the 7% alone, before "just make the products page 3% bigger". */
   const OLD = {
-    lg: { bar: 71, row: 60, pic: 43, name: 14, table: 14, head: 39, btn: 34, search: 34, track: 34, footer: 43, rowBtn: 30, container: 1284, title: 27 },
-    xl: { bar: 71, row: 68, pic: 47, name: 15, table: 14, head: 43, btn: 34, search: 34, track: 34, footer: 47, rowBtn: 30, container: 1284, title: 27 },
+    lg: { bar: 71, row: 60, pic: 43, name: 14, table: 14, head: 39, btn: 34, search: 34, footer: 43, rowBtn: 30, container: 1284, title: 27 },
+    xl: { bar: 71, row: 68, pic: 47, name: 15, table: 14, head: 43, btn: 34, search: 34, footer: 47, rowBtn: 30, container: 1284, title: 27 },
   }
   for (const [label, vp, hash] of [
     ["phone-360", phone(360)],
@@ -193,8 +196,9 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await p.evaluate(`window.__shown = ${shown}; window.__rows = ${rowsShown}`)
     const pageLeft = hash ? 240 : 0
     const row = { label }
-    const SEARCH = isPhone ? "section[aria-label=Products] [data-toolbar] input[type=search]" : "[data-controls] input[type=search]"
-    const SEARCH_BOX = isPhone ? "[data-toolbar]" : "[data-controls]"
+    /* One field on every width, in the card's toolbar. */
+    const SEARCH = "section[aria-label=Products] [data-toolbar] input[type=search]"
+    const SEARCH_BOX = "[data-toolbar]"
 
     /* Nothing moved after the first frame. */
     const cls = await p.evaluate(() => ({ cls: +window.__cls.toFixed(4), shifts: window.__shifts }))
@@ -238,8 +242,11 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     expect(bar.barH === barH, barH === 66 ? "the bar is Orders' 66px" : `the bar is Orders' 66px times 1.07 and 1.03, ${barH}px`, bar.barH)
     expect(bar.titleSize === (isPhone ? "22px" : S.title), `the title is ${isPhone ? "22px" : S.title}`, bar.titleSize)
     row.newBg = bar.addBg
-    expect(bar.addText === "New product" && bar.add[1] === S.btn && bar.addSize === S.btnText && bar.addBg === "rgb(26, 26, 46)", `New product is one near black button (the app's primary since 7ea799ec), ${S.btn}px with ${S.btnText} text`, { add: bar.add, size: bar.addSize, bg: bar.addBg })
-    expect(bar.addBg === bar.saveBg && bar.addShadow === bar.saveShadow, "with the editor's Save's colour and depth, to the letter", { newProduct: bar.addShadow, save: bar.saveShadow })
+    /* "The New product button needs to be purple there, both on mobile and desktop." The editor's Save stays the app's near black. */
+    const VIOLET_SHADOW = "rgba(255, 255, 255, 0.22) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.18) 0px -1px 0px 0px inset, rgba(76, 29, 149, 0.25) 0px 1px 1px 0px"
+    expect(bar.addText === "New product" && bar.add[1] === S.btn && bar.addSize === S.btnText && bar.addBg === "rgb(139, 92, 246)", `New product is one violet (#8b5cf6) button, ${S.btn}px with ${S.btnText} text`, { add: bar.add, size: bar.addSize, bg: bar.addBg })
+    /* Tailwind 4 writes its empty ring and inset-ring layers first; the depth is what follows them. */
+    expect(bar.addShadow.endsWith(VIOLET_SHADOW) && bar.saveBg === "rgb(26, 26, 46)", "with the violet primary's depth (a line of light on top, a darker one under it), while the editor's Save stays near black", { newProduct: bar.addShadow, saveBg: bar.saveBg })
     if (isPhone) {
       expect(!bar.expShown, "the word Export is not in the bar on a phone", bar.expShown)
       const d = bar.download
@@ -276,7 +283,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         const controls = document.querySelector("[data-controls]")
         const head = section.querySelector("[data-list-head]")
         const order = [select, label, divider, dl].map((el) => el.getBoundingClientRect().left)
-        const inCard = bar.parentElement.parentElement === section && b.top - s.top <= 2
+        const inCard = bar.parentElement === section && b.top - s.top <= 2
         return {
           inCard, bar: box(bar), card: box(section), order: order.every((x, i) => i === 0 || x > order[i - 1]),
           select: { box: box(select), text: select.textContent.trim(), chevron: !!select.querySelector("svg"), size: getComputedStyle(select).fontSize },
@@ -295,7 +302,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(tb.section[0] === "16px" && tb.section[1] === "rgb(255, 255, 255)", "the list is one white card, 16px round", tb.section)
       expect(tb.inCard && tb.bar[3] === 48 && tb.order, "its first row, inside the card, is the toolbar (48px): the view, the search, a divider, Sort, in that order", { inCard: tb.inCard, bar: tb.bar, order: tb.order })
       expect(tb.select.text === "All" && tb.select.chevron && tb.select.box[3] === 44 && tb.select.box[2] >= 44 && tb.select.size === "15px", "the view reads All with an up and down chevron, a 44px press", tb.select)
-      expect(tb.search.placeholder === "Search and filter" && tb.search.font === "16px" && tb.search.border === "0px/0px" && tb.search.icon && tb.search.box[3] === 44, "then a search with no box of its own, Search and filter, 16px text so iOS does not zoom, a 44px press", tb.search)
+      expect(tb.search.placeholder === "Search products" && tb.search.font === "16px" && tb.search.border === "0px/0px" && tb.search.icon && tb.search.box[3] === 44, "then a search with no box of its own, Search products, 16px text so iOS does not zoom, a 44px press", tb.search)
       expect(tb.search.box[2] >= 120, "and the search takes the rest of the row", tb.search.box[2])
       expect(tb.divider[2] === 1 && tb.divider[3] === 24, "a thin divider, 1 by 24", { box: tb.divider, bg: tb.dividerBg })
       expect(tb.sort.icon && tb.sort.popup === "dialog" && tb.sort.press[2] === 44 && tb.sort.press[3] === 44 && tb.sort.drawn[2] === 32 && tb.sort.drawn[3] === 32, "Sort, where Download was: the up and down arrows drawn 32px in a 44px press, opening a sheet", tb.sort)
@@ -328,40 +335,59 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       if (ring.visible) expect(/^solid /.test(ring.outline) && !/rgb\(0, 95, 204\)|auto/.test(ring.outline) && ring.own === "none", "closed from the keyboard, the focus goes back to Download with the app's own outline, not the browser's blue ring", ring)
       else console.log(`        (focus after the sheet: ${JSON.stringify(ring)})`)
     } else {
-      /* Search and sort above the card: a real field, always there, with Sort beside it. */
-      const tools = await p.evaluate(() => {
-        const field = document.querySelector("[data-controls] label[data-search]")
-        const input = field.querySelector("input[type=search]")
-        const drawn = input.parentElement.getBoundingClientRect()
-        const sort = document.querySelector("[data-controls] button[aria-label='Sort']")
+      /*
+        THE TOOLBAR, THE CARD'S FIRST ROW HERE TOO. "On desktop large
+        screens, the search input is different from that row thing, and the
+        tabs are up there instead of being like on the mobile version." The
+        phone's parts at the bar's sizes: the view's word with its chevron,
+        a search with no box of its own taking the rest of the row, a thin
+        divider, Sort in the faintest square. The view's word starts where
+        the Product column's does and Sort ends where the rows' more buttons
+        end. Nothing between the bar and the card, and no segmented views.
+      */
+      const tb = await p.evaluate(() => {
+        const section = document.querySelector("section[aria-label=Products]")
+        const bar = section.querySelector("[data-toolbar]")
+        const b = bar.getBoundingClientRect()
+        const s = section.getBoundingClientRect()
+        const inner = { left: s.left + section.clientLeft, right: s.left + section.clientLeft + section.clientWidth }
+        const select = bar.querySelector("button[data-view-select]")
+        const label = bar.querySelector("label[data-search]")
+        const input = label.querySelector("input[type=search]")
+        const divider = bar.querySelector("[data-divider]")
+        const sort = bar.querySelector("button[aria-label='Sort']")
         const sortDrawn = sort.firstElementChild.getBoundingClientRect()
-        const tb = document.querySelector("[data-toolbar]")
+        const sc = getComputedStyle(sort.firstElementChild)
+        const box = (el) => { const r = el.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)] }
+        const textLeft = (el) => { const t = [...el.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim()); const r = document.createRange(); r.selectNodeContents(t); return r.getBoundingClientRect().left }
+        const th = section.querySelector("thead th")
+        const more = [...section.querySelectorAll("tbody tr:not([hidden]) button[aria-label^='Actions for']")][0].getBoundingClientRect()
+        const order = [select, label, divider, sort].map((el) => el.getBoundingClientRect().left)
+        const barBottom = document.querySelector("[data-orders-bar]").getBoundingClientRect().bottom
+        const inputs = [...document.querySelectorAll("input[type=search]")].filter((i) => i.getClientRects().length > 0)
         return {
-          drawn: [Math.round(drawn.width), Math.round(drawn.height)], font: getComputedStyle(input).fontSize, placeholder: input.placeholder,
-          sortDrawn: [Math.round(sortDrawn.width), Math.round(sortDrawn.height)], toolbar: tb ? tb.getClientRects().length > 0 : false,
+          inCard: bar.parentElement === section && b.top - s.top <= 2, h: Math.round(b.height), order: order.every((x, i) => i === 0 || x > order[i - 1]), below: Math.round(s.top - barBottom),
+          select: { box: box(select), text: select.textContent.trim(), chevron: !!select.querySelector("svg"), size: getComputedStyle(select).fontSize, weight: getComputedStyle(select).fontWeight, popup: select.getAttribute("aria-haspopup") },
+          search: { input: box(input), font: getComputedStyle(input).fontSize, placeholder: input.placeholder, border: getComputedStyle(input).borderTopWidth + "/" + getComputedStyle(label).borderTopWidth, icon: !!label.querySelector("svg"), width: Math.round(label.getBoundingClientRect().width) },
+          divider: box(divider),
+          sort: { drawn: [Math.round(sortDrawn.width), Math.round(sortDrawn.height)], border: `${sc.borderTopWidth} ${sc.borderTopStyle} ${sc.borderTopColor}`, radius: sc.borderTopLeftRadius, popup: sort.getAttribute("aria-haspopup") },
+          viewIn: +(textLeft(select) - inner.left).toFixed(1), columnIn: +(textLeft(th) - inner.left).toFixed(1),
+          sortIn: +(inner.right - sortDrawn.right).toFixed(1), moreIn: +(inner.right - more.right).toFixed(1),
+          controls: !!document.querySelector("[data-controls]"), views: [...document.querySelectorAll("[role=tablist]")].some((t) => t.getClientRects().length > 0), searches: inputs.length,
         }
       })
-      row.search = tools.drawn[1]
-      expect(tools.placeholder === "Search products" && tools.font === S.searchText && tools.drawn[1] === S.search, `a search field above the card, ${S.search}px with ${S.searchText} text`, tools)
-      expect(tools.sortDrawn.join() === `${S.search},${S.search}`, `Sort beside it at ${S.search}px`, tools.sortDrawn)
-      expect(!tools.toolbar, "the phone's toolbar is not drawn", tools.toolbar)
-
-      /* The views: one segmented control. */
-      const seg = await p.evaluate(() => {
-        const list = document.querySelector("[data-controls] [role=tablist][data-views]")
-        const track = list.firstElementChild.getBoundingClientRect()
-        const thumb = list.querySelector("[data-segment]").getBoundingClientRect()
-        const tabs = [...list.querySelectorAll("[role=tab]")].map((x) => {
-          const r = x.getBoundingClientRect()
-          return { t: x.textContent.trim(), w: Math.round(r.width), h: Math.round(r.height), left: Math.round(r.left), cut: x.scrollWidth > x.clientWidth, size: getComputedStyle(x).fontSize }
-        })
-        return { track: Math.round(track.height), thumb: [Math.round(thumb.left), Math.round(thumb.width), Math.round(thumb.height)], tabs }
-      })
-      row.views = seg.track
-      expect(seg.tabs.map((t) => t.t).join() === "All,Active,Draft,Archived", "the views in Polaris's order, All first", seg.tabs.map((t) => t.t))
-      expect(seg.track === S.track && seg.thumb[2] === S.segment, `a ${S.track}px grey track with a ${S.segment}px white segment`, { track: seg.track, segment: seg.thumb[2] })
-      expect(seg.tabs.every((t) => t.h === S.tab && t.w >= 44 && !t.cut && t.size === S.tabText), `each view a ${S.tab}px button with ${S.tabText} text, none cut off`, seg.tabs.map((t) => [t.w, t.h, t.cut, t.size]))
-      expect(Math.abs(seg.thumb[0] - seg.tabs[0].left) <= 2, "the segment sits on All", { segment: seg.thumb[0], all: seg.tabs[0].left })
+      row.toolbar = tb.h
+      row.search = tb.search.input[3]
+      expect(tb.inCard && tb.h === S.toolbar && tb.order, `the card's first row is the toolbar, ${S.toolbar}px: the view, the search, a divider, Sort, in that order`, { inCard: tb.inCard, h: tb.h, order: tb.order })
+      expect(!tb.controls && !tb.views && tb.searches === 1, "no segmented views and no second search above the card: one field, in the card", { controls: tb.controls, views: tb.views, searches: tb.searches })
+      expect(tb.below === (tier === "md" ? 8 : 9), `the card follows the bar, ${tier === "md" ? 8 : 9}px under it, with nothing between them`, tb.below)
+      expect(tb.select.text === "All" && tb.select.chevron && tb.select.box[3] === S.btn && tb.select.size === S.btnText && tb.select.weight === "600" && tb.select.popup === "menu", `the view reads All with an up and down chevron, ${S.btn}px with ${S.btnText} semibold, and says it opens a menu`, tb.select)
+      expect(tb.search.placeholder === "Search products" && tb.search.font === S.searchText && tb.search.input[3] === S.search && tb.search.border === "0px/0px" && tb.search.icon, `then the phone's search, with no box of its own, ${S.search}px with ${S.searchText} text`, tb.search)
+      expect(tb.search.width >= 200, "taking the rest of the row", tb.search.width)
+      expect(tb.divider[2] === 1, "a thin divider", tb.divider)
+      expect(tb.sort.drawn.join() === `${S.search},${S.search}` && tb.sort.border === "1px solid rgb(238, 240, 242)" && tb.sort.radius === "8px" && tb.sort.popup === "menu", `Sort at the end, ${S.search}px, in the phone's faintest square`, tb.sort)
+      expect(Math.abs(tb.viewIn - S.viewIn) <= 0.5 && Math.abs(tb.viewIn - tb.columnIn) <= 0.5, `the view's word starts where the Product column's does, ${S.viewIn}px in`, { view: tb.viewIn, column: tb.columnIn })
+      expect(Math.abs(tb.sortIn - S.sortIn) <= 0.5 && Math.abs(tb.sortIn - tb.moreIn) <= 0.5, `and Sort ends where the rows' more buttons end, ${S.sortIn}px in`, { sort: tb.sortIn, more: tb.moreIn })
     }
 
     /* The column: 1200px, 1323px (7% and 3% more) from 1024px, with 32px gutters, 35px from 1024px. */
@@ -556,7 +582,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(t.rows.every((r) => r.eye[1] === S.rowBtn && r.eye[0] > r.eye[1] && r.viewText === "View" && r.mid === 0 && r.gap === S.rowGap && r.eyeInCell), `View, a word, on every row in the actions column, ${S.rowBtn}px tall like the more button, ${S.rowGap}px before it, on one centre line`, [...new Set(t.rows.map((r) => `${r.viewText} ${r.eye.join("x")}/${r.menu.join("x")} gap ${r.gap} mid ${r.mid}`))])
       if (tier !== "md") {
         const o = OLD[tier]
-        const n = { bar: bar.barH, row: t.rows[0].h, pic: t.rows[0].pic[0], name: parseFloat(t.rows[0].nameSize), table: parseFloat(t.rows[0].tableSize), head: t.headH, btn: bar.add[1], search: row.search, track: row.views, rowBtn: t.rows[0].menu[0], container: col.width, title: parseFloat(bar.titleSize) }
+        const n = { bar: bar.barH, row: t.rows[0].h, pic: t.rows[0].pic[0], name: parseFloat(t.rows[0].nameSize), table: parseFloat(t.rows[0].tableSize), head: t.headH, btn: bar.add[1], search: row.search, rowBtn: t.rows[0].menu[0], container: col.width, title: parseFloat(bar.titleSize) }
         const r = Object.fromEntries(Object.keys(n).filter((k) => k !== "container").map((k) => [k, +(n[k] / o[k]).toFixed(3)]))
         growth.push({ label, ...Object.fromEntries(Object.keys(r).map((k) => [k, `${o[k]} > ${n[k]} (${((r[k] - 1) * 100).toFixed(1)}%)`])), container: `${Math.min(o.container, col.width)} > ${col.width}` })
         /* The footer is measured on the sixty product page below; its before and after is added there. */
@@ -674,9 +700,9 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       the same <img> element after (none made again), rows move and fade on
       opacity and transform only (the card's foot on clip-path), and every
       frame has a row drawn at half strength or more, a leaving one or an
-      arriving one. Pressed on the views' own buttons, which on a phone are
-      in the DOM but not drawn: the sheet's rows call the same showView, and
-      the sheet itself is pressed further down.
+      arriving one. Picked the way a person picks: the view's dropdown from
+      768px, its sheet on a phone (whose pick reaches the page once the sheet
+      has gone), timed from the frame the page has the new view.
     */
     const swap = await p.evaluate(async () => {
       const section = document.querySelector("section[aria-label=Products]")
@@ -688,12 +714,34 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       })
       mo.observe(section, { childList: true, subtree: true })
       const kind = (t) => (t.dataset?.row ? "row" : t === section ? "card" : t.matches?.("[data-list-leaving]") ? "leaving" : t.matches?.("[data-footer]") ? "footer" : t.matches?.("[data-empty]") ? "empty" : t.tagName)
+      /* Resolves in the microtask after the commit that shows the new view, whose layout effect starts the move. */
+      const pickView = async (name) => {
+        const trigger = section.querySelector("[data-toolbar] button[data-view-select]")
+        const wide = matchMedia("(min-width: 768px)").matches
+        const rowsSel = wide ? "[data-pick-menu=views] [data-row]" : "[data-pick-sheet=views] [data-pick]"
+        trigger.click()
+        let pick = null
+        for (let i = 0; i < 100 && !pick; i++) {
+          await new Promise((r) => setTimeout(r, 20))
+          pick = [...document.querySelectorAll(rowsSel)].find((x) => x.textContent.trim() === name)
+        }
+        if (!wide) await new Promise((r) => setTimeout(r, 650))
+        const shown = new Promise((res) => {
+          const watch = new MutationObserver(() => {
+            if (trigger.textContent.trim() !== name) return
+            watch.disconnect()
+            res()
+          })
+          watch.observe(trigger, { subtree: true, characterData: true, childList: true })
+        })
+        pick.click()
+        await shown
+      }
       const run = async (name) => {
+        await pickView(name)
         const t0 = performance.now()
-        ;[...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === name).click()
-        /* React commits a click's update in a microtask; the move starts in that commit's layout effect. */
-        await new Promise((r) => setTimeout(r, 0))
-        const anims = document.getAnimations().filter((a) => a.effect?.target && section.contains(a.effect.target)).map((a) => ({
+        /* The toolbar's own button letting go of its pressed grey is not the list's move. */
+        const anims = document.getAnimations().filter((a) => a.effect?.target && section.contains(a.effect.target) && !a.effect.target.closest("[data-toolbar]")).map((a) => ({
           on: kind(a.effect.target),
           props: [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k).filter((x) => !["offset", "easing", "composite", "computedOffset"].includes(x))))],
           ms: a.effect.getTiming().duration,
@@ -764,19 +812,72 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(now.statuses.every((s) => s === null), "in the Draft view the rows do not say Draft again", now.statuses)
       await sheetPick("views", "All")
     } else {
-      /* Views: Draft holds the two drafts, and the segment slides under it. */
-      await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === "Draft").click())
-      await wait(320)
-      const drafts = await p.evaluate(() => {
-        const tab = [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === "Draft").getBoundingClientRect()
-        const segment = document.querySelector("[data-segment]")
-        const s = segment.getBoundingClientRect()
-        return { rows: window.__rows().length, tab: [Math.round(tab.left), Math.round(tab.width)], segment: [Math.round(s.left), Math.round(s.width)], transition: getComputedStyle(segment).transitionProperty }
+      /*
+        THE VIEW'S DROPDOWN. Under its button, lined up with its left edge,
+        in the app's popover surface (the date range picker's), the views
+        alone, the one on checked and in semibold and holding the focus.
+        Nothing on the page moves while it is open. The keyboard: down and
+        up move, Enter picks and the focus comes back to the button; the
+        arrows on the button open it, Escape closes it.
+      */
+      const pageBox = () => p.evaluate(() => {
+        const sec = document.querySelector("section[aria-label=Products]").getBoundingClientRect()
+        const b = document.querySelector("[data-toolbar] button[data-view-select]").getBoundingClientRect()
+        return [sec.top, sec.height, b.left, b.width, b.height].map((x) => Math.round(x)).join()
       })
-      expect(drafts.rows === 2, "the Draft view holds the two drafts", drafts.rows)
-      expect(Math.abs(drafts.segment[0] - drafts.tab[0]) <= 2 && Math.abs(drafts.segment[1] - drafts.tab[1]) <= 3 && /^transform\b/.test(drafts.transition), "and the white segment has slid under Draft, on transform alone", drafts)
-      await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === "All").click())
-      await wait(80)
+      const closedBox = await pageBox()
+      await p.click("[data-toolbar] button[data-view-select]")
+      await wait(300)
+      const dd = await p.evaluate(() => {
+        const menu = document.querySelector("[data-pick-menu=views]")
+        if (!menu) return null
+        const surface = menu.closest("[data-slot=popover-content]")
+        const btn = document.querySelector("[data-toolbar] button[data-view-select]")
+        const rows = [...menu.querySelectorAll("[data-row]")]
+        const r = surface.getBoundingClientRect(), b = btn.getBoundingClientRect()
+        const c = getComputedStyle(surface)
+        return {
+          rows: rows.map((x) => x.textContent.trim()), checked: rows.filter((x) => x.getAttribute("aria-checked") === "true").map((x) => x.textContent.trim()),
+          weight: getComputedStyle(rows[0].firstElementChild).fontWeight, checks: rows.map((x) => !!x.querySelector("svg")),
+          focused: document.activeElement?.textContent.trim(), role: menu.getAttribute("role"), rowRole: rows[0].getAttribute("role"), heights: [...new Set(rows.map((x) => Math.round(x.getBoundingClientRect().height)))],
+          below: Math.round(r.top - b.bottom), leftEdge: Math.round(r.left - b.left), radius: c.borderTopLeftRadius, bg: c.backgroundColor, shadow: c.boxShadow !== "none",
+          expanded: btn.getAttribute("aria-expanded"), open: btn.hasAttribute("data-open"), btnBg: getComputedStyle(btn).backgroundColor,
+          sheets: [...document.querySelectorAll("[data-pick-sheet]")].filter((x) => x.getClientRects().length > 0).length,
+        }
+      })
+      const openBox = await pageBox()
+      await p.screenshot({ path: join(shots, `${label}-products-v4-views-open.png`) })
+      expect(dd && dd.role === "menu" && dd.rowRole === "menuitemradio" && dd.rows.join() === "All,Active,Draft,Archived" && dd.sheets === 0, "the view opens a dropdown of the views alone, All, Active, Draft, Archived, not a sheet", dd)
+      expect(dd && dd.checked.join() === "All" && dd.checks.join() === "true,false,false,false" && dd.weight === "600" && dd.focused === "All", "the one on (All) has the check, is semibold, and has the focus", dd)
+      /* Radix places it on whole pixels from a button that can sit on a half one: a pixel either way. */
+      expect(dd && dd.below >= 6 && dd.below <= 7 && Math.abs(dd.leftEdge) <= 1 && dd.radius === "12px" && dd.bg === "rgb(255, 255, 255)" && dd.shadow && dd.heights.join() === "34", "6px under the button, on its left edge, in the app's white 12px surface with its shadow, 34px rows", dd)
+      expect(dd && dd.expanded === "true" && dd.open && dd.btnBg === "rgb(236, 236, 239)", "the button says it is open and holds its pressed grey", dd)
+      expect(openBox === closedBox, "nothing on the page moved when it opened", { closed: closedBox, open: openBox })
+      await p.keyboard.press("ArrowDown")
+      await p.keyboard.press("ArrowDown")
+      const onDraft = await p.evaluate(() => document.activeElement?.textContent.trim())
+      await p.keyboard.press("Enter")
+      await wait(320)
+      const drafts = await p.evaluate(() => ({
+        rows: window.__rows().length, label: document.querySelector("[data-toolbar] button[data-view-select]").textContent.trim(),
+        menu: !!document.querySelector("[data-pick-menu=views]"), focus: document.activeElement?.matches("[data-toolbar] button[data-view-select]") ?? false,
+      }))
+      expect(onDraft === "Draft" && drafts.rows === 2 && drafts.label === "Draft" && !drafts.menu, "down twice and Enter picks Draft: the two drafts, the button says Draft, the dropdown gone", { onDraft, ...drafts })
+      expect(drafts.focus, "and the focus is back on the button", drafts.focus)
+      await p.keyboard.press("ArrowDown")
+      await wait(250)
+      const byKey = await p.evaluate(() => ({ menu: !!document.querySelector("[data-pick-menu=views]"), focused: document.activeElement?.textContent.trim() }))
+      await p.keyboard.press("Escape")
+      await wait(250)
+      const shut = await p.evaluate(() => ({ menu: !!document.querySelector("[data-pick-menu=views]"), focus: document.activeElement?.matches("[data-toolbar] button[data-view-select]") ?? false, rows: window.__rows().length }))
+      expect(byKey.menu && byKey.focused === "Draft", "the down arrow on the button opens it, on the one that is on", byKey)
+      expect(!shut.menu && shut.focus && shut.rows === 2, "Escape closes it, changes nothing, and the focus is on the button", shut)
+      await p.click("[data-toolbar] button[data-view-select]")
+      await wait(250)
+      await p.evaluate(() => [...document.querySelectorAll("[data-pick-menu=views] [data-row]")].find((t) => t.textContent.trim() === "All").click())
+      await wait(320)
+      const allBack = await p.evaluate(() => window.__rows().length)
+      expect(allBack === 13, "and a click on All brings every product back", allBack)
     }
 
     /* Sort: price high to low puts the dearest first. */
@@ -789,20 +890,31 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(sheet && sheet.checked.join() === "Newest" && sheet.checks.filter(Boolean).length === 1 && sheet.checks[0], "Newest, the one on, has the check", sheet && sheet.checked)
       sorted = !!sheet
     } else {
-      await p.click("[data-controls] button[aria-label='Sort']")
+      await p.click("[data-toolbar] button[aria-label='Sort']")
       await wait(250)
+      const menu = await p.evaluate(() => {
+        const list = document.querySelector("[data-pick-menu=sort]")
+        if (!list) return null
+        const r = list.closest("[data-slot=popover-content]").getBoundingClientRect()
+        const b = document.querySelector("[data-toolbar] button[aria-label='Sort']").getBoundingClientRect()
+        const rows = [...list.querySelectorAll("[data-row]")]
+        return { rows: rows.map((x) => x.textContent.trim()), checked: rows.filter((x) => x.getAttribute("aria-checked") === "true").map((x) => x.textContent.trim()), rightEdge: Math.round(b.right - r.right), inside: r.right <= window.innerWidth }
+      })
+      await p.screenshot({ path: join(shots, `${label}-products-v4-sort-open.png`) })
+      expect(menu && menu.rows.join() === "Newest,Oldest,Title A to Z,Title Z to A,Price high to low,Price low to high,Best selling" && menu.checked.join() === "Newest", "Sort opens the same dropdown with the orders alone, Newest checked", menu)
+      expect(menu && Math.abs(menu.rightEdge) <= 1 && menu.inside, "on Sort's right edge, inside the window", menu)
       sorted = await p.evaluate(() => {
-        const option = [...document.querySelectorAll("[role=menuitem]")].find((b) => b.textContent.trim() === "Price high to low")
+        const option = [...document.querySelectorAll("[data-pick-menu=sort] [data-row]")].find((b) => b.textContent.trim() === "Price high to low")
         if (!option) return null
         option.click()
         return true
       })
-      await wait(150)
+      await wait(250)
     }
     const prices = await p.evaluate(() => [...window.__rows()].slice(0, 3).map((r) => (r.textContent.match(/\$\d+\.\d{2}/) || [""])[0]))
     expect(sorted && prices.join() === "$54.00,$50.50,$47.00", "Sort, Price high to low, puts the dearest first", prices)
     {
-      const sortOn = await p.$eval(isPhone ? "[data-toolbar] button[aria-label='Sort']" : "[data-controls] button[aria-label='Sort']", (b) => getComputedStyle(b.firstElementChild).backgroundColor)
+      const sortOn = await p.$eval("[data-toolbar] button[aria-label='Sort']", (b) => getComputedStyle(b.firstElementChild).backgroundColor)
       expect(sortOn === "rgb(236, 238, 241)", "and the sort button shows an order other than Newest is on", sortOn)
     }
     if (isPhone) {
@@ -823,7 +935,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await wait(80)
     const empty = await p.evaluate(() => document.querySelector("section[aria-label=Products]").textContent)
     expect(/No products match/.test(empty) && /Clear search/.test(empty), "a search with nothing found says so and offers to clear it", /No products match/.test(empty))
-    if (isPhone) {
+    {
       const stays = await p.evaluate(() => { const t = document.querySelector("[data-toolbar]"); return !!t && t.getClientRects().length > 0 })
       expect(stays, "and the toolbar stays, so the search can be changed", stays)
     }
@@ -910,10 +1022,10 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       const a = create && getComputedStyle(create, "::after")
       return {
         text: card.textContent, create: !!create, createBox: r ? [Math.round(r.width), Math.round(r.height) - 2 * (parseFloat(a.top) || 0)] : null, createBg: create ? getComputedStyle(create).backgroundColor : null,
-        controls: !!document.querySelector("[data-controls]"), export: !!document.querySelector("button[aria-label='Export products']"), barNew: !!document.querySelector("a[data-new-product]"), footer: !!card.querySelector("[data-footer]"),
+        controls: !!document.querySelector("[data-toolbar]"), export: !!document.querySelector("button[aria-label='Export products']"), barNew: !!document.querySelector("a[data-new-product]"), footer: !!card.querySelector("[data-footer]"),
       }
     })
-    expect(/No products yet/.test(e.text) && e.create && e.createBg === "rgb(26, 26, 46)" && !e.footer, "No products yet, with a near black Create product, and no footer counting nothing", e)
+    expect(/No products yet/.test(e.text) && e.create && e.createBg === "rgb(139, 92, 246)" && !e.footer, "No products yet, with New product's violet Create product, and no footer counting nothing", e)
     expect(e.createBox && e.createBox[1] >= 44, "Create product is a 44px press", e.createBox)
     expect(!e.controls && !e.export, "no search, sort, views or Export in an empty shop", { controls: e.controls, export: e.export })
     expect(!e.barNew, "and no second New product in the bar: one violet button on the screen, not two", e.barNew)
@@ -955,8 +1067,14 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await p.goto(`file://${join(stubs, "index.html")}#legacy`)
     await p.evaluate(() => document.fonts.ready)
     await wait(300)
-    const tabs = () => p.$$eval("[role=tab]", (t) => t.map((x) => x.textContent.trim()))
-    const view = async (name) => { await p.evaluate((name) => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === name).click(), name); await wait(350) }
+    const shownView = () => p.$eval("[data-toolbar] button[data-view-select]", (b) => b.textContent.trim())
+    /* The view's dropdown, as a person picks from it. */
+    const view = async (name) => {
+      await p.click("[data-toolbar] button[data-view-select]")
+      await wait(250)
+      await p.evaluate((name) => [...document.querySelectorAll("[data-pick-menu=views] [data-row]")].find((t) => t.textContent.trim() === name).click(), name)
+      await wait(350)
+    }
     const names = () => p.$$eval("section[aria-label=Products] table tbody tr:not([hidden])", (r) => r.map((tr) => tr.querySelector("td a").textContent.trim()))
     const act = async (title, label) => {
       await p.click(`table button[aria-label='Actions for ${title}']`)
@@ -981,7 +1099,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     expect(!all.includes("Product 1") && table.get("p0").status === "archived" && table.get("p0").archived === true,
       "Archive takes a live product off: its status is archived, and it leaves All", { row: table.get("p0"), sent: sent.slice(2) })
     await view("Archived")
-    expect((await names()).includes("Product 1"), "  and it is in Archived", await tabs())
+    expect((await names()).includes("Product 1"), "  and it is in Archived", await shownView())
     await p.close()
   }
   await browser.close()
