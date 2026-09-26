@@ -33,11 +33,10 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
-import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { Link2, ShoppingBag, Sparkles, TrendingDown, TrendingUp } from "lucide-react"
+import { Link2, ShoppingBag, TrendingDown, TrendingUp } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
-import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
+import { TryProStrip } from "@/components/app/announcement-bar-mobile"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { usePeriodParams } from "@/components/app/use-period-params"
 import { ProductPicker } from "@/components/app/product-picker"
@@ -458,23 +457,8 @@ export function AnalyticsClient({ products, userId }: AnalyticsClientProps) {
   return (
     <CompareContext.Provider value={compareLabel}>
     <div className="h-full overflow-y-auto page-scroll bg-[#fafafa] select-none overscroll-none app-page-enter" style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none", overscrollBehavior: "none" } as React.CSSProperties}>
-      {/* Announcement Bar — fixed above black header on mobile */}
-      <AnnouncementBarMobile>
-        <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
-          <span className="text-[12px] md:text-[14px] text-white/90">
-            <span className="font-semibold text-white">Try Pro</span>
-            <span className="hidden md:inline">, our most popular plan for content creators and businesses.</span>
-          </span>
-          <Link
-            href="/upgrade"
-            className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
-          >
-            <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
-            <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
-            <span className="relative z-10">Upgrade</span>
-          </Link>
-        </div>
-      </AnnouncementBarMobile>
+      {/* Try Pro at the top of the page (components/app/announcement-bar-mobile). */}
+      <TryProStrip />
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
         {/* Title, with the Store / OnePage switch beside it on a phone */}

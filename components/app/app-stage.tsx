@@ -353,6 +353,9 @@ function fadeTo(el: HTMLElement, to: number, duration: number, easing: string) {
  * corners". So the fixed box itself is the header's #111111 and the rounded
  * surface sits inside it; the corners show the header, whatever page is
  * underneath. From md the surface is square and the box is transparent.
+ * The radius is the header's corners' own (--app-top-corner, app/globals.css),
+ * and those corners are drawn over this surface too, so the two can never
+ * disagree about the curve.
  *
  * In on a 150ms opacity fade, over the page you were on, so there is never a
  * frame with nothing on screen. When the page lands it fades out from
@@ -446,7 +449,7 @@ function SlowPage() {
       data-app-slow-page=""
       className="pointer-events-none fixed inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] z-[38] bg-[#111111] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:bg-transparent"
     >
-      <div data-app-slow-surface="" className="h-full overflow-hidden rounded-t-[20px] bg-[#f8f9fa] md:rounded-none">
+      <div data-app-slow-surface="" className="h-full overflow-hidden rounded-t-[var(--app-top-corner)] bg-[#f8f9fa] md:rounded-none">
         <PageSpinner />
       </div>
     </div>

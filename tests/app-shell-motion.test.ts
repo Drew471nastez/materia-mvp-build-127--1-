@@ -198,7 +198,7 @@ section("A slow page: no outline, a spinner")
     /playEntrance\(s\.outer, \{ fade: !slowSurfaceIsUp\(\) \}\)/.test(stage) && /if \(!rise && !fade\) continue/.test(stage))
   check("it covers the content area by main's own numbers: under the header and the pill, rounded on a phone",
     /pointer-events-none fixed inset-x-0 bottom-0 top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] z-\[38\] bg-\[#111111\] md:left-\[240px\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:bg-transparent/.test(stage)
-      && /data-app-slow-surface="" className="h-full overflow-hidden rounded-t-\[20px\] bg-\[#f8f9fa\] md:rounded-none"/.test(stage)
+      && /data-app-slow-surface="" className="h-full overflow-hidden rounded-t-\[var\(--app-top-corner\)\] bg-\[#f8f9fa\] md:rounded-none"/.test(stage)
       && /pt-\[calc\(68px_\+_env\(safe-area-inset-top,_0px\)\)\] md:pt-\[calc\(58px\+env\(safe-area-inset-top,_0px\)\)\] md:pl-\[240px\]/.test(read("app/app/layout.tsx")))
   /* Regression: "the purple things in the corners". The rounded surface was
      the fixed box itself, so its corners showed the page under it, and Home's
@@ -241,9 +241,10 @@ section("No page draws a picture of itself while it loads, inside or out")
   /* The owner still saw grey drawings of pages on a phone: the route outlines
      are gone, and these were the ones left inside the pages and the shell. */
   const cold = code("app/app/cold-start.tsx")
-  check("a native cold start is the shell's frame and the spinner: the header's colour, the rounded content area, no violet bar, no drawing",
+  check("a native cold start is the shell's frame and the spinner: the header's colour, the content area with the header's own rounded corners, no violet bar, no drawing",
     !existsSync(join(root, "app/app/dashboard-skeleton.tsx"))
-      && /fixed inset-0 bg-\[#111111\] md:bg-\[#131316\]/.test(cold) && /rounded-t-\[20px\] bg-\[#f8f9fa\]/.test(cold)
+      && /fixed inset-0 bg-\[#111111\] md:bg-\[#131316\]/.test(cold) && /top-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] bg-\[#f8f9fa\]/.test(cold)
+      && /<AppTopCorners \/>/.test(cold)
       && /<PageSpinner \/>/.test(cold) && !/8b5cf6|animate-pulse|bg-gray-/.test(cold))
   const layout = code("app/app/layout.tsx")
   check("and both of the layout's gates use it", (layout.match(/loadingFallback=\{<AppColdStart \/>\}/g) ?? []).length === 2)

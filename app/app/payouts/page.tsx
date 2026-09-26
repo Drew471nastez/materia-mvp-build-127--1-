@@ -1,11 +1,9 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { Sparkles } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { PayoutsClient } from "./payouts-client";
-import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile";
+import { TryProStrip } from "@/components/app/announcement-bar-mobile";
 import { getMarketExchangeRate } from "@/lib/exchange-rate";
 import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/ui/shimmer";
 import { pageUser } from "@/lib/auth/page-user"
@@ -40,23 +38,8 @@ export default async function PayoutsPage() {
 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
-      {/* Announcement bar, above the page's own bar on a phone */}
-      <AnnouncementBarMobile>
-        <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
-          <span className="text-[12px] md:text-[14px] text-white/90">
-            <span className="font-semibold text-white">Try Pro</span>
-            <span className="hidden md:inline">, our most popular plan for content creators and businesses.</span>
-          </span>
-          <Link
-            href="/upgrade"
-            className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
-          >
-            <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
-            <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
-            <span className="relative z-10">Upgrade</span>
-          </Link>
-        </div>
-      </AnnouncementBarMobile>
+      {/* Try Pro, above the page's own bar (components/app/announcement-bar-mobile). */}
+      <TryProStrip />
 
       {/*
         THE BAR, THE ORDERS AND PRODUCTS BAR. The title and one line under it

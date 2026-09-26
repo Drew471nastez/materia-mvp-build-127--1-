@@ -1662,7 +1662,9 @@ section("Two at once still make five, and an import that says what went wrong")
   check("an /app page's HTML is the shell's frame and spinner until its script has run, rail and all from md",
     /<LanguageProvider fallback=\{<AppColdStart \/>\}>/.test(read("components/app/app-layout-wrapper.tsx"))
       && /hidden w-\[240px\] border-r border-neutral-200\/60 bg-white md:block/.test(read("app/app/cold-start.tsx"))
-      && /md:left-\[240px\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:rounded-none/.test(read("app/app/cold-start.tsx")))
+      && /md:left-\[240px\] md:top-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\]"/.test(read("app/app/cold-start.tsx"))
+      /* The top corners are the header's own now (components/app/app-top-corners), at every width. */
+      && /<AppTopCorners \/>/.test(read("app/app/cold-start.tsx")))
   const stage = read("components/app/app-stage.tsx")
   check("the stage measures nothing in React's commit that can wait: the landing starts on the frame that paints the page",
     /const layered = !!document\.documentElement\.dataset\.layerMotion\s*requestAnimationFrame\(\(\) => \{/.test(stage)
