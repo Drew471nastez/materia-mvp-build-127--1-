@@ -12,7 +12,8 @@
  *   VIDEO      a picture and a play button, no player, until pressed
  *   SENSITIVE  a press is held and asked about; Go back leaves the page as it
  *              was; Continue runs the link's own click, once
- *   EDITOR     the sensitive switch and the schedule write the block
+ *   EDITOR     the sensitive switch and the schedule (a day from the month
+ *              grid and a typed time) write the block
  *   PAGE       nothing scrolls sideways
  *
  *   PROBE_CSS=source node scripts/check-onepage-blocks.mjs
@@ -123,19 +124,29 @@ for (const [label, vp] of [
   const small = await page.$eval('[data-probe="small"] h2', (h) => parseFloat(getComputedStyle(h).fontSize))
   expect(Math.abs(small - 17.6) < 0.2, "the editor's small phone draws them at 0.8", small)
 
-  await page.click('[data-probe="editor"] input[type="checkbox"]')
-  await page.evaluate(() => [...document.querySelectorAll('[data-probe="editor"] button')].find((b) => b.textContent.includes("Schedule")).click())
+  /* The sensitive switch, then the schedule: a day from the month grid and a typed 10:00 AM (components/onepage/date-time-field). */
+  await page.click('[data-probe="editor"] [data-sensitive-switch]')
+  await page.click('[data-probe="editor"] [data-schedule-toggle]')
   await sleep(150)
-  const inputs = await page.$$('[data-probe="editor"] input[type="datetime-local"]')
-  await inputs[0].evaluate((el) => {
-    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set
-    set.call(el, "2030-01-02T10:00")
-    el.dispatchEvent(new Event("input", { bubbles: true }))
-  })
-  await sleep(150)
+  /* Pressed through the DOM: this page is wider than the phone (its two columns), so the sheet sits partly outside the visible part. */
+  const press = (sel) => page.$eval(sel, (b) => b.click())
+  await press('[data-probe="editor"] [data-datetime-field="Show from"]')
+  await sleep(600)
+  await press("[data-datetime-panel] [data-month-next]")
+  await sleep(100)
+  const day = await page.$eval("[data-datetime-panel] [data-day$='-02']", (b) => b.getAttribute("data-day"))
+  await press(`[data-datetime-panel] [data-day="${day}"]`)
+  await sleep(100)
+  await page.$eval("[data-datetime-panel] [data-time-hour]", (e) => e.focus())
+  await page.keyboard.type("10")
+  await page.keyboard.type("00")
+  await press('[data-datetime-panel] [data-time-ampm="AM"]')
+  await press("[data-datetime-panel] [data-datetime-done]")
+  await sleep(600)
   const state = JSON.parse(await page.$eval('[data-probe="state"]', (e) => e.textContent))
+  const expected = await page.evaluate((d) => new Date(`${d}T10:00`).toISOString(), day)
   const badge = await page.$eval('[data-probe="editor"]', (e) => e.textContent.includes("Starts "))
-  expect(state.sensitive === true && typeof state.schedule?.start_at === "string" && state.schedule.start_at.startsWith("2030-01-02") && badge, "EDITOR: the switch and the schedule write the block", state)
+  expect(state.sensitive === true && state.schedule?.start_at === expected && badge, "EDITOR: the switch and the schedule write the block", { state, expected })
 
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
   expect(sideways <= 0, "PAGE does not scroll sideways", sideways)

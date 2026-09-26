@@ -263,6 +263,7 @@ const SUITES = [
   "tests/site-contact.test.ts",
   "tests/account-sections.test.ts",
   "tests/onepage-blocks.test.ts",
+  "tests/onepage-editor-ui.test.ts",
   "tests/checkout-loads.test.ts",
 ]
 

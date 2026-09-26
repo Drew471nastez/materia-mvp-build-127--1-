@@ -160,11 +160,12 @@ function main() {
   for (const [file, count] of [
     ["components/onepage/tabs/links-tab.tsx", 5],
     ["components/onepage/tabs/products-tab.tsx", 1],
-    ["components/onepage/mobile-color-picker.tsx", 1],
   ] as const) {
     const used = (read(file).match(/scrim-graduated/g) ?? []).length
     check(`${file.split("/").slice(-1)[0]}: ${count} scrim${count > 1 ? "s" : ""}`, used === count, `${used} of ${count}`)
   }
+  /* The colour picker's phone sheet is the shared BottomSheet now (components/onepage/color-picker), which brings its own scrim; mobile-color-picker.tsx only wraps it. */
+  check("color-picker.tsx: its phone sheet is the shared sheet, with its scrim", /<BottomSheet\n\s*isOpen=\{open\}/.test(read("components/onepage/color-picker.tsx")) && /<ColorField variant="swatch"/.test(read("components/onepage/mobile-color-picker.tsx")))
   /* The OnePage editor's two questions are the shared BottomSheet on a phone now, which brings its own scrim. */
   check("onepage-editor.tsx: its questions are the shared sheet, with its scrim", /<BottomSheet isOpen=\{open\}/.test(read("components/onepage/onepage-editor.tsx")))
 

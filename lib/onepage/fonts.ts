@@ -105,3 +105,27 @@ export function onePageFontSampleHref(names: string[]): string | null {
   const q = families.map((f) => `family=${encode(f)}`).join("&")
   return `https://fonts.googleapis.com/css2?${q}&text=${encodeURIComponent(letters)}&display=swap`
 }
+
+/*
+ * THE FALLBACK A FONT NAME NEEDS. The default theme says `Inter`, bare, and
+ * so did every theme made before the Design tab wrote values like
+ * "'Poppins', sans-serif". A bare family name has no generic family after
+ * it, so while the Google stylesheet is still on its way (it is
+ * `display=swap`), or where it cannot load, the browser draws the page in its
+ * default face: Times. The editor's preview showed a serif page for a
+ * creator who had chosen Inter. `fontStack` adds the right generic family
+ * to a name that has none; a value that already ends in one is left as it is.
+ */
+const SERIF = new Set(["Playfair Display", "Merriweather", "Lora", "Crimson Text", "Source Serif Pro", "Abril Fatface", "Alfa Slab One"])
+const SCRIPT = new Set(["Dancing Script", "Caveat", "Pacifico", "Lobster", "Permanent Marker", "Satisfy"])
+const MONO = new Set(["JetBrains Mono"])
+const GENERIC = /(^|,)\s*(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|ui-monospace)\s*$/i
+
+export function fontStack(value: unknown, fallback = "Inter"): string {
+  const raw = typeof value === "string" && value.trim() ? value.trim() : fallback
+  if (GENERIC.test(raw)) return raw
+  const family = familyOf(raw) || fallback
+  const quoted = /^['"]/.test(raw) ? raw : `'${family}'`
+  const generic = SERIF.has(family) ? "Georgia, serif" : MONO.has(family) ? "ui-monospace, monospace" : SCRIPT.has(family) ? "cursive" : "system-ui, -apple-system, 'Segoe UI', sans-serif"
+  return `${quoted}, ${generic}`
+}

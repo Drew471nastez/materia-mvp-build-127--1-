@@ -4,102 +4,56 @@ import type React from "react"
 
 import { useOnePage } from "@/lib/onepage/context"
 import { useEffect, useState, useRef, useCallback } from "react"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Slider as BaseSlider } from "@/components/ui/slider"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { MobileColorPicker } from "@/components/onepage/mobile-color-picker"
 import { SocialIcon } from "@/components/onepage/brand-icons"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
+  AtSign,
   ImageIcon,
-  Droplets,
   ChevronRight,
   ChevronLeft,
+  CircleUserRound,
   Layers,
+  PaintBucket,
+  PanelBottom,
+  Pencil,
   Type,
   RectangleHorizontal,
-  Sparkles,
   Check,
   Loader2,
-  Share2,
   Search,
-  User,
   Video,
   Trash2,
   Upload,
-  Move,
   X,
-  Pipette,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import type { OnePageTheme } from "@/lib/onepage/types"
-import { onePageFontSampleHref } from "@/lib/onepage/fonts"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { usePhone } from "@/components/app/date-range-picker"
+import { secondaryDepth } from "@/components/ui/depth-button"
+import { familyOf, fontStack, onePageFontSampleHref } from "@/lib/onepage/fonts"
+import { normalizeHex } from "@/lib/onepage/color"
+import { WALLPAPER_PATTERNS, isPatternId, type PatternOpacity } from "@/lib/onepage/wallpaper"
+import { WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import {
+  ChoiceCard,
+  ColorRow,
+  NavRow,
+  PanelHeader,
+  PanelSection,
+  ProMark,
+  RangeRow,
+  SectionTitle,
+  Segmented,
+  SettingRow,
+  SwitchRow,
+  choiceOff,
+  choiceOn,
+  fieldInput,
+} from "@/components/onepage/editor-kit"
 
 type DesignSection = "header" | "theme" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
-
-// Custom Toggle Component with theme-style design
-function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
-  return (
-    <input
-      type="checkbox"
-      checked={checked}
-      onChange={(e) => onCheckedChange(e.target.checked)}
-      className="theme-checkbox"
-    />
-  )
-}
-
-// Custom Slider Component with premium minimal styling
-function Slider({ value, onValueChange, min = 0, max = 100, step = 1 }: {
-  value: number[];
-  onValueChange: (value: number[]) => void;
-  min?: number;
-  max?: number;
-  step?: number
-}) {
-  const percentage = ((value[0] - min) / (max - min)) * 100
-  const numTicks = 5
-  const ticks = Array.from({ length: numTicks }, (_, i) => (i / (numTicks - 1)) * 100)
-
-  return (
-    <div className="relative w-full h-6 flex items-center">
-      {/* Track */}
-      <div className="relative w-full h-[4px] bg-[#f0f0f0] rounded-full">
-        {/* Tick markers */}
-        {ticks.map((pos, i) => (
-          <div
-            key={i}
-            className="absolute w-[6px] h-[6px] bg-[#e0e0e0] rounded-full -translate-y-1/2 top-1/2"
-            style={{ left: `calc(${pos}% - 3px)` }}
-          />
-        ))}
-        {/* Hidden input for interaction */}
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value[0]}
-          onChange={(e) => onValueChange([Number(e.target.value)])}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-        />
-        {/* Thumb */}
-        <div
-          className="absolute w-[21px] h-[21px] bg-white rounded-full -translate-y-1/2 top-1/2 pointer-events-none"
-          style={{
-            left: `calc(${percentage}% - 10.5px)`,
-            boxShadow: '0 2px 5px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)'
-          }}
-        />
-      </div>
-    </div>
-  )
-}
 
 // Body text fonts
 const FONTS = [
@@ -187,20 +141,6 @@ const BACKGROUND_IMAGES = [
   { id: "fusion-gradient", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/3513ccb7c260ffd3f3662776ca8ac9e0.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMzUxM2NjYjdjMjYwZmZkM2YzNjYyNzc2Y2E4YWM5ZTAuanBnIiwiaWF0IjoxNzY4OTA3Njc5LCJleHAiOjU2NDc4MzU2Nzl9.mNyFEKqxNOBl82EwxJrGPy_gC4bX31cnczX_zGgRt6k", label: "Fusion" },
   { id: "blue-texture", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/214ffad10a8306624600af8823503d46.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMjE0ZmZhZDEwYTgzMDY2MjQ2MDBhZjg4MjM1MDNkNDYuanBnIiwiaWF0IjoxNzY4OTA3Njg5LCJleHAiOjYwMjYyNjc2ODl9.iymmMjpCYELdPQqT_BbfAOWDFSngkYtx4ssuE9Pid2g", label: "Blue Texture" },
   { id: "abstract-dark", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/19fef3f73560866d37752eb95418f4bb.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMTlmZWYzZjczNTYwODY2ZDM3NzUyZWI5NTQxOGY0YmIuanBnIiwiaWF0IjoxNzY4OTA3Njk5LCJleHAiOjM5MzI1NjgxMTY5OX0.ThQFYyEylNyx07kOmK9oBiZ9JqqCNHeFJJ-zZAa_7R8", label: "Abstract Dark" },
-]
-
-const BACKGROUND_PATTERNS = [
-  { id: "none", name: "None", preview: null },
-  { id: "grid", name: "Grid", preview: "grid" },
-  { id: "dots", name: "Dots", preview: "dots" },
-  { id: "waves", name: "Waves", preview: "waves" },
-  { id: "zigzag", name: "Zigzag", preview: "zigzag" },
-  { id: "diagonal", name: "Diagonal", preview: "diagonal" },
-  { id: "morph", name: "Morph", preview: "morph" },
-  { id: "organic", name: "Organic", preview: "organic" },
-  { id: "flowmaze", name: "Flow Maze", preview: "flowmaze" },
-  { id: "topographic", name: "Topographic", preview: "topographic" },
-  { id: "stars", name: "Stars", preview: "stars" },
 ]
 
 const THEME_TEMPLATES = [
@@ -763,87 +703,110 @@ const THEME_TEMPLATES = [
   },
 ]
 
+const SECTION_LABEL: Record<DesignSection, string> = {
+  theme: "Theme",
+  header: "Header",
+  wallpaper: "Wallpaper",
+  text: "Text",
+  buttons: "Buttons",
+  socials: "Social icons",
+  footer: "Footer",
+}
+
+/**
+ * ===========================================================================
+ *  THE DESIGN TAB: A LIST, THEN ONE PANEL AT A TIME
+ * ===========================================================================
+ * It was a rail of seven unlabelled icons on a computer and a strip of
+ * chips that ran off the side of a phone, with every section's controls
+ * stacked under a small heading. Now it opens on a list, as Linktree's does:
+ * each row names a part of the page and says in grey what it is set to now
+ * (the font's name, "Gradient, with grain"), so the page can be read before
+ * anything is opened. A row opens its panel, which has a way back in a grey
+ * circle and its name in large type, and the panel scrolls to its top.
+ *
+ * The open panel is kept for this visit in sessionStorage, so switching to
+ * Links and back returns to it; a new visit opens on the list.
+ */
 export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" | null }) {
-  const [activeSection, setActiveSection] = useState<DesignSection>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('onepage-design-section')
-      if (saved && ['header', 'theme', 'wallpaper', 'text', 'buttons', 'socials', 'footer'].includes(saved)) {
-        return saved as DesignSection
-      }
+  const { onepage } = useOnePage()
+  const [section, setSectionState] = useState<DesignSection | null>(() => {
+    try {
+      const saved = typeof window !== "undefined" ? window.sessionStorage.getItem("onepage-design-section") : null
+      return saved && saved in SECTION_LABEL ? (saved as DesignSection) : null
+    } catch {
+      return null
     }
-    return "theme"
   })
-  const [sidebarExpanded, setSidebarExpanded] = useState(false)
-
-  // Save active section to localStorage when it changes
-  useEffect(() => {
-    localStorage.setItem('onepage-design-section', activeSection)
-  }, [activeSection])
-
-  // Listen for storage events to navigate to specific section (e.g., from "Design Social Icons" button)
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'onepage-design-section' && e.newValue) {
-        const validSections = ['header', 'theme', 'wallpaper', 'text', 'buttons', 'socials', 'footer']
-        if (validSections.includes(e.newValue)) {
-          setActiveSection(e.newValue as DesignSection)
-        }
-      }
+  const rootRef = useRef<HTMLDivElement>(null)
+  const setSection = useCallback((next: DesignSection | null) => {
+    setSectionState(next)
+    try {
+      if (next) window.sessionStorage.setItem("onepage-design-section", next)
+      else window.sessionStorage.removeItem("onepage-design-section")
+    } catch {
+      /* A private window: the panel is simply not remembered. */
     }
-    window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
+    /* The panel starts at its top, not wherever the list was scrolled to. */
+    const scroller = rootRef.current?.closest<HTMLElement>("[data-scroll-container]")
+    scroller?.scrollTo({ top: 0 })
   }, [])
 
-  const sections = [
-    { id: "header" as const, label: "Header", icon: ImageIcon },
-    { id: "theme" as const, label: "Theme", icon: Layers },
-    { id: "wallpaper" as const, label: "Wallpaper", icon: Droplets },
-    { id: "text" as const, label: "Text", icon: Type },
-    { id: "buttons" as const, label: "Buttons", icon: RectangleHorizontal },
-    { id: "socials" as const, label: "Socials", icon: Share2 },
-    { id: "footer" as const, label: "Footer", icon: Sparkles },
-  ]
+  if (!onepage) return null
+  const { theme, settings } = onepage
+  const t = theme as any
+  const templateName = THEME_TEMPLATES.find((x) => x.id === theme.template_id)?.name
+  const bodyFont = FONTS.find((f) => familyOf(f.value) === familyOf(theme.font_family))?.name || familyOf(theme.font_family) || "Inter"
+  const titleFont = t.title_font ? familyOf(t.title_font) : null
+  const patternName = isPatternId(t.background_pattern) && (theme.background_type === "solid" || theme.background_type === "gradient") ? WALLPAPER_PATTERNS.find((x) => x.id === t.background_pattern)?.name.toLowerCase() : null
+  const wallpaperSummary =
+    theme.background_type === "gradient" ? `Gradient${patternName ? `, ${patternName}` : t.gradient_noise ? ", with grain" : ""}` :
+    theme.background_type === "image" ? (theme.background_image_url ? "Image" : "Image, none chosen yet") :
+    theme.background_type === "video" ? "Video" :
+    `Fill, ${(normalizeHex(theme.background_color) || theme.background_color || "").toUpperCase()}${patternName ? `, ${patternName}` : ""}`
+  const swatch = (bg: string) => <span aria-hidden className="h-7 w-7 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]" style={{ background: bg }} />
+
+  if (section) {
+    return (
+      <div ref={rootRef} key={section} data-design-panel={section}>
+        <PanelHeader title={SECTION_LABEL[section]} onBack={() => setSection(null)} backLabel="Back to Design" />
+        {section === "header" && <HeaderSection />}
+        {section === "theme" && <ThemeSection />}
+        {section === "wallpaper" && <WallpaperSection />}
+        {section === "text" && <TextSection />}
+        {section === "buttons" && <ButtonsSection />}
+        {section === "socials" && <SocialsSection />}
+        {section === "footer" && <FooterSection userPlan={userPlan} />}
+      </div>
+    )
+  }
 
   return (
-    <div className="flex flex-col md:flex-row gap-3 md:gap-4">
-      <TooltipProvider delayDuration={0}>
-        <nav className={cn("hidden md:flex shrink-0 flex-col bg-gray-50/80 rounded-2xl p-2 transition-all duration-200 sticky top-0 self-start", sidebarExpanded ? "w-40" : "w-14")}>
-          <button onClick={() => setSidebarExpanded(!sidebarExpanded)} className="flex items-center justify-center w-full h-9 mb-2 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 transition-colors">
-            {sidebarExpanded ? <ChevronLeft className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
-          </button>
-          <div className="space-y-1">
-            {sections.map(({ id, label, icon: Icon }) => (
-              <Tooltip key={id}>
-                <TooltipTrigger asChild>
-                  <button onClick={() => setActiveSection(id)} className={cn("flex items-center w-full rounded-xl transition-all duration-150", sidebarExpanded ? "px-3 py-2.5 gap-3" : "p-2.5 justify-center", activeSection === id ? "bg-white text-foreground shadow-sm border border-gray-200" : "text-muted-foreground hover:bg-white/60 hover:text-foreground")}>
-                    <Icon className={cn("shrink-0", sidebarExpanded ? "h-4 w-4" : "h-5 w-5")} />
-                    {sidebarExpanded && <span className="text-sm font-medium truncate">{label}</span>}
-                  </button>
-                </TooltipTrigger>
-                {!sidebarExpanded && <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>}
-              </Tooltip>
-            ))}
-          </div>
-        </nav>
-        <div className="md:hidden w-full">
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {sections.map(({ id, label, icon: Icon }) => (
-              <button key={id} onClick={() => setActiveSection(id)} className={cn("flex items-center gap-2 px-3 py-2 rounded-xl whitespace-nowrap transition-all text-sm", activeSection === id ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>
-                <Icon className="h-4 w-4" />{label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </TooltipProvider>
-      <div className="flex-1 min-w-0">
-        {activeSection === "header" && <HeaderSection />}
-        {activeSection === "theme" && <ThemeSection />}
-        {activeSection === "wallpaper" && <WallpaperSection />}
-        {activeSection === "text" && <TextSection />}
-        {activeSection === "buttons" && <ButtonsSection />}
-        {activeSection === "socials" && <SocialsSection />}
-        {activeSection === "footer" && <FooterSection userPlan={userPlan} />}
-      </div>
+    <div ref={rootRef} data-design-panel="home">
+      {FONT_SAMPLE_HREF ? <link rel="stylesheet" href={FONT_SAMPLE_HREF} /> : null}
+      <PanelHeader title="Design" />
+      <nav aria-label="Design" className="flex flex-col">
+        <NavRow dataKey="theme" icon={Layers} title="Theme" subtitle={templateName || "Your own"} onClick={() => setSection("theme")} />
+        <NavRow dataKey="header" icon={CircleUserRound} title="Header" subtitle={`${(t.header_layout || "classic") === "hero" ? "Hero" : "Classic"} layout, ${t.title_style === "logo" ? "logo title" : "text title"}`} onClick={() => setSection("header")} />
+        <NavRow
+          dataKey="wallpaper"
+          icon={PaintBucket}
+          title="Wallpaper"
+          subtitle={wallpaperSummary}
+          trailing={theme.background_type === "solid" || theme.background_type === "gradient" ? swatch(theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color) : null}
+          onClick={() => setSection("wallpaper")}
+        />
+        <NavRow
+          dataKey="text"
+          icon={Type}
+          title="Text"
+          subtitle={<span style={{ fontFamily: fontStack(theme.font_family) }}>{titleFont && titleFont !== bodyFont ? `${bodyFont}, titles in ${titleFont}` : bodyFont}</span>}
+          onClick={() => setSection("text")}
+        />
+        <NavRow dataKey="buttons" icon={RectangleHorizontal} title="Buttons" subtitle={`${theme.button_style === "filled" ? "Solid" : theme.button_style === "outline" ? "Outline" : "Glass"}, ${theme.button_border_radius ?? 8}px corners`} trailing={swatch(theme.button_color)} onClick={() => setSection("buttons")} />
+        <NavRow dataKey="socials" icon={AtSign} title="Social icons" subtitle={SOCIAL_STYLES.find((x) => x.id === (t.social_icon_style || "filled"))?.label || "Solid"} onClick={() => setSection("socials")} />
+        <NavRow dataKey="footer" icon={PanelBottom} title="Footer" subtitle={settings.show_branding === false ? "Storelib badge hidden" : "Storelib badge shown"} onClick={() => setSection("footer")} />
+      </nav>
     </div>
   )
 }
@@ -882,9 +845,6 @@ function HeaderSection() {
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // Title font modal state
-  const [showTitleFontModal, setShowTitleFontModal] = useState(false)
 
   // Logo upload/crop states
   const [showLogoUploadModal, setShowLogoUploadModal] = useState(false)
@@ -1693,43 +1653,50 @@ function HeaderSection() {
   }, [isDragging, isResizing, handleMouseMove, handleMouseUp])
 
   return (
-    <div className="space-y-6 md:space-y-8">
-      <h2 className="text-lg md:text-xl font-semibold">Header</h2>
-
-      <div className="flex items-center gap-4 md:gap-5">
-        <div className="h-16 w-16 md:h-20 md:w-20 border overflow-hidden rounded-full relative bg-gray-100">
+    <div>
+      <PanelSection>
+        <SettingRow label="Profile image" description={avatarVideoUrl ? "A video, playing on a loop" : onepage.avatar_url ? "An image or GIF" : "Add a photo, a logo or a short video"}>
+          {/* The picture itself is the button, with a pencil on its corner, as Linktree draws it. */}
+          <button
+            type="button"
+            onClick={() => setShowEditModal(true)}
+            disabled={uploading}
+            aria-label="Change profile image"
+            data-avatar-edit
+            className="relative h-[88px] w-[88px] shrink-0 cursor-pointer rounded-2xl outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] disabled:cursor-wait"
+          >
+            <span className="absolute inset-0 overflow-hidden rounded-2xl bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
           {avatarVideoUrl ? (
-            <>
-              {onepage.avatar_url ? (
-                <img src={onepage.avatar_url} alt={onepage.title} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
+                <>
+                  {onepage.avatar_url ? (
+                    <img src={onepage.avatar_url} alt={onepage.title} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
+                  ) : (
+                    <div className="absolute inset-0 bg-gray-200 animate-pulse" />
+                  )}
+                  <video
+                    src={avatarVideoUrl}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="relative z-[1] w-full h-full object-cover opacity-0 transition-all duration-500"
+                    onLoadedData={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
+                    onCanPlay={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
+                    onPlaying={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
+                  />
+                </>
+              ) : onepage.avatar_url ? (
+                <img src={onepage.avatar_url} alt={onepage.title} className="w-full h-full object-cover" />
               ) : (
-                <div className="absolute inset-0 bg-gray-200 animate-pulse" />
+                <div className="w-full h-full flex items-center justify-center text-[28px] font-semibold text-[#6b7280] bg-[#f1f2f4]">{onepage.title?.charAt(0) || "?"}</div>
               )}
-              <video
-                src={avatarVideoUrl}
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="relative z-[1] w-full h-full object-cover opacity-0 transition-all duration-500"
-                onLoadedData={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-                onCanPlay={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-                onPlaying={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-              />
-            </>
-          ) : onepage.avatar_url ? (
-            <img src={onepage.avatar_url} alt={onepage.title} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-lg md:text-xl bg-gray-100">{onepage.title?.charAt(0) || "?"}</div>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowEditModal(true)} disabled={uploading} className="h-9 rounded-lg" data-avatar-edit>
-            <ImageIcon className="h-4 w-4 mr-2" />
-            {uploading ? "Uploading..." : "Edit"}
-          </Button>
-        </div>
-      </div>
+            </span>
+            <span aria-hidden className="absolute -bottom-1.5 -right-1.5 grid h-9 w-9 place-items-center rounded-full border border-[#e3e4e8] bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" strokeWidth={1.75} />}
+            </span>
+          </button>
+        </SettingRow>
+      </PanelSection>
 
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
         <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
@@ -1884,7 +1851,7 @@ function HeaderSection() {
 
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="flex-1">Cancel</Button>
-                  <Button onClick={handleVideoCropSave} className="flex-1 bg-violet-600 hover:bg-violet-700" disabled={uploadingVideo}>
+                  <Button onClick={handleVideoCropSave} className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]" disabled={uploadingVideo}>
                     {uploadingVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
                   </Button>
                 </div>
@@ -1992,7 +1959,7 @@ function HeaderSection() {
                 
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => { setShowCropModal(false); setShowUploadModal(true) }} className="flex-1">Cancel</Button>
-                  <Button onClick={handleCropSave} className="flex-1 bg-violet-600 hover:bg-violet-700" disabled={uploading}>
+                  <Button onClick={handleCropSave} className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]" disabled={uploading}>
                     {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
                   </Button>
                 </div>
@@ -2140,343 +2107,156 @@ function HeaderSection() {
         </DialogContent>
       </Dialog>
 
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Profile image layout</Label>
-        <div className="grid grid-cols-2 gap-2 md:gap-3">
-          <button onClick={() => handleLayoutChange("classic")} className={cn("border-2 rounded-xl p-4 md:p-5 flex flex-col items-center gap-2 md:gap-3 transition-all", effectiveLayout === "classic" ? "border-foreground bg-white" : "border-gray-200 hover:border-gray-300")}>
-            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center"><User className="h-5 w-5 text-gray-400" /></div>
-            <span className="text-xs md:text-sm font-medium">Classic</span>
-          </button>
-          <button onClick={() => handleLayoutChange("hero")} disabled={theme.background_type === "image" || theme.background_type === "gradient" || theme.background_type === "video" || ((theme as any).background_pattern && (theme as any).background_pattern !== "none")} className={cn("border-2 rounded-xl p-4 md:p-5 flex flex-col items-center gap-2 md:gap-3 transition-all relative", effectiveLayout === "hero" ? "border-foreground bg-white" : "border-gray-200 hover:border-gray-300", (theme.background_type === "image" || theme.background_type === "gradient" || theme.background_type === "video" || ((theme as any).background_pattern && (theme as any).background_pattern !== "none")) && "opacity-50 cursor-not-allowed")}>
-            <div className="w-full h-10 bg-gradient-to-b from-gray-300 to-gray-100 rounded-lg flex items-end justify-center pb-1"><Move className="h-4 w-4 text-gray-400" /></div>
-            <span className="text-xs md:text-sm font-medium">Hero</span>
-          </button>
-        </div>
-        {theme.background_type === "image" && (
-          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
-            Hero layout is disabled when using an image wallpaper.{" "}
-            <button onClick={() => updateTheme({ background_type: "solid" })} className="underline font-medium hover:text-amber-700">Disable</button>
-          </p>
-        )}
-        {theme.background_type === "gradient" && (
-          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
-            Hero layout is disabled when using a gradient wallpaper.{" "}
-            <button onClick={() => updateTheme({ background_type: "solid" })} className="underline font-medium hover:text-amber-700">Disable</button>
-          </p>
-        )}
-        {theme.background_type === "video" && (
-          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
-            Hero layout is disabled when using a video wallpaper.{" "}
-            <button onClick={() => updateTheme({ background_type: "solid" })} className="underline font-medium hover:text-amber-700">Disable</button>
-          </p>
-        )}
-        {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
-          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
-            Hero layout is disabled when using a pattern.{" "}
-            <button onClick={() => updateTheme({ background_pattern: "none" } as any)} className="underline font-medium hover:text-amber-700">Disable</button>
-          </p>
-        )}
-        {effectiveLayout === "hero" && theme.background_type === "solid" && !((theme as any).background_pattern && (theme as any).background_pattern !== "none") && <p className="text-xs text-muted-foreground">Hero displays your avatar as a full-width background with fade</p>}
-      </div>
-
-      {/* Laser Glow Avatar */}
-      {effectiveLayout !== "hero" ? (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-blue-500" />
-            <Label className="text-sm font-medium">Laser Glow Avatar</Label>
-          </div>
-          <Toggle
-            checked={(theme as any).laser_glow_enabled || false}
-            onCheckedChange={(checked) => updateTheme({ laser_glow_enabled: checked } as any)}
-          />
-        </div>
-        {(theme as any).laser_glow_enabled && (
-          <div className="space-y-3 pl-6">
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Glow Color</Label>
-              <div className="flex items-center gap-3">
-                <MobileColorPicker
-                  value={(theme as any).laser_glow_color || "#3b82f6"}
-                  onChange={(color) => updateTheme({ laser_glow_color: color } as any)}
-                  label="Laser glow color"
-                  className="w-10 h-10"
-                />
-                <Input value={(theme as any).laser_glow_color || "#3b82f6"} onChange={(e) => updateTheme({ laser_glow_color: e.target.value } as any)} placeholder="#3b82f6" className="h-10 rounded-lg flex-1 font-mono text-sm" />
+      <PanelSection>
+        <SectionTitle title="Profile image layout" />
+        {(() => {
+          /* Hero puts the picture behind the top of the page, so it cannot sit on a gradient, a photo, a video or a pattern. */
+          const heroBlockedBy =
+            theme.background_type === "image" ? "an image wallpaper" :
+            theme.background_type === "gradient" ? "a gradient wallpaper" :
+            theme.background_type === "video" ? "a video wallpaper" :
+            (theme as any).background_pattern && (theme as any).background_pattern !== "none" ? "a pattern" : null
+          return (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <ChoiceCard selected={effectiveLayout === "classic"} onClick={() => handleLayoutChange("classic")} label="Classic">
+                  <div className="flex h-[76px] flex-col items-center justify-center gap-1.5 rounded-xl bg-[#f7f7f8]">
+                    <span className="h-7 w-7 rounded-full bg-[#d9dbe0]" />
+                    <span className="h-1.5 w-12 rounded-full bg-[#d9dbe0]" />
+                  </div>
+                </ChoiceCard>
+                <ChoiceCard selected={effectiveLayout === "hero"} onClick={() => handleLayoutChange("hero")} disabled={!!heroBlockedBy} label="Hero">
+                  <div className="relative flex h-[76px] flex-col items-center justify-end overflow-hidden rounded-xl bg-[#f7f7f8] pb-2.5">
+                    <span className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-[#c9cbd1] to-[#f7f7f8]" />
+                    <span className="relative h-1.5 w-12 rounded-full bg-[#d9dbe0]" />
+                  </div>
+                </ChoiceCard>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Intensity</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  { id: "low", label: "Low" },
-                  { id: "medium", label: "Medium" },
-                  { id: "hard", label: "Hard" },
-                ] as const).map((intensity) => (
+              {heroBlockedBy ? (
+                <p className="mt-3 text-[13.5px] text-[#6b7280]">
+                  Hero is off while the page uses {heroBlockedBy}.{" "}
                   <button
-                    key={intensity.id}
-                    onClick={() => updateTheme({ laser_glow_intensity: intensity.id } as any)}
-                    className={cn(
-                      "py-2 rounded-lg border-2 text-xs font-medium transition-colors",
-                      ((theme as any).laser_glow_intensity || "medium") === intensity.id
-                        ? "border-foreground bg-gray-50"
-                        : "border-gray-200 hover:border-gray-300"
-                    )}
+                    type="button"
+                    onClick={() => (heroBlockedBy === "a pattern" ? updateTheme({ background_pattern: "none" } as any) : updateTheme({ background_type: "solid" }))}
+                    className="cursor-pointer font-medium text-[#1a1a2e] underline underline-offset-2"
                   >
-                    {intensity.label}
+                    {heroBlockedBy === "a pattern" ? "Remove the pattern" : "Use a flat colour"}
                   </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-      ) : (
-        <p className="text-xs text-muted-foreground bg-gray-50 p-2 rounded-lg">Laser Glow Avatar is unavailable while Profile image layout is set to Hero.</p>
-      )}
+                </p>
+              ) : effectiveLayout === "hero" ? (
+                <p className="mt-3 text-[13.5px] text-[#6b7280]">Your picture fills the top of the page and fades into it.</p>
+              ) : null}
+            </>
+          )
+        })()}
+      </PanelSection>
 
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Display Name</Label>
-        <Input value={onepage.title} onChange={(e) => updateProfile({ title: e.target.value })} placeholder="Your name" className="h-10 rounded-lg" />
-      </div>
-
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Bio</Label>
-        <Input value={onepage.bio || ""} onChange={(e) => updateProfile({ bio: e.target.value })} placeholder="A short bio..." className="h-10 rounded-lg" />
-      </div>
-
-      {/* Title Style Selector */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Title Style</Label>
-        <div className="flex gap-2">
-          <button
-            onClick={() => updateTheme({ title_style: "text" } as any)}
-            className={cn(
-              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
-              ((theme as any).title_style || "text") === "text"
-                ? "bg-white border-gray-900 text-gray-900"
-                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-            )}
-          >
-            Text Based
-          </button>
-          <button
-            onClick={() => updateTheme({ title_style: "logo" } as any)}
-            className={cn(
-              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
-              (theme as any).title_style === "logo"
-                ? "bg-white border-gray-900 text-gray-900"
-                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-            )}
-          >
-            Logo Based
-          </button>
-        </div>
-      </div>
-
-      {/* Logo Upload - only show when Logo Based is selected */}
-      {(theme as any).title_style === "logo" && (
-        <div className="space-y-3">
-          <Label className="text-sm font-medium">Logo Image</Label>
-          {(theme as any).title_logo_url ? (
-            <div className="flex items-center gap-3">
-              <div className="w-16 h-16 rounded-xl border-2 border-gray-200 overflow-hidden bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/10px_10px]">
-                <img src={(theme as any).title_logo_url} alt="Logo" className="w-full h-full object-contain" />
-              </div>
-              <div className="flex-1 flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowLogoUploadModal(true)}
-                  className="flex-1 h-9 rounded-lg"
-                >
-                  Change
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRemoveLogo}
-                  className="h-9 w-9 p-0 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowLogoUploadModal(true)}
-              className="w-full py-4 px-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-gray-400 transition-colors flex flex-col items-center justify-center gap-2"
-            >
-              <Upload className="h-8 w-8 text-gray-400" />
-              <span className="text-sm font-medium text-gray-600">Upload Logo</span>
-            </button>
-          )}
-          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg flex items-start gap-2">
-            <Sparkles className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-            <span>For best results, use a logo with a transparent background (PNG format)</span>
-          </p>
-
-          {/* Logo Position */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Logo Position</Label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => updateTheme({ logo_position: "default" } as any)}
-                className={cn(
-                  "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
-                  (theme as any).logo_position !== "more_up"
-                    ? "bg-white border-gray-900 text-gray-900"
-                    : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                )}
-              >
-                Default
-              </button>
-              <button
-                onClick={() => updateTheme({ logo_position: "more_up" } as any)}
-                className={cn(
-                  "flex-1 py-2.5 px-3 rounded-xl text-sm font-medium transition-all border-2",
-                  (theme as any).logo_position === "more_up"
-                    ? "bg-white border-gray-900 text-gray-900"
-                    : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                )}
-              >
-                More Up
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="border-t border-gray-100" />
-
-      {/* Title Font Selector */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Title Font</Label>
-        <button
-          onClick={() => setShowTitleFontModal(true)}
-          className="w-full h-10 px-3 rounded-lg border border-input bg-background flex items-center justify-between hover:bg-accent transition-colors"
-        >
-          <span
-            className="truncate"
-            style={{ fontFamily: (theme as any).title_font || theme.font_family }}
-          >
-            {(theme as any).title_font || "Default (Same as body)"}
-          </span>
-          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-        </button>
-      </div>
-
-      {/* Title Font Modal */}
-      <Dialog open={showTitleFontModal} onOpenChange={setShowTitleFontModal}>
-        <DialogContent className="w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[80vh] sm:max-h-[70vh] flex flex-col">
-          <DialogHeader className="p-4 border-b shrink-0">
-            <DialogTitle className="text-lg font-semibold">Select Title Font</DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto p-2 pb-[max(8px,env(safe-area-inset-bottom))]">
-            {TITLE_FONTS.map((font) => (
-              <button
-                key={font.name}
-                onClick={() => {
-                  updateTheme({ title_font: font.value } as any)
-                  setShowTitleFontModal(false)
-                }}
-                className={cn(
-                  "w-full p-4 sm:p-3 rounded-lg text-left transition-colors flex items-center justify-between",
-                  (theme as any).title_font === font.value || (!font.value && !(theme as any).title_font)
-                    ? "bg-violet-50"
-                    : "hover:bg-gray-50"
-                )}
-              >
-                <span
-                  className="text-base sm:text-lg truncate flex-1 min-w-0"
-                  style={{ fontFamily: font.value || theme.font_family }}
-                >
-                  {font.name}
-                </span>
-                {((theme as any).title_font === font.value || (!font.value && !(theme as any).title_font)) && (
-                  <Check className="h-5 w-5 text-violet-500 shrink-0 ml-2" />
-                )}
-              </button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <div className="border-t border-gray-100" />
-
-      {/* Title & Logo Size Selector */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Title & Logo size</Label>
-        <div className="flex gap-2">
-          <button
-            onClick={() => updateTheme({ title_size: "default" } as any)}
-            className={cn(
-              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
-              ((theme as any).title_size || "default") === "default"
-                ? "bg-white border-gray-900 text-gray-900"
-                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-            )}
-          >
-            Default
-          </button>
-          <button
-            onClick={() => updateTheme({ title_size: "large" } as any)}
-            className={cn(
-              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
-              (theme as any).title_size === "large"
-                ? "bg-white border-gray-900 text-gray-900"
-                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-            )}
-          >
-            Large
-          </button>
-        </div>
-      </div>
-
-      <div className="border-t border-gray-100" />
-
-      {/* Title Color Picker - Simple & Reliable */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Title color</Label>
-        <div className="flex items-center gap-3">
-          <MobileColorPicker
-            value={(theme as any).title_color || theme.text_color}
-            onChange={(color) => updateTheme({ title_color: color } as any)}
-            label="Title color"
+      {effectiveLayout !== "hero" ? (
+        <PanelSection>
+          <SwitchRow
+            label="Glowing ring"
+            description="A light that circles your profile image"
+            checked={(theme as any).laser_glow_enabled || false}
+            onChange={(checked) => updateTheme({ laser_glow_enabled: checked } as any)}
           />
-          <Input
-            value={(theme as any).title_color || theme.text_color}
-            onChange={(e) => updateTheme({ title_color: e.target.value } as any)}
-            placeholder="#000000"
-            className="h-12 rounded-xl flex-1 font-mono text-sm"
+          {(theme as any).laser_glow_enabled ? (
+            <div className="mt-4 space-y-4">
+              <ColorRow
+                label="Glow colour"
+                value={(theme as any).laser_glow_color || "#3b82f6"}
+                onChange={(color) => updateTheme({ laser_glow_color: color } as any)}
+                suggestions={["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ffffff"]}
+              />
+              <Segmented
+                label="Glow strength"
+                value={((theme as any).laser_glow_intensity || "medium") as "low" | "medium" | "hard"}
+                options={[{ id: "low", label: "Soft" }, { id: "medium", label: "Medium" }, { id: "hard", label: "Bright" }] as const}
+                onChange={(id) => updateTheme({ laser_glow_intensity: id } as any)}
+              />
+            </div>
+          ) : null}
+        </PanelSection>
+      ) : null}
+
+      <PanelSection>
+        <div className="space-y-4">
+          <label className="block">
+            <span className="mb-2 block text-[15px] font-medium text-[#1a1a2e]">Title</span>
+            <input value={onepage.title} onChange={(e) => updateProfile({ title: e.target.value })} placeholder="Your name" maxLength={60} className={fieldInput} />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-[15px] font-medium text-[#1a1a2e]">Bio</span>
+            <span className="relative block">
+              <textarea
+                value={onepage.bio || ""}
+                onChange={(e) => updateProfile({ bio: e.target.value.slice(0, 160) })}
+                placeholder="Add a short bio"
+                rows={3}
+                maxLength={160}
+                className={cn(fieldInput, "h-auto min-h-[104px] resize-none py-3 pb-7 leading-[1.45]")}
+              />
+              <span className="pointer-events-none absolute bottom-2.5 right-3.5 text-[12.5px] tabular-nums text-[#6b7280]">{(onepage.bio || "").length}/160</span>
+            </span>
+          </label>
+        </div>
+      </PanelSection>
+
+      <PanelSection>
+        <SectionTitle title="Title style" />
+        <div className="grid grid-cols-2 gap-3">
+          <ChoiceCard selected={((theme as any).title_style || "text") === "text"} onClick={() => updateTheme({ title_style: "text" } as any)} label="Text">
+            <div className="grid h-12 place-items-center text-[22px] font-medium text-[#1a1a2e]" style={{ fontFamily: fontStack((theme as any).title_font || theme.font_family) }}>Aa</div>
+          </ChoiceCard>
+          <ChoiceCard selected={(theme as any).title_style === "logo"} onClick={() => updateTheme({ title_style: "logo" } as any)} label="Logo">
+            <div className="grid h-12 place-items-center text-[#1a1a2e]"><ImageIcon className="h-6 w-6" strokeWidth={1.6} /></div>
+          </ChoiceCard>
+        </div>
+
+        {(theme as any).title_style === "logo" ? (
+          <div className="mt-5 space-y-4">
+            {(theme as any).title_logo_url ? (
+              <div className="flex items-center gap-3">
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-[#e3e4e8] bg-[repeating-conic-gradient(#eef0f2_0_90deg,#fff_90deg_180deg)_0_0/10px_10px]">
+                  <img src={(theme as any).title_logo_url} alt="Logo" className="h-full w-full object-contain" />
+                </div>
+                <div className="flex flex-1 gap-2">
+                  <button type="button" onClick={() => setShowLogoUploadModal(true)} className={cn(secondaryDepth, "h-11 flex-1 rounded-xl text-[14px]")}>Change logo</button>
+                  <button type="button" onClick={handleRemoveLogo} aria-label="Remove logo" className={cn(secondaryDepth, "h-11 w-11 rounded-xl text-[#b42318]")}><Trash2 className="h-4 w-4" /></button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowLogoUploadModal(true)}
+                className="flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#d9dbe0] px-4 py-6 text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]"
+              >
+                <Upload className="h-6 w-6 text-[#6b7280]" strokeWidth={1.6} />
+                <span className="text-[14px] font-medium">Upload a logo</span>
+                <span className="text-[13px] text-[#6b7280]">A PNG with a clear background looks best</span>
+              </button>
+            )}
+            <SettingRow label="Logo position">
+              <Segmented
+                className="w-[220px]"
+                label="Logo position"
+                value={(theme as any).logo_position === "more_up" ? "more_up" : "default"}
+                options={[{ id: "default", label: "Default" }, { id: "more_up", label: "Higher" }] as const}
+                onChange={(id) => updateTheme({ logo_position: id } as any)}
+              />
+            </SettingRow>
+          </div>
+        ) : null}
+
+        <SettingRow label="Title size" className="mt-5">
+          <Segmented
+            className="w-[220px]"
+            label="Title size"
+            value={(theme as any).title_size === "large" ? "large" : "default"}
+            options={[{ id: "default", label: "Default" }, { id: "large", label: "Large" }] as const}
+            onChange={(id) => updateTheme({ title_size: id } as any)}
           />
-          {(theme as any).title_color && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => updateTheme({ title_color: null } as any)}
-              className="h-12 px-3"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-        {/* Suggested Colors */}
-        <div className="flex gap-2 pt-1">
-          {['#ffffff', '#000000', '#1a1a1a', '#3b82f6', '#ef4444', '#10b981'].map((color) => (
-            <button
-              key={color}
-              onClick={() => updateTheme({ title_color: color } as any)}
-              className={cn(
-                "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
-                (theme as any).title_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
-              )}
-              style={{ backgroundColor: color }}
-            />
-          ))}
-        </div>
-      </div>
+        </SettingRow>
+      </PanelSection>
     </div>
   )
 }
@@ -2558,75 +2338,61 @@ function ThemeSection() {
   const filteredTemplates = filter === "all" ? THEME_TEMPLATES : THEME_TEMPLATES.filter(t => t.category === filter)
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-lg md:text-xl font-semibold">Theme</h2>
-      <div className="flex gap-2 overflow-x-auto pb-1">
+    <div>
+      <div className="-mx-4 mb-5 flex gap-1.5 overflow-x-auto px-4 pb-0.5 scrollbar-hide md:mx-0 md:px-0" role="tablist" aria-label="Theme kind">
         {(["all", "light", "dark", "gradient", "image"] as const).map((f) => (
-          <button key={f} onClick={() => setFilter(f)} className={cn("px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors whitespace-nowrap", filter === f ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>{f}</button>
+          <button
+            key={f}
+            type="button"
+            role="tab"
+            aria-selected={filter === f}
+            onClick={() => setFilter(f)}
+            className={cn("h-9 shrink-0 cursor-pointer rounded-full border px-3.5 text-[13px] font-medium capitalize transition-colors", filter === f ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e3e4e8] bg-white text-[#4b5563] hover:border-[#c9cbd1]")}
+          >
+            {f === "all" ? "All" : f}
+          </button>
         ))}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {filteredTemplates.map((template) => {
           const config = template.theme_config
           if (!config) return null
           const isSelected = theme.template_id === template.id
-          const isDefaultTheme = (template as any).isDefault
           const bgStyle = config.background_type === "image" && config.background_image_url
             ? { backgroundImage: `url(${config.background_image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
             : { background: config.background_type === "gradient" && config.background_gradient ? config.background_gradient : config.background_color }
-
-          // Special rendering for Default theme
-          if (isDefaultTheme) {
-            return (
-              <button key={template.id} onClick={() => handleApplyTemplate(template)} className={cn("relative rounded-2xl overflow-hidden aspect-[3/4] transition-all group border-2", isSelected ? "ring-2 ring-violet-500 ring-offset-2 border-gray-200" : "border-gray-200 hover:ring-2 hover:ring-gray-300 hover:ring-offset-1")}>
-                <div className="absolute inset-0 bg-white" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-[11px] font-medium text-gray-400" style={{ fontFamily: config.font_family }}>Default</span>
-                </div>
-                {isSelected && <div className="absolute top-2 right-2 w-5 h-5 bg-violet-500 rounded-full flex items-center justify-center"><Check className="h-3 w-3 text-white" /></div>}
-              </button>
-            )
-          }
-
-          // Check if this theme uses hero layout
           const isHeroLayout = (template as any).profile_layout === "hero" || (config as any).header_layout === "hero"
-          // Check if theme has a pattern
           const hasPattern = (config as any).background_pattern && (config as any).background_pattern !== "none"
-          const patternColor = (config as any).pattern_color || "#ffffff90"
-          const patternId = (config as any).background_pattern
-
           return (
-            <button key={template.id} onClick={() => handleApplyTemplate(template)} className={cn("relative rounded-2xl overflow-hidden aspect-[3/4] transition-all group", isSelected ? "ring-2 ring-violet-500 ring-offset-2" : "hover:ring-2 hover:ring-gray-300 hover:ring-offset-1")}>
-              <div className="absolute inset-0" style={bgStyle} />
-              {/* Pattern overlay for themes with patterns */}
-              {hasPattern && (
-                <div className="absolute inset-0 opacity-60">
-                  <PatternPreview pattern={patternId} color={patternColor} />
-                </div>
+            <button
+              key={template.id}
+              type="button"
+              onClick={() => handleApplyTemplate(template)}
+              aria-pressed={isSelected}
+              data-theme-card={template.id}
+              className={cn(
+                "flex cursor-pointer flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
+                isSelected ? choiceOn : choiceOff,
               )}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3">
-                {isHeroLayout ? (
-                  /* Hero layout: wide banner-style header */
-                  <>
-                    <div className="w-full h-8 md:h-10 rounded-lg" style={{ backgroundColor: `${config.text_color}20` }} />
-                    <div className="w-12 md:w-16 h-1.5 md:h-2 rounded" style={{ backgroundColor: `${config.text_color}50` }} />
-                    <div className="w-8 md:w-12 h-1 rounded" style={{ backgroundColor: `${config.text_color}30` }} />
-                  </>
-                ) : (
-                  /* Classic layout: circle avatar */
-                  <>
-                    <div className="w-6 h-6 md:w-8 md:h-8 rounded-full" style={{ backgroundColor: `${config.text_color}30` }} />
-                    <div className="w-12 md:w-16 h-1.5 md:h-2 rounded" style={{ backgroundColor: `${config.text_color}50` }} />
-                    <div className="w-8 md:w-12 h-1 rounded" style={{ backgroundColor: `${config.text_color}30` }} />
-                  </>
-                )}
-                <div className="w-full max-w-[60px] md:max-w-[80px] h-5 md:h-6 rounded-md mt-2" style={{ backgroundColor: config.button_color, borderWidth: config.button_border_width, borderColor: config.button_border_color, borderRadius: `${config.button_border_radius}px` }} />
-              </div>
-              {isSelected && <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center bg-ring"><Check className="h-3 w-3 text-white" /></div>}
-              {/* Theme name with font preview */}
-              <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/50 to-transparent">
-                <p className="text-[10px] md:text-xs font-medium text-white text-center" style={{ fontFamily: config.font_family }}>{template.name}</p>
-              </div>
+            >
+              <span className="relative block aspect-[4/5] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
+                <span className="absolute inset-0" style={bgStyle} />
+                {hasPattern ? <WallpaperPattern pattern={(config as any).background_pattern} color={(config as any).pattern_color || "#ffffff90"} level={(config as any).pattern_opacity || "medium"} /> : null}
+                <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 p-3">
+                  {isHeroLayout ? (
+                    <span className="h-8 w-full rounded-lg" style={{ backgroundColor: `${config.text_color}20` }} />
+                  ) : (
+                    <span className="h-7 w-7 rounded-full" style={{ backgroundColor: `${config.text_color}30` }} />
+                  )}
+                  <span className="h-1.5 w-12 rounded" style={{ backgroundColor: `${config.text_color}50` }} />
+                  <span className="h-1 w-8 rounded" style={{ backgroundColor: `${config.text_color}30` }} />
+                  <span className="mt-1.5 h-5 w-full max-w-[80px]" style={{ backgroundColor: config.button_color, border: `${config.button_border_width || 0}px solid ${config.button_border_color || "transparent"}`, borderRadius: `${Math.min(config.button_border_radius ?? 8, 12)}px` }} />
+                  <span className="h-5 w-full max-w-[80px]" style={{ backgroundColor: config.button_color, opacity: 0.85, border: `${config.button_border_width || 0}px solid ${config.button_border_color || "transparent"}`, borderRadius: `${Math.min(config.button_border_radius ?? 8, 12)}px` }} />
+                </span>
+              </span>
+              <span className={cn("block truncate px-1.5 pb-1 pt-2 text-[13px] font-medium", isSelected ? "text-[#1a1a2e]" : "text-[#4b5563]")} style={{ fontFamily: fontStack(config.font_family) }}>
+                {template.name}
+              </span>
             </button>
           )
         })}
@@ -2683,168 +2449,6 @@ function ThemeSection() {
   )
 }
 
-// Pattern Preview Component for showing pattern thumbnails
-function PatternPreview({ pattern, color }: { pattern: string; color: string }) {
-  const patternSVGs: Record<string, React.ReactNode> = {
-    grid: (
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id={`grid-${color}`} width="16" height="16" patternUnits="userSpaceOnUse">
-            <path d="M 16 0 L 0 0 0 16" fill="none" stroke={color} strokeWidth="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#grid-${color})`} />
-      </svg>
-    ),
-    dots: (
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id={`dots-${color}`} width="12" height="12" patternUnits="userSpaceOnUse">
-            <circle cx="6" cy="6" r="1.5" fill={color} />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#dots-${color})`} />
-      </svg>
-    ),
-    waves: (
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id={`waves-${color}`} width="40" height="20" patternUnits="userSpaceOnUse">
-            <path d="M0 10 Q10 0, 20 10 T40 10" fill="none" stroke={color} strokeWidth="1.5" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#waves-${color})`} />
-      </svg>
-    ),
-    zigzag: (
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id={`zigzag-${color}`} width="20" height="12" patternUnits="userSpaceOnUse">
-            <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={color} strokeWidth="1.5" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#zigzag-${color})`} />
-      </svg>
-    ),
-    diagonal: (
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id={`diagonal-${color}`} width="10" height="10" patternUnits="userSpaceOnUse">
-            <path d="M0 10 L10 0" fill="none" stroke={color} strokeWidth="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#diagonal-${color})`} />
-      </svg>
-    ),
-    morph: (
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
-        <defs>
-          <pattern id={`morph-${color}`} width="200" height="200" patternUnits="userSpaceOnUse">
-            {/* Futuristic melting/morphing shapes - tech aesthetic */}
-            <path d="M40 20 Q60 40, 40 60 Q20 80, 40 100 Q60 80, 80 100 Q100 120, 80 140 Q60 120, 40 140 Q20 160, 40 180" fill="none" stroke={color} strokeWidth="2" opacity="0.5" />
-            <path d="M120 10 Q140 30, 160 20 Q180 40, 160 60 Q180 80, 160 100 Q140 80, 120 100 Q100 80, 120 60" fill="none" stroke={color} strokeWidth="2" opacity="0.4" />
-            <path d="M100 140 Q120 160, 140 150 Q160 170, 140 190 Q120 170, 100 180" fill="none" stroke={color} strokeWidth="2" opacity="0.45" />
-            <circle cx="50" cy="50" r="8" fill={color} opacity="0.3" />
-            <circle cx="150" cy="70" r="6" fill={color} opacity="0.25" />
-            <circle cx="100" cy="160" r="5" fill={color} opacity="0.3" />
-            <rect x="170" y="150" width="20" height="2" fill={color} opacity="0.4" rx="1" />
-            <rect x="10" y="100" width="15" height="2" fill={color} opacity="0.35" rx="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#morph-${color})`} />
-      </svg>
-    ),
-    organic: (
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
-        <defs>
-          <pattern id={`organic-${color}`} width="200" height="200" patternUnits="userSpaceOnUse">
-            {/* Natural, soft, irregular organic shapes */}
-            <path d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40" fill={color} opacity="0.35" />
-            <path d="M120 30 Q150 25, 160 50 Q170 80, 140 90 Q110 95, 100 70 Q95 45, 120 30" fill={color} opacity="0.3" />
-            <path d="M60 130 Q80 110, 110 125 Q130 140, 115 165 Q95 185, 65 170 Q45 155, 60 130" fill={color} opacity="0.32" />
-            <path d="M160 140 Q180 145, 185 165 Q188 185, 170 190 Q150 188, 145 170 Q143 152, 160 140" fill={color} opacity="0.28" />
-            <path d="M20 160 Q35 150, 45 165 Q50 180, 35 190 Q20 185, 15 175 Q12 165, 20 160" fill={color} opacity="0.25" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#organic-${color})`} />
-      </svg>
-    ),
-    flowmaze: (
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice">
-        <defs>
-          <pattern id={`flowmaze-${color}`} width="400" height="400" patternUnits="userSpaceOnUse">
-            {/* Flow Maze - organic flowing continuous maze-like lines */}
-            <path d="M20 50 Q60 20, 100 50 Q140 80, 120 130 Q100 180, 60 170 Q20 160, 30 120 Q40 80, 80 90 Q120 100, 140 140 Q160 180, 130 220 Q100 260, 60 240 Q20 220, 40 180" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.5" />
-            <path d="M180 30 Q220 10, 260 40 Q300 70, 280 120 Q260 170, 220 150 Q180 130, 200 90 Q220 50, 260 70 Q300 90, 320 140 Q340 190, 300 230 Q260 270, 220 250 Q180 230, 200 190 Q220 150, 270 170 Q320 190, 340 240" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.45" />
-            <path d="M350 50 Q390 30, 400 80 Q395 130, 360 120 Q320 110, 340 70 Q360 30, 400 50" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
-            <path d="M30 280 Q70 250, 110 280 Q150 310, 130 360 Q110 400, 70 380 Q30 360, 50 320 Q70 280, 110 300 Q150 320, 160 370" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.48" />
-            <path d="M200 290 Q240 260, 280 290 Q320 320, 300 370 Q280 400, 240 385 Q200 370, 220 330 Q240 290, 290 310 Q340 330, 360 380 Q380 400, 370 400" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.42" />
-            <path d="M60 350 Q100 370, 90 400 M160 260 Q200 240, 180 200 Q160 160, 120 180 Q80 200, 100 240" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.38" />
-            <path d="M320 10 Q360 30, 350 70 Q340 110, 300 100 Q260 90, 280 50 Q300 10, 340 20" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.35" />
-            <path d="M380 280 Q400 320, 380 360 Q360 400, 320 380 Q280 360, 310 320 Q340 280, 380 300" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#flowmaze-${color})`} />
-      </svg>
-    ),
-    topographic: (
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice">
-        <defs>
-          <pattern id={`topographic-${color}`} width="300" height="300" patternUnits="userSpaceOnUse">
-            {/* Topographic - contour lines like elevation maps */}
-            <ellipse cx="100" cy="100" rx="90" ry="80" fill="none" stroke={color} strokeWidth="1.5" opacity="0.3" />
-            <ellipse cx="100" cy="100" rx="70" ry="62" fill="none" stroke={color} strokeWidth="1.5" opacity="0.35" />
-            <ellipse cx="100" cy="100" rx="50" ry="44" fill="none" stroke={color} strokeWidth="1.5" opacity="0.4" />
-            <ellipse cx="100" cy="100" rx="30" ry="26" fill="none" stroke={color} strokeWidth="1.5" opacity="0.45" />
-            <ellipse cx="100" cy="100" rx="12" ry="10" fill="none" stroke={color} strokeWidth="1.5" opacity="0.5" />
-            <ellipse cx="220" cy="200" rx="75" ry="90" fill="none" stroke={color} strokeWidth="1.5" opacity="0.28" />
-            <ellipse cx="220" cy="200" rx="55" ry="70" fill="none" stroke={color} strokeWidth="1.5" opacity="0.33" />
-            <ellipse cx="220" cy="200" rx="35" ry="50" fill="none" stroke={color} strokeWidth="1.5" opacity="0.38" />
-            <ellipse cx="220" cy="200" rx="18" ry="30" fill="none" stroke={color} strokeWidth="1.5" opacity="0.43" />
-            <ellipse cx="50" cy="250" rx="45" ry="40" fill="none" stroke={color} strokeWidth="1.5" opacity="0.3" />
-            <ellipse cx="50" cy="250" rx="28" ry="25" fill="none" stroke={color} strokeWidth="1.5" opacity="0.38" />
-            <ellipse cx="50" cy="250" rx="12" ry="10" fill="none" stroke={color} strokeWidth="1.5" opacity="0.45" />
-            <ellipse cx="250" cy="50" rx="40" ry="45" fill="none" stroke={color} strokeWidth="1.5" opacity="0.32" />
-            <ellipse cx="250" cy="50" rx="22" ry="28" fill="none" stroke={color} strokeWidth="1.5" opacity="0.4" />
-            <ellipse cx="250" cy="50" rx="8" ry="12" fill="none" stroke={color} strokeWidth="1.5" opacity="0.48" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#topographic-${color})`} />
-      </svg>
-    ),
-    stars: (
-      <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-        {/* Stars - subtle dots like space stars */}
-        <circle cx="10" cy="15" r="1" fill={color} opacity="0.7" />
-        <circle cx="25" cy="8" r="0.8" fill={color} opacity="0.5" />
-        <circle cx="45" cy="20" r="1.2" fill={color} opacity="0.6" />
-        <circle cx="65" cy="12" r="0.6" fill={color} opacity="0.4" />
-        <circle cx="80" cy="25" r="1" fill={color} opacity="0.7" />
-        <circle cx="90" cy="10" r="0.8" fill={color} opacity="0.5" />
-        <circle cx="15" cy="40" r="0.7" fill={color} opacity="0.4" />
-        <circle cx="35" cy="35" r="1" fill={color} opacity="0.6" />
-        <circle cx="55" cy="45" r="0.9" fill={color} opacity="0.5" />
-        <circle cx="75" cy="38" r="1.1" fill={color} opacity="0.7" />
-        <circle cx="95" cy="42" r="0.6" fill={color} opacity="0.4" />
-        <circle cx="8" cy="60" r="1" fill={color} opacity="0.6" />
-        <circle cx="30" cy="55" r="0.8" fill={color} opacity="0.5" />
-        <circle cx="50" cy="65" r="1.2" fill={color} opacity="0.7" />
-        <circle cx="70" cy="58" r="0.7" fill={color} opacity="0.4" />
-        <circle cx="88" cy="68" r="1" fill={color} opacity="0.6" />
-        <circle cx="20" cy="80" r="0.9" fill={color} opacity="0.5" />
-        <circle cx="42" cy="75" r="1.1" fill={color} opacity="0.7" />
-        <circle cx="62" cy="85" r="0.6" fill={color} opacity="0.4" />
-        <circle cx="82" cy="78" r="1" fill={color} opacity="0.6" />
-        <circle cx="5" cy="92" r="0.8" fill={color} opacity="0.5" />
-        <circle cx="48" cy="95" r="1" fill={color} opacity="0.7" />
-        <circle cx="92" cy="90" r="0.7" fill={color} opacity="0.4" />
-      </svg>
-    ),
-  }
-
-  return patternSVGs[pattern] || null
-}
-
 /**
  * THE GRADIENT DIRECTION DIAL, DECLARED ONCE AT MODULE SCOPE.
  *
@@ -2858,96 +2462,59 @@ function PatternPreview({ pattern, color }: { pattern: string; color: string }) 
  * every render and keeps its drag state for as long as the drag lasts.
  */
 function DirectionDial({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  /*
+    Pointer events with the pointer captured, and touch-action: none, so a
+    finger turning the dial never scrolls the panel instead (the old window
+    touchmove listener was passive, and the page moved under the thumb).
+    The needle turns by a rotate transform, so it is marked
+    data-keep-transform: app/globals.css removes transforms inside a .group
+    on a touch screen, and a dial without its rotation says nothing.
+  */
   const dialRef = useRef<HTMLDivElement>(null)
-  const [isDragging, setIsDragging] = useState(false)
-
-  const updateAngle = useCallback((clientX: number, clientY: number) => {
-    if (!dialRef.current) return
-    const rect = dialRef.current.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
-    const centerY = rect.top + rect.height / 2
-    const angle = Math.atan2(clientY - centerY, clientX - centerX)
-    let degrees = Math.round((angle * 180) / Math.PI + 90)
-    if (degrees < 0) degrees += 360
-    // Snap to 15 degree increments for easier control
-    degrees = Math.round(degrees / 15) * 15
-    if (degrees === 360) degrees = 0
-    onChange(degrees)
-  }, [onChange])
-
-  const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault()
-    setIsDragging(true)
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-    updateAngle(clientX, clientY)
+  const angleAt = (clientX: number, clientY: number) => {
+    const rect = dialRef.current!.getBoundingClientRect()
+    const a = Math.atan2(clientY - (rect.top + rect.height / 2), clientX - (rect.left + rect.width / 2))
+    let deg = Math.round(((a * 180) / Math.PI + 90) / 15) * 15
+    if (deg < 0) deg += 360
+    return deg % 360
   }
-
-  useEffect(() => {
-    const handleMove = (e: MouseEvent | TouchEvent) => {
-      if (!isDragging) return
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-      updateAngle(clientX, clientY)
-    }
-    const handleEnd = () => setIsDragging(false)
-
-    if (isDragging) {
-      window.addEventListener('mousemove', handleMove)
-      window.addEventListener('mouseup', handleEnd)
-      window.addEventListener('touchmove', handleMove)
-      window.addEventListener('touchend', handleEnd)
-    }
-    return () => {
-      window.removeEventListener('mousemove', handleMove)
-      window.removeEventListener('mouseup', handleEnd)
-      window.removeEventListener('touchmove', handleMove)
-      window.removeEventListener('touchend', handleEnd)
-    }
-  }, [isDragging, updateAngle])
-
-  // Quick preset angles
-  const presetAngles = [0, 45, 90, 135, 180, 225, 270, 315]
-
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-1.5">
       <div
         ref={dialRef}
-        className={cn(
-          "w-20 h-20 rounded-full border-2 bg-gradient-to-br from-gray-50 to-gray-100 relative cursor-pointer select-none shadow-inner transition-all",
-          isDragging ? "border-violet-500 shadow-lg scale-105" : "border-gray-200 hover:border-gray-300"
-        )}
-        onMouseDown={handleStart}
-        onTouchStart={handleStart}
+        role="slider"
+        tabIndex={0}
+        aria-label="Gradient direction"
+        aria-valuemin={0}
+        aria-valuemax={345}
+        aria-valuenow={value}
+        aria-valuetext={`${value} degrees`}
+        data-sheet-no-drag=""
+        onPointerDown={(e) => {
+          e.preventDefault()
+          e.currentTarget.setPointerCapture?.(e.pointerId)
+          onChange(angleAt(e.clientX, e.clientY))
+        }}
+        onPointerMove={(e) => {
+          if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+            const next = angleAt(e.clientX, e.clientY)
+            if (next !== value) onChange(next)
+          }
+        }}
+        onKeyDown={(e) => {
+          const d = { ArrowRight: 15, ArrowUp: 15, ArrowLeft: -15, ArrowDown: -15 }[e.key]
+          if (d === undefined) return
+          e.preventDefault()
+          onChange((value + d + 360) % 360)
+        }}
+        className="relative h-[76px] w-[76px] cursor-grab touch-none select-none rounded-full border border-[#e3e4e8] bg-white shadow-[inset_0_1px_3px_rgba(16,24,40,0.08)] outline-none active:cursor-grabbing focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
       >
-        {/* Tick marks around the dial */}
-        {presetAngles.map((angle) => (
-          <div
-            key={angle}
-            className="absolute w-0.5 h-2 bg-gray-300 rounded-full"
-            style={{
-              top: '4px',
-              left: '50%',
-              transformOrigin: '50% 36px',
-              transform: `translateX(-50%) rotate(${angle}deg)`
-            }}
-          />
-        ))}
-
-        {/* Rotating indicator */}
-        <div
-          className="absolute inset-3 rounded-full flex items-start justify-center transition-transform"
-          style={{ transform: `rotate(${value}deg)` }}
-        >
-          <div className="w-2 h-8 bg-gradient-to-b from-violet-500 to-violet-600 rounded-full shadow-md" />
+        <div data-keep-transform="" className="pointer-events-none absolute inset-[7px] flex items-start justify-center" style={{ transform: `rotate(${value}deg)` }}>
+          <span className="h-[26px] w-[3px] rounded-full bg-[#1a1a2e]" />
         </div>
-
-        {/* Center dot */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-3 h-3 bg-white rounded-full shadow-sm border border-gray-200" />
-        </div>
+        <span className="pointer-events-none absolute left-1/2 top-1/2 -ml-[5px] -mt-[5px] h-2.5 w-2.5 rounded-full border border-[#d9dbe0] bg-white" />
       </div>
-      <span className="text-sm font-medium text-gray-700">{value}°</span>
+      <span className="text-[13px] font-medium tabular-nums text-[#6b7280]">{value}°</span>
     </div>
   )
 }
@@ -3248,250 +2815,125 @@ function WallpaperSection() {
     } as any)
   }
 
-  return (
-    <div className="space-y-6 md:space-y-8">
-      <h2 className="text-lg md:text-xl font-semibold">Wallpaper</h2>
+  const bgType = theme.background_type as "solid" | "gradient" | "image" | "video"
+  const currentPattern = (theme as any).background_pattern || "none"
+  const patternRaw: string = (theme as any).pattern_color || (bgType === "gradient" ? "#ffffff90" : "#00000090")
+  /* The pattern colour carries its own strength as two hex digits on the end (#00000090). The picker has no alpha, so it is kept aside and put back. */
+  const patternAlpha = /^#[0-9a-f]{8}$/i.test(patternRaw) ? patternRaw.slice(7) : "90"
+  const wallpaperFill = bgType === "gradient" ? theme.background_gradient || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" : theme.background_color
 
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Type</Label>
-        <div className="grid grid-cols-4 gap-2">
-          {(["solid", "gradient", "image", "video"] as const).map((type) => (
-            <button key={type} onClick={() => handleBgTypeChange(type)} className={cn("py-3 md:py-3.5 rounded-xl border-2 text-xs md:text-sm font-medium capitalize transition-colors", theme.background_type === type ? "border-foreground bg-gray-50" : "border-gray-200 hover:border-gray-300")}>{type}</button>
-          ))}
-        </div>
+  const styleTile = (type: "solid" | "gradient" | "image" | "video") => {
+    const art =
+      type === "solid" ? <span className="absolute inset-0" style={{ background: bgType === "solid" ? theme.background_color : "#b2846c" }} /> :
+      type === "gradient" ? <span className="absolute inset-0" style={{ background: bgType === "gradient" && theme.background_gradient ? theme.background_gradient : "linear-gradient(160deg, #f0a8b8 0%, #b2846c 100%)" }} /> :
+      type === "image" ? (theme.background_image_url ? <img src={theme.background_image_url} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <span className="absolute inset-0 grid place-items-center bg-[#f1f2f4] text-[#6b7280]"><ImageIcon className="h-5 w-5" strokeWidth={1.6} /></span>) :
+      <span className="absolute inset-0 grid place-items-center bg-[#f1f2f4] text-[#6b7280]"><Video className="h-5 w-5" strokeWidth={1.6} /></span>
+    return (
+      <ChoiceCard key={type} selected={bgType === type} onClick={() => handleBgTypeChange(type)} label={type === "solid" ? "Fill" : type === "gradient" ? "Gradient" : type === "image" ? "Image" : "Video"} className="p-1.5">
+        <span className="relative block aspect-square overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">{art}</span>
+      </ChoiceCard>
+    )
+  }
+
+  const patternSection = (
+    <PanelSection>
+      <SectionTitle title="Pattern and texture" description="Drawn over the colour, on the whole page" />
+      <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+        {WALLPAPER_PATTERNS.map((pattern) => {
+          const on = currentPattern === pattern.id || (pattern.id === "none" && !isPatternId(currentPattern))
+          return (
+            <ChoiceCard
+              key={pattern.id}
+              selected={on}
+              onClick={() => updateTheme({ background_pattern: pattern.id } as any)}
+              label={pattern.name}
+              className="p-1.5"
+            >
+              <span className="relative block aspect-[4/3] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]" style={{ background: wallpaperFill }}>
+                {pattern.id === "none" ? (
+                  <span className="absolute inset-0 grid place-items-center"><X className="h-4 w-4" style={{ color: theme.text_color || "#6b7280", opacity: 0.55 }} /></span>
+                ) : (
+                  <WallpaperPattern pattern={pattern.id} color={patternRaw} level={(theme as any).pattern_opacity || "medium"} />
+                )}
+              </span>
+            </ChoiceCard>
+          )
+        })}
       </div>
-
-      {theme.background_type === "solid" && (
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Background color</Label>
-            <div className="flex items-center gap-3">
-              <MobileColorPicker
-                value={theme.background_color}
-                onChange={(color) => updateTheme({ background_color: color })}
-                label="Background color"
-              />
-              <Input value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} placeholder="#ffffff" className="h-12 rounded-xl flex-1 font-mono text-sm" />
-            </div>
-            <div className="flex gap-2 pt-1">
-              {['#ffffff', '#f8f9fa', '#e9ecef', '#1a1a1a', '#0f172a', '#fef3c7'].map((color) => (
-                <button key={color} onClick={() => updateTheme({ background_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.background_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
-              ))}
-            </div>
-          </div>
-
-          {/* Pattern Selector */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Pattern</Label>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {BACKGROUND_PATTERNS.map((pattern) => {
-                const currentPattern = (theme as any).background_pattern || "none"
-                const patternColor = (theme as any).pattern_color || "#00000090"
-                return (
-                  <button
-                    key={pattern.id}
-                    onClick={() => updateTheme({ background_pattern: pattern.id } as any)}
-                    className={cn(
-                      "aspect-square rounded-xl border-2 overflow-hidden transition-all relative",
-                      currentPattern === pattern.id ? "border-foreground ring-1 ring-foreground" : "border-gray-200 hover:border-gray-300"
-                    )}
-                    style={{ backgroundColor: theme.background_color }}
-                  >
-                    {pattern.id === "none" ? (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <X className="w-4 h-4 text-gray-400" />
-                      </div>
-                    ) : (
-                      <PatternPreview pattern={pattern.id} color={patternColor} />
-                    )}
-                    <span className="absolute bottom-1 left-0 right-0 text-[9px] font-medium text-center text-gray-600">{pattern.name}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Pattern Color */}
-          {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Pattern color</Label>
-              <div className="flex items-center gap-3">
-                <MobileColorPicker
-                  value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#000000"}
-                  onChange={(color) => updateTheme({ pattern_color: color + "90" } as any)}
-                  label="Pattern color"
-                />
-                <Input value={(theme as any).pattern_color || "#00000090"} onChange={(e) => { const val = e.target.value; const normalized = val.match(/^#[0-9a-f]{6}/i) ? val.slice(0, 7) + "90" : val; updateTheme({ pattern_color: normalized } as any) }} placeholder="#00000090" className="h-12 rounded-xl flex-1 font-mono text-sm" />
-              </div>
-              <div className="flex gap-2 pt-1">
-                {['#00000090', '#ffffff90', '#3b82f690', '#10b98190', '#f59e0b90', '#ef444490'].map((color) => (
-                  <button key={color} onClick={() => updateTheme({ pattern_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", (theme as any).pattern_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Pattern Opacity */}
-          {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Pattern opacity</Label>
-              <div className="grid grid-cols-4 gap-2">
-                <button
-                  onClick={() => updateTheme({ pattern_opacity: "low" } as any)}
-                  className={cn(
-                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
-                    (theme as any).pattern_opacity === "low"
-                      ? "bg-white border-gray-900 text-gray-900"
-                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                  )}
-                >
-                  Low
-                </button>
-                <button
-                  onClick={() => updateTheme({ pattern_opacity: "medium" } as any)}
-                  className={cn(
-                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
-                    ((theme as any).pattern_opacity || "medium") === "medium"
-                      ? "bg-white border-gray-900 text-gray-900"
-                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                  )}
-                >
-                  Medium
-                </button>
-                <button
-                  onClick={() => updateTheme({ pattern_opacity: "hard" } as any)}
-                  className={cn(
-                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
-                    (theme as any).pattern_opacity === "hard"
-                      ? "bg-white border-gray-900 text-gray-900"
-                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                  )}
-                >
-                  Hard
-                </button>
-                <button
-                  onClick={() => updateTheme({ pattern_opacity: "very_hard" } as any)}
-                  className={cn(
-                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
-                    (theme as any).pattern_opacity === "very_hard"
-                      ? "bg-white border-gray-900 text-gray-900"
-                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                  )}
-                >
-                  V.Hard
-                </button>
-              </div>
-            </div>
-          )}
+      {isPatternId(currentPattern) ? (
+        <div className="mt-5 space-y-4">
+          <ColorRow
+            label="Pattern colour"
+            value={normalizeHex(patternRaw)}
+            onChange={(color) => updateTheme({ pattern_color: color + patternAlpha } as any)}
+            suggestions={["#000000", "#ffffff", "#1a1a2e", theme.text_color, theme.button_color, "#b2846c"]}
+          />
+          <SettingRow label="Strength" stackOnPhone>
+            <Segmented
+              className="w-full sm:w-[300px]"
+              label="Pattern strength"
+              value={((theme as any).pattern_opacity || "medium") as PatternOpacity}
+              options={[{ id: "low", label: "Light" }, { id: "medium", label: "Medium" }, { id: "hard", label: "Strong" }, { id: "very_hard", label: "Bold" }] as const}
+              onChange={(id) => updateTheme({ pattern_opacity: id } as any)}
+            />
+          </SettingRow>
         </div>
+      ) : null}
+    </PanelSection>
+  )
+
+  const noiseRows = (field: "gradient_noise" | "image_noise") => (
+    <>
+      <SwitchRow
+        label="Film grain"
+        description="A fine grain over the whole wallpaper"
+        checked={!!(theme as any)[field]}
+        onChange={(checked) => updateTheme({ [field]: checked } as any)}
+      />
+      {(theme as any)[field] ? (
+        <div className="mt-3">
+          <RangeRow label="Grain strength" value={(theme as any).noise_strength || 15} min={5} max={50} step={5} onChange={(v) => updateTheme({ noise_strength: v } as any)} format={(v) => `${v}%`} ends={["Subtle", "Strong"]} />
+        </div>
+      ) : null}
+    </>
+  )
+
+  return (
+    <div>
+      <PanelSection>
+        <SectionTitle title="Wallpaper style" />
+        <div className="grid grid-cols-4 gap-2.5">{(["solid", "gradient", "image", "video"] as const).map(styleTile)}</div>
+      </PanelSection>
+
+      {bgType === "solid" && (
+        <>
+          <PanelSection>
+            <ColorRow
+              label="Background colour"
+              value={theme.background_color}
+              onChange={(color) => updateTheme({ background_color: color })}
+              suggestions={["#ffffff", "#f8f9fa", "#f4efe9", "#e9ecef", "#1a1a2e", "#0f172a", "#b2846c", "#fef3c7"]}
+            />
+          </PanelSection>
+          {patternSection}
+        </>
       )}
 
-      {theme.background_type === "gradient" && (
-        <div className="space-y-5">
-          {/* Custom Gradient Editor */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Create your gradient</Label>
-            <div className="p-4 border rounded-xl space-y-4">
-              {/* Preview */}
-              <div 
-                className="w-full h-20 rounded-lg"
-                style={{ background: `linear-gradient(${gradientInfo.direction}deg, ${gradientInfo.color1} 0%, ${gradientInfo.color2} 100%)` }}
-              />
-              
-              {/* Direction and Colors */}
-              <div className="flex items-center gap-4">
-                {/* Direction Dial */}
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-xs text-muted-foreground">Direction</span>
-                  <DirectionDial 
-                    value={gradientInfo.direction} 
-                    onChange={(dir) => handleGradientChange(dir, gradientInfo.color1, gradientInfo.color2)} 
-                  />
-                </div>
-                
-                {/* Color Pickers */}
-                <div className="flex-1 space-y-3">
-                  <div className="space-y-1.5">
-                    <span className="text-xs text-muted-foreground">Start color</span>
-                    <div className="flex items-center gap-2">
-                      <MobileColorPicker
-                        value={gradientInfo.color1}
-                        onChange={(color) => handleGradientChange(gradientInfo.direction, color, gradientInfo.color2)}
-                        label="Gradient start color"
-                        className="w-10 h-10"
-                      />
-                      <Input value={gradientInfo.color1} onChange={(e) => handleGradientChange(gradientInfo.direction, e.target.value, gradientInfo.color2)} className="flex-1 font-mono text-xs h-10 rounded-lg" />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <span className="text-xs text-muted-foreground">End color</span>
-                    <div className="flex items-center gap-2">
-                      <MobileColorPicker
-                        value={gradientInfo.color2}
-                        onChange={(color) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, color)}
-                        label="Gradient end color"
-                        className="w-10 h-10"
-                      />
-                      <Input value={gradientInfo.color2} onChange={(e) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, e.target.value)} className="flex-1 font-mono text-xs h-10 rounded-lg" />
-                    </div>
-                  </div>
-                </div>
+      {bgType === "gradient" && (
+        <>
+          <PanelSection>
+            <div className="h-24 w-full rounded-2xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]" style={{ background: `linear-gradient(${gradientInfo.direction}deg, ${gradientInfo.color1} 0%, ${gradientInfo.color2} 100%)` }} />
+            <div className="mt-5 flex items-center gap-5">
+              <DirectionDial value={gradientInfo.direction} onChange={(dir) => handleGradientChange(dir, gradientInfo.color1, gradientInfo.color2)} />
+              <div className="min-w-0 flex-1 space-y-3">
+                <ColorRow label="Start" value={gradientInfo.color1} onChange={(color) => handleGradientChange(gradientInfo.direction, color, gradientInfo.color2)} />
+                <ColorRow label="End" value={gradientInfo.color2} onChange={(color) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, color)} />
               </div>
             </div>
-          </div>
-
-          {/* Animate Toggle */}
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <Sparkles className="h-5 w-5 text-gray-500" />
-              <span className="text-sm font-medium">Animate</span>
-            </div>
-            <Toggle
-              checked={theme.animated_gradient || false}
-              onCheckedChange={(checked) => updateTheme({ animated_gradient: checked })}
-            />
-          </div>
-
-          {/* Noise Toggle */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-              <div className="flex items-center gap-3">
-                <svg className="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M8 12h.01M12 12h.01M16 12h.01M8 8h.01M12 8h.01M16 8h.01M8 16h.01M12 16h.01M16 16h.01" />
-                </svg>
-                <span className="text-sm font-medium">Noise</span>
-              </div>
-              <Toggle
-                checked={theme.gradient_noise || false}
-                onCheckedChange={(checked) => updateTheme({ gradient_noise: checked })}
-              />
-            </div>
-            {theme.gradient_noise && (
-              <div className="px-4 space-y-2">
-                <div className="flex justify-between items-center">
-                  <Label className="text-sm font-medium">Noise strength</Label>
-                  <span className="text-sm text-muted-foreground">{(theme as any).noise_strength || 15}%</span>
-                </div>
-                <Slider
-                  value={[(theme as any).noise_strength || 15]}
-                  onValueChange={([value]) => updateTheme({ noise_strength: value } as any)}
-                  min={5}
-                  max={50}
-                  step={5}
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Subtle</span>
-                  <span>Strong</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Gradient Presets */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Presets</Label>
-            <div className="grid grid-cols-4 gap-2">
+          </PanelSection>
+          <PanelSection>
+            <SectionTitle title="Ready made" />
+            <div className="grid grid-cols-6 gap-2">
               {[
                 "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                 "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
@@ -3502,302 +2944,118 @@ function WallpaperSection() {
                 "linear-gradient(180deg, #0c4a6e 0%, #0ea5e9 100%)",
                 "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
                 "linear-gradient(135deg, #ff6b6b 0%, #feca57 100%)",
-                "linear-gradient(135deg, #5f27cd 0%, #341f97 100%)",
+                "linear-gradient(180deg, #f4efe9 0%, #b2846c 100%)",
                 "linear-gradient(135deg, #00d2d3 0%, #54a0ff 100%)",
-                "linear-gradient(135deg, #ff9ff3 0%, #f368e0 100%)",
                 "linear-gradient(180deg, #2c3e50 0%, #3498db 100%)",
-                "linear-gradient(135deg, #ee5a24 0%, #f0932b 100%)",
-                "linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%)",
-                "linear-gradient(135deg, #00b894 0%, #55efc4 100%)",
               ].map((grad, i) => (
-                <button key={i} onClick={() => updateTheme({ background_gradient: grad })} className={cn("aspect-square rounded-lg border-2 transition-colors", theme.background_gradient === grad ? "border-gray-900" : "border-transparent hover:border-gray-300")} style={{ background: grad }} />
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={`Gradient ${i + 1}`}
+                  aria-pressed={theme.background_gradient === grad}
+                  onClick={() => updateTheme({ background_gradient: grad })}
+                  className={cn(
+                    "aspect-square min-h-11 cursor-pointer rounded-xl outline-none transition-shadow focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]",
+                    theme.background_gradient === grad ? "shadow-[0_0_0_2px_#fff,0_0_0_3.5px_#1a1a2e]" : "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
+                  )}
+                  style={{ background: grad }}
+                />
               ))}
             </div>
-          </div>
+          </PanelSection>
+          <PanelSection>
+            <SwitchRow label="Animate" description="The colours drift slowly across the page" checked={theme.animated_gradient || false} onChange={(checked) => updateTheme({ animated_gradient: checked })} />
+            <div className="mt-5">{noiseRows("gradient_noise")}</div>
+          </PanelSection>
+          {patternSection}
+        </>
+      )}
 
-          {/* Pattern Selector for Gradient */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Pattern</Label>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {BACKGROUND_PATTERNS.map((pattern) => {
-                const currentPattern = (theme as any).background_pattern || "none"
-                const patternColor = (theme as any).pattern_color || "#ffffff90"
-                return (
-                  <button
-                    key={pattern.id}
-                    onClick={() => updateTheme({ background_pattern: pattern.id } as any)}
-                    className={cn(
-                      "aspect-square rounded-xl border-2 overflow-hidden transition-all relative",
-                      currentPattern === pattern.id ? "border-white ring-1 ring-white" : "border-white/30 hover:border-white/50"
-                    )}
-                    style={{ background: theme.background_gradient || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" }}
-                  >
-                    {pattern.id === "none" ? (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <X className="w-4 h-4 text-white/60" />
-                      </div>
-                    ) : (
-                      <PatternPreview pattern={pattern.id} color={patternColor} />
-                    )}
-                    <span className="absolute bottom-1 left-0 right-0 text-[9px] font-medium text-center text-white/80">{pattern.name}</span>
+      {bgType === "image" && (
+        <>
+          <PanelSection>
+            {theme.background_image_url ? (
+              <div className="relative aspect-video overflow-hidden rounded-2xl">
+                <img src={theme.background_image_url} alt="Wallpaper" className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)` }} />
+                <div className="absolute bottom-3 right-3 flex gap-2">
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className={cn(secondaryDepth, "h-10 rounded-full px-4 text-[13.5px]")} disabled={uploading}>
+                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    Replace
                   </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Pattern Color for Gradient */}
-          {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Pattern color</Label>
-              <div className="flex items-center gap-3">
-                <MobileColorPicker
-                  value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#ffffff"}
-                  onChange={(color) => updateTheme({ pattern_color: color + "90" } as any)}
-                  label="Pattern color"
-                />
-                <Input value={(theme as any).pattern_color || "#ffffff90"} onChange={(e) => { const val = e.target.value; const normalized = val.match(/^#[0-9a-f]{6}/i) ? val.slice(0, 7) + "90" : val; updateTheme({ pattern_color: normalized } as any) }} placeholder="#ffffff90" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+                  <button type="button" aria-label="Remove image" onClick={() => updateTheme({ background_image_url: "" })} className={cn(secondaryDepth, "h-10 w-10 rounded-full")}><Trash2 className="h-4 w-4" /></button>
+                </div>
               </div>
-              <div className="flex gap-2 pt-1">
-                {['#ffffff90', '#00000090', '#3b82f690', '#10b98190', '#f59e0b90', '#ef444490'].map((color) => (
-                  <button key={color} onClick={() => updateTheme({ pattern_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", (theme as any).pattern_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Pattern Opacity for Gradient */}
-          {(theme as any).background_pattern && (theme as any).background_pattern !== "none" && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Pattern opacity</Label>
-              <div className="grid grid-cols-4 gap-2">
-                <button
-                  onClick={() => updateTheme({ pattern_opacity: "low" } as any)}
-                  className={cn(
-                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
-                    (theme as any).pattern_opacity === "low"
-                      ? "bg-white border-gray-900 text-gray-900"
-                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                  )}
-                >
-                  Low
-                </button>
-                <button
-                  onClick={() => updateTheme({ pattern_opacity: "medium" } as any)}
-                  className={cn(
-                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
-                    ((theme as any).pattern_opacity || "medium") === "medium"
-                      ? "bg-white border-gray-900 text-gray-900"
-                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                  )}
-                >
-                  Medium
-                </button>
-                <button
-                  onClick={() => updateTheme({ pattern_opacity: "hard" } as any)}
-                  className={cn(
-                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
-                    (theme as any).pattern_opacity === "hard"
-                      ? "bg-white border-gray-900 text-gray-900"
-                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                  )}
-                >
-                  Hard
-                </button>
-                <button
-                  onClick={() => updateTheme({ pattern_opacity: "very_hard" } as any)}
-                  className={cn(
-                    "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
-                    (theme as any).pattern_opacity === "very_hard"
-                      ? "bg-white border-gray-900 text-gray-900"
-                      : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                  )}
-                >
-                  V.Hard
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {theme.background_type === "image" && (
-        <div className="space-y-5">
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Background image</Label>
-            <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
-              {uploading ? <Loader2 className="h-8 w-8 text-gray-400 animate-spin" /> : <Upload className="h-8 w-8 text-gray-300 mb-2" />}
-              <p className="text-sm text-gray-500">{uploading ? "Uploading..." : "Upload image"}</p>
-            </div>
+            ) : (
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#d9dbe0] px-4 py-8 text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]">
+                {uploading ? <Loader2 className="h-6 w-6 animate-spin text-[#6b7280]" /> : <Upload className="h-6 w-6 text-[#6b7280]" strokeWidth={1.6} />}
+                <span className="text-[14px] font-medium">{uploading ? "Uploading" : "Upload an image"}</span>
+                <span className="text-[13px] text-[#6b7280]">JPG, PNG or GIF. Tall pictures fit a phone best</span>
+              </button>
+            )}
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-          </div>
-          {theme.background_image_url && (
-            <div className="relative rounded-xl overflow-hidden aspect-video">
-              <img 
-                src={theme.background_image_url} 
-                alt="Background" 
-                className="w-full h-full object-cover"
-                style={{ 
-                  filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)` 
-                }}
-              />
-              <button onClick={() => updateTheme({ background_image_url: "" })} className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full hover:bg-black/70 transition-colors"><X className="h-4 w-4 text-white" /></button>
-            </div>
-          )}
-
-          {/* Image Controls */}
-          {theme.background_image_url && (
-            <div className="space-y-4">
-              {/* Brightness Slider */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Brightness</Label>
-                  <span className="text-xs text-muted-foreground">{(theme as any).image_brightness || 100}%</span>
-                </div>
-                <Slider 
-                  value={[(theme as any).image_brightness || 100]} 
-                  onValueChange={(v) => updateTheme({ image_brightness: v[0] } as any)}
-                  min={20}
-                  max={150}
-                  step={5}
-                  className="w-full"
-                />
+          </PanelSection>
+          {theme.background_image_url ? (
+            <PanelSection>
+              <div className="space-y-5">
+                <RangeRow label="Brightness" value={(theme as any).image_brightness || 100} min={20} max={150} step={5} onChange={(v) => updateTheme({ image_brightness: v } as any)} format={(v) => `${v}%`} />
+                <RangeRow label="Blur" value={(theme as any).image_blur || 0} min={0} max={20} step={1} onChange={(v) => updateTheme({ image_blur: v } as any)} format={(v) => (v ? `${v}px` : "None")} />
+                <div>{noiseRows("image_noise")}</div>
               </div>
-
-              {/* Blur Slider */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Blur</Label>
-                  <span className="text-xs text-muted-foreground">{(theme as any).image_blur || 0}px</span>
-                </div>
-                <Slider 
-                  value={[(theme as any).image_blur || 0]} 
-                  onValueChange={(v) => updateTheme({ image_blur: v[0] } as any)}
-                  min={0}
-                  max={20}
-                  step={1}
-                  className="w-full"
-                />
-              </div>
-
-              {/* Noise Toggle */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                  <div className="flex items-center gap-3">
-                    <svg className="h-5 w-5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M8 12h.01M12 12h.01M16 12h.01M8 8h.01M12 8h.01M16 8h.01M8 16h.01M12 16h.01M16 16h.01" />
-                    </svg>
-                    <span className="text-sm font-medium">Noise</span>
-                  </div>
-                  <Toggle
-                    checked={(theme as any).image_noise || false}
-                    onCheckedChange={(checked) => updateTheme({ image_noise: checked } as any)}
-                  />
-                </div>
-                {(theme as any).image_noise && (
-                  <div className="px-4 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label className="text-sm font-medium">Noise strength</Label>
-                      <span className="text-sm text-muted-foreground">{(theme as any).noise_strength || 15}%</span>
-                    </div>
-                    <Slider
-                      value={[(theme as any).noise_strength || 15]}
-                      onValueChange={([value]) => updateTheme({ noise_strength: value } as any)}
-                      min={5}
-                      max={50}
-                      step={5}
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Subtle</span>
-                      <span>Strong</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Or choose from library</Label>
-            <div className="grid grid-cols-3 gap-2">
+            </PanelSection>
+          ) : null}
+          <PanelSection>
+            <SectionTitle title="From the library" />
+            <div className="grid grid-cols-3 gap-2.5">
               {BACKGROUND_IMAGES.map((bg) => (
-                <button key={bg.id} onClick={() => handleImageSelect(bg.url)} className={cn("aspect-square rounded-lg overflow-hidden border-2 transition-colors", theme.background_image_url === bg.url ? "border-violet-500" : "border-transparent hover:border-gray-300")}>
-                  <img src={bg.url} alt={bg.label} className="w-full h-full object-cover" />
+                <button
+                  key={bg.id}
+                  type="button"
+                  aria-label={bg.label}
+                  aria-pressed={theme.background_image_url === bg.url}
+                  onClick={() => handleImageSelect(bg.url)}
+                  className={cn(
+                    "aspect-square cursor-pointer overflow-hidden rounded-xl outline-none transition-shadow focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]",
+                    theme.background_image_url === bg.url ? "shadow-[0_0_0_2px_#fff,0_0_0_3.5px_#1a1a2e]" : "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
+                  )}
+                >
+                  <img src={bg.url} alt="" loading="lazy" className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>
-          </div>
-        </div>
+          </PanelSection>
+        </>
       )}
 
-      {theme.background_type === "video" && (
-        <div className="space-y-5">
-          {/* Video Preview */}
+      {bgType === "video" && (
+        <PanelSection>
           {(theme as any).background_video_url ? (
-            <>
-              <div className="relative rounded-xl overflow-hidden aspect-[9/16] max-h-[300px] mx-auto">
-                <video
-                  src={(theme as any).background_video_url}
-                  className="w-full h-full object-cover"
-                  style={{
-                    filter: `brightness(${(theme as any).video_brightness || 100}%)`
-                  }}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
+            <div className="space-y-5">
+              <div className="relative mx-auto aspect-[9/16] max-h-[300px] overflow-hidden rounded-2xl">
+                <video src={(theme as any).background_video_url} className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).video_brightness || 100}%)` }} autoPlay loop muted playsInline />
+                <button type="button" aria-label="Remove video" onClick={handleRemoveWallpaperVideo} className={cn(secondaryDepth, "absolute right-3 top-3 h-10 w-10 rounded-full")}><Trash2 className="h-4 w-4" /></button>
+              </div>
+              <SettingRow label="Brightness" stackOnPhone>
+                <Segmented
+                  className="w-full sm:w-[320px]"
+                  label="Video brightness"
+                  value={String((theme as any).video_brightness || 100) as "100" | "85" | "70" | "40"}
+                  options={[{ id: "100", label: "Normal" }, { id: "85", label: "Dim" }, { id: "70", label: "Darker" }, { id: "40", label: "Dark" }] as const}
+                  onChange={(id) => updateTheme({ video_brightness: Number(id) } as any)}
                 />
-                <button onClick={handleRemoveWallpaperVideo} className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full hover:bg-black/70 transition-colors"><X className="h-4 w-4 text-white" /></button>
-              </div>
-
-              {/* Video Brightness Options */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Brightness</Label>
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { label: "Normal", value: 100 },
-                    { label: "Medium", value: 85 },
-                    { label: "Low", value: 70 },
-                    { label: "Very Low", value: 40 },
-                  ].map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => updateTheme({ video_brightness: option.value } as any)}
-                      className={cn(
-                        "py-2.5 px-2 rounded-xl text-xs font-medium transition-all border-2",
-                        ((theme as any).video_brightness || 100) === option.value
-                          ? "bg-white border-gray-900 text-gray-900"
-                          : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-                      )}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Change Video Button */}
-              <Button
-                variant="outline"
-                onClick={() => setShowWallpaperVideoModal(true)}
-                className="w-full h-12 rounded-xl"
-              >
-                <Video className="h-4 w-4 mr-2" />
-                Change Video
-              </Button>
-            </>
-          ) : (
-            <div className="space-y-3">
-              <Label className="text-sm font-medium">Background video</Label>
-              <div onClick={() => setShowWallpaperVideoModal(true)} className="border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
-                <Video className="h-8 w-8 text-gray-300 mb-2" />
-                <p className="text-sm text-gray-500">Upload video</p>
-                <p className="text-xs text-gray-400 mt-1">MP4, WebM, or MOV (max 100MB)</p>
-              </div>
+              </SettingRow>
+              <button type="button" onClick={() => setShowWallpaperVideoModal(true)} className={cn(secondaryDepth, "h-11 w-full rounded-xl text-[14px]")}>
+                <Video className="h-4 w-4" />
+                Change video
+              </button>
             </div>
+          ) : (
+            <button type="button" onClick={() => setShowWallpaperVideoModal(true)} className="flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#d9dbe0] px-4 py-8 text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]">
+              <Video className="h-6 w-6 text-[#6b7280]" strokeWidth={1.6} />
+              <span className="text-[14px] font-medium">Upload a video</span>
+              <span className="text-[13px] text-[#6b7280]">MP4, WebM or MOV, up to 100MB</span>
+            </button>
           )}
-        </div>
+        </PanelSection>
       )}
 
       {/* Video Picker Modal */}
@@ -3966,191 +3224,182 @@ function WallpaperSection() {
   )
 }
 
+/**
+ * A FONT, CHOSEN FROM A LIST DRAWN IN ITS OWN FACES. The row shows the font
+ * in use, in that font; the list is a dialog on a computer and the app's
+ * sheet on a phone, with a search and the families as tabs. Each name is
+ * drawn in its own face from one small request (FONT_SAMPLE_HREF), so the
+ * list costs a few kilobytes, not forty fonts.
+ */
+function FontPicker({
+  label,
+  description,
+  value,
+  fonts,
+  onPick,
+  sampleFamily,
+  defaultLabel,
+}: {
+  label: string
+  description?: string
+  value: string | null
+  fonts: { name: string; value: string | null; category?: string; style?: string }[]
+  onPick: (value: string | null) => void
+  /** The face the row is drawn in when `value` is null. */
+  sampleFamily: string
+  defaultLabel?: string
+}) {
+  const phone = usePhone()
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
+  const [family, setFamily] = useState("all")
+  const current = fonts.find((f) => f.value === value)
+  const name = value ? current?.name || familyOf(value) || value : defaultLabel || "Default"
+  const withCategories = fonts.some((f) => f.category)
+  const shown = fonts.filter((f) => (family === "all" || f.category === family) && f.name.toLowerCase().includes(query.trim().toLowerCase()))
+  const choose = (v: string | null) => {
+    onPick(v)
+    setOpen(false)
+  }
+  const list = (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 space-y-3 px-4 pb-3">
+        <label className="relative block">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" aria-hidden />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search fonts" aria-label="Search fonts" className={cn(fieldInput, "h-11 pl-10")} />
+        </label>
+        {withCategories ? (
+          <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 scrollbar-hide">
+            {FONT_CATEGORIES.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setFamily(c.id)}
+                className={cn("h-9 shrink-0 cursor-pointer rounded-full border px-3.5 text-[13px] font-medium transition-colors", family === c.id ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e3e4e8] bg-white text-[#4b5563] hover:border-[#c9cbd1]")}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <div role="listbox" aria-label={label} className="min-h-0 flex-1 overflow-y-auto border-t border-[#eef0f2] px-2 py-2 pb-[max(8px,env(safe-area-inset-bottom))]">
+        {shown.length === 0 ? <p className="px-3 py-6 text-center text-[14px] text-[#6b7280]">No font by that name</p> : null}
+        {shown.map((f) => {
+          const on = f.value === value
+          return (
+            <button
+              key={f.name}
+              type="button"
+              role="option"
+              aria-selected={on}
+              onClick={() => choose(f.value)}
+              data-font-option={f.name}
+              className={cn("flex min-h-[52px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left transition-colors", on ? "bg-[#f1f2f4]" : "hover:bg-[#f7f7f8]")}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[17px] text-[#1a1a2e]" style={{ fontFamily: fontStack(f.value || sampleFamily) }}>{f.name}</span>
+                {f.style ? <span className="block truncate text-[12.5px] text-[#6b7280]">{f.style}</span> : null}
+              </span>
+              {on ? <Check className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={2} aria-hidden /> : null}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => { setQuery(""); setFamily("all"); setOpen(true) }}
+        data-font-picker={label}
+        className="flex min-h-[64px] w-full cursor-pointer items-center gap-4 rounded-2xl border border-[#e3e4e8] bg-white px-4 py-3 text-left transition-colors hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] outline-none"
+      >
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f4f4f6] text-[20px] text-[#1a1a2e]" style={{ fontFamily: fontStack(value || sampleFamily) }} aria-hidden>Aa</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[13px] text-[#6b7280]">{label}</span>
+          <span className="block truncate text-[16px] font-medium text-[#1a1a2e]" style={{ fontFamily: fontStack(value || sampleFamily) }}>{name}</span>
+        </span>
+        <ChevronRight className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={1.75} aria-hidden />
+      </button>
+      {description ? <p className="mt-2 text-[13.5px] text-[#6b7280]">{description}</p> : null}
+      {phone ? (
+        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={label} fill height="min(80dvh, 640px)">
+          <div className="flex h-full min-h-0 flex-col pt-2">{list}</div>
+        </BottomSheet>
+      ) : (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent className="flex max-h-[min(640px,80vh)] w-[calc(100%-32px)] max-w-[420px] flex-col gap-0 overflow-hidden rounded-2xl p-0">
+            <DialogHeader className="px-4 pb-3 pt-4">
+              <DialogTitle className="text-[18px] font-semibold text-[#1a1a2e]">{label}</DialogTitle>
+            </DialogHeader>
+            {list}
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
+  )
+}
+
 function TextSection() {
   const { onepage, updateTheme } = useOnePage()
-  const [showFontModal, setShowFontModal] = useState(false)
-  const [showTitleFontModal, setShowTitleFontModal] = useState(false)
-  const [fontFilter, setFontFilter] = useState<"all" | "sans" | "serif" | "display" | "mono" | "handwritten">("all")
-  const [fontSearch, setFontSearch] = useState("")
-
   if (!onepage) return null
   const { theme } = onepage
   const titleFont = (theme as any).title_font || null
-
-  const filteredFonts = FONTS.filter(font => {
-    const matchesFilter = fontFilter === "all" || font.category === fontFilter
-    const matchesSearch = font.name.toLowerCase().includes(fontSearch.toLowerCase())
-    return matchesFilter && matchesSearch
-  })
+  const bodyValue = FONTS.find((f) => familyOf(f.value) === familyOf(theme.font_family))?.value ?? theme.font_family
 
   return (
-    <div className="space-y-6 md:space-y-8">
-      {FONT_SAMPLE_HREF ? <link rel="stylesheet" href={FONT_SAMPLE_HREF} /> : null}
-      <h2 className="text-lg md:text-xl font-semibold">Text</h2>
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Font</Label>
-        <button onClick={() => setShowFontModal(true)} className="w-full flex items-center justify-between p-4 border rounded-xl hover:bg-gray-50 transition-colors">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center"><Type className="h-5 w-5 text-gray-500" /></div>
-            <div className="text-left">
-              <p className="font-medium" style={{ fontFamily: theme.font_family }}>{FONTS.find(f => f.value === theme.font_family)?.name || theme.font_family}</p>
-              <p className="text-xs text-muted-foreground">{FONTS.find(f => f.value === theme.font_family)?.style || "Custom"}</p>
-            </div>
-          </div>
-          <ChevronRight className="h-5 w-5 text-gray-400" />
-        </button>
-      </div>
-      <Dialog open={showFontModal} onOpenChange={setShowFontModal}>
-        <DialogContent className="w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[80vh] sm:max-h-[70vh] flex flex-col">
-          <DialogHeader className="p-4 border-b shrink-0">
-            <DialogTitle className="text-lg font-semibold">Choose Font</DialogTitle>
-            <div className="relative mt-3">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input value={fontSearch} onChange={(e) => setFontSearch(e.target.value)} placeholder="Search fonts..." className="pl-9 h-10" />
-            </div>
-            <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-hide">
-              {FONT_CATEGORIES.map((cat) => (
-                <button key={cat.id} onClick={() => setFontFilter(cat.id as any)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0", fontFilter === cat.id ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>{cat.label}</button>
-              ))}
-            </div>
-          </DialogHeader>
-          <div className="overflow-y-auto flex-1 p-2 pb-[max(8px,env(safe-area-inset-bottom))]">
-            {filteredFonts.map((font) => (
-              <button key={font.name} onClick={() => { updateTheme({ font_family: font.value }); setShowFontModal(false) }} className={cn("w-full p-4 sm:p-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors", theme.font_family === font.value && "bg-violet-50")}>
-                <div className="flex-1 min-w-0"><p style={{ fontFamily: font.value }} className="text-base truncate">{font.name}</p><p className="text-xs text-muted-foreground">{font.style}</p></div>
-                {theme.font_family === font.value && <Check className="h-5 w-5 text-violet-500 shrink-0 ml-2" />}
-              </button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <div className="border-t border-gray-100" />
-
-      {/* Title Font Selector */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Title font</Label>
-        <button onClick={() => setShowTitleFontModal(true)} className="w-full flex items-center justify-between p-4 border rounded-xl hover:bg-gray-50 transition-colors">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center"><Type className="h-5 w-5 text-gray-500" /></div>
-            <div className="text-left">
-              <p className="font-medium" style={{ fontFamily: titleFont || theme.font_family }}>
-                {titleFont ? TITLE_FONTS.find(f => f.value === titleFont)?.name || titleFont : "Default (Same as body)"}
-              </p>
-              <p className="text-xs text-muted-foreground">{titleFont ? "Custom title font" : "Uses body font"}</p>
-            </div>
-          </div>
-          <ChevronRight className="h-5 w-5 text-gray-400" />
-        </button>
-      </div>
-      <Dialog open={showTitleFontModal} onOpenChange={setShowTitleFontModal}>
-        <DialogContent className="w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[80vh] sm:max-h-[70vh] flex flex-col">
-          <DialogHeader className="p-4 border-b shrink-0">
-            <DialogTitle className="text-lg font-semibold">Choose Title Font</DialogTitle>
-          </DialogHeader>
-          <div className="overflow-y-auto flex-1 p-2 pb-[max(8px,env(safe-area-inset-bottom))]">
-            {TITLE_FONTS.map((font) => (
-              <button
-                key={font.name}
-                onClick={() => { updateTheme({ title_font: font.value } as any); setShowTitleFontModal(false) }}
-                className={cn(
-                  "w-full p-4 sm:p-3 rounded-lg flex items-center justify-between hover:bg-gray-50 transition-colors",
-                  titleFont === font.value && "bg-violet-50"
-                )}
-              >
-                <div className="flex-1 min-w-0">
-                  <p style={{ fontFamily: font.value || theme.font_family }} className="text-base sm:text-base truncate">
-                    {font.name}
-                  </p>
-                </div>
-                {titleFont === font.value && <Check className="h-5 w-5 text-violet-500 shrink-0 ml-2" />}
-              </button>
-            ))}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <div className="border-t border-gray-100" />
-
-      {/* Title & Logo Size Selector */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Title & Logo size</Label>
-        <div className="flex gap-2">
-          <button
-            onClick={() => updateTheme({ title_size: "default" } as any)}
-            className={cn(
-              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
-              ((theme as any).title_size || "default") === "default"
-                ? "bg-white border-gray-900 text-gray-900"
-                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-            )}
-          >
-            Default
-          </button>
-          <button
-            onClick={() => updateTheme({ title_size: "large" } as any)}
-            className={cn(
-              "flex-1 py-3 px-4 rounded-xl text-sm font-medium transition-all border-2",
-              (theme as any).title_size === "large"
-                ? "bg-white border-gray-900 text-gray-900"
-                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
-            )}
-          >
-            Large
-          </button>
-        </div>
-      </div>
-
-      {/* Title color */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Title color</Label>
-        <div className="flex items-center gap-3">
-          <MobileColorPicker
-            value={(theme as any).title_color || theme.text_color}
-            onChange={(color) => updateTheme({ title_color: color } as any)}
-            label="Title color"
+    <div>
+      <PanelSection>
+        {FONT_SAMPLE_HREF ? <link rel="stylesheet" href={FONT_SAMPLE_HREF} /> : null}
+        <SectionTitle title="Fonts" />
+        <div className="space-y-3">
+          <FontPicker
+            label="Page font"
+            value={bodyValue}
+            fonts={FONTS}
+            sampleFamily={theme.font_family}
+            onPick={(v) => v && updateTheme({ font_family: v })}
           />
-          <Input value={(theme as any).title_color || theme.text_color} onChange={(e) => updateTheme({ title_color: e.target.value } as any)} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+          <FontPicker
+            label="Title font"
+            value={titleFont}
+            fonts={TITLE_FONTS.map((f) => ({ ...f, name: f.value ? f.name : "Same as page font" }))}
+            sampleFamily={theme.font_family}
+            defaultLabel="Same as page font"
+            onPick={(v) => updateTheme({ title_font: v } as any)}
+          />
         </div>
-        <div className="flex gap-2 pt-1">
-          {['#ffffff', '#000000', '#1a1a1a', '#3b82f6', '#ef4444', '#10b981'].map((color) => (
-            <button key={color} onClick={() => updateTheme({ title_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", ((theme as any).title_color || theme.text_color) === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
-          ))}
-        </div>
-      </div>
+      </PanelSection>
 
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Text color</Label>
-        <div className="flex items-center gap-3">
-          <MobileColorPicker
+      <PanelSection>
+        <SectionTitle title="Colours" />
+        <div className="space-y-4">
+          <ColorRow
+            label="Title"
+            value={(theme as any).title_color || null}
+            emptyLabel="Text colour"
+            fallback={theme.text_color}
+            onChange={(color) => updateTheme({ title_color: color } as any)}
+            onClear={() => updateTheme({ title_color: null } as any)}
+            suggestions={["#ffffff", "#000000", "#1a1a2e", theme.text_color, theme.button_color, "#b2846c"]}
+          />
+          <ColorRow
+            label="Text"
             value={theme.text_color}
             onChange={(color) => updateTheme({ text_color: color })}
-            label="Text color"
+            suggestions={["#ffffff", "#000000", "#1a1a2e", "#374151", "#f4efe9", theme.button_color]}
           />
-          <Input value={theme.text_color} onChange={(e) => updateTheme({ text_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
-        </div>
-        <div className="flex gap-2 pt-1">
-          {['#ffffff', '#000000', '#1a1a1a', '#3b82f6', '#ef4444', '#10b981'].map((color) => (
-            <button key={color} onClick={() => updateTheme({ text_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.text_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
-          ))}
-        </div>
-      </div>
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Secondary text color</Label>
-        <div className="flex items-center gap-3">
-          <MobileColorPicker
+          <ColorRow
+            label="Secondary text"
+            description="The bio and small print"
             value={theme.secondary_text_color || theme.text_color}
             onChange={(color) => updateTheme({ secondary_text_color: color })}
-            label="Secondary text color"
+            suggestions={["#6b7280", "#9ca3af", "#d1d5db", "#374151", "#1f2937", "#e5e7eb"]}
           />
-          <Input value={theme.secondary_text_color || theme.text_color} onChange={(e) => updateTheme({ secondary_text_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
         </div>
-        <div className="flex gap-2 pt-1">
-          {['#6b7280', '#9ca3af', '#d1d5db', '#374151', '#1f2937', '#111827'].map((color) => (
-            <button key={color} onClick={() => updateTheme({ secondary_text_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", (theme.secondary_text_color || theme.text_color) === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
-          ))}
-        </div>
-      </div>
+      </PanelSection>
     </div>
   )
 }
@@ -4195,145 +3444,93 @@ function ButtonsSection() {
     updateTheme(updates)
   }
 
+  const shadow = ((theme as any).button_shadow || "none") as "none" | "subtle" | "strong" | "hard"
+  const radius = theme.button_border_radius ?? 8
+  /* A small drawing of the button in each style, in the page's own colours. */
+  const sample = (style: "filled" | "outline" | "glass") => (
+    <div className="grid h-[68px] place-items-center rounded-xl px-3" style={{ background: theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color || "#f7f7f8" }}>
+      <span
+        className="block h-6 w-full max-w-[92px]"
+        style={{
+          borderRadius: Math.min(radius, 12),
+          background: style === "filled" ? theme.button_color : style === "glass" ? "rgba(255,255,255,0.28)" : "transparent",
+          border: style === "filled" ? "none" : `1.5px solid ${style === "glass" ? "rgba(255,255,255,0.55)" : theme.button_color}`,
+          backdropFilter: style === "glass" ? "blur(6px)" : undefined,
+        }}
+      />
+    </div>
+  )
+
   return (
-    <div className="space-y-6 md:space-y-8">
-      <h2 className="text-lg md:text-xl font-semibold">Buttons</h2>
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Style</Label>
-        <div className="grid grid-cols-3 gap-2">
+    <div>
+      <PanelSection>
+        <SectionTitle title="Button style" />
+        <div className="grid grid-cols-3 gap-3">
           {(["filled", "outline", "glass"] as const).map((style) => (
-            <button key={style} onClick={() => handleButtonStyleChange(style)} className={cn("py-3 md:py-3.5 rounded-xl border-2 text-xs md:text-sm font-medium capitalize transition-colors", theme.button_style === style ? "border-foreground bg-gray-50" : "border-gray-200 hover:border-gray-300")}>{style === "filled" ? "Solid" : style}</button>
+            <ChoiceCard key={style} selected={theme.button_style === style} onClick={() => handleButtonStyleChange(style)} label={style === "filled" ? "Solid" : style === "outline" ? "Outline" : "Glass"}>
+              {sample(style)}
+            </ChoiceCard>
           ))}
         </div>
-      </div>
-      <div className="border-t border-gray-100" />
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Button color</Label>
-        <div className="flex items-center gap-3">
-          <MobileColorPicker
+      </PanelSection>
+
+      <PanelSection>
+        <div className="space-y-5">
+          <RangeRow label="Corners" value={radius} min={0} max={24} step={2} onChange={(v) => updateTheme({ button_border_radius: v })} format={(v) => `${v}px`} ends={["Square", "Round"]} />
+          <RangeRow label="Border" value={theme.button_border_width ?? 0} min={0} max={4} step={1} onChange={(v) => updateTheme({ button_border_width: v })} format={(v) => (v ? `${v}px` : "None")} />
+        </div>
+      </PanelSection>
+
+      <PanelSection>
+        <SectionTitle title="Colours" />
+        <div className="space-y-4">
+          <ColorRow
+            label="Button"
             value={theme.button_color}
             onChange={(color) => updateTheme(theme.button_style === "outline" ? { button_color: color, button_border_color: color } : { button_color: color })}
-            label="Button color"
+            suggestions={["#1a1a2e", "#000000", "#ffffff", "#8b5cf6", "#b2846c", "#2f6f4f", "#e4572e", "#3b82f6"]}
           />
-          <Input value={theme.button_color} onChange={(e) => updateTheme(theme.button_style === "outline" ? { button_color: e.target.value, button_border_color: e.target.value } : { button_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
-        </div>
-        <div className="flex gap-2 pt-1">
-          {['#000000', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'].map((color) => (
-            <button key={color} onClick={() => updateTheme(theme.button_style === "outline" ? { button_color: color, button_border_color: color } : { button_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.button_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
-          ))}
-        </div>
-      </div>
-      <div className="border-t border-gray-100" />
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Button text color</Label>
-        <div className="flex items-center gap-3">
-          <MobileColorPicker
+          <ColorRow
+            label="Button text"
             value={theme.button_text_color}
             onChange={(color) => updateTheme({ button_text_color: color })}
-            label="Button text color"
+            suggestions={["#ffffff", "#000000", "#1a1a2e", "#f8fafc", "#fef3c7"]}
           />
-          <Input value={theme.button_text_color} onChange={(e) => updateTheme({ button_text_color: e.target.value })} placeholder="#ffffff" className="h-12 rounded-xl flex-1 font-mono text-sm" />
-        </div>
-        <div className="flex gap-2 pt-1">
-          {['#ffffff', '#000000', '#1a1a1a', '#f8fafc', '#fef3c7', '#ecfdf5'].map((color) => (
-            <button key={color} onClick={() => updateTheme({ button_text_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.button_text_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
-          ))}
-        </div>
-      </div>
-      <div className="border-t border-gray-100" />
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Shadows</Label>
-        <div className="grid grid-cols-4 gap-2">
-          {([
-            { id: "none", label: "None" },
-            { id: "subtle", label: "Subtle" },
-            { id: "strong", label: "Strong" },
-            { id: "hard", label: "Hard" },
-          ] as const).map((shadow) => (
-            <button
-              key={shadow.id}
-              onClick={() => updateTheme({ button_shadow: shadow.id } as any)}
-              className={cn(
-                "py-3 rounded-xl border-2 text-xs md:text-sm font-medium transition-colors",
-                (theme as any).button_shadow === shadow.id || (!((theme as any).button_shadow) && shadow.id === "none")
-                  ? "border-foreground bg-gray-50"
-                  : "border-gray-200 hover:border-gray-300"
-              )}
-            >
-              {shadow.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      {/* Shadow Color - only show when shadow is enabled */}
-      {(theme as any).button_shadow && (theme as any).button_shadow !== "none" && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Shadow color</Label>
-          <div className="flex items-center gap-3">
-            <MobileColorPicker
-              value={(theme as any).button_shadow_color || "#000000"}
-              onChange={(color) => updateTheme({ button_shadow_color: color } as any)}
-              label="Button shadow color"
+          {(theme.button_border_width ?? 0) > 0 || theme.button_style === "outline" ? (
+            <ColorRow
+              label="Border"
+              value={theme.button_border_color}
+              onChange={(color) => updateTheme({ button_border_color: color })}
+              suggestions={["#000000", "#ffffff", "#1a1a2e", "#e5e7eb", theme.button_color]}
             />
-            <Input value={(theme as any).button_shadow_color || "#000000"} onChange={(e) => updateTheme({ button_shadow_color: e.target.value } as any)} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
+          ) : null}
+        </div>
+      </PanelSection>
+
+      <PanelSection>
+        <SectionTitle title="Shadow" />
+        <Segmented
+          label="Shadow"
+          value={shadow}
+          options={[{ id: "none", label: "None" }, { id: "subtle", label: "Soft" }, { id: "strong", label: "Strong" }, { id: "hard", label: "Hard" }] as const}
+          onChange={(id) => updateTheme({ button_shadow: id } as any)}
+        />
+        {shadow !== "none" ? (
+          <div className="mt-4">
+            <ColorRow label="Shadow colour" value={(theme as any).button_shadow_color || "#000000"} onChange={(color) => updateTheme({ button_shadow_color: color } as any)} suggestions={["#000000", "#1a1a2e", "#ffffff", theme.button_color]} />
           </div>
-        </div>
-      )}
-      <div className="border-t border-gray-100" />
-      <div className="space-y-3">
-        <div className="flex justify-between items-center"><Label className="text-sm font-medium">Corners</Label><span className="text-sm text-muted-foreground">{theme.button_border_radius}px</span></div>
-        <Slider value={[theme.button_border_radius]} onValueChange={([value]) => updateTheme({ button_border_radius: value })} min={0} max={24} step={2} />
-        <div className="flex justify-between text-xs text-muted-foreground"><span>Square</span><span>Round</span></div>
-      </div>
-      <div className="border-t border-gray-100" />
-      <div className="space-y-3">
-        <div className="flex justify-between items-center"><Label className="text-sm font-medium">Border width</Label><span className="text-sm text-muted-foreground">{theme.button_border_width}px</span></div>
-        <Slider value={[theme.button_border_width]} onValueChange={([value]) => updateTheme({ button_border_width: value })} min={0} max={4} step={1} />
-      </div>
-      <div className="border-t border-gray-100" />
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Border color</Label>
-        <div className="flex items-center gap-3">
-          <MobileColorPicker
-            value={theme.button_border_color}
-            onChange={(color) => updateTheme({ button_border_color: color })}
-            label="Button border color"
-          />
-          <Input value={theme.button_border_color} onChange={(e) => updateTheme({ button_border_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
-        </div>
-        <div className="flex gap-2 pt-1">
-          {['#000000', '#ffffff', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'].map((color) => (
-            <button key={color} onClick={() => updateTheme({ button_border_color: color })} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", theme.button_border_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
-          ))}
-        </div>
-      </div>
-      <div className="border-t border-gray-100" />
-      {/* Button Animations Section */}
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Button Animations</Label>
-        <p className="text-xs text-muted-foreground -mt-1">Subtle hover effects for buttons</p>
-        <div className="grid grid-cols-3 gap-2">
-          {([
-            { id: "default", label: "Default", desc: "Scale up" },
-            { id: "fade", label: "Fade", desc: "Opacity" },
-            { id: "zoom", label: "Zoom", desc: "Grow" },
-          ] as const).map((animation) => (
-            <button
-              key={animation.id}
-              onClick={() => updateTheme({ button_hover_animation: animation.id } as any)}
-              className={cn(
-                "py-3 px-2 rounded-xl border-2 text-xs md:text-sm font-medium transition-colors flex flex-col items-center gap-0.5",
-                ((theme as any).button_hover_animation || "default") === animation.id
-                  ? "border-foreground bg-gray-50"
-                  : "border-gray-200 hover:border-gray-300"
-              )}
-            >
-              <span>{animation.label}</span>
-              <span className="text-[10px] text-muted-foreground font-normal">{animation.desc}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+        ) : null}
+      </PanelSection>
+
+      <PanelSection>
+        <SectionTitle title="On hover" description="How a button answers a pointer on a computer" />
+        <Segmented
+          label="On hover"
+          value={((theme as any).button_hover_animation || "default") as "default" | "fade" | "zoom"}
+          options={[{ id: "default", label: "Lift", hint: "Scales up" }, { id: "fade", label: "Fade", hint: "Dims" }, { id: "zoom", label: "Zoom", hint: "Grows" }] as const}
+          onChange={(id) => updateTheme({ button_hover_animation: id } as any)}
+        />
+      </PanelSection>
     </div>
   )
 }
@@ -4346,123 +3543,41 @@ function SocialsSection() {
   const socialColor = (theme as any).social_icon_color || theme.text_color
 
   return (
-    <div className="space-y-6 md:space-y-8">
-      <h2 className="text-lg md:text-xl font-semibold">Social Icons</h2>
-      <div className="space-y-3">
-        <Label className="text-sm font-medium">Style</Label>
+    <div>
+      <PanelSection>
+        <SectionTitle title="Icon style" />
         <div className="grid grid-cols-3 gap-3">
           {SOCIAL_STYLES.map((style) => (
-            <button
-              key={style.id}
-              onClick={() => updateTheme({ social_icon_style: style.id } as any)}
-              className={cn(
-                "py-3 px-4 rounded-2xl text-sm font-medium transition-all",
-                socialStyle === style.id
-                  ? "bg-gray-100 border-2 border-gray-900 text-gray-900"
-                  : "bg-gray-100 border-2 border-transparent text-gray-600 hover:bg-gray-200"
-              )}
-            >
-              {style.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="border-t border-gray-100" />
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Icon color</Label>
-        <div className="flex items-center gap-3">
-          <MobileColorPicker
-            value={socialColor}
-            onChange={(color) => updateTheme({ social_icon_color: color } as any)}
-            label="Social icon color"
-          />
-          <Input value={socialColor} onChange={(e) => updateTheme({ social_icon_color: e.target.value } as any)} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
-        </div>
-        <div className="flex gap-2 pt-1">
-          {['#000000', '#ffffff', '#3b82f6', '#e1306c', '#ff0000', '#1da1f2'].map((color) => (
-            <button key={color} onClick={() => updateTheme({ social_icon_color: color } as any)} className={cn("w-8 h-8 rounded-full border-2 transition-transform hover:scale-110", socialColor === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200")} style={{ backgroundColor: color }} />
-          ))}
-        </div>
-      </div>
-      <div className="p-4 bg-gray-100 rounded-xl">
-        <p className="text-xs text-muted-foreground mb-3">Preview</p>
-        <div className="flex gap-3 justify-center">
-          {["instagram", "youtube", "twitter"].map((platform) => {
-            return (
-              <div 
-                key={platform} 
-                className="w-10 h-10 rounded-full flex items-center justify-center" 
-                style={{ 
-                  backgroundColor: socialStyle === "filled" ? `${socialColor}15` : "transparent", 
-                  borderWidth: socialStyle === "outline" ? 2 : 0, 
-                  borderColor: socialColor, 
-                  borderStyle: "solid" 
-                }}
-              >
-                <SocialIcon platform={platform} size={18} color={socialColor} />
+            <ChoiceCard key={style.id} selected={socialStyle === style.id} onClick={() => updateTheme({ social_icon_style: style.id } as any)} label={style.label}>
+              <div className="flex h-[60px] items-center justify-center gap-1.5 rounded-xl" style={{ background: theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color || "#f7f7f8" }}>
+                {["instagram", "youtube"].map((platform) => (
+                  <span
+                    key={platform}
+                    className="grid h-7 w-7 place-items-center rounded-full"
+                    style={{
+                      backgroundColor: style.id === "filled" ? `${socialColor}22` : style.id === "minimal" ? "rgba(255,255,255,0.22)" : "transparent",
+                      border: style.id === "outline" ? `1.5px solid ${socialColor}` : "none",
+                    }}
+                  >
+                    <SocialIcon platform={platform} size={13} color={socialColor} />
+                  </span>
+                ))}
               </div>
-            )
-          })}
+            </ChoiceCard>
+          ))}
         </div>
-      </div>
-    </div>
-  )
-}
-
-function ProBadge({ userHasPaidPlan, groupPrefix }: { userHasPaidPlan: boolean; groupPrefix: string }) {
-  return (
-    <div className="group/badge relative flex items-center">
-      {/* Tooltip */}
-      <div className="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[11px] leading-tight rounded-lg whitespace-nowrap opacity-0 group-hover/badge:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
-        {userHasPaidPlan
-          ? "You have access to this feature"
-          : "Click it to preview the feature for free."}
-        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
-      </div>
-
-      {/* Badge shape: circle → purple pill on hover */}
-      <div
-        className={cn(
-          "relative flex items-center justify-center overflow-hidden bg-black text-white cursor-pointer select-none",
-          "transition-all duration-300 ease-in-out",
-          "w-5 h-5 rounded-full",
-          groupPrefix === "row"
-            ? "group-hover/row:w-9 group-hover/row:rounded-full group-hover/row:bg-violet-600 group-hover/row:opacity-100"
-            : "group-hover/row2:w-9 group-hover/row2:rounded-full group-hover/row2:bg-violet-600 group-hover/row2:opacity-100",
-          "group-hover/badge:w-9 group-hover/badge:rounded-full group-hover/badge:bg-violet-600",
-          userHasPaidPlan ? "opacity-50" : "opacity-30",
-          "group-hover/badge:opacity-100",
-        )}
-      >
-        {/* Lightning bolt — visible in circle state, fades when badge opens */}
-        <svg
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          className={cn(
-            "absolute w-3 h-3 transition-all duration-200",
-            groupPrefix === "row"
-              ? "group-hover/row:opacity-0 group-hover/row:scale-50"
-              : "group-hover/row2:opacity-0 group-hover/row2:scale-50",
-            "group-hover/badge:opacity-0 group-hover/badge:scale-50",
-          )}
-        >
-          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-        </svg>
-
-        {/* "Pro" text — hidden in circle state, fades in on badge hover */}
-        <span
-          className={cn(
-            "absolute text-[10px] font-bold whitespace-nowrap",
-            "opacity-0 transition-opacity duration-150 delay-100",
-            groupPrefix === "row"
-              ? "group-hover/row:opacity-100"
-              : "group-hover/row2:opacity-100",
-            "group-hover/badge:opacity-100",
-          )}
-        >
-          Pro
-        </span>
-      </div>
+      </PanelSection>
+      <PanelSection>
+        <ColorRow
+          label="Icon colour"
+          value={(theme as any).social_icon_color || null}
+          emptyLabel="Text colour"
+          fallback={theme.text_color}
+          onChange={(color) => updateTheme({ social_icon_color: color } as any)}
+          onClear={() => updateTheme({ social_icon_color: null } as any)}
+          suggestions={["#000000", "#ffffff", "#1a1a2e", theme.text_color, theme.button_color, "#e1306c"]}
+        />
+      </PanelSection>
     </div>
   )
 }
@@ -4488,43 +3603,25 @@ function FooterSection({ userPlan }: { userPlan?: "free" | "growth" | "pro" | nu
   }
 
   return (
-    <div className="space-y-6 md:space-y-8">
-      <h2 className="text-lg md:text-xl font-semibold">Footer</h2>
-      <div className="space-y-3 md:space-y-4">
-        {/* Hide Storelib Branding row — hover triggers badge animation */}
-        <div className="group/row flex items-center justify-between p-3 md:p-4 border rounded-xl">
-          <div className="flex items-center gap-2">
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="font-medium text-sm">Hide Storelib Branding</p>
-                <ProBadge userHasPaidPlan={userHasPaidPlan} groupPrefix="row" />
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">Remove the &ldquo;on Storelib&rdquo; badge from your page</p>
-            </div>
-          </div>
-          <Toggle
+    <div>
+      <PanelSection>
+        <div className="space-y-5">
+          <SwitchRow
+            label="Hide the Storelib badge"
+            description={userHasPaidPlan ? "Removes \u201con Storelib\u201d from the foot of your page" : "Preview it here; saving it needs a paid plan"}
             checked={hideBrandingEnabled}
-            onCheckedChange={handleHideBrandingChange}
+            onChange={handleHideBrandingChange}
+            extra={<ProMark title={userHasPaidPlan ? "Included in your plan" : "Pro"} />}
           />
-        </div>
-
-        {/* Verified Badge row — same pro-gated pattern */}
-        <div className="group/row2 flex items-center justify-between p-3 md:p-4 border rounded-xl">
-          <div className="flex items-center gap-2">
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="font-medium text-sm">Verified Badge</p>
-                <ProBadge userHasPaidPlan={userHasPaidPlan} groupPrefix="row2" />
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">Show a verification badge next to your name</p>
-            </div>
-          </div>
-          <Toggle
+          <SwitchRow
+            label="Verified badge"
+            description={userHasPaidPlan ? "A check mark beside your name" : "A check mark beside your name. Saving it needs a paid plan"}
             checked={verifiedEnabled}
-            onCheckedChange={handleVerifiedBadgeChange}
+            onChange={handleVerifiedBadgeChange}
+            extra={<ProMark title={userHasPaidPlan ? "Included in your plan" : "Pro"} />}
           />
         </div>
-      </div>
+      </PanelSection>
     </div>
   )
 }

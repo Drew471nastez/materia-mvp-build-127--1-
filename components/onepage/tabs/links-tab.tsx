@@ -42,6 +42,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 // Custom Toggle Component with theme-style design
+/** The large rounded box the link editor's own fields use (16px on a phone, or iOS zooms the page to type). */
+const linkField =
+  "h-12 w-full rounded-xl border border-[#e3e4e8] bg-white px-4 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[15px]"
+
 function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
   return (
     <input
@@ -66,7 +70,7 @@ function BlockToggle({ checked, onCheckedChange }: { checked: boolean; onChecked
 }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { MobileColorPicker } from "@/components/onepage/mobile-color-picker"
+import { ColorRow } from "@/components/onepage/editor-kit"
 import { DeletedIcon, SaveNotification } from "@/components/ui/save-notification"
 import {
   Dialog,
@@ -5874,148 +5878,49 @@ function BlockEditor({
           {/* Color Customizers - Only show for callout/preview styles */}
           {(data.style === "callout" || data.style === "preview") && (
             <div className="space-y-4 pt-2 border-t">
-              <p className="text-xs text-muted-foreground">Override colors from Design tab</p>
+              <p className="text-[14px] font-semibold text-[#1a1a2e]">Colours for this block</p>
 
-              {/* Block Background Color */}
-              <div className="space-y-2">
-                <Label className="text-xs">Block Background Color</Label>
-                <div className="flex items-center gap-3">
-                  <MobileColorPicker
-                    value={data.block_background_color || "#7c3aed"}
-                    onChange={(color) => updateData({ block_background_color: color })}
-                    label="Block background color"
-                    presets={blockBackgroundColorPresets}
-                  />
-                  <Input
-                    value={data.block_background_color || ""}
-                    onChange={(e) => updateData({ block_background_color: e.target.value })}
-                    placeholder="Use theme default"
-                    className="h-12 rounded-xl flex-1 font-mono text-sm"
-                  />
-                </div>
-                {/* Color presets */}
-                <div className="flex gap-2 pt-1">
-                  {blockBackgroundColorPresets.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => updateData({ block_background_color: color })}
-                      className={cn(
-                        "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
-                        data.block_background_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
-                      )}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Text Color (for title, description, price) */}
-              <div className="space-y-2">
-                <Label className="text-xs">Text Color</Label>
-                <p className="text-[10px] text-muted-foreground">For title, description, price{data.style === "callout" ? " and button" : ""}</p>
-                <div className="flex items-center gap-3">
-                  <MobileColorPicker
-                    value={data.text_color || "#ffffff"}
-                    onChange={(color) => updateData({ text_color: color })}
-                    label="Text color"
-                    presets={textColorPresets}
-                  />
-                  <Input
-                    value={data.text_color || ""}
-                    onChange={(e) => updateData({ text_color: e.target.value })}
-                    placeholder="Use theme default"
-                    className="h-12 rounded-xl flex-1 font-mono text-sm"
-                  />
-                </div>
-                {/* Color presets */}
-                <div className="flex gap-2 pt-1">
-                  {textColorPresets.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => updateData({ text_color: color })}
-                      className={cn(
-                        "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
-                        data.text_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
-                      )}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Button (CTA) Background Color - Only for preview style */}
+              {/* The four overrides, each the editor's one colour field; Reset goes back to the theme's. */}
+              <ColorRow
+                label="Block background"
+                value={data.block_background_color || null}
+                emptyLabel="Theme"
+                fallback="#7c3aed"
+                onChange={(color) => updateData({ block_background_color: color })}
+                onClear={() => updateData({ block_background_color: null })}
+                suggestions={blockBackgroundColorPresets}
+              />
+              <ColorRow
+                label="Text"
+                description={`Title, description, price${data.style === "callout" ? " and button" : ""}`}
+                value={data.text_color || null}
+                emptyLabel="Theme"
+                fallback="#ffffff"
+                onChange={(color) => updateData({ text_color: color })}
+                onClear={() => updateData({ text_color: null })}
+                suggestions={textColorPresets}
+              />
               {data.style === "preview" && (
-                <div className="space-y-2">
-                  <Label className="text-xs">Button Color</Label>
-                  <p className="text-[10px] text-muted-foreground">CTA button background</p>
-                  <div className="flex items-center gap-3">
-                    <MobileColorPicker
-                    value={data.button_color || "#ffffff"}
-                    onChange={(color) => updateData({ button_color: color })}
-                    label="Button color"
-                    presets={buttonColorPresets}
-                  />
-                    <Input
-                      value={data.button_color || ""}
-                      onChange={(e) => updateData({ button_color: e.target.value })}
-                      placeholder="Use theme default"
-                      className="h-12 rounded-xl flex-1 font-mono text-sm"
-                    />
-                  </div>
-                  {/* Color presets */}
-                  <div className="flex gap-2 pt-1">
-                    {buttonColorPresets.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => updateData({ button_color: color })}
-                        className={cn(
-                          "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
-                          data.button_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
-                        )}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <ColorRow
+                  label="Button"
+                  value={data.button_color || null}
+                  emptyLabel="Theme"
+                  fallback="#ffffff"
+                  onChange={(color) => updateData({ button_color: color })}
+                  onClear={() => updateData({ button_color: null })}
+                  suggestions={buttonColorPresets}
+                />
               )}
-
-              {/* Button (CTA) Text Color - Only for preview style */}
               {data.style === "preview" && (
-                <div className="space-y-2">
-                  <Label className="text-xs">Button Text Color</Label>
-                  <div className="flex items-center gap-3">
-                    <MobileColorPicker
-                    value={data.button_text_color || "#1a1a1a"}
-                    onChange={(color) => updateData({ button_text_color: color })}
-                    label="Button text color"
-                    presets={buttonTextColorPresets}
-                  />
-                    <Input
-                      value={data.button_text_color || ""}
-                      onChange={(e) => updateData({ button_text_color: e.target.value })}
-                      placeholder="Use theme default"
-                      className="h-12 rounded-xl flex-1 font-mono text-sm"
-                    />
-                  </div>
-                  {/* Color presets */}
-                  <div className="flex gap-2 pt-1">
-                    {buttonTextColorPresets.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => updateData({ button_text_color: color })}
-                        className={cn(
-                          "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
-                          data.button_text_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
-                        )}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <ColorRow
+                  label="Button text"
+                  value={data.button_text_color || null}
+                  emptyLabel="Theme"
+                  fallback="#1a1a1a"
+                  onChange={(color) => updateData({ button_text_color: color })}
+                  onClear={() => updateData({ button_text_color: null })}
+                  suggestions={buttonTextColorPresets}
+                />
               )}
             </div>
           )}
@@ -6026,83 +5931,47 @@ function BlockEditor({
     // Default layout content for link_button and image blocks
     return (
       <div className="space-y-3">
-        <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
+        <div>
+          <p className="text-[16px] font-semibold text-[#1a1a2e]">Display</p>
+          <p className="mt-0.5 text-[13.5px] text-[#6b7280]">How this block sits on your page</p>
+        </div>
 
-        {/* Layout Options Grid */}
+        {/* Classic and Featured, as Linktree's link editor draws them: a picture of each, the picked one in a thin dark border. */}
         <div className="grid grid-cols-2 gap-3">
-          {/* Default Layout Option */}
-          <button
-            type="button"
-            onClick={() => updateData({ layout_type: 'default' })}
-            className={cn(
-              "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
-              currentLayoutType === 'default'
-                ? "border-violet-500 bg-violet-50/50"
-                : "border-gray-200 hover:border-gray-300 bg-white"
-            )}
-          >
-            {/* Visual Preview */}
-            <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
-              <div className="w-full h-10 bg-white rounded-lg border border-gray-200 flex items-center justify-center gap-2 px-3">
-                <div className="w-5 h-5 rounded bg-gray-200" />
-                <div className="flex-1 h-2.5 bg-gray-200 rounded" />
-              </div>
-            </div>
-            
-            {/* Label */}
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                currentLayoutType === 'default' ? "border-violet-500" : "border-gray-300"
-              )}>
-                {currentLayoutType === 'default' && (
-                  <div className="w-2 h-2 rounded-full bg-violet-500" />
+          {([
+            { id: "default" as const, label: "Classic" },
+            { id: "pro" as const, label: "Featured" },
+          ]).map((o) => {
+            const on = currentLayoutType === o.id
+            return (
+              <button
+                key={o.id}
+                type="button"
+                aria-pressed={on}
+                data-layout-choice={o.id}
+                onClick={() => updateData({ layout_type: o.id })}
+                className={cn(
+                  "flex cursor-pointer flex-col items-stretch rounded-2xl border bg-white p-2 outline-none transition-[border-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]",
+                  on ? "border-[#1a1a2e] shadow-[0_0_0_0.5px_#1a1a2e]" : "border-[#e3e4e8] hover:border-[#c9cbd1]",
                 )}
-              </div>
-              <span className="font-medium text-sm">Default</span>
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 ml-6">Standard button</p>
-          </button>
-
-          {/* Pro Layout Option */}
-          <button
-            type="button"
-            onClick={() => updateData({ layout_type: 'pro' })}
-            className={cn(
-              "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
-              currentLayoutType === 'pro'
-                ? "border-violet-500 bg-violet-50/50"
-                : "border-gray-200 hover:border-gray-300 bg-white"
-            )}
-          >
-            {/* Visual Preview */}
-            <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
-              <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-200 to-violet-300 shrink-0" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="h-2.5 w-full bg-gray-200 rounded" />
-                    <div className="h-2 w-2/3 bg-gray-100 rounded" />
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Label */}
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                currentLayoutType === 'pro' ? "border-violet-500" : "border-gray-300"
-              )}>
-                {currentLayoutType === 'pro' && (
-                  <div className="w-2 h-2 rounded-full bg-violet-500" />
-                )}
-              </div>
-              <span className="font-medium text-sm">Featured</span>
-              <Sparkles className="w-3 h-3 text-violet-500" />
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 ml-6">With thumbnail</p>
-          </button>
+              >
+                <span className="grid aspect-[4/3] place-items-center rounded-xl bg-[#f7f7f8] px-3">
+                  {o.id === "default" ? (
+                    <span className="flex h-9 w-full items-center gap-2 rounded-lg border border-[#e3e4e8] bg-white px-2">
+                      <span className="h-5 w-5 shrink-0 rounded bg-[#d9dbe0]" />
+                      <span className="h-1.5 flex-1 rounded-full bg-[#d9dbe0]" />
+                    </span>
+                  ) : (
+                    <span className="block w-full rounded-lg border border-[#e3e4e8] bg-white p-1.5">
+                      <span className="block h-10 w-full rounded-md bg-[#d9dbe0]" />
+                      <span className="mx-auto mt-1.5 block h-1.5 w-2/3 rounded-full bg-[#d9dbe0]" />
+                    </span>
+                  )}
+                </span>
+                <span className={cn("block py-2 text-center text-[13.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{o.label}</span>
+              </button>
+            )
+          })}
         </div>
 
         {/* Display Mode Options - Only shown when Pro Layout is selected and NOT YouTube */}
@@ -6147,42 +6016,27 @@ function BlockEditor({
         const data = block.data as LinkButtonBlockData
         return (
           <div className="space-y-3">
-            {/* Thumbnail Editor - Opens Modal */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Thumbnail</Label>
-              <button
-                type="button"
-                onClick={() => onOpenThumbnailModal && onOpenThumbnailModal(block.id)}
-                className="group relative w-11 h-11 rounded-lg border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-gray-50 hover:bg-gray-100"
-              >
-                {data.thumbnail_url ? (
-                  <img
-                    src={data.thumbnail_url}
-                    alt="Thumbnail"
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                ) : hasLinkIcon(data.icon) ? (
-                  <LinkIcon name={data.icon} size={20} className="text-gray-500" />
-                ) : (
-                  <ImageIcon className="w-5 h-5 text-gray-400" />
-                )}
-                {/* Pencil icon always visible */}
-                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center">
-                  <Pencil className="w-2.5 h-2.5 text-gray-500" />
-                </div>
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
-              </button>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs">Title</Label>
-              <Input value={data.label} onChange={(e) => updateData({ label: e.target.value })} placeholder="My Link" className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">URL</Label>
-              <Input
+            {/*
+              THE LINK'S OWN FIELDS, as Linktree's link editor lays them out:
+              a heading, the title and the address in large rounded boxes,
+              and the picture as a row you press, with the picture itself
+              on its left and a chevron on its right.
+            */}
+            <p className="pt-1 text-[16px] font-semibold text-[#1a1a2e]">Info</p>
+            <label className="block">
+              <span className="sr-only">Title</span>
+              <input value={data.label} onChange={(e) => updateData({ label: e.target.value })} placeholder="Title" aria-label="Title" data-link-title="" className={linkField} />
+            </label>
+            <label className="block">
+              <span className="sr-only">URL</span>
+              <input
                 value={data.url}
+                inputMode="url"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                aria-label="URL"
+                data-link-url=""
                 onChange={(e) => {
                   if (onUrlChangeWithAutoFetch) {
                     onUrlChangeWithAutoFetch(block.id, e.target.value)
@@ -6190,10 +6044,31 @@ function BlockEditor({
                     updateData({ url: e.target.value })
                   }
                 }}
-                placeholder="https://..."
-                className="h-9"
+                placeholder="https://"
+                className={linkField}
               />
-            </div>
+            </label>
+            <button
+              type="button"
+              onClick={() => onOpenThumbnailModal && onOpenThumbnailModal(block.id)}
+              data-link-thumbnail=""
+              className="flex min-h-[72px] w-full cursor-pointer items-center gap-3.5 rounded-2xl border border-[#e3e4e8] bg-white p-2.5 pr-4 text-left outline-none transition-colors hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+            >
+              <span className="grid h-[52px] w-[52px] shrink-0 place-items-center overflow-hidden rounded-xl bg-[#f4f4f6] text-[#6b7280]">
+                {data.thumbnail_url ? (
+                  <img src={data.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                ) : hasLinkIcon(data.icon) ? (
+                  <LinkIcon name={data.icon} size={22} className="text-[#1a1a2e]" />
+                ) : (
+                  <ImageIcon className="h-5 w-5" strokeWidth={1.6} />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14.5px] font-medium text-[#1a1a2e]">Thumbnail</span>
+                <span className="block truncate text-[13px] text-[#6b7280]">{data.thumbnail_url ? "An image beside the title" : hasLinkIcon(data.icon) ? "An icon beside the title" : "Add an image or an icon"}</span>
+              </span>
+              <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={1.75} />
+            </button>
 
             {/* WhatsApp Group URL - Only shown for WhatsApp URLs */}
             {(data.url?.includes('wa.me') || data.url?.includes('whatsapp.com')) && (
@@ -6756,11 +6631,11 @@ function BlockEditor({
         return (
           <Tabs defaultValue="settings" className="w-full">
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -7316,11 +7191,11 @@ function BlockEditor({
         return (
           <Tabs defaultValue="settings" className="w-full">
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -7640,11 +7515,11 @@ function BlockEditor({
         return (
           <Tabs defaultValue="settings" className="w-full">
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -7905,11 +7780,11 @@ function BlockEditor({
         return (
           <Tabs defaultValue="settings" className="w-full">
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -8170,11 +8045,11 @@ function BlockEditor({
         return (
           <Tabs defaultValue="settings" className="w-full">
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -8752,11 +8627,11 @@ function BlockEditor({
     return (
       <Tabs defaultValue="links" className="w-full">
         <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-          <TabsTrigger value="links" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+          <TabsTrigger value="links" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <Link className="w-3.5 h-3.5" />
             Links
           </TabsTrigger>
-          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <LayoutGrid className="w-3.5 h-3.5" />
             Layout
           </TabsTrigger>
@@ -9052,11 +8927,11 @@ function BlockEditor({
     return (
       <Tabs defaultValue="settings" className="w-full">
         <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-          <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+          <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <Settings className="w-3.5 h-3.5" />
             Settings
           </TabsTrigger>
-          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <LayoutGrid className="w-3.5 h-3.5" />
             Layout
           </TabsTrigger>
