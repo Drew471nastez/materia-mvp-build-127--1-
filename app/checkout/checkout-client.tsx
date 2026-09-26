@@ -193,6 +193,49 @@ export default function CheckoutPageClient({
     void trackFunnelStep("checkout_start", creator.id, product.id)
   }, [creator.id, product.id])
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE CHECKOUT OPENS AT ITS TOP
+    ═══════════════════════════════════════════════════════════════════════
+    It used to open part way down. Measured (scripts/check-checkout-arrival):
+    a Buy press from a scrolled product page already arrived at 0, because
+    Next scrolls a new page to the top; a reload, or coming back to the
+    checkout with Back or Forward, arrived at the offset the browser had
+    saved for it (295px on a 390px phone), because the browser restores a
+    history entry's scroll, and a phone's checkout is long enough to keep it.
+
+    So this entry's scroll is not restored: `scrollRestoration` belongs to
+    the history entry that is current when it is set, so "manual" here
+    leaves every other page's Back exactly as it was, and the product page
+    behind still comes back where the buyer left it. A page brought back
+    whole from the browser's cache starts at the top too. Before paint, so
+    the page is never seen part way down first.
+  */
+  React.useLayoutEffect(() => {
+    const history = window.history
+    try {
+      history.scrollRestoration = "manual"
+    } catch {
+      /* not settable here: the scroll below still puts the page at its top */
+    }
+    if (window.scrollY !== 0) window.scrollTo(0, 0)
+    const fromCache = (e: PageTransitionEvent) => {
+      if (e.persisted) window.scrollTo(0, 0)
+    }
+    window.addEventListener("pageshow", fromCache)
+    return () => {
+      window.removeEventListener("pageshow", fromCache)
+      /* Leaving: whichever entry is current now (the receipt pushed after
+         this one, or the page Back returned to) keeps the browser's own
+         restoring. */
+      try {
+        history.scrollRestoration = "auto"
+      } catch {
+        /* as above */
+      }
+    }
+  }, [])
+
   /* Back goes where the buyer came from: the creator's website page when the
      server checked one (backTo), else a product page's ?from=, else the product. */
   const from = searchParams.get("from") || ""
@@ -638,7 +681,7 @@ export default function CheckoutPageClient({
   const namesAndNews = (
     <div className="space-y-3">
       <Field id="checkout-name" label="Full name">
-        <TextInput id="checkout-name" autoComplete="name" placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value.slice(0, 121))} />
+        <TextInput id="checkout-name" autoComplete="name" placeholder="Jane Smith" value={fullName} onChange={(e) => setFullName(e.target.value.slice(0, 121))} />
       </Field>
       <CheckRow id="checkout-news" checked={emailOptIn} onChange={setEmailOptIn}>
         Email me news and offers from {creator.name}
@@ -655,7 +698,7 @@ export default function CheckoutPageClient({
         autoComplete="email"
         autoCapitalize="none"
         spellCheck={false}
-        placeholder="Email"
+        placeholder="you@example.com"
         value={email}
         onChange={(e) => setEmail(e.target.value.slice(0, 254))}
       />

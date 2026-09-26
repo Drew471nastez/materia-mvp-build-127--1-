@@ -404,7 +404,7 @@ section("Pages drawn over the whole shell")
     /if \(overShell\(\)\) return clear/.test(stage) && /getComputedStyle\(el\)\.position === "fixed"/.test(stage) && !/document\.querySelector\("\[data-page-layer\]"\)\) return clear/.test(stage))
   check("the pill steps aside only for a layer that does not keep it, and a layer that does gives the scroller room for it",
     /html:has\(\[data-page-layer=""\]\) \[data-app-nav-pill\] \{\s*visibility: hidden;/.test(css)
-      && /\[data-page-layer="pill"\] \[data-page-layer-scroll\] > \.page-scroll \{\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
+      && /\[data-page-layer="pill"\] \[data-page-layer-scroll\] > \.page-scroll \{\s*padding-bottom: var\(--app-nav-room\);/.test(css))
   const sidebar = read("components/app/sidebar.tsx")
   check("both headers and the rail say they are the shell's chrome", (sidebar.match(/data-shell-chrome=""/g) || []).length >= 3)
 }
@@ -456,7 +456,7 @@ section("One scrollbar track on a computer, always there, never moving")
       && /el\.setAttribute\("data-app-landing", ""\)/.test(stage)
       && /a\.finished\.catch\(\(\) => undefined\)/.test(stage) && /window\.setTimeout\(release, NAV_ENTER_MS \+ 120\)/.test(stage))
   check("the billing tab, drawn inside Settings, is not a scroller of its own: no second, empty track down its side",
-    /className=\{embedded \? "overflow-x-clip bg-\[#fafafa\]" : "h-full overflow-y-scroll/.test(code("components/app/billing/billing-page-client.tsx")))
+    /className=\{embedded \? "bg-\[#fafafa\]" : "h-full overflow-y-scroll/.test(code("components/app/billing/billing-page-client.tsx")))
   /* "Search inputs across /app: on focus the border turns heavy black, too much weight." Every search field focuses the description editor's way now: a #c9ccd3 hairline and a 3px halo at 6%, measured by scripts/check-search-focus. */
   {
     const HALO_WITHIN = /focus-within:border-\[#c9ccd3\] focus-within:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/

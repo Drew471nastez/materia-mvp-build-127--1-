@@ -62,28 +62,17 @@ const expect = (ok, what, got) => {
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 
 /*
-  THE PILL'S BOX, FROM ITS SOURCE. The bar is its slots and padding, then the
-  gap and the round menu button; the group is centred and lifted off the
-  bottom by PILL_LIFT, which in a browser (no safe area) is its 4px floor.
-  Read here rather than typed in, so a bigger pill fails this probe instead
-  of quietly passing it.
+  THE PILL'S BOX, FROM THE STYLESHEET. The bar and the round menu button
+  beside it are drawn from the same --app-nav-* variables the real pill reads
+  (app/globals.css), so they are its size on every width here, and a bigger
+  pill fails this probe instead of quietly passing it. How many tabs it has
+  is read from components/app/sidebar-mobile-nav.tsx.
 */
 const navSrc = readFileSync(join(root, "components/app/sidebar-mobile-nav.tsx"), "utf8")
-const num = (name) => {
-  const m = navSrc.match(new RegExp(`const ${name} = (\\d+)`))
-  if (!m) fail(`No ${name} in sidebar-mobile-nav.tsx`)
-  return Number(m[1])
-}
-const itemsBlock = navSrc.match(/const items: BarItem\[\] = \[([\s\S]*?)\n\s*\]/)
-const lift = navSrc.match(/const PILL_LIFT = "max\((\d+)px/)
-if (!itemsBlock || !lift) fail("The pill's items or its lift were not found in sidebar-mobile-nav.tsx")
-const PILL = (() => {
-  const barH = num("BAR_H")
-  const items = (itemsBlock[1].match(/\{ key: "/g) || []).length
-  const width = items * num("SLOT") + num("PAD") * 2 + num("GAP") + barH
-  return { width, height: barH, lift: Number(lift[1]), items, barW: items * num("SLOT") + num("PAD") * 2 }
-})()
-console.log(`the pill: ${PILL.items} slots, ${PILL.width} x ${PILL.height}, ${PILL.lift}px off the bottom`)
+const tabsBlock = navSrc.match(/const TABS = \[([\s\S]*?)\] as const/)
+if (!tabsBlock) fail("The pill's tabs were not found in sidebar-mobile-nav.tsx")
+const PILL = { items: (tabsBlock[1].match(/\{ key: "/g) || []).length }
+console.log(`the pill: ${PILL.items} slots, sized by --app-nav-* in globals.css`)
 
 /* The numbers each width is held to, and printed in the summary at the end. */
 const summary = []
@@ -114,18 +103,18 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
   const phone = (width) => ({ width, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 })
   /* A stand-in for the pill at its real box: the bar and the round menu button beside it, as glass. */
-  const drawPill = (p) => p.evaluate((P) => {
+  const drawPill = (p) => p.evaluate(() => {
     const group = document.createElement("div")
     group.dataset.probePill = ""
-    Object.assign(group.style, { position: "fixed", zIndex: 55, bottom: `${P.lift}px`, left: "50%", transform: "translateX(-50%)", width: `${P.width}px`, height: `${P.height}px`, display: "flex", gap: `${P.width - P.barW - P.height}px`, pointerEvents: "none" })
+    Object.assign(group.style, { position: "fixed", zIndex: 55, bottom: "var(--app-nav-lift)", left: "50%", transform: "translateX(-50%)", height: "var(--app-nav-bar)", display: "flex", gap: "var(--app-nav-gap)", pointerEvents: "none" })
     const glass = { background: "rgba(255,255,255,0.72)", backdropFilter: "blur(25px)", borderRadius: "999px", boxShadow: "0 1px 2px rgba(16,18,27,0.06), 0 4px 10px rgba(16,18,27,0.07), 0 14px 30px rgba(16,18,27,0.14)" }
     const bar = document.createElement("div")
-    Object.assign(bar.style, glass, { width: `${P.barW}px`, height: "100%" })
+    Object.assign(bar.style, glass, { width: "var(--app-nav-width)", height: "100%" })
     const menu = document.createElement("div")
-    Object.assign(menu.style, glass, { width: `${P.height}px`, height: "100%" })
+    Object.assign(menu.style, glass, { width: "var(--app-nav-bar)", height: "100%" })
     group.append(bar, menu)
     document.body.append(group)
-  }, PILL)
+  })
   const open = async (vp, hash = "") => {
     const p = await browser.newPage()
     const errors = []
@@ -517,13 +506,15 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         const last = [...document.querySelectorAll("section[aria-label=Products] ul > li")].pop().getBoundingClientRect()
         const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
         const room = parseFloat(getComputedStyle(scroller).paddingBottom)
-        const out = { pill: [Math.round(box.left), Math.round(box.top), Math.round(box.width), Math.round(box.height)], add: [Math.round(add.top), Math.round(add.bottom)], newOverlaps: overlaps(add, box), lastBottom: Math.round(last.bottom), clear: Math.round(box.top - last.bottom), room }
+        /* The pane's room is the pill's top (from the bottom of the screen) and 40px over it. */
+        const want = Math.round(window.innerHeight - box.top + 40)
+        const out = { pill: [Math.round(box.left), Math.round(box.top), Math.round(box.width), Math.round(box.height)], add: [Math.round(add.top), Math.round(add.bottom)], newOverlaps: overlaps(add, box), lastBottom: Math.round(last.bottom), clear: Math.round(box.top - last.bottom), room, want }
         scroller.scrollTop = 0
         return out
       })
       row.pillClear = pill.clear
       expect(!pill.newOverlaps && pill.add[1] < pill.pill[1] - 600, "New product is in the bar at the top, far from the pill, and covers nothing", pill)
-      expect(pill.room === 104 && pill.clear >= 8, "scrolled to the end, the last row stops above the pill (the pane's 104px room)", { clear: pill.clear, room: pill.room, pill: pill.pill })
+      expect(Math.abs(pill.room - pill.want) <= 0.5 && pill.clear >= 8, "scrolled to the end, the last row stops above the pill (the pane's room is the pill's, --app-nav-room)", { clear: pill.clear, room: pill.room, want: pill.want, pill: pill.pill })
 
       await p.screenshot({ path: join(shots, `${label}-products-v4.png`) })
 

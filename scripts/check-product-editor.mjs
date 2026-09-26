@@ -1199,14 +1199,20 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     /* Room */
     const room = await p.evaluate(() => {
       const pane = document.querySelector("[data-product-editor]")
-      return { sideways: pane.scrollWidth - pane.clientWidth, pb: getComputedStyle(pane).paddingBottom, column: Math.round(pane.querySelector("[data-editor-page]").getBoundingClientRect().width) }
+      /* The pill's room as the stylesheet works it out at this width (--app-nav-room, app/globals.css). */
+      const probe = document.createElement("div")
+      probe.style.cssText = "position:absolute;visibility:hidden;height:var(--app-nav-room)"
+      document.body.append(probe)
+      const navRoom = getComputedStyle(probe).height
+      probe.remove()
+      return { sideways: pane.scrollWidth - pane.clientWidth, pb: getComputedStyle(pane).paddingBottom, navRoom, column: Math.round(pane.querySelector("[data-editor-page]").getBoundingClientRect().width) }
     })
     expect(room.sideways === 0, "nothing scrolls sideways", room.sideways)
     if (isPhone) {
       if (isLayer) {
         expect(room.pb === `${32 + insetBottom}px`, "a layer has no pill under it: 32px at its foot, over the home indicator's safe area", room.pb)
       } else {
-        expect(room.pb === `${104 + insetBottom}px`, "the page keeps 104px at its foot for the pill (over the safe area), and nothing more", room.pb)
+        expect(room.pb === room.navRoom, "the page keeps the pill's room at its foot (--app-nav-room: the pill, the safe area under it, 40px over it), and nothing more", room)
       }
       await p.$eval("[data-product-editor]", (el) => { el.scrollTop = el.scrollHeight })
       await sleep(250)

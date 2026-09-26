@@ -42,6 +42,8 @@ import { recordCouponUse } from "./coupons"
 import { orderOriginFrom } from "@/lib/orders/order-source"
 import { paymentFacts, recordSale } from "./fulfil-payment"
 import { cartFingerprint, cartReceiptToken } from "./cart-tokens"
+import { businessFromStripe, type BusinessDetails } from "./business"
+import { invoiceFilename, invoiceForOrder, renderInvoicePdf, type OrderRow } from "./invoice"
 
 type Db = FulfilContext["admin"]
 
@@ -135,6 +137,9 @@ export async function fulfilCartSession(
     baseUrl: opts.baseUrl,
     couponId: metadata.coupon_id || null,
     couponHolder: metadata.coupon_holder || null,
+    couponCode: metadata.coupon_code || null,
+    /* The company, when the buyer ticked Stripe's "purchasing as a business". */
+    business: businessFromStripe(session.customer_details),
   })
   if (!written.receiptToken) return { ok: false, status: 500, reason: "failed" }
   return { ok: true, created: written.created, receiptToken: written.receiptToken, sessionFingerprint, complete: written.complete, creatorId }
@@ -148,7 +153,16 @@ async function writeBasket(
   admin: Db,
   ctx: FulfilContext,
   items: PackedItem[],
-  s: { paidTotal: number; feeTotal: number; destinationPaymentId: string | null; baseUrl: string; couponId: string | null; couponHolder: string | null },
+  s: {
+    paidTotal: number
+    feeTotal: number
+    destinationPaymentId: string | null
+    baseUrl: string
+    couponId: string | null
+    couponHolder: string | null
+    couponCode?: string | null
+    business?: BusinessDetails | null
+  },
 ): Promise<{ created: boolean; receiptToken: string | null; complete: boolean }> {
   /* The fee, apportioned once for the whole basket over what each line was
      charged, so the parts provably sum to what Stripe took, whichever caller
@@ -183,6 +197,9 @@ async function writeBasket(
       receiptToken,
       couponId: s.couponId,
       couponHolder: s.couponHolder,
+      couponCode: s.couponCode ?? null,
+      business: s.business ?? null,
+      items,
     })
   }
   return { created: created.length > 0, receiptToken, complete: failed === 0 }
@@ -273,6 +290,9 @@ async function sideEffects(
     receiptToken: string
     couponId: string | null
     couponHolder: string | null
+    couponCode: string | null
+    business: BusinessDetails | null
+    items: PackedItem[]
   },
 ) {
   const step = async (name: string, fn: () => Promise<unknown>) => {
@@ -287,6 +307,16 @@ async function sideEffects(
   const { data: rows } = await admin.from("products").select("id, title").in("id", ids)
   const titles = new Map<string, string>((rows ?? []).map((r: { id: string; title: string }) => [r.id, r.title]))
   const sellerEmail = await resolveSellerEmail(admin, ctx.creatorId)
+
+  /* The company on every line this caller wrote (part 35; a database
+     without the column refuses this write alone). */
+  const business = s.business
+  if (business) {
+    await step("business details", async () => {
+      const { error } = await admin.from("orders").update({ business_details: business }).in("id", s.created.map((l) => l.orderId))
+      if (error) throw new Error(`${error.code ?? ""} ${error.message ?? ""}`.trim())
+    })
+  }
 
   if (s.ownsBasket) {
     await step("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId, s.created[0]?.productId ?? null))
@@ -321,8 +351,10 @@ async function sideEffects(
        session and lists them with one total. */
     if (ctx.buyerEmail) {
       const first = s.created.find((l) => l.index === 0)!
+      const attachments = s.paidTotal > 0 ? await basketPdf(admin, ctx.sessionId, s) : undefined
       await step("buyer email", () =>
         sendBuyerDownloadEmail(admin, {
+          attachments,
           orderId: first.orderId,
           creatorId: ctx.creatorId,
           buyerEmail: ctx.buyerEmail as string,
@@ -364,5 +396,39 @@ async function sideEffects(
         baseUrl: s.baseUrl,
       }),
     )
+  }
+}
+
+/**
+ * The basket's receipt as a PDF for its one email: every line of the
+ * payment, read back as written, so its number and figures are the ones a
+ * later download from the receipt draws (lib/checkout/invoice.ts). An
+ * invoice with the company on it when the buyer gave one. Extra, like the
+ * single product's: if it cannot be drawn the email still goes without it.
+ */
+async function basketPdf(
+  admin: Db,
+  sessionId: string,
+  s: { business: BusinessDetails | null; items: PackedItem[]; couponCode: string | null },
+): Promise<{ filename: string; content: Uint8Array; contentType: string }[] | undefined> {
+  try {
+    const { data: rows } = await admin
+      .from("orders")
+      .select("*, product:products(title, creator_id)")
+      .eq("stripe_session_id", sessionId)
+      .order("created_at", { ascending: true })
+      .limit(50)
+    if (!rows || rows.length === 0) return undefined
+    const invoice = await invoiceForOrder(admin, rows[0] as OrderRow, {
+      basket: rows as OrderRow[],
+      items: s.items,
+      business: s.business,
+      discountCode: s.couponCode,
+    })
+    if (!invoice) return undefined
+    return [{ filename: invoiceFilename(invoice), content: await renderInvoicePdf(invoice), contentType: "application/pdf" }]
+  } catch (e) {
+    console.error(`[cart] receipt PDF for session ${sessionId} could not be drawn:`, e instanceof Error ? e.message : e)
+    return undefined
   }
 }

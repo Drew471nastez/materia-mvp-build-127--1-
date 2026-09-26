@@ -229,8 +229,12 @@ const INK_EASE = `${INK_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`
  * button icon glitches and moves a little bit." A glyph that is always on
  * its own layer is always drawn the same way, and its fade is a change of
  * opacity and nothing else.
+ *
+ * `box`: a CSS length the icon is drawn at instead of `size` pixels. The pill
+ * passes its own glyph size (--app-nav-glyph), which follows the width of
+ * the phone, and both glyphs are drawn at it rather than scaled to it.
  */
-function NavIcon({ icon, active, color, size = 22, layer = false }: { icon: NavIconPair; active: boolean; color: string; size?: number; layer?: boolean }) {
+function NavIcon({ icon, active, color, size = 22, box, layer = false }: { icon: NavIconPair; active: boolean; color: string; size?: number; box?: string; layer?: boolean }) {
   const Line = icon.line
   const Fill = icon.fill
   const piece = { position: "absolute", inset: 0, transition: FILL_TRANSITION, ...(layer ? { willChange: "opacity" } : {}) } as const
@@ -239,18 +243,22 @@ function NavIcon({ icon, active, color, size = 22, layer = false }: { icon: NavI
      would be a 22px drawing stretched by the compositor, a pixel softer at
      the edge than the outline it replaces. Drawn at 23.3px it is as crisp. */
   const grow = (size * (FILL_MATCH - 1)) / 2
+  const fit = box ? { width: "100%", height: "100%" } : {}
+  const matched = box
+    ? { inset: `calc(${box} * ${-Math.round(((FILL_MATCH - 1) / 2) * 10000) / 10000})`, width: `calc(${box} * ${FILL_MATCH})`, height: `calc(${box} * ${FILL_MATCH})` }
+    : { inset: -grow }
   return (
-    <span className="relative block shrink-0" style={{ color, width: size, height: size }}>
+    <span className="relative block shrink-0" style={{ color, width: box ?? size, height: box ?? size }}>
       <Line
         size={size}
         strokeWidth={1.5}
         data-part="outline"
-        style={{ ...piece, opacity: active ? 0 : 1 }}
+        style={{ ...piece, ...fit, opacity: active ? 0 : 1 }}
       />
       <Fill
         size={layer ? size * FILL_MATCH : size}
         data-part="ink"
-        style={layer ? { ...piece, inset: -grow, opacity: active ? 1 : 0 } : { ...piece, opacity: active ? 1 : 0, scale: String(FILL_MATCH) }}
+        style={layer ? { ...piece, ...matched, opacity: active ? 1 : 0 } : { ...piece, ...fit, opacity: active ? 1 : 0, scale: String(FILL_MATCH) }}
       />
     </span>
   )
@@ -535,11 +543,12 @@ export function MobileMenuPage({
     >
       {/*
         The list scrolls; the pill floats over its last rows, so the padding
-        at the bottom is the pill's height plus the home indicator.
+        at the bottom is the page's room for the pill (--app-nav-room), and a little
+        more, since the last thing here is a card rather than a row.
       */}
       <nav
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-3"
-        style={{ paddingBottom: "calc(116px + env(safe-area-inset-bottom, 0px))" }}
+        style={{ paddingBottom: "calc(var(--app-nav-room) + 12px)" }}
       >
         <div className="space-y-0.5">
           {items.map((item) => (
@@ -650,23 +659,58 @@ const GLASS: React.CSSProperties = {
 }
 
 /**
- * 5% bigger again, as asked: 60 with 55px slots before this. Four slots and
- * the menu button are 311px across, inside a 320px phone with room to spare.
+ * ===========================================================================
+ *  THE PILL'S SIZE LIVES IN ONE PLACE: app/globals.css
+ * ===========================================================================
+ * "Reduce the overall size of the pill by 4%, and make sure it fits every
+ * phone since 2015." The numbers (a 60.48px bar, 55.68px slots, 21.12px
+ * icons: 63, 58 and 22 times 0.96) are CSS variables on :root, under "Room
+ * for the nav pill", with the rule that scales them to the width of the
+ * phone. This file draws the pill from those variables and has no copy of
+ * any of them:
+ *
+ *   --app-nav-bar    the bar's height, and the round buttons' size
+ *   --app-nav-width  the bar's width: four tabs and its padding
+ *   --app-nav-slot   one tab's width
+ *   --app-nav-pad    the bar's inner padding
+ *   --app-nav-dot    the lens, a circle
+ *   --app-nav-gap    between the bar and the buttons beside it
+ *   --app-nav-glyph  the icons
+ *   --app-nav-lift   the gap under the pill (see PILL_LIFT)
+ *
+ * The page's room for the pill (--app-nav-room) is worked out from the same
+ * variables in the same place, so it follows the bar on every phone.
+ *
+ * Where the lens sits is arithmetic in JS, and that arithmetic MEASURES the
+ * drawn bar (useSlide's geometry) rather than working the size out again
+ * from the window's width. Whatever CSS made it, the lens agrees.
  */
-const BAR_H = 63
-const SLOT = 58
+const TABS = [
+  { key: "home", label: "Home", href: "/app" },
+  { key: "orders", label: "Orders", href: "/app/orders" },
+  { key: "products", label: "Products", href: "/app/products" },
+  { key: "analytics", label: "Analytics", href: "/app/analytics" },
+] as const
 /**
- * The glyphs stay at 22 inside the bigger bar. At 23 the solid and the outline
- * round to different device pixels and the icon measurably shrinks as it
- * fills (scripts/check-app-mobile-nav.mjs: -2 x -1 at 2x); FILL_MATCH is
- * measured at 22.
+ * How far the bottom of the pill sits above the bottom of the screen: the
+ * larger of 4px and the home indicator's inset (the reasoning is beside
+ * --app-nav-lift in globals.css). Read once, by the pill and by the halo, so
+ * the two cannot disagree. An iPhone 8 or SE has no inset and gets the 4px.
  */
-const GLYPH = 22
-const PAD = 4
-/** The selector is a CIRCLE, so it is as wide as it is tall. */
-const DOT = BAR_H - PAD * 2
-/** Between the bar and the buttons beside it. */
-const GAP = 8
+const PILL_LIFT = "var(--app-nav-lift)"
+/** The glyphs, at the size the bar is drawn at on this phone. */
+const GLYPH_BOX = "var(--app-nav-glyph)"
+/** A length in the icons' own units (22 across), so the menu glyph follows them. */
+const gx = (n: number) => `calc(var(--app-nav-glyph) * ${Math.round((n / 22) * 10000) / 10000})`
+
+/** The bar as drawn on this screen, in screen pixels: read off the DOM, never computed. */
+type Geometry = { pad: number; slot: number; dot: number }
+/**
+ * The lens's left edge on slot `index`. The one place this is worked out:
+ * the pill at rest and the gesture under a finger both call it.
+ */
+const slotLeft = (index: number, g: Geometry): number =>
+  Math.round((g.pad + index * g.slot + (g.slot - g.dot) / 2) * 100) / 100
 
 /**
  * ===========================================================================
@@ -784,25 +828,6 @@ const HALO_REACH = { top: 30, below: 44, side: 56 }
  */
 const HALO_TINT = "rgba(248,249,250,0.18)"
 const HALO_TINT_NONE = "rgba(248,249,250,0)"
-/**
- * How far the bottom of the pill sits above the bottom of the screen. Read
- * once, by the pill and by the halo, so the two cannot disagree.
- *
- * MAX, NOT PLUS, AND THAT IS THE WHOLE DIFFERENCE. It was `4px + env(...)`,
- * which on a phone is 4px ON TOP of a 34px home indicator inset: 38px of air
- * under the pill, and the reference sits nearer the bottom than that. Asked
- * down three times, and 2px was refused by the probe, which holds the pill to
- * at least 4px off the bottom EDGE — the room a thumb needs to press the
- * outer buttons without catching the side of the display.
- *
- * Both are right, and they are about different things. The 4px is a floor
- * against the edge of the glass; the inset is a floor against the home
- * indicator. Taking the larger of the two satisfies whichever one applies:
- * 34px on a phone, which is four pixels lower than it was, and 4px in a
- * browser with no inset at all, which is where the probe measures and where
- * nothing changes.
- */
-const PILL_LIFT = "max(4px, env(safe-area-inset-bottom, 0px))"
 
 /**
  * WHERE THE PILL DOES NOT GO.
@@ -922,11 +947,11 @@ function stepDrop(drop: Drop, speed: number, ms: number) {
     drop.d = Math.max(-SQUASH_MAX, Math.min(STRETCH_MAX, drop.d + drop.dv * dt))
   }
 }
-/** The lens's shape for a drop: wider and a little flatter while stretched, leaning the way it goes; narrower and taller in the squash. */
-function dropStyle(drop: Drop): string {
+/** The lens's shape for a drop: wider and a little flatter while stretched, leaning the way it goes; narrower and taller in the squash. `dot` is the lens's width on this screen. */
+function dropStyle(drop: Drop, dot: number): string {
   const d = drop.d
   if (Math.abs(d) < 0.002) return "scale(1, 1)"
-  const lead = d > 0 ? Math.round(drop.dir * d * DOT * DROP_LEAD * 100) / 100 : 0
+  const lead = d > 0 ? Math.round(drop.dir * d * dot * DROP_LEAD * 100) / 100 : 0
   return `translateX(${lead}px) scale(${Math.round((1 + d) * 1000) / 1000}, ${Math.round((1 - d * 0.5) * 1000) / 1000})`
 }
 const dropSettled = (drop: Drop) => Math.abs(drop.d) < 0.002 && Math.abs(drop.dv) < 0.05
@@ -937,7 +962,7 @@ const dropSettled = (drop: Drop) => Math.abs(drop.d) < 0.002 && Math.abs(drop.dv
  * stable for these constants and ends when both the distance and the speed
  * are below what a screen can show.
  */
-function settleSpring(from: number, speed: number, to: number, drop: Drop = { d: stretchFor(speed), dv: 0, dir: Math.sign(speed) }): { frames: Keyframe[]; ms: number } {
+function settleSpring(from: number, speed: number, to: number, dot: number, drop: Drop = { d: stretchFor(speed), dv: 0, dir: Math.sign(speed) }): { frames: Keyframe[]; ms: number } {
   const dt = 1 / 120
   let x = from - to
   let v = speed * 1000
@@ -947,7 +972,7 @@ function settleSpring(from: number, speed: number, to: number, drop: Drop = { d:
     const place = `${Math.round((to + x) * 100) / 100}px 0`
     /* The drop's shape rides along on its own spring, from the stretch it
        had under the finger: the landing and the settling are one motion. */
-    frames.push({ translate: place, transform: dropStyle(drop) })
+    frames.push({ translate: place, transform: dropStyle(drop, dot) })
     if (Math.abs(x) < 0.05 && Math.abs(v) < 5 && dropSettled(drop)) break
     v += (-SPRING.stiffness * x - SPRING.damping * v) * dt
     x += v * dt
@@ -1104,13 +1129,16 @@ const TAP_PULSE_MS = 420
  * the "extremely little bit more space" that was asked for and no more.
  */
 function MenuGlyph({ open }: { open: boolean }) {
-  const bar = "absolute h-[1.6px] w-[17px] rounded-full bg-current"
+  /* Drawn in the icons' units (gx: 22 across), so it is the same size beside
+     them on every phone: 18 across, bars 17 by 1.6, where the icons are 22. */
+  const bar = "absolute rounded-full bg-current"
   const ease = "transition-all duration-[300ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
+  const line = (top: number): React.CSSProperties => ({ top: gx(top), width: gx(17), height: gx(1.6) })
   return (
-    <span className="relative flex h-[18px] w-[18px] items-center justify-center">
-      <span className={cn(bar, ease, open ? "top-[8.2px] rotate-45" : "top-[3.2px] rotate-0")} />
-      <span className={cn(bar, ease, "top-[8.2px]", open ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100")} />
-      <span className={cn(bar, ease, open ? "top-[8.2px] -rotate-45" : "top-[13.2px] rotate-0")} />
+    <span className="relative flex items-center justify-center" style={{ width: gx(18), height: gx(18) }}>
+      <span className={cn(bar, ease, open ? "rotate-45" : "rotate-0")} style={line(open ? 8.2 : 3.2)} />
+      <span className={cn(bar, ease, open ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100")} style={line(8.2)} />
+      <span className={cn(bar, ease, open ? "-rotate-45" : "rotate-0")} style={line(open ? 8.2 : 13.2)} />
     </span>
   )
 }
@@ -1176,6 +1204,41 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
   const [pressed, setPressed] = useState(false)
   const barRef = useRef<HTMLDivElement>(null)
   const dotRef = useRef<HTMLSpanElement>(null)
+  /**
+   * THE BAR AS IT IS DRAWN, READ OFF THE BAR ITSELF. CSS decides how big the
+   * pill is on this phone (--app-nav-*, app/globals.css), and where the lens
+   * sits is arithmetic here. Rather than work the size out a second time from
+   * the window's width, this reads the three lengths the arithmetic needs
+   * from what was drawn: the bar's padding, a tab's width, the lens's width.
+   * Read before the first paint, and again when the bar changes size (a
+   * phone turned on its side). Null until then, and nothing is placed.
+   */
+  const [geometry, setGeometry] = useState<Geometry | null>(null)
+  const geoRef = useRef<Geometry>({ pad: 0, slot: 0, dot: 0 })
+  useLayoutEffect(() => {
+    const bar = barRef.current
+    const lens = dotRef.current
+    if (!bar || !lens) return
+    const read = () => {
+      const tab = bar.querySelector("a")
+      if (!tab) return
+      const next = {
+        pad: Number.parseFloat(getComputedStyle(bar).paddingLeft),
+        slot: Number.parseFloat(getComputedStyle(tab).width),
+        dot: Number.parseFloat(getComputedStyle(lens).width),
+      }
+      if (!(next.slot > 0) || !(next.dot > 0) || !(next.pad >= 0)) return
+      const was = geoRef.current
+      if (was.pad === next.pad && was.slot === next.slot && was.dot === next.dot) return
+      geoRef.current = next
+      setGeometry(next)
+    }
+    read()
+    if (typeof ResizeObserver === "undefined") return
+    const observer = new ResizeObserver(read)
+    observer.observe(bar)
+    return () => observer.disconnect()
+  }, [])
   const lastRef = useRef<number | null>(null)
   /* React state answers a render later; a move handler that asks it whether
      a finger is down can be told no about the finger that just landed. */
@@ -1223,23 +1286,24 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
   /** Past this the gesture is a drag, and the circle belongs under the finger. */
   const DRAG_SLOP = 8
 
-  /** The circle's left edge when it is sitting on a slot. The same arithmetic
+  /** The circle's left edge when it is sitting on a slot. The same function
       the component uses at rest, so the two cannot disagree by a pixel. */
-  const leftForSlot = (index: number): number => PAD + index * SLOT + (SLOT - DOT) / 2
+  const leftForSlot = (index: number): number => slotLeft(index, geoRef.current)
 
   /** The circle's left edge that puts its centre under a finger, kept inside the bar. */
   const leftFor = (clientX: number): number => {
+    const { pad, dot } = geoRef.current
     const box = barRef.current?.getBoundingClientRect()
-    if (!box) return PAD
-    const centre = Math.max(PAD + DOT / 2, Math.min(box.width - PAD - DOT / 2, clientX - box.left))
-    return centre - DOT / 2
+    if (!box) return pad
+    const centre = Math.max(pad + dot / 2, Math.min(box.width - pad - dot / 2, clientX - box.left))
+    return centre - dot / 2
   }
 
   const paint = () => {
     const dot = dotRef.current
     if (!dot || posRef.current == null) return
     dot.style.translate = `${Math.round(posRef.current * 100) / 100}px 0`
-    dot.style.transform = dropSettled(dropRef.current) ? "" : dropStyle(dropRef.current)
+    dot.style.transform = dropSettled(dropRef.current) ? "" : dropStyle(dropRef.current, geoRef.current.dot)
   }
   /**
    * One frame under a finger: the finger's place, plus what is left of the
@@ -1305,7 +1369,7 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
     dot.style.translate = `${to}px 0`
     dot.style.transform = ""
     if (typeof dot.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    const { frames, ms } = settleSpring(from, speed, to, drop)
+    const { frames, ms } = settleSpring(from, speed, to, geoRef.current.dot, drop)
     const a = dot.animate(frames, { duration: ms, easing: "linear" })
     settleRef.current = a
     settleToRef.current = to
@@ -1315,13 +1379,14 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
   const slotAt = (clientX: number): number => {
     const box = barRef.current?.getBoundingClientRect()
     if (!box) return 0
-    const inner = box.width - PAD * 2
-    const x = clientX - box.left - PAD
+    const pad = geoRef.current.pad
+    const inner = box.width - pad * 2
+    const x = clientX - box.left - pad
     return Math.max(0, Math.min(count - 1, Math.floor((x / inner) * count)))
   }
   /** The slot whose resting place is nearest a left edge of the circle. */
   const slotNearest = (left: number): number =>
-    Math.max(0, Math.min(count - 1, Math.round((left - leftForSlot(0)) / SLOT)))
+    Math.max(0, Math.min(count - 1, Math.round((left - leftForSlot(0)) / (geoRef.current.slot || 1))))
 
   /**
    * A gesture that has left the bar vertically was never for the bar.
@@ -1443,6 +1508,7 @@ function useSlide(count: number, onPick: (index: number) => void, onPress?: (ind
   return {
     barRef,
     dotRef,
+    geometry,
     following,
     pressed,
     bounce,
@@ -1525,13 +1591,12 @@ export function MobileNavPill({
 
     The menu is not a place, so it is its own button beside the four rather
     than a fifth slot in a row of places.
+
+    The four are TABS, at module scope, because how many there are is part
+    of how wide the pill is (--app-nav-tabs in app/globals.css says the same,
+    and tests/app-mobile-nav.test.ts holds the two together).
   */
-  const items: BarItem[] = [
-    { key: "home", label: "Home", href: "/app", icon: icons.home },
-    { key: "orders", label: "Orders", href: "/app/orders", icon: icons.orders },
-    { key: "products", label: "Products", href: "/app/products", icon: icons.products },
-    { key: "analytics", label: "Analytics", href: "/app/analytics", icon: icons.analytics },
-  ]
+  const items: BarItem[] = TABS.map((tab) => ({ ...tab, icon: icons[tab.key] }))
 
   /*
     WARMED ONCE. A page pressed for the first time waits for the server,
@@ -1654,7 +1719,9 @@ export function MobileNavPill({
    */
   const restRef = useRef(0)
   if (marked >= 0) restRef.current = marked
-  const x = PAD + (marked >= 0 ? marked : restRef.current) * SLOT + (SLOT - DOT) / 2
+  const restSlot = marked >= 0 ? marked : restRef.current
+  /* In screen pixels, at the size the bar is drawn on this phone; null until it has been measured. */
+  const x = slide.geometry ? slotLeft(restSlot, slide.geometry) : null
   /*
     The circle's position is never a style prop. Under a finger the frame
     loop in useSlide writes it straight to the element, and a prop rendered
@@ -1669,10 +1736,13 @@ export function MobileNavPill({
     re-render that changes nothing — only the first of those is a hand-over.
   */
   /*
-    Where the glass was last laid down, so a change of slot can be told from a
-    re-render that changes nothing — only the first of those is an arrival.
+    Which slot the glass was last laid down on, so a change of slot can be
+    told from a re-render that changes nothing: only the first of those is an
+    arrival. A slot and not a position, so a bar that changes size (the first
+    measurement, a phone turned on its side) moves the glass with it rather
+    than fading it out and in again.
   */
-  const laidAt = useRef(x)
+  const laidAt = useRef(restSlot)
   const [arriving, setArriving] = useState(false)
   /*
     AND WHILE THE GLASS IS COMING IN, IT IS THE INK'S CURVE THAT RULES.
@@ -1688,16 +1758,16 @@ export function MobileNavPill({
   */
   const [filling, setFilling] = useState(false)
   useLayoutEffect(() => {
-    if (slide.following) { laidAt.current = x; return }
+    if (slide.following) { laidAt.current = restSlot; return }
     const dot = slide.dotRef.current
-    if (!dot) return
-    const lay = () => { dot.style.translate = `${x}px 0`; laidAt.current = x }
+    if (!dot || x == null) return
+    const lay = () => { dot.style.translate = `${x}px 0`; laidAt.current = restSlot }
     /* A released drag brings its own arrival with it: it springs onto the
        slot from where the finger left it, at the finger's speed (settleTo,
        once per landing place). */
-    if (slide.bounce) { slide.motion.current.settleTo(x); laidAt.current = x; return }
+    if (slide.bounce) { slide.motion.current.settleTo(x); laidAt.current = restSlot; return }
     /* A lens already where it belongs has not moved. */
-    if (laidAt.current === x) { lay(); return }
+    if (laidAt.current === restSlot) { lay(); return }
     /* One frame with no colour in it, and the next one somewhere else, where
        the glass comes in. The move is invisible because there is nothing
        painted to see move. A spring still landing somewhere else stops, or
@@ -1708,7 +1778,7 @@ export function MobileNavPill({
     setFilling(true)
     const id = requestAnimationFrame(() => setArriving(false))
     return () => cancelAnimationFrame(id)
-  }, [x, arriving, slide.following, slide.bounce, slide.dotRef, slide.motion])
+  }, [x, restSlot, arriving, slide.following, slide.bounce, slide.dotRef, slide.motion])
   useEffect(() => {
     if (!filling) return
     const t = window.setTimeout(() => setFilling(false), INK_MS)
@@ -1734,8 +1804,9 @@ export function MobileNavPill({
         style={{
           width: `calc(100% + ${HALO_REACH.side * 2}px)`,
           /* From HALO_REACH.below under the screen to HALO_REACH.top above
-             the bar, which is the pill's lift plus its height plus that. */
-          height: `calc(${BAR_H + HALO_REACH.top + HALO_REACH.below}px + ${PILL_LIFT})`,
+             the bar, which is the pill's lift plus its height plus that. The
+             height is the bar's on this screen, so the halo follows it. */
+          height: `calc(var(--app-nav-bar) + ${HALO_REACH.top + HALO_REACH.below}px + ${PILL_LIFT})`,
           bottom: -HALO_REACH.below,
           transform: "translateX(-50%)",
         }}
@@ -1776,20 +1847,18 @@ export function MobileNavPill({
       </div>
       {/*
         ── THE GROUP ─────────────────────────────────────────────────────────
-        The bar and the menu button, and that is all of it. A settings button
-        used to appear beside the X while the menu was open, which meant the
-        group changed width, the whole thing had to slide to stay centred,
-        and settings was only reachable from inside a menu. Settings is the
-        fourth slot in the bar now, so nothing here is ever added or removed
-        and nothing has to move to make room.
+        The bar and the menu button, and with the menu open the settings
+        circle to the left of them. Every length in it is one of the
+        --app-nav-* variables, so on a narrow phone the whole group is drawn
+        smaller and keeps its shape (app/globals.css).
       */}
       <div
         className="relative flex items-center"
         style={{
-          gap: GAP,
+          gap: "var(--app-nav-gap)",
           /* Settings appears to the LEFT, out of flow; the group slides half
              its width to the right to stay centred, one transform, no layout. */
-          transform: `translateX(${menuOpen ? (BAR_H + GAP) / 2 : 0}px)`,
+          transform: `translateX(${menuOpen ? "calc((var(--app-nav-bar) + var(--app-nav-gap)) / 2)" : "0px"})`,
           transition: `transform 380ms ${EASE}`,
           willChange: "transform",
         }}
@@ -1801,9 +1870,9 @@ export function MobileNavPill({
           className="pointer-events-auto relative select-none rounded-full"
           style={{
             ...GLASS,
-            height: BAR_H,
-            width: items.length * SLOT + PAD * 2,
-            padding: PAD,
+            height: "var(--app-nav-bar)",
+            width: "var(--app-nav-width)",
+            padding: "var(--app-nav-pad)",
             touchAction: "none",
           }}
         >
@@ -1826,9 +1895,9 @@ export function MobileNavPill({
             data-app-nav-lens=""
             className="absolute rounded-full"
             style={{
-              width: DOT,
-              height: DOT,
-              top: PAD,
+              width: "var(--app-nav-dot)",
+              height: "var(--app-nav-dot)",
+              top: "var(--app-nav-pad)",
               left: 0,
               /* `translate` is written by the loop, the spring and the effect
                  above, never here; `transform` (the stretch) likewise. */
@@ -1888,10 +1957,13 @@ export function MobileNavPill({
                 draggable={false}
                 className="absolute flex items-center justify-center"
                 style={{
-                  left: PAD + i * SLOT,
-                  top: PAD,
-                  width: SLOT,
-                  height: DOT,
+                  /* The whole column the bar answers a press in, top to
+                     bottom: on a 320px phone that is still 46 by 50. The
+                     glyph is centred in it, where it was in the circle. */
+                  left: `calc(var(--app-nav-pad) + var(--app-nav-slot) * ${i})`,
+                  top: 0,
+                  width: "var(--app-nav-slot)",
+                  height: "var(--app-nav-bar)",
                   color: on ? ACTIVE_TEXT : "#616b7a",
                   /*
                     THE COLOUR TRAVELS WITH THE GLYPH, NOT WITH THE GLASS.
@@ -1905,7 +1977,7 @@ export function MobileNavPill({
                   transition: `color ${FILL_MS}ms ${FILL_CURVE}`,
                 }}
               >
-                <NavIcon icon={item.icon} active={on} color="currentColor" size={GLYPH} layer />
+                <NavIcon icon={item.icon} active={on} color="currentColor" box={GLYPH_BOX} layer />
               </Link>
             )
           })}
@@ -1940,9 +2012,9 @@ export function MobileNavPill({
           style={{
             ...GLASS,
             right: "100%",
-            marginRight: GAP,
-            width: BAR_H,
-            height: BAR_H,
+            marginRight: "var(--app-nav-gap)",
+            width: "var(--app-nav-bar)",
+            height: "var(--app-nav-bar)",
             color: "#616b7a",
             opacity: menuOpen ? 1 : 0,
             transform: `scale(${menuOpen ? 1 : 0.6})`,
@@ -1950,7 +2022,7 @@ export function MobileNavPill({
             willChange: "transform",
           }}
         >
-          <NavIcon icon={icons.settings} active={false} color="currentColor" size={GLYPH} />
+          <NavIcon icon={icons.settings} active={false} color="currentColor" box={GLYPH_BOX} />
         </button>
 
         <button
@@ -1962,7 +2034,7 @@ export function MobileNavPill({
             onToggleMenu()
           }}
           className="pointer-events-auto relative flex shrink-0 items-center justify-center rounded-full"
-          style={{ ...GLASS, width: BAR_H, height: BAR_H, color: menuOpen ? ACTIVE_TEXT : "#616b7a" }}
+          style={{ ...GLASS, width: "var(--app-nav-bar)", height: "var(--app-nav-bar)", color: menuOpen ? ACTIVE_TEXT : "#616b7a" }}
         >
           <MenuGlyph open={menuOpen} />
         </button>

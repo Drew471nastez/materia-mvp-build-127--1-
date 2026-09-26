@@ -4,59 +4,49 @@
  * ===========================================================================
  *  SETTINGS › DOMAINS
  * ===========================================================================
- * "What did you do with the domains tab? I told you to keep it how it was.
- * Yes, of course update it with the new things the domains tab has, but you
- * disrupted the things I had: the icons of Hostinger and GoDaddy and the blur
- * attached to them, and all those things. Update what you connect a domain
- * to, but keep the UI and design I created."
+ * "The DNS setup instructions and how custom domain works should not appear
+ * if I didn't start adding my domain. The Connect to should appear after I
+ * add my domain, not be there by default. Easy to understand, clean."
  *
- * So this is the owner's Domains tab, as it was in components/app/
- * settings-form-new.tsx before 87e06ebc, card for card and class for class:
+ * So the tab grows with the domain, one step at a time:
  *
- *   the Pro bar         the violet bar with Upgrade, for a free plan, and the
- *                       two cards under it blurred until they upgrade
- *   Connect your own    the field with the globe in it, the violet Connect,
- *     domain            "Get a domain:" with Hostinger, GoDaddy and
- *                       Namecheap's marks, and names from the username
- *   Your Domains        one table: Domain Name, Status, Date Added, Actions,
- *                       and a card per domain on a phone
- *   DNS Setup           each record in its own grey step, Copy beside every
- *     Instructions      value, Verified or Not found after a check, the
- *                       certificate note and the provider's tip
- *   How Custom          where each address goes, from and to
- *     Domains Work
+ *   nothing added    Connect your own domain: the field, Add, and one line
+ *                    (use one you own, or get one at Hostinger, GoDaddy or
+ *                    Namecheap, the owner's marks). No records, no chooser,
+ *                    no explainer.
+ *   added, waiting   Your domains: a row with its status (Pending, Needs
+ *                    attention), Connects to (website or creator page, for
+ *                    that domain), and its records as one compact table,
+ *                    Type, Name, Value, Copy beside each, with one line on
+ *                    where to add them and Check.
+ *   connected        the row, Connected, Connects to; the records fold away
+ *                    behind a small "DNS records" for reference.
+ *   help             one "Help" at the bottom of the list, closed, five
+ *                    short lines. Only once there is a domain.
  *
- * With what the tab does now baked into those same pieces:
+ * What a domain connects to is asked after it is added: the POST adds it to
+ * the website, and PATCH { action: "set_purpose" } (app/api/domains) moves
+ * it to the creator page and back, keeping one primary per purpose.
  *
- *   what it is for      Connect asks: the website, or the creator page (with
- *                       its products and the OnePage at /links); each row
- *                       says which, with the primary one marked when there
- *                       are several, and Make primary on the others
- *   the records         the ones Vercel asked for (app/api/domains), named
- *                       the way the provider it was bought at wants them
- *                       (lib/custom-domains/dns-help), a status per record
- *                       after a check (app/api/domains/verify), what to fix
- *                       when it did not pass, and Check again
- *   the certificate     SSL Pending while it is issued, asked about quietly
- *                       every 12 seconds while the page is in front
- *   Remove              asks first, in the row, and says where visitors go
+ * Sections come and go by a grid row going 0fr to 1fr with its opacity, 200ms,
+ * nothing measured in script, and at once under prefers-reduced-motion
+ * (<Reveal>). Phones first: every control is 44px under 640px, a record
+ * stacks Name over Value there, and a long value wraps inside its cell.
  *
  * Everything goes through app/api/domains, which checks the session and
  * holds the Vercel token; this file only draws and asks. The list is the
  * Settings page's (its quick links read it), so a change is handed back with
- * `onData`. The Website Settings screen in the builder draws the same
- * records and checks with components/domains/dns-setup.
+ * `onData`. The website builder draws the same records with
+ * components/domains/dns-setup. Measured by scripts/check-domains-flow.mjs.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
-import { AlertCircle, Check, CheckCircle, ChevronRight, Clock, Copy, ExternalLink, Globe, Loader2, Plus, X } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { AlertCircle, Check, CheckCircle, ChevronDown, Clock, Copy, ExternalLink, Loader2 } from "lucide-react"
 
-import { InfoTip } from "@/components/ui/tooltip"
-import { SmartLink } from "@/components/smart-link"
 import { toast } from "@/hooks/use-toast"
 import { copyText } from "@/lib/platform/copy-text"
 import { HOSTNAME_PROBLEM_TEXT, apexOf, cleanHostname, hostnameProblem, isApexHost, recordsFor, servingHost, type DnsRecord, type DomainPurpose } from "@/lib/custom-domains/hostname"
-import { REGISTRARS, hostFor, registrarById, type RecordCheck, type RegistrarId } from "@/lib/custom-domains/dns-help"
+import { REGISTRARS, hostFor, registrarById, type RecordCheck, type Registrar, type RegistrarId } from "@/lib/custom-domains/dns-help"
 import { cn } from "@/lib/utils"
 
 export interface DomainItem {
@@ -93,66 +83,101 @@ type CheckResult = {
 
 /* ── The owner's classes, said once ─────────────────────────────────────── */
 const CARD = "bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]"
-/** A free plan: the cards are there, blurred, and nothing in them answers. */
+/** A free plan: the card is there, blurred, and nothing in it answers. */
 const BLURRED = "blur-[1.5px] opacity-80 pointer-events-none select-none"
-const VIOLET_BUTTON =
-  "h-8 px-3 text-[12px] font-medium text-[#7c3aed] border border-[#ede9fe] bg-[#f5f3ff] hover:bg-[#ede9fe] rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1 whitespace-nowrap"
-const QUIET_BUTTON =
-  "h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] hover:text-[#1a1a2e] hover:bg-[#f9fafb] rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1 whitespace-nowrap"
-const REMOVE_BUTTON =
-  "h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] hover:text-red-600 hover:border-red-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1 whitespace-nowrap"
-const COPY_BUTTON =
-  "relative text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1 shrink-0 before:absolute before:-inset-2 before:content-['']"
+/** 44px on a phone, the owner's 32px from 640 up. */
+const ROW_BUTTON =
+  "h-11 sm:h-8 px-4 sm:px-3 text-[13px] sm:text-[12px] font-medium rounded-lg transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center justify-center gap-1 whitespace-nowrap"
+const VIOLET_BUTTON = cn(ROW_BUTTON, "text-[#7c3aed] border border-[#ede9fe] bg-[#f5f3ff] hover:bg-[#ede9fe]")
+const QUIET_BUTTON = cn(ROW_BUTTON, "text-[#374151] sm:text-[#6b7280] border border-[#e5e7eb] hover:text-[#1a1a2e] hover:bg-[#f9fafb]")
+const REMOVE_BUTTON = cn(ROW_BUTTON, "text-[#6b7280] border border-[#e5e7eb] hover:text-red-600 hover:border-red-200")
 
 const PURPOSE_NAME: Record<DomainPurpose, string> = { website: "Website", creator_page: "Creator page" }
 
-/*
-  The owner's rows are a table from lg up and a card per domain below it.
-  Only the one on screen is built: building both and hiding one doubled the
-  rows, their buttons and their status notes, and opening the tab took a
-  frame longer at 1440 (scripts/check-domains.mjs). The list only exists
-  after the client has fetched it, so the server's answer (cards) never
-  meets a row.
-*/
-const TABLE_QUERY = "(min-width: 1024px)"
-let tableQuery: MediaQueryList | null = null
-const tableMedia = () => (tableQuery ??= window.matchMedia(TABLE_QUERY))
-const onTableChange = (on: () => void) => {
-  tableMedia().addEventListener("change", on)
-  return () => tableMedia().removeEventListener("change", on)
-}
-function useTableRows(): boolean {
-  return useSyncExternalStore(onTableChange, () => tableMedia().matches, () => false)
-}
+/* ── Reveal: a section coming and going by its own height ───────────────── */
+const REVEAL_MS = 200
 
-/** Where a domain stands, in the owner's words, with the note under the (i). */
-function statusOf(d: DomainItem): { label: string; tip: string; pill: string; icon: ReactNode } {
-  if (d.status === "active") return { label: "Connected", tip: "Domain is live", pill: "bg-emerald-50 text-emerald-700", icon: <CheckCircle className="h-3 w-3" /> }
-  if (d.status === "ssl_provisioning") return { label: "SSL Pending", tip: "Issuing SSL cert", pill: "bg-blue-50 text-blue-700", icon: <Loader2 className="h-3 w-3 animate-spin" /> }
-  if (d.status === "verifying") return { label: "Verifying", tip: "Checking DNS records", pill: "bg-amber-50 text-amber-700", icon: <Loader2 className="h-3 w-3 animate-spin" /> }
-  if (d.status === "failed") return { label: "Failed", tip: "The records point somewhere else", pill: "bg-red-50 text-red-700", icon: <AlertCircle className="h-3 w-3" /> }
-  return { label: "Pending", tip: "Awaiting DNS setup", pill: "bg-gray-100 text-gray-600", icon: <Clock className="h-3 w-3" /> }
-}
+/**
+ * A grid row from 0fr to 1fr, with its opacity: the browser finds the height,
+ * nothing is measured in script. `appear` plays it on mount too (a domain
+ * just added); `animate={false}` snaps (the list arriving with the page).
+ * While closing it keeps drawing what it last showed, so a card that empties
+ * folds up with its rows still in it. Closed, it is inert and then unmounted.
+ */
+function Reveal({
+  open,
+  appear = false,
+  animate = true,
+  children,
+  className,
+  ...rest
+}: {
+  open: boolean
+  appear?: boolean
+  animate?: boolean
+  children: ReactNode
+  className?: string
+} & Record<`data-${string}`, string | undefined> & { id?: string }) {
+  const [shown, setShown] = useState(appear ? false : open)
+  const [mounted, setMounted] = useState(open)
+  const [settled, setSettled] = useState(open && !appear)
+  const kept = useRef<ReactNode>(children)
+  if (open) kept.current = children
 
-function StatusPill({ d, align }: { d: DomainItem; align: "center" | "end" }) {
-  const s = statusOf(d)
+  useEffect(() => {
+    let frame = 0
+    let timer = 0
+    if (open) {
+      frame = requestAnimationFrame(() => {
+        setMounted(true)
+        frame = requestAnimationFrame(() => setShown(true))
+      })
+      timer = window.setTimeout(() => setSettled(true), REVEAL_MS + 40)
+    } else {
+      frame = requestAnimationFrame(() => {
+        setShown(false)
+        setSettled(false)
+      })
+      timer = window.setTimeout(() => setMounted(false), REVEAL_MS + 40)
+    }
+    return () => {
+      cancelAnimationFrame(frame)
+      window.clearTimeout(timer)
+    }
+  }, [open])
+
+  if (!open && !mounted) return null
+  const visible = animate ? shown : open
   return (
-    <div className={cn("flex items-center gap-1", align === "end" && "justify-end")} data-domain-status={d.status}>
-      <span className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold", s.pill)}>
-        {s.icon} {s.label}
-      </span>
-      <InfoTip label={`About ${d.domain}'s status`} className="h-5 w-5 text-[#c0c5cc] hover:text-[#9ca3af]">
-        {s.tip}
-      </InfoTip>
+    <div
+      {...rest}
+      data-reveal={visible ? "open" : "closed"}
+      inert={!open || undefined}
+      className={cn("grid", animate && "transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none", className)}
+      style={{ gridTemplateRows: visible ? "1fr" : "0fr", opacity: visible ? 1 : 0 }}
+    >
+      {/* Clipped only while it moves, so a focus ring at its edge is not cut once it is open. */}
+      <div className={cn("min-h-0", !(settled && open && visible) && "overflow-hidden")}>{open ? children : kept.current}</div>
     </div>
   )
+}
+
+/* ── Where a domain stands ──────────────────────────────────────────────── */
+type Standing = { label: "Connected" | "Pending" | "Needs attention"; pill: string; icon: ReactNode }
+
+function standingOf(d: DomainItem, result: CheckResult | undefined): Standing {
+  if (d.status === "active") return { label: "Connected", pill: "bg-emerald-50 text-emerald-700", icon: <CheckCircle className="h-3 w-3" /> }
+  const conflict = result?.checks?.some((c) => c.state === "conflict") ?? false
+  if (d.status === "failed" || conflict) return { label: "Needs attention", pill: "bg-red-50 text-red-700", icon: <AlertCircle className="h-3 w-3" /> }
+  const moving = d.status === "verifying" || d.status === "ssl_provisioning"
+  return { label: "Pending", pill: "bg-gray-100 text-gray-600", icon: moving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clock className="h-3 w-3" /> }
 }
 
 function addedOn(iso: string | null | undefined): string | null {
   if (!iso) return null
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return null
-  return d.toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })
+  return d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })
 }
 
 /**
@@ -213,12 +238,104 @@ function useRegistrar(): [RegistrarId, (id: RegistrarId) => void] {
   return [id, choose]
 }
 
-function CopyValue({ value, copied, onCopy }: { value: string; copied: boolean; onCopy: (v: string) => void }) {
+/** Copy, as an icon: 44px square on a phone, 32px from 640 up with its reach still 44px. */
+function CopyButton({ value, what, copied, onCopy }: { value: string; what: string; copied: boolean; onCopy: (v: string) => void }) {
   return (
-    <button type="button" onClick={() => onCopy(value)} className={COPY_BUTTON} aria-label={copied ? "Copied" : `Copy ${value}`} data-dns-copy="">
-      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-      {copied ? "Copied" : "Copy"}
+    <button
+      type="button"
+      onClick={() => onCopy(value)}
+      aria-label={copied ? "Copied" : `Copy ${what}`}
+      data-dns-copy=""
+      className={cn(
+        "relative -my-1.5 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg transition-colors before:absolute before:-inset-1.5 before:content-[''] sm:my-0 sm:h-8 sm:w-8",
+        copied ? "text-emerald-600" : "text-[#6b7280] hover:bg-[#f3f4f6] hover:text-[#1a1a2e]",
+      )}
+    >
+      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
     </button>
+  )
+}
+
+/** One cell of the records table: a label on a phone, the value wrapping inside the cell, and Copy. */
+function RecordCell({ label, value, kind, copied, onCopy }: { label: string; value: string; kind: "name" | "value"; copied: string | null; onCopy: (v: string) => void }) {
+  return (
+    <div role="cell" className="flex min-w-0 items-center gap-2">
+      <span className="w-12 shrink-0 text-[12px] text-[#9ca3af] sm:hidden">{label}</span>
+      {value ? (
+        <span className="min-w-0 flex-1 font-mono text-[13px] sm:flex-none font-medium text-[#1a1a2e] [overflow-wrap:anywhere]" {...(kind === "name" ? { "data-dns-name": "" } : { "data-dns-value": "" })}>
+          {value}
+        </span>
+      ) : (
+        <span className="min-w-0 flex-1 text-[13px] italic sm:flex-none text-[#6b7280]" data-dns-name="">
+          Leave empty
+        </span>
+      )}
+      {value ? <CopyButton value={value} what={`${label.toLowerCase()} ${value}`} copied={copied === value} onCopy={onCopy} /> : null}
+    </div>
+  )
+}
+
+const STATE_TEXT: Record<RecordCheck["state"], string> = { found: "Found", conflict: "Other value", missing: "Not found" }
+
+/** The records for one domain: Type, Name, Value, each value with Copy. A row per record from 640 up, stacked below it. */
+function RecordsTable({
+  d,
+  registrar,
+  checkOf,
+  copied,
+  onCopy,
+}: {
+  d: DomainItem
+  registrar: Registrar
+  checkOf: (r: DnsRecord) => RecordCheck | null
+  copied: string | null
+  onCopy: (v: string) => void
+}) {
+  const records = d.records && d.records.length > 0 ? d.records : recordsFor(d.domain)
+  return (
+    <div role="table" aria-label={`DNS records for ${d.domain}`} className="rounded-xl border border-[#e5e7eb]" data-dns-table={d.domain}>
+      <div role="row" className="hidden grid-cols-[72px_minmax(0,1fr)_minmax(0,2fr)] gap-3 px-3 py-2 sm:grid">
+        {["Type", "Name", "Value"].map((h) => (
+          <span key={h} role="columnheader" className="text-[11px] font-medium text-[#9ca3af]">
+            {h}
+          </span>
+        ))}
+      </div>
+      {records.map((r, i) => {
+        const c = checkOf(r)
+        return (
+          <div
+            key={`${r.type}-${r.name}-${r.value}`}
+            role="row"
+            data-dns-record={r.type}
+            className={cn(
+              "grid grid-cols-1 gap-y-1 border-[#f3f4f6] px-3 py-2.5 sm:grid-cols-[72px_minmax(0,1fr)_minmax(0,2fr)] sm:items-center sm:gap-x-3",
+              /* The first record's line is the header's, from 640 up where there is a header. */
+              i === 0 ? "sm:border-t" : "border-t",
+            )}
+          >
+            <div role="cell" className="flex items-center gap-2">
+              <span className="font-mono text-[13px] font-semibold text-[#1a1a2e]">{r.type}</span>
+              {c ? (
+                <span
+                  data-dns-state={c.state}
+                  className={cn("inline-flex items-center gap-1 text-[11px] font-medium", c.state === "found" ? "text-emerald-600" : c.state === "conflict" ? "text-amber-700" : "text-[#9ca3af]")}
+                >
+                  {STATE_TEXT[c.state]}
+                </span>
+              ) : null}
+            </div>
+            <RecordCell label="Name" value={hostFor(registrar, r)} kind="name" copied={copied} onCopy={onCopy} />
+            <RecordCell label="Value" value={r.value} kind="value" copied={copied} onCopy={onCopy} />
+            {c?.state === "conflict" && c.seen.length > 0 ? (
+              <p className="text-[12px] text-amber-700 sm:col-span-3 [overflow-wrap:anywhere]" data-dns-seen="">
+                Also there now: <span className="font-mono">{c.seen.slice(0, 3).join(", ")}</span>. Delete it.
+              </p>
+            ) : null}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -228,7 +345,6 @@ export function DomainsPanel({
   onData,
   websiteAddress,
   creatorPageAddress,
-  handle,
   locked,
   planLoading,
 }: {
@@ -238,8 +354,8 @@ export function DomainsPanel({
   /** Where each is on storelib.com, which keeps working with or without a domain. */
   websiteAddress: string
   creatorPageAddress: string
-  /** The username, for the suggested names. */
-  handle: string
+  /** The username. No longer read here: the tab suggests no names. */
+  handle?: string
   /** Free plan: the page is shown, blurred, and the controls are not usable. */
   locked: boolean
   planLoading: boolean
@@ -248,7 +364,8 @@ export function DomainsPanel({
   const purposes: DomainPurpose[] = data?.purposes?.length ? data.purposes : ["website", "creator_page"]
   const creatorPageOn = purposes.includes("creator_page")
   const blurred = locked && !planLoading
-  const table = useTableRows()
+
+  const purposeOf = (d: DomainItem): DomainPurpose => d.purpose ?? "website"
 
   /* Always the latest, for the handlers below that outlive a render. */
   const dataRef = useRef<DomainsData | null>(data)
@@ -262,13 +379,15 @@ export function DomainsPanel({
     [onData],
   )
 
-  /* ── Connecting one ─────────────────────────────────────────────────── */
-  const [purpose, setPurpose] = useState<DomainPurpose>("website")
+  /* A change made here moves things smoothly; the list arriving with the page does not. */
+  const [touched, setTouched] = useState(false)
+  const [justAdded, setJustAdded] = useState<string | null>(null)
+
+  /* ── Adding one ─────────────────────────────────────────────────────── */
   const [draft, setDraft] = useState("")
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
   const clean = cleanHostname(draft)
-  const previewHost = clean && !hostnameProblem(clean) ? servingHost(clean) : null
 
   const add = async () => {
     if (locked || adding) return
@@ -280,21 +399,24 @@ export function DomainsPanel({
     setAdding(true)
     setAddError(null)
     try {
+      /* The website first; the row asks what it connects to once it is there. */
       const res = await fetch("/api/domains", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domain: clean, purpose }),
+        body: JSON.stringify({ domain: clean, purpose: "website" }),
       })
       const body = (await res.json().catch(() => ({}))) as { domain?: DomainItem; error?: string }
-      if (!res.ok || !body.domain) throw new Error(body.error || "Could not connect that domain.")
+      if (!res.ok || !body.domain) throw new Error(body.error || "Could not add that domain.")
       /* Read the list again rather than guess what the server changed (a replaced domain, a primary). */
       const list = await fetch("/api/domains").then((r) => (r.ok ? (r.json() as Promise<DomainsData>) : null)).catch(() => null)
       const cur = dataRef.current
+      setTouched(true)
+      setJustAdded(body.domain.id)
       onData(list ?? { ...(cur ?? { domains: [] }), domains: [body.domain, ...(cur?.domains ?? [])] })
       setDraft("")
-      toast({ title: `${body.domain.domain} added`, description: "Add the DNS records below where you bought it." })
+      toast({ title: `${body.domain.domain} added`, description: "Add its DNS records to connect it." })
     } catch (e) {
-      setAddError(e instanceof Error ? e.message : "Could not connect that domain.")
+      setAddError(e instanceof Error ? e.message : "Could not add that domain.")
     } finally {
       setAdding(false)
     }
@@ -327,6 +449,7 @@ export function DomainsPanel({
         }
         if (!res.ok) throw new Error(r.error || "Could not check the records just now.")
         const status = r.status || (r.verified ? (r.sslPending ? "ssl_provisioning" : "active") : "pending")
+        setTouched(true)
         replaceDomain(d.id, {
           status,
           ...(r.records?.length ? { records: r.records } : {}),
@@ -370,9 +493,32 @@ export function DomainsPanel({
     return () => window.clearInterval(id)
   }, [securing, check])
 
-  /* ── Primary, remove ────────────────────────────────────────────────── */
+  /* ── What it connects to, primary, remove ───────────────────────────── */
   const [busy, setBusy] = useState<string | null>(null)
   const [confirming, setConfirming] = useState<string | null>(null)
+
+  const setPurposeOf = async (d: DomainItem, next: DomainPurpose) => {
+    if (locked || busy === d.id || purposeOf(d) === next) return
+    const was = purposeOf(d)
+    setBusy(d.id)
+    replaceDomain(d.id, { purpose: next })
+    try {
+      const res = await fetch("/api/domains", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domainId: d.id, action: "set_purpose", purpose: next }),
+      })
+      const body = (await res.json().catch(() => ({}))) as DomainsData & { error?: string }
+      if (!res.ok || !body.domains) throw new Error(body.error || "Could not change it.")
+      onData(body)
+      toast({ title: `${d.domain} now opens your ${next === "website" ? "website" : "creator page"}` })
+    } catch (e) {
+      replaceDomain(d.id, { purpose: was })
+      toast({ title: e instanceof Error ? e.message : "Could not change it.", variant: "destructive" })
+    } finally {
+      setBusy(null)
+    }
+  }
 
   const makePrimary = async (d: DomainItem) => {
     setBusy(d.id)
@@ -404,6 +550,7 @@ export function DomainsPanel({
       const body = (await res.json().catch(() => ({}))) as DomainsData & { error?: string }
       if (!res.ok) throw new Error(body.error || "Could not remove it.")
       const cur = dataRef.current
+      setTouched(true)
       onData(body.domains ? body : { ...(cur ?? { domains: [] }), domains: (cur?.domains ?? []).filter((x) => x.id !== d.id) })
       setConfirming(null)
       toast({ title: `${d.domain} removed` })
@@ -414,7 +561,7 @@ export function DomainsPanel({
     }
   }
 
-  /* ── Copy, and the provider the records are named for ───────────────── */
+  /* ── Copy, the provider the records are named for, what is open ─────── */
   const [copied, setCopied] = useState<string | null>(null)
   const copy = (value: string) => {
     void copyText(value).then((ok) => {
@@ -425,9 +572,11 @@ export function DomainsPanel({
   }
   const [registrarId, setRegistrarId] = useRegistrar()
   const registrar = registrarById(registrarId)
+  /* A connected domain's records, opened for reference. */
+  const [openRecords, setOpenRecords] = useState<Record<string, boolean>>({})
+  const [helpOpen, setHelpOpen] = useState(false)
 
   const fallbackOf = (p: DomainPurpose) => (p === "website" ? websiteAddress : creatorPageAddress)
-  const purposeOf = (d: DomainItem): DomainPurpose => d.purpose ?? "website"
   /* Website domains first, then the creator page's; the primary one first in each. */
   const ordered = useMemo(
     () => [...domains].sort((a, b) => (purposeOf(a) === purposeOf(b) ? Number(!!b.is_primary) - Number(!!a.is_primary) : purposeOf(a) === "website" ? -1 : 1)),
@@ -435,71 +584,21 @@ export function DomainsPanel({
   )
   const countOf = (p: DomainPurpose) => domains.filter((d) => purposeOf(d) === p).length
   const primaryOf = (p: DomainPurpose) => domains.find((d) => purposeOf(d) === p && d.is_primary) ?? null
-  const waiting = ordered.filter((d) => d.status !== "active")
-  const suggested = handle && domains.length === 0 ? [`${handle}.com`, `${handle}.store`, `${handle}.shop`, `${handle}.io`] : []
 
-  /** The line under a domain's name: what it is for, and where it sends people now. */
-  const lineOf = (d: DomainItem) => {
+  /** The line under a domain's name: where it sends people once connected, when it was added before. */
+  const lineOf = (d: DomainItem): string | null => {
     const p = purposeOf(d)
-    const many = countOf(p) > 1
-    const primary = primaryOf(p)
     if (d.status === "active") {
-      if (many && !d.is_primary && primary) return { text: `Sends visitors to ${primary.domain}`, fallback: null }
-      if (isApexHost(d.domain)) return { text: `Opens at ${d.host || servingHost(d.domain)}`, fallback: null }
-      return { text: null, fallback: null }
+      const primary = primaryOf(p)
+      if (countOf(p) > 1 && !d.is_primary && primary) return `Sends visitors to ${primary.domain}`
+      return isApexHost(d.domain) ? `Opens at ${d.host || servingHost(d.domain)}` : null
     }
-    return { text: null, fallback: fallbackOf(p) }
-  }
-
-  const actionsOf = (d: DomainItem, mobile: boolean) => {
-    const p = purposeOf(d)
-    const canPrimary = d.status === "active" && countOf(p) > 1 && !d.is_primary && !locked
-    const checked = !!results[d.id] || !!d.last_checked_at
-    return (
-      <>
-        {d.status !== "active" && (
-          <button
-            type="button"
-            onClick={() => void check(d)}
-            disabled={checking === d.id || locked}
-            data-domain-check=""
-            className={mobile ? "flex-1 h-9 text-[12px] font-medium text-[#7c3aed] bg-[#f5f3ff] rounded-lg hover:bg-[#ede9fe] transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1" : VIOLET_BUTTON}
-          >
-            {checking === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : checked ? "Check again" : mobile ? "Verify DNS" : "Verify"}
-          </button>
-        )}
-        {canPrimary && (
-          <button
-            type="button"
-            onClick={() => void makePrimary(d)}
-            disabled={busy === d.id}
-            data-domain-primary=""
-            className={mobile ? cn("h-9 px-4 text-[12px] font-medium text-[#374151] border border-[#e5e7eb] rounded-lg hover:bg-white transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1", d.status === "active" && "flex-1") : QUIET_BUTTON}
-          >
-            {busy === d.id && confirming !== d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Make primary"}
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => setConfirming(confirming === d.id ? null : d.id)}
-          disabled={busy === d.id}
-          aria-expanded={confirming === d.id}
-          data-domain-remove=""
-          className={
-            mobile
-              ? cn("h-9 px-4 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:text-red-600 hover:border-red-200 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1", d.status === "active" && !canPrimary && "flex-1")
-              : REMOVE_BUTTON
-          }
-        >
-          Remove
-        </button>
-      </>
-    )
+    const added = addedOn(d.created_at)
+    return added ? `Added ${added}` : null
   }
 
   /** Remove, asked in the row: what happens to the people who already have the address. */
   const confirmOf = (d: DomainItem) => {
-    if (confirming !== d.id) return null
     const p = purposeOf(d)
     const primary = primaryOf(p)
     const goesTo = primary && primary.id !== d.id ? primary.domain : fallbackOf(p)
@@ -507,12 +606,10 @@ export function DomainsPanel({
       <div role="alertdialog" aria-label={`Remove ${d.domain}?`} data-domain-confirm={d.domain} className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-medium text-red-800">Remove {d.domain}?</p>
-          <p className="text-[12px] leading-relaxed text-red-700">
-            {d.status === "active" ? `For 30 days it sends visitors to ${goesTo}, then it stops.` : "It was not connected yet, so nothing you shared stops working."}
-          </p>
+          <p className="text-[12px] text-red-700">{d.status === "active" ? `Visitors go to ${goesTo} for 30 days, then it stops.` : "It is not connected yet, so nothing stops working."}</p>
         </div>
         <div className="flex shrink-0 gap-2">
-          <button type="button" onClick={() => setConfirming(null)} className="h-8 flex-1 cursor-pointer rounded-lg border border-[#e5e7eb] bg-white px-3 text-[12px] font-medium text-[#374151] transition-colors hover:bg-[#f9fafb] sm:flex-none">
+          <button type="button" onClick={() => setConfirming(null)} className="h-11 flex-1 cursor-pointer rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] font-medium text-[#374151] transition-colors hover:bg-[#f9fafb] sm:h-8 sm:flex-none sm:text-[12px]">
             Cancel
           </button>
           <button
@@ -520,7 +617,7 @@ export function DomainsPanel({
             onClick={() => void remove(d)}
             disabled={busy === d.id}
             data-domain-remove-confirm=""
-            className="flex h-8 flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg bg-red-600 px-3 text-[12px] font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50 sm:flex-none"
+            className="flex h-11 flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg bg-red-600 px-3 text-[13px] font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50 sm:h-8 sm:flex-none sm:text-[12px]"
           >
             {busy === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
             Remove
@@ -530,322 +627,60 @@ export function DomainsPanel({
     )
   }
 
-  /** The last check's answer, under the row, the owner's way: red when it did not pass, blue while the certificate is issued. */
-  const feedbackOf = (d: DomainItem, mobile: boolean) => {
-    const r = results[d.id]
-    if (!r || !r.message || r.tone === "ok") return null
-    const bad = r.tone === "bad"
+  /** Connects to: the website or the creator page, for this domain. */
+  const connectsOf = (d: DomainItem) => {
+    const p = purposeOf(d)
+    /* Before the database knows creator page domains, every domain is the website's. */
+    if (!creatorPageOn) return <p className="text-[12px] text-[#6b7280]">Connects to your website</p>
     return (
-      <div
-        aria-live="polite"
-        data-domain-result={r.tone}
-        className={cn(
-          "items-start gap-2 rounded-xl px-4 py-2.5 text-[12px] leading-relaxed",
-          mobile ? "mt-3 flex" : "mb-1 hidden lg:flex",
-          bad ? "border border-red-200 bg-red-50 text-red-700" : "border border-blue-200 bg-blue-50 text-blue-700",
-        )}
-      >
-        {bad ? <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />}
-        <span>{r.message}</span>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span id={`domain-connects-${d.id}`} className="text-[13px] text-[#6b7280] sm:text-[12px]">
+          Connects to
+        </span>
+        <div role="radiogroup" aria-labelledby={`domain-connects-${d.id}`} className="inline-flex rounded-xl bg-[#f3f4f6] p-0.5 sm:p-1" data-domain-connects={d.domain}>
+          {(["website", "creator_page"] as DomainPurpose[]).map((option) => {
+            const on = p === option
+            return (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                disabled={locked || (busy === d.id && !on)}
+                onClick={() => void setPurposeOf(d, option)}
+                className={cn(
+                  "h-11 cursor-pointer rounded-[10px] sm:rounded-lg px-3.5 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150 disabled:cursor-not-allowed sm:h-8 sm:px-3",
+                  on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(15,23,42,0.08),0_0_0_1px_rgba(15,23,42,0.04)]" : "text-[#6b7280] hover:text-[#1a1a2e]",
+                )}
+              >
+                {PURPOSE_NAME[option]}
+              </button>
+            )
+          })}
+        </div>
+        {p === "creator_page" ? <span className="basis-full text-[12px] text-[#9ca3af]">With your products, and your OnePage at /links.</span> : null}
       </div>
     )
   }
 
-  /* The How it works rows: where each address goes, from and to, for the domains there are. */
-  const websiteTo = primaryOf("website")?.domain ?? domains.find((d) => purposeOf(d) === "website")?.domain ?? null
-  const pageTo = primaryOf("creator_page")?.domain ?? domains.find((d) => purposeOf(d) === "creator_page")?.domain ?? null
-  const how = [
-    { title: "Your Website", from: websiteAddress, to: websiteTo ? servingHost(websiteTo) : "yourdomain.com" },
-    { title: "Your Creator Page", from: creatorPageAddress, to: pageTo ? servingHost(pageTo) : "yourdomain.com" },
-    { title: "Your OnePage", from: `${creatorPageAddress}/links`, to: `${pageTo ? servingHost(pageTo) : "yourdomain.com"}/links` },
-    { title: "Product Pages", from: `${creatorPageAddress}/...`, to: `${pageTo ? servingHost(pageTo) : "yourdomain.com"}/...` },
-  ]
-
-  return (
-    <div className="space-y-4 sm:space-y-6" data-domains-panel="">
-      {/* Upgrade banner: only for a free plan, nothing while the plan loads or once it is paid. */}
-      {blurred ? (
-        <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 py-3 shadow-sm sm:px-6 sm:py-3.5" data-domains-upgrade="">
-          <div className="flex min-w-0 items-center gap-3">
-            <Globe className="h-5 w-5 shrink-0 text-white" />
-            <p className="truncate text-[13px] font-medium text-white sm:text-[14px]">
-              <span className="sm:hidden">Upgrade for custom domains</span>
-              <span className="hidden sm:inline">Custom domains are available on the Pro plan.</span>
-            </p>
-          </div>
-          <a
-            href="/app/settings/billing/upgrade"
-            className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-xl bg-white px-5 text-[13px] font-semibold text-[#7c3aed] no-underline shadow-sm transition-colors hover:bg-[#f5f3ff] active:bg-[#ede9fe]"
-          >
-            Upgrade
-          </a>
-        </div>
-      ) : null}
-
-      {/* Connect Your Domain Card */}
-      <div className={cn(CARD, "transition-[filter,opacity] duration-700 ease-in-out", blurred && BLURRED)} data-domains-connect="" aria-disabled={blurred || undefined}>
-        <h3 className="mb-1 text-[15px] font-semibold text-[#1a1a2e]">Connect your own domain</h3>
-        {/* Desktop: full text, Mobile: shorter text */}
-        <p className="mb-4 hidden text-[13px] text-[#6b7280] sm:block">
-          Connect a domain you own to your website or to your creator page. Your creator page will be at <span className="font-medium">yourdomain.com</span> and your OnePage at <span className="font-medium">yourdomain.com/links</span>.
-        </p>
-        <p className="mb-4 text-[13px] text-[#6b7280] sm:hidden">Connect a domain you own to your website or creator page.</p>
-
-        {/* What it is for */}
-        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="text-[12px] font-medium text-[#6b7280]">Connect it to</span>
-          <div role="radiogroup" aria-label="What the domain is for" className="inline-flex rounded-xl bg-[#f3f4f6] p-1" data-domains-purpose="">
-            {(["website", "creator_page"] as DomainPurpose[]).map((p) => {
-              const on = purpose === p
-              const off = p === "creator_page" && !creatorPageOn
-              return (
-                <button
-                  key={p}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  disabled={off || locked}
-                  onClick={() => {
-                    setPurpose(p)
-                    setAddError(null)
-                  }}
-                  className={cn(
-                    "h-8 cursor-pointer rounded-lg px-3 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150 disabled:cursor-not-allowed disabled:opacity-50",
-                    on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(15,23,42,0.08),0_0_0_1px_rgba(15,23,42,0.04)]" : "text-[#6b7280] hover:text-[#1a1a2e]",
-                  )}
-                >
-                  {PURPOSE_NAME[p]}
-                </button>
-              )
-            })}
-          </div>
-          {!creatorPageOn && data ? <span className="text-[12px] text-[#9ca3af]">Creator page domains are coming to this account soon.</span> : null}
-        </div>
-
-        {/* Not a <form>: the Settings page is one form already, and a form inside a form is not HTML. */}
-        <div className="flex gap-2" data-domains-add="">
-          <div className="relative flex-1">
-            <Globe className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
-            <label htmlFor="domains-new" className="sr-only">
-              Domain
-            </label>
-            <input
-              id="domains-new"
-              type="text"
-              value={draft}
-              onChange={(e) => {
-                setDraft(e.target.value)
-                setAddError(null)
-              }}
-              onKeyDown={(e) => {
-                /* Enter connects, and is kept from submitting the Settings form around it. */
-                if (e.key === "Enter") {
-                  e.preventDefault()
-                  void add()
-                }
-              }}
-              inputMode="url"
-              autoCapitalize="none"
-              autoCorrect="off"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="Enter your domain (e.g. mydomain.com)"
-              disabled={locked}
-              aria-invalid={Boolean(addError)}
-              aria-describedby="domains-new-hint"
-              /* 16px on a phone, or iOS zooms the page to type in it. */
-              className="h-11 w-full rounded-xl border border-[#e5e7eb] pl-10 pr-4 text-[16px] transition-colors focus:border-[#8b5cf6] focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] disabled:cursor-not-allowed sm:text-[14px]"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => void add()}
-            disabled={adding || !clean || locked}
-            className="flex h-11 shrink-0 cursor-pointer items-center gap-2 rounded-xl bg-[#7c3aed] px-5 text-[13px] font-semibold text-white transition-colors hover:bg-[#6d28d9] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Connect
-          </button>
-        </div>
-
-        {addError ? (
-          <div id="domains-new-hint" role="alert" className="mt-3 flex items-center gap-2 text-[12px] text-red-600">
-            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-            {addError}
-          </div>
-        ) : previewHost ? (
-          <p id="domains-new-hint" className="mt-2 text-[12px] text-[#6b7280]">
-            {purpose === "website" ? `Your website will open at ${previewHost}.` : `Your creator page will open at ${previewHost}, and your OnePage at ${previewHost}/links.`}
-          </p>
-        ) : (
-          <span id="domains-new-hint" className="sr-only">
-            {purpose === "website" ? "Shows the website you built." : "Shows your creator page, your products and your OnePage."}
-          </span>
-        )}
-
-        {/* DNS Provider Quick Links */}
-        <div className="mt-3 flex items-center gap-3" data-domains-shops="">
-          <span className="text-[11px] text-[#9ca3af]">Get a domain:</span>
-          <div className="flex items-center gap-3">
-            {SHOPS.map((shop) => (
-              <a
-                key={shop.name}
-                href={shop.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={shop.name}
-                aria-label={`Get a domain at ${shop.name}`}
-                className="relative cursor-pointer opacity-90 transition-opacity before:absolute before:-inset-2.5 before:content-[''] hover:opacity-100"
-              >
-                {shop.mark}
-              </a>
-            ))}
-          </div>
-        </div>
-
-        {/* Suggested Domains */}
-        {suggested.length > 0 && (
-          <div className="mt-4" data-domains-suggested="">
-            <p className="mb-2 text-[12px] font-medium text-[#6b7280]">Suggested domains based on your username:</p>
-            <div className="flex flex-wrap gap-2">
-              {suggested.map((sd, idx) => (
-                <button
-                  key={sd}
-                  type="button"
-                  onClick={() => {
-                    setDraft(sd)
-                    setAddError(null)
-                  }}
-                  className={cn(
-                    "inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#ede9fe] bg-[#f5f3ff] px-3 py-1.5 text-[12px] font-medium text-[#7c3aed] transition-colors hover:bg-[#ede9fe]",
-                    idx >= 3 && "hidden sm:inline-flex",
-                  )}
-                >
-                  {sd}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Connected Domains List */}
-      <div className={cn(CARD, "transition-[filter,opacity] duration-700 ease-in-out", blurred && BLURRED)} data-domains-list="" aria-disabled={blurred || undefined}>
-        <h3 className="mb-4 text-[15px] font-semibold text-[#1a1a2e]">Your Domains</h3>
-
-        {/* The spinner and the empty list are the same height, so the first load does not move what is under it. */}
-        {loading && !data ? (
-          <div className="flex min-h-[156px] items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-[#7c3aed]" />
-          </div>
-        ) : ordered.length === 0 ? (
-          <div className="flex min-h-[156px] flex-col items-center justify-center text-center" data-domains-empty="">
-            <Globe className="mx-auto mb-3 h-10 w-10 text-[#d1d5db]" />
-            <p className="mb-1 text-[13px] text-[#6b7280]">No domains connected yet</p>
-            <p className="text-[12px] text-[#9ca3af]">Add a custom domain above to get started</p>
-          </div>
-        ) : (
-          <>
-            {/* Table Header - Desktop */}
-            {table ? (
-              <div className="hidden gap-4 border-b border-[#e5e7eb] pb-3 lg:grid lg:grid-cols-[1fr_130px_150px_180px]">
-                <p className="text-[12px] font-semibold uppercase tracking-wider text-[#6b7280]">Domain Name</p>
-                <p className="text-[12px] font-semibold uppercase tracking-wider text-[#6b7280]">Status</p>
-                <p className="text-[12px] font-semibold uppercase tracking-wider text-[#6b7280]">Date Added</p>
-                <p className="text-right text-[12px] font-semibold uppercase tracking-wider text-[#6b7280]">Actions</p>
-              </div>
-            ) : null}
-
-            {ordered.map((d) => {
-              const p = purposeOf(d)
-              const line = lineOf(d)
-              const primaryMark = countOf(p) > 1 && d.is_primary
-              const added = addedOn(d.created_at)
-              return (
-                <div key={d.id} data-domain-row={d.domain} data-domain-purpose={p}>
-                  {table ? (
-                    <>
-                      {/* Desktop Row. The owner's card came after it, so its last:border-0 never applied: every row keeps its line. */}
-                      <div className="hidden items-center gap-4 border-b border-[#f3f4f6] py-4 lg:grid lg:grid-cols-[1fr_130px_150px_180px]">
-                        <div className="min-w-0">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{d.domain}</p>
-                            {primaryMark ? <span className="shrink-0 rounded-full bg-[#f5f3ff] px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]">Primary</span> : null}
-                          </div>
-                          <p className="mt-0.5 truncate text-[11px] text-[#9ca3af]">
-                            <span className="text-[#6b7280]">{PURPOSE_NAME[p]}</span>
-                            {line.text ? <> · {line.text}</> : null}
-                            {line.fallback ? (
-                              <>
-                                {" "}· Fallback:{" "}
-                                <SmartLink href={`https://${line.fallback}`} className="text-[#7c3aed] hover:underline">
-                                  {line.fallback}
-                                </SmartLink>
-                              </>
-                            ) : null}
-                          </p>
-                        </div>
-                        <StatusPill d={d} align="center" />
-                        <p className="text-[13px] text-[#6b7280]">{added ?? ""}</p>
-                        <div className="flex items-center justify-end gap-2">{actionsOf(d, false)}</div>
-                      </div>
-                      {confirming === d.id ? <div className="mb-2 hidden lg:block">{confirmOf(d)}</div> : null}
-                      {/* Inline verify feedback, for the domain last checked */}
-                      {feedbackOf(d, false)}
-                    </>
-                  ) : (
-                    /* Mobile Card */
-                    <div className="mb-3 rounded-xl border border-[#e5e7eb] bg-[#f9fafb] p-4 lg:hidden">
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="break-all text-[14px] font-semibold text-[#1a1a2e]">{d.domain}</p>
-                          <p className="text-[12px] text-[#6b7280]">
-                            {PURPOSE_NAME[p]}
-                            {primaryMark ? <span className="ml-1.5 rounded-full bg-[#f5f3ff] px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]">Primary</span> : null}
-                          </p>
-                        </div>
-                        <StatusPill d={d} align="end" />
-                      </div>
-                      {added ? <p className="mb-1 text-[12px] text-[#9ca3af]">Added {added}</p> : null}
-                      {line.text ? <p className="mb-2 text-[11px] text-[#9ca3af]">{line.text}</p> : null}
-                      {line.fallback ? (
-                        <p className="mb-2 text-[11px] text-[#9ca3af]">
-                          Fallback:{" "}
-                          <SmartLink href={`https://${line.fallback}`} className="text-[#7c3aed] hover:underline">
-                            {line.fallback}
-                          </SmartLink>
-                        </p>
-                      ) : null}
-                      <div className="flex items-center gap-2">{actionsOf(d, true)}</div>
-                      {confirming === d.id ? <div className="mt-3">{confirmOf(d)}</div> : null}
-                      {feedbackOf(d, true)}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </>
-        )}
-      </div>
-
-      {/* DNS Setup Instructions */}
-      {waiting.length > 0 && (
-        <div className={CARD} data-domains-dns="">
-          <h3 className="mb-3 text-[15px] font-semibold text-[#1a1a2e]">DNS Setup Instructions</h3>
-          <p className="mb-4 text-[13px] text-[#6b7280]">
-            Add these records where you bought the domain, then press Verify. A bare domain like <span className="font-medium">yourdomain.com</span> opens at <span className="font-medium">www.yourdomain.com</span>.
-          </p>
-
-          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <label htmlFor="domains-registrar" className="text-[12px] font-medium text-[#6b7280]">
-              Bought at
-            </label>
+  /** The records for a domain still waiting, or a connected one's opened for reference. */
+  const recordsOf = (d: DomainItem, waiting: boolean) => {
+    const result = results[d.id]
+    const passed = d.status === "ssl_provisioning" || d.status === "active"
+    const checkOf = (r: DnsRecord): RecordCheck | null =>
+      passed ? { type: r.type, name: r.name, state: "found", seen: [] } : (result?.checks?.find((c) => c.type === r.type && c.name === r.name) ?? null)
+    const apex = apexOf(d.domain)
+    return (
+      <div className={cn("space-y-3", waiting ? "pt-3" : "pt-1")} data-dns-domain={d.domain}>
+        {waiting ? (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-[13px] text-[#374151]">
+            <label htmlFor={`domains-registrar-${d.id}`}>Add these at</label>
             <select
-              id="domains-registrar"
+              id={`domains-registrar-${d.id}`}
               value={registrar.id}
               onChange={(e) => setRegistrarId(e.target.value as RegistrarId)}
               data-dns-registrar=""
-              className="h-9 cursor-pointer appearance-none rounded-lg border border-[#e5e7eb] bg-white bg-no-repeat pl-3 pr-8 text-[16px] text-[#1a1a2e] outline-none transition-colors focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6] sm:text-[13px]"
+              className="h-11 cursor-pointer appearance-none rounded-lg border border-[#e5e7eb] bg-white bg-no-repeat pl-3 pr-8 text-[16px] text-[#1a1a2e] outline-none transition-colors focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6] sm:h-8 sm:text-[13px]"
               style={{
                 backgroundPosition: "right 8px center",
                 backgroundSize: "16px 16px",
@@ -854,152 +689,271 @@ export function DomainsPanel({
             >
               {REGISTRARS.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.name}
+                  {r.id === "other" ? "another provider" : r.name}
                 </option>
               ))}
             </select>
-            <span className="text-[11px] text-[#9ca3af]">The names below are written the way it asks for them.</span>
-          </div>
-
-          <div className="space-y-6">
-            {waiting.map((d) => {
-              const records = d.records && d.records.length > 0 ? d.records : recordsFor(d.domain)
-              const result = results[d.id]
-              const passed = d.status === "ssl_provisioning" || d.status === "active"
-              const checkOf = (r: DnsRecord): RecordCheck | null =>
-                passed ? { type: r.type, name: r.name, state: "found", seen: [] } : (result?.checks?.find((c) => c.type === r.type && c.name === r.name) ?? null)
-              const apex = apexOf(d.domain)
-              return (
-                <div key={d.id} data-dns-domain={d.domain} className="space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                    <p className="text-[13px] font-semibold text-[#1a1a2e]">
-                      {d.domain} <span className="font-normal text-[#6b7280]">· {PURPOSE_NAME[purposeOf(d)]}</span>
-                    </p>
-                    {registrar.dnsUrl ? (
-                      <a
-                        href={registrar.dnsUrl(apex)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        data-dns-open=""
-                        className="inline-flex items-center gap-1 text-[12px] font-medium text-[#7c3aed] hover:text-[#6d28d9]"
-                      >
-                        Open {registrar.name} DNS
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    ) : null}
-                  </div>
-                  {records.map((r, i) => {
-                    const c = checkOf(r)
-                    const name = hostFor(registrar, r)
-                    const fqdn = r.name === "@" ? apex : `${r.name}.${apex}`
-                    return (
-                      <div key={`${r.type}-${r.name}-${r.value}`} className="rounded-xl bg-[#f9fafb] p-4" data-dns-record={r.type}>
-                        <div className="mb-2 flex items-center justify-between gap-3">
-                          <p className="min-w-0 text-[12px] font-semibold text-[#374151]">
-                            Step {i + 1}: {r.type} Record{" "}
-                            <span className="font-normal text-[#6b7280]">{r.type === "TXT" ? "(proves the domain is yours)" : `(${fqdn})`}</span>
-                          </p>
-                          {c ? (
-                            <span
-                              data-dns-state={c.state}
-                              className={cn(
-                                "inline-flex shrink-0 items-center gap-1 text-[11px] font-medium",
-                                c.state === "found" ? "text-green-600" : c.state === "conflict" ? "text-amber-600" : "text-[#9ca3af]",
-                              )}
-                            >
-                              {c.state === "found" ? <Check className="h-3 w-3" /> : c.state === "conflict" ? <AlertCircle className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                              {c.state === "found" ? "Verified" : c.state === "conflict" ? "Other value" : "Not found"}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-[12px]">
-                            <span className="w-14 shrink-0 text-[#6b7280]">Type:</span>
-                            <span className="font-mono font-medium text-[#1a1a2e]">{r.type}</span>
-                          </div>
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex min-w-0 items-center gap-2 text-[12px]">
-                              <span className="w-14 shrink-0 text-[#6b7280]">Name:</span>
-                              {name ? <span className="break-all font-mono font-medium text-[#1a1a2e]" data-dns-name="">{name}</span> : <span className="italic text-[#6b7280]" data-dns-name="">Leave empty</span>}
-                            </div>
-                            {name ? <CopyValue value={name} copied={copied === name} onCopy={copy} /> : null}
-                          </div>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex min-w-0 items-start gap-2 text-[12px]">
-                              <span className="w-14 shrink-0 text-[#6b7280]">Value:</span>
-                              <span className={cn("break-all font-mono font-medium text-[#7c3aed]", r.type === "TXT" && "text-[11px]")} data-dns-value="">
-                                {r.value}
-                              </span>
-                            </div>
-                            <CopyValue value={r.value} copied={copied === r.value} onCopy={copy} />
-                          </div>
-                          {c?.state === "conflict" && c.seen.length > 0 ? (
-                            <div className="flex items-start gap-2 text-[12px]">
-                              <span className="w-14 shrink-0 text-amber-700">Found:</span>
-                              <span className="break-all font-mono text-amber-700">{c.seen.slice(0, 3).join(", ")}</span>
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {result && result.tone === "bad" && result.fixes.length > 0 ? (
-                    <div className="rounded-xl border border-red-200 bg-red-50 p-3" data-dns-fixes="">
-                      <p className="mb-1.5 text-[12px] font-semibold text-red-800">What to fix:</p>
-                      <ul className="space-y-1.5">
-                        {result.fixes.map((line) => (
-                          <li key={line} className="flex items-start gap-2 text-[11px] leading-relaxed text-red-700">
-                            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
-                            {line}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                </div>
-              )
-            })}
-
-            {/* SSL Provisioning notice */}
-            {waiting.some((d) => d.status === "ssl_provisioning") && (
-              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4" data-dns-certificate="">
-                <p className="mb-1 text-[13px] font-medium text-blue-800">SSL certificate is being issued</p>
-                <p className="text-[12px] text-blue-600">Your DNS is set up correctly. An SSL certificate is being issued automatically, usually in 1 to 10 minutes. This page updates by itself when it is done.</p>
-              </div>
-            )}
-
-            {/* The provider's tip: Cloudflare's grey cloud, GoDaddy's parked record, and the rest. */}
-            {registrar.note ? (
-              <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-4" data-dns-tip={registrar.id}>
-                <p className="mb-1 text-[12px] font-semibold text-amber-800">{registrar.id === "other" ? "Bought somewhere else?" : `Using ${registrar.name}?`}</p>
-                <p className="text-[11px] text-amber-700">{registrar.note}</p>
-              </div>
+            {registrar.dnsUrl ? (
+              <a
+                href={registrar.dnsUrl(apex)}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-dns-open=""
+                aria-label={`Open ${registrar.name} DNS`}
+                className="inline-flex h-11 items-center gap-1 text-[13px] font-medium text-[#7c3aed] hover:text-[#6d28d9] sm:ml-auto sm:h-8 sm:text-[12px]"
+              >
+                Open<span className="sr-only sm:not-sr-only">{registrar.name}</span>
+                <ExternalLink className="h-3 w-3" />
+              </a>
             ) : null}
+          </div>
+        ) : null}
 
-            <p className="text-[11px] leading-relaxed text-[#b0b5bd]">DNS propagation may take a few minutes to 48 hours. Click &quot;Verify&quot; after adding records. Remove any conflicting A, AAAA, or CNAME records.</p>
+        <RecordsTable d={d} registrar={registrar} checkOf={checkOf} copied={copied} onCopy={copy} />
+
+        {/* The provider's one line: Cloudflare's grey cloud, GoDaddy's parked record, and the rest. */}
+        {waiting && registrar.note ? (
+          <p className="text-[12px] text-[#6b7280]" data-dns-tip={registrar.id}>
+            {registrar.note}
+          </p>
+        ) : null}
+
+        {waiting && result && result.tone === "bad" && (result.message || result.fixes.length > 0) ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5" data-dns-fixes="" aria-live="polite">
+            {result.message ? <p className="text-[12px] font-medium text-red-800" data-domain-result="bad">{result.message}</p> : null}
+            {result.fixes.length > 0 ? (
+              <ul className={cn("space-y-1", result.message && "mt-1.5")}>
+                {result.fixes.map((line) => (
+                  <li key={line} className="flex items-start gap-2 text-[12px] text-red-700">
+                    <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-red-500" />
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  const website = primaryOf("website") ?? domains.find((d) => purposeOf(d) === "website" && isApexHost(d.domain)) ?? null
+  const example = website && isApexHost(website.domain) ? website.domain : "yourname.com"
+
+  return (
+    <div className="space-y-4 sm:space-y-6" data-domains-panel="">
+      {/* Upgrade banner: only for a free plan, nothing while the plan loads or once it is paid. */}
+      {blurred ? (
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 py-3 shadow-sm sm:px-6 sm:py-3.5" data-domains-upgrade="">
+          <p className="min-w-0 truncate text-[13px] font-medium text-white sm:text-[14px]">
+            <span className="sm:hidden">Upgrade for custom domains</span>
+            <span className="hidden sm:inline">Custom domains are available on the Pro plan.</span>
+          </p>
+          <a
+            href="/app/settings/billing/upgrade"
+            className="inline-flex h-11 shrink-0 cursor-pointer items-center justify-center whitespace-nowrap rounded-xl bg-white px-5 text-[13px] font-semibold text-[#7c3aed] no-underline shadow-sm transition-colors hover:bg-[#f5f3ff] active:bg-[#ede9fe] sm:h-9"
+          >
+            Upgrade
+          </a>
+        </div>
+      ) : null}
+
+      {/* Adding one: the field, Add, and one line. Nothing else until there is a domain. */}
+      <div className={cn(CARD, "transition-[filter,opacity] duration-700 ease-in-out", blurred && BLURRED)} data-domains-connect="" aria-disabled={blurred || undefined}>
+        <h3 className="mb-3 text-[15px] font-semibold text-[#1a1a2e]">Connect your own domain</h3>
+        {/* Not a <form>: the Settings page is one form already, and a form inside a form is not HTML. */}
+        <div className="flex gap-2" data-domains-add="">
+          <label htmlFor="domains-new" className="sr-only">
+            Domain
+          </label>
+          <input
+            id="domains-new"
+            type="text"
+            value={draft}
+            onChange={(e) => {
+              setDraft(e.target.value)
+              setAddError(null)
+            }}
+            onKeyDown={(e) => {
+              /* Enter adds, and is kept from submitting the Settings form around it. */
+              if (e.key === "Enter") {
+                e.preventDefault()
+                void add()
+              }
+            }}
+            inputMode="url"
+            enterKeyHint="go"
+            autoCapitalize="none"
+            autoCorrect="off"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="yourname.com"
+            disabled={locked}
+            aria-invalid={Boolean(addError)}
+            aria-describedby="domains-new-hint"
+            /* 16px on a phone, or iOS zooms the page to type in it. */
+            className="h-11 min-w-0 flex-1 rounded-xl border border-[#e5e7eb] px-3.5 text-[16px] transition-colors focus:border-[#8b5cf6] focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] disabled:cursor-not-allowed sm:text-[14px]"
+          />
+          <button
+            type="button"
+            onClick={() => void add()}
+            disabled={adding || !clean || locked}
+            data-domains-add-button=""
+            className="flex h-11 min-w-[72px] shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#7c3aed] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#6d28d9] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+          </button>
+        </div>
+
+        {addError ? (
+          <p id="domains-new-hint" role="alert" className="mt-2 flex items-center gap-1.5 text-[12px] text-red-600">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            {addError}
+          </p>
+        ) : (
+          /* The one line: use a domain you own, or get one (the owner's marks). */
+          <div id="domains-new-hint" className="mt-1 flex flex-wrap items-center gap-x-1 text-[12px] text-[#6b7280]" data-domains-shops="">
+            <span className="py-3 sm:py-2">Use a domain you own, or get one at</span>
+            {/* The three marks wrap together; each reaches 44px on a phone and sits 32px from the next. */}
+            <span className="inline-flex px-1.5 sm:px-0">
+              {SHOPS.map((shop) => (
+                <a
+                  key={shop.name}
+                  href={shop.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={shop.name}
+                  aria-label={`Get a domain at ${shop.name}`}
+                  className="-mx-1.5 inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg opacity-90 transition-opacity hover:bg-[#f3f4f6] hover:opacity-100 sm:mx-0 sm:h-8 sm:w-8"
+                >
+                  {shop.mark}
+                </a>
+              ))}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Your domains: only once there is one. */}
+      <Reveal open={ordered.length > 0} animate={touched} data-domains-reveal="list">
+        <div className={cn(CARD, "transition-[filter,opacity] duration-700 ease-in-out", blurred && BLURRED)} data-domains-list="" aria-disabled={blurred || undefined}>
+          <h3 className="mb-1 text-[15px] font-semibold text-[#1a1a2e]">Your domains</h3>
+
+          {ordered.map((d) => {
+            const p = purposeOf(d)
+            const result = results[d.id]
+            const standing = standingOf(d, result)
+            const line = lineOf(d)
+            const primaryMark = countOf(p) > 1 && d.is_primary
+            const connected = d.status === "active"
+            const dnsDone = connected || d.status === "ssl_provisioning"
+            const recordsShown = !dnsDone || !!openRecords[d.id]
+            const canPrimary = connected && countOf(p) > 1 && !d.is_primary && !locked
+            const checked = !!result || !!d.last_checked_at
+            return (
+              <Reveal key={d.id} open appear={d.id === justAdded && ordered.length > 1} data-domain-reveal={d.domain}>
+                <div data-domain-row={d.domain} data-domain-purpose={p} className="border-t border-[#f3f4f6] py-4 first:border-t-0 last:pb-1">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="min-w-0 text-[14px] font-semibold text-[#1a1a2e] [overflow-wrap:anywhere]">{d.domain}</p>
+                        {primaryMark ? <span className="shrink-0 rounded-full bg-[#f5f3ff] px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]">Primary</span> : null}
+                      </div>
+                      {line ? <p className="mt-0.5 text-[12px] text-[#9ca3af] [overflow-wrap:anywhere]" data-domain-line="">{line}</p> : null}
+                    </div>
+                    <span className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold", standing.pill)} data-domain-status={d.status} data-domain-standing={standing.label}>
+                      {standing.icon}
+                      {standing.label}
+                    </span>
+                    {/* The row's actions: under it on a phone, in reach of a thumb; beside it from 640 up. */}
+                    <div className="col-span-2 row-start-3 flex gap-2 sm:col-span-1 sm:col-start-3 sm:row-start-1" data-domain-actions="">
+                      {!dnsDone ? (
+                        <button type="button" onClick={() => void check(d)} disabled={checking === d.id || locked} data-domain-check="" className={cn(VIOLET_BUTTON, "flex-1 sm:flex-none")}>
+                          {checking === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : checked ? "Check again" : "Check"}
+                        </button>
+                      ) : null}
+                      {canPrimary ? (
+                        <button type="button" onClick={() => void makePrimary(d)} disabled={busy === d.id} data-domain-primary="" className={cn(QUIET_BUTTON, "flex-1 sm:flex-none")}>
+                          {busy === d.id && confirming !== d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Make primary"}
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => setConfirming(confirming === d.id ? null : d.id)}
+                        disabled={busy === d.id}
+                        aria-expanded={confirming === d.id}
+                        data-domain-remove=""
+                        className={cn(REMOVE_BUTTON, dnsDone && !canPrimary && "flex-1 sm:flex-none")}
+                      >
+                        Remove
+                      </button>
+                    </div>
+
+                    {/* Spacing lives inside each part, so a part folding away takes its gap with it. */}
+                    <div className="col-span-2 row-start-2 min-w-0 sm:col-span-3" data-domain-body="">
+                      {connectsOf(d)}
+                      {d.status === "ssl_provisioning" ? (
+                        <p className="mt-3 text-[12px] text-[#6b7280]" data-dns-certificate="">
+                          Records found. HTTPS is being set up, usually within 10 minutes.
+                        </p>
+                      ) : null}
+
+                      {dnsDone ? (
+                        <button
+                          type="button"
+                          onClick={() => setOpenRecords((all) => ({ ...all, [d.id]: !all[d.id] }))}
+                          aria-expanded={!!openRecords[d.id]}
+                          aria-controls={`domain-records-${d.id}`}
+                          data-dns-disclosure=""
+                          className="mt-1.5 inline-flex h-11 cursor-pointer items-center gap-1 text-[12px] font-medium text-[#6b7280] hover:text-[#1a1a2e] sm:h-8"
+                        >
+                          DNS records
+                          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none", openRecords[d.id] && "rotate-180")} />
+                        </button>
+                      ) : null}
+                      <Reveal open={recordsShown} id={`domain-records-${d.id}`} data-dns-reveal={d.domain}>
+                        {recordsOf(d, !dnsDone)}
+                      </Reveal>
+
+                      <Reveal open={confirming === d.id} data-domain-confirm-reveal={d.domain}>
+                        <div className="pt-3">{confirmOf(d)}</div>
+                      </Reveal>
+                    </div>
+                  </div>
+                </div>
+              </Reveal>
+            )
+          })}
+
+          {/* Help: closed, at the bottom, five short lines. */}
+          <div className="mt-3 border-t border-[#f3f4f6] pt-1">
+            <button
+              type="button"
+              onClick={() => setHelpOpen((o) => !o)}
+              aria-expanded={helpOpen}
+              aria-controls="domains-help"
+              data-domains-help-toggle=""
+              className="inline-flex h-11 cursor-pointer items-center gap-1 text-[12px] font-medium text-[#6b7280] hover:text-[#1a1a2e] sm:h-9"
+            >
+              Help
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none", helpOpen && "rotate-180")} />
+            </button>
+            <Reveal open={helpOpen} id="domains-help" data-domains-help="">
+              <ul className="space-y-1.5 pb-1 text-[12px] text-[#6b7280]">
+                <li>Your storelib.com addresses keep working.</li>
+                <li>
+                  {example} opens at www.{example}.
+                </li>
+                <li>A creator page domain also carries your products and your OnePage at /links.</li>
+                <li>New records can take a few minutes, and up to 48 hours, to show.</li>
+                <li>Delete other A, AAAA or CNAME records on the same names.</li>
+              </ul>
+            </Reveal>
           </div>
         </div>
-      )}
-
-      {/* How Custom Domains Work */}
-      <div className={CARD} data-domains-how="">
-        <h3 className="mb-4 text-[15px] font-semibold text-[#1a1a2e]">How Custom Domains Work</h3>
-        <div className="space-y-3">
-          {how.map((item) => (
-            <div key={item.title} className="group rounded-xl border border-[#e5e7eb] bg-[#f9fafb] p-3.5 transition-all duration-200 hover:border-[#ede9fe] hover:bg-[#f5f3ff]/50">
-              <p className="mb-2 text-[13px] font-semibold text-[#374151]">{item.title}</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded bg-[#e5e7eb]/60 px-2 py-0.5 font-mono text-[11px] text-[#6b7280]">{item.from}</span>
-                <ChevronRight className="h-3 w-3 shrink-0 text-[#9ca3af]" />
-                <span className="rounded bg-[#ede9fe] px-2 py-0.5 font-mono text-[11px] font-medium text-[#7c3aed]">{item.to}</span>
-              </div>
-            </div>
-          ))}
-          <p className="mt-2 text-[11px] text-[#9ca3af]">
-            Your storelib.com addresses keep working. A bare domain opens at its www, and HTTPS is set up for you.
-          </p>
-        </div>
-      </div>
+      </Reveal>
+      {/* While the list is first read nothing is drawn under the field: an empty list draws nothing either. */}
+      {loading && !data ? <span className="sr-only" role="status">Loading domains</span> : null}
     </div>
   )
 }

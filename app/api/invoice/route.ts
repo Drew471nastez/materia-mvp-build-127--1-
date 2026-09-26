@@ -4,6 +4,10 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { ownedOrderLines, type OwnedLine } from "@/lib/orders/owned"
 import { signOrderLink, verifyOrderLink } from "@/lib/orders/signed-link"
 import { isTimeZone } from "@/lib/orders/time-zone"
+import { invoiceNumber } from "@/lib/checkout/invoice"
+import { addressLines, businessFromFields, businessFromMetadata, taxIdFor, type BusinessDetails } from "@/lib/checkout/business"
+import { countryName } from "@/lib/checkout/countries"
+import { stripe } from "@/lib/stripe"
 
 export const runtime = "nodejs"
 
@@ -105,6 +109,7 @@ export async function GET(request: Request) {
 
     const pdf = await drawInvoice({
       lines,
+      business: await companyOf(lines),
       storeName,
       supportEmail: (creator?.support_email as string | null)?.trim() || null,
       zone,
@@ -177,14 +182,32 @@ function refundedOf(line: OwnedLine): number {
   return typeof recorded === "number" && recorded > 0 ? Math.min(recorded, whole) : whole
 }
 
+/**
+ * The company the buyer bought for: on the order since part 35, and before
+ * that on the payment (lib/checkout/business.ts). The same one the buyer's
+ * own copy carries, so the invoice a creator forwards names it too.
+ */
+async function companyOf(lines: OwnedLine[]): Promise<BusinessDetails | null> {
+  const first = lines[0] as OwnedLine & { business_details?: unknown }
+  const kept = businessFromFields(first.business_details)
+  if (kept || first.stripe_session_id || !first.stripe_payment_intent_id) return kept
+  try {
+    return businessFromMetadata((await stripe.paymentIntents.retrieve(first.stripe_payment_intent_id)).metadata)
+  } catch {
+    return null
+  }
+}
+
 async function drawInvoice({
   lines,
+  business,
   storeName,
   supportEmail,
   zone,
   logo,
 }: {
   lines: OwnedLine[]
+  business: BusinessDetails | null
   storeName: string
   supportEmail: string | null
   zone: string
@@ -260,20 +283,34 @@ async function drawInvoice({
   let y = 128
   label("Invoice number", L, y)
   label("Date", 300, y)
-  value(`INV-${first.id.slice(0, 8).toUpperCase()}`, L, y + 13)
+  /* The buyer's own copy's number (lib/checkout/invoice.ts): one order, one number, whoever downloads it. */
+  value(invoiceNumber(first.id, first.created_at), L, y + 13)
   value(day(first.created_at), 300, y + 13)
   small(time(first.created_at), 300, y + 28)
 
   y += 52
   label("Billed to", L, y)
   label("Payment", 300, y)
-  value(buyerName || buyerEmail || "Customer", L, y + 13)
-  if (buyerName && buyerEmail) small(buyerEmail, L, y + 28)
+  let billedEnd = y + 44
+  if (business) {
+    /* The company, its tax number and its address, then who at it paid. */
+    value(business.company, L, y + 13)
+    let by = y + 28
+    const tax = business.taxId ? [`${taxIdFor(business.country).label} ${business.taxId}`] : []
+    for (const line of [...tax, ...addressLines(business, countryName), buyerName ? `Attn: ${buyerName}` : "", buyerEmail].filter(Boolean)) {
+      small(line, L, by)
+      by += 13
+    }
+    billedEnd = by
+  } else {
+    value(buyerName || buyerEmail || "Customer", L, y + 13)
+    if (buyerName && buyerEmail) small(buyerEmail, L, y + 28)
+  }
   value(paymentMethod(lines, total), 300, y + 13)
   small(`Order ${first.id}`, 300, y + 28, 245)
 
   /* What was bought. */
-  y += 64
+  y = Math.max(y + 64, billedEnd + 20)
   doc.moveTo(L, y).lineTo(R, y).strokeColor(RULE).lineWidth(1).stroke()
   doc.font("Helvetica-Bold").fontSize(8).fillColor(FAINT)
   doc.text("ITEM", L, y + 10, { characterSpacing: 0.6 })
