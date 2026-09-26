@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   const businesses = await listBusinesses(user.id)
   const me = businesses.find((b) => b.current)
   return NextResponse.json(
-    { businesses, canAdd: !!me && canAddBusiness(businesses.length, me.role) },
+    { businesses, canAdd: !!me && canAddBusiness(businesses.length) },
     { headers: NO_STORE },
   )
 }

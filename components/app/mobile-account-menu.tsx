@@ -10,6 +10,7 @@ import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
 import { prefetchAppPage } from "@/lib/ui/app-navigation"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import { BusinessSwitcher, SWITCHER_AVATAR, type BusinessRow } from "@/components/app/business-switcher"
+import { AccountFilm, FILM } from "@/components/app/account-film"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
 
@@ -115,11 +116,10 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
            (scripts/check-app-sheets-frames.mjs). A button that opens a modal
            dialog does not need it: focus moves into the dialog. */
         data-open={mobileProfileDropdownOpen ? "" : undefined}
-        className={cn(
-          "flex items-center gap-2 w-fit justify-start rounded-xl px-2 py-1.5 transition-colors duration-200 ease-out",
-          mobileProfileDropdownOpen ? "bg-white/15" : "hover:bg-white/10"
-        )}
+        className="group/acct relative isolate flex w-fit items-center justify-start gap-2 rounded-xl px-2 py-1.5 [-webkit-tap-highlight-color:transparent]"
       >
+        {/* The grey behind the name: a film on opacity alone, so it fades even in the frame the sheet is put together (components/app/account-film). */}
+        <AccountFilm shades={FILM.phone} open={mobileProfileDropdownOpen} />
         <AppAvatar src={avatarSrc} name={userDisplayName} size={24} tone="dark" className="ring-1 ring-white/20" />
         <span className="text-[13px] font-medium text-white/90 max-w-[120px] truncate">
           {userDisplayName}

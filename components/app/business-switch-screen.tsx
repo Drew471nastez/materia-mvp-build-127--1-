@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import AppColdStart from "@/app/app/cold-start"
+import { ShellHeaderStill } from "@/components/app/shell-header-still"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { playEntrance } from "@/components/app/app-stage"
 import { NAV_ENTER_EASE } from "@/lib/ui/app-navigation"
@@ -138,6 +139,7 @@ export type ScreenSurface = "app" | "plain"
 function Screen({
   step,
   name,
+  photo = null,
   ready,
   spin,
   screenRef,
@@ -146,6 +148,8 @@ function Screen({
 }: {
   step: SwitchStep
   name: string
+  /** The business's photo, for the bar (components/app/shell-header-still). */
+  photo?: string | null
   ready: boolean
   spin?: string
   screenRef?: React.Ref<HTMLDivElement>
@@ -186,7 +190,7 @@ function Screen({
       className="fixed inset-0 z-[500] touch-none select-none"
       style={spin ? ({ "--switch-spin-delay": spin } as React.CSSProperties) : undefined}
     >
-      {surface === "app" ? <AppColdStart>{middle}</AppColdStart> : <div className="absolute inset-0 bg-white">{middle}</div>}
+      {surface === "app" ? <AppColdStart header={<ShellHeaderStill name={name} photo={photo} />}>{middle}</AppColdStart> : <div className="absolute inset-0 bg-white">{middle}</div>}
     </div>
   )
 }
@@ -242,12 +246,14 @@ export type SwitchingHandle = {
  */
 export function SwitchingScreen({
   name,
+  photo = null,
   ready,
   handleRef,
   onGone,
   mode = "switch",
 }: {
   name: string
+  photo?: string | null
   ready: boolean
   handleRef: React.MutableRefObject<SwitchingHandle | null>
   onGone: () => void
@@ -288,7 +294,7 @@ export function SwitchingScreen({
   }, [creating, go, handleRef, onGone])
 
   /* Only ever drawn after a press, so there is a document to put it in. */
-  return createPortal(<Screen step={step} name={name} ready={ready} spin={spin} screenRef={ref} surface={creating ? "plain" : "app"} />, document.body)
+  return createPortal(<Screen step={step} name={name} photo={photo} ready={ready} spin={spin} screenRef={ref} surface={creating ? "plain" : "app"} />, document.body)
 }
 
 /* ── On the new /app ────────────────────────────────────────────────────── */
@@ -356,7 +362,7 @@ async function whenAppReady(screen: HTMLElement): Promise<void> {
  * line the page before ended on, says "Loading your dashboard" only if the
  * page takes long enough to read it, and hands over once the page is ready.
  */
-export function BusinessSwitchArrival({ name }: { name: string }) {
+export function BusinessSwitchArrival({ name, photo = null }: { name: string; photo?: string | null }) {
   const { step, go, shown, settle } = useSteps("opening")
   const ref = useRef<HTMLDivElement>(null)
   const [gone, setGone] = useState(false)
@@ -391,7 +397,7 @@ export function BusinessSwitchArrival({ name }: { name: string }) {
   }, [go, settle, shown])
 
   if (gone) return null
-  return <Screen step={step} name={name} ready screenRef={ref} />
+  return <Screen step={step} name={name} photo={photo} ready screenRef={ref} />
 }
 
 /* ── On the new business's setup ────────────────────────────────────────── */

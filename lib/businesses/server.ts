@@ -14,6 +14,7 @@ import {
   groupIds,
   linkRefusal,
   maySwitch,
+  ownerOf,
   type BusinessGroup,
 } from "./rules"
 
@@ -152,35 +153,51 @@ export type CreateBusinessResult = { memberId: string } | { error: string; statu
 /**
  * Another business: an account with the owner's address and a tag
  * (./email-alias), confirmed, with a password nobody holds, linked to the
- * owner. Only from the first business, and only while the login has fewer
- * than MAX_BUSINESSES. If the link cannot be written the account is removed
- * again, so a failure never leaves an orphan behind.
+ * login's first business (the owner). From any business of the login, and
+ * only while it has fewer than MAX_BUSINESSES. Asked from a business that is
+ * not the first, the new one is linked to the first all the same and its
+ * address is made from the first's, so the group stays one owner and its
+ * members, never a chain. If the link cannot be written the account is
+ * removed again, so a failure never leaves an orphan behind.
  *
- * The database has the last word on the count (a trigger, run-now part 38),
- * so two presses at once cannot both get past it. Until part 38 runs the
- * database still holds the old one per login rule: the link is refused
- * with 23505 on business_links_one_per_owner, and the person reads
- * LIMIT_NOT_OPEN_YET in the menu instead of an error page.
+ * `caller` is the signed in account the request came from (requestUser).
+ * The group is read here, on the server, with the service key, so nobody can
+ * link a business to a login that is not theirs.
+ *
+ * The database has the last word on the count (a trigger: run-now part 38,
+ * or the complete businesses part), so two presses at once cannot both get
+ * past it. Until that runs the database still holds the old one per login
+ * rule: the link is refused with 23505 on business_links_one_per_owner, and
+ * the person reads LIMIT_NOT_OPEN_YET in the menu instead of an error page.
  */
-export async function createBusinessAccount(owner: { id: string; email: string | null }): Promise<CreateBusinessResult> {
+export async function createBusinessAccount(caller: { id: string; email: string | null }): Promise<CreateBusinessResult> {
   const admin = createAdminClient()
-  const group = await businessGroup(owner.id)
-  if (group && group.ownerId !== owner.id) {
-    return { error: "Switch to your first business to add another.", status: 409 }
-  }
-  if (!canAddBusiness(groupIds(group, owner.id).length, "owner")) return { error: LIMIT_REACHED, status: 409 }
+  const group = await businessGroup(caller.id)
+  if (!canAddBusiness(groupIds(group, caller.id).length)) return { error: LIMIT_REACHED, status: 409 }
+  const ownerId = ownerOf(group, caller.id)
 
   /* The table must exist: without it the new account could never be reached again. */
   const probe = await admin.from("business_links").select("member_id", { head: true, count: "exact" }).limit(1)
   if (probe.error) return { error: "Businesses are not set up on this database yet.", status: 503 }
 
-  const email = businessAlias(owner.email, randomBytes(4).toString("hex"))
+  /* The first business's address, which every business of the login is tagged from and reads back to (ownerAddress). */
+  let ownerEmail = caller.email
+  if (ownerId !== caller.id) {
+    const { data: owner, error: ownerError } = await admin.auth.admin.getUserById(ownerId)
+    if (ownerError || !owner?.user) {
+      console.error("[businesses] could not read the first business:", ownerError?.message)
+      return { error: "The business could not be created. Try again in a moment.", status: 500 }
+    }
+    ownerEmail = owner.user.email ?? null
+  }
+
+  const email = businessAlias(ownerEmail, randomBytes(4).toString("hex"))
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email,
     password: randomBytes(32).toString("base64url"),
     email_confirm: true,
     user_metadata: { display_name: "" },
-    app_metadata: { business_owner: owner.id },
+    app_metadata: { business_owner: ownerId },
   })
   if (createError || !created.user) {
     console.error("[businesses] create account failed:", createError?.message)
@@ -188,7 +205,7 @@ export async function createBusinessAccount(owner: { id: string; email: string |
   }
   const memberId = created.user.id
 
-  const { error: linkError } = await admin.from("business_links").insert({ owner_id: owner.id, member_id: memberId })
+  const { error: linkError } = await admin.from("business_links").insert({ owner_id: ownerId, member_id: memberId })
   if (linkError) {
     console.error("[businesses] link failed, removing the new account:", linkError.code, linkError.message)
     await admin.auth.admin.deleteUser(memberId)

@@ -26,6 +26,7 @@ import { AppAvatar } from "@/components/app/app-avatar"
 import { AppTopCorners } from "@/components/app/app-top-corners"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { MobileAccountMenu } from "@/components/app/mobile-account-menu"
+import { AccountFilm, FILM } from "@/components/app/account-film"
 import { BusinessSwitcher, type BusinessRow } from "@/components/app/business-switcher"
 import { DesktopSidebarContent, NAV_ICONS, NAV_ICONS_EXTRA } from "@/components/app/sidebar-desktop-nav"
 import type { NavIconPair } from "@/components/app/sidebar-desktop-nav"
@@ -514,12 +515,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <div ref={headerProfileRef} className="relative shrink-0">
             <button
               onClick={() => setHeaderProfileOpen(!headerProfileOpen)}
-              className={cn(
-                /* A soft grey pill behind the name on hover, in and out on the colour alone. */
-                "flex items-center gap-2.5 rounded-full px-2.5 py-1.5 transition-[background-color] duration-200 ease-out",
-                headerProfileOpen ? "bg-[#2e2e34]" : "hover:bg-[#26262b]"
-              )}
+              data-open={headerProfileOpen ? "" : undefined}
+              className="group/acct relative isolate flex items-center gap-2.5 rounded-full px-2.5 py-1.5 [-webkit-tap-highlight-color:transparent]"
             >
+              {/* A soft grey pill behind the name on hover, pressed and open: a film on opacity alone (components/app/account-film). */}
+              <AccountFilm shades={FILM.desktop} open={headerProfileOpen} />
               <AppAvatar src={avatarSrc} name={userDisplayName} size={28} tone="dark" className="ring-1 ring-white/20" />
               <span className="text-[13px] font-medium text-white/90 max-w-[140px] truncate">
                 {userDisplayName}
