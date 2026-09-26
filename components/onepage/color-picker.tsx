@@ -503,7 +503,7 @@ export function ColorField({
             </div>
           }
         >
-          <div className="px-5 pb-[max(20px,env(safe-area-inset-bottom))] pt-1">
+          <div className="px-5 pb-5 pt-1">
             <ColorPickerPanel value={hex ?? swatch} onChange={onChange} suggestions={suggestions} compact />
           </div>
         </BottomSheet>

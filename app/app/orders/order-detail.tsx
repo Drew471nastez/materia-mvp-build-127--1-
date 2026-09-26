@@ -811,7 +811,10 @@ function DialogShell({
   )
   if (phone) {
     return (
-      <BottomSheet isOpen={open} onClose={() => (busy ? undefined : onClose())} label={title} aboveKeyboard>
+      /* While it saves, a pull springs back and a tap outside does nothing
+         (`dismissible`), rather than the sheet sliding all the way out and
+         coming back up because the close was refused. */
+      <BottomSheet isOpen={open} onClose={() => (busy ? undefined : onClose())} dismissible={!busy} label={title} aboveKeyboard>
         {form(
           <div className="px-5 pb-1 pt-2">
             <p className="text-[16px] font-semibold text-[#1a1a2e]">{title}</p>

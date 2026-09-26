@@ -3529,7 +3529,7 @@ function FontPicker({
           </div>
         ) : null}
       </div>
-      <div ref={listRef} role="listbox" aria-label={label} className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-[#eef0f2] px-2 py-2 pb-[max(8px,env(safe-area-inset-bottom))]">
+      <div ref={listRef} role="listbox" aria-label={label} className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-[#eef0f2] px-2 py-2">
         {shown.length === 0 ? <p className="px-3 py-6 text-center text-[14px] text-[#6b7280]">No font by that name</p> : null}
         {shown.map((f) => {
           const on = f.value === value
