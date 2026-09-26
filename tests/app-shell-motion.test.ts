@@ -353,7 +353,7 @@ section("The press answers on the press")
     /onPress\?\.\(slotAt\(e\.clientX\)\)/.test(mobile) && /if \(item && index !== current\) onPrefetch\?\.\(item\.href\)/.test(mobile)
       && /document\.visibilityState === "visible" && Date\.now\(\) - warmedAt > APP_PAGE_KEPT_MS/.test(mobile))
   const sidebarCode = code("components/app/sidebar.tsx")
-  check("the desktop account menu fetches Settings and Billing whole under the pointer, like the rail",
+  check("the desktop account menu fetches Billing whole under the pointer, like the rail",
     /const warmAccountPage = \(href: string\) => \{\s*if \(href\.startsWith\("\/app\/"\)\) prefetchAppPage\(router, href\)/.test(sidebarCode)
       && (sidebarCode.match(/onMouseEnter=\{\(\) => warmAccountPage\(item\.href\)\}/g) ?? []).length === 2)
   const config = read("next.config.mjs")
