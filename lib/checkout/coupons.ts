@@ -18,6 +18,12 @@
  */
 
 import { apportionFee } from "./cart-items"
+import { CODE_PATTERN } from "./coupon-state"
+
+/* What the Coupons page also draws in the browser lives in ./coupon-state, which
+   has no server import; this file reaches the admin cookie (adminSignedIn), so a
+   client component importing it broke the production build. */
+export { CODE_PATTERN, COUPON_STATE_LABEL, couponState, type CouponState } from "./coupon-state"
 
 type Db = { from: (table: string) => any; rpc?: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -269,8 +275,6 @@ export async function recordCouponUse(db: Db, couponId: string | null | undefine
  * these are the ones that count.
  */
 
-/** A code as a buyer types it: letters, digits, - and _, 3 to 32 of them. */
-export const CODE_PATTERN = /^[A-Z0-9_-]{3,32}$/
 
 export interface CouponValues {
   code: string
@@ -361,29 +365,6 @@ export function readCouponInput(body: unknown, base?: Partial<CouponValues> | nu
       is_active: b.is_active !== false,
     },
   }
-}
-
-export type CouponState = "active" | "scheduled" | "expired" | "used_up" | "off"
-
-/** Where a code stands right now, in the order a buyer would meet it. */
-export function couponState(
-  c: Pick<CouponRow, "is_active" | "starts_at" | "expires_at" | "usage_limit" | "usage_count">,
-  now: Date = new Date(),
-): CouponState {
-  if (!c.is_active) return "off"
-  const t = now.getTime()
-  if (c.expires_at && Date.parse(c.expires_at) < t) return "expired"
-  if (c.usage_limit !== null && c.usage_limit !== undefined && (c.usage_count ?? 0) >= c.usage_limit) return "used_up"
-  if (c.starts_at && Date.parse(c.starts_at) > t) return "scheduled"
-  return "active"
-}
-
-export const COUPON_STATE_LABEL: Record<CouponState, string> = {
-  active: "Active",
-  scheduled: "Scheduled",
-  expired: "Expired",
-  used_up: "Used up",
-  off: "Off",
 }
 
 /** A Postgres or PostgREST error saying a column the query named is not there yet. */
