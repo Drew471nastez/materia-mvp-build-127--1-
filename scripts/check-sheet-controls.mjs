@@ -57,7 +57,8 @@ setTimeout(function () {
     track: m(document.querySelector("[data-slot='slider-track']")),
     dropzone: m(document.getElementById("dropzone")),
     dropzoneHint: (function () {
-      const hint = document.querySelector("#dropzone .wb-dropzone-hint")
+      const ps = document.querySelectorAll("#dropzone p")
+      const hint = ps[ps.length - 1]
       return hint ? getComputedStyle(hint).display : "missing"
     })(),
   }

@@ -317,7 +317,7 @@ function departure({ frames, clickAt }) {
   }
 }
 
-/* The list settling in on a computer: from about half, only up, whole in about ORDER_LIST_BACK_MS. */
+/* The list on a computer after Back: once it settled in from about half; now it is whole from the first frame. */
 function settling(after, gone) {
   const from = gone ? after.filter((f) => f.t >= gone.t) : []
   const fades = from.map((f) => f.listFade)
@@ -326,6 +326,7 @@ function settling(after, gone) {
     listFadeFirst: fades.length ? Number(fades[0].toFixed(3)) : null,
     listFadeMs: whole && gone ? Math.round(whole.t - gone.t) : null,
     listFadeMonotonic: fades.every((o, i) => i === 0 || o >= fades[i - 1] - 0.001),
+    listFadeMin: fades.length ? Number(Math.min(...fades).toFixed(3)) : null,
   }
 }
 
@@ -547,8 +548,11 @@ console.log("\ndesktop, 1280 wide")
   await p.click("button[aria-label='Previous order']")
   await sleep(300)
 
-  /* Back: the order goes at once (c69b54d3) and the list settles in over
-     ORDER_LIST_BACK_MS (cea30d1c); nothing is ever blank. */
+  /* Back: the order goes at once (c69b54d3); nothing is ever blank. The list
+     settled in over ORDER_LIST_BACK_MS after it (cea30d1c), from half faded
+     and 2px low, and that was the "bump" the owner saw on every Back: Orders
+     asks order-motion for no settle now, as Emails does, and the list is
+     whole from its first frame (scripts/check-lists-back.mjs reads the rise). */
   await recordFrames(p, 500)
   await p.click("button[aria-label='Back to orders']")
   await sleep(600)
@@ -560,13 +564,13 @@ console.log("\ndesktop, 1280 wide")
     ticked: document.querySelectorAll(".orders-scroller tbody input:checked").length,
     picked: document.querySelector(".orders-list tr[data-picked]")?.dataset.picked ?? null,
   }))
-  console.log(`  ..    back: the order is gone at ${back.goneMs}ms, still and whole until then: ${back.layerStill}; the list from opacity ${back.listFadeFirst}, whole ${back.listFadeMs}ms later; frames with neither drawn ${back.listUncovered}; blank ${back.blank}px; list scrollTop on every frame ${JSON.stringify(back.scrollTops)}; row tint ${JSON.stringify(back.picked)}; skeletons ${back.skeleton}`)
+  console.log(`  ..    back: the order is gone at ${back.goneMs}ms, still and whole until then: ${back.layerStill}; the list from opacity ${back.listFadeFirst}, lowest ${back.listFadeMin}; frames with neither drawn ${back.listUncovered}; blank ${back.blank}px; list scrollTop on every frame ${JSON.stringify(back.scrollTops)}; row tint ${JSON.stringify(back.picked)}; skeletons ${back.skeleton}`)
   expect(!after.detail && back.listUncovered === 0 && back.blank === 0, "back draws the list on every frame the order is not over it", back.listUncovered)
   /* Was "the order fades off it" and "is marked leaving while it goes":
      since c69b54d3 back on a computer takes the order away at once, so it
      is never drawn faded, moved or leaving. */
   expect(back.layerStill && back.leavingInert === 0 && back.goneMs !== null && back.goneMs <= 300, "and the order goes at once, never faded, moved or drawn leaving", { gone: back.goneMs, still: back.layerStill, leaving: back.leavingInert })
-  expect(back.listFadeFirst !== null && back.listFadeFirst >= 0.4 && back.listFadeFirst <= 0.9 && back.listFadeMonotonic && back.listFadeMs !== null && back.listFadeMs >= 100 && back.listFadeMs <= 300, "while the list settles in from about half, only up, in about 180ms (cea30d1c)", { first: back.listFadeFirst, ms: back.listFadeMs })
+  expect(back.listFadeFirst === 1 && back.listFadeMin === 1, "and the list is there whole from its first frame: nothing in it fades in", { first: back.listFadeFirst, min: back.listFadeMin })
   expect(back.skeleton === 0, "with no skeleton", back.skeleton)
   expect(after.top === before.top && before.top > 0 && back.scrollTops.length === 1 && back.scrollTops[0] === before.top, "and the list is exactly as far down as it was, on every frame", `${after.top} vs ${before.top}`)
   expect(back.picked.includes("fading"), "the row the order came from is tinted, then fades", back.picked)

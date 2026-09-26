@@ -70,7 +70,7 @@ function Rail() {
         onForceNavigate={() => {}}
         settingsLabel="Settings"
         upgradeTitle="Upgrade to Pro"
-        upgradeSubtitle="More products, no Storelib badge"
+        upgradeSubtitle="Unlock more benefits"
       />
     </aside>
   )
@@ -86,7 +86,7 @@ function Menu() {
         onToggle={() => {}}
         onClose={() => {}}
         upgradeTitle="Upgrade to Pro"
-        upgradeSubtitle="More products, no Storelib badge"
+        upgradeSubtitle="Unlock more benefits"
       />
       <MobileNavPill
         menuOpen={false}

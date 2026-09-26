@@ -32,7 +32,7 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
-import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
+import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { recordCouponUse } from "./coupons"
 import { businessFromMetadata } from "./business"
@@ -95,7 +95,8 @@ export function paymentFacts(pi: Stripe.PaymentIntent): PaymentFacts {
   return facts
 }
 
-const ORDER_READ = "id, receipt_token, session_fingerprint, amount_cents"
+/* `created_at` is the invoice's date and half its number: read back from the row, never the clock's. */
+const ORDER_READ = "id, receipt_token, session_fingerprint, amount_cents, created_at"
 
 async function existingOrder(admin: Db, paymentIntentId: string, receiptToken?: string) {
   const { data } = await admin.from("orders").select(ORDER_READ).eq("stripe_payment_intent_id", paymentIntentId).maybeSingle()
@@ -223,11 +224,24 @@ export async function fulfilPaymentIntent(
     }
   }
 
+  /* The company the buyer bought for, on the order itself, where the
+     creator's copy of the invoice and any later one read it. Its own write
+     after the order exists: a database without the column yet (part 35)
+     refuses this and nothing else. */
+  const business = businessFromMetadata(m)
+  if (business) {
+    await step("business details", async () => {
+      const { error: kept } = await admin.from("orders").update({ business_details: business }).eq("id", order.id)
+      if (kept) throw new Error(`${kept.code ?? ""} ${kept.message ?? ""}`.trim())
+    })
+  }
+
   await step("customer", () => recordCustomer(admin, { creatorId, email: buyerEmail, first: m.buyer_first_name, last: m.buyer_last_name, total }))
   /* A contact either way: subscribed when they ticked the box, a customer
-     when they did not (lib/contacts/checkout-contact). */
+     when they did not (lib/contacts/checkout-contact). A tick that puts them
+     on the list starts the creator's welcome, once (lib/contacts/checkout-welcome). */
   await step("contact", () =>
-    recordCheckoutContact(admin, {
+    recordCheckoutContactAndWelcome(admin, {
       creatorId,
       email: buyerEmail,
       name: `${m.buyer_first_name || ""} ${m.buyer_last_name || ""}`.trim(),
@@ -248,36 +262,37 @@ export async function fulfilPaymentIntent(
   await step("emails", async () => {
     if (!buyerEmail) return
     const { data: product } = await admin.from("products").select("title").eq("id", productId).maybeSingle()
-    /* A business buyer gets the invoice with the email, not only a link to it. */
+    /* Every paid order's receipt goes with the email as a PDF, an invoice
+       with the company on it when the buyer bought for one. It is extra: if
+       it cannot be drawn, the email and the seller's still go, and the PDF
+       waits on the receipt page. Drawn from the row as it was written, so
+       it carries the same number as every later download of it. */
     let attachments: { filename: string; content: Uint8Array; contentType: string }[] | undefined
-    if (businessFromMetadata(m)) {
-      /* The invoice is extra: if it cannot be drawn, the receipt and the
-         seller's email still go, and the invoice waits on the receipt page. */
-      try {
-        const invoice = await invoiceForOrder(
-          admin,
-          {
-            id: order.id,
-            created_at: new Date().toISOString(),
-            status: "completed",
-            amount_cents: total,
-            tip_cents: tipCents,
-            buyer_email: buyerEmail,
-            buyer_first_name: m.buyer_first_name || null,
-            buyer_last_name: m.buyer_last_name || null,
-            payment_method: facts.paymentMethod,
-            card_brand: facts.cardBrand,
-            card_last4: facts.cardLast4,
-            variant_name: variantName,
-            stripe_payment_intent_id: pi.id,
-            product: { title: product?.title ?? m.product_title ?? null, creator_id: creatorId },
-          },
-          m,
-        )
-        if (invoice) attachments = [{ filename: invoiceFilename(invoice), content: await renderInvoicePdf(invoice), contentType: "application/pdf" }]
-      } catch (e) {
-        console.error(`[fulfil] invoice for order ${order.id} could not be drawn:`, e instanceof Error ? e.message : e)
-      }
+    try {
+      const invoice = await invoiceForOrder(
+        admin,
+        {
+          id: order.id,
+          created_at: order.created_at ?? new Date(pi.created * 1000).toISOString(),
+          status: "completed",
+          amount_cents: total,
+          tip_cents: tipCents,
+          currency: "usd",
+          buyer_email: buyerEmail,
+          buyer_first_name: m.buyer_first_name || null,
+          buyer_last_name: m.buyer_last_name || null,
+          payment_method: facts.paymentMethod,
+          card_brand: facts.cardBrand,
+          card_last4: facts.cardLast4,
+          variant_name: variantName,
+          stripe_payment_intent_id: pi.id,
+          product: { title: product?.title ?? m.product_title ?? null, creator_id: creatorId },
+        },
+        { metadata: m, business },
+      )
+      if (invoice) attachments = [{ filename: invoiceFilename(invoice), content: await renderInvoicePdf(invoice), contentType: "application/pdf" }]
+    } catch (e) {
+      console.error(`[fulfil] invoice for order ${order.id} could not be drawn:`, e instanceof Error ? e.message : e)
     }
     await sendOrderEmails(admin, {
       orderId: order.id,

@@ -204,7 +204,7 @@ const MEASURE = () => {
       const img = header.querySelector("img[data-plan-picture]")
       const ib = img ? box(img) : null
       const firstLine = el.querySelector("ul > li")
-      const button = el.querySelector("[data-plan-action]")
+      const button = [...el.querySelectorAll("[data-plan-action]")].find((b) => !b.closest('[data-morph="off"]'))
       const lines = [...el.querySelectorAll("ul > li")]
       const spill = [...el.querySelectorAll("*")].filter((n) => { const x = box(n); return x.width && (x.left < b.left - 0.5 || x.right > b.right + 0.5) }).length
       return {
@@ -229,7 +229,8 @@ const MEASURE = () => {
         spill,
       }
     }),
-    buttons: [...document.querySelectorAll("[data-plan-action]")].map((el) => ({
+    /* The buttons on screen: where monthly and yearly differ both are drawn in one cell (plan-cards Morph) and only one is shown. */
+    buttons: [...document.querySelectorAll("[data-plan-action]")].filter((el) => !el.closest('[data-morph="off"]')).map((el) => ({
       text: el.textContent.trim(), h: Math.round(box(el).height), w: Math.round(box(el).width),
       caps: getComputedStyle(el).textTransform === "uppercase", arrow: !!el.querySelector("svg"),
       settled: el.disabled && !el.getAttribute("aria-busy"),
@@ -382,7 +383,7 @@ try {
       const interval = await page.evaluate(() => {
         const pill = document.querySelector("[data-billing-interval]")
         const pro = document.querySelector('[data-plan-card="growth"]')
-        const button = pro?.querySelector("[data-plan-action]")
+        const button = [...(pro?.querySelectorAll("[data-plan-action]") ?? [])].find((el) => !el.closest('[data-morph="off"]'))
         /* What is on screen: both intervals' lines are laid out in the same place (plan-cards Morph), and only the one in force is shown. */
         const shown = (el) => {
           if (!el) return ""

@@ -37,7 +37,7 @@ export const translations = {
     "nav.payouts": "Payouts",
     "nav.settings": "Settings",
     "nav.upgradeToPro": "Upgrade to Pro",
-    "nav.unlockBenefits": "Lower fees, your own domain",
+    "nav.unlockBenefits": "Unlock more benefits",
 
     // Dashboard
     "dashboard.welcome": "Welcome back",

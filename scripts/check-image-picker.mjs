@@ -50,8 +50,7 @@ try {
   writeFileSync(join(work, "supabase-client.js"), `
 const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAF0lEQVR4nGP8z8Dwn4GBgYGJAQ0AAB5vAQVVB2CvAAAAAElFTkSuQmCC"
 export const createClient = () => ({
-  /* No session here: lib/storage/upload-with-progress then uploads through storage.from().upload below. */
-  auth: { getUser: async () => ({ data: { user: { id: "probe-user" } } }), getSession: async () => ({ data: { session: null } }) },
+  auth: { getUser: async () => ({ data: { user: { id: "probe-user" } } }) },
   storage: {
     from: () => ({
       upload: async () => { await new Promise(r => setTimeout(r, 120)); return { error: null } },
@@ -71,9 +70,6 @@ export const createClient = () => ({
     `--alias:@=${root}`,
     "--jsx=automatic", "--log-level=error",
     '--define:process.env.NODE_ENV="production"',
-    /* No storage address: lib/storage/upload-with-progress uploads through the stub's storage.from().upload. */
-    '--define:process.env.NEXT_PUBLIC_SUPABASE_URL=""',
-    '--define:process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY=""',
   ], { cwd: root, stdio: "inherit" })
 
   const page = join(work, "picker.html")
@@ -87,8 +83,6 @@ export const createClient = () => ({
   .h-full { height: 100%; } .w-full { width: 100%; }
   .object-contain { object-fit: contain; } .p-2 { padding: 8px; }
   .h-\\[96px\\] { height: 96px; }
-  /* The filled box's height in the sidebar now (components/website-builder/editor/image-picker.tsx). */
-  .h-\\[112px\\] { height: 112px; }
   .overflow-hidden { overflow: hidden; }
   .opacity-0 { opacity: 0; } .opacity-100 { opacity: 1; }
   .grid { display: grid; } .grid-cols-2 { grid-template-columns: 1fr 1fr; }
@@ -152,8 +146,7 @@ function look(id) {
     storedTransition: stored ? getComputedStyle(stored).transitionProperty + " " + getComputedStyle(stored).transitionDuration : null,
     sweep: waiting ? getComputedStyle(waiting, "::after").animationName : null,
     waitingBg: waiting ? getComputedStyle(waiting).backgroundColor : null,
-    /* The upload's progress: a bar along the foot of the picture, over it rather than instead of it. */
-    spinner: !!box.querySelector("[data-wb-upload-progress]"),
+    spinner: !!box.querySelector(".animate-spin"),
   }
 }
 
@@ -240,7 +233,7 @@ addEventListener("load", () => setTimeout(measure, 0))
 
   console.log("\nChoosing a file, then every state the box passes through\n")
   for (const s of m.samples) {
-    console.log(`  ${String(s.state).padEnd(8)} ${String(s.height).padStart(3)}px   ${s.spinner ? "progress" : "        "}   stored opacity ${s.storedOpacity ?? "-"}`)
+    console.log(`  ${String(s.state).padEnd(8)} ${String(s.height).padStart(3)}px   ${s.spinner ? "spinner" : "       "}   stored opacity ${s.storedOpacity ?? "-"}`)
   }
   console.log("")
 
@@ -248,7 +241,7 @@ addEventListener("load", () => setTimeout(measure, 0))
   const empties = m.samples.filter((s) => s.state === "EMPTY")
   expect(empties.length === 0, "the box never holds nothing, from the file being chosen to the picture", `${empties.length} of ${m.samples.length} samples were an empty box`)
   expect(m.samples.length > 0 && m.samples[0].state === "local", "the file itself is what shows first, with no upload having happened yet", m.samples[0]?.state)
-  expect(m.samples.some((s) => s.spinner), "with the progress bar over it while it uploads", "no progress bar was ever on screen")
+  expect(m.samples.some((s) => s.spinner), "with the spinner over it while it uploads", "no spinner was ever on screen")
   expect(m.samples[m.samples.length - 1].state === "stored", "and the stored copy is what it ends on", m.samples[m.samples.length - 1].state)
 
   /* ── DOES IT JUMP ────────────────────────────────────────────────────── */
@@ -319,7 +312,7 @@ addEventListener("load", () => setTimeout(measure, 0))
     `${m.sweep.background} against ${m.sweep.boxBackground}`,
   )
 
-  console.log(`\n${broken === 0 ? "The box holds the file, then the progress over it, then the stored copy. It is never empty." : `${broken} failed`}`)
+  console.log(`\n${broken === 0 ? "The box holds the file, then the spinner over it, then the stored copy. It is never empty." : `${broken} failed`}`)
   process.exit(broken === 0 ? 0 : 1)
 } finally {
   rmSync(work, { recursive: true, force: true })

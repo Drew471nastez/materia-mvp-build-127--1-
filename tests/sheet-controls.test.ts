@@ -86,10 +86,10 @@ function main() {
   )
   check(
     "and the drag-and-drop hint is not shown to a thumb",
-    /\.wb-dropzone > \.wb-dropzone-hint \{[\s\S]{0,40}display: none;/.test(block),
+    /\.wb-dropzone > p \+ p \{[\s\S]{0,40}display: none;/.test(block),
     "the probe reads its computed display; this is only the rule that sets it",
   )
-  check("the dropzone carries the class the rules need", /"wb-dropzone relative w-full rounded-lg border border-dashed/.test(picker) && /className="wb-dropzone-hint /.test(picker),
+  check("the dropzone carries the class the rules need", /"wb-dropzone relative w-full rounded-lg border-2 border-dashed/.test(picker),
     "the picker is its own module now; the rules still size this element")
   check(
     "and the slider the rules size is the one the editor uses",
@@ -145,7 +145,7 @@ function main() {
     and transparent out of nowhere.
   */
   check("the swatch paints itself from the scheme, inline, because a colour is data",
-    /style=\{\{ background: sc\.gradient \|\| sc\.background \}\}/.test(panels) && /style=\{\{ color: sc\.heading \}\}/.test(panels))
+    /style=\{\{ background: active\.gradient \|\| active\.background, color: active\.heading \}\}/.test(panels))
   check("and the sheet's hover reset spares an element that painted itself that way",
     (css.match(/:not\(\[style\*="background"\]\)/g) ?? []).length === 4,
     "one for each of the four selectors: button and link, in the bottom sheet and the top one")
@@ -190,23 +190,21 @@ function main() {
     the entire time it is uploading. tests/image-picker.test.ts holds the
     detail and scripts/check-image-picker.mjs measures the sequence.
   */
-  check("the progress sits over the picture rather than in place of it",
-    /\{uploading && \(\s*<span\s+role="progressbar"[\s\S]{0,300}className="absolute inset-x-2 bottom-2 z-10 /.test(picker))
+  check("the spinner sits over the picture rather than in place of it",
+    /\{uploading && \(\s*\n\s*<span className="absolute inset-0 z-10 flex items-center justify-center bg-white\/55">/.test(picker))
   check("and the dashed box has no uploading state left to get wrong",
     !/>Uploading</.test(picker),
     "there is nothing to lay out in 56px any more, because nothing is laid out there")
   /*
     It was set to 10, then 30, then 80, then 100 around a call that reports
-    no progress at all, so it sat at 30 for the whole upload and jumped. The
-    bar now follows the request's own upload events
-    (lib/storage/upload-with-progress), and prints no number.
+    no progress at all, so it sat at 30 for the whole upload and jumped.
   */
-  check("and how far it has got is measured, not made up in steps",
-    /uploadWithProgress\(bucket, filePath, body, \{/.test(picker) && /onProgress: \(p\) => setProgress\(Math\.min\(99, p\)\)/.test(picker) && !/\{progress\}%/.test(picker),
+  check("and it claims no percentage, because there was never one to claim",
+    !/\{progress\}%/.test(picker) && !/setProgress/.test(picker),
     "a number that is not measured is worse than no number")
   check("the box cannot be re-opened while it is busy",
     /const pick = \(\) => \{ if \(!uploading\) inputRef\.current\?\.click\(\) \}/.test(picker)
-      && /setDragOver\(false\)\s*\n\s*if \(uploading\) return/.test(picker))
+      && /if \(uploading\) return; const f = e\.dataTransfer\.files\[0\]/.test(picker))
 
   console.log("\nA row with a label at each end does not wrap when the column is narrow")
 
@@ -222,9 +220,8 @@ function main() {
   */
   check("the name keeps its line and is not the thing that shrinks",
     /<span className="shrink-0 whitespace-nowrap font-medium text-foreground">Advanced colors<\/span>/.test(panels))
-  /* The status is only there when some colours are changed ("2 changed"); when it is, it may shrink. */
   check("the status beside it may shrink, and loses characters rather than lines",
-    /<span className="flex min-w-0 items-center gap-2 text-\[12px\] text-muted-foreground">[\s\S]{0,200}\{overridden > 0 && <span className="truncate">\{overridden\} changed<\/span>\}/.test(panels),
+    /<span className="flex min-w-0 items-center gap-2 text-\[12px\] text-muted-foreground">\s*\n\s*<span className="truncate">/.test(panels),
     "`min-w-0` is what lets a flex child shrink at all; without it `truncate` never fires")
   check("the chevron is never squeezed",
     /<ChevronDown className=\{cn\("h-3\.5 w-3\.5 shrink-0 transition-transform duration-200", customizeOpen && "rotate-180"\)\} \/>/.test(panels))

@@ -16,7 +16,21 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import { ThemeChat } from "@/components/website-builder/theme-chat"
+import { ASK_SOUNDS, PEAK_GAIN, scheduleSound, SOUND_LENGTH } from "@/lib/website-builder/ask-sounds"
 import type { SectionInstance } from "@/lib/website-builder/types"
+
+/* The sounds' own graph, for the probe to render in an OfflineAudioContext and measure. */
+;(globalThis as unknown as Record<string, unknown>).__askSounds = { ASK_SOUNDS, PEAK_GAIN, scheduleSound, SOUND_LENGTH }
+
+/*
+  WHAT IS BEHIND THE PILL, for the glass measurements (?canvas=):
+    photo    the default: text and coloured blocks, a page being edited
+    dark     one flat dark colour, where a glow or any lightening shows as
+             lifted pixels and a blur changes nothing
+    stripes  fine black and white stripes, where a blur shows as lost
+             contrast, so how much the band blurs can be read row by row
+*/
+const CANVAS = new URLSearchParams(location.search).get("canvas") ?? "photo"
 
 const SECTIONS: SectionInstance[] = [
   { id: "s1", type: "header", name: "Header", settings: {} },
@@ -74,8 +88,17 @@ function Desktop() {
       <div style={{ display: "flex", flex: 1, minHeight: 0, gap: 6, padding: "6px 6px 0" }}>
         <aside style={{ width: 300, flexShrink: 0, background: "#fff", borderRadius: "20px 20px 0 0" }} />
         <main id="canvas-main" className="relative flex-1 min-w-0 overflow-hidden flex justify-center rounded-t-[20px] bg-[#eef1f5] items-stretch p-0">
-          <div id="wb-preview-root" style={{ width: "100%", height: "100%", overflowY: "auto", background: "#fff" }}>
-            {Array.from({ length: 8 }, (_, i) => (
+          <div
+            id="wb-preview-root"
+            style={{
+              width: "100%",
+              height: "100%",
+              overflowY: "auto",
+              background:
+                CANVAS === "dark" ? "#1f2937" : CANVAS === "stripes" ? "repeating-linear-gradient(90deg, #111 0 2px, #fff 2px 4px)" : "#fff",
+            }}
+          >
+            {CANVAS === "photo" && Array.from({ length: 8 }, (_, i) => (
               <section key={i} id={`wb-section-${i}`} style={{ height: 320, padding: 48, borderBottom: "1px solid #eee", background: i % 2 ? "#fafafa" : "#fff" }}>
                 <h2 style={{ font: "700 40px Inter, system-ui", margin: 0, color: "#1a1a2e" }}>Section {i + 1}</h2>
                 <p style={{ font: "16px Inter, system-ui", color: "#6b7280", maxWidth: 560 }}>
@@ -129,7 +152,7 @@ function Phone() {
         style={{ height: 48, background: "#171717", display: "flex", alignItems: "center", padding: "0 12px", boxSizing: "border-box" }}
       />
       <div style={{ height: "calc(100vh - 48px)", background: "#f8f9fa" }} />
-      <MobileEditorSheet open={open} onOpenChange={(next) => setOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS}>
+      <MobileEditorSheet open={open} onOpenChange={(next) => setOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS} fadeOnMove moveMs={320} keyboard="composer">
         <ThemeChat
           variant="sheet"
           installId="00000000-0000-4000-8000-000000000001"

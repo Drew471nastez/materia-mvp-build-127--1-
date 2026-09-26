@@ -181,7 +181,8 @@ console.log("\nThe frame: the product editor's")
   const list = code("app/app/coupons/coupons-client.tsx")
   check("the list opens a coupon with the layer's move", (list.match(/openFromLink\(`\/app\/coupons\/\$\{coupon\.id\}`\)/g) ?? []).length >= 3 && /openCoupon\(router, `\/app\/coupons\/\$\{coupon\.id\}`\)/.test(list) && /onClick=\{openFromLink\("\/app\/coupons\/new"\)\}/.test(list))
   check("it lays the editor's change over the rows the router kept, then refreshes", /useState<Coupon\[\]>\(\(\) => withReturn\(initialCoupons, peekReturn\(\)\)\)/.test(list) && /const back = takeReturn\(\)/.test(list) && /router\.refresh\(\)/.test(list))
-  check("and takes up the view it was on only on a return", /useState<View>\(\(\) => \(isReturning\(\) && leftAt \? leftAt : "all"\)\)/.test(list))
+  /* Whether it is a return is read once, on the first render: the same answer takes up the view and holds the stage's landing (tests/return-navigation). */
+  check("and takes up the view it was on only on a return", /const \[returning\] = useState\(isReturning\)/.test(list) && /useState<View>\(\(\) => \(returning && leftAt \? leftAt : "all"\)\)/.test(list))
 
   const ret = code("app/app/coupons/list-return.ts")
   check("back in history when the list opened it, a replace marked as a return otherwise", /if \(back\) \{\s*router\.back\(\)\s*\} else \{\s*markTraversal\(\)\s*router\.replace\(COUPONS_HREF\)/.test(ret) && /moveLayer\("enter"/.test(ret) && /moveLayer\("leave"/.test(ret))

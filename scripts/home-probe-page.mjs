@@ -36,16 +36,29 @@ export async function homeProbePage(root = process.cwd(), { before = null } = {}
   if (before) {
     const show = (file) => execFileSync("git", ["show", `${before}:${file}`], { cwd: root, encoding: "utf8" })
     const globeDir = join(root, "components/app/home", `.old-${process.pid}-probe`)
-    const hookDir = join(root, "hooks", `.old-${process.pid}-probe`)
     mkdirSync(globeDir, { recursive: true })
-    mkdirSync(hookDir, { recursive: true })
-    oldDirs.push(globeDir, hookDir)
+    oldDirs.push(globeDir)
     writeFileSync(join(globeDir, "globe.tsx"), show("components/app/home/globe.tsx"))
     writeFileSync(join(globeDir, "globe-land.ts"), show("components/app/home/globe-land.ts"))
-    writeFileSync(join(hookDir, "use-pull-to-refresh.ts"), show("hooks/use-pull-to-refresh.ts"))
     swaps["@/components/app/home/home-banner"] = join(root, "scripts/home-banner-before.tsx")
     swaps["@probe/old-globe"] = join(globeDir, "globe.tsx")
-    swaps["@/hooks/use-pull-to-refresh"] = join(hookDir, "use-pull-to-refresh.ts")
+    /*
+      THE PULL TO REFRESH IS NO LONGER SWAPPED HERE, AND CANNOT BE.
+
+      BASE's hook used to drop straight in beside this checkout's Home, because
+      it was the only one of the three files the gesture lives in that had
+      changed. It is not any more: the hook hands the page two element refs and
+      exports the gesture's numbers, so this checkout's dashboard and indicator
+      do not build against BASE's hook at all.
+
+      Taking all three from BASE does not work either: BASE predates the home
+      banner, so BASE's dashboard never renders the globe this probe waits for,
+      and the before column would be a different page rather than an older one.
+
+      The gesture's own before and after is a measurement of its own now:
+      scripts/check-pull-refresh.mjs swaps all three together and reports
+      frames, renders, resistance and settle for each.
+    */
   }
   writeFileSync(join(dir, "navigation.js"), `export const usePathname = () => "/app"
 export const useRouter = () => ({ push(h) { window.__pushed = h }, prefetch(h) { (window.__prefetched = window.__prefetched || []).push(h) }, replace() {}, refresh() {}, back() {} })

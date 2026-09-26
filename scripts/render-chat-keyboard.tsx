@@ -75,7 +75,7 @@ function Harness() {
           padding makes a real page, so the document CAN be scrolled and the
           probe can see whether the sheet puts it back. */}
       <div style={{ height: "calc(100vh + 120px)", background: "#f8f9fa" }} />
-      <MobileEditorSheet open={open} onOpenChange={(next) => setOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS}>
+      <MobileEditorSheet open={open} onOpenChange={(next) => setOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS} fadeOnMove moveMs={320} keyboard="composer">
         <ThemeChat
           installId="probe"
           page="index"

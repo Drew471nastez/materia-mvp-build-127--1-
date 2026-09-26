@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
-import { ChevronDown, Compass, CreditCard, Globe, HelpCircle, Library, LogOut, Settings } from "lucide-react"
+import { ChevronDown, Compass, CreditCard, Globe, Library, LogOut, Settings } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BottomSheet, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
@@ -12,7 +12,6 @@ import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import { BusinessSwitcher, SWITCHER_AVATAR, type BusinessRow } from "@/components/app/business-switcher"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
-const HELP_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/help`
 
 /**
  * ===========================================================================
@@ -86,10 +85,15 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
     }, SHEET_OPEN_MS + 60)
     return () => window.clearTimeout(t)
   }, [mobileProfileDropdownOpen, router])
+  /*
+   * Help left the account menu at every size. Settings stays here, on a
+   * phone, where no rail sits beside the page to hold it; the desktop
+   * dropdown leaves it to the rail (components/app/sidebar.tsx), which
+   * already has a Settings row.
+   */
   const items = useMemo(() => [
     { href: "/app/settings", label: settingsLabel, icon: Settings },
     { href: "/app/settings/billing", label: billingLabel, icon: CreditCard },
-    { href: "/help", label: "Help", icon: HelpCircle, target: "_blank" as const },
     { href: "/explore", label: "Explore", icon: Compass, target: "_blank" as const },
     { href: "/library", label: "Library", icon: Library },
   ], [settingsLabel, billingLabel])
@@ -154,7 +158,7 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
         {/* With the businesses known, they head the sheet (the current one checked); before, the account alone. */}
         {businesses.length > 0 ? (
           <>
-            <BusinessSwitcher businesses={businesses} variant="sheet" currentAvatar={avatarSrc} onNavigate={closeMobileProfile} />
+            <BusinessSwitcher businesses={businesses} variant="sheet" currentAvatar={avatarSrc} open={mobileProfileDropdownOpen} onNavigate={closeMobileProfile} />
             <div className="my-1.5 h-px bg-neutral-100" />
           </>
         ) : (
@@ -167,7 +171,6 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
         {items.map((item) => {
           const Icon = item.icon
           const isExplore = item.href === "/explore"
-          const isHelp = item.href === "/help"
           return (
             <Link
               key={item.href}
@@ -175,10 +178,7 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
               prefetch={false}
               {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
               onClick={(e) => {
-                if (isHelp && isNativeApp()) {
-                  e.preventDefault()
-                  openExternal(HELP_FULL_URL)
-                } else if (isExplore && isNativeApp()) {
+                if (isExplore && isNativeApp()) {
                   e.preventDefault()
                   openExternal(EXPLORE_FULL_URL)
                 }

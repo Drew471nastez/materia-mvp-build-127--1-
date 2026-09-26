@@ -114,13 +114,15 @@ function main() {
      * eight be guarded. It failed on four labels that were already correct,
      * which would have pushed the next person to write dead guards to quiet
      * it. So it asks the question that matters instead: is this label in a
-     * loop that hands FieldEditor an unrestricted field? Those are the four
-     * generic loops — section settings, block settings, nav-block settings
-     * and the advanced colours list — and every one of them must ask.
+     * loop that hands FieldEditor an unrestricted field? Those are the three
+     * generic loops — section settings, block settings and the advanced
+     * colours list — and every one of them must ask. (The header's nav links
+     * had a fourth; they are the link list editor now, which draws only its
+     * own Label and Link fields and no schema field at all.)
      */
     const lines = editor.split("\n")
     const isFieldLabel = (l: string) =>
-      /<label className="wb-field-label mb-1\.5 block text-\[13px\] font-medium text-\[#374151\]">\{field\.label\}<\/label>/.test(l)
+      /<label className="text-xs font-medium text-muted-foreground mb-1\.5 block">\{field\.label\}<\/label>/.test(l)
     /** A branch above the label that pins the type means a colour cannot reach it. */
     const typePinnedAbove = (i: number) =>
       lines.slice(Math.max(0, i - 6), i).some((l) => /field\.type === "/.test(l))
@@ -137,7 +139,7 @@ function main() {
 
     check(
       "the sidebar still has generic field loops for this to be about",
-      generic.length >= 4,
+      generic.length >= 3,
       `Found ${generic.length}. If this drops, the check may be passing because it stopped finding anything.`,
     )
     check(

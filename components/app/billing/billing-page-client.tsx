@@ -290,8 +290,16 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
        scroller scrolls. A scroller of its own here was as tall as what is in
        it, so it had nowhere to go, and `overflow-y: scroll` painted an empty
        track down the right of the billing tab, beside the page's real one. */
-    <div className={embedded ? "overflow-x-clip bg-[#fafafa]" : "h-full overflow-y-scroll overflow-x-hidden page-scroll bg-[#fafafa]"} style={embedded ? undefined : { scrollbarGutter: "stable" }}>
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-hidden">
+    <div className={embedded ? "bg-[#fafafa]" : "h-full overflow-y-scroll overflow-x-hidden page-scroll bg-[#fafafa]"} style={embedded ? undefined : { scrollbarGutter: "stable" }}>
+      {/*
+        Inside Settings the page's own column (the same max width, gutters
+        and padding) is already around this, so the tab adds none of its
+        own: it used to, and the Billing tab sat 16px further in on every
+        side than General beside it. Nor does it clip: Settings' column
+        already cuts anything sideways at the edge of its gutters, and a clip
+        here, on the content edge, cut the plan cards' shadows off flat.
+      */}
+      <div className={embedded ? "" : "max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-hidden"}>
         {/* Header — the page owns this when billing is a tab. */}
         {!embedded && (
         <div className="mb-6 flex items-start justify-between gap-3">
@@ -487,20 +495,11 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             </div>
           </div>
 
-          {/* ---- SECTION 2: The plans, the same cards the plans page shows ---- */}
-          <PricingTiers
-            plans={plans}
-            currentPlan={currentPlan}
-            subscription={subscription}
-            loading={loading}
-            setLoading={setLoading}
-            showNotification={showNotification}
-            router={router}
-            onUpgradeClick={(planId, planName, priceCents) => openUpgradeModal(planId, planName, priceCents)}
-            pendingPlanId={pendingPlanId}
-          />
-
-          {/* ---- SECTION 3: Billing History ---- */}
+          {/*
+            ---- SECTION 2: Billing History ----
+            Above the plans: what has been paid first, then what can be
+            bought.
+          */}
           <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-[17px] font-bold text-[#1a1a2e]">Billing History</h2>
@@ -632,6 +631,18 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             )}
           </div>
 
+          {/* ---- SECTION 3: The plans, the same cards the plans page shows ---- */}
+          <PricingTiers
+            plans={plans}
+            currentPlan={currentPlan}
+            subscription={subscription}
+            loading={loading}
+            setLoading={setLoading}
+            showNotification={showNotification}
+            router={router}
+            onUpgradeClick={(planId, planName, priceCents) => openUpgradeModal(planId, planName, priceCents)}
+            pendingPlanId={pendingPlanId}
+          />
         </div>
       </div>
 
@@ -1000,8 +1011,12 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
 
   return (
     <div>
-      <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-4">Plans</h2>
-      <PlanCards actions={{ free: actionFor("free"), growth: actionFor("growth") }} lead={currentPlan.id === "free" ? "growth" : undefined} />
+      {/* Plans at the left of its row, the same size as the tab's other section headings, and the Monthly and Yearly pill small at its right. */}
+      <PlanCards
+        heading={<h2 className="text-[17px] font-bold text-[#1a1a2e]">Plans</h2>}
+        actions={{ free: actionFor("free"), growth: actionFor("growth") }}
+        lead={currentPlan.id === "free" ? "growth" : undefined}
+      />
       <p className="mt-4 text-[13px] leading-[1.5] text-[#6b7280]">{PLAN_FOOTNOTE}</p>
     </div>
   )

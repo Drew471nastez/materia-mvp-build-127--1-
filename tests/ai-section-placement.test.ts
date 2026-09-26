@@ -155,8 +155,9 @@ function main() {
     /\.catch\(\(\) => false\)/.test(writeOne))
   check("the request reads the settings and sections of now, not of the first render",
     /\[installId, settings, sections, onWriteStart, onWriteDone, onWriteFailed, dock\]/.test(writeOne))
+  /* The creator's own category is called Created now, and the message names it the same way. */
   check("the message says where it went",
-    /is on the page/.test(chat) && /Add it from Add Section, under Created by you/.test(chat))
+    /is on the page/.test(chat) && /Add it from Add Section, under Created\./.test(chat) && !/under Created by you/.test(chat))
   check("and no longer tells the creator to go and find it",
     !/It is in Add Section under Created by you, and not published until you publish/.test(chat))
 

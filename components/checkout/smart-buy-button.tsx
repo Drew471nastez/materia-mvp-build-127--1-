@@ -6,6 +6,7 @@ import { Loader2, Download } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
 import { useRouter } from "next/navigation"
 import { trackFunnelStep } from "@/lib/analytics-utils"
+import { usePressPending } from "@/lib/navigation/press-pending"
 
 interface SmartBuyButtonProps {
   productId: string
@@ -48,7 +49,8 @@ export function SmartBuyButton({
   serverAssetId = null,
 }: SmartBuyButtonProps) {
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
+  /* Pressed until the page is shown again (lib/navigation/press-pending). */
+  const [loading, startLoading] = usePressPending()
   const [downloadLoading, setDownloadLoading] = useState(false)
   const [hasPurchased, setHasPurchased] = useState(serverHasPurchased)
   const [assetId, setAssetId] = useState<string | null>(serverAssetId)
@@ -136,21 +138,19 @@ export function SmartBuyButton({
     }).format(cents / 100)
   }
 
-  const handleBuyClick = async () => {
-    setLoading(true)
+  const checkoutUrl = `/checkout?productId=${productId}${variantId ? `&variantId=${variantId}` : ""}`
 
-    if (creatorId) {
-      try {
-        await trackFunnelStep("buy_click", creatorId, productId)
-      } catch (e) {
-        // Don't block checkout on tracking failure
-      }
-    }
+  /* The checkout warmed while the buyer reads, so the press lands quickly. */
+  useEffect(() => {
+    router.prefetch(checkoutUrl)
+  }, [checkoutUrl, router])
 
-    let checkoutUrl = `/checkout?productId=${productId}`
-    if (variantId) {
-      checkoutUrl += `&variantId=${variantId}`
-    }
+  const handleBuyClick = () => {
+    if (loading) return
+    startLoading()
+
+    /* Counted on the way, never waited for. */
+    if (creatorId) void trackFunnelStep("buy_click", creatorId, productId).catch(() => {})
 
     /*
       A CLIENT NAVIGATION. `window.location.href` threw the document away to
@@ -232,7 +232,8 @@ export function SmartBuyButton({
   return (
     <Button
       onClick={handleBuyClick}
-      disabled={disabled || loading}
+      disabled={disabled}
+      aria-busy={loading || undefined}
       className="w-full min-h-[44px]"
       style={{
         backgroundColor: backgroundColor || undefined,
@@ -242,7 +243,7 @@ export function SmartBuyButton({
       {loading ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Loading...
+          Opening checkout
         </>
       ) : (
         callToAction || (price === 0 ? "Get for Free" : "I want this!")

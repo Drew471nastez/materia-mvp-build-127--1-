@@ -6,11 +6,11 @@
  * ===========================================================================
  * Under the Pro plan banner.
  *
- * GETTING STARTED is the eight steps of lib/home/progress, each read off the
+ * GETTING STARTED is the seven steps of lib/home/progress, each read off the
  * account on the server and asked for again when Home is landed on
  * (use-home-progress), never ticked by hand. What is left comes first and
  * what is done drops to the bottom, crossed out, so the step at the top is
- * always the next one, and it alone carries the arrow. When all eight are
+ * always the next one, and it alone carries the arrow. When all seven are
  * done the same card turns into the CHALLENGES, the next things that grow a
  * store, counted the same way and drawn the same way, with how far each has
  * got. At its foot, the three ways a buyer pays, on tiles that lift.
@@ -30,9 +30,10 @@
  * lines are that plan's own, from lib/billing/plans.ts, the same table the
  * pricing cards read. On Free the button is Upgrade to Pro.
  *
- * HOVER, AND ITS STAND IN ON A PHONE. The lift (a deeper shadow on a layer
- * of its own, the tiles tipping, the guide's light drifting, the plan's dots
- * moving) is CSS in app/globals.css (HOME CARDS), on opacity, translate,
+ * HOVER, AND ITS STAND IN ON A PHONE. The lift (the card rising a little
+ * with a deeper shadow on a layer of its own, the tiles tipping, the guide's
+ * light drifting, the plan's clouds drifting) is CSS in
+ * app/globals.css (HOME CARDS), on opacity, translate,
  * rotate and scale only, and behind (hover: hover) and (pointer: fine), so a
  * tap never leaves it stuck. A phone cannot hover, so there it plays by
  * itself (useHoverAutoplay): the same motion, the same rules, on a card that
@@ -78,7 +79,7 @@ export function bumpGettingStarted() {
 /*
   No overflow-hidden on the card itself: the deeper shadow of the lift is a
   layer of its own (::before in globals.css) that has to show outside the
-  card. What must be clipped (the tiles, the plan's sky, the guide's
+  card. What must be clipped (the tiles, the plan's band, the guide's
   thumbnail) is clipped where it is drawn.
 */
 const CARD = "home-card relative flex flex-col rounded-[20px] border border-[#e6e7eb] bg-white"
@@ -88,9 +89,9 @@ const CARD = "home-card relative flex flex-col rounded-[20px] border border-[#e6
 /** On screen this long before the first play... */
 export const AUTOPLAY_AFTER_MS = 2000
 /** ...then every this long while it stays there... */
-export const AUTOPLAY_EVERY_MS = 5000
+export const AUTOPLAY_EVERY_MS = 6000
 /** ...held lifted this long, then let go: the time a hover takes to arrive and be seen. */
-export const AUTOPLAY_HOLD_MS = 1400
+export const AUTOPLAY_HOLD_MS = 2200
 /** How much of the card has to be on screen. */
 export const AUTOPLAY_IN_VIEW = 0.6
 
@@ -399,7 +400,7 @@ function PaymentTiles() {
   return (
     <>
       <div aria-hidden="true" className="mt-auto h-[118px] shrink-0" />
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-[19px]">
+      <div aria-hidden="true" className="home-guide-clip pointer-events-none absolute inset-0 overflow-hidden rounded-[19px]">
         <div className="absolute inset-x-0 bottom-0 h-[118px]">
           <div
             data-pay-tile="visa"
@@ -442,7 +443,7 @@ export function SetupGuideCard({ onOpen }: { onOpen?: () => void }) {
       </span>
 
       {/* The card's own shape clips the thumbnail where it runs off the corner. */}
-      <span aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-[19px]">
+      <span aria-hidden="true" className="home-guide-clip pointer-events-none absolute inset-0 overflow-hidden rounded-[19px]">
         <span className="home-guide-thumb absolute bottom-[-18px] right-[-18px] flex aspect-[16/10.5] w-[78%] max-w-[320px] flex-col justify-between overflow-hidden rounded-[18px] p-4">
           <span className="home-guide-light" />
           <span className="relative flex items-center gap-1.5">
@@ -483,10 +484,9 @@ export function PlanCard({ planId }: { planId: string }) {
 
   return (
     <section ref={ref} aria-labelledby="your-plan-title" className={`${CARD} min-h-[392px]`}>
-      {/* A deep violet band with a fine halftone of dots, fading in toward the right, away from the words. */}
-      <div className="home-plan-sky flex h-[46px] shrink-0 items-center rounded-t-[19px] px-5">
-        <span aria-hidden="true" className="home-plan-dots" />
-        <h2 id="your-plan-title" className="relative text-[13.5px] font-semibold text-white">
+      {/* The deep violet sky it first had, clouded and grained, its clouds drifting on hover (globals.css, home-plan-head). */}
+      <div className="home-plan-head flex h-[46px] shrink-0 items-center rounded-t-[19px] px-5">
+        <h2 id="your-plan-title" className="text-[13.5px] font-semibold text-white">
           Your Plan
         </h2>
       </div>
@@ -496,7 +496,8 @@ export function PlanCard({ planId }: { planId: string }) {
         <p className="mt-2 text-[12.5px] text-[#9ca3af]">Included in your plan</p>
 
         <div className="relative mt-3.5 min-h-[96px] flex-1 overflow-hidden">
-          <ul className="space-y-[9px]">
+          {/* 2px in from the left and 1px down: the checks' 1px ring sits outside their circle, and the list clips. */}
+          <ul className="space-y-[9px] pl-[2px] pt-px">
             {lines.map((line) => (
               <li key={line} className="flex items-start gap-2.5 text-[13.5px] leading-[20px] text-[#1f2230]">
                 {/* A light grey circle with a lit top edge, the check in the page's grey: one size for every line. */}

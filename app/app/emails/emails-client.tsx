@@ -10,9 +10,13 @@
  *   the same move            an email comes in over the list and goes back
  *                            with Orders' own motion (app/app/orders/
  *                            order-motion.ts): pushed from the right edge on a
- *                            phone, faded in on a computer, and popped the
- *                            same way on Back, the row it came from tinted
- *                            and fading so the eye lands where it left
+ *                            phone, its cards faded in on a computer; on
+ *                            Back popped the same way on a phone, and on a
+ *                            computer gone at once with the list there
+ *                            whole, not settling in (the list rising half
+ *                            faded on every Back was the "bump"), the row it
+ *                            came from tinted and fading so the eye lands
+ *                            where it left
  *   the list stays mounted   an email opens over it, in its own scroll
  *                            container, and Back shows again a list nobody
  *                            touched: same tab, same scroll, same search
@@ -50,10 +54,12 @@ import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { buttonPrimary, buttonSecondary } from "../orders/order-parts"
 import { markRow, moveOrder, stillOrder } from "../orders/order-motion"
+import { holdLanding, isTraversing } from "@/lib/ui/app-navigation"
 import { EmailsHome, type CampaignRow, type EmailsTab, type FlowRow, type SubscriberRow } from "./emails-home"
 import { ContactPage } from "./contact-detail"
 import { EmailDetail, type EmailAction, type EmailSeed } from "./email-detail"
 import { TABS, campaignKey, isTab, loadReport, loadTab, reportKey, tabKey, type SentData, type SubscribersData } from "./emails-data"
+import { noteListAddress } from "./list-return"
 
 function writeAddress(mutate: (p: URLSearchParams) => void, mode: "push" | "replace") {
   const params = new URLSearchParams(window.location.search)
@@ -80,6 +86,28 @@ const ALL_EMAIL_LISTS = ["emails:drafts", "emails:scheduled"]
 export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  /*
+    BACK TO THE LIST IS THE LIST, AS IT WAS. Coming back from an automation
+    or a draft (the browser's back, or their own back arrow, which is a
+    history back when the list is behind them) is a return: the stage has
+    already put the list's scroll back, and the rows are the ones the page
+    read before (components/email/emails-cache.ts). So it asks the stage for
+    no landing (lib/ui/app-navigation holdLanding): no fade from nothing, no
+    2px rise of the whole page. Decided on the first render, while the
+    return is still marked; a visit from the rail or the pill lands as any
+    page does.
+  */
+  const [returning] = React.useState(() => isTraversing())
+  React.useLayoutEffect(() => {
+    if (returning) holdLanding()
+  }, [returning])
+
+  /* Where the list is, for the composer's way back (./list-return). */
+  const address = searchParams.toString()
+  React.useEffect(() => {
+    noteListAddress(address)
+  }, [address])
 
   /* ── The tab ─────────────────────────────────────────────────────────── */
   const urlTab = searchParams.get("tab")
@@ -128,9 +156,22 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     setTabState(next)
     writeAddress((p) => p.set("tab", next), "replace")
   }
+  const tabShown = React.useRef(false)
   React.useLayoutEffect(() => {
     const pane = listRef.current
     if (!pane) return
+    /*
+      NOT ON THE FIRST DRAW. A switch of tab places the scroll; the page's
+      first draw does not. On a return the stage has already put the list
+      back where it was left (components/app/app-stage.tsx), and this ran
+      straight after it with no scroll kept for the tab (the map is new with
+      the page), so a list left below the point where the bar sticks came
+      back pulled up to that point: the page jumped on the way back.
+    */
+    if (!tabShown.current) {
+      tabShown.current = true
+      return
+    }
     /*
       THE BAR DOES NOT MOVE. While the bar is still in its place under the
       announcement, the scroll is left alone and only the content changes.
@@ -248,7 +289,8 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
       setLeavingId(null)
       return
     }
-    moveOrder("pop", detail, list, () => setLeavingId(null))
+    /* Back shows the list at once, whole, where it was: no settling in (order-motion, `settle`). */
+    moveOrder("pop", detail, list, () => setLeavingId(null), { settle: false })
   }, [openId])
 
   /* What the bar can show on the first frame: the row that was clicked. */

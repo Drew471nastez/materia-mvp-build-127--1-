@@ -94,22 +94,41 @@ export function DynamicSourceField({
     return acc
   }, {})
 
+  /*
+    NOTHING MOVES WHEN THE POINTER PASSES. The action used to be a row under
+    the field, shown on hover: every field the pointer crossed grew by a
+    line and shrank again, so the whole sidebar below it jumped and the
+    scroll position went with it (the "glitching" in the recording). Now the
+    action sits on the right of the field's label row, drawn over it, and
+    fades in: it takes no room, so hovering changes nothing's position. The
+    line that says what a placeholder prints stays under the field, in the
+    flow, because it is there at rest and does not come and go.
+  */
   return (
-    <div className="group/dyn space-y-1" data-dynamic-field="">
+    <div className="group/dyn relative" data-dynamic-field="">
       {children}
+      {named.length > 0 && (
+        <p className={`${NOTE} mt-1`} data-dynamic-note="">On the page: {describePlaceholders(text)}</p>
+      )}
       <FieldPopover
         open={open}
         onOpenChange={setOpen}
         trigger={
           <div
             className={
-              open || named.length > 0
-                ? "flex items-start justify-between gap-2"
-                : "hidden items-start justify-between gap-2 group-focus-within/dyn:flex group-hover/dyn:flex"
+              "absolute bottom-full right-0 z-[1] pb-[3px] transition-opacity duration-150 " +
+              (open || named.length > 0
+                ? "opacity-100"
+                : "opacity-0 pointer-events-none group-hover/dyn:opacity-100 group-hover/dyn:pointer-events-auto group-focus-within/dyn:opacity-100 group-focus-within/dyn:pointer-events-auto")
             }
+            data-dynamic-action=""
           >
-            <p className={NOTE}>{named.length > 0 ? <>On the page: {describePlaceholders(text)}</> : null}</p>
-            <button type="button" className={TEXT_BUTTON} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            <button
+              type="button"
+              className="inline-flex h-[22px] max-sm:h-8 items-center rounded-md bg-background px-1.5 text-[11.5px] max-sm:text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+              aria-expanded={open}
+              onClick={() => setOpen((o) => !o)}
+            >
               {whole ? "Use shop data" : "Insert shop data"}
             </button>
           </div>

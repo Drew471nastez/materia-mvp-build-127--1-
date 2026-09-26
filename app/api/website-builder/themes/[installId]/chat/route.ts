@@ -55,11 +55,13 @@ export async function GET(request: Request, context: { params: Promise<{ install
     }
 
     if (!listed) {
+      const all = await readThemeChat(installId)
       return NextResponse.json({
         conversation: null,
         earlier: false,
         history: "not_set_up",
-        messages: await readThemeChat(installId),
+        messages: all.messages,
+        pictures: all.pictures,
       })
     }
 
@@ -84,11 +86,18 @@ export async function GET(request: Request, context: { params: Promise<{ install
       }
     }
 
+    /*
+      THE PICTURES SAY WHETHER THEY CAN BE READ. "not_set_up" before the
+      database update that keeps them: the chat says pictures are not kept
+      yet, and each one a message mentions is drawn as no longer available.
+    */
+    const read = scope ? await readThemeChat(installId, scope) : { messages: [], pictures: "ready" as const }
     return NextResponse.json({
       conversation,
       earlier: scope?.kind === "earlier",
       history: "ready",
-      messages: scope ? await readThemeChat(installId, scope) : [],
+      messages: read.messages,
+      pictures: read.pictures,
     })
   } catch (thrown) {
     /**

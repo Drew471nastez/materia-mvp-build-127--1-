@@ -111,8 +111,8 @@ function main() {
   console.log("\nA slider's finger is the slider's")
 
   check(
-    "the slider row opts out of the sheet's drag, and leaves an up and down swipe to the scroll",
-    /data-slot="slider"\s*\n\s*data-sheet-no-drag\s*\n\s*className="[^"]*select-none \[touch-action:pan-y\]/.test(
+    "the slider row opts out of the sheet's drag",
+    /<div data-sheet-no-drag className="flex-1 relative py-2 -my-2 touch-none select-none">/.test(
       read("components/website-builder/editor/slider-number-control.tsx"),
     ),
     "the slider moved into its own module so a frame probe can drive the real one",

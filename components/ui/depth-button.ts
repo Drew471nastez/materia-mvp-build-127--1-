@@ -51,11 +51,11 @@ export const iconDepth = cn(
 )
 
 /**
- * The solid violet with a line of light on top and a darker line under it,
+ * The solid primary with a line of light on top and a darker line under it,
  * flat and a step darker when pressed. Near black, not the old violet: the
- * owner asked for no purple on the app's actions. Save wears it, and so does the one
- * add action on the Products page (New product), so the two read as the same
- * kind of button. Colour and depth only: each caller sets its own size.
+ * owner asked for no purple on the app's actions. Save wears it. Colour and
+ * depth only: each caller sets its own size. The Products page's New
+ * product is the one exception, and wears accentDepth below.
  */
 export const primaryDepth = cn(
   "inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap font-semibold text-white outline-none",
@@ -63,6 +63,28 @@ export const primaryDepth = cn(
   "transition-[background-color,box-shadow,color] duration-100",
   "hover:bg-[#2a2a40] active:bg-[#0f0f1c] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]",
   "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/40",
+  "[-webkit-tap-highlight-color:transparent]",
+)
+
+/**
+ * THE VIOLET PRIMARY, FOR THE PRODUCTS PAGE'S NEW PRODUCT. "The New product
+ * button needs to be purple there, both on mobile and desktop." The app's
+ * primaries went near black (primaryDepth above), and New product went with
+ * them; the owner asked for it back in violet, on its own. This is the
+ * violet primaryDepth had before that change, to the letter: #8b5cf6 with a
+ * line of light on top and a darker line under it, a step darker on hover
+ * (#7c3aed) and again when pressed (#6d28d9), flat with the shade inside
+ * while it is down, and a violet keyboard outline. No hover shadow: on a
+ * touch screen globals.css strips a hover:shadow on the tap, so the press
+ * is only a colour and an inset, which a finger does get. Colour and depth
+ * only, like the rest: the caller sets its own size.
+ */
+export const accentDepth = cn(
+  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap font-semibold text-white outline-none",
+  "bg-[#8b5cf6] shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_-1px_0_rgba(0,0,0,0.18),0_1px_1px_rgba(76,29,149,0.25)]",
+  "transition-[background-color,box-shadow,color] duration-100",
+  "hover:bg-[#7c3aed] active:bg-[#6d28d9] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.28)]",
+  "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6]",
   "[-webkit-tap-highlight-color:transparent]",
 )
 

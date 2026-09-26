@@ -93,6 +93,22 @@ export interface PricedVariant {
   price_cents: number
   pay_what_you_want?: boolean | null
   pwyw_min_price_cents?: number | null
+  max_purchases?: number | null
+}
+
+/*
+  AN OPTION WITH A LIMIT SELLS UP TO IT. The editor has let a creator set
+  "Max purchases" on each variant, and the product page read it, but nothing
+  counted: the fiftieth of fifty sold the fifty first. Completed orders for
+  the option are counted here, before anything is charged. A count that
+  cannot be read sells rather than refuses, as it did before.
+*/
+export async function variantSoldOut(db: Db, variant: { id: string; max_purchases?: number | null }): Promise<boolean> {
+  const max = Number(variant.max_purchases)
+  if (!Number.isFinite(max) || max <= 0) return false
+  const { count, error } = await db.from("orders").select("id", { count: "exact", head: true }).eq("variant_id", variant.id).eq("status", "completed")
+  if (error || typeof count !== "number") return false
+  return count >= max
 }
 
 export type Priced =
@@ -137,12 +153,13 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
     if (typeof req.variantId !== "string") return { ok: false, status: 400, error: "Unknown option." }
     const { data } = await db
       .from("product_variants")
-      .select("id, name, price_cents, pay_what_you_want, pwyw_min_price_cents")
+      .select("id, name, price_cents, pay_what_you_want, pwyw_min_price_cents, max_purchases")
       .eq("id", req.variantId)
       .eq("product_id", productId)
       .maybeSingle()
     if (!data) return { ok: false, status: 400, error: "That option is no longer available." }
     variant = data as PricedVariant
+    if (await variantSoldOut(db, variant)) return { ok: false, status: 400, error: "That option is sold out." }
   }
 
   const owner = variant ?? (product as PricedProduct)
@@ -280,10 +297,13 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   if (variantIds.length > 0) {
     const { data: variants } = await db
       .from("product_variants")
-      .select("id, product_id, name, price_cents, pay_what_you_want, pwyw_min_price_cents")
+      .select("id, product_id, name, price_cents, pay_what_you_want, pwyw_min_price_cents, max_purchases")
       .in("id", variantIds)
     for (const v of variants ?? []) variantsById.set(v.id, v)
   }
+  /* Options at their limit are left out and named, like anything else that cannot be bought (variantSoldOut). */
+  const soldOut = new Set<string>()
+  await Promise.all([...variantsById.values()].map(async (v) => { if (await variantSoldOut(db, v)) soldOut.add(v.id) }))
 
   const byId = new Map<string, CartProduct>((products as CartProduct[]).map((p) => [p.id, p]))
   const lines: CartPricedLine[] = []
@@ -297,6 +317,7 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
 
     const variant = want.variantId ? variantsById.get(want.variantId) : null
     if (want.variantId && (!variant || variant.product_id !== productId)) { dropped.push(product.title); continue }
+    if (variant && soldOut.has(variant.id)) { dropped.push(product.title); continue }
     /* Pay what you want in a basket is its minimum: there is no amount box. */
     const priced = baseFor(variant ?? product, undefined)
     const priceCents = priced.ok ? priced.cents : 0

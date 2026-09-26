@@ -1,17 +1,19 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-
-import { type PullPhase } from "@/hooks/use-pull-to-refresh"
+import {
+  PULL_TO_REFRESH,
+  RING_CIRCUMFERENCE,
+} from "@/hooks/use-pull-to-refresh"
 
 interface Props {
-  pullDistance: number
-  phase: PullPhase
-  /** Same threshold used in usePullToRefresh (default: 72) */
-  threshold?: number
+  /**
+   * The hook's `indicatorRef`. Everything that moves in here is written to
+   * these nodes by usePullToRefresh, one write per frame, never through React.
+   */
+  ref?: React.Ref<HTMLDivElement>
   /**
    * Pixels from the top of the scroll container to anchor the indicator.
-   * Use this to push the indicator below a fixed bar (e.g. announcement bar)
+   * Use this to push the ring below a fixed bar (e.g. the announcement bar)
    * so it never overlaps it. Default: 0.
    */
   topOffset?: number
@@ -27,157 +29,72 @@ interface Props {
 }
 
 /**
- * Clean, minimal circular arc pull-to-refresh indicator.
+ * ===========================================================================
+ *  THE RING. IT RENDERS ONCE.
+ * ===========================================================================
  *
- * Visual states:
- *   pulling    → arc fills progressively as you pull (progress ring)
- *   ready      → arc fully filled, slight scale-up hint
- *   refreshing → smooth continuous rotation
- *   idle       → fades out and slides up off-screen
+ * This used to take `pullDistance` and `phase` and recompute a transform, an
+ * opacity, a scale and a strokeDasharray on every render — which meant React
+ * ran, and the dashboard around it re-rendered, on every frame of a drag.
+ *
+ * Nothing here is derived from a prop that changes any more. The markup is
+ * static; usePullToRefresh holds a ref to it and writes:
+ *
+ *   [data-ptr-indicator]  transform (translate + scale), opacity
+ *   [data-ptr-turn]       the rotation the pull itself puts on the ring
+ *   [data-ptr-spin]       the CSS spin, started when the refresh starts
+ *   [data-ptr-arc]        stroke-dasharray, the only per-frame attribute
+ *
+ * THE TWO ROTATIONS ARE NESTED ON PURPOSE. The spin is a keyframe animation
+ * on `transform`, so it overwrites whatever inline rotation it lands on. When
+ * they shared one element, starting the spin threw away the angle the pull had
+ * reached and the ring visibly jumped; ending it threw the angle back to zero
+ * and the ring jerked backwards while it was still fading out. Nested, the
+ * pull's angle sits on the outer node and stays put, the spin runs on the
+ * inner one, and the two compose into one continuous turn from the first
+ * millimetre of the drag to the last frame of the fade.
  */
 export function PullToRefreshIndicator({
-  pullDistance,
-  phase,
-  threshold = 72,
+  ref,
   topOffset = 0,
-  refreshHold = 34,
+  refreshHold = PULL_TO_REFRESH.refreshHold,
 }: Props) {
-  const progress = Math.min(pullDistance / threshold, 1)
-
-  /**
-   * ===========================================================================
-   *  THE EXIT KEEPS SPINNING, AND KEEPS STILL
-   * ===========================================================================
-   *
-   * The moment `phase` flipped to "idle", THREE things changed at once while the
-   * ring was still visible — the fade takes 260ms, so every one of them was on
-   * screen:
-   *
-   *   1. the spin animation was removed, so the SVG snapped its rotation back to
-   *      0deg — the ring visibly jerked BACKWARDS, which is what reads as it
-   *      "going back in a circle";
-   *   2. the arc collapsed from three-quarters of the ring to nothing, because
-   *      the dash length fell back to `circumference * progress` and progress is
-   *      0 once the pull distance resets;
-   *   3. it moved up toward the bar, because the resting offset was 0 while the
-   *      refreshing offset was 7.5.
-   *
-   * None of that is a position bug, which is why clamping the offset did not
-   * settle it. It is the ring changing what it IS at the same instant it starts
-   * disappearing.
-   *
-   * So the refreshing appearance is held for the length of the fade: it keeps
-   * spinning, keeps its arc, and does not move at all. It simply dims and
-   * shrinks away exactly where it stood.
-   */
-  const [exiting, setExiting] = useState(false)
-  const prevPhase = useRef<PullPhase>(phase)
-
-  useEffect(() => {
-    const wasRefreshing = prevPhase.current === "refreshing"
-    prevPhase.current = phase
-    if (!wasRefreshing || phase !== "idle") return
-    setExiting(true)
-    const t = window.setTimeout(() => setExiting(false), 320)
-    return () => window.clearTimeout(t)
-  }, [phase])
-
-  /** Looks like a spinner: while genuinely refreshing, and while fading out. */
-  const spinning = phase === "refreshing" || exiting
-
-  // Ring geometry
-  // 15% smaller than the original 22px
-  const size = 19
+  const size = PULL_TO_REFRESH.ringSize
   const strokeWidth = 2
   const radius = (size - strokeWidth) / 2
-  const circumference = 2 * Math.PI * radius
 
   /**
-   * ===========================================================================
-   *  THE RING NEVER TRAVELS ABOVE ITS ANCHOR. NOT EVEN ON THE WAY OUT.
-   * ===========================================================================
-   *
-   * The exit used to slide it to -(size + 8) — up and out — while the opacity
-   * was still fading. So at the END of a refresh the ring visibly rose over the
-   * purple announcement bar sitting above it. Parking off-screen was meant to
-   * stop it "peeking through", but opacity 0 already does that, and the cost was
-   * an animation that crossed the one element it was supposed to stay clear of.
-   *
-   * `translateY` is now clamped to >= 0 in EVERY phase. The ring is centred in
-   * whatever gap is open — the live pull distance while dragging, the held gap
-   * while refreshing — and on the way out it simply fades and shrinks where it
-   * stands. There is no phase left in which it can overlap anything above it.
+   * Where the ring sits with nothing happening, which is also where a refresh
+   * leaves it and where it fades out from — so the exit involves no vertical
+   * movement at all. Clamped at 0, so no phase can place it above its anchor
+   * and over the bar sitting there.
    */
-  // The one resting offset, shared by the refreshing state and the fade that
-  // follows it, so the exit involves no vertical movement whatsoever. Clamped
-  // like every other phase, so it can never sit above its anchor.
   const restingY = Math.max((refreshHold - size) / 2, 0)
-  const translateY =
-    phase === "refreshing" || exiting
-      ? restingY
-      : phase === "idle"
-        ? restingY
-        : Math.max((pullDistance - size) / 2, 0)
-
-  const containerOpacity =
-    phase === "refreshing"
-      ? 1
-      : phase === "idle"
-        ? 0
-        : Math.min(progress * 1.4, 1)
-  // `exiting` deliberately does NOT hold the opacity up — the fade to 0 is the
-  // whole point of the exit. It holds the look and the position, nothing else.
-
-  // Shrinks away on exit instead of sliding away, so the eye reads it as
-  // settling rather than escaping upwards.
-  const scale =
-    phase === "idle"
-      ? 0.82
-      : phase === "ready"
-        ? 1.06
-        : phase === "refreshing"
-          ? 1
-          : 0.9 + progress * 0.1
-
-  const hasTransition = phase === "idle" || phase === "refreshing"
-
-  // Progress arc (fills as you pull)
-  // Held across the fade too, so the arc does not collapse to nothing the
-  // instant the refresh ends.
-  const progressDash = spinning
-    ? circumference * 0.75  // fixed arc length while spinning
-    : circumference * progress
 
   return (
     <div
+      ref={ref}
       aria-hidden
+      data-ptr-indicator=""
       className="absolute left-0 right-0 flex justify-center pointer-events-none z-20"
       style={{
         top: topOffset,
-        transform: `translateY(${translateY}px) scale(${scale})`,
-        opacity: containerOpacity,
-        // The same curve and duration the caller uses to slide its content back,
-        // so the ring and the page settle as one movement rather than two that
-        // nearly agree. No transition while dragging — that must track the
-        // finger exactly.
-        transition: hasTransition
-          ? "transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.26s cubic-bezier(0.25, 1, 0.5, 1)"
-          : "none",
-        willChange: "transform, opacity",
+        /* The first frame, before a finger has touched anything. The hook owns
+           every frame after it. No will-change here: it is added while a pull
+           or a settle is in flight and taken off again, rather than holding a
+           compositor layer for the whole life of the page. */
+        transform: `translate3d(0, ${restingY}px, 0) scale(0.82)`,
+        opacity: 0,
       }}
     >
       <svg
+        data-ptr-turn=""
         width={size}
         height={size}
         viewBox={`0 0 ${size} ${size}`}
         fill="none"
-        style={{
-          // Kept running through the fade. Removing it mid-fade is what made the
-          // ring snap its rotation back to zero on screen.
-          ...(spinning ? { animation: "ptr-spin 0.75s linear infinite" } : {}),
-        }}
       >
-        {/* Track ring */}
+        {/* Track */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -185,23 +102,37 @@ export function PullToRefreshIndicator({
           stroke="#e5e7eb"
           strokeWidth={strokeWidth}
         />
-        {/* Progress / spinner arc */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="#9ca3af"
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={`${progressDash} ${circumference}`}
-          strokeDashoffset={0}
-          style={{
-            transformOrigin: `${size / 2}px ${size / 2}px`,
-            transform: "rotate(-90deg)",
-          }}
-        />
+        {/* Arc. Starts at twelve o'clock and grows clockwise with the pull. */}
+        <g
+          data-ptr-spin=""
+          style={{ transformOrigin: `${size / 2}px ${size / 2}px` }}
+        >
+          <circle
+            data-ptr-arc=""
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke="#9ca3af"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={`0 ${RING_CIRCUMFERENCE}`}
+            strokeDashoffset={0}
+            style={{
+              transformOrigin: `${size / 2}px ${size / 2}px`,
+              transform: "rotate(-90deg)",
+            }}
+          />
+        </g>
       </svg>
 
+      {/*
+        The spin keeps running under prefers-reduced-motion, and that is the
+        right way round: it is the only sign that the page is fetching
+        anything, and a 19px ring turning in place is not the motion that
+        setting is there to stop. What it does stop is the page's own travel,
+        which usePullToRefresh handles by putting the content where it belongs
+        in one step instead of springing it there.
+      */}
       <style>{`
         @keyframes ptr-spin {
           from { transform: rotate(0deg); }

@@ -518,7 +518,9 @@ section("One bottom sheet, and the finger moves it")
   check(
     "the drag listeners are native and non-passive",
     /addEventListener\("touchmove", onMove, \{ passive: false \}\)/.test(sheet) &&
-      /addEventListener\("touchstart", onStart, \{ passive: false \}\)/.test(sheet),
+      /* Touchdown cancels nothing, so it is passive and a scroll in the sheet never waits for script. */
+      /addEventListener\("touchstart", onStart, \{ passive: true \}\)/.test(sheet) &&
+      /window\.addEventListener\("touchend", onLift\)/.test(sheet),
     "React registers touchmove passively, so preventDefault in an onTouchMove prop is a no-op and the page scrolls behind the sheet.",
   )
   check(
@@ -549,7 +551,8 @@ section("One bottom sheet, and the finger moves it")
   )
   check(
     "a flick closes it, and a flick that has gone stale does not",
-    /DISMISS_VELOCITY/.test(sheet) && /performance\.now\(\) - lastAtRef\.current > 80 \? 0 : velocityRef\.current/.test(sheet),
+    /* The builder sheet's own arithmetic (components/website-builder/sheet-gestures): where the release would carry it, at the speed of the finger's last 100ms, a finger held still before lifting counting as still. */
+    /releaseVelocity\(samplesRef\.current, eventTime\(e\)\)/.test(sheet) && /snapTarget\(\{ offsets: stops, current, velocity: v/.test(sheet),
   )
   const sidebar = readFileSync(join(root, "components/app/sidebar.tsx"), "utf8")
   /* The phone's account trigger and its sheet are their own file, mounted by the sidebar. */

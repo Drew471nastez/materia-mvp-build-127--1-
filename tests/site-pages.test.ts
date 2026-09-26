@@ -146,7 +146,7 @@ function main() {
        the creator makes their own (lib/website-builder/account-pages). */
     check("and a contact page nobody made previews as the generated one", /pageKey === "contact" \? contactSections\(/.test(renderer))
     check("the sections a visitor gets are cleaned", /sanitizeSections\(/.test(renderer))
-    check("and the page knows whose site it is on", /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId \}\}/.test(renderer))
+    check("and the page knows whose site it is on", /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId(, pages: Object\.keys\(site\.pages\))? \}\}/.test(renderer))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -400,22 +400,31 @@ function main() {
       while the thing behind it is there.
     */
     /*
-      THE ACCOUNT IS A PAGE OF THE WEBSITE NOW. Signing in still happens on
-      the platform, where the session is; the visitor comes back with the
-      website's own session (app/api/site-account). So the icon goes to the
-      website's /account, and the rule here holds: that page exists.
+      THE ACCOUNT IS THE WEBSITE'S OWN, the way a Shopify store's customer
+      accounts are: an email and a code on the website's sign in page, and
+      the website's own session (lib/site-accounts). So the icon says Sign in
+      and goes to that page for somebody who is not signed in, and Account
+      and the account page once they are, and the rule here holds: both
+      pages exist.
     */
     check(
-      "account goes to the website's own account page, which exists",
-      /const ACCOUNT_PATH = "\/account"/.test(code) && /href=\{ACCOUNT_PATH\}/.test(code) && existsSync("app/(site)/w/[username]/account/page.tsx"),
+      "account goes to the website's own sign in page, or its account page once signed in, both of which exist",
+      /const ACCOUNT_PATH = "\/account"/.test(code) && /const SIGN_IN_PATH = "\/account\/login"/.test(code) &&
+        /signedIn \? \{ href: ACCOUNT_PATH, label: "Account" \} : \{ href: SIGN_IN_PATH, label: "Sign in" \}/.test(code) &&
+        (code.match(/href=\{account\.href\}/g) ?? []).length === 2 &&
+        existsSync("app/(site)/w/[username]/account/page.tsx") && existsSync("app/(site)/w/[username]/account/login/page.tsx"),
     )
     check(
-      "a visitor with no account can make one from the site",
-      /SITE_ROUTES\.account_register_url/.test(code) && /Create account/.test(header) && existsSync("app/api/site-account/start/route.ts"),
+      "a visitor with no account makes one by signing in, with no separate form",
+      !/Create account/.test(code) && !/account_register_url/.test(code) &&
+        existsSync("app/api/site-account/code/route.ts") && existsSync("app/api/site-account/verify/route.ts") &&
+        /findOrCreateCustomer/.test(read("lib/site-accounts/sign-in.ts")),
     )
     check(
       "and where to come back to is this request's own host, never one the page names",
-      /const host = hostOf\(request\)/.test(read("app/api/site-account/start/route.ts")) && /returnPathOf\(url\.searchParams\.get\("return"\)\)/.test(read("app/api/site-account/start/route.ts")),
+      ["app/api/site-account/start/route.ts", "app/api/site-account/code/route.ts", "app/api/site-account/verify/route.ts"].every((f) => /const host = hostOf\(request\)/.test(read(f))) &&
+        /returnPathOf\(new URL\(request\.url\)\.searchParams\.get\("return"\)\)/.test(read("app/api/site-account/start/route.ts")) &&
+        /returnPathOf\(form\?\.get\("return"\)\)/.test(read("app/api/site-account/code/route.ts")),
       "the same markup is served on a subdomain, a custom domain and /w/<name>",
     )
     check(
@@ -450,7 +459,7 @@ function main() {
     check("no icon in the header is a button that only prevents its own default", !/onClick=\{e => e\.preventDefault\(\)\}/.test(code))
     check(
       "and every account control goes to a page or route of the website, none to a guess on the platform",
-      !/account\/continue/.test(code) && !/getMainDomain\(\)\}\/wishlist/.test(code) && /onEditorNavigate\(ACCOUNT_PATH, true\)/.test(code),
+      !/account\/continue/.test(code) && !/getMainDomain\(\)\}\/wishlist/.test(code) && /onEditorNavigate\(account\.href, true\)/.test(code),
     )
     check("with no invented count beside any of them", !/leading-none flex items-center justify-center">\s*0\s*</.test(code))
 

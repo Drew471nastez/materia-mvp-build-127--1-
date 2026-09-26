@@ -12,6 +12,14 @@
  * Two steps are not here because the panel already draws them in the
  * browser from the account's own state (lib/notifications/unread-state.ts
  * setupNotificationIds): "Set up payments" and "Publish your OnePage".
+ * Payments turns critical once a paid product is published and checkout
+ * would refuse a buyer (payments.ts payouts_not_connected).
+ *
+ * A website started and never published is a rule of its own below
+ * (website_not_published), because it reads the builder's installs, which
+ * the steps here do not need: a failed read of them should silence that one
+ * step, not every step. It is a next step too, so the planner still opens
+ * one next step at a time across both rules.
  *
  * The steps, most useful first, and when each is due:
  *   product   no product at all, a day after signing up
@@ -81,5 +89,43 @@ export const setupNextStep: Rule = {
       })
     }
     return steps
+  },
+}
+
+/** Days a website may sit as a draft in the builder before it is a nudge. */
+export const WEBSITE_DRAFT_DAYS = 2
+
+/**
+ * The website was started in the builder (an install exists, still a
+ * draft) and nothing is published, two days on. One taken down on purpose
+ * (status "unpublished") is a choice and is left alone. Resolved when a
+ * website goes live. Home's banner says "Publish your website" from the
+ * same fact (lib/home/announcements.ts "website").
+ */
+export const websiteNotPublished: Rule = {
+  kind: "website_not_published",
+  category: "next_step",
+  priority: 49,
+  version: 1,
+  needs: ["website"],
+  cooldownDays: 30,
+  ttlDays: 30,
+  resolveWhenGone: true,
+  push: false,
+  evaluate(s) {
+    const w = s.website
+    if (!w) return undefined
+    if (w.live || w.unpublished || !w.draftSince) return []
+    if (ageDays(w.draftSince, s.now) < WEBSITE_DRAFT_DAYS) return []
+    return [
+      {
+        subject: "website",
+        period: monthKey(s.now),
+        title: "Your website is not live yet",
+        message: "You started it in the builder. Publish it so buyers can find it.",
+        href: "/app/website-builder",
+        area: "Website",
+      },
+    ]
   },
 }

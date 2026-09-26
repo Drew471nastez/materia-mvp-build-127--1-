@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect } from "react"
 
 import { useEditorFrame } from "@/components/storefront/use-editor-frame"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { trackFunnelStep } from "@/lib/analytics-utils"
+import { usePressPending } from "@/lib/navigation/press-pending"
 
 interface BuyButtonProps {
   productId: string
@@ -33,7 +34,8 @@ export function BuyButton({
   customPriceCents,
 }: BuyButtonProps) {
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
+  /* Pressed until the page is shown again: a product page restored from history never keeps a spent Buy button (lib/navigation/press-pending). */
+  const [loading, startLoading] = usePressPending()
   /**
    * INSIDE THE EDITOR'S CANVAS THIS DOES NOT BUY ANYTHING.
    *
@@ -51,26 +53,25 @@ export function BuyButton({
     }).format(cents / 100)
   }
 
-  const handleClick = async () => {
-    if (inEditorFrame) return
-    setLoading(true)
-
-    if (creatorId) {
-      try {
-        await trackFunnelStep("buy_click", creatorId, productId)
-      } catch (e) {
-        // Don't block checkout on tracking failure
-      }
-    }
-
-    let checkoutUrl = `/checkout?productId=${productId}`
-    if (variantId) {
-      checkoutUrl += `&variantId=${variantId}`
-    }
+  const checkoutUrl = (() => {
+    let url = `/checkout?productId=${productId}`
+    if (variantId) url += `&variantId=${variantId}`
     // Add custom price for PWYW
-    if (customPriceCents !== null && customPriceCents !== undefined) {
-      checkoutUrl += `&customPrice=${customPriceCents}`
-    }
+    if (customPriceCents !== null && customPriceCents !== undefined) url += `&customPrice=${customPriceCents}`
+    return url
+  })()
+
+  /* The checkout warmed while the buyer reads, so the press lands quickly. */
+  useEffect(() => {
+    if (!inEditorFrame) router.prefetch(checkoutUrl)
+  }, [checkoutUrl, inEditorFrame, router])
+
+  const handleClick = () => {
+    if (inEditorFrame || loading) return
+    startLoading()
+
+    /* Counted on the way, never waited for: the press used to sit on this request before going anywhere. */
+    if (creatorId) void trackFunnelStep("buy_click", creatorId, productId).catch(() => {})
 
     /*
       A CLIENT NAVIGATION. `window.location.href` threw the document away to
@@ -97,14 +98,15 @@ export function BuyButton({
         backgroundColor: backgroundColor || "#2563eb",
         color: textColor || "#ffffff",
       }}
-      disabled={disabled || loading || inEditorFrame}
+      disabled={disabled || inEditorFrame}
+      aria-busy={loading || undefined}
       onClick={handleClick}
       title={inEditorFrame ? "This is your page as visitors see it. Open it at its own address to buy." : undefined}
     >
       {loading ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Loading...
+          Opening checkout
         </>
       ) : displayPrice === 0 ? (
         callToAction || "Get for Free"

@@ -10,10 +10,16 @@
  *           steps too). Within those, the higher priority first. Everything
  *           else newest first.
  *
- *   TABS    The panel's four stay. Updates is what happened on the account:
- *           critical, problems, milestones, Storelib's own launches, reviews
- *           and payouts. Opportunities is what the creator could do next:
- *           opportunities and next steps. Messages is messages. All is all.
+ *   ONE LIST  No tabs. The panel had four (All, Updates, Messages,
+ *           Opportunities) with a dark pill sliding between them; "get rid
+ *           of those category pills". Everything is in one list, in the
+ *           order above, and "Unread only" is the one filter.
+ *
+ *   LABEL   What kind of thing a row is, said on the quiet line above its
+ *           title, before the date. Every row has one (labelOf): the area a
+ *           rule names (Payouts, Domains, Emails), else a word for the row's
+ *           type (Reviews, Sales), else for its category (Getting started,
+ *           Opportunities), else Updates. Never blank.
  *
  *   TONE    A critical row's word is red with a small red dot before it; a
  *           problem's dot is amber. Nothing else changes colour: no red
@@ -21,11 +27,12 @@
  *
  *   A TAP   On a critical row, a problem or a digest: it opens and is marked
  *           read, and stays until it is fixed (it then resolves and drops
- *           off). On anything else: it opens and is put away, as before.
+ *           off). The browser's own "Set up payments" to-do is kept the same
+ *           way until Stripe is connected (unread-state.ts
+ *           STAYS_UNTIL_DONE). On anything else: it opens and is put away,
+ *           as before.
  */
 import type { Category } from "./types"
-
-export type PanelTab = "all" | "updates" | "messages" | "opportunities"
 
 export interface PanelItem {
   id: string
@@ -51,17 +58,50 @@ export function panelOrder<T extends PanelItem>(items: readonly T[]): T[] {
   )
 }
 
-const UPDATE_CATEGORIES = new Set(["critical", "problem", "milestone", "update"])
-const OPPORTUNITY_CATEGORIES = new Set(["opportunity", "next_step"])
-/** Rows from before categories, by their type. */
-const UPDATE_TYPES = new Set(["update", "new_review", "announcement", "payout", "new_sale"])
-const OPPORTUNITY_TYPES = new Set(["opportunity", "action"])
+/** The browser-made to-dos (lib/notifications/unread-state.ts), by id. */
+const SETUP_LABELS: Record<string, string> = {
+  "payment-setup": "Payments",
+  "onepage-setup": "OnePage",
+}
 
-export function inTabOf(n: Pick<PanelItem, "type" | "category">, tab: PanelTab): boolean {
-  if (tab === "all") return true
-  if (tab === "messages") return n.type === "message"
-  if (n.category) return tab === "updates" ? UPDATE_CATEGORIES.has(n.category) : OPPORTUNITY_CATEGORIES.has(n.category)
-  return tab === "updates" ? UPDATE_TYPES.has(n.type) : OPPORTUNITY_TYPES.has(n.type)
+/** Rows written before the engine, and by the review and sale code, by their type. */
+const TYPE_LABELS: Record<string, string> = {
+  new_review: "Reviews",
+  new_sale: "Sales",
+  new_subscriber: "Subscribers",
+  payout: "Payouts",
+  message: "Messages",
+  opportunity: "Opportunities",
+  action: "To do",
+  announcement: "Updates",
+  update: "Updates",
+}
+
+/** An engine row that somehow carries no area, by how much it matters. */
+const CATEGORY_LABELS: Record<Category, string> = {
+  critical: "Account",
+  problem: "Account",
+  next_step: "Getting started",
+  opportunity: "Opportunities",
+  milestone: "Milestone",
+  update: "Updates",
+}
+
+/**
+ * The word above a row's title: where it came from, not what icon it would
+ * have had. With the tabs gone it is the only place a row's kind is said,
+ * so it is never blank.
+ */
+export function labelOf(n: { id: string; type: string; category?: Category | null; area?: string | null }): string {
+  const setup = SETUP_LABELS[n.id]
+  if (setup) return setup
+  /* A rule names its own area: Payouts, Domains, Emails, Milestone. */
+  const area = typeof n.area === "string" ? n.area.trim() : ""
+  if (area) return area
+  const byType = TYPE_LABELS[n.type]
+  if (byType) return byType
+  if (n.category && CATEGORY_LABELS[n.category]) return CATEGORY_LABELS[n.category]
+  return "Updates"
 }
 
 export type Tone = "critical" | "problem" | null

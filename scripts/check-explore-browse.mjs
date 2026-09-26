@@ -113,6 +113,86 @@ async function open(vp, mode) {
 const PHONE = { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
 const DESK = { width: 1280, height: 900, deviceScaleFactor: 1 }
 
+/*
+  THE PUSH BETWEEN LEVELS, READ EVERY FRAME. `how` is what starts it: "tap"
+  (a pointer down on the row, then the click 80ms later, as a finger does),
+  "key" (the row focused and ArrowRight, which has no press before it), or
+  "back" (the back row). Both lists' x, the veil, the sheet's top and every
+  frame's gap, plus any long task while it runs.
+*/
+async function push(p, how, group = "design") {
+  return p.evaluate(async (how, group) => {
+    const host = document.querySelector("[data-app-sheet] [data-sheet-panel]") || document.querySelector("[data-category-panel]")
+    const sub = host.querySelector("[data-browse-level=sub]")
+    const root = host.querySelector("[data-browse-level=root]")
+    const veil = host.querySelector("[data-browse-veil]")
+    const width = root.getBoundingClientRect().width
+    const x = (el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).m41
+    const long = []
+    const po = new PerformanceObserver((l) => { for (const e of l.getEntries()) long.push({ at: Math.round(e.startTime), d: Math.round(e.duration) }) })
+    try { po.observe({ type: "longtask" }) } catch {}
+    const frames = []
+    const t0 = performance.now()
+    const done = new Promise((resolve) => {
+      const tick = (t) => {
+        frames.push({ t: t - t0, sub: x(sub), root: x(root), veil: Number(getComputedStyle(veil).opacity), top: host.getBoundingClientRect().top })
+        if (performance.now() - t0 < 900) requestAnimationFrame(tick)
+        else resolve()
+      }
+      requestAnimationFrame(tick)
+    })
+    const row = host.querySelector(`[data-browse-group="${group}"]`)
+    let pressed = t0
+    if (how === "tap") {
+      row.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch", isPrimary: true }))
+      await new Promise((r) => setTimeout(r, 80))
+      pressed = performance.now() - t0
+      row.click()
+    } else if (how === "key") {
+      row.focus()
+      pressed = performance.now() - t0
+      row.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }))
+    } else {
+      pressed = performance.now() - t0
+      host.querySelector("[data-browse-back]").click()
+    }
+    await done
+    po.disconnect()
+    return { width, frames, long: long.map((l) => ({ ...l, at: Math.round(l.at - t0) })), pressed: Math.round(pressed) }
+  }, how, group)
+}
+
+/* What a push measured says: when it moved, how long, whether every value only ever went one way, and the frames. */
+function readPush(m, inward) {
+  const { width, frames } = m
+  const off = (f) => (inward ? f.sub < width - 0.5 : f.sub > 0.5)
+  const home = (f) => (inward ? f.sub <= 0.5 : f.sub >= width - 0.5)
+  const s = frames.findIndex(off)
+  const e = frames.findIndex((f, i) => i > s && home(f))
+  const moving = s >= 0 && e > s ? frames.slice(s, e + 1) : []
+  const dir = inward ? -1 : 1
+  const oneWay = (k, sign) => moving.every((f, i) => i === 0 || (f[k] - moving[i - 1][k]) * sign >= -0.5)
+  const gaps = moving.slice(1).map((f, i) => f.t - moving[i].t).sort((a, b) => a - b)
+  const last = frames[frames.length - 1]
+  return {
+    startedAfterPress: s >= 0 ? Math.round(frames[s].t - m.pressed) : null,
+    ms: moving.length ? Math.round(moving[moving.length - 1].t - moving[0].t) : 0,
+    frames: moving.length,
+    maxGap: gaps.length ? Math.round(gaps[gaps.length - 1]) : null,
+    p95Gap: gaps.length ? Math.round(gaps[Math.floor(gaps.length * 0.95) - 1] ?? gaps[gaps.length - 1]) : null,
+    subOneWay: oneWay("sub", dir),
+    rootOneWay: oneWay("root", dir),
+    veilOneWay: oneWay("veil", -dir),
+    endSub: Math.round(last.sub),
+    endRoot: Math.round(last.root * 10) / 10,
+    endVeil: Math.round(last.veil * 1000) / 1000,
+    tops: [...new Set(frames.map((f) => Math.round(f.top)))],
+    longTasks: m.long.filter((l) => l.d >= 50),
+    halfwayBy: moving.length ? Math.round((moving.find((f) => (inward ? f.sub <= width / 2 : f.sub >= width / 2))?.t ?? NaN) - moving[0].t) : null,
+    width: Math.round(width),
+  }
+}
+
 /* ========================================================================= */
 console.log("\n1. The loading screen is the page")
 for (const [label, vp] of [["phone 390", PHONE], ["desktop 1280", DESK]]) {
@@ -180,25 +260,17 @@ console.log("\n2. The More picker")
   const scrim = await p.evaluate(() => [...document.querySelectorAll("body > *")].some((el) => { const cs = getComputedStyle(el); return cs.position === "fixed" && el.getBoundingClientRect().width >= innerWidth && parseFloat(cs.opacity) > 0 && cs.backgroundColor !== "rgba(0, 0, 0, 0)" }))
   expect(!scrim, "no scrim over the catalogue")
 
-  /* drill in */
-  await p.click('[data-browse-group="design"]')
-  const mid = await p.evaluate(() => {
-    const sub = document.querySelector("[data-browse-level=sub]")
-    return new DOMMatrixReadOnly(getComputedStyle(sub).transform).m41
-  })
-  await sleep(450)
+  /* drill in: the push, in the panel too */
+  const inPanel = readPush(await push(p, "tap"), true)
   const inSub = await p.evaluate(PANEL)
   await p.screenshot({ path: join(shots, "more-1280-design.png") })
-  expect(mid > 0 && mid <= 30, "the subcategories settle in from a little to the right, not the whole width", Math.round(mid))
-  expect(inSub.subX === 0 && /matrix\(1, 0, 0, 1, -/.test(inSub.rootTransform), "and come to rest over the list, which has drifted a little left", { subX: inSub.subX, root: inSub.rootTransform })
+  expect(inPanel.subOneWay && inPanel.frames >= 10, "the subcategories are pushed in from the panel's right edge, over several frames", inPanel)
+  expect(inSub.subX === 0 && Math.abs(inPanel.endRoot + inPanel.width / 4) <= 1, "and come to rest over the list, which has moved a quarter left", { subX: inSub.subX, root: inPanel.endRoot, width: inPanel.width })
   expect(inSub.subOpacity === 1 && inSub.subShadow === "none", "fully in, and no shadow along its edge", { opacity: inSub.subOpacity, shadow: inSub.subShadow })
   const back = await p.evaluate(() => document.querySelector("[data-browse-back]")?.textContent.trim())
   expect(back === "Design", "a back row names the category", back)
-  await p.keyboard.press("ArrowLeft")
-  await p.click("[data-browse-back]").catch(() => {})
-  await sleep(450)
-  const out = await p.evaluate(PANEL)
-  expect(out.subTransform !== "none" && Number(out.subTransform.split(",")[4]) >= 20 && out.subOpacity === 0, "back fades it out as it drifts right", { t: out.subTransform, o: out.subOpacity })
+  const outPanel = readPush(await push(p, "back"), false)
+  expect(outPanel.subOneWay && outPanel.endSub === outPanel.width && outPanel.endRoot === 0 && outPanel.endVeil === 0, "back slides it out to the right and brings the list back", outPanel)
 
   /* search and pick */
   await p.focus("[data-browse-search]")
@@ -245,31 +317,58 @@ console.log("\n2. The More picker")
   expect(s && s.rowH >= 47 && s.rowH <= 50, "48px rows on a phone", s?.rowH)
   expect(await p.evaluate(() => !document.activeElement?.hasAttribute("data-browse-search")), "the keyboard does not jump up on its own")
 
-  /* the slide, sampled every frame, and the sheet's top while it happens */
-  await p.evaluate(() => {
-    window.__slide = []
-    const sub = document.querySelector("[data-browse-level=sub]")
-    const panel = document.querySelector("[data-sheet-panel]")
-    const t0 = performance.now()
-    const tick = () => {
-      window.__slide.push({ t: Math.round(performance.now() - t0), x: new DOMMatrixReadOnly(getComputedStyle(sub).transform).m41, top: Math.round(panel.getBoundingClientRect().top) })
-      if (performance.now() - t0 < 700) requestAnimationFrame(tick)
-    }
-    requestAnimationFrame(tick)
-    document.querySelector('[data-browse-group="design"]').click()
-  })
-  await sleep(800)
-  const slide = await p.evaluate(() => window.__slide)
-  const xs = slide.map((f) => f.x)
-  const tops = [...new Set(slide.map((f) => f.top))]
-  const monotone = xs.every((x, i) => i === 0 || x <= xs[i - 1] + 0.5)
-  const moving = xs.filter((x) => x > 1 && x < 30).length
-  expect(monotone && xs[xs.length - 1] < 1 && Math.max(...xs) <= 30, "the level settles in from a little to the right and only ever moves left", xs.filter((_, i) => i % 3 === 0).map(Math.round))
-  expect(moving >= 6, "over several frames rather than a jump", moving)
-  expect(tops.length === 1, "the sheet's top edge does not move while it slides", tops)
-  await p.screenshot({ path: join(shots, "more-390-design.png") })
+  /*
+    THE PUSH, EVERY FRAME. "More standard, smooth and clean... not laggy":
+    in from the right edge to 0 while the list moves a quarter left and dims,
+    on one curve over about 280ms, back the same in reverse, every value only
+    ever going one way, no long task and no dropped run of frames while it
+    moves, and the sheet's top edge still.
+  */
+  const report = []
+  for (const [how, label] of [["tap", "a tap"], ["key", "the keyboard"]]) {
+    const inn = readPush(await push(p, how), true)
+    if (how === "tap") await p.screenshot({ path: join(shots, "more-390-design.png") })
+    const out = readPush(await push(p, "back"), false)
+    report.push({ how, in: inn, back: out })
+    console.log(`    ${label}: in ${inn.ms}ms over ${inn.frames} frames (half way by ${inn.halfwayBy}ms, started ${inn.startedAfterPress}ms after the press), largest gap ${inn.maxGap}ms; back ${out.ms}ms over ${out.frames} frames, largest gap ${out.maxGap}ms; long tasks ${inn.longTasks.length + out.longTasks.length}`)
+    expect(inn.subOneWay && inn.rootOneWay && inn.veilOneWay, `${label}: in, the level only ever moves left, the list only left, the veil only darker`, { sub: inn.subOneWay, root: inn.rootOneWay, veil: inn.veilOneWay })
+    expect(inn.endSub === 0 && Math.abs(inn.endRoot + inn.width / 4) <= 1 && Math.abs(inn.endVeil - 0.06) <= 0.002, `${label}: it rests at 0, the list at -25% (${-inn.width / 4}px), the veil at 0.06`, { sub: inn.endSub, root: inn.endRoot, veil: inn.endVeil })
+    expect(inn.ms >= 230 && inn.ms <= 330 && inn.frames >= 12, `${label}: about 280ms, over a dozen frames or more`, { ms: inn.ms, frames: inn.frames })
+    expect(inn.halfwayBy != null && inn.halfwayBy <= 110, `${label}: one curve, quick off the mark and settling (half way within 110ms)`, inn.halfwayBy)
+    expect(inn.maxGap != null && inn.maxGap <= 34 && inn.longTasks.length === 0, `${label}: no frame lost for more than one, no long task`, { maxGap: inn.maxGap, long: inn.longTasks })
+    expect(inn.tops.length === 1, `${label}: the sheet's top edge does not move`, inn.tops)
+    expect(out.subOneWay && out.rootOneWay && out.veilOneWay && out.endSub === out.width && out.endRoot === 0 && out.endVeil === 0, `${label}: back is the same move in reverse, to rest`, { sub: out.endSub, root: out.endRoot, veil: out.endVeil })
+    expect(out.ms >= 230 && out.ms <= 330 && out.maxGap <= 34 && out.longTasks.length === 0 && out.tops.length === 1, `${label}: back is as smooth`, { ms: out.ms, maxGap: out.maxGap, long: out.longTasks, tops: out.tops })
+  }
+  /*
+    A transition shows where it starts on its first frame, so two frames is
+    as soon as anything can move. Changed on purpose: this also asked that a
+    tap move sooner than the keyboard, because its rows were drawn on the
+    press; drawing on the press is what made an iPhone drop the tap
+    (components/explore/category-browser.tsx, ONE TAP), so both are drawn
+    and moved on the click now and both are held to the two frames.
+    scripts/check-explore-drill.mjs taps it with real touches.
+  */
+  const tapIn = report[0].in
+  const keyIn = report[1].in
+  expect(tapIn.startedAfterPress != null && tapIn.startedAfterPress <= 40 && keyIn.startedAfterPress != null && keyIn.startedAfterPress <= 40,
+    "a tap and the keyboard both move it within two frames, drawn and moved on the click", { tap: tapIn.startedAfterPress, key: keyIn.startedAfterPress })
+  writeFileSync(join(shots, "push-390.json"), JSON.stringify(report, null, 1))
 
-  /* the drag: one to one, then a pull past the threshold closes */
+  /* Reduced motion: no move at all. */
+  await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
+  const still = readPush(await push(p, "tap", "photography"), true)
+  expect(still.frames <= 2 && still.endSub === 0, "under reduced motion the level is simply there", { frames: still.frames, end: still.endSub })
+  await push(p, "back")
+  await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "no-preference" }])
+
+  /*
+    the drag: one to one, then a pull past the threshold closes. Changed on
+    purpose with the sheet's release rule (b0f03cad, "it closes where it
+    would have gone"): a pull held still before the lift closes once it is
+    past half the sheet, so the pull goes on to 420px of a 658px sheet. It
+    stopped at 140px, which that rule springs back.
+  */
   const drag = await p.evaluate(async () => {
     const panel = document.querySelector("[data-sheet-panel]")
     const handle = panel.querySelector("[data-sheet-handle]")
@@ -281,13 +380,13 @@ console.log("\n2. The More picker")
     const y = () => new DOMMatrixReadOnly(getComputedStyle(panel).transform).m42
     fire("touchstart", y0)
     const seen = []
-    for (const d of [10, 40, 80, 140]) {
+    for (const d of [10, 40, 80, 140, 260, 420]) {
       fire("touchmove", y0 + d)
       await frame(); await frame()
       seen.push([d, Math.round(y())])
       await new Promise((r) => setTimeout(r, 60))
     }
-    fire("touchend", y0 + 140)
+    fire("touchend", y0 + 420)
     await new Promise((r) => setTimeout(r, 600))
     return { seen, gone: !document.querySelector("[data-app-sheet]") }
   })
@@ -531,23 +630,9 @@ for (const [label, vp] of [["phone 390", PHONE], ["desktop 1280", DESK]]) {
   await p.screenshot({ path: join(shots, "cat-picker-390-open.png") })
   expect(s && s.kind === "sheet" && s.lucide === 0 && s.maxSvgPerRow <= 1, "the bottom sheet, no icons beside the rows", s && { kind: s.kind, lucide: s.lucide })
   expect(s && s.rowH >= 47 && s.rowH <= 50, "48px rows on a phone", s?.rowH)
-  await p.evaluate(() => {
-    window.__slide = []
-    const sub = document.querySelector("[data-browse-level=sub]")
-    const panel = document.querySelector("[data-sheet-panel]")
-    const t0 = performance.now()
-    const tick = () => {
-      window.__slide.push({ x: new DOMMatrixReadOnly(getComputedStyle(sub).transform).m41, top: Math.round(panel.getBoundingClientRect().top) })
-      if (performance.now() - t0 < 700) requestAnimationFrame(tick)
-    }
-    requestAnimationFrame(tick)
-    document.querySelector('[data-browse-group="design"]').click()
-  })
-  await sleep(800)
-  const slide = await p.evaluate(() => window.__slide)
-  const xs = slide.map((f) => f.x)
-  expect(xs.at(-1) < 1 && Math.max(...xs) <= 30 && xs.filter((x) => x > 1 && x < 30).length >= 6, "a category drills in as a level, over several frames", xs.filter((_, i) => i % 3 === 0).map(Math.round))
-  expect(new Set(slide.map((f) => f.top)).size === 1, "the sheet's top edge does not move while it does", [...new Set(slide.map((f) => f.top))])
+  const catIn = readPush(await push(p, "tap"), true)
+  expect(catIn.subOneWay && catIn.endSub === 0 && catIn.frames >= 12 && catIn.maxGap <= 34 && catIn.longTasks.length === 0, "a category is pushed in as a level, smoothly", { ms: catIn.ms, frames: catIn.frames, maxGap: catIn.maxGap })
+  expect(catIn.tops.length === 1, "the sheet's top edge does not move while it does", catIn.tops)
   await p.screenshot({ path: join(shots, "cat-picker-390-design.png") })
   const drag = await p.evaluate(async () => {
     const panel = document.querySelector("[data-sheet-panel]")
@@ -560,13 +645,13 @@ for (const [label, vp] of [["phone 390", PHONE], ["desktop 1280", DESK]]) {
     const y = () => new DOMMatrixReadOnly(getComputedStyle(panel).transform).m42
     fire("touchstart", y0)
     const seen = []
-    for (const d of [10, 40, 80, 140]) {
+    for (const d of [10, 40, 80, 140, 260, 420]) {
       fire("touchmove", y0 + d)
       await frame(); await frame()
       seen.push([d, Math.round(y())])
       await new Promise((r) => setTimeout(r, 60))
     }
-    fire("touchend", y0 + 140)
+    fire("touchend", y0 + 420)
     await new Promise((r) => setTimeout(r, 600))
     return { seen, gone: !document.querySelector("[data-app-sheet]") }
   })

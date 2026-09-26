@@ -168,11 +168,11 @@ export function isCurrentAddress(href: string | null): boolean {
 
 /**
  * The address the stage last committed, as `pathname?search`. A back or
- * forward to it commits nothing: the email editor and the OnePage editor
- * push a guard entry at their own address so Back can ask about unsaved
- * work, and the OnePage tabs push `#tab`. Popping one of those used to start
- * a record that no commit ever ended, so the spinner came up at 500ms over
- * the editor and its "unsaved changes" dialog, and stayed for GIVE_UP_MS.
+ * forward to it commits nothing: the email editor pushes a guard entry at
+ * its own address so Back can ask about unsaved work (the OnePage editor did
+ * too, and its tabs pushed `#tab`). Popping one of those used to start a
+ * record that no commit ever ended, so the spinner came up at 500ms over the
+ * editor and its "unsaved changes" dialog, and stayed for GIVE_UP_MS.
  */
 let committed: string | null = null
 
@@ -255,6 +255,120 @@ export function watchRouterCommits() {
       return result
     }
   }
+}
+
+/**
+ * ===========================================================================
+ *  THE ROUTER'S ANSWER IS IN, AND THE PAGE DID NOT LAND
+ * ===========================================================================
+ * "It starts the loading bar at the top of the screen but never takes me to
+ * what I clicked." Measured with the real router, built and served
+ * (scripts/check-onepage-leave.mjs): a deploy lands while a tab is open, a
+ * row is pressed, the bar runs, the spinner comes up, and the page never
+ * arrives, however long you wait. The rail keeps the row you pressed lit.
+ *
+ * Why. A Link in view fetches its page's outline ahead, on its own. A press
+ * starts from that outline and asks the server for the rest. When the answer
+ * is one the router cannot use in place (a page from another build after a
+ * deploy, an error page, anything but a page payload), the router means to
+ * load the address as a document instead, and on this one path it drops the
+ * answer: `listenForDynamicRequest` in Next 16.0's
+ * client/components/router-reducer/ppr-navigations.js returns on it without
+ * settling the new page's data. The page waits on data that never comes, the
+ * router never commits it, and the page you were on stays for good.
+ *
+ * The OnePage editor is where it was met, and why there: a long session, so
+ * deploys land during it; entered as a document; and on it the rail's pages
+ * are fetched only in outline, because the pill that fetches four of them
+ * whole is not drawn over the editor.
+ *
+ * So the shell watches for the router's own request for the address it is
+ * waiting on: a fetch of that address with the router's `_rsc` marker, sent
+ * at or after the press (one sent before it is the prefetch under the
+ * pointer or the finger, not the answer). Once that has come back whole, a
+ * page that is going to land lands as soon as it is rendered. If the same
+ * navigation is still the one underway NAV_STUCK_AFTER_ANSWER_MS after the
+ * answer (and after any script or stylesheet the page is still loading), the
+ * shell does what the router meant to do: it loads the address as a
+ * document. Resource timing only, so no request is touched and no response
+ * is read.
+ */
+export const NAV_STUCK_AFTER_ANSWER_MS = 2000
+/** The router's request goes out inside the press, a moment either side of the record starting. */
+const ANSWER_SLACK_MS = 20
+
+/** Is this finished request the router's own request for the address `nav` is going to? */
+export function isAnswerFor(
+  nav: AppNavigation,
+  entry: { name: string; startTime: number; initiatorType?: string },
+  origin: string,
+): boolean {
+  if (!nav.href || (entry.initiatorType && entry.initiatorType !== "fetch")) return false
+  if (entry.startTime < nav.startedAt - ANSWER_SLACK_MS) return false
+  try {
+    const url = new URL(entry.name)
+    const want = new URL(nav.href, origin)
+    if (url.origin !== origin || !url.searchParams.has("_rsc")) return false
+    url.searchParams.delete("_rsc")
+    return addressKey(url.pathname, url.search) === addressKey(want.pathname, want.search)
+  } catch {
+    return false
+  }
+}
+
+let watchingAnswers = false
+let armed: { nav: AppNavigation; due: number; timer: number } | null = null
+
+function armStuckCheck(nav: AppNavigation, from: number) {
+  const due = from + NAV_STUCK_AFTER_ANSWER_MS
+  if (armed?.nav === nav && armed.due >= due) return
+  if (armed) window.clearTimeout(armed.timer)
+  const timer = window.setTimeout(() => {
+    if (armed?.timer === timer) armed = null
+    if (current !== nav) return
+    /* A tab in the background renders late: ask again once it is back. */
+    if (document.visibilityState === "hidden") {
+      const back = () => {
+        if (document.visibilityState !== "visible") return
+        document.removeEventListener("visibilitychange", back)
+        armStuckCheck(nav, performance.now())
+      }
+      document.addEventListener("visibilitychange", back)
+      return
+    }
+    console.warn(`[app-navigation] ${nav.href}: the router's answer came back and the page did not land; loading it as a document`)
+    window.location.assign(nav.href as string)
+  }, Math.max(0, due - performance.now()))
+  armed = { nav, due, timer }
+}
+
+/** Installed once, for the life of the tab (AppStage). */
+export function watchRouterAnswers() {
+  if (watchingAnswers || typeof window === "undefined" || typeof PerformanceObserver !== "function") return
+  watchingAnswers = true
+  try {
+    new PerformanceObserver((list) => {
+      const nav = current
+      if (!nav) return
+      for (const entry of list.getEntries() as PerformanceResourceTiming[]) {
+        if (isAnswerFor(nav, entry, window.location.origin)) armStuckCheck(nav, entry.responseEnd)
+        /* The new page's own code still arriving after its answer: the wait runs from the last of it. */
+        else if (armed?.nav === nav && (entry.initiatorType === "script" || entry.initiatorType === "link")) armStuckCheck(nav, entry.responseEnd)
+      }
+    }).observe({ type: "resource" })
+  } catch {
+    /* No resource timing: the cap and the give up still end the wait. */
+  }
+}
+
+/**
+ * A PRESS THE ROUTER WILL FOLLOW IN THIS TAB: the main button, no key held
+ * that sends it to a new tab or window, and nothing has stopped it already.
+ * A row that started the shell's record on any press ran the bar here for
+ * GIVE_UP_MS while a Cmd-click opened the page in a new tab.
+ */
+export function isPlainClick(e: { button?: number; metaKey?: boolean; ctrlKey?: boolean; shiftKey?: boolean; altKey?: boolean; defaultPrevented?: boolean }) {
+  return (e.button ?? 0) === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.defaultPrevented
 }
 
 /* Whether the router started anything on a press: lib/ui/router-starts.ts,
@@ -356,6 +470,48 @@ export function takeTraversal() {
   const t = traversing
   traversing = false
   return t
+}
+
+/**
+ * ===========================================================================
+ *  A PAGE THAT COMES BACK AS IT WAS, WITH NO LANDING
+ * ===========================================================================
+ * "When I click on an email to go to its sub page and then I go back, there
+ * is an animation bump throughout the whole page, coming up and down."
+ * Going back from an automation or a draft to the Emails list was a new
+ * page to the stage, so it played its landing (components/app/app-stage.tsx
+ * playEntrance): every box of the list faded in from nothing and rose 2px,
+ * the whole page, on every Back. The way in keeps its landing; the way back
+ * is the list you left, so it should simply be there.
+ *
+ * A page that knows it is being returned to (it read isTraversing, or its
+ * own note of a return, while it rendered its first state) calls this from
+ * its first layout effect, which runs in the commit that draws it, before
+ * the frame the stage would start the landing on. The stage reads it on that
+ * frame and lands nothing. It lets go two frames later on its own, so a hold
+ * the stage never read (a page that arrived in a later commit than the
+ * address) cannot swallow the next page's landing.
+ *
+ * Per page, not for every Back in /app: a page opts in when what it draws on
+ * a return is exactly what was there (the Emails list keeps its tab, its
+ * rows and its scroll). Other pages keep their landing until they do.
+ */
+let landingHeld = false
+let holds = 0
+
+export function holdLanding() {
+  if (typeof window === "undefined") return
+  landingHeld = true
+  const mine = ++holds
+  const release = () => { if (holds === mine) landingHeld = false }
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => requestAnimationFrame(release))
+  /* A tab in the background runs no frames: let go anyway. */
+  window.setTimeout(release, 500)
+}
+
+/** Read by the stage on the frame it would start a landing: is the page coming back as it was? */
+export function isLandingHeld() {
+  return landingHeld
 }
 
 /** One more page landed on in this tab without a reload. */

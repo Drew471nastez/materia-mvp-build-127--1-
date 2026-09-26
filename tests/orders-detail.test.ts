@@ -308,7 +308,7 @@ async function main() {
        The slide that came out once ("too smooth and flowy", a bar that
        arrived late) was a class put on after the paint; this is not. */
     check("an order is moved from the layout effect of the commit that draws or closes it",
-      /React\.useLayoutEffect\(\(\) => \{\s*const was = settledId\.current[\s\S]{0,900}moveOrder\("push", detail, list\)[\s\S]{0,300}moveOrder\("pop", detail, list, \(\) => setLeavingId\(null\)\)\s*\}, \[shownId\]\)/.test(client))
+      /React\.useLayoutEffect\(\(\) => \{\s*const was = settledId\.current[\s\S]{0,900}moveOrder\("push", detail, list\)[\s\S]{0,300}moveOrder\("pop", detail, list, \(\) => setLeavingId\(null\), \{ settle: false \}\)\s*\}, \[shownId\]\)/.test(client))
     check("  a step to the previous or next order moves nothing but the cards",
       /if \(was !== null \|\| !detail\) return/.test(client) && /\.orders-detail\[data-arrival="step"\] \.orders-body \{\s*animation: orders-body-in 120ms ease-out backwards;/.test(css) && !/^\.orders-body \{/m.test(css))
     check("  on transform and opacity alone, as Web Animations, never a layout property",
@@ -319,14 +319,20 @@ async function main() {
         && /export const ORDER_FADE_IN_MS = 150/.test(motion) && /export const ORDER_PHONE_QUERY = "\(max-width: 639px\)"/.test(motion))
     /* "When I open an order the top bar blends in with a delay, it looks
        cheap." On a computer the bar is never faded over the list's bar. */
-    check("  on a computer the order's bar is there on the first frame: only its cards fade in; back takes the order at once and the list settles in, never from nothing",
+    /* The list used to settle in after Back on a computer, from half faded and
+       2px low: the owner's "bump", gone from Emails and then from Orders. The
+       settle stays in order-motion for a list that asks for it; Orders does not. */
+    check("  on a computer the order's bar is there on the first frame: only its cards fade in; back takes the order at once and the list is there whole, with no settle in",
       /const body = detail\.querySelector<HTMLElement>\("\.orders-body"\)/.test(motion) && !/detail\.animate\(\[\{ opacity/.test(motion)
         && /if \(kind === "pop"\) \{\s*settle\(detail, list\)\s*done\?\.\(\)/.test(motion)
         /* What is in the list settles in, never the list: it is the scroller,
            and moving it moved its scrollbar (scripts/check-scrollbar-stable.mjs). */
         && /for \(const layer of list\.children\) \{\s*\(layer as HTMLElement\)\.animate\(\s*\[\{ opacity: 0\.5, transform: "translate3d\(0, 2px, 0\)" \}/.test(motion)
         && !/list\.animate\(\s*\[\{ opacity/.test(motion)
-        && /export const ORDER_LIST_BACK_MS = 180/.test(motion))
+        && /export const ORDER_LIST_BACK_MS = 180/.test(motion)
+        && /done\?\.\(\)\s*if \(!settleIn\) return/.test(motion) && /\{ settle: false \}/.test(client))
+    check("  and coming back to Orders from another page (the browser's back) lands nothing: the list is as it was left",
+      /const \[returning\] = React\.useState\(\(\) => isTraversing\(\)\)/.test(client) && /React\.useLayoutEffect\(\(\) => \{\s*if \(returning\) holdLanding\(\)\s*\}, \[returning\]\)/.test(client))
     check("  interrupted, it starts from where the layer is, read before the running move is cancelled",
       /const detailX = moving \? xOf\(detail\)/.test(motion) && motion.indexOf("const detailX") < motion.indexOf("stop(detail)"))
     check("  the pop holds its last frame until the order is taken away, so it cannot snap back",

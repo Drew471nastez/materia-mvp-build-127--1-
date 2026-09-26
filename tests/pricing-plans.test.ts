@@ -17,7 +17,9 @@
  *   4. The old plan still resolves wherever money or limits are decided.
  *
  * The pixels (two cards, equal heights, touch sizes, contrast) are measured by
- * scripts/check-pricing-cards.mjs in a real browser.
+ * scripts/check-pricing-cards.mjs in a real browser; the Monthly and Yearly
+ * switch frame by frame, the Billing tab's order and the pictures' brightness
+ * and grain by scripts/check-billing-tab.mjs.
  */
 import { readCode, readSource } from "./_source"
 import {
@@ -238,9 +240,10 @@ function main() {
   check("the only gradients are the fade over the bottom of the picture", gradientLines.length > 0 && gradientLines.every((l) => /absolute inset-x-0 bottom-0 -z-10/.test(l)))
   /* Safari draws a backdrop blur but not the mask that fades it, so a blurred band ended in a hard edge across the picture. */
   check("no backdrop blur over the pictures", !/backdrop-blur/.test(cards))
-  check("a quiet film grain over each picture, drawn as a tile, not fetched", /data-plan-grain/.test(cards) && /feTurbulence/.test(cards) && /opacity-\[0\.2[0-9]?\] mix-blend-overlay/.test(cards))
+  /* Grain in overlay all but vanished over the dark pictures, and a blended layer is one a phone composites against the picture under every animation. */
+  check("a film grain over each picture, drawn as a tile, not fetched, and not blended", /data-plan-grain/.test(cards) && /feTurbulence/.test(cards) && /backgroundImage: PLAN_GRAIN/.test(cards) && !/mix-blend/.test(cards))
   check("monthly and yearly are both laid out, so switching never resizes a card", /<Morph value=\{interval\} items=\{\{ monthly: monthly\.price, yearly: yearly\.price \}\} \/>/.test(cards) && !/key=\{priced\.price\}/.test(cards))
-  check("the header pictures go through next/image, sized to the card", /import Image from "next\/image"/.test(cards) && /<Image[\s\S]*?fill[\s\S]*?sizes=\{PLAN_PICTURE_SIZES\}/.test(cards) && /PLAN_PICTURE_SIZES = "\(min-width: 768px\) 360px, calc\(100vw - 32px\)"/.test(cards))
+  check("the header pictures go through next/image, sized to the card", /import Image from "next\/image"/.test(cards) && /<Image[\s\S]*?fill[\s\S]*?sizes=\{sizes\}/.test(cards) && /sizes=\{inSection \? PLAN_PICTURE_SIZES_FILL : PLAN_PICTURE_SIZES\}/.test(cards) && /PLAN_PICTURE_SIZES = "\(min-width: 768px\) 360px, calc\(100vw - 32px\)"/.test(cards))
   check("both pictures are on the host next.config lets the optimizer fetch", (cards.match(/skgtqglupjcnfhfscink\.supabase\.co/g) ?? []).length === 1 && /hostname: 'skgtqglupjcnfhfscink\.supabase\.co'/.test(readSource("next.config.mjs")))
   check("the billing tab no longer upsells from Pro to the $99 plan", !/nextUpgradePlan/.test(readCode("components/app/billing/billing-page-client.tsx")))
 
@@ -292,7 +295,8 @@ function main() {
 
   const banned = /\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i
   for (const file of ["lib/billing/plans.ts", "components/billing/plan-cards.tsx", "components/marketing/pricing-section.tsx"]) {
-    const src = readSource(file)
+    /* The words are about copy. `transform` is also the CSS property the switch moves on, which is not copy. */
+    const src = readSource(file).replace(/\btransform(?=\s*:|-none|\s+\$\{)/g, "")
     check(`${file}: no banned words`, !banned.test(src), src.match(banned)?.[0])
     check(`${file}: no em dashes, in copy or comments`, !src.includes("—"))
   }
@@ -300,7 +304,51 @@ function main() {
     check(`"${line}" has no banned word or em dash`, !banned.test(line) && !line.includes("—"))
   }
 
+  console.log("\nThe Billing tab, the switch and the pictures")
+  {
+    const billing = readCode("components/app/billing/billing-page-client.tsx")
+    const overview = billing.indexOf(">Subscription Overview</h2>")
+    const history = billing.indexOf(">Billing History</h2>")
+    const plansAt = billing.indexOf("<PricingTiers")
+    check("the Billing tab reads Subscription Overview, then Billing History, then Plans", overview > 0 && history > overview && plansAt > history, JSON.stringify({ overview, history, plansAt }))
+    check("Plans is a section heading the size of the tab's others, handed to the cards' row",
+      /heading=\{<h2 className="text-\[17px\] font-bold text-\[#1a1a2e\]">Plans<\/h2>\}/.test(billing)
+        && /<h2 className="text-\[17px\] font-bold text-\[#1a1a2e\] mb-4">Subscription Overview<\/h2>/.test(billing)
+        && /<h2 className="text-\[17px\] font-bold text-\[#1a1a2e\]">Billing History<\/h2>/.test(billing))
+    check("inside Settings the tab adds no second column, gutter or clip of its own", /<div className=\{embedded \? "" : "max-w-4xl mx-auto/.test(billing))
+
+    check("with a heading, the pill is small and at the right of the heading's row, wrapping under it flush left when it must",
+      /data-plan-heading-row="" className="mb-4 flex flex-wrap items-center justify-between/.test(cards) && /<IntervalSwitch value=\{interval\} onChange=\{pick\} size="small" \/>/.test(cards))
+    check("the small pill is 32px (26px options in 3px of padding) with 13px words, each option a 44px press",
+      /small \? "p-\[3px\]"/.test(cards) && /"h-\[26px\] gap-1\.5 px-3 after:absolute after:inset-x-0 after:-inset-y-\[9px\]/.test(cards) && /text-\[13px\] font-semibold/.test(cards))
+    check("without one, the pill stays centred over the cards (upgrade page, landing page, onboarding)", /<div className=\{`flex justify-center \$\{compact/.test(cards))
+
+    /* The switch: nothing is remounted, nothing is laid out again, and only position and opacity move. */
+    check("nothing in the cards is keyed to the interval, so the switch remounts nothing", !/key=\{(interval|value|`\$\{interval)/.test(cards))
+    check("a button that differs by interval is two buttons in one cell, each kept for good, not a link swapped for a button",
+      /monthlyAction === yearlyAction \?/.test(cards) && /<Morph\s+fill\s+value=\{interval\}/.test(cards))
+    check("the thumb slides by its own width on a transform, one column wide by construction",
+      /transform: `translate3d\(\$\{yearly \? "100%" : "0"\}, 0, 0\)`/.test(cards) && /grid-cols-2/.test(cards) && !/transition-\[(left|width|translate)\]/.test(cards))
+    check("the changing lines crossfade and drift on opacity and a transform, in 240ms",
+      /const SWITCH_MS = 240/.test(cards) && /opacity 150ms linear 70ms, transform \$\{SWITCH_MS\}ms/.test(cards) && /opacity 90ms linear, transform \$\{SWITCH_MS\}ms/.test(cards))
+    check("the words in the pill change colour at once, only the thumb moves", !/transition-colors/.test(cards.slice(cards.indexOf("function IntervalSwitch"))))
+    check("with reduced motion the lines and the thumb do not animate",
+      /motion-reduce:!transition-none motion-reduce:!transform-none/.test(cards) && /data-interval-thumb=""[\s\S]{0,400}motion-reduce:!transition-none/.test(cards))
+
+    /* One source for the art. */
+    check("the pictures, their dimming and their grain are written in one place, PLAN_ART",
+      /export const PLAN_ART: Record<OfferedPlanId/.test(cards) && /const look = PLAN_ART\[plan\.id\]/.test(cards) && /style=\{\{ filter: look\.filter \}\}/.test(cards))
+    const elsewhere = ["components/app/billing/billing-page-client.tsx", "components/app/billing/upgrade-page-client.tsx", "components/marketing/pricing-section.tsx", "components/app/creator-onboarding-modal.tsx", "app/(marketing)/pricing/pricing-client.tsx"]
+      .filter((f) => /ChatGPT%20Image%20Sep%2025|PLAN_GRAIN|feTurbulence/.test(readCode(f)))
+    check("no other offer surface draws its own picture or grain", elsewhere.length === 0, elsewhere.join(", "))
+    const free = /free: \{[\s\S]*?filter: "([^"]+)"/.exec(cards)?.[1]
+    const growth = /growth: \{[\s\S]*?filter: "([^"]+)"/.exec(cards)?.[1]
+    check("Free's picture is what it was with brightness(0.95) at the end: 5% darker", free === "brightness(0.7) contrast(0.94) brightness(0.95)", free)
+    check("Pro's picture is a step darker than 0.52, with its saturation left alone", /^brightness\(0\.4\d\) contrast\(0\.9\)$/.test(growth ?? ""), growth)
+  }
+
   console.log("\nThe probe that measures the cards is on disk")
+  check("scripts/check-billing-tab.mjs exists", (() => { try { return readSource("scripts/check-billing-tab.mjs").length > 0 } catch { return false } })())
   check("scripts/check-pricing-cards.mjs exists", (() => { try { return readSource("scripts/check-pricing-cards.mjs").length > 0 } catch { return false } })())
 
   console.log(`\n${passed} passed, ${failed} failed`)

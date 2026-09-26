@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import type Stripe from "stripe"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { MIN_CHARGE_CENTS, priceCart } from "@/lib/checkout/pricing"
 import { stripe } from "@/lib/stripe"
@@ -200,8 +201,13 @@ export async function POST(request: Request) {
   const freeLines = lines.filter((l) => chargeUnits(l.item).length === 0).map((l) => String(l.product.title ?? "Product"))
 
   try {
-    const session = await stripe.checkout.sessions.create({
+    const params: Stripe.Checkout.SessionCreateParams = {
       mode: "payment",
+      /* "I'm purchasing as a business" on Stripe's page: the company's name,
+         its tax number and its billing address, which the basket's invoice
+         is made out to (lib/checkout/fulfil-cart-session). The single
+         product checkout asks the same on its own page. */
+      tax_id_collection: { enabled: true },
       line_items: lines.flatMap((l) =>
         chargeUnits(l.item).map((part) => ({
           quantity: part.quantity,
@@ -253,7 +259,18 @@ export async function POST(request: Request) {
           : {}),
         ...packItems(lines.map((l) => l.item)),
       },
-    })
+    }
+    let session: Stripe.Checkout.Session
+    try {
+      session = await stripe.checkout.sessions.create(params)
+    } catch (e) {
+      /* A Stripe account that will not take tax number collection still
+         sells: the page is made again without the business box. */
+      if (!/tax_id_collection/i.test(String((e as Error)?.message || ""))) throw e
+      console.error("[checkout/cart] tax ID collection refused, the page opens without it:", (e as { code?: string })?.code ?? "")
+      delete params.tax_id_collection
+      session = await stripe.checkout.sessions.create(params)
+    }
 
     return NextResponse.json({
       url: session.url,

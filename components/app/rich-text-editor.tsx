@@ -40,15 +40,20 @@
  * applies the same list again when the row is saved.
  *
  * ON A PHONE. The toolbar is one row that scrolls sideways, every control a
- * 44px target, and the text is 16px so iOS does not zoom the page when the
- * field is focused. The field grows with its text up to a height that
- * leaves the toolbar and the caret both above the keyboard, then scrolls
- * inside itself.
+ * 44px target, with a fade and a small chevron at whichever end has more;
+ * a control acts on a tap, never on the swipe that scrolls the row. The
+ * text is 16px so iOS does not zoom the page when the field is focused. The
+ * field grows with its text up to a height that leaves the toolbar and the
+ * caret both above the keyboard, then scrolls inside itself, handing a
+ * swipe on to the page at its top and bottom. The bar along its foot drags
+ * it taller or shorter, up to 70% of the screen.
  */
 
 import * as React from "react"
 import {
   Bold,
+  ChevronLeft,
+  ChevronRight,
   Heading2,
   Heading3,
   ImagePlus,
@@ -206,7 +211,16 @@ const cleanDescriptionHtml = (html: string) => cleanStoredHtml(html, { blocks: t
 
 /** A toolbar control: a 44px target on a phone, 32px on a computer. */
 const TOOL_BUTTON =
-  "inline-flex h-11 w-11 shrink-0 cursor-pointer select-none items-center justify-center rounded-lg transition-colors duration-100 [-webkit-tap-highlight-color:transparent] sm:h-8 sm:w-8"
+  "inline-flex h-11 w-11 shrink-0 cursor-pointer select-none items-center justify-center rounded-lg transition-colors duration-100 [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] sm:h-8 sm:w-8"
+
+/**
+ * A control that is not pressed. Hover and :active only with a mouse: on a
+ * touch screen hover sticks after the tap and :active lights up every
+ * control a swipe passes over. A finger gets `data-pressing` instead, once
+ * it has held still (see A TAP, NOT A SWIPE).
+ */
+const TOOL_IDLE =
+  "text-[#4b5563] data-[pressing]:bg-[#eef0f2] data-[pressing]:text-[#1a1a2e] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#eef0f2] [@media(hover:hover)_and_(pointer:fine)]:hover:text-[#1a1a2e] [@media(hover:hover)_and_(pointer:fine)]:active:bg-[#e6e8eb]"
 
 /** The nearest ancestor of `node` matching `selector`, not looking past `root`. */
 function closestIn(node: Node | null, selector: string, root: HTMLElement): HTMLElement | null {
@@ -256,43 +270,66 @@ export function RichTextEditor({
   /* The height the person dragged the field to, or null for its own. */
   const [dragHeight, setDragHeight] = React.useState<number | null>(null)
   const RESIZE_MAX = 1200
-  const clampHeight = React.useCallback((h: number) => Math.round(Math.min(RESIZE_MAX, Math.max(minHeight, h))), [minHeight])
+  /* The tallest a drag can make it: 70% of the screen on a phone, so the
+     toolbar and some of the page stay in view, 90% on a computer. */
+  const resizeMax = React.useCallback(() => {
+    const vh = window.visualViewport?.height ?? window.innerHeight
+    const share = window.matchMedia("(max-width: 639px)").matches ? 0.7 : 0.9
+    return Math.max(minHeight, Math.min(RESIZE_MAX, Math.round(vh * share)))
+  }, [minHeight])
+  const clampHeight = React.useCallback((h: number, max = resizeMax()) => Math.round(Math.min(max, Math.max(minHeight, h))), [minHeight, resizeMax])
   /*
     THE DRAG MOVES THE BOX, NOT REACT. While a finger or the mouse is down
-    the height is written straight onto the text box on each frame, and
+    the height is written straight onto the text box once per frame, and
     React hears the last one when it lets go: no render per pixel, so it
-    follows the pointer one to one.
+    follows the pointer one to one. The box is pinned at the height it
+    already has before the first move, so nothing jumps when the drag
+    starts, and a box that is already taller than the limit is never pulled
+    in by it. The handle holds the pointer, and it is `touch-action: none`,
+    so a finger on it never scrolls the page.
   */
   const startResize = React.useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const box = rootRef.current
     if (!box || (e.pointerType === "mouse" && e.button !== 0)) return
     e.preventDefault()
     const handle = e.currentTarget
-    handle.setPointerCapture(e.pointerId)
+    try {
+      handle.setPointerCapture(e.pointerId)
+    } catch {
+      /* a pointer that is already gone: the drag ends on its own */
+    }
     const startY = e.clientY
     const startH = box.getBoundingClientRect().height
-    let last = startH
+    const max = Math.max(resizeMax(), Math.round(startH))
+    let last = Math.round(startH)
     let frame = 0
+    box.style.height = `${startH}px`
+    box.style.maxHeight = "none"
+    handle.setAttribute("data-dragging", "")
     const move = (ev: PointerEvent) => {
-      last = clampHeight(startH + ev.clientY - startY)
+      if (ev.pointerId !== e.pointerId) return
+      last = clampHeight(startH + ev.clientY - startY, max)
       if (frame) return
       frame = requestAnimationFrame(() => {
         frame = 0
         box.style.height = `${last}px`
-        box.style.maxHeight = "none"
       })
     }
     const end = () => {
       if (frame) cancelAnimationFrame(frame)
+      box.style.height = `${last}px`
+      handle.removeAttribute("data-dragging")
       handle.removeEventListener("pointermove", move)
       handle.removeEventListener("pointerup", end)
       handle.removeEventListener("pointercancel", end)
+      handle.removeEventListener("lostpointercapture", end)
       setDragHeight(last)
     }
     handle.addEventListener("pointermove", move)
     handle.addEventListener("pointerup", end)
     handle.addEventListener("pointercancel", end)
-  }, [clampHeight])
+    handle.addEventListener("lostpointercapture", end)
+  }, [clampHeight, resizeMax])
   const keyResize = React.useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return
     e.preventDefault()
@@ -301,6 +338,7 @@ export function RichTextEditor({
   }, [clampHeight, minHeight])
   const toolbarRef = React.useRef<HTMLDivElement>(null)
   const stripRef = React.useRef<HTMLDivElement>(null)
+  const stripWrapRef = React.useRef<HTMLDivElement>(null)
   const savedRange = React.useRef<Range | null>(null)
   const linkTarget = React.useRef<HTMLAnchorElement | null>(null)
   /** The value the DOM is showing: the last one written in, or the last one handed up. */
@@ -322,16 +360,13 @@ export function RichTextEditor({
   const [picture, setPicture] = React.useState<{ el: HTMLImageElement; alt: string; altOpen?: boolean } | null>(null)
   /** The box the picture's frame, handles and bar are drawn in: the text's own. */
   const frameRef = React.useRef<HTMLDivElement>(null)
-  /* On a phone the picture's bar is docked under the toolbar (./rich-text/picture-controls). */
-  const [dock, setDock] = React.useState<HTMLDivElement | null>(null)
-  const [phone, setPhone] = React.useState(false)
-  React.useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)")
-    const read = () => setPhone(mq.matches)
-    read()
-    mq.addEventListener("change", read)
-    return () => mq.removeEventListener("change", read)
-  }, [])
+  /*
+    The picture whose bar is drawn. It outlives `picture` by the bar's exit,
+    so letting a picture go fades the bar out rather than cutting it; a
+    different picture picked meanwhile takes over at once.
+  */
+  const [barPicture, setBarPicture] = React.useState<HTMLImageElement | null>(null)
+  if (picture && picture.el !== barPicture) setBarPicture(picture.el)
   const [uploads, setUploads] = React.useState(0)
   const [notice, setNotice] = React.useState("")
   const [sizeProblem, setSizeProblem] = React.useState<string | null>(null)
@@ -902,25 +937,107 @@ export function RichTextEditor({
     if (apiRef) apiRef.current = api
   })
 
-  /* On a phone the toolbar is one row that scrolls sideways. While more of it
-     is off to the right its edge fades, so the rest is found. Written straight
-     onto the element, so scrolling the row never renders anything. */
+  /*
+    THE ROW THAT SCROLLS SIDEWAYS. On a phone the toolbar is one row wider
+    than the screen. Whichever end has more controls past it fades out, with
+    a small chevron in the fade, and each goes away once that end is reached.
+    The scroll only asks for a frame; the frame reads the row once and writes
+    two attributes, and only when they change, so scrolling it never renders
+    anything or lays anything out twice.
+  */
   React.useEffect(() => {
     const strip = stripRef.current
-    if (!strip) return
+    const wrap = stripWrapRef.current
+    if (!strip || !wrap) return
+    let frame = 0
     const read = () => {
-      const more = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 2
-      if (strip.dataset.more !== String(more)) strip.dataset.more = String(more)
+      frame = 0
+      const max = strip.scrollWidth - strip.clientWidth
+      const x = Math.abs(strip.scrollLeft)
+      const start = max > 2 && x > 2
+      const end = max > 2 && x < max - 2
+      const fade = start && end ? "both" : start ? "start" : end ? "end" : "none"
+      if (strip.dataset.fade !== fade) {
+        strip.dataset.fade = fade
+        strip.dataset.more = String(end)
+        wrap.dataset.start = String(start)
+        wrap.dataset.end = String(end)
+      }
+    }
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(read)
     }
     read()
-    strip.addEventListener("scroll", read, { passive: true })
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(read) : null
+    strip.addEventListener("scroll", schedule, { passive: true })
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(schedule) : null
     ro?.observe(strip)
     return () => {
-      strip.removeEventListener("scroll", read)
+      cancelAnimationFrame(frame)
+      strip.removeEventListener("scroll", schedule)
       ro?.disconnect()
     }
   }, [])
+
+  /*
+    A TAP, NOT A SWIPE. A finger that goes down on a control and then moves
+    is scrolling the row, and must not also press what it started on. Each
+    press is followed from pointerdown: once it has moved more than 8px, or
+    the row has scrolled under it, or the browser has taken it for a scroll
+    (pointercancel), the click that may still follow is swallowed before it
+    reaches the control. A keyboard press (Enter or Space: a click with no
+    pointer, detail 0) always goes through.
+
+    The pressed shade under a finger comes on only after it has held still
+    for a moment, as iOS's own controls do, so a swipe across the row never
+    flashes the controls it passes over. A mouse gets hover and :active
+    instead, which a touch screen never sees.
+  */
+  const tapRef = React.useRef<{ id: number; x: number; y: number; moved: boolean; el: HTMLElement | null; timer: number } | null>(null)
+  const unpress = (t: { el: HTMLElement | null; timer: number } | null) => {
+    if (!t) return
+    window.clearTimeout(t.timer)
+    t.el?.removeAttribute("data-pressing")
+  }
+  const onStripPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    unpress(tapRef.current)
+    const el = (e.target as HTMLElement).closest<HTMLElement>("button")
+    const t = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, el: e.pointerType === "mouse" ? null : el, timer: 0 }
+    if (t.el) t.timer = window.setTimeout(() => { if (!t.moved) t.el?.setAttribute("data-pressing", "") }, 90)
+    tapRef.current = t
+  }
+  const onStripPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const t = tapRef.current
+    if (!t || t.moved || t.id !== e.pointerId) return
+    if (Math.abs(e.clientX - t.x) > 8 || Math.abs(e.clientY - t.y) > 8) {
+      t.moved = true
+      unpress(t)
+    }
+  }
+  const onStripPointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    const t = tapRef.current
+    if (!t || t.id !== e.pointerId) return
+    if (e.type === "pointercancel") t.moved = true
+    window.clearTimeout(t.timer)
+    if (t.moved) return unpress(t)
+    /* A quick tap still shows it was taken: the shade for the click that follows, then gone. */
+    t.el?.setAttribute("data-pressing", "")
+    t.timer = window.setTimeout(() => unpress(t), 140)
+  }
+  const onStripScroll = () => {
+    const t = tapRef.current
+    if (t && !t.moved) {
+      t.moved = true
+      unpress(t)
+    }
+  }
+  const onStripClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    const t = tapRef.current
+    tapRef.current = null
+    if (e.detail !== 0 && t?.moved) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
 
   const visible = GROUPS.map((group) => group.filter((t) => tools.includes(t) && (t !== "image" || !!uploadImage))).filter((group) => group.length)
   /* One stop for Tab: the first control. Arrow keys do the rest. */
@@ -951,10 +1068,29 @@ export function RichTextEditor({
         className={cn("rich-text-toolbar flex items-center border-b border-[#eef0f2] bg-white", stickyToolbar && "sticky z-[5]")}
         style={stickyToolbar ? { top: stickyToolbar } : undefined}
       >
+        <div ref={stripWrapRef} data-start="false" data-end="false" className="group/strip relative flex min-w-0 flex-1">
         <div
           ref={stripRef}
           data-more="false"
-          className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overscroll-x-contain px-1 py-1 [scrollbar-width:none] sm:flex-wrap sm:px-1.5 [&::-webkit-scrollbar]:hidden max-sm:data-[more=true]:[mask-image:linear-gradient(to_right,#000_calc(100%-32px),transparent)]"
+          data-fade="none"
+          data-toolbar-strip=""
+          onPointerDownCapture={onStripPointerDown}
+          onPointerMoveCapture={onStripPointerMove}
+          onPointerUpCapture={onStripPointerEnd}
+          onPointerCancelCapture={onStripPointerEnd}
+          onClickCapture={onStripClickCapture}
+          onScroll={onStripScroll}
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overflow-y-hidden px-1 py-1 sm:flex-wrap sm:px-1.5",
+            /* Native momentum, no snapping, and a flick that reaches the end
+               stops there instead of pulling the page sideways. A vertical
+               swipe that starts on the row still scrolls the page. */
+            "overscroll-x-contain [scroll-snap-type:none] [touch-action:pan-x_pan-y] [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "[-webkit-mask-image:var(--strip-fade)] [mask-image:var(--strip-fade)]",
+            "data-[fade=end]:[--strip-fade:linear-gradient(to_right,#000_calc(100%-28px),transparent)]",
+            "data-[fade=start]:[--strip-fade:linear-gradient(to_right,transparent,#000_28px)]",
+            "data-[fade=both]:[--strip-fade:linear-gradient(to_right,transparent,#000_28px,#000_calc(100%-28px),transparent)]",
+          )}
         >
         {visible.map((group, g) => (
           <React.Fragment key={group.join("-")}>
@@ -967,7 +1103,7 @@ export function RichTextEditor({
                   <Tip key={tool} label={name}>
                     <span className="inline-flex shrink-0">
                       <EmojiControl
-                        className={cn(TOOL_BUTTON, "text-[#4b5563] hover:bg-[#eef0f2] hover:text-[#1a1a2e] active:bg-[#e6e8eb]")}
+                        className={cn(TOOL_BUTTON, TOOL_IDLE)}
                         onBeforeOpen={() => api.keepSelection()}
                         onInsert={insertEmoji}
                       />
@@ -986,13 +1122,12 @@ export function RichTextEditor({
                   aria-expanded={tool === "link" ? !!link : undefined}
                   /* mousedown, not click: a click moves focus out of the
                      text first, and a field that has lost its selection has
-                     nothing to make bold. */
+                     nothing to make bold. A finger's mousedown is only sent
+                     after a tap has ended, never while the row is being
+                     swiped, so it keeps the keyboard up on Android as well. */
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => run(tool)}
-                  className={cn(
-                    TOOL_BUTTON,
-                    on ? "bg-[#e6e8eb] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#eef0f2] hover:text-[#1a1a2e] active:bg-[#e6e8eb]",
-                  )}
+                  className={cn(TOOL_BUTTON, on ? "bg-[#e6e8eb] text-[#1a1a2e]" : TOOL_IDLE)}
                 >
                   <Icon aria-hidden className="h-[18px] w-[18px] sm:h-4 sm:w-4" strokeWidth={tool === "bold" ? 2.4 : 2} />
                 </button>
@@ -1007,6 +1142,23 @@ export function RichTextEditor({
             {extraTools(api)}
           </>
         ) : null}
+        </div>
+        {/* The hints that more of the row is off to that side. Drawn over the
+            fade and never in the way of a tap. */}
+        <span
+          aria-hidden
+          data-toolbar-hint="start"
+          className="pointer-events-none absolute inset-y-0 left-0 flex w-4 items-center justify-start pl-0.5 text-[#9ca3af] opacity-0 transition-opacity duration-150 group-data-[start=true]/strip:opacity-100"
+        >
+          <ChevronLeft className="h-3 w-3" strokeWidth={2.5} />
+        </span>
+        <span
+          aria-hidden
+          data-toolbar-hint="end"
+          className="pointer-events-none absolute inset-y-0 right-0 flex w-4 items-center justify-end pr-0.5 text-[#9ca3af] opacity-0 transition-opacity duration-150 group-data-[end=true]/strip:opacity-100"
+        >
+          <ChevronRight className="h-3 w-3" strokeWidth={2.5} />
+        </span>
         </div>
         {toolbarEnd ? <div className="flex shrink-0 items-center self-stretch border-l border-[#eef0f2] px-1">{toolbarEnd}</div> : null}
       </div>
@@ -1150,11 +1302,6 @@ export function RichTextEditor({
 
       {panel}
 
-      {/* On a phone the picked picture's bar sits here, under the toolbar, not over the picture. */}
-      {picture && uploadImage && phone ? (
-        <div ref={setDock} data-picture-dock="" className="border-b border-[#eef0f2] bg-[#fafafa] px-2 py-2" />
-      ) : null}
-
       <div ref={frameRef} className="relative">
         {empty && placeholder ? (
           <p
@@ -1188,25 +1335,33 @@ export function RichTextEditor({
             "rich-text-content storelib-prose px-3.5 py-3 text-[16px] leading-[1.6] text-[#1a1a2e] outline-none sm:text-[15px]",
             /* Tall enough to write in; short enough that on a phone the
                toolbar and the caret both stay above the keyboard. A field
-               that grows leaves the scrolling to the page. */
-            dragHeight != null ? "overflow-y-auto overscroll-contain" : grow ? null : "max-h-[320px] overflow-y-auto overscroll-contain sm:max-h-[480px]",
+               that grows leaves the scrolling to the page.
+               ONE SWIPE, ONE SCROLLER, as Notion and Shopify do it on a
+               phone. Text that fits its box has nothing to scroll, so a
+               vertical swipe on it moves the page. Text taller than its box
+               scrolls first, and a swipe that starts at its top or bottom
+               edge goes on to move the page (overscroll-behavior auto, not
+               contain): the field never holds on to a swipe it cannot use. */
+            dragHeight != null ? "overflow-y-auto" : grow ? null : "max-h-[320px] overflow-y-auto sm:max-h-[480px]",
+            "[overscroll-behavior-y:auto] [touch-action:pan-x_pan-y]",
             "[overflow-wrap:anywhere] [-webkit-user-select:text] [user-select:text]",
           )}
           style={dragHeight != null ? { minHeight, height: dragHeight, maxHeight: "none" } : { minHeight }}
         />
-        {picture && uploadImage && rootRef.current && (!phone || dock) ? (
-          <div aria-hidden={false} className="pointer-events-none absolute inset-0 z-[4] overflow-hidden">
+        {barPicture && uploadImage && rootRef.current ? (
+          <div className="pointer-events-none absolute inset-0 z-[4] overflow-hidden">
             <PictureControls
-              key={picture.el.getAttribute("src") ?? "picture"}
-              img={picture.el}
+              key={barPicture.getAttribute("src") ?? "picture"}
+              img={barPicture}
+              open={picture?.el === barPicture}
+              onExited={() => setBarPicture((b) => (b === barPicture ? null : b))}
               root={rootRef.current}
               frameRef={frameRef}
               onChange={commit}
               onMove={movePicture}
-              onAlt={() => setPicture({ ...picture, altOpen: true })}
+              onAlt={() => picture && setPicture({ ...picture, altOpen: true })}
               onRemove={removePicture}
               onDone={() => setPicture(null)}
-              dock={phone ? dock : null}
             />
           </div>
         ) : null}
@@ -1220,14 +1375,27 @@ export function RichTextEditor({
           aria-valuenow={dragHeight ?? undefined}
           aria-valuemin={minHeight}
           aria-valuemax={RESIZE_MAX}
+          aria-valuetext={dragHeight != null ? `${dragHeight} pixels tall` : "Its own height"}
           tabIndex={0}
           data-rich-text-resize=""
           onPointerDown={startResize}
           onKeyDown={keyResize}
           onDoubleClick={() => setDragHeight(null)}
-          className="flex h-5 cursor-ns-resize touch-none select-none items-center justify-center border-t border-[#eef0f2] bg-[#fafafa] transition-colors duration-100 hover:bg-[#f3f4f6] focus-visible:bg-[#f3f4f6] focus-visible:outline-none sm:h-4"
+          className={cn(
+            "group/resize relative flex h-5 cursor-ns-resize touch-none select-none items-center justify-center border-t border-[#eef0f2] bg-[#fafafa] transition-colors duration-100 focus-visible:bg-[#f3f4f6] focus-visible:outline-none sm:h-4",
+            "[-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#f3f4f6]",
+            /* THE PILL STAYS SMALL, THE TARGET DOES NOT. An invisible strip
+               reaches up over the text's bottom padding, so a thumb has 34px
+               to land on on a phone (8px more on a computer), while the bar
+               drawn is still 20px with a 4px pill. */
+            "before:absolute before:inset-x-0 before:-top-2 before:bottom-0 before:content-[''] max-sm:before:-top-3.5",
+          )}
         >
-          <span aria-hidden className="h-1 w-9 rounded-full bg-[#d1d5db]" />
+          {/* It darkens while it is held, so the drag is seen to have been taken. */}
+          <span
+            aria-hidden
+            className="h-1 w-9 rounded-full bg-[#d1d5db] transition-[background-color,scale] duration-150 max-sm:w-10 [@media(hover:hover)_and_(pointer:fine)]:group-hover/resize:bg-[#b8bcc4] group-data-[dragging]/resize:scale-x-110 group-data-[dragging]/resize:bg-[#6b7280]"
+          />
         </div>
       ) : null}
 

@@ -239,7 +239,8 @@ async function main() {
     check(
       "both save handlers list userPlan among their dependencies",
       (editor.match(/\[hasProFeaturesEnabled, save, activeTab, userPlan, showSaveFailure\]/g) ?? []).length === 1
-        && /\[save, pendingNavigation, hasProFeaturesEnabled, activeTab, userPlan, showSaveFailure(, leave)?\]/.test(editor),
+        /* leave is the phone's way out, leaveTo a link out or a held Back (tests/onepage-leave.test.ts). */
+        && /\[save, pendingNavigation, hasProFeaturesEnabled, activeTab, userPlan, showSaveFailure(, leave)?(, leaveTo)?\]/.test(editor),
     )
     check("leaving waits for the save to work", /const result = await save\(\)\s*\n\s*if \(!result\.ok\) return/.test(editor))
     check("Products switches the editor's real tab", /<ProductsTab onGoToLinks=\{\(\) => handleTabChange\("links"\)\} \/>/.test(editor))

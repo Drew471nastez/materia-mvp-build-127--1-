@@ -48,7 +48,7 @@ const extra =
   "inline-flex h-11 min-w-11 shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-[#4b5563] transition-colors duration-100 hover:bg-[#eef0f2] hover:text-[#1a1a2e] sm:h-8 sm:min-w-8 [-webkit-tap-highlight-color:transparent]"
 
 const input =
-  "h-11 rounded-lg border border-[#d5d7dd] px-2.5 text-[16px] outline-none focus:border-[#1a1a2e] sm:h-9 sm:text-[13px]"
+  "h-11 rounded-lg border border-[#d5d7dd] px-2.5 text-[16px] outline-none transition-[border-color,box-shadow] duration-150 focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-9 sm:text-[13px]"
 
 const keepEmailHtml = (html: string) => html
 

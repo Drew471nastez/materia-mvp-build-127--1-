@@ -1073,8 +1073,10 @@ section("The conversation survives a refresh")
      * Replaying them would apply the same edits a second time to a page that
      * already has them. The transcript is a record, not a script.
      */
-    /const counted = activityFromOps\(Array\.isArray\(message\.ops\) \? message\.ops : \[\]\)/.test(panel) &&
-      /open\.activity = question \? \{ \.\.\.counted, question \} : counted/.test(panel) &&
+    /* Read back by lib/website-builder/ask-restore.ts, which the panel draws from. */
+    /const counted = activityFromOps\(Array\.isArray\(message\.ops\) \? message\.ops : \[\]\)/.test(readFileSync(join(root, "lib/website-builder/ask-restore.ts"), "utf8")) &&
+      /open\.activity = question \? \{ \.\.\.counted, question \} : counted/.test(readFileSync(join(root, "lib/website-builder/ask-restore.ts"), "utf8")) &&
+      /restoreExchanges\(body\.messages\)/.test(panel) &&
       !/onOp\(message/.test(panel),
   )
 }
@@ -2158,7 +2160,7 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
   check(
     "the AI sheet's tallest stop is the whole screen below the status bar",
     /const AI_SHEET_DETENTS = \[0\.5, 1\]/.test(editor) &&
-      /<MobileEditorSheet open=\{aiOpen\}[\s\S]{0,200}?detents=\{AI_SHEET_DETENTS\}>/.test(editor) &&
+      /<MobileEditorSheet open=\{aiOpen\}[\s\S]{0,200}?detents=\{AI_SHEET_DETENTS\}[^>\n]*>/.test(editor) &&
       /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek, safeTop, barBottom: barEdge \}\)/.test(sheet),
   )
   /**
@@ -2201,7 +2203,9 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
   }
   check(
     "the panels that scroll inside the Sections sheet carry the room themselves",
-    (editor.match(/<div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll/g) || []).length >= 6 &&
+    /* The Pages tab's scroller is the page list's own now (components/website-builder/page-switcher.tsx). */
+    (editor.match(/<div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll/g) || []).length >= 5 &&
+      /data-page-list-scroll=""\s*\n\s*data-sheet-scroll=""/.test(readFileSync(join(root, "components/website-builder/page-switcher.tsx"), "utf8")) &&
       /\[data-mobile-bottom-sheet\] \[data-sheet-scroll\]:has\(\[data-sheet-scroll\]:last-child\)::after \{\s*height: 0;/.test(css),
   )
 }

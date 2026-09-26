@@ -9,10 +9,10 @@
  *
  *   1440x900 (and 1280x800 for the geometry)
  *     PILL        centred on the canvas, 20px above its bottom, 660 wide and
- *                 52 to 56 tall, frosted inside its own shape, a soft glow
- *                 round it (a shadow; its edges are measured by
- *                 scripts/check-ask-dock.mjs), and the canvas does not move
- *     OPEN        focusing it opens the conversation over ~300ms: sampled
+ *                 52 to 56 tall, near solid white, nothing round it (no
+ *                 glow and no blurred band, measured in askai2, below, and
+ *                 by scripts/check-ask-dock.mjs), and the canvas does not move
+ *     OPEN        focusing it opens the conversation over ~260ms: sampled
  *                 every frame, only transform, opacity and visibility
  *                 animate, it rises and fades in, and the canvas is still
  *     HISTORY     the history slides in over the thread (transform), lists
@@ -34,6 +34,29 @@
  *                 chat and close, each answering 44px; the composer's
  *                 buttons 44px; the model menu is the shared bottom sheet;
  *                 the history slides in
+ *   askai2 (ONLY=askai2), screenshots askai2-*
+ *     GLASS       the pill: 95% white over a light 10px blur, a hairline,
+ *                 ink shadows only; the open conversation solid white with
+ *                 no backdrop filter; no halo and no blurred band; no
+ *                 blurred layer under a fading one, frame by frame, so the
+ *                 blur never switches off mid fade
+ *     NO GLOW     on a flat dark canvas at 1280 and 1440, every pixel within
+ *                 90px of the pill is at most 2 of 255 lighter than the page
+ *                 (the old glow, put back, is measured the same way)
+ *     FADE        the band round the pill: over a photo it adds no light
+ *                 (the band's mean is unchanged); over fine stripes it goes
+ *                 from sharp to blurred row by row with no step
+ *     PICTURES    a sent picture is a loaded 64px thumbnail; read back after
+ *                 a reload (stubbed route) it is one again, and one that is
+ *                 gone is a "Picture no longer available" tile; never the
+ *                 note in words; the not saved notices
+ *     SOUNDS      each rendered offline from the real graph (peak dBFS, how
+ *                 long it is heard); nothing on load; the whoosh, the chime
+ *                 and the ticks when they should be; the switch in the menu,
+ *                 remembered; silent when off
+ *     ACTIONS     the live line changes as the run moves and folds into a
+ *                 closed steps toggle and a summary; Copy; Report; a
+ *                 suggestion is sent; Report before its table
  *
  *   node scripts/check-ask-ai.mjs          (PROBE_CSS=source without a build)
  *
@@ -88,27 +111,63 @@ window.__posts = [];
   ], earlier: { preview: "Give the site a warmer palette", updatedAt: new Date(now - 4 * 86400000).toISOString() } };
   var json = function (body, status) { return Promise.resolve(new Response(JSON.stringify(body), { status: status || 200, headers: { "content-type": "application/json" } })) };
   var enc = new TextEncoder();
+  /* A real two by two PNG, as the signed URL a read would carry. */
+  var PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVR4nGP8z8DwnwEJMDGgASIVAAC8GAP/5pVQlgAAAABJRU5ErkJggg==";
+  /* ?chat=pictures: a conversation read back after a reload, pictures and all. One picture came back,
+     one's address no longer loads, and one question's picture is past its thirty days. */
+  var pictures = { conversation: { id: C1, title: "Build this" }, earlier: false, history: "ready", pictures: q.get("pictures") || "ready", messages: [
+    { id: "55555555-5555-4555-8555-555555555551", role: "user", content: "Build this\\n\\n[2 images attached]", ops: [], error: null, images: [{ id: "i1", name: "layout.png", url: PNG }, { id: "i2", name: "old.png", url: "file:///nonexistent/askai2/old.png" }] },
+    { id: "55555555-5555-4555-8555-555555555552", role: "assistant", content: "Added a hero like your picture.", ops: [{ kind: "add_section", id: "h9", sectionType: "hero_split" }], error: null, images: [] },
+    { id: "55555555-5555-4555-8555-555555555553", role: "user", content: "[an image attached]", ops: [], error: null, images: [] },
+    { id: "55555555-5555-4555-8555-555555555554", role: "assistant", content: "Done.", ops: [], error: null, images: [] }
+  ] };
+  window.__reports = [];
   window.fetch = function (input, init) {
     var url = String(input && input.url ? input.url : input);
     var method = (init && init.method) || "GET";
     if (url.indexOf("/api/website-builder/transcribe") === 0) return json({ available: q.get("transcribe") === "1" });
     if (url.indexOf("/chat/conversations") >= 0) return json(list);
-    if (url.indexOf("/chat") >= 0 && method === "GET") return json(url.indexOf(C2) >= 0 ? two : one);
+    if (url.indexOf("/chat/report") >= 0) {
+      window.__reports.push(JSON.parse(init.body));
+      return q.get("report") === "not_set_up" ? json({ reason: "not_set_up" }, 503) : json({ reported: true });
+    }
+    if (url.indexOf("/chat") >= 0 && method === "GET") {
+      if (q.get("chat") === "unsaved") return json({ error: "Chat history is not set up on this database yet.", reason: "not_set_up" }, 503);
+      if (q.get("chat") === "pictures") return json(pictures);
+      return json(url.indexOf(C2) >= 0 ? two : one);
+    }
     if (url.indexOf("/agent") >= 0) {
       var body = JSON.parse(init.body);
       window.__posts.push({ conversationId: body.conversationId, images: (body.images || []).length, prompt: body.prompt });
-      var lines = [
-        { type: "conversation", id: body.conversationId || "33333333-3333-4333-8333-333333333333", title: body.conversationId === C1 ? one.conversation.title : body.conversationId === C2 ? two.conversation.title : (body.prompt || "A picture") },
+      var opened = { type: "conversation", id: body.conversationId || "33333333-3333-4333-8333-333333333333", title: body.conversationId === C1 ? one.conversation.title : body.conversationId === C2 ? two.conversation.title : (body.prompt || "A picture") };
+      var recorded = { type: "recorded", messageId: "44444444-4444-4444-8444-44444444444" + (window.__posts.length % 10) };
+      /* ?agent=full: a run told the way the route tells it, headline by headline, a quarter second apart. */
+      var lines = q.get("agent") === "full" ? [
+        opened, recorded,
+        { type: "progress", phase: "reading", label: "Reading the page" },
+        { type: "progress", phase: "planning", label: "Planning" },
+        { type: "plan", text: "I'll add three quotes under the hero." },
+        { type: "step", id: "t1", label: "Reading the Hero", state: "running" },
+        { type: "step", id: "t1", label: "Reading the Hero", state: "done" },
+        { type: "progress", phase: "writing", label: "Writing Testimonials" },
+        { type: "op", op: { kind: "update_section", id: "s3", settings: {} }, label: "Added three quotes" },
+        { type: "progress", phase: "checking", label: "Checking contrast" },
+        { type: "progress", phase: "done", label: "Done", detail: "Added three quotes under the hero.", sections: ["Testimonials"] },
+        { type: "message", text: "Added three quotes under the hero, in your colours." }
+      ] : [
+        opened, recorded,
         { type: "step", id: "t1", label: "Read the page", state: "running" },
         { type: "step", id: "t1", label: "Read the page", state: "done" },
         { type: "message", text: "Done." }
       ];
+      if (q.get("unsaved") === "pictures") lines.splice(2, 0, { type: "unsaved", what: "pictures", reason: "not_set_up" });
+      var gap = q.get("agent") === "full" ? 260 : 120;
       return new Promise(function (resolve) {
         /* The upload taking a moment: the thumbnails say they are sending until here. */
         setTimeout(function () {
           var stream = new ReadableStream({ start: function (c) {
             var i = 0;
-            var next = function () { if (i >= lines.length) { c.close(); return } c.enqueue(enc.encode(JSON.stringify(lines[i++]) + "\\n")); setTimeout(next, 120) };
+            var next = function () { if (i >= lines.length) { c.close(); return } c.enqueue(enc.encode(JSON.stringify(lines[i++]) + "\\n")); setTimeout(next, gap) };
             next();
           } });
           resolve(new Response(stream, { status: 200, headers: { "content-type": "application/x-ndjson" } }));
@@ -117,6 +176,22 @@ window.__posts = [];
     }
     return json({});
   };
+  /* The clipboard, recorded: Copy is read back from here. */
+  window.__copied = [];
+  try { Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: function (t) { window.__copied.push(t); return Promise.resolve() } } }) } catch (e) {}
+  /* Web Audio, counted: which sounds started, and when the context was made. */
+  window.__audio = { contexts: 0, started: [] };
+  var RealAudio = window.AudioContext;
+  if (RealAudio) {
+    window.AudioContext = function (options) {
+      var ctx = new RealAudio(options);
+      window.__audio.contexts++;
+      var osc = ctx.createOscillator.bind(ctx), src = ctx.createBufferSource.bind(ctx);
+      ctx.createOscillator = function () { var n = osc(); var st = n.start.bind(n); n.start = function (t) { window.__audio.started.push({ kind: n.type, at: performance.now() }); return st(t) }; return n };
+      ctx.createBufferSource = function () { var n = src(); var st = n.start.bind(n); n.start = function (t) { window.__audio.started.push({ kind: n.buffer && n.buffer.length > 1 ? "noise" : "silent", at: performance.now() }); return st(t) }; return n };
+      return ctx;
+    };
+  }
   /* A request with pictures goes over XMLHttpRequest, for its upload progress: answered by the same stub, streamed into responseText. */
   window.XMLHttpRequest = function () {
     var self = this;
@@ -188,12 +263,11 @@ async function desktop(browser, vp, label, full) {
 
   const glass = await p.evaluate(() => {
     const g = getComputedStyle(document.querySelector("[data-ask-glass]"))
-    const h = getComputedStyle(document.querySelector("[data-ask-halo]"))
-    return { glass: g.backdropFilter, fill: g.backgroundColor, halo: h.backdropFilter, shadow: h.boxShadow.slice(0, 60), haloOpacity: h.opacity }
+    return { glass: g.backdropFilter, fill: g.backgroundColor, halo: !!document.querySelector("[data-ask-halo]"), band: !!document.querySelector("[data-ask-fade]") }
   })
-  expect(/blur\(24px\)/.test(glass.glass) && /saturate/.test(glass.glass) && /(, 0\.7\)| \/ 0\.7\))$/.test(glass.fill), "the pill is frosted: a blur and a whitish fill", glass)
-  /* The glow's edges are measured pixel by pixel in scripts/check-ask-dock.mjs (FADE). */
-  expect(glass.halo === "none" && /rgba\(248, 249, 250/.test(glass.shadow) && glass.haloOpacity === "1", "with a soft glow round it: a shadow, no filter and no mask", { halo: glass.halo, shadow: glass.shadow })
+  expect(/blur\(10px\)/.test(glass.glass) && /(, 0\.95\)| \/ 0\.95\))$/.test(glass.fill), "the pill is near solid white: 95% over a light 10px blur", glass)
+  /* No glow and no blurred band round it: its pixels are measured in askai2 (NO GLOW, NO BAND). */
+  expect(!glass.halo && !glass.band, "nothing round it: no halo, no blurred band", glass)
   const mic0 = await p.$("[data-ask-mic]")
   expect(!!mic0, "with a recogniser, the microphone is there")
   await p.screenshot({ path: join(shots, `${PREFIX}${label}-pill.png`) })
@@ -364,7 +438,7 @@ async function desktop(browser, vp, label, full) {
   await p.evaluate((at) => { const t = document.getElementById("fake-toolbar"); t.style.display = "block"; t.style.left = `${at.left}px`; t.style.top = `${at.top}px` }, { left: pill.x - main.x + pill.w - 200, top: pill.y - main.y + 6 })
   await p.evaluate(() => window.dispatchEvent(new Event("resize")))
   await sleep(450)
-  const yielded = await p.$eval("[data-ask-pill-state]", (e) => ({ state: e.getAttribute("data-ask-pill-state"), o: getComputedStyle(e).opacity, pe: getComputedStyle(e).pointerEvents }))
+  const yielded = await p.$eval("[data-ask-pill-state]", (e) => ({ state: e.getAttribute("data-ask-pill-state"), o: getComputedStyle(document.querySelector("[data-ask-glass]")).opacity, pe: getComputedStyle(e).pointerEvents }))
   expect(yielded.state === "away" && yielded.pe === "none", "the section toolbar over the pill: the pill steps out of its way", yielded)
   await p.screenshot({ path: join(shots, `${PREFIX}${label}-toolbar.png`) })
   await p.evaluate(() => { document.getElementById("fake-toolbar").style.display = "none"; window.dispatchEvent(new Event("resize")) })
@@ -376,8 +450,8 @@ async function desktop(browser, vp, label, full) {
   await sleep(400)
   await p.click("[data-ask-close]")
   await sleep(400)
-  const closed = await p.evaluate(() => { const s = getComputedStyle(document.querySelector("[data-ask-pill-state]")); return { state: document.querySelector("[data-ask-dock]").getAttribute("data-state"), o: s.opacity, v: s.visibility, halo: getComputedStyle(document.querySelector("[data-ask-halo]")).opacity } })
-  expect(closed.state === "hidden" && closed.o === "0" && closed.v === "hidden" && closed.halo === "0", "close hides the conversation and the pill", closed)
+  const closed = await p.evaluate(() => { const s = getComputedStyle(document.querySelector("[data-ask-pill-state]")); return { state: document.querySelector("[data-ask-dock]").getAttribute("data-state"), glass: getComputedStyle(document.querySelector("[data-ask-glass]")).opacity, v: s.visibility } })
+  expect(closed.state === "hidden" && closed.glass === "0" && closed.v === "hidden", "close hides the conversation and the pill", closed)
   await p.screenshot({ path: join(shots, `${PREFIX}${label}-closed.png`) })
   await p.click("#ask-ai-toggle")
   await sleep(400)
@@ -467,6 +541,474 @@ async function phone(browser) {
   await p.close()
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   ASKAI2: glass without glow, pictures that stay pictures, sounds, and the
+   answer's actions. Screenshots askai2-*.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+const P2 = "askai2-"
+const measures = {}
+
+async function openAt(browser, vp, query, hash = "#desktop") {
+  const p = await browser.newPage()
+  p.__errors = []
+  p.on("pageerror", (e) => p.__errors.push(e.message))
+  await p.setViewport(vp)
+  await p.goto(`file://${join(stubs, "index.html")}?${query}${hash}`)
+  await sleep(900)
+  return p
+}
+const closeWith = async (p) => {
+  if (p.__errors.length) expect(false, "no errors on the page", p.__errors)
+  await p.close()
+}
+
+/* Luminance of every pixel in a region, from a screenshot, read in the page. */
+const PIXELS = `async (src, clip) => {
+  const img = new Image()
+  await new Promise((r) => { img.onload = r; img.src = "data:image/png;base64," + src })
+  const c = document.createElement("canvas"); c.width = img.width; c.height = img.height
+  const x = c.getContext("2d"); x.drawImage(img, 0, 0)
+  const X0 = Math.round(clip.x), Y0 = Math.round(clip.y), w = Math.round(clip.width), h = Math.round(clip.height)
+  const d = x.getImageData(X0, Y0, w, h).data
+  const lum = new Float32Array(w * h)
+  for (let i = 0; i < lum.length; i++) lum[i] = 0.2126 * d[i * 4] + 0.7152 * d[i * 4 + 1] + 0.0722 * d[i * 4 + 2]
+  return { w, h, lum: Array.from(lum) }
+}`
+
+/*
+  THE WHOLE WINDOW, THEN THE PART. A screenshot clipped to a small box
+  redraws only that box, and a backdrop blur inside it then has nothing
+  beyond the box to blur with: a 16px wide clip read the band as half as
+  blurred as it is on screen. So every measurement is taken from a picture
+  of the whole window, as a person sees it, and cut to the region after.
+*/
+async function grab(p, clip) {
+  const src = await p.screenshot({ encoding: "base64" })
+  return p.evaluate(`(${PIXELS})(${JSON.stringify(src)}, ${JSON.stringify(clip)})`)
+}
+
+/* ── GLASS: what the pill and the conversation are made of ──────────── */
+async function glassStyles(browser, vp) {
+  const label = `glass-${vp.width}`
+  console.log(`\n${label}`)
+  const p = await openAt(browser, vp, "speech=none&canvas=photo")
+  const read = () => p.evaluate(() => {
+    const style = (sel) => {
+      const e = document.querySelector(sel)
+      if (!e) return null
+      const c = getComputedStyle(e)
+      return { backdrop: c.backdropFilter || c.webkitBackdropFilter, fill: c.backgroundColor, border: `${c.borderTopWidth} ${c.borderTopColor}`, shadow: c.boxShadow, opacity: c.opacity, mask: c.maskImage || c.webkitMaskImage, radius: c.borderTopLeftRadius }
+    }
+    return { glass: style("[data-ask-glass]"), card: style("[data-ask-card]"), surface: style("[data-ask-surface]"), halo: !!document.querySelector("[data-ask-halo]"), band: !!document.querySelector("[data-ask-fade]") }
+  })
+  /* Every shadow layer: its colour, and whether it is inside. */
+  const layers = (shadow) => (shadow.match(/rgba?\([^)]*\)[^,]*(?:,|$)/g) ?? []).map((l) => {
+    const [r, g, b, a = "1"] = l.match(/rgba?\(([^)]*)\)/)[1].split(",").map((x) => x.trim())
+    return { r: +r, g: +g, b: +b, a: +a, inset: /inset/.test(l) }
+  })
+  const folded = await read()
+  const gl = layers(folded.glass.shadow)
+  const outside = gl.filter((l) => !l.inset)
+  measures[label] = { glass: folded.glass }
+  expect(/blur\(10px\)/.test(folded.glass.backdrop), "the pill: a light 10px backdrop blur", folded.glass.backdrop)
+  expect(/0\.95\)$/.test(folded.glass.fill), "a near solid white fill, 95%", folded.glass.fill)
+  /* Chromium may report the ink border in oklab (Tailwind mixes it there): alpha 0.08. */
+  expect(/^1px .*0\.08\)$/.test(folded.glass.border) && outside.some((l) => l.r < 40 && l.a <= 0.08 && l.a > 0), "a hairline edge of ink", { border: folded.glass.border })
+  /* Tailwind's stack carries empty layers (transparent, no size); what is drawn is the rest. */
+  const drawn = outside.filter((l) => l.a > 0)
+  expect(drawn.length >= 4 && drawn.every((l) => l.r <= 60 && l.g <= 60 && l.b <= 60), "a hairline and three shadows for depth, every one of them ink and none of them light", drawn)
+  expect(!folded.halo, "and no halo element at all")
+  expect(!folded.band, "and no blurred band round it, so there is no edge to see")
+  await p.screenshot({ path: join(shots, `${P2}${label}-pill.png`) })
+
+  /* THE BLUR STAYS ON WHILE IT FADES: no glass layer has an ancestor below full opacity, frame by frame, opening and closing. */
+  const frames = await p.evaluate(async () => {
+    const glassy = () => [...document.querySelectorAll("[data-ask-dock] *")].filter((e) => { const b = getComputedStyle(e).backdropFilter; return b && b !== "none" })
+    const worst = () => {
+      let min = 1
+      for (const e of glassy()) for (let a = e.parentElement; a && a !== document.body; a = a.parentElement) min = Math.min(min, +getComputedStyle(a).opacity)
+      return min
+    }
+    const out = []
+    const watch = (ms) => new Promise((done) => { const t0 = performance.now(); const tick = () => { out.push(worst()); if (performance.now() - t0 < ms) requestAnimationFrame(tick); else done() }; requestAnimationFrame(tick) })
+    document.querySelector("[data-ask-pill] textarea").focus()
+    await watch(420)
+    document.querySelector("[data-ask-pill] textarea").blur()
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))
+    await watch(420)
+    return { frames: out.length, lowest: Math.min(...out), layers: glassy().length }
+  })
+  expect(frames.lowest === 1 && frames.layers >= 1, "while the conversation opens and folds, no blurred layer sits under a fading one: the blur never switches off", frames)
+
+  await p.click("[data-ask-pill] textarea")
+  await sleep(500)
+  const open = await read()
+  measures[label].surface = open.surface
+  expect((!open.surface.backdrop || open.surface.backdrop === "none") && open.surface.fill === "rgb(255, 255, 255)", "the open conversation: solid white, no backdrop filter", { backdrop: open.surface.backdrop, fill: open.surface.fill })
+  const sl = layers(open.surface.shadow).filter((l) => !l.inset && l.a > 0)
+  expect(sl.length >= 4 && sl.every((l) => l.r <= 60 && l.g <= 60 && l.b <= 60), "with ink shadows only", sl)
+  expect(open.card.opacity === "1", "and it is fully shown", open.card.opacity)
+  await p.screenshot({ path: join(shots, `${P2}${label}-open.png`) })
+  await closeWith(p)
+}
+
+/* ── NO GLOW: nothing round the pill is lighter than the page under it ── */
+async function noGlow(browser, vp) {
+  const label = `noglow-${vp.width}`
+  console.log(`\n${label}`)
+  const p = await openAt(browser, vp, "speech=none&canvas=dark")
+  const pill = await rect(p, "[data-ask-pill]")
+  const main = await rect(p, "#canvas-main")
+  const R = 90
+  const clip = { x: Math.max(main.x, pill.x - R), y: Math.max(main.y, pill.y - R), width: 0, height: 0 }
+  clip.width = Math.min(main.r, pill.r + R) - clip.x
+  clip.height = Math.min(main.b, pill.b + R) - clip.y
+  /* The page's own colour, far from the pill. */
+  const far = await grab(p, { x: main.x + 20, y: main.y + 20, width: 40, height: 40 })
+  const bg = far.lum.reduce((a, b) => a + b, 0) / far.lum.length
+  const ring = (px) => {
+    let lift = 0, lifted = 0, darker = 0, n = 0
+    for (let y = 0; y < px.h; y++) for (let x = 0; x < px.w; x++) {
+      const X = clip.x + x, Y = clip.y + y
+      /* The pill itself and a pixel of its edge are the pill, not what is round it. */
+      if (X >= pill.x - 1 && X <= pill.r + 1 && Y >= pill.y - 1 && Y <= pill.b + 1) continue
+      const d = px.lum[y * px.w + x] - bg
+      n++
+      if (d > lift) lift = d
+      if (d > 2) lifted++
+      if (d < -2) darker++
+    }
+    return { maxLift: +lift.toFixed(1), liftedPixels: lifted, shadowPixels: darker, sampled: n }
+  }
+  const now = ring(await grab(p, clip))
+  await p.screenshot({ path: join(shots, `${P2}${label}-dark.png`), clip: { x: clip.x, y: clip.y, width: clip.width, height: clip.height } })
+  /* The same check on the old glow, put back for a moment, to show it would be seen. */
+  await p.evaluate((g) => {
+    const h = document.createElement("div")
+    h.id = "old-halo"
+    h.style.cssText = `position:absolute;left:${g.x}px;top:${g.y}px;width:${g.w}px;height:${g.h}px;border-radius:9999px;box-shadow:0 6px 44px 14px rgba(248,249,250,0.5);pointer-events:none;z-index:10`
+    document.body.appendChild(h)
+  }, { x: pill.x, y: pill.y, w: pill.w, h: pill.h })
+  await sleep(100)
+  const old = ring(await grab(p, clip))
+  await p.screenshot({ path: join(shots, `${P2}${label}-old-glow.png`), clip: { x: clip.x, y: clip.y, width: clip.width, height: clip.height } })
+  measures[label] = { background: +bg.toFixed(1), now, old }
+  expect(now.maxLift <= 2 && now.liftedPixels === 0, `no pixel within ${R}px of the pill is lighter than the page (lifted by at most 2 of 255)`, now)
+  expect(now.shadowPixels > 200, "what is there is shadow, darker than the page", { shadowPixels: now.shadowPixels })
+  expect(old.maxLift >= 40 && old.liftedPixels > 1000, "and the same check on the old glow finds it", old)
+  await closeWith(p)
+}
+
+/* ── NO BAND: the page round the pill is left sharp, so there is no edge ── */
+async function fadeBand(browser, vp) {
+  const label = `noband-${vp.width}`
+  console.log(`\n${label}`)
+  /*
+    "The blur around the pill is not fading, disappearing smoothly. It's very
+    cut around." Safari draws a backdrop blur but not the mask that feathers
+    it, so the band ended in a hard edge. It is gone: over fine stripes, the
+    rows just above the pill are as sharp as the rows further out.
+  */
+  const s = await openAt(browser, vp, "speech=none&canvas=stripes")
+  const sp = await rect(s, "[data-ask-pill]")
+  await s.screenshot({ path: join(shots, `${P2}${label}-stripes.png`), clip: { x: sp.x - 60, y: sp.y - 60, width: 240, height: sp.h + 90 } })
+  const cx = Math.round(sp.x + sp.w / 2)
+  const above = await grab(s, { x: cx - 8, y: Math.round(sp.y - 48), width: 16, height: 40 })
+  const contrast = (px, row) => { let mn = 255, mx = 0; for (let x = 0; x < px.w; x++) { const v = px.lum[row * px.w + x]; mn = Math.min(mn, v); mx = Math.max(mx, v) } return mx - mn }
+  const rows = Array.from({ length: above.h }, (_, r) => contrast(above, r))
+  const full = Math.max(...rows.slice(0, 6))
+  const profile = rows.map((c) => +(c / full).toFixed(3))
+  const masked = await s.evaluate(() => [...document.querySelectorAll("[data-ask-dock] *")].filter((e) => { const c = getComputedStyle(e); return (c.maskImage && c.maskImage !== "none") || (c.webkitMaskImage && c.webkitMaskImage !== "none") }).length)
+  await closeWith(s)
+  measures[label] = { stripes: { rows: profile }, masked }
+  expect(masked === 0, "no element in the dock carries a mask", masked)
+  expect(profile.every((v) => v >= 0.8), "the page just above the pill is as sharp as the page further out: no band, no edge", profile)
+}
+
+/* ── PICTURES: a thumbnail now, and after a reload ─────────────────────── */
+async function pictures(browser, vp) {
+  const label = `pictures-${vp.width}`
+  console.log(`\n${label}`)
+  const p = await openAt(browser, vp, "speech=none")
+  const dir = mkdtempSync(join(tmpdir(), "askai2-files-"))
+  const file = join(dir, "layout.png")
+  const drawn = await p.evaluate(async () => { const c = new OffscreenCanvas(640, 400); const x = c.getContext("2d"); x.fillStyle = "#0f766e"; x.fillRect(0, 0, 640, 400); x.fillStyle = "#fff"; x.fillRect(60, 60, 260, 120); const b = new Uint8Array(await (await c.convertToBlob({ type: "image/png" })).arrayBuffer()); let s = ""; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s) })
+  writeFileSync(file, Buffer.from(drawn, "base64"))
+  const input = await p.$("[data-ask-pill] input[type=file]")
+  await input.uploadFile(file)
+  await sleep(700)
+  await p.click("[data-ask-send]")
+  await sleep(2400)
+  const live = await p.evaluate(() => {
+    const img = document.querySelector("[data-ask-sent-image] img")
+    const r = img?.getBoundingClientRect()
+    return { thumbs: document.querySelectorAll("[data-ask-sent-image]").length, loaded: !!img && img.complete && img.naturalWidth > 0, w: r ? Math.round(r.width) : 0, h: r ? Math.round(r.height) : 0, noted: /attached\]/.test(document.querySelector("[data-chat-thread]").textContent), prompt: [...document.querySelectorAll("[data-ask-prompt]")].pop()?.textContent }
+  })
+  expect(live.thumbs === 1 && live.loaded && live.w === 64 && live.h === 64 && !live.noted && live.prompt === "Build this.", "live: the sent picture is a 64px thumbnail that has loaded, and no note in words", live)
+  await p.screenshot({ path: join(shots, `${P2}${label}-live.png`) })
+  rmSync(dir, { recursive: true, force: true })
+  await closeWith(p)
+
+  /* After a reload: one picture came back, one's address no longer loads, and one question's picture is past its thirty days. */
+  const r = await openAt(browser, vp, "speech=none&chat=pictures")
+  await r.click("[data-ask-pill] textarea")
+  await sleep(900)
+  const back = await r.evaluate(() => {
+    const img = document.querySelector("[data-ask-sent-image] img")
+    const tiles = [...document.querySelectorAll("[data-ask-missing-image]")].map((t) => ({ label: t.getAttribute("aria-label"), text: t.textContent, w: Math.round(t.getBoundingClientRect().width), h: Math.round(t.getBoundingClientRect().height) }))
+    return {
+      thumbs: document.querySelectorAll("[data-ask-sent-image]").length,
+      loaded: !!img && img.complete && img.naturalWidth > 0,
+      tiles,
+      prompts: [...document.querySelectorAll("[data-ask-prompt]")].map((x) => x.textContent),
+      noted: /attached\]/.test(document.querySelector("[data-chat-thread]").textContent),
+      notice: document.querySelector("[data-ask-not-set-up]")?.textContent ?? null,
+    }
+  })
+  expect(back.thumbs === 1 && back.loaded, "after a reload the picture that came back is a thumbnail again, loaded", back)
+  expect(back.tiles.length === 2 && back.tiles.every((t) => t.label === "Picture no longer available" && t.h === 64 && /Picture no longer available/.test(t.text)), "one whose address does not load and one past its thirty days are tiles that say so, the thumbnail's height", back.tiles)
+  expect(!back.noted && back.prompts.join(" | ") === "Build this | Build this.", "and no message shows the note in words", back.prompts)
+  expect(back.notice === null, "with the database set up there is no notice")
+  await r.screenshot({ path: join(shots, `${P2}${label}-reloaded.png`) })
+  await r.click("[data-ask-sent-image]")
+  await sleep(350)
+  const viewer = await r.evaluate(() => { const v = document.querySelector("[data-ask-keep] > div"); const img = v?.querySelector("img"); return v ? { inBody: v.parentElement.parentElement === document.body, img: !!img && img.naturalWidth > 0 } : null })
+  expect(!!viewer && viewer.inBody && viewer.img, "and it opens in the viewer", viewer)
+  await r.keyboard.press("Escape")
+  await closeWith(r)
+
+  /* Before the database update, said once, above the thread. */
+  const u = await openAt(browser, vp, "speech=none&chat=unsaved")
+  await u.click("[data-ask-pill] textarea")
+  await sleep(700)
+  const unsaved = await u.evaluate(() => ({ text: document.querySelector('[data-ask-not-set-up="chat"]')?.textContent ?? null, failed: /could not be loaded/.test(document.querySelector("[data-chat-thread]").textContent), chips: document.querySelectorAll("[data-ask-suggestion]").length }))
+  expect(unsaved.text === "Chats are not saved yet. They are kept once the database update is run." && !unsaved.failed && unsaved.chips > 0, "no chat table yet: the chat says it is not saved, not that it failed, and can still be used", unsaved)
+  await u.screenshot({ path: join(shots, `${P2}${label}-not-saved.png`) })
+  await closeWith(u)
+  const n = await openAt(browser, vp, "speech=none&chat=pictures&pictures=not_set_up")
+  await n.click("[data-ask-pill] textarea")
+  await sleep(700)
+  const noPics = await n.evaluate(() => document.querySelector('[data-ask-not-set-up="pictures"]')?.textContent ?? null)
+  expect(noPics === "Pictures show here until you leave. They are kept once the database update is run.", "no pictures table yet: said above the thread", noPics)
+  await closeWith(n)
+}
+
+/* ── SOUNDS: how they sound, when they play, and the switch ──────────── */
+async function sounds(browser) {
+  console.log("\nsounds")
+  const p = await openAt(browser, { width: 1280, height: 800 }, "speech=fake")
+  /* Rendered offline from the real graph: how loud, how long. */
+  const levels = await p.evaluate(async () => {
+    const { ASK_SOUNDS, scheduleSound } = window.__askSounds
+    const out = {}
+    for (const name of ASK_SOUNDS) {
+      const ctx = new OfflineAudioContext(1, 48000, 48000)
+      scheduleSound(ctx, name, 0.01, ctx.destination)
+      const data = (await ctx.startRendering()).getChannelData(0)
+      let peak = 0
+      for (const v of data) peak = Math.max(peak, Math.abs(v))
+      let last = 0
+      for (let i = 0; i < data.length; i++) if (Math.abs(data[i]) > peak * 0.01) last = i
+      out[name] = { peakDbfs: +(20 * Math.log10(peak)).toFixed(1), heardMs: Math.round((last / 48000 - 0.01) * 1000) }
+    }
+    return out
+  })
+  measures.soundLevels = levels
+  expect(Object.values(levels).every((l) => l.peakDbfs <= -18 && l.peakDbfs >= -24), "every sound peaks near -20 dBFS (between -24 and -18)", levels)
+  expect(levels["record-start"].heardMs <= 140 && levels["record-stop"].heardMs <= 140 && levels.sent.heardMs >= 190 && levels.sent.heardMs <= 260 && levels.done.heardMs >= 340 && levels.done.heardMs <= 470, "ticks about 100ms, the whoosh about 230ms, the chime about 400ms", levels)
+
+  /* When they play. */
+  const count = () => p.evaluate(() => ({ contexts: window.__audio.contexts, started: window.__audio.started.map((s) => s.kind) }))
+  const onLoad = await count()
+  expect(onLoad.contexts === 0 && onLoad.started.length === 0, "on page load no audio is made and nothing plays", onLoad)
+  await p.click("[data-ask-pill] textarea")
+  await sleep(500)
+  const gestured = await count()
+  expect(gestured.contexts === 1 && !gestured.started.some((k) => k !== "silent"), "the first press makes one context, and plays nothing you can hear", gestured)
+  await p.type("[data-ask-pill] textarea", "Make it calmer")
+  const before = (await count()).started.length
+  await p.keyboard.press("Enter")
+  await sleep(250)
+  const whoosh = (await count()).started.slice(before)
+  expect(whoosh.includes("noise"), "sending plays the whoosh", whoosh)
+  await sleep(1800)
+  const chime = (await count()).started.slice(before)
+  expect(chime.filter((k) => k === "sine").length >= 4, "the answer arriving plays the chime: two notes, each with its octave", chime)
+  const b2 = (await count()).started.length
+  await p.click("[data-ask-mic]")
+  await sleep(450)
+  const opened = (await count()).started.slice(b2)
+  await p.click("[data-ask-mic]")
+  await sleep(300)
+  const closed = (await count()).started.slice(b2 + opened.length)
+  expect(opened.includes("triangle") && closed.includes("triangle"), "the microphone ticks as it opens and again as it closes", { opened, closed })
+  const all = await count()
+  expect(all.contexts === 1, "all on the one context", all.contexts)
+
+  /* The switch, in the Ask Storelib menu. */
+  await p.click("[data-ask-model]")
+  await sleep(250)
+  const sw = await p.evaluate(() => { const s = document.querySelector("[data-ask-sounds]"); return s ? { role: s.getAttribute("role"), on: s.getAttribute("aria-checked"), text: s.textContent.trim() } : null })
+  expect(!!sw && sw.role === "switch" && sw.on === "true" && sw.text === "Sounds", "Sounds is a switch in the menu under the model, on by default", sw)
+  await p.screenshot({ path: join(shots, `${P2}sounds-menu-1280.png`) })
+  await p.click("[data-ask-sounds]")
+  await sleep(150)
+  const off = await p.evaluate(() => ({ on: document.querySelector("[data-ask-sounds]").getAttribute("aria-checked"), stored: localStorage.getItem("storelib.ask.sounds") }))
+  expect(off.on === "false" && off.stored === "off", "turned off, and remembered", off)
+  await p.keyboard.press("Escape")
+  await p.click("[data-ask-pill] textarea")
+  await p.type("[data-ask-pill] textarea", "Again")
+  const b3 = (await count()).started.length
+  await p.keyboard.press("Enter")
+  await sleep(2200)
+  const quiet = (await count()).started.slice(b3)
+  expect(quiet.every((k) => k === "silent"), "off: a message and its answer play nothing", quiet)
+  await p.reload()
+  await sleep(900)
+  await p.click("[data-ask-pill] textarea")
+  await sleep(300)
+  await p.click("[data-ask-model]")
+  await sleep(250)
+  const kept = await p.evaluate(() => document.querySelector("[data-ask-sounds]")?.getAttribute("aria-checked"))
+  expect(kept === "false", "still off after a reload", kept)
+  await p.click("[data-ask-sounds]")
+  await sleep(200)
+  const back = await p.evaluate(() => ({ on: document.querySelector("[data-ask-sounds]").getAttribute("aria-checked"), stored: localStorage.getItem("storelib.ask.sounds"), played: window.__audio.started.map((s) => s.kind).filter((k) => k === "sine").length }))
+  expect(back.on === "true" && back.stored === "on" && back.played >= 2, "and on again, with one chime so the choice is heard", back)
+  await closeWith(p)
+
+  /* A phone's menu is the bottom sheet: the switch is there too, a thumb's height. */
+  const ph = await openAt(browser, { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, "speech=fake", "#phone")
+  await ph.tap("[data-ask-model]")
+  await sleep(700)
+  const phoneSwitch = await ph.evaluate(() => { const s = document.querySelector("[data-ask-sounds]"); return s ? { h: Math.round(s.getBoundingClientRect().height), inSheet: !!s.closest("[data-app-sheet]"), on: s.getAttribute("aria-checked") } : null })
+  expect(!!phoneSwitch && phoneSwitch.h >= 44 && phoneSwitch.inSheet, "on a phone the switch is in the menu's sheet, 44px or more", phoneSwitch)
+  await ph.screenshot({ path: join(shots, `${P2}sounds-menu-390.png`) })
+  await closeWith(ph)
+}
+
+/* ── ACTIONS: the live line, Copy, Report, a suggestion ──────────────── */
+async function actions(browser, vp) {
+  const label = `actions-${vp.width}`
+  console.log(`\n${label}`)
+  const p = await openAt(browser, vp, "speech=none&agent=full")
+  await p.click("[data-ask-pill] textarea")
+  await sleep(500)
+  await p.type("[data-ask-pill] textarea", "Add quotes under the hero")
+  await p.keyboard.press("Enter")
+  const seen = await p.evaluate(async () => {
+    const lines = []
+    const t0 = performance.now()
+    await new Promise((done) => {
+      const tick = () => {
+        const t = [...document.querySelectorAll('[data-ask-activity] [data-line="in"] [data-ask-line-text]')].pop()
+        const text = t ? t.firstChild.textContent : null
+        if (text && lines[lines.length - 1] !== text) lines.push(text)
+        if (performance.now() - t0 < 5200 && document.querySelector('[data-ask-exchange="running"]')) setTimeout(tick, 60)
+        else done()
+      }
+      tick()
+    })
+    return lines
+  })
+  expect(seen.length >= 5 && seen.includes("Writing Testimonials") && seen.includes("Checking contrast"), `the line changes as the run moves (${seen.length} different lines)`, seen)
+  await sleep(300)
+  const done = await p.evaluate(() => {
+    const ex = [...document.querySelectorAll("[data-ask-exchange]")].pop()
+    return {
+      state: ex.getAttribute("data-ask-exchange"),
+      line: !!ex.querySelector("[data-ask-activity]"),
+      steps: ex.querySelector("[data-ask-steps-toggle]")?.textContent.trim(),
+      expanded: ex.querySelector("[data-ask-steps-toggle]")?.getAttribute("aria-expanded"),
+      list: !!ex.querySelector("[data-ask-steps]"),
+      count: ex.querySelector("[data-ask-count]")?.textContent,
+      reply: ex.querySelector("[data-ask-reply]")?.textContent,
+    }
+  })
+  expect(done.state === "done" && !done.line && /^\d+ steps$/.test(done.steps ?? "") && done.expanded === "false" && !done.list && done.count === "Changed Testimonials" && /Added three quotes/.test(done.reply ?? ""), "done, it folds: the line goes, the steps are one closed toggle, and the summary names what changed", done)
+  await p.screenshot({ path: join(shots, `${P2}${label}-done.png`) })
+  await p.click("[data-ask-steps-toggle]")
+  await sleep(200)
+  const list = await p.evaluate(() => [...document.querySelectorAll("[data-ask-steps] li")].map((l) => l.textContent))
+  expect(list.length >= 5, "and opened, it lists what the run did", list)
+
+  /* Copy, on the answer just given: the last one in the thread. */
+  await (await p.$$("[data-ask-copy]")).pop().click()
+  await sleep(200)
+  const copy = await p.evaluate(() => ({ copied: window.__copied, said: document.querySelector("[data-ask-copied]")?.textContent }))
+  expect(copy.copied[0] === done.reply && copy.said === "Copied", "Copy puts the answer on the clipboard and says Copied", copy)
+
+  /* Report, the same answer. */
+  await (await p.$$("[data-ask-report]")).pop().click()
+  await sleep(250)
+  await p.type("[data-ask-report-form] input", "It changed the wrong section")
+  await p.click('[data-ask-report-form] button[type="submit"]')
+  await sleep(400)
+  const report = await p.evaluate(() => ({ sent: window.__reports, said: document.querySelector("[data-ask-reported]")?.textContent, form: !!document.querySelector("[data-ask-report-form]") }))
+  expect(report.sent.length === 1 && /^4{8}-4{4}-4{4}-84{3}-4{11}\d$/.test(report.sent[0].messageId) && report.sent[0].reason === "It changed the wrong section" && report.sent[0].engine === "claude" && report.said === "Reported. Thank you." && !report.form, "Report sends this answer's id (the one the stream recorded), the reason and the model, and says it was kept", report)
+  await p.screenshot({ path: join(shots, `${P2}${label}-reported.png`) })
+
+  /* A suggestion, from a new chat: it is sent. */
+  await p.click("[data-ask-new]")
+  await sleep(300)
+  const chip = await p.evaluate(() => document.querySelector("[data-ask-suggestion]")?.textContent)
+  const posts = await p.evaluate(() => window.__posts.length)
+  await p.click("[data-ask-suggestion]")
+  await sleep(500)
+  const sent = await p.evaluate(() => ({ posts: window.__posts.length, prompt: window.__posts[window.__posts.length - 1]?.prompt, shown: [...document.querySelectorAll("[data-ask-prompt]")].pop()?.textContent, box: document.querySelector("[data-ask-pill] textarea").value }))
+  expect(!!chip && sent.posts === posts + 1 && sent.prompt === chip && sent.shown === chip && sent.box === "", "a suggestion tapped is sent as the next message, not left in the box", { chip, ...sent })
+  await sleep(4000)
+  await closeWith(p)
+
+  /* Report before its table exists says so. */
+  const q = await openAt(browser, vp, "speech=none&report=not_set_up")
+  await q.click("[data-ask-pill] textarea")
+  await sleep(400)
+  await q.type("[data-ask-pill] textarea", "Hi")
+  await q.keyboard.press("Enter")
+  await sleep(2200)
+  await (await q.$$("[data-ask-report]")).pop().click()
+  await sleep(200)
+  await q.click('[data-ask-report-form] button[type="submit"]')
+  await sleep(400)
+  const problem = await q.evaluate(() => document.querySelector("[data-ask-report-form] [role=alert]")?.textContent)
+  expect(problem === "Reports turn on once the database update is run.", "before the update, Report says it turns on after it", problem)
+  await closeWith(q)
+}
+
+async function phoneActions(browser) {
+  console.log("\nactions-390")
+  const p = await openAt(browser, { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, "speech=none&chat=pictures", "#phone")
+  await sleep(400)
+  const back = await p.evaluate(() => ({ thumbs: document.querySelectorAll("[data-ask-sent-image]").length, tiles: document.querySelectorAll("[data-ask-missing-image]").length, noted: /attached\]/.test(document.querySelector("[data-chat-thread]").textContent), sideways: document.querySelector("[data-ask-sheet]").scrollWidth > document.querySelector("[data-ask-sheet]").clientWidth }))
+  expect(back.thumbs === 1 && back.tiles === 2 && !back.noted && !back.sideways, "on a phone a conversation read back shows its picture and its tiles, and nothing is wider than the sheet", back)
+  await p.screenshot({ path: join(shots, `${P2}pictures-390-reloaded.png`) })
+  await p.tap("[data-ask-new]")
+  await sleep(300)
+  const chip = await p.evaluate(() => { const c = document.querySelector("[data-ask-suggestion]"); return c ? { text: c.textContent, h: Math.round(c.getBoundingClientRect().height) } : null })
+  const posts = await p.evaluate(() => window.__posts.length)
+  await p.tap("[data-ask-suggestion]")
+  await sleep(500)
+  const sent = await p.evaluate(() => ({ posts: window.__posts.length, prompt: window.__posts[window.__posts.length - 1]?.prompt }))
+  expect(!!chip && sent.posts === posts + 1 && sent.prompt === chip.text, "a suggestion tapped on a phone is sent", { chip, ...sent })
+  await sleep(1500)
+  await closeWith(p)
+}
+
+async function askai2(browser) {
+  await glassStyles(browser, { width: 1280, height: 800 })
+  await noGlow(browser, { width: 1280, height: 800 })
+  await noGlow(browser, { width: 1440, height: 900 })
+  await fadeBand(browser, { width: 1280, height: 800 })
+  await pictures(browser, { width: 1280, height: 800 })
+  await sounds(browser)
+  await actions(browser, { width: 1280, height: 800 })
+  await phoneActions(browser)
+  console.log("\naskai2 measures")
+  console.log(JSON.stringify(measures, null, 1))
+}
+
 try {
   writeFileSync(join(stubs, "navigation.js"), `export const usePathname = () => "/"
 export const useRouter = () => ({ push() {}, prefetch() {}, replace() {}, refresh() {}, back() {} })
@@ -502,6 +1044,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
     if (!only || only.includes("desktop")) await desktop(browser, { width: 1280, height: 800 }, "desktop-1280", false)
     if (!only || only.includes("nospeech")) await noSpeech(browser)
     if (!only || only.includes("phone")) await phone(browser)
+    if (!only || only.includes("askai2")) await askai2(browser)
   } finally {
     await browser.close()
   }

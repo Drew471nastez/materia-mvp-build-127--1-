@@ -4,7 +4,8 @@ import type React from "react"
 import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Star, Download } from "lucide-react"
+import { Star, Download, Loader2 } from "lucide-react"
+import { usePressPending } from "@/lib/navigation/press-pending"
 import { stickyAddToCartButtonPresets } from "@/lib/store-builder/defaults"
 import { downloadEntitledFile } from "@/components/download-button"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
@@ -428,6 +429,8 @@ export function LiveStickyAddToCart({
   const [isMounted, setIsMounted] = useState(false)
   const [showFilesModal, setShowFilesModal] = useState(false)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  /* Pressed on the way to checkout: a spinner at once, cleared when the page is shown again (lib/navigation/press-pending). */
+  const [opening, startOpening] = usePressPending()
   const barRef = useRef<HTMLDivElement>(null)
 
   // Mount on client
@@ -558,6 +561,8 @@ export function LiveStickyAddToCart({
       /* Same reason as the handler above: a document load here resets the
          in-app history counter and the product page's back arrow loses its
          way home. */
+      if (opening) return
+      startOpening()
       router.push(checkoutUrl)
     }
   }
@@ -637,7 +642,7 @@ export function LiveStickyAddToCart({
               borderRadius: `${settings.borderRadius || 8}px`,
             }}
           >
-            {isPurchased && downloadFiles.length > 0 && <Download className="h-4 w-4" />}
+            {opening ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : isPurchased && downloadFiles.length > 0 && <Download className="h-4 w-4" />}
             {buttonText}
           </Button>
         </div>
@@ -695,7 +700,7 @@ export function LiveStickyAddToCart({
                 borderRadius: `${settings.borderRadius || 8}px`,
               }}
             >
-              {isPurchased && downloadFiles.length > 0 && <Download className="h-4 w-4" />}
+              {opening ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : isPurchased && downloadFiles.length > 0 && <Download className="h-4 w-4" />}
               {buttonText}
             </Button>
           </div>

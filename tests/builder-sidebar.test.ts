@@ -2,38 +2,30 @@
  * ===========================================================================
  *  THE BUILDER'S SIDEBAR, AS RULES
  * ===========================================================================
- * The parts of the sidebar's controls that are decisions rather than
- * drawing, tested as the decisions they are:
+ * The parts of the sidebar that are decisions rather than drawing, tested as
+ * the decisions they are:
  *
- *   a slider's value      where a drag or a typed number lands (snapToStep)
- *   a colour typed        "#abc", "abc" and "#AABBCC" are one colour (normalizeHex)
- *   a choice              short choices are a segmented row, long ones a list,
- *                         and a position has a small drawing of itself
- *   a picture's words     which text setting is a picture's alt text
+ *   the sidebar as it was the owner asked for the setting controls from before
+ *                         the September 25 rework back: the scheme dropdown,
+ *                         the browser's own selects, the black slider, the
+ *                         image box, the header layout cards and the rich text
+ *                         box, and nothing the rework added in their place
+ *   groups that move      every group in Theme settings opens and closes by
+ *                         height, with its content fading, on the iOS curve
  *   where a section goes  the library's "Between A and B", clamped the way
  *                         the editor clamps an insert
  *   bringing it on screen when the canvas scrolls to a new section, and when not
  *   a preview's markup    its pictures wait, its styles leave it, its key
  *                         holds its width
- *   header layouts        every wireframe is a layout the header can draw
  *
  * The geometry and motion are measured in a browser instead:
- * scripts/check-slider-drag.mjs, check-add-section.mjs, check-media-field.mjs,
- * check-sidebar-tabs.mjs, check-connections.mjs.
+ * scripts/check-sidebar-revert.mjs, check-sidebar-tabs.mjs,
+ * check-add-section.mjs, check-connections.mjs.
  */
-import { readFileSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 
-import { snapToStep } from "@/components/website-builder/editor/slider-number-control"
-import { normalizeHex } from "@/components/website-builder/editor/color-chip"
-import { fitsSegmented, positionIcon } from "@/components/website-builder/editor/setting-controls"
-import {
-  DEFAULT_DESKTOP_HEADER_LAYOUT,
-  DEFAULT_MOBILE_HEADER_LAYOUT,
-  DESKTOP_HEADER_LAYOUTS,
-  MOBILE_HEADER_LAYOUTS,
-} from "@/components/website-builder/editor/header-layout-picker"
-import { altFieldFor, pairedAltIds } from "@/lib/website-builder/alt-pairing"
+import { COLLAPSE_CLOSE_MS, COLLAPSE_OPEN_MS } from "@/components/website-builder/editor/collapse"
 import { whereItGoes } from "@/lib/website-builder/insert-words"
 import { arrivalScrollTarget } from "@/lib/website-builder/section-arrival"
 import { lazyImages, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
@@ -55,44 +47,106 @@ function check(label: string, ok: boolean, detail?: unknown) {
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 function main() {
-  console.log("\nA slider lands on a step, inside its range")
-  check("a value between steps goes to the nearest", snapToStep(13, 0, 100, 5) === 15 && snapToStep(12, 0, 100, 5) === 10)
-  check("past either end it stops at the end", snapToStep(140, 0, 100, 4) === 100 && snapToStep(-9, 0, 100, 4) === 0)
-  check("steps count from the minimum, not from zero", snapToStep(11, 1, 21, 5) === 11 && snapToStep(13, 1, 21, 5) === 11 && snapToStep(14, 1, 21, 5) === 16)
-  check("a fractional step comes out clean, not as 0.30000000000000004", snapToStep(0.31, 0, 1, 0.1) === 0.3 && String(snapToStep(0.7, 0, 1, 0.05)) === "0.7")
-  check("nothing typed that is not a number moves it past the minimum", snapToStep(Number.NaN, 4, 20, 2) === 4)
-  check("a step of nothing is no snapping, only the range", snapToStep(7.3, 0, 10, 0) === 7.3)
+  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const panels = read("components/website-builder/editor/design-panels.tsx")
+  const slider = read("components/website-builder/editor/slider-number-control.tsx")
+  const picker = read("components/website-builder/editor/image-picker.tsx")
+  const chip = read("components/website-builder/editor/color-chip.tsx")
+  const rich = read("components/website-builder/rich-text-field.tsx")
+  const collapse = read("components/website-builder/editor/collapse.tsx")
 
-  console.log("\nA colour typed three ways is one colour")
-  check("three digits grow to six", normalizeHex("#abc") === "#aabbcc" && normalizeHex("abc") === "#aabbcc")
-  check("six digits keep theirs, in small letters", normalizeHex("#1A1A2E") === "#1a1a2e" && normalizeHex(" 1a1a2e ") === "#1a1a2e")
-  check("anything else is not a colour yet, so the field keeps what it had", normalizeHex("#12") === null && normalizeHex("red") === null && normalizeHex("#1a1a2eff") === null)
+  console.log("\nThe sidebar's controls are the ones from before the rework")
+  /*
+    "Revert all the things you changed in the sidebar of the website builder
+    editor recently ... Full revert." Each control is pinned by something
+    only the older one has, and the modules the rework added are gone.
+  */
+  check("a section's scheme is chosen from the dropdown painted in each scheme, with Edit on every row",
+    /export function SchemePicker\(/.test(panels) && /<SchemePicker\s/.test(panels) && /onEdit\(key\)/.test(panels) && !/SchemeTiles|SchemeEditor/.test(panels))
+  check("and a scheme is edited in Colors, under the list, the one opened from a section first",
+    /initialActive=\{editSchemeKey\}/.test(editor) && /setExpandedSettings\("color_schemes"\)/.test(editor) && !/schemeEditing/.test(editor))
+  check("a choice in a section is the browser's own select",
+    /if \(kind === "select"\) \{\s*return \(\s*<div className="relative">\s*<select/.test(editor) && !/SettingSelect|SegmentedChoice/.test(editor))
+  check("and a short one is the grey segmented row, a long one a select",
+    /if \(opts\.length > 3\) \{/.test(editor) && /if \(options\.length > 3\) \{/.test(editor) && /"flex gap-1 p-1 bg-neutral-100 rounded-lg"/.test(editor))
+  check("the slider is the black one, drawn from its own state and sending once a frame",
+    /<Slider\s+value=\{\[shown\]\}/.test(slider) && /onValueCommit=\{\(\) => flush\(\)\}/.test(slider) && /className="wb-black-slider"/.test(slider) && /useFrameCommit\(onChange\)/.test(slider))
+  check("the image box says Add Image, with a spinner over the picture while it uploads",
+    />Add Image</.test(picker) && /Click to upload or drag &amp; drop/.test(picker) && /animate-spin/.test(picker) && !/MediaField|progressbar/.test(picker))
+  check("a video is a link pasted into a box, as it was", /placeholder="Paste video URL\.\.\."/.test(editor))
+  check("the header's layouts are the preview row and its own panel of cards",
+    /Header layout \(desktop\)/.test(editor) && /Choose header layout/.test(editor) && /Choose mobile header layout/.test(editor))
+  check("rich text is the field's own editor", /contentEditable/.test(rich) && /wb-richtext/.test(rich) && !/RichTextEditor/.test(rich))
+  check("the colour picker has no eyedropper and no ratio line", !/EyeDropper|Pipette|against/.test(chip) && /Don&apos;t apply any color/.test(chip))
+  for (const gone of [
+    "components/website-builder/editor/setting-controls.tsx",
+    "components/website-builder/editor/header-layout-picker.tsx",
+    "lib/website-builder/alt-pairing.ts",
+  ]) check(`${gone} is gone with the rework`, !existsSync(join(process.cwd(), gone)))
 
-  console.log("\nA short choice is a row of buttons, a long one a list")
-  const opts = (...labels: string[]) => labels.map((label) => ({ label, value: label.toLowerCase() }))
-  check("two or three short words are a segmented row", fitsSegmented(opts("Left", "Right")) && fitsSegmented(opts("Left", "Center", "Right")))
-  check("four is a row only when every word is short", fitsSegmented(opts("S", "M", "L", "XL")) && !fitsSegmented(opts("Small", "Medium", "Large", "Extra large")))
-  check("one, or five and more, is a list", !fitsSegmented(opts("Only")) && !fitsSegmented(opts("A", "B", "C", "D", "E")))
-  check("a long label makes it a list, so no button is cut off", !fitsSegmented(opts("Open it in the header", "Search page")))
-  check("a picture's side has a drawing of itself", positionIcon("image_position", "left") !== null && positionIcon("image_position", "right") !== null && positionIcon("media_position", "top") !== null)
-  check("text alignment has the alignment drawings", positionIcon("alignment", "center") !== null && positionIcon("text_align", "left") !== null)
-  check("and a value it does not know has none rather than a wrong one", positionIcon("alignment", "justify") === null && positionIcon("layout", "grid") === null)
+  console.log("\nWhat the editor gained since is drawn with those controls")
+  /*
+    The new setting types, conditional settings and the header's new
+    settings arrived on main after the rework, written against its controls.
+    They are kept, in the controls that came back: the browser's own select,
+    the fields listed one by one, the alt text as a field of its own.
+  */
+  check("the header's Menu on phones is the old select, under the phone layout's preview row",
+    /\{mobilePreviewSummary\}[\s\S]{0,600}<WbSelect\s+label="Menu on phones"/.test(editor) && /onUpdateSetting\("mobile_menu_style", v\)/.test(editor))
+  check("and Transparent on and the header's Links are the old select too",
+    /<WbSelect\s+label="Transparent on"/.test(editor) && /<WbSelect\s+label="Links"/.test(editor))
+  check("a section's settings are listed one by one, the ones whose visible_if holds, with its other settings beside them",
+    /const visible = visibleFields\(schema\.fields, section\.settings\)/.test(editor) &&
+      /<SiblingSettingsProvider settings=\{section\.settings\}>\s*<div className="p-4 space-y-4">\s*\{clean\.map\(field => \(/.test(editor))
+  check("and a block's the same way, its conditions reading the section's settings as well",
+    /<SiblingSettingsProvider settings=\{block\.settings\}>\s*\{visibleFields\(blockSchema\?\.fields \?\? \[\], block\.settings, \{ fields: schema\.fields \?\? \[\], saved: section\.settings \}\)\.map\(field => \(/.test(editor))
+  check("the newer controls are drawn by the controls folder first, and Insert shop data wraps every field",
+    /const registered = renderRegisteredControl\(kind, field, raw, onChange\)/.test(editor) && /<DynamicSourceField field=\{props\.field\}/.test(editor))
+  check("Theme settings' Menus is drawn by its own editor, without a second label, in both lists of groups",
+    (editor.match(/field\.type === "header" \|\| field\.type === "paragraph" \|\| field\.type === "menus" \? \(/g) ?? []).length === 2)
+  check("every panel the sidebar draws has the shop's facts for those controls",
+    (editor.match(/<EditorFieldProvider value=\{fieldEnv\}>/g) ?? []).length === 2)
 
-  console.log("\nA picture's description is found beside it")
-  const fields = [
-    { id: "image", type: "image_picker" },
-    { id: "image_alt", type: "text" },
-    { id: "heading", type: "text" },
-    { id: "hero_image", type: "image_picker" },
-    { id: "hero_image_description", type: "text" },
-    { id: "logo", type: "image_picker" },
-  ]
-  check("`image_alt` describes `image`", altFieldFor(fields[0], fields) === "image_alt")
-  check("`<id>_description` describes `<id>`", altFieldFor(fields[3], fields) === "hero_image_description")
-  check("a picture with nothing beside it has none", altFieldFor(fields[5], fields) === null)
-  check("a gallery block's `alt` describes its `image`", altFieldFor({ id: "image", type: "image_picker" }, [{ id: "image", type: "image_picker" }, { id: "alt", type: "text" }]) === "alt")
-  check("only a text setting counts, not a rich text or a toggle", altFieldFor(fields[0], [{ id: "image_alt", type: "richtext" }]) === null)
-  check("and the paired ones are not drawn a second time on their own", [...pairedAltIds(fields)].sort().join(",") === "hero_image_description,image_alt")
+  console.log("\nA group in Theme settings opens and closes, rather than appearing")
+  /*
+    "Make sure that the theme settings, the tabs in the sidebar, open
+    smoothly and close smoothly." Both lists of groups (the Theme tab and the
+    Theme settings panel) are Collapses: the height moves from where it is to
+    where it is going, so the groups under it move instead of jumping, and
+    the content fades with it.
+  */
+  const groups = editor.match(/<Collapse open=\{expandedSettings === group\.id\}/g) ?? []
+  check("both lists of groups open and close by height", groups.length === 2, groups.length)
+  check("and each group says whether it is open, for the probe and a screen reader",
+    (editor.match(/data-theme-group=\{group\.id\}/g) ?? []).length === 2 && (editor.match(/aria-expanded=\{expandedSettings === group\.id\}/g) ?? []).length === 2)
+  check("about a quarter of a second open, a little less shut", COLLAPSE_OPEN_MS === 240 && COLLAPSE_CLOSE_MS === 200)
+  check("on the iOS curve", /const EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(collapse))
+  check("measured, from the height it has now: an interrupted open closes from where it got to",
+    /const measured = el\.getBoundingClientRect\(\)\.height/.test(collapse) && /body\.getBoundingClientRect\(\)\.height/.test(collapse))
+  /*
+    Theme's Colors group is nearly 1,900px tall. On this curve a quarter of
+    a second moves a quarter of any distance in its first frame, so only the
+    part that can be seen is animated; the rest arrives or goes out of sight.
+    scripts/check-sidebar-revert.mjs measured the biggest step the row under
+    it takes in one frame: 761px before this, 245px after.
+  */
+  check("only what can be seen moves, and a close never makes the scroller pull its content down",
+    /const \{ room, slack \} = onlyVisible \? visibleRoom\(el\)/.test(collapse) && /const target = Math\.min\(full, room\)/.test(collapse) &&
+      /measured - Math\.min\(Math\.max\(0, measured - room\), slack\)/.test(collapse))
+  check("and the clock starts once the frame that builds the group has been drawn, not with the press",
+    /box\.pause\(\)/.test(collapse) && /content\.pause\(\)/.test(collapse) && /box\.startTime = now/.test(collapse) &&
+      /if \(running\.current\[0\] !== box\) return/.test(collapse))
+  check("the content fades with it", /\{ opacity: 0, transform: "translate3d\(0, -4px, 0\)" \}, \{ opacity: 1, transform: "none" \}/.test(collapse))
+  check("and reduced motion gets the end state at once", /prefers-reduced-motion: reduce/.test(collapse) && /if \(reducedMotion\(\) \|\| Math\.abs\(target - from\) < 1\)/.test(collapse))
+  check("a group left open is drawn open when Theme comes back, without its opening again", /if \(first\.current\) \{\s*first\.current = false\s*return/.test(collapse))
+  check("the panels inside a group move the same way: Advanced colors, Page colors and each text style",
+    /<Collapse open=\{customizeOpen\} onlyVisible>/.test(panels) && /<Collapse open=\{advancedOpen\} onlyVisible/.test(panels) && /<Collapse open=\{isOpen\} onlyVisible>/.test(panels))
+  check("and every one of them in the sidebar moves only what is on screen",
+    (editor.match(/<Collapse open=\{expandedSettings === group\.id\} onlyVisible /g) ?? []).length === 2 && (panels.match(/<Collapse [^>]*onlyVisible/g) ?? []).length === 3)
+  check("while a Collapse elsewhere moves its whole height, as the Connections list expects when it scrolls a line into view",
+    /onlyVisible = false/.test(collapse) && /onlyVisible \? visibleRoom\(el\) : \{ room: Infinity, slack: 0 \}/.test(collapse) &&
+      !/onlyVisible/.test(read("components/website-builder/website-settings/connection-row.tsx")))
+  check("and the old one frame fade is gone", !/animate-in fade-in slide-in-from-top-1/.test(editor) && !/themeGroupOpenedRef/.test(editor))
 
   console.log("\nThe library says where the section will go")
   const page = [
@@ -124,19 +178,6 @@ function main() {
     check("its styles are taken out, the empty ones dropped", split.html === '<section class="a">Hi</section>' && split.css.join("|") === ".a{color:red}|.b{margin:0}", split)
   }
   check("and it is kept under its width and its sources", previewKey("hero", 0, 390, "") !== previewKey("hero", 0, 800, "") && previewKey("mine", 1, 800, "v2") === "mine:1:800:v2")
-
-  console.log("\nEvery header wireframe is a layout the header draws")
-  const schema = read("themes/default/sections/header.json")
-  const header = read("components/website-builder/sections/renderers/HeaderSection.tsx")
-  const offered = (json: string, id: string) => new RegExp(`"value": "${id}"`).test(json)
-  for (const l of [...DESKTOP_HEADER_LAYOUTS, ...MOBILE_HEADER_LAYOUTS]) {
-    check(`${l.id} is in the header's settings and in its renderer`, offered(schema, l.id) && header.includes(l.id), l)
-  }
-  check("the defaults are the header's own defaults",
-    DEFAULT_DESKTOP_HEADER_LAYOUT === "logo_left_nav_right" && DEFAULT_MOBILE_HEADER_LAYOUT === "logo_center_hamburger_left" &&
-      /str\(s\.header_layout, "logo_left_nav_right"\)/.test(header) && /str\(s\.mobile_header_layout, "logo_center_hamburger_left"\)/.test(header))
-  check("and every layout the header's settings offer has a wireframe",
-    (schema.match(/"value": "(logo_|nav_|hamburger_)[a-z_]+"/g) ?? []).length === DESKTOP_HEADER_LAYOUTS.length + MOBILE_HEADER_LAYOUTS.length)
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

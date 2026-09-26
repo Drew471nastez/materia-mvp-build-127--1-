@@ -24,10 +24,16 @@ export const CARD_TOP_ROOM = 28
 /** Maximized: this wide at most, and this much of the window tall. */
 export const MAX_WIDTH = 960
 export const MAX_HEIGHT_SHARE = 0.85
-/** The iOS sheet curve, and how long each move takes. */
+/**
+ * How it moves. Opening is the iOS sheet curve: fast out of the gate, then a
+ * long soft landing. Closing is a little quicker on an ease in, so it gets
+ * out of the way without a tail. Transform and opacity only, both run by the
+ * compositor, so nothing on the canvas is laid out again while it moves.
+ */
 export const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-export const OPEN_MS = 300
-export const CLOSE_MS = 220
+export const CLOSE_EASE = "cubic-bezier(0.4, 0, 1, 1)"
+export const OPEN_MS = 260
+export const CLOSE_MS = 200
 export const SLIDE_MS = 320
 
 export interface DockGeometry {

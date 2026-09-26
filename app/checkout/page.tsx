@@ -203,21 +203,26 @@ export default async function CheckoutPage(props: CheckoutPageProps) {
   return (
     <Suspense
       fallback={
-        /* The page's own shape, shown only when loading is slow (skeleton-deferred). */
-        <div className="skeleton-deferred min-h-screen bg-white lg:bg-[linear-gradient(to_right,#ffffff_50%,#f8f9fa_50%)]" aria-busy>
-          <div className="h-14 border-b border-[#e5e7eb] bg-white" />
-          <div className="mx-auto grid max-w-[1100px] gap-8 px-4 pt-8 sm:px-6 lg:grid-cols-2 lg:px-8">
-            <div className="mx-auto w-full max-w-[600px] space-y-3 lg:mr-0 lg:pr-4">
-              <div className="h-6 w-28 rounded-md bg-[#f1f2f4]" />
-              <div className="h-12 rounded-[10px] bg-[#f1f2f4]" />
-              <div className="h-12 rounded-[10px] bg-[#f1f2f4]" />
-              <div className="mt-6 h-6 w-28 rounded-md bg-[#f1f2f4]" />
-              <div className="h-44 rounded-[12px] bg-[#f1f2f4]" />
+        /* The page's own shape, shown only when loading is slow (skeleton-deferred): the order on grey, the form on white. */
+        <div className="skeleton-deferred relative min-h-screen bg-white lg:bg-[#f6f7f8]" aria-busy>
+          <div className="pointer-events-none fixed inset-y-0 right-0 hidden w-1/2 bg-white shadow-[-12px_0_32px_-16px_rgba(17,24,39,0.16)] lg:block" />
+          <div className="relative mx-auto grid max-w-[1120px] lg:grid-cols-2">
+            <div className="bg-[#f6f7f8] px-5 pb-6 pt-4 sm:px-8 lg:bg-transparent lg:px-16 lg:pt-14">
+              <div className="mx-auto max-w-[440px] space-y-4 lg:ml-auto lg:mr-0">
+                <div className="h-7 w-40 rounded-md bg-[#e9ebee]" />
+                <div className="h-4 w-28 rounded-md bg-[#e9ebee]" />
+                <div className="h-9 w-44 rounded-md bg-[#e9ebee]" />
+                <div className="h-12 rounded-[8px] bg-[#e9ebee]" />
+              </div>
             </div>
-            <div className="hidden space-y-4 lg:block lg:pl-8">
-              <div className="h-16 rounded-[10px] bg-[#eceef1]" />
-              <div className="h-12 rounded-[10px] bg-[#eceef1]" />
-              <div className="h-24 rounded-[10px] bg-[#eceef1]" />
+            <div className="px-5 pt-7 sm:px-8 lg:px-16 lg:pt-14">
+              <div className="mx-auto max-w-[440px] space-y-3 lg:ml-0">
+                <div className="h-11 rounded-[8px] bg-[#f1f2f4]" />
+                <div className="mt-6 h-5 w-40 rounded-md bg-[#f1f2f4]" />
+                <div className="h-11 rounded-[8px] bg-[#f1f2f4]" />
+                <div className="mt-6 h-5 w-36 rounded-md bg-[#f1f2f4]" />
+                <div className="h-48 rounded-[8px] bg-[#f1f2f4]" />
+              </div>
             </div>
           </div>
         </div>

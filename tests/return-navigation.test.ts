@@ -114,6 +114,26 @@ function main() {
   check("  and opening one pushes exactly one entry", /writeAddress\(\(p\) => p\.set\("order", id\), "push"\)/.test(orders))
   check("the old order address still lands on the order", /redirect\(`\/app\/orders\?order=/.test(read("app/app/orders/[id]/page.tsx")))
 
+  /*
+    BACK TO A LIST LANDS NOTHING. Emails first, then Orders, Products and
+    Coupons: a list that comes back exactly as it was left asks the stage for
+    no landing (lib/ui/app-navigation holdLanding), so the whole page does not
+    fade in and rise 2px on every Back. Decided on the first render, while
+    the return is still marked, and only on a return: a visit still lands.
+    scripts/check-lists-back.mjs measures it frame by frame.
+  */
+  for (const [file, returning] of [
+    ["app/app/emails/emails-client.tsx", /const \[returning\] = React\.useState\(\(\) => isTraversing\(\)\)/],
+    ["app/app/orders/orders-client.tsx", /const \[returning\] = React\.useState\(\(\) => isTraversing\(\)\)/],
+    ["app/app/products/products-client.tsx", /const \[returning\] = useState\(isReturning\)/],
+    ["app/app/coupons/coupons-client.tsx", /const \[returning\] = useState\(isReturning\)/],
+  ] as const) {
+    const src = read(file)
+    check(`${file}: a return is the list as it was, with no landing`,
+      returning.test(src) && /(React\.)?useLayoutEffect\(\(\) => \{\s*if \(returning\) holdLanding\(\)\s*\}, \[returning\]\)/.test(src))
+  }
+  check("  and the stage lands nothing while a page holds it", /isLandingHeld\(\)\) return/.test(read("components/app/app-stage.tsx")))
+
   /* The reported one specifically: it was an <a href>, which is a full
      document load AS WELL AS a push. */
   const checkout = read("app/checkout/checkout-client.tsx")

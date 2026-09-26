@@ -22,7 +22,7 @@ export type OnePageBlockType =
 
 export interface OnePageTheme {
   template_id: string
-  background_type: "solid" | "gradient" | "image"
+  background_type: "solid" | "gradient" | "image" | "video"
   background_color: string
   background_gradient?: string | null
   background_image_url?: string | null

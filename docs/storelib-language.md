@@ -407,7 +407,7 @@ before changing a word of it.
 
 Save compiles first. If it does not compile, nothing is stored and the errors
 appear against their lines. If it does, the canvas reloads and the section is
-in the Add Section library under **Created by you**, with a preview drawn
+in the Add Section library under **Created**, with a preview drawn
 from the file you just wrote.
 
 **Saving is not publishing.** A saved file goes into its draft half and the

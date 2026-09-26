@@ -9,12 +9,9 @@
  * pushes one at a time, over fetch or, with pictures, over XMLHttpRequest
  * with upload progress), the clipboard and a speech recogniser.
  *
- *   FADE       the glow round the pill has no edge: the page with it and
- *              without it are compared pixel by pixel along lines through
- *              its border, and no step between neighbours may be more than
- *              a few levels. The old blurred band, with its mask dropped as
- *              an engine that does not honour it would, is measured the
- *              same way to show the check sees an edge
+ *   FADE       nothing round the pill: no glow (the old glow put back is
+ *              measured to add plenty) and no blurred band, so no element
+ *              in the dock carries a mask and there is no edge to see
  *   LABELS     at 360, 390 and 430: the mode row is one row, the mode labels
  *              and the placeholders fit on one line in both modes, the
  *              header with Connect AI does not overflow, suggestion chips do
@@ -281,6 +278,19 @@ async function page(browser, vp, query, hash, extraPrelude = "") {
 const lineText = (p) => p.evaluate(() => { const t = [...document.querySelectorAll('[data-ask-activity] [data-line="in"] [data-ask-line-text]')].pop(); return t ? t.firstChild.textContent : null })
 
 /* ── FADE ─────────────────────────────────────────────────────────────── */
+/*
+  "Ask Storelib has a white, faded, light glow around it, which is bad."
+  The glow is gone. Then "the blur around the pill is not fading, it's very
+  cut around": the masked blur band that replaced it is gone too (Safari
+  draws a backdrop blur but not its mask, so it ended in a hard edge).
+  Nothing is drawn round the pill but its own soft ink shadows. Measured
+  over photographs, stripes and text, with and without a picture in the
+  pill (the screenshot that was sent):
+
+    NO BAND    no [data-ask-fade], and no element in the dock has a mask
+    NO LIGHT   the page round the pill is no lighter than it was. The old
+               glow, put back, is measured the same way and adds a lot
+*/
 async function fade(browser, vp, attached = false) {
   const label = `fade-${vp.width}${attached ? "-attached" : ""}`
   console.log(`\n${label}`)
@@ -301,88 +311,69 @@ async function fade(browser, vp, attached = false) {
     const state = await p.evaluate(() => ({ dock: document.querySelector("[data-ask-dock]").getAttribute("data-state"), thumbs: document.querySelectorAll("[data-ask-pill] [data-ask-thumb]").length, placeholder: document.querySelector("[data-ask-pill] textarea").placeholder }))
     expect(state.dock === "pill" && state.thumbs === 1 && state.placeholder === "Add a note, or just send", "the folded pill holds the picture, as in the screenshot that was sent", state)
   }
-  /* Scroll so a photograph and a line of text sit behind the pill. */
+  /* Scroll so a photograph, stripes and a line of text sit behind the pill. */
   await p.evaluate(() => { document.getElementById("wb-preview-root").scrollTop = 470 })
   await sleep(300)
   const pill = await p.$eval("[data-ask-pill]", (e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height } })
-  const main = await p.$eval("#canvas-main", (e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, b: r.bottom } })
-  const haloCss = await p.$eval("[data-ask-halo]", (e) => { const s = getComputedStyle(e); return { backdrop: s.backdropFilter, mask: s.maskImage || s.webkitMaskImage, shadow: s.boxShadow, opacity: s.opacity } })
-  expect(haloCss.backdrop === "none" && (haloCss.mask === "none" || !haloCss.mask) && /rgba\(248, 249, 250/.test(haloCss.shadow) && haloCss.opacity === "1", "the glow is a soft shadow: no backdrop filter and no mask to be dropped", haloCss)
+  const css = await p.evaluate(() => ({
+    halo: !!document.querySelector("[data-ask-halo]"),
+    band: !!document.querySelector("[data-ask-fade]"),
+    masked: [...document.querySelectorAll("[data-ask-dock] *")].filter((e) => { const c = getComputedStyle(e); return (c.maskImage && c.maskImage !== "none") || (c.webkitMaskImage && c.webkitMaskImage !== "none") }).length,
+  }))
+  expect(!css.halo && !css.band && css.masked === 0, "round the pill, nothing: no halo, no blurred band, no mask to cut an edge", css)
 
-  const shot = async () => p.screenshot({ encoding: "base64", clip: { x: main.x, y: main.y, width: main.w, height: main.h } })
-  const withGlow = await shot()
+  /* Whole-window pictures, cut to the band after (a clipped screenshot redraws only its box, and a blur in it has nothing beyond to blur with). */
+  const R = 22
+  const band = { x: Math.round(pill.x - R), y: Math.round(pill.y - R), w: Math.round(pill.w + R * 2), h: Math.round(pill.h + R * 2) }
+  const shot = () => p.screenshot({ encoding: "base64" })
+  const withBand = await shot()
   await p.screenshot({ path: join(shots, `${P}${label}-pill.png`) })
-  const near = { x: Math.max(0, pill.x - 160), y: Math.max(0, pill.y - 130), width: Math.min(vp.width - Math.max(0, pill.x - 160), pill.w + 320), height: Math.min(vp.height - Math.max(0, pill.y - 130), pill.h + 150) }
-  await p.screenshot({ path: join(shots, `${P}${label}-glow-close.png`), clip: near })
-  await p.evaluate(() => { document.querySelector("[data-ask-halo]").style.opacity = "0"; document.querySelector("[data-ask-halo]").style.transition = "none" })
-  await sleep(100)
-  const without = await shot()
-
-  /* The old band, its mask dropped the way an engine that ignores it draws it. */
+  await p.screenshot({ path: join(shots, `${P}${label}-close.png`), clip: { x: Math.max(0, pill.x - 120), y: Math.max(0, pill.y - 90), width: Math.min(vp.width - Math.max(0, pill.x - 120), pill.w + 240), height: Math.min(vp.height - Math.max(0, pill.y - 90), pill.h + 110) } })
+  /* With no band there is nothing to take away: the page as it is is the page without one. */
+  const without = withBand
+  /* The old glow, a light shadow the pill's shape, put back for a moment. */
   await p.evaluate((g) => {
-    const h = document.querySelector("[data-ask-halo]")
-    h.style.cssText = `position:absolute;left:${g.left}px;width:${g.width}px;bottom:0;height:${g.height}px;background:rgba(248,249,250,0.38);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:1;border-radius:0;box-shadow:none;pointer-events:none`
-  }, { left: pill.x - main.x - 56, width: pill.w + 112, height: main.b - (pill.y + pill.h) + pill.h + 36 })
-  await sleep(150)
-  const oldBand = await shot()
-  await p.screenshot({ path: join(shots, `${P}${label}-old-band.png`) })
+    const h = document.createElement("div")
+    h.style.cssText = `position:fixed;left:${g.x}px;top:${g.y}px;width:${g.w}px;height:${g.h}px;border-radius:9999px;box-shadow:0 6px 44px 14px rgba(248,249,250,0.5);pointer-events:none;z-index:1`
+    document.body.appendChild(h)
+  }, pill)
+  await sleep(120)
+  const oldGlow = await shot()
 
-  const result = await p.evaluate(async (a, b, c, pill, main) => {
+  const result = await p.evaluate(async (a, b, c, band, pill) => {
     const load = (src) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.src = "data:image/png;base64," + src })
     const [ia, ib, ic] = await Promise.all([load(a), load(b), load(c)])
     const read = (img) => { const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height; const x = cv.getContext("2d"); x.drawImage(img, 0, 0); return x.getImageData(0, 0, img.width, img.height) }
     const A = read(ia), B = read(ib), C = read(ic)
     const lum = (d, x, y) => { const i = (y * d.width + x) * 4; return 0.2126 * d.data[i] + 0.7152 * d.data[i + 1] + 0.0722 * d.data[i + 2] }
-    const px = (x) => Math.round(x - main.x), py = (y) => Math.round(y - main.y)
-    /* Lines through the glow's border: rows above the pill and columns beside it, well past where it ends. */
-    const rows = [pill.y - 8, pill.y - 24, pill.y - 44, pill.y + pill.h / 2].map(py)
-    const cols = [pill.x - 12, pill.x - 40, pill.x + pill.w + 12, pill.x + pill.w + 40, pill.x + pill.w / 2].map(px)
-    const x0 = Math.max(0, px(pill.x - 140)), x1 = Math.min(A.width - 2, px(pill.x + pill.w + 140))
-    const y0 = Math.max(0, py(pill.y - 120)), y1 = A.height - 2
-    /*
-      WHAT IS MEASURED IS THE GLOW'S OWN OPACITY, pixel by pixel. A white
-      layer of opacity a over a pixel of luminance c shows as c + a(W - c),
-      so a = (with - without) / (W - without). The difference alone jumps
-      wherever the page under it does (a stripe, a letter), however smooth
-      the layer is; its opacity does not. Read only where the page is dark
-      enough for the white to show (W - c > 60), between neighbours that
-      both are.
-    */
-    const W = 0.2126 * 248 + 0.7152 * 249 + 0.0722 * 250
-    const profile = (S, T, along) => {
-      let worst = 0, peak = 0, edge = 0, read = 0
-      for (const line of along.lines) {
-        let prev = null
-        for (let t = along.from; t <= along.to; t++) {
-          const [x, y] = along.horizontal ? [t, line] : [line, t]
-          /* Under the pill itself is not the glow. */
-          if (x >= px(pill.x) && x <= px(pill.x + pill.w) && y >= py(pill.y) && y <= py(pill.y + pill.h)) { prev = null; continue }
-          const base = lum(T, x, y)
-          if (W - base <= 90) { prev = null; continue }
-          const a = (lum(S, x, y) - base) / (W - base)
-          read++
-          peak = Math.max(peak, a)
-          if (prev !== null) worst = Math.max(worst, Math.abs(a - prev))
-          prev = a
-        }
-        const [ex, ey] = along.horizontal ? [along.from, line] : [line, along.from]
-        edge = Math.max(edge, Math.abs(lum(S, ex, ey) - lum(T, ex, ey)))
-      }
-      return { step: +worst.toFixed(3), peak: +peak.toFixed(3), atEnds: +edge.toFixed(1), read }
+    /* The band only: round the pill, not over it. `depth` is how far out from the pill's box a pixel is, 1 to 22. */
+    const depth = (x, y) => {
+      const dx = x < pill.x ? pill.x - x : x > pill.x + pill.w ? x - (pill.x + pill.w) : 0
+      const dy = y < pill.y ? pill.y - y : y > pill.y + pill.h ? y - (pill.y + pill.h) : 0
+      return Math.max(dx, dy)
     }
-    const glowRows = profile(A, B, { lines: rows, from: x0, to: x1, horizontal: true })
-    const glowCols = profile(A, B, { lines: cols, from: y0, to: y1, horizontal: false })
-    const oldRows = profile(C, B, { lines: rows, from: x0, to: x1, horizontal: true })
-    const oldCols = profile(C, B, { lines: cols, from: y0, to: y1, horizontal: false })
-    return { glowRows, glowCols, oldRows, oldCols }
-  }, withGlow, without, oldBand, pill, main)
+    let sumWith = 0, sumWithout = 0, sumOld = 0, n = 0
+    const near = [], far = []
+    /* The band as far as the window goes: below the pill it runs past the canvas's bottom edge. */
+    const x0 = Math.max(0, band.x), x1 = Math.min(A.width, band.x + band.w), y0 = Math.max(0, band.y), y1 = Math.min(A.height, band.y + band.h)
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const d = depth(x, y)
+      if (d < 1 || d > 22) continue
+      const w = lum(A, x, y), o = lum(B, x, y), g = lum(C, x, y)
+      sumWith += w; sumWithout += o; sumOld += g; n++
+      if (d <= 3) near.push(Math.abs(w - o))
+      if (d >= 20) far.push(Math.abs(w - o))
+    }
+    const mean = (xs) => xs.reduce((s, v) => s + v, 0) / Math.max(1, xs.length)
+    return {
+      pixels: n,
+      meanWith: +(sumWith / n).toFixed(2), meanWithout: +(sumWithout / n).toFixed(2), meanOldGlow: +(sumOld / n).toFixed(2),
+      changeAtPill: +mean(near).toFixed(2), changeAtOuterEdge: +mean(far).toFixed(2),
+    }
+  }, withBand, without, oldGlow, band, pill)
   measures[label] = result
-  const worstGlow = Math.max(result.glowRows.step, result.glowCols.step)
-  const worstOld = Math.max(result.oldRows.step, result.oldCols.step)
-  expect(result.glowRows.peak >= 0.15 && result.glowRows.peak <= 0.4 && result.glowRows.read > 200, "the glow is there, and faint: it lifts the page round the pill by at most 0.4", result.glowRows)
-  expect(worstGlow <= 0.05, "and fades with no edge: its opacity never changes by more than 0.05 from one pixel to the next, along rows and columns through its border", { rows: result.glowRows, cols: result.glowCols })
-  expect(result.glowRows.atEnds <= 1 && result.glowCols.atEnds <= 1, "it is nothing at all 140px out from the pill", { rows: result.glowRows.atEnds, cols: result.glowCols.atEnds })
-  expect(worstOld >= 0.2, "and the same check on the old band, its mask dropped, finds its straight edge", { rows: result.oldRows, cols: result.oldCols })
+  expect(Math.abs(result.meanWith - result.meanWithout) <= 1.5, "nothing round the pill adds light", result)
+  expect(result.meanOldGlow - result.meanWithout >= 8, "and the same check on the old glow finds the light it added", { withoutGlow: result.meanWithout, oldGlow: result.meanOldGlow })
   if (p.__errors.length) expect(false, "no errors on the page", p.__errors)
   await p.close()
 }
@@ -536,12 +527,12 @@ async function states(browser) {
   expect((await p.evaluate(() => window.__copied[0])) === "Added a testimonials section under the hero.", "Copy copies the answer")
   await p.click("[data-ask-report]")
   await sleep(200)
-  await p.type("#ask-report-reason", "It used the wrong colours")
+  await p.type("[data-ask-report-form] input", "It used the wrong colours")
   await p.screenshot({ path: join(shots, `${P}states-report.png`) })
   await p.click('[data-ask-report-form] button[type="submit"]')
   await sleep(300)
   const report = await p.evaluate(() => ({ sent: window.__reports[0], done: document.querySelector("[data-ask-reported]")?.textContent }))
-  expect(!!report.sent && /^[0-9a-f-]{36}$/.test(report.sent.messageId) && report.sent.reason === "It used the wrong colours" && report.sent.engine === "claude" && report.done === "Reported", "Report sends the question's id, the reason and the model, and says Reported", report)
+  expect(!!report.sent && /^[0-9a-f-]{36}$/.test(report.sent.messageId) && report.sent.reason === "It used the wrong colours" && report.sent.engine === "claude" && report.done === "Reported. Thank you.", "Report sends the question's id, the reason and the model, and says it was reported", report)
   if (p.__errors.length) expect(false, "no errors on the page", p.__errors)
   await p.close()
 

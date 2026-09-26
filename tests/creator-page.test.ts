@@ -1669,7 +1669,7 @@ function main() {
     const buy = code("components/checkout/buy-button.tsx")
     const sticky = code("components/store-builder/sticky-add-to-cart.tsx")
     const hook = read("components/storefront/use-editor-frame.ts")
-    check("the buy button stands down in a frame", buy.includes("if (inEditorFrame) return") && buy.includes("disabled={disabled || loading || inEditorFrame}"))
+    check("the buy button stands down in a frame", buy.includes("if (inEditorFrame || loading) return") && buy.includes("disabled={disabled || inEditorFrame}"))
     check("and so does the sticky one", sticky.includes("if (inEditorFrame) return"))
     check("both ask the same question", buy.includes("useEditorFrame()") && sticky.includes("useEditorFrame()"))
     /**
@@ -1905,7 +1905,7 @@ function main() {
     {
       const bottom = code("components/ui/bottom-sheet.tsx")
       /* Springs back to where it rests: the top, or the lowered place a scheme preview put it (`lowered`). */
-      check("the sheet's own refusal: not dismissible means a pull springs back", /if \(!dismissibleRef\.current\) \{[\s\S]{0,260}glide\(from, rest,/.test(bottom) && /const rest = restRef\.current/.test(bottom) && /dismissible = true,/.test(bottom))
+      check("the sheet's own refusal: not dismissible means a pull springs back", /if \(!dismissibleRef\.current\) \{\s*springBack\(/.test(bottom) && /glide\(from, rest, motion\.ms/.test(bottom) && /const rest = restRef\.current/.test(bottom) && /dismissible = true,/.test(bottom))
       check("an Escape a menu inside the sheet already used does not close the sheet too", /e\.defaultPrevented/.test(bottom) && /e\.isComposing/.test(bottom))
     }
     check("and tells the workspace nothing about it", !sheet.includes("notifyEditorSheet"))

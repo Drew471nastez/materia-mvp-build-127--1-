@@ -45,6 +45,7 @@ import { getMainDomain } from "@/lib/url-helpers"
  *            primary host of each purpose
  *   POST     { domain, purpose: "website" | "creator_page", replace? }
  *   PATCH    { domainId, action: "make_primary" }
+ *            { domainId, action: "set_purpose", purpose }
  *   DELETE   { domainId }
  *
  * The session decides whose domains these are (domainOwner, which reads the
@@ -255,20 +256,63 @@ export async function POST(request: Request) {
   }
 }
 
-// PATCH - Make a domain the primary one of its purpose
+// PATCH - Make a domain the primary one of its purpose, or change what it connects to
 export async function PATCH(request: Request) {
   try {
     const owner = await domainOwner()
     if (owner instanceof NextResponse) return owner
     const { admin, creatorId, userId } = owner
-    const body = (await request.json().catch(() => ({}))) as { domainId?: unknown; action?: unknown }
-    if (typeof body.domainId !== "string" || body.action !== "make_primary") {
+    const body = (await request.json().catch(() => ({}))) as { domainId?: unknown; action?: unknown; purpose?: unknown }
+    if (typeof body.domainId !== "string" || (body.action !== "make_primary" && body.action !== "set_purpose")) {
+      return NextResponse.json({ error: "Nothing to change" }, { status: 400 })
+    }
+    if (body.action === "set_purpose" && !isDomainPurpose(body.purpose)) {
       return NextResponse.json({ error: "Nothing to change" }, { status: 400 })
     }
 
     const { rows, schema } = await listCreatorDomains(admin, creatorId)
     const row = rows.find((r) => r.id === body.domainId)
     if (!row) return NextResponse.json({ error: "Domain not found" }, { status: 404 })
+
+    /*
+      What a domain connects to is asked after it is added (Settings ›
+      Domains adds it to the website first). It moves with its primary flag
+      worked out again on both sides: primary where it lands only when that
+      purpose has none, and the purpose it left gets its next one.
+    */
+    if (body.action === "set_purpose" && isDomainPurpose(body.purpose)) {
+      const to = body.purpose
+      if (schema === "legacy") {
+        if (to === "creator_page") {
+          return NextResponse.json(
+            { error: "Connecting a domain to your creator page needs a database update that has not run yet. A website domain works now." },
+            { status: 409 },
+          )
+        }
+        return NextResponse.json(views(rows, schema))
+      }
+      const from = purposeOf(row)
+      if (from === to) return NextResponse.json(views(rows, schema))
+      const there = rows.filter((r) => r.id !== row.id && purposeOf(r) === to)
+      if (there.length >= MAX_PER_PURPOSE) {
+        return NextResponse.json({ error: `You can connect up to ${MAX_PER_PURPOSE} domains there. Remove one first.` }, { status: 400 })
+      }
+      const moved = await admin
+        .from("custom_domains")
+        .update({ purpose: to, is_primary: !there.some((r) => r.is_primary === true) })
+        .eq("id", row.id)
+        .eq("creator_id", creatorId)
+      if (moved.error) {
+        console.error("Changing a domain's purpose failed:", moved.error)
+        return NextResponse.json({ error: "Could not change what it connects to" }, { status: 500 })
+      }
+      await ensurePrimary(admin, creatorId, from)
+      changed(creatorId)
+      if (from === "creator_page" || to === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
+      const after = await listCreatorDomains(admin, creatorId)
+      return NextResponse.json(views(after.rows, after.schema))
+    }
+
     if (schema === "legacy") return NextResponse.json(views(rows, schema))
 
     const done = await makePrimary(admin, creatorId, row)

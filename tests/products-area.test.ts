@@ -8,12 +8,13 @@
  * 2. A coupon is checked on the server by readCouponInput and placed in a
  *    view by couponState (lib/checkout/coupons.ts). Both are pure.
  * 3. The shape of the pages: the Products list as a shelf of pictures in
- *    one white card on a phone (Download beside New product in the bar; the
- *    card's toolbar as its first row: the view, a search, Sort, each of the
- *    two a sheet of its own; then 64px rows with a 50px picture and Preview
- *    beside the more button) beside a light table from 768px, 7% and then
- *    3% bigger from 1024px, one bar at the top of the editor and none at
- *    its foot, and SQL that pastes.
+ *    one white card on a phone (Download beside the violet New product in
+ *    the bar; the card's toolbar as its first row: the view, a search, Sort,
+ *    each of the two a sheet of its own; then 64px rows with a 50px picture
+ *    and Preview beside the more button) beside a light table from 768px
+ *    under the same toolbar, whose two picks are dropdowns there, 7% and
+ *    then 3% bigger from 1024px, one bar at the top of the editor and none
+ *    at its foot, and SQL that pastes.
  *    scripts/check-products-page.mjs measures the list and
  *    scripts/check-products-sheets.mjs the phone's two sheets.
  */
@@ -95,7 +96,10 @@ check("its fields start from the server's rows", /useState\(\(\) => initialForm\
 const idPage = code("app/app/products/[id]/page.tsx")
 check("/app/products/<id> draws the editor with the product, not a redirect", /loadProductEditor\(id\)/.test(idPage) && /<ProductEditor/.test(idPage) && !/new\?edit=/.test(idPage))
 const loader = code("app/app/products/load-editor.ts")
-check("the server reads the five things together", /Promise\.all\(\[/.test(loader) && /product_variants/.test(loader) && /digital_assets/.test(loader) && /profiles/.test(loader))
+/* The creator and profile rows through the request's own copies, which the /app layout shares on a full load; the product by its named columns, not `*`, with `*` only when a column is refused. */
+check("the server reads the five things together", /Promise\.all\(\[/.test(loader) && /product_variants/.test(loader) && /digital_assets/.test(loader) && /creatorForRequest\(user\.id\),\s*profileForRequest\(user\.id\)/.test(loader)
+  && /\.from\("products"\)\.select\(PRODUCT_COLUMNS\)/.test(loader) && /missingColumn\(productRes\.error\) \? supabase\.from\("products"\)\.select\("\*"\)/.test(loader))
+check("variants that could not be read are not taken as all removed", /variantsUnread: !!variantsRead\.error/.test(loader) && /keepUnlisted: variantsUnread\.current/.test(editor))
 check("and only hands over a product that is the creator's", /product\.creator_id !== creator\.id/.test(loader))
 /* No loading.tsx under /app, and no outline for the editor: "the whole page should not have a loading
    skeleton when I click to edit a product". The page you were on stays until the editor is ready. */
@@ -203,7 +207,10 @@ check("the more button is square and Save's height: 40px on a phone, 32px from 6
 check("Save keeps its word in the layout while busy, and is always as wide as Saved, so its width never changes",
   /<span className=\{cn\("col-start-1 row-start-1 text-center", busy && "opacity-0"\)\}>\{word\}<\/span>/.test(buttons) && /after:content-\['Saved'\]/.test(buttons) && /absolute inset-0 flex items-center justify-center/.test(buttons))
 check("the grey Save says Saved only when it is disabled after a save", /const word = !busy && disabled && saved \? "Saved" : "Save"/.test(buttons))
-check("Save's violet and depth are one exported set (primaryDepth), which New product wears too", /export const primaryDepth = cn\(/.test(buttons) && /PRESS_AREA,\s*primaryDepth,/.test(buttons))
+check("Save's colour and depth are one exported set (primaryDepth), near black", /export const primaryDepth = cn\(/.test(buttons) && /PRESS_AREA,\s*primaryDepth,/.test(buttons) && /export const primaryDepth = cn\([^)]*bg-\[#1a1a2e\]/.test(buttons))
+/* "The New product button needs to be purple there, both on mobile and desktop." One shared violet, beside the near black primary. */
+check("and the violet one New product wears is exported beside it (accentDepth): #8b5cf6, darker on hover and pressed, no hover shadow",
+  /export const accentDepth = cn\([\s\S]{0,300}bg-\[#8b5cf6\][\s\S]{0,300}hover:bg-\[#7c3aed\] active:bg-\[#6d28d9\]/.test(buttons) && !/hover:shadow/.test(buttons.slice(buttons.indexOf("export const accentDepth"), buttons.indexOf("export const criticalDepth"))))
 check("Cancel and Back are one button holding both words, crossfading, so the bar never moves",
   /export function LeaveButton/.test(buttons) && /data-leave-button=""/.test(buttons) && /aria-label=\{back \? "Back" : "Cancel"\}/.test(buttons) && /<ChevronLeft/.test(buttons) && /transition-opacity duration-150 motion-reduce:transition-none/.test(buttons) && /cn\(barButton, "grid", leaving && /.test(buttons))
 /* "When I click Cancel or Back nothing happens, then five seconds later it goes back": the press is answered on its own frame. */
@@ -265,7 +272,7 @@ check("on a phone, first on the screen as a layer over the app's header, it star
     && !/(^|[\s"])\[\[data-page-layer\]_&\]/.test(barSource + editor))
 check("a layer on a phone only: both editor addresses ask for it, and from md it is a page in the shell",
   /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/app/products/new/layout.tsx")) && /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/app/products/[id]/layout.tsx")))
-check("the editor scrolls as a page-scroll pane, so the pill's room is the shared 104px and nothing else", /className="page-scroll h-full overflow-y-auto/.test(editor) && !/pb-24 sm:pb-8/.test(editor))
+check("the editor scrolls as a page-scroll pane, so the pill's room is the shared --app-nav-room and nothing else", /className=\{cn\(FIELD_FOCUS, "page-scroll h-full overflow-y-auto/.test(editor) && !/pb-24 sm:pb-8/.test(editor))
 check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g) ?? []).length >= 4)
 
 console.log("\nThe Products list: a shelf of pictures on a phone, a light table from 768px")
@@ -281,25 +288,26 @@ const sidebar = code("components/app/sidebar.tsx")
 check("and its own place in the menu, under Products, where it was", /href: "\/app\/products",[\s\S]{0,160}children: \[\{ href: "\/app\/coupons", label: "Coupons" \}\]/.test(sidebar))
 check("the Orders bar and gutter, and Orders' 1200px column made 7% and then 3% wider (1323px, 35px gutters, a 73px bar) from 1024px",
   /<PaneBar width=\{PAGE_WIDTH\} className=\{cn\(LIST_BAR, PAGE_BAR, PAGE_GUTTER\)\}>/.test(list) && /const PAGE_BAR = "lg:min-h-\[73px\] lg:pb-\[9px\] lg:pt-\[15px\]"/.test(list) && /from "\.\.\/orders\/order-parts"/.test(list)
-    && /const PAGE_WIDTH = "max-w-\[1200px\] lg:max-w-\[1323px\]"/.test(list) && /const PAGE_GUTTER = "lg:px-\[35px\]"/.test(list) && /cn\("@container mx-auto pb-2 md:pb-8", PAGE_WIDTH, GUTTER, PAGE_GUTTER\)/.test(list))
+    && /const PAGE_WIDTH = "max-w-\[1200px\] lg:max-w-\[1323px\]"/.test(list) && /const PAGE_GUTTER = "lg:px-\[35px\]"/.test(list) && /cn\("mx-auto pb-2 md:pb-8", PAGE_WIDTH, GUTTER, PAGE_GUTTER\)/.test(list))
 /* "On desktop larger screens, make the page just 7% bigger, a little bit." Then: "just make the products page 3% bigger". Real sizes, never zoom or a transform. */
-check("from 1024px every size is the page's own times 1.07 and then 1.03, in real sizes (boxes to the pixel, text to the half pixel): text, rows, pictures, heading, the bar's buttons, the search, the views, the footer",
+check("from 1024px every size is the page's own times 1.07 and then 1.03, in real sizes (boxes to the pixel, text to the half pixel): text, rows, pictures, heading, the bar's buttons, the toolbar, the footer",
   /const BAR_BUTTON_SIZE = "lg:h-\[35px\] lg:px-\[13px\] lg:text-\[14\.5px\]"/.test(list)
     && /className="group h-14 cursor-pointer lg:h-\[62px\] xl:h-\[70px\]/.test(list)
     && /"h-10 w-10 rounded-\[9px\] lg:h-\[44px\] lg:w-\[44px\] lg:rounded-\[10px\] xl:h-\[48px\] xl:w-\[48px\] xl:rounded-\[11px\]"/.test(list)
     && /text-\[13px\] font-medium text-\[#1a1a2e\] outline-none hover:underline focus-visible:underline lg:text-\[14\.5px\] xl:text-\[15\.5px\]/.test(list)
     && /h-9 text-left text-\[12px\] text-\[#6b7280\] lg:h-\[40px\] lg:text-\[13\.5px\] xl:h-\[44px\]/.test(list)
-    && /h-8 w-\[calc\(var\(--views\)\*84px\)\] shrink-0 lg:h-\[35px\] lg:w-\[calc\(var\(--views\)\*93px\)\] xl:w-\[calc\(var\(--views\)\*101px\)\]/.test(list)
-    && /lg:@min-\[700px\]:w-\[265px\] xl:@min-\[700px\]:w-\[298px\]/.test(list)
+    && /md:h-8 md:px-2 md:text-\[13px\][^"]*lg:h-\[35px\] lg:gap-\[5px\] lg:px-\[9px\] lg:text-\[14\.5px\]/.test(list)
+    && /md:h-8 md:text-\[13px\] lg:h-\[35px\] lg:text-\[14\.5px\]/.test(list) && /lg:h-\[53px\] lg:gap-\[5px\] lg:pl-\[9px\] lg:pr-\[13px\] xl:pl-\[13px\] xl:pr-\[18px\]/.test(list)
     && /text-\[22px\] font-bold leading-7 text-\[#1a1a2e\] sm:text-\[25px\] sm:leading-8 lg:text-\[28px\] lg:leading-\[35px\]/.test(list)
     && /lg:h-\[44px\] lg:px-\[18px\] xl:h-\[48px\] xl:px-\[22px\]/.test(list)
     && /lg:h-\[35px\] lg:w-\[35px\]"/.test(list) && /lg:h-\[31px\] lg:w-\[35px\]/.test(list)
     && !/lg:[a-z-]*\[(34|43|47|60|68|71|257|289|1284)px\]/.test(list)
     && !/zoom:|\[zoom|scale-\[1\.0|scale\(1\.0/.test(list))
-/* "In the Products page the New product button at the top should be purple." */
-check("New product is the one violet button, the editor's Save's colour and depth (primaryDepth, not a copy), with no icon, 32px (35 from 1024px), and a 44px press on a phone",
-  /const NEW_LOOK = cn\(primaryDepth, PRESS, "h-8 gap-1\.5 rounded-lg px-3 text-\[13px\]", BAR_BUTTON_SIZE\)/.test(list) && /data-new-product=""[\s\S]{0,280}className=\{NEW_LOOK\}\s*>\s*\{t\("products\.newProduct"\)\}\s*<\/Link>/.test(list)
-    && /import \{ primaryDepth, quietDepth \} from "\.\/new\/editor-buttons"/.test(list) && !/buttonAccent|buttonPrimary/.test(list) && !/bg-\[#8b5cf6\]/.test(list) && /max-md:after:-inset-1\.5/.test(list))
+/* "In the Products page the New product button at the top should be purple." Then it went near black with every primary (7ea799ec), and: "the New product button needs to be purple there, both on mobile and desktop." */
+check("New product is the one violet button, the shared violet depth (accentDepth, not a copy), with no icon, 32px (35 from 1024px), and a 44px press on a phone, on every width",
+  /const NEW_LOOK = cn\(accentDepth, PRESS, "h-8 gap-1\.5 rounded-lg px-3 text-\[13px\]", BAR_BUTTON_SIZE\)/.test(list) && /data-new-product=""[\s\S]{0,280}className=\{NEW_LOOK\}\s*>\s*\{t\("products\.newProduct"\)\}\s*<\/Link>/.test(list)
+    && /import \{ accentDepth \} from "@\/components\/ui\/depth-button"/.test(list) && /import \{ quietDepth \} from "\.\/new\/editor-buttons"/.test(list) && !/primaryDepth|buttonAccent|buttonPrimary/.test(list) && !/bg-\[#8b5cf6\]/.test(list) && /max-md:after:-inset-1\.5/.test(list)
+    && !/NEW_LOOK[^\n]*(md:|max-md:)bg-/.test(list))
 /* "Make sure the three dots button in the products page has the same depth as the three dots button in the edit product page." */
 /* "Reduce the products page's overall scale by about 10%": the more button came down with it, the depth stayed. Then Preview joined it at the same size. */
 /* "The three dots button has too much depth, reduce it a little": the editor's and the list's together, so they still match. */
@@ -339,17 +347,18 @@ check("Export is the word in the bar from 768px and on a phone Download, the qui
 check("Download has the faintest border: 1px #eef0f2, 8px round, white, no shadow, a step darker when pressed",
   /const DOWNLOAD_LOOK =\s*"inline-flex h-8 w-8 items-center justify-center rounded-lg border border-\[#eef0f2\] bg-white text-\[#4b5563\][^"]*group-active\/press:bg-\[#f1f2f4\]"/.test(list) && !/const DOWNLOAD_LOOK =[^\n]*\n?[^\n]*shadow-/.test(list))
 check("nothing floats: no fixed New product over the list or the navigation pill", !/fixed[^"]*bottom-/.test(list.slice(list.indexOf("<PaneBar"), list.indexOf("deleteModalOpen && productToDelete"))))
-check("search is a real field that is always there once there are products, not a button that opens one: in the phone's toolbar and above the table",
-  /<label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center gap-2 pl-1\.5">/.test(list) && /placeholder="Search and filter"/.test(list) && /className="h-11 min-w-0 flex-1 bg-transparent text-\[16px\]/.test(list)
-    && /<label data-search="" className="flex h-8 min-w-0 flex-1 cursor-text items-center lg:h-\[35px\] @min-\[700px\]:w-\[240px\]/.test(list) && /placeholder="Search products"/.test(list)
-    && (list.match(/\{\.\.\.searchField\}/g) ?? []).length === 2 && !/isSearchOpen|setIsSearchOpen/.test(list))
+/* "On desktop large screens, the search input is different from that row thing ... make it that way: like mobile." */
+check("search is a real field that is always there once there are products, not a button that opens one: one field, the phone's, in the card's toolbar on every width",
+  /<label data-search="" className="flex h-11 min-w-0 flex-1 cursor-text items-center gap-2 pl-1\.5 md:h-8 /.test(list) && /placeholder="Search products"/.test(list) && /className="h-11 min-w-0 flex-1 bg-transparent text-\[16px\]/.test(list)
+    && (list.match(/type="search"/g) ?? []).length === 1 && (list.match(/<label data-search=""/g) ?? []).length === 1 && !/Search and filter|searchField|phoneSearchRef/.test(list) && !/isSearchOpen|setIsSearchOpen/.test(list))
 /* "The actual products should not have that thing with search products there. It should be integrated in the rows there." */
-check("on a phone the list is one card whose first row is its toolbar: the view with an up and down chevron, the search, a divider, Sort where Download was; nothing above it",
-  /data-controls="" className="hidden flex-col gap-2 pt-1 md:flex/.test(list)
-    && /className="relative mt-1 overflow-hidden rounded-2xl border border-\[#e5e7eb\]\/60 bg-white shadow-\[0_1px_3px_rgba\(0,0,0,0\.04\)\] md:mt-2\.5 lg:mt-\[11px\]"/.test(list)
-    && /<div data-toolbar="" className="flex h-12 items-center gap-1 border-b border-\[#eef0f2\] pl-0\.5 pr-1\.5">/.test(list)
-    && list.indexOf('data-toolbar=""') > list.indexOf('aria-label="Products"\n') && list.indexOf("data-view-select") < list.indexOf('placeholder="Search and filter"') && list.indexOf('placeholder="Search and filter"') < list.indexOf('data-divider=""') && list.indexOf('data-divider=""') < list.indexOf('aria-label="Sort" data-sort=""')
-    && /<Press aria-label="Sort" data-sort="" look=\{cn\(DOWNLOAD_LOOK, sort !== "newest" && SORT_ON\)\}>\s*<ArrowUpDown className="h-4 w-4" \/>/.test(list)
+check("on every width the list is one card whose first row is its toolbar: the view with an up and down chevron, the search, a divider, Sort where Download was; nothing above it",
+  !/data-controls|role="tablist"|role="tab"/.test(list)
+    && /className="relative mt-1 overflow-hidden rounded-2xl border border-\[#e5e7eb\]\/60 bg-white shadow-\[0_1px_3px_rgba\(0,0,0,0\.04\)\] md:mt-2 lg:mt-\[9px\]"/.test(list)
+    && /data-toolbar=""\s+className="flex h-12 items-center gap-1 border-b border-\[#eef0f2\] pl-0\.5 pr-1\.5 md:pl-2 md:pr-3 /.test(list)
+    && list.indexOf('data-toolbar=""') > list.indexOf('aria-label="Products"\n') && list.indexOf("data-view-select") < list.indexOf('placeholder="Search products"') && list.indexOf('placeholder="Search products"') < list.indexOf('data-divider=""') && list.indexOf('data-divider=""') < list.indexOf('aria-label="Sort" data-sort=""')
+    && /<Press aria-label="Sort" data-sort="" look=\{cn\(SORT_LOOK, sort !== "newest" && SORT_ON, "group-data-open\/press:bg-\[#ececef\]"\)\}>\s*<ArrowUpDown className="h-4 w-4 /.test(list)
+    && /const SORT_LOOK = cn\(DOWNLOAD_LOOK, "lg:h-\[35px\] lg:w-\[35px\]"\)/.test(list)
     && !list.slice(list.indexOf('data-toolbar=""'), list.indexOf('data-list-head=""')).includes("Export products")
     && /\{viewLabel\}\s*<ChevronsUpDown/.test(list))
 /* "Instead of the download icon where it currently is, put the sort by icon, which opens the mobile bottom sheet with only the sort by options. The view (All, Active, Draft, Archived) bottom sheet ... opens a bottom sheet with only the view options." */
@@ -368,11 +377,19 @@ check("the press only flips the sheet's own state, and a pick reaches the page o
     && /onClosed=\{\(\) => \{\s*const next = picked\.current\s*picked\.current = null\s*if \(next !== null\) onPickRef\.current\(next\)/.test(pickSheet)
     && /export const PickSheet = React\.memo\(/.test(pickSheet) && /const PickRows = React\.memo\(/.test(pickSheet))
 check("Escape clears the field, and so does its clear button", /e\.key === "Escape" && searchQuery/.test(list) && /aria-label="Clear search"[\s\S]{0,400}onClick=\{clearSearch\}/.test(list))
-check("the field and Sort stack over the views until the column is 700px wide, by container query, not the window",
-  /"@container mx-auto pb-2 md:pb-8"/.test(list) && /@min-\[700px\]:flex-row-reverse/.test(list))
+check("one toolbar for every width, so no container query to stack a field over the views", !/@container|@min-\[700px\]/.test(list) && (list.match(/data-toolbar=""/g) ?? []).length === 1)
 check("the views are All, Active, Draft and Archived, All open first, with no counts", /useState<View>\(resumed\?\.view \?\? "all"\)/.test(list) && /value: "all"[\s\S]{0,80}value: "active"[\s\S]{0,80}value: "draft"[\s\S]{0,80}value: "archived"/.test(list) && !/tabCounts/.test(list))
-check("as one segmented control whose white segment slides on transform alone, drawn only when there is more than one view",
-  /\{views\.length > 1 \? \(\s*<div\s+role="tablist"/.test(list) && /data-segment=""/.test(list) && /transition-transform duration-200/.test(list) && /motion-reduce:transition-none/.test(list) && /transform: `translateX\(\$\{viewIndex \* 100\}%\)`/.test(list))
+/* "Make it more good and clean: like mobile, with an inline modal for All / Active / Draft / Archived." */
+check("no segmented control of the views on a computer: the view is the toolbar's word, and from 768px its pick is the app's dropdown under it",
+  !/data-segment|viewIndex|tablist/.test(list) && /import \{ PickerRow, onRowsKey, pickerSurface \} from "@\/components\/app\/date-range-picker"/.test(pickSheet)
+    && /<Popover open=\{menu\} onOpenChange=\{setMenu\}>\s*<PopoverTrigger asChild>\{opener\}<\/PopoverTrigger>/.test(pickSheet) && /className=\{cn\(pickerSurface, /.test(pickSheet)
+    && /role="menu" aria-label=\{title\} data-pick-menu=\{name\} onKeyDown=\{onRowsKey\}/.test(pickSheet) && /<PickerRow key=\{o\.value\} rowKey=\{o\.value\} compact=\{false\} checked=\{o\.value === value\}/.test(pickSheet))
+check("which one a press opens is read at the press (768px), a phone's stopping Radix's toggle and opening the sheet as before; the arrows on the button open the dropdown; focus starts on the one that is on",
+  /const WIDE = "\(min-width: 768px\)"/.test(pickSheet) && /if \(isWide\(\)\) return\s*(\/\*[^*]*\*\/\s*)?e\.preventDefault\(\)\s*picked\.current = null/.test(pickSheet)
+    && /e\.key !== "ArrowDown" && e\.key !== "ArrowUp"/.test(pickSheet) && /querySelector<HTMLElement>\("\[data-row\]\[data-checked\]"\)/.test(pickSheet)
+    && /"data-open": menu \? "" : undefined/.test(pickSheet) && /md:data-open:bg-\[#ececef\]/.test(list))
+check("a pick from the dropdown reaches the page at once, only for a change, and the sort's lines up with Sort's right edge",
+  /const choose = React\.useCallback\(\(next: string, current: string\) => \{\s*setMenu\(false\)\s*if \(next !== current\) onPickRef\.current\(next\)/.test(pickSheet) && /onPick=\{pickSort\}\s*align="end"/.test(list))
 check("sort by newest, oldest, title, price and sales", ["newest", "oldest", "title_asc", "title_desc", "price_desc", "price_asc", "sales"].every((s) => list.includes(`value: "${s}"`)) && /\.sort\(compare\(sort\)\)/.test(list))
 /* A tenth smaller: 72 to 64px rows, a 56 to 50px picture, 15 to 14px names. A phone keeps those; the 7% is from 1024px only. */
 check("phone rows are 64px with a 50px picture inside the card, the name on one 14px line, the press tint only from the row's own link",
@@ -431,7 +448,8 @@ check("each picture is its own size, decoded off the main thread, on grey", /wid
 check("the list comes back as it was left: its view, order, search and page, kept for the tab", /let leftAt: \{ view: View; sort: Sort; search: string; page: number \} \| null = null/.test(list) && /leftAt = \{ view, sort, search: searchQuery, page \}/.test(list))
 /* "The remembered list state should only be restored on a return from the editor (or browser back to the list), not when the Products page is opened fresh." */
 check("but only on a return: a fresh visit from the sidebar or the pill starts at All, Newest, no search, page one",
-  /const \[resumed\] = useState\(\(\) => \(isReturning\(\) \? leftAt : null\)\)/.test(list)
+  /* Whether it is a return is read once, on the first render: the same answer resumes the list and holds the stage's landing (tests/return-navigation). */
+  /const \[returning\] = useState\(isReturning\)/.test(list) && /const \[resumed\] = useState\(\(\) => \(returning \? leftAt : null\)\)/.test(list)
     && /useState<Sort>\(resumed\?\.sort \?\? "newest"\)/.test(list) && /useState\(resumed\?\.page \?\? 1\)/.test(list) && /useState\(resumed\?\.search \?\? ""\)/.test(list)
     && !/leftAt\?\./.test(list) && /listShown\(\)/.test(list))
 check("the row you came back from is tinted as the list comes back, after the layer's move", /const id = takeEdited\(\)/.test(list) && /delay: LAYER_MOTION_MS/.test(list))
@@ -454,7 +472,7 @@ check("on a phone the layer slides in from the right edge and back out to it; th
     && /animation: layer-sink-out var\(--layer-motion-ms, 300ms\) var\(--layer-motion-ease, ease-out\) both/.test(css) && /mix-blend-mode: normal/.test(css))
 check("the pill keeps its place while a layer moves under it", /html\[data-layer-motion\] \[data-app-nav-pill\] \{\s*view-transition-name: app-nav-pill;/.test(css))
 check("the stage plays no landing of its own under a layer's move (the mark read on the commit, and again on the frame the landing would start)",
-  /const layered = !!document\.documentElement\.dataset\.layerMotion\s*requestAnimationFrame\(\(\) => \{\s*const s = scrollers\(\)\s*if \(!s \|\| layered \|\| document\.documentElement\.dataset\.layerMotion\) return\s*playEntrance\(s\.outer/.test(code("components/app/app-stage.tsx")))
+  /const layered = !!document\.documentElement\.dataset\.layerMotion\s*requestAnimationFrame\(\(\) => \{\s*const s = scrollers\(\)\s*if \(!s \|\| layered \|\| document\.documentElement\.dataset\.layerMotion( \|\| isLandingHeld\(\))?\) return\s*playEntrance\(s\.outer/.test(code("components/app/app-stage.tsx")))
 const ret = code("app/app/products/list-return.ts")
 /* "Exit must not leave the editor in the browser's forward/back stack in a surprising way." */
 check("an editor the list opened goes back in history; one opened any other way is replaced by the list, and neither pushes a new entry",
@@ -466,7 +484,7 @@ check("a return is noted by address: the way back from the editor and every pops
   /window\.addEventListener\("popstate", \(\) => \{\s*returnTo = window\.location\.pathname/.test(ret) && /returnTo = PRODUCTS_HREF/.test(ret) && /return returnTo === PRODUCTS_HREF \|\| isTraversing\(\)/.test(ret))
 
 const probe = read("scripts/check-products-page.mjs")
-check("the probe reads the pill's box from its source and measures 360, 390, 430, 768 and 1280", /num\("BAR_H"\)/.test(probe) && /num\("SLOT"\)/.test(probe) && ["phone-360", "phone-390", "phone-430", "tablet-768", "desktop-1280"].every((w) => probe.includes(`"${w}"`)))
+check("the probe draws the pill's box from its variables and measures 360, 390, 430, 768 and 1280", /width: "var\(--app-nav-width\)"/.test(probe) && /bottom: "var\(--app-nav-lift\)"/.test(probe) && /const TABS = /.test(probe) && ["phone-360", "phone-390", "phone-430", "tablet-768", "desktop-1280"].every((w) => probe.includes(`"${w}"`)))
 check("the probe holds the row buttons and New product against the editor's own, and a view switch to the same <img> elements and no empty frame",
   /data-probe-more/.test(probe) && /data-probe-save/.test(probe) && /every picture is the same <img> element it was/.test(probe) && /no frame with an empty list/.test(probe))
 const editorProbe = read("scripts/check-product-editor.mjs")

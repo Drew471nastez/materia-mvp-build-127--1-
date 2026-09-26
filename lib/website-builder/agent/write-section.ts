@@ -23,39 +23,53 @@ import {
   writeSectionRules,
   type ThemeContextInput,
 } from "@/lib/storelib-ai"
+import { writerReference } from "@/lib/storelib-ai/reference"
 import type { AgentProvider } from "@/lib/sites/agent/types"
 import { describeImages, type AgentImage } from "@/lib/sites/agent/attachments"
 import type { ThemeError } from "@/lib/storelib-theme/types"
 
 /**
- * What the model is told about the format and about taste.
+ * What the model is told about the format and about taste, and shown of it:
+ * the framework, a checklist and three of Storelib's own sections
+ * (lib/storelib-ai/reference.ts).
  *
- * STABLE, because it is the cached prefix on both providers. The only thing
- * that varies is the list of names already taken, which is short and which
- * changes when the install changes rather than per request. Everything about
- * THIS site goes in the turn instead: see `describeThemeForAuthoring`.
+ * STABLE, EVERY WORD OF IT, because it is the cached prefix on both
+ * providers and the same on every website. The names already taken on this
+ * website used to end it, which made the prefix one per website; they go in
+ * the turn now (takenNote), with everything else about THIS site
+ * (describeThemeForAuthoring).
  */
-export function writeSectionSystem(existingNames: string[], existingTypes: string[]): string {
+export function writeSectionSystem(): string {
   return [
     "You write one Storelib section and nothing else.",
-    "",
     writeSectionRules(),
-    "",
     INTEGRATION_CONTRACT,
-    "",
     "PADDING AND SPACING ARE SETTINGS (a range, in px), not fixed numbers in the CSS.",
-    "",
+    writerReference(),
+    [
+      "Answer with the file ONLY. No markdown fence, no explanation, no preamble.",
+      "The first characters of your answer are `{#` or `<template>`.",
+    ].join("\n"),
+    [
+      "THE ONE EXCEPTION. If the message is not a description of a section to build (a greeting, a question, a request",
+      "to change something already on the page, or too vague to design from), do not write a file. Answer with `REPLY:`",
+      "followed by one to three plain sentences: answer the question, or say what you need to know, with one example of",
+      "a request that would work (\"A pricing section with three plans and a monthly or yearly switch\").",
+    ].join("\n"),
+  ].join("\n\n")
+}
+
+/**
+ * The types and names this website already has, which the new section may
+ * not take. Per website, so it is part of the request, not the prefix.
+ */
+export function takenNote(existingNames: string[], existingTypes: string[]): string {
+  return [
     existingTypes.length ? `Types already taken, pick a different one: ${existingTypes.join(", ")}` : "",
     existingNames.length ? `Names already taken, pick a different one: ${existingNames.join(", ")}` : "",
-    "",
-    "Answer with the file ONLY. No markdown fence, no explanation, no preamble.",
-    "The first characters of your answer are `{#` or `<template>`.",
-    "",
-    "THE ONE EXCEPTION. If the message is not a description of a section to build (a greeting, a question, a request",
-    "to change something already on the page, or too vague to design from), do not write a file. Answer with `REPLY:`",
-    "followed by one to three plain sentences: answer the question, or say what you need to know, with one example of",
-    "a request that would work (\"A pricing section with three plans and a monthly or yearly switch\").",
-  ].filter(Boolean).join("\n")
+  ]
+    .filter(Boolean)
+    .join("\n")
 }
 
 /** What the writer is doing, for a panel that wants to say so while it waits. */
@@ -129,7 +143,7 @@ export async function writeSection(opts: {
   /** Told each time the work moves on, so a waiting panel can say what is happening. */
   onStage?: (stage: WriteStage, attempt: number) => void
 }): Promise<WriteResult> {
-  const system = writeSectionSystem(opts.takenNames, opts.takenTypes)
+  const system = writeSectionSystem()
   const images = opts.images ?? []
   const asked = opts.prompt.trim()
   /**
@@ -148,6 +162,7 @@ export async function writeSection(opts: {
       content: "the site described above and the creator's own business",
     }),
     knowledgeBlock(asked),
+    takenNote(opts.takenNames, opts.takenTypes),
     asked && `REQUEST\n${asked}`,
   ]
     .filter(Boolean)

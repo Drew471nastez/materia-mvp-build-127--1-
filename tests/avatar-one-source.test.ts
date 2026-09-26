@@ -257,7 +257,8 @@ async function main() {
     /avatarUrl: profileAvatar\(p\?\.avatar_url\),/.test(businesses) && !/c\?\.avatar_url/.test(businesses) && /select\("user_id, slug, display_name, onboarding_completed"\)/.test(businesses))
   const switcher = readCode("components/app/business-switcher.tsx")
   check("the row for the business you are in draws the header's photo, so it changes with it",
-    /src=\{b\.current && currentAvatar !== undefined \? currentAvatar \|\| null : b\.avatarUrl\}/.test(switcher) &&
+    /* The business you are in is its own row at the top of the switcher now (one row that opens to the rest), drawn from `current`. */
+    /src=\{currentAvatar !== undefined \? currentAvatar \|\| null : current\.avatarUrl\}/.test(switcher) && /const current = businesses\.find\(\(b\) => b\.current\)/.test(switcher) &&
       /<BusinessSwitcher businesses=\{businesses\} variant="dropdown" currentAvatar=\{avatarSrc\}/.test(readCode("components/app/sidebar.tsx")) &&
       /<BusinessSwitcher businesses=\{businesses\} variant="sheet" currentAvatar=\{avatarSrc\}/.test(readCode("components/app/mobile-account-menu.tsx")))
 

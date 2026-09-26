@@ -344,7 +344,8 @@ for (const kind of ["open", "close"]) {
   if (s.gapsOver20) problems.push(`the ${kind} had ${s.gapsOver20} frame gaps over 20ms at 4x (the longest ${s.maxGapMs}ms)`)
   if (s.fps.median != null && s.fps.median < 55) problems.push(`the ${kind} ran at ${s.fps.median} frames a second at 4x`)
 }
-if (feelReport.open.durationMs.median < 400 || feelReport.open.durationMs.median > 480) problems.push(`an open took ${feelReport.open.durationMs.median}ms, not 420 to 460`)
+/* 360ms, the website builder sheet's open; the first and last frames barely move, so a little under is read. */
+if (feelReport.open.durationMs.median < 320 || feelReport.open.durationMs.median > 400) problems.push(`an open took ${feelReport.open.durationMs.median}ms, not 340 to 380`)
 if (feelReport.close.durationMs.median < 300 || feelReport.close.durationMs.median > 380) problems.push(`a tap outside closed in ${feelReport.close.durationMs.median}ms, not 320 to 360`)
 if (feelReport.close.firstTwoFramesPct.median > 10) problems.push(`a tap outside moved the sheet ${feelReport.close.firstTwoFramesPct.median}% of the way in its first two frames: a jump, not a slide`)
 if (linkPrefetch) problems.push(`the account sheet's links asked for ${linkPrefetch} prefetches as they appeared`)

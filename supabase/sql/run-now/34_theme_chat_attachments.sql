@@ -1,0 +1,10 @@
+/* Ask Storelib pictures: the private bucket a conversation's pictures are kept in for thirty days, and one row per picture naming its message, readable only by the creator who owns the website and written by the server only. Until it runs, a sent picture shows while the chat is open and reads back as "Picture no longer available". Run after 24. Source: supabase/migrations/20261005_theme_chat_attachments.sql. */
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('theme-chat-attachments', 'theme-chat-attachments', false, 3145728, ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/gif']) ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = 3145728, allowed_mime_types = ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+CREATE TABLE IF NOT EXISTS public.theme_chat_attachments ( id uuid PRIMARY KEY DEFAULT gen_random_uuid(), install_id uuid NOT NULL REFERENCES public.store_theme_installs(id) ON DELETE CASCADE, message_id uuid REFERENCES public.theme_chat_messages(id) ON DELETE CASCADE, storage_path text NOT NULL, media_type text NOT NULL, byte_size integer NOT NULL DEFAULT 0, name text, created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL DEFAULT (now() + interval '30 days') );
+CREATE INDEX IF NOT EXISTS theme_chat_attachments_message_idx ON public.theme_chat_attachments (message_id);
+CREATE INDEX IF NOT EXISTS theme_chat_attachments_expiry_idx ON public.theme_chat_attachments (expires_at);
+CREATE INDEX IF NOT EXISTS theme_chat_attachments_install_idx ON public.theme_chat_attachments (install_id);
+ALTER TABLE public.theme_chat_attachments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tca_own ON public.theme_chat_attachments;
+DROP POLICY IF EXISTS tca_own_read ON public.theme_chat_attachments;
+CREATE POLICY tca_own_read ON public.theme_chat_attachments FOR SELECT USING (install_id IN (SELECT i.id FROM public.store_theme_installs i JOIN public.creators c ON c.id = i.creator_id WHERE c.user_id = auth.uid()));

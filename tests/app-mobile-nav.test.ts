@@ -136,11 +136,25 @@ function main() {
 
   console.log("\n  and nothing is left underneath the pill")
 
-  check("the phone's scroll container is padded for it",
-    /@media \(max-width: 767px\) \{\s*\n\s*html\.app-layout \.app-content-scroll \{\s*\n\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
+  check("the phone's scroll container is padded for it, by the pill's own room",
+    /@media \(max-width: 767px\) \{\s*\n\s*html\.app-layout \.app-content-scroll \{\s*\n\s*padding-bottom: var\(--app-nav-room\);/.test(css)
+      && /--app-nav-top: calc\(var\(--app-nav-bar\) \+ var\(--app-nav-lift\)\);/.test(css)
+      && /--app-nav-room: calc\(var\(--app-nav-top\) \+ 40px\);/.test(css))
   check("the pill clears the home indicator",
-    /const PILL_LIFT = "max\(4px, env\(safe-area-inset-bottom, 0px\)\)"/.test(nav)
+    /--app-nav-lift: max\(4px, env\(safe-area-inset-bottom, 0px\)\);/.test(css)
+      && /const PILL_LIFT = "var\(--app-nav-lift\)"/.test(nav)
       && /paddingBottom: `calc\(\$\{PILL_LIFT\}\)`/.test(nav))
+  /*
+    NO COPY OF THE PILL'S HEIGHT ANYWHERE. It was 104px written out four
+    times in globals.css, 116px in the menu page and 80px under the Android
+    exit toast, for a bar that has since changed size twice. Every one of
+    them reads the pill's variables now.
+  */
+  check("and nothing holds a copy of the pill's room: every rule reads the one variable",
+    !/calc\(104px \+ env\(safe-area-inset-bottom/.test(css)
+      && (css.match(/padding-bottom: var\(--app-nav-room\);/g) ?? []).length === 4
+      && /paddingBottom: "calc\(var\(--app-nav-room\) \+ 12px\)"/.test(nav) && !/116px/.test(strip(nav))
+      && /bottom: "calc\(var\(--app-nav-top\) \+ 16px\)"/.test(back))
   /*
     ── THE PAGE HAS TO BE ABLE TO GET PAST IT ──────────────────────────────
     Every other /app page scrolls in .app-content-scroll. The dashboard puts
@@ -164,7 +178,7 @@ function main() {
     /\.app-content-scroll:has\(> \.page-scroll, > \.dashboard-scroll-container, > \.sales-scroll-container, > \.orders-stage\) \{\s*\n\s*padding-bottom: 0;/.test(css),
     "padding the outer box only shrinks the inner one and holds the page away from the bar")
   check("and put on the one that does",
-    /\.app-content-scroll > \.page-scroll,\s*\n\s*html\.app-layout \.app-content-scroll > \.dashboard-scroll-container,\s*\n\s*html\.app-layout \.app-content-scroll > \.sales-scroll-container,[\s\S]{0,300}?html\.app-layout \.app-content-scroll > \.orders-stage > \.orders-pane \{\s*\n\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
+    /\.app-content-scroll > \.page-scroll,\s*\n\s*html\.app-layout \.app-content-scroll > \.dashboard-scroll-container,\s*\n\s*html\.app-layout \.app-content-scroll > \.sales-scroll-container,[\s\S]{0,300}?html\.app-layout \.app-content-scroll > \.orders-stage > \.orders-pane \{\s*\n\s*padding-bottom: var\(--app-nav-room\);/.test(css))
   /*
     ORDERS SCROLLS IN TWO PANES, the list and the order open over it
     (app/app/orders/orders-client.tsx). Neither is the stage's direct child
@@ -416,13 +430,13 @@ function main() {
   */
   check("and its lower edge is under the display, not above the home indicator",
     /bottom: -HALO_REACH\.below,/.test(nav)
-      && /height: `calc\(\$\{BAR_H \+ HALO_REACH\.top \+ HALO_REACH\.below\}px \+ \$\{PILL_LIFT\}\)`/.test(nav),
+      && /height: `calc\(var\(--app-nav-bar\) \+ \$\{HALO_REACH\.top \+ HALO_REACH\.below\}px \+ \$\{PILL_LIFT\}\)`/.test(nav),
     "tied to the pill's own lift, the halo stopped short of the bottom of the screen")
   check("with the strip under the pill measured in the probe",
     /it covers the strip under the pill, where a home indicator sits/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /past the bottom of the screen, so there is no bare strip/.test(read("scripts/check-app-mobile-nav.mjs")))
   check("with the pill's lift above the screen's bottom read once, by the pill and by the halo",
-    /const PILL_LIFT = "max\(4px, env\(safe-area-inset-bottom, 0px\)\)"/.test(nav)
+    /const PILL_LIFT = "var\(--app-nav-lift\)"/.test(nav)
       && /paddingBottom: `calc\(\$\{PILL_LIFT\}\)`/.test(nav)
       && /height: `calc\([^`]*\$\{PILL_LIFT\}\)`/.test(nav),
     "the same number computed twice is where the editor's black bands came from")
@@ -474,7 +488,8 @@ function main() {
   check("a finger can slide along the bar, and the slot follows it",
     /function useSlide\(/.test(nav) && /onPointerMove: \(e: React\.PointerEvent\) => \{/.test(nav))
   check("the selector is square in its box, which is what makes it a circle",
-    /width: DOT,\s*\n\s*height: DOT,/.test(nav) && /const DOT = BAR_H - PAD \* 2/.test(nav))
+    /width: "var\(--app-nav-dot\)",\s*\n\s*height: "var\(--app-nav-dot\)",/.test(nav)
+      && /--app-nav-dot: calc\(var\(--app-nav-bar\) - var\(--app-nav-pad\) \* 2\);/.test(css))
   check("a tap is a drag of zero length, so the two can never disagree",
     !/onClick=\{\(\) => pick\(/.test(nav) && /: slotAt\(e\.clientX\)/.test(nav))
   /* "Accurate when I land on something": a finger let go while still moving
@@ -592,7 +607,9 @@ function main() {
       && /if \(!movedRef\.current && Math\.abs\(clientX - downXRef\.current\) > DRAG_SLOP\) \{/.test(nav),
     "a press aimed at the fingertip springs off the slot and is dragged back on the lift: the bump")
   check("with the slot's edge computed the one way the component computes it at rest",
-    /const leftForSlot = \(index: number\): number => PAD \+ index \* SLOT \+ \(SLOT - DOT\) \/ 2/.test(nav)
+    /const slotLeft = \(index: number, g: Geometry\): number =>\s*\n\s*Math\.round\(\(g\.pad \+ index \* g\.slot \+ \(g\.slot - g\.dot\) \/ 2\) \* 100\) \/ 100/.test(nav)
+      && /const leftForSlot = \(index: number\): number => slotLeft\(index, geoRef\.current\)/.test(nav)
+      && /const x = slide\.geometry \? slotLeft\(restSlot, slide\.geometry\) : null/.test(nav)
       && /const leftFor = /.test(nav),
     "a second piece of arithmetic for the same number is how the press and the rest drift apart")
   check("and the press is a press again as soon as the finger lifts",
@@ -614,7 +631,7 @@ function main() {
      0.5px past it, still 239ms after a flick. */
   check("it springs onto the slot from the finger's speed, on the compositor, and lifts on another property",
     !/const SETTLE =/.test(nav) && /const SPRING = \{ stiffness: 520, damping: 34 \}/.test(nav)
-      && /function settleSpring\(from: number, speed: number, to: number, drop: Drop = /.test(nav)
+      && /function settleSpring\(from: number, speed: number, to: number, dot: number, drop: Drop = /.test(nav)
       && /dot\.style\.translate = `\$\{to\}px 0`\s*\n\s*dot\.style\.transform = ""/.test(nav)
       && /const a = dot\.animate\(frames, \{ duration: ms, easing: "linear" \}\)/.test(nav)
       && /const LIFT = 1\.04/.test(nav) && /slide\.following \? LIFT : 1/.test(nav)
@@ -798,10 +815,10 @@ function main() {
       && /opacity: marked < 0 \? 0 : 1,/.test(nav),
     "a dip is a wait however short it is, and it lands on the press")
   check("and its position is written on the frame its glass is empty, in one step",
-    /const lay = \(\) => \{ dot\.style\.translate = `\$\{x\}px 0`; laidAt\.current = x \}/.test(nav)
+    /const lay = \(\) => \{ dot\.style\.translate = `\$\{x\}px 0`; laidAt\.current = restSlot \}/.test(nav)
       && /if \(!arriving\) \{ setArriving\(true\); return \}\s*\n\s*if \(slide\.motion\.current\.settlingTo\(\) != null\) slide\.motion\.current\.stopSettle\(\)\s*\n\s*lay\(\)/.test(nav))
   check("while a released drag still springs into the slot",
-    /if \(slide\.bounce\) \{ slide\.motion\.current\.settleTo\(x\); laidAt\.current = x; return \}/.test(nav),
+    /if \(slide\.bounce\) \{ slide\.motion\.current\.settleTo\(x\); laidAt\.current = restSlot; return \}/.test(nav),
     "a drag is not what was called abrupt, and the bounce was asked for")
 
   /*
@@ -885,14 +902,14 @@ function main() {
     /\{ key: "analytics", label: "Analytics", href: "\/app\/analytics"/.test(nav)
       && !/\{ key: "settings"/.test(strip(nav)))
   check("and settings is a circle to the LEFT of the bar while the menu is open, mirroring the X",
-    /aria-label="Settings"/.test(nav) && /right: "100%",\s*\n\s*marginRight: GAP,/.test(nav)
+    /aria-label="Settings"/.test(nav) && /right: "100%",\s*\n\s*marginRight: "var\(--app-nav-gap\)",/.test(nav)
       && /tabIndex=\{menuOpen \? 0 : -1\}/.test(nav))
   check("out of the flow, with the group sliding half its width to stay centred",
-    /transform: `translateX\(\$\{menuOpen \? \(BAR_H \+ GAP\) \/ 2 : 0\}px\)`/.test(nav),
+    /transform: `translateX\(\$\{menuOpen \? "calc\(\(var\(--app-nav-bar\) \+ var\(--app-nav-gap\)\) \/ 2\)" : "0px"\}\)`/.test(nav),
     "animating a width would relayout the row on every frame of the open")
 
   check("the hamburger's lines have a little more air between them",
-    /top-\[3\.2px\]/.test(nav) && /top-\[13\.2px\]/.test(nav) && /h-\[1\.6px\]/.test(nav),
+    /style=\{line\(open \? 8\.2 : 3\.2\)\}/.test(nav) && /style=\{line\(open \? 8\.2 : 13\.2\)\}/.test(nav) && /height: gx\(1\.6\)/.test(nav),
     "at 1.6px of stroke, 4px apart leaves 2.4px of air and reads as a stack rather than three lines")
   check("keyboard activation still works, although the pointer decides",
     /if \(e\.detail === 0\) pick\(i\)/.test(nav))
@@ -914,8 +931,49 @@ function main() {
     /a group opens and closes/.test(read("scripts/check-app-mobile-nav.mjs")))
 
   console.log("\nThe bar, this round")
-  check("5% bigger: a 63px bar and 58px slots, with the glyphs kept at the 22px their fill is matched at",
-    /const BAR_H = 63\b/.test(nav) && /const SLOT = 58\b/.test(nav) && /const GLYPH = 22\b/.test(nav))
+  /*
+    "Reduce the overall size of the pill by 4%, adapted for every phone since
+    2015." The design numbers are the last round's (63, 58, 4, 8, 22) times
+    0.96, in globals.css and nowhere else; the pill draws them times
+    --app-nav-px, which follows the screen's width; and where the engine can
+    round, each lands on a whole pixel so the icons do not shift as they fill.
+    scripts/check-app-mobile-nav-widths.mjs measures 320 to 430 a pixel at a
+    time: 60 by 232 from 390 up, 50 by 190 at 320, nothing off the screen.
+  */
+  {
+    const n = (name: string) => Number((css.match(new RegExp(`--app-nav-${name}-n: ([\\d.]+);`)) ?? [])[1])
+    check("4% smaller: every design number is the one before it times 0.96",
+      n("bar") === 60.48 && n("slot") === 55.68 && n("pad") === 3.84 && n("gap") === 7.68 && n("glyph") === 21.12,
+      `bar ${n("bar")}, slot ${n("slot")}, pad ${n("pad")}, gap ${n("gap")}, glyph ${n("glyph")}`)
+    check("and the pill has no copy of them: it draws only the variables",
+      !/const (BAR_H|SLOT|PAD|DOT|GAP|GLYPH) = /.test(nav)
+        && /height: "var\(--app-nav-bar\)",\s*\n\s*width: "var\(--app-nav-width\)",\s*\n\s*padding: "var\(--app-nav-pad\)",/.test(nav)
+        && (nav.match(/width: "var\(--app-nav-bar\)", height: "var\(--app-nav-bar\)"/g) ?? []).length === 1
+        && /width: "var\(--app-nav-bar\)",\s*\n\s*height: "var\(--app-nav-bar\)",/.test(nav))
+    /* The widest the group is (settings, gap, bar, gap, menu) has to fit the screen with 8px a side and 3px for rounding. */
+    check("a design pixel is the screen over the widest the group ever is, never more than one real pixel, never so small a tab is under 44px",
+      /--app-nav-px: clamp\(\s*calc\(44px \/ var\(--app-nav-slot-n\)\),\s*calc\(\(100vw - 19px\) \/ \(var\(--app-nav-bar-n\) \* 2 \+ var\(--app-nav-gap-n\) \* 2 \+ var\(--app-nav-slot-n\) \* var\(--app-nav-tabs\) \+ var\(--app-nav-pad-n\) \* 2\)\),\s*1px\s*\);/.test(css))
+    const tabs = (nav.match(/const TABS = \[([\s\S]*?)\] as const/)?.[1].match(/\{ key: "/g) ?? []).length
+    check("and the CSS counts the same four tabs the bar draws", tabs === 4 && Number((css.match(/--app-nav-tabs: (\d+);/) ?? [])[1]) === tabs,
+      `the bar has ${tabs}, the CSS says ${(css.match(/--app-nav-tabs: (\d+);/) ?? [])[1]}`)
+    check("each length on a whole pixel where the engine can round, the padding on a half, the icons at 19px or more",
+      /@supports \(width: round\(1\.5px, 1px\)\) \{/.test(css)
+        && /--app-nav-bar: round\(calc\(var\(--app-nav-px\) \* var\(--app-nav-bar-n\)\), 1px\);/.test(css)
+        && /--app-nav-slot: round\(calc\(var\(--app-nav-px\) \* var\(--app-nav-slot-n\)\), 1px\);/.test(css)
+        && /--app-nav-pad: round\(calc\(var\(--app-nav-px\) \* var\(--app-nav-pad-n\)\), 0\.5px\);/.test(css)
+        && /--app-nav-glyph: round\(max\(19px, calc\(var\(--app-nav-px\) \* var\(--app-nav-glyph-n\)\)\), 1px\);/.test(css))
+    check("the lens is placed from the bar as drawn, measured, never from a second copy of the numbers",
+      /pad: Number\.parseFloat\(getComputedStyle\(bar\)\.paddingLeft\)/.test(nav)
+        && /slot: Number\.parseFloat\(getComputedStyle\(tab\)\.width\)/.test(nav)
+        && /dot: Number\.parseFloat\(getComputedStyle\(lens\)\.width\)/.test(nav)
+        && /new ResizeObserver\(read\)/.test(nav))
+    check("every tab's box is the whole column a press lands in",
+      /left: `calc\(var\(--app-nav-pad\) \+ var\(--app-nav-slot\) \* \$\{i\}\)`,\s*\n\s*top: 0,\s*\n\s*width: "var\(--app-nav-slot\)",\s*\n\s*height: "var\(--app-nav-bar\)",/.test(nav))
+    const widths = read("scripts/check-app-mobile-nav-widths.mjs")
+    check("and the probe measures it at 320, 360, 375, 390, 393, 414 and 430, and every width between",
+      /"320,360,375,390,393,414,430"/.test(widths) && /for \(let w = 320; w <= 430; w\+\+\)/.test(widths)
+        && /nav-\$\{w\}-closed\.png/.test(widths) && /Emulation\.setSafeAreaInsetsOverride/.test(widths))
+  }
   check("5% more blur in the glass", /backdropFilter: "blur\(25px\) saturate\(120%\)"/.test(nav))
   /* Stretched along the way it moves, by its smoothed speed, to at most
      about 1.12 wide with the lift: the probe reads 1.068 on a slow slide and
@@ -929,7 +987,7 @@ function main() {
   check("the stretch is a drop with a body: its own soft spring, leaning the way it goes, a slight squash as it stops, settling round",
     /const DROP_SPRING = \{ stiffness: 420, damping: 9 \}/.test(nav) && /const SQUASH_MAX = 0\.03/.test(nav) && /const DROP_LEAD = 0\.2/.test(nav)
       && /stepDrop\(dropRef\.current, speedRef\.current, dt\)/.test(nav) && /translateX\(\$\{lead\}px\) scale\(/.test(nav))
-  check("and rounds off again on the spring as it lets go, the drop's own spring riding along", /dotRef\.current\.style\.transform = ""/.test(nav) && /transform: dropStyle\(drop\)/.test(nav) && /stepDrop\(drop, v \/ 1000, dt \* 1000\)/.test(nav))
+  check("and rounds off again on the spring as it lets go, the drop's own spring riding along", /dotRef\.current\.style\.transform = ""/.test(nav) && /transform: dropStyle\(drop, dot\)/.test(nav) && /stepDrop\(drop, v \/ 1000, dt \* 1000\)/.test(nav))
   /* "Make tapping an icon feel a touch more satisfying (subtle press scale/spring, nothing big)." One fixed animation from the touch, the same every tap, on the glyph's own `scale`, never the lens. */
   check("a tapped icon gives a little and springs back: one fixed 420ms pulse on its own scale, 0.9 then 1.03, the lens untouched",
     /const TAP_PULSE: Keyframe\[\] = \[/.test(nav) && /\{ scale: "0\.9", offset: 0\.2/.test(nav) && /\{ scale: "1\.03", offset: 0\.6/.test(nav) && /const TAP_PULSE_MS = 420/.test(nav)
@@ -944,7 +1002,7 @@ function main() {
     /html\.capacitor \[data-app-nav-pill\] nav a:active \{\s*opacity: 1;\s*\}/.test(read("app/globals.css")))
   check("and each glyph is on a layer of its own for good, the solid drawn at its matched size rather than scaled",
     /willChange: "opacity"/.test(nav) && /size=\{layer \? size \* FILL_MATCH : size\}/.test(nav)
-      && /<NavIcon icon=\{item\.icon\} active=\{on\} color="currentColor" size=\{GLYPH\} layer \/>/.test(nav))
+      && /<NavIcon icon=\{item\.icon\} active=\{on\} color="currentColor" box=\{GLYPH_BOX\} layer \/>/.test(nav))
   check("all of it measured in the probe: tracking, landing, stretch, and the icons holding still",
     /THE GLASS UNDER A FINGER, EVERY FRAME, IN THE NATIVE SHELL/.test(read("scripts/check-app-mobile-nav.mjs"))
       && /no icon moves, not by half a pixel/.test(read("scripts/check-app-mobile-nav.mjs")))

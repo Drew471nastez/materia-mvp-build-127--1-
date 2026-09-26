@@ -38,8 +38,32 @@ function main() {
   check("the PaymentIntent is made for the methods the form loaded with", /payment_method_types: methodsFrom\(body\.paymentMethods\)/.test(route) && !/automatic_payment_methods/.test(route))
   const pay = read("app/checkout/parts/stripe-pay.tsx")
   check("the form asks Stripe for them by name", /paymentMethodTypes: methods/.test(pay))
-  check("and steps down to the next list when Stripe refuses one", /onLoadError=\{\(\) => onRefused\?\.\(\)\}/.test(pay) && /<Elements key=\{setIndex\}/.test(pay))
+  check("and steps down to the next list when Stripe refuses one", /onLoadError=\{\(\) => \(onRefused \? onRefused\(\) : setFailed\(true\)\)\}/.test(pay) && /<Elements key=\{`\$\{attempt\}:\$\{setIndex\}`\}/.test(pay))
   check("Pay sends the list it loaded with", (pay.match(/createIntent\([^)]*, methods\)/g) ?? []).length === 2)
+
+  console.log("\nWhen it cannot load, it says so")
+  check("a form not drawn in 15 seconds, or a Stripe.js that never arrives, shows Try again", /LOAD_PATIENCE_MS = 15_000/.test(pay) && /data-pay-failed/.test(pay) && /Try again/.test(pay) && /resetStripePromise\(\)/.test(pay))
+  check("offline, Pay waits and says why", /function useOnline\(\)/.test(pay) && /You are offline\. Pay waits for the connection\./.test(pay) && /disabled=\{!stripe \|\| !elements \|\| !online\}/.test(pay))
+
+  console.log("\nStripe Checkout's layout")
+  const client = read("app/checkout/checkout-client.tsx")
+  const summary = read("app/checkout/parts/order-summary.tsx")
+  const ui = read("app/checkout/parts/ui.tsx")
+  check("the order on grey at the left, the form on a white half with a shadow", /lg:bg-\[#f6f7f8\]/.test(client) && /fixed inset-y-0 right-0 hidden w-1\/2 bg-white shadow-/.test(client))
+  check("the order is open on a phone as the page arrives", /useState\(true\)/.test(client) && /Hide details/.test(client))
+  check("the line says Qty 1, and nothing sits on its picture", /Qty 1/.test(summary) && !/aria-label="Quantity 1"/.test(summary))
+  check("the code starts as a grey Add promotion code button", /Add promotion code/.test(summary) && /data-promo="add"/.test(summary))
+  check("the chosen tip is white in a grey track, never black", /bg-white text-\[#1a1a2e\] shadow-/.test(summary) && !/bg-\[#1a1a2e\] text-white/.test(summary))
+  check("Pay is 48px with an 8px corner, and Stripe signs the page", /h-12 w-full[^"]*rounded-\[8px\]/.test(ui) && /<PoweredByStripe \/>/.test(client))
+
+  console.log("\nLeaving the checkout")
+  check("Back returns through history, or replaces, and never pushes", /window\.history\.back\(\)/.test(client) && /router\.replace\(path\)/.test(client) && !/router\.push\(productUrl\)/.test(client))
+  check("and is answered on the press: a spinner, the page dimmed", /data-leaving=/.test(client) && /leaving \? \(\s*<Spinner/.test(client))
+  const buy = read("components/checkout/buy-button.tsx")
+  const smart = read("components/checkout/smart-buy-button.tsx")
+  const bar = read("components/store-builder/sticky-add-to-cart.tsx")
+  check("a Buy button is never left spent when the product page comes back", [buy, smart, bar].every((f) => /usePressPending\(\)/.test(f)) && !/setLoading\(true\)/.test(buy + smart))
+  check("and never waits for the analytics call before going", !/await trackFunnelStep/.test(buy + smart))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

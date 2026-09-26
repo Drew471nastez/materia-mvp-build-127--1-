@@ -15,10 +15,10 @@
  *   says which one you are on
  *
  *   a category with subcategories opens into a level of its own, with a back
- *   row on top. The two levels CROSS: the old one fades as it drifts a
- *   little left, the new one fades in as it settles from a little right, and
- *   back reverses it. Each level is its own scroller, so coming back puts
- *   you where you were in the list
+ *   row on top. The new level is PUSHED in the way a phone's own lists do it:
+ *   it slides in from the right edge while the list under it moves a quarter
+ *   of the way left and dims a little, and back reverses it. Each level is
+ *   its own scroller, so coming back puts you where you were in the list
  *
  *   an optional search on top, which finds a category or a subcategory by
  *   name and chooses it on Enter
@@ -40,28 +40,73 @@ export type BrowseItem = { id: string; label: string }
 export type BrowseGroup = { id: string; label: string; items: readonly BrowseItem[] }
 
 /**
- * THE CROSS, NOT A SLIDE. The levels used to slide the whole width: the new
- * one came in from the right with a shadow along its edge while the old one
- * slid a third of the way out and dimmed. "Too laggy", and the shadow read
- * as a bar coming in. A full width move is a long way for the eye to follow
- * on a list this simple, and the blurred edge was re-rastered on every frame
- * of it.
+ * ===========================================================================
+ *  A PUSH, THE STANDARD ONE
+ * ===========================================================================
+ * "More standard, smooth and clean. Going back and going in is laggy. Not so
+ * much animation, but not abrupt either." It was first a full width slide
+ * with a blurred shadow along the new level's edge ("the shadow read as a
+ * bar coming in"), then a cross of two small moves and two fades on
+ * different timings, which read as two animations and still stuttered.
  *
- * Now each level moves a few pixels and fades: the one leaving goes quickly,
- * the one arriving follows a moment later and settles on the sheet's own
- * curve, so the two are barely on screen together. Transform and opacity
- * only, nothing laid out and nothing re-rastered.
+ * Now it is the one a phone's own list does, and nothing else: the level
+ * opening slides in from the right edge (100% to 0), the list under it moves
+ * a quarter of the way left (0 to -25%) and dims a little under a veil, all
+ * three on one curve over BROWSE_SLIDE_MS; back plays it in reverse. No
+ * shadow, no fade of either list.
+ *
+ * WHAT MADE IT LAG, AND WHAT DOES NOT ANY MORE. The new level's rows were
+ * rendered on the same frame the move began, and each list became a layer
+ * of its own only once it started moving, so the first frames waited on
+ * React, on painting a list, and on a layer being made. Now:
+ *
+ *   both lists are layers from the start (`will-change: transform`), so a
+ *   move never waits for one to be made;
+ *
+ *   the tap draws the level and starts its move in one commit, and the
+ *   press before it does nothing at all (ONE TAP, below). A transition shows
+ *   where it starts on its first frame, so the rows are drawn off the right
+ *   edge on that frame, where nobody sees them, and the move begins on the
+ *   next: the same two frames a tap took when the rows were drawn earlier;
+ *
+ *   during the move nothing renders: the rows are the same elements
+ *   throughout, and going back keeps the level's rows until they are out of
+ *   sight (and after, so going in again is only a move).
+ *
+ * Transform and opacity only, on the compositor. Under reduced motion it is
+ * instant.
+ *
+ * ===========================================================================
+ *  ONE TAP, EVERY TIME
+ * ===========================================================================
+ * "Tapping a category to go into its subcategories does nothing, feels
+ * glitchy, and only works if you tap again later." On an iPhone, in Safari
+ * and in the app's WKWebView. The level used to be drawn on the PRESS
+ * (pointer down), a moment before the tap, to save the tap that work: its
+ * pane went from `visibility: hidden` to visible and filled with a row for
+ * every subcategory, off the right edge.
+ *
+ * WebKit watches what a page does while a finger comes down. When something
+ * that holds a control appears between the press and the click, it takes
+ * the tap to have opened a hover menu, leaves that on screen and sends no
+ * click (ContentChangeObserver, the rule that makes a menu shown on hover
+ * work on a touch screen). Ten buttons appearing under the finger is exactly
+ * that, so the first tap only drew the level and never opened it; the
+ * second tap, with nothing new appearing, did. Chromium has no such rule,
+ * which is why every probe here passed while the phone did not.
+ *
+ * So nothing happens on the press any more: no render, no attribute, no
+ * style. Everything happens on the click, which WebKit has already sent by
+ * then. scripts/check-explore-drill.mjs taps with real touches, while the
+ * sheet rises, as it arrives, after a scroll and after back, and counts the
+ * controls that appear between the press and the click: none.
  */
 export const BROWSE_SLIDE_MS = 280
-/** The level arriving fades in over this, a moment after the one leaving starts to go. */
-const FADE_IN_MS = 220
-const FADE_DELAY_MS = 50
-/** The level leaving is gone before the one arriving is half in. */
-const FADE_OUT_MS = 140
-const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-/** How far each level travels: the one opening comes from the right, the one it covers drifts left. */
-const SHIFT_IN = "24px"
-const SHIFT_OUT = "-16px"
+export const BROWSE_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+/** How far the list under a new level moves left... */
+export const BROWSE_PARALLAX = "-25%"
+/** ...and how dark the veil over it gets. */
+export const BROWSE_DIM = 0.06
 
 function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -94,11 +139,36 @@ export function Chevron({ dir = "right", className }: { dir?: "right" | "left" |
   )
 }
 
-export function Tick({ className }: { className?: string }) {
+/**
+ * THE MARK ON THE CHOSEN ROW. "A circled check with a bit of depth." A
+ * near-black disc with a white tick, a line of light along its top and a
+ * soft shadow under it, the depth the app's buttons have
+ * (components/ui/depth-button.ts): no gradient, no glow.
+ *
+ * It is always there and only shown or not, so a choice moving from one row
+ * to another is two small movements on the compositor: the new one grows
+ * in from 60% as it fades up, the old one shrinks away a little quicker.
+ * Scale and opacity only (Tailwind's `scale-*` is the `scale` property, so
+ * that is the one the transition names). Nothing about the row's text
+ * changes, so nothing reflows under the finger.
+ */
+export function CheckDisc({ on, className }: { on: boolean; className?: string }) {
   return (
-    <svg aria-hidden viewBox="0 0 16 16" fill="none" className={cn("h-4 w-4 shrink-0", className)}>
-      <path d="M3.5 8.4 6.6 11.4 12.5 4.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <span
+      aria-hidden
+      data-check-disc={on ? "on" : "off"}
+      className={cn(
+        "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-[#1a1a2e] text-white",
+        "shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_2px_rgba(15,23,42,0.22),0_3px_8px_-2px_rgba(15,23,42,0.24)]",
+        "transition-[scale,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+        on ? "scale-100 opacity-100 duration-[240ms]" : "scale-[0.6] opacity-0 duration-150",
+        className,
+      )}
+    >
+      <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3">
+        <path d="M3.6 8.4 6.5 11.2 12.4 5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
   )
 }
 
@@ -177,9 +247,12 @@ export function CategoryBrowser({
   const query = controlledQuery ?? ownQuery
   const setQuery = onQueryChange ?? setOwnQuery
   /* Which level is showing, and which group the second level holds. The
-     second is kept after going back so it still has rows while it slides out. */
+     second keeps its rows after going back, so they are there while it slides
+     out, and there already if the same group is opened again. */
   const [open, setOpen] = useState<string | null>(null)
   const [held, setHeld] = useState<string | null>(null)
+  /* The second level is out of sight and still: nothing of it is drawn. */
+  const [subOut, setSubOut] = useState(true)
   const rootRef = useRef<HTMLDivElement>(null)
   const subRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -195,13 +268,19 @@ export function CategoryBrowser({
     if (found) setOpen(null)
   }, [found])
 
+  /* On the tap, never the press (ONE TAP): the rows and the move in one commit. */
   const drillIn = useCallback((id: string) => {
     lastOpened.current = id
-    setHeld(id)
-    setOpen(id)
     if (subRef.current) subRef.current.scrollTop = 0
+    setHeld(id)
+    setSubOut(false)
+    setOpen(id)
   }, [])
-  const back = useCallback(() => setOpen(null), [])
+  const back = useCallback(() => {
+    setOpen(null)
+    /* Nothing moves under reduced motion, so no move ends to say it is out. */
+    if (reducedMotion()) setSubOut(true)
+  }, [])
 
   /* Focus follows the level for a keyboard: in, to the back row; out, to the row that was opened. */
   const keyboardRef = useRef(false)
@@ -266,15 +345,11 @@ export function CategoryBrowser({
             drillIn(g.id)
           }
         }}
-        className={cn(rowBase, rowCommon, on && "font-medium")}
+        className={cn(rowBase, rowCommon)}
       >
         <span className="min-w-0 flex-1 truncate">{g.label}</span>
         {detail ? <span className={detailCls}>{detail}</span> : null}
-        {opens ? (
-          <Chevron className="text-[#9ca3af]" />
-        ) : (
-          <Tick className={cn("text-[#1a1a2e]", on ? "opacity-100" : "opacity-0")} />
-        )}
+        {opens ? <Chevron className="text-[#9ca3af]" /> : <CheckDisc on={on} />}
       </button>
     )
   }
@@ -287,11 +362,11 @@ export function CategoryBrowser({
       data-browse-option={key}
       aria-current={on ? "true" : undefined}
       onClick={pick}
-      className={cn(rowBase, rowCommon, on && "font-medium")}
+      className={cn(rowBase, rowCommon)}
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {detail ? <span className={detailCls}>{detail}</span> : null}
-      <Tick className={cn("text-[#1a1a2e]", on ? "opacity-100" : "opacity-0")} />
+      <CheckDisc on={on} />
     </button>
   )
 
@@ -351,8 +426,9 @@ export function CategoryBrowser({
   ) : null
 
   const still = reducedMotion()
-  const arrive = still ? "none" : `transform ${BROWSE_SLIDE_MS}ms ${EASE}, opacity ${FADE_IN_MS}ms ${EASE} ${FADE_DELAY_MS}ms`
-  const leave = still ? "none" : `transform ${BROWSE_SLIDE_MS}ms ${EASE}, opacity ${FADE_OUT_MS}ms ${EASE}`
+  /* One move, one curve, for both lists and the veil. */
+  const move = still ? "none" : `transform ${BROWSE_SLIDE_MS}ms ${BROWSE_EASE}`
+  const veil = still ? "none" : `opacity ${BROWSE_SLIDE_MS}ms ${BROWSE_EASE}`
   const pane = "absolute inset-0 overflow-y-auto overscroll-contain bg-white"
 
   return (
@@ -383,14 +459,21 @@ export function CategoryBrowser({
           onKeyDown={onKeys(() => rootRef.current)}
           className={pane}
           style={{
-            transform: inSub ? `translate3d(${SHIFT_OUT}, 0, 0)` : "translate3d(0, 0, 0)",
-            opacity: inSub ? 0 : 1,
-            transition: inSub ? leave : arrive,
+            transform: inSub ? `translate3d(${BROWSE_PARALLAX}, 0, 0)` : "translate3d(0, 0, 0)",
+            transition: move,
+            willChange: "transform",
             touchAction: "pan-y",
           }}
         >
           {rootBody}
         </div>
+        {/* The veil that dims the list under a new level: over it, under the level. */}
+        <div
+          aria-hidden
+          data-browse-veil=""
+          className="pointer-events-none absolute inset-0 bg-[#0f172a]"
+          style={{ opacity: inSub ? BROWSE_DIM : 0, transition: veil, willChange: "opacity" }}
+        />
         <div
           ref={subRef}
           data-browse-level="sub"
@@ -398,16 +481,16 @@ export function CategoryBrowser({
           aria-hidden={!inSub || undefined}
           onKeyDown={onKeys(() => subRef.current)}
           onTransitionEnd={(e) => {
-            /* Out of sight, out of the tree's work: nothing to paint behind the list. */
-            if (e.target === e.currentTarget && e.propertyName === "transform" && !inSub) setHeld(null)
+            /* Out of sight and still: not drawn, but its rows kept, for going in again. */
+            if (e.target === e.currentTarget && e.propertyName === "transform" && !inSub) setSubOut(true)
           }}
           className={pane}
           style={{
-            transform: inSub ? "translate3d(0, 0, 0)" : `translate3d(${SHIFT_IN}, 0, 0)`,
-            opacity: inSub ? 1 : 0,
-            transition: inSub ? arrive : leave,
+            transform: inSub ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)",
+            transition: move,
+            willChange: "transform",
             touchAction: "pan-y",
-            visibility: heldGroup ? "visible" : "hidden",
+            visibility: heldGroup && (inSub || !subOut) ? "visible" : "hidden",
           }}
         >
           {subBody}

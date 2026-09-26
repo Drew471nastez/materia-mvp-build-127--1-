@@ -36,7 +36,7 @@
     {% endif %}
 
     {% if settings.show_signin_note and not wishlist.signed_in %}
-      <p class="note">{{ settings.signin_note }} <a class="note__link" href="{{ routes.account_login_url }}">{{ settings.signin_link }}</a></p>
+      <p class="note">{{ settings.signin_note }} <a class="note__link" href="{{ routes.account_login_url }}?return=%2Fwishlist">{{ settings.signin_link }}</a></p>
     {% endif %}
   </div>
 </section>
@@ -108,7 +108,7 @@
   "type": "main_wishlist",
   "name": "Wishlist",
   "category": "account",
-  "description": "The products a visitor saved with the heart. Kept in their browser, or in their account once they sign in.",
+  "description": "The products a visitor saved with the heart. Kept in their browser, or in their customer account once they sign in.",
   "version": "1.0.0",
   "icon": "heart",
   "allowed_templates": ["page.wishlist"],

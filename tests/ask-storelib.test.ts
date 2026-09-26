@@ -87,31 +87,59 @@ section("The computer's pill")
       !/onClose=\{\(\) => setAiOpen\(false\)\}/.test(editor),
   )
   /*
-    "The blur around the Ask Storelib AI thing is really weird, because it's
-    a straight line cut, a container rectangle." The halo was a blurred band
-    that relied on a mask to fade, and where the mask was not honoured it
-    was a hard rectangle. Now the frosted blur is the pill's own, inside its
-    rounded shape, and the glow round it is a shadow: nothing to drop, so no
-    edge anywhere (scripts/check-ask-dock.mjs measures its opacity pixel by
-    pixel). The open conversation is solid, with no backdrop filter to
-    repaint on every scroll of the canvas under it.
+    "Around the pill-shaped Ask Storelib bar, make sure it is blur glass: a
+    smooth, clean fade around it, not a white fade." "It has a white, faded,
+    light glow around it, which is bad." The halo (a light shadow the pill's
+    shape, rgba(248, 249, 250, 0.5)) is gone.
+
+    Then: "The blur around the pill is not fading, disappearing smoothly.
+    It's very cut around" and "it has too much see-through glassmorphism. It
+    needs to be more solid white". The masked blur band round the pill is
+    gone (Safari draws a backdrop blur but not the mask that feathers it, so
+    it ended in a hard edge), and the pill is 95% white over a light blur,
+    readable over a dark page and a white one.
   */
   check(
-    "the pill is frosted inside its own shape, and the glow round it is a shadow: no backdrop filter and no mask to drop",
-    /data-ask-glass=""[\s\S]{0,120}className="[^"]*bg-white\/70[^"]*backdrop-blur-xl backdrop-saturate-150/.test(chat) &&
-      /data-ask-halo=""[\s\S]{0,500}boxShadow: "0 6px 44px 14px rgba\(248, 249, 250, 0\.5\)"/.test(chat) &&
-      !/backdropFilter:/.test(chat) && !/maskImage/.test(chat),
+    "the pill is near solid white: 95% over a light 10px blur, with a hairline and layered shadows of ink",
+    /data-ask-glass=""[\s\S]{0,120}className="[^"]*border-\[#1a1a2e\]\/\[0\.08\][^"]*bg-white\/\[0\.95\][^"]*0_22px_44px_-20px_rgba\(15,23,42,0\.24\)[^"]*backdrop-blur-\[10px\]/.test(chat) &&
+      !/bg-white\/\[0\.64\]/.test(chat),
   )
   check(
-    "the open conversation is solid white, with no backdrop filter",
-    /data-ask-surface=""\s*\n\s*className="[^"]*\bbg-white\b[^"]*"/.test(chat) &&
-      !/data-ask-surface=""\s*\n\s*className="[^"]*backdrop-blur/.test(chat),
+    "and nothing around it glows: the halo is gone, and no shadow anywhere in the dock is white or near white",
+    !/data-ask-halo/.test(chat) && !/248, 249, 250/.test(chat) &&
+      !/(?:shadow-\[|boxShadow: ")[^"\]]*rgba\((?:2[0-5]\d, ?){2}2[0-5]\d, ?0?\.\d+\)(?![^"\]]*inset)/.test(chat),
   )
   check(
-    "opening and closing move on transform and opacity only, on the iOS curve",
+    "no blurred band round the pill: nothing in the dock puts a mask over a backdrop filter, so there is no edge to cut",
+    !/data-ask-fade/.test(chat) && !/maskImage/.test(chat) && !/FADE_(?:BLUR|MASK|REACH)/.test(read("lib/website-builder/ask-dock.ts")),
+  )
+  check(
+    "the open conversation is solid white with no backdrop filter, so opening it moves one flat layer",
+    /data-ask-surface=""\s*\n\s*className="[^"]*bg-white shadow-[^"]*"/.test(chat) &&
+      !/data-ask-surface=""\s*\n\s*className="[^"]*backdrop-/.test(chat),
+  )
+  check(
+    "the pill's glass fades on its own opacity and is moved by a transform; the conversation moves and fades as one element",
+    /style=\{appear\(!expanded && !pillAway, 280, 200\)\}/.test(chat) &&
+      /\.\.\.cardMotion\(cardOpen\)/.test(chat) &&
+      /data-ask-pill-state=\{pillAway \? "away" : "shown"\} style=\{lift\(!pillAway/.test(chat),
+  )
+  check(
+    "opening and closing move on transform and opacity only: the iOS curve in, a quicker ease in out",
     /transform: shown \? "none" : away/.test(chat) &&
-      /`transform \$\{openMs\}ms \$\{EASE\}, opacity/.test(chat) &&
-      /EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(read("lib/website-builder/ask-dock.ts")),
+      /`transform \$\{openMs\}ms \$\{EASE\}, visibility 0s`/.test(chat) &&
+      /`transform \$\{OPEN_MS\}ms \$\{EASE\}, opacity \$\{Math\.round\(OPEN_MS \* 0\.6\)\}ms ease-out, visibility 0s`/.test(chat) &&
+      /`transform \$\{CLOSE_MS\}ms \$\{CLOSE_EASE\}, opacity \$\{CLOSE_MS\}ms \$\{CLOSE_EASE\}, visibility 0s linear \$\{CLOSE_MS\}ms`/.test(chat) &&
+      !/transition: `(?:width|height|top|left|bottom)/.test(chat) &&
+      /EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(read("lib/website-builder/ask-dock.ts")) &&
+      /CLOSE_EASE = "cubic-bezier\(0\.4, 0, 1, 1\)"/.test(read("lib/website-builder/ask-dock.ts")) &&
+      /OPEN_MS = 2[2-8]\d\b/.test(read("lib/website-builder/ask-dock.ts")) && /CLOSE_MS = (?:1[89]\d|2[0-4]\d)\b/.test(read("lib/website-builder/ask-dock.ts")),
+  )
+  check(
+    "it stays in the page until the close has finished, and keeps its layer (will-change) only while open or closing",
+    /visibility 0s linear \$\{CLOSE_MS\}ms/.test(chat) &&
+      /willChange: shown \|\| cardLeaving \? "transform, opacity" : "auto"/.test(chat) &&
+      /window\.setTimeout\(\(\) => setCardLeaving\(false\), CLOSE_MS \+ 80\)/.test(chat),
   )
   check("and not at all under reduced motion", /transition: reducedMotion\s*\n?\s*\? "none"/.test(chat))
   check(
@@ -229,12 +257,39 @@ section("Voice")
     /body\.available\) setEngine\("record"\)/.test(voice) && /available: !!creatorId && !!process\.env\.OPENAI_API_KEY/.test(transcribe),
   )
   check("with neither, no microphone is drawn at all", /const micButton = voice\.supported && \(/.test(chat))
+  {
+    const manifest = read("android/app/src/main/AndroidManifest.xml")
+    const activity = read("android/app/src/main/java/com/storelib/app/MainActivity.java")
+    const plist = read("ios/App/App/Info.plist")
+    check(
+      "the Android app declares the microphone, and says so to the page, which draws it only for an install that does",
+      /android\.permission\.RECORD_AUDIO"/.test(manifest) &&
+        /android\.permission\.MODIFY_AUDIO_SETTINGS"/.test(manifest) &&
+        /android\.hardware\.microphone" android:required="false"/.test(manifest) &&
+        /public boolean microphoneDeclared\(\) \{\s*\n\s*return true;/.test(activity) &&
+        /if \(nativeWithoutMicrophone\(\)\) return/.test(voice) &&
+        /return androidBridge\(\)\?\.microphoneDeclared\?\.\(\) !== true/.test(voice),
+    )
+    check(
+      "iOS says what the microphone is for, and Storelib AI is named in it",
+      /<key>NSMicrophoneUsageDescription<\/key>\s*\n\s*<string>[^<]*Storelib AI[^<]*<\/string>/.test(plist),
+    )
+    check(
+      "the microphone is asked for on every press, never remembered, so the platform prompts whenever it is not allowed",
+      /Asked on every press[^\n]*\n\s*const media = await navigator\.mediaDevices\.getUserMedia\(\{ audio: true \}\)/.test(voice),
+    )
+    check(
+      "a refusal in the app offers its Settings page: app-settings: on iOS, App info on Android",
+      /window\.location\.href = "app-settings:"/.test(voice) &&
+        /ACTION_APPLICATION_DETAILS_SETTINGS/.test(activity) &&
+        /canOpenSettings: refused && canOpenMicrophoneSettings\(\)/.test(voice) &&
+        /\{voice\.canOpenSettings && \(/.test(chat) && /voice\.openSettings\(\)/.test(chat),
+    )
+  }
   check(
-    "nor in the Android app, whose manifest does not declare the microphone yet",
-    /if \(nativeWithoutMicrophone\(\)\) return/.test(voice) && /bridge\(\)\?\.getPlatform\?\.\(\) === "android"/.test(voice) &&
-      !/RECORD_AUDIO"/.test(read("android/app/src/main/AndroidManifest.xml")),
+    "a permission refused is said in plain words, for the browser and for each app",
+    /Microphone access is off for Storelib/.test(voice) && /Turn on Microphone for Storelib in Settings/.test(voice) && /Allow Microphone in Storelib's app permissions/.test(voice),
   )
-  check("a permission refused is said in plain words", /Microphone access is off for Storelib/.test(voice))
   check("a microphone left on stops by itself after a minute", /VOICE_LIMIT_SECONDS = 60/.test(voice) && /if \(elapsed >= VOICE_LIMIT_SECONDS\) stop\(\)/.test(voice))
   check("and is let go when the chat goes", /React\.useEffect\(\(\) => \(\) => cancel\(\), \[cancel\]\)/.test(voice))
   check(
@@ -245,6 +300,49 @@ section("Voice")
       !/storage|\.insert\(/.test(transcribe),
   )
   check("the listening ring is transform and opacity, and still under reduced motion", /@keyframes ask-listen \{\s*\n\s*0% \{ transform: scale\(1\); opacity: 0\.45; \}/.test(css) && /\.ask-listen-ring \{ animation: none; opacity: 0; \}/.test(css))
+}
+
+// ---------------------------------------------------------------------------
+section("On a phone")
+// ---------------------------------------------------------------------------
+{
+  const attachments = read("components/website-builder/ask-attachments.tsx")
+  check(
+    "the AI sheet opens and closes in 320ms and is a composer sheet: it does not resize for a keyboard",
+    /<MobileEditorSheet open=\{aiOpen\}[^\n]*moveMs=\{320\} keyboard="composer">/.test(editor) &&
+      /const height = composerKeys \? detentHeight : sheetHeightWithKeyboard/.test(sheet),
+  )
+  check(
+    "a sheet mounted open draws its first frame closed, backdrop clear, and moves on the next frame",
+    /sheet\.style\.transform = `translateY\(\$\{closedY\}px\)`/.test(sheet) &&
+      /overlay\.style\.opacity = "0"/.test(sheet) &&
+      /enterFrame\.current = requestAnimationFrame\(/.test(sheet),
+  )
+  check(
+    "only the composer's row rides the keyboard, on a transform, and the thread gets the same room at its end",
+    /"--sheet-keys": `\$\{composerLift\}px`/.test(sheet) &&
+      /transform: "translate3d\(0, calc\(-1 \* var\(--sheet-keys, 0px\)\), 0\)"/.test(chat) &&
+      /data-ask-keys-room="" className="shrink-0" style=\{\{ height: "var\(--sheet-keys, 0px\)" \}\}/.test(chat) &&
+      !/transition:[^\n]*height/.test(chat.slice(chat.indexOf("data-ask-footer"), chat.indexOf("data-ask-footer") + 1200)),
+  )
+  check(
+    "a tap on the box focuses it without a scroll",
+    /el\.focus\(\{ preventScroll: true \}\)/.test(chat) && /onTouchEnd=\{\s*\n\s*phone/.test(chat),
+  )
+  check("the composer's row has a soft shadow up onto the thread", /data-ask-footer=""\s*\n\s*className="relative z-\[1\][^"]*shadow-\[0_-1px_0/.test(chat))
+  check("the thread reads a size up on a phone, a touch heavier", /const words = phone \? "text-\[15px\] font-\[450\]" : "text-\[13\.5px\]"/.test(chat))
+  check(
+    "a message sent and its answer rise into place; a thread read back does not",
+    /const fresh = exchange\.startedAt !== undefined/.test(chat) && /@keyframes ask-in \{/.test(css) && /\.ask-in, \.ask-fade \{ animation: none; \}/.test(css),
+  )
+  check(
+    "a picture holds its size with a shimmer and fades in once decoded",
+    /export function FadeImage\(/.test(attachments) && /img\.decode\(\)/.test(attachments) && /<FadeImage/.test(chat) && /\.ask-shimmer::before \{/.test(css),
+  )
+  check(
+    "a tap that began on a sheet cannot click the canvas: its made-up mouse events are held to the sheet",
+    /window\.addEventListener\("click", onGhost, true\)/.test(sheet) && /if \(target && sheet\.contains\(target\)\)/.test(sheet),
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -304,7 +402,7 @@ section("A creator only ever sees their own conversations")
   )
   check(
     "a database without the conversations part still has its one thread, and says so",
-    /history: "not_set_up",\s*\n\s*messages: await readThemeChat\(installId\)/.test(chatRoute) &&
+    /const all = await readThemeChat\(installId\)[\s\S]{0,160}history: "not_set_up",\s*\n\s*messages: all\.messages,/.test(chatRoute) &&
       /\.\.\.\(input\.conversationId \? \{ conversation_id: input\.conversationId \} : \{\}\)/.test(lib),
   )
   check("the panel never posts to the transcript", !/method: "POST"[\s\S]{0,200}\/chat/.test(chat))

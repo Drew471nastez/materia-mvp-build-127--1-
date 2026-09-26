@@ -39,6 +39,7 @@ export type SnapshotPart =
   | "coupons"
   | "reviews"
   | "delivery"
+  | "website"
 
 export interface CreatorFacts {
   id: string
@@ -48,6 +49,16 @@ export interface CreatorFacts {
   chargesEnabled: boolean | null
   payoutsEnabled: boolean | null
   detailsSubmitted: boolean | null
+  /**
+   * creators.stripe_onboarding_status: "connected" once Stripe has the
+   * details and both switches are on, else "pending" or "not_connected".
+   * Checkout asks for "connected" (app/api/checkout), so the rules do too.
+   * Undefined when not read.
+   */
+  onboardingStatus?: string | null
+  /** creators.subscription_plan_id ("free", "growth", "pro") and subscription_status ("active", "past_due"). Undefined when not read. */
+  subscriptionPlan?: string | null
+  subscriptionStatus?: string | null
   hasAvatar: boolean
   hasBio: boolean
   /** An IANA zone, for the dates in messages. Null writes them in UTC. */
@@ -60,6 +71,14 @@ export interface ProductFacts {
   status: string | null
   type: string | null
   createdAt: string | null
+  /**
+   * Its price, and whether the buyer names it. A product at 0 that is not
+   * pay what you want is free: it is handed over without Stripe
+   * (app/api/checkout/quick-free). Undefined or null when not read, which
+   * counts as paid.
+   */
+  priceCents?: number | null
+  payWhatYouWant?: boolean | null
 }
 
 export interface PayoutFacts {
@@ -179,6 +198,16 @@ export interface UndeliveredFacts {
   productTitle: string | null
 }
 
+/** The creator's website in the builder (store_theme_installs). */
+export interface WebsiteFacts {
+  /** An install is published right now. */
+  live: boolean
+  /** An install was published and then taken down: a choice, not an unfinished step. */
+  unpublished: boolean
+  /** When the first draft install was made (the builder opened), or null when there is none. */
+  draftSince: string | null
+}
+
 /** Stripe's own account object, from an account.updated webhook. Never stored. */
 export interface StripeAccountFacts {
   chargesEnabled: boolean
@@ -217,6 +246,7 @@ export interface CreatorSnapshot {
   reviews?: ReviewFacts
   /** Paid orders of the last week whose receipt email failed and was not sent since. */
   undelivered?: UndeliveredFacts[]
+  website?: WebsiteFacts
   stripeAccount?: StripeAccountFacts
 }
 

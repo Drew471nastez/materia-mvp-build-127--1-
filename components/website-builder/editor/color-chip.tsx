@@ -5,7 +5,7 @@
 // design panel can all use it.
 import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { ChevronDown, Pipette } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useFrameCommit } from "./use-frame-commit"
 
@@ -79,7 +79,6 @@ export function ColorPickerPanel({
   existing,
   onDone,
   className,
-  against,
 }: {
   value: string
   onChange: (v: string) => void
@@ -87,8 +86,6 @@ export function ColorPickerPanel({
   /** Called after a choice that ends the interaction: a swatch, or clearing. */
   onDone?: () => void
   className?: string
-  /** The colour this one is read on, for the contrast line under the field. */
-  against?: { label: string; color: string }
 }) {
   const svRef = useRef<HTMLDivElement>(null)
   const hueRef = useRef<HTMLDivElement>(null)
@@ -157,37 +154,15 @@ export function ColorPickerPanel({
 
   const onHexInputChange = (v: string) => {
     setHexInput(v)
-    const clean = normalizeHex(v)
-    if (clean) {
+    const clean = v.startsWith("#") ? v : "#" + v
+    if (/^#[0-9a-f]{6}$/i.test(clean)) {
       const rgb = hexToRgb(clean)
       commit(rgbToHsv(rgb.r, rgb.g, rgb.b))
-    }
-  }
-
-  /**
-   * THE SCREEN'S OWN EYEDROPPER, where the browser has one (Chrome and Edge
-   * on a computer): pick a colour off anything on the screen, the canvas
-   * included. Where there is none the button is simply not drawn.
-   */
-  const [canDrop, setCanDrop] = useState(false)
-  useEffect(() => { setCanDrop(typeof window !== "undefined" && "EyeDropper" in window) }, [])
-  const dropper = async () => {
-    try {
-      const Dropper = (window as unknown as { EyeDropper: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper
-      const { sRGBHex } = await new Dropper().open()
-      const clean = normalizeHex(sRGBHex)
-      if (!clean) return
-      const rgb = hexToRgb(clean)
-      commit(rgbToHsv(rgb.r, rgb.g, rgb.b))
-      flush()
-    } catch {
-      /* Escape pressed, or the browser refused: nothing changes. */
     }
   }
 
   const pureHue = hsvToHex(hsv.h, 1, 1)
   const swatchColor = isTransparent ? "transparent" : hsvToHex(hsv.h, hsv.s, hsv.v)
-  const ratio = against && !isTransparent ? contrastBetween(swatchColor, against.color) : null
 
   return (
     <div className={className} onMouseDown={(e) => e.stopPropagation()}>
@@ -246,62 +221,35 @@ export function ColorPickerPanel({
         />
       </div>
 
-      {/* Hex, with the swatch it makes and the screen's eyedropper beside it */}
-      <div className="mt-2.5 flex items-center gap-2">
-        <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-2 focus-within:border-[#9ca3af] focus-within:ring-2 focus-within:ring-black/5">
-          <span
-            className="h-5 w-5 rounded border border-black/10 shrink-0"
-            style={{
-              background: isTransparent
-                ? "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 8px 8px"
-                : swatchColor,
-            }}
-          />
-          <input
-            type="text"
-            value={hexInput}
-            aria-label="Hex colour"
-            spellCheck={false}
-            onChange={e => onHexInputChange(e.target.value)}
-            onBlur={() => { if (!normalizeHex(hexInput)) setHexInput(isTransparent ? "" : swatchColor.toUpperCase()) }}
-            onKeyDown={e => { if (e.key === "Enter") { flush(); (e.target as HTMLInputElement).blur() } }}
-            className="min-w-0 flex-1 h-full font-mono text-[12px] bg-transparent border-0 tabular-nums uppercase focus:outline-none"
-            placeholder="#FFFFFF"
-          />
-        </div>
-        {canDrop && (
-          <button
-            type="button"
-            onClick={() => void dropper()}
-            aria-label="Pick a colour from the screen"
-            title="Pick from the screen"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#4b5563] transition-colors hover:border-[#d1d5db] hover:text-[#1a1a2e]"
-          >
-            <Pipette className="h-4 w-4" />
-          </button>
-        )}
+      {/* Hex input with swatch preview */}
+      <div className="mt-2.5 flex items-center gap-2 h-9 px-2 border border-border rounded-lg bg-muted/20">
+        <span
+          className="h-5 w-5 rounded border border-border shrink-0"
+          style={{
+            background: isTransparent
+              ? "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 8px 8px"
+              : swatchColor,
+          }}
+        />
+        <input
+          type="text"
+          value={hexInput}
+          onChange={e => onHexInputChange(e.target.value)}
+          className="flex-1 h-full text-[12px] bg-transparent border-0 tabular-nums uppercase focus:outline-none"
+          placeholder="#FFFFFF"
+        />
       </div>
-
-      {/* How it reads on what it sits on, where that is known. */}
-      {against && ratio !== null && (
-        <p className="mt-2 flex items-center justify-between gap-2 text-[11.5px] text-[#6b7280]" data-contrast-line="">
-          <span className="truncate">On {against.label.toLowerCase()}</span>
-          <span className={cn("shrink-0 tabular-nums", ratio < 4.5 ? "font-medium text-[#b45309]" : "text-[#1a1a2e]")}>
-            {(Math.round(ratio * 10) / 10).toFixed(1)} : 1{ratio < 4.5 ? (ratio < 3 ? ", hard to read" : ", large text only") : ""}
-          </span>
-        </p>
-      )}
 
       {existing.length > 0 && (
         <div className="mt-2.5">
-          <p className="text-[10.5px] font-medium text-muted-foreground mb-1">In this scheme</p>
+          <p className="text-[10px] font-medium text-muted-foreground mb-1">Existing colors</p>
           <div className="grid grid-cols-8 gap-1">
             {existing.map((c, i) => (
               <button
                 key={`${c}-${i}`}
                 type="button"
                 onClick={() => { onChange(c); onDone?.() }}
-                className="h-5 w-5 rounded border border-black/10 hover:scale-110 transition-transform"
+                className="h-5 w-5 rounded border border-border hover:scale-110 transition-transform"
                 style={{ background: c }}
                 aria-label={`Use ${c}`}
               />
@@ -313,39 +261,13 @@ export function ColorPickerPanel({
       <button
         type="button"
         onClick={() => { onChange("transparent"); onDone?.() }}
-        className="mt-2.5 w-full h-8 flex items-center justify-center gap-1.5 text-[12px] font-medium text-[#4b5563] border border-[#e5e7eb] rounded-lg bg-white hover:bg-[#f6f7f8] transition-colors"
+        className="mt-2.5 w-full h-8 flex items-center justify-center gap-1.5 text-[12px] font-medium border border-border rounded-lg hover:bg-muted transition-colors"
       >
-        <span className="inline-block h-3.5 w-3.5 rounded-full border border-black/10" style={{ background: "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 6px 6px" }} />
-        No color
+        <span className="inline-block h-3.5 w-3.5 rounded-full" style={{ background: "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 6px 6px" }} />
+        Don&apos;t apply any color
       </button>
     </div>
   )
-}
-
-/** "#abc", "abc", "#AABBCC" or "aabbcc" to "#aabbcc"; anything else to null. */
-export function normalizeHex(input: string): string | null {
-  const v = input.trim().replace(/^#/, "")
-  if (/^[0-9a-f]{3}$/i.test(v)) return `#${v.split("").map((c) => c + c).join("")}`.toLowerCase()
-  if (/^[0-9a-f]{6}$/i.test(v)) return `#${v}`.toLowerCase()
-  return null
-}
-
-/** The WCAG ratio between two hex colours. */
-function contrastBetween(a: string, b: string): number | null {
-  const x = normalizeHex(a)
-  const y = normalizeHex(b)
-  if (!x || !y) return null
-  const lum = (hex: string) => {
-    const { r, g, b } = hexToRgb(hex)
-    const f = (c: number) => {
-      const s = c / 255
-      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
-    }
-    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
-  }
-  const la = lum(x)
-  const lb = lum(y)
-  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
 }
 
 // ── Pretty color picker dropdown (chevron + popup) ───────────
@@ -355,10 +277,26 @@ export function ColorChip({
   value,
   onChange,
   existing,
+  variant = "chip",
+  muted = false,
+  hint,
+  label,
 }: {
   value: string
   onChange: (v: string) => void
   existing: string[]
+  /**
+   * "chip" is the round swatch and chevron. "field" is the swatch and its
+   * hex in an input-shaped box, the way a list of named colours reads best:
+   * a label on the left, the colour and its value on the right.
+   */
+  variant?: "chip" | "field"
+  /** Field only: the value is inherited, so it reads a step quieter. */
+  muted?: boolean
+  /** Field only: a word after the hex, such as "Auto". */
+  hint?: string
+  /** What the colour is, for the button's accessible name. */
+  label?: string
 }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
@@ -429,6 +367,41 @@ export function ColorChip({
     </div>,
     document.body,
   ) : null
+
+  const swatchBg = isTransparent
+    ? "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 8px 8px"
+    : value
+
+  if (variant === "field") {
+    return (
+      <>
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-label={label ? `${label}: ${isTransparent ? "none" : value.toUpperCase()}${hint ? `, ${hint}` : ""}` : "Pick color"}
+          aria-expanded={open}
+          data-color-field=""
+          className={cn(
+            "flex h-8 max-sm:h-10 w-[132px] max-sm:w-[140px] shrink-0 items-center gap-2 rounded-lg border bg-background pl-1.5 pr-2 text-left transition-colors",
+            "focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/10 focus-visible:border-neutral-400",
+            open ? "border-neutral-400" : "border-border hover:border-foreground/30",
+          )}
+        >
+          <span
+            className={cn("h-5 w-5 shrink-0 rounded-md border border-black/10", muted && "opacity-75")}
+            style={{ background: swatchBg }}
+          />
+          <span className={cn("min-w-0 flex-1 truncate text-[12px] tabular-nums", muted ? "text-muted-foreground" : "text-foreground")}>
+            {isTransparent ? "None" : value.toUpperCase()}
+          </span>
+          {/* "Scheme" is said by the grey of the value and read out to a screen reader; only "Auto" is written, and it fits beside a full hex. */}
+          {hint && hint !== "Scheme" ? <span className="shrink-0 text-[10.5px] text-muted-foreground/80">{hint}</span> : null}
+        </button>
+        {popup}
+      </>
+    )
+  }
 
   return (
     <>

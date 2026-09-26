@@ -292,12 +292,19 @@ export function stepAfter(steps: FlowStep[], id: string): FlowStep | null {
  * The step a job points at, when the flow may have been edited since the job
  * was queued: the step itself if it is still there; if it was removed, the
  * one that now follows the step before it; null when neither can be found.
+ *
+ * A job with no step before it is a run's first (enroll_email_flow writes it
+ * with none). Its step removed, what stands in its place is the flow's first
+ * step now. It used to be nothing: the run was ended as "the rest of the
+ * flow was removed" while the rest was all still there, so somebody waiting
+ * on a welcome whose first email was being retried got none of the series
+ * when the creator took that first email out.
  */
 export function resolveStep(steps: FlowStep[], stepId: string, afterStepId: string | null | undefined): FlowStep | null {
   const own = steps.find((s) => s.id === stepId)
   if (own) return own
   if (afterStepId) return stepAfter(steps, afterStepId)
-  return null
+  return steps[0] ?? null
 }
 
 /** The email step before this one, for "opened the email before this". */

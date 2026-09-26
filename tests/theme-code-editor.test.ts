@@ -752,7 +752,7 @@ section("The library draws what you would actually get")
   check("and a card takes that width rather than finding its own", /const cardWidth = gridWidth > 0 \?/.test(library) && /width=\{cardWidth\}/.test(library))
   // A box whose height is known before anything renders cannot shift when it does.
   check("a preview box is a known shape before it draws, so the grid never resettles",
-    /export const PREVIEW_RATIO = 0\.56/.test(library) && /height: height \|\| undefined,/.test(library) && /contentVisibility: "auto"/.test(library) && /containIntrinsicSize:/.test(library))
+    /export const PREVIEW_RATIO = 0\.56/.test(library) && /height: height \|\| undefined,/.test(library) && /* every card below the first few of a category skips its drawing until it is near the screen */ /contentVisibility: eager \? "visible" : "auto"/.test(library) && /containIntrinsicSize:/.test(library))
   check("and it scales with a transform, which costs no layout", /transform: `scale\(\$\{scale\}\)`/.test(library) && !/zoom: scale/.test(library))
 }
 

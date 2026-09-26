@@ -15,9 +15,25 @@
  *   payout_failed            a payout the bank sent back, until a later one
  *                            goes through
  *   dispute_opened           a dispute Stripe has not closed yet
+ *   payouts_not_connected    something paid is published and checkout
+ *                            cannot take a card: Stripe never connected,
+ *                            connected but onboarding left unfinished, or
+ *                            finished and still not switched on
+ *   pro_payment_failed       the card on the Pro plan was declined, so every
+ *                            sale is charged Free plan fees until it is paid
+ *
+ * GETTING PAID BEFORE THERE IS ANYTHING TO SELL. Home's banner leads with
+ * "Connect Stripe to get paid" whenever Stripe is not connected
+ * (lib/home/announcements.ts, "payouts"), and the panel draws the same thing
+ * as its own "Set up payments" to-do, which cannot be put away
+ * (lib/notifications/unread-state.ts STAYS_UNTIL_DONE). That is a next step
+ * while nothing is for sale. The moment a paid product is published it is a
+ * stop: buyers reach checkout and it refuses them ("This shop cannot take
+ * payments yet"). That is payouts_not_connected, critical, and while it is
+ * open the to-do steps aside for it (COVERS_PAYMENT_SETUP).
  */
-import { ageDays, money, shortDate } from "../format"
-import type { Finding, Rule } from "../types"
+import { ageDays, money, productName, shortDate } from "../format"
+import type { CreatorFacts, Finding, ProductFacts, Rule, StripeAccountFacts } from "../types"
 
 const PAYMENTS = "/app/settings/payments"
 const PAYOUTS = "/app/payouts"
@@ -184,5 +200,130 @@ export const disputeOpened: Rule = {
         href: PAYOUTS,
         area: "Payouts",
       }))
+  },
+}
+
+/**
+ * Whether checkout would take a card for this creator, asked the way
+ * app/api/checkout/cart and stripe-session ask it: a Stripe account, card
+ * payments and payouts not off, and onboarding "connected". A webhook's
+ * account wins over the stored switches. Where the onboarding status was
+ * not read (an older snapshot), both switches on is enough, as
+ * lib/home/progress paymentsReadyFrom counts it.
+ */
+export function canTakePayments(c: CreatorFacts, account?: StripeAccountFacts): boolean {
+  if (!c.stripeAccountId || !c.stripeAccountId.startsWith("acct_")) return false
+  const charges = account ? account.chargesEnabled : c.chargesEnabled
+  const payouts = account ? account.payoutsEnabled : c.payoutsEnabled
+  if (charges === false || payouts === false) return false
+  if (c.onboardingStatus !== undefined) return c.onboardingStatus === "connected"
+  return charges === true && payouts === true
+}
+
+/** A product a buyer pays for, so it needs Stripe. A price that was not read counts as paid. */
+export function isPaidProduct(p: Pick<ProductFacts, "priceCents" | "payWhatYouWant">): boolean {
+  if (p.payWhatYouWant === true) return true
+  return typeof p.priceCents !== "number" || p.priceCents > 0
+}
+
+export const payoutsNotConnected: Rule = {
+  kind: "payouts_not_connected",
+  category: "critical",
+  priority: 98,
+  version: 1,
+  needs: ["creator", "products", "sales"],
+  cooldownDays: 1,
+  ttlDays: 90,
+  resolveWhenGone: true,
+  push: true,
+  evaluate(s) {
+    const c = s.creator
+    if (!c || !s.products) return undefined
+    const selling = s.products.filter((p) => p.status === "published" && isPaidProduct(p))
+    /* Nothing for sale that needs a card: the panel's own "Set up payments" to-do says it. */
+    if (selling.length === 0) return []
+    if (canTakePayments(c, s.stripeAccount)) return []
+    const live = selling.length === 1 ? `${productName(selling[0].title)} is live` : `Your ${selling.length} products are live`
+    /* Each stage its own subject: finishing onboarding is news after connecting was said. */
+    if (!c.stripeAccountId) {
+      return [
+        {
+          subject: "connect",
+          title: "Connect Stripe to get paid",
+          message: `${live}, but buyers cannot check out until Stripe is connected.`,
+          href: PAYMENTS,
+          area: "Payments",
+          data: { live: selling.length },
+        },
+      ]
+    }
+    if (c.detailsSubmitted !== true) {
+      return [
+        {
+          subject: "finish",
+          title: "Finish setting up Stripe to get paid",
+          message: `You started connecting Stripe and did not finish. ${live}, but buyers cannot check out until you do.`,
+          href: PAYMENTS,
+          area: "Payments",
+          data: { live: selling.length },
+        },
+      ]
+    }
+    /* The details are in and Stripe has not switched payments on. Stripe
+       checking them is a wait of minutes with nothing to do. Switched off on
+       an account that sold is stripe_restricted's to say ("Buyers cannot pay
+       you right now"): one notification about it is enough. */
+    if (s.stripeAccount?.disabledReason === "requirements.pending_verification") return []
+    const restricted = stripeRestricted.evaluate(s)
+    if (restricted === undefined) return undefined
+    if (restricted.length > 0) return []
+    return [
+      {
+        subject: "review",
+        title: "Stripe has not turned on payments yet",
+        message: `${live}, but buyers cannot check out until it does. Open Payments to see if Stripe needs anything else.`,
+        href: PAYMENTS,
+        area: "Payments",
+        data: { live: selling.length },
+      },
+    ]
+  },
+}
+
+/** A Pro plan: anything but Free (lib/billing/plans; "growth" is the one sold, "pro" the older id). */
+const onPaidPlan = (plan: string | null | undefined) => !!plan && plan.toLowerCase().trim() !== "free"
+/** Stripe's states for a subscription whose last invoice was not paid. */
+const UNPAID_STATUSES = new Set(["past_due", "unpaid"])
+
+/**
+ * The Pro plan's card was declined (invoice.payment_failed sets
+ * subscription_status "past_due"). lib/billing/fee-calculator only honours a
+ * paid plan while it is active or trialing, so from that moment every sale
+ * pays Free plan fees: money the creator does not get. Resolved when the
+ * status is active again, or the plan goes back to Free.
+ */
+export const proPaymentFailed: Rule = {
+  kind: "pro_payment_failed",
+  category: "critical",
+  priority: 88,
+  version: 1,
+  needs: ["creator"],
+  cooldownDays: 1,
+  ttlDays: 45,
+  resolveWhenGone: true,
+  push: true,
+  evaluate(s) {
+    const c = s.creator
+    if (!c || c.subscriptionStatus === undefined || c.subscriptionPlan === undefined) return undefined
+    if (!onPaidPlan(c.subscriptionPlan) || !UNPAID_STATUSES.has(String(c.subscriptionStatus ?? ""))) return []
+    return [
+      {
+        subject: "subscription",
+        title: "Your Pro payment did not go through",
+        message: "Update your card in Billing. Until it is paid, your sales are charged Free plan fees.",
+        href: "/app/settings/billing",
+        area: "Billing",
+      },
+    ]
   },
 }

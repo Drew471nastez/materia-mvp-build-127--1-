@@ -20,7 +20,7 @@
  *   factsFromRows(rows)    ProgressFacts from the raw rows a server page
  *                          already holds (creator, products, domains, the
  *                          live website, orders, the counts)
- *   setupSteps(facts)      ProgressItem[]: the eight Getting started steps,
+ *   setupSteps(facts)      ProgressItem[]: the seven Getting started steps,
  *                          in SETUP_ORDER
  *   challenges(facts)      ProgressItem[]: the eight challenges, in
  *                          CHALLENGE_ORDER, each with current and target
@@ -55,12 +55,16 @@
  *   sale       a sale by the rule every figure uses (lib/orders/order-view
  *              isSale: a basket is one order; failed, pending and disputed
  *              payments are not sales)
- *   pro        the plan is Pro: "growth", or the earlier "pro"
  *   domain     a custom domain of this creator's whose DNS has been verified
  *              (status active, or ssl_provisioning while the certificate is
  *              issued: lib/custom-domains/store LIVE_STATUSES)
  *
- * Getting started is done when all eight are. Only then does the card show
+ * Upgrading to Pro is not a step. "Remove the Upgrade to Pro in Getting
+ * started": the plan is offered by Your Plan beside it and by the sidebar's
+ * card, and a checklist that asks to be paid reads as one. The plan is still
+ * a fact (`pro`), for whatever needs it.
+ *
+ * Getting started is done when all seven are. Only then does the card show
  * the challenges, which are counted the same way (sales, published
  * products, subscribers who can be mailed, emails sent, automations on,
  * coupons used, money made, the creator page on its own domain).
@@ -232,7 +236,7 @@ export function legacyFacts(steps: { id: string; completed: boolean }[], planId?
 
 /* ─── The two lists ─────────────────────────────────────────────────────── */
 
-export type SetupStepId = "signup" | "guide" | "product" | "payments" | "store" | "sale" | "pro" | "domain"
+export type SetupStepId = "signup" | "guide" | "product" | "payments" | "store" | "sale" | "domain"
 export type ChallengeId = "sales" | "products" | "email" | "automation" | "subscribers" | "coupon" | "revenue" | "page-domain"
 
 /** What the page does for an item that is not a link. */
@@ -256,11 +260,11 @@ export interface ProgressItem {
 
 /**
  * Getting started, in the order the work depends on itself: the guide
- * first, a product before payments, payments before the first sale, and
- * Pro before a domain, which is a Pro feature (components/app/settings/
- * domains-panel "Your own domain is on Pro").
+ * first, a product before payments, payments before the first sale, and the
+ * domain last. A domain is a Pro feature, and its own page says so
+ * (components/app/settings/domains-panel "Your own domain is on Pro").
  */
-export const SETUP_ORDER: readonly SetupStepId[] = ["signup", "guide", "product", "payments", "store", "sale", "pro", "domain"]
+export const SETUP_ORDER: readonly SetupStepId[] = ["signup", "guide", "product", "payments", "store", "sale", "domain"]
 
 export function setupSteps(f: ProgressFacts): ProgressItem[] {
   const all: Record<SetupStepId, ProgressItem> = {
@@ -268,11 +272,10 @@ export function setupSteps(f: ProgressFacts): ProgressItem[] {
     guide: { id: "guide", label: "How to get started", done: f.guideOpened, action: "guide" },
     product: { id: "product", label: "Add your first product", done: f.products > 0, href: f.products > 0 ? "/app/products" : "/app/products/new" },
     payments: { id: "payments", label: "Set up payments", done: f.paymentsReady, href: "/app/payouts" },
-    store: { id: "store", label: "Build your online store", done: f.websiteLive, href: "/app/website-builder" },
+    store: { id: "store", label: "Publish your website", done: f.websiteLive, href: "/app/website-builder" },
     sale: f.sales > 0
       ? { id: "sale", label: "Make your first sale", done: true, href: "/app/orders" }
       : { id: "sale", label: "Make your first sale", done: false, action: "share" },
-    pro: { id: "pro", label: "Upgrade to Pro", done: f.pro, href: f.pro ? "/app/settings/billing" : "/app/settings/billing/upgrade" },
     domain: { id: "domain", label: "Connect your domain", done: f.domainConnected, href: "/app/settings?tab=domains" },
   }
   return SETUP_ORDER.map((id) => all[id])

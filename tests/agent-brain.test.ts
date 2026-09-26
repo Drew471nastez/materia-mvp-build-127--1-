@@ -239,7 +239,14 @@ async function main() {
     check("the theme settings are compact, not pretty-printed", !/THEME SETTINGS\n\{\n  "/.test(turn.content) && /THEME SETTINGS\n\{"brand_name":"Northlight Presets"/.test(turn.content))
     check("and an empty setting is not sent", !/"custom_css"/.test(turn.content))
     check("a headline is about the business, so the store is read for it, once", /STORE, read for you just now/.test(turn.content) && /Film Presets Vol\. 1 \[id p1, \/products\/film-presets\]/.test(turn.content))
-    check("the first request stays inside its budget", tokens(first.system) <= 6_500 && tokens(JSON.stringify(first.tools)) <= 5_000 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
+    /*
+      The system prompt grew by the section framework, a checklist and two
+      built-in sections (lib/storelib-ai/reference.ts, pageAgentReference),
+      about 5.6k tokens of stable text that is cached and read at a tenth of
+      the price on every turn after the first. The budget grows by that and
+      no more; tests/ai-reference.test.ts holds the reference to its own.
+    */
+    check("the first request stays inside its budget", tokens(first.system) <= 12_300 && tokens(JSON.stringify(first.tools)) <= 5_000 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
     check("every request carries a cache breakpoint on its last block, so the transcript is read back cheaply", sent.every((r) => {
       const msgs = requestMessages(r.turns) as Array<{ content: unknown }>
       const last = msgs[msgs.length - 1].content as Array<{ cache_control?: unknown }>

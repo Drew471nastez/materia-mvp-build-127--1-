@@ -187,7 +187,7 @@ function readsOf(src: string): string[] {
  */
 
 /**
- * Written by the editor's own navigation UI — the "Add link to …" button —
+ * Written by the editor's own navigation UI (the "Add sub-link" action)
  * rather than by a settings control. Putting `parent_id` in the panel would
  * ask a creator to type another block's id, which is not a thing anyone can
  * be expected to know.

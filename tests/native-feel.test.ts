@@ -199,7 +199,7 @@ check(
 )
 check(
   "and it is padded into the content, so the field being typed into is reachable",
-  /paddingBottom: sheetBottomReserve\(chromeGap, keyboardInset, visibleTop > 0\)/.test(sheet),
+  /paddingBottom: (?:composerKeys \? sheetBottomReserve\(chromeGap, 0\) : )?sheetBottomReserve\(chromeGap, keyboardInset, visibleTop > 0\)/.test(sheet),
 )
 check(
   /**
@@ -274,15 +274,26 @@ check(
   /hidden=\{!shown\.has\(e\)\}/.test(library) && /hidden=\{hidden\}/.test(library) && !/key=\{`\$\{activeCategory/.test(library),
 )
 /**
- * And the grid says it changed with one short ease: the grid itself, once,
- * by opacity and transform (the compositor's two properties), on a category
- * change only; a keystroke in the search is not announced.
+ * AND NOTHING ABOUT A SWITCH IS ANIMATED. The grid used to ease in from a
+ * quarter of its strength on every category, and every preview kept the
+ * class that had faded it in when it first arrived; a CSS animation plays
+ * again whenever its element comes back from `display: none`, so each card
+ * a category showed again flashed up from nothing. Measured before the fix
+ * by scripts/check-add-section.mjs: drawn previews at opacity 0 and 0.25 in
+ * the first frame after the press, on a phone and on a computer, and filmed
+ * frames of the list washed out. Now a preview fades in once, by the Web
+ * Animations API, only when it lands in front of somebody, and a switch
+ * only puts the list back at its top.
  */
 {
-  const ease = library.slice(library.indexOf("const grid = gridEl.current"), library.indexOf("const grid = gridEl.current") + 500)
-  check("the entrance is on the grid, not on every card in it", /grid\.animate\(/.test(ease) && !/\.animate\(/.test(library.slice(library.indexOf("const LibraryCard = memo("), library.indexOf("/* ── The library"))))
-  check("it moves opacity and transform only, briefly", /\{ opacity: 0\.25, transform: "translate3d\(0, 6px, 0\)" \}, \{ opacity: 1, transform: "none" \}/.test(ease) && /duration: 200/.test(ease))
-  check("on a category change only, and not where motion is not wanted", /if \(!categoryChanged \|\| !grid \|\| window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(ease))
+  const filter = library.slice(library.indexOf("const filterKey ="), library.indexOf("CLOSE FIRST, ADD ON THE NEXT FRAME"))
+  const box = library.slice(library.indexOf("const PreviewBox = memo("), library.indexOf("const LibraryCard = memo("))
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "")
+  check("a category switch animates nothing: no fade of the list, no slide", !/\.animate\(/.test(strip(filter)) && !/opacity: 0\.25/.test(strip(library)))
+  check("it only starts the list at its top, before paint", /useLayoutEffect\(\(\) => \{\s*\n\s*if \(lastFilter\.current === filterKey\) return[\s\S]{0,80}scroller\.current\.scrollTop = 0/.test(filter))
+  check("a preview's own fade is played once by hand, not by a class a re-shown card replays",
+    /el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/.test(box) && /if \(held\.current\) return/.test(box) && !/wb-preview-arrive/.test(strip(library)))
+  check("and never on every card at once: the cards themselves animate nothing", !/\.animate\(/.test(strip(library.slice(library.indexOf("const LibraryCard = memo("), library.indexOf("/* ── The library")))))
 }
 
 // ---------------------------------------------------------------------------

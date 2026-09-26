@@ -19,9 +19,10 @@
  * segment under the text; it waits while a mouse is over the banner, while
  * focus is inside it, while a finger is on it, while it is off screen and
  * while the tab is hidden. The segments pick a slide (arrow keys move
- * between them), a sideways swipe on a phone does too. A change is the text
- * alone: it fades and slides a few pixels, line by line, in the one fixed
- * height, so nothing under it moves. The clock is a CSS animation on
+ * between them), a sideways swipe on a phone does too. A change is a plain
+ * crossfade of the text, opacity alone over 250ms, in the one fixed height:
+ * nothing slides, nothing follows the finger, nothing under it moves. "Not
+ * like a swipe carousel ... make it fade out, normal regular." The clock is a CSS animation on
  * `transform`, run by the compositor, and the slide changes when it ends:
  * no timer runs, and a slide change renders the banner and nothing else.
  * Screen readers hear a change they asked for and none they did not
@@ -39,14 +40,14 @@
  * Buttons go where the sidebar's rows go and the same way
  * (components/app/app-link).
  */
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react"
 import { AppLink } from "@/components/app/app-link"
 import { announcementsFor, fromFacts, type Announcement, type SalesSummary } from "@/lib/home/announcements"
 import type { ProgressFacts } from "@/lib/home/progress"
 import { BannerGlobe } from "./globe"
 
 /** How long a slide stays, in ms. */
-export const SLIDE_MS = 6000
+export const SLIDE_MS = 9000
 
 export interface HomeBannerProps {
   /** What the account has done, as Getting started reads it (lib/home/progress). Read only. */
@@ -77,7 +78,6 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
   const count = list.length
   const [currentId, setCurrentId] = useState(list[0]?.id)
   const [leavingId, setLeavingId] = useState<string | null>(null)
-  const [dir, setDir] = useState(1)
   /* A change the reader asked for is read out; one the clock made is not. */
   const [live, setLive] = useState<"off" | "polite">("off")
   const rootRef = useRef<HTMLElement>(null)
@@ -90,13 +90,12 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
   const current = list[index]
 
   const go = useCallback(
-    (to: number, direction: number, asked: boolean) => {
+    (to: number, asked: boolean) => {
       if (count < 2) return
       const next = list[((to % count) + count) % count]
       if (!next || next.id === current?.id) return
       setLeavingId(current?.id ?? null)
       setCurrentId(next.id)
-      setDir(direction)
       setLive(asked ? "polite" : "off")
     },
     [count, list, current],
@@ -145,38 +144,41 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
   }, [setBit])
 
   /* ── Swipe, on a touch screen ───────────────────────────────────────── */
-  const swipe = useRef<{ id: number; x: number; y: number; dx: number; on: boolean } | null>(null)
-  const setTrack = (dx: number, animate: boolean) => {
-    const t = trackRef.current
-    if (!t) return
-    t.style.transition = animate ? "translate 380ms cubic-bezier(0.22, 1, 0.36, 1)" : "none"
-    t.style.translate = dx ? `${dx}px 0` : ""
-  }
+  /*
+    A SWIPE PICKS THE NEXT SLIDE, AND THE CHANGE IS THE SAME FADE AS EVERY
+    OTHER. The text used to ride the finger and leave the way it was thrown,
+    like a carousel; now nothing moves under the finger. A sideways swipe
+    past a quarter of the text's width, or a flick, crossfades to the next
+    slide (left) or the one before (right) once the finger lifts. The width
+    is read once, when the finger lands, never per move.
+  */
+  const swipe = useRef<{ id: number; x: number; y: number; dx: number; on: boolean; t: number; v: number; w: number } | null>(null)
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "mouse") return
     setBit(TOUCH, true)
-    swipe.current = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, on: false }
+    swipe.current = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, on: false, t: e.timeStamp, v: 0, w: trackRef.current?.clientWidth || 240 }
   }
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const s = swipe.current
     if (!s || s.id !== e.pointerId || count < 2) return
     const dx = e.clientX - s.x
     const dy = e.clientY - s.y
-    if (!s.on && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) s.on = true
+    if (!s.on && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) s.on = true
     if (!s.on) return
+    const dt = Math.max(1, e.timeStamp - s.t)
+    s.v = s.v * 0.5 + ((dx - s.dx) / dt) * 0.5
+    s.t = e.timeStamp
     s.dx = dx
-    /* The text follows the finger a little, and less the further it goes. */
-    setTrack(Math.sign(dx) * Math.min(28, Math.abs(dx) * 0.3), false)
   }
   const onPointerEnd = (e: ReactPointerEvent<HTMLDivElement>) => {
     const s = swipe.current
     if (!s || s.id !== e.pointerId) return
     swipe.current = null
-    setTrack(0, true)
     window.setTimeout(() => setBit(TOUCH, false), 250)
-    if (e.type !== "pointerup" || !s.on) return
-    if (s.dx <= -44) go(index + 1, 1, true)
-    else if (s.dx >= 44) go(index - 1, -1, true)
+    const flick = Math.abs(s.v) > 0.35 && Math.sign(s.v) === Math.sign(s.dx)
+    const far = Math.abs(s.dx) > s.w / 4
+    if (e.type !== "pointerup" || !s.on || !(far || flick) || count < 2) return
+    go(index + (s.dx < 0 ? 1 : -1), true)
   }
 
   /* ── The segments, as tabs ──────────────────────────────────────────── */
@@ -185,7 +187,7 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
     if (!(e.key in keys)) return
     e.preventDefault()
     const to = ((keys[e.key] % count) + count) % count
-    go(to, to > index || (e.key === "ArrowRight" && to === 0) ? 1 : -1, true)
+    go(to, true)
     const tab = tabsRef.current?.querySelectorAll<HTMLButtonElement>("[role=tab]")[to]
     tab?.focus()
   }
@@ -218,7 +220,6 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
             ref={trackRef}
             className="home-banner-stack"
             aria-live={live}
-            style={{ "--in": `${dir * 14}px`, "--out": `${dir * -10}px` } as CSSProperties}
           >
             {list.map((a, i) => {
               const state = a.id === current?.id ? "active" : a.id === leavingId ? "leaving" : "idle"
@@ -276,7 +277,7 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
                     tabIndex={on ? 0 : -1}
                     className="home-banner-tab"
                     data-on={on ? "" : undefined}
-                    onClick={() => go(i, i >= index ? 1 : -1, true)}
+                    onClick={() => go(i, true)}
                   >
                     <span className="home-banner-tab-track">
                       {/*
@@ -289,7 +290,7 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
                       <span
                         className="home-banner-tab-fill"
                         style={{ animationDuration: `${SLIDE_MS}ms` }}
-                        onAnimationEnd={on ? () => go(index + 1, 1, false) : undefined}
+                        onAnimationEnd={on ? () => go(index + 1, false) : undefined}
                       />
                     </span>
                   </button>
@@ -320,58 +321,38 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
 const BANNER_CSS = `
 .home-banner {
   container-type: inline-size;
-  border: 1px solid rgba(208, 213, 223, 0.85);
-  background: #eceef2;
+  border: 1px solid #e3e5ea;
+  background: #f3f4f6;
   box-shadow:
     0 1px 2px rgba(16, 24, 40, 0.04),
-    0 18px 36px -24px rgba(16, 24, 40, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 .home-banner-bg {
   position: absolute;
   inset: 0;
   z-index: -1;
   pointer-events: none;
+  /* Clean light grey, a touch lighter at the top left where the light comes from. No violet, no
+     pattern: "something more clean, smooth, not eye candy, more towards light grey". Painted once. */
   background:
-    radial-gradient(34% 62% at 97% 50%, rgba(124, 92, 230, 0.16), rgba(124, 92, 230, 0) 72%),
-    radial-gradient(26% 58% at 64% 112%, rgba(99, 115, 160, 0.16), rgba(99, 115, 160, 0) 70%),
-    radial-gradient(22% 46% at 46% -8%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 70%),
-    radial-gradient(18% 40% at 30% 70%, rgba(203, 208, 222, 0.55), rgba(203, 208, 222, 0) 72%),
-    radial-gradient(30% 70% at 4% 104%, rgba(176, 184, 204, 0.42), rgba(176, 184, 204, 0) 70%),
-    radial-gradient(20% 44% at 14% 6%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 72%),
-    radial-gradient(14% 30% at 76% 16%, rgba(214, 206, 248, 0.5), rgba(214, 206, 248, 0) 72%),
-    linear-gradient(180deg, #f3f4f7 0%, #e9ebf0 100%);
-}
-/* The pattern, out of focus: large soft dots in a grid, too blurred to read as dots, strongest across the
-   middle and gone at the edges. Then the glass: a sheen across the upper left. */
-.home-banner-bg::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(112deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.16) 34%, rgba(255, 255, 255, 0) 52%),
-    radial-gradient(circle at 50% 50%, rgba(46, 50, 84, 0.05) 0%, rgba(46, 50, 84, 0.025) 30%, rgba(46, 50, 84, 0) 64%) 0 0 / 56px 56px,
-    radial-gradient(circle at 50% 50%, rgba(46, 50, 84, 0.04) 0%, rgba(46, 50, 84, 0.02) 30%, rgba(46, 50, 84, 0) 64%) 28px 28px / 56px 56px;
-  -webkit-mask-image: radial-gradient(64% 110% at 60% 72%, #000 0%, rgba(0, 0, 0, 0.5) 42%, transparent 76%);
-  mask-image: radial-gradient(64% 110% at 60% 72%, #000 0%, rgba(0, 0, 0, 0.5) 42%, transparent 76%);
-}
-.home-banner-bg::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.35;
-  mix-blend-mode: soft-light;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0 0.16 0.7 0 0 0 -0.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    radial-gradient(60% 120% at 12% 0%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #f6f7f9 0%, #f1f2f5 100%);
 }
 
 /*
-  ONE HEIGHT, TALL ENOUGH FOR THE LONGEST SLIDE AT EVERY WIDTH: a two line
-  title, the most lines the body is allowed, the button, the segments.
-  Phone type to 619px (16/21 title, 13/18 body, three lines at most):
-  18 + 16 + 4 + 42 + 5 + 54 + 14 + 34 + 28 + 10 = 225. Computer type from
-  620 (20/26 title, 14/20 body, two lines): 26 + 16 + 6 + 52 + 6 + 40 + 14
-  + 36 + 28 + 14 = 238. scripts/check-home-banner.mjs holds every slide of
-  every state to it, at eight widths.
+  ONE HEIGHT, TALL ENOUGH FOR THE LONGEST SLIDE AT EVERY WIDTH, AND NO
+  TALLER, WITH THE BUTTON AND THE SEGMENTS TOGETHER AT THE FOOT. "The banner
+  shouldn't look fat, and not so much space between the lines and the
+  button." The button row sits at the bottom of the text (margin-top: auto)
+  and the segments 8px under it, so whatever room a short slide leaves is
+  above the button, never between it and the segments. Every line is 48
+  characters at most (lib/home/announcements). Phone type to 619px (15/20
+  title, 13/17 body, two lines each): 18 + 16 + 4 + 40 + 4 + 34 + 12 + 34 +
+  8 + 16 + 10 = 196. From 620 (19/24, 14/19, two lines each): 20 + 16 + 5 +
+  48 + 5 + 38 + 12 + 34 + 8 + 16 + 12 = 214. From 860, one line each: 20 +
+  16 + 5 + 24 + 5 + 19 + 12 + 34 + 8 + 16 + 12 = 171, so 172, the globe
+  sized to sit inside it. scripts/check-home-banner.mjs holds every slide of
+  every state to it.
 */
 .home-banner-inner {
   --g: 168px;
@@ -380,7 +361,7 @@ const BANNER_CSS = `
   --gap: 8px;
   --pad-l: 18px;
   position: relative;
-  height: 240px;
+  height: 196px;
 }
 @container (min-width: 380px) {
   .home-banner-inner { --g: 180px; --gx: 64px; --pad-l: 20px; }
@@ -389,10 +370,10 @@ const BANNER_CSS = `
   .home-banner-inner { --g: 204px; --gx: 96px; --gy: 6px; --gap: 14px; --pad-l: 26px; }
 }
 @container (min-width: 620px) {
-  .home-banner-inner { --g: 252px; --gx: 136px; --gy: 10px; --gap: 22px; --pad-l: 32px; }
+  .home-banner-inner { --g: 236px; --gx: 132px; --gy: 4px; --gap: 22px; --pad-l: 32px; height: 214px; }
 }
 @container (min-width: 860px) {
-  .home-banner-inner { --g: 292px; --gx: 176px; --gy: 18px; --gap: 32px; --pad-l: 36px; }
+  .home-banner-inner { --g: 204px; --gx: 140px; --gy: 0px; --gap: 32px; --pad-l: 36px; height: 172px; }
 }
 
 .home-banner-globe {
@@ -411,7 +392,7 @@ const BANNER_CSS = `
   top: 22%;
   bottom: -4%;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(28, 22, 56, 0.3), rgba(28, 22, 56, 0.12) 58%, rgba(28, 22, 56, 0) 100%);
+  background: radial-gradient(closest-side, rgba(40, 46, 62, 0.14), rgba(40, 46, 62, 0.05) 58%, rgba(40, 46, 62, 0) 100%);
   pointer-events: none;
 }
 
@@ -424,7 +405,7 @@ const BANNER_CSS = `
   touch-action: pan-y;
 }
 @container (min-width: 620px) {
-  .home-banner-text { padding-top: 26px; padding-bottom: 14px; }
+  .home-banner-text { padding-top: 20px; padding-bottom: 12px; }
 }
 .home-banner-stack {
   position: relative;
@@ -438,36 +419,26 @@ const BANNER_CSS = `
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+}
+/*
+  A CROSSFADE, AND NOTHING ELSE. The slide going out and the one coming in
+  sit in the same place and trade opacity over the same 250ms, on the whole
+  slide at once: no slide, no stagger, only the compositor at work. The one
+  going out turns hidden (out of the accessibility tree) once it has faded.
+*/
+.home-banner-slide {
   visibility: hidden;
+  opacity: 0;
+  transition: opacity 250ms ease, visibility 0s linear 250ms;
 }
 .home-banner-slide > * {
   /* Never squeezed: a title or a line clipped to fit would be a sentence cut in half. */
   flex-shrink: 0;
-  opacity: 0;
-  translate: var(--in) 0;
-  transition: none;
 }
-.home-banner-slide[data-slide="active"] { visibility: visible; }
-.home-banner-slide[data-slide="active"] > * {
+.home-banner-slide[data-slide="active"] {
+  visibility: visible;
   opacity: 1;
-  translate: 0 0;
-  transition:
-    opacity 380ms cubic-bezier(0.22, 1, 0.36, 1),
-    translate 520ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.home-banner-slide[data-slide="active"] > :nth-child(2) { transition-delay: 40ms; }
-.home-banner-slide[data-slide="active"] > :nth-child(3) { transition-delay: 80ms; }
-.home-banner-slide[data-slide="active"] > :nth-child(4) { transition-delay: 120ms; }
-.home-banner-slide[data-slide="leaving"] {
-  visibility: hidden;
-  transition: visibility 0s linear 300ms;
-}
-.home-banner-slide[data-slide="leaving"] > * {
-  opacity: 0;
-  translate: var(--out) 0;
-  transition:
-    opacity 220ms cubic-bezier(0.4, 0, 1, 1),
-    translate 300ms cubic-bezier(0.4, 0, 1, 1);
+  transition: opacity 250ms ease, visibility 0s;
 }
 
 .home-banner-eyebrow {
@@ -490,8 +461,8 @@ const BANNER_CSS = `
 }
 .home-banner-title {
   margin-top: 4px;
-  font-size: 16px;
-  line-height: 21px;
+  font-size: 15px;
+  line-height: 20px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: #1a1a2e;
@@ -502,21 +473,25 @@ const BANNER_CSS = `
   overflow: hidden;
 }
 .home-banner-line {
-  margin-top: 5px;
+  margin-top: 4px;
   font-size: 13px;
-  line-height: 18px;
+  line-height: 17px;
   color: #5f6673;
   text-wrap: pretty;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   overflow: hidden;
 }
 @container (min-width: 620px) {
-  .home-banner-title { margin-top: 6px; font-size: 20px; line-height: 26px; letter-spacing: -0.015em; }
-  .home-banner-line { margin-top: 6px; font-size: 14px; line-height: 20px; -webkit-line-clamp: 2; }
+  .home-banner-title { margin-top: 5px; font-size: 19px; line-height: 24px; letter-spacing: -0.015em; }
+  .home-banner-line { margin-top: 5px; font-size: 14px; line-height: 19px; -webkit-line-clamp: 2; }
 }
-.home-banner-cta-row { margin-top: 14px; }
+.home-banner-cta-row { margin-top: auto; padding-top: 12px; }
+@container (min-width: 860px) {
+  .home-banner-title,
+  .home-banner-line { -webkit-line-clamp: 1; }
+}
 .home-banner-cta {
   display: inline-flex;
   align-items: center;
@@ -537,14 +512,14 @@ const BANNER_CSS = `
 .home-banner-cta:active { background: #0b0b0d; }
 .home-banner-cta:focus-visible { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #8b5cf6; }
 @container (min-width: 620px) {
-  .home-banner-cta { height: 36px; padding: 0 16px; }
+  .home-banner-cta { padding: 0 16px; }
 }
 
 .home-banner-tabs {
   display: flex;
   gap: 2px;
-  height: 22px;
-  margin-top: 6px;
+  height: 16px;
+  margin-top: 8px;
   margin-left: -4px;
   flex: 0 0 auto;
 }
@@ -552,13 +527,16 @@ const BANNER_CSS = `
   display: flex;
   align-items: center;
   width: 30px;
-  height: 22px;
+  height: 16px;
   padding: 0 4px;
   border-radius: 6px;
   outline: none;
   -webkit-tap-highlight-color: transparent;
 }
 .home-banner-tab:focus-visible { box-shadow: 0 0 0 2px #8b5cf6; }
+/* The segment is 16px tall to keep the banner low; its target reaches 10px further up and down. */
+.home-banner-tab { position: relative; }
+.home-banner-tab::after { content: ""; position: absolute; inset: -10px -1px; }
 .home-banner-tab-track {
   position: relative;
   display: block;
@@ -590,16 +568,15 @@ const BANNER_CSS = `
   to { transform: scaleX(1); }
 }
 
-/* Reduced motion keeps the clock and loses the movement: the text changes in place, and the segment
-   under it only marks which slide is showing. */
+/* Reduced motion keeps the clock and loses the movement: a shorter fade, and the segment under the text
+   only marks which slide is showing. */
 @keyframes home-banner-fill-still {
   from { transform: scaleX(1); }
   to { transform: scaleX(1); }
 }
 @media (prefers-reduced-motion: reduce) {
   .home-banner-tab[data-on] .home-banner-tab-fill { animation-name: home-banner-fill-still; }
-  .home-banner-slide > *,
-  .home-banner-slide[data-slide="active"] > *,
-  .home-banner-slide[data-slide="leaving"] > * { translate: 0 0; transition: opacity 160ms linear; transition-delay: 0ms; }
+  .home-banner-slide { transition-duration: 160ms, 0s; transition-delay: 0s, 160ms; }
+  .home-banner-slide[data-slide="active"] { transition-delay: 0s, 0s; }
 }
 `

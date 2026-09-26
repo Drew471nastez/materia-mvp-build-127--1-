@@ -14,11 +14,16 @@
  *   - a creator whose milestones are all recorded is not read for sales
  *   - the engine against it: rows once, a second run writes nothing
  *   - before the SQL (no claim function): nothing is read or written
+ *   - what getting paid is decided from: onboarding, the plan's payment,
+ *     each product's price, the website in the builder; and a database
+ *     without one of those columns still gives every other rule its creator
  */
 import { ALL_PARTS, runNotificationEngine } from "@/lib/notifications/engine"
 import { supabaseSnapshots } from "@/lib/notifications/snapshot"
 import { supabaseNotificationStore } from "@/lib/notifications/supabase-store"
 import { domainHttps } from "@/lib/notifications/rules/domains"
+import { payoutsNotConnected, proPaymentFailed } from "@/lib/notifications/rules/payments"
+import { websiteNotPublished } from "@/lib/notifications/rules/setup"
 import type { ExistingRow } from "@/lib/notifications/types"
 
 let passed = 0
@@ -73,11 +78,13 @@ class Query {
   ignoreDup = false
   returning = false
   embed: { table: string; fk: string; inner: boolean; cols: string[] } | null = null
+  cols: string[] = []
   constructor(public db: FakeDb, public table: string) {}
   select(cols = "*", opts?: { count?: string; head?: boolean }) {
     if (this.mode !== "select") this.returning = true
     this.head = !!opts?.head
     this.counted = !!opts?.count
+    this.cols = cols.replace(/\w+!inner\([^)]*\)/g, "").split(",").map((c) => c.trim()).filter(Boolean)
     const m = /(\w+)!inner\(([^)]*)\)/.exec(cols)
     if (m) this.embed = { table: m[1], fk: "product_id", inner: true, cols: m[2].split(",").map((c) => c.trim()) }
     return this
@@ -105,6 +112,8 @@ class Query {
   run(): { data: unknown; error: { code: string } | null; count?: number } {
     const rows = this.db.tables[this.table]
     if (!rows) return { data: null, error: { code: "42P01" } }
+    /* A column this database does not have, asked for by name: Postgres's "undefined column". */
+    if (this.mode === "select" && (this.db.missing[this.table] ?? []).some((c) => this.cols.includes(c))) return { data: null, error: { code: "42703" } }
     if (this.mode === "upsert" || this.mode === "insert") {
       const out: Row[] = []
       for (const p of this.payload) {
@@ -147,6 +156,8 @@ class FakeDb {
   reads: string[] = []
   claimable = true
   columns: Record<string, string[]> = {}
+  /* Columns a select may not name here, as on an older database. */
+  missing: Record<string, string[]> = {}
   constructor(public tables: Record<string, Row[]>) {}
   from(t: string) { return new Query(this, t) }
   async rpc(fn: string, args: { p_limit: number }) {
@@ -315,6 +326,42 @@ async function main() {
     const d = new FakeDb(fixture())
     const s = await supabaseSnapshots(d, { probeHttps: offline }).load(["c1"], new Set(["creator", "sales"]), new Map([["c1", recorded]]), NOW)
     check("every sales milestone recorded: orders are not read at all", !d.reads.includes("orders") && s.get("c1")?.sales?.truncated === true, d.reads)
+  }
+
+  console.log("\nWhat getting paid is decided from")
+  {
+    const t = fixture()
+    Object.assign(t.creators[0], { stripe_onboarding_status: "pending", subscription_plan_id: "growth", subscription_status: "past_due" })
+    Object.assign(t.creators[1], { stripe_onboarding_status: "not_connected", subscription_plan_id: "free", subscription_status: "active" })
+    Object.assign(t.creators[2], { stripe_onboarding_status: "connected", subscription_plan_id: null, subscription_status: null })
+    Object.assign(t.products[0], { price_cents: 1200, pay_what_you_want: false })
+    Object.assign(t.products[1], { price_cents: 0, pay_what_you_want: false })
+    t.products.push({ id: "p5", creator_id: "c2", title: "Guide", status: "published", type: "digital", created_at: ago(2), price_cents: 900, pay_what_you_want: false })
+    t.store_theme_installs = [
+      { id: "i1", creator_id: "c1", status: "draft", created_at: ago(5) },
+      { id: "i2", creator_id: "c1", status: "draft", created_at: ago(2) },
+      { id: "i3", creator_id: "c3", status: "published", created_at: ago(40) },
+      { id: "i4", creator_id: "c3", status: "draft", created_at: ago(9) },
+      { id: "i5", creator_id: "c2", status: "unpublished", created_at: ago(1) },
+    ]
+    const s = await supabaseSnapshots(new FakeDb(t), { probeHttps: offline }).load(["c1", "c2", "c3"], ALL_PARTS, new Map(), NOW)
+    const [a, b, c] = ["c1", "c2", "c3"].map((id) => s.get(id)!)
+    check("onboarding and the plan's payment, as stored", a.creator?.onboardingStatus === "pending" && a.creator.subscriptionPlan === "growth" && a.creator.subscriptionStatus === "past_due" && c.creator?.onboardingStatus === "connected" && c.creator.subscriptionStatus === null, a.creator)
+    check("each product's price, and a price not stored is unknown", a.products?.find((p) => p.id === "p1")?.priceCents === 1200 && a.products?.find((p) => p.id === "p2")?.priceCents === 0 && a.products?.find((p) => p.id === "p3")?.priceCents === null && a.products?.find((p) => p.id === "p1")?.payWhatYouWant === false)
+    check("the website: the first draft's date, a live one, one taken down", a.website?.draftSince === ago(5) && !a.website.live && c.website?.live === true && b.website?.unpublished === true && b.website.draftSince === null, { a: a.website, b: b.website, c: c.website })
+    check("so: c2 has a paid product live and no Stripe, c1 is behind on Pro, and only c1's website waits",
+      (payoutsNotConnected.evaluate(b) ?? []).map((f) => f.subject).join() === "connect" && (proPaymentFailed.evaluate(a) ?? []).length === 1 && (proPaymentFailed.evaluate(c) ?? []).length === 0
+        && (websiteNotPublished.evaluate(a) ?? []).length === 1 && (websiteNotPublished.evaluate(b) ?? []).length === 0 && (websiteNotPublished.evaluate(c) ?? []).length === 0)
+  }
+  {
+    /* An older database: no onboarding or plan columns, no pay what you want. */
+    const d = new FakeDb(fixture())
+    d.missing = { creators: ["subscription_status"], products: ["pay_what_you_want"] }
+    const s = await supabaseSnapshots(d, { probeHttps: offline }).load(["c1", "c2", "c3"], ALL_PARTS, new Map(), NOW)
+    const a = s.get("c1")!
+    check("a creators table without those columns: the creator is still read, those facts unknown", a.creator?.id === "c1" && a.creator.payoutsEnabled === false && a.creator.onboardingStatus === undefined && proPaymentFailed.evaluate(a) === undefined, a.creator)
+    check("a products table without the price columns: products still read, every one counted as paid", a.products?.length === 3 && a.products.every((p) => p.priceCents == null && p.payWhatYouWant == null), a.products)
+    check("no builder table: the website is unknown, and its step cannot tell", a.website === undefined && websiteNotPublished.evaluate(a) === undefined)
   }
 
   console.log("\nThe whole engine against it")

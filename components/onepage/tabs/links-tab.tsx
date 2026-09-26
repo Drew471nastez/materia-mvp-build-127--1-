@@ -2,6 +2,7 @@
 
 import { hapticTap } from "@/lib/native-bridge"
 import { sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
+import { useLinkReorder } from "@/components/onepage/link-reorder"
 
 import { useOnePage } from "@/lib/onepage/context"
 import {
@@ -42,31 +43,28 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 // Custom Toggle Component with theme-style design
-function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
-  return (
-    <input
-      type="checkbox"
-      checked={checked}
-      onChange={(e) => onCheckedChange(e.target.checked)}
-      className="theme-checkbox"
-    />
-  )
+/** The large rounded box the link editor's own fields use (16px on a phone, or iOS zooms the page to type). */
+const linkField =
+  "h-12 w-full rounded-xl border border-[#e3e4e8] bg-white px-4 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[15px]"
+
+/*
+  EVERY TOGGLE HERE IS THE APP'S ONE SWITCH (components/ui/switch-style,
+  drawn by editor-kit's Switch): slim, near black when on, a quiet grey
+  when off, with a 44px place to press. They were two CSS checkboxes, one of
+  them violet.
+*/
+function Toggle({ checked, onCheckedChange, label }: { checked: boolean; onCheckedChange: (checked: boolean) => void; label?: string }) {
+  return <Switch checked={checked} onChange={onCheckedChange} label={label ?? ""} />
 }
 
-// Block enable toggle - purple when checked (same style as theme-checkbox but purple)
-function BlockToggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
-  return (
-    <input
-      type="checkbox"
-      checked={checked}
-      onChange={(e) => onCheckedChange(e.target.checked)}
-      className="theme-checkbox-purple"
-    />
-  )
+/** A card's own on and off, at the end of its row. */
+function BlockToggle({ checked, onCheckedChange, label }: { checked: boolean; onCheckedChange: (checked: boolean) => void; label?: string }) {
+  return <Switch checked={checked} onChange={onCheckedChange} label={label ?? (checked ? "Shown on your page" : "Hidden from your page")} />
 }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { MobileColorPicker } from "@/components/onepage/mobile-color-picker"
+import { ColorRow, RangeRow, Switch } from "@/components/onepage/editor-kit"
+import { primaryDepth } from "@/components/ui/depth-button"
 import { DeletedIcon, SaveNotification } from "@/components/ui/save-notification"
 import {
   Dialog,
@@ -75,7 +73,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Slider } from "@/components/ui/slider"
 import {
   Plus,
   GripVertical,
@@ -119,13 +116,11 @@ import {
   Calendar,
   Info,
 } from "lucide-react"
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from "recharts"
+import { LinkStatsChart } from "@/components/onepage/link-stats-chart"
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
-import { boundsOf, longDate, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
+import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { createClient } from "@/lib/supabase/client"
 import { BLOCKED_EXTENSIONS, readFileHeader, scanFile, MAX_DIGITAL_PRODUCT_FILE_SIZE } from "@/lib/storage/security"
 import { BlockBadges, BlockExtras, EXTRA_BLOCK_CATALOG, EXTRA_BLOCK_TYPES, ExtraBlockEditor, extraBlockRow, type ExtraBlockType } from "@/components/onepage/extra-blocks"
@@ -244,7 +239,6 @@ const SOCIAL_PLATFORMS = [
 
 // Default background images library
 const IMAGE_LIBRARY = [
-  { id: "gradient1", url: "https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=800&q=80", label: "Purple Gradient" },
   { id: "gradient2", url: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80", label: "Colorful Gradient" },
   { id: "gradient3", url: "https://images.unsplash.com/photo-1557683316-973673baf926?w=800&q=80", label: "Blue Gradient" },
   { id: "minimal1", url: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=800&q=80", label: "Abstract Minimal" },
@@ -617,20 +611,6 @@ export function LinksTab() {
   // Track which blocks have had auto-fetch attempted to avoid repeated requests
   const autoFetchedBlocksRef = useRef<Set<string>>(new Set())
   
-  // Drag state
-  const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null)
-  const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null)
-
-  // Touch drag state for mobile
-  const [touchDragId, setTouchDragId] = useState<string | null>(null)
-  const touchOverIdRef = useRef<string | null>(null)
-  const autoScrollTimerRef = useRef<number>(0)
-  const autoScrollVelocityRef = useRef(0)
-  const autoScrollElementRef = useRef<HTMLElement | null>(null)
-  const dragSourceElRef = useRef<HTMLElement | null>(null)
-  const touchStartYRef = useRef(0)
-  const touchCurrentYRef = useRef(0)
-  const [touchDragOffsetY, setTouchDragOffsetY] = useState(0)
   const [showDeleteSocialNotification, setShowDeleteSocialNotification] = useState(false)
   const [showAddBlockNotification, setShowAddBlockNotification] = useState(false)
   const [showUpdateSocialNotification, setShowUpdateSocialNotification] = useState(false)
@@ -679,6 +659,72 @@ export function LinksTab() {
   // Add button animation state
   const [addButtonClicked, setAddButtonClicked] = useState(false)
   const [insertAfterId, setInsertAfterId] = useState<string | null>(null)
+
+  /*
+    REORDERING THE CARDS: components/onepage/link-reorder.ts moves them
+    under the finger without React, and hands the result back here once,
+    at the drop. Called above the early return, so it is always the same
+    hooks in the same order. Each rule reads the page as it is now.
+  */
+  const reorderListRef = useRef<HTMLDivElement>(null)
+  const [reorderMessage, setReorderMessage] = useState("")
+  const blocksInOrder = () => [...(onepage?.draft_blocks ?? [])].sort((a, b) => a.sort_order - b.sort_order)
+  /* Under a Hero header the social icons stay below it, as they always had to. */
+  const clampReorder = (id: string, to: number) => {
+    const list = blocksInOrder()
+    const moving = list.find((b) => b.id === id)
+    if ((onepage?.theme as any)?.header_layout !== "hero" || moving?.type !== "social_row") return to
+    const headerIndex = list.findIndex((b) => b.type === "header")
+    if (headerIndex === -1) return to
+    const from = list.findIndex((b) => b.id === id)
+    return Math.max(to, from < headerIndex ? headerIndex : headerIndex + 1)
+  }
+  const writeReorder = (id: string, to: number) => {
+    const list = blocksInOrder()
+    const from = list.findIndex((b) => b.id === id)
+    if (from < 0 || to === from) return
+    const next = [...list]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    reorderBlocks(next.map((b, i) => ({ ...b, sort_order: i })))
+  }
+  const { onPointerDown: onReorderPointerDown } = useLinkReorder({
+    listRef: reorderListRef,
+    clampTarget: clampReorder,
+    acceptsInto: (dragId, targetId) => {
+      const list = blocksInOrder()
+      const target = list.find((b) => b.id === targetId)
+      const moving = list.find((b) => b.id === dragId)
+      return target?.type === "group" && !!moving && moving.type !== "group" && moving.type !== "header" && moving.type !== "social_row"
+    },
+    onReorder: writeReorder,
+    /* Into a group: it joins the group's own list and leaves this one. */
+    onDropInto: (id, groupId) => {
+      const list = blocksInOrder()
+      const moving = list.find((b) => b.id === id)
+      const group = list.find((b) => b.id === groupId)
+      if (!moving || group?.type !== "group") return
+      const groupData = group.data as GroupBlockData
+      const children = groupData.children || []
+      if (children.some((c) => c.id === id)) return
+      updateBlock(groupId, { data: { ...groupData, children: [...children, { ...moving, sort_order: children.length }] } })
+      removeBlock(id)
+    },
+  })
+  /* The keyboard's way: an arrow on the grip moves the card one place, and a screen reader hears where it went. */
+  const moveWithKeys = (e: React.KeyboardEvent, id: string, name: string) => {
+    const dir = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0
+    if (!dir) return
+    e.preventDefault()
+    const list = blocksInOrder()
+    const from = list.findIndex((b) => b.id === id)
+    const to = clampReorder(id, Math.max(0, Math.min(list.length - 1, from + dir)))
+    if (from < 0 || to === from) return
+    writeReorder(id, to)
+    setReorderMessage(`${name}, position ${to + 1} of ${list.length}`)
+    /* A card React moved can lose focus on the way; the grip gets it back. */
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-reorder-grip="${CSS.escape(id)}"]`)?.focus({ preventScroll: false }))
+  }
 
   if (!onepage) return null
 
@@ -1361,346 +1407,6 @@ export function LinksTab() {
     updateSocialLinks({ [platform]: null } as Partial<OnePageSocialLinks>)
   }
 
-  // Drag handlers
-  const handleDragStart = (e: React.DragEvent, blockId: string) => {
-    setDraggedBlockId(blockId)
-    e.dataTransfer.effectAllowed = "move"
-    e.dataTransfer.setData("text/plain", blockId)
-  }
-
-  const handleDragOver = (e: React.DragEvent, blockId: string) => {
-    e.preventDefault()
-    if (draggedBlockId && draggedBlockId !== blockId) {
-      setDragOverBlockId(blockId)
-    }
-  }
-
-  const handleDragLeave = () => {
-    setDragOverBlockId(null)
-  }
-
-  const handleDrop = (e: React.DragEvent, targetBlockId: string) => {
-    e.preventDefault()
-    if (draggedBlockId && draggedBlockId !== targetBlockId) {
-      const draggedBlock = sortedBlocks.find(b => b.id === draggedBlockId)
-      const targetBlock = sortedBlocks.find(b => b.id === targetBlockId)
-      const draggedIndex = sortedBlocks.findIndex(b => b.id === draggedBlockId)
-      const targetIndex = sortedBlocks.findIndex(b => b.id === targetBlockId)
-
-      // If dropping onto a group block, add the dragged block to the group's children
-      if (targetBlock?.type === "group" && draggedBlock && draggedBlock.type !== "group" && draggedBlock.type !== "header") {
-        const groupData = targetBlock.data as GroupBlockData
-        const existingChildren = groupData.children || []
-
-        // Don't add if already in group
-        if (existingChildren.some(c => c.id === draggedBlockId)) {
-          setDraggedBlockId(null)
-          setDragOverBlockId(null)
-          return
-        }
-
-        // Add to group children and remove from main list
-        const newChildren = [...existingChildren, { ...draggedBlock, sort_order: existingChildren.length }]
-        updateBlock(targetBlockId, { data: { ...groupData, children: newChildren } })
-        removeBlock(draggedBlockId)
-        setDraggedBlockId(null)
-        setDragOverBlockId(null)
-        return
-      }
-
-      // Prevent social_row from being moved above header when Hero layout is active
-      const headerLayout = (onepage.theme as any)?.header_layout || "classic"
-      if (headerLayout === "hero" && draggedBlock?.type === "social_row") {
-        const headerIndex = sortedBlocks.findIndex(b => b.type === "header")
-        if (headerIndex !== -1 && targetIndex <= headerIndex) {
-          // Don't allow dropping above or at the header position
-          setDraggedBlockId(null)
-          setDragOverBlockId(null)
-          return
-        }
-      }
-
-      if (draggedIndex !== -1 && targetIndex !== -1) {
-        const newOrder = [...sortedBlocks]
-        const [removed] = newOrder.splice(draggedIndex, 1)
-        newOrder.splice(targetIndex, 0, removed)
-
-        const updatedBlocks = newOrder.map((block, index) => ({
-          ...block,
-          sort_order: index
-        }))
-
-        reorderBlocks(updatedBlocks)
-      }
-    }
-    setDraggedBlockId(null)
-    setDragOverBlockId(null)
-  }
-
-  const handleDragEnd = () => {
-    setDraggedBlockId(null)
-    setDragOverBlockId(null)
-  }
-
-  // ============================================================
-  // DRAG-AND-DROP AUTO-SCROLL SYSTEM (touch + mouse)
-  // ============================================================
-
-  // Find the scroll container for the editor
-  const findScrollContainer = useCallback((): HTMLElement | null => {
-    // Try the explicit data attribute first
-    const explicit = document.querySelector('[data-scroll-container="links-tab"]') as HTMLElement | null
-    if (explicit) return explicit
-    // Fallback: walk from any block element
-    const anyBlock = document.querySelector('[data-block-id]') as HTMLElement | null
-    let current: HTMLElement | null = anyBlock
-    while (current && current !== document.body) {
-      const style = window.getComputedStyle(current)
-      if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && current.scrollHeight > current.clientHeight) {
-        return current
-      }
-      current = current.parentElement
-    }
-    return null
-  }, [])
-
-  const autoScrollActiveRef = useRef(false)
-
-  // Compute auto-scroll velocity based on pointer position relative to scroll container
-  const computeScrollVelocity = useCallback((clientY: number, scrollEl: HTMLElement): number => {
-    const rect = scrollEl.getBoundingClientRect()
-    const viewportH = window.innerHeight
-
-    // Effective visible bounds of the scroll container
-    const top = Math.max(rect.top, 0)
-    const bottom = Math.min(rect.bottom, viewportH)
-    const visibleHeight = bottom - top
-
-    if (visibleHeight <= 0) return 0
-
-    // Zone size: 20% of visible height, clamped between 60-120px
-    const zone = Math.max(60, Math.min(120, visibleHeight * 0.2))
-
-    // Distance from top/bottom edges
-    const distFromTop = clientY - top
-    const distFromBottom = bottom - clientY
-
-    if (distFromTop < zone && distFromTop >= 0) {
-      // Scroll UP: closer to top = faster
-      const proximity = 1 - (distFromTop / zone)
-      return -Math.max(2, proximity * proximity * 20)
-    } else if (distFromBottom < zone && distFromBottom >= 0) {
-      // Scroll DOWN: closer to bottom = faster
-      const proximity = 1 - (distFromBottom / zone)
-      return Math.max(2, proximity * proximity * 20)
-    }
-
-    return 0
-  }, [])
-
-  // Animation loop: runs every frame while dragging, applies scroll velocity
-  const runAutoScrollLoop = useCallback(() => {
-    if (autoScrollActiveRef.current) return
-    autoScrollActiveRef.current = true
-
-    const tick = () => {
-      if (!autoScrollActiveRef.current) {
-        autoScrollTimerRef.current = 0
-        return
-      }
-
-      const scrollEl = autoScrollElementRef.current
-      const speed = autoScrollVelocityRef.current
-
-      if (scrollEl && speed !== 0) {
-        const prevScrollTop = scrollEl.scrollTop
-        scrollEl.scrollTop += speed
-        // Verify scroll actually happened (not at bounds)
-        if (scrollEl.scrollTop !== prevScrollTop) {
-          // Scroll succeeded - continue
-        }
-      }
-
-      autoScrollTimerRef.current = requestAnimationFrame(tick)
-    }
-
-    autoScrollTimerRef.current = requestAnimationFrame(tick)
-  }, [])
-
-  const stopAutoScroll = useCallback(() => {
-    autoScrollActiveRef.current = false
-    if (autoScrollTimerRef.current) {
-      cancelAnimationFrame(autoScrollTimerRef.current)
-      autoScrollTimerRef.current = 0
-    }
-    autoScrollVelocityRef.current = 0
-  }, [])
-
-  const handleTouchDragStart = useCallback((blockId: string, touchY?: number) => {
-    const block = sortedBlocks.find(b => b.id === blockId)
-    if (!block || block.type === "header") return
-
-    const sourceBlock = document.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement | null
-    dragSourceElRef.current = sourceBlock
-
-    // Find and cache scroll container immediately
-    const scrollEl = findScrollContainer()
-    autoScrollElementRef.current = scrollEl
-
-    touchStartYRef.current = touchY ?? 0
-    touchCurrentYRef.current = touchY ?? 0
-    setTouchDragOffsetY(0)
-
-    hapticTap("light")
-
-    setTouchDragId(blockId)
-    setDraggedBlockId(blockId)
-
-    // Start the auto-scroll loop immediately
-    if (scrollEl) {
-      autoScrollVelocityRef.current = 0
-      runAutoScrollLoop()
-    }
-  }, [sortedBlocks, findScrollContainer, runAutoScrollLoop])
-
-  // Touch move + touch end event handlers
-  useEffect(() => {
-    if (!touchDragId) return
-
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault()
-      const touch = e.touches[0]
-      touchCurrentYRef.current = touch.clientY
-      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
-
-      // Find target block under touch point
-      const elements = document.elementsFromPoint(touch.clientX, touch.clientY)
-      let targetId: string | null = null
-      for (const el of elements) {
-        const blockEl = (el as HTMLElement).closest('[data-block-id]') as HTMLElement | null
-        if (blockEl && blockEl.dataset.blockId !== touchDragId) {
-          targetId = blockEl.dataset.blockId || null
-          break
-        }
-      }
-
-      touchOverIdRef.current = targetId
-      setDragOverBlockId(targetId)
-
-      // Update auto-scroll velocity based on touch position
-      const scrollEl = autoScrollElementRef.current
-      if (scrollEl) {
-        autoScrollVelocityRef.current = computeScrollVelocity(touch.clientY, scrollEl)
-      }
-    }
-
-    const handleTouchEnd = () => {
-      stopAutoScroll()
-      autoScrollElementRef.current = null
-      dragSourceElRef.current = null
-      setTouchDragOffsetY(0)
-
-      const targetId = touchOverIdRef.current
-      if (touchDragId && targetId && touchDragId !== targetId) {
-        const draggedIdx = sortedBlocks.findIndex(b => b.id === touchDragId)
-        const targetIdx = sortedBlocks.findIndex(b => b.id === targetId)
-
-        if (draggedIdx !== -1 && targetIdx !== -1) {
-          // Check hero layout constraints for social_row
-          const draggedBlock = sortedBlocks[draggedIdx]
-          const headerLayout = (onepage.theme as any)?.header_layout || "classic"
-          if (headerLayout === "hero" && draggedBlock?.type === "social_row") {
-            const headerIdx = sortedBlocks.findIndex(b => b.type === "header")
-            if (headerIdx !== -1 && targetIdx <= headerIdx) {
-              setTouchDragId(null)
-              touchOverIdRef.current = null
-              setDraggedBlockId(null)
-              setDragOverBlockId(null)
-              return
-            }
-          }
-
-          const newOrder = [...sortedBlocks]
-          const [removed] = newOrder.splice(draggedIdx, 1)
-          newOrder.splice(targetIdx, 0, removed)
-          reorderBlocks(newOrder.map((b, i) => ({ ...b, sort_order: i })))
-          hapticTap("light")
-        }
-      }
-
-      setTouchDragId(null)
-      touchOverIdRef.current = null
-      setDraggedBlockId(null)
-      setDragOverBlockId(null)
-    }
-
-    document.addEventListener('touchmove', handleTouchMove, { passive: false })
-    document.addEventListener('touchend', handleTouchEnd)
-    document.addEventListener('touchcancel', handleTouchEnd)
-
-    return () => {
-      stopAutoScroll()
-      autoScrollElementRef.current = null
-      dragSourceElRef.current = null
-      setTouchDragOffsetY(0)
-      document.removeEventListener('touchmove', handleTouchMove)
-      document.removeEventListener('touchend', handleTouchEnd)
-      document.removeEventListener('touchcancel', handleTouchEnd)
-    }
-  }, [touchDragId, sortedBlocks, reorderBlocks, onepage, computeScrollVelocity, stopAutoScroll])
-
-  // Desktop mouse/HTML5 drag auto-scroll
-  useEffect(() => {
-    if (!draggedBlockId || touchDragId) return // Only for mouse drag (not touch)
-
-    const scrollEl = findScrollContainer()
-    if (!scrollEl) return
-    autoScrollElementRef.current = scrollEl
-    autoScrollVelocityRef.current = 0
-    runAutoScrollLoop()
-
-    const handleDragOverScroll = (e: DragEvent) => {
-      autoScrollVelocityRef.current = computeScrollVelocity(e.clientY, scrollEl)
-    }
-
-    const handleMouseMove = (e: MouseEvent) => {
-      autoScrollVelocityRef.current = computeScrollVelocity(e.clientY, scrollEl)
-    }
-
-    const handleDragEndOrDrop = () => {
-      stopAutoScroll()
-      autoScrollElementRef.current = null
-    }
-
-    document.addEventListener('dragover', handleDragOverScroll)
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleDragEndOrDrop)
-    document.addEventListener('drop', handleDragEndOrDrop)
-    document.addEventListener('dragend', handleDragEndOrDrop)
-
-    return () => {
-      stopAutoScroll()
-      autoScrollElementRef.current = null
-      document.removeEventListener('dragover', handleDragOverScroll)
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleDragEndOrDrop)
-      document.removeEventListener('drop', handleDragEndOrDrop)
-      document.removeEventListener('dragend', handleDragEndOrDrop)
-    }
-  }, [draggedBlockId, touchDragId, findScrollContainer, computeScrollVelocity, runAutoScrollLoop, stopAutoScroll])
-
-  // Prevent pull-to-refresh and bounce during drag
-  useEffect(() => {
-    if (!touchDragId) return
-    const prevOverscroll = document.body.style.overscrollBehaviorY
-    const prevTouch = document.body.style.touchAction
-    document.body.style.overscrollBehaviorY = "none"
-    document.body.style.touchAction = "none"
-    return () => {
-      document.body.style.overscrollBehaviorY = prevOverscroll
-      document.body.style.touchAction = prevTouch
-    }
-  }, [touchDragId])
 
   const filteredCategories = searchQuery
     ? blockCategories.map((cat) => ({
@@ -1856,7 +1562,8 @@ export function LinksTab() {
           setIsAddSheetPresented(false)
           setShowAddModal(sheetOpening(addSheetCloseTimerRef, showAddModal, setIsAddSheetPresented))
         }}
-        className="w-full h-11 bg-violet-500 hover:bg-violet-600 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group cursor-pointer select-none active:scale-[0.98]"
+        /* The page's one primary action: the app's near black, with its line of light and its press (depth-button). */
+        className={cn(primaryDepth, "group h-11 w-full gap-2 rounded-xl text-[15px]")}
       >
         <Plus
           className={cn(
@@ -1888,7 +1595,7 @@ export function LinksTab() {
           size="sm"
           className={cn(
             "text-xs h-8 cursor-pointer",
-            showArchiveView && "bg-purple-600 hover:bg-purple-700 text-white"
+            showArchiveView && "bg-[#1a1a2e] hover:bg-[#2a2a40] text-white"
           )}
           onClick={() => setShowArchiveView(!showArchiveView)}
         >
@@ -1943,22 +1650,30 @@ export function LinksTab() {
         </div>
       )}
 
-      {/* Blocks List - Draggable - Hidden when showing archive */}
+      {/* The cards. Each one is picked up and moved by link-reorder.ts; the list only says which are cards. */}
       {!showArchiveView && (
-      <div className="flex flex-col gap-2">
+      <div ref={reorderListRef} onPointerDown={onReorderPointerDown} className="group/list flex flex-col gap-2" data-reorder-list="">
+        <p id="onepage-reorder-help" className="sr-only">Drag the grip, or hold a card, to move it. With the keyboard, the up and down arrows move it one place.</p>
+        <p className="sr-only" aria-live="polite">{reorderMessage}</p>
         {sortedBlocks.map((block, index) => (
           <React.Fragment key={block.id}>
             <div
               data-block-id={block.id}
-              onDragOver={(e) => handleDragOver(e, block.id)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, block.id)}
-              onDragEnd={handleDragEnd}
-              className={cn(
-                "transition-all duration-200",
-                dragOverBlockId === block.id && block.type !== "header" && block.type !== "group" && "border-t-2 border-violet-500"
-              )}
+              data-reorder-item=""
+              data-reorder-fixed={block.type === "header" ? "" : undefined}
+              className="group/card relative rounded-xl"
             >
+              {/* The depth a lifted card has: a soft shadow on its own layer, faded in by opacity. */}
+              <span aria-hidden data-lift-shadow="" className="pointer-events-none absolute inset-0 rounded-xl opacity-0 shadow-[0_1px_2px_rgba(16,24,40,0.06),0_12px_28px_-8px_rgba(16,24,40,0.22)] transition-opacity duration-200 ease-out" />
+              {block.type === "group" ? (
+                /* A card held over the middle of a group goes into it: said here, in ink, not a violet wash. */
+                <span aria-hidden className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-xl bg-white/70 opacity-0 shadow-[inset_0_0_0_1.5px_#1a1a2e] transition-opacity duration-150 group-data-[drop-into]/card:opacity-100">
+                  <span className="flex items-center gap-1.5 rounded-full bg-[#1a1a2e] px-3 py-1.5 text-[12px] font-medium text-white shadow-[0_2px_8px_rgba(16,24,40,0.2)]">
+                    <Plus className="h-3.5 w-3.5" />
+                    Drop to add to group
+                  </span>
+                </span>
+              ) : null}
               <BlockItem
                 block={block}
                 isSelected={selectedBlockId === block.id}
@@ -2028,12 +1743,7 @@ export function LinksTab() {
                   setStreamingBlockUpdateFn(() => updateFn)
                   setShowStreamingUrlModal(true)
                 }}
-                onDragStart={(e) => handleDragStart(e, block.id)}
-                onTouchDragStart={handleTouchDragStart}
-                isDragging={draggedBlockId === block.id}
-                dragOffsetY={draggedBlockId === block.id ? touchDragOffsetY : 0}
-                isDropTarget={dragOverBlockId === block.id}
-                draggedBlockType={draggedBlockId ? sortedBlocks.find(b => b.id === draggedBlockId)?.type : null}
+                onGripKeyDown={(e, name) => moveWithKeys(e, block.id, name)}
                 onMoveChildToMainList={handleMoveChildToMainList}
                 onOpenAddBlockModal={(groupId) => {
                   setAddToGroupId(groupId)
@@ -2044,7 +1754,7 @@ export function LinksTab() {
             </div>
 
             {index < sortedBlocks.length - 1 && (
-              <div className="relative h-0 -mx-1 group/add-divider">
+              <div className="relative h-0 -mx-1 group/add-divider group-data-[reordering]/list:invisible">
                 <button
                   type="button"
                   onClick={() => {
@@ -2058,7 +1768,7 @@ export function LinksTab() {
                 >
                   <span className="absolute inset-x-2 h-px bg-white shadow-[0_1px_4px_rgba(0,0,0,0.08)] rounded-full opacity-0 transition-all duration-200 ease-out group-hover/add-divider:opacity-100 group-focus-within/add-divider:opacity-100 group-hover/add-divider:translate-y-[0.5px] group-focus-within/add-divider:translate-y-[0.5px]" />
                   <span className="absolute inset-x-3 h-px bg-gray-200 rounded-full opacity-0 transition-all duration-200 ease-out group-hover/add-divider:opacity-100 group-focus-within/add-divider:opacity-100 group-hover/add-divider:-translate-y-[0.5px] group-focus-within/add-divider:-translate-y-[0.5px]" />
-                  <span className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-violet-600 shadow-sm transition-all duration-200 ease-out opacity-0 scale-90 group-hover/add-divider:opacity-100 group-hover/add-divider:shadow-lg group-hover/add-divider:scale-105 group-focus-within/add-divider:opacity-100 group-focus-within/add-divider:shadow-lg group-focus-within/add-divider:scale-105">
+                  <span className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-[#1a1a2e] shadow-sm transition-all duration-200 ease-out opacity-0 scale-90 group-hover/add-divider:opacity-100 group-hover/add-divider:shadow-lg group-hover/add-divider:scale-105 group-focus-within/add-divider:opacity-100 group-focus-within/add-divider:shadow-lg group-focus-within/add-divider:scale-105">
                     <Plus className="h-4 w-4 transition-transform duration-200 ease-out group-hover/add-divider:rotate-90 group-focus-within/add-divider:rotate-90" />
                   </span>
                 </button>
@@ -2858,7 +2568,7 @@ export function LinksTab() {
                 Cancel
               </Button>
               <Button
-                className="flex-1 bg-violet-600 hover:bg-violet-700"
+                className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]"
                 onClick={() => {
                   updateProfile({ title: editName, bio: editBio })
                   setShowNameBioModal(false)
@@ -3009,8 +2719,8 @@ export function LinksTab() {
                     onClick={() => setShowIconLibraryInModal(true)}
                     className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border"
                   >
-                    <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-                      <Grid3X3 className="w-5 h-5 text-purple-600" />
+                    <div className="w-10 h-10 rounded-lg bg-[#f4f4f6] flex items-center justify-center">
+                      <Grid3X3 className="w-5 h-5 text-[#1a1a2e]" />
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium">Choose icon</p>
@@ -3609,21 +3319,21 @@ export function LinksTab() {
                   htmlFor="file-upload-input"
                   className={cn(
                     "flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-gray-300 transition-colors",
-                    imageUploading ? "pointer-events-none" : "hover:border-violet-400 cursor-pointer"
+                    imageUploading ? "pointer-events-none" : "hover:border-[#9ca3af] cursor-pointer"
                   )}
                 >
                   <div className={cn(
                     "w-12 h-12 rounded-xl flex items-center justify-center relative",
-                    imageFieldType === 'pdf_file' ? "bg-red-100" : "bg-violet-100"
+                    imageFieldType === 'pdf_file' ? "bg-red-100" : "bg-[#f1f2f4]"
                   )}>
                     {imageUploading ? (
                       <svg className="w-10 h-10" viewBox="0 0 36 36">
-                        <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="2.5" className={cn("opacity-20", imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")} />
-                        <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className={cn(imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")} style={{ strokeDasharray: `${2 * Math.PI * 15}`, strokeDashoffset: `${2 * Math.PI * 15 * (1 - uploadProgress / 100)}`, transform: 'rotate(-90deg)', transformOrigin: '50% 50%', transition: 'stroke-dashoffset 0.3s ease' }} />
-                        <text x="18" y="19.5" textAnchor="middle" className={cn("text-[8px] font-semibold fill-current", imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")}>{uploadProgress}%</text>
+                        <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="2.5" className={cn("opacity-20", imageFieldType === 'pdf_file' ? "text-red-600" : "text-[#1a1a2e]")} />
+                        <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className={cn(imageFieldType === 'pdf_file' ? "text-red-600" : "text-[#1a1a2e]")} style={{ strokeDasharray: `${2 * Math.PI * 15}`, strokeDashoffset: `${2 * Math.PI * 15 * (1 - uploadProgress / 100)}`, transform: 'rotate(-90deg)', transformOrigin: '50% 50%', transition: 'stroke-dashoffset 0.3s ease' }} />
+                        <text x="18" y="19.5" textAnchor="middle" className={cn("text-[8px] font-semibold fill-current", imageFieldType === 'pdf_file' ? "text-red-600" : "text-[#1a1a2e]")}>{uploadProgress}%</text>
                       </svg>
                     ) : (
-                      <Upload className={cn("h-6 w-6", imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")} />
+                      <Upload className={cn("h-6 w-6", imageFieldType === 'pdf_file' ? "text-red-600" : "text-[#1a1a2e]")} />
                     )}
                   </div>
                   <div className="flex-1 text-left">
@@ -3656,8 +3366,8 @@ export function LinksTab() {
                   return (
                     <div className="mt-3 flex items-center gap-3 p-3 rounded-lg bg-gray-50 border">
                       {imageFieldType === 'digital_product_file' ? (
-                        <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
-                          <FileText className="h-5 w-5 text-violet-600" />
+                        <div className="w-10 h-10 rounded-lg bg-[#f1f2f4] flex items-center justify-center shrink-0">
+                          <FileText className="h-5 w-5 text-[#1a1a2e]" />
                         </div>
                       ) : imageFieldType === 'pdf_file' ? (
                         <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
@@ -3757,7 +3467,7 @@ export function LinksTab() {
                       setImageBlockId(null)
                       setImageFieldType(null)
                     }}
-                    className="aspect-video rounded-xl overflow-hidden border-2 border-transparent hover:border-violet-500 transition-all group"
+                    className="aspect-video rounded-xl overflow-hidden border-2 border-transparent hover:border-[#1a1a2e] transition-all group"
                   >
                     <img src={img.url} alt={img.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   </button>
@@ -3825,12 +3535,12 @@ export function LinksTab() {
               className={cn(
                 "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200",
                 isDragOver
-                  ? "border-violet-500 bg-violet-50 scale-[1.02]"
+                  ? "border-[#1a1a2e] bg-[#f4f4f6] scale-[1.02]"
                   : "border-gray-300 hover:border-gray-400"
               )}
             >
-              <Upload className={cn("h-12 w-12 mb-4 transition-colors", isDragOver ? "text-violet-500" : "text-gray-300")} />
-              <p className={cn("font-medium transition-colors", isDragOver ? "text-violet-600" : "text-gray-600")}>
+              <Upload className={cn("h-12 w-12 mb-4 transition-colors", isDragOver ? "text-[#1a1a2e]" : "text-gray-300")} />
+              <p className={cn("font-medium transition-colors", isDragOver ? "text-[#1a1a2e]" : "text-gray-600")}>
                 {isDragOver ? "Drop image here" : "Select file to upload,"}
               </p>
               {!isDragOver && <p className="font-medium text-gray-600">or drag-and-drop file</p>}
@@ -3930,8 +3640,6 @@ export function LinksTab() {
                     if (!isDraggingCrop && !isResizingCrop) return
                     e.preventDefault()
                     const touch = e.touches[0]
-      touchCurrentYRef.current = touch.clientY
-      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                     const rect = cropContainerRef.current?.getBoundingClientRect()
                     if (!rect || !touch) return
 
@@ -4031,8 +3739,6 @@ export function LinksTab() {
                       e.preventDefault()
                       e.stopPropagation()
                       const touch = e.touches[0]
-      touchCurrentYRef.current = touch.clientY
-      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                       setIsDraggingCrop(true)
                       const rect = (e.target as HTMLElement).getBoundingClientRect()
                       setDragStartCrop({ x: touch.clientX - rect.left, y: touch.clientY - rect.top })
@@ -4070,8 +3776,6 @@ export function LinksTab() {
                               e.preventDefault()
                               e.stopPropagation()
                               const touch = e.touches[0]
-      touchCurrentYRef.current = touch.clientY
-      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                               setIsResizingCrop(corner)
                               setDragStartCrop({ x: touch.clientX, y: touch.clientY })
                             }}
@@ -4157,7 +3861,7 @@ export function LinksTab() {
                         setUploading(false)
                       }
                     }}
-                    className="flex-1 bg-violet-600 hover:bg-violet-700"
+                    className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]"
                     disabled={uploading}
                   >
                     {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
@@ -4279,8 +3983,6 @@ export function LinksTab() {
                       e.preventDefault()
                       e.stopPropagation()
                       const touch = e.touches[0]
-      touchCurrentYRef.current = touch.clientY
-      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                       setIsDraggingVideoCrop(true)
                       setVideoDragStart({
                         x: touch.clientX,
@@ -4324,8 +4026,6 @@ export function LinksTab() {
                               e.preventDefault()
                               e.stopPropagation()
                               const touch = e.touches[0]
-      touchCurrentYRef.current = touch.clientY
-      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                               setIsResizingVideoCrop(corner)
                               setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
                             }}
@@ -4385,8 +4085,6 @@ export function LinksTab() {
                       onTouchMove={(e) => {
                         e.preventDefault()
                         const touch = e.touches[0]
-      touchCurrentYRef.current = touch.clientY
-      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                         const container = videoContainerRef.current
                         if (!container || !touch) return
                         const rect = container.getBoundingClientRect()
@@ -4469,7 +4167,7 @@ export function LinksTab() {
                         setUploadingVideo(false)
                       }
                     }}
-                    className="flex-1 bg-violet-600 hover:bg-violet-700"
+                    className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]"
                     disabled={uploadingVideo}
                   >
                     {uploadingVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
@@ -4501,12 +4199,8 @@ interface BlockItemProps {
   onOpenThumbnailModal?: (blockId: string) => void
   onUrlChangeWithAutoFetch?: (blockId: string, url: string) => void
   onOpenStreamingModal?: (platform: string, index: number, data: LinkButtonBlockData, updateFn: (data: Partial<LinkButtonBlockData>) => void) => void
-  onDragStart?: (e: React.DragEvent) => void
-  onTouchDragStart?: (blockId: string, touchY?: number) => void
-  isDragging?: boolean
-  dragOffsetY?: number
-  isDropTarget?: boolean
-  draggedBlockType?: OnePageBlockType | null
+  /** The grip's keys: the arrows move the card (LinksTab moveWithKeys). */
+  onGripKeyDown?: (e: React.KeyboardEvent, name: string) => void
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
   onOpenAddBlockModal?: (groupId: string) => void
 }
@@ -4528,12 +4222,7 @@ function BlockItem({
   onOpenThumbnailModal,
   onUrlChangeWithAutoFetch,
   onOpenStreamingModal,
-  onDragStart,
-  onTouchDragStart,
-  isDragging,
-  dragOffsetY = 0,
-  isDropTarget,
-  draggedBlockType,
+  onGripKeyDown,
   onMoveChildToMainList,
   onOpenAddBlockModal,
 }: BlockItemProps) {
@@ -4798,52 +4487,37 @@ function BlockItem({
   const hasAnimation = isLinkButton || isProduct || isEmailCapture || isPDFDocument || isFoodMenu || isCalendly
   const hasThumbnail = (preview as any).thumbnail_url || hasLinkIcon((preview as any).iconId)
 
-  // Check if this group block can accept the dragged block
-  const canAcceptDrop = isGroup && isDropTarget && draggedBlockType && 
-    draggedBlockType !== "group" && draggedBlockType !== "header" && draggedBlockType !== "social_row"
-
   return (
     <div
       className={cn(
-        "border rounded-xl bg-white relative",
+        "border rounded-xl bg-white relative transition-[border-color,box-shadow] duration-200",
         isSelected ? "ring-1 ring-gray-400 border-gray-300" : "hover:border-gray-300",
         !block.enabled && "opacity-50",
-        isDragging ? "opacity-[0.97] scale-[1.03] shadow-[0_12px_40px_-8px_rgba(0,0,0,0.25)] z-50 border-violet-300 ring-1 ring-violet-200" : "transition-all duration-200",
-        canAcceptDrop && "ring-2 ring-violet-500 border-violet-400 bg-violet-50/50"
       )}
-      style={isDragging ? { transform: `translateY(${dragOffsetY}px) translateZ(0)`, willChange: 'transform', transition: 'box-shadow 200ms, scale 200ms' } : undefined}
-      data-block-id={block.id}
     >
-      {/* Drop zone indicator for group blocks */}
-      {canAcceptDrop && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 rounded-xl bg-violet-500/10">
-          <div className="flex items-center gap-2 bg-violet-600 text-white px-3 py-1.5 rounded-full text-xs font-medium shadow-lg">
-            <Plus className="h-3.5 w-3.5" />
-            Drop to add to group
-          </div>
-        </div>
-      )}
-      {/* Header section - only this part is draggable */}
+      {/*
+        The card's row is where it is picked up (components/onepage/link-reorder.ts):
+        the grip at once, anywhere else on the row after a short hold on a phone
+        or a 3px move with a mouse. The buttons in the row stay buttons.
+      */}
       <div
         className={cn(
           "flex items-center gap-3 p-3",
-          !isHeaderBlock && "cursor-grab active:cursor-grabbing"
+          !isHeaderBlock && "select-none [-webkit-touch-callout:none]"
         )}
-        draggable={!isHeaderBlock}
-        onDragStart={!isHeaderBlock ? onDragStart : undefined}
+        data-reorder-zone={isHeaderBlock ? undefined : ""}
       >
         {!isHeaderBlock && (
-          <div
-            className={cn("cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing select-none p-2 -m-2 md:p-1 md:-m-1 rounded-lg active:bg-gray-100", isDragging ? "touch-none" : "touch-manipulation")}
-            onTouchStart={(e) => {
-              if (onTouchDragStart) {
-                e.stopPropagation()
-                onTouchDragStart(block.id, e.touches[0]?.clientY)
-              }
-            }}
+          <button
+            type="button"
+            data-reorder-grip={block.id}
+            aria-label={`Move ${preview.title}`}
+            aria-describedby="onepage-reorder-help"
+            onKeyDown={(e) => onGripKeyDown?.(e, preview.title)}
+            className="-my-0.5 -ml-1.5 -mr-1 grid h-11 w-8 shrink-0 cursor-grab touch-none select-none place-items-center rounded-lg text-[#b4b8c0] outline-none transition-colors duration-150 hover:text-[#6b7280] active:cursor-grabbing focus-visible:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.35)] [-webkit-tap-highlight-color:transparent]"
           >
             <GripVertical className="h-5 w-5" />
-          </div>
+          </button>
         )}
 
         {/* Clickable thumbnail for link buttons, product blocks, and calendly */}
@@ -4947,7 +4621,7 @@ function BlockItem({
               className={cn(
                 "p-1.5 rounded-lg transition-colors",
                 (block.data as any).animation_type && (block.data as any).animation_type !== 'none'
-                  ? "text-violet-600 bg-violet-50 hover:bg-violet-100"
+                  ? "text-[#1a1a2e] bg-[#f4f4f6] hover:bg-[#ececef]"
                   : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
               )}
               title="Animation"
@@ -4977,7 +4651,7 @@ function BlockItem({
                       className={cn(
                         "w-full px-3 py-1.5 text-left text-sm transition-colors",
                         currentAnimation === anim.id
-                          ? "bg-violet-50 text-violet-700 font-medium"
+                          ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
                           : "text-gray-700 hover:bg-gray-50"
                       )}
                     >
@@ -5086,7 +4760,7 @@ function BlockItem({
                         className={cn(
                           "w-full px-3 py-2.5 rounded-xl text-left text-sm transition-colors",
                           currentAnimation === anim.id
-                            ? "bg-violet-50 text-violet-700 font-medium"
+                            ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
                             : "text-gray-700 hover:bg-gray-50"
                         )}
                       >
@@ -5203,122 +4877,22 @@ function BlockItem({
                     <DateRangePicker value={statsPeriod} onChange={setStatsPeriod} today={statsToday} inline />
                   </div>
 
-                  {statsLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                    </div>
-                  ) : statsData ? (
-                    <>
-                      {/* Stats summary cards */}
-                      <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className="p-3 bg-blue-50 rounded-xl">
-                          <div className="text-2xl font-bold text-blue-900">{statsData.total_views || 0}</div>
-                          <div className="text-xs text-blue-600 font-medium">Views</div>
-                        </div>
-                        <div className="p-3 bg-violet-50 rounded-xl">
-                          <div className="text-2xl font-bold text-violet-900">{statsData.total_clicks || 0}</div>
-                          <div className="text-xs text-violet-600 font-medium">{isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"}</div>
-                        </div>
-                      </div>
-
-                      {/* Chart */}
-                      <div className="bg-gray-50 rounded-xl p-4">
-                        <div className="text-xs font-medium text-gray-500 mb-3">Activity</div>
-                        <div className="h-[140px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart
-                              data={statsData.chart_data.map(d => ({
-                                ...d,
-                                date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                              }))}
-                              margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                              <XAxis
-                                dataKey="date"
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: "#9ca3af", fontSize: 10 }}
-                                dy={5}
-                              />
-                              <YAxis
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: "#9ca3af", fontSize: 10 }}
-                                dx={-5}
-                              />
-                              <Tooltip
-                                contentStyle={{
-                                  backgroundColor: "white",
-                                  border: "1px solid #e5e7eb",
-                                  borderRadius: "8px",
-                                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                                  fontSize: "11px"
-                                }}
-                                formatter={(value: number, name: string) => {
-                                  const labels: Record<string, string> = {
-                                    views: "Views",
-                                    clicks: isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"
-                                  }
-                                  return [value.toLocaleString(), labels[name] || name]
-                                }}
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="views"
-                                stroke="#60a5fa"
-                                strokeWidth={2}
-                                dot={{ fill: "#60a5fa", strokeWidth: 0, r: 3 }}
-                                activeDot={{ r: 5 }}
-                                name="views"
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="clicks"
-                                stroke="#a78bfa"
-                                strokeWidth={2}
-                                dot={{ fill: "#a78bfa", strokeWidth: 0, r: 3 }}
-                                activeDot={{ r: 5 }}
-                                name="clicks"
-                              />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                        <div className="flex justify-between mt-3 pt-2 border-t border-gray-200">
-                          <span className="text-[10px] text-muted-foreground">
-                            {longDate(statsPeriod.start)}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {statsPeriod.end === statsToday ? 'Now' : longDate(statsPeriod.end)}
-                          </span>
-                        </div>
-                        {/* Legend */}
-                        <div className="flex items-center justify-center gap-6 mt-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-blue-400" />
-                            <span className="text-xs text-gray-600">Views</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-violet-400" />
-                            <span className="text-xs text-gray-600">{isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-8 text-sm text-muted-foreground">
-                      <BarChart2 className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                      <p>No data yet</p>
-                      <p className="text-xs mt-1">Stats will appear once visitors interact with this block</p>
-                    </div>
-                  )}
+                  {/* The OnePage chart from Analytics, with this block's figures (components/onepage/link-stats-chart). */}
+                  <LinkStatsChart
+                    stats={statsData}
+                    loading={statsLoading}
+                    clicksLabel={isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"}
+                    start={statsPeriod.start}
+                    end={statsPeriod.end}
+                    endIsToday={statsPeriod.end === statsToday}
+                  />
                 </div>
               </DialogContent>
             </Dialog>
           </>
         )}
 
-        <BlockToggle checked={block.enabled} onCheckedChange={onToggle} />
+        <BlockToggle checked={block.enabled} onCheckedChange={onToggle} label={`Show ${preview.title}`} />
       </div>
 
       {isSelected && (
@@ -5730,10 +5304,10 @@ function BlockEditor({
         { id: "preview", label: "Preview" },
       ]
       const ctaOptions = ["Get My Guide", "Get it Now", "Buy Now", "Download", "Get Access", "Enroll Now", "Start Learning", "Custom"]
-      const blockBackgroundColorPresets = ['#7c3aed', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#1a1a1a']
+      const blockBackgroundColorPresets = ['#1a1a2e', '#b2846c', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
       const textColorPresets = ['#ffffff', '#000000', '#1a1a1a', '#f5f5f5', '#374151', '#6b7280']
       const buttonColorPresets = ['#ffffff', '#1a1a1a', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
-      const buttonTextColorPresets = ['#1a1a1a', '#ffffff', '#7c3aed', '#3b82f6', '#ef4444', '#10b981']
+      const buttonTextColorPresets = ['#1a1a1a', '#ffffff', '#b2846c', '#3b82f6', '#ef4444', '#10b981']
 
       // Handle style selection (always use filled button style)
       const handleStyleSelect = (styleId: ProductBlockStyle) => {
@@ -5754,7 +5328,7 @@ function BlockEditor({
                   className={cn(
                     "flex-1 py-2.5 px-3 rounded-lg text-sm font-medium transition-all",
                     data.style === id
-                      ? "bg-violet-500 text-white"
+                      ? "bg-[#1a1a2e] text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   )}
                 >
@@ -5817,7 +5391,7 @@ function BlockEditor({
               <button
                 type="button"
                 onClick={() => setShowCtaDropdown(!showCtaDropdown)}
-                className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-transparent"
               >
                 <span className="truncate">{ctaOptions.slice(0, -1).includes(data.cta_text || "") ? data.cta_text : "Custom"}</span>
                 <svg className={cn("w-4 h-4 text-gray-400 shrink-0 transition-transform", showCtaDropdown && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -5837,7 +5411,7 @@ function BlockEditor({
                       className={cn(
                         "w-full px-3 py-2 text-left text-sm transition-colors",
                         data.cta_text === cta
-                          ? "bg-violet-50 text-violet-700 font-medium"
+                          ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
                           : "text-gray-700 hover:bg-gray-50"
                       )}
                     >
@@ -5853,7 +5427,7 @@ function BlockEditor({
                     className={cn(
                       "w-full px-3 py-2 text-left text-sm transition-colors",
                       !ctaOptions.slice(0, -1).includes(data.cta_text || "")
-                        ? "bg-violet-50 text-violet-700 font-medium"
+                        ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
                         : "text-gray-700 hover:bg-gray-50"
                     )}
                   >
@@ -5874,148 +5448,50 @@ function BlockEditor({
           {/* Color Customizers - Only show for callout/preview styles */}
           {(data.style === "callout" || data.style === "preview") && (
             <div className="space-y-4 pt-2 border-t">
-              <p className="text-xs text-muted-foreground">Override colors from Design tab</p>
+              <p className="text-[14px] font-semibold text-[#1a1a2e]">Colours for this block</p>
 
-              {/* Block Background Color */}
-              <div className="space-y-2">
-                <Label className="text-xs">Block Background Color</Label>
-                <div className="flex items-center gap-3">
-                  <MobileColorPicker
-                    value={data.block_background_color || "#7c3aed"}
-                    onChange={(color) => updateData({ block_background_color: color })}
-                    label="Block background color"
-                    presets={blockBackgroundColorPresets}
-                  />
-                  <Input
-                    value={data.block_background_color || ""}
-                    onChange={(e) => updateData({ block_background_color: e.target.value })}
-                    placeholder="Use theme default"
-                    className="h-12 rounded-xl flex-1 font-mono text-sm"
-                  />
-                </div>
-                {/* Color presets */}
-                <div className="flex gap-2 pt-1">
-                  {blockBackgroundColorPresets.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => updateData({ block_background_color: color })}
-                      className={cn(
-                        "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
-                        data.block_background_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
-                      )}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Text Color (for title, description, price) */}
-              <div className="space-y-2">
-                <Label className="text-xs">Text Color</Label>
-                <p className="text-[10px] text-muted-foreground">For title, description, price{data.style === "callout" ? " and button" : ""}</p>
-                <div className="flex items-center gap-3">
-                  <MobileColorPicker
-                    value={data.text_color || "#ffffff"}
-                    onChange={(color) => updateData({ text_color: color })}
-                    label="Text color"
-                    presets={textColorPresets}
-                  />
-                  <Input
-                    value={data.text_color || ""}
-                    onChange={(e) => updateData({ text_color: e.target.value })}
-                    placeholder="Use theme default"
-                    className="h-12 rounded-xl flex-1 font-mono text-sm"
-                  />
-                </div>
-                {/* Color presets */}
-                <div className="flex gap-2 pt-1">
-                  {textColorPresets.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => updateData({ text_color: color })}
-                      className={cn(
-                        "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
-                        data.text_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
-                      )}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Button (CTA) Background Color - Only for preview style */}
+              {/* The four overrides, each the editor's one colour field; Reset goes back to the theme's. */}
+              <ColorRow
+                label="Block background"
+                value={data.block_background_color || null}
+                emptyLabel="Theme"
+                /* With none of its own the block takes the theme's button colour, and the picker starts there. */
+                fallback={onepage?.theme.button_color || "#1a1a2e"}
+                onChange={(color) => updateData({ block_background_color: color })}
+                onClear={() => updateData({ block_background_color: null })}
+                suggestions={blockBackgroundColorPresets}
+              />
+              <ColorRow
+                label="Text"
+                description={`Title, description, price${data.style === "callout" ? " and button" : ""}`}
+                value={data.text_color || null}
+                emptyLabel="Theme"
+                fallback="#ffffff"
+                onChange={(color) => updateData({ text_color: color })}
+                onClear={() => updateData({ text_color: null })}
+                suggestions={textColorPresets}
+              />
               {data.style === "preview" && (
-                <div className="space-y-2">
-                  <Label className="text-xs">Button Color</Label>
-                  <p className="text-[10px] text-muted-foreground">CTA button background</p>
-                  <div className="flex items-center gap-3">
-                    <MobileColorPicker
-                    value={data.button_color || "#ffffff"}
-                    onChange={(color) => updateData({ button_color: color })}
-                    label="Button color"
-                    presets={buttonColorPresets}
-                  />
-                    <Input
-                      value={data.button_color || ""}
-                      onChange={(e) => updateData({ button_color: e.target.value })}
-                      placeholder="Use theme default"
-                      className="h-12 rounded-xl flex-1 font-mono text-sm"
-                    />
-                  </div>
-                  {/* Color presets */}
-                  <div className="flex gap-2 pt-1">
-                    {buttonColorPresets.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => updateData({ button_color: color })}
-                        className={cn(
-                          "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
-                          data.button_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
-                        )}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <ColorRow
+                  label="Button"
+                  value={data.button_color || null}
+                  emptyLabel="Theme"
+                  fallback="#ffffff"
+                  onChange={(color) => updateData({ button_color: color })}
+                  onClear={() => updateData({ button_color: null })}
+                  suggestions={buttonColorPresets}
+                />
               )}
-
-              {/* Button (CTA) Text Color - Only for preview style */}
               {data.style === "preview" && (
-                <div className="space-y-2">
-                  <Label className="text-xs">Button Text Color</Label>
-                  <div className="flex items-center gap-3">
-                    <MobileColorPicker
-                    value={data.button_text_color || "#1a1a1a"}
-                    onChange={(color) => updateData({ button_text_color: color })}
-                    label="Button text color"
-                    presets={buttonTextColorPresets}
-                  />
-                    <Input
-                      value={data.button_text_color || ""}
-                      onChange={(e) => updateData({ button_text_color: e.target.value })}
-                      placeholder="Use theme default"
-                      className="h-12 rounded-xl flex-1 font-mono text-sm"
-                    />
-                  </div>
-                  {/* Color presets */}
-                  <div className="flex gap-2 pt-1">
-                    {buttonTextColorPresets.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => updateData({ button_text_color: color })}
-                        className={cn(
-                          "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
-                          data.button_text_color === color ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200"
-                        )}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                </div>
+                <ColorRow
+                  label="Button text"
+                  value={data.button_text_color || null}
+                  emptyLabel="Theme"
+                  fallback="#1a1a1a"
+                  onChange={(color) => updateData({ button_text_color: color })}
+                  onClear={() => updateData({ button_text_color: null })}
+                  suggestions={buttonTextColorPresets}
+                />
               )}
             </div>
           )}
@@ -6026,83 +5502,47 @@ function BlockEditor({
     // Default layout content for link_button and image blocks
     return (
       <div className="space-y-3">
-        <p className="text-xs text-muted-foreground mb-2">Choose how this block displays on your page</p>
+        <div>
+          <p className="text-[16px] font-semibold text-[#1a1a2e]">Display</p>
+          <p className="mt-0.5 text-[13.5px] text-[#6b7280]">How this block sits on your page</p>
+        </div>
 
-        {/* Layout Options Grid */}
+        {/* Classic and Featured, as Linktree's link editor draws them: a picture of each, the picked one in a thin dark border. */}
         <div className="grid grid-cols-2 gap-3">
-          {/* Default Layout Option */}
-          <button
-            type="button"
-            onClick={() => updateData({ layout_type: 'default' })}
-            className={cn(
-              "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
-              currentLayoutType === 'default'
-                ? "border-violet-500 bg-violet-50/50"
-                : "border-gray-200 hover:border-gray-300 bg-white"
-            )}
-          >
-            {/* Visual Preview */}
-            <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
-              <div className="w-full h-10 bg-white rounded-lg border border-gray-200 flex items-center justify-center gap-2 px-3">
-                <div className="w-5 h-5 rounded bg-gray-200" />
-                <div className="flex-1 h-2.5 bg-gray-200 rounded" />
-              </div>
-            </div>
-            
-            {/* Label */}
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                currentLayoutType === 'default' ? "border-violet-500" : "border-gray-300"
-              )}>
-                {currentLayoutType === 'default' && (
-                  <div className="w-2 h-2 rounded-full bg-violet-500" />
+          {([
+            { id: "default" as const, label: "Classic" },
+            { id: "pro" as const, label: "Featured" },
+          ]).map((o) => {
+            const on = currentLayoutType === o.id
+            return (
+              <button
+                key={o.id}
+                type="button"
+                aria-pressed={on}
+                data-layout-choice={o.id}
+                onClick={() => updateData({ layout_type: o.id })}
+                className={cn(
+                  "flex cursor-pointer flex-col items-stretch rounded-2xl border bg-white p-2 outline-none transition-[border-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]",
+                  on ? "border-[#1a1a2e] shadow-[0_0_0_0.5px_#1a1a2e]" : "border-[#e3e4e8] hover:border-[#c9cbd1]",
                 )}
-              </div>
-              <span className="font-medium text-sm">Default</span>
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 ml-6">Standard button</p>
-          </button>
-
-          {/* Pro Layout Option */}
-          <button
-            type="button"
-            onClick={() => updateData({ layout_type: 'pro' })}
-            className={cn(
-              "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
-              currentLayoutType === 'pro'
-                ? "border-violet-500 bg-violet-50/50"
-                : "border-gray-200 hover:border-gray-300 bg-white"
-            )}
-          >
-            {/* Visual Preview */}
-            <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
-              <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-200 to-violet-300 shrink-0" />
-                  <div className="flex-1 space-y-1.5">
-                    <div className="h-2.5 w-full bg-gray-200 rounded" />
-                    <div className="h-2 w-2/3 bg-gray-100 rounded" />
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Label */}
-            <div className="flex items-center gap-2">
-              <div className={cn(
-                "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                currentLayoutType === 'pro' ? "border-violet-500" : "border-gray-300"
-              )}>
-                {currentLayoutType === 'pro' && (
-                  <div className="w-2 h-2 rounded-full bg-violet-500" />
-                )}
-              </div>
-              <span className="font-medium text-sm">Featured</span>
-              <Sparkles className="w-3 h-3 text-violet-500" />
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-1 ml-6">With thumbnail</p>
-          </button>
+              >
+                <span className="grid aspect-[4/3] place-items-center rounded-xl bg-[#f7f7f8] px-3">
+                  {o.id === "default" ? (
+                    <span className="flex h-9 w-full items-center gap-2 rounded-lg border border-[#e3e4e8] bg-white px-2">
+                      <span className="h-5 w-5 shrink-0 rounded bg-[#d9dbe0]" />
+                      <span className="h-1.5 flex-1 rounded-full bg-[#d9dbe0]" />
+                    </span>
+                  ) : (
+                    <span className="block w-full rounded-lg border border-[#e3e4e8] bg-white p-1.5">
+                      <span className="block h-10 w-full rounded-md bg-[#d9dbe0]" />
+                      <span className="mx-auto mt-1.5 block h-1.5 w-2/3 rounded-full bg-[#d9dbe0]" />
+                    </span>
+                  )}
+                </span>
+                <span className={cn("block py-2 text-center text-[13.5px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{o.label}</span>
+              </button>
+            )
+          })}
         </div>
 
         {/* Display Mode Options - Only shown when Pro Layout is selected and NOT YouTube */}
@@ -6124,7 +5564,7 @@ function BlockEditor({
                     className={cn(
                       "p-2.5 rounded-lg border-2 text-center transition-all",
                       currentDisplayMode === mode.id
-                        ? "border-violet-500 bg-violet-50"
+                        ? "border-[#1a1a2e] bg-[#f4f4f6]"
                         : "border-gray-200 hover:border-gray-300 bg-white"
                     )}
                   >
@@ -6147,42 +5587,27 @@ function BlockEditor({
         const data = block.data as LinkButtonBlockData
         return (
           <div className="space-y-3">
-            {/* Thumbnail Editor - Opens Modal */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Thumbnail</Label>
-              <button
-                type="button"
-                onClick={() => onOpenThumbnailModal && onOpenThumbnailModal(block.id)}
-                className="group relative w-11 h-11 rounded-lg border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-gray-50 hover:bg-gray-100"
-              >
-                {data.thumbnail_url ? (
-                  <img
-                    src={data.thumbnail_url}
-                    alt="Thumbnail"
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                ) : hasLinkIcon(data.icon) ? (
-                  <LinkIcon name={data.icon} size={20} className="text-gray-500" />
-                ) : (
-                  <ImageIcon className="w-5 h-5 text-gray-400" />
-                )}
-                {/* Pencil icon always visible */}
-                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center">
-                  <Pencil className="w-2.5 h-2.5 text-gray-500" />
-                </div>
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
-              </button>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs">Title</Label>
-              <Input value={data.label} onChange={(e) => updateData({ label: e.target.value })} placeholder="My Link" className="h-9" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">URL</Label>
-              <Input
+            {/*
+              THE LINK'S OWN FIELDS, as Linktree's link editor lays them out:
+              a heading, the title and the address in large rounded boxes,
+              and the picture as a row you press, with the picture itself
+              on its left and a chevron on its right.
+            */}
+            <p className="pt-1 text-[16px] font-semibold text-[#1a1a2e]">Info</p>
+            <label className="block">
+              <span className="sr-only">Title</span>
+              <input value={data.label} onChange={(e) => updateData({ label: e.target.value })} placeholder="Title" aria-label="Title" data-link-title="" className={linkField} />
+            </label>
+            <label className="block">
+              <span className="sr-only">URL</span>
+              <input
                 value={data.url}
+                inputMode="url"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                aria-label="URL"
+                data-link-url=""
                 onChange={(e) => {
                   if (onUrlChangeWithAutoFetch) {
                     onUrlChangeWithAutoFetch(block.id, e.target.value)
@@ -6190,10 +5615,31 @@ function BlockEditor({
                     updateData({ url: e.target.value })
                   }
                 }}
-                placeholder="https://..."
-                className="h-9"
+                placeholder="https://"
+                className={linkField}
               />
-            </div>
+            </label>
+            <button
+              type="button"
+              onClick={() => onOpenThumbnailModal && onOpenThumbnailModal(block.id)}
+              data-link-thumbnail=""
+              className="flex min-h-[72px] w-full cursor-pointer items-center gap-3.5 rounded-2xl border border-[#e3e4e8] bg-white p-2.5 pr-4 text-left outline-none transition-colors hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+            >
+              <span className="grid h-[52px] w-[52px] shrink-0 place-items-center overflow-hidden rounded-xl bg-[#f4f4f6] text-[#6b7280]">
+                {data.thumbnail_url ? (
+                  <img src={data.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                ) : hasLinkIcon(data.icon) ? (
+                  <LinkIcon name={data.icon} size={22} className="text-[#1a1a2e]" />
+                ) : (
+                  <ImageIcon className="h-5 w-5" strokeWidth={1.6} />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14.5px] font-medium text-[#1a1a2e]">Thumbnail</span>
+                <span className="block truncate text-[13px] text-[#6b7280]">{data.thumbnail_url ? "An image beside the title" : hasLinkIcon(data.icon) ? "An icon beside the title" : "Add an image or an icon"}</span>
+              </span>
+              <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={1.75} />
+            </button>
 
             {/* WhatsApp Group URL - Only shown for WhatsApp URLs */}
             {(data.url?.includes('wa.me') || data.url?.includes('whatsapp.com')) && (
@@ -6241,7 +5687,7 @@ function BlockEditor({
                             <div className="text-xs text-muted-foreground">{mode.desc}</div>
                           </div>
                         </div>
-                        <Toggle
+                        <Toggle label={mode.label}
                           checked={isActive}
                           onCheckedChange={async (checked) => {
                             if (checked) {
@@ -6324,7 +5770,7 @@ function BlockEditor({
                             <div className="text-xs text-muted-foreground">{mode.desc}</div>
                           </div>
                         </div>
-                        <Toggle
+                        <Toggle label={mode.label}
                           checked={isActive}
                           onCheckedChange={async (checked) => {
                             if (checked) {
@@ -6369,7 +5815,7 @@ function BlockEditor({
                       <div className="text-xs text-muted-foreground">Show song type & artist info</div>
                     </div>
                   </div>
-                  <Toggle
+                  <Toggle label="Enable Metadata"
                     checked={data.spotify_show_metadata !== false}
                     onCheckedChange={async (checked) => {
                       updateData({ spotify_show_metadata: checked })
@@ -6511,7 +5957,7 @@ function BlockEditor({
                               onClick={() => {
                                 onOpenStreamingModal(service.platform, index, data, updateData)
                               }}
-                              className="text-xs text-violet-600 hover:text-violet-700 font-medium"
+                              className="text-xs text-[#1a1a2e] hover:text-[#4b5563] font-medium"
                             >
                               {service.found ? "Edit" : "+ Add"}
                             </button>
@@ -6590,7 +6036,7 @@ function BlockEditor({
                             <div className="text-xs text-muted-foreground">{mode.desc}</div>
                           </div>
                         </div>
-                        <Toggle
+                        <Toggle label={mode.label}
                           checked={isActive}
                           onCheckedChange={async (checked) => {
                             if (checked) {
@@ -6640,7 +6086,7 @@ function BlockEditor({
                       <div className="text-xs text-muted-foreground">Show song type & artist info</div>
                     </div>
                   </div>
-                  <Toggle
+                  <Toggle label="Enable Metadata"
                     checked={data.apple_music_show_metadata !== false}
                     onCheckedChange={async (checked) => {
                       updateData({ apple_music_show_metadata: checked })
@@ -6756,11 +6202,11 @@ function BlockEditor({
         return (
           <Tabs defaultValue="settings" className="w-full">
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -6801,7 +6247,7 @@ function BlockEditor({
                         dropdown.classList.toggle('hidden')
                       }
                     }}
-                    className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                    className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-transparent"
                   >
                     <span>{buttonTextPresets.find(p => p.id === (data.button_preset || 'subscribe'))?.label || 'Subscribe'}</span>
                     <ChevronDown className="h-4 w-4 text-gray-400" />
@@ -6821,7 +6267,7 @@ function BlockEditor({
                           className={cn(
                             "w-full px-3 py-1.5 text-left text-sm transition-colors flex items-center justify-between",
                             isSelected
-                              ? "bg-violet-50 text-violet-700 font-medium"
+                              ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
                               : "text-gray-700 hover:bg-gray-50"
                           )}
                         >
@@ -6885,7 +6331,7 @@ function BlockEditor({
                   ) : (
                     <button
                       onClick={() => onOpenImageLibrary(block.id, 'product_image')}
-                      className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                      className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-[#9ca3af] flex items-center justify-center transition-colors"
                     >
                       <Upload className="w-5 h-5 text-gray-400" />
                     </button>
@@ -6909,7 +6355,7 @@ function BlockEditor({
                     <Label className="text-xs">Enable Digital Product</Label>
                     <p className="text-[10px] text-muted-foreground">Allow subscribers get a free product on signup</p>
                   </div>
-                  <Toggle
+                  <Toggle label="Enable Digital Product"
                     checked={data.enable_digital_product || false}
                     onCheckedChange={(checked) => updateData({ enable_digital_product: checked })}
                   />
@@ -6926,8 +6372,8 @@ function BlockEditor({
                         className="w-full flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 transition-colors"
                       >
                         {data.digital_product_file_url ? (
-                          <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center">
-                            <FileText className="w-5 h-5 text-violet-600" />
+                          <div className="w-10 h-10 rounded-lg bg-[#f1f2f4] flex items-center justify-center">
+                            <FileText className="w-5 h-5 text-[#1a1a2e]" />
                           </div>
                         ) : (
                           <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
@@ -6961,7 +6407,7 @@ function BlockEditor({
                     </div>
 
                     {data.digital_product_file_url && (
-                      <p className="text-[10px] text-muted-foreground bg-violet-50 p-2 rounded-lg">
+                      <p className="text-[10px] text-muted-foreground bg-[#f4f4f6] p-2 rounded-lg">
                         When visitors subscribe, they can download "{data.digital_product_title || 'your file'}" directly on this page.
                       </p>
                     )}
@@ -6973,7 +6419,7 @@ function BlockEditor({
               <div className="pt-3 border-t">
                 <a
                   href="/app/emails"
-                  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors"
+                  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-[#1a1a2e] bg-[#f4f4f6] hover:bg-[#ececef] rounded-lg transition-colors"
                 >
                   <Mail className="w-4 h-4" />
                   See subscribers
@@ -6993,7 +6439,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     (data.layout_type || 'default') === 'default'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -7013,10 +6459,10 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                      (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {(data.layout_type || 'default') === 'default' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Default</span>
@@ -7031,7 +6477,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     data.layout_type === 'pro'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -7039,7 +6485,7 @@ function BlockEditor({
                   <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
                     <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-200 to-violet-300 shrink-0" />
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#e5e7eb] to-[#d1d5db] shrink-0" />
                         <div className="flex-1 space-y-1">
                           <div className="h-2 w-full bg-gray-200 rounded" />
                           <div className="h-1.5 w-1/2 bg-gray-100 rounded" />
@@ -7056,14 +6502,14 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                      data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {data.layout_type === 'pro' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Featured</span>
-                    <Sparkles className="w-3 h-3 text-violet-500" />
+                    <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1 ml-6">Compact with image</p>
                 </button>
@@ -7079,15 +6525,15 @@ function BlockEditor({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-xs">Show Avatar</Label>
-              <Toggle checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
+              <Toggle label="Show Avatar" checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs">Show Name</Label>
-              <Toggle checked={data.show_name} onCheckedChange={(checked) => updateData({ show_name: checked })} />
+              <Toggle label="Show Name" checked={data.show_name} onCheckedChange={(checked) => updateData({ show_name: checked })} />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs">Show Bio</Label>
-              <Toggle checked={data.show_bio} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
+              <Toggle label="Show Bio" checked={data.show_bio} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
             </div>
           </div>
         )
@@ -7115,7 +6561,7 @@ function BlockEditor({
                       className={cn(
                         "flex items-center gap-2 p-2 bg-white rounded-lg border cursor-grab active:cursor-grabbing transition-all",
                         draggedSocialId === platform && "opacity-50",
-                        dragOverSocialId === platform && "border-violet-500"
+                        dragOverSocialId === platform && "border-[#1a1a2e]"
                       )}
                     >
                       <GripVertical className="h-4 w-4 text-gray-300" />
@@ -7156,34 +6602,8 @@ function BlockEditor({
 
             {/* Padding Controls */}
             <div className="space-y-4 pt-4 border-t border-gray-100">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium">Top Padding</Label>
-                  <span className="text-xs text-muted-foreground">{(block.data as SocialRowBlockData).padding_top ?? 0}px</span>
-                </div>
-                <Slider
-                  value={[(block.data as SocialRowBlockData).padding_top ?? 0]}
-                  onValueChange={([value]) => updateData({ padding_top: value })}
-                  min={0}
-                  max={48}
-                  step={4}
-                  className="w-full"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium">Bottom Padding</Label>
-                  <span className="text-xs text-muted-foreground">{(block.data as SocialRowBlockData).padding_bottom ?? 0}px</span>
-                </div>
-                <Slider
-                  value={[(block.data as SocialRowBlockData).padding_bottom ?? 0]}
-                  onValueChange={([value]) => updateData({ padding_bottom: value })}
-                  min={0}
-                  max={48}
-                  step={4}
-                  className="w-full"
-                />
-              </div>
+              <RangeRow compact label="Top padding" value={(block.data as SocialRowBlockData).padding_top ?? 0} min={0} max={48} step={4} unit="px" onChange={(value) => updateData({ padding_top: value })} />
+              <RangeRow compact label="Bottom padding" value={(block.data as SocialRowBlockData).padding_bottom ?? 0} min={0} max={48} step={4} unit="px" onChange={(value) => updateData({ padding_bottom: value })} />
             </div>
           </div>
         )
@@ -7233,7 +6653,7 @@ function BlockEditor({
                     className={cn(
                       "flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all",
                       data.style === id
-                        ? "border-violet-500 bg-violet-50"
+                        ? "border-[#1a1a2e] bg-[#f4f4f6]"
                         : "border-gray-200 hover:border-gray-300 bg-white"
                     )}
                   >
@@ -7245,16 +6665,7 @@ function BlockEditor({
                 ))}
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Height: {data.height}px</Label>
-              <Slider
-                value={[data.height]}
-                onValueChange={([value]) => updateData({ height: value })}
-                min={8}
-                max={64}
-                step={4}
-              />
-            </div>
+            <RangeRow compact label="Height" value={data.height} min={8} max={64} step={4} unit="px" onChange={(value) => updateData({ height: value })} />
           </div>
         )
       }
@@ -7316,11 +6727,11 @@ function BlockEditor({
         return (
           <Tabs defaultValue="settings" className="w-full">
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -7362,7 +6773,7 @@ function BlockEditor({
                       >
                         {imageUploading === img.id ? (
                           <div className="flex flex-col items-center gap-2 text-gray-400">
-                            <div className="w-8 h-8 border-2 border-gray-300 border-t-violet-500 rounded-full animate-spin" />
+                            <div className="w-8 h-8 border-2 border-gray-300 border-t-[#1a1a2e] rounded-full animate-spin" />
                             <span className="text-xs font-medium">Uploading...</span>
                           </div>
                         ) : img.image_url ? (
@@ -7423,7 +6834,7 @@ function BlockEditor({
                   <Label className="text-xs font-medium">Make clickable</Label>
                   <p className="text-[10px] text-muted-foreground">Add links to images</p>
                 </div>
-                <Toggle
+                <Toggle label="Add links to images"
                   checked={data.clickable || false}
                   onCheckedChange={(checked) => updateData({ clickable: checked })}
                 />
@@ -7435,7 +6846,7 @@ function BlockEditor({
                   <Label className="text-xs font-medium">Show captions</Label>
                   <p className="text-[10px] text-muted-foreground">Display image titles</p>
                 </div>
-                <Toggle
+                <Toggle label="Display image titles"
                   checked={data.show_captions || false}
                   onCheckedChange={(checked) => updateData({ show_captions: checked })}
                 />
@@ -7526,7 +6937,7 @@ function BlockEditor({
                       <Label className="text-xs font-medium">Autoplay</Label>
                       <p className="text-[10px] text-muted-foreground">Auto-advance slides</p>
                     </div>
-                    <Toggle
+                    <Toggle label="Auto-advance slides"
                       checked={data.carousel_autoplay || false}
                       onCheckedChange={(checked) => updateData({ carousel_autoplay: checked })}
                     />
@@ -7640,11 +7051,11 @@ function BlockEditor({
         return (
           <Tabs defaultValue="settings" className="w-full">
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -7745,7 +7156,7 @@ function BlockEditor({
                   <Label className="text-xs font-medium">Enable Preview</Label>
                   <p className="text-[10px] text-muted-foreground">Show PDF preview modal when clicked</p>
                 </div>
-                <Toggle
+                <Toggle label="Show PDF preview when clicked"
                   checked={data.enable_preview !== false}
                   onCheckedChange={(checked) => {
                     updateData({ enable_preview: checked, open_directly: checked ? false : data.open_directly })
@@ -7759,7 +7170,7 @@ function BlockEditor({
                   <Label className="text-xs font-medium">Open Directly</Label>
                   <p className="text-[10px] text-muted-foreground">Open PDF file directly in new tab</p>
                 </div>
-                <Toggle
+                <Toggle label="Open PDF directly in a new tab"
                   checked={data.open_directly === true}
                   onCheckedChange={(checked) => {
                     updateData({ open_directly: checked, enable_preview: checked ? false : data.enable_preview })
@@ -7780,7 +7191,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     (data.layout_type || 'default') === 'default'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -7796,10 +7207,10 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                      (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {(data.layout_type || 'default') === 'default' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Default</span>
@@ -7814,7 +7225,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     data.layout_type === 'pro'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -7837,14 +7248,14 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                      data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {data.layout_type === 'pro' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Featured</span>
-                    <Sparkles className="w-3 h-3 text-violet-500" />
+                    <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
                 </button>
@@ -7871,7 +7282,7 @@ function BlockEditor({
                     ) : (
                       <button
                         onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
-                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-[#9ca3af] flex items-center justify-center transition-colors"
                       >
                         <Upload className="w-5 h-5 text-gray-400" />
                       </button>
@@ -7905,11 +7316,11 @@ function BlockEditor({
         return (
           <Tabs defaultValue="settings" className="w-full">
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -8010,7 +7421,7 @@ function BlockEditor({
                   <Label className="text-xs font-medium">Enable Preview</Label>
                   <p className="text-[10px] text-muted-foreground">Show menu preview modal when clicked</p>
                 </div>
-                <Toggle
+                <Toggle label="Show menu preview when clicked"
                   checked={data.enable_preview !== false}
                   onCheckedChange={(checked) => {
                     updateData({ enable_preview: checked, open_directly: checked ? false : data.open_directly })
@@ -8024,7 +7435,7 @@ function BlockEditor({
                   <Label className="text-xs font-medium">Open Directly</Label>
                   <p className="text-[10px] text-muted-foreground">Open menu PDF directly in new tab</p>
                 </div>
-                <Toggle
+                <Toggle label="Open menu PDF directly in a new tab"
                   checked={data.open_directly === true}
                   onCheckedChange={(checked) => {
                     updateData({ open_directly: checked, enable_preview: checked ? false : data.enable_preview })
@@ -8045,7 +7456,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     (data.layout_type || 'default') === 'default'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -8061,10 +7472,10 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                      (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {(data.layout_type || 'default') === 'default' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Default</span>
@@ -8079,7 +7490,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     data.layout_type === 'pro'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -8102,14 +7513,14 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                      data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {data.layout_type === 'pro' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Featured</span>
-                    <Sparkles className="w-3 h-3 text-violet-500" />
+                    <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
                 </button>
@@ -8136,7 +7547,7 @@ function BlockEditor({
                     ) : (
                       <button
                         onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
-                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-[#9ca3af] flex items-center justify-center transition-colors"
                       >
                         <Upload className="w-5 h-5 text-gray-400" />
                       </button>
@@ -8170,11 +7581,11 @@ function BlockEditor({
         return (
           <Tabs defaultValue="settings" className="w-full">
             <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <Settings className="w-3.5 h-3.5" />
                 Settings
               </TabsTrigger>
-              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+              <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
                 <LayoutGrid className="w-3.5 h-3.5" />
                 Layout
               </TabsTrigger>
@@ -8227,7 +7638,7 @@ function BlockEditor({
                     <Label className="text-xs font-medium">Go Directly To Link</Label>
                     <p className="text-[10px] text-muted-foreground">Open Calendly page in new tab</p>
                   </div>
-                  <Toggle
+                  <Toggle label="Open Calendly page in a new tab"
                     checked={data.embed_mode === 'direct_link'}
                     onCheckedChange={(checked) => {
                       updateData({ embed_mode: checked ? 'direct_link' : 'embedded' })
@@ -8241,7 +7652,7 @@ function BlockEditor({
                     <Label className="text-xs font-medium">Embedded Calendar</Label>
                     <p className="text-[10px] text-muted-foreground">Show calendar in popup modal</p>
                   </div>
-                  <Toggle
+                  <Toggle label="Show calendar in a popup"
                     checked={data.embed_mode === 'embedded'}
                     onCheckedChange={(checked) => {
                       updateData({ embed_mode: checked ? 'embedded' : 'direct_link', embed_type: 'modal' })
@@ -8263,7 +7674,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     (data.layout_type || 'default') === 'default'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -8279,10 +7690,10 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                      (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {(data.layout_type || 'default') === 'default' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Default</span>
@@ -8297,7 +7708,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     data.layout_type === 'pro'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -8320,14 +7731,14 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                      data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {data.layout_type === 'pro' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Featured</span>
-                    <Sparkles className="w-3 h-3 text-violet-500" />
+                    <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
                 </button>
@@ -8354,7 +7765,7 @@ function BlockEditor({
                     ) : (
                       <button
                         onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
-                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-[#9ca3af] flex items-center justify-center transition-colors"
                       >
                         <Upload className="w-5 h-5 text-gray-400" />
                       </button>
@@ -8389,7 +7800,7 @@ function BlockEditor({
                 <button
                   type="button"
                   onClick={() => setShowProductDropdown(!showProductDropdown)}
-                  className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-transparent"
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     {selectedProduct?.thumbnail_url && (
@@ -8419,7 +7830,7 @@ function BlockEditor({
                         <p className="text-sm text-muted-foreground mb-3">No products found.</p>
                         <a
                           href="/app/products/new"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#1a1a2e] hover:bg-[#2a2a40] rounded-lg transition-colors"
                         >
                           <Plus className="w-3 h-3" />
                           Add Product
@@ -8450,7 +7861,7 @@ function BlockEditor({
                           className={cn(
                             "w-full px-3 py-2.5 text-left text-sm transition-colors flex items-center gap-2",
                             data.product_id === product.id
-                              ? "bg-violet-50 text-violet-700"
+                              ? "bg-[#f4f4f6] text-[#1a1a2e]"
                               : "text-gray-700 hover:bg-gray-50"
                           )}
                         >
@@ -8462,7 +7873,7 @@ function BlockEditor({
                             />
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className={cn("font-medium truncate", data.product_id === product.id && "text-violet-700")}>
+                            <p className={cn("font-medium truncate", data.product_id === product.id && "text-[#1a1a2e]")}>
                               {product.title}
                             </p>
                             <p className="text-xs text-muted-foreground">
@@ -8470,7 +7881,7 @@ function BlockEditor({
                             </p>
                           </div>
                           {data.product_id === product.id && (
-                            <Check className="w-4 h-4 text-violet-600 shrink-0" />
+                            <Check className="w-4 h-4 text-[#1a1a2e] shrink-0" />
                           )}
                         </button>
                       ))
@@ -8487,7 +7898,7 @@ function BlockEditor({
                   href={`/app/products/${data.product_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-700 font-medium transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs text-[#1a1a2e] hover:text-[#4b5563] font-medium transition-colors"
                 >
                   <Pencil className="w-3 h-3" />
                   Edit Product
@@ -8496,7 +7907,7 @@ function BlockEditor({
                   href="/creator-page?pageType=product"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-700 font-medium transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs text-[#1a1a2e] hover:text-[#4b5563] font-medium transition-colors"
                 >
                   <Pencil className="w-3 h-3" />
                   Edit Product Page
@@ -8508,14 +7919,14 @@ function BlockEditor({
             <div className="space-y-2 pt-2 border-t">
               <div className="flex items-center justify-between">
                 <Label className="text-xs">Show Price</Label>
-                <Toggle
+                <Toggle label="Show Price"
                   checked={data.show_price !== false}
                   onCheckedChange={(checked) => updateData({ show_price: checked })}
                 />
               </div>
               <div className="flex items-center justify-between">
                 <Label className="text-xs">Show Description</Label>
-                <Toggle
+                <Toggle label="Show Description"
                   checked={data.show_description !== false}
                   onCheckedChange={(checked) => updateData({ show_description: checked })}
                 />
@@ -8530,13 +7941,13 @@ function BlockEditor({
                     <Label className="text-xs">Quick Checkout</Label>
                     <p className="text-[10px] text-muted-foreground">Works only for free products</p>
                   </div>
-                  <Toggle
+                  <Toggle label="Quick Checkout"
                     checked={data.quick_checkout || false}
                     onCheckedChange={(checked) => updateData({ quick_checkout: checked })}
                   />
                 </div>
                 {data.quick_checkout && (
-                  <p className="text-[10px] text-muted-foreground bg-violet-50 p-2 rounded-lg">
+                  <p className="text-[10px] text-muted-foreground bg-[#f4f4f6] p-2 rounded-lg">
                     Users will see a quick checkout form instead of being redirected to the checkout page.
                   </p>
                 )}
@@ -8707,10 +8118,7 @@ function BlockEditor({
                   ))}
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Height: {d.height || 24}px</Label>
-                <Slider value={[d.height || 24]} onValueChange={([v]) => updateChildData({ height: v })} min={8} max={64} step={4} />
-              </div>
+              <RangeRow compact label="Height" value={d.height || 24} min={8} max={64} step={4} unit="px" onChange={(v) => updateChildData({ height: v })} />
             </div>
           )
         }
@@ -8752,11 +8160,11 @@ function BlockEditor({
     return (
       <Tabs defaultValue="links" className="w-full">
         <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-          <TabsTrigger value="links" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+          <TabsTrigger value="links" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <Link className="w-3.5 h-3.5" />
             Links
           </TabsTrigger>
-          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <LayoutGrid className="w-3.5 h-3.5" />
             Layout
           </TabsTrigger>
@@ -8814,9 +8222,9 @@ function BlockEditor({
                         onClick={() => setSelectedGroupChildId(selectedGroupChildId === child.id ? null : child.id)}
                         className={cn(
                           "flex items-center gap-2 p-2.5 bg-white rounded-lg border cursor-pointer transition-all",
-                          selectedGroupChildId === child.id ? "border-violet-500 ring-1 ring-violet-500" : "border-gray-200 hover:border-gray-300",
+                          selectedGroupChildId === child.id ? "border-[#1a1a2e] ring-1 ring-[#1a1a2e]" : "border-gray-200 hover:border-gray-300",
                           groupDraggedId === child.id && "opacity-50",
-                          groupDragOverId === child.id && "border-violet-400 border-dashed bg-violet-50",
+                          groupDragOverId === child.id && "border-[#9ca3af] border-dashed bg-[#f4f4f6]",
                           !child.enabled && "opacity-50"
                         )}
                       >
@@ -8933,7 +8341,7 @@ function BlockEditor({
               className={cn(
                 "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                 groupData.layout === "stack"
-                  ? "border-violet-500 bg-violet-50/50"
+                  ? "border-[#1a1a2e] bg-[#f7f7f8]"
                   : "border-gray-200 hover:border-gray-300 bg-white"
               )}
             >
@@ -8948,10 +8356,10 @@ function BlockEditor({
               <div className="flex items-center gap-2">
                 <div className={cn(
                   "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                  groupData.layout === "stack" ? "border-violet-500" : "border-gray-300"
+                  groupData.layout === "stack" ? "border-[#1a1a2e]" : "border-gray-300"
                 )}>
                   {groupData.layout === "stack" && (
-                    <div className="w-2 h-2 rounded-full bg-violet-500" />
+                    <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                   )}
                 </div>
                 <span className="font-medium text-sm">Stack</span>
@@ -8966,7 +8374,7 @@ function BlockEditor({
               className={cn(
                 "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                 groupData.layout === "carousel"
-                  ? "border-violet-500 bg-violet-50/50"
+                  ? "border-[#1a1a2e] bg-[#f7f7f8]"
                   : "border-gray-200 hover:border-gray-300 bg-white"
               )}
             >
@@ -8981,10 +8389,10 @@ function BlockEditor({
               <div className="flex items-center gap-2">
                 <div className={cn(
                   "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                  groupData.layout === "carousel" ? "border-violet-500" : "border-gray-300"
+                  groupData.layout === "carousel" ? "border-[#1a1a2e]" : "border-gray-300"
                 )}>
                   {groupData.layout === "carousel" && (
-                    <div className="w-2 h-2 rounded-full bg-violet-500" />
+                    <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                   )}
                 </div>
                 <span className="font-medium text-sm">Carousel</span>
@@ -9011,7 +8419,7 @@ function BlockEditor({
                       className={cn(
                         "flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all",
                         (groupData.carousel_view || "1") === view.id
-                          ? "bg-violet-500 text-white"
+                          ? "bg-[#1a1a2e] text-white"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       )}
                     >
@@ -9052,11 +8460,11 @@ function BlockEditor({
     return (
       <Tabs defaultValue="settings" className="w-full">
         <TabsList className="w-full mb-3 bg-transparent p-0 h-auto gap-2">
-          <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+          <TabsTrigger value="settings" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <Settings className="w-3.5 h-3.5" />
             Settings
           </TabsTrigger>
-          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 rounded-xl border-2 text-xs font-medium gap-1.5 transition-all data-[state=active]:border-gray-900 data-[state=active]:bg-white data-[state=inactive]:border-gray-200 data-[state=inactive]:bg-white data-[state=inactive]:hover:border-gray-300">
+          <TabsTrigger value="layout" className="flex-1 py-2.5 px-3 h-11 rounded-xl border text-[13.5px] font-medium gap-1.5 transition-[border-color,box-shadow] data-[state=active]:border-[#1a1a2e] data-[state=active]:shadow-[0_0_0_0.5px_#1a1a2e] data-[state=active]:bg-white data-[state=active]:text-[#1a1a2e] data-[state=inactive]:border-[#e3e4e8] data-[state=inactive]:bg-white data-[state=inactive]:text-[#4b5563] data-[state=inactive]:hover:border-[#c9cbd1]">
             <LayoutGrid className="w-3.5 h-3.5" />
             Layout
           </TabsTrigger>

@@ -1,4 +1,4 @@
-"""Builds supabase/sql/run-four/ from supabase/sql/run-now/, part by part, text unchanged. Run: python3 scripts/build-run-four.py"""
+"""Builds supabase/sql/run-four/ from supabase/sql/run-now/, part by part, text unchanged, and copies the same four files to supabase/sql/all-last-three-days/ (the owner asked for a folder named for when the work landed: every part in run-now/ was written on 2026-09-24 to 26, so the two folders hold the same SQL). Run: python3 scripts/build-run-four.py"""
 import re
 import os
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))+'/'
@@ -7,7 +7,7 @@ OUT=ROOT+'supabase/sql/run-four/'
 GROUPS=[
  ('1_of_4_core.sql','1 of 4','Rate limits, newsletter, agent connections and GitHub, refunds recorded once, event and email types, order source, site speed, website addresses, coupons and the admin console, email automations.',['01','02','03','04','05','06','07','08','09','10']),
  ('2_of_4_library_checkout_uploads.sql','2 of 4','Agent MCP, library limit and privacy, checkout contacts, product bundles, upload safety, storage buckets, private digital files, storage cleanup, variant policies.',['11','12','13','14','15','16','17','18','19']),
- ('3_of_4_latest.sql','3 of 4','Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator.',None),
+ ('3_of_4_latest.sql','3 of 4','Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites, product variant columns.',None),
 ]
 parts={f[:2]:f for f in os.listdir(RN) if re.match(r'\d\d_.*\.sql$',f)}
 # File 3 takes every part from 20 up to 89, so a new part lands there without editing this list.
@@ -54,5 +54,12 @@ out=["-- STORELIB DATABASE, FILE 4 of 4",
      "-- part 99_check_after.sql: every column should read true. p90_storage_policies reads false if the step above was skipped; see README.",
      chk_stmt[0]]
 open(OUT+'4_of_4_storage_policies_and_check.sql','w').write("\n".join(out)+"\n")
+# The same four files under the name the owner asked for. Copied, never edited
+# by hand, so the two folders cannot drift apart.
+import shutil
+DAYS=ROOT+'supabase/sql/all-last-three-days/'
+os.makedirs(DAYS,exist_ok=True)
+for f in sorted(os.listdir(OUT)):
+    if f.endswith('.sql'): shutil.copyfile(OUT+f,DAYS+f)
 for f in sorted(os.listdir(OUT)):
     if f.endswith('.sql'): print(f, os.path.getsize(OUT+f), sum(1 for l in open(OUT+f) if l.strip() and not l.startswith('--')))

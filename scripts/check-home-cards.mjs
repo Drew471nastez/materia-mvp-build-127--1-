@@ -7,7 +7,7 @@
  *   CARDS     Getting started, the guide and Your Plan under the banner,
  *             three across from 1280 at one height, two across with the
  *             guide below them under that, one under another on a phone; no Store setup list; the page never scrolls
- *             sideways. Getting started says "N of 8", the next step is
+ *             sideways. Getting started says "N of 7", the next step is
  *             first with the arrow, and Sign up is last and crossed out.
  *   PLAN      the plan by name (Free, or Pro for `growth`), Free's own lines
  *             from lib/billing/plans, and the button Upgrade to Pro (Manage
@@ -143,6 +143,60 @@ const globeHash = async (page) => {
   return createHash("sha1").update(await page.screenshot({ clip, captureBeyondViewport: false })).digest("hex")
 }
 
+/*
+  YOUR PLAN'S BAND. "No dots, no pattern, no gradient; something
+  cleaner, simple, a subtle colour." One flat light violet, 46px, a
+  hairline under it, the name in deep violet, and every pixel of it the
+  same colour but the hairline's. Measured last on each page: it scrolls
+  the card on screen, and the globe sleeps while the page scrolls or it
+  is off screen.
+*/
+const planBand = async (page, label) => {
+  const band = await page.evaluate(() => {
+    const plan = document.querySelector("[aria-labelledby=your-plan-title]")
+    const head = plan.querySelector(".home-plan-head")
+    const h2 = document.getElementById("your-plan-title")
+    if (!head) return null
+    head.scrollIntoView({ block: "center" })
+    const cs = getComputedStyle(head)
+    const b = head.getBoundingClientRect()
+    return {
+      height: Math.round(b.height), bg: cs.backgroundColor, image: cs.backgroundImage, shadow: cs.boxShadow,
+      ink: getComputedStyle(h2).color, size: getComputedStyle(h2).fontSize, weight: getComputedStyle(h2).fontWeight,
+      dots: plan.querySelectorAll(".home-plan-dots, .home-plan-sky").length, children: head.children.length,
+      box: { x: b.x, y: b.y, width: b.width, height: b.height },
+    }
+  })
+  await wait(150)
+  const lum = (rgb) => { const [r, g, b] = rgb.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+  const ratio = band ? (lum(band.bg) + 0.05) / (lum(band.ink) + 0.05) : 0
+  expect(!!band && band.height === 46, "Your Plan's band: 46px", band?.height)
+  expect(!!band && /feTurbulence/.test(band.image) && /linear-gradient/.test(band.image) && band.dots === 0 && band.children === 1, "  the first deep violet sky: clouds and grain, no dots, nothing but its name", band && { image: band.image.slice(0, 60), dots: band.dots })
+  expect(!!band && band.ink === "rgb(255, 255, 255)", "  the name in white", band?.ink)
+  if (band) {
+    /* Dark enough under the name for white to read: the band's pixels, the name hidden, all darker than mid violet. */
+    await page.evaluate(() => { document.getElementById("your-plan-title").style.color = "transparent" })
+    const png = await page.screenshot({ clip: { x: band.box.x + 20, y: band.box.y + 6, width: Math.min(160, band.box.width - 40), height: band.box.height - 12 }, encoding: "base64" })
+    await page.evaluate(() => { document.getElementById("your-plan-title").style.color = "" })
+    const brightest = await page.evaluate(async (data) => {
+      const img = new Image()
+      img.src = `data:image/png;base64,${data}`
+      await img.decode()
+      const c = document.createElement("canvas")
+      c.width = img.naturalWidth
+      c.height = img.naturalHeight
+      const ctx = c.getContext("2d")
+      ctx.drawImage(img, 0, 0)
+      const d = ctx.getImageData(0, 0, c.width, c.height).data
+      let sum = 0
+      for (let i = 0; i < d.length; i += 4) sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]
+      return sum / (d.length / 4)
+    }, png)
+    expect(brightest < 110, "  dark under the name, so white reads on it", brightest.toFixed(0))
+    if (SHOTS) await page.screenshot({ path: join(SHOTS, `appfix-plan-head-${label.replace(/ /g, "-")}.png`), clip: { x: band.box.x - 8, y: band.box.y - 8, width: band.box.width + 16, height: 200 } })
+  }
+}
+
 try {
   for (const [label, viewport, query] of [
     ["1440 free", { width: 1440, height: 1000, deviceScaleFactor: 1 }, ""],
@@ -199,7 +253,9 @@ try {
     }
     expect(m.gs.top > m.banner.bottom, "under the banner", JSON.stringify([m.banner.bottom, m.gs.top]))
     const done = m.rows.filter((r) => r.struck).length
-    expect(m.count === `${done} of 8` && m.rows.length === 8, `"${m.count}", eight steps (lib/home/progress)`, JSON.stringify(m.rows))
+    expect(m.count === `${done} of 7` && m.rows.length === 7, `"${m.count}", seven steps (lib/home/progress)`, JSON.stringify(m.rows))
+    expect(!m.rows.some((r) => /Upgrade to Pro/.test(r.text)), "and Upgrade to Pro is not one of them", m.rows.map((r) => r.text))
+
     const firstDone = m.rows.findIndex((r) => r.struck)
     expect(firstDone > 0 && m.rows.slice(firstDone).every((r) => r.struck) && m.rows[firstDone].text.startsWith("Sign up"), "what is done drops below what is left, crossed out, Sign up first of it", JSON.stringify(m.rows))
     expect(m.rows[0].arrow && m.rows.filter((r) => r.arrow).length === 1, "the next step first, and only it has the arrow", JSON.stringify(m.rows))
@@ -292,6 +348,7 @@ try {
       const moved = await globeHash(page)
       expect(moved !== held, "dragging turns it")
     }
+    await planBand(page, label)
     expect(errors.length === 0, "no errors", errors.slice(0, 3).join(" | "))
     await page.close()
   }

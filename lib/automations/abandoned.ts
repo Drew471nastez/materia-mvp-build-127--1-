@@ -34,6 +34,8 @@
  */
 
 import { enroll, type Store } from "./engine"
+import type { ContactOutcome } from "@/lib/contacts/checkout-contact"
+import { joinedTheList } from "@/lib/contacts/checkout-welcome"
 
 export interface CheckoutStart {
   id: string
@@ -61,9 +63,10 @@ export interface StartsStore {
    * The tick, as a subscribed contact with an unsubscribe token
    * (lib/contacts/checkout-contact). The checkout route writes it when Pay is
    * pressed; this makes sure, because a reminder is never sent without its
-   * way out.
+   * way out. Says what the write did (checkout-contact's outcome), so a
+   * tick that only this puts on the list starts the welcome too.
    */
-  recordConsent(start: CheckoutStart): Promise<void>
+  recordConsent(start: CheckoutStart): Promise<ContactOutcome>
 }
 
 /** How long a checkout is left alone before it counts as left. */
@@ -101,7 +104,20 @@ export async function sweepAbandoned(input: { store: Store; starts: StartsStore;
       }
       out.outcomes[outcome]++
       if (outcome !== "entered") continue
-      if (s.email_opt_in) await starts.recordConsent(s)
+      if (s.email_opt_in) {
+        /*
+          Normally the checkout route wrote the tick when Pay was pressed, and
+          started the welcome then (lib/contacts/checkout-welcome), so this
+          finds them subscribed and starts nothing. If that write never
+          happened, this one is what puts them on the list, and the welcome
+          starts here instead: the same flows, entered once per person by the
+          engine's own key whichever way in came first.
+        */
+        const joined = await starts.recordConsent(s)
+        if (joinedTheList(joined)) {
+          await enroll(store, { triggerType: "new_subscriber", creatorId: s.creator_id, email: s.email, name: s.first_name, optedIn: true, source: s.source_detail ?? null }, now)
+        }
+      }
       const r = await enroll(
         store,
         {

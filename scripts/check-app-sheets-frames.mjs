@@ -293,10 +293,11 @@ async function run(file) {
   await rec("share: open (tap the pill)", () => tap(s, "[data-share-pill]"), 800)
   if (!(await sheetOpen(s))) throw new Error("the share sheet did not open")
   await rec("share: drag", () => drag(s), 1400)
-  for (const label of ["OnePage", "Website", "Creator page"]) await rec(`share: tab ${label}`, () => tapText(s, "[data-share-sheet]", label), 500)
-  /* The panel holds the address, Open, QR code and Share (components/app/share/share-storelib.tsx).
+  /* Every address is a row with its own Copy and Open, and QR code and Share under them
+     (components/app/share/share-storelib.tsx). A copy on each row turns its icon into a check.
      The QR code twice: the second time it is the view the sheet already keeps. */
-  await rec("share: open the page", () => tapText(s, "[data-share-sheet] [data-share-actions]", "Open"), 350)
+  for (const label of ["OnePage", "Website", "Creator page"]) await rec(`share: copy the ${label}`, () => tapText(s, "[data-share-sheet]", `Copy the ${label} address`), 500)
+  await rec("share: open the page", () => tapText(s, "[data-share-sheet]", "Open the Creator page"), 350)
   for (const again of ["", " again"]) {
     await rec(`share: QR code${again}`, () => tapText(s, "[data-share-sheet]", "QR code"), 700)
     await rec(`share: back from QR code${again}`, () => tap(s, "[data-app-sheet='open'] button[aria-label='Back']"), 550)
@@ -313,7 +314,7 @@ async function run(file) {
   /* ── Notifications ── */
   await rec("notifications: open", () => tap(s, "#bell"), 900)
   await rec("notifications: drag", () => drag(s), 1400)
-  for (const label of ["Updates", "Messages", "Opportunities", "All"]) await rec(`notifications: tab ${label}`, () => tapText(s, "[data-app-sheet='open']", label), 450)
+  /* No tabs any more ("get rid of those category pills"): Unread only is the one change of view. */
   await rec("notifications: unread only", () => tap(s, "[data-app-sheet='open'] [data-notifications-filter]"), 450)
   await rec("notifications: all again", () => tap(s, "[data-app-sheet='open'] [data-notifications-filter]"), 450)
   await rec("notifications: close", () => tapScrim(s), 700)

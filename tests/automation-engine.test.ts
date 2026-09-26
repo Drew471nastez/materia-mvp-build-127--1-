@@ -69,6 +69,8 @@ class MemoryStore implements Store {
   sends: Send[] = []
   orders: Array<{ email: string; at: number; creator: string; id?: string }> = []
   suppressed = new Set<string>()
+  /** Addresses whose contact row is gone: deleted by the creator, or never written (a buyer). */
+  gone = new Set<string>()
   failComplete = 0
 
   async activeFlows(creatorId: string, trigger: string): Promise<FlowRow[] | null> {
@@ -157,7 +159,11 @@ class MemoryStore implements Store {
     return this.orders.some((o) => o.creator === creatorId && o.email === email && o.at > Date.parse(since))
   }
   async openedStep(rid: string, sid: string) { return Boolean(this.sends.find((s) => s.run_id === rid && s.step_id === sid)?.opened_at) }
-  async standing(_c: string, email: string) { return { suppressed: this.suppressed.has(email), unsubscribeToken: "unsub", subscribed: !this.suppressed.has(email) } }
+  async standing(_c: string, email: string) {
+    /* No row reads as the real store reads it (contactStanding): not suppressed, no token, not subscribed. */
+    if (this.gone.has(email)) return { suppressed: false, unsubscribeToken: null, subscribed: false, status: null }
+    return { suppressed: this.suppressed.has(email), unsubscribeToken: "unsub", subscribed: !this.suppressed.has(email) }
+  }
   async identity() { return { fromName: "Astrid", replyTo: "astrid@example.com", storeUrl: "https://storelib.com/astrid" } }
   async firstOrder(creatorId: string, email: string, orderId: string) {
     return !this.orders.some((o) => o.creator === creatorId && o.email === email && o.id !== orderId)
@@ -362,6 +368,35 @@ async function main() {
     check("unsubscribing during the wait stops the second email", sent.length === 1)
     check("and the run says they left", store.runs[0].status === "exited" && store.runs[0].exit_reason === "Unsubscribed.")
   }
+  {
+    /*
+      Found in the round 5 audit: an address the creator deleted from their
+      contacts has no row, and no row read as "not suppressed", so the rest
+      of a welcome series kept going to it, without an unsubscribe link (the
+      link is the row). A welcome goes on only while they are on the list.
+    */
+    const store = new MemoryStore()
+    flowOf(store, [email("e1"), wait("w", 2), email("e2")])
+    await join_(store)
+    const { m, sent } = mailer()
+    await runDue({ store, mailer: m, worker: "A", budgetMs: 1000, now })
+    store.gone.add("ada@example.com")
+    clock += 2 * DAY + 1
+    await runDue({ store, mailer: m, worker: "A", budgetMs: 1000, now })
+    check("a welcome stops when the address is taken off the creator's contacts", sent.length === 1 && store.runs[0].status === "exited" && store.runs[0].exit_reason === "No longer on your list.", { sent: sent.length, reason: store.runs[0].exit_reason })
+  }
+  {
+    /* A buyer with no contact row still gets the order's own follow-up: the rule is the welcome's alone. */
+    const store = new MemoryStore()
+    flowOf(store, [email("e1"), wait("w", 1), email("e2")], { trigger_type: "purchase", trigger_config: { entry: { mode: "each" } } })
+    store.gone.add("buyer@example.com")
+    await enroll(store, { triggerType: "purchase", creatorId: "c1", email: "buyer@example.com", orderId: "o9" }, clock)
+    const { m, sent } = mailer()
+    await runDue({ store, mailer: m, worker: "A", budgetMs: 1000, now })
+    clock += DAY + 1
+    await runDue({ store, mailer: m, worker: "A", budgetMs: 1000, now })
+    check("while a purchase flow still reaches a buyer who is not a contact", sent.length === 2 && store.runs[0].status === "completed", sent.length)
+  }
 
   console.log("\nTurning off and editing")
   {
@@ -441,6 +476,29 @@ async function main() {
     clock += DAY + 1
     await runDue({ store, mailer: m, worker: "B", budgetMs: 1000, now })
     check("moving on stays safe to repeat: a job run again after a crash neither skips nor doubles a step", sent.map((x) => x.subject).join("|") === "Subject e1|Subject e2" && store.runs[0].status === "completed", { sent: sent.map((x) => x.subject), status: store.runs[0].status })
+  }
+  {
+    /*
+      Found in the round 5 audit: a run's first job has no step before it,
+      so when the creator removed that first step while its job waited (a
+      send being retried), there was nothing to follow and the run ended as
+      "the rest of the flow was removed", with the rest all still there.
+      It goes on from what is now the first step.
+    */
+    const store = new MemoryStore()
+    const f = flowOf(store, [email("e1"), wait("w", 1), email("e2")])
+    await join_(store)
+    const { m, sent } = mailer({ fail: (n) => (n === 1 ? "Mailgun 503 Service Unavailable" : null) })
+    await runDue({ store, mailer: m, worker: "A", budgetMs: 1000, now })
+    check("(the first email failed once and waits for its retry)", store.jobs[0].state === "queued" && sent.length === 0)
+    f.steps = [wait("w", 1), email("e2")]
+    clock += 60_000 + 1
+    await runDue({ store, mailer: m, worker: "A", budgetMs: 1000, now })
+    check("the first step removed while its job waits: the run goes on from the new first step", store.runs[0].status === "active" && store.jobs.some((j) => j.step_id === "e2" && j.state === "queued"), { status: store.runs[0].status, reason: store.runs[0].exit_reason })
+    clock += DAY + 1
+    await runDue({ store, mailer: m, worker: "A", budgetMs: 1000, now })
+    check("and gets the rest of the flow, once", sent.map((x) => x.subject).join("|") === "Subject e2" && store.runs[0].status === "completed", sent.map((x) => x.subject))
+    check("resolveStep: a first job's step removed stands for the flow's first step now", resolveStep(normalizeSteps(f.steps), "e1", null)?.id === "w" && resolveStep([], "e1", null) === null)
   }
 
   console.log("\nChecks")

@@ -28,7 +28,7 @@ import { randomUUID } from "node:crypto"
 process.env.AUTOMATION_LINK_SECRET = "a-test-secret-that-is-long-enough"
 
 import { automationDb, type FakeSupabase } from "./fake-supabase"
-import { supabaseStarts, supabaseStore } from "@/lib/automations/supabase-store"
+import { contactStanding, exitContactRuns, supabaseStarts, supabaseStore } from "@/lib/automations/supabase-store"
 import { enroll, runDue, type ComposeInput, type Mailer, type Store } from "@/lib/automations/engine"
 import { TEMPLATES, templateById, type FlowTemplate } from "@/lib/automations/templates"
 import { TRIGGERS, audienceOf, normalizeSteps, problemsOf, serializeSteps, stepsText, waitMs } from "@/lib/automations/flow-model"
@@ -36,7 +36,7 @@ import { fieldProblems, fieldsIn, fillFields, mergeField, mergeValues, textOn } 
 import { recordCheckoutStart, sweepAbandoned } from "@/lib/automations/abandoned"
 import { recordClick, recordOpen } from "@/lib/automations/track-events"
 import { APP_URL, automationEmail } from "@/lib/email-automation"
-import { openPixel, trackLinks } from "@/lib/automations/tracking"
+import { openPixel, readTarget, signTarget, trackLinks, verifyTarget } from "@/lib/automations/tracking"
 
 let passed = 0
 let failed = 0
@@ -349,6 +349,67 @@ async function main() {
     w.db.clock += 4 * DAY
     await drain(w, m)
     check("unsubscribing between two emails stops the second", sent.length === 1 && runsOf(w, flowId)[0].status === "exited" && runsOf(w, flowId)[0].exit_reason === "Unsubscribed.")
+  }
+  {
+    /*
+      Round 5: the unsubscribe itself ends their runs (app/api/email/
+      unsubscribe), so the builder and the contact's page say they left at
+      once, not "in progress" until their next step comes up days later.
+    */
+    const w = world()
+    const flowId = turnOn(w, templateById("welcome")!)
+    contact(w, "ada@example.com", "subscribed")
+    contact(w, "bo@example.com", "subscribed")
+    await join_(w, "ada@example.com")
+    await join_(w, "bo@example.com")
+    const { m } = mailer(w)
+    await drain(w, m)
+    const ada = runsOf(w, flowId).find((r) => r.email === "ada@example.com")!
+    const waiting = () => w.db.rows("email_flow_jobs").filter((j) => j.run_id === ada.id && j.state === "queued")
+    check("(a welcome partway, its next email waiting)", ada.status === "active" && waiting().length === 1)
+    const ended = await exitContactRuns(w.db, w.creatorId, " Ada@Example.com ", "Unsubscribed.")
+    check("an unsubscribe ends that address's runs with the creator at once", ended === 1 && ada.status === "exited" && ada.exit_reason === "Unsubscribed." && waiting().length === 0, { ended, status: ada.status })
+    check("and nobody else's", runsOf(w, flowId).find((r) => r.email === "bo@example.com")?.status === "active")
+    check("and ending them again changes nothing", (await exitContactRuns(w.db, w.creatorId, "ada@example.com", "Unsubscribed.")) === 0)
+    const route = read("app/api/email/unsubscribe/route.ts")
+    check("the unsubscribe link and the one-click unsubscribe both end them", (route.match(/await endAutomations\(adminSupabase, subscriber\)/g) ?? []).length === 2 && /exitContactRuns\(db, subscriber\.creator_id, subscriber\.email, "Unsubscribed\."\)/.test(route))
+  }
+  {
+    /* A welcome ends for an address with no contact row, so a read that failed must not look like one. */
+    const answering = (result: { data: unknown; error: unknown }) => {
+      const q: Record<string, unknown> = {}
+      q.select = () => q
+      q.eq = () => q
+      q.maybeSingle = async () => result
+      return { from: () => q, rpc: () => null }
+    }
+    const failedRead = await contactStanding(answering({ data: null, error: { code: "08006" } }), "c", "a@b.co")
+    const noRow = await contactStanding(answering({ data: null, error: null }), "c", "a@b.co")
+    check("a contact read that failed leaves 'on the list' unknown; no row is a no", failedRead.subscribed === undefined && failedRead.suppressed === false && noRow.subscribed === false, { failedRead, noRow })
+  }
+  {
+    /*
+      Round 5: a link to a bare address ("https://shop.com", the commonest
+      link in an email) was signed as written and checked as the browser
+      reads it ("https://shop.com/"), so the click route found the signature
+      wrong and sent the reader to storelib.com instead of the shop.
+    */
+    const token = "11111111-1111-4111-8111-111111111111"
+    const clicked = (html: string) => {
+      const m = html.match(/(?:^|[?&;])u=([^&"]+)&(?:amp;)?s=([0-9a-f]+)/)
+      const t = m ? readTarget(m[1]) : null
+      return t && m ? { href: t.href, ok: verifyTarget(token, t.href, m[2]) || verifyTarget(token, t.written, m[2]) } : null
+    }
+    const bare = clicked(trackLinks('<a href="https://Shop.example.com">Visit</a>', token))
+    check("a link to a bare domain goes to that domain, not to storelib.com", bare?.ok === true && bare.href === "https://shop.example.com/", bare)
+    const query = clicked(trackLinks('<a href="https://x.com/p?a=1&amp;b=2">a</a>', token))
+    check("and a link with a query keeps it", query?.ok === true && query.href === "https://x.com/p?a=1&b=2", query)
+    /* An email already sent carries a signature over the address as written. */
+    const old = `u=${Buffer.from("https://shop.example.com", "utf8").toString("base64url")}&s=${signTarget(token, "https://shop.example.com")}`
+    check("a link in an email sent before the fix still goes through", clicked(old)?.ok === true)
+    check("an edited link does not", clicked(`u=${Buffer.from("https://evil.example", "utf8").toString("base64url")}&s=${signTarget(token, "https://shop.example.com")}`)?.ok === false)
+    const click = read("app/api/automations/t/c/route.ts")
+    check("the click route checks either form, and sends the reader to the address read as a URL", /verifyTarget\(token, target\.href, sig\) \|\| verifyTarget\(token, target\.written, sig\)/.test(click) && /NextResponse\.redirect\(target\.href, 302\)/.test(click))
   }
   {
     const w = world()

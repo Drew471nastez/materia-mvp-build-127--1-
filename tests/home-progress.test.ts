@@ -77,7 +77,10 @@ function main() {
     const f = facts({})
     const p = homeProgress(f)
     check("only Sign up is done", p.completed === 1 && step(f, "signup").done, p.steps.map((s) => [s.id, s.done]))
-    check("eight steps, in the order the work depends on", p.total === 8 && p.steps.map((s) => s.id).join() === SETUP_ORDER.join() && SETUP_ORDER.join() === "signup,guide,product,payments,store,sale,pro,domain")
+    /* Changed on purpose: "Remove the Upgrade to Pro in Getting started". Seven steps, the domain still last. */
+    check("seven steps, in the order the work depends on", p.total === 7 && p.steps.map((s) => s.id).join() === SETUP_ORDER.join() && SETUP_ORDER.join() === "signup,guide,product,payments,store,sale,domain")
+    check("Upgrade to Pro is not one of them", !p.steps.some((s) => (s.id as string) === "pro" || /Upgrade to Pro/.test(s.label)))
+    check("a new account is 1 of 7 (14%), not 1 of 8", p.completed === 1 && Math.round((p.completed / p.total) * 100) === 14)
     check("the card shows Getting started, not the challenges", p.phase === "setup" && !p.setupDone)
     check("an account with no creator row reads as nothing done", sameFacts(factsFromRows({ creator: null, products: null, domains: null, websiteLive: false }), NO_FACTS))
   }
@@ -146,17 +149,17 @@ function main() {
     check("the step reads it, and is a button, not a link", step(facts({ userMetadata: { [GUIDE_OPENED_KEY]: "2026-09-25" } }), "guide").done && step(facts({}), "guide").action === "guide")
   }
 
-  console.log("\nPro: growth, or the earlier pro")
+  console.log("\nPro: growth, or the earlier pro, a fact and not a step")
   {
     check("growth", isProPlan("growth"))
     check("pro", isProPlan("pro"))
     check("free, nothing, or anything else is not", !isProPlan("free") && !isProPlan(null) && !isProPlan(undefined) && !isProPlan("enterprise"))
     const pro = facts({ creator: { subscription_plan_id: "growth" } })
-    check("the step ticks, and its link is Billing", step(pro, "pro").done && step(pro, "pro").href === "/app/settings/billing")
-    check("on Free it is the plans page", step(facts({}), "pro").href === "/app/settings/billing/upgrade")
+    check("the plan is still read", pro.pro && !facts({}).pro)
+    check("but it counts for nothing in Getting started", homeProgress(pro).completed === homeProgress(facts({})).completed && homeProgress(pro).total === 7)
   }
 
-  console.log("\nall eight: the challenges")
+  console.log("\nall seven: the challenges")
   {
     const all = facts({
       creator: { stripe_onboarding_status: "connected", subscription_plan_id: "growth" },
@@ -168,7 +171,7 @@ function main() {
       counts: { subscribers: 12, emailsSent: 0, automationsOn: 1, couponUses: 0 },
     })
     const p = homeProgress(all)
-    check("setup is done", p.setupDone && p.completed === 8 && p.phase === "challenges")
+    check("setup is done", p.setupDone && p.completed === 7 && p.phase === "challenges")
     check("and there is no next step to nudge about", nextSetupStep(all) === null)
     check("eight challenges, in their order", p.challenges.length === 8 && p.challenges.map((c) => c.id).join() === CHALLENGE_ORDER.join())
     const c = (id: string) => p.challenges.find((x) => x.id === id)!
@@ -183,8 +186,9 @@ function main() {
     check("each is a link or the share panel", p.challenges.every((x) => !!x.href || x.action === "share"))
     const many = challenges({ ...all, sales: 25, subscribers: 300 })
     check("a count past its target is shown at the target, and done", many.find((x) => x.id === "sales")!.current === 10 && many.find((x) => x.id === "sales")!.done && many.find((x) => x.id === "subscribers")!.done)
-    const one = homeProgress({ ...all, pro: false })
-    check("one step open again (Pro ended): back to Getting started", one.phase === "setup" && one.completed === 7)
+    check("done without Pro: the plan is not a step", homeProgress({ ...all, pro: false }).setupDone)
+    const one = homeProgress({ ...all, domainConnected: false })
+    check("one step open again (the domain went): back to Getting started", one.phase === "setup" && one.completed === 6)
   }
 
   console.log("\nwhat the API sends is checked, never trusted")

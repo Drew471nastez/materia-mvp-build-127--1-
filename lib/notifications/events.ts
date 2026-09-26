@@ -12,8 +12,9 @@ import "server-only"
  *   saleMilestone        lib/push/notifications notifySale, on every sale:
  *                        a sale that is the 1st, 10th or 100th pushes as
  *                        that milestone instead of a second push beside it
- *   noteStripeAccount    account.updated: payouts or card payments off, or
- *                        Stripe asking for details by a deadline, and back
+ *   noteStripeAccount    account.updated: payouts or card payments off,
+ *                        Stripe asking for details by a deadline, a live
+ *                        product that cannot be paid for, and back
  *   notePayout           payout.* : a failed payout, and the one after it
  *   noteDispute          charge.dispute.*: opened, and closed
  *   noteReview           a review written: the first one is a milestone
@@ -22,7 +23,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { evaluateCreator, type ApplyResult } from "./engine"
 import { storelibPusher } from "./push-sender"
 import { firstReview, SALES_THRESHOLDS, salesMilestone } from "./rules/milestones"
-import { disputeOpened, payoutFailed, stripeRequirementsDue, stripeRestricted } from "./rules/payments"
+import { disputeOpened, payoutFailed, payoutsNotConnected, stripeRequirementsDue, stripeRestricted } from "./rules/payments"
 import { supabaseSnapshots } from "./snapshot"
 import { supabaseNotificationStore } from "./supabase-store"
 import type { Rule, StripeAccountFacts } from "./types"
@@ -110,8 +111,9 @@ export function stripeAccountFacts(account: {
   }
 }
 
+/* payouts_not_connected is asked too, so "Connect Stripe to get paid" resolves the moment the account is switched on, not an hour later. */
 export async function noteStripeAccount(creatorId: string, account: Parameters<typeof stripeAccountFacts>[0]): Promise<void> {
-  await run(creatorId, [stripeRestricted, stripeRequirementsDue], { stripeAccount: stripeAccountFacts(account) })
+  await run(creatorId, [stripeRestricted, stripeRequirementsDue, payoutsNotConnected], { stripeAccount: stripeAccountFacts(account) })
 }
 
 export async function notePayout(creatorId: string): Promise<void> {

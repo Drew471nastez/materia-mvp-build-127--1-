@@ -137,7 +137,8 @@ check(
 const contextSrc = readFileSync("lib/i18n/context.tsx", "utf8")
 check(
   "LanguageProvider still renders none of its children before hydration (its fallback at most, null by default), which is why placement matters",
-  /if \(!isHydrated\) \{\s*\n\s*return fallback/.test(contextSrc) && /fallback = null,/.test(contextSrc),
+  /* The fallback is returned in a fragment since f5291baa (a component must return an element); still only the fallback, never the children. */
+  /if \(!isHydrated\) \{[\s\S]{0,160}?return (fallback|<>\{fallback\}<\/>)\s*\n/.test(contextSrc) && /fallback = null,/.test(contextSrc),
   "if this stops being true, the rule below can be relaxed",
 )
 /* In /app it stands on the shell's frame and spinner until then, so a document load is never a white page. */

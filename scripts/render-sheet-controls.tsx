@@ -32,15 +32,13 @@ function Panel() {
     ),
 
     createElement("label", { className: "mb-1 mt-4 block text-[11px] font-semibold uppercase" }, "Background image"),
-    /* The empty upload box as components/website-builder/editor/image-picker.tsx draws it. */
-    createElement("button", {
+    createElement("div", {
       id: "dropzone",
-      type: "button",
-      className: "wb-dropzone relative w-full rounded-lg border border-dashed cursor-pointer flex flex-col items-center justify-center gap-1 py-5 aspect-[16/7]",
+      className: "wb-dropzone relative w-full rounded-lg border-2 border-dashed cursor-pointer flex flex-col items-center justify-center gap-1.5 py-5 aspect-video",
     },
       createElement("span", { className: "h-5 w-5" }),
-      createElement("span", { className: "wb-dropzone-title block text-[13px] font-medium" }, "Add image"),
-      createElement("span", { className: "wb-dropzone-hint block text-[11.5px]" }, "Drop, paste or click"),
+      createElement("p", { className: "text-[13px] font-medium" }, "Add Image"),
+      createElement("p", { className: "text-[10px]" }, "Click to upload or drag & drop"),
     ),
     createElement("div", { className: "h-40" }),
   )

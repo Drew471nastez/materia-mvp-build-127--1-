@@ -142,7 +142,8 @@ async function main() {
   ]
   for (const [what, file, basis] of routes) {
     const src = read(file)
-    check(`${what}: recorded through recordCheckoutContact, with the consent it has`, /recordCheckoutContact\(/.test(src) && basis.test(src))
+    /* recordCheckoutContactAndWelcome is this, and the welcome on a join (lib/contacts/checkout-welcome, tests/checkout-welcome). */
+    check(`${what}: recorded through recordCheckoutContact, with the consent it has`, /recordCheckoutContact(AndWelcome)?\(/.test(src) && basis.test(src))
     check(`${what}: no second, hand-written subscribe`, !/from\("subscribers"\)\s*\.insert\(/.test(src) && !/status: "subscribed"/.test(src))
   }
   console.log("\nA customer who signs up anywhere joins the list")
@@ -162,7 +163,7 @@ async function main() {
   }
 
   const session = read("app/api/checkout/stripe-session/route.ts")
-  check("the start and a ticked box are written after the answer, so Pay is not slower", /after\(async \(\) => \{\s*await recordCheckoutStart\(/.test(session) && /if \(optedIn\) \{\s*await recordCheckoutContact/.test(session))
+  check("the start and a ticked box are written after the answer, so Pay is not slower", /after\(async \(\) => \{\s*await recordCheckoutStart\(/.test(session) && /if \(optedIn\) \{\s*await recordCheckoutContact(AndWelcome)?\(/.test(session))
   const contactSrc = read("lib/contacts/checkout-contact.ts")
   check("the contact module logs a code and nothing else", !/console\.[a-z]+\([^)]*email/.test(contactSrc) && /note\("could not insert", error\.code\)/.test(contactSrc))
 

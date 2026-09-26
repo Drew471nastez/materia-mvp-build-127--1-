@@ -235,28 +235,34 @@ The addresses every Storelib website answers on. Link to them by name rather tha
 | `routes.contact_url` | `/contact` |
 | `routes.wishlist_url` | `/wishlist` |
 | `routes.account_url` | `/account`, which sends a visitor who is not signed in to the sign in page |
-| `routes.account_login_url` | `/account/login` |
-| `routes.account_signin_url` | Leaves for storelib.com to sign in, and comes back to `/account` |
-| `routes.account_register_url` | The same, starting at making a Storelib account |
+| `routes.account_login_url` | `/account/login`, the sign in page: an email, then the code sent to it. A new email makes the account there, so there is no separate sign up. Add `?return=/a/path` to land somewhere else afterwards. |
+| `routes.account_signin_url` | The sign in page too. |
+| `routes.account_register_url` | The sign in page too: a new email makes the account. |
+| `routes.account_code_url` | Where the sign in page's email form posts `email` (and `return`). Sends the code. |
+| `routes.account_verify_url` | Where the code form posts `code`. Signs the visitor in. |
+| `routes.account_profile_url` | Where the account page's form posts `name`. |
 | `routes.account_logout_url` | `/account/logout`. Post a form to it: `<form method="post" action="{{ routes.account_logout_url }}" data-storelib-form="native">` |
+
+Post these forms with `data-storelib-form="native"`, so the browser sends them and the page follows where the answer leads.
 
 ## customer
 
-The visitor who is signed in, on the account page. `null` on every other page, and on the account page for a visitor who is not signed in, so test it before reading it:
+The customer who is signed in, on the account page. A customer account belongs to your website alone, the way a Shopify store's does: it is made the first time somebody signs in with an email, and it is not a Storelib login. `null` on every other page, and on the account page for a visitor who is not signed in, so test it before reading it:
 
 | Path | What it is |
 | --- | --- |
-| `customer.name` | The name on their Storelib account, else their username, or empty. |
+| `customer.name` | The name they gave on their profile, or empty. |
 | `customer.first_name` | The first word of it. |
-| `customer.email` | The email on their Storelib account. |
-| `customer.orders_count` | How many of this store's products they have. |
-| `customer.orders` | Those products, most recent first, each `{ id, title, image, url, date, price, action_label, action_url }`. `action_url` opens the download in their Storelib Library, or the receipt when there is nothing to download, and `action_label` says which: `Download`, `Receipt` or `Library`. |
+| `customer.email` | The email they signed in with. |
+| `customer.orders_count` | How many orders they have placed with you. |
+| `customer.orders` | Those orders, most recent first, one per payment, each `{ number, date, status, total, items, item_count, action_label, action_url }`. `items` is a list of `{ title, image, url, variant }`. `status` is in words (`Complete`, `Confirmed`, `Shipped`, `Delivered`, `Partly refunded`, `Refunded`, `On hold`). `action_url` opens the order's receipt on Storelib, which is also where its files are, and `action_label` says what it does: `Download`, `Access` or `View order`. |
+| `customer.sample` | `true` in the builder only, where there is no customer: the name and email are the words "Customer name" and "Customer email", and the orders are your own products. Style them as placeholders. |
 
 ```storelib
 {% if customer %}
-  <p>{{ customer.first_name }}, {{ customer.orders_count }} orders</p>
+  <p>{{ customer.orders_count }} orders</p>
 {% else %}
-  <a href="{{ routes.account_signin_url }}">Sign in</a>
+  <a href="{{ routes.account_login_url }}">Sign in</a>
 {% endif %}
 ```
 

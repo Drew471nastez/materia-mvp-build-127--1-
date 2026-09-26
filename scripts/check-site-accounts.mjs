@@ -15,14 +15,22 @@
  *              last shows the empty state
  *   contact    what is posted is what was typed, with the consent box as the
  *              visitor left it and the timing the server checks
- *   login      the two links go through Storelib and come back
- *   account    orders, saved items and a sign out that is a POST
+ *   sign in    the real forms, submitted by the browser: an email posted to
+ *              the code route, the code step it lands on, the code posted to
+ *              the verify route, and the account page after it
+ *   account    orders with their items, totals, statuses and buttons, the
+ *              profile, the wishlist entry, a sign out that is a POST, no
+ *              greeting; empty, and with the name open for editing
+ *   builder    the account, sign in and wishlist pages as the canvas draws
+ *              them: placeholders where the customer would be, the
+ *              creator's own products, and no invented person anywhere
  *
- * and measured on the way: horizontal overflow, layout shift, long tasks at
- * a phone's CPU (4x slower), the slowest frame while a heart is toggled, and
- * any error the page threw. A guest must not call the account API at all.
+ * and measured on the way: horizontal overflow, text escaping its box, tap
+ * targets, layout shift, long tasks at a phone's CPU (4x slower), the
+ * slowest frame while a heart is toggled, and any error the page threw. A
+ * guest must not call the account's wishlist API at all.
  *
- *   node scripts/check-site-accounts.mjs      (SHOTS=<dir> to keep pictures)
+ *   node scripts/check-site-accounts.mjs      (SHOTS=<dir> to keep pictures, named accounts-*)
  */
 import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
@@ -111,6 +119,8 @@ function html(p) {
 const posts = []
 const outside = []
 const accountCalls = []
+/** The sign in forms, as the browser posted them. */
+const signIns = []
 const http = createServer((req, res) => {
   const url = new URL(req.url, "http://x")
   if (url.pathname === "/favicon.ico") { res.writeHead(204); res.end(); return }
@@ -123,6 +133,20 @@ const http = createServer((req, res) => {
       if (url.pathname === "/api/website-builder/contact") {
         posts.push({ at: Date.now(), body: JSON.parse(raw || "{}"), origin: req.headers.origin ?? null, type: req.headers["content-type"] ?? null })
         setTimeout(() => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ ok: true, subscribed: false })) }, 180)
+        return
+      }
+      /*
+        The two sign in routes, standing in for the real ones: they answer
+        the way app/api/site-account/code and /verify do, with a 303 to the
+        next page, so the browser follows it as it would on a website. Which
+        theme's page to send it to is read off the page the form was on.
+      */
+      if (req.method === "POST" && (url.pathname === "/api/site-account/code" || url.pathname === "/api/site-account/verify")) {
+        const from = new URL(req.headers.referer ?? `${base}/storelib-default/login`)
+        const theme = from.pathname.split("/")[1] || "storelib-default"
+        signIns.push({ path: url.pathname, body: Object.fromEntries(new URLSearchParams(raw)), origin: req.headers.origin ?? null, type: req.headers["content-type"] ?? null, theme })
+        res.writeHead(303, { location: url.pathname.endsWith("/code") ? `/${theme}/login-code` : `/${theme}/account` })
+        res.end()
         return
       }
       if (url.pathname.startsWith("/api/site-account")) accountCalls.push(`${req.method} ${url.pathname}`)
@@ -149,7 +173,7 @@ const report = {}
 
 const VIEWPORTS = [
   ["390", { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }],
-  ["1440", { width: 1440, height: 900, deviceScaleFactor: 1 }],
+  ["1280", { width: 1280, height: 900, deviceScaleFactor: 1 }],
 ]
 const THEMES = ["storelib-default", "studio-noir"]
 const CREATOR = "11111111-1111-4111-8111-111111111111"
@@ -197,7 +221,32 @@ async function open(theme, key, viewport, label, seed = null) {
 async function shoot(page, name) {
   if (!SHOTS) return
   mkdirSync(SHOTS, { recursive: true })
-  await page.screenshot({ path: join(SHOTS, `${name}.png`), fullPage: true })
+  await page.screenshot({ path: join(SHOTS, `accounts-${name}.png`), fullPage: true })
+}
+
+/**
+ * What a page's account section looks like to a person: its text, and every
+ * control that is too small for a thumb or text that has escaped its box.
+ * Tap targets are the visible links, buttons and fields inside the section,
+ * measured at their rendered size; 44px is the floor on a phone.
+ */
+async function measureSection(page, selector) {
+  return page.evaluate((selector) => {
+    const root = document.querySelector(selector)
+    if (!root) return null
+    const small = []
+    for (const el of root.querySelectorAll("a, button, input:not([type=hidden])")) {
+      const r = el.getBoundingClientRect()
+      if (r.width === 0 && r.height === 0) continue
+      if (r.height < 44) small.push(`${el.tagName.toLowerCase()}.${el.className || ""} ${Math.round(r.width)}x${Math.round(r.height)} "${(el.textContent || el.getAttribute("name") || "").trim().slice(0, 24)}"`)
+    }
+    const escaped = []
+    for (const el of root.querySelectorAll(".order, .row, .entry, .login__form, .login__more, .acct__top")) {
+      if (el.scrollWidth > el.clientWidth + 1) escaped.push(`${el.className} ${el.scrollWidth}>${el.clientWidth}`)
+    }
+    const box = root.getBoundingClientRect()
+    return { text: root.innerText, small, escaped, width: Math.round(box.width), left: Math.round(box.left) }
+  }, selector)
 }
 
 /** The slowest frame while `act` runs and for `ms` after. */
@@ -236,7 +285,7 @@ async function savedCount(page, label, shot = "") {
   await page.evaluate(() => document.querySelector('button[aria-label="Open menu"]').click())
   await wait(600)
   const got = await read()
-  if (SHOTS && shot) await page.screenshot({ path: join(SHOTS, `${shot}.png`) })
+  if (SHOTS && shot) await page.screenshot({ path: join(SHOTS, `accounts-${shot}.png`) })
   await page.keyboard.press("Escape")
   await wait(500)
   return got
@@ -350,16 +399,73 @@ try {
         await page.close()
       }
 
-      /* ── Sign in ─────────────────────────────────────────────────────── */
+      /* ── Sign in, used: an email, the code step, the code, the account ── */
       {
         const { page, errors, shape, loadMs } = await open(theme, "login", viewport, label)
         await shoot(page, `${theme}-login-${label}`)
-        const links = await page.evaluate(() => [...document.querySelectorAll(".s__btn")].map((a) => a.getAttribute("href")))
-        expect(links[0] === "/api/site-account/start?return=%2Faccount", `login: Sign in goes through Storelib and back to the account`, JSON.stringify(links))
-        expect(links[1] === "/api/site-account/start?return=%2Faccount&mode=signup", `login: Create account does the same, starting at sign up`, JSON.stringify(links))
+        const form = await page.evaluate(() => {
+          const f = document.querySelector("form.login__form")
+          const email = f?.querySelector('input[name="email"]')
+          const r = email?.getBoundingClientRect()
+          const b = f?.querySelector('button[type="submit"]')?.getBoundingClientRect()
+          return {
+            action: f ? `${f.method} ${f.getAttribute("action")} ${f.getAttribute("data-storelib-form")}` : null,
+            email: email ? `${email.type} ${email.getAttribute("autocomplete")} ${email.required}` : null,
+            field: r ? Math.round(r.height) : 0,
+            button: b ? Math.round(b.height) : 0,
+            fontSize: email ? parseFloat(getComputedStyle(email).fontSize) : 0,
+            password: !!document.querySelector('input[type="password"]'),
+            signUp: /Create account/i.test(document.body.innerText),
+          }
+        })
+        expect(form.action === "post /api/site-account/code native", `login: one form, posted by the browser to the code route`, JSON.stringify(form))
+        expect(form.email === "email email true" && !form.password && !form.signUp, `login: an email field, no password, no separate sign up`, JSON.stringify(form))
+        expect(form.field >= 44 && form.button >= 44 && form.fontSize >= 16, `login: field ${form.field}px and button ${form.button}px tall, 16px text so a phone does not zoom`, JSON.stringify(form))
+        const measured = await measureSection(page, '[data-section-type="main_login"]')
+        expect((measured?.escaped.length ?? 1) === 0 && (label !== "390" || measured?.small.length === 0), `login: nothing escapes its box, and every control is 44px or taller on a phone`, JSON.stringify(measured && { small: measured.small, escaped: measured.escaped }))
+        const before = signIns.length
+        await page.type('form.login__form input[name="email"]', "first.visit@mail.test")
+        await Promise.all([page.waitForNavigation({ waitUntil: "load" }), page.click('form.login__form button[type="submit"]')])
+        await page.waitForFunction("window.__HYDRATED__ === true", { timeout: 15000 })
+        const asked = signIns[before]
+        expect(asked?.path === "/api/site-account/code" && asked.body.email === "first.visit@mail.test" && asked.body.return === "/account", `login: the browser posted the email and where to land`, JSON.stringify(asked))
+        expect(asked?.type === "application/x-www-form-urlencoded" && asked.origin === base, `login: as a plain form, with this page's Origin (what the route checks)`, JSON.stringify({ type: asked?.type, origin: asked?.origin }))
+        expect(page.url().endsWith(`/${theme}/login-code`), `login: the answer's redirect lands on the code step`, page.url())
+        await shoot(page, `${theme}-login-code-${label}`)
+        const step = await page.evaluate(() => {
+          const code = document.querySelector('input[name="code"]')
+          return {
+            heading: document.querySelector(".s__h")?.textContent.trim(),
+            sentTo: document.querySelector(".login__email")?.textContent.trim(),
+            code: code ? `${code.getAttribute("inputmode")} ${code.getAttribute("autocomplete")}` : null,
+            focused: document.activeElement === code,
+            again: [...document.querySelectorAll(".login__more .login__link")].map((a) => `${a.textContent.trim()} ${Math.round(a.getBoundingClientRect().height)}`),
+          }
+        })
+        expect(step.heading === "Enter your code" && step.sentTo === "first.visit@mail.test", `login: the code step says where the code went`, JSON.stringify(step))
+        expect(step.code === "numeric one-time-code", `login: a numeric field a phone fills from the email`, JSON.stringify(step))
+        expect(step.again.length === 2 && step.again.every((a) => Number(a.split(" ").pop()) >= 44), `login: Send a new code and Use a different email, 44px or taller`, JSON.stringify(step.again))
+        await page.type('input[name="code"]', "042 917")
+        await Promise.all([page.waitForNavigation({ waitUntil: "load" }), page.click('form.login__form button[type="submit"]')])
+        await page.waitForFunction("window.__HYDRATED__ === true", { timeout: 15000 })
+        const typed = signIns[before + 1]
+        expect(typed?.path === "/api/site-account/verify" && typed.body.code === "042 917" && typed.origin === base, `login: the code is posted to the verify route, as typed (the route drops the space)`, JSON.stringify(typed))
+        expect(page.url().endsWith(`/${theme}/account`), `login: signed in, the visitor lands on the account page`, page.url())
         expect(shape.overflow <= 0, `login: no sideways scroll`, `${shape.overflow}px`)
-        expect(errors.length === 0, `login: no errors`, errors.join(" | "))
+        expect(errors.length === 0, `login: no errors, on any of the three pages`, errors.join(" | "))
         report[`${at} login`] = { ...shape, loadMs }
+        await page.close()
+      }
+
+      /* ── A wrong code ───────────────────────────────────────────────── */
+      {
+        const { page, errors, shape } = await open(theme, "login-wrong", viewport, label)
+        const notice = await page.evaluate(() => {
+          const n = document.querySelector('.login__notice[role="alert"]')
+          return n && n.offsetParent !== null ? n.textContent.trim() : null
+        })
+        expect(notice === "That code is not right. Check it and try again.", `login: a wrong code is said in plain words, as an alert`, String(notice))
+        expect(shape.overflow <= 0 && errors.length === 0, `login: the wrong code page fits, without errors`, `${shape.overflow}px ${errors.join(" | ")}`)
         await page.close()
       }
 
@@ -368,32 +474,119 @@ try {
         const { page, errors, shape, loadMs } = await open(theme, "account", viewport, label)
         await shoot(page, `${theme}-account-${label}`)
         const acct = await page.evaluate(() => ({
-          who: document.querySelector(".acct__who")?.textContent.trim(),
-          orders: document.querySelectorAll(".order").length,
-          go: [...document.querySelectorAll(".order__go")].map((a) => a.textContent.trim()),
-          saved: document.querySelectorAll(".saved .card").length,
+          heading: document.querySelector('[data-section-type="main_account"] h1')?.textContent.trim(),
+          orders: [...document.querySelectorAll(".order")].map((o) => ({
+            date: o.querySelector(".order__date")?.textContent.trim(),
+            no: o.querySelector(".order__no")?.textContent.trim(),
+            status: o.querySelector(".order__status")?.textContent.trim(),
+            items: o.querySelectorAll(".item").length,
+            total: o.querySelector(".order__total")?.textContent.replace(/\s+/g, " ").trim(),
+            go: o.querySelector(".order__go")?.textContent.trim(),
+            href: o.querySelector(".order__go")?.getAttribute("href"),
+          })),
+          profile: [...document.querySelectorAll(".row")].map((r) => r.innerText.replace(/\s+/g, " ").trim()),
+          entry: document.querySelector(".entry")?.innerText.replace(/\s+/g, " ").trim(),
           out: (() => { const f = document.querySelector("form.acct__out"); return f ? `${f.method} ${f.getAttribute("action")}` : null })(),
         }))
-        expect(/Alex/.test(acct.who ?? ""), `account: greets the visitor by name`, String(acct.who))
-        expect(acct.orders === 2 && acct.go.join() === "Download,Receipt", `account: two orders, a download and a receipt`, JSON.stringify(acct))
-        expect(acct.saved === 2, `account: saved items`, String(acct.saved))
+        const measured = await measureSection(page, '[data-section-type="main_account"]')
+        expect(acct.heading === "Account" && !/\bHi\b|Hello|Welcome/.test(measured?.text ?? ""), `account: a page title, no greeting`, JSON.stringify({ heading: acct.heading }))
+        expect(acct.orders.map((o) => `${o.status}/${o.items}/${o.go}`).join() === "Complete/1/Access,Complete/2/Download,Refunded/1/View order", `account: three orders newest first: a course, a basket of two, a refund`, JSON.stringify(acct.orders))
+        expect(acct.orders.every((o) => /^[A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(o.date ?? "") && /^Order #[0-9A-F]{8}$/.test(o.no ?? "") && /^Total (\$\d|Free)/.test(o.total ?? "")), `account: each with its date, number and total`, JSON.stringify(acct.orders.map((o) => [o.date, o.no, o.total])))
+        expect(acct.orders.every((o) => o.href?.startsWith("https://storelib.com/receipt/")), `account: each button opens its receipt, where the files are`)
+        expect(acct.profile.join(" | ") === "Name Ana Pop Edit | Email ana.pop@mail.test", `account: profile, name and email`, JSON.stringify(acct.profile))
+        expect(acct.entry === "2 saved View", `account: the wishlist entry`, String(acct.entry))
         expect(acct.out === "post /account/logout", `account: sign out is a POST`, String(acct.out))
+        expect(label !== "390" || (measured?.small.length ?? 1) === 0, `account: every link and button is 44px or taller on a phone`, JSON.stringify(measured?.small))
+        expect((measured?.escaped.length ?? 1) === 0, `account: no text escapes its row`, JSON.stringify(measured?.escaped))
         expect(shape.overflow <= 0, `account: no sideways scroll`, `${shape.overflow}px`)
         expect(errors.length === 0, `account: no errors`, errors.join(" | "))
         report[`${at} account`] = { ...shape, loadMs }
         await page.close()
       }
+
+      /* ── Account, the first visit: nothing yet ──────────────────────── */
+      {
+        const { page, errors, shape } = await open(theme, "account-new", viewport, label)
+        await shoot(page, `${theme}-account-new-${label}`)
+        const text = (await measureSection(page, '[data-section-type="main_account"]'))?.text ?? ""
+        expect(/No orders yet\.\s*Browse the shop/.test(text) && /Name\s*Not added/.test(text) && /Nothing saved yet\./.test(text), `account: empty states in plain words`, text.replace(/\s+/g, " ").slice(0, 300))
+        expect(shape.overflow <= 0 && errors.length === 0, `account: the empty page fits, without errors`, `${shape.overflow}px ${errors.join(" | ")}`)
+        await page.close()
+      }
+
+      /* ── Account, the name open for editing ─────────────────────────── */
+      {
+        const { page, errors, shape } = await open(theme, "account-edit", viewport, label)
+        await shoot(page, `${theme}-account-edit-${label}`)
+        const edit = await page.evaluate(() => {
+          const f = document.querySelector("form.row--edit")
+          const input = f?.querySelector('input[name="name"]')
+          const save = f?.querySelector('button[type="submit"]')?.getBoundingClientRect()
+          return {
+            action: f ? `${f.method} ${f.getAttribute("action")}` : null,
+            value: input?.value,
+            focused: document.activeElement === input,
+            field: input ? Math.round(input.getBoundingClientRect().height) : 0,
+            save: save ? Math.round(save.height) : 0,
+            cancel: f?.querySelector("a")?.getAttribute("href"),
+          }
+        })
+        expect(edit.action === "post /api/site-account/profile" && edit.value === "Ana Pop" && edit.cancel === "/account#profile", `account: Edit opens the name in place, posted to the profile route, with Cancel`, JSON.stringify(edit))
+        expect(edit.field >= 44 && edit.save >= 44, `account: the field ${edit.field}px and Save ${edit.save}px tall`, JSON.stringify(edit))
+        const measured = await measureSection(page, '[data-section-type="main_account"]')
+        expect((measured?.escaped.length ?? 1) === 0 && shape.overflow <= 0 && errors.length === 0, `account: the edit row fits, without errors`, JSON.stringify({ escaped: measured?.escaped, overflow: shape.overflow, errors }))
+        await page.close()
+      }
+
+      /* ── The builder: nobody invented ───────────────────────────────── */
+      {
+        const { page, errors, shape } = await open(theme, "editor-account", viewport, label)
+        await shoot(page, `${theme}-editor-account-${label}`)
+        const measured = await measureSection(page, '[data-section-type="main_account"]')
+        const look = await page.evaluate(() => {
+          const color = (s) => { const el = document.querySelector(s); return el ? getComputedStyle(el).color : null }
+          return {
+            samples: [...document.querySelectorAll(".is-sample")].map((e) => e.textContent.trim()),
+            sample: color(".is-sample"),
+            label: color(".row__label"),
+            value: color(".order__date"),
+            items: [...document.querySelectorAll(".item__title")].map((e) => e.textContent.trim()),
+          }
+        })
+        const text = measured?.text ?? ""
+        expect(!/Alex|Morgan|example\.com|@/.test(text), `builder: no invented person, no address, anywhere on the account page`, text.replace(/\s+/g, " ").slice(0, 200))
+        expect(look.samples.join() === "Customer name,Customer email", `builder: the customer is placeholders`, JSON.stringify(look.samples))
+        expect(look.sample === look.label && look.sample !== look.value, `builder: drawn in the placeholder colour ${look.sample}, not the text colour ${look.value}`, JSON.stringify(look))
+        expect(look.items.join() === "Linen apron,Card wallet", `builder: the orders are the creator's own products`, JSON.stringify(look.items))
+        expect(shape.overflow <= 0 && errors.length === 0, `builder: the account page fits, without errors`, `${shape.overflow}px ${errors.join(" | ")}`)
+        await page.close()
+      }
+      {
+        const { page, errors, shape } = await open(theme, "editor-login", viewport, label)
+        await shoot(page, `${theme}-editor-login-${label}`)
+        const drawn = await page.evaluate(() => ({ email: !!document.querySelector('input[name="email"]'), code: !!document.querySelector('input[name="code"]') }))
+        expect(drawn.email && !drawn.code && shape.overflow <= 0 && errors.length === 0, `builder: the sign in page previews as a visitor first sees it`, JSON.stringify({ drawn, overflow: shape.overflow, errors }))
+        await page.close()
+      }
+      {
+        const { page, errors, shape } = await open(theme, "editor-wishlist", viewport, label)
+        await shoot(page, `${theme}-editor-wishlist-${label}`)
+        const text = (await measureSection(page, '[data-section-type="main_wishlist"]'))?.text ?? ""
+        const cards = await page.evaluate(() => document.querySelectorAll("[data-storelib-wishlist-card]").length)
+        expect(cards === 4 && !/Alex|example\.com|@/.test(text) && shape.overflow <= 0 && errors.length === 0, `builder: the wishlist previews with the creator's products, and nobody's name`, JSON.stringify({ cards, overflow: shape.overflow, errors }))
+        await page.close()
+      }
     }
   }
-  expect(accountCalls.length === 0, `a guest never called the account API`, accountCalls.join(", "))
+  expect(accountCalls.length === 0, `a guest never called the account's wishlist API`, accountCalls.join(", "))
 
   /* ── The other widths: nothing wider than the screen ─────────────────── */
   console.log("\nother widths")
-  for (const width of [360, 430, 1280, 1920]) {
+  for (const width of [360, 430, 1440, 1920]) {
     const viewport = width < 600 ? { width, height: 800, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { width, height: 900, deviceScaleFactor: 1 }
     const wide = []
     for (const theme of THEMES) {
-      for (const key of ["shop", "wishlist", "contact", "login", "account"]) {
+      for (const key of ["shop", "wishlist", "contact", "login", "login-code", "account", "account-new", "account-edit", "editor-account"]) {
         const seed = key === "wishlist" ? pages[`${theme}-wishlist`].seed : null
         const { page, errors, shape } = await open(theme, key, viewport, String(width), seed)
         if (shape.overflow > 0 || errors.length) wide.push(`${theme} ${key}: ${shape.overflow}px ${errors.join(" | ")}`)

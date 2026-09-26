@@ -9,6 +9,8 @@
  * footer column shows it as a list. A section that shows a menu
  * (`link_list`) names one by its handle, so the handle is fixed when the
  * menu is made and renaming the menu later changes only what people read.
+ * It is made from the name and never shown: it is how sections find the
+ * menu, not something a creator has to understand.
  *
  * The header's own links are the main menu without being made here: every
  * site has them already, and asking a creator to type them a second time is
@@ -20,12 +22,12 @@
  * same one every link setting uses and which refuses `javascript:`.
  */
 import * as React from "react"
-import { ArrowDown, ArrowUp, ChevronDown, CornerDownRight, Plus, X } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 
-import { LinkPicker, useLinkTargets } from "@/components/website-builder/link-picker"
 import { MENU_HANDLE, MENU_LIMITS, cleanMenus, type Menu, type MenuLink } from "@/lib/storelib-theme/values"
 import { cn } from "@/lib/utils"
-import { ADD_BUTTON, ICON_BUTTON, INPUT, NOTE, TEXT_BUTTON } from "./styles"
+import { LinkListEditor, NEW_LINK_LABEL, type LinkItem } from "./link-list-editor"
+import { INPUT, NOTE, TEXT_BUTTON } from "./styles"
 
 /** "Footer links" → "footer-links", made unique against the menus there are. */
 export function handleFor(title: string, taken: Set<string>): string {
@@ -36,83 +38,59 @@ export function handleFor(title: string, taken: Set<string>): string {
   return handle
 }
 
-type Path = number[]
+/** A link's place in the menu as the list editor names it: "2", or "2/0" for a sub-link. */
+const pathOf = (id: string): number[] => id.split("/").map(Number)
 
-function linksAt(links: MenuLink[], path: Path): MenuLink[] {
-  let list = links
-  for (const i of path) list = list[i]?.links ?? []
-  return list
+function menuItems(links: MenuLink[]): LinkItem[] {
+  return links.map((l, i) => ({
+    id: String(i),
+    label: l.title,
+    url: l.url,
+    children: (l.links ?? []).map((c, j) => ({ id: `${i}/${j}`, label: c.title, url: c.url })),
+  }))
 }
 
 /** The links with the list at `path` replaced by `fn` of it. */
-function withLinksAt(links: MenuLink[], path: Path, fn: (list: MenuLink[]) => MenuLink[]): MenuLink[] {
+function withLinksAt(links: MenuLink[], path: number[], fn: (list: MenuLink[]) => MenuLink[]): MenuLink[] {
   if (path.length === 0) return fn(links)
   const [head, ...rest] = path
   return links.map((l, i) => (i === head ? { ...l, links: withLinksAt(l.links ?? [], rest, fn) } : l))
 }
 
-function LinkRows({
-  links,
-  path,
-  depth,
-  onLinks,
-}: {
-  links: MenuLink[]
-  path: Path
-  depth: number
-  onLinks: (next: MenuLink[]) => void
-}) {
-  const targets = useLinkTargets()
-  const list = linksAt(links, path)
-  const set = (fn: (list: MenuLink[]) => MenuLink[]) => onLinks(withLinksAt(links, path, fn))
+/** One link changed, wherever it sits. A third level from an import rides along untouched. */
+function withLink(links: MenuLink[], id: string, fn: (link: MenuLink) => MenuLink): MenuLink[] {
+  const path = pathOf(id)
+  const last = path.pop() as number
+  return withLinksAt(links, path, (list) => list.map((l, i) => (i === last ? fn(l) : l)))
+}
+
+export function MenuLinksEditor({ links, onLinks }: { links: MenuLink[]; onLinks: (next: MenuLink[]) => void }) {
   return (
-    <div className={cn("space-y-2", depth > 0 && "border-l-2 border-border pl-3")}>
-      {list.map((link, i) => (
-        <div key={i} className="space-y-1.5 rounded-lg border border-border bg-background p-2">
-          <div className="flex items-center gap-1">
-            <input
-              aria-label="Link text"
-              className={INPUT}
-              value={link.title}
-              maxLength={MENU_LIMITS.titleLength}
-              placeholder="Link text"
-              onChange={(e) => set((l) => l.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))}
-            />
-            <button type="button" className={ICON_BUTTON} aria-label={`Move ${link.title || "link"} up`} disabled={i === 0} onClick={() => set((l) => { const n = [...l]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; return n })}>
-              <ArrowUp className="h-3.5 w-3.5" />
-            </button>
-            <button type="button" className={ICON_BUTTON} aria-label={`Move ${link.title || "link"} down`} disabled={i === list.length - 1} onClick={() => set((l) => { const n = [...l]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; return n })}>
-              <ArrowDown className="h-3.5 w-3.5" />
-            </button>
-            <button type="button" className={ICON_BUTTON} aria-label={`Remove ${link.title || "link"}`} onClick={() => set((l) => l.filter((_, j) => j !== i))}>
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <LinkPicker value={link.url} targets={targets} onChange={(href) => set((l) => l.map((x, j) => (j === i ? { ...x, url: href } : x)))} />
-          {depth === 0 && (
-            <>
-              {(link.links?.length ?? 0) > 0 && <LinkRows links={links} path={[...path, i]} depth={depth + 1} onLinks={onLinks} />}
-              {(link.links?.length ?? 0) < MENU_LIMITS.links && (
-                <button
-                  type="button"
-                  className={TEXT_BUTTON}
-                  onClick={() => set((l) => l.map((x, j) => (j === i ? { ...x, links: [...(x.links ?? []), { title: "", url: "/" }] } : x)))}
-                >
-                  <CornerDownRight className="mr-1 h-3.5 w-3.5" />
-                  Add a link under it
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      ))}
-      {list.length < MENU_LIMITS.links && (
-        <button type="button" className={ADD_BUTTON} onClick={() => set((l) => [...l, { title: "", url: "/" }])}>
-          <Plus className="h-3.5 w-3.5" />
-          Add link
-        </button>
-      )}
-    </div>
+    <LinkListEditor
+      items={menuItems(links)}
+      nested
+      maxLinks={MENU_LIMITS.links}
+      maxSubLinks={MENU_LIMITS.links}
+      maxLabel={MENU_LIMITS.titleLength}
+      onLabel={(id, title) => onLinks(withLink(links, id, (l) => ({ ...l, title })))}
+      onUrl={(id, url) => onLinks(withLink(links, id, (l) => ({ ...l, url })))}
+      onRemove={(id) => {
+        const path = pathOf(id)
+        const last = path.pop() as number
+        onLinks(withLinksAt(links, path, (list) => list.filter((_, i) => i !== last)))
+      }}
+      onAdd={(parent) =>
+        onLinks(withLinksAt(links, parent === null ? [] : pathOf(parent), (list) => [...list, { title: NEW_LINK_LABEL, url: "/" }]))
+      }
+      onMove={(parent, from, to) =>
+        onLinks(withLinksAt(links, parent === null ? [] : pathOf(parent), (list) => {
+          const next = [...list]
+          const [moved] = next.splice(from, 1)
+          next.splice(to, 0, moved)
+          return next
+        }))
+      }
+    />
   )
 }
 
@@ -163,7 +141,7 @@ export function MenusEditor({ value, onChange }: { value: unknown; onChange: (me
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium">{menu.title || handle}</span>
                 <span className="block text-[11px] text-muted-foreground">
-                  {handle} · {count} {count === 1 ? "link" : "links"}
+                  {count} {count === 1 ? "link" : "links"}
                 </span>
               </span>
               <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", expanded && "rotate-180")} />
@@ -179,16 +157,16 @@ export function MenusEditor({ value, onChange }: { value: unknown; onChange: (me
                     onChange={(e) => put(handle, { ...menu, title: e.target.value })}
                   />
                 </label>
-                <LinkRows links={menu.links ?? []} path={[]} depth={0} onLinks={(links) => put(handle, { ...menu, links })} />
+                <MenuLinksEditor links={menu.links ?? []} onLinks={(links) => put(handle, { ...menu, links })} />
                 <div className="flex items-center justify-end gap-2 pt-1">
                   {confirming === handle ? (
                     <>
                       <span className="text-[12px] text-muted-foreground">Sections showing it will show none.</span>
                       <button type="button" className={TEXT_BUTTON} onClick={() => setConfirming(null)}>Keep</button>
-                      <button type="button" className={cn(TEXT_BUTTON, "text-[#b91c1c] hover:text-[#991b1b]")} onClick={() => remove(handle)}>Delete</button>
+                      <button type="button" className={cn(TEXT_BUTTON, "text-[#b91c1c] hover:bg-red-50 hover:text-[#991b1b]")} onClick={() => remove(handle)}>Delete</button>
                     </>
                   ) : (
-                    <button type="button" className={cn(TEXT_BUTTON, "text-[#b91c1c] hover:text-[#991b1b]")} onClick={() => setConfirming(handle)}>
+                    <button type="button" className={cn(TEXT_BUTTON, "hover:bg-red-50 hover:text-[#b91c1c]")} onClick={() => setConfirming(handle)}>
                       Delete menu
                     </button>
                   )}

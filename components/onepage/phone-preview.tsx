@@ -32,6 +32,8 @@ import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { ExtraBlock } from "@/components/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
+import { fontStack } from "@/lib/onepage/fonts"
+import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 
 const stripHtmlToPlainText = (value?: string | null) => {
@@ -445,7 +447,7 @@ function ShareButtonPreview({
     if (accentColor && !isNearWhite(accentColor)) {
       return accentColor
     }
-    return "#8B5CF6"
+    return "#1a1a2e"
   }
 
   const popupHeaderBackground = getPopupHeaderBackground()
@@ -775,7 +777,7 @@ function ShareButtonPreview({
                 <div className="flex items-center gap-2">
                   <div
                     className={cn(
-                      "rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 overflow-hidden",
+                      "rounded-full bg-[#1a1a2e] flex items-center justify-center shrink-0 overflow-hidden",
                       scale === "small" ? "w-6 h-6" : "w-7 h-7",
                     )}
                   >
@@ -811,295 +813,6 @@ function ShareButtonPreview({
   )
 }
 
-// Background Pattern Component for rendering pattern overlays
-function BackgroundPattern({
-  pattern,
-  color,
-  opacity = "medium",
-  instanceId = "",
-}: { pattern: string; color: string; opacity?: "low" | "medium" | "hard" | "very_hard"; instanceId?: string }) {
-  const opacityValue = opacity === "low" ? 0.4 : opacity === "hard" ? 1 : opacity === "very_hard" ? 1.5 : 0.7
-  // Unique ID suffix to prevent SVG pattern ID collisions when multiple instances exist in DOM
-  const pid = instanceId ? `${pattern}-${instanceId}` : pattern
-  const patternSVGs: Record<string, React.ReactNode> = {
-    grid: (
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ zIndex: 1, opacity: opacityValue }}
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          <pattern id={`bg-grid-${pid}`} width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke={color} strokeWidth="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-grid-${pid})`} />
-      </svg>
-    ),
-    dots: (
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ zIndex: 1, opacity: opacityValue }}
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          <pattern id={`bg-dots-${pid}`} width="16" height="16" patternUnits="userSpaceOnUse">
-            <circle cx="8" cy="8" r="2" fill={color} />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-dots-${pid})`} />
-      </svg>
-    ),
-    waves: (
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ zIndex: 1, opacity: opacityValue }}
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          <pattern id={`bg-waves-${pid}`} width="50" height="25" patternUnits="userSpaceOnUse">
-            <path d="M0 12.5 Q12.5 0, 25 12.5 T50 12.5" fill="none" stroke={color} strokeWidth="2" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-waves-${pid})`} />
-      </svg>
-    ),
-    zigzag: (
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ zIndex: 1, opacity: opacityValue }}
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          <pattern id={`bg-zigzag-${pid}`} width="20" height="12" patternUnits="userSpaceOnUse">
-            <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={color} strokeWidth="1.5" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-zigzag-${pid})`} />
-      </svg>
-    ),
-    diagonal: (
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ zIndex: 1, opacity: opacityValue }}
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          <pattern id={`bg-diagonal-${pid}`} width="10" height="10" patternUnits="userSpaceOnUse">
-            <path d="M0 10 L10 0" fill="none" stroke={color} strokeWidth="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-diagonal-${pid})`} />
-      </svg>
-    ),
-    morph: (
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ zIndex: 1, opacity: opacityValue }}
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 200 200"
-        preserveAspectRatio="xMidYMid slice"
-      >
-        <defs>
-          <pattern id={`bg-morph-${pid}`} width="200" height="200" patternUnits="userSpaceOnUse">
-            <path
-              d="M40 20 Q60 40, 40 60 Q20 80, 40 100 Q60 80, 80 100 Q100 120, 80 140 Q60 120, 40 140 Q20 160, 40 180"
-              fill="none"
-              stroke={color}
-              strokeWidth="2"
-              opacity="0.5"
-            />
-            <path
-              d="M120 10 Q140 30, 160 20 Q180 40, 160 60 Q180 80, 160 100 Q140 80, 120 100 Q100 80, 120 60"
-              fill="none"
-              stroke={color}
-              strokeWidth="2"
-              opacity="0.4"
-            />
-            <path
-              d="M100 140 Q120 160, 140 150 Q160 170, 140 190 Q120 170, 100 180"
-              fill="none"
-              stroke={color}
-              strokeWidth="2"
-              opacity="0.45"
-            />
-            <circle cx="50" cy="50" r="8" fill={color} opacity="0.3" />
-            <circle cx="150" cy="70" r="6" fill={color} opacity="0.25" />
-            <circle cx="100" cy="160" r="5" fill={color} opacity="0.3" />
-            <rect x="170" y="150" width="20" height="2" fill={color} opacity="0.4" rx="1" />
-            <rect x="10" y="100" width="15" height="2" fill={color} opacity="0.35" rx="1" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-morph-${pid})`} />
-      </svg>
-    ),
-    organic: (
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ zIndex: 1, opacity: opacityValue }}
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 200 200"
-        preserveAspectRatio="xMidYMid slice"
-      >
-        <defs>
-          <pattern id={`bg-organic-${pid}`} width="200" height="200" patternUnits="userSpaceOnUse">
-            <path d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40" fill={color} opacity="0.35" />
-            <path
-              d="M120 30 Q150 25, 160 50 Q170 80, 140 90 Q110 95, 100 70 Q95 45, 120 30"
-              fill={color}
-              opacity="0.3"
-            />
-            <path
-              d="M60 130 Q80 110, 110 125 Q130 140, 115 165 Q95 185, 65 170 Q45 155, 60 130"
-              fill={color}
-              opacity="0.32"
-            />
-            <path
-              d="M160 140 Q180 145, 185 165 Q188 185, 170 190 Q150 188, 145 170 Q143 152, 160 140"
-              fill={color}
-              opacity="0.28"
-            />
-            <path
-              d="M20 160 Q35 150, 45 165 Q50 180, 35 190 Q20 185, 15 175 Q12 165, 20 160"
-              fill={color}
-              opacity="0.25"
-            />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-organic-${pid})`} />
-      </svg>
-    ),
-    flowmaze: (
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ zIndex: 1, opacity: opacityValue }}
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 400 400"
-        preserveAspectRatio="xMidYMid slice"
-      >
-        <defs>
-          <pattern id={`bg-flowmaze-${pid}`} width="400" height="400" patternUnits="userSpaceOnUse">
-            <path d="M20 50 Q60 20, 100 50 Q140 80, 120 130 Q100 180, 60 170 Q20 160, 30 120 Q40 80, 80 90 Q120 100, 140 140 Q160 180, 130 220 Q100 260, 60 240 Q20 220, 40 180" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.5" />
-            <path d="M180 30 Q220 10, 260 40 Q300 70, 280 120 Q260 170, 220 150 Q180 130, 200 90 Q220 50, 260 70 Q300 90, 320 140 Q340 190, 300 230 Q260 270, 220 250 Q180 230, 200 190 Q220 150, 270 170 Q320 190, 340 240" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.45" />
-            <path d="M350 50 Q390 30, 400 80 Q395 130, 360 120 Q320 110, 340 70 Q360 30, 400 50" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
-            <path d="M30 280 Q70 250, 110 280 Q150 310, 130 360 Q110 400, 70 380 Q30 360, 50 320 Q70 280, 110 300 Q150 320, 160 370" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.48" />
-            <path d="M200 290 Q240 260, 280 290 Q320 320, 300 370 Q280 400, 240 385 Q200 370, 220 330 Q240 290, 290 310 Q340 330, 360 380 Q380 400, 370 400" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.42" />
-            <path d="M60 350 Q100 370, 90 400 M160 260 Q200 240, 180 200 Q160 160, 120 180 Q80 200, 100 240" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.38" />
-            <path d="M320 10 Q360 30, 350 70 Q340 110, 300 100 Q260 90, 280 50 Q300 10, 340 20" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.35" />
-            <path d="M380 280 Q400 320, 380 360 Q360 400, 320 380 Q280 360, 310 320 Q340 280, 380 300" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-flowmaze-${pid})`} />
-      </svg>
-    ),
-    topographic: (
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        style={{ zIndex: 1, opacity: opacityValue }}
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 300 300"
-        preserveAspectRatio="xMidYMid slice"
-      >
-        <defs>
-          <pattern id={`bg-topographic-${pid}`} width="300" height="300" patternUnits="userSpaceOnUse">
-            <ellipse cx="100" cy="100" rx="90" ry="80" fill="none" stroke={color} strokeWidth="1.5" opacity="0.3" />
-            <ellipse cx="100" cy="100" rx="70" ry="62" fill="none" stroke={color} strokeWidth="1.5" opacity="0.35" />
-            <ellipse cx="100" cy="100" rx="50" ry="44" fill="none" stroke={color} strokeWidth="1.5" opacity="0.4" />
-            <ellipse cx="100" cy="100" rx="30" ry="26" fill="none" stroke={color} strokeWidth="1.5" opacity="0.45" />
-            <ellipse cx="100" cy="100" rx="12" ry="10" fill="none" stroke={color} strokeWidth="1.5" opacity="0.5" />
-            <ellipse cx="220" cy="200" rx="75" ry="90" fill="none" stroke={color} strokeWidth="1.5" opacity="0.28" />
-            <ellipse cx="220" cy="200" rx="55" ry="70" fill="none" stroke={color} strokeWidth="1.5" opacity="0.33" />
-            <ellipse cx="220" cy="200" rx="35" ry="50" fill="none" stroke={color} strokeWidth="1.5" opacity="0.38" />
-            <ellipse cx="220" cy="200" rx="18" ry="30" fill="none" stroke={color} strokeWidth="1.5" opacity="0.43" />
-            <ellipse cx="50" cy="250" rx="45" ry="40" fill="none" stroke={color} strokeWidth="1.5" opacity="0.3" />
-            <ellipse cx="50" cy="250" rx="28" ry="25" fill="none" stroke={color} strokeWidth="1.5" opacity="0.38" />
-            <ellipse cx="50" cy="250" rx="12" ry="10" fill="none" stroke={color} strokeWidth="1.5" opacity="0.45" />
-            <ellipse cx="250" cy="50" rx="40" ry="45" fill="none" stroke={color} strokeWidth="1.5" opacity="0.32" />
-            <ellipse cx="250" cy="50" rx="22" ry="28" fill="none" stroke={color} strokeWidth="1.5" opacity="0.4" />
-            <ellipse cx="250" cy="50" rx="8" ry="12" fill="none" stroke={color} strokeWidth="1.5" opacity="0.48" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-topographic-${pid})`} />
-      </svg>
-    ),
-    stars: (
-      <div
-        className="absolute inset-0 pointer-events-none overflow-hidden"
-        style={{ zIndex: 1, opacity: opacityValue * 0.8 }}
-      >
-        <style>{`
-          @keyframes starTwinkle1 {
-            0%, 100% { opacity: 0.2; }
-            50% { opacity: 0.8; }
-          }
-          @keyframes starTwinkle2 {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 1; }
-          }
-          @keyframes starTwinkle3 {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.7; }
-          }
-          .preview-star-dot {
-            position: absolute;
-            border-radius: 50%;
-            background: ${color};
-          }
-          .preview-star-1 { animation: starTwinkle1 3s ease-in-out infinite; }
-          .preview-star-2 { animation: starTwinkle2 4s ease-in-out infinite; animation-delay: 0.5s; }
-          .preview-star-3 { animation: starTwinkle3 5s ease-in-out infinite; animation-delay: 1s; }
-          .preview-star-4 { animation: starTwinkle1 4.5s ease-in-out infinite; animation-delay: 1.5s; }
-          .preview-star-5 { animation: starTwinkle2 3.5s ease-in-out infinite; animation-delay: 2s; }
-        `}</style>
-        {/* Generate subtle star dots across the screen */}
-        <div className="preview-star-dot preview-star-1" style={{ width: '2px', height: '2px', top: '5%', left: '10%' }} />
-        <div className="preview-star-dot preview-star-2" style={{ width: '1.5px', height: '1.5px', top: '12%', left: '25%' }} />
-        <div className="preview-star-dot preview-star-3" style={{ width: '2px', height: '2px', top: '8%', left: '45%' }} />
-        <div className="preview-star-dot preview-star-4" style={{ width: '1px', height: '1px', top: '15%', left: '60%' }} />
-        <div className="preview-star-dot preview-star-5" style={{ width: '2px', height: '2px', top: '3%', left: '75%' }} />
-        <div className="preview-star-dot preview-star-1" style={{ width: '1.5px', height: '1.5px', top: '18%', left: '88%' }} />
-        <div className="preview-star-dot preview-star-2" style={{ width: '1px', height: '1px', top: '25%', left: '5%' }} />
-        <div className="preview-star-dot preview-star-3" style={{ width: '2px', height: '2px', top: '22%', left: '35%' }} />
-        <div className="preview-star-dot preview-star-4" style={{ width: '1.5px', height: '1.5px', top: '28%', left: '55%' }} />
-        <div className="preview-star-dot preview-star-5" style={{ width: '1px', height: '1px', top: '20%', left: '70%' }} />
-        <div className="preview-star-dot preview-star-1" style={{ width: '2px', height: '2px', top: '30%', left: '92%' }} />
-        <div className="preview-star-dot preview-star-2" style={{ width: '1.5px', height: '1.5px', top: '35%', left: '15%' }} />
-        <div className="preview-star-dot preview-star-3" style={{ width: '1px', height: '1px', top: '38%', left: '40%' }} />
-        <div className="preview-star-dot preview-star-4" style={{ width: '2px', height: '2px', top: '32%', left: '65%' }} />
-        <div className="preview-star-dot preview-star-5" style={{ width: '1.5px', height: '1.5px', top: '40%', left: '82%' }} />
-        <div className="preview-star-dot preview-star-1" style={{ width: '1px', height: '1px', top: '45%', left: '8%' }} />
-        <div className="preview-star-dot preview-star-2" style={{ width: '2px', height: '2px', top: '42%', left: '28%' }} />
-        <div className="preview-star-dot preview-star-3" style={{ width: '1.5px', height: '1.5px', top: '48%', left: '50%' }} />
-        <div className="preview-star-dot preview-star-4" style={{ width: '1px', height: '1px', top: '50%', left: '72%' }} />
-        <div className="preview-star-dot preview-star-5" style={{ width: '2px', height: '2px', top: '44%', left: '95%' }} />
-        <div className="preview-star-dot preview-star-1" style={{ width: '1.5px', height: '1.5px', top: '55%', left: '18%' }} />
-        <div className="preview-star-dot preview-star-2" style={{ width: '1px', height: '1px', top: '58%', left: '38%' }} />
-        <div className="preview-star-dot preview-star-3" style={{ width: '2px', height: '2px', top: '52%', left: '58%' }} />
-        <div className="preview-star-dot preview-star-4" style={{ width: '1.5px', height: '1.5px', top: '60%', left: '78%' }} />
-        <div className="preview-star-dot preview-star-5" style={{ width: '1px', height: '1px', top: '56%', left: '3%' }} />
-        <div className="preview-star-dot preview-star-1" style={{ width: '2px', height: '2px', top: '65%', left: '22%' }} />
-        <div className="preview-star-dot preview-star-2" style={{ width: '1.5px', height: '1.5px', top: '68%', left: '48%' }} />
-        <div className="preview-star-dot preview-star-3" style={{ width: '1px', height: '1px', top: '62%', left: '68%' }} />
-        <div className="preview-star-dot preview-star-4" style={{ width: '2px', height: '2px', top: '70%', left: '85%' }} />
-        <div className="preview-star-dot preview-star-5" style={{ width: '1.5px', height: '1.5px', top: '66%', left: '12%' }} />
-        <div className="preview-star-dot preview-star-1" style={{ width: '1px', height: '1px', top: '75%', left: '32%' }} />
-        <div className="preview-star-dot preview-star-2" style={{ width: '2px', height: '2px', top: '78%', left: '52%' }} />
-        <div className="preview-star-dot preview-star-3" style={{ width: '1.5px', height: '1.5px', top: '72%', left: '75%' }} />
-        <div className="preview-star-dot preview-star-4" style={{ width: '1px', height: '1px', top: '80%', left: '90%' }} />
-        <div className="preview-star-dot preview-star-5" style={{ width: '2px', height: '2px', top: '76%', left: '6%' }} />
-        <div className="preview-star-dot preview-star-1" style={{ width: '1.5px', height: '1.5px', top: '85%', left: '42%' }} />
-        <div className="preview-star-dot preview-star-2" style={{ width: '1px', height: '1px', top: '88%', left: '62%' }} />
-        <div className="preview-star-dot preview-star-3" style={{ width: '2px', height: '2px', top: '82%', left: '80%' }} />
-        <div className="preview-star-dot preview-star-4" style={{ width: '1.5px', height: '1.5px', top: '90%', left: '20%' }} />
-        <div className="preview-star-dot preview-star-5" style={{ width: '1px', height: '1px', top: '92%', left: '55%' }} />
-        <div className="preview-star-dot preview-star-1" style={{ width: '2px', height: '2px', top: '95%', left: '35%' }} />
-        <div className="preview-star-dot preview-star-2" style={{ width: '1.5px', height: '1.5px', top: '97%', left: '70%' }} />
-      </div>
-    ),
-  }
-
-  return patternSVGs[pattern] || null
-}
 
 interface PhonePreviewProps {
   className?: string
@@ -1539,52 +1252,13 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           )}
 
           {/* Noise overlay for gradient backgrounds - fixed position */}
-          {theme.background_type === "gradient" && (theme as any).gradient_noise && (
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              style={{
-                mixBlendMode: "overlay",
-                zIndex: 2,
-                opacity: (((theme as any).noise_strength || 15) / 100) * 2,
-              }}
-            >
-              <filter id="phone-noise-gradient">
-                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-              </filter>
-              <rect width="100%" height="100%" filter="url(#phone-noise-gradient)" />
-            </svg>
-          )}
+          {theme.background_type === "gradient" && (theme as any).gradient_noise && <WallpaperNoise strength={(theme as any).noise_strength} style={{ zIndex: 2 }} />}
 
           {/* Noise overlay for image backgrounds - fixed position */}
-          {theme.background_type === "image" && (theme as any).image_noise && (
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              style={{
-                mixBlendMode: "overlay",
-                zIndex: 2,
-                opacity: (((theme as any).noise_strength || 15) / 100) * 2,
-              }}
-            >
-              <filter id="phone-noise-image">
-                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-              </filter>
-              <rect width="100%" height="100%" filter="url(#phone-noise-image)" />
-            </svg>
-          )}
+          {theme.background_type === "image" && (theme as any).image_noise && <WallpaperNoise strength={(theme as any).noise_strength} style={{ zIndex: 2 }} />}
 
           {/* Pattern overlay - fixed position */}
-          {(theme.background_type === "solid" || theme.background_type === "gradient") &&
-            (theme as any).background_pattern &&
-            (theme as any).background_pattern !== "none" && (
-              <div style={{ position: "absolute", inset: 0, zIndex: 2 }}>
-                <BackgroundPattern
-                  pattern={(theme as any).background_pattern}
-                  color={(theme as any).pattern_color || "#00000090"}
-                  opacity={(theme as any).pattern_opacity || "medium"}
-                  instanceId="phone"
-                />
-              </div>
-            )}
+          <WallpaperPattern theme={theme} style={{ zIndex: 2 }} />
 
           {/* Scrollable content container */}
           <div
@@ -1598,7 +1272,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               bottom: "0",
               overflowY: "auto",
               overflowX: "hidden",
-              fontFamily: theme.font_family || "Inter",
+              fontFamily: fontStack(theme.font_family),
               scrollbarWidth: "thin",
               scrollbarColor: `${theme.text_color}30 transparent`,
               zIndex: 10,
@@ -2324,7 +1998,7 @@ export function MobilePreviewContent() {
             theme.background_type === "gradient" && theme.background_gradient
               ? theme.background_gradient
               : theme.background_color,
-          fontFamily: theme.font_family || "Inter",
+          fontFamily: fontStack(theme.font_family),
           backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
           animation: isAnimatedGradient ? "gradientShiftFrame 10s ease-in-out infinite" : undefined,
         }}
@@ -2406,42 +2080,11 @@ export function MobilePreviewContent() {
             />
           )}
 
-          {theme.background_type === "gradient" && (theme as any).gradient_noise && (
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              style={{ mixBlendMode: "overlay", zIndex: 1, opacity: (((theme as any).noise_strength || 15) / 100) * 2 }}
-            >
-              <filter id="mobile-noise-gradient">
-                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-              </filter>
-              <rect width="100%" height="100%" filter="url(#mobile-noise-gradient)" />
-            </svg>
-          )}
+          {theme.background_type === "gradient" && (theme as any).gradient_noise && <WallpaperNoise strength={(theme as any).noise_strength} style={{ zIndex: 1 }} />}
 
-          {theme.background_type === "image" && (theme as any).image_noise && (
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none"
-              style={{ mixBlendMode: "overlay", zIndex: 1, opacity: (((theme as any).noise_strength || 15) / 100) * 2 }}
-            >
-              <filter id="mobile-noise-image">
-                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-              </filter>
-              <rect width="100%" height="100%" filter="url(#mobile-noise-image)" />
-            </svg>
-          )}
+          {theme.background_type === "image" && (theme as any).image_noise && <WallpaperNoise strength={(theme as any).noise_strength} style={{ zIndex: 1 }} />}
 
-          {(theme.background_type === "solid" || theme.background_type === "gradient") &&
-            (theme as any).background_pattern &&
-            (theme as any).background_pattern !== "none" && (
-              <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
-                <BackgroundPattern
-                  pattern={(theme as any).background_pattern}
-                  color={(theme as any).pattern_color || "#00000090"}
-                  opacity={(theme as any).pattern_opacity || "medium"}
-                  instanceId="mobile"
-                />
-              </div>
-            )}
+          <WallpaperPattern theme={theme} style={{ zIndex: 1 }} />
 
         <div
           className="relative z-10 w-full max-w-md mx-auto px-5 py-8 pb-5 flex flex-col"
@@ -3727,7 +3370,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                       )}
                       style={{
                         color: (theme as any).title_color || theme.text_color,
-                        fontFamily: (theme as any).title_font || theme.font_family,
+                        fontFamily: fontStack((theme as any).title_font || theme.font_family),
                         textShadow: "0 1px 4px rgba(0,0,0,0.3)",
                       }}
                     >
@@ -3896,7 +3539,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   )}
                   style={{
                     color: (theme as any).title_color || theme.text_color,
-                    fontFamily: (theme as any).title_font || theme.font_family,
+                    fontFamily: fontStack((theme as any).title_font || theme.font_family),
                   }}
                 >
                   {profile.title}

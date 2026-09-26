@@ -3,9 +3,9 @@
  * scripts/check-home-cards.mjs and scripts/check-home-flow.mjs. The account's
  * facts are lib/home/progress's own shape:
  *
- *   (none)          a Free store with a product and six sales: 3 of 8 done
- *   ?plan=growth    the same on Pro: 4 of 8
- *   ?fresh=1        one that has done nothing yet but sign up: 1 of 8
+ *   (none)          a Free store with a product and six sales: 3 of 7 done
+ *   ?plan=growth    the same on Pro: 3 of 7 (the plan is not a step)
+ *   ?fresh=1        one that has done nothing yet but sign up: 1 of 7
  *   ?all=1          every step done, so the card shows the challenges
  *   ?handle=x       the creator's handle, for the address pill
  */
@@ -13,7 +13,7 @@ import { createRoot } from "react-dom/client"
 import { Component, createElement, type ReactNode } from "react"
 import { DashboardClient } from "@/components/app/dashboard-client"
 import { LanguageProvider } from "@/lib/i18n/context"
-import { NO_FACTS, type ProgressFacts } from "@/lib/home/progress"
+import { NO_FACTS, salesFrom, type ProgressFacts } from "@/lib/home/progress"
 
 class Boundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
@@ -50,6 +50,8 @@ const facts: ProgressFacts = fresh
       ...NO_FACTS,
       products: all ? 3 : 1,
       publishedProducts: all ? 2 : 1,
+      /* The six orders above, counted: Home reads its sales from the facts, not the rows (lib/home/progress). */
+      ...salesFrom(orders as never),
       paymentsReady: all,
       websiteLive: all,
       domainConnected: all,

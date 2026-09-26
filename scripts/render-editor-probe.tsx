@@ -56,15 +56,27 @@ const probeGlobals = globalThis as unknown as {
   PROBE_SECURITY?: unknown
   /* The install's saved .storelib files, path to source (see the files route below). */
   PROBE_FILES?: Record<string, string>
-  /* A page's own sections by page key, answered after PROBE_PAGE_DELAY_MS (scripts/check-page-switch.mjs). Unset, every page is the one above. */
+  /**
+   * A page's own sections by page key, answered after PROBE_PAGE_DELAY_MS
+   * (scripts/check-page-switch.mjs). Unset, every page is the one above.
+   * Every key but home is also a page the install has saved, so it is listed
+   * wherever the editor lists pages (scripts/check-page-switcher.mjs).
+   */
   PROBE_PAGES?: Record<string, string[]>
   PROBE_PAGE_DELAY_MS?: number
+  /* The store's products, for the page switcher probe. */
+  PROBE_PRODUCTS?: { id: string; title: string; slug?: string }[]
 }
 const install = {
   id: "probe-install", creator_id: "probe-creator", theme_id: "default", name: "Probe store", status: probeGlobals.PROBE_LIVE ? "published" : "draft",
   is_custom: false, parent_install_id: null, sort_order: 0, created_at: now, updated_at: now, published_at: probeGlobals.PROBE_LIVE ? now : null,
   settings: { id: "s1", install_id: "probe-install", settings: {}, draft_settings: null, created_at: now, updated_at: now },
-  pages: [{ id: "p1", install_id: "probe-install", page_key: "home", sections: [], created_at: now, updated_at: now }],
+  pages: [
+    { id: "p1", install_id: "probe-install", page_key: "home", sections: [], created_at: now, updated_at: now },
+    ...Object.keys(probeGlobals.PROBE_PAGES ?? {})
+      .filter((key) => key !== "home")
+      .map((key, i) => ({ id: `p${i + 2}`, install_id: "probe-install", page_key: key, sections: [], created_at: now, updated_at: now })),
+  ],
 }
 
 const calls: string[] = []
@@ -98,7 +110,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (/\/themes\/probe-install\/github/.test(url)) return json({ configured: true, ready: true, link: null, repos: [], accounts: [], events: [] })
   if (/\/themes\/probe-install\/agent-connections/.test(url)) return json({ connections: [], ready: true })
   if (/\/themes\/probe-install$/.test(url)) return json({ install, username: "probe" })
-  if (/\/products/.test(url)) return json({ products: [] })
+  if (/\/products/.test(url)) return json({ products: probeGlobals.PROBE_PRODUCTS ?? [] })
   if (/\/setup/.test(url)) return json({ setup: {} })
   return json({})
 }

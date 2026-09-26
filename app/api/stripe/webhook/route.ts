@@ -8,7 +8,7 @@ import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPay
 import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
-import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
+import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { fulfilCartSession, isCartSession } from "@/lib/checkout/fulfil-cart-session"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 import { disputedProductName, markPaymentDisputed, restorePaymentAfterWonDispute } from "@/lib/stripe/dispute-orders"
@@ -498,8 +498,9 @@ export async function POST(request: Request) {
       /* The buyer as the creator's contact: subscribed only with the
          session's own yes, a customer otherwise, and never back on the list
          after unsubscribing (lib/contacts/checkout-contact). This used to
-         subscribe every buyer of an older session. */
-      await recordCheckoutContact(supabaseAdmin, {
+         subscribe every buyer of an older session. A yes that puts them on
+         the list starts the welcome, once (lib/contacts/checkout-welcome). */
+      await recordCheckoutContactAndWelcome(supabaseAdmin, {
         creatorId,
         email: buyerEmail,
         name: `${buyerFirstName || ""} ${buyerLastName || ""}`.trim(),

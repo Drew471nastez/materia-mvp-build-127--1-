@@ -238,7 +238,7 @@ try {
 
     /* Getting started's website step: a whole document load before. */
     const store = summary(await hoverThenClick("#getting-started a[href='/app/website-builder']"), "website-builder")
-    expect(store.commitMs != null && store.commitMs <= 60 && !store.reloaded, "Build your online store lands in the shell without a server wait, no document load", store.commitMs)
+    expect(store.commitMs != null && store.commitMs <= 60 && !store.reloaded, "Publish your website lands in the shell without a server wait, no document load", store.commitMs)
     expect(sameLanding(rail, store), "  with the rail's landing", store.landing)
     await goHome(page)
 

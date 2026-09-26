@@ -74,7 +74,8 @@ async function main() {
 
   console.log("\nThe rules reach every agent")
   const loop = read("lib/website-builder/agent/loop.ts")
-  check("Storelib AI's system prompt carries them", /\$\{pageAgentRules\(\)\}\n\n\$\{builderAgentRules\(\)\}`/.test(loop))
+  /* Then the section framework and two built-in sections, stable text in the same cached prefix (lib/storelib-ai/reference.ts). */
+  check("Storelib AI's system prompt carries them", /\$\{pageAgentRules\(\)\}\n\n\$\{builderAgentRules\(\)\}\n\n\$\{pageAgentReference\(\)\}`/.test(loop))
   /* With the picture as a signal too: an attached image selects the image skill. */
   check("and its turn carries the skills for the request", /skillContext\(prompt, \{ images: images\.length > 0 \}\)/.test(loop) && !/knowledgeBlock\(prompt\)/.test(loop))
   const agents = agentsGuide({ siteName: "Astrid", branch: "main", root: "" })

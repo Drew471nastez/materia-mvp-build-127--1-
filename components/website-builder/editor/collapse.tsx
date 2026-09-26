@@ -37,27 +37,57 @@ function reducedMotion(): boolean {
   }
 }
 
+/**
+ * How much of the box can be seen from its top down (to the foot of the
+ * scroller it is in, or of the screen, whichever is higher, and a few pixels
+ * past it), and how much of the scroller's content is below what it shows.
+ */
+function visibleRoom(el: HTMLElement): { room: number; slack: number } {
+  let bottom = window.innerHeight
+  let slack = Infinity
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const overflow = getComputedStyle(p).overflowY
+    if (overflow === "auto" || overflow === "scroll") {
+      bottom = Math.min(bottom, p.getBoundingClientRect().bottom)
+      slack = Math.max(0, p.scrollHeight - p.clientHeight - p.scrollTop)
+      break
+    }
+  }
+  return { room: Math.max(0, bottom - el.getBoundingClientRect().top + 8), slack }
+}
+
 export function Collapse({
   open,
   children,
   className,
   innerClassName,
+  onlyVisible = false,
 }: {
   open: boolean
   /** A function is called only while the content is in, so a closed group builds nothing. */
   children: ReactNode | (() => ReactNode)
   className?: string
   innerClassName?: string
+  /**
+   * Move only the part of the height that is on screen, and let the rest
+   * arrive or go at once, out of sight. For a long form in a scroller (the
+   * sidebar's groups). Off, the whole height moves, which is what a caller
+   * that reads the opened height at COLLAPSE_OPEN_MS expects.
+   */
+  onlyVisible?: boolean
 }) {
   const outer = useRef<HTMLDivElement>(null)
   const inner = useRef<HTMLDivElement>(null)
   /** Whether the content is in the DOM: from the start of an open to the end of a close. */
   const [present, setPresent] = useState(open)
   const running = useRef<Animation[]>([])
+  const startFrame = useRef(0)
   const opening = useRef(false)
   const first = useRef(true)
 
   const stop = () => {
+    if (startFrame.current) cancelAnimationFrame(startFrame.current)
+    startFrame.current = 0
     for (const a of running.current) a.cancel()
     running.current = []
   }
@@ -70,9 +100,23 @@ export function Collapse({
       done?.()
       return
     }
-    const from = el.getBoundingClientRect().height
+    const measured = el.getBoundingClientRect().height
     stop()
-    const target = to === "content" ? body.getBoundingClientRect().height : to
+    const full = to === "content" ? body.getBoundingClientRect().height : to
+    /*
+      WITH `onlyVisible`, ONLY WHAT CAN BE SEEN MOVES. Theme's Colors group
+      is nearly two thousand pixels tall, and on this curve a quarter of a
+      second covers a quarter of any distance in one frame: five hundred
+      pixels at once, which is a jump however smooth the curve. What is below
+      the foot of the scroller is out of sight, so it arrives (or goes) at
+      once, and the height moves only across the part on screen. A close
+      takes the hidden part away only where there is scroll room under it, so
+      the scroller never has to pull its content down to make up for it.
+      scripts/check-sidebar-revert.mjs reads the frames.
+    */
+    const { room, slack } = onlyVisible ? visibleRoom(el) : { room: Infinity, slack: 0 }
+    const from = to === 0 ? measured - Math.min(Math.max(0, measured - room), slack) : Math.min(measured, room)
+    const target = Math.min(full, room)
     if (reducedMotion() || Math.abs(target - from) < 1) {
       el.style.height = ""
       el.style.overflow = ""
@@ -92,6 +136,26 @@ export function Collapse({
         : [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translate3d(0, -4px, 0)" }],
       { duration: growing ? COLLAPSE_OPEN_MS : COLLAPSE_CLOSE_MS * 0.8, easing: EASE, fill: "forwards" },
     )
+    /*
+      THE CLOCK STARTS ONCE THE FIRST FRAME HAS BEEN DRAWN. Opening a group
+      builds its whole form in this same task, and closing one lays out the
+      whole panel again in the frame after it; either frame can be forty
+      milliseconds late. A clock that started with the task spent those on
+      nothing, and the first frame anybody saw was two thirds of the way.
+      Held at its first keyframe through that frame, and running from the
+      one after it, so every step after the first is a frame's worth.
+    */
+    box.pause()
+    content.pause()
+    startFrame.current = requestAnimationFrame(() => {
+      startFrame.current = requestAnimationFrame(() => {
+        startFrame.current = 0
+        if (running.current[0] !== box) return
+        const now = document.timeline.currentTime
+        box.startTime = now
+        content.startTime = now
+      })
+    })
     running.current = [box, content]
     box.onfinish = () => {
       if (growing) {

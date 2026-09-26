@@ -23,9 +23,11 @@
  *     scripts/check-orders-page.mjs measures an order: on the first frame
  *     after the click, pushed from the right edge in about 300ms on a phone
  *     and on a computer whole at once with its cards faded in over about
- *     150ms, gone at once on the way back as the list settles in, the list
- *     drawn whenever the email is not over it, at the same tab and scroll, and the row
- *     it came from tinted and then fading;
+ *     150ms, gone at once on the way back with the list there whole, not
+ *     settling in (no fade, no rise: "an animation bump throughout the whole
+ *     page, coming up and down"), the list drawn whenever the email is not
+ *     over it, at the same tab and scroll, and the row it came from tinted
+ *     and then fading;
  *   - an automation's row reads ahead on hover and opens its builder, and
  *     its switch turns it on without opening it;
  *   - the subscribers' table: fifty 48px rows to a page, a long address cut
@@ -235,6 +237,8 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
         body: body ? opacityOf(body) : null,
         /* What is in the list, as drawn: back on a computer settles it in (the list itself, the scroller, holds still). */
         listFade: Math.min(1, ...[...list.children].filter((c) => c.getClientRects().length).map(opacityOf)),
+        /* And how far anything in it sits from its place (the old settle moved it 2px). */
+        listRise: Math.max(0, ...[...list.children].filter((c) => c.getClientRects().length).map((c) => { const t = getComputedStyle(c).transform; return t && t !== "none" ? Math.abs(new DOMMatrixReadOnly(t).m42) : 0 })),
         bar: bar ? `${(bar.left - dr.left).toFixed(1)},${bar.width.toFixed(1)}x${bar.height.toFixed(1)}` : null,
         listShown,
         listLeft: lr.left,
@@ -304,6 +308,8 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
         const fades = from.map((f) => f.listFade)
         const whole = from.find((f) => f.listFade >= 0.999)
         return {
+          listFadeMin: fades.length ? Math.min(...fades) : null,
+          listRiseMax: from.length ? Math.max(...from.map((f) => f.listRise)) : null,
           listFadeFirst: fades.length ? Number(fades[0].toFixed(3)) : null,
           listFadeMs: whole && gone ? Math.round(whole.t - gone.t) : null,
           listFadeMonotonic: fades.every((o, i) => i === 0 || o >= fades[i - 1] - 0.001),
@@ -500,10 +506,13 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
     } else {
       /* Was "the email fades off it" and "is marked leaving while it goes":
          since c69b54d3 back on a computer takes an order (and so an email)
-         away at once, and since cea30d1c the list settles in over
-         ORDER_LIST_BACK_MS instead. */
+         away at once. Since cea30d1c the list settled in over
+         ORDER_LIST_BACK_MS, from half faded and 2px low, and that settle
+         was the owner's "bump throughout the whole page, coming up and
+         down": Emails now asks order-motion for none (`settle: false`), and
+         the list is whole on every frame. Orders keeps its settle. */
       expect(back.layerStill && back.leavingInert === 0 && back.goneMs !== null && back.goneMs <= 300, "the email goes at once, never faded, moved or drawn leaving", { gone: back.goneMs, still: back.layerStill, leaving: back.leavingInert })
-      expect(back.listFadeFirst !== null && back.listFadeFirst >= 0.4 && back.listFadeFirst <= 0.9 && back.listFadeMonotonic && back.listFadeMs !== null && back.listFadeMs >= 100 && back.listFadeMs <= 300, "while the list settles in from about half, only up, in about 180ms, as Orders' does", { first: back.listFadeFirst, ms: back.listFadeMs })
+      expect(back.listFadeMin === 1 && back.listRiseMax === 0, "and the list is there whole: nothing in it fades or rises", { fade: back.listFadeMin, rise: back.listRiseMax })
     }
     if (phone) expect(back.leavingInert > 0, "the leaving email is marked leaving (inert) while it goes", back.leavingInert)
     expect(back.scrollTops.length === 1 && back.scrollTops[0] === listScroll, "and the list is exactly as far down as it was, on every frame", { tops: back.scrollTops, was: listScroll })

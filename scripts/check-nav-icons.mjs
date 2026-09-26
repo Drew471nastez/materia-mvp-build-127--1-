@@ -213,31 +213,81 @@ try {
 
   /* ── The Upgrade card, 1280 ──────────────────────────────────────────── */
   /*
-    "That purple thing has too much depth and draws too much attention.
-    More subtle, keep it how it is." The same card and words: a light
-    surface with a hairline and no shadow, the bolt flat in a soft violet
-    tint, nothing lit and nothing glowing.
+    "Make sure the Upgrade to Pro card doesn't have the subtext with 'lower
+    fees'; make it how it was before. And the bolt is white on a purple
+    circle background, how it was before. Basically revert it, but not
+    quite: more depth." The rail's card from before 09-25 (light violet, a
+    violet hairline, 13px and 11px words, "Unlock more benefits"), and the
+    white bolt on #8b5cf6, 28px, lit like the app's primary buttons, a
+    touch deeper under the pointer.
   */
-  console.log("\nThe Upgrade to Pro card at 1280")
-  await open("/app", "rail", 1280, 720, 2)
-  const card = await page.evaluate(() => {
-    const a = document.querySelector("#rail [data-upgrade-card]")
+  const CARD = (sel) => `(() => {
+    const a = document.querySelector(${JSON.stringify(sel)})
     const bolt = a?.querySelector("[data-upgrade-bolt]")
     if (!a || !bolt) return null
     const cs = getComputedStyle(a)
     const bs = getComputedStyle(bolt)
     const r = a.getBoundingClientRect()
+    const [title, line] = [...a.querySelectorAll("p, span > span")].filter((el) => el.children.length === 0)
     return {
-      href: a.getAttribute("href"), text: a.textContent.trim(), shadow: cs.boxShadow, bg: cs.backgroundColor, border: cs.borderTopColor,
+      href: a.getAttribute("href"), text: a.textContent.trim(), shadow: cs.boxShadow, bg: cs.backgroundColor, image: cs.backgroundImage,
+      border: cs.borderTopColor, radius: cs.borderTopLeftRadius, height: Math.round(r.height),
+      title: title && { text: title.textContent, size: getComputedStyle(title).fontSize, weight: getComputedStyle(title).fontWeight, color: getComputedStyle(title).color },
+      line: line && { text: line.textContent, size: getComputedStyle(line).fontSize, color: getComputedStyle(line).color },
       boltBg: bs.backgroundColor, boltImage: bs.backgroundImage, boltShadow: bs.boxShadow, bolt: Math.round(bolt.getBoundingClientRect().width),
-      glyph: bolt.querySelector("svg")?.getAttribute("fill"), glyphFilter: getComputedStyle(bolt.querySelector("svg")).filter,
-      rect: { y: r.top, h: r.height },
+      glyph: bolt.querySelector("svg")?.getAttribute("fill"), glyphW: Math.round(bolt.querySelector("svg").getBoundingClientRect().width), glyphFilter: getComputedStyle(bolt.querySelector("svg")).filter,
+      rect: { x: r.left, y: r.top, w: r.width, h: r.height },
     }
-  })
-  check("the card: a light surface, a hairline, no shadow", !!card && card.shadow === "none" && card.bg === "rgb(250, 250, 250)" && card.border === "rgb(236, 236, 239)", card && { shadow: card.shadow, bg: card.bg, border: card.border })
-  check("the bolt: a flat violet button, a white glyph, no gradient, no glow", !!card && card.boltImage === "none" && card.boltBg === "rgb(139, 92, 246)" && !/rgba\(109, 40, 217|0px 4px 10px/.test(card.boltShadow) && card.glyph === "#ffffff" && card.glyphFilter === "none", card && { bg: card.boltBg, image: card.boltImage, shadow: card.boltShadow, glyph: card.glyph })
+  })()`
+  const depthOk = (s) => /rgba\(255, 255, 255, 0\.38\) 0px 1px 0px 0px inset/.test(s) && /rgba\(76, 29, 149, 0\.18\) 0px 0px 0px 1px inset/.test(s)
+    && /rgba\(76, 29, 149, 0\.34\) 0px -1\.5px 0px 0px inset/.test(s) && /rgba\(76, 29, 149, 0\.3\) 0px 1px 2px 0px/.test(s) && /rgba\(76, 29, 149, 0\.34\) 0px 4px 10px -3px/.test(s)
+  console.log("\nThe Upgrade to Pro card at 1280")
+  await open("/app", "rail", 1280, 720, 2)
+  const card = await page.evaluate(CARD("#rail [data-upgrade-card]"))
+  console.log("  measured", JSON.stringify(card && { bg: card.image, border: card.border, radius: card.radius, h: card.height, title: card.title, line: card.line, bolt: card.bolt, boltBg: card.boltBg, glyph: card.glyphW }))
+  check("the card from before: light violet left to right, a violet hairline, 12px corners, no shadow",
+    !!card && /linear-gradient\(to right, (color\(|oklab|rgba?\()/.test(card.image) && card.shadow === "none" && card.radius === "12px" && card.border !== "rgb(236, 236, 239)",
+    card && { image: card.image.slice(0, 90), border: card.border, radius: card.radius, shadow: card.shadow })
+  check("  the title 13px semibold, the line 11px", !!card && card.title?.size === "13px" && Number(card.title?.weight) >= 600 && card.line?.size === "11px", card && { title: card.title, line: card.line })
+  check("  and the line is the one from before: Unlock more benefits, whole", !!card && card.line?.text === "Unlock more benefits" && !/Lower fees/.test(card.text), card?.line?.text)
+  check("the bolt: white on #8b5cf6, 28px, a 14px glyph, a gentle top to bottom gradient", !!card && card.boltBg === "rgb(139, 92, 246)" && /^linear-gradient\(rgb\(157, 116, 250\)/.test(card.boltImage) && card.bolt === 28 && card.glyphW === 14 && card.glyph === "#ffffff", card && { bg: card.boltBg, image: card.boltImage, bolt: card.bolt, glyph: card.glyphW })
+  check("  with depth: light on top, a hairline ring, a darker foot, a soft shadow", !!card && depthOk(card.boltShadow), card?.boltShadow)
   check("the same words and the same place: the plans page", !!card && card.href === "/app/settings/billing/upgrade" && /Upgrade to Pro/.test(card.text), card?.text)
-  if (card) await page.screenshot({ path: join(shots, "icons-upgrade-1280.png"), clip: { x: 0, y: Math.max(0, card.rect.y - 16), width: 240, height: card.rect.h + 72 } })
+  if (card) await page.screenshot({ path: join(shots, "appfix-upgrade-1280.png"), clip: { x: 0, y: Math.max(0, card.rect.y - 16), width: 240, height: card.rect.h + 72 } })
+  if (card) {
+    /*
+      Headless Chromium reports (hover: none), and the hover rules sit behind
+      (hover: hover), as a computer with a mouse reports. So the hover is
+      measured in a browser of its own that says it has a fine pointer that
+      hovers (Blink's own settings), leaving every other check here as it was.
+      A window of the size, not setViewport, which resets those settings
+      (scripts/check-home-cards.mjs found the same).
+    */
+    const mouseBrowser = await puppeteer.launch({
+      executablePath: CHROMIUM,
+      defaultViewport: null,
+      args: ["--no-sandbox", "--disable-dev-shm-usage", "--allow-file-access-from-files", "--hide-scrollbars", "--window-size=1280,720", "--blink-settings=availableHoverTypes=2,primaryHoverType=2,availablePointerTypes=4,primaryPointerType=4"],
+    })
+    try {
+      const [mp] = await mouseBrowser.pages()
+      await mp.goto(url("/app", "rail"), { waitUntil: "load" })
+      await mp.waitForFunction("window.__ran === true", { timeout: 10000 })
+      await new Promise((r) => setTimeout(r, 350))
+      const rest = await mp.evaluate(CARD("#rail [data-upgrade-card]"))
+      await mp.mouse.move(rest.rect.x + rest.rect.w / 2, rest.rect.y + rest.rect.h / 2)
+      await new Promise((r) => setTimeout(r, 400))
+      const hover = await mp.evaluate(CARD("#rail [data-upgrade-card]"))
+      const canHover = await mp.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches)
+      console.log("  hovered", JSON.stringify({ canHover, bolt: hover.boltBg, image: hover.image.slice(0, 120), border: hover.border }))
+      const boltFilter = await mp.evaluate(() => getComputedStyle(document.querySelector("#rail [data-upgrade-bolt]")).filter)
+      check("under the pointer the bolt goes a touch deeper (brightness 0.94, a deeper shadow), and the card's tints and hairline deepen",
+        canHover && /brightness\(0\.94\)/.test(boltFilter) && hover.boltShadow !== rest.boltShadow && hover.image !== rest.image && hover.border !== rest.border,
+        { canHover, filter: boltFilter })
+      await mp.screenshot({ path: join(shots, "appfix-upgrade-1280-hover.png"), clip: { x: 0, y: Math.max(0, rest.rect.y - 16), width: 240, height: rest.rect.h + 72 } })
+    } finally {
+      await mouseBrowser.close()
+    }
+  }
 
   /* ── The phone menu, 390 ─────────────────────────────────────────────── */
   console.log("\nThe phone menu at 390")
@@ -264,6 +314,20 @@ try {
     check(`  ${label} draws the same glyph as the rail`, !!row && row.d === railPaths[label])
   }
   await page.screenshot({ path: join(shots, "icons-menu-390.png") })
+
+  /* The menu's card, as it had it before 09-25, with the same bolt at its old 32px. */
+  const mc = await page.evaluate(CARD("[data-upgrade-card]"))
+  console.log("  measured", JSON.stringify(mc && { bg: mc.bg, border: mc.border, radius: mc.radius, h: mc.height, title: mc.title, line: mc.line, bolt: mc.bolt, boltBg: mc.boltBg }))
+  check("the menu's card from before: white, a violet hairline, 16px corners, no shadow", !!mc && mc.bg === "rgb(255, 255, 255)" && mc.image === "none" && mc.radius === "16px" && mc.border !== "rgb(236, 236, 239)" && mc.shadow === "none", mc && { bg: mc.bg, border: mc.border, radius: mc.radius })
+  check("  14px title, 12px line, Unlock more benefits", !!mc && mc.title?.size === "14px" && mc.line?.size === "12px" && mc.line?.text === "Unlock more benefits", mc && { title: mc.title, line: mc.line })
+  check("  the bolt white on #8b5cf6, 32px, with the rail's depth", !!mc && mc.boltBg === "rgb(139, 92, 246)" && mc.bolt === 32 && mc.glyph === "#ffffff" && depthOk(mc.boltShadow), mc && { bg: mc.boltBg, bolt: mc.bolt })
+  check("  a card of at least 44px to press", !!mc && mc.height >= 44, mc?.height)
+  if (mc) {
+    await page.evaluate((y) => { const n = document.querySelector("[data-upgrade-card]"); n.scrollIntoView({ block: "center" }) }, 0)
+    await new Promise((r) => setTimeout(r, 150))
+    const box = await page.evaluate(() => { const b = document.querySelector("[data-upgrade-card]").getBoundingClientRect(); return { x: 0, y: Math.max(0, b.top - 20), width: 390, height: b.height + 40 } })
+    await page.screenshot({ path: join(shots, "appfix-upgrade-390-menu.png"), clip: box })
+  }
 } finally {
   await browser?.close()
   rmSync(stubs, { recursive: true, force: true })

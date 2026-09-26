@@ -35,7 +35,7 @@
  */
 
 import Link from "next/link"
-import { useShownPath } from "@/lib/ui/app-navigation"
+import { isPlainClick, useShownPath } from "@/lib/ui/app-navigation"
 import { useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 /*
@@ -545,8 +545,8 @@ function SubNavItem({
   return (
     <Link
       href={child.href}
-      onClick={() => {
-        onNavigate?.(child.href)
+      onClick={(e) => {
+        if (isPlainClick(e.nativeEvent)) onNavigate?.(child.href)
         onClick?.()
       }}
       {...handlers}
@@ -615,8 +615,8 @@ export function DesktopNavItem({
         <div className="relative">
           <Link
             href={item.href}
-            onClick={() => {
-              onNavigate?.(item.href)
+            onClick={(e) => {
+              if (isPlainClick(e.nativeEvent)) onNavigate?.(item.href)
               onItemClick?.()
             }}
             onMouseEnter={() => {
@@ -681,8 +681,9 @@ export function DesktopNavItem({
   return (
     <Link
       href={item.href}
-      onClick={() => {
-        onNavigate?.(item.href)
+      onClick={(e) => {
+        /* Only a press this tab follows starts the shell's record: a Cmd-click opens a new tab and moves nothing here. */
+        if (isPlainClick(e.nativeEvent)) onNavigate?.(item.href)
         onItemClick?.()
       }}
       onMouseEnter={() => {
@@ -819,27 +820,32 @@ export function DesktopSidebarContent({
           browser, so this is a no-op there. */}
       <div className="space-y-2 px-[7px] pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))]">
         {/*
-          A QUIET CARD: a light surface and a hairline, no shadow, the bolt
-          flat in a soft violet tint (components/app/upgrade-bolt), the same
-          in the phone menu. And it goes to the plans page the way every row
-          above goes to its page: fetched ahead under the pointer, and the
-          navigation recorded on the click, so the shell answers it the same.
+          THE CARD AS IT WAS. "Make it how it was before": the light violet
+          card the rail had until 09-25, a violet hairline, 13px title and
+          11px line, "Unlock more benefits" (the owner's words, asked back),
+          with the white bolt on violet at its right, a little deeper than it
+          was (components/app/upgrade-bolt). The hover shifts the card's two
+          tints, which are registered colours, so it fades rather than
+          snaps, and takes the bolt a touch deeper through `group/upgrade`.
+          And it goes to the plans page the way every row above goes to its
+          page: fetched ahead under the pointer, and the navigation recorded
+          on the click, so the shell answers it the same.
         */}
         <Link
           href={UPGRADE_HREF}
           data-upgrade-card=""
-          onClick={() => onNavigate?.(UPGRADE_HREF)}
+          onClick={(e) => { if (isPlainClick(e.nativeEvent)) onNavigate?.(UPGRADE_HREF) }}
           onMouseEnter={() => {
             if (!upgradeActive) onPrefetch?.(UPGRADE_HREF)
           }}
           onFocus={() => {
             if (!upgradeActive) onPrefetch?.(UPGRADE_HREF)
           }}
-          className="flex items-center justify-between gap-3 rounded-[14px] border border-[#ececef] bg-[#fafafa] py-3 pl-[14px] pr-3 transition-colors duration-[140ms] ease-out hover:bg-[#f4f4f5] active:bg-[#efeff1]"
+          className="group/upgrade flex items-center justify-between gap-3 rounded-[12px] border border-violet-100/60 bg-gradient-to-r from-violet-50/80 to-purple-50/80 py-3 pl-[14px] pr-3 transition-[border-color,--tw-gradient-from,--tw-gradient-to] duration-[140ms] ease-out hover:border-violet-200/70 hover:from-violet-100/80 hover:to-purple-100/80"
         >
           <div className="min-w-0">
-            <p className="truncate text-[13.5px] font-semibold tracking-[-0.005em] text-[#1a1a2e]">{upgradeTitle}</p>
-            <p className="truncate text-[12px] text-[#6b7280]">{upgradeSubtitle}</p>
+            <p className="truncate text-[13px] font-semibold text-neutral-900">{upgradeTitle}</p>
+            <p className="truncate text-[11px] text-neutral-600">{upgradeSubtitle}</p>
           </div>
           <UpgradeBolt size={28} />
         </Link>

@@ -349,7 +349,9 @@ section("The page")
         /border border-\[#d9dbe0\] bg-white font-medium/.test(depthSrc) && /shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\),0_1px_0_rgba\(0,0,0,0\.05\)\]/.test(depthSrc) &&
         !/grayDepth/.test(src) && !/export const grayDepth/.test(depthSrc))
     check("  every depth button draws its keyboard outline: Tailwind 4's outline-none sets the style outline-2 reads to none",
-      (depthSrc.match(/"focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2/g) ?? []).length === 4 &&
+      /* One per exported depth (secondary, icon, primary, the violet accent, critical), not a fixed count. */
+      (depthSrc.match(/"focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2/g) ?? []).length === (depthSrc.match(/export const \w+Depth = cn\(/g) ?? []).length &&
+      (depthSrc.match(/export const \w+Depth = cn\(/g) ?? []).length >= 4 &&
         !/focus-visible:outline-2 focus-visible:outline-offset-2/.test(depthSrc))
     check("  View says View with an eye on a phone and View website from 640px, named View website at every width",
       /function ViewLabel\(\) \{[\s\S]{0,200}<Eye aria-hidden className="h-4 w-4 text-\[#4b5563\] sm:hidden"[\s\S]{0,120}<span className="sm:hidden">View<\/span>\s*<span className="hidden sm:inline">View website<\/span>/.test(src) &&
@@ -619,7 +621,15 @@ section("Choosing an icon, and choosing where a link goes")
     /role="combobox"/.test(linkPicker) && /normalizeLinkAddress\(text\)/.test(linkPicker) && /mailto/.test(read("lib/website-builder/link-address.ts")),
   )
   check("with no custom address row in the list", !/Or any address/.test(linkPicker) && !/custom/i.test(linkPicker.replace(/\/\*[\s\S]*?\*\//g, "")))
-  check("and the nav and call to action links use the same field", !/function NavLinkPicker/.test(editorSrc) && (editorSrc.match(/<LinkFieldEditor/g) ?? []).length >= 3)
+  /* The header's nav links are the shared link list now (Label and Link per
+     row), whose Link is the same LinkPicker the other link fields draw. */
+  check(
+    "and the nav and call to action links use the same field",
+    !/function NavLinkPicker/.test(editorSrc) &&
+      (editorSrc.match(/<LinkFieldEditor/g) ?? []).length >= 2 &&
+      /<HeaderNavLinksEditor/.test(editorSrc) &&
+      /<LinkPicker value=\{item\.url\}/.test(read("components/website-builder/editor/controls/link-list-editor.tsx")),
+  )
   check(
     "the targets come from the same lists the page browser shows, so the two cannot disagree",
     /const linkTargets = useMemo<LinkTarget\[\]>/.test(editorSrc) &&
@@ -945,7 +955,7 @@ section("Add Section is derived from the files, one card per preset")
    * The manifest is the library. A .storelib the theme ships and does not
    * list has been retired from Add Section — it still renders, and every
    * page using it keeps working, but it is not offered again. A section a
-   * creator wrote is not the theme's and comes in under "Created by you".
+   * creator wrote is not the theme's and comes in under "Created".
    */
   check("a .storelib the theme ships but does not list is retired, not auto-added", !derived.includes("extra"))
   check("JSON-described sections are untouched", derived.includes("faq") && derived.includes("cta"))
@@ -960,7 +970,8 @@ section("Add Section is derived from the files, one card per preset")
   check("the library is thirty four sections across ten categories, About with the contact form", ADDABLE_SECTIONS.length === 34 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 10 && STORELIB_SCHEMAS.contact?.category === "about", `${ADDABLE_SECTIONS.length} sections`)
   check("every one of them is a .storelib file with a preset", ADDABLE_SECTIONS.every((t) => STORELIB_SCHEMAS[t] && (STORELIB_SCHEMAS[t].presets?.length ?? 0) > 0))
   check("the sections it retired still render, so no page using one goes blank", RETIRED_SECTIONS.length > 0 && RETIRED_SECTIONS.every((t) => !!SECTION_SCHEMAS[t]) && !RETIRED_SECTIONS.some((t) => ADDABLE_SECTIONS.includes(t)))
-  check("a creator's own section is filed under its own heading", CUSTOM_SECTION_CATEGORY === "yours" && SECTION_CATEGORIES.yours === "Created by you")
+  /* "'Created by you' should be called 'Created' only." */
+  check("a creator's own section is filed under its own heading, called Created", CUSTOM_SECTION_CATEGORY === "yours" && SECTION_CATEGORIES.yours === "Created")
 
   const editorSrc = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   /* Add a section lives in its own module: components/website-builder/editor/section-library.tsx. */
@@ -1069,7 +1080,7 @@ section("Add Section is derived from the files, one card per preset")
  * ===========================================================================
  */
 {
-  console.log("\n  Created by you")
+  console.log("\n  Created")
   const mine = customSectionSchemas({
     // The usual starting point: a copy of one of the theme's own sections,
     // which carries the theme's category with it.
@@ -1179,7 +1190,7 @@ section("A form that says it worked, did")
     // app/(site)/w/[username]. storelib.com/<name> is the creator's
     // profile page and renders no theme sections.
     /storefront\?: Storefront/.test(themePage) &&
-      /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId \}\}/.test(read(RENDER_SITE)) &&
+      /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId(, pages: Object\.keys\(site\.pages\))? \}\}/.test(read(RENDER_SITE)) &&
       /storefront=\{\{ creatorId, installId \}\}/.test(read(RENDER_SITE)),
   )
 
@@ -1613,8 +1624,7 @@ section("Two at once still make five, and an import that says what went wrong")
   check("Back in a panel is the whole left of the row, 44px, on a quiet tile",
     /aria-label="Back"/.test(back) && /after:absolute after:inset-0 after:content-\[''\]/.test(back) && /flex h-11 w-11 shrink-0/.test(back) &&
       /<ArrowLeft className="h-5 w-5 md:h-4 md:w-4"/.test(back) && /group-active\/back:scale-\[0\.94\]/.test(back) &&
-      /* Section, header tab, pages, and a colour scheme's own panel. The header's two layout panels are gone: its layouts are drawn in place. */
-      (editor.match(/<PanelBack onBack=/g) ?? []).length === 4)
+      (editor.match(/<PanelBack onBack=/g) ?? []).length === 6)
 
   check("Website Settings on a phone: a subject is pushed over the list and popped off it",
     /const PUSH_MS = 340/.test(settings) && /const POP_MS = 280/.test(settings) && /page\.animate\(push \? \[\{ transform: off \}, \{ transform: at \}\]/.test(settings) &&

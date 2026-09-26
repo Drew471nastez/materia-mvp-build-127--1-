@@ -23,12 +23,12 @@ import { join } from "node:path"
 
 import { dedupeKeyOf, planCreator } from "@/lib/notifications/plan"
 import { applyPlan, evaluateCreator, KNOWN_KINDS, runNotificationEngine, type NewRow, type NotificationStore, type Pusher, type SnapshotSource } from "@/lib/notifications/engine"
-import { DIGEST_KIND, RULES, ruleOf } from "@/lib/notifications/rules"
-import { stripeRequirementsDue, stripeRestricted, payoutFailed, disputeOpened } from "@/lib/notifications/rules/payments"
+import { COVERS_PAYMENT_SETUP, DIGEST_KIND, RULES, ruleOf } from "@/lib/notifications/rules"
+import { stripeRequirementsDue, stripeRestricted, payoutFailed, disputeOpened, payoutsNotConnected, proPaymentFailed, canTakePayments, isPaidProduct } from "@/lib/notifications/rules/payments"
 import { domainHttps, domainNotConnected } from "@/lib/notifications/rules/domains"
 import { campaignFailed, checkoutReminderOff, emailBounceRate, subscribersNotEmailed } from "@/lib/notifications/rules/email"
 import { checkoutNotCompleting, couponExpiring, productMissingFile, productViewsNoSales, receiptNotDelivered } from "@/lib/notifications/rules/products"
-import { setupNextStep } from "@/lib/notifications/rules/setup"
+import { setupNextStep, websiteNotPublished } from "@/lib/notifications/rules/setup"
 import { firstReview, salesMilestone, subscribersMilestone } from "@/lib/notifications/rules/milestones"
 import { featureLaunchRule } from "@/lib/notifications/rules/updates"
 import { LAUNCHES } from "@/lib/notifications/launches"
@@ -122,6 +122,46 @@ console.log("\nCritical: Stripe")
   check("and nothing when payouts are already off (one notification is enough)", subjects(stripeRequirementsDue.evaluate(base({ stripeAccount: { chargesEnabled: true, payoutsEnabled: false, currentlyDue: ["x"], pastDue: [], currentDeadline: null, disabledReason: null } }))) === "")
 }
 
+console.log("\nCritical: getting paid, as checkout decides it")
+{
+  /* "If the user needs to connect Stripe to get paid, or something is critical, it must appear in notifications." */
+  const unsold = { sales: { times: [] as string[], first: null, truncated: false } }
+  const never = withCreator({ stripeAccountId: null, chargesEnabled: null, payoutsEnabled: null, detailsSubmitted: null, onboardingStatus: "not_connected" }, unsold)
+  const f = payoutsNotConnected.evaluate(never)
+  check("a published product and Stripe never connected: critical, connect Stripe", f?.[0]?.subject === "connect" && f[0].title === "Connect Stripe to get paid", f)
+  check("it names what is live and that buyers cannot check out", f?.[0]?.message === "Lightroom presets is live, but buyers cannot check out until Stripe is connected.", f?.[0]?.message)
+  check("and goes to Payments, where Stripe is connected", f?.[0]?.href === "/app/settings/payments" && f[0].area === "Payments")
+  const two = { ...never, products: [...never.products!, { id: "p2", title: "Portrait course", status: "published", type: "course", createdAt: ago(3) }] }
+  check("two live: says how many", payoutsNotConnected.evaluate(two)?.[0]?.message.startsWith("Your 2 products are live,") === true)
+  const started = withCreator({ stripeAccountId: "acct_9", chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: false, onboardingStatus: "pending" }, unsold)
+  const g = payoutsNotConnected.evaluate(started)
+  check("connected but onboarding left unfinished: finish setting up Stripe", g?.[0]?.subject === "finish" && g[0].title === "Finish setting up Stripe to get paid", g)
+  check("the switches on but onboarding not finished is still unfinished (checkout asks for connected)", subjects(payoutsNotConnected.evaluate(withCreator({ detailsSubmitted: false, onboardingStatus: "pending" }, unsold))) === "finish")
+  const waiting = withCreator({ chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: true, onboardingStatus: "pending" }, unsold)
+  check("details in, never sold, Stripe has not switched it on: said, since buyers are turned away", payoutsNotConnected.evaluate(waiting)?.[0]?.title === "Stripe has not turned on payments yet")
+  check("unless Stripe says it is checking them: a wait with nothing to do", subjects(payoutsNotConnected.evaluate({ ...waiting, stripeAccount: { chargesEnabled: false, payoutsEnabled: false, currentlyDue: [], pastDue: [], currentDeadline: null, disabledReason: "requirements.pending_verification" } })) === "")
+  check("switched off on an account that sold: Stripe's own notification says it, not this one", subjects(payoutsNotConnected.evaluate(withCreator({ payoutsEnabled: false, onboardingStatus: "pending" }))) === "" && subjects(stripeRestricted.evaluate(withCreator({ payoutsEnabled: false, onboardingStatus: "pending" }))) === "payouts")
+  check("and sales unknown there: cannot tell", payoutsNotConnected.evaluate(withCreator({ chargesEnabled: false, onboardingStatus: "pending" }, { sales: undefined })) === undefined)
+  check("connected: nothing", subjects(payoutsNotConnected.evaluate(withCreator({ onboardingStatus: "connected" }))) === "" && subjects(payoutsNotConnected.evaluate(base())) === "")
+  check("only drafts: nothing yet, the panel's Set up payments says it", subjects(payoutsNotConnected.evaluate({ ...never, products: [{ id: "p1", title: "X", status: "draft", type: "digital", createdAt: ago(3) }] })) === "")
+  check("only free products: nothing, they are handed over without Stripe", subjects(payoutsNotConnected.evaluate({ ...never, products: [{ id: "p1", title: "X", status: "published", type: "digital", createdAt: ago(3), priceCents: 0, payWhatYouWant: false }] })) === "")
+  check("pay what you want at 0 needs Stripe", subjects(payoutsNotConnected.evaluate({ ...never, products: [{ id: "p1", title: "X", status: "published", type: "digital", createdAt: ago(3), priceCents: 0, payWhatYouWant: true }] })) === "connect")
+  check("a price not read counts as paid", isPaidProduct({}) && isPaidProduct({ priceCents: null }) && !isPaidProduct({ priceCents: 0 }) && isPaidProduct({ priceCents: 900 }))
+  check("products unreadable: cannot tell", payoutsNotConnected.evaluate({ ...never, products: undefined }) === undefined)
+  check("checkout's own test: an acct_ id, nothing off, onboarding connected",
+    canTakePayments({ ...base().creator!, onboardingStatus: "connected" }) && !canTakePayments({ ...base().creator!, onboardingStatus: "pending" })
+      && !canTakePayments({ ...base().creator!, stripeAccountId: "junk", onboardingStatus: "connected" }) && canTakePayments(base().creator!)
+      && !canTakePayments({ ...base().creator!, onboardingStatus: "connected" }, { chargesEnabled: false, payoutsEnabled: true, currentlyDue: [], pastDue: [], currentDeadline: null, disabledReason: null }))
+  check("it covers the panel's own Set up payments to-do", (COVERS_PAYMENT_SETUP as readonly string[]).includes("payouts_not_connected"))
+
+  const late = withCreator({ subscriptionPlan: "growth", subscriptionStatus: "past_due" })
+  const pro = proPaymentFailed.evaluate(late)
+  check("the Pro plan's card declined: critical, with what it costs", pro?.[0]?.title === "Your Pro payment did not go through" && pro[0].message === "Update your card in Billing. Until it is paid, your sales are charged Free plan fees." && pro[0].href === "/app/settings/billing", pro)
+  check("unpaid too", subjects(proPaymentFailed.evaluate(withCreator({ subscriptionPlan: "pro", subscriptionStatus: "unpaid" }))) === "subscription")
+  check("paid again, or back on Free: nothing", subjects(proPaymentFailed.evaluate(withCreator({ subscriptionPlan: "growth", subscriptionStatus: "active" }))) === "" && subjects(proPaymentFailed.evaluate(withCreator({ subscriptionPlan: "free", subscriptionStatus: "past_due" }))) === "")
+  check("plan not read: cannot tell", proPaymentFailed.evaluate(base()) === undefined)
+}
+
 console.log("\nCritical: payouts and disputes")
 {
   const failedPayout = { id: "po_1", status: "failed", amountCents: 18420, currency: "usd", createdAt: ago(2), failureCode: "invalid_account_number" }
@@ -148,6 +188,12 @@ console.log("\nCritical and problem: domains")
   const pending = { ...dom, status: "pending", sslStatus: "pending", verifiedAt: null, createdAt: ago(3) }
   check("added three days ago and never verified: a problem", domainNotConnected.evaluate(base({ domains: [pending] }))?.[0]?.title === "shop.example.com is not connected yet")
   check("added yesterday: give it time", subjects(domainNotConnected.evaluate(base({ domains: [{ ...pending, createdAt: ago(1) }] }))) === "")
+  const broke = { ...dom, status: "pending", sslStatus: "active", verifiedAt: ago(60), createdAt: ago(60) }
+  check("connected once, its records gone since: not connected any more", domainNotConnected.evaluate(base({ domains: [broke] }))?.[0]?.title === "shop.example.com is not connected any more")
+  check("but not for the seconds a check in Settings says verifying", subjects(domainNotConnected.evaluate(base({ domains: [{ ...broke, status: "verifying" }] }))) === "")
+  check("a status nobody listed is still not connected", subjects(domainNotConnected.evaluate(base({ domains: [{ ...pending, status: "error" }] }))) === "d1")
+  check("waiting on HTTPS: domain_https's to say, once", subjects(domainNotConnected.evaluate(base({ domains: [dom] }))) === "" && subjects(domainHttps.evaluate(base({ domains: [dom] }))) === "d1")
+  check("live, or on its way to HTTPS: nothing", subjects(domainNotConnected.evaluate(base({ domains: [{ ...dom, status: "active", sslStatus: "active" }, { ...dom, id: "d2", verifiedAt: ago(0.1) }] }))) === "")
 }
 
 console.log("\nEmail")
@@ -211,6 +257,12 @@ console.log("\nNext steps")
   check("live products, payouts on, no sale in a week: share, then the photo", subjects(setupNextStep.evaluate(live)) === "sale,branding")
   check("the photo step names what is missing", setupNextStep.evaluate(live)?.[1]?.title === "Add a profile photo")
   check("sales unknown: never tells a seller to get a first sale", subjects(setupNextStep.evaluate({ ...live, sales: undefined })) === "branding")
+  const draft = base({ website: { live: false, unpublished: false, draftSince: ago(3) } })
+  const w = websiteNotPublished.evaluate(draft)
+  check("a website started in the builder three days ago and never published", w?.[0]?.title === "Your website is not live yet" && w[0].href === "/app/website-builder" && w[0].area === "Website", w)
+  check("started yesterday: give it time", subjects(websiteNotPublished.evaluate(base({ website: { live: false, unpublished: false, draftSince: ago(1) } }))) === "")
+  check("live, or taken down on purpose, or never started: nothing", ["live", "unpublished", "none"].every((k) => subjects(websiteNotPublished.evaluate(base({ website: { live: k === "live", unpublished: k === "unpublished", draftSince: k === "none" ? null : ago(9) } }))) === ""))
+  check("the builder unreadable: cannot tell", websiteNotPublished.evaluate(base()) === undefined)
 }
 
 console.log("\nMilestones")
@@ -296,6 +348,26 @@ console.log("\nThe planner: said once, resolved when fixed")
   check("and is never said twice", !kinds(plan(base({ sales: { times: [ago(1)], first: null, truncated: false } }), [milestone]).inserts).includes("sales_1"))
 }
 
+console.log("\nThe planner: getting paid, said once and gone when fixed")
+{
+  const unsold = { sales: { times: [] as string[], first: null, truncated: false } }
+  const never = withCreator({ stripeAccountId: null, chargesEnabled: null, payoutsEnabled: null, detailsSubmitted: null, onboardingStatus: "not_connected" }, unsold)
+  const started = withCreator({ stripeAccountId: "acct_9", chargesEnabled: false, payoutsEnabled: false, detailsSubmitted: false, onboardingStatus: "pending" }, unsold)
+  const p1 = plan(never)
+  check("becomes one critical row, pushed, never held back by the daily limit", kinds(visibleInserts(p1)).includes("payouts_not_connected:connect") && visibleInserts(p1).find((r) => r.kind === "payouts_not_connected")?.push === true && ruleOf("payouts_not_connected")?.category === "critical")
+  const open = row({ kind: "payouts_not_connected", subject_id: "connect", created_at: ago(3), dedupe_key: "payouts_not_connected:connect:2026-09-22", read_at: ago(2) })
+  check("still not connected days later, its row open and read: not said again", !kinds(visibleInserts(plan(never, [open]))).includes("payouts_not_connected"))
+  check("connected: the row resolves itself", plan(withCreator({ onboardingStatus: "connected" }), [open]).resolve.includes(open.id))
+  check("connecting but not finishing: the connect row resolves and finish is said", plan(started, [open]).resolve.includes(open.id) && kinds(visibleInserts(plan(started, [open]))).includes("payouts_not_connected:finish"))
+  const today = [1, 2, 3].map((i) => row({ kind: "product_missing_file", subject_id: `x${i}`, category: "problem", created_at: ago(0.1) }))
+  check("the daily limit already spent on problems: still said, it is critical", kinds(visibleInserts(plan(never, today))).includes("payouts_not_connected:connect"))
+  const w = withCreator({ hasAvatar: false }, { website: { live: false, unpublished: false, draftSince: ago(4) } })
+  const step = row({ kind: "setup_next_step", subject_id: "branding", category: "next_step", created_at: ago(3) })
+  const alone = kinds(visibleInserts(plan(w))).split(",").filter((k) => k.startsWith("setup_next_step") || k.startsWith("website_not_published"))
+  check("the website step and the photo both due: one next step is said, the rest wait", alone.length === 1, alone)
+  check("the website step waits while another next step is open: one at a time", kinds(visibleInserts(plan(base({ website: w.website })))).includes("website_not_published:website") && !kinds(visibleInserts(plan(w, [step]))).includes("website_not_published"))
+}
+
 console.log("\nEvery rule: fires, is said once, and resolves when fixed (a milestone stays)")
 {
   const noStripe = { chargesEnabled: true, payoutsEnabled: true, currentlyDue: [] as string[], pastDue: [] as string[], currentDeadline: null, disabledReason: null }
@@ -306,12 +378,16 @@ console.log("\nEvery rule: fires, is said once, and resolves when fixed (a miles
     [disputeOpened, base({ disputes: [{ id: "dp_1", amountCents: 900, currency: "usd", openedAt: ago(1), closed: false }] }), base({ disputes: [{ id: "dp_1", amountCents: 900, currency: "usd", openedAt: ago(1), closed: true }] })],
     [domainHttps, base({ domains: [{ id: "d1", domain: "a.example", status: "active", sslStatus: "failed", verifiedAt: ago(9), createdAt: ago(9), updatedAt: ago(1) }] }), base({ domains: [{ id: "d1", domain: "a.example", status: "active", sslStatus: "active", verifiedAt: ago(9), createdAt: ago(9), updatedAt: ago(0) }] })],
     [domainNotConnected, base({ domains: [{ id: "d1", domain: "a.example", status: "pending", sslStatus: "pending", verifiedAt: null, createdAt: ago(3), updatedAt: ago(3) }] }), base({ domains: [] })],
+    [domainNotConnected, base({ domains: [{ id: "d1", domain: "a.example", status: "pending", sslStatus: "active", verifiedAt: ago(30), createdAt: ago(30), updatedAt: ago(1) }] }), base({ domains: [{ id: "d1", domain: "a.example", status: "active", sslStatus: "active", verifiedAt: ago(30), createdAt: ago(30), updatedAt: ago(0) }] })],
     [emailBounceRate, base({ emailHealth: { wentOut: 400, bounced: 30, complained: 0 } }), base({ emailHealth: { wentOut: 400, bounced: 2, complained: 0 } })],
     [productMissingFile, base({ deliverable: [] }), base()],
     [checkoutNotCompleting, base({ checkout: { starts: 5, buyers: 4, orders: 0, soldBefore: true } }), base({ checkout: { starts: 5, buyers: 4, orders: 2, soldBefore: true } })],
     [receiptNotDelivered, base({ undelivered: [{ orderId: "o1", createdAt: ago(1), productTitle: "Lightroom presets" }] }), base({ undelivered: [] })],
     [campaignFailed, base({ failedCampaigns: [{ id: "e1", subject: "Hi", status: "failed", scheduledAt: ago(1), createdAt: ago(2) }] }), base({ failedCampaigns: [] })],
     [setupNextStep, withCreator({ createdAt: ago(2) }, { products: [] }), withCreator({ createdAt: ago(2) })],
+    [payoutsNotConnected, withCreator({ stripeAccountId: null, onboardingStatus: "not_connected" }), withCreator({ onboardingStatus: "connected" })],
+    [proPaymentFailed, withCreator({ subscriptionPlan: "growth", subscriptionStatus: "past_due" }), withCreator({ subscriptionPlan: "growth", subscriptionStatus: "active" })],
+    [websiteNotPublished, base({ website: { live: false, unpublished: false, draftSince: ago(4) } }), base({ website: { live: true, unpublished: false, draftSince: ago(4) } })],
     [checkoutReminderOff, base({ recovery: { recoverable: 4, reminderOn: false, flowId: null } }), base({ recovery: { recoverable: 4, reminderOn: true, flowId: null } })],
     [productViewsNoSales, base({ traffic: { views14: { p1: 90 }, orders14: {}, soldRecently: [] } }), base({ traffic: { views14: { p1: 90 }, orders14: { p1: 1 }, soldRecently: [] } })],
     [subscribersNotEmailed, base({ subscribers: { count: 80, countWeekAgo: 80 }, lastCampaignSentAt: ago(40) }), base({ subscribers: { count: 80, countWeekAgo: 80 }, lastCampaignSentAt: ago(1) })],
@@ -655,6 +731,12 @@ function pushSuite() {
       p)
     check(`${r.kind}: data is the kind and a link inside /app, nothing else`, Object.keys(p.data).sort().join() === "kind,type,url" && p.data.type === "notification" && p.data.url.startsWith("/app"), p.data)
   }
+  {
+    /* The getting paid rules name the live product in their message: the push must not. */
+    const unpaid = withCreator({ stripeAccountId: null, onboardingStatus: "not_connected", subscriptionPlan: "growth", subscriptionStatus: "past_due" }, { products: [{ id: "p1", title: secret, status: "published", type: "digital", createdAt: ago(60) }] })
+    const made = planCreator({ rules: [payoutsNotConnected, proPaymentFailed], snapshot: unpaid, existing: [], now: NOW, complete: false }).inserts
+    check("Connect Stripe and the Pro payment push too, in a few plain words", made.length === 2 && made.every((r) => r.push) && made.map((r) => pushPayloadOf(r)).every((p) => !`${p.title} ${p.body}`.includes("Jane") && p.body === PUSH_BODY.critical && p.data.url.startsWith("/app/settings/")), made.map((r) => pushPayloadOf(r)))
+  }
   check("a link that is not inside /app becomes /app", appPath("https://evil.example/app") === "/app" && appPath("//evil.example") === "/app" && appPath("/app/payouts") === "/app/payouts" && appPath("/apple") === "/app")
   check("a long title is cut", pushPayloadOf({ kind: "k", category: "milestone", title: "x".repeat(200), pushTitle: null, href: "/app" }).title.length <= PUSH_TITLE_MAX)
   check("the engine sends no email: the ones that need it already have one", Object.keys(EMAILED_ELSEWHERE).every((k) => KNOWN_KINDS.has(k)) && !/sendEmail|lib\/email|lib\/mail/.test(read("lib/notifications/engine.ts") + read("lib/notifications/plan.ts") + read("lib/notifications/events.ts")))
@@ -677,6 +759,9 @@ function wordsSuite() {
     withCreator({ createdAt: ago(2), hasAvatar: false, hasBio: false }, { products: [] }),
     base({ sales: { times: Array.from({ length: 100 }, (_, i) => ago(200 - i * 2)).map((x, i, a) => (i === 99 ? ago(1) : x)), first: null, truncated: false }, reviews: { firstRecent: { id: "r", at: ago(1), rating: 1, productId: null, productTitle: null }, olderExists: false } }),
     base({ stripeAccount: { chargesEnabled: true, payoutsEnabled: true, currentlyDue: ["x"], pastDue: [], currentDeadline: null, disabledReason: null } }),
+    withCreator({ stripeAccountId: null, onboardingStatus: "not_connected", subscriptionPlan: "growth", subscriptionStatus: "past_due" }, { website: { live: false, unpublished: false, draftSince: ago(5) } }),
+    withCreator({ detailsSubmitted: false, onboardingStatus: "pending" }),
+    withCreator({ chargesEnabled: false, payoutsEnabled: false, onboardingStatus: "pending" }, { sales: { times: [], first: null, truncated: false }, domains: [{ id: "d3", domain: "z.example", status: "pending", sslStatus: "active", verifiedAt: ago(20), createdAt: ago(20), updatedAt: ago(1) }] }),
   ]
   const said: string[] = []
   for (const s of worlds) for (const r of RULES) for (const f of r.evaluate(s) ?? []) if (!f.baseline) said.push(f.title, f.message, f.pushTitle ?? "")
@@ -725,6 +810,7 @@ function wiringSuite() {
   const sale = read("lib/push/notifications.ts")
   check("a sale that is a milestone is one push, titled as the milestone", /const milestone = await milestoneTitle\(userId\)/.test(sale) && /title: milestone \?\? "🎉 You made a sale!"/.test(sale))
   const events = read("lib/notifications/events.ts")
+  check("account.updated also asks whether a live product can now be paid for, so Connect Stripe resolves at once", /\[stripeRestricted, stripeRequirementsDue, payoutsNotConnected\]/.test(events))
   check("events never wait long and never throw", /export const EVENT_BUDGET_MS = 2_500/.test(events) && /within\(/.test(events) && (events.match(/catch \{/g) ?? []).length >= 2)
   check("a browser push opens the notification's own page, inside /app only", /data\?\.type === "notification" && typeof data\.url === "string" && \/\^\\\/app/.test(read("lib/push/sender.ts")))
   check("so does a tap on the phone", /type === "notification"/.test(read("lib/push/client.ts")))

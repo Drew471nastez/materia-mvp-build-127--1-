@@ -22,6 +22,31 @@
  *
  * When neither is possible the hook reports `supported: false` and the
  * composer draws no microphone at all, rather than one that cannot work.
+ *
+ * ---------------------------------------------------------------------------
+ *  PERMISSION, IN THE APPS
+ * ---------------------------------------------------------------------------
+ * The microphone is asked for every time a recording starts and it is not
+ * already allowed: `getUserMedia` is called on each press, never cached, and
+ * the platform asks.
+ *
+ *   iOS       Capacitor's web view hands the page's request straight to iOS
+ *             (it answers WebKit's media capture question with "grant"), so
+ *             the one prompt is the system's, worded by
+ *             NSMicrophoneUsageDescription in ios/App/App/Info.plist. iOS
+ *             asks once per install; after a "Don't Allow" only Settings can
+ *             turn it back on, so the refusal offers Settings.
+ *   Android   Capacitor's BridgeWebChromeClient turns the page's request into
+ *             the runtime RECORD_AUDIO request, which Android shows each time
+ *             until somebody ticks "don't ask again". The manifest declares
+ *             RECORD_AUDIO and MODIFY_AUDIO_SETTINGS
+ *             (android/app/src/main/AndroidManifest.xml), and the app says so
+ *             through `StorelibNative.microphoneDeclared()` (MainActivity).
+ *             An older install without them never draws the microphone.
+ *
+ * A refusal says what to do in words, and where the platform lets a page get
+ * there, the error comes with a button that opens this app's own page in
+ * Settings (`openMicrophoneSettings`).
  */
 
 import * as React from "react"
@@ -71,15 +96,65 @@ function inNativeShell(): boolean {
   return bridge()?.isNativePlatform?.() === true
 }
 
+type AndroidBridge = { microphoneDeclared?: () => boolean; openAppSettings?: () => void }
+function androidBridge(): AndroidBridge | undefined {
+  if (typeof window === "undefined") return undefined
+  return (window as unknown as { StorelibNative?: AndroidBridge }).StorelibNative
+}
+
+function platform(): "ios" | "android" | "web" {
+  if (!inNativeShell()) return "web"
+  const p = bridge()?.getPlatform?.()
+  return p === "android" ? "android" : p === "ios" ? "ios" : "web"
+}
+
 /**
- * THE ANDROID APP CANNOT HEAR YET. Its manifest does not declare
- * RECORD_AUDIO, so its WebView refuses the microphone before anybody is
- * asked, and a button that can only ever say "access is off" is a broken
- * button. Drawn again once an app release declares the permission and this
- * line goes. iOS declares its microphone and records.
+ * AN ANDROID INSTALL FROM BEFORE THE MICROPHONE WAS DECLARED CANNOT HEAR.
+ * Without RECORD_AUDIO in its manifest its WebView refuses the microphone
+ * before anybody is asked, and a button that can only ever say "access is
+ * off" is a broken button. The web layer ships the moment Vercel deploys and
+ * reaches those installs too, so it asks the app itself: a build that
+ * declares the permission also answers `microphoneDeclared()` (MainActivity).
+ * iOS has declared its microphone all along and records.
  */
 function nativeWithoutMicrophone(): boolean {
-  return inNativeShell() && bridge()?.getPlatform?.() === "android"
+  if (platform() !== "android") return false
+  try {
+    return androidBridge()?.microphoneDeclared?.() !== true
+  } catch {
+    return true
+  }
+}
+
+/**
+ * Whether this app can open its own page in Settings for the person, where
+ * the microphone is turned back on after a refusal. A browser cannot: its
+ * site settings are its own, and the message says where they are instead.
+ */
+export function canOpenMicrophoneSettings(): boolean {
+  const p = platform()
+  if (p === "ios") return true
+  if (p === "android") return typeof androidBridge()?.openAppSettings === "function"
+  return false
+}
+
+/**
+ * Opens this app's page in the phone's Settings. On iOS `app-settings:` is
+ * the system's own address for it: Capacitor hands any address that is not
+ * the app's to iOS, which opens Settings at Storelib. On Android the app
+ * opens its App info page (StorelibNative.openAppSettings, MainActivity).
+ */
+export function openMicrophoneSettings(): void {
+  const p = platform()
+  if (p === "android") {
+    try {
+      androidBridge()?.openAppSettings?.()
+    } catch {
+      /* An install without it: the message already says where to go. */
+    }
+    return
+  }
+  if (p === "ios") window.location.href = "app-settings:"
 }
 
 function canRecord(): boolean {
@@ -91,13 +166,23 @@ function canRecord(): boolean {
   )
 }
 
+/** The failures that are a refusal: somebody, or a setting, said no to the microphone. */
+export function isPermissionError(code: string): boolean {
+  return code === "not-allowed" || code === "service-not-allowed" || code === "NotAllowedError" || code === "SecurityError" || code === "PermissionDeniedError"
+}
+
 /** A recogniser's or a recorder's failure, in words somebody can act on. */
-export function voiceErrorMessage(code: string): string {
+export function voiceErrorMessage(code: string, where: "ios" | "android" | "web" = "web"): string {
+  if (isPermissionError(code)) {
+    if (where === "ios") return "Storelib is not allowed to use the microphone. Turn on Microphone for Storelib in Settings, then try again."
+    if (where === "android") return "Storelib is not allowed to use the microphone. Allow Microphone in Storelib's app permissions, then try again."
+  }
   switch (code) {
     case "not-allowed":
     case "service-not-allowed":
     case "NotAllowedError":
     case "SecurityError":
+    case "PermissionDeniedError":
       return "Microphone access is off for Storelib. Allow it in your browser or phone settings, then try again."
     case "audio-capture":
     case "NotFoundError":
@@ -136,6 +221,8 @@ export function useVoiceInput({
   const [state, setState] = React.useState<VoiceState>("idle")
   const [seconds, setSeconds] = React.useState(0)
   const [error, setError] = React.useState<string | null>(null)
+  /** The last error was a refusal, so the composer can offer the way to undo it. */
+  const [refused, setRefused] = React.useState(false)
   const onTextRef = React.useRef(onText)
   onTextRef.current = onText
 
@@ -215,6 +302,7 @@ export function useVoiceInput({
   const start = React.useCallback(async () => {
     if (!engine || state !== "idle") return
     setError(null)
+    setRefused(false)
     cancelled.current = false
     setState("starting")
 
@@ -244,7 +332,8 @@ export function useVoiceInput({
       }
       rec.onerror = (event) => {
         if (event.error === "aborted") return
-        setError(voiceErrorMessage(event.error))
+        setRefused(isPermissionError(event.error))
+        setError(voiceErrorMessage(event.error, platform()))
       }
       rec.onend = () => {
         stopClock()
@@ -263,6 +352,7 @@ export function useVoiceInput({
     }
 
     try {
+      /* Asked on every press: the platform prompts whenever it is not already allowed. */
       const media = await navigator.mediaDevices.getUserMedia({ audio: true })
       if (cancelled.current) {
         media.getTracks().forEach((track) => track.stop())
@@ -306,7 +396,9 @@ export function useVoiceInput({
     } catch (thrown) {
       releaseMic()
       setState("idle")
-      setError(voiceErrorMessage(thrown instanceof DOMException ? thrown.name : ""))
+      const code = thrown instanceof DOMException || thrown instanceof Error ? thrown.name : ""
+      setRefused(isPermissionError(code))
+      setError(voiceErrorMessage(code, platform()))
     }
   }, [engine, state, releaseMic, startClock, stopClock])
 
@@ -319,7 +411,13 @@ export function useVoiceInput({
     state,
     seconds,
     error,
-    clearError: () => setError(null),
+    /** The error is a refusal and this app can open its Settings page to undo it. */
+    canOpenSettings: refused && canOpenMicrophoneSettings(),
+    openSettings: openMicrophoneSettings,
+    clearError: () => {
+      setError(null)
+      setRefused(false)
+    },
     start,
     stop,
     cancel,

@@ -138,7 +138,7 @@ export const STORELIB_SCHEMAS: Record<string, SectionSchema> = Object.fromEntrie
  * to put on the page, so it is dropped however the list reads.
  *
  * A section a creator wrote is not the theme's and is not here — see
- * customSectionSchemas, which files it under "Created by you".
+ * customSectionSchemas, which files it under "Created".
  */
 export function addableSections(manifestList: readonly string[], storelib: Record<string, SectionSchema>): string[] {
   const hasPreset = (type: string) => (storelib[type]?.presets?.length ?? 0) > 0
@@ -182,7 +182,7 @@ export function customSectionSchemas(sources: Record<string, string> | undefined
     if (!m || path in DEFAULT_THEME_SOURCES) continue
     const r = schemaFromStorelib(source, path)
     /**
-     * Filed under "Created by you" whatever the file says. A creator's first
+     * Filed under "Created" whatever the file says. A creator's first
      * section is usually a copy of one of the theme's, and that copy carries
      * `category: "hero"` — which would file the thing they just wrote in
      * among the thirty they did not, in the one place they are looking for

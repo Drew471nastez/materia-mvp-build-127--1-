@@ -50,12 +50,12 @@ function main() {
       && /useEffect\(\(\) => \(\) => \{ if \(previewRef\.current\) URL\.revokeObjectURL/.test(picker),
     "an object URL that is never revoked holds the file for the life of the tab")
   check("an upload that fails takes it away again",
-    /showFile\(null\)\s*\n\s*setError\(/.test(picker),
+    /showFile\(null\)\s*\n\s*toast\.error/.test(picker),
     "otherwise the box keeps showing a picture the panel does not actually have")
   check("so the first upload is the preview layout, not the dashed empty box",
     /if \(url \|\| preview\) \{/.test(picker))
-  check("and the progress sits over the picture rather than replacing it",
-    /\{uploading && \(\s*<span\s+role="progressbar"[\s\S]{0,300}className="absolute inset-x-2 bottom-2 z-10 /.test(picker))
+  check("and the spinner sits over the picture rather than replacing it",
+    /\{uploading && \(\s*\n\s*<span className="absolute inset-0 z-10 flex items-center justify-center bg-white\/55">/.test(picker))
   check("with Replace and Remove held while it runs",
     (picker.match(/disabled=\{uploading\}/g) ?? []).length === 2)
 

@@ -311,12 +311,19 @@ check(
 
 check(
   "the panel closes on an outside press and on Escape",
-  /pointerdown/.test(switcher) && /e\.key === "Escape"/.test(switcher),
+  /pointerdown/.test(switcher) && /e\.key !== "Escape"/.test(switcher),
 )
 
 check(
   "and it grows from its trigger rather than fading in place",
-  /origin-top animate-in fade-in-0 zoom-in-95/.test(switcher),
+  /**
+   * From the top centre, where the pill is, by a short drop and a hair of
+   * scale; kept once opened so the close plays too (globals.css).
+   */
+  /className="wb-pages-menu /.test(switcher) &&
+    ((css) => /\.wb-pages-menu \{[\s\S]{0,120}transform-origin: 50% 0;/.test(css) && /translate3d\(0, -4px, 0\) scale\(0\.98\)/.test(css))(
+      readFileSync(join(root, "app/globals.css"), "utf8"),
+    ),
 )
 
 check(
@@ -327,9 +334,12 @@ check(
 )
 
 check(
-  "the pill pre-fills the search with the current path, selected",
-  // The way an address bar behaves: one keystroke replaces it.
-  /searchRef\.current\?\.select\(\)/.test(switcher),
+  "the pill opens with the cursor in an empty search and the page being edited ticked in view",
+  // It pre-filled the search with the current path; in a grouped list the
+  // page being edited is ticked and scrolled into view instead, and the
+  // first keystroke searches rather than replacing an address.
+  /autoFocus/.test(switcher) && /searchRef\.current\?\.focus\(\{ preventScroll: true \}\)/.test(switcher) &&
+    /aria-current=\{active \? "page" : undefined\}/.test(switcher) && /querySelector<HTMLElement>\("\[aria-current='page'\]"\)/.test(switcher),
 )
 
 // ===========================================================================
@@ -499,9 +509,9 @@ check(
 check(
   "the desktop pill can open the product page as a real product",
   // A template with placeholder data is not what a buyer sees.
-  /onSelectProduct=\{\(title\) =>/.test(editor) &&
+  /onSelectProduct=\{selectProductById\}/.test(editor) &&
     /handleSelectProductPage\(p\.id, p\.title\)/.test(editor) &&
-    /products\.map\(\(pr\) =>/.test(switcher),
+    /productRow\(row\.product\)/.test(switcher),
 )
 
 check(
@@ -1174,9 +1184,9 @@ check(
     /"transition-\[background-color,color\] duration-150 ease-out"/.test(library) &&
     !/transition-all/.test(libraryPhone) &&
     /className="wb-chip-row shrink-0 overflow-x-auto px-4 pb-3"/.test(library) &&
-    // the grid says it changed on a category, and not on every keystroke of a search
-    /Only a category change is announced; a keystroke is not\./.test(library) &&
-    /if \(!categoryChanged \|\| !grid/.test(library) &&
+    // a category changes which cards show and nothing else: no fade of the list on a pill or a keystroke
+    /THE LIST STARTS AT ITS TOP, IN THE SAME FRAME, AND THAT IS ALL\./.test(library) &&
+    !/categoryChanged/.test(library) &&
     ((css) => /\.wb-chip-row \{[\s\S]{0,200}?scroll-snap-type: x proximity;/.test(css))(
         readFileSync(join(root, "app/globals.css"), "utf8"),
       ),
@@ -1814,7 +1824,7 @@ check(
     !/viewportTop/.test(sheetSrc) &&
     /function browserChromeGap\(\): number/.test(sheetSrc) &&
     /probe\.getBoundingClientRect\(\)\.top/.test(sheetSrc) &&
-    /paddingBottom: sheetBottomReserve\(chromeGap, keyboardInset, visibleTop > 0\)/.test(sheetSrc) &&
+    /paddingBottom: (?:composerKeys \? sheetBottomReserve\(chromeGap, 0\) : )?sheetBottomReserve\(chromeGap, keyboardInset, visibleTop > 0\)/.test(sheetSrc) &&
     // and the height grows by it too, or padding just pushes content out again
     /const safe = safeAreaBottom\(\) \+ browserChromeGap\(\)/.test(sheetSrc),
 )
@@ -1843,7 +1853,7 @@ check(
    */
   "a sheet grows by the keyboard, up to a ceiling that keeps its top edge out from under the status bar",
   /const ceiling = keyboardCeiling\(\{ viewport, tallestHeight: natural, safeTop, visibleTop, barBottom: barEdge \}\)/.test(sheetSrc) &&
-    /const height = sheetHeightWithKeyboard\(detentHeight, keyboardInset, ceiling\)/.test(sheetSrc),
+    /const height = (?:composerKeys \? detentHeight : )?sheetHeightWithKeyboard\(detentHeight, keyboardInset, ceiling\)/.test(sheetSrc),
 )
 
 check(
@@ -2201,25 +2211,28 @@ check(
 check(
   "and the account and wishlist links open their pages in the canvas, not the builder window",
   /**
-   * They are links to the website's own /account and /wishlist now
-   * (lib/website-builder/account-pages), so in the builder they do what a
-   * nav link does: cancel the browser's navigation and open that page in
-   * the canvas. The icon row's two call `onEditorNavigate` with the path; the
-   * phone drawer's (account, the two wishlist slots and Create account) go
-   * through `handleLinkClick`, like every other link in the menu.
+   * They are links to the website's own pages now (lib/website-builder/
+   * account-pages): Sign in (/account/login) or, once signed in, Account
+   * (/account), and the Wishlist. So in the builder they do what a nav link
+   * does: cancel the browser's navigation and open that page in the canvas.
+   * The icon row's two call `onEditorNavigate` with the path; the phone
+   * drawer's (the account link and the two wishlist slots) go through
+   * `handleLinkClick`, like every other link in the menu.
    *
    * One icon still only cancels: search in the icon row, which is a real
    * anchor to /search and would otherwise take the builder away.
    *
-   * `handleLinkClick` is seven now: a nav link on the menu's root pane and
-   * one on its submenu pane, the call to action, account, the two wishlist
-   * slots and Create account. The phone's Search row is matched on its own
-   * because it is a conditional (see below).
+   * `handleLinkClick` is six now: a nav link on the menu's root pane and
+   * one on its submenu pane, the call to action, the account link and the
+   * two wishlist slots. There is no Create account any more: signing in
+   * with a new email makes the account. The phone's Search row is matched
+   * on its own because it is a conditional (see below).
    */
   (headerRenderer.match(/onClick=\{onEditorNavigate \? \(e\) => e\.preventDefault\(\) : undefined\}/g) ?? []).length === 1 &&
-    /onEditorNavigate \? \(e\) => \{ e\.preventDefault\(\); onEditorNavigate\(ACCOUNT_PATH, true\) \}/.test(headerRenderer) &&
+    /onEditorNavigate \? \(e\) => \{ e\.preventDefault\(\); onEditorNavigate\(account\.href, true\) \}/.test(headerRenderer) &&
     /onEditorNavigate \? \(e\) => \{ e\.preventDefault\(\); onEditorNavigate\(WISHLIST_PATH, true\) \}/.test(headerRenderer) &&
-    (headerRenderer.match(/onClick=\{handleLinkClick\(/g) ?? []).length === 7 &&
+    (headerRenderer.match(/onClick=\{handleLinkClick\(/g) ?? []).length === 6 &&
+    !/Create account/.test(headerRenderer.replace(/\/\*[\s\S]*?\*\//g, "")) &&
     /: handleLinkClick\("\/search"\)/.test(headerRenderer) &&
     /* Nothing leaves for the platform from the header any more. */
     !/goToPlatform|platformUrl/.test(headerRenderer),
@@ -2539,7 +2552,7 @@ check(
       protecting nothing extra.
     */
     /const motion = dragging\s*\n?\s*\? "none"/.test(sheetSrc) &&
-    /transform \$\{SNAP_DURATION_MS\}ms \$\{SNAP_EASING\}/.test(sheetSrc) &&
+    /transform \$\{(?:SNAP_DURATION_MS|moveMs)\}ms \$\{SNAP_EASING\}/.test(sheetSrc) &&
     /transform: `translateY\(\$\{renderY\}px\)`/.test(sheetSrc) &&
     /transition: motion,/.test(sheetSrc) &&
     /opacity: renderOpacity,/.test(sheetSrc) &&

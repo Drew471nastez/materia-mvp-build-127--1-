@@ -231,7 +231,7 @@ export async function renderSite(
         theme={site.themeSettings}
         sections={site.sections}
         // Whose site this is, for the sections that send something somewhere.
-        storefront={{ creatorId: site.creatorId, installId: site.installId }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages) }}
         emptyDetail="Check back soon!"
       />
       {/* A visit to the published site counts in Analytics like a visit to the

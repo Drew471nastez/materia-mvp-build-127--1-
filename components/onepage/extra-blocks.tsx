@@ -40,12 +40,15 @@
 
 import * as React from "react"
 import { useSyncExternalStore } from "react"
-import { ChevronDown, Clock, EyeOff, HelpCircle, Heading, MapPin, Play, Plus, Timer, Trash2 } from "lucide-react"
+import { CalendarClock, ChevronDown, ChevronRight, Clock, EyeOff, HelpCircle, Heading, MapPin, Play, Plus, Timer, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { scheduleLabel, videoSource } from "@/lib/onepage/extra-blocks"
+import { viewerZone, zoneLabel } from "@/lib/onepage/schedule"
+import { switchKnob, switchTrack } from "@/components/ui/switch-style"
+import { DateTimeField } from "@/components/onepage/date-time-field"
 import type {
   CountdownBlockData,
   FaqBlockData,
@@ -548,17 +551,6 @@ function Segmented<T extends string>({ value, options, onChange }: { value: T; o
   )
 }
 
-/** A value for a datetime-local field, in the browser's own time, from an ISO time (or empty). */
-function toLocalInput(iso: string | null | undefined): string {
-  if (!iso) return ""
-  const t = Date.parse(iso)
-  if (Number.isNaN(t)) return ""
-  const d = new Date(t)
-  const pad = (n: number) => String(n).padStart(2, "0")
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-const fromLocalInput = (v: string): string | null => (v ? new Date(v).toISOString() : null)
-
 /** The form for one of the blocks in this file, inside the editor's block panel. */
 export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; updateData: (updates: Partial<OnePageBlockData>) => void }) {
   switch (block.type) {
@@ -629,7 +621,16 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
           </div>
           <div className={field}>
             <Label className={label}>Counts down to</Label>
-            <Input type="datetime-local" value={toLocalInput(d.target_at)} onChange={(e) => updateData({ target_at: fromLocalInput(e.target.value) })} />
+            <div>
+              <DateTimeField
+                label="Counts down to"
+                value={d.target_at}
+                required
+                emptyLabel="Choose a date"
+                defaultTime={{ hour: 12, minute: 0 }}
+                onChange={(iso) => iso && updateData({ target_at: iso })}
+              />
+            </div>
           </div>
           <div className={field}>
             <Label className={label}>Once it has passed, say</Label>
@@ -650,10 +651,21 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
             <Label className={label}>Address or place</Label>
             <Input value={d.address || ""} maxLength={200} placeholder="Strada Lipscani 12, Bucharest" onChange={(e) => updateData({ address: e.target.value })} />
           </div>
-          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2.5">
             <span className="text-[13px] text-[#1a1a2e]">Show an Open in Maps button</span>
-            <input type="checkbox" className="theme-checkbox-purple" checked={d.show_button !== false} onChange={(e) => updateData({ show_button: e.target.checked })} />
-          </label>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={d.show_button !== false}
+              aria-label="Show an Open in Maps button"
+              onClick={() => updateData({ show_button: d.show_button === false })}
+              className="-my-[11px] -mr-[3px] grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+            >
+              <span aria-hidden className={switchTrack(d.show_button !== false)}>
+                <span className={switchKnob(d.show_button !== false)} />
+              </span>
+            </button>
+          </div>
         </div>
       )
     }
@@ -680,9 +692,14 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
 }
 
 /**
- * THE SCHEDULE AND THE WARNING, UNDER ANY BLOCK'S OWN SETTINGS. Closed until
- * used, so a block's panel is no longer than it was for somebody who never
- * schedules anything; opened by itself once a schedule is set.
+ * THE SCHEDULE AND THE WARNING, UNDER ANY BLOCK'S OWN SETTINGS, as the rows
+ * of Linktree's link settings: a line icon, a name, a grey line saying what
+ * is set, and the control. The schedule row opens in place to two fields,
+ * "Show from" and "Hide after", each a day and a time
+ * (./date-time-field), with the time zone they are in said underneath.
+ * Closed until used, so a block's panel is no longer than it was for
+ * somebody who never schedules anything; opened by itself once a schedule
+ * is set.
  */
 export function BlockExtras({
   block,
@@ -703,51 +720,65 @@ export function BlockExtras({
   const status = scheduleLabel(block)
   const set = (next: OnePageBlockSchedule) => updateBlock({ schedule: next.start_at || next.end_at ? next : null })
   const invalid = !!(s?.start_at && s?.end_at && Date.parse(s.end_at) <= Date.parse(s.start_at))
+  const [zone, setZone] = React.useState<string | null>(null)
+  React.useEffect(() => setZone(viewerZone()), [])
+  const row = "flex min-h-[60px] w-full items-center gap-3.5 py-2 text-left"
   return (
-    <div data-block-extras="" className="mt-4 space-y-2 border-t border-[#eef0f2] pt-4">
+    <div data-block-extras="" className="mt-4 border-t border-[#eef0f2] pt-1">
       {isLink ? (
-        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2.5">
-          <span className="flex min-w-0 items-center gap-2.5">
-            <EyeOff aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280]" />
-            <span className="min-w-0">
-              <span className="block text-[13px] font-medium text-[#1a1a2e]">Sensitive content</span>
-              <span className="block text-[12px] text-[#6b7280]">Visitors confirm before it opens</span>
-            </span>
+        <div className={row}>
+          <EyeOff aria-hidden className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={1.6} />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14.5px] font-medium text-[#1a1a2e]">Sensitive content</span>
+            <span className="block text-[13px] text-[#6b7280]">Visitors confirm before it opens</span>
           </span>
-          <input type="checkbox" className="theme-checkbox-purple" checked={sensitive} onChange={(e) => updateData({ sensitive: e.target.checked })} />
-        </label>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={sensitive}
+            aria-label="Sensitive content"
+            data-sensitive-switch=""
+            onClick={() => updateData({ sensitive: !sensitive })}
+            className="-mr-[3px] grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+          >
+            <span aria-hidden className={switchTrack(sensitive)}>
+              <span className={switchKnob(sensitive)} />
+            </span>
+          </button>
+        </div>
       ) : null}
       {scheduling ? (
-      <div className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-white">
-        <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2.5 text-left">
-          <span className="flex min-w-0 items-center gap-2.5">
-            <Clock aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280]" />
-            <span className="min-w-0">
-              <span className="block text-[13px] font-medium text-[#1a1a2e]">Schedule</span>
-              <span className="block truncate text-[12px] text-[#6b7280]">{status ? status.text : "Show it only between two dates"}</span>
+        <div className={cn(isLink && "border-t border-[#eef0f2]")}>
+          <button type="button" aria-expanded={open} data-schedule-toggle="" onClick={() => setOpen((v) => !v)} className={cn(row, "cursor-pointer rounded-lg outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]")}>
+            <CalendarClock aria-hidden className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={1.6} />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14.5px] font-medium text-[#1a1a2e]">Schedule</span>
+              <span className={cn("block truncate text-[13px]", status ? (status.live ? "text-[#15803d]" : "text-[#9a5b00]") : "text-[#6b7280]")}>{status ? status.text : "Show it only between two times"}</span>
             </span>
-          </span>
-          <ChevronDown aria-hidden className={cn("h-4 w-4 shrink-0 text-[#6b7280] transition-transform duration-200", open && "rotate-180")} />
-        </button>
-        {open ? (
-          <div className="space-y-2.5 border-t border-[#eef0f2] px-3 pb-3 pt-2.5">
-            <div className={field}>
-              <Label className={label}>Starts</Label>
-              <Input type="datetime-local" value={toLocalInput(s?.start_at)} onChange={(e) => set({ ...(s || {}), start_at: fromLocalInput(e.target.value) })} />
+            <ChevronRight aria-hidden data-keep-transform="" className={cn("h-5 w-5 shrink-0 text-[#1a1a2e] transition-transform duration-200", open && "rotate-90")} strokeWidth={1.75} />
+          </button>
+          {open ? (
+            <div data-schedule-panel="" className="mb-2 space-y-3 rounded-2xl border border-[#e3e4e8] bg-white p-3.5">
+              <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                <span className="text-[14px] font-medium text-[#1a1a2e]">Show from</span>
+                <DateTimeField label="Show from" value={s?.start_at} emptyLabel="Now" defaultTime={{ hour: 9, minute: 0 }} onChange={(iso) => set({ ...(s || {}), start_at: iso })} />
+              </div>
+              <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                <span className="text-[14px] font-medium text-[#1a1a2e]">Hide after</span>
+                <DateTimeField label="Hide after" value={s?.end_at} emptyLabel="Never" defaultTime={{ hour: 23, minute: 59 }} after={s?.start_at} onChange={(iso) => set({ ...(s || {}), end_at: iso })} />
+              </div>
+              {invalid ? <p className="text-[13px] text-[#b42318]">It hides before it shows, so it would never be on the page.</p> : null}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#eef0f2] pt-3">
+                <span className="text-[12.5px] text-[#6b7280]" data-schedule-zone="">{zone ? `Times are in ${zoneLabel(zone)}` : "\u00a0"}</span>
+                {s?.start_at || s?.end_at ? (
+                  <button type="button" data-schedule-clear="" onClick={() => updateBlock({ schedule: null })} className="h-9 cursor-pointer rounded-lg px-1 text-[13px] font-medium text-[#6b7280] underline-offset-2 hover:text-[#1a1a2e] hover:underline">
+                    Clear schedule
+                  </button>
+                ) : null}
+              </div>
             </div>
-            <div className={field}>
-              <Label className={label}>Ends</Label>
-              <Input type="datetime-local" value={toLocalInput(s?.end_at)} onChange={(e) => set({ ...(s || {}), end_at: fromLocalInput(e.target.value) })} aria-invalid={invalid || undefined} />
-            </div>
-            {invalid ? <p className="text-[12px] text-[#b42318]">The end is before the start, so it would never show.</p> : null}
-            {s?.start_at || s?.end_at ? (
-              <button type="button" onClick={() => updateBlock({ schedule: null })} className="cursor-pointer text-[12px] font-medium text-[#6b7280] underline underline-offset-2 hover:text-[#1a1a2e]">
-                Clear the schedule
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
       ) : null}
     </div>
   )

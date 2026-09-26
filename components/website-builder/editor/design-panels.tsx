@@ -4,37 +4,26 @@
  * ===========================================================================
  *  THE DESIGN PANELS: COLOURS AND TYPE, GLOBAL AND PER SECTION
  * ===========================================================================
- * One model (lib/storelib-theme/color-schemes.ts and typography.ts), drawn
- * in five places:
+ * Four panels, one model (lib/storelib-theme/color-schemes.ts and
+ * typography.ts):
  *
- *   SchemeTiles         a section's scheme: every scheme as a small tile
- *                       painted in it, chosen with one tap
- *   SectionDesignPanel  what a section shows: its scheme, Advanced colors
- *                       for the few it may override, and its text styles
- *   ColorsPanel         Theme settings, Colors: the schemes as a list of
- *                       cards, each opening its own editor
- *   SchemeEditor        one scheme, in a panel of its own: a live preview,
- *                       its contrast, and its colours one row each
+ *   SchemePicker        a dropdown of the theme's schemes, painted in them
+ *   SectionDesignPanel  what a section shows: its scheme, "Customize" for
+ *                       the few colours it may override, and its heading
+ *                       and body style
+ *   ColorsPanel         Theme settings, Colors: the schemes themselves
  *   TypographyPanel     Theme settings, Typography: fonts and text styles
  *
- * "The colour schemes, the selection of the colour scheme ... editing the
- * colour scheme colours: easy, looking great."
- *
- * A scheme used to be chosen from a dropdown and edited in the same column
- * as the list of all the others, so its twenty-one colours hung under five
- * schemes that were not being edited. Now picking and editing are separate
- * places: tiles to pick, a card to open, and an editor that is only about
- * the scheme you opened. Every colour row opens its picker in place, one at
- * a time, and every group opens and closes by height (./collapse.tsx).
- *
- * Nothing here paints a colour on its own: every value goes through the same
- * resolver the canvas and the published page use.
+ * Simple by default. A section is a scheme and two style pickers; the
+ * seventeen values of a scheme live in Theme settings, and a section's own
+ * colour pickers are behind Customize. Nothing here paints a colour on its
+ * own: every value goes through the same resolver the canvas and the
+ * published page use.
  */
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
-import { Check, ChevronDown, ChevronRight, Plus, RotateCcw, Trash2 } from "lucide-react"
+import { Check, ChevronDown, Info, Plus, RotateCcw, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import {
   DEFAULT_COLOR_SCHEMES,
   FALLBACK_SCHEME_KEY,
@@ -51,7 +40,6 @@ import {
   type ColorScheme,
   type SchemeColorKey,
 } from "@/lib/storelib-theme/color-schemes"
-import { READ_PAIRS, contrastRatio, parseColor, sayRatio, schemeContrast } from "@/lib/storelib-theme/contrast"
 import {
   DEFAULT_TYPE_STYLES,
   TYPE_STYLE_KEYS,
@@ -68,10 +56,9 @@ import {
 import { designSupport } from "@/lib/website-builder/design-support"
 import { effectiveOverride, resetOverrides, setOverride } from "@/lib/website-builder/section-overrides"
 import type { SchemaField, SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
-import { ColorChip, ColorPickerPanel } from "./color-chip"
+import { ColorChip } from "./color-chip"
 import { GRADIENT_PRESETS, GradientEditor } from "./gradient-editor"
 import { Collapse } from "./collapse"
-import { SettingSelect, revealInScroller } from "./setting-controls"
 
 type Theme = ThemeSettingsValues
 const asRecord = (t: Theme) => t as unknown as Record<string, unknown>
@@ -81,14 +68,13 @@ const asRecord = (t: Theme) => t as unknown as Record<string, unknown>
 const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase tracking-widest"
 const INPUT =
   "w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
-/** A colour with nothing in it, drawn as the checkerboard every editor uses for "none". */
-const CHECKER = "repeating-conic-gradient(#d1d5db 0% 25%, #ffffff 0% 50%) 50% / 8px 8px"
 
 function Select({
   label,
   value,
   onChange,
   options,
+  compact,
 }: {
   label?: string
   value: string
@@ -98,8 +84,19 @@ function Select({
 }) {
   return (
     <div className={cn(label && "space-y-1.5")}>
-      {label && <p className="wb-field-label text-[13px] font-medium text-[#374151]">{label}</p>}
-      <SettingSelect label={label} value={value} onChange={onChange} options={options} />
+      {label && <p className="text-sm font-medium text-foreground">{label}</p>}
+      <div className="relative">
+        <select
+          className={cn(INPUT, "pr-8 appearance-none cursor-pointer", compact ? "h-9" : "h-10")}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+      </div>
     </div>
   )
 }
@@ -143,96 +140,138 @@ function NumberField({
   )
 }
 
-/**
- * A scheme at a glance: its background, "Aa" in its heading colour, and a
- * bar in its button colour beside one in its text colour. The three things
- * that tell two schemes apart.
- */
-export function SchemeSwatch({ scheme, className }: { scheme: ColorScheme; className?: string }) {
+function Swatch({ scheme, size = "md" }: { scheme: ColorScheme; size?: "sm" | "md" }) {
   return (
     <span
-      aria-hidden
-      className={cn("relative inline-flex shrink-0 overflow-hidden rounded-md border border-black/10", className ?? "h-9 w-12")}
-      style={{ background: scheme.gradient || scheme.background }}
+      className={cn(
+        "inline-flex items-center justify-center rounded-md border border-black/10 font-semibold shrink-0",
+        size === "sm" ? "h-6 w-6 text-[11px]" : "h-7 w-7 text-[13px]",
+      )}
+      style={{ background: scheme.gradient || scheme.background, color: scheme.heading }}
     >
-      <span className="absolute left-1.5 top-1 text-[12px] font-semibold leading-none" style={{ color: scheme.heading }}>Aa</span>
-      <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1">
-        <span className="h-1.5 w-4 rounded-full" style={{ background: scheme.primary_button_background }} />
-        <span className="h-1.5 w-2.5 rounded-full opacity-80" style={{ background: scheme.text }} />
-      </span>
+      Aa
     </span>
   )
 }
 
-// ── A section's scheme: tiles ────────────────────────────────
+// ── Scheme picker ────────────────────────────────────────────
 
-/**
- * Every scheme as a tile, chosen with one tap. It used to be a dropdown:
- * two taps to see the choices, one of them painted over the field it opened
- * from. Five to eight schemes fit in two short rows, so they are simply on
- * screen, and the chosen one has a ring and a check.
- */
-export function SchemeTiles({
+export function SchemePicker({
   value,
   onChange,
   theme,
+  onEdit,
+  size = "md",
 }: {
   value: string
   onChange: (key: string) => void
   theme: Theme
+  /** Opens a scheme in Theme settings. Offered on each row of the open list. */
+  onEdit?: (key: string) => void
+  size?: "sm" | "md"
 }) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
   const schemes = themeColorSchemes(asRecord(theme))
   const activeKey = schemes[value] ? value : defaultSchemeKey(asRecord(theme), schemes)
-  const keys = Object.keys(schemes)
-  const move = (step: number) => {
-    const at = keys.indexOf(activeKey)
-    onChange(keys[(at + step + keys.length) % keys.length])
-  }
+  const active = schemes[activeKey]
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false)
+    }
+    document.addEventListener("mousedown", onDoc)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("mousedown", onDoc)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [open])
+
   return (
-    <div
-      role="radiogroup"
-      aria-label="Color scheme"
-      data-scheme-tiles=""
-      className="grid grid-cols-[repeat(auto-fill,minmax(40px,1fr))] gap-x-2 gap-y-2.5"
-      onKeyDown={(e) => {
-        if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); move(1) }
-        if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); move(-1) }
-      }}
-    >
-      {keys.map((key) => {
-        const sc = schemes[key]
-        const on = key === activeKey
-        return (
-          <button
-            key={key}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            aria-label={sc.name}
-            tabIndex={on ? 0 : -1}
-            onClick={() => onChange(key)}
-            className="group flex min-w-0 flex-col items-center gap-1 outline-none"
-          >
-            <span
-              className={cn(
-                "relative flex h-9 w-full items-center justify-center rounded-lg transition-[box-shadow] duration-150",
-                on
-                  ? "shadow-[0_0_0_2px_#fff,0_0_0_3.5px_#1a1a2e]"
-                  : "shadow-[0_0_0_1px_rgba(15,23,42,0.1)] group-hover:shadow-[0_0_0_1px_rgba(15,23,42,0.28)] group-focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_3.5px_#9ca3af]",
-              )}
-              style={{ background: sc.gradient || sc.background }}
-            >
-              <span className="text-[13px] font-semibold leading-none" style={{ color: sc.heading }}>Aa</span>
-              {on && (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#1a1a2e] text-white">
-                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                </span>
-              )}
-            </span>
-            <span className={cn("max-w-full truncate text-[11px] leading-tight", on ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{sc.name}</span>
-          </button>
-        )
-      })}
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "w-full flex items-center justify-between gap-2 px-3 rounded-xl border transition-all cursor-pointer",
+          size === "sm" ? "h-10" : "h-12",
+          open ? "border-blue-500" : "border-neutral-200 hover:border-neutral-300",
+        )}
+        style={{ background: active.gradient || active.background, color: active.heading }}
+      >
+        <span className="flex items-center gap-2.5 min-w-0">
+          <span className={cn("font-bold", size === "sm" ? "text-[14px]" : "text-[16px]")}>Aa</span>
+          <span className={cn("font-medium truncate", size === "sm" ? "text-[13px]" : "text-[14px]")}>{active.name}</span>
+        </span>
+        {/**
+          * THE TRIGGER SHOWS THE SCHEME, AND NOTHING ELSE.
+          *
+          * Edit used to sit here, on a control whose whole job is to say
+          * which scheme is on: a white pill on every coloured swatch, always
+          * present, and it only ever edited the ACTIVE one. Editing belongs
+          * with the list, where every scheme is in reach.
+          */}
+        <span className="flex items-center gap-2 shrink-0">
+          <ChevronDown className={cn("h-4 w-4 opacity-70 transition-transform duration-200 ease-out", open && "rotate-180")} />
+        </span>
+      </button>
+
+      {open && (
+        <div
+          className="absolute left-0 right-0 top-full mt-2 z-50 rounded-xl border border-neutral-200 bg-popover shadow-lg p-1.5 space-y-1 origin-top max-h-[320px] overflow-y-auto wb-slim-scroll"
+          style={{ animation: "scheme-dropdown-in 180ms cubic-bezier(0.32, 0.72, 0, 1) both" }}
+        >
+          <style jsx>{`
+            @keyframes scheme-dropdown-in {
+              from { opacity: 0; transform: translateY(-4px) scaleY(0.98); }
+              to   { opacity: 1; transform: translateY(0) scaleY(1); }
+            }
+          `}</style>
+          {Object.entries(schemes).map(([key, sc]) => {
+            const isActive = activeKey === key
+            return (
+              /**
+               * A row is a pair, not a button inside a button, which is
+               * invalid markup and which browsers resolve by dropping one of
+               * them. Choosing is the whole row; editing is the affordance on
+               * the end, and it only appears where it can do something.
+               */
+              <div
+                key={key}
+                className={cn(
+                  "relative flex w-full items-center rounded-lg border-2 transition-colors duration-150",
+                  isActive ? "border-blue-500" : "border-transparent hover:border-blue-200",
+                )}
+                style={{ background: sc.gradient || sc.background, color: sc.heading }}
+              >
+                <button
+                  type="button"
+                  onClick={() => { onChange(key); setOpen(false) }}
+                  className="flex h-11 min-w-0 flex-1 cursor-pointer items-center gap-2.5 px-3 text-left"
+                >
+                  <span className="text-[15px] font-bold">Aa</span>
+                  <span className="truncate text-[13px] font-medium">{sc.name}</span>
+                  {isActive && <Check className="ml-auto h-3.5 w-3.5 shrink-0 opacity-70" />}
+                </button>
+                {onEdit && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit(key) }}
+                    className="mr-1.5 shrink-0 rounded-md border border-black/10 bg-white/90 px-2.5 py-1 text-[12px] font-medium text-gray-900 shadow-sm transition-colors hover:bg-white"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -253,7 +292,8 @@ const OVERRIDE_ROWS: { label: string; keys: SchemeColorKey[] }[] = [
  * ===========================================================================
  * "Primary button" was a row with two unlabelled dots, one the fill and one
  * the text, and nothing said which was which or that there was no hover at
- * all. Each colour now says what it is, and the two hover colours say Auto
+ * all. The owner tried to recolour the header's button and could not tell
+ * how. Each colour now says what it is, and the two hover colours say Auto
  * until someone picks one: see automaticHover in the colour schemes.
  */
 export const BUTTON_COLOR_GROUPS: { label: string; parts: { key: SchemeColorKey; label: string }[] }[] = [
@@ -280,9 +320,72 @@ export const BUTTON_COLOR_GROUPS: { label: string; parts: { key: SchemeColorKey;
 const isHoverKey = (k: SchemeColorKey) => (HOVER_KEYS as readonly string[]).includes(k)
 
 /**
- * One button's four colours as labelled swatches, with "Use scheme" when any
- * is the section's own. Shared by every section's Advanced colors and by the
- * header's Button panel, so the two cannot describe one button differently.
+ * ===========================================================================
+ *  ONE COLOUR, ONE ROW
+ * ===========================================================================
+ * The section's colours were drawn as swatches side by side under each
+ * button, four in a row with a label under each and a scheme label
+ * down the right, and the owner found it busy and hard to read. They are a
+ * list now, the way a scheme is edited in Shopify: the name on the left, the
+ * colour and its hex on the right, the picker opening from there.
+ *
+ * A colour left on the scheme shows the scheme's value, quieter, with a word
+ * saying where it comes from. A colour the section chose shows its own value
+ * and, on hover or focus, an arrow that puts it back.
+ */
+const GROUP_HEADING = "text-[13px] font-semibold text-foreground"
+
+function ColorRow({
+  label,
+  name,
+  own,
+  shown,
+  hint,
+  onChange,
+  onReset,
+}: {
+  label: string
+  /** The full name for a screen reader: "Primary button fill". */
+  name: string
+  own: string
+  shown: string
+  hint: string
+  onChange: (c: string) => void
+  onReset: () => void
+}) {
+  return (
+    <div data-color-row={name} className="group/row flex min-h-10 max-sm:min-h-11 items-center gap-1.5">
+      <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{label}</span>
+      {own ? (
+        <button
+          type="button"
+          onClick={onReset}
+          aria-label={`Put ${name.toLowerCase()} back to the scheme`}
+          title="Back to scheme"
+          className="flex h-7 w-7 max-sm:h-10 max-sm:w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/10 opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 max-sm:opacity-100 [@media(hover:none)]:opacity-100"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+      <ColorChip
+        variant="field"
+        label={name}
+        value={shown === "transparent" ? "" : shown}
+        muted={!own}
+        hint={own ? undefined : hint}
+        onChange={onChange}
+        existing={[]}
+      />
+    </div>
+  )
+}
+
+/**
+ * One button's colours as rows: Fill and Text, and its two hover colours
+ * behind "Hover colors", shut, because they work themselves out from the
+ * fill until someone picks one (automaticHover in the colour schemes).
+ * Shared by every section's Advanced colors and by the header's Button
+ * panel, so the two cannot describe one button differently.
  */
 export function ButtonColorGroup({
   group,
@@ -298,45 +401,54 @@ export function ButtonColorGroup({
   /** The keys this section lets be overridden; all four when omitted. */
   allowed?: SchemeColorKey[]
 }) {
+  const [hoverOpen, setHoverOpen] = useState(false)
   const colors = resolveSectionColors(asRecord(theme), settings)
   const parts = group.parts.filter((p) => !allowed || allowed.includes(p.key))
   if (parts.length === 0) return null
-  const anySet = parts.some((p) => effectiveOverride(settings, p.key) !== "")
+  const main = parts.filter((p) => !isHoverKey(p.key))
+  const hover = parts.filter((p) => isHoverKey(p.key))
+  const hoverSet = hover.some((p) => effectiveOverride(settings, p.key) !== "")
+
+  const row = (p: (typeof parts)[number]) => {
+    const own = effectiveOverride(settings, p.key)
+    /* A hover shows what it will be: worked out from this section's button. */
+    const shown = own || (isHoverKey(p.key) ? colors.scheme[p.key] : colors.base[p.key])
+    const auto = isHoverKey(p.key)
+    return (
+      <ColorRow
+        key={p.key}
+        label={p.label}
+        name={`${group.label} ${p.label.toLowerCase()}`}
+        own={own}
+        shown={shown}
+        hint={auto ? "Auto" : "Scheme"}
+        onChange={(c) => onApply(setOverride(settings, p.key, c))}
+        onReset={() => onApply(setOverride(settings, p.key, ""))}
+      />
+    )
+  }
+
   return (
     <div data-button-colors={group.label}>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[13px] font-medium text-foreground">{group.label}</span>
-        {anySet ? (
+      <p className={GROUP_HEADING}>{group.label}</p>
+      {main.map(row)}
+      {hover.length > 0 && (
+        <>
           <button
             type="button"
-            onClick={() => { let next = settings; for (const p of parts) next = setOverride(next, p.key, ""); onApply(next) }}
-            className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+            aria-expanded={hoverOpen}
+            onClick={() => setHoverOpen((o) => !o)}
+            className="flex w-full min-h-9 max-sm:min-h-11 items-center gap-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
           >
-            Use scheme
+            <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", !hoverOpen && "-rotate-90")} />
+            <span>Hover colors</span>
+            <span className="ml-auto text-[11px] text-muted-foreground/80">{hoverSet ? "Custom" : "Auto"}</span>
           </button>
-        ) : (
-          <span className="text-[11px] text-muted-foreground">Scheme</span>
-        )}
-      </div>
-      <div className="mt-2 grid grid-cols-4 gap-1.5">
-        {parts.map((p) => {
-          const own = effectiveOverride(settings, p.key)
-          /* A hover shows what it will be: worked out from this section's button. */
-          const shown = own || (isHoverKey(p.key) ? colors.scheme[p.key] : colors.base[p.key])
-          const auto = !own && isHoverKey(p.key)
-          return (
-            <div key={p.key} className="flex flex-col items-center gap-1" title={SCHEME_COLOR_LABELS[p.key]}>
-              <span className={cn("inline-flex", !own && "opacity-70")}>
-                <ColorChip value={shown === "transparent" ? "" : shown} onChange={(c) => onApply(setOverride(settings, p.key, c))} existing={[]} />
-              </span>
-              <span className="text-[10.5px] leading-tight text-muted-foreground text-center">
-                {p.label}
-                {auto ? <span className="block text-[10px] text-muted-foreground/70">Auto</span> : null}
-              </span>
-            </div>
-          )
-        })}
-      </div>
+          <Collapse open={hoverOpen}>
+            {() => <div className="pl-5">{hover.map(row)}</div>}
+          </Collapse>
+        </>
+      )}
     </div>
   )
 }
@@ -432,15 +544,17 @@ export function SectionDesignPanel({
   const support = designSupport(schema)
   const s = section.settings
   /**
-   * SHUT, always. It opened itself whenever the section had any colour
-   * override at all, and an override is set by picking one colour once. The
-   * row already says "3 customized" when there is something in there.
+   * SHUT, always.
+   *
+   * It opened itself whenever the section had any colour override at all,
+   * and an override is set by picking one colour once: from then on the
+   * panel greeted you with seven colour rows above the settings you came
+   * for. The row already says "3 customized" when there is something in
+   * there, which is the part worth seeing without opening it.
    */
   const [customizeOpen, setCustomizeOpen] = useState(false)
   const colors = resolveSectionColors(asRecord(theme), s)
   const overridden = SECTION_OVERRIDE_KEYS.filter((k) => effectiveOverride(s, k) !== "").length
-  const schemes = themeColorSchemes(asRecord(theme))
-  const schemeKey = typeof s.color_scheme === "string" && schemes[s.color_scheme] ? s.color_scheme : defaultSchemeKey(asRecord(theme), schemes)
 
   /** Apply a whole-settings change as per-key updates, so undo sees each. */
   const applySettings = (next: Record<string, unknown>) => {
@@ -461,31 +575,36 @@ export function SectionDesignPanel({
     <div className={cn(!compact && "border-b border-border p-4", "space-y-4")}>
       {support.colorScheme && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <p className={LABEL}>Color scheme</p>
-            {onEditScheme && (
-              <button
-                type="button"
-                onClick={() => onEditScheme(schemeKey)}
-                className="text-[12px] font-medium text-[#6b7280] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline"
-              >
-                Edit {schemes[schemeKey]?.name ?? "scheme"}
-              </button>
-            )}
-          </div>
-          <SchemeTiles
+          <p className={LABEL}>Color scheme</p>
+          <SchemePicker
             value={typeof s.color_scheme === "string" ? s.color_scheme : ""}
             onChange={(key) => onUpdateSetting("color_scheme", key)}
             theme={theme}
+            onEdit={onEditScheme}
           />
 
           {support.colorOverrides.length > 0 && (
             <div className="rounded-lg border border-border">
               {/*
-                TWO LABELS IN A ROW THAT IS SOMETIMES NARROW. `min-w-0` so a
-                child may shrink, `truncate` on the part that may lose
-                characters, `shrink-0` on the part that may not: the name of
-                the control stays whole and the status gives up characters.
+                ═══════════════════════════════════════════════════════════
+                 TWO LABELS IN A ROW THAT IS SOMETIMES NARROW
+                ═══════════════════════════════════════════════════════════
+                A flex child's `min-width` is `auto`, which means it will not
+                shrink below its own content. Two of them in a row that runs
+                out of width therefore do not shrink at all: the text inside
+                them wraps instead, both sides at once, and the row grows to
+                two lines. Reported with a picture of "Advanced" over
+                "colors" beside "Using" over "scheme".
+
+                The scheme trigger directly above this has always had the
+                answer. `min-w-0` so a child may shrink, `truncate` on the
+                part that may lose characters, `shrink-0` on the part that
+                may not. This is the same three things.
+
+                Which shrinks is a decision: the name of the control stays
+                whole and the status beside it gives up characters first,
+                because "Advanced colors" is what you are looking for and
+                "Using scheme" is what you already know.
               */}
               <button
                 type="button"
@@ -495,60 +614,60 @@ export function SectionDesignPanel({
               >
                 <span className="shrink-0 whitespace-nowrap font-medium text-foreground">Advanced colors</span>
                 <span className="flex min-w-0 items-center gap-2 text-[12px] text-muted-foreground">
-                  {/* Said only when there is something to say: the scheme is what a section uses unless told otherwise. */}
-                  {overridden > 0 && <span className="truncate">{overridden} changed</span>}
+                  <span className="truncate">
+                    {overridden > 0 ? `${overridden} customized` : "Using scheme"}
+                  </span>
                   <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", customizeOpen && "rotate-180")} />
                 </span>
               </button>
-              <Collapse open={customizeOpen}>
+              <Collapse open={customizeOpen} onlyVisible>
                 {() => (
-                  <div className="border-t border-border px-3 py-2">
-                    {OVERRIDE_ROWS.filter((row) => row.keys.some((k) => support.colorOverrides.includes(k))).map((row, idx) => {
-                      const keys = row.keys.filter((k) => support.colorOverrides.includes(k))
-                      const anySet = keys.some((k) => effectiveOverride(s, k) !== "")
-                      return (
-                        <div key={row.label} className={cn("flex items-center justify-between gap-3 py-2", idx > 0 && "border-t border-border/60")}>
-                          <span className="text-[13px] text-foreground flex-1 truncate">{row.label}</span>
-                          <div className="flex items-center gap-1.5">
-                            {keys.map((k) => {
-                              const own = effectiveOverride(s, k)
-                              const shown = own || colors.base[k]
+                <div className="border-t border-border px-3 pb-2">
+                  {(() => {
+                    const general = OVERRIDE_ROWS.flatMap((row) => row.keys.filter((k) => support.colorOverrides.includes(k)).map((k) => ({ key: k, label: row.label })))
+                    const buttons = BUTTON_COLOR_GROUPS.filter((g) => g.parts.some((p) => support.colorOverrides.includes(p.key)))
+                    return (
+                      <>
+                        {general.length > 0 && (
+                          <div className="pt-2.5" data-color-group="General">
+                            <p className={GROUP_HEADING}>General</p>
+                            {general.map(({ key, label }) => {
+                              const own = effectiveOverride(s, key)
                               return (
-                                <span key={k} className={cn("inline-flex", !own && "opacity-60")} title={own ? SCHEME_COLOR_LABELS[k] : `${SCHEME_COLOR_LABELS[k]}: use scheme`}>
-                                  <ColorChip value={shown === "transparent" ? "" : shown} onChange={(c) => applySettings(setOverride(s, k, c))} existing={[]} />
-                                </span>
+                                <ColorRow
+                                  key={key}
+                                  label={label}
+                                  name={label}
+                                  own={own}
+                                  shown={own || colors.base[key]}
+                                  hint="Scheme"
+                                  onChange={(c) => applySettings(setOverride(s, key, c))}
+                                  onReset={() => applySettings(setOverride(s, key, ""))}
+                                />
                               )
                             })}
-                            {anySet ? (
-                              <button
-                                type="button"
-                                onClick={() => { let next = s; for (const k of keys) next = setOverride(next, k, ""); applySettings(next) }}
-                                className="text-[11px] font-medium text-muted-foreground hover:text-foreground w-[68px] text-right"
-                              >
-                                Use scheme
-                              </button>
-                            ) : (
-                              <span className="text-[11px] text-muted-foreground w-[68px] text-right">Scheme</span>
-                            )}
                           </div>
-                        </div>
-                      )
-                    })}
-                    {BUTTON_COLOR_GROUPS.map((group) => (
-                      <div key={group.label} className="border-t border-border/60 py-2.5">
-                        <ButtonColorGroup group={group} settings={s} theme={theme} onApply={applySettings} allowed={support.colorOverrides} />
-                      </div>
-                    ))}
-                    <div className="flex items-center justify-between gap-3 pt-2 border-t border-border/60">
-                      <span className="text-[11px] text-muted-foreground">Colors left on the scheme follow it.</span>
-                      {overridden > 0 && (
-                        <button type="button" onClick={() => applySettings(resetOverrides(s))} className="text-[11px] font-medium text-foreground/70 hover:text-foreground flex items-center gap-1 shrink-0">
-                          <RotateCcw className="h-3 w-3" />
-                          Reset to scheme
-                        </button>
-                      )}
+                        )}
+                        {buttons.map((group, idx) => (
+                          <div key={group.label} className={cn("pt-2.5", (idx > 0 || general.length > 0) && "mt-1.5 border-t border-border/60")}>
+                            <ButtonColorGroup group={group} settings={s} theme={theme} onApply={applySettings} allowed={support.colorOverrides} />
+                          </div>
+                        ))}
+                      </>
+                    )
+                  })()}
+                  {overridden > 0 && (
+                    <div className="mt-1.5 flex justify-end border-t border-border/60 pt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => applySettings(resetOverrides(s))}
+                        className="min-h-8 max-sm:min-h-10 px-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        Reset all to scheme
+                      </button>
                     </div>
-                  </div>
+                  )}
+                </div>
                 )}
               </Collapse>
             </div>
@@ -579,220 +698,56 @@ export function SectionDesignPanel({
 
 // ── Theme settings: Colors ───────────────────────────────────
 
-/**
- * The schemes as a list of cards. A card opens its scheme's editor, a panel
- * of its own (SchemeEditor): picking which scheme to edit and editing it
- * used to share one column, with the whole scheme hanging under the list.
- */
+
 export function ColorsPanel({
   theme,
   updateSetting,
-  onOpenScheme,
+  onRemapSections,
+  initialActive,
+  onInitialActiveConsumed,
   advanced,
 }: {
   theme: Theme
   updateSetting: (key: string, value: unknown) => void
-  /** Opens one scheme's editor. */
-  onOpenScheme: (key: string) => void
+  /** Move every section on the current page from one scheme to another. */
+  onRemapSections: (from: string, to: string) => void
+  initialActive?: string | null
+  onInitialActiveConsumed?: () => void
   /** The page-level colour fields, rendered by the caller, behind a disclosure. */
   advanced?: ReactNode
 }) {
   const t = asRecord(theme)
   const schemes = themeColorSchemes(t)
+  const [active, setActive] = useState<string>(initialActive && schemes[initialActive] ? initialActive : FALLBACK_SCHEME_KEY)
   const [advancedOpen, setAdvancedOpen] = useState(false)
-  const own = (t.color_schemes && typeof t.color_schemes === "object" ? t.color_schemes : {}) as Record<string, unknown>
-  const defaultKey = defaultSchemeKey(t, schemes)
-
-  const addScheme = () => {
-    const key = `custom_${Date.now().toString(36)}`
-    const n = Object.keys(schemes).length + 1
-    const from = schemes[defaultKey] ?? DEFAULT_COLOR_SCHEMES[FALLBACK_SCHEME_KEY]
-    updateSetting("color_schemes", { ...own, [key]: stripSchemeDefaults(newSchemeFrom(from, `Scheme ${n}`), DEFAULT_COLOR_SCHEMES[FALLBACK_SCHEME_KEY]) })
-    onOpenScheme(key)
-  }
-
-  return (
-    <div className="space-y-4">
-      <p className="text-[12.5px] leading-relaxed text-[#6b7280]">Every section uses one of these. Change a scheme and every section on it changes.</p>
-
-      <div className="space-y-1.5" data-scheme-list="">
-        {Object.entries(schemes).map(([key, sc]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onOpenScheme(key)}
-            className="group flex h-14 w-full items-center gap-3 rounded-xl border border-[#e5e7eb] bg-white px-2.5 text-left transition-[border-color,box-shadow] duration-150 hover:border-[#d1d5db] hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] focus:outline-none focus-visible:ring-2 focus-visible:ring-black/10"
-          >
-            <SchemeSwatch scheme={sc} />
-            <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-[#1a1a2e]">{sc.name}</span>
-            {key === defaultKey && <span className="shrink-0 text-[11.5px] text-[#6b7280]">Default</span>}
-            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-150 group-hover:translate-x-0.5" />
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={addScheme}
-          className="flex h-11 w-full items-center gap-2 rounded-xl px-2.5 text-[13.5px] font-medium text-[#6b7280] transition-colors hover:bg-[#f6f7f8] hover:text-[#1a1a2e]"
-        >
-          <Plus className="h-4 w-4" />
-          Add scheme
-        </button>
-      </div>
-
-      {advanced && (
-        <div className="border-t border-border pt-3">
-          {/* Same row, same three rules as Advanced colors. */}
-          <button type="button" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((o) => !o)} className="flex h-9 w-full items-center justify-between gap-2 text-sm font-medium text-foreground">
-            <span className="min-w-0 truncate">Page colors</span>
-            <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200", advancedOpen && "rotate-180")} />
-          </button>
-          <p className="text-[11px] text-muted-foreground">Behind and between sections, and the announcement bar.</p>
-          <Collapse open={advancedOpen} innerClassName="space-y-4 pt-3">
-            {advanced}
-          </Collapse>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/** A scheme drawn as a tiny section: heading, text, a link and both buttons. */
-function SchemePreview({ scheme }: { scheme: ColorScheme }) {
-  return (
-    <div
-      data-scheme-preview=""
-      className="overflow-hidden rounded-xl border border-black/[0.08] px-4 py-4"
-      style={{ background: scheme.gradient || scheme.background }}
-    >
-      <p className="text-[17px] font-semibold leading-tight" style={{ color: scheme.heading }}>Heading</p>
-      <p className="mt-1 text-[12.5px] leading-snug" style={{ color: scheme.text }}>
-        Body text, with <span className="underline underline-offset-2" style={{ color: scheme.link }}>a link</span> in it.
-      </p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <span
-          className="rounded-md border px-3 py-1.5 text-[12px] font-semibold leading-none"
-          style={{ background: scheme.primary_button_background, color: scheme.primary_button_text, borderColor: scheme.primary_button_border }}
-        >
-          Primary
-        </span>
-        <span
-          className="rounded-md border px-3 py-1.5 text-[12px] font-semibold leading-none"
-          style={{ background: scheme.secondary_button_background, color: scheme.secondary_button_text, borderColor: scheme.secondary_button_border }}
-        >
-          Secondary
-        </span>
-      </div>
-    </div>
-  )
-}
-
-/** What each colour is read against, for the ratio shown under its picker. */
-const READ_AGAINST: Partial<Record<SchemeColorKey, SchemeColorKey>> = Object.fromEntries(
-  READ_PAIRS.filter((p) => p.bg !== "background_secondary").map((p) => [p.fg, p.bg]),
-) as Partial<Record<SchemeColorKey, SchemeColorKey>>
-
-/** The four pairs worth a line each in the readout. */
-const READOUT = READ_PAIRS.filter((p) =>
-  (p.fg === "text" && p.bg === "background") ||
-  (p.fg === "heading" && p.bg === "background") ||
-  p.fg === "primary_button_text" ||
-  p.fg === "secondary_button_text",
-)
-const READOUT_LABEL: Record<string, string> = {
-  "text/background": "Text",
-  "heading/background": "Headings",
-  "primary_button_text/primary_button_background": "Primary button",
-  "secondary_button_text/secondary_button_background": "Secondary button",
-}
-
-/** A pair's ratio, falling back to the background where the scheme leaves a colour transparent. */
-function pairRatio(scheme: ColorScheme, fg: SchemeColorKey, bg: SchemeColorKey): number | null {
-  const f = parseColor(scheme[fg])
-  const b = parseColor(scheme[bg]) ?? parseColor(scheme.background)
-  if (!f || !b) return null
-  return contrastRatio(f, b)
-}
-
-/** One colour: its row, and its picker opening under it. */
-function ColorRow({
-  label,
-  value,
-  onChange,
-  existing,
-  open,
-  onToggle,
-  against,
-}: {
-  label: string
-  value: string
-  onChange: (v: string) => void
-  existing: string[]
-  open: boolean
-  onToggle: () => void
-  against?: { label: string; color: string }
-}) {
-  const shown = !value || value === "transparent" ? "" : value
-  /* A picker that opens below the fold has opened somewhere nobody is looking. */
-  const root = useRef<HTMLDivElement>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   useEffect(() => {
-    if (!open) return
-    const t = window.setTimeout(() => revealInScroller(root.current), 260)
-    return () => window.clearTimeout(t)
-  }, [open])
-  return (
-    <div ref={root} className={cn("rounded-lg transition-colors duration-150", open && "bg-[#f6f7f8]")} data-color-row={label}>
-      <button type="button" aria-expanded={open} onClick={onToggle} className="flex h-11 w-full items-center gap-3 rounded-lg px-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-black/10">
-        <span className="min-w-0 flex-1 truncate text-[13px] text-[#1a1a2e]">{label}</span>
-        <span className="font-mono text-[11px] uppercase tabular-nums text-[#6b7280]">{shown || "None"}</span>
-        <span aria-hidden className="h-6 w-6 shrink-0 rounded-md border border-black/10" style={{ background: shown || CHECKER }} />
-      </button>
-      <Collapse open={open} innerClassName="px-2.5 pb-3">
-        {() => <ColorPickerPanel value={shown} onChange={onChange} existing={existing} against={against} />}
-      </Collapse>
-    </div>
-  )
-}
+    if (initialActive && schemes[initialActive]) {
+      setActive(initialActive)
+      onInitialActiveConsumed?.()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialActive])
+  useEffect(() => { setConfirmDelete(false) }, [active])
 
-/**
- * ===========================================================================
- *  ONE SCHEME, IN A PANEL OF ITS OWN
- * ===========================================================================
- * Opened from a card in Colors, or from Edit beside a section's scheme. At
- * the top, the scheme drawn as a small section, so every change is seen on
- * something that looks like a page; under it, how readable its pairs are;
- * then its colours, one row each, opening one picker at a time.
- */
-export function SchemeEditor({
-  theme,
-  schemeKey,
-  updateSetting,
-  onRemapSections,
-  onDeleted,
-}: {
-  theme: Theme
-  schemeKey: string
-  updateSetting: (key: string, value: unknown) => void
-  /** Move every section on the current page from one scheme to another. */
-  onRemapSections: (from: string, to: string) => void
-  /** The scheme is gone; the caller goes back to the list. */
-  onDeleted: () => void
-}) {
-  const t = asRecord(theme)
-  const schemes = themeColorSchemes(t)
-  const activeKey = schemes[schemeKey] ? schemeKey : FALLBACK_SCHEME_KEY
+  const activeKey = schemes[active] ? active : FALLBACK_SCHEME_KEY
   const current = schemes[activeKey]
   const base = isBuiltInScheme(activeKey) ? DEFAULT_COLOR_SCHEMES[activeKey] : DEFAULT_COLOR_SCHEMES[FALLBACK_SCHEME_KEY]
   const own = (t.color_schemes && typeof t.color_schemes === "object" ? t.color_schemes : {}) as Record<string, unknown>
   const defaultKey = defaultSchemeKey(t, schemes)
   const isDirty = Object.keys(stripSchemeDefaults(current, base)).length > 0
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [openRow, setOpenRow] = useState<SchemeColorKey | null>(null)
-  useEffect(() => { setConfirmDelete(false); setOpenRow(null) }, [activeKey])
 
   const save = (next: ColorScheme) => {
     updateSetting("color_schemes", { ...own, [activeKey]: stripSchemeDefaults(next, base) })
   }
   const setColor = (key: SchemeColorKey, value: string) => save({ ...current, [key]: value })
+
+  const addScheme = () => {
+    const key = `custom_${Date.now().toString(36)}`
+    const n = Object.keys(schemes).length + 1
+    updateSetting("color_schemes", { ...own, [key]: stripSchemeDefaults(newSchemeFrom(current, `Scheme ${n}`), DEFAULT_COLOR_SCHEMES[FALLBACK_SCHEME_KEY]) })
+    setActive(key)
+  }
 
   const deleteScheme = () => {
     if (isBuiltInScheme(activeKey)) return
@@ -804,152 +759,145 @@ export function SchemeEditor({
     updateSetting("color_scheme_remaps", { ...remaps, [activeKey]: to })
     if (defaultKey === activeKey) updateSetting("default_color_scheme", to)
     onRemapSections(activeKey, to)
-    onDeleted()
+    setActive(to)
   }
 
-  const existing = Array.from(new Set(Object.values(current).filter((v): v is string => typeof v === "string" && /^#/.test(v)))).slice(0, 16)
+  const existing = Array.from(new Set(Object.values(current).filter((v): v is string => typeof v === "string" && /^#/.test(v)))).slice(0, 14)
 
-  /**
-   * Twenty-one colours can be set to anything, and the pair that stops being
-   * readable is the one nobody notices: it looks fine on the screen it was
-   * picked on. The ratio is arithmetic, so it can simply be said. It is a
-   * note and not a block: a scheme the editor refuses to save is worse than
-   * one it has an opinion about.
-   */
-  const contrast = schemeContrast(current)
-  const isDefault = defaultKey === activeKey
+  /*
+    NO CONTRAST NUMBERS AND NO WARNINGS HERE. A ratio and a "Hard to read"
+    list under the colours were more than somebody choosing a colour needs,
+    and the owner asked for them gone. What stays is invisible: every scheme
+    Storelib ships is held readable by tests/contrast.test.ts.
+  */
 
   return (
-    <div className="space-y-5" data-scheme-editor={activeKey}>
-      <SchemePreview scheme={current} />
-
-      <div className="space-y-3">
-        <input
-          type="text"
-          className={cn(INPUT, "h-10 font-medium")}
-          value={current.name}
-          aria-label="Scheme name"
-          onChange={(e) => save({ ...current, name: e.target.value })}
-          onBlur={(e) => { if (!e.target.value.trim()) save({ ...current, name: base.name }) }}
-        />
-        <label className="flex cursor-pointer items-center justify-between gap-3 text-[13px] text-foreground">
-          <span>Default for new sections</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={isDefault}
-            onClick={() => updateSetting("default_color_scheme", isDefault ? FALLBACK_SCHEME_KEY : activeKey)}
-            className={cn(switchTrack(isDefault), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
-          >
-            <span className={switchKnob(isDefault)} />
-          </button>
-        </label>
+    <div className="space-y-4">
+      <div className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
+        <Info className="h-3 w-3 shrink-0 mt-0.5" />
+        <p className="flex-1">Every section picks one of these schemes. Change a scheme here and every section using it changes with it.</p>
       </div>
 
-      {/* How readable it is: four pairs, each with its ratio. */}
-      <div className="rounded-lg border border-[#e5e7eb]" data-contrast-readout="">
-        {READOUT.map((pair, i) => {
-          const ratio = pairRatio(current, pair.fg, pair.bg)
-          const low = ratio !== null && ratio < pair.need - 0.005
+      {/* The schemes */}
+      <div className="space-y-1">
+        {Object.entries(schemes).map(([key, sc]) => {
+          const isActive = key === activeKey
           return (
-            <div key={`${pair.fg}/${pair.bg}`} className={cn("flex h-9 items-center justify-between gap-3 px-3 text-[12.5px]", i > 0 && "border-t border-[#f0f1f3]")}>
-              <span className="text-[#4b5563]">{READOUT_LABEL[`${pair.fg}/${pair.bg}`] ?? pair.label}</span>
-              {ratio === null || (current.gradient && pair.bg === "background") ? (
-                <span className="text-[#9ca3af]">Not measured</span>
-              ) : (
-                <span className={cn("flex items-center gap-1.5 tabular-nums", low ? "font-medium text-[#b45309]" : "text-[#1a1a2e]")}>
-                  {(Math.round(ratio * 10) / 10).toFixed(1)} : 1
-                  {low ? <span className="text-[11px]">Low</span> : <Check aria-hidden className="h-3.5 w-3.5 text-[#15803d]" strokeWidth={2.5} />}
-                </span>
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActive(key)}
+              className={cn(
+                "w-full h-11 flex items-center gap-2.5 px-2.5 rounded-lg transition-colors duration-100",
+                isActive ? "bg-[#1a1a2e] text-white" : "hover:bg-muted/60 text-foreground",
               )}
-            </div>
+            >
+              <Swatch scheme={sc} />
+              <span className="text-sm font-medium flex-1 text-left truncate">{sc.name}</span>
+              {key === defaultKey && <span className={cn("text-[10px] font-medium uppercase tracking-wider", isActive ? "text-white/70" : "text-muted-foreground")}>Default</span>}
+            </button>
           )
         })}
+        <button type="button" onClick={addScheme} className="w-full h-10 flex items-center gap-2 px-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors">
+          <Plus className="h-4 w-4" />
+          Add scheme
+        </button>
       </div>
-      {contrast.failing.length > 0 && (
-        <div className="border-l-2 border-[#c2751a] pl-2.5 space-y-0.5">
-          <p className="text-[12px] font-medium text-foreground">Hard to read</p>
-          {contrast.failing.map((f) => (
-            <p key={`${f.fg}-${f.bg}`} className="text-[12px] text-muted-foreground leading-snug">
-              {f.label} is {sayRatio(f.ratio)}, under the {f.need} to 1 it needs.
-            </p>
-          ))}
-        </div>
-      )}
-      {current.gradient && contrast.unknown.length > 0 && (
-        <p className="text-[12px] text-muted-foreground leading-snug">
-          A gradient sits over the background, so text on it is not measured here.
-        </p>
-      )}
 
-      {SCHEME_COLOR_GROUPS.map((group) => (
-        <div key={group.label} className="space-y-1">
-          <p className="px-2.5 text-[11px] font-semibold uppercase tracking-wider text-[#6b7280]">{group.label}</p>
-          <div className="space-y-0.5">
-            {group.keys.map((key) => {
-              const bgKey = READ_AGAINST[key]
-              const against = bgKey ? { label: SCHEME_COLOR_LABELS[bgKey], color: current[bgKey] === "transparent" ? current.background : current[bgKey] } : undefined
-              return (
-                <ColorRow
-                  key={key}
-                  label={SCHEME_COLOR_LABELS[key]}
-                  value={current[key]}
-                  onChange={(c) => setColor(key, c)}
-                  existing={existing}
-                  open={openRow === key}
-                  onToggle={() => setOpenRow((o) => (o === key ? null : key))}
-                  against={against}
-                />
-              )
-            })}
-          </div>
-        </div>
-      ))}
+      <div className="h-px bg-border" />
 
-      {/* Gradient */}
-      <div className="space-y-2">
-        <label className="flex cursor-pointer items-center justify-between gap-3 px-2.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#6b7280]">Gradient</span>
-          <span className="flex items-center gap-2 text-[12px] text-muted-foreground">
-            Over the background
-            <button
-              type="button"
-              role="switch"
-              aria-checked={!!current.gradient}
-              onClick={() => save({ ...current, gradient: current.gradient ? "" : GRADIENT_PRESETS[0].value })}
-              className={cn(switchTrack(!!current.gradient), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
-            >
-              <span className={switchKnob(!!current.gradient)} />
-            </button>
-          </span>
+      {/* The active scheme */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Swatch scheme={current} />
+          <input
+            type="text"
+            className={cn(INPUT, "flex-1 font-medium")}
+            value={current.name}
+            aria-label="Scheme name"
+            onChange={(e) => save({ ...current, name: e.target.value })}
+            onBlur={(e) => { if (!e.target.value.trim()) save({ ...current, name: base.name }) }}
+          />
+        </div>
+        <label className="flex items-center justify-between gap-3 text-[13px] text-foreground">
+          <span>Default for new sections</span>
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-[#1a1a2e]"
+            checked={defaultKey === activeKey}
+            onChange={(e) => updateSetting("default_color_scheme", e.target.checked ? activeKey : FALLBACK_SCHEME_KEY)}
+          />
         </label>
-        <Collapse open={!!current.gradient}>
-          {() => (
-            /* A gradient you make by looking at it; it still saves the CSS string. */
+
+        {SCHEME_COLOR_GROUPS.map((group) => (
+          <div key={group.label} className="space-y-1">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{group.label}</p>
+            <div>
+              {group.keys.map((key, idx) => (
+                <div key={key} className={cn("flex items-center justify-between gap-3 py-2.5", idx > 0 && "border-t border-border/60")}>
+                  <span className="text-[13px] text-foreground flex-1 truncate">{SCHEME_COLOR_LABELS[key]}</span>
+                  <ColorChip value={current[key] === "transparent" ? "" : current[key]} onChange={(c) => setColor(key, c)} existing={existing} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {/* Gradient */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Gradient</p>
+            <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+              <input
+                type="checkbox"
+                className="h-3.5 w-3.5 accent-[#1a1a2e]"
+                checked={!!current.gradient}
+                onChange={(e) => save({ ...current, gradient: e.target.checked ? GRADIENT_PRESETS[0].value : "" })}
+              />
+              Over the background
+            </label>
+          </div>
+          {current.gradient && (
+            /* A gradient you make by looking at it: direction, stops and
+               colours, with the scheme's own picker. It still saves the CSS
+               string, so nothing downstream changed. */
             <GradientEditor value={current.gradient} onChange={(css) => save({ ...current, gradient: css })} existing={existing} />
           )}
-        </Collapse>
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
+          {isBuiltInScheme(activeKey) ? (
+            <button type="button" disabled={!isDirty} onClick={() => save({ ...base })} className="text-[12px] font-medium text-foreground/70 hover:text-foreground disabled:opacity-40 flex items-center gap-1">
+              <RotateCcw className="h-3 w-3" />
+              Reset to default
+            </button>
+          ) : confirmDelete ? (
+            <span className="flex items-center gap-2 text-[12px]">
+              <span className="text-muted-foreground">Sections on it move to {schemes[defaultKey === activeKey ? FALLBACK_SCHEME_KEY : defaultKey].name}.</span>
+              <button type="button" onClick={deleteScheme} className="font-medium text-red-600 hover:text-red-700">Delete</button>
+              <button type="button" onClick={() => setConfirmDelete(false)} className="font-medium text-muted-foreground hover:text-foreground">Keep</button>
+            </span>
+          ) : (
+            <button type="button" onClick={() => setConfirmDelete(true)} className="text-[12px] font-medium text-foreground/70 hover:text-red-600 flex items-center gap-1">
+              <Trash2 className="h-3 w-3" />
+              Delete scheme
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-[#f0f1f3] pt-3">
-        {isBuiltInScheme(activeKey) ? (
-          <button type="button" disabled={!isDirty} onClick={() => save({ ...base })} className="text-[12.5px] font-medium text-foreground/70 hover:text-foreground disabled:opacity-40 flex items-center gap-1.5">
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset to default
+      {advanced && (
+        <div className="border-t border-border pt-3">
+          {/* Same row, same three rules, before it is reported too. */}
+          <button type="button" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((o) => !o)} className="w-full flex items-center justify-between gap-2 text-sm font-medium text-foreground">
+            <span className="min-w-0 truncate">Page colors</span>
+            <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200", advancedOpen && "rotate-180")} />
           </button>
-        ) : confirmDelete ? (
-          <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px]">
-            <span className="text-muted-foreground">Sections on it move to {schemes[defaultKey === activeKey ? FALLBACK_SCHEME_KEY : defaultKey].name}.</span>
-            <button type="button" onClick={deleteScheme} className="font-medium text-red-600 hover:text-red-700">Delete</button>
-            <button type="button" onClick={() => setConfirmDelete(false)} className="font-medium text-muted-foreground hover:text-foreground">Keep</button>
-          </span>
-        ) : (
-          <button type="button" onClick={() => setConfirmDelete(true)} className="text-[12.5px] font-medium text-foreground/70 hover:text-red-600 flex items-center gap-1.5">
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete scheme
-          </button>
-        )}
-      </div>
+          <p className="text-[11px] text-muted-foreground mt-1">The page behind the sections, the announcement bar and links outside any section.</p>
+          {/* `pt-3` where the list had `mt-3`: the same 12px, inside the height the Collapse measures. */}
+          <Collapse open={advancedOpen} onlyVisible innerClassName="space-y-4 pt-3">{advanced}</Collapse>
+        </div>
+      )}
     </div>
   )
 }
@@ -986,7 +934,7 @@ export function TypographyPanel({
       <div className="h-px bg-border" />
       <div className="space-y-1">
         <p className={LABEL}>Text styles</p>
-        <p className="text-[11px] text-muted-foreground leading-relaxed">Sections use these unless they pick another style or set their own.</p>
+        <p className="text-[11px] text-muted-foreground leading-relaxed">Sections use these by default. A section can pick a different style for its heading and body, or set its own.</p>
       </div>
       <div className="space-y-1">
         {TYPE_STYLE_KEYS.map((key) => {
@@ -995,7 +943,7 @@ export function TypographyPanel({
           const changed = Object.keys(stripTypeStyleDefaults(st, bases[key])).length > 0
           const family = typo.fonts[st.font]
           return (
-            <div key={key} className={cn("rounded-lg border transition-colors duration-150", isOpen ? "border-neutral-300" : "border-border")}>
+            <div key={key} className={cn("rounded-lg border", isOpen ? "border-neutral-300" : "border-border")}>
               <button type="button" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)} className="w-full flex items-center gap-3 px-3 h-12 text-left">
                 <span
                   className="w-10 shrink-0 text-center truncate"
@@ -1014,10 +962,10 @@ export function TypographyPanel({
                     {family} {st.weight} · {st.size.desktop}/{st.size.tablet}/{st.size.mobile}px · {st.line_height}
                   </span>
                 </span>
-                {changed && <span className="h-1.5 w-1.5 rounded-full bg-[#1a1a2e] shrink-0" aria-label="Changed" />}
+                {changed && <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />}
                 <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 shrink-0", isOpen && "rotate-180")} />
               </button>
-              <Collapse open={isOpen}>
+              <Collapse open={isOpen} onlyVisible>
                 {() => (
                   <div className="border-t border-border p-3">
                     <TypeStyleFields value={st} base={bases[key]} onChange={(next) => save(key, next)} />

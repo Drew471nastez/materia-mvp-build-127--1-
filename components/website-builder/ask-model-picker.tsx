@@ -16,12 +16,18 @@
  * sheet (components/ui/bottom-sheet.tsx), which moves and closes like every
  * other sheet in the app. The choices are the three the app already has; the
  * ids and what they send are the chat's (ENGINES in theme-chat.tsx).
+ *
+ * THE ONE MENU ASK STORELIB HAS, so it also holds Ask Storelib's one
+ * preference: Sounds, on or off, under the models, drawn as every switch in
+ * the app is (components/ui/switch-style.ts). Remembered per browser by the
+ * chat (lib/website-builder/ask-sounds.ts).
  */
 
 import * as React from "react"
 import { Check, ChevronDown } from "lucide-react"
 
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { ClaudeMark, OpenAIMark } from "@/components/website-builder/connection-marks"
 import { cn } from "@/lib/utils"
 
@@ -51,6 +57,8 @@ export function ModelPicker({
   open,
   onOpenChange,
   phone,
+  sounds,
+  onSoundsChange,
 }: {
   engines: readonly EngineOption[]
   value: string
@@ -58,6 +66,9 @@ export function ModelPicker({
   open: boolean
   onOpenChange: (open: boolean) => void
   phone: boolean
+  /** Whether Ask Storelib's sounds are on; the switch is drawn when a handler is given. */
+  sounds?: boolean
+  onSoundsChange?: (on: boolean) => void
 }) {
   const chosen = engines.find((e) => e.id === value) ?? engines[0]
 
@@ -104,6 +115,27 @@ export function ModelPicker({
     </ul>
   )
 
+  const soundsRow = onSoundsChange && (
+    <div className={cn("border-t border-[#e5e7eb]/70", phone ? "mx-2 mb-2 pt-1.5" : "mx-1 mb-1 pt-1")}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={!!sounds}
+        data-ask-sounds={sounds ? "on" : "off"}
+        onClick={() => onSoundsChange(!sounds)}
+        className={cn(
+          "flex w-full items-center gap-3 rounded-xl text-left transition-colors hover:bg-black/[0.04] active:bg-black/[0.06]",
+          phone ? "min-h-[52px] px-3" : "min-h-[40px] px-2.5",
+        )}
+      >
+        <span className={cn("min-w-0 flex-1 text-[#1a1a2e]", phone ? "text-[15px]" : "text-[13px]")}>Sounds</span>
+        <span aria-hidden className={switchTrack(!!sounds)}>
+          <span className={switchKnob(!!sounds)} />
+        </span>
+      </button>
+    </div>
+  )
+
   return (
     <>
       <button
@@ -134,11 +166,13 @@ export function ModelPicker({
           )}
         >
           {rows}
+          {soundsRow}
         </div>
       )}
       {phone && (
         <BottomSheet isOpen={open} onClose={() => onOpenChange(false)} title="Model" hideFrom={null}>
           {rows}
+          {soundsRow}
         </BottomSheet>
       )}
     </>

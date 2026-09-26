@@ -128,7 +128,7 @@ export default async function AppLayout({
   /*
     WHAT THE SETUP RING COUNTS, IN ONE TRIP. The sidebar's "Setup" ring and
     the phone menu's Store setup card say how far Getting started on Home
-    has got, so they count the same eight steps by the same rules
+    has got, so they count the same seven steps by the same rules
     (lib/home/progress): a product, a website published right now, a
     verified domain and one sale, all by the creator's id, on the caller's
     own client. The sale is found through its product's creator, as Home

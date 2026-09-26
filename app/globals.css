@@ -1099,30 +1099,58 @@ html.capacitor body {
    * in the browser. A fake loading state makes a change of tab look slower
    * AND cheaper than simply doing it.
    *
-   * 140ms, opacity only. Short because this is a tab, not a page — long
-   * enough to read as one thing replacing another, short enough that the
-   * fourth switch in a row does not make you wait for it.
+   * Opacity only, short because this is a tab, not a page: long enough to
+   * read as one thing replacing another, short enough that the fourth
+   * switch in a row does not make you wait for it.
    */
 
   /*
-    THE BUMP WAS THIS RULE. The panel used to rise 4px as it faded in, and
+    THE BUMP WAS A RISE. The panel used to rise 4px as it faded in, and
     scripts/check-settings-tabs measured exactly that on every switch at 390
     and 1440: the new tab's first card drawn 4px low and then moving up. A
     content switch under a tab bar that does not move is read as the page
-    jolting, not as an entrance. Opacity only now, and from 0.4 rather than
-    0, so there is never a frame with nothing under the tabs: the new tab is
-    there at once, in its final place, and only settles in tone.
+    jolting, not as an entrance. So it does not move: the new tab is there
+    at once, in its final place, and only settles in tone.
+
+    TOO DIRECT AT 140ms FROM 0.4. "Make it a little bit smooth when I switch
+    and content appears, not that direct." From 0.4 over 140ms on a curve
+    that is done in the first 60ms, the change was over before it was seen.
+    Now 200ms from 0.2 on an ease out (easeOutCubic): half way by 40ms, 90%
+    by 100ms, so it is visible as a fade and still over well inside the
+    time it takes to look down at the panel. 0.2, not 0, so no frame is
+    empty under the tabs. The old panel goes at once, with no fade out, and
+    the class is only put on after a tab is pressed (components/app/
+    settings-form-new), so the first paint does not fade.
   */
   .settings-panel {
-    animation: settings-panel-in 140ms cubic-bezier(0.2, 0, 0, 1) backwards;
+    animation: settings-panel-in 200ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
   }
   @keyframes settings-panel-in {
-    from { opacity: 0.4; }
+    from { opacity: 0.2; }
     to { opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) {
     .settings-panel { animation: none; }
   }
+
+  /* ── The rich text editor's own content ─────────────────────────────────
+     A contentEditable inherits nothing, so headings and lists inside it
+     render as plain paragraphs and the formatting somebody just applied is
+     invisible until they look at the page. These are the shapes the field
+     can actually produce and nothing else. */
+  .wb-richtext > * + * { margin-top: 0.65em; }
+  .wb-richtext h2 { font-size: 1.15rem; font-weight: 650; line-height: 1.3; }
+  .wb-richtext h3 { font-size: 1.02rem; font-weight: 650; line-height: 1.35; }
+  .wb-richtext h4 { font-size: 0.95rem; font-weight: 650; line-height: 1.4; }
+  .wb-richtext p { line-height: 1.55; }
+  .wb-richtext ul,
+  .wb-richtext ol { padding-left: 1.25rem; }
+  .wb-richtext ul { list-style: disc; }
+  .wb-richtext ol { list-style: decimal; }
+  .wb-richtext li { line-height: 1.55; }
+  .wb-richtext li + li { margin-top: 0.25em; }
+  .wb-richtext a { color: #8b5cf6; text-decoration: underline; }
+  .wb-richtext strong, .wb-richtext b { font-weight: 650; }
 
   /* Project settings: a whole page over the builder, arriving from a touch
      below and a touch smaller, which is what makes it a page opening rather
@@ -2950,16 +2978,96 @@ html.capacitor .app-content-scroll {
  * takes no space in the flow, and without this the last row of every list
  * would sit permanently underneath it.
  *
- * 104px is the bar (58) plus the gap below it (6) plus a comfortable margin
- * above it, and the safe-area inset on top of that for the home indicator.
- * It REPLACES the capacitor rule above at this width rather than adding to
- * it, which is why the inset is written out again here.
+ * The room is --app-nav-room: the pill's height, the gap under it, and 40px
+ * above it, so it follows the pill on every phone. It REPLACES the capacitor
+ * rule above at this width rather than adding to it; the gap under the pill
+ * already holds the home indicator's inset.
  *
  * Above 768px the pill is not rendered and this does not apply.
+ *
+ * ── THE PILL'S SIZE, ONCE, FOR EVERY PHONE SINCE 2015 ──────────────────────
+ *
+ * Everything that knows how big the pill is reads it from here: the pill
+ * itself (components/app/sidebar-mobile-nav.tsx, which has no copy of any of
+ * these numbers), the room pages leave under their content, the menu page's,
+ * and the Android exit toast (components/app/native-back-handler.tsx).
+ *
+ * The -n values are the pill in DESIGN pixels. "Reduce the overall size by
+ * 4%": each is the one before it times 0.96 (63, 58, 4, 8 and 22 were the
+ * bar, a tab, the padding, the gap and the icons).
+ *
+ * --app-nav-px is how big a design pixel is on this phone. The widest the
+ * group ever is, with the menu open (the settings circle, the gap, the bar,
+ * the gap, the menu button), has to fit with 8px on each side, and 3px more
+ * is kept back for the rounding below, so it is the screen less 19px over
+ * that width: one real pixel from 390px up, 97% at 375, 93% at 360, 82% at
+ * 320. Before this the group was a fixed 382px open, and the settings circle
+ * ran 31px off a 320px iPhone SE, 11px off a 360px Android and 3.5px off a
+ * 375px iPhone 8 (scripts/check-app-mobile-nav-widths.mjs). The floor, 44px
+ * over a tab's width, keeps every tab at least 44px wide on anything
+ * narrower. Each length is that times its design number, so it all shrinks
+ * together and keeps its shape: the circles stay circles, and the bar and
+ * the round buttons stay one height.
+ *
+ * The icons stop shrinking at 19px, so a 320px phone still reads them.
+ *
+ * WHOLE PIXELS, where the engine can round (the @supports block after this
+ * one). An icon is two drawings cross-faded, an outline and a solid, and at
+ * a fractional size or place the two land on different device pixels: the
+ * icon moved by a pixel as its tab turned on (scripts/check-app-mobile-nav.mjs,
+ * "in the same place, to the half pixel", failed on two icons at 60.48).
+ * Rounded, the bar is 60 by 232 on a 390px phone rather than 60.48 by
+ * 230.4: 4.8% lower and 3.3% narrower than 63 by 240, 8.1% less area where
+ * 4% each way is 7.8%. An engine without round() draws the exact numbers.
+ *
+ * --app-nav-lift: MAX, NOT PLUS. It was `4px + env(...)`, which on a phone
+ * is 4px ON TOP of a 34px home indicator inset: 38px of air under the pill,
+ * and the reference sits nearer the bottom than that. The 4px is a floor
+ * against the edge of the glass (the probe refuses 2px: a thumb pressing the
+ * outer buttons catches the side of the display); the inset is a floor
+ * against the home indicator. The larger of the two satisfies whichever one
+ * applies: 34px on a phone with a home indicator, and 4px on an iPhone 8 or
+ * SE, or in a browser, with none.
  * ────────────────────────────────────────────────────────────────────────── */
+:root {
+  --app-nav-bar-n: 60.48;
+  --app-nav-slot-n: 55.68;
+  --app-nav-pad-n: 3.84;
+  --app-nav-gap-n: 7.68;
+  --app-nav-glyph-n: 21.12;
+  --app-nav-tabs: 4;
+  --app-nav-px: clamp(
+    calc(44px / var(--app-nav-slot-n)),
+    calc((100vw - 19px) / (var(--app-nav-bar-n) * 2 + var(--app-nav-gap-n) * 2 + var(--app-nav-slot-n) * var(--app-nav-tabs) + var(--app-nav-pad-n) * 2)),
+    1px
+  );
+  --app-nav-bar: calc(var(--app-nav-px) * var(--app-nav-bar-n));
+  --app-nav-slot: calc(var(--app-nav-px) * var(--app-nav-slot-n));
+  --app-nav-pad: calc(var(--app-nav-px) * var(--app-nav-pad-n));
+  --app-nav-gap: calc(var(--app-nav-px) * var(--app-nav-gap-n));
+  --app-nav-dot: calc(var(--app-nav-bar) - var(--app-nav-pad) * 2);
+  --app-nav-width: calc(var(--app-nav-slot) * var(--app-nav-tabs) + var(--app-nav-pad) * 2);
+  --app-nav-glyph: max(19px, calc(var(--app-nav-px) * var(--app-nav-glyph-n)));
+  --app-nav-lift: max(4px, env(safe-area-inset-bottom, 0px));
+  --app-nav-top: calc(var(--app-nav-bar) + var(--app-nav-lift));
+  --app-nav-room: calc(var(--app-nav-top) + 40px);
+}
+/* The bar, a tab, the gap and the icons on whole pixels, the padding on half
+   ones: the group is a whole number of pixels wide, so it is centred on a
+   whole or half pixel, and every icon sits on a half pixel, which is a whole
+   device pixel at 2x, as it was at 63. */
+@supports (width: round(1.5px, 1px)) {
+  :root {
+    --app-nav-bar: round(calc(var(--app-nav-px) * var(--app-nav-bar-n)), 1px);
+    --app-nav-slot: round(calc(var(--app-nav-px) * var(--app-nav-slot-n)), 1px);
+    --app-nav-pad: round(calc(var(--app-nav-px) * var(--app-nav-pad-n)), 0.5px);
+    --app-nav-gap: round(calc(var(--app-nav-px) * var(--app-nav-gap-n)), 1px);
+    --app-nav-glyph: round(max(19px, calc(var(--app-nav-px) * var(--app-nav-glyph-n))), 1px);
+  }
+}
 @media (max-width: 767px) {
   html.app-layout .app-content-scroll {
-    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--app-nav-room);
   }
 
   /* ── MOST PAGES SCROLL IN A CONTAINER OF THEIR OWN ─────────────────────
@@ -2992,7 +3100,7 @@ html.capacitor .app-content-scroll {
   /* Orders scrolls in two panes, the list and the order over it, so the
      room for the bar goes on each of them rather than on the stage. */
   html.app-layout .app-content-scroll > .orders-stage > .orders-pane {
-    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--app-nav-room);
   }
 
   /* ── One bottom strip, one owner ─────────────────────────────────────────
@@ -3035,10 +3143,10 @@ html.capacitor .app-content-scroll {
      empty strip under the pill described above. Two rules, not a list: an
      engine without :has() would drop the whole list, the second rule too. */
   [data-page-layer="pill"] [data-page-layer-scroll]:not(:has(> .page-scroll)) {
-    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--app-nav-room);
   }
   [data-page-layer="pill"] [data-page-layer-scroll] > .page-scroll {
-    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--app-nav-room);
   }
 
   /* ── A sheet goes OVER the pill, and the pill stays ─────────────────────
@@ -4202,73 +4310,55 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
   background-color: #ffffff;
 }
 
-/* ── The builder's slider (components/website-builder/editor/slider-number-control) ──
-   Drawn from three elements the drag moves by transform alone: the fill
-   (scaleX from the left), the thumb (on a rail one thumb shorter than the
-   track) and the number. Nothing here is laid out again while a finger is
-   down. `--wb-thumb` is the one size both the rail and the thumb read, so
-   the phone sheet can make the thumb bigger in one place (see the sheet's
-   block further down) and the far end is still the far end. */
-.wb-slider {
-  --wb-thumb: 18px;
-}
-.wb-slider-track {
-  height: 4px;
-}
-/* The fill runs from under the thumb's centre at the left end, so at the
-   start it is hidden by the thumb rather than peeking out behind it. */
-.wb-slider-track::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  left: 0;
-  width: calc(var(--wb-thumb) / 2 + 1px);
-  background: #1a1a2e;
-}
-.wb-slider-fill {
-  left: calc(var(--wb-thumb) / 2);
-  width: calc(100% - var(--wb-thumb));
-  border-radius: 0;
-}
-.wb-slider-rail {
-  right: var(--wb-thumb);
-}
-.wb-slider-thumb {
-  width: var(--wb-thumb);
-  height: var(--wb-thumb);
-  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.16), 0 1px 3px rgba(17, 24, 39, 0.22);
-  transition: scale 160ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 160ms ease-out;
-  cursor: grab;
-}
-.wb-slider [data-slot="slider"]:hover .wb-slider-thumb {
-  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.2), 0 1px 3px rgba(17, 24, 39, 0.22), 0 0 0 5px rgba(26, 26, 46, 0.06);
-}
-.wb-slider[data-dragging] .wb-slider-thumb {
-  scale: 1.12;
-  cursor: grabbing;
-  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.2), 0 2px 6px rgba(17, 24, 39, 0.24), 0 0 0 6px rgba(26, 26, 46, 0.08);
-}
-.wb-slider-thumb:focus-visible {
-  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.2), 0 1px 3px rgba(17, 24, 39, 0.22), 0 0 0 4px rgba(26, 26, 46, 0.18);
-}
-@media (prefers-reduced-motion: reduce) {
-  .wb-slider-thumb { transition: none; }
-}
+/* ── Website-builder black slider (SliderNumberControl) ──
+   Overrides the shared shadcn Slider look: filled black range,
+   black thumb with subtle halo on hover/drag, bigger hit area for
+   smooth drag on mobile + desktop.
 
-/* A rich text setting in the sidebar stops growing sooner than a product
-   description does, so the section's other settings stay in reach
-   (components/website-builder/rich-text-field.tsx). */
-.wb-rich-text .rich-text-content {
-  max-height: var(--wb-rich-max, 260px);
-  /* The panel's own slim bar, not a second, wider one inside it. */
-  scrollbar-width: thin;
+   IMPORTANT: hide ticks via `:not([data-slot])` instead of `> div`.
+   The base Slider renders SliderPrimitive.Range as a direct <div> child
+   of Track (with data-slot="slider-range"), so `> div` would also hide
+   the filled range — leaving only a blank track. Targeting only
+   divs WITHOUT a data-slot isolates the tick markers cleanly. */
+.wb-black-slider [data-slot="slider-track"] {
+  background-color: #ececec !important;
+  height: 6px !important;
+  border-radius: 999px !important;
+  overflow: hidden !important;
 }
-/* Seven controls in one row at the sidebar's default width: 29px targets
-   instead of 32, on a computer only (a phone keeps 44 and scrolls the row). */
-@media (min-width: 640px) {
-  .wb-rich-text .rich-text-toolbar button {
-    width: 29px;
-  }
+.wb-black-slider [data-slot="slider-track"] > div:not([data-slot]) {
+  /* Hide the tick dots Slider adds so the filled range reads cleanly */
+  display: none !important;
+}
+.wb-black-slider [data-slot="slider-range"] {
+  background-color: #111111 !important;
+  border-radius: 999px !important;
+  display: block !important;
+}
+.wb-black-slider [data-slot="slider-thumb"] {
+  width: 20px !important;
+  height: 20px !important;
+  background-color: #111111 !important;
+  border: 3px solid #ffffff !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.06) !important;
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1), box-shadow 180ms ease !important;
+  cursor: grab !important;
+}
+.wb-black-slider [data-slot="slider-thumb"]:hover {
+  transform: scale(1.12) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 6px rgba(0,0,0,0.06) !important;
+}
+.wb-black-slider [data-slot="slider-thumb"]:active,
+.wb-black-slider [data-slot="slider-thumb"][data-state="active"] {
+  transform: scale(1.18) !important;
+  cursor: grabbing !important;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3), 0 0 0 8px rgba(0,0,0,0.08) !important;
+  transition-duration: 90ms !important;
+}
+.wb-black-slider [data-slot="slider-thumb"]:focus-visible {
+  outline: none !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 6px rgba(0,0,0,0.06) !important;
 }
 
 /* The section library's dialog on a computer, kept rather than rebuilt: it
@@ -4303,27 +4393,40 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
   .wb-library-panel { transition: none; }
 }
 
-/* A section library preview that lands while its card is on screen fades
-   in over the card's grey (components/website-builder/editor/section-library.tsx). */
-.wb-preview-arrive {
-  /* backwards, not both: once in, the preview holds no finished animation (and no layer of its own). */
-  animation: wb-preview-arrive 220ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
-}
-@keyframes wb-preview-arrive {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wb-preview-arrive { animation: none; }
-}
+/* A section library preview that lands while its card is on screen fades in
+   over the card's grey once, played by hand rather than by a class here: a
+   CSS animation starts again every time a category shows its card after
+   hiding it, and one that fills holds its preview on a layer of its own
+   (components/website-builder/editor/section-library.tsx). A preview drawn
+   ahead into the closed library does not fade at all. */
 
-/* The white piece behind a segmented control's answer slides, by transform
-   (components/website-builder/editor/setting-controls.tsx). */
-.wb-segmented-thumb {
-  transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1);
+/* The page switcher's menu: it opens and closes by opacity and a short drop,
+   both on the compositor, and is kept for the length of its exit, hidden and
+   then gone (components/website-builder/page-switcher.tsx). It is built as
+   it opens, so its opening starts from the closed look through
+   @starting-style, rather than appearing. */
+.wb-pages-menu {
+  opacity: 1;
+  transform: none;
+  transform-origin: 50% 0;
+  transition: opacity 140ms ease-out, transform 200ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+.wb-pages-menu[data-state="closed"] {
+  opacity: 0;
+  transform: translate3d(0, -4px, 0) scale(0.98);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease-in, transform 120ms ease-in, visibility 0s linear 120ms;
+}
+@starting-style {
+  .wb-pages-menu[data-state="open"] {
+    opacity: 0;
+    transform: translate3d(0, -4px, 0) scale(0.98);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .wb-segmented-thumb { transition: none; }
+  .wb-pages-menu,
+  .wb-pages-menu[data-state="closed"] { transition: none; }
 }
 
 /* ── Website-builder Add-Section modal close animation ──
@@ -4892,22 +4995,6 @@ html.pop-in-flight #platform-header-root {
     width: 28px;
     height: 28px;
   }
-  /* The rail the thumb rides is one thumb shorter than the track, so it has
-     to know the thumb grew: the same 28, through the variable it reads. */
-  [data-mobile-bottom-sheet] .wb-slider {
-    --wb-thumb: 28px;
-  }
-
-  /* The sidebar's own select and segmented control, at a thumb's size. */
-  [data-mobile-bottom-sheet] [data-setting-select] > button,
-  [data-mobile-bottom-sheet] [data-setting-select] [role="option"] {
-    min-height: 44px;
-    font-size: 16px;
-  }
-  [data-mobile-bottom-sheet] .wb-segmented button {
-    min-height: 40px;
-    font-size: 14px;
-  }
 
   /*
    * AND THE EMPTY IMAGE BOX STOPS BEING A THIRD OF THE SCREEN.
@@ -4932,10 +5019,10 @@ html.pop-in-flight #platform-header-root {
     padding: 0 14px;
     justify-content: flex-start;
   }
-  [data-mobile-bottom-sheet] .wb-dropzone > .wb-dropzone-title {
+  [data-mobile-bottom-sheet] .wb-dropzone > p:first-of-type {
     font-size: 15px;
   }
-  [data-mobile-bottom-sheet] .wb-dropzone > .wb-dropzone-hint {
+  [data-mobile-bottom-sheet] .wb-dropzone > p + p {
     display: none;
   }
 }
@@ -5086,10 +5173,6 @@ html.pop-in-flight #platform-header-root {
 }
 .wb-image-fade {
   transition: opacity 260ms cubic-bezier(0.32, 0.72, 0, 1);
-}
-/* The upload's hairline eases between progress events instead of stepping. */
-.wb-upload-bar {
-  transition: transform 220ms linear;
 }
 @media (prefers-reduced-motion: reduce) {
   .wb-image-skeleton::after { animation: none; }
@@ -5725,6 +5808,41 @@ html.pop-in-flight #platform-header-root {
   .ask-rec-dot { animation: none; }
 }
 
+/* A message sent, and its answer when it lands: a short rise into place as
+   it fades in, on the sheet's own curve. `ask-fade` is the same without the
+   rise, for a layer over a picture. Once, on mount; transform and opacity. */
+@keyframes ask-in {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ask-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.ask-in { animation: ask-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.ask-fade { animation: ask-fade 180ms ease-out both; }
+
+/* A picture's box before its pixels have decoded: a neutral grey at the
+   picture's own size, with a soft band of light passing over it. The band
+   moves on transform, inside the box's clip. */
+@keyframes ask-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+.ask-shimmer { background-color: #eef0f3; }
+.ask-shimmer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.65) 50%, transparent 100%);
+  animation: ask-shimmer 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ask-in, .ask-fade { animation: none; }
+  .ask-shimmer::before { animation: none; opacity: 0; }
+}
+
 /* ─── Checkout ──────────────────────────────────────────────────────────
    A new line (a discount, a message) rises into place; a Stripe field that
    has not drawn yet shimmers where it will be; and paying ends on a check
@@ -5734,6 +5852,13 @@ html.pop-in-flight #platform-header-root {
   to { opacity: 1; transform: none; }
 }
 .checkout-rise { animation: checkout-rise 180ms ease-out both; }
+
+/* The checkout arriving: the two halves settle in rather than appear, the form a beat after the order. */
+@keyframes checkout-enter {
+  from { opacity: 0; translate: 0 6px; }
+  to { opacity: 1; translate: 0 0; }
+}
+.checkout-enter { animation: checkout-enter 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 
 @keyframes checkout-shimmer {
   from { background-position: 100% 0; }
@@ -5761,6 +5886,7 @@ html.pop-in-flight #platform-header-root {
 .checkout-paid-text { animation: checkout-rise 240ms ease-out 560ms both; }
 
 @media (prefers-reduced-motion: reduce) {
+  .checkout-enter,
   .checkout-rise,
   .checkout-shimmer,
   .checkout-paid,
@@ -5978,7 +6104,7 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
  *
  * ONLY OPACITY AND THE TRANSFORM PROPERTIES MOVE. The deeper shadow and the
  * darker edge of the lift are a layer of their own (::before) that fades in,
- * the guide's light and the plan's dots are layers that slide, and every
+ * the guide's light is a layer that slides, and every
  * movement is on `translate`, `rotate` and `scale`, the individual
  * properties, never `transform`. So a hover paints nothing: the compositor
  * runs all of it.
@@ -5991,7 +6117,22 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 .home-card {
   isolation: isolate;
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 2px 6px -2px rgba(16, 24, 40, 0.05);
-  transition: scale 160ms ease-out;
+  /* The lift rises and settles on the same long ease as its shadow, in and out. */
+  transition:
+    scale 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    translate 700ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+/*
+  A strip under the card, as tall as the lift, that counts as the card: a
+  mouse resting on its bottom edge stays on it once it rises, so the card
+  does not drop and rise again under a still pointer.
+*/
+.home-card::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  height: 5px;
 }
 /* The lift: over the card's edge (the 1px ring) and under it (the two soft shadows). 19px: the card's 20 less its border. */
 .home-card::before {
@@ -6005,7 +6146,7 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
     0 22px 44px -18px rgba(16, 24, 40, 0.2),
     0 8px 16px -8px rgba(16, 24, 40, 0.08);
   opacity: 0;
-  transition: opacity 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 700ms cubic-bezier(0.25, 1, 0.5, 1);
   pointer-events: none;
 }
 
@@ -6016,9 +6157,18 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
     0 16px 30px -14px rgba(16, 24, 40, 0.42),
     0 4px 10px -3px rgba(16, 24, 40, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  /*
+    NO OVERSHOOT. They sprang past where they were going and back
+    (cubic-bezier 1.56), which read as a jolt, "bumpy, direct, cheap". Now
+    one long ease that starts at speed and settles with no rebound, the same
+    curve out as in, each tile on a layer of its own so the compositor moves
+    it on every frame the screen draws.
+  */
+  will-change: translate, rotate;
+  backface-visibility: hidden;
   transition:
-    translate 640ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    rotate 640ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    translate 1100ms cubic-bezier(0.22, 1, 0.36, 1),
+    rotate 1100ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 [data-pay-tile]::before {
   content: "";
@@ -6042,38 +6192,51 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 [data-pay-tile="stripe"] { rotate: 11deg; }
 
 /* Pressing the guide: Getting started bumps, its tiles hop, and its next step lights for a moment. */
+/* One breath, up and back, with no wobble: it was 1.03, below 1 and above again in 620ms, a jolt on a phone. */
 @keyframes home-bump {
-  0% { scale: 1; }
-  28% { scale: 1.03; }
-  58% { scale: 0.994; }
-  80% { scale: 1.004; }
+  0% { scale: 1; animation-timing-function: cubic-bezier(0.33, 0, 0.2, 1); }
+  40% { scale: 1.014; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
   100% { scale: 1; }
 }
 @keyframes home-tile-hop {
-  0%, 100% { translate: 0 0; }
-  35% { translate: 0 -12px; }
-  68% { translate: 0 2px; }
+  0% { translate: 0 0; animation-timing-function: cubic-bezier(0.33, 0, 0.2, 1); }
+  42% { translate: 0 -9px; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  100% { translate: 0 0; }
 }
 @keyframes home-next-lit {
   0%, 100% { background-color: rgba(139, 92, 246, 0); }
   22%, 55% { background-color: rgba(139, 92, 246, 0.1); }
 }
-.home-card[data-bump] { animation: home-bump 620ms cubic-bezier(0.3, 0.7, 0.4, 1); }
-.home-card[data-bump] [data-pay-tile] { animation: home-tile-hop 720ms cubic-bezier(0.3, 0.7, 0.4, 1); }
-.home-card[data-bump] [data-pay-tile="visa"] { animation-delay: 50ms; }
-.home-card[data-bump] [data-pay-tile="stripe"] { animation-delay: 100ms; }
-.home-card[data-bump] [data-next-step] { animation: home-next-lit 1400ms ease-out; }
+.home-card[data-bump] { animation: home-bump 900ms both; }
+.home-card[data-bump] [data-pay-tile] { animation: home-tile-hop 1000ms both; }
+.home-card[data-bump] [data-pay-tile="visa"] { animation-delay: 70ms; }
+.home-card[data-bump] [data-pay-tile="stripe"] { animation-delay: 140ms; }
+.home-card[data-bump] [data-next-step] { animation: home-next-lit 1600ms ease-in-out; }
 
 /* The guide: a small press, and its thumbnail drifts, light moving across it. */
-.home-guide:active { scale: 0.985; }
+.home-guide:active { scale: 0.985; transition-duration: 140ms; }
+/*
+  CLIPPED BY A MASK AS WELL AS BY ITS CORNERS. On iPhone, WebKit does not
+  clip a child that sits on a layer of its own (the light, slid on hover and
+  on the autoplay) to overflow: hidden with a radius: its square corner and
+  a pale strip showed past the thumbnail's round top left. A mask clips on
+  the compositor too. The shadow is shorter and softer: the long one lay
+  over the card to the thumbnail's left as a grey band.
+*/
 .home-guide-thumb {
   isolation: isolate;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: linear-gradient(#000, #000);
   background: linear-gradient(158deg, #1b1630 0%, #0d0c14 72%);
   box-shadow:
-    0 22px 44px -20px rgba(20, 12, 48, 0.6),
-    0 3px 8px rgba(20, 12, 48, 0.18),
+    0 10px 24px -14px rgba(20, 12, 48, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transition: translate 560ms cubic-bezier(0.34, 1.4, 0.64, 1);
+  will-change: translate;
+  transition: translate 1100ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.home-guide-clip {
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: linear-gradient(#000, #000);
 }
 /* The light: a layer half as big again as the thumbnail, slid rather than repainted (it was a background-position). */
 .home-guide-light {
@@ -6086,7 +6249,8 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
   background:
     radial-gradient(60% 75% at 16% 6%, rgba(139, 92, 246, 0.6), rgba(139, 92, 246, 0) 62%),
     radial-gradient(55% 70% at 96% 96%, rgba(217, 70, 239, 0.22), rgba(217, 70, 239, 0) 70%);
-  transition: translate 1200ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: translate;
+  transition: translate 1400ms cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
 }
 .home-guide-thumb::before {
@@ -6095,8 +6259,7 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
   inset: 0;
   z-index: 1;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.55 0 0 0 -0.18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  opacity: 0.5;
-  mix-blend-mode: overlay;
+  opacity: 0.16;
   pointer-events: none;
 }
 .home-guide-thumb::after {
@@ -6113,7 +6276,7 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 .home-guide-play {
   position: relative;
   isolation: isolate;
-  transition: scale 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: scale 900ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 /* A touch more white on hover, as a layer that fades in under the arrow. */
 .home-guide-play::after {
@@ -6128,46 +6291,57 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 }
 
 /*
-  Your Plan: a deep violet band, a little lighter where the light falls on
-  its right, carrying a halftone of dots in two sizes on a grid, which fades
-  in from where the words are to the far edge. Drawn by the browser at the
-  screen's own density, so it is sharp at 2x and 3x, and the band under the
-  words stays dark enough for white (measured by scripts/check-home-flow).
+  Your Plan: the deep violet sky it first had, clouded and grained, with the
+  plan's name in white. It went to dots, then to a flat light band; asked
+  for again as "the texture that was the first time, not the one with the
+  dots". The violet and the grain are painted once; only the clouds move
+  (below). The grain is a second background, not a blended layer, and the
+  band clips itself to the card's top corners (a mask as well as the
+  radius, which WebKit on iPhone honours for layers too).
 */
-.home-plan-sky {
+.home-plan-head {
   position: relative;
-  isolation: isolate;
   overflow: hidden;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: linear-gradient(#000, #000);
   background:
-    radial-gradient(90% 240% at 100% 0%, rgba(167, 139, 250, 0.42), rgba(167, 139, 250, 0) 60%),
-    linear-gradient(100deg, #1c0942 0%, #2c0f64 45%, #4a1d96 100%);
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.6 0 0 0 -0.18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 160px 160px,
+    radial-gradient(80% 190% at 92% -30%, rgba(139, 92, 246, 0.45), rgba(139, 92, 246, 0) 62%),
+    radial-gradient(70% 170% at 4% 130%, rgba(20, 6, 52, 0.9), rgba(20, 6, 52, 0) 70%),
+    linear-gradient(100deg, #1f0b4a 0%, #321170 46%, #4c1d95 100%);
+  background-blend-mode: soft-light, normal, normal, normal;
 }
-/* The layer that drifts; its two grids are one pitch, so the dots grow in place from fine to full across the band: a halftone. */
-.home-plan-dots {
+/*
+  THE CLOUDS DRIFT ON HOVER, as they did the first time: "the sky texture
+  moved very smooth, and when I hovered out it goes back very smooth". They
+  were a background-position, repainted on every frame; now they are a layer
+  a little wider than the band, slid on translate, so the compositor moves
+  them and the way back is the same long ease as the way there.
+*/
+.home-plan-head::before {
+  content: "";
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
-  right: -28px;
-  z-index: 0;
-  transition: translate 1400ms cubic-bezier(0.22, 1, 0.36, 1);
+  width: calc(100% + 96px);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='560' height='120'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.010 0.032' numOctaves='5' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.8 0 0 0 0 0.74 0 0 0 0 1 1.2 0 0 0 -0.53'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3C/svg%3E") 0 50% / 560px 120px;
+  will-change: translate;
+  backface-visibility: hidden;
+  transition: translate 1600ms cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
 }
-.home-plan-dots::before,
-.home-plan-dots::after {
+/* The darker left edge, over the clouds wherever they drift, so the white name always reads. */
+.home-plan-head::after {
   content: "";
   position: absolute;
   inset: 0;
+  background: linear-gradient(90deg, rgba(18, 6, 46, 0.62) 0%, rgba(18, 6, 46, 0.35) 34%, rgba(18, 6, 46, 0) 60%);
+  pointer-events: none;
 }
-.home-plan-dots::before {
-  background: radial-gradient(circle, rgba(237, 233, 254, 0.46) 0.7px, rgba(237, 233, 254, 0) 1.15px) 0 0 / 7px 7px;
-  -webkit-mask-image: linear-gradient(90deg, transparent 16%, #000 46%, #000 60%, transparent 86%);
-  mask-image: linear-gradient(90deg, transparent 16%, #000 46%, #000 60%, transparent 86%);
-}
-.home-plan-dots::after {
-  background: radial-gradient(circle, rgba(221, 214, 254, 0.42) 1.55px, rgba(221, 214, 254, 0) 2px) 0 0 / 7px 7px;
-  -webkit-mask-image: linear-gradient(90deg, transparent 50%, #000 88%);
-  mask-image: linear-gradient(90deg, transparent 50%, #000 88%);
+.home-plan-head > * {
+  position: relative;
+  z-index: 1;
 }
 /* The checks: a light grey circle with a lit top edge and the faintest shade under it. */
 .home-plan-check {
@@ -6187,31 +6361,55 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
   .home-card:hover [data-pay-tile="paypal"] { translate: -4px -10px; rotate: -19deg; }
   .home-card:hover [data-pay-tile="visa"] { translate: 2px -14px; rotate: -1deg; transition-delay: 40ms; }
   .home-card:hover [data-pay-tile="stripe"] { translate: 6px -9px; rotate: 17deg; transition-delay: 80ms; }
+  .home-card:hover { translate: 0 -4px; }
+  .home-card:hover .home-plan-head::before { translate: -72px 0; }
   .home-guide:hover .home-guide-thumb { translate: -6px -6px; }
   .home-guide:hover .home-guide-light { translate: -23% -18%; }
   .home-guide:hover .home-guide-play { scale: 1.08; }
   .home-guide:hover .home-guide-play::after { opacity: 1; }
-  .home-card:hover .home-plan-dots { translate: -14px 0; }
 }
 /* ...and the same, played where nothing can hover (useHoverAutoplay). */
 .home-card[data-play]::before { opacity: 1; }
 .home-card[data-play] [data-pay-tile="paypal"] { translate: -4px -10px; rotate: -19deg; }
 .home-card[data-play] [data-pay-tile="visa"] { translate: 2px -14px; rotate: -1deg; transition-delay: 40ms; }
 .home-card[data-play] [data-pay-tile="stripe"] { translate: 6px -9px; rotate: 17deg; transition-delay: 80ms; }
+.home-card[data-play] { translate: 0 -4px; }
+.home-card[data-play] .home-plan-head::before { translate: -72px 0; }
 .home-guide[data-play] .home-guide-thumb { translate: -6px -6px; }
 .home-guide[data-play] .home-guide-light { translate: -23% -18%; }
 .home-guide[data-play] .home-guide-play { scale: 1.08; }
 .home-guide[data-play] .home-guide-play::after { opacity: 1; }
-.home-card[data-play] .home-plan-dots { translate: -14px 0; }
+
+/*
+  NO DIM UNDER A FINGER IN THE APP. html.capacitor dims every button and link
+  to 72% while pressed and swaps its transition for an 80ms opacity one: on
+  the guide, a whole card went grey under the thumb ("that cheap veil"), and
+  its press lost its easing. On these cards a press is the guide's small
+  scale and a row's light grey, nothing else.
+*/
+html.capacitor .home-card:active,
+html.capacitor .home-card :is(a, button):active {
+  opacity: 1;
+}
+html.capacitor .home-card.home-guide {
+  transition:
+    scale 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    translate 700ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+html.capacitor .home-card [data-next-step]:active,
+html.capacitor .home-card li > :is(a, button):active {
+  background-color: #f1f2f4;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .home-card[data-bump],
   .home-card[data-bump] [data-pay-tile] { animation: none; }
+  .home-card,
   [data-pay-tile],
   .home-card::before,
   .home-guide-thumb,
   .home-guide-light,
-  .home-plan-dots { transition-duration: 0ms; }
+  .home-plan-head::before { transition-duration: 0ms; }
 }
 
 /*

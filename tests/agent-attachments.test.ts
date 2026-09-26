@@ -343,10 +343,12 @@ section("A picture on its own survives the whole way")
        * `data`, a creator's screenshot has started living in a table.
        */
       const builds = route.slice(route.indexOf("const noted ="), route.indexOf("startThemeExchange("))
+      /* The note is written in one place, lib/website-builder/ask-attach.ts, from the words and a count. */
+      const note = read("lib/website-builder/ask-attach.ts")
       return (
         /prompt: noted/.test(route) &&
-        /attached\]/.test(builds) &&
-        /images\.length === 1 \? "an image"/.test(builds) &&
+        /const noted = withPictureNote\(body\.prompt, images\.length\)/.test(builds) &&
+        /n === 1 \? "an image" : `\$\{n\} images`/.test(note) && /attached\]/.test(note) &&
         !/\.data/.test(builds)
       )
     })(),
@@ -624,7 +626,8 @@ section("Kept for thirty days, and then not")
   )
   check(
     "rows are read through the USER's client, so RLS decides what comes back",
-    /const supabase = await createClient\(\)[\s\S]{0,400}from\("theme_chat_attachments"\)/.test(store),
+    /const \{ user, admin \} = clients \?\? \(await realClients\(\)\)\s*\n\s*const \{ data, error \} = await user\s*\n\s*\.from\("theme_chat_attachments"\)/.test(store) &&
+      /user: \(await createClient\(\)\) as unknown as Db/.test(store),
   )
   check(
     "and the signer only ever sees paths that read already returned",
@@ -640,7 +643,7 @@ section("Kept for thirty days, and then not")
   )
   check(
     "bytes whose row did not land are taken back rather than left uncollectable",
-    /if \(rowError\) await admin\.storage\.from\(BUCKET\)\.remove\(\[path\]\)/.test(store),
+    /if \(rowError\) \{\s*\n\s*await admin\.storage\.from\(BUCKET\)\.remove\(rows\.map\(\(row\) => row\.storage_path\)\)/.test(store),
   )
   check(
     "the collector removes the object BEFORE the row",
@@ -658,7 +661,7 @@ section("Kept for thirty days, and then not")
   )
   check(
     "storing a picture can never fail an edit somebody already asked for",
-    /export async function keepImages[\s\S]{0,2000}catch \{/.test(store),
+    /export async function keepImages[\s\S]{0,4000}\} catch \{\s*\n\s*\/\* Evidence, not enforcement\. \*\/\s*\n\s*return \{ kept: 0, of, problem: "failed" \}/.test(store),
   )
   check("it is server-only", store.startsWith('import "server-only"'))
 }
@@ -686,19 +689,23 @@ section("Kept for thirty days, and then not")
 {
   const chat = read("lib/website-builder/agent/chat.ts")
   check(
-    "the history asks for every message's pictures in one query, not one per message",
-    /attachmentsFor\(rows\.map\(\(row\) => row\.id\)\)/.test(chat),
+    "the history asks for every message's pictures in one query, not one per message, and only for questions that had some",
+    /const asked = rows\.filter\(\(row\) => row\.role === "user" && readPictureNote\(row\.content\)\.count > 0\)\.map\(\(row\) => row\.id\)\s*\n\s*const pictures = await attachmentsFor\(installId, asked\)/.test(chat),
   )
   const route = read("app/api/website-builder/themes/[installId]/agent/route.ts")
   check(
-    "the picture is kept against the message it was attached to",
-    /const messageId = await startThemeExchange/.test(route) &&
-      /keepImages\(\{ installId, messageId, images \}\)/.test(route),
+    "the picture is kept against the message it was attached to, and what could not be kept is said on the stream",
+    /const recorded = await startThemeExchange/.test(route) && /const messageId = recorded\.id/.test(route) &&
+      /const kept = await keepImages\(\{ installId, messageId, images \}\)/.test(route) &&
+      /if \(messageId && kept\.problem\) send\(\{ type: "unsaved", what: "pictures", reason: kept\.problem/.test(route),
   )
   const panel = read("components/website-builder/theme-chat.tsx")
+  const restore = read("lib/website-builder/ask-restore.ts")
   check(
-    "a restored conversation shows the picture rather than a note about it",
-    /message\.images\?\.length/.test(panel) && /an image\|\\d\+ images\) attached/.test(panel),
+    "a restored conversation shows the picture rather than a note about it, and a tile where one is gone",
+    /restoreExchanges\(body\.messages\)/.test(panel) && /const \{ text, count \} = readPictureNote\(message\.content \?\? ""\)/.test(restore) &&
+      /missingImages: Math\.max\(0, count - images\.length\)/.test(restore) && /data-ask-missing-image=""/.test(panel) &&
+      !/\[an image attached\]|an image\|\\d\+ images\) attached/.test(panel),
   )
 }
 
@@ -760,8 +767,9 @@ section("The composer")
       ![chat, prepare, tray].some((s) => /\d \* 1024 \* 1024/.test(s)),
   )
   check(
-    "an image alone still reads as a request in the thread",
-    /images\.length === 1 \? "Build this\." : "Build these\."/.test(chat),
+    "an image alone still reads as a request in the thread, live and read back",
+    /prompt: prompt \|\| promptForPictures\(images\.length\)/.test(chat) &&
+      /return count === 1 \? "Build this\." : "Build these\."/.test(read("lib/website-builder/ask-restore.ts")),
   )
   check(
     "only the three fields the server reads are sent",

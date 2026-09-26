@@ -11,8 +11,8 @@
  *   - critical is a red word and a 6px red dot, a problem an amber dot, and
  *     nothing in the panel has a red ground bigger than a dot
  *   - the digest has a line per opportunity, each a link
- *   - Updates holds what happened (critical, problem, milestone, launch,
- *     review), Opportunities what to do next (the digest, the next step)
+ *   - one list, no tabs: every row, whatever its kind, and each says what
+ *     it is on the line above its title (Payouts, Products, Milestone)
  *   - a tap on a critical row marks it read and keeps it; a tap on a launch
  *     puts it away
  *   - the "Set up payments" to-do steps aside for the Stripe row, and the
@@ -148,6 +148,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
     "Sell products together as a bundle",
     "New 5 star review on Portrait retouching course",
   ]
+  /* The label over each of those, in the same order. */
+  const EXPECTED_LABELS = ["Payouts", "Payouts", "Products", "OnePage", "Milestone", "Opportunities", "New in Storelib", "Reviews"]
   for (const [label, vp] of viewports) {
     const phone = label.startsWith("phone")
     console.log(`\n${label}`)
@@ -190,14 +192,10 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
     expect(pr?.tone === "problem" && pr.dot?.bg === "rgb(220, 104, 3)" && pr.word?.color === "rgb(107, 114, 128)" && pr.word.text === "Products", "a problem: an amber dot, the word as any other", { dot: pr?.dot, word: pr?.word })
     expect(r.rows.slice(3).every((x) => x.tone === null && x.dot === null), "everything else untoned", r.rows.slice(3).map((x) => x.tone))
     expect(r.redGrounds === 0, "no red ground anywhere in the panel bigger than a dot", r.redGrounds)
-    /* The dark pill sits exactly on All, in the typeface that shipped (it used to keep the fallback's width). */
-    const pill = await p.evaluate(() => {
-      const row = [...document.querySelectorAll("[role=tablist]")].find((t) => t.getBoundingClientRect().width > 0)
-      const b = row?.querySelector('[data-tab="all"]')
-      const m = /inset\(0px ([\d.]+)px 0px ([\d.]+)px/.exec(getComputedStyle(row.querySelector("[data-tab-pill]")).clipPath)
-      return { left: m ? +m[2] : null, right: m ? +m[1] : null, want: { left: b.offsetLeft, right: row.offsetWidth - b.offsetLeft - b.offsetWidth } }
-    })
-    expect(Math.abs(pill.left - pill.want.left) < 0.5 && Math.abs(pill.right - pill.want.right) < 0.5, "the dark pill sits exactly on All", pill)
+    /* No tabs: "get rid of those category pills". What each row is, is the word above its title. */
+    const tabs = await p.evaluate(() => document.querySelectorAll("[role=tablist], [role=tab], [data-tab], [data-tab-pill]").length)
+    expect(tabs === 0, "no tabs and no pill anywhere in the panel", tabs)
+    expect(JSON.stringify(r.rows.map((x) => x.word?.text ?? "")) === JSON.stringify(EXPECTED_LABELS), "every kind in the one list says what it is, above its title", r.rows.map((x) => x.word?.text ?? ""))
     const digest = r.rows.find((x) => x.title === "3 opportunities this week")
     expect(digest?.digest.length === 3 && digest.digest[0].href === "/app/emails/flow/new" && digest.digest.every((l) => l.h >= 16 && l.h <= 38), "the digest: three lines, each its own link, two lines at most", digest?.digest)
     expect(r.overflow.page <= 0 && (r.overflow.list ?? 0) <= 0 && r.overflow.rows === 0, "nothing wider than the screen", r.overflow)
@@ -218,23 +216,6 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
       const list = [...document.querySelectorAll("[data-notifications-list]")].find((l) => l.getBoundingClientRect().width > 0)
       if (list) list.scrollTop = 0
     })
-
-    /* Tabs. */
-    const tab = async (id) => {
-      if (phone) await p.tap(`[data-tab="${id}"]`)
-      else await p.click(`[data-tab="${id}"]`)
-      await sleep(450)
-      return read(p)
-    }
-    const upd = await tab("updates")
-    expect(JSON.stringify(upd.rows.map((x) => x.title)) === JSON.stringify(EXPECTED_ORDER.filter((t) => !["Have you tried out OnePage?", "3 opportunities this week"].includes(t))), "Updates: the critical rows, the problem, the milestone, the launch, the review", upd.rows.map((x) => x.title))
-    if (shoot(label)) await p.screenshot({ path: join(shots, `${label}-updates.png`) })
-    const opp = await tab("opportunities")
-    expect(JSON.stringify(opp.rows.map((x) => x.title)) === JSON.stringify(["Have you tried out OnePage?", "3 opportunities this week"]), "Opportunities: the next step and the digest", opp.rows.map((x) => x.title))
-    if (shoot(label)) await p.screenshot({ path: join(shots, `${label}-opportunities.png`) })
-    const msg = await tab("messages")
-    expect(msg.rows.length === 0 && !!msg.empty, "Messages: none here", msg.empty)
-    await tab("all")
 
     /* A tap on a critical row: opened, read, kept. A tap on the launch: opened, put away. */
     const tapRow = async (title) => {

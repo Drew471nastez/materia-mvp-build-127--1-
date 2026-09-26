@@ -183,7 +183,7 @@ section("A slow page: no outline, a spinner")
     NAV_SPINNER_CAP_MS === 8000 && /capped\.current = nav\s*console\.warn\(/.test(stage)
       && /NAV_SPINNER_CAP_MS - \(performance\.now\(\) - nav\.startedAt\)/.test(stage) && /if \(nav && delay != null && capped\.current !== nav\)/.test(stage))
   check("a commit at the address already showing ends the navigation (a redirect back to it)",
-    /useEffect\(\(\) => \{ watchRouterCommits\(\) \}, \[\]\)/.test(stage)
+    /useEffect\(\(\) => \{\s*watchRouterCommits\(\)\s*watchRouterAnswers\(\)\s*\}, \[\]\)/.test(stage)
       && /\(data as \{ __NA\?: unknown \}\)\.__NA/.test(code("lib/ui/app-navigation.ts"))
       && /if \(current === nav && isCommittedAddress\(window\.location\.pathname, window\.location\.search\)\) endAppNavigation\(\)/.test(code("lib/ui/app-navigation.ts")))
   check("the error boundary and the not-found page end it too",
@@ -280,18 +280,25 @@ section("No page draws a picture of itself while it loads, inside or out")
       && !/ShimmerBlock|shimmer-enter|shimmer-wait|from "@\/components\/ui\/shimmer"/.test(tab)
       && (code("app/app/analytics/analytics-client.tsx").match(/loading=\{figuresLoading\}/g) ?? []).length === 8)
   const payouts = code("app/app/payouts/payouts-client.tsx")
-  check("Payouts' chart, figures, bank lines, holds, timeline and payout list draw their shapes, not the spinner",
+  /* The redone page (round 5): the balance and revenue figures wait soft, the
+     way MetricTab's do, rather than as grey bars; the two balance panels are
+     one Details panel, so its holds are drawn once, and its bank line too. */
+  check("Payouts' chart, bank lines, holds, timeline and payout list draw their shapes, and its figures wait blurred, not the spinner",
     !/WaitingArea/.test(payouts) && !/animate-pulse/.test(payouts) && !/\[1, 2, 3\]\.map/.test(payouts)
-      && /<ShimmerChart height=\{192\} \/>/.test(payouts) && (payouts.match(/<ShimmerRows /g) ?? []).length === 4
-      && (payouts.match(/<Shimmer className=/g) ?? []).length === 6)
+      && /<ShimmerChart height=\{192\} \/>/.test(payouts) && (payouts.match(/<ShimmerRows /g) ?? []).length === 3
+      && (payouts.match(/<Shimmer className=/g) ?? []).length === 2
+      && (payouts.match(/loading \? "blur-\[2px\]" : "blur-0"/g) ?? []).length === 2)
   check("no grey bar pulses in Settings either", !/animate-pulse/.test(code("components/app/settings-form-new.tsx")))
   const payoutsPage = code("app/app/payouts/page.tsx")
   check("Payouts' heading lands on the press; Stripe streams in behind it, in a waiting room rather than an outline",
     /<Suspense fallback=\{<PayoutsWaiting \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator \}\)\}\s*<\/Suspense>/.test(payoutsPage)
-      && /function PayoutsWaiting\(\) \{\s*return \(\s*<Shimmer className="space-y-6" label="Loading payouts">/.test(payoutsPage)
+      && /function PayoutsWaiting\(\) \{\s*return \(\s*<Shimmer className="space-y-4 pt-2" label="Loading payouts">/.test(payoutsPage)
       && /async function PayoutsBody\(/.test(payoutsPage)
       && !/stripe\./.test(payoutsPage.slice(payoutsPage.indexOf("export default async function PayoutsPage"), payoutsPage.indexOf("async function PayoutsBody")))
       && /stripe\.balance\.retrieve/.test(payoutsPage.slice(payoutsPage.indexOf("async function PayoutsBody"))))
+  check("and its bar is sent with the heading, with a box the client fills with Export and Cash out once Stripe answers",
+    /<PaneBar width="max-w-\[1200px\]"/.test(payoutsPage) && /<div data-payouts-actions="" /.test(payoutsPage)
+      && /usePageSlot\("\[data-payouts-actions\]"\)/.test(payouts) && /createPortal\(actions, slot\)/.test(payouts))
   const emails = code("app/app/emails/emails-home.tsx")
   check("Emails' tables wait as their own header and rows, crossfading into the rows, and its figures as shapes, not dashes",
     /function Loading\(\) \{\s*return <ShimmerRows rows=\{5\} header/.test(emails) && !/WaitingArea/.test(emails)
@@ -346,7 +353,7 @@ section("The press answers on the press")
     /onPress\?\.\(slotAt\(e\.clientX\)\)/.test(mobile) && /if \(item && index !== current\) onPrefetch\?\.\(item\.href\)/.test(mobile)
       && /document\.visibilityState === "visible" && Date\.now\(\) - warmedAt > APP_PAGE_KEPT_MS/.test(mobile))
   const sidebarCode = code("components/app/sidebar.tsx")
-  check("the desktop account menu fetches Settings and Billing whole under the pointer, like the rail",
+  check("the desktop account menu fetches Billing whole under the pointer, like the rail",
     /const warmAccountPage = \(href: string\) => \{\s*if \(href\.startsWith\("\/app\/"\)\) prefetchAppPage\(router, href\)/.test(sidebarCode)
       && (sidebarCode.match(/onMouseEnter=\{\(\) => warmAccountPage\(item\.href\)\}/g) ?? []).length === 2)
   const config = read("next.config.mjs")
@@ -397,7 +404,7 @@ section("Pages drawn over the whole shell")
     /if \(overShell\(\)\) return clear/.test(stage) && /getComputedStyle\(el\)\.position === "fixed"/.test(stage) && !/document\.querySelector\("\[data-page-layer\]"\)\) return clear/.test(stage))
   check("the pill steps aside only for a layer that does not keep it, and a layer that does gives the scroller room for it",
     /html:has\(\[data-page-layer=""\]\) \[data-app-nav-pill\] \{\s*visibility: hidden;/.test(css)
-      && /\[data-page-layer="pill"\] \[data-page-layer-scroll\] > \.page-scroll \{\s*padding-bottom: calc\(104px \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
+      && /\[data-page-layer="pill"\] \[data-page-layer-scroll\] > \.page-scroll \{\s*padding-bottom: var\(--app-nav-room\);/.test(css))
   const sidebar = read("components/app/sidebar.tsx")
   check("both headers and the rail say they are the shell's chrome", (sidebar.match(/data-shell-chrome=""/g) || []).length >= 3)
 }
@@ -449,17 +456,20 @@ section("One scrollbar track on a computer, always there, never moving")
       && /el\.setAttribute\("data-app-landing", ""\)/.test(stage)
       && /a\.finished\.catch\(\(\) => undefined\)/.test(stage) && /window\.setTimeout\(release, NAV_ENTER_MS \+ 120\)/.test(stage))
   check("the billing tab, drawn inside Settings, is not a scroller of its own: no second, empty track down its side",
-    /className=\{embedded \? "overflow-x-clip bg-\[#fafafa\]" : "h-full overflow-y-scroll/.test(code("components/app/billing/billing-page-client.tsx")))
+    /className=\{embedded \? "bg-\[#fafafa\]" : "h-full overflow-y-scroll/.test(code("components/app/billing/billing-page-client.tsx")))
   /* "Search inputs across /app: on focus the border turns heavy black, too much weight." Every search field focuses the description editor's way now: a #c9ccd3 hairline and a 3px halo at 6%, measured by scripts/check-search-focus. */
   {
     const HALO_WITHIN = /focus-within:border-\[#c9ccd3\] focus-within:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
     const HALO = /focus:border-\[#c9ccd3\] focus:shadow-\[0_0_0_3px_rgba\(17,17,19,0\.06\)\]/
-    const within = ["app/app/orders/orders-list.tsx", "app/app/emails/emails-home.tsx", "app/app/products/products-client.tsx"]
+    const within = ["app/app/orders/orders-list.tsx", "app/app/emails/emails-home.tsx"]
     /* Settings' country search is the shared list's now (components/app/settings/country-picker), so it is choice-list's halo. */
     const direct = ["components/app/product-picker.tsx", "components/ui/choice-list.tsx"]
     const heavy = /focus-within:border-\[#1a1a2e\] focus-within:shadow-\[0_0_0_1px_#1a1a2e\]/
+    /* "Make it that way: like mobile." The Products search is the phone's on every width: no box, in the card's toolbar, so no edge to draw on focus. */
+    const products = code("app/app/products/products-client.tsx")
     check("every /app search field focuses with a light grey hairline and a soft halo, never a black 2px edge or a violet ring",
       within.every((f) => HALO_WITHIN.test(code(f)) && !heavy.test(code(f))) && direct.every((f) => HALO.test(code(f)))
+        && !heavy.test(products) && !/focus-within:border|focus-within:ring|focus:ring-\[#8b5cf6\]/.test(products)
         && !/placeholder="Search countries\.\.\."[\s\S]{0,500}focus:ring-\[#8b5cf6\]/.test(code("components/app/settings-form-new.tsx"))
         && /<ChoicePicker/.test(code("components/app/settings/country-picker.tsx")) && !/<input/.test(code("components/app/settings/country-picker.tsx"))
         && /focus-visible:shadow-\[inset_0_0_0_1px_#c9ccd3,0_0_0_3px_rgba\(17,17,19,0\.06\)\]/.test(code("components/app/app-search.tsx")) && !/focus-visible:ring-\[#8b5cf6\]/.test(code("components/app/app-search.tsx")),
@@ -499,9 +509,19 @@ section("Sheets")
   check("a closing sheet gives the tap back at once",
     /style=\{isOpen \? undefined : atRest \? REST_STYLE : \{ pointerEvents: "none" \}\}/.test(sheet)
       && /const REST_STYLE: React\.CSSProperties = \{ visibility: "hidden", pointerEvents: "none" \}/.test(sheet))
-  check("it opens over 440ms on the iOS curve and closes over 340ms on an ease in and out; a flick keeps the iOS curve",
-    SHEET_OPEN_MS === 440 && SHEET_CLOSE_MS === 340 && SHEET_EASE === "cubic-bezier(0.32, 0.72, 0, 1)" && SHEET_CLOSE_EASE === "cubic-bezier(0.4, 0, 0.2, 1)"
-      && /\}, v > 0 \? EASE : CLOSE_EASE\)/.test(sheet) && /\}, velocity > 0 \? EASE : CLOSE_EASE\)/.test(sheet))
+  /* The open is the website builder's sheet's (SNAP_DURATION_MS, SNAP_EASING in mobile-editor-sheet.tsx); a tap outside keeps its ease in and out. */
+  check("it opens over 360ms on the iOS curve and closes over 340ms on an ease in and out, the scrim fades evenly, and a release leaves at the finger's speed",
+    SHEET_OPEN_MS === 360 && SHEET_CLOSE_MS === 340 && SHEET_EASE === "cubic-bezier(0.32, 0.72, 0, 1)" && SHEET_CLOSE_EASE === "cubic-bezier(0.4, 0, 0.2, 1)"
+      && /easing: FADE_EASE \}\)/.test(sheet) && /const motion = velocity > 0 \? snapMotion\(travel, velocity\) : null/.test(sheet)
+      && /\}, motion \? curveCss\(motion\.curve\) : CLOSE_EASE\)/.test(sheet) && /const motion = snapMotion\(rest - from, velocity\)/.test(sheet))
+  check("the parent hears about a close once the slide has had a frame, not before its first one",
+    /tell\.raf = requestAnimationFrame\(\(\) => \{ tell\.timer = window\.setTimeout\(tellNow, 0\) \}\)/.test(sheet)
+      && /if \(rootRef\.current\) rootRef\.current\.style\.pointerEvents = "none"/.test(sheet))
+  /* Explore's filters: "closing must be smoother". The scrim is a layer while a finger dims it, and a button inside can close the sheet the way a tap outside does, the slide before the parent. */
+  check("the scrim is its own layer on every sheet, and a control marked data-sheet-close closes the sheet as a tap outside does",
+    /style=\{\{ opacity: 0, touchAction: "none", willChange: "opacity" \}\}/.test(sheet)
+      && /const closer = \(e\.target as HTMLElement \| null\)\?\.closest\?\.\("\[data-sheet-close\]"\)\s*if \(closer && e\.currentTarget\.contains\(closer\)\) requestClose\(\)/.test(sheet)
+      && /data-sheet-panel=""\s*tabIndex=\{-1\}\s*onClick=\{onPanelClick\}/.test(sheet))
   check("focus moves after the slide, not on its first frames", /window\.setTimeout\(\(\) => \{\s*const panel = sheetRef\.current/.test(sheet))
   check("what is inside a sheet is laid out and painted on its own, and the big blurred shadow is gone",
     (sheet.match(/contain: "layout paint"/g) || []).length === 2 && !/0_-8px_40px/.test(sheet))
@@ -514,8 +534,8 @@ section("Sheets")
   */
   check("a control marked data-sheet-no-drag keeps its touches from the sheet",
     /if \(target\?\.closest\?\.\("\[data-sheet-no-drag\]"\)\) \{\s*pendingRef\.current = false/.test(sheet))
-  check("a release velocity is read over the last 80ms, not one noisy pair of events",
-    /const VELOCITY_WINDOW_MS = 80/.test(sheet) && /velocityRef\.current = \(y - first\.y\) \/ span/.test(sheet))
+  check("a release velocity is read over the last 100ms of event times, not one noisy pair of events",
+    /releaseVelocity\(samplesRef\.current, eventTime\(e\)\)/.test(sheet) && /samples\.push\(\{ t: eventTime\(e\), y \}\)/.test(sheet))
   check("a sheet that edits the page behind it can leave that page undimmed, and still close on a tap",
     /scrim === "clear" \? "bg-transparent" : "bg-black\/40"/.test(sheet) && /onClick=\{requestClose\}/.test(sheet))
   check("a fresh open can wait for its pictures to decode, never longer than 120ms",
@@ -645,11 +665,8 @@ section("Toasts on a phone")
     }
   }
   check("every toast in the app's own pages is short and plain", said.length >= 40 && long.length === 0, long.join("; ") || `${said.length} read`)
-  /* The field says it under the box now, in its own words; only its own refusals carry their message through. */
   check("an upload that failed says so, not the storage error's own words",
-    /message: "The upload did not finish\. Check your connection and try again\."/.test(code("components/website-builder/editor/image-picker.tsx")) &&
-      /e instanceof Refused\s*\?\s*\{ message: e\.message \}/.test(code("components/website-builder/editor/image-picker.tsx")) &&
-      !/err\.message/.test(code("components/website-builder/editor/image-picker.tsx")))
+    /toast\.error\("Upload failed\. Try again\."\)/.test(code("components/website-builder/editor/image-picker.tsx")) && !/err\.message/.test(code("components/website-builder/editor/image-picker.tsx")))
   const addRoute = code("app/api/website-builder/themes/add/route.ts")
   check("adding a theme never hands the database's error text to the toast", !/seedErr\.message|installErr\?\.message/.test(addRoute) && (addRoute.match(/"Could not add the theme\. Try again\."/g) ?? []).length >= 2 && !/json\(\{ error: [a-zA-Z]+Err/.test(addRoute))
 }

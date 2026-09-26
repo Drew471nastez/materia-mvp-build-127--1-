@@ -31,6 +31,8 @@ import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { ExtraBlock, SensitiveLinkQuestion } from "@/components/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
+import { fontStack } from "@/lib/onepage/fonts"
+import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 
@@ -227,7 +229,7 @@ function QuickCheckoutFormContent({
           placeholder="First name"
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/25 focus:border-transparent transition-all"
           required
         />
         <input
@@ -235,7 +237,7 @@ function QuickCheckoutFormContent({
           placeholder="Last name"
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/25 focus:border-transparent transition-all"
           required
         />
       </div>
@@ -244,7 +246,7 @@ function QuickCheckoutFormContent({
         placeholder="Email address"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/25 focus:border-transparent transition-all"
         required
       />
 
@@ -654,7 +656,7 @@ function ShareButton({
     if (accentColor && !isNearWhite(accentColor)) {
       return accentColor
     }
-    return "#8B5CF6"
+    return "#1a1a2e"
   }
 
   const popupHeaderBackground = getPopupHeaderBackground()
@@ -1036,7 +1038,7 @@ function ShareButton({
             onClick={() => openExternalUrl("https://storelib.com")}
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-[#1a1a2e] flex items-center justify-center shrink-0 overflow-hidden">
                 <img
                   src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
                   alt="Storelib"
@@ -1620,9 +1622,19 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     font_family: "Inter",
     spacing: "normal" as const,
     card_width: "standard" as const,
-    title_color: "#000000",
-    title_font: "Inter",
-    social_icon_color: "#000000",
+    /*
+      No title colour, title font or social icon colour here, on purpose.
+      They used to default to black and Inter, and the blocks below read
+      `title_color || text_color`: a theme that never set a title colour (the
+      default theme, most templates) got a BLACK title and black icons on the
+      live page, over a dark wallpaper, while the editor's preview, which has
+      no such defaults, showed them in the text colour. Same for the title
+      font: Inter live, the body font in the preview. Left unset, both
+      surfaces fall back the same way.
+    */
+    title_color: null as string | null,
+    title_font: null as string | null,
+    social_icon_color: undefined as string | undefined,
     header_layout: "classic" as const,
     ...theme, // Spread theme to override defaults with actual values
   }
@@ -1671,313 +1683,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     return safeTheme.background_color
   }
 
-  // Noise overlay SVG for gradient/image backgrounds - opacity controlled by noise_strength
-  const noiseStrength = (safeTheme as any).noise_strength || 15
-  const noiseOpacity = (noiseStrength / 100) * 2 // Convert 5-50% to 0.1-1.0 range
-  const NoiseOverlay = () => (
-    <svg
-      className="absolute inset-0 w-full h-full pointer-events-none"
-      style={{ mixBlendMode: "overlay", opacity: noiseOpacity }}
-    >
-      <filter id="noise">
-        <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-      </filter>
-      <rect width="100%" height="100%" filter="url(#noise)" />
-    </svg>
-  )
-
-  // Background pattern overlay component
-  const patternColor = (safeTheme as any).pattern_color || "#00000090"
-  const patternOpacity = (safeTheme as any).pattern_opacity || "medium"
-  const patternOpacityValue =
-    patternOpacity === "low" ? 0.4 : patternOpacity === "hard" ? 1 : patternOpacity === "very_hard" ? 1.5 : 0.7
-  const BackgroundPatternOverlay = ({ idPrefix = "public" }: { idPrefix?: string }) => {
-    const patternType = (safeTheme as any).background_pattern
-    if (!patternType || patternType === "none") return null
-
-    const patterns: Record<string, React.ReactNode> = {
-      grid: (
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          style={{ zIndex: 1, opacity: patternOpacityValue }}
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <pattern id={`${idPrefix}-grid`} width="20" height="20" patternUnits="userSpaceOnUse">
-              <path d="M 20 0 L 0 0 0 20" fill="none" stroke={patternColor} strokeWidth="1" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill={`url(#${idPrefix}-grid)`} />
-        </svg>
-      ),
-      dots: (
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          style={{ zIndex: 1, opacity: patternOpacityValue }}
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <pattern id={`${idPrefix}-dots`} width="16" height="16" patternUnits="userSpaceOnUse">
-              <circle cx="8" cy="8" r="2" fill={patternColor} />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill={`url(#${idPrefix}-dots)`} />
-        </svg>
-      ),
-      waves: (
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          style={{ zIndex: 1, opacity: patternOpacityValue }}
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <pattern id={`${idPrefix}-waves`} width="50" height="25" patternUnits="userSpaceOnUse">
-              <path d="M0 12.5 Q12.5 0, 25 12.5 T50 12.5" fill="none" stroke={patternColor} strokeWidth="2" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill={`url(#${idPrefix}-waves)`} />
-        </svg>
-      ),
-      zigzag: (
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          style={{ zIndex: 1, opacity: patternOpacityValue }}
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <pattern id={`${idPrefix}-zigzag`} width="20" height="12" patternUnits="userSpaceOnUse">
-              <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={patternColor} strokeWidth="1.5" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill={`url(#${idPrefix}-zigzag)`} />
-        </svg>
-      ),
-      diagonal: (
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          style={{ zIndex: 1, opacity: patternOpacityValue }}
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <pattern id={`${idPrefix}-diagonal`} width="10" height="10" patternUnits="userSpaceOnUse">
-              <path d="M0 10 L10 0" fill="none" stroke={patternColor} strokeWidth="1" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill={`url(#${idPrefix}-diagonal)`} />
-        </svg>
-      ),
-      morph: (
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          style={{ zIndex: 1, opacity: patternOpacityValue }}
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 200 200"
-          preserveAspectRatio="xMidYMid slice"
-        >
-          <defs>
-            <pattern id={`${idPrefix}-morph`} width="200" height="200" patternUnits="userSpaceOnUse">
-              <path
-                d="M40 20 Q60 40, 40 60 Q20 80, 40 100 Q60 80, 80 100 Q100 120, 80 140 Q60 120, 40 140 Q20 160, 40 180"
-                fill="none"
-                stroke={patternColor}
-                strokeWidth="2"
-                opacity="0.5"
-              />
-              <path
-                d="M120 10 Q140 30, 160 20 Q180 40, 160 60 Q180 80, 160 100 Q140 80, 120 100 Q100 80, 120 60"
-                fill="none"
-                stroke={patternColor}
-                strokeWidth="2"
-                opacity="0.4"
-              />
-              <path
-                d="M100 140 Q120 160, 140 150 Q160 170, 140 190 Q120 170, 100 180"
-                fill="none"
-                stroke={patternColor}
-                strokeWidth="2"
-                opacity="0.45"
-              />
-              <circle cx="50" cy="50" r="8" fill={patternColor} opacity="0.3" />
-              <circle cx="150" cy="70" r="6" fill={patternColor} opacity="0.25" />
-              <circle cx="100" cy="160" r="5" fill={patternColor} opacity="0.3" />
-              <rect x="170" y="150" width="20" height="2" fill={patternColor} opacity="0.4" rx="1" />
-              <rect x="10" y="100" width="15" height="2" fill={patternColor} opacity="0.35" rx="1" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill={`url(#${idPrefix}-morph)`} />
-        </svg>
-      ),
-      organic: (
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          style={{ zIndex: 1, opacity: patternOpacityValue }}
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 200 200"
-          preserveAspectRatio="xMidYMid slice"
-        >
-          <defs>
-            <pattern id={`${idPrefix}-organic`} width="200" height="200" patternUnits="userSpaceOnUse">
-              <path
-                d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40"
-                fill={patternColor}
-                opacity="0.35"
-              />
-              <path
-                d="M120 30 Q150 25, 160 50 Q170 80, 140 90 Q110 95, 100 70 Q95 45, 120 30"
-                fill={patternColor}
-                opacity="0.3"
-              />
-              <path
-                d="M60 130 Q80 110, 110 125 Q130 140, 115 165 Q95 185, 65 170 Q45 155, 60 130"
-                fill={patternColor}
-                opacity="0.32"
-              />
-              <path
-                d="M160 140 Q180 145, 185 165 Q188 185, 170 190 Q150 188, 145 170 Q143 152, 160 140"
-                fill={patternColor}
-                opacity="0.28"
-              />
-              <path
-                d="M20 160 Q35 150, 45 165 Q50 180, 35 190 Q20 185, 15 175 Q12 165, 20 160"
-                fill={patternColor}
-                opacity="0.25"
-              />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill={`url(#${idPrefix}-organic)`} />
-        </svg>
-      ),
-      flowmaze: (
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          style={{ zIndex: 1, opacity: patternOpacityValue }}
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 400 400"
-          preserveAspectRatio="xMidYMid slice"
-        >
-          <defs>
-            <pattern id={`${idPrefix}-flowmaze`} width="400" height="400" patternUnits="userSpaceOnUse">
-              <path d="M20 50 Q60 20, 100 50 Q140 80, 120 130 Q100 180, 60 170 Q20 160, 30 120 Q40 80, 80 90 Q120 100, 140 140 Q160 180, 130 220 Q100 260, 60 240 Q20 220, 40 180" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.5" />
-              <path d="M180 30 Q220 10, 260 40 Q300 70, 280 120 Q260 170, 220 150 Q180 130, 200 90 Q220 50, 260 70 Q300 90, 320 140 Q340 190, 300 230 Q260 270, 220 250 Q180 230, 200 190 Q220 150, 270 170 Q320 190, 340 240" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.45" />
-              <path d="M350 50 Q390 30, 400 80 Q395 130, 360 120 Q320 110, 340 70 Q360 30, 400 50" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
-              <path d="M30 280 Q70 250, 110 280 Q150 310, 130 360 Q110 400, 70 380 Q30 360, 50 320 Q70 280, 110 300 Q150 320, 160 370" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.48" />
-              <path d="M200 290 Q240 260, 280 290 Q320 320, 300 370 Q280 400, 240 385 Q200 370, 220 330 Q240 290, 290 310 Q340 330, 360 380 Q380 400, 370 400" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.42" />
-              <path d="M60 350 Q100 370, 90 400 M160 260 Q200 240, 180 200 Q160 160, 120 180 Q80 200, 100 240" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.38" />
-              <path d="M320 10 Q360 30, 350 70 Q340 110, 300 100 Q260 90, 280 50 Q300 10, 340 20" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.35" />
-              <path d="M380 280 Q400 320, 380 360 Q360 400, 320 380 Q280 360, 310 320 Q340 280, 380 300" fill="none" stroke={patternColor} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill={`url(#${idPrefix}-flowmaze)`} />
-        </svg>
-      ),
-      topographic: (
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          style={{ zIndex: 1, opacity: patternOpacityValue }}
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 300 300"
-          preserveAspectRatio="xMidYMid slice"
-        >
-          <defs>
-            <pattern id={`${idPrefix}-topographic`} width="300" height="300" patternUnits="userSpaceOnUse">
-              <ellipse cx="100" cy="100" rx="90" ry="80" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.3" />
-              <ellipse cx="100" cy="100" rx="70" ry="62" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.35" />
-              <ellipse cx="100" cy="100" rx="50" ry="44" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.4" />
-              <ellipse cx="100" cy="100" rx="30" ry="26" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.45" />
-              <ellipse cx="100" cy="100" rx="12" ry="10" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.5" />
-              <ellipse cx="220" cy="200" rx="75" ry="90" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.28" />
-              <ellipse cx="220" cy="200" rx="55" ry="70" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.33" />
-              <ellipse cx="220" cy="200" rx="35" ry="50" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.38" />
-              <ellipse cx="220" cy="200" rx="18" ry="30" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.43" />
-              <ellipse cx="50" cy="250" rx="45" ry="40" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.3" />
-              <ellipse cx="50" cy="250" rx="28" ry="25" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.38" />
-              <ellipse cx="50" cy="250" rx="12" ry="10" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.45" />
-              <ellipse cx="250" cy="50" rx="40" ry="45" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.32" />
-              <ellipse cx="250" cy="50" rx="22" ry="28" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.4" />
-              <ellipse cx="250" cy="50" rx="8" ry="12" fill="none" stroke={patternColor} strokeWidth="1.5" opacity="0.48" />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill={`url(#${idPrefix}-topographic)`} />
-        </svg>
-      ),
-      stars: (
-        <div
-          className="absolute inset-0 pointer-events-none overflow-hidden"
-          style={{ zIndex: 1, opacity: patternOpacityValue * 0.8 }}
-        >
-          <style>{`
-            @keyframes starTwinkle1 {
-              0%, 100% { opacity: 0.2; }
-              50% { opacity: 0.8; }
-            }
-            @keyframes starTwinkle2 {
-              0%, 100% { opacity: 0.4; }
-              50% { opacity: 1; }
-            }
-            @keyframes starTwinkle3 {
-              0%, 100% { opacity: 0.3; }
-              50% { opacity: 0.7; }
-            }
-            .star-dot {
-              position: absolute;
-              border-radius: 50%;
-              background: ${patternColor};
-            }
-            .star-1 { animation: starTwinkle1 3s ease-in-out infinite; }
-            .star-2 { animation: starTwinkle2 4s ease-in-out infinite; animation-delay: 0.5s; }
-            .star-3 { animation: starTwinkle3 5s ease-in-out infinite; animation-delay: 1s; }
-            .star-4 { animation: starTwinkle1 4.5s ease-in-out infinite; animation-delay: 1.5s; }
-            .star-5 { animation: starTwinkle2 3.5s ease-in-out infinite; animation-delay: 2s; }
-          `}</style>
-          {/* Generate subtle star dots across the screen */}
-          <div className="star-dot star-1" style={{ width: '2px', height: '2px', top: '5%', left: '10%' }} />
-          <div className="star-dot star-2" style={{ width: '1.5px', height: '1.5px', top: '12%', left: '25%' }} />
-          <div className="star-dot star-3" style={{ width: '2px', height: '2px', top: '8%', left: '45%' }} />
-          <div className="star-dot star-4" style={{ width: '1px', height: '1px', top: '15%', left: '60%' }} />
-          <div className="star-dot star-5" style={{ width: '2px', height: '2px', top: '3%', left: '75%' }} />
-          <div className="star-dot star-1" style={{ width: '1.5px', height: '1.5px', top: '18%', left: '88%' }} />
-          <div className="star-dot star-2" style={{ width: '1px', height: '1px', top: '25%', left: '5%' }} />
-          <div className="star-dot star-3" style={{ width: '2px', height: '2px', top: '22%', left: '35%' }} />
-          <div className="star-dot star-4" style={{ width: '1.5px', height: '1.5px', top: '28%', left: '55%' }} />
-          <div className="star-dot star-5" style={{ width: '1px', height: '1px', top: '20%', left: '70%' }} />
-          <div className="star-dot star-1" style={{ width: '2px', height: '2px', top: '30%', left: '92%' }} />
-          <div className="star-dot star-2" style={{ width: '1.5px', height: '1.5px', top: '35%', left: '15%' }} />
-          <div className="star-dot star-3" style={{ width: '1px', height: '1px', top: '38%', left: '40%' }} />
-          <div className="star-dot star-4" style={{ width: '2px', height: '2px', top: '32%', left: '65%' }} />
-          <div className="star-dot star-5" style={{ width: '1.5px', height: '1.5px', top: '40%', left: '82%' }} />
-          <div className="star-dot star-1" style={{ width: '1px', height: '1px', top: '45%', left: '8%' }} />
-          <div className="star-dot star-2" style={{ width: '2px', height: '2px', top: '42%', left: '28%' }} />
-          <div className="star-dot star-3" style={{ width: '1.5px', height: '1.5px', top: '48%', left: '50%' }} />
-          <div className="star-dot star-4" style={{ width: '1px', height: '1px', top: '50%', left: '72%' }} />
-          <div className="star-dot star-5" style={{ width: '2px', height: '2px', top: '44%', left: '95%' }} />
-          <div className="star-dot star-1" style={{ width: '1.5px', height: '1.5px', top: '55%', left: '18%' }} />
-          <div className="star-dot star-2" style={{ width: '1px', height: '1px', top: '58%', left: '38%' }} />
-          <div className="star-dot star-3" style={{ width: '2px', height: '2px', top: '52%', left: '58%' }} />
-          <div className="star-dot star-4" style={{ width: '1.5px', height: '1.5px', top: '60%', left: '78%' }} />
-          <div className="star-dot star-5" style={{ width: '1px', height: '1px', top: '56%', left: '3%' }} />
-          <div className="star-dot star-1" style={{ width: '2px', height: '2px', top: '65%', left: '22%' }} />
-          <div className="star-dot star-2" style={{ width: '1.5px', height: '1.5px', top: '68%', left: '48%' }} />
-          <div className="star-dot star-3" style={{ width: '1px', height: '1px', top: '62%', left: '68%' }} />
-          <div className="star-dot star-4" style={{ width: '2px', height: '2px', top: '70%', left: '85%' }} />
-          <div className="star-dot star-5" style={{ width: '1.5px', height: '1.5px', top: '66%', left: '12%' }} />
-          <div className="star-dot star-1" style={{ width: '1px', height: '1px', top: '75%', left: '32%' }} />
-          <div className="star-dot star-2" style={{ width: '2px', height: '2px', top: '78%', left: '52%' }} />
-          <div className="star-dot star-3" style={{ width: '1.5px', height: '1.5px', top: '72%', left: '75%' }} />
-          <div className="star-dot star-4" style={{ width: '1px', height: '1px', top: '80%', left: '90%' }} />
-          <div className="star-dot star-5" style={{ width: '2px', height: '2px', top: '76%', left: '6%' }} />
-          <div className="star-dot star-1" style={{ width: '1.5px', height: '1.5px', top: '85%', left: '42%' }} />
-          <div className="star-dot star-2" style={{ width: '1px', height: '1px', top: '88%', left: '62%' }} />
-          <div className="star-dot star-3" style={{ width: '2px', height: '2px', top: '82%', left: '80%' }} />
-          <div className="star-dot star-4" style={{ width: '1.5px', height: '1.5px', top: '90%', left: '20%' }} />
-          <div className="star-dot star-5" style={{ width: '1px', height: '1px', top: '92%', left: '55%' }} />
-          <div className="star-dot star-1" style={{ width: '2px', height: '2px', top: '95%', left: '35%' }} />
-          <div className="star-dot star-2" style={{ width: '1.5px', height: '1.5px', top: '97%', left: '70%' }} />
-        </div>
-      ),
-    }
-
-    return patterns[patternType] || null
-  }
+  /* The wallpaper's grain and pattern are components/onepage/wallpaper-layers, shared with the editor's preview. */
 
   /* On the creator page's own domain it is <domain>/links (settings.custom_domain, lib/custom-domains). */
   const pageUrl = getLinksShareUrl(onepage.slug, (onepage.settings as { custom_domain?: string | null } | null)?.custom_domain)
@@ -2199,7 +1905,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         style={{
           background: getBackgroundStyle(),
           backgroundColor: safeTheme.background_color || "#000000",
-          fontFamily: safeTheme.font_family || "Inter",
+          fontFamily: fontStack(safeTheme.font_family),
           backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
           animation: isAnimatedGradient ? "gradientShiftLive 10s ease-in-out infinite" : undefined,
           overscrollBehavior: "none",
@@ -2251,13 +1957,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         )}
 
         {/* Noise overlay for gradient backgrounds */}
-        {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <NoiseOverlay />}
+        {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
         {/* Noise overlay for image backgrounds */}
-        {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <NoiseOverlay />}
+        {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
         {/* Pattern overlay for solid/gradient backgrounds */}
-        {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && (
-          <BackgroundPatternOverlay idPrefix="desktop-bg" />
-        )}
+        <WallpaperPattern theme={safeTheme} />
 
         {/* Centered card container */}
         <div className="relative z-10 flex justify-center py-8 min-h-screen">
@@ -2310,32 +2014,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               />
             )}
             {/* Noise overlay inside card */}
-            {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && (
-              <svg
-                className="absolute inset-0 w-full h-full pointer-events-none rounded-[40px]"
-                style={{ mixBlendMode: "overlay", opacity: noiseOpacity }}
-              >
-                <filter id="card-noise">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-                </filter>
-                <rect width="100%" height="100%" filter="url(#card-noise)" />
-              </svg>
-            )}
-            {safeTheme.background_type === "image" && (safeTheme as any).image_noise && (
-              <svg
-                className="absolute inset-0 w-full h-full pointer-events-none rounded-[40px]"
-                style={{ mixBlendMode: "overlay", opacity: noiseOpacity }}
-              >
-                <filter id="card-noise-img">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-                </filter>
-                <rect width="100%" height="100%" filter="url(#card-noise-img)" />
-              </svg>
+            {((safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise) || (safeTheme.background_type === "image" && (safeTheme as any).image_noise)) && (
+              <WallpaperNoise strength={(safeTheme as any).noise_strength} className="absolute inset-0 rounded-[40px]" />
             )}
             {/* Pattern overlay inside card */}
-            {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && (
-              <BackgroundPatternOverlay idPrefix="desktop-card" />
-            )}
+            <WallpaperPattern theme={safeTheme} className="absolute inset-0 rounded-[40px]" />
             {renderPageContent({ isDesktop: true })}
           </div>
         </div>
@@ -2357,7 +2040,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           overflowX: 'clip',
           background: getBackgroundStyle(),
           backgroundColor: safeTheme.background_color || "#000000",
-          fontFamily: safeTheme.font_family || "Inter",
+          fontFamily: fontStack(safeTheme.font_family),
           backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
           animation: isAnimatedGradient ? "gradientShiftLive 10s ease-in-out infinite" : undefined,
           overscrollBehavior: "none",
@@ -2411,12 +2094,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           )}
 
           {/* Noise overlays for mobile */}
-          {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <NoiseOverlay />}
-          {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <NoiseOverlay />}
+          {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
+          {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
           {/* Pattern overlay for mobile */}
-          {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && (
-            <BackgroundPatternOverlay idPrefix="mobile" />
-          )}
+          <WallpaperPattern theme={safeTheme} />
           {renderPageContent()}
         </div>
       </div>
@@ -2642,9 +2323,9 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               {quickCheckoutStep === 'loading' && (
                 <div className="py-12 flex flex-col items-center justify-center animate-in fade-in duration-200">
                   <div className="relative">
-                    <Loader2 className="w-12 h-12 text-violet-500 animate-spin" />
+                    <Loader2 className="w-12 h-12 text-[#1a1a2e] animate-spin" />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <ShoppingBag className="w-5 h-5 text-violet-600" />
+                      <ShoppingBag className="w-5 h-5 text-[#1a1a2e]" />
                     </div>
                   </div>
                   <p className="mt-4 text-sm text-gray-600 font-medium">Processing your order...</p>
@@ -2672,14 +2353,14 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                           onClick={() => handleQuickCheckoutDownload(asset)}
                           className="w-full flex items-center gap-3 p-3.5 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors group"
                         >
-                          <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center group-hover:bg-violet-200 transition-colors">
-                            <Download className="w-5 h-5 text-violet-600" />
+                          <div className="w-10 h-10 bg-[#f1f2f4] rounded-lg flex items-center justify-center group-hover:bg-[#e8e9ec] transition-colors">
+                            <Download className="w-5 h-5 text-[#1a1a2e]" />
                           </div>
                           <div className="flex-1 min-w-0 text-left">
                             <p className="font-medium text-gray-900 text-sm truncate">{asset.file_name}</p>
                             <p className="text-xs text-gray-500">Click to download</p>
                           </div>
-                          <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-violet-500 transition-colors" />
+                          <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-[#4b5563] transition-colors" />
                         </button>
                       ))}
                     </div>
@@ -3875,7 +3556,7 @@ function PublicBlockRenderer({
                       )}
                       style={{
                         color: (theme as any).title_color || theme.text_color,
-                        fontFamily: (theme as any).title_font || theme.font_family,
+                        fontFamily: fontStack((theme as any).title_font || theme.font_family),
                         textShadow: "0 2px 8px rgba(0,0,0,0.4)",
                       }}
                     >
@@ -4046,7 +3727,7 @@ function PublicBlockRenderer({
                   )}
                   style={{
                     color: (theme as any).title_color || theme.text_color,
-                    fontFamily: (theme as any).title_font || theme.font_family,
+                    fontFamily: fontStack((theme as any).title_font || theme.font_family),
                   }}
                 >
                   {profile.title}

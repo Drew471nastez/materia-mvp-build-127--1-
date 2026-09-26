@@ -18,18 +18,29 @@
  * allocated per frame, and React renders this once and never again (the
  * angles, the speed and the drag live in the effect, not in state).
  *
- * IT ONLY RUNS WHEN IT CAN BE SEEN, AND NOT WHILE THE PAGE SCROLLS. Off
- * screen (IntersectionObserver), on a hidden tab (visibilitychange), or
- * while the page under it is scrolling, no frame is asked for at all. The
- * last one stays on screen; a turn of one degree a second is not missed in
- * the moment a swipe takes, and the swipe gets the whole thread
- * (scripts/check-home-scroll.mjs measured the old globe's frames starving
- * the page's scroll).
+ * IT ONLY RUNS WHEN IT CAN BE SEEN. Off screen (IntersectionObserver) or
+ * on a hidden tab (visibilitychange) no frame is asked for at all. While
+ * the page is scrolling the globe rests and picks up again from the same
+ * angle a moment after the scroll stops, one frame's step on, so nothing
+ * jumps. Letting it turn under a finger scrolling Home doubled how long
+ * each touchmove waited (scripts/check-home-scroll.mjs, run both ways):
+ * the page's scroll comes first.
  *
- * THE DRAG. Only the ball itself is grabbable: a round grip over it, with
- * `touch-action: none`, so a finger that lands on the globe turns it, in any
- * direction, and never scrolls the page, while a finger anywhere else on the
- * banner scrolls as usual. Grabbing stops it under the finger the way a real
+ * ONE TURN THAT NEVER STARTS OVER. The angle is advanced by the time that
+ * passed, so a frame late or a tab shown again carries on from where it was
+ * (the step after a pause is one frame's, never the pause's). Home mounting
+ * the banner again (back to /app, a remount above it) picks up the same
+ * globe: the canvases, their WebGL context and the angle are kept for a
+ * while after it unmounts and handed to the next one, so nothing compiles
+ * again and the ball does not jump back to where it first started.
+ *
+ * THE DRAG. Only the ball itself is grabbable: a round grip over it. A
+ * finger turns it sideways; an up or down swipe that starts on it scrolls
+ * the page (`touch-action: pan-y`). It was `none`, so on a phone, where the
+ * ball fills half the banner, a scroll that happened to start on it did not
+ * move the page at all: the page seemed to catch and stutter at the banner
+ * ("laggy, glitching, then normal again further down"). A mouse still tips
+ * it up and down. Grabbing stops it under the finger the way a real
  * globe stops under a hand; let go and it keeps the speed it was thrown at,
  * then eases back to its own slow turn, and its tilt drifts back to rest.
  * Held still before letting go, it was put down, not thrown.
@@ -68,6 +79,23 @@ const HELD_MS = 80
 const SCROLL_REST_MS = 140
 /** The grip is a little wider than the ball, so its edge is easy to catch. */
 const GRIP = GLOBE_RADIUS * 1.06
+/** How long a globe that left the page is kept for the next mount before its context is let go. */
+const KEEP_MS = 60000
+
+/**
+ * THE GLOBE BETWEEN MOUNTS: its canvases and renderer, and where it was
+ * turned to and when. Module state, so a remount carries on the same turn.
+ */
+interface Kept {
+  canvas: HTMLCanvasElement | null
+  ball: HTMLCanvasElement | null
+  renderer: GlobeRenderer | null
+  timer: number
+  /** Its context was lost while nobody held it: nothing in it can be trusted to draw. */
+  dead: boolean
+}
+let kept: Kept | null = null
+const pose = { yaw: (-10 * Math.PI) / 180, tilt: REST_TILT, at: 0 }
 
 export function BannerGlobe({ className }: { className?: string }) {
   const boxRef = useRef<HTMLDivElement>(null)
@@ -95,6 +123,29 @@ export function BannerGlobe({ className }: { className?: string }) {
       box.insertBefore(c, grip)
       return c
     }
+    const attach = () => {
+      box.dataset.renderer = renderer?.kind ?? "none"
+      canvas?.addEventListener("webglcontextlost", onLost)
+      canvas?.addEventListener("webglcontextrestored", onRestored)
+    }
+    /* The globe the last mount left, while it is still whole: moved into this box, context and all. */
+    const reuse = () => {
+      const k = kept
+      kept = null
+      if (!k) return false
+      window.clearTimeout(k.timer)
+      if (k.dead || !k.canvas || !k.ball || !k.renderer || k.renderer.failed()) {
+        k.renderer?.dispose()
+        return false
+      }
+      canvas = k.canvas
+      ball = k.ball
+      renderer = k.renderer
+      box.insertBefore(ball, grip)
+      box.insertBefore(canvas, grip)
+      attach()
+      return true
+    }
     const mount = (allowGl: boolean) => {
       canvas?.remove()
       ball?.remove()
@@ -109,9 +160,7 @@ export function BannerGlobe({ className }: { className?: string }) {
         }
         renderer = create2dRenderer(canvas, ball)
       }
-      box.dataset.renderer = renderer?.kind ?? "none"
-      canvas.addEventListener("webglcontextlost", onLost)
-      canvas.addEventListener("webglcontextrestored", onRestored)
+      attach()
     }
 
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)")
@@ -127,13 +176,19 @@ export function BannerGlobe({ className }: { className?: string }) {
 
     let size = 0
     let dpr = 1
-    /* Longitude 10°E faces the viewer first: Europe and Africa, with the Americas turning in from the left. */
-    let yaw = (-10 * Math.PI) / 180
-    let tilt = REST_TILT
+    /*
+      Longitude 10°E faces the viewer first: Europe and Africa, with the
+      Americas turning in from the left. A mount after that starts where the
+      last one was, turned on by the time it was away.
+    */
+    let yaw = pose.yaw + (pose.at && !reduced ? Math.min(performance.now() - pose.at, 600000) * BASE_SPEED : 0)
+    let tilt = pose.tilt
     let yawVel = reduced ? 0 : BASE_SPEED
     let tiltVel = 0
 
     let dragging = false
+    /* A finger only turns it sideways: up and down is the page's scroll. */
+    let byMouse = false
     let pointerId = -1
     let lastX = 0
     let lastY = 0
@@ -236,6 +291,7 @@ export function BannerGlobe({ className }: { className?: string }) {
           tiltVel = 0
         }
       }
+      /* Wrapped by whole turns, which the sine and cosine cannot tell apart: no step at the wrap. */
       if (yaw > TAU || yaw < -TAU) yaw %= TAU
       if (!reduced && now >= nextArc) {
         launch(now)
@@ -277,6 +333,7 @@ export function BannerGlobe({ className }: { className?: string }) {
     const onDown = (e: PointerEvent) => {
       if (dragging || (e.pointerType === "mouse" && e.button !== 0)) return
       dragging = true
+      byMouse = e.pointerType === "mouse"
       pointerId = e.pointerId
       lastX = downX = e.clientX
       lastY = downY = e.clientY
@@ -303,13 +360,14 @@ export function BannerGlobe({ className }: { className?: string }) {
       const dy = e.clientY - lastY
       if (dx === 0 && dy === 0) return
       const dt = Math.max(1, e.timeStamp - lastT)
-      const r = Math.max(1, size * GLOBE_RADIUS)
+      if (!size) return
+      const r = size * GLOBE_RADIUS
       /* A point on the surface follows the finger across. */
       yaw += dx / r
-      tilt = Math.max(TILT_MIN, Math.min(TILT_MAX, tilt + dy / r))
+      if (byMouse) tilt = Math.max(TILT_MIN, Math.min(TILT_MAX, tilt + dy / r))
       const k = 1 - Math.exp(-dt / VELOCITY_MS)
       estYaw += (dx / r / dt - estYaw) * k
-      estTilt += (dy / r / dt - estTilt) * k
+      if (byMouse) estTilt += (dy / r / dt - estTilt) * k
       lastX = e.clientX
       lastY = e.clientY
       lastT = moveT = e.timeStamp
@@ -363,8 +421,12 @@ export function BannerGlobe({ className }: { className?: string }) {
       nextArc = (clock || performance.now()) + 1600
     }
 
-    /* Touches on the grip are the globe's: the page's pull to refresh (and anything else on the way up) never sees them. */
-    const keep = (e: TouchEvent) => e.stopPropagation()
+    /* A sideways drag on the grip is the globe's: the page's pull to refresh never sees it. An up or down swipe is the page's. */
+    const keep = (e: TouchEvent) => {
+      if (dragging) e.stopPropagation()
+    }
+    grip.addEventListener("touchstart", keep, { passive: true })
+    grip.addEventListener("touchmove", keep, { passive: true })
 
     /* ── When it runs ─────────────────────────────────────────────────── */
 
@@ -421,7 +483,7 @@ export function BannerGlobe({ className }: { className?: string }) {
     let io: IntersectionObserver | null = null
     let startTimer = 0
     const start = () => {
-      mount(true)
+      if (!reuse()) mount(true)
       if (!renderer) return
       listen()
     }
@@ -435,8 +497,6 @@ export function BannerGlobe({ className }: { className?: string }) {
     grip.addEventListener("pointerup", onUp)
     grip.addEventListener("pointercancel", onCancel)
     grip.addEventListener("lostpointercapture", onCancel)
-    grip.addEventListener("touchstart", keep, { passive: true })
-    grip.addEventListener("touchmove", keep, { passive: true })
     document.addEventListener("scroll", onScroll, { capture: true, passive: true })
     document.addEventListener("visibilitychange", onVisibility)
     reduce.addEventListener?.("change", onMotion)
@@ -450,11 +510,35 @@ export function BannerGlobe({ className }: { className?: string }) {
     })
     io.observe(box)
     resize()
+    warm()
+    }
+
+    /*
+      THE FIRST FRAME IS DRAWN AHEAD. The first draw after the programs are
+      built is the dear one (the driver finishes its work on first use): on a
+      phone it landed as the globe scrolled into view, a 45ms frame in the
+      middle of the swipe. So it is drawn once as soon as the programs are
+      ready, while the page is idle, whether or not the globe is on screen.
+    */
+    let warmTimer = 0
+    const idle = (fn: () => void) => {
+      const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+      if (w.requestIdleCallback) w.requestIdleCallback(fn, { timeout: 600 })
+      else warmTimer = window.setTimeout(fn, 120)
+    }
+    /* A draw is also what asks whether the programs are ready (globe-gl settle), so it draws until they are. */
+    const warm = () => {
+      idle(() => {
+        if (!renderer || lost || frame) return
+        paint()
+        if (renderer.pending()) warmTimer = window.setTimeout(warm, 80)
+      })
     }
 
     return () => {
       cancelAnimationFrame(firstFrame)
       window.clearTimeout(startTimer)
+      window.clearTimeout(warmTimer)
       sleep()
       window.clearTimeout(scrollTimer)
       ro?.disconnect()
@@ -472,10 +556,26 @@ export function BannerGlobe({ className }: { className?: string }) {
       grip.removeEventListener("touchmove", keep)
       canvas?.removeEventListener("webglcontextlost", onLost)
       canvas?.removeEventListener("webglcontextrestored", onRestored)
-      renderer?.dispose()
+      pose.yaw = yaw % TAU
+      pose.tilt = tilt
+      pose.at = performance.now()
       canvas?.remove()
       ball?.remove()
       box.removeAttribute("data-renderer")
+      /* Kept for the next mount while it can still draw; let go after a while so a page that never comes back holds no context. */
+      if (renderer && !lost && !renderer.failed()) {
+        kept?.renderer?.dispose()
+        const k: Kept = { canvas, ball, renderer, timer: 0, dead: false }
+        canvas?.addEventListener("webglcontextlost", () => (k.dead = true), { once: true })
+        k.timer = window.setTimeout(() => {
+          if (kept !== k) return
+          kept = null
+          k.renderer?.dispose()
+        }, KEEP_MS)
+        kept = k
+      } else {
+        renderer?.dispose()
+      }
     }
   }, [])
 
@@ -487,7 +587,7 @@ export function BannerGlobe({ className }: { className?: string }) {
         data-home-globe-grip=""
         aria-hidden="true"
         className="absolute cursor-grab rounded-full select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
-        style={{ left: inset, top: inset, right: inset, bottom: inset, touchAction: "none" }}
+        style={{ left: inset, top: inset, right: inset, bottom: inset, touchAction: "pan-y" }}
       />
     </div>
   )

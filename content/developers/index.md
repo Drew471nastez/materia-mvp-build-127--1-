@@ -11,7 +11,7 @@ The same language is read by everyone who builds here. A creator in the code edi
 1. **Open the code editor.** In your dashboard, open **Websites**, then **Edit website**, and choose **Code** in the builder's top bar. On a phone, it is **View code** in the **…** menu.
 2. **Make the file.** Choose **New file** and call it `sections/notice.storelib`. The editor saves a starter section that already compiles.
 3. **Write the section.** Replace the starter with the file below and press **Save**. If it does not compile, nothing is saved, and each error is listed with its line.
-4. **Place it.** Switch back to **Preview**, press **Add section**, and pick **Notice bar** under **Created by you**. Its settings panel is its schema, drawn.
+4. **Place it.** Switch back to **Preview**, press **Add section**, and pick **Notice bar** under **Created**. Its settings panel is its schema, drawn.
 5. **Publish.** The file and the page are drafts until you press **Publish**, and then they go live together.
 
 This is a complete, working section. It reads its colours from the colour scheme the creator picks, its message and link from settings, and it appears in Add Section because its schema has a preset.

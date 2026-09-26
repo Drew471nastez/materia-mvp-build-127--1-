@@ -153,6 +153,39 @@ public class MainActivity extends BridgeActivity {
             }
 
             /**
+             * The web layer ships ahead of the app, so it cannot know from
+             * its own code whether this install's manifest declares the
+             * microphone. This build does (RECORD_AUDIO), and answers so:
+             * components/website-builder/ask-voice.ts draws Storelib AI's
+             * microphone only when this says true. An older install has no
+             * such method and keeps the microphone hidden.
+             */
+            @JavascriptInterface
+            public boolean microphoneDeclared() {
+                return true;
+            }
+
+            /**
+             * Opens this app's App info page in Settings, where a microphone
+             * refused with "don't ask again" is turned back on. Offered by
+             * Storelib AI's composer under the refusal.
+             */
+            @JavascriptInterface
+            public void openAppSettings() {
+                mainHandler.post(() -> {
+                    try {
+                        Intent intent = new Intent(
+                                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.fromParts("package", getPackageName(), null));
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    } catch (Exception ignored) {
+                        // No settings activity to open: the message on screen says where to go.
+                    }
+                });
+            }
+
+            /**
              * Called by the web app after signing out.
              * Launches WelcomeActivity (fresh session-check + welcome screen)
              * and removes MainActivity from the back stack so the user cannot

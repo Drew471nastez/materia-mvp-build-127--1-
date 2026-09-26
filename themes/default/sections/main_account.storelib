@@ -2,58 +2,98 @@
 <section class="s" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn2: {{ scheme.secondary_btn_bg }}; --s-btn2-text: {{ scheme.secondary_btn_text }}; --s-btn2-border: {{ scheme.secondary_btn_border }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-btn2-hover: {{ scheme.secondary_btn_hover_bg }}; --s-btn2-hover-text: {{ scheme.secondary_btn_hover_text }}; --s-radius: {{ theme.radius.medium }}px; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px;">
   <div class="s__in acct">
     {% if customer %}
-      {# Who is signed in, and the way out, on one line. The page is theirs,
-         so it starts with them rather than with a word about accounts. #}
+      {# The page is the customer's, laid out the way a shop's account page
+         is: its title and the way out, then orders, profile and what they
+         saved. In the builder there is no customer, and `customer.sample`
+         says the name and email are placeholders. #}
       <div class="acct__top">
-        <div class="acct__who">
-          <h1 class="s__h">{% if customer.first_name %}{{ settings.greeting }}, {{ customer.first_name }}{% else %}{{ settings.heading }}{% endif %}</h1>
-          {% if customer.email %}<p class="acct__email">{{ customer.email }}</p>{% endif %}
-        </div>
+        <h1 class="s__h">{{ settings.heading }}</h1>
         <form class="acct__out" method="post" action="{{ routes.account_logout_url }}" data-storelib-form="native">
           <button class="acct__link" type="submit">{{ settings.signout_label }}</button>
         </form>
       </div>
 
-      <h2 class="acct__h2">{{ settings.orders_heading }}</h2>
-      {% if customer.orders.size == 0 %}
-        <p class="acct__empty">{{ settings.orders_empty }} <a class="acct__inline" href="{{ routes.products_url }}">{{ settings.shop_link }}</a></p>
-      {% else %}
-        <ul class="orders">
-          {% for order in customer.orders %}
-          <li class="order">
-            <div class="order__img">{% if order.image %}<img src="{{ order.image | asset }}" alt="" loading="lazy" decoding="async">{% endif %}</div>
-            <div class="order__main">
-              {% if order.url %}<a class="order__title" href="{{ order.url | url }}">{{ order.title }}</a>{% else %}<span class="order__title">{{ order.title }}</span>{% endif %}
-              <p class="order__meta">{{ order.date }}{% if order.price %} · {{ order.price }}{% endif %}</p>
+      <div class="acct__block">
+        <h2 class="acct__h2">{{ settings.orders_heading }}</h2>
+        {% if customer.orders.size == 0 %}
+          <p class="acct__empty">{{ settings.orders_empty }} <a class="acct__inline" href="{{ routes.products_url }}">{{ settings.shop_link }}</a></p>
+        {% else %}
+          <ol class="orders">
+            {% for order in customer.orders %}
+            <li class="order">
+              <div class="order__head">
+                <div class="order__when">
+                  <p class="order__date">{{ order.date }}</p>
+                  <p class="order__no">{{ settings.order_label }} #{{ order.number }}</p>
+                </div>
+                <p class="order__status" data-state="{{ order.state }}">{{ order.status }}</p>
+              </div>
+              <ul class="items">
+                {% for item in order.items %}
+                <li class="item">
+                  {# The whole row is the link, picture and all, so it is a
+                     thumb's height on a phone rather than one line of text. #}
+                  {% if item.url %}
+                  <a class="item__row" href="{{ item.url | url }}">
+                    <span class="item__img">{% if item.image %}<img src="{{ item.image | asset }}" alt="" loading="lazy" decoding="async">{% endif %}</span>
+                    <span class="item__main"><span class="item__title">{{ item.title }}</span>{% if item.variant %}<span class="item__meta">{{ item.variant }}</span>{% endif %}</span>
+                  </a>
+                  {% else %}
+                  <div class="item__row">
+                    <span class="item__img">{% if item.image %}<img src="{{ item.image | asset }}" alt="" loading="lazy" decoding="async">{% endif %}</span>
+                    <span class="item__main"><span class="item__title">{{ item.title }}</span>{% if item.variant %}<span class="item__meta">{{ item.variant }}</span>{% endif %}</span>
+                  </div>
+                  {% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+              <div class="order__foot">
+                <p class="order__total"><span class="order__total-label">{{ settings.total_label }}</span> {{ order.total }}</p>
+                {% if order.action_url %}<a class="order__go" href="{{ order.action_url | url }}">{{ order.action_label }}</a>{% endif %}
+              </div>
+            </li>
+            {% endfor %}
+          </ol>
+        {% endif %}
+      </div>
+
+      <div class="acct__block" id="profile">
+        <h2 class="acct__h2">{{ settings.profile_heading }}</h2>
+        {% if page.notice %}<p class="acct__notice" role="status">{{ page.notice }}</p>{% endif %}
+        <div class="rows">
+          {# Edit opens the field in place (page.edit, from ?edit=name), so it
+             needs no script; Save posts it, Cancel is the page again. #}
+          {% if page.edit == "name" %}
+            <form class="row row--edit" method="post" action="{{ routes.account_profile_url }}" data-storelib-form="native">
+              <label class="row__label" for="{{ section.id }}-name">{{ settings.name_label }}</label>
+              <div class="edit">
+                <input class="edit__input" id="{{ section.id }}-name" name="name" type="text" value="{{ customer.name }}" maxlength="120" autocomplete="name" autofocus>
+                <button class="s__btn s__btn--primary" type="submit">{{ settings.save_label }}</button>
+                <a class="acct__link" href="{{ routes.account_url }}#profile">{{ settings.cancel_label }}</a>
+              </div>
+            </form>
+          {% else %}
+            <div class="row">
+              <p class="row__label">{{ settings.name_label }}</p>
+              <p class="row__value{% if customer.sample %} is-sample{% endif %}">{% if customer.name %}{{ customer.name }}{% else %}<span class="is-muted">{{ settings.name_empty }}</span>{% endif %}</p>
+              <a class="acct__link" href="{{ routes.account_url }}?edit=name#profile">{{ settings.edit_label }}</a>
             </div>
-            <a class="order__go" href="{{ order.action_url | url }}">{{ order.action_label }}</a>
-          </li>
-          {% endfor %}
-        </ul>
-        <p class="acct__note">{{ settings.library_note }}</p>
-      {% endif %}
+          {% endif %}
+          <div class="row">
+            <p class="row__label">{{ settings.email_label }}</p>
+            <p class="row__value{% if customer.sample %} is-sample{% endif %}">{{ customer.email }}</p>
+          </div>
+        </div>
+      </div>
 
       {% if settings.show_wishlist %}
-        <div class="acct__row">
+        <div class="acct__block">
           <h2 class="acct__h2">{{ settings.wishlist_heading }}</h2>
-          {% if wishlist.count > 0 %}<a class="acct__inline" href="{{ routes.wishlist_url }}">{{ settings.wishlist_link }}</a>{% endif %}
+          <a class="entry" href="{{ routes.wishlist_url }}">
+            <span class="entry__text">{% if wishlist.count > 0 %}{{ wishlist.count }} {{ settings.wishlist_saved }}{% else %}{{ settings.wishlist_empty }}{% endif %}</span>
+            <span class="entry__go">{{ settings.wishlist_link }}</span>
+          </a>
         </div>
-        {% if wishlist.count > 0 %}
-          <div class="saved">
-            {% for item in wishlist.items %}
-              {% if forloop.index <= 4 %}
-              <article class="card">
-                <div class="card__media">{% if item.image %}<img src="{{ item.image | asset }}" alt="{{ item.title }}" loading="lazy" decoding="async">{% endif %}</div>
-                <p class="card__title">{{ item.title }}</p>
-                {% if item.price %}<p class="card__price">{{ item.price }}</p>{% endif %}
-                {% if item.url %}<a class="card__link" href="{{ item.url | url }}"><span class="sr">{{ item.title }}</span></a>{% endif %}
-              </article>
-              {% endif %}
-            {% endfor %}
-          </div>
-        {% else %}
-          <p class="acct__empty">{{ settings.wishlist_empty }}</p>
-        {% endif %}
       {% endif %}
     {% else %}
       {# Nobody signed in. The live page sends them to sign in before it gets
@@ -61,7 +101,7 @@
       <h1 class="s__h">{{ settings.heading }}</h1>
       <p class="acct__empty">{{ settings.signed_out_text }}</p>
       <div class="acct__actions">
-        <a class="s__btn s__btn--primary" href="{{ routes.account_signin_url }}">{{ settings.signin_label }}</a>
+        <a class="s__btn s__btn--primary" href="{{ routes.account_login_url }}">{{ settings.signin_label }}</a>
       </div>
     {% endif %}
   </div>
@@ -74,7 +114,7 @@
   margin: 0 auto;
   padding: calc(var(--s-pt) * var(--theme-spacing-scale, 1)) var(--theme-padding-x, 24px) calc(var(--s-pb) * var(--theme-spacing-scale, 1));
 }
-.acct { max-width: 860px; }
+.acct { max-width: 760px; }
 .s__h {
   margin: 0;
   font-size: var(--section-heading-size, 32px);
@@ -86,58 +126,85 @@
   font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif;
   overflow-wrap: anywhere;
 }
-.acct__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.acct__who { min-width: 0; }
-.acct__email { margin: 6px 0 0; font-size: 15px; color: var(--s-para); overflow-wrap: anywhere; }
-.acct__out { margin: 6px 0 0; flex: none; }
+.acct__top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.acct__out { margin: 0; flex: none; }
 .acct__link {
-  padding: 8px 0; font: inherit; font-size: 15px; font-weight: 500; color: var(--s-heading);
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0;
+  font: inherit; font-size: 15px; font-weight: 500; color: var(--s-heading);
   background: none; border: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 4px;
 }
-.acct__h2 { margin: 48px 0 0; font-size: 19px; font-weight: 600; color: var(--s-heading); }
-.acct__row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
-.acct__row .acct__h2 { margin-top: 48px; }
-.acct__empty { margin: 12px 0 0; font-size: var(--section-text-size, 15px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); }
-.acct__inline { color: var(--s-heading); font-weight: 500; text-decoration: underline; text-underline-offset: 4px; font-size: 15px; white-space: nowrap; }
-.acct__note { margin: 14px 0 0; font-size: 13px; color: var(--s-para); }
+.acct__block { margin-top: 40px; }
+.acct__h2 { margin: 0; padding-bottom: 12px; font-size: 19px; font-weight: 600; color: var(--s-heading); border-bottom: 1px solid var(--s-border); }
+.acct__empty { margin: 16px 0 0; font-size: var(--section-text-size, 15px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); }
+.acct__inline { color: var(--s-heading); font-weight: 500; text-decoration: underline; text-underline-offset: 4px; white-space: nowrap; }
+.acct__notice { margin: 16px 0 0; font-size: 14px; color: var(--s-heading); }
 .acct__actions { margin-top: 24px; max-width: 320px; }
 
-.orders { list-style: none; margin: 16px 0 0; padding: 0; border-top: 1px solid var(--s-border); }
-.order { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--s-border); }
-.order__img { flex: none; width: 56px; height: 56px; overflow: hidden; border-radius: calc(var(--s-radius) * 0.6); background: var(--s-border); }
-.order__img img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.order__main { flex: 1 1 auto; min-width: 0; }
-.order__title { display: block; font-size: 15px; font-weight: 600; color: var(--s-heading); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-a.order__title:hover { text-decoration: underline; text-underline-offset: 3px; }
-.order__meta { margin: 4px 0 0; font-size: 13px; color: var(--s-para); }
+.orders { list-style: none; margin: 0; padding: 0; }
+.order { padding: 20px 0; border-bottom: 1px solid var(--s-border); }
+.order__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.order__when { min-width: 0; }
+.order__date { margin: 0; font-size: 15px; font-weight: 600; color: var(--s-heading); }
+.order__no { margin: 2px 0 0; font-size: 13px; color: var(--s-para); }
+.order__status { margin: 0; flex: none; font-size: 14px; font-weight: 500; color: var(--s-heading); }
+.order__status[data-state="refunded"], .order__status[data-state="held"] { color: var(--s-para); }
+.items { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.item { min-width: 0; }
+.item__row { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 48px; color: inherit; text-decoration: none; }
+.item__img { flex: none; width: 48px; height: 48px; overflow: hidden; border-radius: calc(var(--s-radius) * 0.6); background: var(--s-border); }
+.item__img img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.item__main { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.item__title { display: block; font-size: var(--section-text-size, 15px); line-height: 1.4; font-weight: 500; color: var(--s-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.item__row:hover .item__title { text-decoration: underline; text-underline-offset: 3px; }
+.item__meta { margin-top: 2px; font-size: 13px; color: var(--s-para); }
+.order__foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; }
+.order__total { margin: 0; font-size: 15px; font-weight: 600; color: var(--s-heading); font-variant-numeric: tabular-nums; }
+.order__total-label { margin-right: 6px; font-weight: 400; color: var(--s-para); }
 .order__go {
-  flex: none; padding: 9px 14px; font-size: 14px; font-weight: 600; text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center; flex: none; min-height: 44px; padding: 0 18px;
+  font-size: 14px; font-weight: 600; text-decoration: none;
   color: var(--s-btn2-text); background: var(--s-btn2); border: 1px solid var(--s-btn2-border); border-radius: var(--s-radius);
   transition: background-color 150ms ease, color 150ms ease;
 }
 .order__go:hover { background: var(--s-btn2-hover); color: var(--s-btn2-hover-text); }
 
-.saved { display: grid; gap: 16px; margin-top: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@container (min-width: 640px) { .saved { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-.card { position: relative; display: flex; flex-direction: column; }
-.card__media { aspect-ratio: 1 / 1; overflow: hidden; border-radius: var(--s-radius); background: var(--s-border); }
-.card__media img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.card__title { margin: 10px 0 0; font-size: 14px; font-weight: 600; color: var(--s-heading); }
-.card__price { margin: 4px 0 0; font-size: 14px; color: var(--s-para); }
-.card__link { position: absolute; inset: 0; }
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.rows { display: flex; flex-direction: column; }
+.row { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; align-items: center; column-gap: 16px; min-height: 56px; margin: 0; padding: 6px 0; border-bottom: 1px solid var(--s-border); }
+.row__label { margin: 0; font-size: 14px; color: var(--s-para); }
+.row__value { margin: 0; font-size: var(--section-text-size, 15px); color: var(--s-heading); overflow-wrap: anywhere; }
+/* No name yet, and the builder's placeholders: the colour a field's placeholder has. */
+.is-muted, .is-sample { color: var(--s-para); }
+.row--edit { padding: 12px 0; }
+.edit { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.edit__input {
+  box-sizing: border-box; flex: 1 1 200px; min-width: 0; min-height: 48px; padding: 12px 14px;
+  font: inherit; font-size: 16px; color: var(--s-text); background: var(--s-bg);
+  border: 1px solid var(--s-border); border-radius: var(--s-radius); -webkit-appearance: none; appearance: none;
+}
+.edit__input:focus { outline: 2px solid var(--s-heading); outline-offset: 1px; border-color: var(--s-heading); }
+
+.entry {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px;
+  border-bottom: 1px solid var(--s-border); text-decoration: none;
+}
+.entry__text { font-size: var(--section-text-size, 15px); color: var(--s-heading); }
+.entry__go { font-size: 15px; font-weight: 500; color: var(--s-heading); text-decoration: underline; text-underline-offset: 4px; }
 
 .s__btn {
   display: flex; align-items: center; justify-content: center; min-height: 48px;
-  padding: 12px 24px; font-size: 15px; font-weight: 600; text-decoration: none;
+  padding: 12px 24px; font: inherit; font-size: 15px; font-weight: 600; text-decoration: none; cursor: pointer;
   border-radius: var(--s-radius); border: 1px solid transparent; transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 .s__btn--primary { background: var(--s-btn); color: var(--s-btn-text); border-color: var(--s-btn); }
 .s__btn--secondary { background: var(--s-btn2); color: var(--s-btn2-text); border-color: var(--s-btn2-border); }
-.s__btn:focus-visible, .order__go:focus-visible, .acct__link:focus-visible { outline: 2px solid var(--s-heading); outline-offset: 2px; }
+.s__btn:focus-visible, .order__go:focus-visible, .acct__link:focus-visible, .entry:focus-visible, .item__row:focus-visible { outline: 2px solid var(--s-heading); outline-offset: 2px; }
 /* Hover colours from the scheme, after the section's own Advanced colors. */
 .s__btn--primary:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); border-color: var(--s-btn-hover); }
 .s__btn--secondary:hover { background: var(--s-btn2-hover); color: var(--s-btn2-hover-text); }
+@container (max-width: 480px) {
+  .row { grid-template-columns: 72px minmax(0, 1fr) auto; column-gap: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .s__btn, .order__go { transition: none; } }
 </style>
 
 <schema>
@@ -146,31 +213,40 @@ a.order__title:hover { text-decoration: underline; text-underline-offset: 3px; }
   "type": "main_account",
   "name": "Account",
   "category": "account",
-  "description": "A signed-in visitor's page: their orders from you, their saved items and a way to sign out.",
-  "version": "1.0.0",
+  "description": "A signed-in customer's page: their orders from you, their name and email, their wishlist and a way to sign out.",
+  "version": "2.0.0",
   "icon": "user",
   "allowed_templates": ["page.account"],
   "settings": [
     { "type": "header", "id": "hdr_content", "label": "Content" },
     { "type": "text", "id": "heading", "label": "Heading", "default": "Account" },
-    { "type": "text", "id": "greeting", "label": "Greeting", "default": "Hi", "info": "Shown before the visitor's first name." },
     { "type": "text", "id": "signout_label", "label": "Sign out link", "default": "Sign out" },
     { "type": "header", "id": "hdr_orders", "label": "Orders" },
     { "type": "text", "id": "orders_heading", "label": "Heading", "default": "Orders" },
-    { "type": "text", "id": "orders_empty", "label": "When there are none", "default": "Nothing here yet." },
+    { "type": "text", "id": "order_label", "label": "Before the order number", "default": "Order" },
+    { "type": "text", "id": "total_label", "label": "Before the total", "default": "Total" },
+    { "type": "text", "id": "orders_empty", "label": "When there are none", "default": "No orders yet." },
     { "type": "text", "id": "shop_link", "label": "Link to the shop", "default": "Browse the shop" },
-    { "type": "text", "id": "library_note", "label": "Under the orders", "default": "Downloads open in your Storelib Library." },
-    { "type": "header", "id": "hdr_saved", "label": "Saved items" },
-    { "type": "toggle", "id": "show_wishlist", "label": "Show saved items", "default": true },
-    { "type": "text", "id": "wishlist_heading", "label": "Heading", "default": "Saved" },
-    { "type": "text", "id": "wishlist_link", "label": "Link to the Wishlist", "default": "See all" },
-    { "type": "text", "id": "wishlist_empty", "label": "When there are none", "default": "Tap the heart on a product to keep it here." },
+    { "type": "header", "id": "hdr_profile", "label": "Profile" },
+    { "type": "text", "id": "profile_heading", "label": "Heading", "default": "Profile" },
+    { "type": "text", "id": "name_label", "label": "Name", "default": "Name" },
+    { "type": "text", "id": "name_empty", "label": "When there is no name", "default": "Not added" },
+    { "type": "text", "id": "email_label", "label": "Email", "default": "Email" },
+    { "type": "text", "id": "edit_label", "label": "Edit link", "default": "Edit" },
+    { "type": "text", "id": "save_label", "label": "Save button", "default": "Save" },
+    { "type": "text", "id": "cancel_label", "label": "Cancel link", "default": "Cancel" },
+    { "type": "header", "id": "hdr_saved", "label": "Wishlist" },
+    { "type": "toggle", "id": "show_wishlist", "label": "Show the wishlist", "default": true },
+    { "type": "text", "id": "wishlist_heading", "label": "Heading", "default": "Wishlist" },
+    { "type": "text", "id": "wishlist_saved", "label": "After the count", "default": "saved" },
+    { "type": "text", "id": "wishlist_empty", "label": "When there are none", "default": "Nothing saved yet." },
+    { "type": "text", "id": "wishlist_link", "label": "Link to the Wishlist", "default": "View" },
     { "type": "header", "id": "hdr_signed_out", "label": "Signed out" },
     { "type": "text", "id": "signed_out_text", "label": "Line", "default": "Sign in to see your orders and saved items." },
     { "type": "text", "id": "signin_label", "label": "Button", "default": "Sign in" },
     { "type": "header", "id": "hdr_style", "label": "Style" },
     { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "white" },
-    { "type": "range", "id": "padding_top", "label": "Top padding", "default": 64, "min": 0, "max": 160, "step": 4, "unit": "px" },
+    { "type": "range", "id": "padding_top", "label": "Top padding", "default": 56, "min": 0, "max": 160, "step": 4, "unit": "px" },
     { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "default": 88, "min": 0, "max": 160, "step": 4, "unit": "px" }
   ],
   "presets": [

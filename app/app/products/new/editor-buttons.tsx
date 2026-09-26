@@ -15,9 +15,10 @@
  * same 32px as the Orders and Products bars. On a phone the press area is
  * 44px high (an invisible band 2px above and below), inside the 56px bar.
  *
- * The Products page wears the same two depths: its rows' more buttons are
- * secondaryDepth and New product is primaryDepth, so a button means the same
- * thing on the list and in the editor.
+ * The Products page wears the same depths: its rows' more buttons are
+ * quietDepth, as the editor's more button is. Its New product is violet
+ * (accentDepth in components/ui/depth-button), the one primary in /app the
+ * owner asked to keep purple; Save stays near black.
  */
 
 import * as React from "react"

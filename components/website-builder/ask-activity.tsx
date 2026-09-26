@@ -25,6 +25,7 @@
  */
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { Check, ChevronRight, Copy, Flag } from "lucide-react"
 
 import type { ActivityCode, ActivityStep } from "@/lib/website-builder/ask-activity"
@@ -172,6 +173,38 @@ export function CodePreview({ file, onOpenCode }: { file: ActivityCode; onOpenCo
 
 /* ── under an answer ───────────────────────────────────────────────────── */
 
+/**
+ * COPY THAT COPIES. The clipboard API first; where it is refused (a page
+ * without clipboard permission, an older web view, a document that has lost
+ * focus) the old way, a selected field and the copy command, which still
+ * works in all of them. True when the words are on the clipboard.
+ */
+export async function writeClipboard(text: string): Promise<boolean> {
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    /* refused: try the old way */
+  }
+  try {
+    const area = document.createElement("textarea")
+    area.value = text
+    area.setAttribute("readonly", "")
+    area.setAttribute("aria-hidden", "true")
+    area.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none"
+    document.body.appendChild(area)
+    area.select()
+    area.setSelectionRange(0, text.length)
+    const done = document.execCommand("copy")
+    area.remove()
+    return done
+  } catch {
+    return false
+  }
+}
+
 export type ReportState =
   | { stage: "closed" }
   | { stage: "open"; reason: string }
@@ -191,6 +224,7 @@ export function AnswerMeta({
   report,
   onReport,
   phone,
+  reportRef,
 }: {
   /** "1 section changed", or null when nothing did. */
   count: string | null
@@ -206,21 +240,19 @@ export function AnswerMeta({
   report: ReportState
   onReport: (next: ReportState) => void
   phone: boolean
+  /** The flag button, which the report popover is placed against. */
+  reportRef?: React.Ref<HTMLButtonElement>
 }) {
-  const [copied, setCopied] = React.useState(false)
+  /** What the last Copy did, said beside the button for a moment: "Copied", or that it could not. */
+  const [copied, setCopied] = React.useState<null | "copied" | "failed">(null)
   React.useEffect(() => {
     if (!copied) return
-    const off = window.setTimeout(() => setCopied(false), 1600)
+    const off = window.setTimeout(() => setCopied(null), copied === "copied" ? 1600 : 2600)
     return () => window.clearTimeout(off)
   }, [copied])
 
   const copy = React.useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(copyText)
-      setCopied(true)
-    } catch {
-      /* A browser that refuses the clipboard: select-and-copy still works on the words above. */
-    }
+    setCopied((await writeClipboard(copyText)) ? "copied" : "failed")
   }, [copyText])
 
   const icon = cn(
@@ -247,13 +279,26 @@ export function AnswerMeta({
       {undo === "done" && <span data-ask-undone="">Undone</span>}
       {steps && <StepsToggle label={steps} open={stepsOpen} onToggle={onToggleSteps} phone={phone} />}
       <span className="min-w-0 flex-1" />
+      {copied && (
+        <span data-ask-copied={copied} role="status" className={cn("text-[12px]", copied === "copied" ? "text-[#1a1a2e]" : "text-[#b45309]")}>
+          {copied === "copied" ? "Copied" : "Could not copy. Select the text instead."}
+        </span>
+      )}
       {copyText && (
-        <button type="button" data-ask-copy="" onClick={() => void copy()} aria-label={copied ? "Copied" : "Copy the answer"} title={copied ? "Copied" : "Copy"} className={icon}>
-          {copied ? <Check className="h-3.5 w-3.5" strokeWidth={2.25} /> : <Copy className="h-3.5 w-3.5" strokeWidth={1.9} />}
+        <button
+          type="button"
+          data-ask-copy=""
+          onClick={() => void copy()}
+          aria-label={copied === "copied" ? "Copied" : "Copy the answer"}
+          title={copied === "copied" ? "Copied" : "Copy"}
+          className={icon}
+        >
+          {copied === "copied" ? <Check className="h-3.5 w-3.5" strokeWidth={2.25} /> : <Copy className="h-3.5 w-3.5" strokeWidth={1.9} />}
         </button>
       )}
       {canReport && report.stage !== "sent" && (
         <button
+          ref={reportRef}
           type="button"
           data-ask-report=""
           onClick={() => onReport(report.stage === "closed" ? { stage: "open", reason: "" } : { stage: "closed" })}
@@ -265,78 +310,192 @@ export function AnswerMeta({
           <Flag className="h-3.5 w-3.5" strokeWidth={1.9} />
         </button>
       )}
-      {report.stage === "sent" && <span data-ask-reported="">Reported</span>}
+      {report.stage === "sent" && (
+        <span data-ask-reported="" role="status" className="text-[#1a1a2e]">
+          Reported. Thank you.
+        </span>
+      )}
     </div>
   )
 }
 
-/** "What went wrong?", in place under the answer. The reason is optional. */
+/** The reasons offered as one tap each. Any of them can be written over. */
+export const REPORT_REASONS = ["Changed the wrong thing", "Did not do what I asked", "Broke the page", "Wrong answer"] as const
+
+/** The popover's width on a computer, and the gap between it and the flag. */
+const REPORT_WIDTH = 264
+const REPORT_GAP = 6
+
+/**
+ * "What went wrong?", in a small popover by the flag. The reason is optional:
+ * a tap on one of the chips or a few words, then Send.
+ *
+ * On a computer it is drawn in the body, fixed next to the flag: the dock
+ * moves on a transform and the thread scrolls with its edges clipped, and a
+ * fixed element inside either is placed against that instead of the window.
+ * Above the flag when there is room, below it when there is not, and kept
+ * inside the window. It closes on Escape, on a press anywhere else, and when
+ * the report has gone. `data-ask-keep` so a press inside it does not fold
+ * the conversation away. On a phone it sits in the thread under the flag.
+ */
 export function ReportForm({
   report,
   onChange,
   onSend,
   phone,
+  anchor,
 }: {
   report: ReportState
   onChange: (next: ReportState) => void
   onSend: (reason: string) => void
   phone: boolean
+  /** The flag it opens from. Without one it is drawn in place. */
+  anchor?: React.RefObject<HTMLElement | null>
 }) {
   const field = React.useRef<HTMLInputElement>(null)
+  const box = React.useRef<HTMLFormElement>(null)
+  /* One per answer: two reports open at once each keep their own label. */
+  const fieldId = `ask-report-${React.useId()}`
+  const shown = report.stage !== "closed" && report.stage !== "sent"
+  const floating = !phone && !!anchor
+  const [place, setPlace] = React.useState<React.CSSProperties | null>(null)
+
   React.useEffect(() => {
     if (report.stage === "open") field.current?.focus({ preventScroll: true })
     // Only when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [report.stage === "open"])
-  if (report.stage === "closed" || report.stage === "sent") return null
+  }, [report.stage === "open", place === null])
+
+  /* Placed against the flag, and again whenever anything under it scrolls or the window changes size. */
+  React.useLayoutEffect(() => {
+    if (!shown || !floating) return
+    let frame = 0
+    const measure = () => {
+      frame = 0
+      const flag = anchor?.current
+      if (!flag || !flag.isConnected) return
+      const r = flag.getBoundingClientRect()
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      const width = Math.min(REPORT_WIDTH, vw - 16)
+      const left = Math.max(8, Math.min(r.right - width, vw - width - 8))
+      const height = box.current?.offsetHeight ?? 150
+      const above = r.top - REPORT_GAP - height >= 8
+      setPlace(
+        above
+          ? { position: "fixed", left, width, bottom: vh - r.top + REPORT_GAP, transformOrigin: "100% 100%" }
+          : { position: "fixed", left, width, top: r.bottom + REPORT_GAP, transformOrigin: "100% 0" },
+      )
+    }
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(measure)
+    }
+    measure()
+    document.addEventListener("scroll", schedule, { capture: true, passive: true })
+    window.addEventListener("resize", schedule)
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      document.removeEventListener("scroll", schedule, { capture: true })
+      window.removeEventListener("resize", schedule)
+    }
+  }, [shown, floating, anchor, report.stage])
+
+  /* A press anywhere but the popover or its flag closes it. The flag toggles it itself. */
+  React.useEffect(() => {
+    if (!shown || !floating) return
+    const away = (event: PointerEvent) => {
+      const target = event.target as Node | null
+      if (!target || box.current?.contains(target) || anchor?.current?.contains(target)) return
+      onChange({ stage: "closed" })
+    }
+    document.addEventListener("pointerdown", away, true)
+    return () => document.removeEventListener("pointerdown", away, true)
+  }, [shown, floating, anchor, onChange])
+
+  if (!shown) return null
   const reason = "reason" in report ? report.reason : ""
   const sending = report.stage === "sending"
-  return (
+  const form = (
     <form
+      ref={box}
       data-ask-report-form=""
+      data-ask-keep=""
+      role="dialog"
+      aria-label="Report this answer"
       onSubmit={(event) => {
         event.preventDefault()
         if (!sending) onSend(reason)
       }}
-      className="mt-1.5 min-w-0 rounded-xl border border-[#e5e7eb] bg-white p-2.5"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return
+        /* Handled here, so the conversation behind it stays open. */
+        event.preventDefault()
+        event.stopPropagation()
+        onChange({ stage: "closed" })
+        anchor?.current?.focus({ preventScroll: true })
+      }}
+      style={floating ? (place ?? { position: "fixed", left: -9999, top: 0, width: REPORT_WIDTH }) : undefined}
+      className={cn(
+        "min-w-0 rounded-2xl border border-[#1a1a2e]/[0.08] bg-white p-2.5",
+        floating
+          ? "z-[300] shadow-[0_2px_6px_rgba(15,23,42,0.06),0_12px_28px_-8px_rgba(15,23,42,0.22)] motion-safe:animate-[ask-report-in_160ms_cubic-bezier(0.32,0.72,0,1)]"
+          : "ml-auto mt-1.5 max-w-[288px] shadow-[0_1px_3px_rgba(15,23,42,0.06)]",
+      )}
     >
-      <label className="block text-[12.5px] font-medium text-[#1a1a2e]" htmlFor="ask-report-reason">
+      {floating && (
+        <style>{"@keyframes ask-report-in{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:none}}"}</style>
+      )}
+      <label className="block text-[12.5px] font-medium text-[#1a1a2e]" htmlFor={fieldId}>
         What went wrong?
       </label>
-      <input
-        ref={field}
-        id="ask-report-reason"
-        value={reason}
-        maxLength={500}
-        onChange={(event) => onChange({ stage: "open", reason: event.target.value })}
-        placeholder="Optional"
-        className={cn(
-          "mt-1.5 block w-full rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[#1a1a2e] outline-none placeholder:text-[#6b7280]/70 focus:border-[#1a1a2e]/30",
-          /* 16px on a phone: smaller, and iOS zooms the page to the field when it is focused. */
-          phone ? "h-11 text-[16px]" : "h-8 text-[13px]",
-        )}
-      />
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {REPORT_REASONS.map((chip) => (
+          <button
+            key={chip}
+            type="button"
+            data-ask-report-reason=""
+            aria-pressed={reason === chip}
+            onClick={() => onChange({ stage: "open", reason: reason === chip ? "" : chip })}
+            className={cn(
+              "rounded-full border px-2 text-[11.5px] transition-colors",
+              phone ? "h-8" : "h-6",
+              reason === chip
+                ? "border-[#1a1a2e] bg-[#1a1a2e] text-white"
+                : "border-[#e5e7eb] text-[#1a1a2e]/75 hover:border-[#1a1a2e]/25 hover:text-[#1a1a2e]",
+            )}
+          >
+            {chip}
+          </button>
+        ))}
+      </div>
+      <div className="mt-2 flex items-center gap-1.5">
+        <input
+          ref={field}
+          id={fieldId}
+          value={reason}
+          maxLength={500}
+          onChange={(event) => onChange({ stage: "open", reason: event.target.value })}
+          placeholder="Or say it in a few words"
+          className={cn(
+            "block min-w-0 flex-1 rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[#1a1a2e] outline-none placeholder:text-[#6b7280]/70 focus:border-[#1a1a2e]/30",
+            /* 16px on a phone: smaller, and iOS zooms the page to the field when it is focused. */
+            phone ? "h-10 text-[16px]" : "h-8 text-[12.5px]",
+          )}
+        />
+        <button
+          type="submit"
+          disabled={sending}
+          className={cn("shrink-0 rounded-full bg-[#1a1a2e] px-3 text-[12.5px] font-medium text-white disabled:opacity-60", phone ? "h-10" : "h-8")}
+        >
+          {sending ? "Sending" : "Send"}
+        </button>
+      </div>
       {report.stage === "problem" && (
         <p role="alert" className="mt-1.5 text-[12px] text-[#b45309]">
           {report.message}
         </p>
       )}
-      <div className="mt-2 flex items-center gap-2">
-        <button
-          type="submit"
-          disabled={sending}
-          className={cn("rounded-full bg-[#1a1a2e] px-3 text-[12.5px] font-medium text-white disabled:opacity-60", phone ? "h-10" : "h-8")}
-        >
-          {sending ? "Sending" : "Send report"}
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange({ stage: "closed" })}
-          className={cn("rounded-full px-3 text-[12.5px] text-[#6b7280] hover:text-[#1a1a2e]", phone ? "h-10" : "h-8")}
-        >
-          Cancel
-        </button>
-      </div>
     </form>
   )
+  return floating && typeof document !== "undefined" ? createPortal(form, document.body) : form
 }

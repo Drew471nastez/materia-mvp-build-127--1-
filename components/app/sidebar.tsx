@@ -7,7 +7,6 @@ import {
   Settings,
   LogOut,
   CreditCard,
-  HelpCircle,
   ChevronDown,
   ChevronRight,
   Compass,
@@ -44,7 +43,6 @@ import { prefetchAppPage } from "@/lib/ui/app-navigation"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
 
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
-const HELP_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/help`
 
 // Progress circle component for setup widget
 function SetupProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
@@ -282,7 +280,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     })
   }, [])
 
-  /* The account menu's own pages (Settings, Billing), fetched whole under
+  /* The account menu's own pages (Billing; Settings is the rail's), fetched whole under
      the pointer the way the rail's rows are (prefetchAppPage): a plain Link's
      prefetch of a page with no loading boundary brings almost nothing, so the
      click waited for the server. */
@@ -290,10 +288,15 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     if (href.startsWith("/app/")) prefetchAppPage(router, href)
   }
 
+  /*
+   * The desktop account menu's rows. No Settings: this dropdown only exists
+   * from md up, where the rail beside the page already has a Settings row
+   * (and the bar a gear), so a third way to the same page was a line of the
+   * menu spent on nothing. The phone's sheet keeps it (mobile-account-menu).
+   * No Help either, on any size.
+   */
   const profileDropdownItems = [
-    { href: "/app/settings", label: t("nav.settings"), icon: Settings },
     { href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard },
-    { href: "/help", label: "Help", icon: HelpCircle, target: "_blank" as const },
     { href: "/explore", label: "Explore", icon: Compass, target: "_blank" as const },
     { href: "/library", label: "Library", icon: Library },
   ]
@@ -539,16 +542,15 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               )}
             >
               <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
-                {/* Your businesses first: the one you are in, the other, and New business while there is room. */}
+                {/* The business you are in first, one row that opens to the other and New business. */}
                 {businesses.length > 0 && (
                   <>
-                    <BusinessSwitcher businesses={businesses} variant="dropdown" currentAvatar={avatarSrc} onNavigate={() => setHeaderProfileOpen(false)} />
+                    <BusinessSwitcher businesses={businesses} variant="dropdown" currentAvatar={avatarSrc} open={headerProfileOpen} onNavigate={() => setHeaderProfileOpen(false)} />
                     <div className="my-1 h-px bg-neutral-100" />
                   </>
                 )}
                 {profileDropdownItems.map((item) => {
                   const Icon = item.icon
-                  const isHelp = item.href === "/help"
                   const isExploreItem = item.href === "/explore"
                   return (
                     <Link
@@ -558,10 +560,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                       onMouseEnter={() => warmAccountPage(item.href)}
                       onFocus={() => warmAccountPage(item.href)}
                       onClick={(e) => {
-                        if (isHelp && isNativeApp()) {
-                          e.preventDefault()
-                          openExternal(HELP_FULL_URL)
-                        } else if (isExploreItem && isNativeApp()) {
+                        if (isExploreItem && isNativeApp()) {
                           e.preventDefault()
                           openExternal(EXPLORE_FULL_URL)
                         }
