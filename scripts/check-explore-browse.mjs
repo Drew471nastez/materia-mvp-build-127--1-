@@ -362,7 +362,13 @@ console.log("\n2. The More picker")
   await push(p, "back")
   await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "no-preference" }])
 
-  /* the drag: one to one, then a pull past the threshold closes */
+  /*
+    the drag: one to one, then a pull past the threshold closes. Changed on
+    purpose with the sheet's release rule (b0f03cad, "it closes where it
+    would have gone"): a pull held still before the lift closes once it is
+    past half the sheet, so the pull goes on to 420px of a 658px sheet. It
+    stopped at 140px, which that rule springs back.
+  */
   const drag = await p.evaluate(async () => {
     const panel = document.querySelector("[data-sheet-panel]")
     const handle = panel.querySelector("[data-sheet-handle]")
@@ -374,13 +380,13 @@ console.log("\n2. The More picker")
     const y = () => new DOMMatrixReadOnly(getComputedStyle(panel).transform).m42
     fire("touchstart", y0)
     const seen = []
-    for (const d of [10, 40, 80, 140]) {
+    for (const d of [10, 40, 80, 140, 260, 420]) {
       fire("touchmove", y0 + d)
       await frame(); await frame()
       seen.push([d, Math.round(y())])
       await new Promise((r) => setTimeout(r, 60))
     }
-    fire("touchend", y0 + 140)
+    fire("touchend", y0 + 420)
     await new Promise((r) => setTimeout(r, 600))
     return { seen, gone: !document.querySelector("[data-app-sheet]") }
   })
@@ -639,13 +645,13 @@ for (const [label, vp] of [["phone 390", PHONE], ["desktop 1280", DESK]]) {
     const y = () => new DOMMatrixReadOnly(getComputedStyle(panel).transform).m42
     fire("touchstart", y0)
     const seen = []
-    for (const d of [10, 40, 80, 140]) {
+    for (const d of [10, 40, 80, 140, 260, 420]) {
       fire("touchmove", y0 + d)
       await frame(); await frame()
       seen.push([d, Math.round(y())])
       await new Promise((r) => setTimeout(r, 60))
     }
-    fire("touchend", y0 + 140)
+    fire("touchend", y0 + 420)
     await new Promise((r) => setTimeout(r, 600))
     return { seen, gone: !document.querySelector("[data-app-sheet]") }
   })

@@ -244,13 +244,14 @@ console.log("\n  phone 390")
     const frame = () => new Promise((r) => requestAnimationFrame(() => r()))
     fire("touchstart", y0)
     const seen = []
-    for (const d of [10, 50, 120]) {
+    /* Past half the sheet: a pull held before the lift closes only there (the sheet's release rule, b0f03cad). It stopped at 120px, which now springs back. */
+    for (const d of [10, 50, 120, 260, 420]) {
       fire("touchmove", y0 + d)
       await frame(); await frame()
       seen.push([d, Math.round(new DOMMatrixReadOnly(getComputedStyle(panel).transform).m42)])
       await new Promise((r) => setTimeout(r, 60))
     }
-    fire("touchend", y0 + 120)
+    fire("touchend", y0 + 420)
     await new Promise((r) => setTimeout(r, 600))
     return { seen, gone: !document.querySelector("[data-app-sheet]") }
   })

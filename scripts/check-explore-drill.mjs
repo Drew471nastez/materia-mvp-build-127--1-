@@ -419,9 +419,10 @@ async function openFilters() {
   await p.close()
 }
 /*
-  THE DRAG and THE HAND-OFF, twice: a slow pull let go past the threshold
-  (about a quarter of a pixel a millisecond, the case that was yanked away),
-  and a quicker release near a pixel a millisecond. The hand-off is read as
+  THE HAND-OFF, twice: a slow pull let go past half the sheet (about a
+  quarter of a pixel a millisecond, the case that was yanked away; held
+  still, the sheet closes only past half), and a quicker release near a
+  pixel a millisecond, which the sheet carries on and closes. The hand-off is read as
   the editor's feel probe reads it (scripts/check-sheet-feel.mjs): the
   sheet's speed from the frame it leaves the release position over the next
   one, against the finger's speed over its last 80ms.
@@ -464,9 +465,9 @@ async function release(stepPx, moves, pauseMs) {
   return { moves: dragging.length, finger: Math.round(finger * 100) / 100, v1: v1 && Math.round(v1 * 100) / 100, ratio: v1 && finger > 0 ? Math.round((v1 / finger) * 10) / 10 : null, stillAfterLiftMs: stalled, gone }
 }
 {
-  const slow = await release(8, 16, 14)
+  const slow = await release(8, 40, 14)
   const quick = await release(24, 8, 0)
-  expect(slow.moves >= 12 && slow.ratio != null && slow.ratio <= 2.5 && slow.gone, "a slow pull let go past the threshold leaves near the finger's speed, not yanked away, and closes", slow)
+  expect(slow.moves >= 30 && slow.ratio != null && slow.ratio <= 2.5 && slow.gone, "a slow pull let go past half the sheet leaves near the finger's speed, not yanked away, and closes", slow)
   expect(quick.moves >= 6 && quick.ratio != null && quick.ratio >= 0.6 && quick.ratio <= 1.6 && quick.gone, "a quicker release leaves at the finger's speed (0.6 to 1.6 times) and closes", quick)
   results.filters = { ...results.filters, slow, quick }
 }
