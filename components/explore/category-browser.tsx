@@ -139,11 +139,36 @@ export function Chevron({ dir = "right", className }: { dir?: "right" | "left" |
   )
 }
 
-export function Tick({ className }: { className?: string }) {
+/**
+ * THE MARK ON THE CHOSEN ROW. "A circled check with a bit of depth." A
+ * near-black disc with a white tick, a line of light along its top and a
+ * soft shadow under it, the depth the app's buttons have
+ * (components/ui/depth-button.ts): no gradient, no glow.
+ *
+ * It is always there and only shown or not, so a choice moving from one row
+ * to another is two small movements on the compositor: the new one grows
+ * in from 60% as it fades up, the old one shrinks away a little quicker.
+ * Scale and opacity only (Tailwind's `scale-*` is the `scale` property, so
+ * that is the one the transition names). Nothing about the row's text
+ * changes, so nothing reflows under the finger.
+ */
+export function CheckDisc({ on, className }: { on: boolean; className?: string }) {
   return (
-    <svg aria-hidden viewBox="0 0 16 16" fill="none" className={cn("h-4 w-4 shrink-0", className)}>
-      <path d="M3.5 8.4 6.6 11.4 12.5 4.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <span
+      aria-hidden
+      data-check-disc={on ? "on" : "off"}
+      className={cn(
+        "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-[#1a1a2e] text-white",
+        "shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_2px_rgba(15,23,42,0.22),0_3px_8px_-2px_rgba(15,23,42,0.24)]",
+        "transition-[scale,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+        on ? "scale-100 opacity-100 duration-[240ms]" : "scale-[0.6] opacity-0 duration-150",
+        className,
+      )}
+    >
+      <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3">
+        <path d="M3.6 8.4 6.5 11.2 12.4 5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
   )
 }
 
@@ -320,15 +345,11 @@ export function CategoryBrowser({
             drillIn(g.id)
           }
         }}
-        className={cn(rowBase, rowCommon, on && "font-medium")}
+        className={cn(rowBase, rowCommon)}
       >
         <span className="min-w-0 flex-1 truncate">{g.label}</span>
         {detail ? <span className={detailCls}>{detail}</span> : null}
-        {opens ? (
-          <Chevron className="text-[#9ca3af]" />
-        ) : (
-          <Tick className={cn("text-[#1a1a2e]", on ? "opacity-100" : "opacity-0")} />
-        )}
+        {opens ? <Chevron className="text-[#9ca3af]" /> : <CheckDisc on={on} />}
       </button>
     )
   }
@@ -341,11 +362,11 @@ export function CategoryBrowser({
       data-browse-option={key}
       aria-current={on ? "true" : undefined}
       onClick={pick}
-      className={cn(rowBase, rowCommon, on && "font-medium")}
+      className={cn(rowBase, rowCommon)}
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {detail ? <span className={detailCls}>{detail}</span> : null}
-      <Tick className={cn("text-[#1a1a2e]", on ? "opacity-100" : "opacity-0")} />
+      <CheckDisc on={on} />
     </button>
   )
 

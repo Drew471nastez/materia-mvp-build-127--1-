@@ -32,6 +32,9 @@
  *   a tap that wobbles by a couple of pixels, as a thumb does
  *   a tap on another category the moment back has been pressed
  *
+ * The same sheet's other ask is measured on the Filters sheet (section 3):
+ * the circled check.
+ *
  * Screenshots go to SHOTS_DIR (a temporary folder by default).
  *
  *   node scripts/check-explore-drill.mjs
@@ -352,10 +355,67 @@ results.header = await cases(
   "design",
   "marketing",
 )
+/* ========================================================================= */
+console.log("\n3. The filters sheet: the check")
+/*
+  "Picking an option feels too abrupt." Read off the page every frame:
+
+    THE CHECK   the chosen row's circled check grows in over several frames
+                (scale and opacity), the old one shrinks away, and no row's
+                text changes weight
+*/
+async function openFilters() {
+  const p = await open("explore", "#page")
+  const at = await p.evaluate(() => {
+    const b = document.querySelector("[data-filters-button]")
+    b.scrollIntoView({ block: "center" })
+    const r = b.getBoundingClientRect()
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+  })
+  await sleep(100)
+  await tap(p, at.x, at.y)
+  if (!(await p.waitForFunction(() => !!document.querySelector('[data-app-sheet="open"] [data-filters-done]'), { polling: "raf", timeout: 400 }).then(() => true, () => false))) fail("Filters did not open its sheet.")
+  await sleep(600)
+  return p
+}
+{
+  const p = await openFilters()
+  /* THE CHECK */
+  const record = p.evaluate(() => new Promise((resolve) => {
+    const disc = (id) => document.querySelector(`[data-filter-sort="${id}"] [data-check-disc]`)
+    const read = (el) => { const cs = getComputedStyle(el); return { o: Number(cs.opacity), s: parseFloat(cs.scale) || 1 } }
+    const weights = () => [...document.querySelectorAll("[data-filter-sort]")].map((b) => getComputedStyle(b).fontWeight)
+    const before = weights()
+    const frames = []
+    const t0 = performance.now()
+    const tick = () => {
+      frames.push({ t: Math.round(performance.now() - t0), next: read(disc("price-low")), prev: read(disc("recommended")) })
+      if (performance.now() - t0 < 600) requestAnimationFrame(tick)
+      else resolve({ frames, before, after: weights() })
+    }
+    requestAnimationFrame(tick)
+  }))
+  const row = await boxOf(p, '[data-filter-sort="price-low"]')
+  await tap(p, row.x, row.y)
+  const c = await record
+  await p.screenshot({ path: join(shots, "filters-picked.png") })
+  const between = (k) => c.frames.filter((f) => f[k].o > 0.05 && f[k].o < 0.95).length
+  const rising = c.frames.every((f, i) => i === 0 || f.next.o >= c.frames[i - 1].next.o - 0.001)
+  const first = c.frames.find((f) => f.next.o > 0.05)
+  const last = c.frames[c.frames.length - 1]
+  expect(between("next") >= 4 && rising && first && first.next.s < 0.9 && last.next.o === 1 && last.next.s === 1,
+    "the chosen row's circled check grows in by scale and opacity over several frames", { framesBetween: between("next"), firstSeen: first?.next, last: last.next })
+  expect(between("prev") >= 2 && last.prev.o === 0, "and the one it leaves shrinks away", { framesBetween: between("prev"), last: last.prev })
+  expect(c.before.join() === c.after.join(), "no row's text changes weight", { before: c.before, after: c.after })
+
+  results.filters = { check: { framesBetween: between("next") } }
+  await p.close()
+}
+
 writeFileSync(join(shots, "drill.json"), JSON.stringify(results, null, 1))
 
 await browser.close()
 if (!process.env.KEEP) rmSync(stubs, { recursive: true, force: true })
 console.log(`\nScreenshots: ${shots}`)
 if (broken) fail(`${broken} check(s) failed.`)
-console.log("\nOne tap opens a category in both sheets: while rising, on arrival, after a scroll, after back, and with a wobble.")
+console.log("\nOne tap opens a category in both sheets, and the filters sheet's check grows in and shrinks away.")

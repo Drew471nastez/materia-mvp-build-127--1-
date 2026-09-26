@@ -19,12 +19,18 @@
  * On a computer it is a panel hanging from the Filters button. On a phone it
  * is the shared sheet, and its one button closes it and says how many
  * results you are about to see.
+ *
+ * "Picking an option feels too abrupt." The tick used to blink from one row
+ * to the next and the chosen row's text jumped to a heavier weight, which
+ * reflowed it under the finger. Now the chosen row carries the circled
+ * check (CheckDisc in ./category-browser), which grows in as the old one
+ * shrinks away, by scale and opacity, and no row's text changes.
  */
 
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { cn } from "@/lib/utils"
-import { Tick, useDesktop } from "./category-browser"
+import { CheckDisc, useDesktop } from "./category-browser"
 import { PANEL_CLASS } from "./explore-category-picker"
 
 /*
@@ -90,10 +96,10 @@ function FilterChoices({
               aria-checked={on}
               data-filter-sort={o.id}
               onClick={() => setSortBy(o.id)}
-              className={cn(row, "cursor-pointer select-none text-[#1a1a2e] outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent]", on && "font-medium")}
+              className={cn(row, "cursor-pointer select-none text-[#1a1a2e] outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent]")}
             >
               <span className="min-w-0 flex-1 truncate">{o.label}</span>
-              <Tick className={cn("text-[#1a1a2e]", on ? "opacity-100" : "opacity-0")} />
+              <CheckDisc on={on} />
             </button>
           )
         })}

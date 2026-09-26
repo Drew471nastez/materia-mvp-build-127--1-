@@ -76,6 +76,9 @@ function main() {
   */
   check("  nothing happens on the press: the tap draws the level and moves it, in one commit", !/onPointerDown/.test(browser) && !/prepare\(/.test(browser)
     && /const drillIn = useCallback\(\(id: string\) => \{[\s\S]{0,160}setHeld\(id\)\s*setSubOut\(false\)\s*setOpen\(id\)/.test(browser))
+  check("  the chosen row wears a circled check that grows in and shrinks away by scale and opacity, and its text keeps its weight",
+    /export function CheckDisc\(/.test(browser) && /transition-\[scale,opacity\]/.test(browser) && /on \? "scale-100 opacity-100/.test(browser) && /rounded-full bg-\[#1a1a2e\] text-white/.test(browser)
+    && (browser.match(/<CheckDisc on=\{on\} \/>/g) ?? []).length === 2 && !/on && "font-medium"/.test(browser))
   check("  and kept after going back, so nothing renders during a move", !/setHeld\(null\)/.test(browser) && /setSubOut\(true\)/.test(browser))
   check("each level scrolls itself, so back returns to where you were", (browser.match(/data-browse-level=/g) || []).length === 2 && /absolute inset-0 overflow-y-auto/.test(browser))
   check("the level out of sight takes no focus", /inert=\{inSub \|\| undefined\}/.test(browser) && /inert=\{!inSub \|\| undefined\}/.test(browser))
@@ -100,6 +103,7 @@ function main() {
   check("the list follows the choice deferred, so the tap is not held by the grid", /useDeferredValue\(priceFilter\)/.test(page) && /useDeferredValue\(sortBy\)/.test(page))
   check("a panel on a computer, the shared sheet on a phone", /data-filters-panel/.test(filters) && /<BottomSheet\b/.test(filters))
   check("the phone's button says how many results", /Show \$\{resultCount\}/.test(filters))
+  check("a sort choice moves the circled check, and no row's weight changes", /<CheckDisc on=\{on\} \/>/.test(filters) && !/on && "font-medium"/.test(filters) && !/\bTick\b/.test(filters))
   check("the Active: row under the pills is gone", !/>\s*Active:\s*</.test(page))
   check("For you keeps its own order", /mainCategory === FOR_YOU_ID && !searching \? "for-you"/.test(page))
 
