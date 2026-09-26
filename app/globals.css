@@ -4416,7 +4416,8 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
   box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 6px rgba(0,0,0,0.06) !important;
 }
 .wb-black-slider [data-slot="slider-thumb"]:active,
-.wb-black-slider [data-slot="slider-thumb"][data-state="active"] {
+.wb-black-slider [data-slot="slider-thumb"][data-state="active"],
+.wb-black-slider[data-dragging] [data-slot="slider-thumb"] {
   transform: scale(1.18) !important;
   cursor: grabbing !important;
   box-shadow: 0 2px 5px rgba(0,0,0,0.3), 0 0 0 8px rgba(0,0,0,0.08) !important;
@@ -4425,6 +4426,25 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
 .wb-black-slider [data-slot="slider-thumb"]:focus-visible {
   outline: none !important;
   box-shadow: 0 1px 3px rgba(0,0,0,0.25), 0 0 0 6px rgba(0,0,0,0.06) !important;
+}
+/* WHILE A FINGER DRAGS IT, the fill is moved by `translate` from where the
+   drag began (SliderNumberControl), not resized: moved right, its left end
+   would leave the start of the track bare. This carries the fill's colour
+   on to its left, out past the track's clipped end, with square corners
+   where the two meet so no notch shows between them. At rest none of it is
+   there, and an empty fill draws nothing. */
+.wb-black-slider[data-dragging] [data-slot="slider-range"] {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+.wb-black-slider[data-dragging] [data-slot="slider-range"]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: calc(100% - 1px);
+  width: 100vw;
+  background: inherit;
 }
 
 /* The section library's dialog on a computer, kept rather than rebuilt: it

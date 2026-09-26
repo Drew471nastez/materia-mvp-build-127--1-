@@ -114,6 +114,32 @@ function main() {
     "the tap that selects a section was on the canvas, so the canvas has to answer it at once",
   )
 
+  /*
+    THE FINGER DOES NOT GO THROUGH REACT (slider-number-control.tsx). Drawn
+    from local state, the thumb was still one frame behind every move: the
+    state was rendered in a task after the paint. scripts/check-onepage-motion.mjs
+    measured 0 of 8 moves drawn in their own frame before, 10 of 10 after.
+  */
+  console.log("\nA drag is drawn in the frame of the move")
+  check("the slider captures the pointer itself", /wrap\.setPointerCapture\(e\.pointerId\)/.test(slider))
+  check("and Radix's own pointer handling never starts", /e\.stopPropagation\(\)/.test(slider) && /addEventListener\("pointerdown", onDown, \{ capture: true \}\)/.test(slider))
+  check(
+    "each move writes the thumb and the fill by translate, in the handler",
+    /d\.thumbWrap\.style\.translate = /.test(slider) && /d\.range\.style\.translate = /.test(slider),
+    "a transform written per move, not a state set per move",
+  )
+  check("a move never sets the control's state", !/const move = [\s\S]{0,1200}setShown\(/.test(slider))
+  check("the value still goes up through the one coalescer", /const move = [\s\S]{0,1200}live\.current\.emit\(v\)/.test(slider))
+  check(
+    "a release draws the step at once and glides the thumb onto it",
+    /flushSync\(\(\) => \{\s*setShown\(d\.value\)/.test(slider) && /thumbWrap\.animate\(\[\{ translate:/.test(slider),
+  )
+  check("an older value coming back while the finger is down is ignored", /if \(dragRef\.current\) return/.test(slider))
+  check(
+    "the fill's colour carries on behind it while it is moved",
+    /\.wb-black-slider\[data-dragging\] \[data-slot="slider-range"\]::before/.test(read("app/globals.css")),
+  )
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }
