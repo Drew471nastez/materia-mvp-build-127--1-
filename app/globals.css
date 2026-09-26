@@ -6605,3 +6605,38 @@ html.capacitor .home-card li > :is(a, button):active {
     animation: none;
   }
 }
+
+/*
+  ===========================================================================
+   ASK STORELIB'S PILL WHERE GLASS IS NOT WANTED, OR NOT THERE
+  ===========================================================================
+  The rings that soften the page around the folded pill (SOFTEN_RINGS, drawn
+  in components/website-builder/theme-chat.tsx as [data-ask-soften]) are pure
+  enhancement: they hold no colour of their own, only a backdrop filter over
+  the page's own pixels.
+
+  NO BACKDROP FILTER, NOTHING TO PAY FOR. In an engine without one they would
+  draw nothing anyway; taken out of the page they are not even elements to
+  composite, and the pill is left as what it already is on its own — 95%
+  white with a hairline and its ink shadows, which is readable over any page.
+
+  ASKED FOR LESS SEE-THROUGH. prefers-reduced-transparency is a person saying
+  they do not want surfaces they can see the page through. The rings go, and
+  the pill's face stops being a filter at all and becomes plain white: the
+  same layout, the same shadows, nothing behind it showing.
+*/
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  [data-ask-soften] {
+    display: none;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  [data-ask-soften] {
+    display: none;
+  }
+  [data-ask-glass] {
+    background-color: #fff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

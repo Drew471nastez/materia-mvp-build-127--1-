@@ -29,6 +29,9 @@ import type { SectionInstance } from "@/lib/website-builder/types"
              lifted pixels and a blur changes nothing
     stripes  fine black and white stripes, where a blur shows as lost
              contrast, so how much the band blurs can be read row by row
+    blue     the site from the screenshot the softening was asked for: one
+             saturated blue, white words over it, flat where the pill sits,
+             so anything drawn round the pill shows against colour
 */
 const CANVAS = new URLSearchParams(location.search).get("canvas") ?? "photo"
 
@@ -95,9 +98,24 @@ function Desktop() {
               height: "100%",
               overflowY: "auto",
               background:
-                CANVAS === "dark" ? "#1f2937" : CANVAS === "stripes" ? "repeating-linear-gradient(90deg, #111 0 2px, #fff 2px 4px)" : "#fff",
+                CANVAS === "dark"
+                  ? "#1f2937"
+                  : CANVAS === "stripes"
+                    ? "repeating-linear-gradient(90deg, #111 0 2px, #fff 2px 4px)"
+                    : CANVAS === "blue"
+                      ? "#2563eb"
+                      : "#fff",
             }}
           >
+            {CANVAS === "blue" &&
+              Array.from({ length: 8 }, (_, i) => (
+                <section key={i} id={`wb-section-${i}`} style={{ height: 320, padding: 48, background: i % 2 ? "#2563eb" : "#1d4ed8" }}>
+                  <h2 style={{ font: "700 44px Inter, system-ui", margin: 0, color: "#fff" }}>Everything blue</h2>
+                  <p style={{ font: "17px Inter, system-ui", color: "rgba(255,255,255,0.86)", maxWidth: 560 }}>
+                    A saturated page being edited, the kind the pill was floating over when the softening was asked for.
+                  </p>
+                </section>
+              ))}
             {CANVAS === "photo" && Array.from({ length: 8 }, (_, i) => (
               <section key={i} id={`wb-section-${i}`} style={{ height: 320, padding: 48, borderBottom: "1px solid #eee", background: i % 2 ? "#fafafa" : "#fff" }}>
                 <h2 style={{ font: "700 40px Inter, system-ui", margin: 0, color: "#1a1a2e" }}>Section {i + 1}</h2>
