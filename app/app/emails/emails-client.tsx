@@ -40,10 +40,8 @@
  */
 
 import * as React from "react"
-import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Sparkles } from "lucide-react"
-import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
+import { TryProStrip } from "@/components/app/announcement-bar-mobile"
 import { ComposeDialog } from "@/components/email/compose/ui"
 import { peek, prefetch, refresh, useCached, write } from "@/components/email/emails-cache"
 import { createClient } from "@/lib/supabase/client"
@@ -477,22 +475,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
         inert={listCovered}
         aria-hidden={listCovered || undefined}
       >
-        <AnnouncementBarMobile>
-          <div className="mx-auto flex max-w-[1200px] items-center justify-center gap-2 text-center md:gap-3">
-            <span className="text-[12px] text-white/90 md:text-[14px]">
-              <span className="font-semibold text-white">Try Pro</span>
-              <span className="hidden md:inline">, our most popular plan for content creators and businesses.</span>
-            </span>
-            <Link
-              href="/upgrade"
-              className="group relative inline-flex shrink-0 items-center gap-1 overflow-hidden rounded-full bg-[#1a1a2e] px-2.5 py-0.5 text-[11px] font-medium text-white transition-colors md:gap-1.5 md:px-3 md:py-1 md:text-[13px]"
-            >
-              <span className="absolute inset-0 rounded-full border border-white/30 transition-colors group-hover:border-white/50" />
-              <Sparkles className="relative z-10 h-3 w-3 md:h-3.5 md:w-3.5" />
-              <span className="relative z-10">Upgrade</span>
-            </Link>
-          </div>
-        </AnnouncementBarMobile>
+        <TryProStrip />
 
         <EmailsHome
           tab={tab}

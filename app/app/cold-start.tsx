@@ -1,4 +1,5 @@
 import { PageSpinner } from "@/components/ui/activity-spinner"
+import { AppTopCorners } from "@/components/app/app-top-corners"
 
 /**
  * ===========================================================================
@@ -13,11 +14,15 @@ import { PageSpinner } from "@/components/ui/activity-spinner"
  * version of Home that then turned into Home, and a violet strip under the
  * clock on every cold start. Now it is the shell's own frame, which is what
  * every page arrives in: the header's #111111 across the top, the content
- * area's #f8f9fa below it with the same rounded top, and the same light gray
- * spinner a slow page shows (components/app/app-stage.tsx), in the same
- * place: 40% of the way down (PageSpinner), so the cold start and a slow
- * page never disagree about where it is. The corners of that rounded top are the header's colour because the whole
- * window is.
+ * area's #f8f9fa below it, and the same light gray spinner a slow page shows
+ * (components/app/app-stage.tsx), in the same place: 40% of the way down
+ * (PageSpinner), so the cold start and a slow page never disagree about
+ * where it is.
+ *
+ * The rounded corners where the content area meets the bar are the header's
+ * own (components/app/app-top-corners.tsx), hung from a box the header's
+ * height, so a cold start and the page that follows it curve by the same
+ * radius at every width.
  *
  * The header's height is the shell's: 68px under the status bar on a phone,
  * 58px from md, read with env(safe-area-inset-top) so a browser gets 0.
@@ -33,8 +38,11 @@ export default function AppColdStart() {
   return (
     <div data-app-cold-start="" className="fixed inset-0 bg-[#111111] md:bg-[#131316]">
       <div className="absolute bottom-0 left-0 top-[calc(58px+env(safe-area-inset-top,0px))] hidden w-[240px] border-r border-neutral-200/60 bg-white md:block" />
-      <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] rounded-t-[20px] bg-[#f8f9fa] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))] md:rounded-none">
+      <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] bg-[#f8f9fa] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))]">
         <PageSpinner />
+      </div>
+      <div className="absolute inset-x-0 top-0 h-[calc(68px+env(safe-area-inset-top,0px))] text-[#111111] md:h-[calc(58px+env(safe-area-inset-top,0px))] md:text-[#131316]">
+        <AppTopCorners />
       </div>
     </div>
   )

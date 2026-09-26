@@ -2957,6 +2957,64 @@ html.native-auth-lock .auth-card input {
   touch-action: pan-x pan-y;
 }
 
+/* ── Where the page meets the black bar ──────────────────────────────────────
+ *
+ * "It needs to be the rounded concave thing, across all pages, the same as it
+ * is on desktop." Two quarter circles of the bar's colour hang from the bar's
+ * bottom edge at the left and the right of the screen (components/app/
+ * app-top-corners.tsx), on a phone and on a computer, in a browser and in the
+ * native apps. The page scrolls under them and they stay put.
+ *
+ * THE ONE PLACE THE NUMBERS LIVE. The radius, and how far each corner starts
+ * inside the bar so no seam can open between them. The two headers, the
+ * native cold start, a slow page's surface and the probe
+ * (scripts/check-app-top-corners.mjs) all read these; none of them writes
+ * its own.
+ * ──────────────────────────────────────────────────────────────────────────── */
+:root {
+  --app-top-corner: 16px;
+  --app-top-overlap: 1px;
+}
+.app-top-corners {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% - var(--app-top-overlap));
+  height: calc(var(--app-top-corner) + var(--app-top-overlap));
+  pointer-events: none;
+}
+.app-top-corners > span {
+  position: absolute;
+  top: 0;
+  width: var(--app-top-corner);
+  height: 100%;
+  overflow: hidden;
+}
+.app-top-corners > span[data-corner="left"] {
+  left: 0;
+}
+.app-top-corners > span[data-corner="right"] {
+  right: 0;
+}
+/* A circle whose edge is the curve, and a shadow as wide as the radius
+   filling everything outside it, the overlap row included. The browser's own
+   rounded edge, so the curve is as smooth as any rounded box on the page. */
+.app-top-corners > span::before {
+  content: "";
+  position: absolute;
+  top: var(--app-top-overlap);
+  width: calc(var(--app-top-corner) * 2);
+  height: calc(var(--app-top-corner) * 2);
+  border-radius: 50%;
+  box-shadow: 0 0 0 var(--app-top-corner) currentColor;
+}
+.app-top-corners > span[data-corner="left"]::before {
+  left: 0;
+}
+.app-top-corners > span[data-corner="right"]::before {
+  right: 0;
+}
+
 /* Dashboard inner scroll container.
    We use a JS touch-intercept hook for the custom pull-to-refresh, which calls
    e.preventDefault() on touchmove when scrollTop === 0.  The CSS rule is a
