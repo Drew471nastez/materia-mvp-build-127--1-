@@ -711,7 +711,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       setInitialLoadDone(true)
     }, 2500)
 
-    const loadUser = async (isInitial = false) => {
+    const loadUser = async (isInitial = false): Promise<string | null | undefined> => {
       try {
         if (!mountedRef.current) return
         // Only when there is nothing to show yet. With a snapshot in hand,
@@ -742,7 +742,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
           return
         }
 
-        if (!mountedRef.current) return
+        if (!mountedRef.current) return user.id
         setUser(user)
 
         // profiles.avatar_url is the single source of truth for avatar.
@@ -788,6 +788,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
             isSeller: isSellerByState,
           })
         }
+        return user.id
       } catch {
         if (!mountedRef.current) return
         setUser(null)
@@ -801,11 +802,26 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
       }
     }
 
-    loadUser(true)
+    /*
+      ONE READ OF WHO IS SIGNED IN, NOT THREE. Supabase answers a new
+      subscription at once (INITIAL_SESSION) and, for a session read from
+      the cookie, again (SIGNED_IN), for the same person the read on mount
+      is already asking about. Each answer ran that read again, the user,
+      the profile and the creator row, and the wishlist count with them:
+      three calls to Supabase Auth and three to /api/wishlist on every
+      creator page a signed in person opened (scripts/check-creator-page-
+      audit.mjs). Now an event reads again only when it names somebody
+      other than the last read found, or the user's own details changed.
+    */
+    let loadedFor: Promise<string | null> = loadUser(true).then((id) => id ?? null)
 
-    const { data } = supabase.auth.onAuthStateChange(() => {
-      loadUser(false)
-      fetchWishlistCount()
+    const { data } = supabase.auth.onAuthStateChange((event: string, session: { user?: { id?: string } } | null) => {
+      const id = session?.user?.id ?? null
+      loadedFor = loadedFor.then((was) => {
+        if (event !== "USER_UPDATED" && was === id) return was
+        fetchWishlistCount()
+        return loadUser(false).then((now) => now ?? null)
+      })
     })
 
     return () => {

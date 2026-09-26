@@ -599,7 +599,7 @@ const FRAME_RESERVED_FIRST_SEGMENT = new Set([
   "access", "account", "account-deletion", "admin", "api", "app", "auth", "blog", "c",
   "checkout", "cover-render", "creator-page", "dashboard", "developers", "downloads", "editions", "explore",
   "faq", "features", "help", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "native-start",
-  "onboarding", "p", "pricing", "privacy", "products", "purchase", "receipt",
+  "onboarding", "onepage-preview", "p", "pricing", "privacy", "products", "purchase", "receipt",
   "register", "request", "reset-password", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",
   "store-builder", "terms", "u", "unsubscribe", "upgrade", "verify-email",
   "w", "website-builder", "welcome", "wishlist",
@@ -1485,7 +1485,14 @@ export async function proxy(request: NextRequest) {
       if (parts.length !== 1) return false
       return !FRAME_RESERVED_FIRST_SEGMENT.has(parts[0].toLowerCase())
     })()
+    /*
+      AND THE ONEPAGE EDITOR'S PREVIEW, which is the live page's own
+      component in a frame of the editor's (components/onepage/live-
+      preview). It reads nothing and shows only what its parent on this
+      origin posts to it, and it is framed on the same terms as the others.
+    */
     const framableWhenEmbedded =
+      url.pathname === "/onepage-preview" ||
       url.pathname.startsWith("/website-builder/code/") ||
       url.pathname.startsWith("/u/") ||
       creatorPath ||

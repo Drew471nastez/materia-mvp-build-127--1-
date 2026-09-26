@@ -140,8 +140,29 @@ function switchScreen() {
     /readSwitchCookie\(\(await cookies\(\)\)\.get\(SWITCH_COOKIE\)\?\.value\)/.test(layout) && (layout.match(/\{arrival\}\s*\n\s*<NativeAuthGate/g) ?? []).length === 2
       && /__html: SWITCH_SPIN_SCRIPT/.test(layout) && /<BusinessSwitchArrival name=\{switchingTo\} \/>/.test(layout))
   const screen = read("components/app/business-switch-screen.tsx")
-  check("the screen is the shell's own frame (the cold start's), with the spinner where every slow page has it",
-    /<AppColdStart>/.test(screen) && /grid-rows-\[2fr_auto_3fr\]/.test(screen) && /\{children \?\? <PageSpinner \/>\}/.test(read("app/app/cold-start.tsx")))
+  /*
+    Changed on purpose. The owner, on the screen halfway through a switch:
+    "the layout, the sidebar there, it's cut". It used to be the cold start's
+    frame, so it drew the shell's empty white rail beside the grey content
+    area with the header's curve cut into its corner: an empty sidebar and a
+    panel torn away from it, a moment after the page it covered had a full
+    one. It is its own surface now, the same on both sides of the reload: the
+    app's bar, and one white area under it from edge to edge, the white the
+    new business's setup already sat on.
+  */
+  check("the screen is one white surface under the app's own bar: no empty rail beside it, nothing cut out of it",
+    !/AppColdStart/.test(screen) && /function SwitchSurface/.test(screen)
+      && /<SwitchSurface>\{middle\}<\/SwitchSurface>/.test(screen)
+      && /data-switch-surface="" className="absolute inset-0 bg-white"/.test(screen)
+      && !/w-\[240px\]|#f8f9fa/.test(screen))
+  check("  its bar is the shell's own height and colour at each width, with the one set of corners hung from it",
+    /h-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] bg-\[#111111\] text-\[#111111\] md:h-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:bg-\[#131316\] md:text-\[#131316\]/.test(screen)
+      && /<AppTopCorners \/>/.test(screen) && !/rounded-t-/.test(screen))
+  check("  with the spinner where every slow page has it, 40% down the white",
+    /grid-rows-\[2fr_auto_3fr\]/.test(screen) && /<PageSpinner \/>/.test(read("app/app/cold-start.tsx")))
+  check("  and the cold start keeps its own frame, for the cold start alone",
+    /<div data-app-cold-start="" className="fixed inset-0 bg-\[#111111\] md:bg-\[#131316\]">/.test(read("app/app/cold-start.tsx"))
+      && /export default function AppColdStart\(\) \{/.test(read("app/app/cold-start.tsx")))
   check("the arrival waits for the page to be ready to draw: the shell, the fonts, the first screen's pictures, its loading parts",
     /\.app-content-scroll/.test(screen) && /\[data-app-cold-start\]/.test(screen) && /fonts\?\.ready/.test(screen) && /img\.decode\(\)/.test(screen) && /\[aria-busy="true"\]/.test(screen) && /ARRIVAL_CAP_MS/.test(screen))
   check("  then hands over in one fade, the page taking the stage's rise under it, and clears the cookie",

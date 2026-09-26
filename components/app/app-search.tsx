@@ -241,10 +241,11 @@ export const AppSearch = memo(
           openExternal(external)
           return
         }
-        /* These leave the /app router tree; in the app a full load would
-           lose the session, which lives in Preferences, not a cookie. The
-           Website page is not one of them: it is a page in the shell. */
-        if (!isNativePlatform() && (href.startsWith("/creator-page") || href.startsWith("/app/onepage"))) {
+        /* The creator page leaves the /app router tree; in the app a full
+           load would lose the session, which lives in Preferences, not a
+           cookie. The Website page and the OnePage editor are not like it:
+           they are pages in the shell, and go by the router like the rail. */
+        if (!isNativePlatform() && href.startsWith("/creator-page")) {
           startNavigationLoading(href)
           window.location.href = href
           return

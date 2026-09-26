@@ -115,10 +115,19 @@ console.log("\nA OnePage says where it lives and who it is about")
       /robots: indexable\s*\?[^:]*index: true[\s\S]{0,200}: \{ index: false, follow: false/.test(page))
   check("its structured data is printed only when it may be listed, and escaped",
     /owner\.canonical && onePageIndexable\(/.test(page) && /jsonLdScript\(\s*profilePageJsonLd\(/.test(page) && /sameAs: onePageSameAs\(transformedOnepage\.social_links\)/.test(page))
+  /*
+    MOVED, ON PURPOSE: the route builds the page's shape in
+    lib/onepage/public-shape.ts now, the one place the editor's preview
+    builds it too (the preview frames the live component, so the two
+    cannot drift). The same fallbacks and the same schedule rule, read
+    where they live.
+  */
+  const shape = read("lib/onepage/public-shape.ts")
   check("and a page published before the published columns existed still draws its draft content",
-    /blocks: \(\(publishedBlocks \|\| onepage\.draft_blocks \|\| \[\]\) as any\[\]\)/.test(page) && /social_links: onepage\.published_social_links \|\| onepage\.social_links/.test(page))
+    /publicOnePage\(onepage, \{\s*source: "published"/.test(page) &&
+      /published \? row\.published_blocks \|\| row\.draft_blocks : row\.draft_blocks/.test(shape) && /published \? row\.published_social_links \|\| row\.social_links : row\.social_links/.test(shape))
   check("and a block outside its schedule is left out before the page is sent",
-    /\.filter\(\(b\) => isScheduledNow\(b\)\)/.test(page) && /import \{ isScheduledNow \} from "@\/lib\/onepage\/extra-blocks"/.test(page))
+    /blocks: blocks\.filter\(\(b\) => isScheduledNow\(b, now\)\)/.test(shape) && /import \{ isScheduledNow \} from "@\/lib\/onepage\/extra-blocks"/.test(shape))
   check("the handle and the counts are asked once per request, for the metadata and the page",
     /const onePageOwner = cache\(async/.test(page) && (page.match(/await onePageOwner\(/g) ?? []).length === 2)
 }

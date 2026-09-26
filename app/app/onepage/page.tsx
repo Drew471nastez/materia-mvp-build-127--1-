@@ -5,21 +5,23 @@ import type { OnePage } from "@/lib/onepage/types"
 import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
 import type { Metadata } from "next"
 import { pageUser } from "@/lib/auth/page-user"
+import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
+import { SessionRecovery } from "@/components/auth/session-recovery"
 
 export const dynamic = "force-dynamic"
 
+/*
+  THE TAB'S NAME, FROM THE ANSWERS THE LAYOUT ALREADY HAS. This made a
+  client of its own and asked Supabase Auth who was signed in, a second
+  round trip on every open of the editor, beside the one the layout and
+  the page share (lib/auth/request-scope.ts). Now it reads the same cached
+  answers, so opening the editor asks Auth once.
+*/
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { user } = await currentUserForRequest()
     if (!user) return { title: "OnePage" }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("display_name, username")
-      .eq("id", user.id)
-      .single()
-
+    const profile = await profileForRequest(user.id)
     const displayName = profile?.display_name || profile?.username || "OnePage"
     return { title: displayName }
   } catch {
@@ -27,25 +29,46 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
+/** A read that failed for a reason other than the row not being there, asked once more before giving up. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Read = PromiseLike<{ data: any; error: { code?: string; message?: string } | null }>
+async function readTwice(read: () => Read) {
+  const first = await read()
+  if (!first.error) return first
+  return read()
+}
+
 export default async function OnePageEditorPage() {
   const supabase = await createClient()
 
   const user = await pageUser()
-  /* Supabase did not answer in time: the layout's gate recovers the
-     session in the browser. Not /login (lib/auth/page-user.ts). */
-  if (!user) return null
+  /*
+    Supabase did not answer in time. Not /login (lib/auth/page-user.ts),
+    and not nothing: on a document load the layout's gate is holding the
+    screen and this is never mounted, but on a press in the app the layout
+    is not drawn again, and a page that rendered null here was an empty
+    screen with nothing coming. SessionRecovery reads the session in the
+    browser and reloads, which is what the layout's gate would have done.
+  */
+  if (!user) return <SessionRecovery />
 
-  // Get creator info including social links from onboarding
-  const { data: creator, error: creatorError } = await supabase
-    .from("creators")
-    .select("*")
-    .eq("user_id", user.id)
-    .single()
-
-  if (creatorError || !creator) {
+  /*
+    WHO THIS IS, AND A FAILED READ IS NOT "NOBODY". This sent anybody whose
+    creator row did not come back to /onboarding, which is where a timeout
+    or a dropped connection also went: /onboarding, then /signup/success,
+    then Home. A press on OnePage that ended on Home, after two screens
+    that said "Redirecting". Now only a creator who really has no row is
+    sent to onboarding; a read that failed twice is an error, with its
+    own Try again, on the editor's own address.
+  */
+  const { data: creator, error: creatorError } = await readTwice(() =>
+    supabase.from("creators").select("*").eq("user_id", user.id).maybeSingle(),
+  )
+  if (creatorError) {
     console.error("[OnePage] Creator fetch error:", creatorError)
-    redirect("/onboarding")
+    throw new Error("The creator could not be read")
   }
+  if (!creator) redirect("/onboarding")
 
   // Extract social data from creator (may be null if columns don't exist)
   const creatorSocials = {
@@ -54,16 +77,20 @@ export default async function OnePageEditorPage() {
     youtube: (creator as any).youtube || null,
   }
 
-  // Try to get existing onepage with proper error handling
-  let { data: onepage, error: fetchError } = await supabase
-    .from("onepages")
-    .select("*")
-    .eq("owner_id", user.id)
-    .single()
-
-  // If we got an actual error (not just "no rows found"), log it but continue to try creating
-  if (fetchError && fetchError.code !== "PGRST116") {
-    console.error("Error fetching onepage (will attempt to create):", fetchError)
+  /*
+    THE PAGE, AND A FAILED READ IS NOT "NO PAGE" EITHER. A read that errored
+    used to be logged and then treated as a creator with no OnePage, so a
+    new one was made (or the making failed and the editor sat on a spinner
+    for ever, below). A page that is there is read; one that is not is made;
+    a read that failed twice is an error with a Try again, and nothing is
+    made over somebody's page.
+  */
+  let { data: onepage, error: fetchError } = await readTwice(() =>
+    supabase.from("onepages").select("*").eq("owner_id", user.id).maybeSingle(),
+  )
+  if (fetchError) {
+    console.error("[OnePage] OnePage fetch error:", fetchError)
+    throw new Error("The OnePage could not be read")
   }
 
   /**
@@ -179,12 +206,10 @@ export default async function OnePageEditorPage() {
     }
   }
 
-  // Final safety check - if we still don't have an onepage, something went wrong
-  // This should rarely happen with all the retry logic above
+  /* Neither there nor made: an error with a Try again, not an editor that waits for ever on a page it will never get. */
   if (!onepage) {
-    console.error("Failed to get or create onepage - this should not happen")
-    // Instead of redirecting to /app, try to render with a minimal state
-    // The editor should handle null gracefully
+    console.error("[OnePage] The OnePage could not be made")
+    throw new Error("The OnePage could not be made")
   }
 
   return <OnePageEditor initialOnePage={onepage as OnePage} />
