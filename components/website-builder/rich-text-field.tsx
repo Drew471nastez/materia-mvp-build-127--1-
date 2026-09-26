@@ -35,7 +35,7 @@
  */
 
 import * as React from "react"
-import { Bold, ChevronDown, Italic, Link, List, ListOrdered, Type } from "lucide-react"
+import { Bold, ChevronDown, Italic, Link, List, ListOrdered } from "lucide-react"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { cn } from "@/lib/utils"
 
@@ -69,7 +69,8 @@ export function RichTextField({
    * the whole panel and the section's other settings were a scroll away, so
    * past this it scrolls inside itself on the panel's own slim bar. Roughly
    * eight lines: enough to write in, short enough that Hide, Duplicate and
-   * Delete stay on screen.
+   * Delete stay on screen. The handle under the field makes it taller or
+   * shorter by hand; a double click puts it back.
    */
   maxHeight = 260,
 }: {
@@ -81,6 +82,18 @@ export function RichTextField({
 }) {
   const ref = React.useRef<HTMLDivElement>(null)
   const [empty, setEmpty] = React.useState(!value || value === "<p></p>")
+  /** What the caret is in, so the toolbar shows it: bold lit while in bold, the style's name in the select. */
+  const [active, setActive] = React.useState<{ bold: boolean; italic: boolean; ul: boolean; ol: boolean; link: boolean; block: string }>({
+    bold: false,
+    italic: false,
+    ul: false,
+    ol: false,
+    link: false,
+    block: "p",
+  })
+  /** The link being written, in a row under the toolbar instead of the browser's prompt, which a phone draws as a system alert. */
+  const [linkDraft, setLinkDraft] = React.useState<string | null>(null)
+  const savedRange = React.useRef<Range | null>(null)
 
   /**
    * THE VALUE IS WRITTEN IN ONLY WHEN IT CAME FROM SOMEWHERE ELSE.
@@ -108,17 +121,57 @@ export function RichTextField({
     if (clean !== value) onChange(clean)
   }, [onChange, value])
 
+  /** Read the caret's formatting, only while the caret is in this field. */
+  const readActive = React.useCallback(() => {
+    const el = ref.current
+    const sel = typeof window !== "undefined" ? window.getSelection() : null
+    if (!el || !sel || sel.rangeCount === 0 || !el.contains(sel.anchorNode)) return
+    const q = (c: string) => {
+      try {
+        return document.queryCommandState(c)
+      } catch {
+        return false
+      }
+    }
+    let node: Node | null = sel.anchorNode
+    let block = "p"
+    let link = false
+    while (node && node !== el) {
+      if (node instanceof HTMLElement) {
+        const tag = node.tagName.toLowerCase()
+        if (tag === "a") link = true
+        if (/^(p|h2|h3|h4)$/.test(tag)) {
+          block = tag
+          break
+        }
+      }
+      node = node.parentNode
+    }
+    setActive((prev) => {
+      const next = { bold: q("bold"), italic: q("italic"), ul: q("insertUnorderedList"), ol: q("insertOrderedList"), link, block }
+      return prev.bold === next.bold && prev.italic === next.italic && prev.ul === next.ul && prev.ol === next.ol && prev.link === next.link && prev.block === next.block ? prev : next
+    })
+  }, [])
+
+  React.useEffect(() => {
+    document.addEventListener("selectionchange", readActive)
+    return () => document.removeEventListener("selectionchange", readActive)
+  }, [readActive])
+
   /** Run a command against the selection, keeping focus in the field. */
   const run = (command: string, argument?: string) => {
     const el = ref.current
     if (!el) return
     el.focus({ preventScroll: true })
     try {
+      /* A new line is a paragraph, not a bare div, so what is saved is what the page styles. */
+      document.execCommand("defaultParagraphSeparator", false, "p")
       document.execCommand(command, false, argument)
     } catch {
       /* a browser that refuses is a browser where typing still works */
     }
     publish()
+    readActive()
   }
 
   /**
@@ -132,48 +185,165 @@ export function RichTextField({
     run("insertText", text)
   }
 
+  /** The shortcuts every editor has. */
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (!(e.metaKey || e.ctrlKey) || e.altKey) return
+    const k = e.key.toLowerCase()
+    if (k === "b") {
+      e.preventDefault()
+      run("bold")
+    } else if (k === "i") {
+      e.preventDefault()
+      run("italic")
+    } else if (k === "k") {
+      e.preventDefault()
+      openLink()
+    }
+  }
+
+  const openLink = () => {
+    const sel = window.getSelection()
+    savedRange.current = sel && sel.rangeCount > 0 && ref.current?.contains(sel.anchorNode) ? sel.getRangeAt(0).cloneRange() : null
+    setLinkDraft("")
+  }
+  const applyLink = () => {
+    const href = (linkDraft ?? "").trim()
+    setLinkDraft(null)
+    const el = ref.current
+    if (!el) return
+    el.focus({ preventScroll: true })
+    const sel = window.getSelection()
+    if (savedRange.current && sel) {
+      sel.removeAllRanges()
+      sel.addRange(savedRange.current)
+    }
+    if (!href) return
+    /** Anything that is not a URL or a path is not a link. */
+    const safe = /^(https?:\/\/|mailto:|tel:|\/)/i.test(href) ? href : `https://${href}`
+    if (sel && sel.isCollapsed) run("insertHTML", `<a href="${safe.replace(/"/g, "&quot;")}">${safe.replace(/[<>&]/g, "")}</a>`)
+    else run("createLink", safe)
+  }
+
+  /**
+   * A HANDLE UNDER THE FIELD, dragged up or down to make it shorter or taller.
+   * The height is written straight onto the box on each frame of the drag,
+   * so a drag is not a re-render per pointer move, and kept afterwards.
+   */
+  const startResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = ref.current
+    if (!el || (e.pointerType === "mouse" && e.button !== 0)) return
+    e.preventDefault()
+    const handle = e.currentTarget
+    handle.setPointerCapture(e.pointerId)
+    const startY = e.clientY
+    const startH = el.getBoundingClientRect().height
+    let frame = 0
+    let y = startY
+    const draw = () => {
+      frame = 0
+      const h = Math.max(minHeight, Math.min(900, startH + (y - startY)))
+      el.style.height = `${h}px`
+      el.style.maxHeight = `${h}px`
+    }
+    const move = (ev: PointerEvent) => {
+      y = ev.clientY
+      if (!frame) frame = requestAnimationFrame(draw)
+    }
+    const end = () => {
+      if (frame) cancelAnimationFrame(frame)
+      draw()
+      handle.removeEventListener("pointermove", move)
+      handle.removeEventListener("pointerup", end)
+      handle.removeEventListener("pointercancel", end)
+    }
+    handle.addEventListener("pointermove", move)
+    handle.addEventListener("pointerup", end)
+    handle.addEventListener("pointercancel", end)
+  }
+  const resetSize = () => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = ""
+    el.style.maxHeight = `${maxHeight}px`
+  }
+
   return (
-    <div className="rounded-lg border border-border bg-background overflow-hidden focus-within:ring-2 focus-within:ring-neutral-900/10 focus-within:border-neutral-400 transition-colors">
-      {/* ONE WEIGHT, ONE SIZE, ONE COLOUR. The row was a 4px-grid icon set at
-          mixed default weights, which reads as a toolbar assembled from
-          whatever was to hand. 15px on a 28px target, and the bold is the
-          only one drawn heavier, because that is what it means. */}
-      <div className="flex items-center gap-px border-b border-border bg-muted/30 px-1.5 py-1">
-        <BlockSelect onPick={(tag) => run("formatBlock", `<${tag}>`)} />
+    <div className="rounded-lg border border-border bg-background overflow-hidden focus-within:ring-2 focus-within:ring-neutral-900/10 focus-within:border-neutral-400 transition-colors" data-builder-rich-text="">
+      {/* ONE WEIGHT, ONE SIZE, ONE COLOUR. 15px icons on a 28px target on a
+          computer and 40px on a phone, one row that scrolls sideways inside
+          itself on a narrow sidebar rather than wrapping to two. What the
+          caret is in is lit, so the toolbar says what a press will undo. */}
+      <div className="flex items-center gap-px overflow-x-auto border-b border-border bg-muted/30 px-1.5 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <BlockSelect current={active.block} onPick={(tag) => run("formatBlock", `<${tag}>`)} />
         <Divider />
 
-        <ToolbarButton label="Bold" onClick={() => run("bold")}>
+        <ToolbarButton label="Bold" on={active.bold} onClick={() => run("bold")}>
           <Bold className="h-[15px] w-[15px]" strokeWidth={2.4} />
         </ToolbarButton>
-        <ToolbarButton label="Italic" onClick={() => run("italic")}>
+        <ToolbarButton label="Italic" on={active.italic} onClick={() => run("italic")}>
           <Italic className="h-[15px] w-[15px]" strokeWidth={2.1} />
         </ToolbarButton>
         <ToolbarButton
           label="Link"
-          onClick={() => {
-            const href = window.prompt("Link to")
-            if (!href) return
-            /** Anything that is not a URL or a path is not a link. */
-            const safe = /^(https?:\/\/|mailto:|tel:|\/)/i.test(href.trim()) ? href.trim() : `https://${href.trim()}`
-            run("createLink", safe)
-          }}
+          on={active.link || linkDraft !== null}
+          onClick={() => (active.link ? run("unlink") : openLink())}
         >
           <Link className="h-[15px] w-[15px]" strokeWidth={1.9} />
         </ToolbarButton>
         <Divider />
 
-        <ToolbarButton label="Bulleted list" onClick={() => run("insertUnorderedList")}>
+        <ToolbarButton label="Bulleted list" on={active.ul} onClick={() => run("insertUnorderedList")}>
           <List className="h-[15px] w-[15px]" strokeWidth={1.9} />
         </ToolbarButton>
-        <ToolbarButton label="Numbered list" onClick={() => run("insertOrderedList")}>
+        <ToolbarButton label="Numbered list" on={active.ol} onClick={() => run("insertOrderedList")}>
           <ListOrdered className="h-[15px] w-[15px]" strokeWidth={1.9} />
         </ToolbarButton>
       </div>
 
+      {linkDraft !== null && (
+        <form
+          className="flex items-center gap-1.5 border-b border-border bg-background px-2 py-1.5"
+          data-rich-text-link=""
+          onSubmit={(e) => {
+            e.preventDefault()
+            applyLink()
+          }}
+        >
+          <input
+            autoFocus
+            type="text"
+            inputMode="url"
+            value={linkDraft}
+            onChange={(e) => setLinkDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault()
+                setLinkDraft(null)
+                ref.current?.focus({ preventScroll: true })
+              }
+            }}
+            placeholder="Link or /page"
+            aria-label="Link address"
+            className="h-8 max-sm:h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-2.5 text-[13px] max-sm:text-[16px] outline-none focus:border-neutral-400"
+          />
+          <button type="submit" className="h-8 max-sm:h-10 shrink-0 rounded-md bg-neutral-900 px-3 text-[12.5px] max-sm:text-[14px] font-medium text-white transition-colors hover:bg-neutral-800">
+            Add
+          </button>
+          <button
+            type="button"
+            onClick={() => setLinkDraft(null)}
+            className="h-8 max-sm:h-10 shrink-0 rounded-md px-2 text-[12.5px] max-sm:text-[14px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          >
+            Cancel
+          </button>
+        </form>
+      )}
+
       <div className="relative">
         {empty && placeholder ? (
-          <p className="pointer-events-none absolute left-3 top-2.5 text-sm text-muted-foreground">{placeholder}</p>
+          <p className="pointer-events-none absolute left-3 top-2.5 text-sm max-sm:text-[16px] text-muted-foreground">{placeholder}</p>
         ) : null}
+        {/* 16px on a phone: iOS zooms the whole page into a field whose text is smaller. */}
         <div
           ref={ref}
           role="textbox"
@@ -184,20 +354,35 @@ export function RichTextField({
           onInput={publish}
           onBlur={publish}
           onPaste={onPaste}
-          className="wb-richtext wb-slim-scroll overflow-y-auto px-3 py-2.5 text-sm outline-none"
+          onKeyDown={onKeyDown}
+          onFocus={readActive}
+          className="wb-richtext wb-slim-scroll overflow-y-auto px-3 py-2.5 text-sm max-sm:text-[16px] outline-none"
           style={{ minHeight, maxHeight }}
         />
+      </div>
+      <div
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Drag to resize"
+        title="Drag to resize"
+        data-rich-text-resize=""
+        onPointerDown={startResize}
+        onDoubleClick={resetSize}
+        className="flex h-4 max-sm:h-6 cursor-ns-resize touch-none select-none items-center justify-center border-t border-border/70 bg-muted/20 transition-colors hover:bg-muted/50"
+      >
+        <span aria-hidden className="h-1 w-8 rounded-full bg-neutral-300" />
       </div>
     </div>
   )
 }
 
-function ToolbarButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+function ToolbarButton({ label, on = false, onClick, children }: { label: string; on?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       type="button"
       title={label}
       aria-label={label}
+      aria-pressed={on}
       /**
        * `onMouseDown`, not `onClick`: a click moves focus out of the field
        * first, and a browser that has lost the selection has nothing to make
@@ -207,40 +392,37 @@ function ToolbarButton({ label, onClick, children }: { label: string; onClick: (
         e.preventDefault()
         onClick()
       }}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-background hover:text-foreground"
+      className={cn(
+        "inline-flex h-7 w-7 max-sm:h-10 max-sm:w-10 shrink-0 items-center justify-center rounded-md transition-colors",
+        on ? "bg-background text-foreground shadow-[0_0_0_1px_rgba(0,0,0,0.08)]" : "text-foreground/70 hover:bg-background hover:text-foreground",
+      )}
     >
       {children}
     </button>
   )
 }
 
-const Divider = () => <span aria-hidden className="mx-1 h-4 w-px bg-border" />
+const Divider = () => <span aria-hidden className="mx-1 h-4 w-px shrink-0 bg-border" />
 
-function BlockSelect({ onPick }: { onPick: (tag: string) => void }) {
+function BlockSelect({ current, onPick }: { current: string; onPick: (tag: string) => void }) {
+  const label = BLOCKS.find((b) => b.tag === current)?.label ?? "Paragraph"
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <select
         aria-label="Text style"
-        className="h-7 cursor-pointer appearance-none rounded-md bg-transparent pl-7 pr-5 text-[13px] text-foreground/70 outline-none transition-colors hover:bg-background"
-        defaultValue=""
+        className="h-7 max-sm:h-10 cursor-pointer appearance-none rounded-md bg-transparent pl-2 pr-6 text-[13px] max-sm:text-[15px] text-foreground/80 outline-none transition-colors hover:bg-background"
+        value={current}
         onMouseDown={(e) => e.stopPropagation()}
-        onChange={(e) => {
-          if (!e.target.value) return
-          onPick(e.target.value)
-          e.target.value = ""
-        }}
+        onChange={(e) => onPick(e.target.value)}
       >
-        <option value="" disabled>
-          Aa
-        </option>
         {BLOCKS.map((b) => (
           <option key={b.tag} value={b.tag}>
             {b.label}
           </option>
         ))}
       </select>
-      <Type aria-hidden strokeWidth={1.9} className="pointer-events-none absolute left-2 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-foreground/70" />
-      <ChevronDown aria-hidden className="pointer-events-none absolute right-0.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground/60" />
+      <span className="sr-only">{label}</span>
+      <ChevronDown aria-hidden className="pointer-events-none absolute right-1 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground/60" />
     </div>
   )
 }

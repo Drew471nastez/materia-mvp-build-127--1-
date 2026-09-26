@@ -24,26 +24,17 @@ export const CARD_TOP_ROOM = 28
 /** Maximized: this wide at most, and this much of the window tall. */
 export const MAX_WIDTH = 960
 export const MAX_HEIGHT_SHARE = 0.85
-/** The iOS sheet curve, and how long each move takes. */
+/**
+ * How it moves. Opening is the iOS sheet curve: fast out of the gate, then a
+ * long soft landing. Closing is a little quicker on an ease in, so it gets
+ * out of the way without a tail. Transform and opacity only, both run by the
+ * compositor, so nothing on the canvas is laid out again while it moves.
+ */
 export const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-export const OPEN_MS = 300
-export const CLOSE_MS = 220
+export const CLOSE_EASE = "cubic-bezier(0.4, 0, 1, 1)"
+export const OPEN_MS = 260
+export const CLOSE_MS = 200
 export const SLIDE_MS = 320
-
-/*
-  THE FADE AROUND THE FOLDED PILL: a band this wide on every side where the
-  canvas is blurred, most at the pill and not at all at the band's edge. A
-  blur and never a fill, so the page around the pill is softened and never
-  lightened (scripts/check-ask-ai.mjs measures both). The mask is two ramps,
-  across and down, intersected: a rounded band with no line in it.
-*/
-export const FADE_REACH = 22
-/** How strongly the band blurs at the pill's edge, in px. Subtle: text beside the pill stays readable. */
-export const FADE_BLUR = 5
-export const FADE_MASK = [
-  `linear-gradient(to right, transparent, #000 ${FADE_REACH}px, #000 calc(100% - ${FADE_REACH}px), transparent)`,
-  `linear-gradient(to bottom, transparent, #000 ${FADE_REACH}px, #000 calc(100% - ${FADE_REACH}px), transparent)`,
-].join(", ")
 
 export interface DockGeometry {
   pillW: number

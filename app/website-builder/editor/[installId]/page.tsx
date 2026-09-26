@@ -125,6 +125,7 @@ import { ColorField } from "@/components/storefront/color-field"
 import { applyOp, type ThemeOp } from "@/lib/website-builder/agent/operations"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, controlCarriesOwnLabel, renderRegisteredControl, type EditorFieldEnv } from "@/components/website-builder/editor/controls"
+import { HeaderNavLinksEditor } from "@/components/website-builder/editor/controls/link-list-editor"
 import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSources, type CreatorFacts } from "@/lib/website-builder/storefront-data"
 import { formatPrice } from "@/lib/website-builder/shop-products"
 import { cleanMenus } from "@/lib/storelib-theme/values"
@@ -1265,170 +1266,6 @@ function WbRadioSegment({
   )
 }
 
-// ── Sortable Nav Link Item ───────────────────────────────────
-// Supports 1-level nested submenus via `settings.parent_id` pointing to
-// the parent nav_link's id. Root items show an "Add Link to {label}"
-// button that creates a child. Children are draggable within their sibling
-// group and indented with a subtle left border.
-function SortableNavLink({
-  block,
-  idx,
-  blockSchema,
-  onUpdateBlockSetting,
-  onRemoveBlock,
-  children,
-  isChild = false,
-  onAddChild,
-}: {
-  block: { id: string; type: string; settings: Record<string, unknown> }
-  idx: number
-  blockSchema: any
-  onUpdateBlockSetting: (blockId: string, key: string, value: unknown) => void
-  onRemoveBlock: (blockId: string) => void
-  children?: React.ReactNode
-  isChild?: boolean
-  onAddChild?: () => void
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: block.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 50 : undefined,
-  }
-
-  const label = String(block.settings.label || `Link ${idx + 1}`)
-
-  return (
-    <details
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "group border border-border rounded-lg overflow-hidden bg-background hover:border-foreground/25 hover:shadow-sm transition-all",
-        isChild && "bg-muted/20",
-      )}
-    >
-      <summary className="flex items-center justify-between px-3 py-2.5 cursor-pointer list-none bg-muted/30 hover:bg-muted transition-colors">
-        <div className="flex items-center gap-2 min-w-0">
-          <button
-            type="button"
-            className="cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded hover:bg-neutral-100 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Drag to reorder"
-            {...attributes}
-            {...listeners}
-            onClick={e => e.preventDefault()}
-          >
-            <GripVertical className="h-3.5 w-3.5" />
-          </button>
-          <span className="text-sm font-medium truncate">{label}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            className="h-7 w-7 flex items-center justify-center rounded hover:bg-red-50 text-red-400 hover:text-red-600 transition-colors cursor-pointer"
-            aria-label="Delete link"
-            onClick={e => { e.preventDefault(); onRemoveBlock(block.id) }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-open:rotate-180 transition-transform" />
-        </div>
-      </summary>
-      <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
-        {blockSchema?.fields.map((field: SchemaField) => {
-          // Toggles get their own inline row with the label on the left and
-          // the switch on the right — no redundant floating label above.
-          if (field.type === "toggle") {
-            const checked = typeof block.settings[field.id] === "boolean"
-              ? (block.settings[field.id] as boolean)
-              : false
-            // Special polish for `open_in_new_tab`: add a small external-link
-            // icon + subtle description so it reads as a proper setting.
-            const isOpenInNew = field.id === "open_in_new_tab"
-            return (
-              <label
-                key={field.id}
-                className="flex items-center justify-between gap-3 px-3 py-2.5 border border-border rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  {isOpenInNew && (
-                    <span className="h-7 w-7 shrink-0 rounded-md bg-background border border-border flex items-center justify-center text-muted-foreground">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </span>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-medium text-foreground leading-tight truncate">{field.label}</p>
-                    {isOpenInNew && (
-                      <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                        Opens the link in a separate browser tab.
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={checked}
-                  onClick={e => { e.preventDefault(); onUpdateBlockSetting(block.id, field.id, !checked) }}
-                  className={cn(switchTrack(checked), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
-                >
-                  <span className={switchKnob(checked)} />
-                </button>
-              </label>
-            )
-          }
-          return (
-            <div key={field.id}>
-              {!fieldCarriesOwnLabel(field) && (
-                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-              )}
-              {field.id === "url" ? (
-                <LinkFieldEditor
-                  value={typeof block.settings.url === "string" ? block.settings.url : ""}
-                  onChange={val => onUpdateBlockSetting(block.id, "url", val)}
-                />
-              ) : (
-                <input
-                  type="text"
-                  className="w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
-                  placeholder={field.placeholder ?? ""}
-                  value={typeof block.settings[field.id] === "string" ? (block.settings[field.id] as string) : ""}
-                  onChange={e => onUpdateBlockSetting(block.id, field.id, e.target.value)}
-                />
-              )}
-            </div>
-          )
-        })}
-
-        {/* Children (submenu) — only on root items */}
-        {!isChild && (children || onAddChild) && (
-          <div className="pt-2 mt-2 border-t border-dashed border-border space-y-2">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Submenu links</p>
-            {children}
-            {onAddChild && (
-              <button
-                type="button"
-                onClick={e => { e.preventDefault(); onAddChild() }}
-                className="w-full flex items-center justify-center gap-1.5 py-2 text-[12.5px] font-medium text-blue-600 hover:text-blue-700 border border-dashed border-blue-300 hover:border-blue-400 rounded-lg transition-colors hover:bg-blue-50/50"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add Link to {label}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    </details>
-  )
-}
-
 // ── Mobile header layout preview thumbnails (shared) ────────
 const MOBILE_LAYOUT_PREVIEW_NODE = (id: string): React.ReactNode => {
   const burger = (
@@ -1494,24 +1331,6 @@ function HeaderSectionSettings({
 }) {
   const [activeTab, setActiveTab] = useState<string | null>(null)
   const s = section.settings
-
-  const navSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
-
-  const handleNavDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-    const blocks = section.blocks ?? []
-    // Only the root-level DnD context uses this handler — reorder by moving
-    // the active block (and its children, which stay pinned as a group
-    // right after their parent) within the full blocks array.
-    const oldIndex = blocks.findIndex(b => b.id === active.id)
-    const newIndex = blocks.findIndex(b => b.id === over.id)
-    if (oldIndex === -1 || newIndex === -1) return
-    onReorderBlocks(arrayMove(blocks, oldIndex, newIndex))
-  }
 
   const tabs = [
     { id: "logo", label: "Store Logo" },
@@ -1627,11 +1446,6 @@ function HeaderSectionSettings({
 
       case "nav": {
         const allBlocks = section.blocks ?? []
-        const blockSchema = schema?.blocks?.find((b: any) => b.type === "nav_link")
-        // Group: root blocks (no parent_id) + children grouped by parent id
-        const roots = allBlocks.filter(b => !(b.settings?.parent_id))
-        const childrenOf = (parentId: string) =>
-          allBlocks.filter(b => (b.settings?.parent_id as string | undefined) === parentId)
         /* A menu from Theme settings › Menus in place of these links: see header-settings.ts. */
         const themeMenus = cleanMenus((theme as Record<string, unknown>).menus)
         const menuHandle = typeof s.menu === "string" ? s.menu : ""
@@ -1654,68 +1468,15 @@ function HeaderSectionSettings({
                 The header shows the {themeMenus[menuHandle].title} menu. Change its links in Theme settings, Menus. These links are kept for when you switch back.
               </p>
             )}
-            <div className={usingMenu ? "opacity-50" : undefined}>
-            <DndContext sensors={navSensors} collisionDetection={closestCenter} onDragEnd={handleNavDragEnd}>
-              <SortableContext items={roots.map(b => b.id)} strategy={verticalListSortingStrategy}>
-                {roots.map((block, idx) => {
-                  const kids = childrenOf(block.id)
-                  return (
-                    <SortableNavLink
-                      key={block.id}
-                      block={block}
-                      idx={idx}
-                      blockSchema={blockSchema}
-                      onUpdateBlockSetting={onUpdateBlockSetting}
-                      onRemoveBlock={onRemoveBlock}
-                      onAddChild={() => onAddBlock("nav_link", { parent_id: block.id, label: "New link", url: "#", link_type: "custom" })}
-                    >
-                      {kids.length > 0 && (
-                        <DndContext
-                          sensors={navSensors}
-                          collisionDetection={closestCenter}
-                          onDragEnd={(e) => {
-                            const { active, over } = e
-                            if (!over || active.id === over.id) return
-                            // Reorder within siblings: splice children in place within `allBlocks`
-                            const nextAll = [...allBlocks]
-                            const activeIdx = nextAll.findIndex(b => b.id === active.id)
-                            const overIdx = nextAll.findIndex(b => b.id === over.id)
-                            if (activeIdx === -1 || overIdx === -1) return
-                            onReorderBlocks(arrayMove(nextAll, activeIdx, overIdx))
-                          }}
-                        >
-                          <SortableContext items={kids.map(b => b.id)} strategy={verticalListSortingStrategy}>
-                            <div className="pl-3 border-l-2 border-border space-y-2">
-                              {kids.map((childBlock, childIdx) => (
-                                <SortableNavLink
-                                  key={childBlock.id}
-                                  block={childBlock}
-                                  idx={childIdx}
-                                  blockSchema={blockSchema}
-                                  onUpdateBlockSetting={onUpdateBlockSetting}
-                                  onRemoveBlock={onRemoveBlock}
-                                  isChild
-                                />
-                              ))}
-                            </div>
-                          </SortableContext>
-                        </DndContext>
-                      )}
-                    </SortableNavLink>
-                  )
-                })}
-              </SortableContext>
-            </DndContext>
-            {(!schema?.max_blocks || roots.length < schema.max_blocks) && (
-              <button
-                className="w-full flex items-center justify-center gap-1.5 py-3 text-sm font-medium text-foreground/70 hover:text-foreground border border-dashed border-border hover:border-foreground/30 rounded-lg transition-colors hover:bg-muted/60"
-                onClick={() => onAddBlock("nav_link")}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add navigation link
-              </button>
-            )}
-            </div>
+            <HeaderNavLinksEditor
+              blocks={allBlocks}
+              maxLinks={schema?.max_blocks || undefined}
+              disabled={usingMenu}
+              onUpdateBlockSetting={onUpdateBlockSetting}
+              onAddBlock={onAddBlock}
+              onRemoveBlock={onRemoveBlock}
+              onReorderBlocks={onReorderBlocks}
+            />
           </div>
         )
       }
@@ -2209,7 +1970,7 @@ function HeaderSectionSettings({
                     These are the same colours, the header's own overrides of
                     its scheme, written through the same setOverride.
                   */}
-                  <div className="rounded-lg border border-border p-3">
+                  <div className="rounded-lg border border-border px-3 pt-2.5 pb-1">
                     <ButtonColorGroup
                       group={BUTTON_COLOR_GROUPS[0]}
                       settings={s}
@@ -2221,9 +1982,8 @@ function HeaderSectionSettings({
                       }}
                     />
                   </div>
-                  <p className="text-[11px] text-muted-foreground leading-snug flex items-start gap-1.5">
-                    <Info className="h-3 w-3 shrink-0 mt-0.5" />
-                    Shape, corner radius and weight come from Theme settings, Buttons.
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    Shape and corners are set in Theme settings, Buttons.
                   </p>
                 </>
               )}
@@ -5392,6 +5152,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     <PageList
       className="h-full"
       tone="light"
+      boxed
       touch={isMobileView}
       pages={sitePages}
       current={currentPage}

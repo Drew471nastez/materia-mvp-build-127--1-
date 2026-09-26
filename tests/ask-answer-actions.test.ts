@@ -84,6 +84,19 @@ async function main() {
     check("the flag is offered once the question has an id on the server, live or read back", /canReport=\{!!exchange\.messageId\}/.test(panel) && /if \(messageId\) patch\(\(e\) => \(\{ \.\.\.e, messageId \}\)\)/.test(panel))
     check("sent, it says so where the flag was", /data-ask-reported="" role="status"/.test(activityUi) && /Reported\. Thank you\./.test(activityUi))
     check("each report form has its own field id, so two open at once keep their labels", /const fieldId = `ask-report-\$\{React\.useId\(\)\}`/.test(activityUi) && !/"ask-report-reason"/.test(activityUi))
+    /* "When I click it should be a really small modal appearing there, not a big one." */
+    check(
+      "on a computer the report is a small popover by the flag, drawn in the body and fixed next to it",
+      /anchor=\{reportAnchor\}/.test(panel) && /reportRef=\{reportAnchor\}/.test(panel) && /ref=\{reportRef\}/.test(activityUi) &&
+        /const REPORT_WIDTH = 2[0-9]\d\b/.test(activityUi) && /createPortal\(form, document\.body\)/.test(activityUi) &&
+        /position: "fixed", left, width, bottom: vh - r\.top \+ REPORT_GAP/.test(activityUi),
+    )
+    check(
+      "a tap on a reason chip or a few words, then Send; Escape and a press elsewhere close it without folding the chat",
+      /REPORT_REASONS\.map/.test(activityUi) && /data-ask-report-form=""\s*\n\s*data-ask-keep=""/.test(activityUi) &&
+        /if \(event\.key !== "Escape"\) return[\s\S]{0,120}event\.preventDefault\(\)/.test(activityUi) &&
+        /document\.addEventListener\("pointerdown", away, true\)/.test(activityUi) && />\s*\{sending \? "Sending" : "Send"\}/.test(activityUi),
+    )
   }
 
   // ---------------------------------------------------------------------------

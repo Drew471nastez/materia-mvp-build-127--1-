@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEve
 import { Check, ChevronDown, Plus, RefreshCw, Search, Trash2, X } from "lucide-react"
 
 import { AnchoredPanel } from "@/components/website-builder/anchored-panel"
-import { PAGE_SEARCH_FROM, PRODUCTS_LISTED, groupPages, pageMatches, type PageGroupKey } from "@/lib/website-builder/page-groups"
+import { PAGE_SEARCH_FROM, PRODUCTS_LISTED, groupPages, pageGroupOf, pageMatches, type PageGroupKey } from "@/lib/website-builder/page-groups"
 import { cn } from "@/lib/utils"
 
 /**
@@ -30,6 +30,17 @@ import { cn } from "@/lib/utils"
  *
  * The same list is the Pages tab of the sidebar and of the phone's sheet
  * (`PageList`, below), light there and 48px a row on a phone.
+ *
+ * NAMES ONLY. "It shows the URLs of those pages, /products, /search, I don't
+ * want that." A row is the page's name; the address stays in the data
+ * (`path`) for anything that needs it, and off the screen.
+ *
+ * THE BAR'S MENU FOLDS ITS GROUPS. Every group open made a menu taller than
+ * the canvas ("too big"). There, each group is a heading row with its count
+ * that opens and closes, and only the group holding the page being edited
+ * starts open; a search opens every group with a match. The sidebar's list
+ * is drawn the way the Pages tab was before the groups: each group a
+ * bordered box of rows under a bold heading (`boxed`).
  */
 
 export interface SwitcherPage {
@@ -114,6 +125,8 @@ export function PageList({
   autoFocus = false,
   onDone,
   className,
+  collapsible = false,
+  boxed = false,
 }: {
   pages: SwitcherPage[]
   current: string
@@ -132,6 +145,10 @@ export function PageList({
   /** Called after a choice, so a menu can close. */
   onDone?: () => void
   className?: string
+  /** Groups are headings that open and close; the current page's group starts open. */
+  collapsible?: boolean
+  /** Each group a bordered box of rows, the sidebar's look. */
+  boxed?: boolean
 }) {
   const skin = SKIN[tone]
   const [query, setQuery] = useState("")
@@ -144,6 +161,15 @@ export function PageList({
   const [confirming, setConfirming] = useState<string | null>(null)
   const searchRef = useRef<HTMLInputElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  /** The groups a person opened (collapsible only). The page being edited opens its own. */
+  const [openGroups, setOpenGroups] = useState<Set<PageGroupKey>>(() => new Set([pageGroupOf(current)]))
+  const toggleGroup = (k: PageGroupKey) =>
+    setOpenGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(k)) next.delete(k)
+      else next.add(k)
+      return next
+    })
 
   const productRows = !!onSelectProduct && products.length > 0
   /* The product page is one row, or the store's products in its place. */
@@ -219,7 +245,8 @@ export function PageList({
 
   const rowClass = (on: boolean) =>
     cn(
-      "flex w-full min-w-0 items-center gap-3 rounded-lg text-left outline-none transition-colors duration-100",
+      "flex w-full min-w-0 items-center gap-3 text-left outline-none transition-colors duration-100",
+      boxed ? "rounded-none" : "rounded-lg",
       "focus-visible:ring-2 focus-visible:ring-inset",
       tone === "dark" ? "focus-visible:ring-white/30" : "focus-visible:ring-[#1a1a2e]/20",
       touch ? "h-12 pl-3 pr-14 text-[15px]" : "h-10 pl-3 pr-10 text-[14px]",
@@ -239,9 +266,7 @@ export function PageList({
           onClick={() => choose(() => onSelect(p.key))}
           className={rowClass(active)}
         >
-          {/* The name first; the address takes what room is left, and gives it up before the name does. */}
-          <span className="min-w-0 truncate">{p.name}</span>
-          <span className={cn("min-w-12 flex-1 truncate text-right text-[12px] font-normal tabular-nums", skin.detail)}>{p.path}</span>
+          <span className="min-w-0 flex-1 truncate">{p.name}</span>
         </button>
         {active && (
           <span aria-hidden className={cn("pointer-events-none absolute top-1/2 flex -translate-y-1/2 justify-center", slot, skin.check)}>
@@ -376,7 +401,7 @@ export function PageList({
             </div>
           </div>
         ) : (
-          <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-white/10 px-4">
+          <div className="flex h-11 shrink-0 items-center gap-2.5 border-b border-white/10 px-3.5">
             <Search className="h-4 w-4 shrink-0 text-white/50" strokeWidth={2} />
             <input
               ref={searchRef}
@@ -412,30 +437,76 @@ export function PageList({
         data-sheet-scroll=""
         className={cn(
           "wb-slim-scroll min-h-0 overflow-y-auto overscroll-contain",
-          light ? (touch ? "flex-1 px-2 pb-6" : "flex-1 px-2 pb-4") : "max-h-[440px] p-2",
+          light ? (boxed ? (touch ? "flex-1 px-4 pb-6" : "flex-1 px-3 pb-4") : touch ? "flex-1 px-2 pb-6" : "flex-1 px-2 pb-4") : "max-h-[min(360px,calc(100vh-160px))] p-1.5",
         )}
       >
-        {groups.map((g, i) => (
-          <section key={g.key} data-page-group={g.key} aria-label={g.label}>
-            <div className={cn("flex items-center justify-between px-3", i === 0 ? "pt-1" : "pt-3", touch ? "min-h-8 pb-0.5" : "pb-1")}>
-              <h3 className={cn("text-[12px] font-medium", skin.heading)}>{g.label}</h3>
-              {/* Light panels have no foot to hold it: Create page is where the pages it makes will be. */}
-              {light && g.key === "pages" && onCreate && (
+        {groups.map((g, i) => {
+          const rows = g.rows.map((row) => (row.kind === "page" ? pageRow(row.page) : row.kind === "product" ? productRow(row.product) : moreRow(row.count)))
+          const createAction = light && g.key === "pages" && onCreate && (
+            <button
+              type="button"
+              onClick={onCreate}
+              className={cn("-mr-2 flex items-center gap-1 rounded-md px-2 text-[13px] font-medium", touch ? "h-11" : "h-7", skin.action)}
+            >
+              <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
+              Create page
+            </button>
+          )
+          if (collapsible) {
+            const expanded = searching || openGroups.has(g.key)
+            const count = g.rows.reduce((n, r) => n + (r.kind === "more" ? 0 : 1), 0)
+            return (
+              <section key={g.key} data-page-group={g.key} aria-label={g.label} className={i === 0 ? "" : "mt-0.5"}>
                 <button
                   type="button"
-                  onClick={onCreate}
-                  className={cn("-mr-2 flex items-center gap-1 rounded-md px-2 text-[13px] font-medium", touch ? "h-11" : "h-7", skin.action)}
+                  data-page-group-toggle={g.key}
+                  aria-expanded={expanded}
+                  onClick={() => toggleGroup(g.key)}
+                  className={cn(
+                    "flex h-8 w-full items-center gap-2 rounded-lg px-3 text-left text-[13px] font-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-inset",
+                    tone === "dark" ? "text-white/80 hover:bg-white/[0.06] focus-visible:ring-white/30" : "text-[#1a1a2e] hover:bg-[#f5f6f7] focus-visible:ring-[#1a1a2e]/20",
+                  )}
                 >
-                  <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
-                  Create page
+                  <ChevronDown
+                    className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", expanded ? "rotate-0" : "-rotate-90", skin.detail)}
+                    strokeWidth={2.25}
+                  />
+                  <span className="min-w-0 flex-1 truncate">{g.label}</span>
+                  <span className={cn("text-[12px] font-normal tabular-nums", skin.detail)}>{count}</span>
                 </button>
-              )}
-            </div>
-            <ul role="list">
-              {g.rows.map((row) => (row.kind === "page" ? pageRow(row.page) : row.kind === "product" ? productRow(row.product) : moreRow(row.count)))}
-            </ul>
-          </section>
-        ))}
+                {/* Opens by its rows' height on the grid, so the menu grows smoothly instead of jumping. */}
+                <div className={cn("grid transition-[grid-template-rows] duration-200 ease-out", expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}>
+                  <div className="min-h-0 overflow-hidden" inert={!expanded}>
+                    <ul role="list" className="pb-1 pl-4">{rows}</ul>
+                  </div>
+                </div>
+              </section>
+            )
+          }
+          if (boxed) {
+            return (
+              <section key={g.key} data-page-group={g.key} aria-label={g.label} className={i === 0 ? "pt-1" : "pt-4"}>
+                <div className={cn("flex items-center justify-between px-1", touch ? "min-h-8 pb-1" : "pb-1.5")}>
+                  <h3 className="text-[12px] font-semibold text-[#1a1a2e]">{g.label}</h3>
+                  {createAction}
+                </div>
+                <ul role="list" className="overflow-hidden rounded-lg border border-[#e5e7eb] bg-white divide-y divide-[#eef0f2]">
+                  {rows}
+                </ul>
+              </section>
+            )
+          }
+          return (
+            <section key={g.key} data-page-group={g.key} aria-label={g.label}>
+              <div className={cn("flex items-center justify-between px-3", i === 0 ? "pt-1" : "pt-3", touch ? "min-h-8 pb-0.5" : "pb-1")}>
+                <h3 className={cn("text-[12px] font-medium", skin.heading)}>{g.label}</h3>
+                {/* Light panels have no foot to hold it: Create page is where the pages it makes will be. */}
+                {createAction}
+              </div>
+              <ul role="list">{rows}</ul>
+            </section>
+          )
+        })}
         {groups.length === 0 && (
           <p className={cn("px-3 py-8 text-center text-[14px]", skin.empty)}>No page matches “{query.trim()}”</p>
         )}
@@ -598,7 +669,7 @@ export function PageSwitcher({
           role="dialog"
           aria-label="Pages"
           data-state={open ? "open" : "closed"}
-          className="wb-pages-menu flex w-[320px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#1f1f1f] text-white shadow-[0_20px_60px_-12px_rgba(0,0,0,0.6)]"
+          className="wb-pages-menu flex w-[280px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#1f1f1f] text-white shadow-[0_20px_60px_-12px_rgba(0,0,0,0.6)]"
         >
           {/* `inert` while closed: out of the tab order and the accessibility tree. */}
           <div inert={!open} className="flex min-h-0 flex-col">
@@ -612,6 +683,7 @@ export function PageSwitcher({
               onSelectProduct={onSelectProduct}
               onCreate={onCreate}
               onDelete={onDelete}
+              collapsible
               autoFocus
               onDone={() => {
                 setOpen(false)

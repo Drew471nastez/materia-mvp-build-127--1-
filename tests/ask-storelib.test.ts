@@ -90,47 +90,56 @@ section("The computer's pill")
     "Around the pill-shaped Ask Storelib bar, make sure it is blur glass: a
     smooth, clean fade around it, not a white fade." "It has a white, faded,
     light glow around it, which is bad." The halo (a light shadow the pill's
-    shape, rgba(248, 249, 250, 0.5)) is gone. The pill and the open
-    conversation are frosted glass: a 24px blur of the canvas, saturated,
-    under translucent white, a hairline edge, and shadows of the page's own
-    ink. Around the folded pill the canvas is blurred a little more in a
-    pill shaped band that fades by a mask: the page is softened, never
-    lightened. scripts/check-ask-ai.mjs measures that no pixel around the
-    pill is lighter than the page under it.
+    shape, rgba(248, 249, 250, 0.5)) is gone.
+
+    Then: "The blur around the pill is not fading, disappearing smoothly.
+    It's very cut around" and "it has too much see-through glassmorphism. It
+    needs to be more solid white". The masked blur band round the pill is
+    gone (Safari draws a backdrop blur but not the mask that feathers it, so
+    it ended in a hard edge), and the pill is 95% white over a light blur,
+    readable over a dark page and a white one.
   */
   check(
-    "the pill is frosted glass: a 24px blur, saturated, under translucent white, with a hairline and layered shadows of ink",
-    /data-ask-glass=""[\s\S]{0,120}className="[^"]*bg-white\/\[0\.64\][^"]*0_0_0_1px_rgba\(15,23,42,0\.06\)[^"]*0_22px_44px_-20px_rgba\(15,23,42,0\.24\)[^"]*backdrop-blur-xl backdrop-saturate-\[1\.8\]/.test(chat),
+    "the pill is near solid white: 95% over a light 10px blur, with a hairline and layered shadows of ink",
+    /data-ask-glass=""[\s\S]{0,120}className="[^"]*border-\[#1a1a2e\]\/\[0\.08\][^"]*bg-white\/\[0\.95\][^"]*0_22px_44px_-20px_rgba\(15,23,42,0\.24\)[^"]*backdrop-blur-\[10px\]/.test(chat) &&
+      !/bg-white\/\[0\.64\]/.test(chat),
   )
   check(
     "and nothing around it glows: the halo is gone, and no shadow anywhere in the dock is white or near white",
     !/data-ask-halo/.test(chat) && !/248, 249, 250/.test(chat) &&
-      !/(?:shadow-\[|boxShadow: ")[^"\]]*rgba\((?:2[0-5]\d, ?){2}2[0-5]\d, ?0?\.\d+\)(?![^"\]]*inset)/.test(chat.replace(/inset_0_1px_0_rgba\(255,255,255,0\.7\)/g, "")),
+      !/(?:shadow-\[|boxShadow: ")[^"\]]*rgba\((?:2[0-5]\d, ?){2}2[0-5]\d, ?0?\.\d+\)(?![^"\]]*inset)/.test(chat),
   )
   check(
-    "the fade around the folded pill is a masked blur of the canvas, with no fill, pill shaped even without its mask",
-    /data-ask-fade=""[\s\S]{0,600}backdropFilter: `blur\(\$\{FADE_BLUR\}px\)`[\s\S]{0,200}maskImage: FADE_MASK,[\s\S]{0,80}WebkitMaskImage: FADE_MASK/.test(chat) &&
-      /data-ask-fade=""\s*\n\s*className="pointer-events-none absolute rounded-full"/.test(chat) &&
-      !/data-ask-fade=""[\s\S]{0,700}(background|boxShadow)/.test(chat) &&
-      /export const FADE_BLUR = [3-6]\b/.test(read("lib/website-builder/ask-dock.ts")),
+    "no blurred band round the pill: nothing in the dock puts a mask over a backdrop filter, so there is no edge to cut",
+    !/data-ask-fade/.test(chat) && !/maskImage/.test(chat) && !/FADE_(?:BLUR|MASK|REACH)/.test(read("lib/website-builder/ask-dock.ts")),
   )
   check(
-    "the open conversation reads first: 97% white over the same blur, so the page never shows through as smudges behind the words",
-    /data-ask-surface=""\s*\n\s*className="[^"]*bg-white\/\[0\.97\][^"]*backdrop-blur-xl backdrop-saturate-\[1\.5\]"/.test(chat),
+    "the open conversation is solid white with no backdrop filter, so opening it moves one flat layer",
+    /data-ask-surface=""\s*\n\s*className="[^"]*bg-white shadow-[^"]*"/.test(chat) &&
+      !/data-ask-surface=""\s*\n\s*className="[^"]*backdrop-/.test(chat),
   )
   check(
-    "every glass layer fades on its own opacity, and what moves them is a transform, so the blur is never switched off mid fade",
+    "the pill's glass fades on its own opacity and is moved by a transform; the conversation moves and fades as one element",
     /style=\{appear\(!expanded && !pillAway, 280, 200\)\}/.test(chat) &&
-      /data-ask-surface=""[\s\S]{0,700}style=\{appear\(cardOpen\)\}/.test(chat) &&
-      /\.\.\.lift\(cardOpen, "translateY\(18px\) scale\(0\.965\)"\)/.test(chat) &&
+      /\.\.\.cardMotion\(cardOpen\)/.test(chat) &&
       /data-ask-pill-state=\{pillAway \? "away" : "shown"\} style=\{lift\(!pillAway/.test(chat),
   )
   check(
-    "opening and closing move on transform and opacity only, on the iOS curve",
+    "opening and closing move on transform and opacity only: the iOS curve in, a quicker ease in out",
     /transform: shown \? "none" : away/.test(chat) &&
       /`transform \$\{openMs\}ms \$\{EASE\}, visibility 0s`/.test(chat) &&
-      /`opacity \$\{Math\.round\(openMs \* 0\.66\)\}ms ease-out`/.test(chat) &&
-      /EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(read("lib/website-builder/ask-dock.ts")),
+      /`transform \$\{OPEN_MS\}ms \$\{EASE\}, opacity \$\{Math\.round\(OPEN_MS \* 0\.6\)\}ms ease-out, visibility 0s`/.test(chat) &&
+      /`transform \$\{CLOSE_MS\}ms \$\{CLOSE_EASE\}, opacity \$\{CLOSE_MS\}ms \$\{CLOSE_EASE\}, visibility 0s linear \$\{CLOSE_MS\}ms`/.test(chat) &&
+      !/transition: `(?:width|height|top|left|bottom)/.test(chat) &&
+      /EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(read("lib/website-builder/ask-dock.ts")) &&
+      /CLOSE_EASE = "cubic-bezier\(0\.4, 0, 1, 1\)"/.test(read("lib/website-builder/ask-dock.ts")) &&
+      /OPEN_MS = 2[2-8]\d\b/.test(read("lib/website-builder/ask-dock.ts")) && /CLOSE_MS = (?:1[89]\d|2[0-4]\d)\b/.test(read("lib/website-builder/ask-dock.ts")),
+  )
+  check(
+    "it stays in the page until the close has finished, and keeps its layer (will-change) only while open or closing",
+    /visibility 0s linear \$\{CLOSE_MS\}ms/.test(chat) &&
+      /willChange: shown \|\| cardLeaving \? "transform, opacity" : "auto"/.test(chat) &&
+      /window\.setTimeout\(\(\) => setCardLeaving\(false\), CLOSE_MS \+ 80\)/.test(chat),
   )
   check("and not at all under reduced motion", /transition: reducedMotion\s*\n?\s*\? "none"/.test(chat))
   check(

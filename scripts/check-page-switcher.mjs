@@ -77,13 +77,18 @@ const READ = (root) => {
   const list = root.querySelector("[data-page-list]")
   if (!list) return null
   const groups = [...list.querySelectorAll("[data-page-group]")].map((g) => {
-    const h = g.querySelector("h3")
+    /* A heading, or in the bar's menu a heading row that opens and closes the group. */
+    const toggle = g.querySelector("[data-page-group-toggle]")
+    const h = g.querySelector("h3") || toggle?.querySelector("span.flex-1")
     const hs = getComputedStyle(h)
     return {
       key: g.getAttribute("data-page-group"),
       label: h.textContent.trim(),
       size: hs.fontSize,
+      weight: hs.fontWeight,
       transform: hs.textTransform,
+      expanded: toggle ? toggle.getAttribute("aria-expanded") === "true" : true,
+      boxed: !!g.querySelector("ul.border"),
       rows: [...g.querySelectorAll("[data-page-row]")].map((r) => ({
         key: r.getAttribute("data-page-row"),
         text: r.textContent.trim(),
@@ -151,9 +156,13 @@ async function desktop() {
   const order = list.groups.map((g) => g.label)
   note(`groups: ${order.join(" / ")}`)
   expect(order.join(",") === "Home,Shop,Products,Pages,Customer accounts,Contact,Policies,Other", "every page is in the group a shop puts it in, in that order", order)
-  expect(list.groups.every((g) => g.size === "12px" && g.transform === "none"), "each heading is 12px and not in capitals", list.groups.map((g) => `${g.size}/${g.transform}`))
-  const heights = [...new Set(list.groups.flatMap((g) => g.rows.map((r) => r.h)))]
-  expect(heights.length === 1 && heights[0] === 40, "every row is 40px", heights)
+  expect(list.groups.every((g) => g.size === "13px" && g.transform === "none"), "each group is a 13px heading row, not in capitals", list.groups.map((g) => `${g.size}/${g.transform}`))
+  const open = list.groups.filter((g) => g.expanded).map((g) => g.key)
+  expect(open.length === 1 && open[0] === "home", "only the group of the page being edited starts open, the rest folded", open)
+  const heights = [...new Set(list.groups.filter((g) => g.expanded).flatMap((g) => g.rows.map((r) => r.h)))]
+  expect(heights.length === 1 && heights[0] === 40, "every open row is 40px", heights)
+  expect(list.box[3] <= 440, "and the menu is short, every group but one folded", list.box[3])
+  expect(list.groups.every((g) => g.rows.every((r) => !r.text.includes("/"))), "rows are names only, no addresses", list.groups.flatMap((g) => g.rows.map((r) => r.text)).filter((t) => t.includes("/")))
   expect(list.scrollers === 1 && list.scrolling <= 1, "one thing in it can scroll, the list itself", { set: list.scrollers, scrolling: list.scrolling })
   expect(list.ticked.length === 1 && list.ticked[0].key === "home" && list.ticked[0].check, "the page being edited is ticked", list.ticked)
   expect(list.search, "a search at the top")
@@ -169,7 +178,7 @@ async function desktop() {
   expect(pageRows.length === 4 && /About/.test(pageRows[0]), "About and the creator's three under Pages", pageRows)
   expect(productRows.length === 6 && /Show all 8 products/.test(productRows[5]), "five products and a row to show the rest", productRows)
   const otherRows = list.groups.find((g) => g.key === "other")?.rows.map((r) => r.text) ?? []
-  expect(otherRows.length === 1 && /^404 page\/404$/.test(otherRows[0]), "and the 404 page, under Other, at the end", otherRows)
+  expect(otherRows.length === 1 && /^404 page$/.test(otherRows[0]), "and the 404 page, under Other, at the end", otherRows)
   const box = list.box
   note(`the menu: ${box[2]}px wide at x ${box[0]}, ${box[3]}px tall`)
 
@@ -195,6 +204,11 @@ async function desktop() {
   expect(scarf.length === 1 && /^Products: Wool scarf$/.test(scarf[0]), "and a product by its name", scarf)
   await clear(5)
 
+  /* A folded group opens from its heading row. */
+  await p.evaluate(() => document.querySelector(".wb-pages-menu [data-page-group-toggle='products']").click())
+  await sleep(300)
+  const productsOpen = await p.evaluate(() => document.querySelector(".wb-pages-menu [data-page-group-toggle='products']").getAttribute("aria-expanded"))
+  expect(productsOpen === "true", "Products opens from its heading", productsOpen)
   /* Show all grows the same list; nothing opens inside it. */
   await p.evaluate(() => document.querySelector(".wb-pages-menu [data-page-row='more']").click())
   await sleep(150)
@@ -232,6 +246,8 @@ async function desktop() {
   /* A page chosen from it opens. */
   await p.mouse.click(trigger.x, trigger.y)
   await sleep(400)
+  await p.evaluate(() => document.querySelector(".wb-pages-menu [data-page-group-toggle='accounts']").click())
+  await sleep(300)
   await p.evaluate(() => document.querySelector(".wb-pages-menu [data-page-row='wishlist']").click())
   await sleep(1500)
   const after = await p.evaluate(() => ({ pill: document.querySelector("[data-page-switcher]").textContent.trim(), menu: document.querySelector(".wb-pages-menu")?.getAttribute("data-state") ?? "gone" }))
@@ -252,6 +268,9 @@ async function desktop() {
   else {
     const sheights = [...new Set(side.groups.flatMap((g) => g.rows.map((r) => r.h)))]
     expect(side.groups.length === 8 && sheights.length === 1 && sheights[0] === 40 && side.scrollers <= 2 && side.scrolling === 1, "the sidebar's Pages tab is the same list: eight groups, 40px rows, one thing scrolling", { groups: side.groups.length, heights: sheights, scrolling: side.scrolling })
+    expect(side.groups.every((g) => g.boxed && g.weight === "600"), "each group a bordered box under a bold heading, the way the tab was", side.groups.map((g) => `${g.boxed}/${g.weight}`))
+    expect(side.search, "with the search kept")
+    expect(side.groups.every((g) => g.rows.every((r) => !r.text.includes("/"))), "and names only, no addresses", side.groups.flatMap((g) => g.rows.map((r) => r.text)).filter((t) => t.includes("/")))
     expect(side.ticked.length === 1 && side.ticked[0].key === "wishlist", "with the page now open ticked", side.ticked)
   }
   await p.close()
@@ -289,7 +308,7 @@ async function phone() {
   const order = list.groups.map((g) => g.label)
   note(`sheet top at ${list.sheetTop}; groups: ${order.join(" / ")}`)
   expect(order.join(",") === "Home,Shop,Products,Pages,Customer accounts,Contact,Policies,Other", "the same groups, in the same order", order)
-  expect(list.groups.every((g) => g.size === "12px" && g.transform === "none"), "the same quiet headings", list.groups.map((g) => g.size))
+  expect(list.groups.every((g) => g.size === "12px" && g.transform === "none" && g.boxed), "the same bold headings over bordered boxes", list.groups.map((g) => g.size))
   const heights = [...new Set(list.groups.flatMap((g) => g.rows.map((r) => r.h)))]
   expect(heights.length === 1 && heights[0] === 48, "every row is 48px on a phone", heights)
   expect(list.sheetScrolling.length === 1 && list.sheetScrolling[0] === "the page list", "one thing in the whole sheet scrolls, the list", list.sheetScrolling)

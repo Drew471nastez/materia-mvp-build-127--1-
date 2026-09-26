@@ -9,10 +9,9 @@
  * pushes one at a time, over fetch or, with pictures, over XMLHttpRequest
  * with upload progress), the clipboard and a speech recogniser.
  *
- *   FADE       no glow round the pill: the band round it only blurs, adds
- *              no light (its mean is the same with the blur and without,
- *              and the old glow put back is measured to add plenty), and
- *              fades to nothing at its outer edge
+ *   FADE       nothing round the pill: no glow (the old glow put back is
+ *              measured to add plenty) and no blurred band, so no element
+ *              in the dock carries a mask and there is no edge to see
  *   LABELS     at 360, 390 and 430: the mode row is one row, the mode labels
  *              and the placeholders fit on one line in both modes, the
  *              header with Connect AI does not overflow, suggestion chips do
@@ -281,18 +280,16 @@ const lineText = (p) => p.evaluate(() => { const t = [...document.querySelectorA
 /* ── FADE ─────────────────────────────────────────────────────────────── */
 /*
   "Ask Storelib has a white, faded, light glow around it, which is bad."
-  The glow is gone. Round the folded pill the canvas is blurred a little in
-  a band that fades by a mask (theme-chat.tsx, data-ask-fade), and nothing
-  is painted there. Measured over photographs, stripes and text, with and
-  without a picture in the pill (the screenshot that was sent):
+  The glow is gone. Then "the blur around the pill is not fading, it's very
+  cut around": the masked blur band that replaced it is gone too (Safari
+  draws a backdrop blur but not its mask, so it ended in a hard edge).
+  Nothing is drawn round the pill but its own soft ink shadows. Measured
+  over photographs, stripes and text, with and without a picture in the
+  pill (the screenshot that was sent):
 
-    NO LIGHT   the band's mean luminance with the blur and without it is the
-               same: a blur moves light about and adds none. The old glow,
-               put back, is measured the same way and adds a lot
-    NO EDGE    how much the band changes the page falls to nothing at its
-               outer edge and is largest at the pill: a mask's ramp, not a
-               line (scripts/check-ask-ai.mjs reads the ramp row by row
-               over fine stripes)
+    NO BAND    no [data-ask-fade], and no element in the dock has a mask
+    NO LIGHT   the page round the pill is no lighter than it was. The old
+               glow, put back, is measured the same way and adds a lot
 */
 async function fade(browser, vp, attached = false) {
   const label = `fade-${vp.width}${attached ? "-attached" : ""}`
@@ -318,11 +315,12 @@ async function fade(browser, vp, attached = false) {
   await p.evaluate(() => { document.getElementById("wb-preview-root").scrollTop = 470 })
   await sleep(300)
   const pill = await p.$eval("[data-ask-pill]", (e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height } })
-  const css = await p.evaluate(() => {
-    const f = getComputedStyle(document.querySelector("[data-ask-fade]"))
-    return { halo: !!document.querySelector("[data-ask-halo]"), backdrop: f.backdropFilter, fill: f.backgroundColor, shadow: f.boxShadow, mask: f.maskImage || f.webkitMaskImage, opacity: f.opacity }
-  })
-  expect(!css.halo && /blur\(5px\)/.test(css.backdrop) && css.fill === "rgba(0, 0, 0, 0)" && css.shadow === "none" && /linear-gradient/.test(css.mask) && css.opacity === "1", "round the pill, a band that only blurs: no halo, no fill, no shadow, a mask", css)
+  const css = await p.evaluate(() => ({
+    halo: !!document.querySelector("[data-ask-halo]"),
+    band: !!document.querySelector("[data-ask-fade]"),
+    masked: [...document.querySelectorAll("[data-ask-dock] *")].filter((e) => { const c = getComputedStyle(e); return (c.maskImage && c.maskImage !== "none") || (c.webkitMaskImage && c.webkitMaskImage !== "none") }).length,
+  }))
+  expect(!css.halo && !css.band && css.masked === 0, "round the pill, nothing: no halo, no blurred band, no mask to cut an edge", css)
 
   /* Whole-window pictures, cut to the band after (a clipped screenshot redraws only its box, and a blur in it has nothing beyond to blur with). */
   const R = 22
@@ -331,9 +329,8 @@ async function fade(browser, vp, attached = false) {
   const withBand = await shot()
   await p.screenshot({ path: join(shots, `${P}${label}-pill.png`) })
   await p.screenshot({ path: join(shots, `${P}${label}-close.png`), clip: { x: Math.max(0, pill.x - 120), y: Math.max(0, pill.y - 90), width: Math.min(vp.width - Math.max(0, pill.x - 120), pill.w + 240), height: Math.min(vp.height - Math.max(0, pill.y - 90), pill.h + 110) } })
-  await p.evaluate(() => { const f = document.querySelector("[data-ask-fade]"); f.style.transition = "none"; f.style.opacity = "0" })
-  await sleep(120)
-  const without = await shot()
+  /* With no band there is nothing to take away: the page as it is is the page without one. */
+  const without = withBand
   /* The old glow, a light shadow the pill's shape, put back for a moment. */
   await p.evaluate((g) => {
     const h = document.createElement("div")
@@ -375,10 +372,8 @@ async function fade(browser, vp, attached = false) {
     }
   }, withBand, without, oldGlow, band, pill)
   measures[label] = result
-  expect(Math.abs(result.meanWith - result.meanWithout) <= 1.5, "the band adds no light: its mean is the same with the blur and without it", result)
+  expect(Math.abs(result.meanWith - result.meanWithout) <= 1.5, "nothing round the pill adds light", result)
   expect(result.meanOldGlow - result.meanWithout >= 8, "and the same check on the old glow finds the light it added", { withoutGlow: result.meanWithout, oldGlow: result.meanOldGlow })
-  /* How much there is to blur depends on what is behind (a smooth gradient hardly changes); the outer edge is a fifth of the pill's at most, plus a level. */
-  expect(result.changeAtOuterEdge <= result.changeAtPill * 0.2 + 1, "it changes the page most at the pill and next to nothing at its outer edge: a ramp, not a line", { atPill: result.changeAtPill, atOuterEdge: result.changeAtOuterEdge })
   if (p.__errors.length) expect(false, "no errors on the page", p.__errors)
   await p.close()
 }

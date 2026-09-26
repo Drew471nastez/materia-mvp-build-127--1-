@@ -41,19 +41,18 @@
   is resized by its handle). Everything that talks to the server is shared
   and written once, below; only the layout differs.
 
-  GLASS, AND NO GLOW. The pill and the open conversation are frosted glass:
-  the canvas behind them blurred and saturated, a translucent white over it,
-  a hairline edge, and shadows of the page's own ink for depth. Around the
-  folded pill the canvas is blurred a little more, fading to nothing in a
-  pill shaped band (a masked backdrop blur, `data-ask-fade`): the page is
-  softened, never lightened. Nothing around either paints white.
+  SOLID WHITE, NOT GLASS. The pill is white at 95% with a light blur behind
+  it, so it reads the same over a dark page and a white one, with a hairline
+  and soft shadows of the page's own ink. There is no blurred band round it:
+  Safari draws a backdrop blur but not the mask that feathers it, which left
+  a hard edged strip over the page. The open conversation is plain white
+  with no backdrop filter at all, so opening it moves one flat layer.
 
-  THE BLUR STAYS ON WHILE THEY FADE. A backdrop filter stops at an ancestor
-  whose opacity is below 1 (the Backdrop Root), so an element that fades an
-  ancestor loses its blur for the length of the fade and gets it back with a
-  jump at the end. So every glass layer carries its own opacity, and what
-  moves the pill and the conversation in and out is a transform on the
-  element around them, which does not stop a backdrop filter.
+  THE BLUR STAYS ON WHILE IT FADES. A backdrop filter stops at an ancestor
+  whose opacity is below 1 (the Backdrop Root), so the pill's glass face
+  carries its own opacity and the pill is moved by a transform on the
+  element around it. The conversation has no glass inside it, so it moves
+  and fades as one element: one compositor layer, transform and opacity.
 */
 
 import * as React from "react"
@@ -120,7 +119,7 @@ import { armAskSounds, playAskSound, setSoundsOn, soundsOn } from "@/lib/website
 import { suggestionsFor } from "@/lib/website-builder/ask-suggestions"
 import { typeToward, withSpoken } from "@/lib/website-builder/ask-typing"
 import type { ThemeOp } from "@/lib/website-builder/agent/operations"
-import { CLOSE_MS, DOCK_PAD, EASE, FADE_BLUR, FADE_MASK, FADE_REACH, OPEN_MS, SLIDE_MS, dockGeometry } from "@/lib/website-builder/ask-dock"
+import { CLOSE_EASE, CLOSE_MS, DOCK_PAD, EASE, OPEN_MS, SLIDE_MS, dockGeometry } from "@/lib/website-builder/ask-dock"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
 /** A picture in the thread: the composer's, once sent, or a stored one read back. */
@@ -378,6 +377,8 @@ const ExchangeItem = React.memo(function ExchangeItem({
 }) {
   const [stepsOpen, setStepsOpen] = React.useState(false)
   const [report, setReport] = React.useState<ReportState>({ stage: "closed" })
+  /** The flag the report popover opens from. */
+  const reportAnchor = React.useRef<HTMLButtonElement>(null)
   const { activity } = exchange
   /* The run stopped to ask: the question stands where its answer would, and the closing message that repeats it is not drawn. */
   const question = activity.question
@@ -552,12 +553,14 @@ const ExchangeItem = React.memo(function ExchangeItem({
             report={report}
             onReport={setReport}
             phone={phone}
+            reportRef={reportAnchor}
           />
           {stepsOpen && hasWork && <StepsList plan={activity.plan} steps={finished} code={activity.code} onOpenCode={onOpenCode} />}
           <ReportForm
             report={report}
             onChange={setReport}
             phone={phone}
+            anchor={reportAnchor}
             onSend={(reason) => {
               setReport({ stage: "sending", reason })
               void onReport(exchange, reason).then(setReport)
@@ -2115,6 +2118,21 @@ function ThemeChatPanel({
   const showPill = dock && !hidden && !suspended && g !== null
   const cardOpen = expanded && showPill
   const pillAway = !showPill || (yielding && !cardOpen)
+  /** True for the length of the close, so the conversation keeps its layer until it is put away. */
+  const [cardLeaving, setCardLeaving] = React.useState(false)
+  const cardWasOpen = React.useRef(false)
+  useLayout(() => {
+    const was = cardWasOpen.current
+    cardWasOpen.current = cardOpen
+    if (cardOpen || !was || reducedMotion) {
+      setCardLeaving(false)
+      return
+    }
+    setCardLeaving(true)
+    /* The fallback for a transitionend that never comes (a hidden tab, an interrupted move). */
+    const done = window.setTimeout(() => setCardLeaving(false), CLOSE_MS + 80)
+    return () => window.clearTimeout(done)
+  }, [cardOpen, reducedMotion])
   /*
     IN AND OUT, IN TWO PARTS. `lift` moves a layer on transform, and hides it
     once it is away so nothing in it can be reached; `appear` fades a layer on
@@ -2130,11 +2148,31 @@ function ThemeChatPanel({
       ? "none"
       : shown
         ? `transform ${openMs}ms ${EASE}, visibility 0s`
-        : `transform ${closeMs}ms ${EASE}, visibility 0s linear ${closeMs}ms`,
+        : `transform ${closeMs}ms ${CLOSE_EASE}, visibility 0s linear ${closeMs}ms`,
+  })
+  /*
+    THE CONVERSATION, IN AND OUT. One element moves and fades: the iOS curve
+    in, a quicker ease in out. It stays in the page the whole time and is
+    only hidden once the close has finished (visibility waits for it), so
+    closing is never an instant unmount. will-change is on while it is open
+    and for the length of the close, so the layer is not rebuilt at either
+    end of the move, and off once it is put away.
+  */
+  const cardMotion = (shown: boolean): React.CSSProperties => ({
+    transform: shown ? "none" : "translate3d(0, 12px, 0) scale(0.97)",
+    opacity: shown ? 1 : 0,
+    visibility: shown ? "visible" : "hidden",
+    pointerEvents: shown ? "auto" : "none",
+    willChange: shown || cardLeaving ? "transform, opacity" : "auto",
+    transition: reducedMotion
+      ? "none"
+      : shown
+        ? `transform ${OPEN_MS}ms ${EASE}, opacity ${Math.round(OPEN_MS * 0.6)}ms ease-out, visibility 0s`
+        : `transform ${CLOSE_MS}ms ${CLOSE_EASE}, opacity ${CLOSE_MS}ms ${CLOSE_EASE}, visibility 0s linear ${CLOSE_MS}ms`,
   })
   const appear = (shown: boolean, openMs = OPEN_MS, closeMs = CLOSE_MS): React.CSSProperties => ({
     opacity: shown ? 1 : 0,
-    transition: reducedMotion ? "none" : shown ? `opacity ${Math.round(openMs * 0.66)}ms ease-out` : `opacity ${closeMs - 40}ms ease-in`,
+    transition: reducedMotion ? "none" : shown ? `opacity ${Math.round(openMs * 0.66)}ms ease-out` : `opacity ${closeMs - 40}ms ${CLOSE_EASE}`,
   })
 
   const header = (
@@ -2678,17 +2716,17 @@ function ThemeChatPanel({
       {dock && (
         <>
           {/*
-            The pill's two faces: frosted glass over the canvas, plain white
-            as the conversation's input row. The glass is the canvas behind
-            it blurred 24px and saturated, under 64% white; a white rim
-            inside and a hairline of ink outside for its edge; and three
+            The pill's two faces: near solid white over the canvas, plain
+            white as the conversation's input row. Folded it is 95% white
+            over a light 10px blur, so it reads over a dark page as well as
+            a white one; a hairline of ink for its edge; and three soft
             shadows of the page's own ink (close, middle, far) for depth.
             Nothing outside it is lighter than the page: no glow.
           */}
           <span
             aria-hidden
             data-ask-glass=""
-            className="pointer-events-none absolute inset-0 rounded-[inherit] border border-white/55 bg-white/[0.64] shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-8px_rgba(15,23,42,0.16),0_22px_44px_-20px_rgba(15,23,42,0.24)] backdrop-blur-xl backdrop-saturate-[1.8]"
+            className="pointer-events-none absolute inset-0 rounded-[inherit] border border-[#1a1a2e]/[0.08] bg-white/[0.95] shadow-[0_0_0_1px_rgba(15,23,42,0.04),0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-8px_rgba(15,23,42,0.16),0_22px_44px_-20px_rgba(15,23,42,0.24)] backdrop-blur-[10px] backdrop-saturate-[1.2]"
             style={appear(!expanded && !pillAway, 280, 200)}
           />
           <span
@@ -2839,37 +2877,6 @@ function ThemeChatPanel({
       {viewer}
       {g && box && (
         <>
-          {/*
-            THE FADE AROUND THE PILL IS A BLUR, NEVER A GLOW. The canvas in a
-            band FADE_REACH wide around the folded pill is blurred a little
-            (FADE_BLUR), most at the pill's edge and not at all at the band's
-            outer edge: a mask of two ramps, across and down, multiplied, so
-            the band is pill shaped with no line anywhere. It softens the
-            page and never lightens it: no fill, no white, nothing but the
-            page's own pixels. The element is itself pill shaped, so an
-            engine that dropped the mask would still draw a rounded soft
-            edge, not the rectangle a band once was. Its own opacity, not an
-            ancestor's, so the blur stays on while it fades.
-          */}
-          <div
-            aria-hidden
-            data-ask-fade=""
-            className="pointer-events-none absolute rounded-full"
-            style={{
-              left: (box.w - g.pillW) / 2 - FADE_REACH,
-              width: g.pillW + FADE_REACH * 2,
-              bottom: g.pillBottom - FADE_REACH,
-              height: pillHeight + FADE_REACH * 2,
-              backdropFilter: `blur(${FADE_BLUR}px)`,
-              WebkitBackdropFilter: `blur(${FADE_BLUR}px)`,
-              maskImage: FADE_MASK,
-              WebkitMaskImage: FADE_MASK,
-              maskComposite: "intersect",
-              WebkitMaskComposite: "source-in",
-              ...appear(showPill && !cardOpen && !pillAway, 280, 200),
-            }}
-          />
-
           {/* The conversation, above the pill. */}
           <div
             ref={cardRef}
@@ -2883,23 +2890,23 @@ function ThemeChatPanel({
               width: g.cardW,
               height: g.cardH,
               transformOrigin: "50% 100%",
-              ...lift(cardOpen, "translateY(18px) scale(0.965)"),
+              ...cardMotion(cardOpen),
+            }}
+            onTransitionEnd={(event) => {
+              if (event.target === event.currentTarget && event.propertyName === "transform" && !cardOpen) setCardLeaving(false)
             }}
           >
             {/*
-              READABLE FIRST. The pill is the glass; the open conversation is
-              a near solid white surface (97%) over the same blur, so the
-              page's colours never show as smudges behind the words, with the
-              pill's rim, hairline and three shadows for depth. The surface
-              fades on its own opacity (appear) while the element around it
-              moves (lift), so the blur is on for the whole of the open and
-              the close.
+              READABLE FIRST. The open conversation is solid white, so the
+              page's colours never show behind the words, with a hairline and
+              three soft shadows for depth. No backdrop filter: a blur under
+              an opaque surface costs a full repaint of the canvas behind it
+              on every frame of the open and shows nothing.
             */}
             <div
               ref={surfaceRef}
               data-ask-surface=""
-              className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/60 bg-white/[0.97] shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_0_0_1px_rgba(15,23,42,0.06),0_2px_6px_rgba(15,23,42,0.05),0_12px_28px_-10px_rgba(15,23,42,0.16),0_32px_72px_-24px_rgba(15,23,42,0.3)] backdrop-blur-xl backdrop-saturate-[1.5]"
-              style={appear(cardOpen)}
+              className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-[#1a1a2e]/[0.07] bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.03),0_2px_6px_rgba(15,23,42,0.05),0_12px_28px_-10px_rgba(15,23,42,0.16),0_32px_72px_-24px_rgba(15,23,42,0.3)]"
             >
               {dropTarget}
               <div ref={contentRef} className="flex min-h-0 flex-1 flex-col">

@@ -619,7 +619,15 @@ section("Choosing an icon, and choosing where a link goes")
     /role="combobox"/.test(linkPicker) && /normalizeLinkAddress\(text\)/.test(linkPicker) && /mailto/.test(read("lib/website-builder/link-address.ts")),
   )
   check("with no custom address row in the list", !/Or any address/.test(linkPicker) && !/custom/i.test(linkPicker.replace(/\/\*[\s\S]*?\*\//g, "")))
-  check("and the nav and call to action links use the same field", !/function NavLinkPicker/.test(editorSrc) && (editorSrc.match(/<LinkFieldEditor/g) ?? []).length >= 3)
+  /* The header's nav links are the shared link list now (Label and Link per
+     row), whose Link is the same LinkPicker the other link fields draw. */
+  check(
+    "and the nav and call to action links use the same field",
+    !/function NavLinkPicker/.test(editorSrc) &&
+      (editorSrc.match(/<LinkFieldEditor/g) ?? []).length >= 2 &&
+      /<HeaderNavLinksEditor/.test(editorSrc) &&
+      /<LinkPicker value=\{item\.url\}/.test(read("components/website-builder/editor/controls/link-list-editor.tsx")),
+  )
   check(
     "the targets come from the same lists the page browser shows, so the two cannot disagree",
     /const linkTargets = useMemo<LinkTarget\[\]>/.test(editorSrc) &&
@@ -1180,7 +1188,7 @@ section("A form that says it worked, did")
     // app/(site)/w/[username]. storelib.com/<name> is the creator's
     // profile page and renders no theme sections.
     /storefront\?: Storefront/.test(themePage) &&
-      /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId \}\}/.test(read(RENDER_SITE)) &&
+      /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId(, pages: Object\.keys\(site\.pages\))? \}\}/.test(read(RENDER_SITE)) &&
       /storefront=\{\{ creatorId, installId \}\}/.test(read(RENDER_SITE)),
   )
 

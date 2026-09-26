@@ -320,9 +320,72 @@ export const BUTTON_COLOR_GROUPS: { label: string; parts: { key: SchemeColorKey;
 const isHoverKey = (k: SchemeColorKey) => (HOVER_KEYS as readonly string[]).includes(k)
 
 /**
- * One button's four colours as labelled swatches, with "Use scheme" when any
- * is the section's own. Shared by every section's Advanced colors and by the
- * header's Button panel, so the two cannot describe one button differently.
+ * ===========================================================================
+ *  ONE COLOUR, ONE ROW
+ * ===========================================================================
+ * The section's colours were drawn as swatches side by side under each
+ * button, four in a row with a label under each and a scheme label
+ * down the right, and the owner found it busy and hard to read. They are a
+ * list now, the way a scheme is edited in Shopify: the name on the left, the
+ * colour and its hex on the right, the picker opening from there.
+ *
+ * A colour left on the scheme shows the scheme's value, quieter, with a word
+ * saying where it comes from. A colour the section chose shows its own value
+ * and, on hover or focus, an arrow that puts it back.
+ */
+const GROUP_HEADING = "text-[13px] font-semibold text-foreground"
+
+function ColorRow({
+  label,
+  name,
+  own,
+  shown,
+  hint,
+  onChange,
+  onReset,
+}: {
+  label: string
+  /** The full name for a screen reader: "Primary button fill". */
+  name: string
+  own: string
+  shown: string
+  hint: string
+  onChange: (c: string) => void
+  onReset: () => void
+}) {
+  return (
+    <div data-color-row={name} className="group/row flex min-h-10 max-sm:min-h-11 items-center gap-1.5">
+      <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{label}</span>
+      {own ? (
+        <button
+          type="button"
+          onClick={onReset}
+          aria-label={`Put ${name.toLowerCase()} back to the scheme`}
+          title="Back to scheme"
+          className="flex h-7 w-7 max-sm:h-10 max-sm:w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/10 opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 max-sm:opacity-100 [@media(hover:none)]:opacity-100"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+      <ColorChip
+        variant="field"
+        label={name}
+        value={shown === "transparent" ? "" : shown}
+        muted={!own}
+        hint={own ? undefined : hint}
+        onChange={onChange}
+        existing={[]}
+      />
+    </div>
+  )
+}
+
+/**
+ * One button's colours as rows: Fill and Text, and its two hover colours
+ * behind "Hover colors", shut, because they work themselves out from the
+ * fill until someone picks one (automaticHover in the colour schemes).
+ * Shared by every section's Advanced colors and by the header's Button
+ * panel, so the two cannot describe one button differently.
  */
 export function ButtonColorGroup({
   group,
@@ -338,45 +401,54 @@ export function ButtonColorGroup({
   /** The keys this section lets be overridden; all four when omitted. */
   allowed?: SchemeColorKey[]
 }) {
+  const [hoverOpen, setHoverOpen] = useState(false)
   const colors = resolveSectionColors(asRecord(theme), settings)
   const parts = group.parts.filter((p) => !allowed || allowed.includes(p.key))
   if (parts.length === 0) return null
-  const anySet = parts.some((p) => effectiveOverride(settings, p.key) !== "")
+  const main = parts.filter((p) => !isHoverKey(p.key))
+  const hover = parts.filter((p) => isHoverKey(p.key))
+  const hoverSet = hover.some((p) => effectiveOverride(settings, p.key) !== "")
+
+  const row = (p: (typeof parts)[number]) => {
+    const own = effectiveOverride(settings, p.key)
+    /* A hover shows what it will be: worked out from this section's button. */
+    const shown = own || (isHoverKey(p.key) ? colors.scheme[p.key] : colors.base[p.key])
+    const auto = isHoverKey(p.key)
+    return (
+      <ColorRow
+        key={p.key}
+        label={p.label}
+        name={`${group.label} ${p.label.toLowerCase()}`}
+        own={own}
+        shown={shown}
+        hint={auto ? "Auto" : "Scheme"}
+        onChange={(c) => onApply(setOverride(settings, p.key, c))}
+        onReset={() => onApply(setOverride(settings, p.key, ""))}
+      />
+    )
+  }
+
   return (
     <div data-button-colors={group.label}>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[13px] font-medium text-foreground">{group.label}</span>
-        {anySet ? (
+      <p className={GROUP_HEADING}>{group.label}</p>
+      {main.map(row)}
+      {hover.length > 0 && (
+        <>
           <button
             type="button"
-            onClick={() => { let next = settings; for (const p of parts) next = setOverride(next, p.key, ""); onApply(next) }}
-            className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+            aria-expanded={hoverOpen}
+            onClick={() => setHoverOpen((o) => !o)}
+            className="flex w-full min-h-9 max-sm:min-h-11 items-center gap-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
           >
-            Use scheme
+            <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", !hoverOpen && "-rotate-90")} />
+            <span>Hover colors</span>
+            <span className="ml-auto text-[11px] text-muted-foreground/80">{hoverSet ? "Custom" : "Auto"}</span>
           </button>
-        ) : (
-          <span className="text-[11px] text-muted-foreground">Scheme</span>
-        )}
-      </div>
-      <div className="mt-2 grid grid-cols-4 gap-1.5">
-        {parts.map((p) => {
-          const own = effectiveOverride(settings, p.key)
-          /* A hover shows what it will be: worked out from this section's button. */
-          const shown = own || (isHoverKey(p.key) ? colors.scheme[p.key] : colors.base[p.key])
-          const auto = !own && isHoverKey(p.key)
-          return (
-            <div key={p.key} className="flex flex-col items-center gap-1" title={SCHEME_COLOR_LABELS[p.key]}>
-              <span className={cn("inline-flex", !own && "opacity-70")}>
-                <ColorChip value={shown === "transparent" ? "" : shown} onChange={(c) => onApply(setOverride(settings, p.key, c))} existing={[]} />
-              </span>
-              <span className="text-[10.5px] leading-tight text-muted-foreground text-center">
-                {p.label}
-                {auto ? <span className="block text-[10px] text-muted-foreground/70">Auto</span> : null}
-              </span>
-            </div>
-          )
-        })}
-      </div>
+          <Collapse open={hoverOpen}>
+            {() => <div className="pl-5">{hover.map(row)}</div>}
+          </Collapse>
+        </>
+      )}
     </div>
   )
 }
@@ -550,52 +622,51 @@ export function SectionDesignPanel({
               </button>
               <Collapse open={customizeOpen} onlyVisible>
                 {() => (
-                <div className="border-t border-border px-3 py-2">
-                  {OVERRIDE_ROWS.filter((row) => row.keys.some((k) => support.colorOverrides.includes(k))).map((row, idx) => {
-                    const keys = row.keys.filter((k) => support.colorOverrides.includes(k))
-                    const anySet = keys.some((k) => effectiveOverride(s, k) !== "")
+                <div className="border-t border-border px-3 pb-2">
+                  {(() => {
+                    const general = OVERRIDE_ROWS.flatMap((row) => row.keys.filter((k) => support.colorOverrides.includes(k)).map((k) => ({ key: k, label: row.label })))
+                    const buttons = BUTTON_COLOR_GROUPS.filter((g) => g.parts.some((p) => support.colorOverrides.includes(p.key)))
                     return (
-                      <div key={row.label} className={cn("flex items-center justify-between gap-3 py-2", idx > 0 && "border-t border-border/60")}>
-                        <span className="text-[13px] text-foreground flex-1 truncate">{row.label}</span>
-                        <div className="flex items-center gap-1.5">
-                          {keys.map((k) => {
-                            const own = effectiveOverride(s, k)
-                            const shown = own || colors.base[k]
-                            return (
-                              <span key={k} className={cn("inline-flex", !own && "opacity-60")} title={own ? SCHEME_COLOR_LABELS[k] : `${SCHEME_COLOR_LABELS[k]}: use scheme`}>
-                                <ColorChip value={shown === "transparent" ? "" : shown} onChange={(c) => applySettings(setOverride(s, k, c))} existing={[]} />
-                              </span>
-                            )
-                          })}
-                          {anySet ? (
-                            <button
-                              type="button"
-                              onClick={() => { let next = s; for (const k of keys) next = setOverride(next, k, ""); applySettings(next) }}
-                              className="text-[11px] font-medium text-muted-foreground hover:text-foreground w-[68px] text-right"
-                            >
-                              Use scheme
-                            </button>
-                          ) : (
-                            <span className="text-[11px] text-muted-foreground w-[68px] text-right">Scheme</span>
-                          )}
-                        </div>
-                      </div>
+                      <>
+                        {general.length > 0 && (
+                          <div className="pt-2.5" data-color-group="General">
+                            <p className={GROUP_HEADING}>General</p>
+                            {general.map(({ key, label }) => {
+                              const own = effectiveOverride(s, key)
+                              return (
+                                <ColorRow
+                                  key={key}
+                                  label={label}
+                                  name={label}
+                                  own={own}
+                                  shown={own || colors.base[key]}
+                                  hint="Scheme"
+                                  onChange={(c) => applySettings(setOverride(s, key, c))}
+                                  onReset={() => applySettings(setOverride(s, key, ""))}
+                                />
+                              )
+                            })}
+                          </div>
+                        )}
+                        {buttons.map((group, idx) => (
+                          <div key={group.label} className={cn("pt-2.5", (idx > 0 || general.length > 0) && "mt-1.5 border-t border-border/60")}>
+                            <ButtonColorGroup group={group} settings={s} theme={theme} onApply={applySettings} allowed={support.colorOverrides} />
+                          </div>
+                        ))}
+                      </>
                     )
-                  })}
-                  {BUTTON_COLOR_GROUPS.map((group) => (
-                    <div key={group.label} className="border-t border-border/60 py-2.5">
-                      <ButtonColorGroup group={group} settings={s} theme={theme} onApply={applySettings} allowed={support.colorOverrides} />
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between pt-2 border-t border-border/60">
-                    <span className="text-[11px] text-muted-foreground">A global scheme change still reaches every color left on the scheme.</span>
-                    {overridden > 0 && (
-                      <button type="button" onClick={() => applySettings(resetOverrides(s))} className="text-[11px] font-medium text-foreground/70 hover:text-foreground flex items-center gap-1 shrink-0">
-                        <RotateCcw className="h-3 w-3" />
-                        Reset to scheme
+                  })()}
+                  {overridden > 0 && (
+                    <div className="mt-1.5 flex justify-end border-t border-border/60 pt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => applySettings(resetOverrides(s))}
+                        className="min-h-8 max-sm:min-h-10 px-1 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        Reset all to scheme
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
                 )}
               </Collapse>

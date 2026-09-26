@@ -27,6 +27,11 @@ export interface Storefront {
   installId?: string
   /** True while the builder is drawing, so a section does not send anything. */
   inEditor?: boolean
+  /**
+   * The page keys the site stores, when the surface has them. The footer's
+   * policies row reads it to list a shipping page only where one exists.
+   */
+  pages?: string[]
 }
 
 const StorefrontContext = createContext<Storefront>({})

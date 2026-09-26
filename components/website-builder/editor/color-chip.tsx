@@ -277,10 +277,26 @@ export function ColorChip({
   value,
   onChange,
   existing,
+  variant = "chip",
+  muted = false,
+  hint,
+  label,
 }: {
   value: string
   onChange: (v: string) => void
   existing: string[]
+  /**
+   * "chip" is the round swatch and chevron. "field" is the swatch and its
+   * hex in an input-shaped box, the way a list of named colours reads best:
+   * a label on the left, the colour and its value on the right.
+   */
+  variant?: "chip" | "field"
+  /** Field only: the value is inherited, so it reads a step quieter. */
+  muted?: boolean
+  /** Field only: a word after the hex, such as "Auto". */
+  hint?: string
+  /** What the colour is, for the button's accessible name. */
+  label?: string
 }) {
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
@@ -351,6 +367,41 @@ export function ColorChip({
     </div>,
     document.body,
   ) : null
+
+  const swatchBg = isTransparent
+    ? "repeating-conic-gradient(#cbd5e1 0% 25%, #ffffff 0% 50%) 50% / 8px 8px"
+    : value
+
+  if (variant === "field") {
+    return (
+      <>
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-label={label ? `${label}: ${isTransparent ? "none" : value.toUpperCase()}${hint ? `, ${hint}` : ""}` : "Pick color"}
+          aria-expanded={open}
+          data-color-field=""
+          className={cn(
+            "flex h-8 max-sm:h-10 w-[132px] max-sm:w-[140px] shrink-0 items-center gap-2 rounded-lg border bg-background pl-1.5 pr-2 text-left transition-colors",
+            "focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/10 focus-visible:border-neutral-400",
+            open ? "border-neutral-400" : "border-border hover:border-foreground/30",
+          )}
+        >
+          <span
+            className={cn("h-5 w-5 shrink-0 rounded-md border border-black/10", muted && "opacity-75")}
+            style={{ background: swatchBg }}
+          />
+          <span className={cn("min-w-0 flex-1 truncate text-[12px] tabular-nums", muted ? "text-muted-foreground" : "text-foreground")}>
+            {isTransparent ? "None" : value.toUpperCase()}
+          </span>
+          {/* "Scheme" is said by the grey of the value and read out to a screen reader; only "Auto" is written, and it fits beside a full hex. */}
+          {hint && hint !== "Scheme" ? <span className="shrink-0 text-[10.5px] text-muted-foreground/80">{hint}</span> : null}
+        </button>
+        {popup}
+      </>
+    )
+  }
 
   return (
     <>

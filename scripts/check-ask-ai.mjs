@@ -9,10 +9,10 @@
  *
  *   1440x900 (and 1280x800 for the geometry)
  *     PILL        centred on the canvas, 20px above its bottom, 660 wide and
- *                 52 to 56 tall, frosted glass, and round it a band that only
- *                 blurs, never a glow (measured in askai2, below, and by
- *                 scripts/check-ask-dock.mjs), and the canvas does not move
- *     OPEN        focusing it opens the conversation over ~300ms: sampled
+ *                 52 to 56 tall, near solid white, nothing round it (no
+ *                 glow and no blurred band, measured in askai2, below, and
+ *                 by scripts/check-ask-dock.mjs), and the canvas does not move
+ *     OPEN        focusing it opens the conversation over ~260ms: sampled
  *                 every frame, only transform, opacity and visibility
  *                 animate, it rises and fades in, and the canvas is still
  *     HISTORY     the history slides in over the thread (transform), lists
@@ -35,10 +35,11 @@
  *                 buttons 44px; the model menu is the shared bottom sheet;
  *                 the history slides in
  *   askai2 (ONLY=askai2), screenshots askai2-*
- *     GLASS       the pill and the open conversation: backdrop blur 24px and
- *                 saturate 1.8, translucent white, a hairline, ink shadows
- *                 only; no halo; no blurred layer under a fading one, frame
- *                 by frame, so the blur never switches off mid fade
+ *     GLASS       the pill: 95% white over a light 10px blur, a hairline,
+ *                 ink shadows only; the open conversation solid white with
+ *                 no backdrop filter; no halo and no blurred band; no
+ *                 blurred layer under a fading one, frame by frame, so the
+ *                 blur never switches off mid fade
  *     NO GLOW     on a flat dark canvas at 1280 and 1440, every pixel within
  *                 90px of the pill is at most 2 of 255 lighter than the page
  *                 (the old glow, put back, is measured the same way)
@@ -262,12 +263,11 @@ async function desktop(browser, vp, label, full) {
 
   const glass = await p.evaluate(() => {
     const g = getComputedStyle(document.querySelector("[data-ask-glass]"))
-    const f = getComputedStyle(document.querySelector("[data-ask-fade]"))
-    return { glass: g.backdropFilter, fill: g.backgroundColor, halo: !!document.querySelector("[data-ask-halo]"), fade: f.backdropFilter, fadeFill: f.backgroundColor, fadeOpacity: f.opacity }
+    return { glass: g.backdropFilter, fill: g.backgroundColor, halo: !!document.querySelector("[data-ask-halo]"), band: !!document.querySelector("[data-ask-fade]") }
   })
-  expect(/blur\(24px\)/.test(glass.glass) && /saturate\(1\.8\)/.test(glass.glass) && /(, 0\.64\)| \/ 0\.64\))$/.test(glass.fill), "the pill is frosted: a 24px blur, saturated, under 64% white", glass)
-  /* No glow: the band round the pill only blurs. Its pixels are measured in askai2 (NO GLOW, FADE). */
-  expect(!glass.halo && /blur\(5px\)/.test(glass.fade) && glass.fadeFill === "rgba(0, 0, 0, 0)" && glass.fadeOpacity === "1", "round it a band that only blurs: no halo, no fill", { halo: glass.halo, fade: glass.fade, fill: glass.fadeFill })
+  expect(/blur\(10px\)/.test(glass.glass) && /(, 0\.95\)| \/ 0\.95\))$/.test(glass.fill), "the pill is near solid white: 95% over a light 10px blur", glass)
+  /* No glow and no blurred band round it: its pixels are measured in askai2 (NO GLOW, NO BAND). */
+  expect(!glass.halo && !glass.band, "nothing round it: no halo, no blurred band", glass)
   const mic0 = await p.$("[data-ask-mic]")
   expect(!!mic0, "with a recogniser, the microphone is there")
   await p.screenshot({ path: join(shots, `${PREFIX}${label}-pill.png`) })
@@ -291,7 +291,7 @@ async function desktop(browser, vp, label, full) {
         const cs = getComputedStyle(card)
         const m = new DOMMatrixReadOnly(cs.transform === "none" ? undefined : cs.transform)
         const c = canvas.getBoundingClientRect()
-        out.push({ t: Math.round(performance.now() - t0), o: +(+getComputedStyle(document.querySelector("[data-ask-surface]")).opacity).toFixed(3), s: +m.a.toFixed(4), ty: +m.f.toFixed(1), cx: c.x, cy: c.y, cw: c.width, ch: c.height })
+        out.push({ t: Math.round(performance.now() - t0), o: +(+cs.opacity).toFixed(3), s: +m.a.toFixed(4), ty: +m.f.toFixed(1), cx: c.x, cy: c.y, cw: c.width, ch: c.height })
         for (const pr of animated(dock)) props.add(pr)
         if (performance.now() - t0 < 460) requestAnimationFrame(tick)
         else done()
@@ -450,8 +450,8 @@ async function desktop(browser, vp, label, full) {
   await sleep(400)
   await p.click("[data-ask-close]")
   await sleep(400)
-  const closed = await p.evaluate(() => { const s = getComputedStyle(document.querySelector("[data-ask-pill-state]")); return { state: document.querySelector("[data-ask-dock]").getAttribute("data-state"), glass: getComputedStyle(document.querySelector("[data-ask-glass]")).opacity, v: s.visibility, fade: getComputedStyle(document.querySelector("[data-ask-fade]")).opacity } })
-  expect(closed.state === "hidden" && closed.glass === "0" && closed.v === "hidden" && closed.fade === "0", "close hides the conversation and the pill", closed)
+  const closed = await p.evaluate(() => { const s = getComputedStyle(document.querySelector("[data-ask-pill-state]")); return { state: document.querySelector("[data-ask-dock]").getAttribute("data-state"), glass: getComputedStyle(document.querySelector("[data-ask-glass]")).opacity, v: s.visibility } })
+  expect(closed.state === "hidden" && closed.glass === "0" && closed.v === "hidden", "close hides the conversation and the pill", closed)
   await p.screenshot({ path: join(shots, `${PREFIX}${label}-closed.png`) })
   await p.click("#ask-ai-toggle")
   await sleep(400)
@@ -600,7 +600,7 @@ async function glassStyles(browser, vp) {
       const c = getComputedStyle(e)
       return { backdrop: c.backdropFilter || c.webkitBackdropFilter, fill: c.backgroundColor, border: `${c.borderTopWidth} ${c.borderTopColor}`, shadow: c.boxShadow, opacity: c.opacity, mask: c.maskImage || c.webkitMaskImage, radius: c.borderTopLeftRadius }
     }
-    return { glass: style("[data-ask-glass]"), fade: style("[data-ask-fade]"), surface: style("[data-ask-surface]"), halo: !!document.querySelector("[data-ask-halo]") }
+    return { glass: style("[data-ask-glass]"), card: style("[data-ask-card]"), surface: style("[data-ask-surface]"), halo: !!document.querySelector("[data-ask-halo]"), band: !!document.querySelector("[data-ask-fade]") }
   })
   /* Every shadow layer: its colour, and whether it is inside. */
   const layers = (shadow) => (shadow.match(/rgba?\([^)]*\)[^,]*(?:,|$)/g) ?? []).map((l) => {
@@ -610,16 +610,16 @@ async function glassStyles(browser, vp) {
   const folded = await read()
   const gl = layers(folded.glass.shadow)
   const outside = gl.filter((l) => !l.inset)
-  measures[label] = { glass: folded.glass, fade: folded.fade }
-  expect(/blur\(24px\)/.test(folded.glass.backdrop) && /saturate\(1\.8\)/.test(folded.glass.backdrop), "the pill: backdrop blur 24px and saturate 1.8", folded.glass.backdrop)
-  expect(/0\.64\)$/.test(folded.glass.fill), "a translucent white fill, 64%", folded.glass.fill)
-  /* Chromium reports the white rim in oklab (Tailwind mixes it there): lightness 1, alpha 0.55. */
-  expect(/^1px (rgba\(255, 255, 255, 0\.55\)|oklab\(0\.99\d* [^/]*\/ 0\.55\))$/.test(folded.glass.border) && outside.some((l) => l.r < 40 && l.a <= 0.08 && l.a > 0), "a hairline edge: a white rim inside, a 1px line of ink outside", { border: folded.glass.border })
+  measures[label] = { glass: folded.glass }
+  expect(/blur\(10px\)/.test(folded.glass.backdrop), "the pill: a light 10px backdrop blur", folded.glass.backdrop)
+  expect(/0\.95\)$/.test(folded.glass.fill), "a near solid white fill, 95%", folded.glass.fill)
+  /* Chromium may report the ink border in oklab (Tailwind mixes it there): alpha 0.08. */
+  expect(/^1px .*0\.08\)$/.test(folded.glass.border) && outside.some((l) => l.r < 40 && l.a <= 0.08 && l.a > 0), "a hairline edge of ink", { border: folded.glass.border })
   /* Tailwind's stack carries empty layers (transparent, no size); what is drawn is the rest. */
   const drawn = outside.filter((l) => l.a > 0)
   expect(drawn.length >= 4 && drawn.every((l) => l.r <= 60 && l.g <= 60 && l.b <= 60), "a hairline and three shadows for depth, every one of them ink and none of them light", drawn)
   expect(!folded.halo, "and no halo element at all")
-  expect(/blur\(5px\)/.test(folded.fade.backdrop) && folded.fade.fill === "rgba(0, 0, 0, 0)" && /linear-gradient/.test(folded.fade.mask) && folded.fade.shadow === "none" && folded.fade.opacity === "1", "the fade round it: a 5px blur behind a mask, no fill, no shadow", folded.fade)
+  expect(!folded.band, "and no blurred band round it, so there is no edge to see")
   await p.screenshot({ path: join(shots, `${P2}${label}-pill.png`) })
 
   /* THE BLUR STAYS ON WHILE IT FADES: no glass layer has an ancestor below full opacity, frame by frame, opening and closing. */
@@ -639,16 +639,16 @@ async function glassStyles(browser, vp) {
     await watch(420)
     return { frames: out.length, lowest: Math.min(...out), layers: glassy().length }
   })
-  expect(frames.lowest === 1 && frames.layers >= 3, "while the conversation opens and folds, no blurred layer sits under a fading one: the blur never switches off", frames)
+  expect(frames.lowest === 1 && frames.layers >= 1, "while the conversation opens and folds, no blurred layer sits under a fading one: the blur never switches off", frames)
 
   await p.click("[data-ask-pill] textarea")
   await sleep(500)
   const open = await read()
   measures[label].surface = open.surface
-  expect(/blur\(24px\)/.test(open.surface.backdrop) && /saturate\(1\.5\)/.test(open.surface.backdrop) && /0\.97\)$/.test(open.surface.fill), "the open conversation: the same blur, saturated less, under 97% white", { backdrop: open.surface.backdrop, fill: open.surface.fill })
+  expect((!open.surface.backdrop || open.surface.backdrop === "none") && open.surface.fill === "rgb(255, 255, 255)", "the open conversation: solid white, no backdrop filter", { backdrop: open.surface.backdrop, fill: open.surface.fill })
   const sl = layers(open.surface.shadow).filter((l) => !l.inset && l.a > 0)
   expect(sl.length >= 4 && sl.every((l) => l.r <= 60 && l.g <= 60 && l.b <= 60), "with ink shadows only", sl)
-  expect(open.fade.opacity === "0", "and the fade round the pill is not drawn while it is open", open.fade.opacity)
+  expect(open.card.opacity === "1", "and it is fully shown", open.card.opacity)
   await p.screenshot({ path: join(shots, `${P2}${label}-open.png`) })
   await closeWith(p)
 }
@@ -700,43 +700,30 @@ async function noGlow(browser, vp) {
   await closeWith(p)
 }
 
-/* ── FADE: the band blurs the page, keeps its light, and has no edge ──── */
+/* ── NO BAND: the page round the pill is left sharp, so there is no edge ── */
 async function fadeBand(browser, vp) {
-  const label = `fade-${vp.width}`
+  const label = `noband-${vp.width}`
   console.log(`\n${label}`)
-  /* Over a photograph and text: the blur moves pixels about but adds no light. */
-  const p = await openAt(browser, vp, "speech=none&canvas=photo")
-  await p.evaluate(() => { document.getElementById("wb-preview-root").scrollTop = 470 })
-  await sleep(300)
-  const pill = await rect(p, "[data-ask-pill]")
-  const reach = 22
-  const band = { x: Math.round(pill.x - reach), y: Math.round(pill.y - reach), width: Math.round(pill.w + reach * 2), height: Math.round(reach) }
-  const withFade = await grab(p, band)
-  await p.evaluate(() => { const f = document.querySelector("[data-ask-fade]"); f.style.transition = "none"; f.style.opacity = "0" })
-  await sleep(120)
-  const without = await grab(p, band)
-  const mean = (px) => px.lum.reduce((a, b) => a + b, 0) / px.lum.length
-  const moved = withFade.lum.reduce((m, v, i) => Math.max(m, Math.abs(v - without.lum[i])), 0)
-  const photo = { meanWith: +mean(withFade).toFixed(2), meanWithout: +mean(without).toFixed(2), largestChange: +moved.toFixed(1) }
-  await closeWith(p)
-
-  /* Over fine stripes: how much it blurs, row by row above the pill and column by column past its end. */
+  /*
+    "The blur around the pill is not fading, disappearing smoothly. It's very
+    cut around." Safari draws a backdrop blur but not the mask that feathers
+    it, so the band ended in a hard edge. It is gone: over fine stripes, the
+    rows just above the pill are as sharp as the rows further out.
+  */
   const s = await openAt(browser, vp, "speech=none&canvas=stripes")
   const sp = await rect(s, "[data-ask-pill]")
   await s.screenshot({ path: join(shots, `${P2}${label}-stripes.png`), clip: { x: sp.x - 60, y: sp.y - 60, width: 240, height: sp.h + 90 } })
   const cx = Math.round(sp.x + sp.w / 2)
-  const above = await grab(s, { x: cx - 8, y: Math.round(sp.y - 48), width: 16, height: 46 })
+  const above = await grab(s, { x: cx - 8, y: Math.round(sp.y - 48), width: 16, height: 40 })
   const contrast = (px, row) => { let mn = 255, mx = 0; for (let x = 0; x < px.w; x++) { const v = px.lum[row * px.w + x]; mn = Math.min(mn, v); mx = Math.max(mx, v) } return mx - mn }
   const rows = Array.from({ length: above.h }, (_, r) => contrast(above, r))
   const full = Math.max(...rows.slice(0, 6))
   const profile = rows.map((c) => +(c / full).toFixed(3))
-  const step = Math.max(...profile.slice(1).map((v, i) => Math.abs(v - profile[i])))
+  const masked = await s.evaluate(() => [...document.querySelectorAll("[data-ask-dock] *")].filter((e) => { const c = getComputedStyle(e); return (c.maskImage && c.maskImage !== "none") || (c.webkitMaskImage && c.webkitMaskImage !== "none") }).length)
   await closeWith(s)
-  measures[label] = { photo, stripes: { outerRows: profile.slice(0, 6), atPill: profile.slice(-3), biggestStep: +step.toFixed(3) } }
-  expect(Math.abs(photo.meanWith - photo.meanWithout) <= 1.5 && photo.largestChange >= 5, "over a photo it blurs (pixels move) and adds no light (the band's mean is unchanged)", photo)
-  expect(profile.slice(0, 6).every((v) => v >= 0.85), "22px out from the pill the page is sharp", profile.slice(0, 6))
-  expect(profile[profile.length - 2] <= 0.4, "at the pill's edge it is blurred", profile.slice(-3))
-  expect(step <= 0.15, "and between the two it changes a little each row: a fade with no edge", { biggestStep: +step.toFixed(3), profile })
+  measures[label] = { stripes: { rows: profile }, masked }
+  expect(masked === 0, "no element in the dock carries a mask", masked)
+  expect(profile.every((v) => v >= 0.8), "the page just above the pill is as sharp as the page further out: no band, no edge", profile)
 }
 
 /* ── PICTURES: a thumbnail now, and after a reload ─────────────────────── */

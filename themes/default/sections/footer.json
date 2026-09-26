@@ -1,7 +1,7 @@
 {
   "type": "footer",
   "name": "Footer",
-  "description": "Site footer with logo, links, newsletter, and social icons",
+  "description": "Site footer with logo, menus, policies, newsletter, social and payment icons",
   "supports_typography_overrides": false,
   "icon": "layout-template",
   "category": "structure",
@@ -32,7 +32,65 @@
       "id": "copyright",
       "label": "Copyright text",
       "type": "text",
-      "placeholder": "© 2026 My Store. All rights reserved."
+      "placeholder": "© {{ date.year }} {{ shop.name }}. All rights reserved.",
+      "info": "Write {{ date.year }} and {{ shop.name }} to keep the year and the name current. Empty shows © year and the store name."
+    },
+    {
+      "id": "hdr_menus",
+      "label": "Menus",
+      "type": "header"
+    },
+    {
+      "id": "menu",
+      "label": "First menu",
+      "type": "link_list",
+      "default": "",
+      "info": "A menu from Theme settings › Menus, shown as a column. Empty shows only the footer's own links."
+    },
+    {
+      "id": "menu_heading",
+      "label": "First menu heading",
+      "type": "text",
+      "placeholder": "Shop",
+      "info": "Empty uses the menu's name."
+    },
+    {
+      "id": "menu_2",
+      "label": "Second menu",
+      "type": "link_list",
+      "default": ""
+    },
+    {
+      "id": "menu_2_heading",
+      "label": "Second menu heading",
+      "type": "text",
+      "placeholder": "Info",
+      "info": "Empty uses the menu's name."
+    },
+    {
+      "id": "show_default_links",
+      "label": "Show Shop and Help links",
+      "type": "toggle",
+      "default": true,
+      "info": "Used when the footer has no menu and no links of its own: all products, search, contact and account."
+    },
+    {
+      "id": "hdr_policies",
+      "label": "Policies",
+      "type": "header"
+    },
+    {
+      "id": "show_policies",
+      "label": "Show policy links",
+      "type": "toggle",
+      "default": true,
+      "info": "Refund, privacy, terms and shipping pages, listed automatically when the site has them."
+    },
+    {
+      "id": "show_contact_link",
+      "label": "Include Contact",
+      "type": "toggle",
+      "default": true
     },
     {
       "id": "hdr_newsletter",
@@ -98,6 +156,18 @@
       "id": "social_youtube",
       "label": "YouTube URL",
       "type": "link"
+    },
+    {
+      "id": "hdr_payments",
+      "label": "Payment icons",
+      "type": "header"
+    },
+    {
+      "id": "show_payment_icons",
+      "label": "Show payment icons",
+      "type": "toggle",
+      "default": false,
+      "info": "Visa, Mastercard, American Express, Apple Pay and Google Pay."
     },
     {
       "id": "hdr_style",
@@ -169,6 +239,22 @@
       "id": "hdr_layout",
       "label": "Layout",
       "type": "header"
+    },
+    {
+      "id": "layout",
+      "label": "Layout",
+      "type": "select",
+      "default": "columns",
+      "options": [
+        {
+          "label": "Logo left, links right",
+          "value": "columns"
+        },
+        {
+          "label": "Centered",
+          "value": "centered"
+        }
+      ]
     },
     {
       "id": "columns",
@@ -282,13 +368,17 @@
       "settings": {
         "logo_text": "My Store",
         "tagline": "Quality products for modern life.",
-        "copyright": "© 2026 My Store. All rights reserved.",
+        "copyright": "© {{ date.year }} {{ shop.name }}. All rights reserved.",
         "show_newsletter": false,
         "show_social": true,
         "columns": "3",
         "padding_top": 60,
         "padding_bottom": 40,
-        "color_scheme": "dark"
+        "color_scheme": "dark",
+        "show_policies": true,
+        "show_default_links": true,
+        "show_payment_icons": false,
+        "layout": "columns"
       },
       "blocks": [
         {
