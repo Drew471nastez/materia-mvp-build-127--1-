@@ -747,10 +747,15 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     spinner turns; the editor rises the moment it is ready.
   */
   const [opening, setOpening] = useState<string | null>(null)
+  /* The lock, from the press itself: `opening` is drawn a frame later. */
+  const openingRef = useRef(false)
   useEffect(() => {
     if (!opening) return
     /* Still here after all: shown again from the browser's back cache, or a navigation that never happened. The list comes back to life. */
-    const reset = () => setOpening(null)
+    const reset = () => {
+      openingRef.current = false
+      setOpening(null)
+    }
     const t = window.setTimeout(reset, 10_000)
     window.addEventListener("pageshow", reset)
     return () => {
@@ -760,13 +765,15 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   }, [opening])
   /* `id` is the product's, or "new" for New product. */
   const open = (id: string) => {
-    if (opening) return
+    if (opening || openingRef.current) return
     const href = `/app/products/${id}`
     if (id === "new") warmNew()
     else warm(id)
-    setOpening(id)
+    openingRef.current = true
     startNavigationLoading(href)
+    /* The row's tint (or New product's dim) is on the next frame, from moveLayer; the list draws its own spinner a frame later, not in the press's task. */
     openEditor(router, href)
+    requestAnimationFrame(() => setOpening(id))
   }
   const openFromLink = (id: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return

@@ -384,6 +384,8 @@ export function OrdersClient(props: OrdersClientProps) {
   }, [openId])
 
   const onOpen = useStable((id: string) => {
+    /* The row answers the press on its own frame, before the order is drawn (which on a slow phone takes a while): the same tint it keeps while the order covers it. */
+    if (listRef.current) markRow(listRef.current, id, "held")
     pushed.current = true
     writeAddress((p) => p.set("order", id), "push")
   })

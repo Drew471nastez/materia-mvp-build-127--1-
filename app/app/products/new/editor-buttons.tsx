@@ -73,27 +73,60 @@ export function LeaveButton({
   mode,
   disabled = false,
   leaving = false,
+  asks = false,
+  label = "Going back to products",
   onLeave,
 }: {
   mode: LeaveMode
   disabled?: boolean
   /** The press has been taken and the list is on its way: a spinner where the word was, and no second press. */
   leaving?: boolean
+  /** The press asks before it goes (a change would be lost): the question is the answer, so the button does not dim. */
+  asks?: boolean
+  /** What the spinner says to a screen reader. */
+  label?: string
   onLeave: () => void
 }) {
+  /*
+    ANSWERED BY THE BUTTON ITSELF. `leaving` comes from the whole editor
+    drawing again, which on a slow phone is several frames after the finger.
+    A press that goes straight away is answered here first, by this button
+    alone, on the next frame. A press that went nowhere after all (shown
+    again from the back cache) lets go.
+  */
+  const [pressed, setPressed] = React.useState(false)
+  React.useEffect(() => {
+    if (!pressed) return
+    const reset = () => setPressed(false)
+    const t = window.setTimeout(reset, 10_000)
+    window.addEventListener("pageshow", reset)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener("pageshow", reset)
+    }
+  }, [pressed])
+  const going = leaving || pressed
   const back = mode === "back"
   const word = "col-start-1 row-start-1 flex items-center justify-center transition-opacity duration-150 motion-reduce:transition-none"
   return (
     <button
       type="button"
       data-leave-button=""
+      data-answers-press=""
       data-mode={mode}
-      data-leaving={leaving ? "" : undefined}
+      data-leaving={going ? "" : undefined}
       aria-label={back ? "Back" : "Cancel"}
-      aria-busy={leaving || undefined}
+      aria-busy={going || undefined}
       disabled={disabled}
-      onClick={leaving ? undefined : onLeave}
-      className={cn(barButton, "grid", leaving && "bg-[#f1f2f4] shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)]")}
+      onClick={
+        going
+          ? undefined
+          : () => {
+              if (!asks) setPressed(true)
+              onLeave()
+            }
+      }
+      className={cn(barButton, "grid", going && "bg-[#f1f2f4] shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)]")}
     >
       {/*
         The press: the word dims at once, and if the list is not here
@@ -102,16 +135,16 @@ export function LeaveButton({
         of a layer). A warm list is there well inside it, so most presses
         show the dim alone.
       */}
-      <span aria-hidden className={cn(word, back ? "opacity-0" : "opacity-100", leaving && !back && PRESS_CONTENT_OUT)}>
+      <span aria-hidden className={cn(word, back ? "opacity-0" : "opacity-100", going && !back && PRESS_CONTENT_OUT)}>
         Cancel
       </span>
-      <span aria-hidden className={cn(word, "-ml-1 gap-0.5", back ? "opacity-100" : "opacity-0", leaving && back && PRESS_CONTENT_OUT)}>
+      <span aria-hidden className={cn(word, "-ml-1 gap-0.5", back ? "opacity-100" : "opacity-0", going && back && PRESS_CONTENT_OUT)}>
         <ChevronLeft className="h-[18px] w-[18px] sm:h-4 sm:w-4" strokeWidth={2.25} />
         Back
       </span>
-      {leaving ? (
+      {going ? (
         <span className={cn(word, PRESS_SPINNER_IN)}>
-          <ActivitySpinner size={16} label="Going back to products" className="text-[#4b5563]" />
+          <ActivitySpinner size={16} label={label} className="text-[#4b5563]" />
         </span>
       ) : null}
     </button>

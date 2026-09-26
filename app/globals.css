@@ -3714,14 +3714,15 @@ html.capacitor.has-page-layer {
 }
 
 /* ── A layer rises and drops (components/app/page-layer.tsx) ──────────────
-   React's view transition, started at the router's commit. The layer is
-   its own picture, named page-layer; everything else is root.
+   A view transition each way: React's at the commit coming in, one of the
+   layer's own around the navigation going back. The layer is its own
+   picture, named page-layer; everything else is root.
 
    Coming in, the layer rises from the bottom edge over a picture of the page
    it was opened from, which holds still: that picture is
    ::view-transition-old(root), and the new root (the shell with the layer
    taken out of it, nothing to see) is not shown. Going back, the layer's last
-   picture drops to the bottom edge over the live page it went to, and the old
+   picture drops to the bottom edge over the page it went to, and the old
    root is not shown. So every frame has a page in it, and the /app header,
    part of root, is only ever under the layer.
 
@@ -3730,7 +3731,7 @@ html.capacitor.has-page-layer {
    (LAYER_MOTION_MS, LAYER_LEAVE_MS, LAYER_MOTION_EASE). Nothing else in the
    app starts a view transition, so root is never faded: a transition that
    moves no layer (a wide window, reduced motion, one layer for another, a
-   layer at a new address, a back Safari already drew) swaps in one frame.
+   layer at a new address) swaps in one frame.
 
    The navigation pill has a name of its own while a layer moves, so it is
    taken out of the page's picture and stays put over both. */
@@ -3751,6 +3752,11 @@ html.capacitor.has-page-layer {
 }
 ::view-transition-group(page-layer) {
   animation: none;
+}
+/* React names the layer itself for its own transition; the way back of our
+   own (dropLayer) names it here, from before its picture is taken. */
+html[data-layer-motion] [data-page-layer] {
+  view-transition-name: page-layer;
 }
 html[data-layer-motion="enter"]::view-transition-new(root) {
   opacity: 0;
@@ -3804,7 +3810,7 @@ html[data-layer-motion]::view-transition-new(app-nav-pill) {
 }
 [data-layer-press^="row"],
 tr[data-layer-press^="row"] > td {
-  background-color: #f1f2f4;
+  background-color: #eef0f2;
 }
 [data-layer-press-spinner] {
   position: absolute;

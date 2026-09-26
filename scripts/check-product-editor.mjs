@@ -36,9 +36,11 @@
  *   and the save writes the gallery and the cover in the new order.
  *   CANCEL AND BACK. Back on a saved product with nothing changed, Cancel
  *   after a change (which asks), Back and a grey Saved after a save.
- *   THE WAY OUT AND IN (`?route`, at 390 and 1280). The editor leaves over the
- *   list and comes in over it as one view transition, stepped through a
- *   fifth at a time: no blank frame, 260 to 320ms, the list already drawn.
+ *   THE WAY OUT AND IN (`?route`, at 390 and 1280). The editor drops away over
+ *   the list and rises over it as one view transition each way, stepped
+ *   through a fifth at a time: no blank frame, 280 to 380ms, the list already
+ *   drawn. (scripts/check-layer-motion.mjs times the same moves frame by frame
+ *   on a slowed CPU.)
  *   Screenshots are named products-exit-*, products-enter-*.
  *   THE DESCRIPTION. A title change saves it untouched; typing in it lights
  *   Save, and the save sends it through the clean once and writes the result.
@@ -695,7 +697,7 @@ async function savedOrder(p, ctx) {
  * screenshot, and in it the share of the content area (under the header,
  * over the pill) that is not bare page or white, which is what a blank frame
  * would be. The list must already be in the DOM under the move's first
- * frame, the layer gone, and the duration on the iOS curve within 260 to 320ms.
+ * frame, the layer gone, and the duration on the iOS curve within 280 to 380ms.
  */
 const PAGE_BG = [248, 249, 250]
 /* Decoded in the page itself, off the DOM: a second tab would hide this one, and a hidden page skips its view transition. */
@@ -812,8 +814,18 @@ async function readUnder(p) {
   the page there, and the same list state as on a phone.
 */
 async function landedWithoutMove(p, from) {
-  await sleep(250)
-  return { moves: (await p.evaluate(() => window.__moves.length)) - from, under: await readUnder(p) }
+  const seen = p.evaluate(() => new Promise((resolve) => {
+    let moved = false
+    const t0 = performance.now()
+    const tick = () => {
+      if (document.getAnimations().some((a) => /page-layer/.test(a.effect?.pseudoElement || ""))) moved = true
+      if (performance.now() - t0 > 240) resolve(moved)
+      else requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }))
+  const layerMoved = await seen
+  return { moves: (await p.evaluate(() => window.__moves.length)) - from, layerMoved, under: await readUnder(p) }
 }
 
 async function routeTrip(p, browser, label, vp, isPhone) {
@@ -829,20 +841,20 @@ async function routeTrip(p, browser, label, vp, isPhone) {
   const hist = () => p.evaluate(() => ({ stack: [...window.__hist.stack], at: window.__hist.at, path: location.pathname }))
   let c0 = (await calls()).length
   await pressLeave(p)
-  const back = isPhone ? await walkMove(p, browser, label, "exit", vp, "::view-transition-old(root)", n) : await landedWithoutMove(p, n)
+  const back = isPhone ? await walkMove(p, browser, label, "exit", vp, "::view-transition-old(page-layer)", n) : await landedWithoutMove(p, n)
   const first = { calls: (await calls()).slice(c0), hist: await hist() }
   expect(first.calls.join() === "replace /app/products" && first.hist.stack.join() === "/app/products" && first.hist.at === 0 && first.hist.path === "/app/products",
     "opened directly, with no list behind it, Back puts the list in the editor's place: nothing to come back to", first)
   if (isPhone) expect(back.ready && !back.skipped, "Back runs as one move, ready without waiting on anything", { ready: back.ready, skipped: back.skipped, waitedMs: back.waited })
-  else expect(back.moves === 0 && !back.under.layer && back.under.rows > 0 && back.under.path === "/app/products" && back.under.motion === null,
+  else expect(!back.layerMoved && !back.under.layer && back.under.rows > 0 && back.under.path === "/app/products" && back.under.motion === null,
     "on a computer Back is no move: the list lands in the shell like any other page", back)
   if (isPhone && back.ready) {
-    const old = back.animations.find((a) => a.el === "::view-transition-old(root)")
+    const old = back.animations.find((a) => a.el === "::view-transition-old(page-layer)")
     const neu = back.animations.find((a) => a.el === "::view-transition-new(root)")
     console.log(`        (exit: ${JSON.stringify(old)})`)
-    expect(!!old && old.dur >= 260 && old.dur <= 320 && /0\.32, 0\.72, 0, 1/.test(old.easing), "the editor leaves in 260 to 320ms on the iOS curve", old && { ms: old.dur, easing: old.easing })
+    expect(!!old && old.dur >= 280 && old.dur <= 380 && /0\.32, 0\.72, 0, 1/.test(old.easing), "the editor leaves in 280 to 380ms on the iOS curve", old && { ms: old.dur, easing: old.easing })
     expect(!!old && old.frames.every((k) => k.transform !== undefined || k.opacity !== undefined), "on transform and opacity alone", old?.frames)
-    expect(isPhone ? /translateX?\(100%\)|matrix\(1, 0, 0, 1, 390/.test(JSON.stringify(old?.frames)) : /translateY\(12px\)/.test(JSON.stringify(old?.frames)), isPhone ? "on a phone it slides off to the right edge" : "on a computer it fades with a 12px drop", old?.frames)
+    expect(/translateY\(100%\)/.test(JSON.stringify(old?.frames)) && !/translateX/.test(JSON.stringify(old?.frames)), "on a phone it drops to the bottom edge, never sideways", old?.frames)
     expect(!neu || neu.name === "none" || neu.frames.length === 0, "the list under it holds still", neu)
     expect(!back.under.layer && back.under.rows > 0 && back.under.path === "/app/products" && back.under.motion === "leave", "the list is already drawn under the move's first frame, and the layer is gone", back.under)
     const inks = back.frames.map((f) => f.ink)
@@ -860,7 +872,7 @@ async function routeTrip(p, browser, label, vp, isPhone) {
   await p.screenshot({ path: join(shots, `products-exit-${label}-landed.png`) })
 
   /* The list keeps its view across the trip. */
-  await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === "Draft").click())
+  await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === "Draft")?.click())
   await sleep(350)
 
   /* In again: a press on a row. */
@@ -871,13 +883,13 @@ async function routeTrip(p, browser, label, vp, isPhone) {
     if (r.tagName === "TR") r.querySelector("td:nth-child(2)").click()
     else r.querySelector("a").click()
   })
-  const into = isPhone ? await walkMove(p, browser, label, "enter", vp, "::view-transition-new(root)", n) : await landedWithoutMove(p, n)
+  const into = isPhone ? await walkMove(p, browser, label, "enter", vp, "::view-transition-new(page-layer)", n) : await landedWithoutMove(p, n)
   if (isPhone) expect(into.ready && !into.skipped, "opening a product is the same move the other way", { ready: into.ready, waitedMs: into.waited })
-  else expect(into.moves === 0 && into.under.layer && into.under.motion === null, "and opening a product is no move either: the editor lands in the shell", into)
+  else expect(!into.layerMoved && into.under.layer && into.under.motion === null, "and opening a product is no move either: the editor lands in the shell", into)
   if (isPhone && into.ready) {
-    const neu = into.animations.find((a) => a.el === "::view-transition-new(root)")
+    const neu = into.animations.find((a) => a.el === "::view-transition-new(page-layer)")
     console.log(`        (enter: ${JSON.stringify(neu)})`)
-    expect(!!neu && neu.dur >= 260 && neu.dur <= 320 && /0\.32, 0\.72, 0, 1/.test(neu.easing), "in 260 to 320ms on the same curve", neu && { ms: neu.dur, easing: neu.easing })
+    expect(!!neu && neu.dur >= 280 && neu.dur <= 380 && /0\.32, 0\.72, 0, 1/.test(neu.easing) && /translateY\(100%\)/.test(JSON.stringify(neu.frames)), "it rises from the bottom edge in 280 to 380ms on the same curve", neu && { ms: neu.dur, easing: neu.easing, frames: neu.frames })
     expect(into.under.layer, "the editor is committed under the move's first frame", into.under)
     const inks = into.frames.map((f) => f.ink)
     const floor = Math.min(inks[0], inks[inks.length - 1]) * 0.5
@@ -889,12 +901,12 @@ async function routeTrip(p, browser, label, vp, isPhone) {
   n = await moveCount()
   c0 = (await calls()).length
   await pressLeave(p)
-  const again = isPhone ? await walkMove(p, browser, label, "exit2", vp, "::view-transition-old(root)", n) : await landedWithoutMove(p, n)
+  const again = isPhone ? await walkMove(p, browser, label, "exit2", vp, "::view-transition-old(page-layer)", n) : await landedWithoutMove(p, n)
   const second = { calls: (await calls()).slice(c0), hist: await hist() }
   expect(second.calls.join() === "back" && second.hist.at === 0 && second.hist.stack[1] === "/app/products/p2",
     "opened from the list, Back goes back in history: the list is the entry you are on, the editor is forward", second)
   if (isPhone) expect(again.ready && !again.skipped && again.under?.rows > 0 && !again.under?.layer, "the same move, with the list drawn under its first frame", { ready: again.ready, under: again.under })
-  else expect(again.moves === 0 && again.under.rows > 0 && !again.under.layer, "no move again on a computer, and the list is there", again)
+  else expect(!again.layerMoved && again.under.rows > 0 && !again.under.layer, "no move again on a computer, and the list is there", again)
   await sleep(150)
   const kept = await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.getAttribute("aria-selected") === "true")?.textContent.trim())
   expect(kept === "Draft", "back again, the list is on the view it was left on", kept)
@@ -925,15 +937,16 @@ async function routeTrip(p, browser, label, vp, isPhone) {
   /* Reduced motion: no move, the page swaps as before. */
   await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
   const moves = await p.evaluate(() => window.__moves.length)
+  /* React may still run a view transition with nothing named in it as the layer's boundary mounts; what matters is that no layer moves. */
+  const watching = landedWithoutMove(p, moves)
   await p.evaluate(() => {
     const rows = [...document.querySelectorAll("[data-row]:not([hidden])")].filter((r) => r.getClientRects().length > 0)
     const r = rows[0]
     if (r.tagName === "TR") r.querySelector("td:nth-child(2)").click()
     else r.querySelector("a").click()
   })
-  await sleep(200)
-  const still = await p.evaluate(() => ({ moves: window.__moves.length, layer: !!document.querySelector("[data-page-layer]") }))
-  expect(still.moves === moves && still.layer, "with reduced motion there is no move: the editor is simply there", { moves: still.moves - moves, layer: still.layer })
+  const still = await watching
+  expect(!still.layerMoved && still.under.layer, "with reduced motion there is no move: the editor is simply there", { layerMoved: still.layerMoved, layer: still.under.layer })
   await p.emulateMediaFeatures([])
 }
 
@@ -970,6 +983,9 @@ export async function cleanDescription(html) { window.__descriptionCleans = (win
     define: { "process.env.NODE_ENV": '"production"' },
     alias: {
       "@": ".",
+      /* The React the app router runs (Next's own build), which has <ViewTransition>: the layer's rise is React's own view transition. */
+      react: join(root, "node_modules/next/dist/compiled/react"),
+      "react-dom": join(root, "node_modules/next/dist/compiled/react-dom"),
       "next/navigation": "./.product-editor-probe/navigation.js",
       "next/link": "./.product-editor-probe/link.jsx",
       "next/image": "./.product-editor-probe/image.jsx",

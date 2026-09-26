@@ -91,8 +91,8 @@ const groups = code("lib/products/category-groups.ts")
 /* Changed on purpose: the field takes onClear (its x) and the choice goes through chooseCategory, which ends the preselected suggestion. */
 check("the editor draws the field, with its own reading of the width", /<CategoryPicker\s+value=\{selectedCategory\}\s+onChange=\{chooseCategory\}\s+onClear=\{clearCategory\}\s+suggested=\{suggestedCategory\}\s+isPhone=\{isMobileViewport\}/.test(editor))
 check("the old dialog, its swipe code, the gradient badge and the dots are gone",
-  /* The one Dialog left is the search engine listing's fields (a computer's; a phone gets the sheet). */
-  (editor.match(/<Dialog\b/g) ?? []).length === 1 && /<Dialog open=\{seoOpen\} onOpenChange=\{setSeoOpen\}>/.test(editor)
+  /* Changed on purpose: the search engine listing's fields were the last Dialog (and a sheet on a phone); they fold open in their card now. */
+  (editor.match(/<Dialog\b/g) ?? []).length === 0 && !/from "@\/components\/ui\/dialog"/.test(editor)
     && !/handleSheetTouchStart|dismissingSheet|expandedGroups|CATEGORY_GROUPS/.test(editor) && !/AI Suggested|✨|from-violet-500 to-purple-500/.test(editor) && !/w-1\.5 h-1\.5 rounded-full/.test(editor + picker) && !/icon: "•"/.test(editor + picker))
 /* Changed on purpose: "move the category field into the main column, above the description, at every width". */
 check("a field of the product, in the main column above the description, and no Category card beside it",
@@ -122,8 +122,26 @@ console.log("\nThe probe")
 const probe = read("scripts/check-editor-parts.mjs")
 check("scripts/check-editor-parts.mjs measures all three at 390 and 1280, with a stand-in uploader", existsSync("scripts/check-editor-parts.mjs") && /"phone-390"/.test(probe) && /"desktop-1280"/.test(probe) && /storage\\\/chunked-upload\$/.test(probe) && /const PREFIX = "editor-parts-"/.test(probe))
 
+/*
+  "Where there is the search engine listing and I click the pen icon to edit, make sure it doesn't open as a
+  mobile bottom sheet or pop up at all. It should just slide down and reveal the other settings: collapsible,
+  collapsing smoothly on close and on appearing." scripts/check-layer-motion.mjs measures it frame by frame.
+*/
+console.log("\nThe search engine listing folds open in its card")
+check("the pencil toggles the fields, and says so", /onClick=\{toggleSeo\}/.test(editor) && /aria-expanded=\{seoOpen\}/.test(editor) && /aria-controls="seo-fields"/.test(editor)
+  && /const toggleSeo = \(\) => \{\s*const opening = !seoOpen\s*setSeoOpen\(opening\)/.test(editor))
+check("the fields are in the card, not a sheet or a dialog", /id="seo-fields"/.test(editor) && editor.indexOf('id="seo-fields"') > editor.indexOf('data-seo-card=""')
+  && !/<MobileSheet isOpen=\{seoOpen\}/.test(editor) && !/<Dialog open=\{seoOpen\}/.test(editor))
+check("the height goes 0fr to 1fr in a grid row with the fields fading and settling 4px, and nothing under reduced motion",
+  /seoOpen \? "grid-rows-\[1fr\] opacity-100" : "grid-rows-\[0fr\] opacity-0"/.test(editor) && /"!mt-0 grid transition-\[grid-template-rows,opacity\] duration-\[280ms\] ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\] motion-reduce:transition-none"/.test(editor)
+    && /seoOpen \? "translate-y-0" : "-translate-y-1"/.test(editor) && /<div className="min-h-0 overflow-hidden">/.test(editor))
+check("closed, the fields are inert and hidden from a screen reader; open, reachable", /inert=\{!seoOpen\}/.test(editor) && /aria-hidden=\{!seoOpen \|\| undefined\}/.test(editor))
+check("once open, the card's foot is brought into view, only as far as it needs", /scrollIntoView\(\{ block: "nearest", behavior: smooth \? "smooth" : "auto" \}\)/.test(editor)
+  && /e\.propertyName !== "grid-template-rows"/.test(editor))
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
   process.exit(1)
 }
+

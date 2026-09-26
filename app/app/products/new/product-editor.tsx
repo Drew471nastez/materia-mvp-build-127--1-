@@ -1,7 +1,7 @@
 "use client"
 
 import { announceChange } from "@/lib/seo/announce-client"
-import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo } from "react"
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo, startTransition } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { getProductShareUrl } from "@/lib/url-helpers"
@@ -1398,10 +1398,15 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     away the moment the list is ready (components/app/page-layer).
   */
   const [leaving, setLeaving] = useState(false)
+  /* The lock, at once: `leaving` is drawn as a transition, a frame or more after the press. */
+  const leavingRef = useRef(false)
   useEffect(() => {
     if (!leaving) return
     /* Still here after all: shown again from the browser's back cache, or a navigation that never happened. The editor comes back to life. */
-    const reset = () => setLeaving(false)
+    const reset = () => {
+      leavingRef.current = false
+      setLeaving(false)
+    }
     const t = window.setTimeout(reset, 10_000)
     window.addEventListener("pageshow", reset)
     return () => {
@@ -1410,7 +1415,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     }
   }, [leaving])
   const handleCancel = async () => {
-    if (leaving) return
+    if (leaving || leavingRef.current) return
     if (hasUnsavedChanges) {
       const leave = await ask(
         productId
@@ -1420,7 +1425,12 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       if (!leave) return
       setHasUnsavedChanges(false)
     }
-    setLeaving(true)
+    /* The editor draws its leaving state when it can; the button has already answered (LeaveButton). */
+    leavingRef.current = true
+    window.setTimeout(() => {
+      leavingRef.current = false
+    }, 10_000)
+    startTransition(() => setLeaving(true))
     startNavigationLoading(PRODUCTS_HREF)
     returnToProducts(router, productId)
   }
@@ -1793,7 +1803,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       >
         <h1 className="sr-only">{productId ? "Edit product" : "New product"}</h1>
         <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 px-4 sm:h-16 sm:px-6">
-          <LeaveButton mode={leaveMode} disabled={saveBusy} leaving={leaving} onLeave={() => void handleCancel()} />
+          <LeaveButton mode={leaveMode} disabled={saveBusy} leaving={leaving} asks={hasUnsavedChanges} onLeave={() => void handleCancel()} />
           <div className="flex items-center gap-2">
             {moreMenu}
             <SaveButton phase={savePhase} disabled={!canSave} saved={savedThisVisit} onSave={() => void handleSaveChanges()} />
@@ -2938,7 +2948,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     <div
                       className={cn(
                         FIELD_FOCUS,
-                        "-mx-[3px] space-y-4 px-[3px] pb-[3px] pt-4 transition-[translate] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none sm:pt-5",
+                        "-mx-[3px] space-y-4 px-[3px] pb-[3px] pt-3 transition-[translate] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none sm:pt-4",
                         seoOpen ? "translate-y-0" : "-translate-y-1",
                       )}
                     >
@@ -3052,7 +3062,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
             <span className={cn("truncate", saveState === "Unsaved changes" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{saveState}</span>
           </p>
           <div className="flex shrink-0 items-center gap-2">
-            <LeaveButton mode={leaveMode} disabled={saveBusy} leaving={leaving} onLeave={() => void handleCancel()} />
+            <LeaveButton mode={leaveMode} disabled={saveBusy} leaving={leaving} asks={hasUnsavedChanges} onLeave={() => void handleCancel()} />
             <SaveButton phase={savePhase} disabled={!canSave} saved={savedThisVisit} onSave={() => void handleSaveChanges()} />
           </div>
         </div>

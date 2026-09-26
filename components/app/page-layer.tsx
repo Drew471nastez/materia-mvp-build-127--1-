@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useLayoutEffect, useSyncExternalStore } from "react"
+import { flushSync } from "react-dom"
 import { cn } from "@/lib/utils"
 import { HtmlClassScript } from "@/components/platform/html-class"
 import { routerStartCount } from "@/lib/ui/router-starts"
@@ -28,58 +29,69 @@ import { routerStartCount } from "@/lib/ui/router-starts"
  * (components/app/app-stage.tsx) like every page there. The plans page, a
  * layer at every width, also moves on a phone only, as it did.
  *
- * HOW. React's own view transitions (<ViewTransition>, in the React the app
- * router runs). The layer is wrapped in one, named `page-layer`, with an
- * enter and an exit and nothing for an update. When a navigation (a
- * transition, which is what every router push, replace and back is) mounts
- * or unmounts it, React calls document.startViewTransition AT THE COMMIT:
+ * Both ways are a view transition: the layer is a picture of its own, named
+ * `page-layer`, and moves on transform alone, on the compositor, from and to
+ * translateY(100%) (the rules are in app/globals.css). The rest of the screen
+ * does not move or fade. Coming in, a picture of the page under it holds;
+ * going back, the page it goes to is live under it. So no frame is ever
+ * without a page, and the /app header, which is part of the page, is always
+ * under the layer, never over it.
  *
- *   While the next page is still on its way, nothing is frozen. The page you
- *   pressed on stays live, and the control you pressed answers (THE PRESS,
- *   below), with a spinner that keeps turning if the wait is long. The old
- *   way started the view transition on the press and froze the screen on its
- *   picture until the router committed, up to 450ms with nothing moving.
+ * COMING IN: REACT'S OWN VIEW TRANSITION, AT THE COMMIT. The layer is wrapped
+ * in a <ViewTransition> (in the React the app router runs) with an enter
+ * and nothing for an update. When a navigation mounts it (a router push or
+ * replace is a transition, and a Link is one), React takes the pictures at
+ * the commit, when the new page is ready, not at the press. So while the
+ * page is still on its way nothing is frozen: the page you pressed on stays
+ * live and the control you pressed answers (THE PRESS, below) with a
+ * spinner that keeps turning if the wait is long. React leaves out of the
+ * transition whatever is not in a <ViewTransition>, and hides the picture of
+ * it; the layer puts that picture back (keepPageUnder), since the page under
+ * a rising layer is the whole point.
  *
- *   The picture is taken the moment the new page is ready, and the move
- *   starts on the next frame, run by the compositor on transform alone:
- *   ::view-transition-new(page-layer) from translateY(100%) coming in,
- *   ::view-transition-old(page-layer) to translateY(100%) going out. The rest
- *   of the screen (root) does not move or fade: coming in, the picture of the
- *   page under it holds; going out, the live page it goes to is under it. So
- *   no frame is ever without a page, and the /app header, which is part of
- *   root, is always under the layer, never over it.
+ * GOING BACK: A VIEW TRANSITION OF ITS OWN, AROUND THE NAVIGATION. Most ways
+ * back are router.back(), a popstate, and React renders a popstate at once,
+ * with no view transition, so it cannot be React's. moveLayer("leave")
+ * starts one itself: the picture of the layer is taken as it is on the
+ * screen, the navigation runs inside the transition, and the transition
+ * waits for this file's own signal that the commit happened (the layer
+ * unmounting, in a layout effect, before that frame is painted), at most
+ * LAYER_WAIT_MS. The page a layer goes back to is almost always the one it
+ * was opened from, which the router still holds, so the commit is a frame or
+ * two away; past the wait the move is skipped and the page lands on its own.
+ * While it runs, React is told the layer has no exit of its own (`manual`),
+ * so the two never both move it. A link out of a layer to another address
+ * is a push, and React drops the layer itself, the same way.
  *
- *   The layer's own layout effect, which React runs inside that transition,
- *   marks <html> with data-layer-motion ("enter" or "leave"), which is what
- *   the ::view-transition rules in app/globals.css select on and what tells
- *   the stage to play no landing of its own under the move. The mark goes
- *   when the transition has finished.
- *
- * Any route that renders a PageLayer gets this, however it is reached: a
- * Link, router.push, router.back, the browser's back. moveLayer (below) is
- * for the press: a caller that navigates to or from a layer hands it the
- * navigation and it answers the press first.
- *
- * The durations and the curve are set here and handed to the CSS as custom
- * properties on <html>, one number in one place.
+ * <html> carries data-layer-motion ("enter" or "leave") while a layer moves,
+ * which is what the ::view-transition rules select on and what tells the
+ * stage to play no landing of its own under the move. The durations and the
+ * curve are set here and handed to the CSS as custom properties on <html>,
+ * one number in one place.
  *
  * NO MOVE under reduced motion, from 768px, in a browser with no view
- * transitions (the page swaps), after a back the browser has already drawn
- * its own transition for (Safari's swipe back), or when a layer stands in for
- * itself at a new address (holdLayerLanding) or for another layer in the same
- * commit: the new one is simply there.
+ * transitions (the page swaps), on the browser's own back (a gesture on iOS
+ * draws its own), or when a layer stands in for itself at a new address
+ * (holdLayerLanding) or for another layer in the same commit: the new one is
+ * simply there.
  */
 export const LAYER_MOTION_MS = 360
 /** Going back down is a little quicker than coming up, as a sheet is. */
 export const LAYER_LEAVE_MS = 300
 /** The iOS sheet curve, the one the segmented control and the sheets use. */
 export const LAYER_MOTION_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+/** The longest the way back holds its picture for the page under it to commit. */
+export const LAYER_WAIT_MS = 450
 /** Where the editor is a layer at all: the pill's breakpoint, the same 768px as `phoneOnly`. */
 export const LAYER_PHONE = "(max-width: 767px)"
 /** The view transition name the layer carries while it moves, and that the CSS animates. */
 export const LAYER_NAME = "page-layer"
 
 type ViewTransitionLike = { finished: Promise<void>; ready: Promise<void>; skipTransition: () => void }
+type WithViewTransitions = Document & {
+  startViewTransition?: (update: () => Promise<void> | void) => ViewTransitionLike
+  __reactViewTransition?: ViewTransitionLike | null
+}
 type ViewTransitionProps = {
   children: React.ReactNode
   name?: string
@@ -92,58 +104,177 @@ type ViewTransitionProps = {
 /*
   React's <ViewTransition>. The app router runs Next's own build of React,
   which has it; a React without it (a test, an older build) draws the layer
-  with no move, as a browser without view transitions does.
+  with no rise, as a browser without view transitions does.
 */
 const ReactViewTransition = (React as unknown as { ViewTransition?: React.ComponentType<ViewTransitionProps> }).ViewTransition ?? null
 
-/* ── Whether a layer moves here: a phone, and motion allowed ─────────────── */
+/* ── Whether a layer moves here: a phone, motion allowed, no drop of our own running ── */
 const REDUCED = "(prefers-reduced-motion: reduce)"
 function layerMotionOn(): boolean {
   if (typeof window === "undefined" || !window.matchMedia) return false
   return window.matchMedia(LAYER_PHONE).matches && !window.matchMedia(REDUCED).matches
 }
+/* A way back of our own is running (moveLayer "leave"): React must not move the layer as well. */
+let manual = false
+const changes = new Set<() => void>()
 function subscribeMotion(change: () => void) {
-  if (typeof window === "undefined" || !window.matchMedia) return () => {}
+  changes.add(change)
+  if (typeof window === "undefined" || !window.matchMedia) return () => changes.delete(change)
   const queries = [window.matchMedia(LAYER_PHONE), window.matchMedia(REDUCED)]
   for (const q of queries) q.addEventListener?.("change", change)
   return () => {
+    changes.delete(change)
     for (const q of queries) q.removeEventListener?.("change", change)
   }
 }
+const reactMoves = () => layerMotionOn() && !manual
 const serverMotion = () => false
-
-/*
-  A BACK THE BROWSER HAS ALREADY MOVED. Safari's swipe back slides a
-  picture of the page behind across the screen itself, and says so on the
-  popstate (hasUAVisualTransition). A drop after it would be the same way
-  back played twice, so that one commit is marked "stay" instead.
-*/
-let browserMovedAt = -Infinity
-const BROWSER_MOVE_KEPT_MS = 1000
 
 /* ── The mark on <html> while a layer moves ─────────────────────────────── */
 type Mark = "enter" | "leave" | "swap" | "stay"
 
-function markMotion(kind: "enter" | "leave") {
-  const html = document.documentElement
-  const move = (document as Document & { __reactViewTransition?: ViewTransitionLike | null }).__reactViewTransition
-  /* Only inside the transition React is running for this commit; a commit with none (a sync update, reduced motion, a wide window) marks nothing. */
-  if (!move || !layerMotionOn()) return
-  const now = html.dataset.layerMotion as Mark | undefined
-  /* Standing in for itself (holdLayerLanding), or already one layer for another in this commit. */
-  if (now === "stay" || now === "swap") return
-  let next: Mark = kind
-  /* The one going left in this same commit: one layer in place of another, which moves nothing. */
-  if (kind === "enter" && now === "leave") next = "swap"
-  if (performance.now() - browserMovedAt < BROWSER_MOVE_KEPT_MS) next = "stay"
-  html.dataset.layerMotion = next
+function setMotionVars(html: HTMLElement) {
   html.style.setProperty("--layer-motion-ms", `${LAYER_MOTION_MS}ms`)
   html.style.setProperty("--layer-leave-ms", `${LAYER_LEAVE_MS}ms`)
   html.style.setProperty("--layer-motion-ease", LAYER_MOTION_EASE)
+}
+
+/*
+  THE PAGE UNDER A RISING LAYER. React takes a picture of the whole screen
+  (root) before the commit like any view transition, but when nothing
+  outside a <ViewTransition> is meant to animate it takes root out of the
+  new state and hides the old picture (an opacity 0 on
+  ::view-transition-group(root), from its own script). Under a layer that is
+  the page it was opened from, which must stay: so once the transition is
+  ready, and before its first frame, that one hiding is undone.
+*/
+function keepPageUnder(move: ViewTransitionLike) {
+  move.ready.then(
+    () => {
+      for (const a of document.documentElement.getAnimations({ subtree: true })) {
+        const effect = a.effect as KeyframeEffect | null
+        if (effect?.pseudoElement !== "::view-transition-group(root)") continue
+        if (effect.getKeyframes().some((k) => k.opacity !== undefined)) a.cancel()
+      }
+    },
+    () => {},
+  )
+}
+
+/*
+  What React leaves behind. Its opacity 0 on the root's group and its 0 by 0
+  on ::view-transition are Web Animations that hold their last frame, on
+  pseudo elements that exist only during a transition, and they are still
+  there when the next one begins: the next view transition, ours, would
+  start with its whole overlay 0 by 0. So they go when a transition ends,
+  and before ours begins.
+*/
+function clearLeftovers() {
+  for (const a of document.documentElement.getAnimations({ subtree: true })) {
+    const pseudo = (a.effect as KeyframeEffect | null)?.pseudoElement ?? ""
+    if (pseudo.startsWith("::view-transition")) a.cancel()
+  }
+}
+
+/** Called from the layer's layout effect, inside React's transition: marks what this commit does. */
+function markReactMotion(kind: "enter" | "leave") {
+  const html = document.documentElement
+  const move = (document as WithViewTransitions).__reactViewTransition
+  /* Only inside a transition React is running for this commit, with the layer moving; a commit with none (a popstate, reduced motion, a wide window, our own way back) marks nothing here. */
+  if (!move || !reactMoves()) return
+  const now = html.dataset.layerMotion as Mark | undefined
+  /* Standing in for itself (holdLayerLanding), or already one layer for another in this commit. */
+  if (now === "stay" || now === "swap") return
+  /* The one going in this same commit: one layer in place of another, which moves nothing. */
+  const next: Mark = kind === "enter" && now === "leave" ? "swap" : kind
+  html.dataset.layerMotion = next
+  setMotionVars(html)
+  if (next === "enter") keepPageUnder(move)
   const clear = () => {
+    clearLeftovers()
     if (html.dataset.layerMotion === next) delete html.dataset.layerMotion
   }
   move.finished.then(clear, clear)
+}
+
+/* The way back of our own: resolved by the layer unmounting. */
+let leaving: (() => void) | null = null
+let leaves = 0
+
+function dropLayer(navigate: () => void) {
+  const doc = document as WithViewTransitions
+  const html = document.documentElement
+  /* Not while one is running already (ours, or React's), and only with a layer on the screen to drop. */
+  if (leaving || manual || doc.__reactViewTransition || !layerMotionOn() || typeof doc.startViewTransition !== "function" || !document.querySelector("[data-page-layer]")) {
+    navigate()
+    return
+  }
+  clearLeftovers()
+  const id = ++leaves
+  /* React is told first, and draws it before anything else: this layer has no exit of its own now. */
+  manual = true
+  flushSync(() => {
+    for (const change of changes) change()
+  })
+  let landed!: () => void
+  const commit = new Promise<void>((resolve) => {
+    landed = resolve
+  })
+  leaving = () => {
+    leaving = null
+    landed()
+  }
+  html.dataset.layerMotion = "leave"
+  setMotionVars(html)
+  const done = () => {
+    if (leaves !== id) return
+    leaving = null
+    manual = false
+    for (const change of changes) change()
+    if (html.dataset.layerMotion === "leave") delete html.dataset.layerMotion
+  }
+  let move: ViewTransitionLike
+  try {
+    move = doc.startViewTransition(() => {
+      return new Promise<void>((resolve) => {
+        let settled = false
+        const giveBack = () => {
+          /* Not here yet: give the screen back, live, with the press's spinner turning, and let the page land on its own. */
+          if (settled) return
+          settled = true
+          window.clearTimeout(late)
+          window.removeEventListener("popstate", onPop)
+          leaving = null
+          move.skipTransition()
+          resolve()
+        }
+        const late = window.setTimeout(giveBack, LAYER_WAIT_MS)
+        /*
+          A way back that is a popstate is drawn by React at once, in the
+          same task, when the router has the page; when it has to fetch it,
+          nothing is drawn. So by the task after the popstate the answer is
+          known, and a page still on its way does not hold the picture.
+        */
+        const onPop = () => window.setTimeout(giveBack, 0)
+        window.addEventListener("popstate", onPop, { once: true })
+        void commit.then(() => {
+          if (settled) return
+          settled = true
+          window.clearTimeout(late)
+          window.removeEventListener("popstate", onPop)
+          resolve()
+        })
+        navigate()
+      })
+    })
+  } catch {
+    done()
+    navigate()
+    return
+  }
+  /* A skipped move rejects `ready`; that is an outcome, not an error. */
+  move.ready.catch(() => {})
+  move.finished.then(done, done)
 }
 
 /**
@@ -198,7 +329,7 @@ function spinnerNode(size: number): HTMLElement {
 
 /* An element that answers its own press (the product editor's Cancel, the plans page's Back): left to it. */
 function answersItself(el: HTMLElement) {
-  return el.getAttribute("aria-busy") === "true" || el.hasAttribute("data-leaving") || !!el.querySelector("[data-activity-spinner]")
+  return el.hasAttribute("data-answers-press") || el.getAttribute("aria-busy") === "true" || el.hasAttribute("data-leaving") || !!el.querySelector("[data-activity-spinner]")
 }
 
 /**
@@ -206,7 +337,9 @@ function answersItself(el: HTMLElement) {
  * LAYER_PRESS_WAIT_MS if nothing has landed by then. `until` is the address
  * whose arrival also ends it (a link's). Safe to call twice.
  */
-export function holdPress(el: Element | null | undefined, until: string | null = null) {
+export function holdPress(pressed: Element | null | undefined, until: string | null = null) {
+  /* A list row's link answers as its row: the row takes the pressed grey. */
+  const el = pressed instanceof HTMLElement && pressed.matches("[data-row-link]") ? (pressed.closest<HTMLElement>("[data-row]") ?? pressed) : pressed
   if (typeof window === "undefined" || !(el instanceof HTMLElement) || !el.isConnected || held.has(el)) return
   if (answersItself(el)) return
   const row = el.matches("tr,li,[data-row]")
@@ -306,27 +439,22 @@ function listen() {
     holdPress(el, until)
   })
   window.addEventListener("pageshow", releasePresses)
-  window.addEventListener(
-    "popstate",
-    (e) => {
-      if ((e as PopStateEvent & { hasUAVisualTransition?: boolean }).hasUAVisualTransition) browserMovedAt = performance.now()
-    },
-    true,
-  )
 }
 if (typeof window !== "undefined") listen()
 
 /**
  * A navigation to or from a layer, with its press answered first.
- * `navigate` runs at once, in the same task: the router's own transition is
- * what React moves the layer on (see above), so there is nothing to wait
- * for here. `press` is the control to answer: by default the one under the
- * last pointer press; `false` when the caller draws its own answer (the
- * products list's row, the product editor's Cancel).
+ * "enter": `navigate` runs at once, in the same task, and React raises the
+ * layer at the commit (see above). "leave": the layer drops inside a view
+ * transition of its own, with `navigate` run in it. `press` is the control
+ * to answer: by default the one under the last pointer press; `false` when
+ * the caller draws its own answer (the products list's row, the product
+ * editor's Cancel).
  */
-export function moveLayer(_motion: "enter" | "leave", navigate: () => void, press?: Element | null | false) {
+export function moveLayer(motion: "enter" | "leave", navigate: () => void, press?: Element | null | false) {
   if (press !== false) holdPress(press ?? recentPress())
-  navigate()
+  if (motion === "leave") dropLayer(navigate)
+  else navigate()
 }
 
 /**
@@ -427,7 +555,7 @@ export function PageLayer({
   className?: string
 }) {
   /* Whether this layer rises and drops: read on the client only, so the server's HTML is the same for every width. */
-  const moves = useSyncExternalStore(subscribeMotion, layerMotionOn, serverMotion)
+  const moves = useSyncExternalStore(subscribeMotion, reactMoves, serverMotion)
 
   useLayoutEffect(() => {
     const html = document.documentElement
@@ -435,7 +563,7 @@ export function PageLayer({
     html.classList.add(name)
     /* The commit a press was waiting for: this layer is on the screen. */
     releasePresses()
-    markMotion("enter")
+    markReactMotion("enter")
     /* A layer standing in for the one before it (holdLayerLanding): from the next frame the stage lands pages again. */
     if (html.dataset.layerMotion === "stay") {
       requestAnimationFrame(() => {
@@ -444,9 +572,10 @@ export function PageLayer({
     }
     return () => {
       html.classList.remove(name)
-      /* ...or it has gone, and the page under it is in the same commit. */
+      /* ...or it has gone, and the page under it is in the same commit: the way back of our own can take its picture. */
       releasePresses()
-      markMotion("leave")
+      leaving?.()
+      markReactMotion("leave")
     }
   }, [phoneOnly])
 
@@ -496,7 +625,8 @@ export function PageLayer({
   /*
     One boundary, named, with a class only for the two moves: an update
     inside the layer (a save, a refresh) moves nothing, and one layer in
-    place of another in a commit (share) moves nothing either.
+    place of another in a commit (share) moves nothing either. No exit while
+    a way back of our own is running (`manual`, dropLayer).
   */
   return (
     <ReactViewTransition

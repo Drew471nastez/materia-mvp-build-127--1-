@@ -9,10 +9,10 @@ import { isTraversing, markTraversal, prefetchAppPage } from "@/lib/ui/app-navig
  *  BETWEEN THE PRODUCTS LIST AND A PRODUCT
  * ===========================================================================
  * Both ways are one move of the editor's layer (components/app/page-layer):
- * it rises from the bottom over the list, and drops back down to it. The
- * list and the editor draw their own answer to the press (the row's tint,
- * Cancel's spinner), so moveLayer is told not to add one. What else the
- * round trip keeps:
+ * it rises from the bottom over the list, and drops back down to it, and
+ * the press that did it is answered on its own frame (moveLayer: the row is
+ * tinted, New product and the back arrow dim; Cancel and Back answer
+ * themselves). What else the round trip keeps:
  *
  *   THE HISTORY STAYS HONEST. An editor the list opened sits on the history
  *   entry right after the list's, so Back, Cancel and Discard go back in
@@ -64,14 +64,10 @@ const PUSH_KEPT_MS = 10_000
 
 /** Open a product, or a new one, from the list. */
 export function openEditor(router: Router, href: string) {
-  moveLayer(
-    "enter",
-    () => {
-      pushedAt = Date.now()
-      router.push(href)
-    },
-    false,
-  )
+  moveLayer("enter", () => {
+    pushedAt = Date.now()
+    router.push(href)
+  })
 }
 
 /**
@@ -106,19 +102,15 @@ export function returnToProducts(router: Router, productId: string | null) {
   returnTo = PRODUCTS_HREF
   const back = fromList
   fromList = false
-  moveLayer(
-    "leave",
-    () => {
-      if (back) {
-        /* A popstate: the app marks it a return itself (navigation-loading-bar). */
-        router.back()
-      } else {
-        markTraversal()
-        router.replace(PRODUCTS_HREF)
-      }
-    },
-    false,
-  )
+  moveLayer("leave", () => {
+    if (back) {
+      /* A popstate: the app marks it a return itself (navigation-loading-bar). */
+      router.back()
+    } else {
+      markTraversal()
+      router.replace(PRODUCTS_HREF)
+    }
+  })
 }
 
 /*
