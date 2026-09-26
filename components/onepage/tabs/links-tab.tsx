@@ -116,13 +116,11 @@ import {
   Calendar,
   Info,
 } from "lucide-react"
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from "recharts"
+import { LinkStatsChart } from "@/components/onepage/link-stats-chart"
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
-import { boundsOf, longDate, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
+import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { createClient } from "@/lib/supabase/client"
 import { BLOCKED_EXTENSIONS, readFileHeader, scanFile, MAX_DIGITAL_PRODUCT_FILE_SIZE } from "@/lib/storage/security"
 import { BlockBadges, BlockExtras, EXTRA_BLOCK_CATALOG, EXTRA_BLOCK_TYPES, ExtraBlockEditor, extraBlockRow, type ExtraBlockType } from "@/components/onepage/extra-blocks"
@@ -4880,115 +4878,15 @@ function BlockItem({
                     <DateRangePicker value={statsPeriod} onChange={setStatsPeriod} today={statsToday} inline />
                   </div>
 
-                  {statsLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                    </div>
-                  ) : statsData ? (
-                    <>
-                      {/* Stats summary cards */}
-                      <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className="p-3 bg-blue-50 rounded-xl">
-                          <div className="text-2xl font-bold text-blue-900">{statsData.total_views || 0}</div>
-                          <div className="text-xs text-blue-600 font-medium">Views</div>
-                        </div>
-                        <div className="p-3 bg-[#f4f4f6] rounded-xl">
-                          <div className="text-2xl font-bold text-[#1a1a2e]">{statsData.total_clicks || 0}</div>
-                          <div className="text-xs text-[#1a1a2e] font-medium">{isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"}</div>
-                        </div>
-                      </div>
-
-                      {/* Chart */}
-                      <div className="bg-gray-50 rounded-xl p-4">
-                        <div className="text-xs font-medium text-gray-500 mb-3">Activity</div>
-                        <div className="h-[140px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart
-                              data={statsData.chart_data.map(d => ({
-                                ...d,
-                                date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                              }))}
-                              margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                              <XAxis
-                                dataKey="date"
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: "#9ca3af", fontSize: 10 }}
-                                dy={5}
-                              />
-                              <YAxis
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: "#9ca3af", fontSize: 10 }}
-                                dx={-5}
-                              />
-                              <Tooltip
-                                contentStyle={{
-                                  backgroundColor: "white",
-                                  border: "1px solid #e5e7eb",
-                                  borderRadius: "8px",
-                                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                                  fontSize: "11px"
-                                }}
-                                formatter={(value: number, name: string) => {
-                                  const labels: Record<string, string> = {
-                                    views: "Views",
-                                    clicks: isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"
-                                  }
-                                  return [value.toLocaleString(), labels[name] || name]
-                                }}
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="views"
-                                stroke="#60a5fa"
-                                strokeWidth={2}
-                                dot={{ fill: "#60a5fa", strokeWidth: 0, r: 3 }}
-                                activeDot={{ r: 5 }}
-                                name="views"
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="clicks"
-                                stroke="#a78bfa"
-                                strokeWidth={2}
-                                dot={{ fill: "#a78bfa", strokeWidth: 0, r: 3 }}
-                                activeDot={{ r: 5 }}
-                                name="clicks"
-                              />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                        <div className="flex justify-between mt-3 pt-2 border-t border-gray-200">
-                          <span className="text-[10px] text-muted-foreground">
-                            {longDate(statsPeriod.start)}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {statsPeriod.end === statsToday ? 'Now' : longDate(statsPeriod.end)}
-                          </span>
-                        </div>
-                        {/* Legend */}
-                        <div className="flex items-center justify-center gap-6 mt-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-blue-400" />
-                            <span className="text-xs text-gray-600">Views</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-[#1a1a2e]" />
-                            <span className="text-xs text-gray-600">{isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-8 text-sm text-muted-foreground">
-                      <BarChart2 className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                      <p>No data yet</p>
-                      <p className="text-xs mt-1">Stats will appear once visitors interact with this block</p>
-                    </div>
-                  )}
+                  {/* The OnePage chart from Analytics, with this block's figures (components/onepage/link-stats-chart). */}
+                  <LinkStatsChart
+                    stats={statsData}
+                    loading={statsLoading}
+                    clicksLabel={isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"}
+                    start={statsPeriod.start}
+                    end={statsPeriod.end}
+                    endIsToday={statsPeriod.end === statsToday}
+                  />
                 </div>
               </DialogContent>
             </Dialog>

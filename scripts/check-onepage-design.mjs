@@ -110,6 +110,41 @@ for (const [label, vp] of [["desktop-1440", DESKTOP], ["phone-390", PHONE]]) {
   await p.close()
 }
 
+/* ── A LINK'S STATS: the OnePage chart from Analytics ── */
+for (const [label, vp] of [["desktop-1440", DESKTOP], ["phone-390", PHONE]]) {
+  console.log(`\n${label}: a link's stats`)
+  const { p, errors } = await open(vp, "links")
+  await p.click('[data-block-id="b1"] button[title="View Stats"]')
+  await p.waitForSelector("[data-link-stats]")
+  await sleep(1200)
+  const chart = await p.$eval("[data-link-stats]", (root) => {
+    const line = root.querySelector("[data-trend-line]")
+    const area = root.querySelector(".trend-area")
+    const stop = root.querySelector("linearGradient stop")
+    const tabs = [...root.querySelectorAll("[role=tab]")].map((t) => t.textContent.trim().slice(0, 20))
+    return {
+      stroke: line?.getAttribute("stroke"),
+      drawn: (line?.getAttribute("d") || "").length > 20,
+      fill: area?.getAttribute("fill"),
+      filled: (area?.getAttribute("d") || "").length > 20,
+      gradient: stop ? [stop.getAttribute("stop-color"), stop.getAttribute("stop-opacity")] : null,
+      tabs,
+      dates: root.querySelectorAll(".recharts-cartesian-axis-tick").length,
+    }
+  })
+  expect(chart.drawn && chart.filled && /^url\(#trend-fill/.test(chart.fill), "the line and the gradient under it are drawn", chart)
+  expect(chart.stroke === "#1a1a2e" && chart.gradient?.[0] === "#1a1a2e", "in the editor's ink, not violet", { stroke: chart.stroke, gradient: chart.gradient })
+  expect(chart.tabs.length === 2 && /Views/.test(chart.tabs[0]) && /Clicks/.test(chart.tabs[1]), "two figures above it, Views and Clicks", chart.tabs)
+  const before = await p.$eval("[data-link-stats] [data-trend-line]", (l) => l.getAttribute("d"))
+  await p.click('[data-link-stats] [data-tab="views"]')
+  await sleep(800)
+  const after = await p.$eval("[data-link-stats] [data-trend-line]", (l) => l.getAttribute("d"))
+  expect(before !== after, "a figure moves the line to its numbers", { changed: before !== after })
+  await p.screenshot({ path: join(shots, `${label}-link-stats.png`) })
+  expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
+  await p.close()
+}
+
 await browser.close()
 server.close()
 console.log(`\nshots in ${shots}`)
