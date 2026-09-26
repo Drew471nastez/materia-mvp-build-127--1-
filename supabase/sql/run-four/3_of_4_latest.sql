@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 3 of 4
--- Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites, product variant columns.
+-- Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites, product variant columns, company details on orders, a creator's own AI keys, up to three businesses on one login.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the four files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -296,6 +296,14 @@ DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.
 CREATE TABLE IF NOT EXISTS public.creator_ai_keys (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, provider text NOT NULL CHECK (provider IN ('anthropic', 'openai', 'openrouter')), sealed_key text NOT NULL CHECK (length(sealed_key) BETWEEN 20 AND 2000), key_hint text NOT NULL DEFAULT '' CHECK (length(key_hint) <= 8), created_at timestamptz NOT NULL DEFAULT now(), last_used_at timestamptz, last_error text CHECK (last_error IS NULL OR length(last_error) <= 300), UNIQUE (creator_id, provider));
 ALTER TABLE public.creator_ai_keys ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.creator_ai_keys FROM anon, authenticated;
+
+-- part 38_business_limit_three.sql
+/* Business accounts: one login, up to three businesses. Part 26 allowed one business per login besides the first (a unique key on owner_id); this lets a login make two, and no more, and the database keeps the count itself so two presses at once cannot pass it. Adds an index for the owner's businesses and a trigger that counts them, then drops the old unique key. Changes no rows. Run after 26. Until it runs, a third business is refused and the account menu says it cannot be added just yet. Reasons: supabase/migrations/20261006_business_limit_three.sql. */
+create index if not exists business_links_owner_created on public.business_links (owner_id, created_at);
+create or replace function public.business_links_limit() returns trigger language plpgsql security definer set search_path = public as $$ begin perform pg_advisory_xact_lock(hashtextextended('business_links ' || new.owner_id::text, 0)); if 1 + (select count(*) from public.business_links where owner_id = new.owner_id and member_id <> new.member_id) >= 3 then raise exception 'One login can have at most 3 businesses' using errcode = 'check_violation', constraint = 'business_links_limit'; end if; return new; end; $$;
+drop trigger if exists business_links_limit on public.business_links;
+create trigger business_links_limit before insert or update of owner_id, member_id on public.business_links for each row execute function public.business_links_limit();
+alter table public.business_links drop constraint if exists business_links_one_per_owner;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

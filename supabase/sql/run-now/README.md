@@ -59,11 +59,12 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `35_product_variants_columns.sql` | Product variants: the compare at price and purchase limit columns the editor saves, the old one variant per position rule removed so variants can be moved up and down, and the indexes the product page and checkout read them by. Changes nothing where there is no variants table. Until it runs, a variant with a compare at price can fail to save, and moving a variant can fail. | 7 | 1,429 |
 | `36_order_business_details.sql` | The company a buyer bought for, on the order: its legal name, tax number and address, which the buyer's invoice and the creator's copy read. One column and a check on its shape; no rows change. Needs nothing else. Until it runs, orders are made as before and the invoice reads the company from the payment. | 4 | 906 |
 | `37_own_ai_keys.sql` | A creator's own AI (their Claude key, OpenAI key or OpenRouter account) for Storelib AI to answer on, outside the plan's AI edits. One table of sealed keys, readable by the server only. Needs nothing else. Until it runs, Connections says it is not switched on yet and Storelib AI answers as before. | 5 | 1,125 |
+| `38_business_limit_three.sql` | Up to three businesses on one login: the first and two it makes. A trigger counts them (two presses at once cannot pass it), an index reads them by owner, and the old one per login key from `26` goes. Changes no rows. Run after `26`. Until it runs, a third business is refused and the account menu says it cannot be added just yet. | 7 | 1,546 |
 | `90_storage_policies_needs_owner.sql` | LAST, ON ITS OWN. Replaces the storage.objects policies. Needs the owner of storage.objects; see README if it says "must be owner". | 2 | 3,896 |
 | `91_storage_policies_to_remove.sql` | Read only. For the dashboard route: the storage policies to delete. | 2 | 1,242 |
-| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 10,946 |
+| `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 11,868 |
 
-Parts `01` to `36` all run as the editor's normal role. `90` is the one
+Parts `01` to `38` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
 Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:

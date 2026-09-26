@@ -6,7 +6,7 @@ import { VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
 import { MAX_CODE_ATTEMPTS, codeMatches, newCode, wrongCodeMessage } from "@/lib/account/codes"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { ownerAddress } from "@/lib/businesses/email-alias"
-import { businessLink, sessionFor } from "@/lib/businesses/server"
+import { businessGroup, sessionFor } from "@/lib/businesses/server"
 
 export const runtime = "nodejs"
 
@@ -158,22 +158,25 @@ If you didn't request this, please ignore this email and secure your account imm
         .eq("id", codeRecord.id)
 
       /*
-        TWO BUSINESSES, ONE LOGIN (lib/businesses). A login that owns a second
-        business takes it with it: that business has no password of its own
-        and could never be reached again. Deleting the second business on its
-        own leaves the first alone, and the person is signed back into it.
+        MORE THAN ONE BUSINESS ON ONE LOGIN (lib/businesses). A login that
+        owns other businesses takes every one of them with it: they have no
+        password of their own and could never be reached again. Deleting one
+        of those businesses on its own leaves the rest alone, and the person
+        is signed back into the first.
       */
-      const link = await businessLink(user.id)
-      if (link?.ownerId === user.id) {
-        try {
-          await deleteAllUserData(adminSupabase, link.memberId)
-        } catch (deleteError: any) {
-          console.error("Error deleting the second business:", deleteError?.message || deleteError)
-        }
-        const { error: memberDeleteError } = await adminSupabase.auth.admin.deleteUser(link.memberId)
-        if (memberDeleteError) {
-          console.error("Second business auth deletion failed:", memberDeleteError.message)
-          return NextResponse.json({ error: "Failed to delete account. Please contact support." }, { status: 500 })
+      const group = await businessGroup(user.id)
+      if (group?.ownerId === user.id) {
+        for (const memberId of group.memberIds) {
+          try {
+            await deleteAllUserData(adminSupabase, memberId)
+          } catch (deleteError: any) {
+            console.error("Error deleting a business of this login:", deleteError?.message || deleteError)
+          }
+          const { error: memberDeleteError } = await adminSupabase.auth.admin.deleteUser(memberId)
+          if (memberDeleteError) {
+            console.error("Business auth deletion failed:", memberDeleteError.message)
+            return NextResponse.json({ error: "Failed to delete account. Please contact support." }, { status: 500 })
+          }
         }
       }
 
@@ -197,8 +200,8 @@ If you didn't request this, please ignore this email and secure your account imm
         }
       }
 
-      /* A second business is gone; its owner is still here, so they land back in their first business signed in. */
-      const firstBusiness = link?.memberId === user.id ? await sessionFor(link.ownerId) : null
+      /* One of the login's businesses is gone; its owner is still here, so they land back in their first business signed in. */
+      const firstBusiness = group && group.ownerId !== user.id ? await sessionFor(group.ownerId) : null
       return NextResponse.json({
         success: true,
         message: "Account successfully deleted",

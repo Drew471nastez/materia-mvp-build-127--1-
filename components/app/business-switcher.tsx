@@ -5,6 +5,7 @@ import { ChevronsUpDown, Loader2, Plus } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { SwitchingScreen, type SwitchingHandle } from "@/components/app/business-switch-screen"
 import { iconDepth } from "@/components/ui/depth-button"
+import { canAddBusiness } from "@/lib/businesses/rules"
 import { createBusiness, SWITCH_FAILED, switchBusiness } from "@/lib/businesses/switch-client"
 import { cn } from "@/lib/utils"
 
@@ -18,8 +19,9 @@ import { cn } from "@/lib/utils"
  * choice most people make once. Now the business you are in is a single row,
  * its photo, its name and its @handle, with the up and down chevron that
  * says "there is a list behind this" in every workspace switcher people
- * already know. A tap opens the list in place, under that row: the other
- * business (if there is one), then "New business" as a slim line of text.
+ * already know. A tap opens the list in place, under that row: the login's
+ * other businesses (up to two more, lib/businesses/rules MAX_BUSINESSES),
+ * then "New business" as a slim line of text while there is room for one.
  * Another tap, or closing the menu, folds it away again.
  *
  * No heading. The row is the business, so a label saying "Businesses" over
@@ -49,7 +51,7 @@ import { cn } from "@/lib/utils"
  * away over the business you are still in, and the menu, still open under
  * it, says why in a sentence.
  *
- * "New business" makes the second account right there and goes straight
+ * "New business" makes the new account right there and goes straight
  * into the creator onboarding, the same "Name your store" everyone starts
  * with. No page in between: the row says it is setting up while it works.
  *
@@ -57,7 +59,7 @@ import { cn } from "@/lib/utils"
  * to the left of it, add a plus icon button, with a little bit more depth,
  * very clean and smooth, so people understand it's about creating a new
  * profile/business." Folded, the row only said "there is a list behind
- * this"; nothing on it said a second business could be made, so the only
+ * this"; nothing on it said another business could be made, so the only
  * way to find out was to open the list and read the last line. Now a small
  * white square with a "+" sits on the row itself, wearing iconDepth
  * (components/ui/depth-button): the hairline border and 2px foot the
@@ -163,8 +165,8 @@ export function BusinessSwitcher({
   const sheet = variant === "sheet"
   const current = businesses.find((b) => b.current) ?? businesses[0]
   const others = businesses.filter((b) => b !== current)
-  /* The second business is made from the first; there is room for one. */
-  const canAdd = businesses.length < 2 && current.role === "owner"
+  /* Another business is made from the first, while the login has room for one (lib/businesses/rules MAX_BUSINESSES). */
+  const canAdd = canAddBusiness(businesses.length, current.role)
   /* Nothing behind the row (a business that cannot make another, and no other to go to): no chevron, no tap. */
   const hasList = others.length > 0 || canAdd
 

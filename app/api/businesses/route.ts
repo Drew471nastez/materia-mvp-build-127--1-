@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
-import { createSecondBusiness, listBusinesses, recordSwitch, requestUser, sessionFor } from "@/lib/businesses/server"
+import { canAddBusiness, createBusinessAccount, listBusinesses, recordSwitch, requestUser, sessionFor } from "@/lib/businesses/server"
 
 /**
- * The signed in person's businesses (GET), and a second one (POST).
+ * The signed in person's businesses (GET), and another one (POST).
  *
- * POST makes the second business's account, links it, and answers with a
+ * POST makes the new business's account, links it, and answers with a
  * session for it, so the browser can go straight into its onboarding. Three
  * an hour: nobody opens businesses faster than that, and each one is an auth
- * account. The limit of two is the database's (business_links), not this
- * route's; the route only says it nicely.
+ * account. How many a login can have is MAX_BUSINESSES (lib/businesses/
+ * rules); the database holds the same number (business_links, run-now part
+ * 38), and this route only says it nicely.
  */
 
 export const dynamic = "force-dynamic"
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
   const businesses = await listBusinesses(user.id)
   const me = businesses.find((b) => b.current)
   return NextResponse.json(
-    { businesses, canAdd: businesses.length < 2 && me?.role === "owner" },
+    { businesses, canAdd: !!me && canAddBusiness(businesses.length, me.role) },
     { headers: NO_STORE },
   )
 }
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
   })
   if (limited) return limited
 
-  const created = await createSecondBusiness(user)
+  const created = await createBusinessAccount(user)
   if ("error" in created) {
     return NextResponse.json({ error: created.error }, { status: created.status, headers: NO_STORE })
   }

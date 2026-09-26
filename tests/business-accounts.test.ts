@@ -1,18 +1,21 @@
 /**
  * ===========================================================================
- *  TWO BUSINESSES, ONE LOGIN
+ *  UP TO THREE BUSINESSES, ONE LOGIN
  * ===========================================================================
- * A second business is a second account, linked to the first
- * (supabase/migrations/20261001_business_accounts.sql, lib/businesses). This
- * holds the pieces that keep it safe and keep it working:
+ * Every business after the first is an account of its own, linked to the
+ * first (supabase/migrations/20261001_business_accounts.sql, lib/businesses).
+ * This holds the pieces that keep it safe and keep it working:
  *
- *   ADDRESS   the second account's email is the owner's with a tag, unique,
+ *   ADDRESS   a business account's email is the owner's with a tag, unique,
  *             and every place Storelib writes to a seller takes the tag off
- *   SWITCH    only across the one link an account is part of, whatever id is
+ *   SWITCH    only inside the group an account is part of, whatever id is
  *             sent; checked before a session is ever made
- *   DATABASE  one second business per login, no chains, read only by the two
- *             accounts, written only by the server; the run-now part is one
- *             statement per line and safe to run twice
+ *   LIMIT     MAX_BUSINESSES in lib/businesses/rules is the one number: the
+ *             server, the routes and the account menu read it, and the
+ *             database's trigger (run-now part 38) holds the same one
+ *   DATABASE  no chains, read only by the accounts it links, written only by
+ *             the server; the run-now parts are one statement per line and
+ *             safe to run twice
  *   WIRING    the account menus list the businesses, the onboarding knows its
  *             way back, deleting a login takes its second business with it
  *   SCREEN    a switch puts its screen up at the press, says each real step,
@@ -21,7 +24,7 @@
 import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
 import { businessAlias, isBusinessAlias, ownerAddress, BUSINESS_TAG_PATTERN } from "../lib/businesses/email-alias"
-import { maySwitch, UUID_PATTERN } from "../lib/businesses/rules"
+import { canAddBusiness, countWord, LIMIT_NOT_OPEN_YET, LIMIT_REACHED, linkRefusal, MAX_BUSINESSES, maySwitch, UUID_PATTERN } from "../lib/businesses/rules"
 import {
   cleanSwitchName,
   clearSwitchCookie,
@@ -147,23 +150,49 @@ function main() {
   check("a tag is eight hex characters or nothing", refused)
   check("the pattern only matches before the @", !BUSINESS_TAG_PATTERN.test("slb-1a2b3c4d@x.com"))
 
+  /*
+    Changed on purpose (owner, 2026-09-26: "it's capped by 3"): a login is a
+    group of an owner and up to two businesses it made, not one pair, so the
+    rule is read off the group. The pair's checks stay, as a group of one.
+  */
   console.log("\nWho may switch to whom")
   const owner = "00000000-0000-4000-8000-00000000000a"
   const member = "00000000-0000-4000-8000-00000000000b"
   const stranger = "00000000-0000-4000-8000-00000000000c"
-  const link = { ownerId: owner, memberId: member }
+  const third = "00000000-0000-4000-8000-00000000000d"
+  const link = { ownerId: owner, memberIds: [member] }
   check("the owner to their second business", maySwitch(link, owner, member))
   check("the second business back to its owner", maySwitch(link, member, owner))
-  check("nobody to an account outside their link", !maySwitch(link, owner, stranger) && !maySwitch(link, member, stranger))
-  check("a stranger cannot use somebody else's link", !maySwitch(link, stranger, member) && !maySwitch(link, stranger, owner))
-  check("no link, no switch", !maySwitch(null, owner, member))
+  check("nobody to an account outside their group", !maySwitch(link, owner, stranger) && !maySwitch(link, member, stranger))
+  check("a stranger cannot use somebody else's group", !maySwitch(link, stranger, member) && !maySwitch(link, stranger, owner))
+  check("no group, no switch", !maySwitch(null, owner, member))
   check("not to yourself", !maySwitch(link, owner, owner))
-  check("only ever to an id", !maySwitch({ ownerId: owner, memberId: "x) or 1=1" }, owner, "x) or 1=1") && UUID_PATTERN.test(member))
+  check("only ever to an id", !maySwitch({ ownerId: owner, memberIds: ["x) or 1=1"] }, owner, "x) or 1=1") && UUID_PATTERN.test(member))
+  const three = { ownerId: owner, memberIds: [member, third] }
+  check("with three: the owner to either of its businesses, and each back", maySwitch(three, owner, third) && maySwitch(three, third, owner) && maySwitch(three, owner, member))
+  check("  and one business straight to the other, both being the same login's", maySwitch(three, member, third) && maySwitch(three, third, member))
+  check("  and still nobody outside it", !maySwitch(three, third, stranger) && !maySwitch(three, stranger, third))
+
+  console.log("\nThree businesses a login, one number")
+  check("the limit is three", MAX_BUSINESSES === 3)
+  check("the first business can make one while there are one or two", canAddBusiness(1, "owner") && canAddBusiness(2, "owner"))
+  check("  and not at three", !canAddBusiness(3, "owner") && !canAddBusiness(4, "owner"))
+  check("a business that is not the first never makes one", !canAddBusiness(1, "member") && !canAddBusiness(2, "member"))
+  check("the words say the number the code holds", LIMIT_REACHED === `You already have ${countWord(MAX_BUSINESSES)} businesses, the most one login can have.` && /three businesses/.test(LIMIT_REACHED))
+  check("the database's own refusal reads as the limit", linkRefusal({ code: "23514", message: "One login can have at most 3 businesses" }) === LIMIT_REACHED)
+  check("before part 38 runs, the old one per login key reads as a calm not yet, never an error page",
+    linkRefusal({ code: "23505", message: 'duplicate key value violates unique constraint "business_links_one_per_owner"' }) === LIMIT_NOT_OPEN_YET && !/database|sql|constraint/i.test(LIMIT_NOT_OPEN_YET))
+  check("anything else is the plain try again", /Try again/.test(linkRefusal({ code: "P0001", message: "x" })))
+  const limitCode = ["lib/businesses/server.ts", "app/api/businesses/route.ts", "components/app/business-switcher.tsx"].map((f) => [f, read(f)] as const)
+  check("the server, the route and the menu all ask canAddBusiness, and none counts to a number of its own",
+    limitCode.every(([, src]) => /canAddBusiness\(/.test(src) && !/(businesses|ids)\.length\s*<\s*\d/.test(src)), limitCode.filter(([, src]) => !/canAddBusiness\(/.test(src)).map(([f]) => f))
+  check("no copy left that says two is the most", !/two businesses, the most|up to two businesses/i.test(limitCode.map(([, src]) => src).join("\n") + read("lib/businesses/rules.ts")))
 
   console.log("\nThe switch route checks before it makes a session")
   const sw = read("app/api/businesses/switch/route.ts")
-  const order = ["requestUser(request)", "rateLimit(", "businessLink(user.id)", "maySwitch(link, user.id, to)", "sessionFor(to)"].map((s) => sw.indexOf(s))
-  check("signed in, rate limited, the link read, the switch allowed, then a session", order.every((i, k) => i > 0 && (k === 0 || i > order[k - 1])), order)
+  /* Changed on purpose: the route reads the login's group (up to three businesses), not one link. */
+  const order = ["requestUser(request)", "rateLimit(", "businessGroup(user.id)", "maySwitch(group, user.id, to)", "sessionFor(to)"].map((s) => sw.indexOf(s))
+  check("signed in, rate limited, the group read, the switch allowed, then a session", order.every((i, k) => i > 0 && (k === 0 || i > order[k - 1])), order)
   check("refused with a 403 otherwise", /status: 403/.test(sw))
   check("never cached", (sw.match(/no-store/g) ?? []).length >= 1 && /headers: NO_STORE/.test(sw))
   const server = read("lib/businesses/server.ts")
@@ -178,7 +207,8 @@ function main() {
   const part = read("supabase/sql/run-now/26_business_accounts.sql")
   const migration = read("supabase/migrations/20261001_business_accounts.sql")
   for (const [name, sql] of [["the run-now part", part], ["the migration", migration]] as const) {
-    check(`${name}: one second business per login`, /constraint business_links_one_per_owner unique \(owner_id\)/.test(sql))
+    /* Part 26 as it ran: its one per login key is what part 38 below replaces, so the text stays and the label says so. */
+    check(`${name}: made one second business per login (part 38 lifts it to three)`, /constraint business_links_one_per_owner unique \(owner_id\)/.test(sql))
     check(`${name}: a business cannot be its own`, /check \(owner_id <> member_id\)/.test(sql))
     check(`${name}: row level security on both tables`, /alter table public\.business_links enable row level security/.test(sql) && /alter table public\.business_switches enable row level security/.test(sql))
     check(`${name}: read by the two accounts only`, /using \(\(select auth\.uid\(\)\) = owner_id or \(select auth\.uid\(\)\) = member_id\)/.test(sql))
@@ -186,6 +216,22 @@ function main() {
     check(`${name}: no chains`, /A business account cannot own another business/.test(sql) && /An account that owns a business cannot be added as one/.test(sql))
     check(`${name}: a deleted login takes its link with it`, (sql.match(/references auth\.users\(id\) on delete cascade/g) ?? []).length === 2)
   }
+  const part38 = read("supabase/sql/run-now/38_business_limit_three.sql")
+  const migration38 = read("supabase/migrations/20261006_business_limit_three.sql")
+  for (const [name, sql] of [["part 38", part38], ["its migration", migration38]] as const) {
+    const limit = /if 1 \+ \(select count\(\*\) from public\.business_links where owner_id = new\.owner_id and member_id <> new\.member_id\) >= (\d+) then/.exec(sql)
+    check(`${name}: the trigger counts the login and its businesses against the same number the app holds`, !!limit && Number(limit[1]) === MAX_BUSINESSES, limit?.[1])
+    check(`${name}: two presses at once take turns on a lock per owner`, /perform pg_advisory_xact_lock\(hashtextextended\('business_links ' \|\| new\.owner_id::text, 0\)\)/.test(sql))
+    check(`${name}: refuses as a check violation, which the server reads as the limit`, /using errcode = 'check_violation', constraint = 'business_links_limit'/.test(sql))
+    check(`${name}: on insert and on any change of who owns what`, /create trigger business_links_limit before insert or update of owner_id, member_id on public\.business_links for each row execute function public\.business_links_limit\(\)/.test(sql))
+    check(`${name}: the old one per login key goes only after the trigger is in`, sql.indexOf("create trigger business_links_limit") > 0 && sql.indexOf("drop constraint if exists business_links_one_per_owner") > sql.indexOf("create trigger business_links_limit"))
+    check(`${name}: the owner's businesses keep an index to be read by`, /create index if not exists business_links_owner_created on public\.business_links \(owner_id, created_at\)/.test(sql))
+  }
+  const lines38 = part38.split("\n").filter((l) => l.trim())
+  check("part 38 is one whole statement per line, and safe to run twice",
+    lines38.every((l) => l.startsWith("/*") || /;\s*$/.test(l)) && /create or replace function public\.business_links_limit/.test(part38) && /drop trigger if exists business_links_limit/.test(part38) && /drop constraint if exists/.test(part38))
+  check("part 38 in the run-now folder, listed in its README and its after check",
+    read("supabase/sql/run-now/README.md").includes("`38_business_limit_three.sql`") && /as p38_business_limit_three\s*[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
   const lines = part.split("\n").filter((l) => l.trim())
   check("the part is one whole statement per line", lines.every((l) => l.startsWith("/*") || /;\s*$/.test(l)), lines.find((l) => !l.startsWith("/*") && !/;\s*$/.test(l)))
   check("and safe to run twice", /create table if not exists public\.business_links/.test(part) && /drop policy if exists business_links_read/.test(part) && /drop trigger if exists business_links_no_chain/.test(part) && /create index if not exists/.test(part))
@@ -228,8 +274,9 @@ function main() {
     /const first = await firstBusinessIfSecond\(\)/.test(read("app/(auth)/signup/success/page.tsx")) && /switchBack=\{firstBusiness \?/.test(read("app/(auth)/signup/success/page.tsx")) && /data-onboarding-switch-back/.test(read("components/app/creator-onboarding-modal.tsx")))
   check("the onboarding is the whole screen in the app", /setNativeFullScreen\(isNativeApp\(\)\)/.test(read("components/app/creator-onboarding-modal.tsx")))
   const del = read("app/api/auth/delete-account/route.ts")
-  check("deleting a login deletes its second business first", /if \(link\?\.ownerId === user\.id\) \{[\s\S]*?deleteAllUserData\(adminSupabase, link\.memberId\)[\s\S]*?deleteUser\(link\.memberId\)/.test(del) && del.indexOf("deleteUser(link.memberId)") < del.indexOf("deleteUser(user.id)"))
-  check("deleting a second business signs its owner back in", /link\?\.memberId === user\.id \? await sessionFor\(link\.ownerId\)/.test(del) && /data\.firstBusiness\?\.session/.test(read("components/app/settings-form-new.tsx")))
+  /* Changed on purpose: a login can have two businesses besides its first, so deleting it deletes each of them. */
+  check("deleting a login deletes every business it made first", /if \(group\?\.ownerId === user\.id\) \{\s*for \(const memberId of group\.memberIds\) \{[\s\S]*?deleteAllUserData\(adminSupabase, memberId\)[\s\S]*?deleteUser\(memberId\)/.test(del) && del.indexOf("deleteUser(memberId)") < del.indexOf("deleteUser(user.id)"))
+  check("deleting one of those businesses signs its owner back in", /group && group\.ownerId !== user\.id \? await sessionFor\(group\.ownerId\)/.test(del) && /data\.firstBusiness\?\.session/.test(read("components/app/settings-form-new.tsx")))
   check("the seller's mail reaches the owner", /ownerAddress\(sellerEmail\)/.test(read("lib/email.tsx")) && /ownerAddress\(replyTo\)/.test(read("lib/email.tsx")))
   for (const f of ["lib/checkout/invoice.ts", "lib/stripe/refund-sync.ts", "lib/automations/supabase-store.ts", "app/api/stripe/connect/start/route.ts"]) {
     check(`  and ${f} writes to the owner`, /ownerAddress\(/.test(read(f)))

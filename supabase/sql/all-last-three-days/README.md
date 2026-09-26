@@ -3,7 +3,7 @@
 Every database change the app is waiting on from 2026-09-24 to 2026-09-26, in
 four files for the Supabase SQL editor.
 
-That is every part in `supabase/sql/run-now/` (01 to 36, then the storage
+That is every part in `supabase/sql/run-now/` (01 to 38, then the storage
 policies and the check). The whole `run-now/` list was written in those three
 days, so "the last three days" and "everything still to run" are the same set
 of SQL. These four files are therefore the same SQL as
@@ -20,7 +20,8 @@ edit these files by hand.
 1. Open `1_of_4_core.sql`, select all, copy.
 2. In the SQL editor open a new query tab, paste, press Run. If the editor asks
    whether to run a query with destructive operations, say yes: the only drops
-   are of old policies and constraints that the same file puts back.
+   are of old policies and constraints that the same file puts back, and the
+   one per login key on business links that part 38 replaces with a trigger.
 3. Wait for the one row that says `Storelib file 1 of 4 ran. Next file.`
 4. Do the same with `2_of_4_…`, `3_of_4_…`, then `4_of_4_…`.
 
@@ -45,7 +46,7 @@ from `run-now/`, changes nothing.
   Storelib conversations and pictures, Analytics speed, business accounts,
   creator badges, Ask Storelib reports, notification rules, website accounts
   and contact forms, discount code holds, orders kept with their creator,
-  customer accounts on websites.
+  customer accounts on websites, up to three businesses on one login.
 - **4 of 4** the `storage.objects` policies, then the check row.
 
 ## What they change in rows you already have
