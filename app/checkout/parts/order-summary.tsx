@@ -19,7 +19,7 @@ import * as React from "react"
 import Image from "next/image"
 import { ChevronDown, Package, Tag, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Spinner, TextInput, money } from "./ui"
+import { Reveal, Spinner, TextInput, money } from "./ui"
 
 export interface SummaryVariant {
   id: string
@@ -97,6 +97,11 @@ export function LineItem({
  * wanted, then the field with Apply inside it; once taken, the code as a
  * tag with a cross. A code from the link, or one already typed, opens as
  * the field.
+ *
+ * The three are always in the page, each in a Reveal, and exactly one is
+ * open. So a change of state is one folding while the next unfolds: the
+ * height moves between them instead of jumping, and clicking away from an
+ * empty field closes it as softly as it opened.
  */
 export function DiscountForm({
   code,
@@ -124,91 +129,106 @@ export function DiscountForm({
 }) {
   const [opened, setOpened] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const addRef = React.useRef<HTMLButtonElement>(null)
   const open = opened || code !== "" || !!error
+  const state: "add" | "open" | "applied" = applied ? "applied" : open ? "open" : "add"
   const id = `discount-code${idSuffix}`
-
-  if (applied) {
-    return (
-      <div data-promo="applied" className="checkout-rise flex items-center justify-between gap-3">
-        <span className="inline-flex min-w-0 items-center gap-1.5 rounded-[6px] bg-[#e9ebee] py-1 pl-2 pr-1 text-[13px] font-medium text-[#1a1a2e]">
-          <Tag aria-hidden className="h-3.5 w-3.5 shrink-0 text-[#6b7280]" />
-          <span className="truncate uppercase tracking-wide">{code}</span>
-          <button
-            type="button"
-            onClick={onRemove}
-            aria-label="Remove discount code"
-            className="grid h-5 w-5 shrink-0 cursor-pointer place-items-center rounded-[4px] text-[#6b7280] transition-colors hover:bg-black/[0.06] hover:text-[#1a1a2e]"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </span>
-        <span className="shrink-0 text-[13px] text-[#6b7280]">{label} off</span>
-      </div>
-    )
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        data-promo="add"
-        onClick={() => {
-          setOpened(true)
-          requestAnimationFrame(() => inputRef.current?.focus())
-        }}
-        className="inline-flex h-8 cursor-pointer items-center rounded-[6px] bg-[#e9ebee] px-3 text-[13px] font-medium text-[#1a1a2e] transition-colors duration-150 hover:bg-[#e1e3e7] active:bg-[#d9dce1] [-webkit-tap-highlight-color:transparent]"
-      >
-        Add promotion code
-      </button>
-    )
+  /* The tag keeps showing the code it was for while it folds away after Remove. */
+  const [shown, setShown] = React.useState({ code, label })
+  if (applied && (shown.code !== code || shown.label !== label)) setShown({ code, label })
+  /* A code is typed wherever the field already is: focus moves without the page or the clip scrolling to it. */
+  const focusField = () => requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }))
+  const close = (refocus: boolean) => {
+    setOpened(false)
+    if (refocus) requestAnimationFrame(() => addRef.current?.focus({ preventScroll: true }))
   }
 
   return (
-    <div data-promo="open" className="checkout-rise">
-      <label htmlFor={id} className="sr-only">
-        Discount code
-      </label>
-      <div className="relative">
-        <TextInput
-          ref={inputRef}
-          id={id}
-          value={code}
-          placeholder="Enter discount code"
-          autoComplete="off"
-          autoCapitalize="characters"
-          spellCheck={false}
-          maxLength={64}
-          invalid={!!error && !quiet}
-          aria-describedby={error ? `${id}-error` : undefined}
-          onChange={(e) => onCode(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault()
-              onApply()
-            }
-            if (e.key === "Escape" && !code) setOpened(false)
-          }}
-          onBlur={() => {
-            if (!code && !error) setOpened(false)
-          }}
-          className="pr-20 uppercase placeholder:normal-case"
-        />
+    <div data-promo-state={state} className="-m-[3px]">
+      <Reveal open={state === "add"} pad>
         <button
+          ref={addRef}
           type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={onApply}
-          disabled={!code.trim() || busy}
-          className="absolute right-1.5 top-1/2 flex h-8 -translate-y-1/2 cursor-pointer items-center gap-1.5 rounded-[6px] px-3 text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#f1f2f4] disabled:cursor-not-allowed disabled:text-[#a2a7b0] disabled:hover:bg-transparent"
+          data-promo="add"
+          onClick={() => {
+            setOpened(true)
+            focusField()
+          }}
+          className="inline-flex h-8 cursor-pointer items-center rounded-[6px] bg-[#e9ebee] px-3 text-[13px] font-medium text-[#1a1a2e] transition-colors duration-150 hover:bg-[#e1e3e7] active:bg-[#d9dce1] [-webkit-tap-highlight-color:transparent]"
         >
-          {busy ? <Spinner className="h-3.5 w-3.5" /> : null}
-          Apply
+          Add promotion code
         </button>
-      </div>
-      {error ? (
-        <p id={`${id}-error`} role={quiet ? "status" : "alert"} className={cn("mt-1.5 text-[13px]", quiet ? "text-[#6b7280]" : "text-[#dc2626]")}>
-          {error}
-        </p>
-      ) : null}
+      </Reveal>
+
+      <Reveal open={state === "open"} pad>
+        <div data-promo={state === "open" ? "open" : undefined}>
+          <label htmlFor={id} className="sr-only">
+            Discount code
+          </label>
+          <div className="relative">
+            <TextInput
+              ref={inputRef}
+              id={id}
+              value={code}
+              placeholder="Enter discount code"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              maxLength={64}
+              invalid={!!error && !quiet}
+              aria-describedby={error ? `${id}-error` : undefined}
+              onChange={(e) => onCode(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  onApply()
+                }
+                if (e.key === "Escape" && !code) close(true)
+              }}
+              onBlur={() => {
+                if (!code && !error) close(false)
+              }}
+              className="pr-20 uppercase placeholder:normal-case"
+            />
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={onApply}
+              disabled={!code.trim() || busy}
+              className="absolute right-1.5 top-1/2 flex h-8 -translate-y-1/2 cursor-pointer items-center gap-1.5 rounded-[6px] px-3 text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#f1f2f4] disabled:cursor-not-allowed disabled:text-[#a2a7b0] disabled:hover:bg-transparent"
+            >
+              {busy ? <Spinner className="h-3.5 w-3.5" /> : null}
+              Apply
+            </button>
+          </div>
+          {error ? (
+            <p id={`${id}-error`} role={quiet ? "status" : "alert"} className={cn("checkout-rise mt-1.5 text-[13px]", quiet ? "text-[#6b7280]" : "text-[#dc2626]")}>
+              {error}
+            </p>
+          ) : null}
+        </div>
+      </Reveal>
+
+      <Reveal open={state === "applied"} pad>
+        <div data-promo={state === "applied" ? "applied" : undefined} className="flex items-center justify-between gap-3">
+          <span className="inline-flex min-w-0 items-center gap-1.5 rounded-[6px] bg-[#e9ebee] py-1 pl-2 pr-1 text-[13px] font-medium text-[#1a1a2e]">
+            <Tag aria-hidden className="h-3.5 w-3.5 shrink-0 text-[#6b7280]" />
+            <span className="truncate uppercase tracking-wide">{shown.code}</span>
+            <button
+              type="button"
+              onClick={() => {
+                close(true)
+                onRemove()
+              }}
+              aria-label="Remove discount code"
+              className="grid h-5 w-5 shrink-0 cursor-pointer place-items-center rounded-[4px] text-[#6b7280] transition-colors hover:bg-black/[0.06] hover:text-[#1a1a2e]"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </span>
+          <span className="shrink-0 text-[13px] text-[#6b7280]">{shown.label} off</span>
+        </div>
+      </Reveal>
     </div>
   )
 }

@@ -38,7 +38,7 @@ import { trackFunnelStep } from "@/lib/analytics-utils"
 import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
 import { paidReturnUrl, returnHostLabel } from "@/lib/checkout/return-url"
 import { EMPTY_BUSINESS, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
-import { CheckRow, ErrorBanner, Field, PayButton, PoweredByStripe, SectionTitle, Spinner, TextInput, money } from "./parts/ui"
+import { CheckRow, ErrorBanner, Field, PayButton, PoweredByStripe, Reveal, SectionTitle, Spinner, TextInput, money } from "./parts/ui"
 import { DiscountForm, LineItem, TipPicker, Totals, type SummaryVariant } from "./parts/order-summary"
 import { BusinessFields } from "./parts/business-fields"
 import { EMPTY_CARD, NativeCardFields, nativeCardComplete, type NativeCard } from "./parts/native-card"
@@ -819,28 +819,32 @@ export default function CheckoutPageClient({
               </p>
             </div>
 
-            {/* A phone shows the order open, with a way to fold it; a computer always shows it. */}
+            {/* A phone shows the order open, with a way to fold it; a computer always shows it.
+                The two words are laid over each other and cross-fade, so the
+                button keeps its width instead of jumping between them. */}
             <button
               type="button"
               onClick={() => setSummaryOpen((o) => !o)}
               aria-expanded={summaryOpen}
               aria-controls="checkout-details"
-              className="mt-3 inline-flex h-8 cursor-pointer items-center gap-1 rounded-[6px] bg-[#e9ebee] px-2.5 text-[13px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#e1e3e7] lg:hidden [-webkit-tap-highlight-color:transparent]"
+              className="mt-3 inline-flex h-8 cursor-pointer items-center gap-1 rounded-[6px] bg-[#e9ebee] px-2.5 text-[13px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#e1e3e7] active:bg-[#d9dce1] lg:hidden [-webkit-tap-highlight-color:transparent]"
             >
-              {summaryOpen ? "Hide details" : "Details"}
-              <ChevronDown aria-hidden className={cn("h-3.5 w-3.5 text-[#6b7280] transition-[rotate] duration-200", summaryOpen && "rotate-180")} />
+              <span className="grid justify-items-center">
+                <span aria-hidden={!summaryOpen} className={cn("[grid-area:1/1] transition-opacity duration-200", summaryOpen ? "opacity-100" : "opacity-0")}>
+                  Hide details
+                </span>
+                <span aria-hidden={summaryOpen} className={cn("[grid-area:1/1] transition-opacity duration-200", summaryOpen ? "opacity-0" : "opacity-100")}>
+                  Details
+                </span>
+              </span>
+              <ChevronDown
+                aria-hidden
+                className={cn("h-3.5 w-3.5 text-[#6b7280] transition-[rotate] duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none", summaryOpen && "rotate-180")}
+              />
             </button>
-            <div
-              id="checkout-details"
-              className={cn(
-                "grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none lg:grid-rows-[1fr] lg:opacity-100",
-                summaryOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
-              )}
-            >
-              <div className="min-h-0 overflow-hidden" inert={!summaryOpen && !wide}>
-                <div className="pt-6 lg:pt-10">{details("")}</div>
-              </div>
-            </div>
+            <Reveal id="checkout-details" open={summaryOpen || wide} tall>
+              <div className="pt-6 lg:pt-10">{details("")}</div>
+            </Reveal>
           </div>
         </section>
 

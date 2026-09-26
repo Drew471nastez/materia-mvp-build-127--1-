@@ -145,6 +145,66 @@ export function CheckRow({
   )
 }
 
+/**
+ * ===========================================================================
+ *  OPENS AND CLOSES THE SAME WAY
+ * ===========================================================================
+ * A piece of the page that folds away (the code field, the tip's choices, the
+ * order on a phone). The height goes through grid rows, 0fr to 1fr, which
+ * reaches the content's own height without measuring it, and the content
+ * fades and settles 4px as it goes, so closing is the opening played
+ * backwards rather than a cut.
+ *
+ * `pad` keeps a 3px margin inside the clip so a focused field's ring is not
+ * cut off at the edges; the caller hands it back with a -3px margin around
+ * the whole group. `tall` is for a block of several hundred pixels (the
+ * order on a phone), which reads as rushed at the short pieces' 260ms.
+ */
+export function Reveal({
+  open,
+  children,
+  id,
+  pad = false,
+  tall = false,
+  className,
+}: {
+  open: boolean
+  children: React.ReactNode
+  id?: string
+  pad?: boolean
+  tall?: boolean
+  className?: string
+}) {
+  const time = tall ? "duration-[380ms]" : "duration-[260ms]"
+  return (
+    <div
+      id={id}
+      data-open={open ? "" : undefined}
+      inert={!open}
+      aria-hidden={!open || undefined}
+      className={cn(
+        "grid transition-[grid-template-rows,opacity] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+        time,
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+        className,
+      )}
+    >
+      <div className="min-h-0 overflow-hidden">
+        <div
+          className={cn(
+            "transition-[translate] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            time,
+            open ? "translate-y-0" : tall ? "-translate-y-2" : "-translate-y-1",
+            pad && "p-[3px]",
+          )}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** "OR" between the express buttons and the form, as a rule with a word in it. */
 export function OrDivider() {
   return (
