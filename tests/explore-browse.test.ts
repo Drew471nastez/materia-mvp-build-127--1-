@@ -66,7 +66,16 @@ function main() {
   check("  the list under it moves a quarter left and dims under a veil", /transform: inSub \? `translate3d\(\$\{BROWSE_PARALLAX\}, 0, 0\)` : "translate3d\(0, 0, 0\)"/.test(browser) && /BROWSE_PARALLAX = "-25%"/.test(browser) && /opacity: inSub \? BROWSE_DIM : 0/.test(browser) && /BROWSE_DIM = 0\.06/.test(browser))
   check("  neither list fades, and no shadow rides the edge", !/boxShadow/.test(browser) && !/opacity: inSub \? 0 : 1/.test(browser) && !/opacity: inSub \? 1 : 0/.test(browser))
   check("  both lists are layers from the start", (browser.match(/willChange: "transform"/g) ?? []).length === 2)
-  check("  the level's rows are drawn on the press, before the tap moves it", /onPointerDown=\{opens \? \(\) => prepare\(g\.id\) : undefined\}/.test(browser) && /if \(held === id && !subOut\) \{\s*setOpen\(id\)/.test(browser))
+  /*
+    Changed on purpose: the level was drawn on the press (pointer down), so
+    ten hidden buttons appeared under the finger before the click, and an
+    iPhone drops the click for that (WebKit's ContentChangeObserver takes it
+    for a hover menu opening): "tapping a category does nothing, it works on
+    a later tap". scripts/check-explore-drill.mjs taps with real touches and
+    counts what appears between the press and the click.
+  */
+  check("  nothing happens on the press: the tap draws the level and moves it, in one commit", !/onPointerDown/.test(browser) && !/prepare\(/.test(browser)
+    && /const drillIn = useCallback\(\(id: string\) => \{[\s\S]{0,160}setHeld\(id\)\s*setSubOut\(false\)\s*setOpen\(id\)/.test(browser))
   check("  and kept after going back, so nothing renders during a move", !/setHeld\(null\)/.test(browser) && /setSubOut\(true\)/.test(browser))
   check("each level scrolls itself, so back returns to where you were", (browser.match(/data-browse-level=/g) || []).length === 2 && /absolute inset-0 overflow-y-auto/.test(browser))
   check("the level out of sight takes no focus", /inert=\{inSub \|\| undefined\}/.test(browser) && /inert=\{!inSub \|\| undefined\}/.test(browser))

@@ -180,16 +180,27 @@ console.log("\n  phone 390")
   await sleep(800)
   const slide = await p.evaluate(() => window.__slide)
   const xs = slide.map((f) => f.x)
-  expect(xs.every((x, i) => i === 0 || x <= xs[i - 1] + 0.5) && xs.at(-1) < 1 && Math.max(...xs) <= 30 && xs.filter((x) => x > 1 && x < 30).length >= 6, "Marketing's level settles in from a little to the right over several frames", xs.filter((_, i) => i % 3 === 0).map(Math.round))
+  const width = await p.evaluate(() => Math.round(document.querySelector("[data-app-sheet] [data-sheet-panel]").getBoundingClientRect().width))
+  /*
+    Changed on purpose, and late: this asked for the old settle, a level
+    that came in from 30px to the right as it faded up. The push that
+    replaced it (d213e388, "more standard, smooth and clean") comes in from
+    the sheet's right edge over the list, and this probe was not moved with
+    it, so it failed on main. It asks for the push now, as
+    scripts/check-explore-browse.mjs does for the More sheet.
+  */
+  expect(xs.every((x, i) => i === 0 || x <= xs[i - 1] + 0.5) && xs.at(-1) < 1 && Math.max(...xs) >= width - 2 && xs.filter((x) => x > 1 && x < width - 2).length >= 6,
+    "Marketing's level is pushed in from the sheet's right edge over several frames", { width, xs: xs.filter((_, i) => i % 3 === 0).map(Math.round) })
   expect(new Set(slide.map((f) => f.top)).size === 1, "and the sheet's top does not move", [...new Set(slide.map((f) => f.top))])
   await p.screenshot({ path: join(shots, "header-390-marketing.png") })
   await p.tap("[data-app-sheet] [data-browse-back]")
   await sleep(500)
   const backAt = await p.evaluate(() => {
     const sub = document.querySelector("[data-app-sheet] [data-browse-level=sub]")
-    return { x: new DOMMatrixReadOnly(getComputedStyle(sub).transform).m41, o: Number(getComputedStyle(sub).opacity) }
+    return { x: Math.round(new DOMMatrixReadOnly(getComputedStyle(sub).transform).m41), visibility: getComputedStyle(sub).visibility }
   })
-  expect(backAt.x >= 20 && backAt.o === 0, "back fades it away", backAt)
+  /* The same change: back slides the level out past the right edge, where it is no longer drawn, rather than fading it. */
+  expect(backAt.x >= width - 1 && backAt.visibility === "hidden", "back slides it out past the right edge, and it is no longer drawn", { ...backAt, width })
   /*
     THE PAGE BEHIND DOES NOT TAKE THE FINGER. The first few pixels of a touch
     used to be left to the browser, which chained them to the page when the

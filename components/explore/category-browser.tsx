@@ -63,18 +63,43 @@ export type BrowseGroup = { id: string; label: string; items: readonly BrowseIte
  *   both lists are layers from the start (`will-change: transform`), so a
  *   move never waits for one to be made;
  *
- *   the level about to open is drawn before it moves: on the press (pointer
- *   down) its rows are rendered off the right edge, where nobody sees them,
- *   and the tap that follows only changes two transforms and an opacity. A
- *   keyboard, which has no press first, draws it and starts the move a frame
- *   later;
+ *   the tap draws the level and starts its move in one commit, and the
+ *   press before it does nothing at all (ONE TAP, below). A transition shows
+ *   where it starts on its first frame, so the rows are drawn off the right
+ *   edge on that frame, where nobody sees them, and the move begins on the
+ *   next: the same two frames a tap took when the rows were drawn earlier;
  *
  *   during the move nothing renders: the rows are the same elements
  *   throughout, and going back keeps the level's rows until they are out of
- *   sight (and after, so going in again is as quick).
+ *   sight (and after, so going in again is only a move).
  *
  * Transform and opacity only, on the compositor. Under reduced motion it is
  * instant.
+ *
+ * ===========================================================================
+ *  ONE TAP, EVERY TIME
+ * ===========================================================================
+ * "Tapping a category to go into its subcategories does nothing, feels
+ * glitchy, and only works if you tap again later." On an iPhone, in Safari
+ * and in the app's WKWebView. The level used to be drawn on the PRESS
+ * (pointer down), a moment before the tap, to save the tap that work: its
+ * pane went from `visibility: hidden` to visible and filled with a row for
+ * every subcategory, off the right edge.
+ *
+ * WebKit watches what a page does while a finger comes down. When something
+ * that holds a control appears between the press and the click, it takes
+ * the tap to have opened a hover menu, leaves that on screen and sends no
+ * click (ContentChangeObserver, the rule that makes a menu shown on hover
+ * work on a touch screen). Ten buttons appearing under the finger is exactly
+ * that, so the first tap only drew the level and never opened it; the
+ * second tap, with nothing new appearing, did. Chromium has no such rule,
+ * which is why every probe here passed while the phone did not.
+ *
+ * So nothing happens on the press any more: no render, no attribute, no
+ * style. Everything happens on the click, which WebKit has already sent by
+ * then. scripts/check-explore-drill.mjs taps with real touches, while the
+ * sheet rises, as it arrives, after a scroll and after back, and counts the
+ * controls that appear between the press and the click: none.
  */
 export const BROWSE_SLIDE_MS = 280
 export const BROWSE_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
@@ -207,7 +232,6 @@ export function CategoryBrowser({
   const subRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const lastOpened = useRef<string | null>(null)
-  const startFrame = useRef(0)
   const listId = useId()
 
   const found = useMemo(() => (query.trim() ? findInGroups(groups, query) : null), [groups, query])
@@ -218,32 +242,16 @@ export function CategoryBrowser({
   useEffect(() => {
     if (found) setOpen(null)
   }, [found])
-  useEffect(() => () => cancelAnimationFrame(startFrame.current), [])
 
-  /* On the press, before the tap: the level's rows drawn off the right edge, so the tap only moves it. */
-  const prepare = useCallback((id: string) => {
-    if (open !== null) return
-    setHeld(id)
-    setSubOut(false)
-  }, [open])
-
+  /* On the tap, never the press (ONE TAP): the rows and the move in one commit. */
   const drillIn = useCallback((id: string) => {
     lastOpened.current = id
-    cancelAnimationFrame(startFrame.current)
     if (subRef.current) subRef.current.scrollTop = 0
-    if (held === id && !subOut) {
-      setOpen(id)
-      return
-    }
-    /* Not drawn yet (a keyboard): draw it where nobody sees it, and move it a frame later. */
     setHeld(id)
     setSubOut(false)
-    startFrame.current = requestAnimationFrame(() => {
-      startFrame.current = requestAnimationFrame(() => setOpen(id))
-    })
-  }, [held, subOut])
+    setOpen(id)
+  }, [])
   const back = useCallback(() => {
-    cancelAnimationFrame(startFrame.current)
     setOpen(null)
     /* Nothing moves under reduced motion, so no move ends to say it is out. */
     if (reducedMotion()) setSubOut(true)
@@ -299,7 +307,6 @@ export function CategoryBrowser({
         data-browse-group={g.id}
         aria-current={on && !opens ? "true" : undefined}
         aria-haspopup={opens ? "true" : undefined}
-        onPointerDown={opens ? () => prepare(g.id) : undefined}
         onClick={(e) => {
           if (opens) {
             keyboardRef.current = e.detail === 0
