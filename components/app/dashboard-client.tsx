@@ -1188,10 +1188,11 @@ export function DashboardClient({
           pill (components/app/share): the one thing on this page they hand
           to other people, and what opens the share panel.
 
-          ON A PHONE THE PILL IS ABOVE THE GREETING. "The pill on the same row
-          as 'Last 7 days' and '0 live' looks bad. Better to position that pill
-          above the 'Good evening' text, and reduce its width on mobile by
-          only 3%." It had what the live count and the period left of the row
+          ON A PHONE THE PILL IS ABOVE THE GREETING, AT THE RIGHT EDGE. "The
+          pill on the same row as 'Last 7 days' and '0 live' looks bad. Better
+          to position that pill above the 'Good evening' text, and reduce its
+          width on mobile by only 3%." Then: "put the light grey View pill on
+          the right side of the screen." It had what the live count and the period left of the row
           (measured with Inter: 130, 160 and 200px at 360, 390 and 430 wide,
           the column less 198px), and it keeps 97% of exactly that, its
           address fading out where the room runs out; the live count and the
@@ -1200,7 +1201,7 @@ export function DashboardClient({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div className="min-w-0">
             {shareAddresses.length > 0 && (
-              <div data-home-phone-pill="" className="md:hidden mb-3 flex min-w-0 max-w-[calc((100%-198px)*0.97)]">
+              <div data-home-phone-pill="" className="md:hidden mb-3 ml-auto flex min-w-0 max-w-[calc((100%-198px)*0.97)] justify-end">
                 <ShareStorelib size="sm" addresses={shareAddresses} openSignal={shareSignal} />
               </div>
             )}

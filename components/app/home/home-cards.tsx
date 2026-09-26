@@ -88,9 +88,9 @@ const CARD = "home-card relative flex flex-col rounded-[20px] border border-[#e6
 /** On screen this long before the first play... */
 export const AUTOPLAY_AFTER_MS = 2000
 /** ...then every this long while it stays there... */
-export const AUTOPLAY_EVERY_MS = 5000
+export const AUTOPLAY_EVERY_MS = 6000
 /** ...held lifted this long, then let go: the time a hover takes to arrive and be seen. */
-export const AUTOPLAY_HOLD_MS = 1400
+export const AUTOPLAY_HOLD_MS = 2200
 /** How much of the card has to be on screen. */
 export const AUTOPLAY_IN_VIEW = 0.6
 
@@ -399,7 +399,7 @@ function PaymentTiles() {
   return (
     <>
       <div aria-hidden="true" className="mt-auto h-[118px] shrink-0" />
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-[19px]">
+      <div aria-hidden="true" className="home-guide-clip pointer-events-none absolute inset-0 overflow-hidden rounded-[19px]">
         <div className="absolute inset-x-0 bottom-0 h-[118px]">
           <div
             data-pay-tile="visa"
@@ -442,7 +442,7 @@ export function SetupGuideCard({ onOpen }: { onOpen?: () => void }) {
       </span>
 
       {/* The card's own shape clips the thumbnail where it runs off the corner. */}
-      <span aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-[19px]">
+      <span aria-hidden="true" className="home-guide-clip pointer-events-none absolute inset-0 overflow-hidden rounded-[19px]">
         <span className="home-guide-thumb absolute bottom-[-18px] right-[-18px] flex aspect-[16/10.5] w-[78%] max-w-[320px] flex-col justify-between overflow-hidden rounded-[18px] p-4">
           <span className="home-guide-light" />
           <span className="relative flex items-center gap-1.5">
@@ -483,14 +483,9 @@ export function PlanCard({ planId }: { planId: string }) {
 
   return (
     <section ref={ref} aria-labelledby="your-plan-title" className={`${CARD} min-h-[392px]`}>
-      {/*
-        A FLAT, LIGHT VIOLET BAND WITH A HAIRLINE UNDER IT. It was a deep
-        violet gradient carrying a halftone of dots that drifted on hover.
-        "No dots, no pattern, no gradient; something cleaner, simple, a
-        subtle colour." The same 46px, the plan's name in deep violet on it.
-      */}
+      {/* The deep violet sky it first had, clouded and grained (globals.css, home-plan-head). */}
       <div className="home-plan-head flex h-[46px] shrink-0 items-center rounded-t-[19px] px-5">
-        <h2 id="your-plan-title" className="text-[13.5px] font-semibold text-[#4c1d95]">
+        <h2 id="your-plan-title" className="text-[13.5px] font-semibold text-white">
           Your Plan
         </h2>
       </div>

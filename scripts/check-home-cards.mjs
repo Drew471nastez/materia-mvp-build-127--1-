@@ -171,15 +171,14 @@ const planBand = async (page, label) => {
   const lum = (rgb) => { const [r, g, b] = rgb.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }); return 0.2126 * r + 0.7152 * g + 0.0722 * b }
   const ratio = band ? (lum(band.bg) + 0.05) / (lum(band.ink) + 0.05) : 0
   expect(!!band && band.height === 46, "Your Plan's band: 46px", band?.height)
-  expect(!!band && band.bg === "rgb(247, 245, 255)" && band.image === "none" && band.dots === 0 && band.children === 1, "  one flat light violet: no gradient, no dots, nothing but its name", band && { bg: band.bg, image: band.image, dots: band.dots })
-  expect(!!band && /rgb\(236, 232, 251\) 0px -1px 0px 0px inset/.test(band.shadow), "  a hairline under it", band?.shadow)
-  expect(!!band && band.ink === "rgb(76, 29, 149)" && ratio >= 7, `  the name in deep violet, ${ratio.toFixed(1)}:1 on it`, band && { ink: band.ink, ratio: ratio.toFixed(2) })
+  expect(!!band && /feTurbulence/.test(band.image) && /linear-gradient/.test(band.image) && band.dots === 0 && band.children === 1, "  the first deep violet sky: clouds and grain, no dots, nothing but its name", band && { image: band.image.slice(0, 60), dots: band.dots })
+  expect(!!band && band.ink === "rgb(255, 255, 255)", "  the name in white", band?.ink)
   if (band) {
-    /* Every pixel of the band, its name hidden: one colour, and the hairline's in the last row. */
+    /* Dark enough under the name for white to read: the band's pixels, the name hidden, all darker than mid violet. */
     await page.evaluate(() => { document.getElementById("your-plan-title").style.color = "transparent" })
-    const png = await page.screenshot({ clip: { x: band.box.x + 20, y: band.box.y, width: band.box.width - 40, height: band.box.height }, encoding: "base64" })
+    const png = await page.screenshot({ clip: { x: band.box.x + 20, y: band.box.y + 6, width: Math.min(160, band.box.width - 40), height: band.box.height - 12 }, encoding: "base64" })
     await page.evaluate(() => { document.getElementById("your-plan-title").style.color = "" })
-    const colours = await page.evaluate(async (data) => {
+    const brightest = await page.evaluate(async (data) => {
       const img = new Image()
       img.src = `data:image/png;base64,${data}`
       await img.decode()
@@ -189,12 +188,11 @@ const planBand = async (page, label) => {
       const ctx = c.getContext("2d")
       ctx.drawImage(img, 0, 0)
       const d = ctx.getImageData(0, 0, c.width, c.height).data
-      const rows = new Map()
-      const per = Math.round(c.height / 46)
-      for (let y = 0; y < c.height - per * 2; y++) for (let x = 0; x < c.width; x++) { const i = (y * c.width + x) * 4; const k = `${d[i]},${d[i + 1]},${d[i + 2]}`; rows.set(k, (rows.get(k) ?? 0) + 1) }
-      return [...rows.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4)
+      let sum = 0
+      for (let i = 0; i < d.length; i += 4) sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]
+      return sum / (d.length / 4)
     }, png)
-    expect(colours.length === 1 && colours[0][0] === "247,245,255", "  every pixel above the hairline is that one colour", colours)
+    expect(brightest < 110, "  dark under the name, so white reads on it", brightest.toFixed(0))
     if (SHOTS) await page.screenshot({ path: join(SHOTS, `appfix-plan-head-${label.replace(/ /g, "-")}.png`), clip: { x: band.box.x - 8, y: band.box.y - 8, width: band.box.width + 16, height: 200 } })
   }
 }

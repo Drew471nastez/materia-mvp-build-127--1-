@@ -5993,7 +5993,7 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 .home-card {
   isolation: isolate;
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 2px 6px -2px rgba(16, 24, 40, 0.05);
-  transition: scale 160ms ease-out;
+  transition: scale 260ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 /* The lift: over the card's edge (the 1px ring) and under it (the two soft shadows). 19px: the card's 20 less its border. */
 .home-card::before {
@@ -6007,7 +6007,7 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
     0 22px 44px -18px rgba(16, 24, 40, 0.2),
     0 8px 16px -8px rgba(16, 24, 40, 0.08);
   opacity: 0;
-  transition: opacity 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: opacity 700ms cubic-bezier(0.25, 1, 0.5, 1);
   pointer-events: none;
 }
 
@@ -6018,9 +6018,18 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
     0 16px 30px -14px rgba(16, 24, 40, 0.42),
     0 4px 10px -3px rgba(16, 24, 40, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  /*
+    NO OVERSHOOT. They sprang past where they were going and back
+    (cubic-bezier 1.56), which read as a jolt, "bumpy, direct, cheap". Now
+    one long ease that starts at speed and settles with no rebound, the same
+    curve out as in, each tile on a layer of its own so the compositor moves
+    it on every frame the screen draws.
+  */
+  will-change: translate, rotate;
+  backface-visibility: hidden;
   transition:
-    translate 640ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    rotate 640ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    translate 1100ms cubic-bezier(0.22, 1, 0.36, 1),
+    rotate 1100ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 [data-pay-tile]::before {
   content: "";
@@ -6044,38 +6053,51 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 [data-pay-tile="stripe"] { rotate: 11deg; }
 
 /* Pressing the guide: Getting started bumps, its tiles hop, and its next step lights for a moment. */
+/* One breath, up and back, with no wobble: it was 1.03, below 1 and above again in 620ms, a jolt on a phone. */
 @keyframes home-bump {
-  0% { scale: 1; }
-  28% { scale: 1.03; }
-  58% { scale: 0.994; }
-  80% { scale: 1.004; }
+  0% { scale: 1; animation-timing-function: cubic-bezier(0.33, 0, 0.2, 1); }
+  40% { scale: 1.014; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
   100% { scale: 1; }
 }
 @keyframes home-tile-hop {
-  0%, 100% { translate: 0 0; }
-  35% { translate: 0 -12px; }
-  68% { translate: 0 2px; }
+  0% { translate: 0 0; animation-timing-function: cubic-bezier(0.33, 0, 0.2, 1); }
+  42% { translate: 0 -9px; animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1); }
+  100% { translate: 0 0; }
 }
 @keyframes home-next-lit {
   0%, 100% { background-color: rgba(139, 92, 246, 0); }
   22%, 55% { background-color: rgba(139, 92, 246, 0.1); }
 }
-.home-card[data-bump] { animation: home-bump 620ms cubic-bezier(0.3, 0.7, 0.4, 1); }
-.home-card[data-bump] [data-pay-tile] { animation: home-tile-hop 720ms cubic-bezier(0.3, 0.7, 0.4, 1); }
-.home-card[data-bump] [data-pay-tile="visa"] { animation-delay: 50ms; }
-.home-card[data-bump] [data-pay-tile="stripe"] { animation-delay: 100ms; }
-.home-card[data-bump] [data-next-step] { animation: home-next-lit 1400ms ease-out; }
+.home-card[data-bump] { animation: home-bump 900ms both; }
+.home-card[data-bump] [data-pay-tile] { animation: home-tile-hop 1000ms both; }
+.home-card[data-bump] [data-pay-tile="visa"] { animation-delay: 70ms; }
+.home-card[data-bump] [data-pay-tile="stripe"] { animation-delay: 140ms; }
+.home-card[data-bump] [data-next-step] { animation: home-next-lit 1600ms ease-in-out; }
 
 /* The guide: a small press, and its thumbnail drifts, light moving across it. */
-.home-guide:active { scale: 0.985; }
+.home-guide:active { scale: 0.985; transition-duration: 140ms; }
+/*
+  CLIPPED BY A MASK AS WELL AS BY ITS CORNERS. On iPhone, WebKit does not
+  clip a child that sits on a layer of its own (the light, slid on hover and
+  on the autoplay) to overflow: hidden with a radius: its square corner and
+  a pale strip showed past the thumbnail's round top left. A mask clips on
+  the compositor too. The shadow is shorter and softer: the long one lay
+  over the card to the thumbnail's left as a grey band.
+*/
 .home-guide-thumb {
   isolation: isolate;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: linear-gradient(#000, #000);
   background: linear-gradient(158deg, #1b1630 0%, #0d0c14 72%);
   box-shadow:
-    0 22px 44px -20px rgba(20, 12, 48, 0.6),
-    0 3px 8px rgba(20, 12, 48, 0.18),
+    0 10px 24px -14px rgba(20, 12, 48, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transition: translate 560ms cubic-bezier(0.34, 1.4, 0.64, 1);
+  will-change: translate;
+  transition: translate 1100ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.home-guide-clip {
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: linear-gradient(#000, #000);
 }
 /* The light: a layer half as big again as the thumbnail, slid rather than repainted (it was a background-position). */
 .home-guide-light {
@@ -6088,7 +6110,8 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
   background:
     radial-gradient(60% 75% at 16% 6%, rgba(139, 92, 246, 0.6), rgba(139, 92, 246, 0) 62%),
     radial-gradient(55% 70% at 96% 96%, rgba(217, 70, 239, 0.22), rgba(217, 70, 239, 0) 70%);
-  transition: translate 1200ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: translate;
+  transition: translate 1400ms cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
 }
 .home-guide-thumb::before {
@@ -6097,8 +6120,7 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
   inset: 0;
   z-index: 1;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.55 0 0 0 -0.18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  opacity: 0.5;
-  mix-blend-mode: overlay;
+  opacity: 0.16;
   pointer-events: none;
 }
 .home-guide-thumb::after {
@@ -6115,7 +6137,7 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 .home-guide-play {
   position: relative;
   isolation: isolate;
-  transition: scale 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: scale 900ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 /* A touch more white on hover, as a layer that fades in under the arrow. */
 .home-guide-play::after {
@@ -6130,16 +6152,27 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 }
 
 /*
-  Your Plan: a flat, light violet band with a hairline under it, the plan's
-  name in deep violet on it. It was a deep violet gradient carrying a
-  halftone of dots that drifted on hover: "no dots, no pattern, no gradient;
-  something cleaner, simple, a subtle colour." One colour, no image, nothing
-  that moves; the words on it are well past 7:1 (scripts/check-home-flow).
-  The hairline is drawn inside the band, so it stays exactly 46px.
+  Your Plan: the deep violet sky it first had, clouded and grained, with the
+  plan's name in white. It went to dots, then to a flat light band; asked
+  for again as "the texture that was the first time, not the one with the
+  dots". Painted once: nothing in it moves, so it costs nothing after the
+  first frame. The grain is a second background, not a blended layer, and
+  the band clips itself to the card's top corners (a mask as well as the
+  radius, which WebKit on iPhone honours for layers too).
 */
 .home-plan-head {
-  background: #f7f5ff;
-  box-shadow: inset 0 -1px 0 #ece8fb;
+  position: relative;
+  overflow: hidden;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: linear-gradient(#000, #000);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0.6 0 0 0 -0.18'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 160px 160px,
+    linear-gradient(90deg, rgba(18, 6, 46, 0.62) 0%, rgba(18, 6, 46, 0.35) 34%, rgba(18, 6, 46, 0) 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='560' height='120'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.010 0.032' numOctaves='5' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.8 0 0 0 0 0.74 0 0 0 0 1 1.2 0 0 0 -0.53'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3C/svg%3E") 0 50% / 560px 120px,
+    radial-gradient(80% 190% at 92% -30%, rgba(139, 92, 246, 0.45), rgba(139, 92, 246, 0) 62%),
+    radial-gradient(70% 170% at 4% 130%, rgba(20, 6, 52, 0.9), rgba(20, 6, 52, 0) 70%),
+    linear-gradient(100deg, #1f0b4a 0%, #321170 46%, #4c1d95 100%);
+  background-blend-mode: soft-light, normal, normal, normal, normal, normal;
 }
 /* The checks: a light grey circle with a lit top edge and the faintest shade under it. */
 .home-plan-check {
@@ -6173,6 +6206,25 @@ html:has([role="dialog"][aria-modal="true"]:not([data-sheet-root])) [data-cookie
 .home-guide[data-play] .home-guide-light { translate: -23% -18%; }
 .home-guide[data-play] .home-guide-play { scale: 1.08; }
 .home-guide[data-play] .home-guide-play::after { opacity: 1; }
+
+/*
+  NO DIM UNDER A FINGER IN THE APP. html.capacitor dims every button and link
+  to 72% while pressed and swaps its transition for an 80ms opacity one: on
+  the guide, a whole card went grey under the thumb ("that cheap veil"), and
+  its press lost its easing. On these cards a press is the guide's small
+  scale and a row's light grey, nothing else.
+*/
+html.capacitor .home-card:active,
+html.capacitor .home-card :is(a, button):active {
+  opacity: 1;
+}
+html.capacitor .home-card.home-guide {
+  transition: scale 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+html.capacitor .home-card [data-next-step]:active,
+html.capacitor .home-card li > :is(a, button):active {
+  background-color: #f1f2f4;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .home-card[data-bump],

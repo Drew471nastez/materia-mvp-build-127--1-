@@ -145,38 +145,69 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
   }, [setBit])
 
   /* ── Swipe, on a touch screen ───────────────────────────────────────── */
-  const swipe = useRef<{ id: number; x: number; y: number; dx: number; on: boolean } | null>(null)
-  const setTrack = (dx: number, animate: boolean) => {
+  /*
+    THE TEXT RIDES THE FINGER, THEN LEAVES THE WAY IT WAS THROWN. It used to
+    move 30% of the finger's way, at most 28px, and spring back before the
+    next slide faded in: a nudge and a jump. Now it follows the finger 1:1
+    (with resistance past 90px) and fades as it goes; let go past a third of
+    the text's width, or with a flick, and it carries on out on the same
+    curve while the next slide comes in from the other side. Short of that
+    it settles back. All on `translate` and `opacity` of one element, set as
+    styles, so nothing in React renders until the slide actually changes.
+  */
+  const swipe = useRef<{ id: number; x: number; y: number; dx: number; on: boolean; t: number; v: number } | null>(null)
+  const setTrack = (dx: number, ms: number) => {
     const t = trackRef.current
     if (!t) return
-    t.style.transition = animate ? "translate 380ms cubic-bezier(0.22, 1, 0.36, 1)" : "none"
+    t.style.transition = ms ? `translate ${ms}ms cubic-bezier(0.22, 1, 0.36, 1), opacity ${ms}ms cubic-bezier(0.22, 1, 0.36, 1)` : "none"
     t.style.translate = dx ? `${dx}px 0` : ""
+    t.style.opacity = dx ? String(Math.max(0, 1 - Math.abs(dx) / 220)) : ""
+  }
+  const resist = (dx: number) => {
+    const a = Math.abs(dx)
+    return Math.sign(dx) * (a <= 90 ? a : 90 + (a - 90) * 0.35)
   }
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "mouse") return
     setBit(TOUCH, true)
-    swipe.current = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, on: false }
+    swipe.current = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, on: false, t: e.timeStamp, v: 0 }
   }
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     const s = swipe.current
     if (!s || s.id !== e.pointerId || count < 2) return
     const dx = e.clientX - s.x
     const dy = e.clientY - s.y
-    if (!s.on && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) s.on = true
+    if (!s.on && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) s.on = true
     if (!s.on) return
+    const dt = Math.max(1, e.timeStamp - s.t)
+    s.v = s.v * 0.5 + ((dx - s.dx) / dt) * 0.5
+    s.t = e.timeStamp
     s.dx = dx
-    /* The text follows the finger a little, and less the further it goes. */
-    setTrack(Math.sign(dx) * Math.min(28, Math.abs(dx) * 0.3), false)
+    setTrack(resist(dx), 0)
   }
   const onPointerEnd = (e: ReactPointerEvent<HTMLDivElement>) => {
     const s = swipe.current
     if (!s || s.id !== e.pointerId) return
     swipe.current = null
-    setTrack(0, true)
     window.setTimeout(() => setBit(TOUCH, false), 250)
-    if (e.type !== "pointerup" || !s.on) return
-    if (s.dx <= -44) go(index + 1, 1, true)
-    else if (s.dx >= 44) go(index - 1, -1, true)
+    const width = trackRef.current?.getBoundingClientRect().width ?? 240
+    const flick = Math.abs(s.v) > 0.35 && Math.sign(s.v) === Math.sign(s.dx)
+    const far = Math.abs(s.dx) > width / 3
+    if (e.type !== "pointerup" || !s.on || !(far || flick) || count < 2) {
+      setTrack(0, 420)
+      return
+    }
+    const way = s.dx < 0 ? 1 : -1
+    /* Out the way it was thrown, then the next slide in from the other side, the text back in place under it. */
+    setTrack(-way * 120, 200)
+    window.setTimeout(() => {
+      /* The slide it threw is already gone: it does not come back to fade out a second time. */
+      const t = trackRef.current
+      t?.setAttribute("data-thrown", "")
+      go(index + way, way, true)
+      setTrack(0, 0)
+      window.setTimeout(() => t?.removeAttribute("data-thrown"), 600)
+    }, 170)
   }
 
   /* ── The segments, as tabs ──────────────────────────────────────────── */
@@ -365,13 +396,16 @@ const BANNER_CSS = `
 }
 
 /*
-  ONE HEIGHT, TALL ENOUGH FOR THE LONGEST SLIDE AT EVERY WIDTH: a two line
-  title, the most lines the body is allowed, the button, the segments.
-  Phone type to 619px (16/21 title, 13/18 body, three lines at most):
-  18 + 16 + 4 + 42 + 5 + 54 + 14 + 34 + 28 + 10 = 225. Computer type from
-  620 (20/26 title, 14/20 body, two lines): 26 + 16 + 6 + 52 + 6 + 40 + 14
-  + 36 + 28 + 14 = 238. scripts/check-home-banner.mjs holds every slide of
-  every state to it, at eight widths.
+  ONE HEIGHT, TALL ENOUGH FOR THE LONGEST SLIDE AT EVERY WIDTH, AND NO
+  TALLER. "Not too much subheading text; it makes the banner too tall and
+  fat." Every line is 48 characters at most now (lib/home/announcements), so:
+  phone type to 619px (16/21 title, 13/18 body, two lines each):
+  18 + 16 + 4 + 42 + 5 + 36 + 14 + 34 + 28 + 10 = 207, so 208. From 620
+  (20/26 title, 14/20 body, two lines each): 22 + 16 + 6 + 52 + 6 + 40 + 12
+  + 36 + 28 + 12 = 230. From 860, where the column is wide enough for every
+  title and every line on one: 22 + 16 + 6 + 26 + 6 + 20 + 12 + 36 + 28 + 12
+  = 184, so 188, with the globe sized to sit inside it.
+  scripts/check-home-banner.mjs holds every slide of every state to it.
 */
 .home-banner-inner {
   --g: 168px;
@@ -380,7 +414,7 @@ const BANNER_CSS = `
   --gap: 8px;
   --pad-l: 18px;
   position: relative;
-  height: 240px;
+  height: 208px;
 }
 @container (min-width: 380px) {
   .home-banner-inner { --g: 180px; --gx: 64px; --pad-l: 20px; }
@@ -389,10 +423,10 @@ const BANNER_CSS = `
   .home-banner-inner { --g: 204px; --gx: 96px; --gy: 6px; --gap: 14px; --pad-l: 26px; }
 }
 @container (min-width: 620px) {
-  .home-banner-inner { --g: 252px; --gx: 136px; --gy: 10px; --gap: 22px; --pad-l: 32px; }
+  .home-banner-inner { --g: 252px; --gx: 136px; --gy: 8px; --gap: 22px; --pad-l: 32px; height: 230px; }
 }
 @container (min-width: 860px) {
-  .home-banner-inner { --g: 292px; --gx: 176px; --gy: 18px; --gap: 32px; --pad-l: 36px; }
+  .home-banner-inner { --g: 222px; --gx: 150px; --gy: 0px; --gap: 32px; --pad-l: 36px; height: 188px; }
 }
 
 .home-banner-globe {
@@ -424,7 +458,7 @@ const BANNER_CSS = `
   touch-action: pan-y;
 }
 @container (min-width: 620px) {
-  .home-banner-text { padding-top: 26px; padding-bottom: 14px; }
+  .home-banner-text { padding-top: 22px; padding-bottom: 12px; }
 }
 .home-banner-stack {
   position: relative;
@@ -470,6 +504,13 @@ const BANNER_CSS = `
     translate 300ms cubic-bezier(0.4, 0, 1, 1);
 }
 
+.home-banner-stack[data-thrown] .home-banner-slide[data-slide="leaving"],
+.home-banner-stack[data-thrown] .home-banner-slide[data-slide="leaving"] > * {
+  visibility: hidden;
+  opacity: 0;
+  transition: none;
+}
+
 .home-banner-eyebrow {
   display: flex;
   align-items: center;
@@ -509,7 +550,7 @@ const BANNER_CSS = `
   text-wrap: pretty;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   overflow: hidden;
 }
 @container (min-width: 620px) {
@@ -517,6 +558,13 @@ const BANNER_CSS = `
   .home-banner-line { margin-top: 6px; font-size: 14px; line-height: 20px; -webkit-line-clamp: 2; }
 }
 .home-banner-cta-row { margin-top: 14px; }
+@container (min-width: 620px) {
+  .home-banner-cta-row { margin-top: 12px; }
+}
+@container (min-width: 860px) {
+  .home-banner-title,
+  .home-banner-line { -webkit-line-clamp: 1; }
+}
 .home-banner-cta {
   display: inline-flex;
   align-items: center;

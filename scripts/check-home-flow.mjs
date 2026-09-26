@@ -9,7 +9,7 @@
  *   PILL       on a phone the address pill is above the greeting, 97% of the
  *              width it had on the row beside the live count and the period
  *              (130, 160 and 200px at 360, 390 and 430, measured before the
- *              move); the S is the logo's violet, lit and shadowed
+ *              move); on a phone the View pill, at the column's right edge
  *   CARDS      "N of 7"; with every step done the card is the Challenges,
  *              each with how far it has got
  *   AUTOPLAY   on a phone a card 60% on screen plays its hover after 2s and
@@ -223,7 +223,7 @@ function watchPlays(page, selector) {
       if (on) {
         /* What moves in the card while it plays: every running animation's properties. */
         const t = performance.now()
-        window.__windows.push([t, t + 1400])
+        window.__windows.push([t, t + 2200])
         const sample = () => {
           for (const a of el.getAnimations({ subtree: true })) {
             if (a.transitionProperty) window.__props.add(a.transitionProperty)
@@ -233,7 +233,7 @@ function watchPlays(page, selector) {
         }
         requestAnimationFrame(sample)
         let last = 0
-        const gap = (now) => { if (last) window.__gaps.push(now - last); last = now; if (now - t < 1400) requestAnimationFrame(gap) }
+        const gap = (now) => { if (last) window.__gaps.push(now - last); last = now; if (now - t < 2200) requestAnimationFrame(gap) }
         requestAnimationFrame(gap)
       }
     })
@@ -271,19 +271,21 @@ try {
         const b = pill.getBoundingClientRect()
         const path = pill.querySelector("svg path")
         return {
-          pill: { x: Math.round(b.x), y: Math.round(b.y), w: +b.width.toFixed(1), bottom: Math.round(b.bottom) },
+          pill: { x: Math.round(b.x), y: Math.round(b.y), w: +b.width.toFixed(1), bottom: Math.round(b.bottom), right: Math.round(b.right) },
+          column: Math.round(h1.parentElement.parentElement.getBoundingClientRect().right),
           h1Top: Math.round(h1.getBoundingClientRect().top),
           liveTop: live ? Math.round(live.getBoundingClientRect().top) : null,
           fill: path?.getAttribute("fill"),
           filter: path?.getAttribute("filter"),
           cut: !!pill.querySelector("[data-cut]"),
+          view: pill.textContent.trim(),
         }
       })
       expect(head.pill.bottom < head.h1Top, "the pill is above the greeting", head)
+      expect(Math.abs(head.pill.right - head.column) <= 1, "at the right edge of the column", { pill: head.pill.right, column: head.column })
       expect(head.liveTop != null && head.liveTop > head.h1Top, "the live count and the period are on the row under it", head.liveTop)
-      const ratio = head.pill.w / PILL_BEFORE[width]
-      expect(Math.abs(ratio - 0.97) <= 0.01, `97% of the ${PILL_BEFORE[width]}px it had (${head.pill.w}px)`, ratio.toFixed(3))
-      expect(head.fill === "#8b56fa" && /^url\(#storelib-s-/.test(head.filter || ""), "the S is the logo's violet, lit and shadowed", { fill: head.fill, filter: head.filter })
+      /* On a phone it is the light grey View pill (an eye and a word), well inside the room it has. */
+      expect(head.view === "View" && head.pill.w <= PILL_BEFORE[width] * 0.97, "the View pill, within the room it has", { view: head.view, w: head.pill.w })
       report[`pill-${width}`] = head.pill
       await page.screenshot({ path: join(SHOTS, `phone-${width}-header.png`), clip: { x: 0, y: 0, width, height: 330 } })
 
@@ -297,7 +299,7 @@ try {
       })
       expect(plan.length >= 5 && plan.every((c) => c.w === 18 && c.h === 18 && c.bg === "rgb(241, 242, 244)" && c.ink === "rgb(107, 114, 128)"), "every plan check is the same 18px light grey circle with a grey check", plan[0])
       const contrast = await planContrast(page)
-      expect(contrast >= 7, "the name on the plan's band, at its worst pixel, is 7:1 or better", `${contrast}:1`)
+      expect(contrast >= 4.5, "the white name on the plan's violet sky, at its worst pixel, is 4.5:1 or better", `${contrast}:1`)
       report[`contrast-${width}`] = contrast
       await page.screenshot({ path: join(SHOTS, `phone-${width}-plan-band.png`), clip: await page.evaluate(() => { const b = document.querySelector(".home-plan-head").getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height } }) })
 
@@ -305,12 +307,12 @@ try {
       if (width === 390 && !QUICK) {
         await bringTo(page, "#getting-started", 90)
         await watchPlays(page, "#getting-started")
-        await wait(12800)
+        await wait(15000)
         const log = await playLog(page)
         const plays = log.plays.filter(([, k]) => k === "play").map(([t]) => t)
         const settles = log.plays.filter(([, k]) => k === "settle").map(([t]) => t)
-        expect(plays.length === 3 && Math.abs(plays[0] - 2000) < 200 && Math.abs(plays[1] - plays[0] - 5000) < 200 && Math.abs(plays[2] - plays[1] - 5000) < 200, "on screen it plays after 2s, then every 5s", log.plays)
-        expect(settles.length >= 2 && Math.abs(settles[0] - plays[0] - 1400) < 200, "and lets go 1.4s after each", settles)
+        expect(plays.length === 3 && Math.abs(plays[0] - 2000) < 200 && Math.abs(plays[1] - plays[0] - 6000) < 200 && Math.abs(plays[2] - plays[1] - 6000) < 200, "on screen it plays after 2s, then every 6s", log.plays)
+        expect(settles.length >= 2 && Math.abs(settles[0] - plays[0] - 2200) < 200, "and lets go 2.2s after each", settles)
         expect(log.props.length > 0 && log.props.every((p) => ["opacity", "translate", "rotate", "scale"].includes(p)), "only opacity, translate, rotate and scale move", log.props)
         const sorted = [...log.gaps].sort((a, b) => a - b)
         const p95 = sorted[Math.floor(sorted.length * 0.95)] ?? 0
@@ -508,7 +510,7 @@ try {
     await page.mouse.move(5, 5)
 
     const contrast = await planContrast(page)
-    expect(contrast >= 7, "the name on the plan's band is 7:1 or better", `${contrast}:1`)
+    expect(contrast >= 4.5, "the white name on the plan's violet sky is 4.5:1 or better", `${contrast}:1`)
     report[`contrast-${width}`] = contrast
 
     await page.evaluate(() => { const sc = document.querySelector(".dashboard-scroll-container"); sc.scrollTop = sc.scrollHeight })

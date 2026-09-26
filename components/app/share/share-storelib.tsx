@@ -12,24 +12,19 @@
  * (components/ui/bottom-sheet), so it rises, follows the thumb and closes
  * like every other sheet in /app: a pull down or a tap outside, no X.
  *
- * "Make the Share your Storelib panel more simple to use: it's too
- * complicated, too many things." So it holds what people use it for and
- * nothing else:
+ * WHAT IT HOLDS. "Simpler and cleaner, how it was before with those
+ * icons, but without the changing tabs and without the big black copy
+ * button." So:
  *
- *   the switch    creator page, OnePage, website (the ones that exist)
- *   the address   with Copy, the one action in ink; tapping the address
- *                 selects it
- *   one line      what that address opens, or that the OnePage is not
- *                 published yet
- *   Open, QR code and, where the device has one, Share: the system's own
- *                 share sheet, which already lists every app on the phone
+ *   the addresses  one row each (creator page, OnePage, website, only the
+ *                  ones that exist): a small icon, what it is, the address,
+ *                  and two quiet icons, Copy and Open
+ *   QR code        and, where the device has one, Share: the system's own
+ *                  share sheet, which already lists every app on the phone
  *
- * and a QR code view, for a code to show somebody or download. What went, and
- * why: the QR card on the share view (the QR code button is the same thing,
- * one press away); "My platforms" and its how to for each app (reading
- * matter, not sharing, and what put the panel past a screen); and the row of
- * eleven share targets (on a phone the system's Share lists the same apps
- * and more; on a computer people copy the address).
+ * and a QR code view, for a code to show somebody or download. No switch
+ * between pages: every address is on screen at once, so nothing moves when
+ * a different one is wanted.
  *
  * THE PANEL GROWS FROM THE PILL, AND ONLY GROWS. Its origin is the pill's
  * corner from the first frame (`origin-top-right`, not a value the popover
@@ -39,11 +34,6 @@
  * the panel drifted six pixels to the left and back. Only its own keyframes
  * move it, on opacity and transform.
  *
- * SWITCHING ADDRESSES MOVES NOTHING BUT THE WORDS. Every line of the share
- * view is one line tall whichever address is chosen, so the panel keeps its
- * height; the white thumb slides under the choice and the address and its
- * line fade in over 220ms, on opacity and transform.
- *
  * A TAP CHANGES ONE THING. The views are memoised and every handler is made
  * once. On a phone the sheet is built ahead and kept (BottomSheet
  * keepMounted) with both views in it, the one not showing out of sight
@@ -52,9 +42,8 @@
  */
 
 import * as React from "react"
-import { AppLink } from "@/components/app/app-link"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
-import { ArrowLeft, Check, Download, Eye, Share, X } from "lucide-react"
+import { ArrowLeft, ArrowUpRight, Check, Copy, Download, Eye, Globe, Link2, QrCode as QrCodeIcon, Share, X } from "lucide-react"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
@@ -63,7 +52,7 @@ import { isNativeApp, openExternal } from "@/lib/native-bridge"
 import { downloadBlob } from "@/lib/platform/save-file"
 import { cn } from "@/lib/utils"
 import { StorelibVioletS } from "./storelib-share-marks"
-import { type ConnectedPlatform, type ShareAddress, type ShareSurface } from "./share-data"
+import { SURFACE_HINT, type ConnectedPlatform, type ShareAddress, type ShareSurface } from "./share-data"
 
 /* The sheet's own curve (components/ui/bottom-sheet SHEET_EASE), so a view change moves like the sheet does. */
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
@@ -192,15 +181,6 @@ const iconButton = cn(
   "[-webkit-tap-highlight-color:transparent]",
 )
 
-/* Near black with the same light and shade as the app's other buttons: the one action here, Copy. */
-const inkDepth = cn(
-  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap bg-[#1a1a2e] font-semibold text-white outline-none",
-  "shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.35),0_1px_2px_rgba(16,24,40,0.25)] transition-[background-color,box-shadow] duration-100",
-  "hover:bg-[#2a2a40] active:bg-[#0f0f1c] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]",
-  "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]",
-  "[-webkit-tap-highlight-color:transparent]",
-)
-
 function useCopy() {
   const [copied, setCopied] = React.useState<string | null>(null)
   const timer = React.useRef<number | null>(null)
@@ -215,98 +195,6 @@ function useCopy() {
     timer.current = window.setTimeout(() => setCopied(null), 1800)
   }, [])
   return { copied, copy }
-}
-
-/**
- * Whatever is inside eases in (a short rise and a fade) each time `swapKey`
- * changes: the address when the switch above it moves, so the new one
- * arrives rather than blinking into place. On the Web Animations API, so it
- * runs on the compositor and needs no keyframes in globals.css.
- */
-function EaseIn({ swapKey, children, className }: { swapKey: string; children: React.ReactNode; className?: string }) {
-  const ref = React.useRef<HTMLSpanElement>(null)
-  const first = React.useRef(true)
-  React.useLayoutEffect(() => {
-    if (first.current) {
-      first.current = false
-      return
-    }
-    if (reducedMotion()) return
-    ref.current?.animate(
-      [
-        { opacity: 0, transform: "translateY(3px)" },
-        { opacity: 1, transform: "none" },
-      ],
-      { duration: 220, easing: EASE },
-    )
-  }, [swapKey])
-  return (
-    <span ref={ref} className={className}>
-      {children}
-    </span>
-  )
-}
-
-/** The address, in a quiet field. A tap selects all of it, for somebody who would rather copy it by hand. */
-function AddressField({ address, className }: { address: ShareAddress; className?: string }) {
-  return (
-    <div className={cn("flex h-11 items-center rounded-xl bg-[#f4f4f6] px-3.5", className)}>
-      <EaseIn swapKey={address.url} className="block min-w-0 flex-1 select-all truncate text-[14.5px] text-[#1a1a2e]">
-        <span data-share-address="">{address.display}</span>
-      </EaseIn>
-    </div>
-  )
-}
-
-/**
- * CREATOR PAGE, ONEPAGE, WEBSITE. A white thumb slides under the one chosen,
- * on the sheet's curve and on transform only, rather than the highlight
- * jumping from one tab to the next; the address below eases in to match
- * (LinkRow).
- */
-function SurfaceSwitch({
-  addresses,
-  current,
-  onSurface,
-}: {
-  addresses: ShareAddress[]
-  current: ShareAddress
-  onSurface: (s: ShareSurface) => void
-}) {
-  const index = Math.max(0, addresses.findIndex((a) => a.surface === current.surface))
-  return (
-    <div role="tablist" aria-label="What to share" className="relative grid auto-cols-fr grid-flow-col rounded-xl bg-[#f1f2f4] p-1">
-      <span
-        aria-hidden
-        data-share-thumb=""
-        className="absolute bottom-1 left-1 top-1 rounded-[9px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_1px_rgba(16,24,40,0.04)] transition-transform duration-300 motion-reduce:transition-none"
-        style={{
-          width: `calc((100% - 8px) / ${addresses.length})`,
-          transform: `translateX(${index * 100}%)`,
-          transitionTimingFunction: EASE,
-        }}
-      />
-      {addresses.map((a) => {
-        const active = a.surface === current.surface
-        return (
-          <button
-            key={a.surface}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onSurface(a.surface)}
-            className={cn(
-              "relative z-[1] h-8 min-w-0 cursor-pointer truncate rounded-[9px] px-2 text-[13px] font-medium outline-none transition-colors duration-200",
-              "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-[#8b5cf6] [-webkit-tap-highlight-color:transparent]",
-              active ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
-            )}
-          >
-            {a.label}
-          </button>
-        )
-      })}
-    </div>
-  )
 }
 
 /* ─── The QR code ─────────────────────────────────────────────────────── */
@@ -399,23 +287,79 @@ async function qrPng(url: string): Promise<Blob | null> {
 
 type View = "share" | "qr"
 
-/** The quiet actions under Copy link: words, no icons. */
-const textAction = cn(
-  "h-9 cursor-pointer rounded-lg px-3 text-[14px] font-medium text-[#4b5563] outline-none transition-colors duration-100",
-  "hover:bg-[#f1f2f4] hover:text-[#1a1a2e] active:bg-[#e7e8eb]",
-  "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-[#8b5cf6] [-webkit-tap-highlight-color:transparent]",
-)
+/** A secondary action at the foot of the share view: an icon and a word, all the same width. */
+const actionButton = cn(secondaryDepth, "h-11 gap-2 rounded-xl px-2 text-[14px]")
+
+/** The small square each address starts with: the S for the creator page, a link for the OnePage, a globe for the website. */
+function SurfaceIcon({ surface }: { surface: ShareSurface }) {
+  return (
+    <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] bg-[#f4f4f6] text-[#4b5563] ring-1 ring-black/[0.04]">
+      {surface === "creator" ? (
+        <StorelibVioletS flat size={16} />
+      ) : surface === "onepage" ? (
+        <Link2 className="h-4 w-4" strokeWidth={1.9} />
+      ) : (
+        <Globe className="h-4 w-4" strokeWidth={1.9} />
+      )}
+    </span>
+  )
+}
 
 /**
- * WHICH PAGE, ITS ADDRESS, COPY LINK. That is the whole view: the switch
- * (only when there is more than one page), the address, one button, and
- * Open, QR code and Share as words under it.
+ * ONE ROW AN ADDRESS: what it is, the address, and two quiet icons, Copy and
+ * Open. Copy turns into a check for a moment. Both icons are always there and
+ * one is hidden, so a copy puts nothing into the page or takes anything out
+ * (scripts/check-app-sheets-frames.mjs).
+ */
+const AddressRow = React.memo(function AddressRow({
+  address,
+  copied,
+  onCopy,
+  onOpen,
+}: {
+  address: ShareAddress
+  copied: boolean
+  onCopy: (url: string) => void
+  onOpen: (url: string) => void
+}) {
+  const live = address.live !== false
+  return (
+    <div data-share-row={address.surface} className="flex items-center gap-3 py-2.5 pl-3 pr-1.5">
+      <SurfaceIcon surface={address.surface} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[12px] leading-4 text-[#6b7280]">
+          {address.label}
+          <span hidden={live}> · Not published yet</span>
+        </p>
+        <p data-share-address="" title={SURFACE_HINT[address.surface]} className="mt-0.5 select-all truncate text-[14.5px] font-medium leading-5 text-[#1a1a2e]">
+          {address.display}
+        </p>
+      </div>
+      <button type="button" onClick={() => onCopy(address.url)} aria-label={copied ? "Copied" : `Copy the ${address.label} address`} data-share-copy="" className={iconButton}>
+        <span hidden={copied} className="inline-flex">
+          <Copy className="h-[17px] w-[17px]" strokeWidth={1.8} aria-hidden />
+        </span>
+        <span hidden={!copied} className="inline-flex">
+          <Check className="h-[17px] w-[17px] text-[#16a34a]" strokeWidth={2.25} aria-hidden />
+        </span>
+      </button>
+      <button type="button" onClick={() => onOpen(address.url)} aria-label={`Open the ${address.label}`} data-share-open="" className={iconButton}>
+        <ArrowUpRight className="h-[18px] w-[18px]" strokeWidth={1.8} aria-hidden />
+      </button>
+    </div>
+  )
+})
+
+/**
+ * EVERY ADDRESS AT ONCE, THEN QR CODE AND SHARE. "Simpler and cleaner, how
+ * it was before with those icons, without the changing tabs and without the
+ * big black copy button." So no switch between pages: each one that exists
+ * is a row with its own Copy and Open, and under them QR code and, where the
+ * device has one, the system's Share, as the icon buttons they were.
  */
 const ShareView = React.memo(function ShareView({
   addresses,
-  current,
-  onSurface,
-  copied,
+  copiedUrl,
   onCopy,
   onOpen,
   onQr,
@@ -423,49 +367,29 @@ const ShareView = React.memo(function ShareView({
   onNativeShare,
 }: {
   addresses: ShareAddress[]
-  current: ShareAddress
-  onSurface: (s: ShareSurface) => void
-  copied: boolean
-  onCopy: () => void
-  onOpen: () => void
+  copiedUrl: string | null
+  onCopy: (url: string) => void
+  onOpen: (url: string) => void
   onQr: () => void
   canNativeShare: boolean
   onNativeShare: () => void
 }) {
-  const live = current.live !== false
   return (
-    <div className="px-4 pb-3 sm:px-5 sm:pb-4">
-      {addresses.length > 1 && <SurfaceSwitch addresses={addresses} current={current} onSurface={onSurface} />}
+    <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+      <div data-share-list="" className="divide-y divide-[#f0f0f2] rounded-2xl border border-[#ececef] bg-white">
+        {addresses.map((a) => (
+          <AddressRow key={a.surface} address={a} copied={copiedUrl === a.url} onCopy={onCopy} onOpen={onOpen} />
+        ))}
+      </div>
 
-      <AddressField className={addresses.length > 1 ? "mt-3" : undefined} address={current} />
-
-      {/* The same height whichever page is chosen, so the panel never moves: empty when the page is live. */}
-      <p className="mt-1.5 h-[18px] truncate px-1 text-[12.5px] leading-[18px] text-[#6b7280]">
-        <span hidden={live}>
-          Not published yet.{" "}
-          <AppLink href="/app/onepage" className="font-medium text-[#1a1a2e] underline underline-offset-2">
-            Open OnePage
-          </AppLink>
-        </span>
-      </p>
-
-      <button type="button" onClick={onCopy} data-share-copy="" className={cn(inkDepth, "mt-1.5 h-11 w-full rounded-xl text-[15px]")}>
-        {/* Always there and shown by `hidden`: see scripts/check-app-sheets-frames.mjs. */}
-        <span hidden={!copied} className="inline-flex">
-          <Check className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-        </span>
-        {copied ? "Copied" : "Copy link"}
-      </button>
-
-      <div data-share-actions="" className="mt-2 flex items-center justify-center gap-1">
-        <button type="button" onClick={onOpen} className={textAction}>
-          Open
-        </button>
-        <button type="button" onClick={onQr} className={textAction}>
+      <div data-share-actions="" className={cn("mt-3 grid gap-2", canNativeShare ? "grid-cols-2" : "grid-cols-1")}>
+        <button type="button" onClick={onQr} className={actionButton}>
+          <QrCodeIcon className="h-4 w-4 shrink-0 text-[#4b5563]" strokeWidth={1.9} aria-hidden />
           QR code
         </button>
         {canNativeShare && (
-          <button type="button" onClick={onNativeShare} className={textAction}>
+          <button type="button" onClick={onNativeShare} className={actionButton}>
+            <Share className="h-4 w-4 shrink-0 text-[#4b5563]" strokeWidth={1.9} aria-hidden />
             Share
           </button>
         )}
@@ -515,7 +439,7 @@ const QrView = React.memo(function QrView({
             Download
           </button>
         )}
-        <button type="button" onClick={onCopy} className={cn(inkDepth, "h-11 rounded-xl text-[15px]")}>
+        <button type="button" onClick={onCopy} className={cn(secondaryDepth, "h-11 rounded-xl text-[15px]")}>
           <span hidden={!copied} className="inline-flex">
             <Check className="h-4 w-4" strokeWidth={2.25} aria-hidden />
           </span>
@@ -745,9 +669,7 @@ export const ShareStorelib = React.memo(function ShareStorelib({
   const copyCurrent = React.useCallback(() => {
     if (currentRef.current) copy(currentRef.current.url)
   }, [copy])
-  const openPage = React.useCallback(() => {
-    if (currentRef.current) openExternal(currentRef.current.url)
-  }, [])
+  const openUrl = React.useCallback((url: string) => openExternal(url), [])
   const onNativeShare = React.useCallback(() => {
     const url = currentRef.current?.url
     if (!url) return
@@ -790,11 +712,9 @@ export const ShareStorelib = React.memo(function ShareStorelib({
         <Pane on={view === "share"}>
           <ShareView
             addresses={addresses}
-            current={current}
-            onSurface={setSurface}
-            copied={isCopied}
-            onCopy={copyCurrent}
-            onOpen={openPage}
+            copiedUrl={copied}
+            onCopy={copy}
+            onOpen={openUrl}
             onQr={onQr}
             canNativeShare={canNativeShare}
             onNativeShare={onNativeShare}

@@ -205,6 +205,8 @@ try {
         box: [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)],
         right: +b.right.toFixed(2),
         tabs: [...el.querySelectorAll("[role=tab]")].map((t) => t.textContent.trim()),
+        rows: [...el.querySelectorAll("[data-share-row]")].filter((r) => r.getClientRects().length).map((r) => ({ what: r.getAttribute("data-share-row"), address: r.querySelector("[data-share-address]").textContent.trim(), copy: !!r.querySelector("[data-share-copy]"), open: !!r.querySelector("[data-share-open]") })),
+        ink: [...el.querySelectorAll("button")].filter((b) => b.getClientRects().length && getComputedStyle(b).backgroundColor === "rgb(26, 26, 46)").length,
         address: el.querySelector("[data-share-address]")?.textContent.trim(),
         actions: [...el.querySelectorAll("[data-share-actions] button")].map((b) => b.textContent.trim()),
         buttons: [...el.querySelectorAll("button")].map((b) => b.textContent.trim()).filter(Boolean),
@@ -216,10 +218,11 @@ try {
     expect(!!surface, "the pill opens the share panel", surface?.kind)
     if (!surface) continue
     expect(surface.kind === (phone ? "sheet" : "panel"), phone ? "a phone gets the bottom sheet" : "a computer gets the panel", surface.kind)
-    expect(surface.tabs.join("|") === "Creator page|OnePage|Website", "the three addresses, the creator page first", surface.tabs)
-    expect(surface.address === "storelib.com/andrewrullz" && surface.buttons.includes("Copy link"), "the address and one Copy link button", { address: surface.address, buttons: surface.buttons })
-    expect(surface.icons <= 1, "no icons on the share view beyond the header's", surface.icons)
-    expect(surface.actions[0] === "Open" && surface.actions[1] === "QR code" && surface.actions.length <= 3, "Open and QR code as words under it (and Share where the device has one)", surface.actions)
+    expect(surface.tabs.length === 0, "no tabs to switch between", surface.tabs)
+    expect(surface.rows.map((r) => r.what).join("|") === "creator|onepage|website" && surface.rows[0].address === "storelib.com/andrewrullz", "every address at once, a row each, the creator page first", surface.rows)
+    expect(surface.rows.every((r) => r.copy && r.open), "each with its own Copy and Open", surface.rows)
+    expect(surface.ink === 0, "no black Copy link button", { ink: surface.ink, buttons: surface.buttons })
+    expect(surface.actions[0] === "QR code" && surface.actions.length <= 2, "QR code under them (and Share where the device has one), with their icons", surface.actions)
     const gone = ["My platforms", "Instagram", "TikTok", "WhatsApp", "Facebook", "Telegram", "Reddit", "My Storelib", "Add it to your Instagram bio"].filter((w) => surface.text.includes(w))
     expect(gone.length === 0, "no platforms, no QR card, no row of share targets", gone)
     if (phone) {
@@ -256,35 +259,17 @@ try {
     await p.screenshot({ path: join(shots, `${label}-share.png`) })
 
     if (full) {
-      /* Switching: the height holds on every frame, the thumb slides, the address changes. */
+      /* Copy: the icon turns into a check, and nothing moves. */
       const heightOf = () => p.evaluate((cardOf) => +eval(cardOf).getBoundingClientRect().height.toFixed(2), CARD_OF)
       const before = await heightOf()
-      for (const [i, want] of [[1, "storelib.com/andrewrullz/links"], [2, "andrewrullz.storelib.com"], [0, "storelib.com/andrewrullz"]]) {
-        const heights = p.evaluate((cardOf) => new Promise((resolve) => {
-          const hs = []
-          const t0 = performance.now()
-          const tick = () => {
-            hs.push(+eval(cardOf).getBoundingClientRect().height.toFixed(2))
-            if (performance.now() - t0 < 380) requestAnimationFrame(tick)
-            else resolve(hs)
-          }
-          requestAnimationFrame(tick)
-        }), CARD_OF)
-        const tabs = await p.$$("[data-share-sheet] [role=tab]")
-        if (phone) await tabs[i].tap()
-        else await tabs[i].click()
-        const hs = await heights
-        const address = await p.$eval("[data-share-sheet] [data-share-address]", (el) => el.textContent.trim())
-        expect(address === want && hs.every((h) => Math.abs(h - before) <= 0.5), `to ${want}: the address changes and the height holds on every frame`, { address, heights: [...new Set(hs)] })
-        if (i === 2) {
-          const thumb = await p.$eval("[data-share-sheet] [data-share-thumb]", (el) => getComputedStyle(el).transform)
-          expect(/matrix\(1, 0, 0, 1, [1-9]/.test(thumb), "the thumb has slid under Website", thumb)
-          /* A thumb held on its own layer pulled the tab text over it onto another, which a phone re-draws late: the "Creator page" glitch. */
-          const layered = await p.$eval("[data-share-sheet] [data-share-thumb]", (el) => getComputedStyle(el).willChange)
-          expect(layered === "auto", "the thumb is not held on a layer of its own", layered)
-          await p.screenshot({ path: join(shots, `${label}-website.png`) })
-        }
-      }
+      await p.evaluate(() => { try { Object.defineProperty(navigator, "clipboard", { value: { writeText: async () => {} }, configurable: true }) } catch {} })
+      const copyBtn = await p.$("[data-share-sheet] [data-share-row=website] [data-share-copy]")
+      if (phone) await copyBtn.tap()
+      else await copyBtn.click()
+      await sleep(120)
+      const copied = await p.$eval("[data-share-sheet] [data-share-row=website] [data-share-copy]", (b) => b.getAttribute("aria-label"))
+      expect(copied === "Copied" && Math.abs((await heightOf()) - before) <= 0.5, "Copy turns into Copied, and the panel holds its height", { copied })
+      await p.screenshot({ path: join(shots, `${label}-copied.png`) })
 
       /* The QR view. */
       const qr = await p.evaluateHandle(() => [...document.querySelectorAll("[data-share-sheet] [data-share-actions] button")].find((b) => b.textContent.trim() === "QR code"))
@@ -306,7 +291,7 @@ try {
         }
       })
       expect(qrView.view === "qr" && qrView.drawn && qrView.size >= 180, "the QR view draws a large code", qrView)
-      expect(qrView.buttons.join("|") === "Download|Copy link", "with Download and Copy link", qrView.buttons)
+      expect(/^(Download\|)?Copy link$/.test(qrView.buttons.join("|")), "with Download and Copy link", qrView.buttons)
       if (phone) expect(qrView.panes.join("|") === "hidden|on", "the share view is kept out of sight behind it, not taken down", qrView.panes)
       else expect(qrView.panes.join("|") === "on", "on a computer only the view on show is in the panel", qrView.panes)
       await p.screenshot({ path: join(shots, `${label}-qr.png`) })

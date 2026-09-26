@@ -51,7 +51,7 @@ const EXPECT = {
   new: ["payouts", "first-product"],
   product: ["payouts", "website"],
   payouts: ["website", "share"],
-  firstsale: ["first-sale", "automations", "newsletter", "domain-pro"],
+  firstsale: ["first-sale", "domain-pro", "automations", "newsletter"],
   selling: ["upgrade-saving", "automations", "newsletter"],
   milestone: ["milestone", "domain", "automations", "newsletter"],
   quiet: ["pro-offer"],

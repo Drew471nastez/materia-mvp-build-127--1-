@@ -94,7 +94,7 @@ function main() {
   check("a first sale more than a week old is not news",
     !ids(state({ ...SETUP, orders: [order(8, 2900)] })).includes("first-sale"))
   check("a sale that came in after the page took its clock is the first sale, just now",
-    find(state({ ...SETUP, orders: [order(-0.01, 2900)] }), "first-sale")?.line === "$29, in the last hour. See who bought it and what they paid.")
+    find(state({ ...SETUP, orders: [order(-0.01, 2900)] }), "first-sale")?.line === "$29, in the last hour. See who bought it.")
   const thousand = state({ ...SETUP, plan: "growth", hasDomain: true, subscribers: 5, activeAutomations: 1, orders: [...Array.from({ length: 38 }, (_, i) => order(9 + i, 2500)), order(3, 2500), order(2.5, 2500), order(2, 2500), order(1, 2500)] })
   check("$1,000 passed this week is a milestone", find(thousand, "milestone")?.title === "You passed $1,000 in sales", find(thousand, "milestone")?.title)
   check("with when and how many", find(thousand, "milestone")?.line === "It happened 2 days ago, across 42 sales.", find(thousand, "milestone")?.line)
@@ -121,7 +121,7 @@ function main() {
   const selling = state({ ...SETUP, orders: Array.from({ length: 40 }, (_, i) => order(1 + (i % 29), 4500)) })
   check("40 sales of $45 in 30 days: $118 in fees on Free, $64 on Pro", selling.sales.last30.feeFreeCents === 11800 && selling.sales.last30.feeProCents === 6400, selling.sales.last30)
   check("so Pro would have saved $25, the $29 paid", proSaving(selling) === 2500 && find(selling, "upgrade-saving")?.title === "Pro would have saved you $25", find(selling, "upgrade-saving")?.title)
-  check("the line gives both sides, the plan's price inside Pro's", find(selling, "upgrade-saving")?.line === "Fees last 30 days: $118 on Free, $93 on Pro, plan included.", find(selling, "upgrade-saving")?.line)
+  check("the line gives both sides, the plan's price inside Pro's", find(selling, "upgrade-saving")?.line === "Fees, 30 days: $118 on Free, $93 on Pro.", find(selling, "upgrade-saving")?.line)
   check("and a second Pro slide about the domain is left out", !ids(selling).includes("domain-pro"), ids(selling))
   const close = state({ ...SETUP, orders: Array.from({ length: 28 }, (_, i) => order(1 + i, 4500)) })
   check(`a saving under ${money(REAL_SAVING_CENTS)} is not worth saying`, proSaving(close) > 0 && proSaving(close) < REAL_SAVING_CENTS && !ids(close).includes("upgrade-saving"), proSaving(close))
@@ -203,7 +203,7 @@ function main() {
   check("no em or en dashes, none of the words CLAUDE.md bans", texts.every((a) => !banned.test(`${a.eyebrow} ${a.title} ${a.line} ${a.cta}`)), texts.filter((a) => banned.test(`${a.eyebrow} ${a.title} ${a.line} ${a.cta}`)).map((a) => a.id))
   /* The 360 phone's text column is 168px: two lines of title and three of body, measured (scripts/check-home-banner.mjs). */
   check("every title fits two lines on a 360 phone (34 characters)", texts.every((a) => a.title.length <= 34), texts.filter((a) => a.title.length > 34).map((a) => a.title))
-  check("every line fits three (66 characters, even with a big number)", texts.every((a) => a.line.length <= 66), texts.filter((a) => a.line.length > 66).map((a) => `${a.line.length}: ${a.line}`))
+  check("every line fits two on a phone (48 characters, even with a big number)", texts.every((a) => a.line.length <= 48), texts.filter((a) => a.line.length > 48).map((a) => `${a.line.length}: ${a.line}`))
   check("every button goes to a page in /app, or opens the share sheet", texts.every((a) => a.action === "share" || a.href.startsWith("/app/")), texts.map((a) => a.href))
 
   /* Home reads no order rows in the browser (a read stops at 1,000): the page counts every order on the server and reads only the last 30 days and the first few. */

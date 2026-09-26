@@ -85,11 +85,12 @@ function main() {
   check("each check is one light grey circle, the same size on every line", /data-plan-check="" className="home-plan-check mt-px flex h-\[18px\] w-\[18px\]/.test(cards) && /text-\[#6b7280\]/.test(cards.slice(cards.indexOf("data-plan-check"))))
   const checkCss = homeCss.slice(homeCss.indexOf(".home-plan-check {"), homeCss.indexOf("}", homeCss.indexOf(".home-plan-check {")))
   check("  #f1f2f4, a 1px #e3e5e8 ring and a lit top edge", /background: #f1f2f4/.test(checkCss) && /0 0 0 1px #e3e5e8/.test(checkCss) && /inset 0 1px 0 rgba\(255, 255, 255/.test(checkCss))
-  /* Changed on purpose: "no dots, no pattern, no gradient; something cleaner, simple, a subtle colour." */
+  /* Changed back on purpose: "the texture that was the first time, not the one with the dots". */
   const band = homeCss.slice(homeCss.indexOf(".home-plan-head {"), homeCss.indexOf(".home-plan-check {"))
-  check("the band is one flat light violet with a hairline under it", /\.home-plan-head \{\s*background: #f7f5ff;\s*box-shadow: inset 0 -1px 0 #ece8fb;\s*\}/.test(band), band.slice(0, 120))
-  check("  no gradient, no dots, no mask, no image", !/gradient|mask|url\(|radial/.test(band) && !/home-plan-dots|home-plan-sky/.test(homeCss) && !/home-plan-dots|home-plan-sky/.test(cards))
-  check("  the same 46px, the plan's name in deep violet on it", /home-plan-head flex h-\[46px\] shrink-0 items-center rounded-t-\[19px\] px-5/.test(cards) && /id="your-plan-title" className="text-\[13\.5px\] font-semibold text-\[#4c1d95\]"/.test(cards))
+  check("the band is the first deep violet sky: clouds and grain over the violet", /feTurbulence type='fractalNoise' baseFrequency='0\.010 0\.032'/.test(band) && /#1f0b4a 0%, #321170 46%, #4c1d95 100%/.test(band), band.slice(0, 160))
+  check("  no dots, and nothing in it moves", !/home-plan-dots/.test(homeCss) && !/home-plan-dots/.test(cards) && !/\.home-plan-head[^{]*\{[^}]*transition/.test(homeCss))
+  check("  clipped to the card's corners by a mask too, for iPhone", /\.home-plan-head \{[^}]*mask-image/.test(band))
+  check("  the same 46px, the plan's name in white on it", /home-plan-head flex h-\[46px\] shrink-0 items-center rounded-t-\[19px\] px-5/.test(cards) && /id="your-plan-title" className="text-\[13\.5px\] font-semibold text-white"/.test(cards))
 
   console.log("\nhover, on a mouse only, never on transform, and played on a phone")
   check("no hover:shadow class, which a tap strips on a touch screen", ![...cards.matchAll(/(?:className=|const CARD = )[{`"]+([^`"]*)/g)].some((m) => /hover:shadow/.test(m[1])))
@@ -104,7 +105,7 @@ function main() {
   const hovered = [...block.matchAll(/\.home-(?:card|guide):hover([^{]*)\{([^}]*)\}/g)].map((m) => [m[1].trim(), m[2].trim()])
   const played = [...block.matchAll(/\.home-(?:card|guide)\[data-play\]([^{]*)\{([^}]*)\}/g)].map((m) => [m[1].trim(), m[2].trim()])
   check("every hover rule has its played twin, word for word", hovered.length >= 8 && hovered.every(([sel, body]) => played.some(([s, b]) => s === sel && b === body)), JSON.stringify({ hovered: hovered.length, played: played.length }))
-  check("on a phone it plays after two seconds 60% on screen, then every five", /AUTOPLAY_AFTER_MS = 2000/.test(cards) && /AUTOPLAY_EVERY_MS = 5000/.test(cards) && /AUTOPLAY_IN_VIEW = 0\.6/.test(cards) && /new IntersectionObserver/.test(cards))
+  check("on a phone it plays after two seconds 60% on screen, then every six, held 2.2s so the slow lift arrives and settles", /AUTOPLAY_AFTER_MS = 2000/.test(cards) && /AUTOPLAY_EVERY_MS = 6000/.test(cards) && /AUTOPLAY_HOLD_MS = 2200/.test(cards) && /AUTOPLAY_IN_VIEW = 0\.6/.test(cards) && /new IntersectionObserver/.test(cards))
   check("  and stops off screen, under a finger, in a hidden tab, with a mouse and for reduced motion", /const may = inView && !touching && document\.visibilityState === "visible" && !mouse\.matches && !calm\.matches/.test(cards) && /"touchstart"/.test(cards) && /"visibilitychange"/.test(cards))
   check("  and every timer goes with it", /const stop = \(\) => \{\s*window\.clearTimeout\(start\)\s*window\.clearInterval\(cycle\)/.test(cards))
   check("  and nothing plays while a sheet covers the page", /hasAttribute\("data-app-sheet-up"\) \|\| document\.body\.hasAttribute\("data-scroll-locked"\)\) return/.test(cards))
