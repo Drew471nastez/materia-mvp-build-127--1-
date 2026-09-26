@@ -191,6 +191,11 @@ const settled = (page) => page.evaluate(async () => {
 const startFrames = (page) => page.evaluate(() => {
   window.__bannerFrames = []
   window.__bannerFramesOn = true
+  /* Long tasks on the page's own thread while it runs: a slow frame with none is the machine's, not the page's. */
+  window.__bannerLong = []
+  window.__bannerLongObs?.disconnect()
+  window.__bannerLongObs = new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__bannerLong.push(Math.round(e.duration)) })
+  window.__bannerLongObs.observe({ type: "longtask" })
   let last = 0
   const stack = document.querySelector("[data-home-banner] .home-banner-stack")
   const opacityUp = (el) => {
@@ -223,7 +228,11 @@ const startFrames = (page) => page.evaluate(() => {
   }
   requestAnimationFrame(f)
 })
-const stopFrames = (page) => page.evaluate(() => { window.__bannerFramesOn = false; return window.__bannerFrames })
+const stopFrames = (page) => page.evaluate(() => {
+  window.__bannerFramesOn = false
+  const frames = window.__bannerFrames
+  return { frames, long: window.__bannerLong.slice() }
+}).then(({ frames, long }) => Object.assign(frames, { long }))
 const pct = (a, p) => [...a].sort((x, y) => x - y)[Math.min(a.length - 1, Math.floor(a.length * p))] ?? 0
 /** What a run of frames says. */
 const readFrames = (frames) => {
@@ -236,6 +245,7 @@ const readFrames = (frames) => {
     p50: pct(gaps, 0.5),
     p95: pct(gaps, 0.95),
     worst: Math.max(0, ...gaps),
+    long: frames.long ?? [],
   }
 }
 /** The page's frames with nothing moving but the globe: what this machine gives any page right now. */
@@ -303,11 +313,13 @@ const judgeMoves = async (page, what, run, start) => {
     if (runs.at(-1).p95 < 20) break
   }
   const best = runs.reduce((a, b) => (b.p95 < a.p95 ? b : a))
-  for (const r of runs) console.log(`        ${what}: ${r.frames} frames, ${r.both} with two slides on screen, least text seen ${r.least.toFixed(2)}, gaps ${r.p50.toFixed(1)}ms median, ${r.p95.toFixed(1)}ms 95th, ${r.worst.toFixed(1)}ms worst (the page at rest: ${idle.toFixed(1)}ms 95th of ${rest.length})`)
+  for (const r of runs) console.log(`        ${what}: ${r.frames} frames, ${r.both} with two slides on screen, least text seen ${r.least.toFixed(2)}, gaps ${r.p50.toFixed(1)}ms median, ${r.p95.toFixed(1)}ms 95th, ${r.worst.toFixed(1)}ms worst, long tasks [${r.long.join(", ")}] (the page at rest: ${idle.toFixed(1)}ms 95th of ${rest.length})`)
   const least = Math.min(...runs.map((r) => r.least))
   const faded = Math.min(...runs.map((r) => r.faded))
   expect(least >= 0.6, `${what}: never a frame without the slides' text (least ${least.toFixed(2)} of a title seen)`, runs)
   expect(faded >= 0.999, `${what}: no slide and no button faded on the way (least opacity ${faded})`, faded)
+  /* What the page itself costs, whatever the machine: no task of its own over 50ms while a move runs. */
+  expect(runs.every((r) => r.long.length === 0), `${what}: no long task on the page's thread during a move`, runs.map((r) => r.long))
   if (start) {
     const held = await heldMid(page, start)
     expect(!!held && held.slice(0, 2).every((h) => h.drawn === 2) && held.every((h) => h.seen >= 0.6), `${what}: held at 5% and 10% of its time the one going out and the one coming in are both on screen, and at 20, 35 and 50% the text is there`, held)
@@ -573,7 +585,7 @@ try {
         const frames = await stopFrames(page)
         autoOk &&= list.indexOf(await active(page)) === (list.indexOf(auto0) + 1) % list.length
         /* From a few frames before it starts: the quarter second of waiting is not the move. */
-        return frames.slice(Math.max(0, frames.findIndex((f) => f.drawn >= 2) - 3))
+        return Object.assign(frames.slice(Math.max(0, frames.findIndex((f) => f.drawn >= 2) - 3)), { long: frames.long })
       }, async () => {
         await windClock(1)
         await page.waitForFunction(() => document.getAnimations().some((a) => a.id === "home-banner-move"), { timeout: 3000 })
