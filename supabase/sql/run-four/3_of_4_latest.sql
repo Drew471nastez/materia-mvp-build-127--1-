@@ -278,5 +278,10 @@ DROP POLICY IF EXISTS tca_own ON public.theme_chat_attachments;
 DROP POLICY IF EXISTS tca_own_read ON public.theme_chat_attachments;
 CREATE POLICY tca_own_read ON public.theme_chat_attachments FOR SELECT USING (install_id IN (SELECT i.id FROM public.store_theme_installs i JOIN public.creators c ON c.id = i.creator_id WHERE c.user_id = auth.uid()));
 
+-- part 35_order_business_details.sql
+/* The company a buyer bought for, kept on the order: its legal name, tax number and address, as the checkout checked them (lib/checkout/business.ts). The buyer's invoice and the creator's copy of it read it. Adds one column, empty on every order already there; changes no rows. Written by the server only, as every order column is. Until it runs, orders are made as before and the company is read from the payment instead. */
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS business_details jsonb;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.orders'::regclass AND conname = 'orders_business_details_shape') THEN ALTER TABLE public.orders ADD CONSTRAINT orders_business_details_shape CHECK (business_details IS NULL OR (jsonb_typeof(business_details) = 'object' AND pg_column_size(business_details) <= 4096)) NOT VALID; END IF; END $$;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

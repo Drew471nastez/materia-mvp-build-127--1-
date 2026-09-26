@@ -107,6 +107,20 @@ async function main() {
   check("markup is stripped from a company name", checkBusiness({ ...good, company: "<b>Acme</b>" }).ok === true && (checkBusiness({ ...good, company: "<b>Acme</b>" }) as { value: { company: string } }).value.company.includes("<") === false)
   check("an unknown country is refused", checkBusiness({ ...good, country: "ZZ" }).ok === false)
   check("a tax number is letters and digits", checkBusiness({ ...good, taxId: "DROP TABLE;" }).ok === false)
+  {
+    const de = { ...EMPTY_BUSINESS, company: "Acme GmbH", country: "DE", line1: "Friedrichstraße 43", city: "Berlin", postalCode: "10117" }
+    const typed = checkBusiness({ ...de, taxId: "de 123 456 789" })
+    check("a German VAT number is written as the tax office writes it", typed.ok === true && typed.value.taxId === "DE123456789")
+    check("  with or without its letters", (checkBusiness({ ...de, taxId: "123456789" }) as { value?: { taxId: string } }).value?.taxId === "DE123456789")
+    const short = checkBusiness({ ...de, taxId: "DE1234" })
+    check("  one too short is refused, with what one looks like", short.ok === false && short.field === "taxId" && /DE123456789/.test(short.error))
+    check("a Greek one is EL", (checkBusiness({ ...de, country: "GR", postalCode: "10431", taxId: "123456789" }) as { value?: { taxId: string } }).value?.taxId === "EL123456789")
+    check("a US company's number is taken in any shape", checkBusiness({ ...de, country: "US", postalCode: "10118", taxId: "12-3456789" }).ok === true)
+    check("the postcode is asked for where there is one", (checkBusiness({ ...de, postalCode: "" }) as { field?: string }).field === "postalCode")
+    check("  and not in Hong Kong, which has none", checkBusiness({ ...de, country: "HK", postalCode: "" }).ok === true)
+    check("  a US ZIP code is five digits", checkBusiness({ ...de, country: "US", postalCode: "1011" }).ok === false && checkBusiness({ ...de, country: "US", postalCode: "10118-1234" }).ok === true)
+    check("the company and its country come before anything else is asked", (checkBusiness({ ...EMPTY_BUSINESS }) as { field?: string }).field === "company" && (checkBusiness({ ...EMPTY_BUSINESS, company: "Acme" }) as { field?: string }).field === "country")
+  }
   if (ok.ok) {
     const meta = businessToMetadata(ok.value)
     check("every metadata value fits Stripe's 500 characters", Object.values(meta).every((v) => v.length <= 500))
