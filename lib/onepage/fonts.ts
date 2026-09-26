@@ -96,12 +96,14 @@ export function onePageFontHrefs(theme: { font_family?: unknown; title_font?: un
 /**
  * For the Design tab's font list, which draws each name in its own face: one
  * request for every family, cut down to the letters of the names, so the
- * list costs a few kilobytes rather than forty fonts.
+ * list costs a few kilobytes rather than forty fonts. The theme cards pass
+ * the letters of the theme names instead.
  */
-export function onePageFontSampleHref(names: string[]): string | null {
+export function onePageFontSampleHref(names: string[], text?: string): string | null {
   const families = names.filter((n) => Object.prototype.hasOwnProperty.call(ONEPAGE_FONTS, n))
   if (families.length === 0) return null
-  const letters = Array.from(new Set(families.join("").split(""))).sort().join("")
+  /* The letters to cut the faces to: the names themselves, or `text` (the theme cards draw each theme's own name). */
+  const letters = Array.from(new Set((text ?? families.join("")).split(""))).sort().join("")
   const q = families.map((f) => `family=${encode(f)}`).join("&")
   return `https://fonts.googleapis.com/css2?${q}&text=${encodeURIComponent(letters)}&display=swap`
 }

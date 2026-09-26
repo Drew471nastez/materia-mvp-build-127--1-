@@ -76,7 +76,20 @@ export const TextInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttri
   },
 )
 
-/** A square box with a check, the size of a fingertip's target around it. */
+/**
+ * A square box with a check, the size of a fingertip's target around it.
+ *
+ * Ticking it moves only opacity and scale: the near-black fill grows out of
+ * the box's middle and the check follows it in a beat later with a little
+ * give; unticking is the same backwards and quicker, so it never lingers. The
+ * box itself sinks a touch while it is pressed, wherever on the row the press
+ * lands.
+ *
+ * A NAMED GROUP, group/check, and not `group`: on a touch screen globals.css
+ * switches off every transition inside a `.group` (the hover flash rule
+ * under `@media (hover: none)`), which is where this box used to lose its
+ * animation on every phone and only ever snapped.
+ */
 export function CheckRow({
   id,
   checked,
@@ -91,8 +104,11 @@ export function CheckRow({
   invalid?: boolean
 }) {
   return (
-    <label htmlFor={id} className="group flex cursor-pointer items-start gap-2.5 py-1 text-[14px] leading-[1.45] text-[#4b5563]">
-      <span className="relative mt-[1px] flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+    <label htmlFor={id} className="group/check flex cursor-pointer items-start gap-2.5 py-1 text-[14px] leading-[1.45] text-[#4b5563] [-webkit-tap-highlight-color:transparent]">
+      <span
+        data-check-box=""
+        className="relative mt-[1px] grid h-[18px] w-[18px] shrink-0 place-items-center transition-[scale] duration-150 ease-out group-active/check:scale-[0.9] motion-reduce:transition-none"
+      >
         <input
           id={id}
           type="checkbox"
@@ -100,19 +116,92 @@ export function CheckRow({
           onChange={(e) => onChange(e.target.checked)}
           aria-invalid={invalid || undefined}
           className={cn(
-            "peer h-[18px] w-[18px] cursor-pointer appearance-none rounded-[5px] border bg-white shadow-[0_1px_1px_rgba(0,0,0,0.04)] transition-colors duration-150",
+            "absolute inset-0 m-0 h-[18px] w-[18px] cursor-pointer appearance-none rounded-[5px] border bg-white shadow-[0_1px_1px_rgba(0,0,0,0.04)]",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]",
-            checked ? "border-[#1a1a2e] bg-[#1a1a2e]" : invalid ? "border-[#dc2626]" : "border-[#c9ccd2] group-hover:border-[#9ca3af]",
+            checked ? "border-[#1a1a2e]" : invalid ? "border-[#dc2626]" : "border-[#c9ccd2] group-hover/check:border-[#9ca3af]",
+          )}
+        />
+        <span
+          aria-hidden
+          data-check-fill=""
+          className={cn(
+            "pointer-events-none absolute inset-0 rounded-[5px] bg-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(17,17,19,0.22)] transition-[opacity,scale] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            checked ? "scale-100 opacity-100 duration-200" : "scale-[0.55] opacity-0 duration-150",
           )}
         />
         <Check
           aria-hidden
           strokeWidth={3}
-          className={cn("pointer-events-none absolute h-3 w-3 text-white transition-[opacity,scale] duration-150", checked ? "scale-100 opacity-100" : "scale-75 opacity-0")}
+          className={cn(
+            "pointer-events-none relative h-3 w-3 text-white transition-[opacity,scale] motion-reduce:transition-none",
+            checked
+              ? "scale-100 opacity-100 delay-[50ms] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+              : "scale-[0.4] opacity-0 duration-100 ease-out",
+          )}
         />
       </span>
       <span className="min-w-0">{children}</span>
     </label>
+  )
+}
+
+/**
+ * ===========================================================================
+ *  OPENS AND CLOSES THE SAME WAY
+ * ===========================================================================
+ * A piece of the page that folds away (the code field, the tip's choices, the
+ * order on a phone). The height goes through grid rows, 0fr to 1fr, which
+ * reaches the content's own height without measuring it, and the content
+ * fades and settles 4px as it goes, so closing is the opening played
+ * backwards rather than a cut.
+ *
+ * `pad` keeps a 3px margin inside the clip so a focused field's ring is not
+ * cut off at the edges; the caller hands it back with a -3px margin around
+ * the whole group. `tall` is for a block of several hundred pixels (the
+ * order on a phone), which reads as rushed at the short pieces' 260ms.
+ */
+export function Reveal({
+  open,
+  children,
+  id,
+  pad = false,
+  tall = false,
+  className,
+}: {
+  open: boolean
+  children: React.ReactNode
+  id?: string
+  pad?: boolean
+  tall?: boolean
+  className?: string
+}) {
+  const time = tall ? "duration-[380ms]" : "duration-[260ms]"
+  return (
+    <div
+      id={id}
+      data-open={open ? "" : undefined}
+      inert={!open}
+      aria-hidden={!open || undefined}
+      className={cn(
+        "grid transition-[grid-template-rows,opacity] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+        time,
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+        className,
+      )}
+    >
+      <div className="min-h-0 overflow-hidden">
+        <div
+          className={cn(
+            "transition-[translate] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            time,
+            open ? "translate-y-0" : tall ? "-translate-y-2" : "-translate-y-1",
+            pad && "p-[3px]",
+          )}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -127,11 +216,19 @@ export function OrDivider() {
   )
 }
 
-export function Spinner({ className }: { className?: string }) {
+/**
+ * `late`: fades in only after 250ms. For a wait that is usually over before
+ * then (a Back through history lands in well under a tenth of a second), so
+ * a quick one shows nothing rather than a flicker, and a slow one still says
+ * it is on its way. Written inline because both animations share one
+ * `animation` property; the fade is globals.css's checkout-paid-in.
+ */
+export function Spinner({ className, late = false }: { className?: string; late?: boolean }) {
   return (
     <span
       aria-hidden
       className={cn("inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent", className)}
+      style={late ? { animation: "spin 1s linear infinite, checkout-paid-in 180ms ease-out 250ms both" } : undefined}
     />
   )
 }
@@ -182,29 +279,36 @@ export function ErrorBanner({ children }: { children: React.ReactNode }) {
 const STRIPE_WORDMARK =
   "M165 144.7l-43.3 9.2-.2 142.4c0 26.3 19.8 43.3 46.1 43.3 14.6 0 25.3-2.7 31.2-5.9v-33.8c-5.7 2.3-33.7 10.5-33.7-15.7V221h33.7v-37.8h-33.7zm89.1 51.6l-2.7-13.1H213v153.2h44.3V233.3c10.5-13.8 28.2-11.1 33.9-9.3v-40.8c-6-2.1-26.7-6-37.1 13.1zm92.3-72.3l-44.6 9.5v36.2l44.6-9.5zM44.9 228.3c0-6.9 5.8-9.6 15.1-9.7 13.5 0 30.7 4.1 44.2 11.4v-41.8c-14.7-5.8-29.4-8.1-44.1-8.1-36 0-60 18.8-60 50.2 0 49.2 67.5 41.2 67.5 62.4 0 8.2-7.1 10.9-17 10.9-14.7 0-33.7-6.1-48.6-14.2v40c16.5 7.1 33.2 10.1 48.5 10.1 36.9 0 62.3-15.8 62.3-47.8 0-52.9-67.9-43.4-67.9-63.4zM640 261.6c0-45.5-22-81.4-64.2-81.4s-67.9 35.9-67.9 81.1c0 53.5 30.3 78.2 73.5 78.2 21.2 0 37.1-4.8 49.2-11.5v-33.4c-12.1 6.1-26 9.8-43.6 9.8-17.3 0-32.5-6.1-34.5-26.9h86.9c.2-2.3.6-11.6.6-15.9zm-87.9-16.8c0-20 12.3-28.4 23.4-28.4 10.9 0 22.5 8.4 22.5 28.4zm-112.9-64.6c-17.4 0-28.6 8.2-34.8 13.9l-2.3-11H363v204.8l44.4-9.4.1-50.2c6.4 4.7 15.9 11.2 31.4 11.2 31.8 0 60.8-23.2 60.8-79.6.1-51.6-29.3-79.7-60.5-79.7zm-10.6 122.5c-10.4 0-16.6-3.8-20.9-8.4l-.3-66c4.6-5.1 11-8.8 21.2-8.8 16.2 0 27.4 18.2 27.4 41.4.1 23.9-10.9 41.8-27.4 41.8zm-126.7 33.7h44.6V183.2h-44.6z"
 
-/** "Powered by stripe | Terms Privacy", under Pay, as Stripe Checkout signs its own. */
+/**
+ * "Powered by stripe · Terms · Privacy", one quiet line just under the main
+ * button, as Stripe Checkout signs its own. On every checkout, a free one
+ * too, so the page ends the same way whatever it costs. Terms and Privacy
+ * are the site's own pages (app/terms, app/privacy), in a new tab so the
+ * order is still here after reading them.
+ */
 export function PoweredByStripe() {
+  const link = "rounded-[4px] px-1 py-1.5 transition-colors hover:text-[#1a1a2e] focus-visible:outline-2 focus-visible:outline-[#1a1a2e]/40"
   return (
-    <div data-powered-by="" className="mt-6 flex items-center justify-center gap-3 text-[12.5px] text-[#6b7280]">
-      <a
-        href="https://stripe.com"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 transition-colors hover:text-[#1a1a2e]"
-      >
+    <p data-powered-by="" className="mt-3.5 flex flex-wrap items-center justify-center gap-x-1 text-[12.5px] text-[#8b919a]">
+      <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className={cn(link, "inline-flex items-center gap-1")}>
         Powered by
-        <svg viewBox="0 120 640 272" aria-label="Stripe" role="img" className="mt-[1px] h-[15px] w-auto" fill="currentColor">
+        <svg viewBox="0 120 640 272" aria-label="Stripe" role="img" className="mt-[1px] h-[14px] w-auto" fill="currentColor">
           <path d={STRIPE_WORDMARK} />
         </svg>
       </a>
-      <span aria-hidden className="h-4 w-px bg-[#d1d5db]" />
-      <a href="/terms" target="_blank" className="transition-colors hover:text-[#1a1a2e]">
+      <span aria-hidden className="text-[#c4c8ce]">
+        ·
+      </span>
+      <a href="/terms" target="_blank" className={link}>
         Terms
       </a>
-      <a href="/privacy" target="_blank" className="transition-colors hover:text-[#1a1a2e]">
+      <span aria-hidden className="text-[#c4c8ce]">
+        ·
+      </span>
+      <a href="/privacy" target="_blank" className={link}>
         Privacy
       </a>
-    </div>
+    </p>
   )
 }
 

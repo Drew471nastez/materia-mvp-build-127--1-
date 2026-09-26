@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 3 of 4
--- Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites.
+-- Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites, product variant columns.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the four files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -278,7 +278,15 @@ DROP POLICY IF EXISTS tca_own ON public.theme_chat_attachments;
 DROP POLICY IF EXISTS tca_own_read ON public.theme_chat_attachments;
 CREATE POLICY tca_own_read ON public.theme_chat_attachments FOR SELECT USING (install_id IN (SELECT i.id FROM public.store_theme_installs i JOIN public.creators c ON c.id = i.creator_id WHERE c.user_id = auth.uid()));
 
--- part 35_order_business_details.sql
+-- part 35_product_variants_columns.sql
+/* Product variants save and reorder: the compare at price and purchase limit columns the editor writes (scripts/055 was never in these parts), the old one variant per position rule taken off (it refused moving a variant up or down), the index the product page and checkout read variants by, and the one checkout counts sold options by. Needs product_variants and orders.variant_id; on a database without product_variants it changes nothing. Until it runs, saving a variant with a compare at price can fail with "column does not exist", and moving a variant can fail with a duplicate key error. */
+ALTER TABLE IF EXISTS public.product_variants ADD COLUMN IF NOT EXISTS compare_at_price_cents integer;
+ALTER TABLE IF EXISTS public.product_variants ADD COLUMN IF NOT EXISTS max_purchases integer;
+ALTER TABLE IF EXISTS public.product_variants DROP CONSTRAINT IF EXISTS product_variants_product_position_unique;
+DO $$ BEGIN IF to_regclass('public.product_variants') IS NOT NULL THEN CREATE INDEX IF NOT EXISTS idx_product_variants_position ON public.product_variants (product_id, position); END IF; END $$;
+DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'orders' AND column_name = 'variant_id') THEN CREATE INDEX IF NOT EXISTS idx_orders_variant_status ON public.orders (variant_id, status) WHERE variant_id IS NOT NULL; END IF; END $$;
+
+-- part 36_order_business_details.sql
 /* The company a buyer bought for, kept on the order: its legal name, tax number and address, as the checkout checked them (lib/checkout/business.ts). The buyer's invoice and the creator's copy of it read it. Adds one column, empty on every order already there; changes no rows. Written by the server only, as every order column is. Until it runs, orders are made as before and the company is read from the payment instead. */
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS business_details jsonb;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.orders'::regclass AND conname = 'orders_business_details_shape') THEN ALTER TABLE public.orders ADD CONSTRAINT orders_business_details_shape CHECK (business_details IS NULL OR (jsonb_typeof(business_details) = 'object' AND pg_column_size(business_details) <= 4096)) NOT VALID; END IF; END $$;

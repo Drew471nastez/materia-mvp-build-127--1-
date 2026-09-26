@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
+import { primaryDepth } from "@/components/ui/depth-button"
 import { createPortal } from "react-dom"
 import {
   Dialog,
@@ -50,6 +51,14 @@ interface Product {
   description?: string
 }
 
+/*
+  ONE CALM TILE FOR EVERY KIND. The kinds were a yellow, a green and a pink
+  square with a white icon, and the Quick add rows a rose, an amber and a
+  blue one: "too colourful". Now each is the line icon in ink on a pale grey
+  tile with a hairline, the way the rest of /app draws an icon beside a row.
+*/
+const QUICK_TILE = "bg-[#f4f4f6] text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(16,24,40,0.06)]"
+
 // Product type options for the modal
 const productTypeOptions = [
   {
@@ -58,7 +67,7 @@ const productTypeOptions = [
     title: "Digital Product",
     description: "PDFs, Guides, Templates, eBooks, etc.",
     icon: Package,
-    color: "bg-amber-500",
+    color: QUICK_TILE,
     badge: "Digital",
     badgeColor: "bg-gray-100 text-gray-600",
   },
@@ -68,7 +77,7 @@ const productTypeOptions = [
     title: "eCourse",
     description: "Create and sell your online course",
     icon: GraduationCap,
-    color: "bg-emerald-500",
+    color: QUICK_TILE,
     badge: "eCourse",
     badgeColor: "bg-gray-100 text-gray-600",
     comingSoon: true,
@@ -79,7 +88,7 @@ const productTypeOptions = [
     title: "Email Capture Form",
     description: "Collect emails from your visitors",
     icon: Mail,
-    color: "bg-rose-500",
+    color: QUICK_TILE,
     badge: "Email",
     badgeColor: "bg-gray-100 text-gray-600",
   },
@@ -338,8 +347,8 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
       {/* Notification Toast - Rendered via Portal */}
       {isMounted && notification.visible && createPortal(
         <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-[calc(58px+env(safe-area-inset-top)+14px)] left-1/2 transform -translate-x-1/2 z-[2147483647] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
-          <div className="flex items-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-lg shadow-xl whitespace-nowrap max-w-[calc(100vw-2rem)]">
-            <Check className="h-4 w-4 text-green-400 shrink-0" />
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-[#111113] text-white rounded-full shadow-[0_1px_2px_rgba(0,0,0,0.2),0_8px_24px_-6px_rgba(0,0,0,0.35)] whitespace-nowrap max-w-[calc(100vw-2rem)]">
+            <Check className="h-4 w-4 text-white shrink-0" strokeWidth={2.5} />
             <span className="min-w-0 truncate text-sm font-medium">{notification.message}</span>
           </div>
         </div>,
@@ -363,7 +372,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
           setIsAddProductSheetPresented(false)
           setShowAddModal(true)
         }}
-        className="w-full h-12 bg-violet-600 hover:bg-violet-700 text-white cursor-pointer"
+        className={cn(primaryDepth, "w-full h-12 rounded-xl text-[15px]")}
         size="lg"
       >
         <Plus className="h-5 w-5 mr-2" />
@@ -374,7 +383,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
       <div className="border rounded-xl overflow-hidden">
         {loading ? (
           <div className="text-center py-12">
-            <div className="animate-spin h-8 w-8 border-2 border-violet-600 border-t-transparent rounded-full mx-auto" />
+            <div className="animate-spin h-8 w-8 border-2 border-[#1a1a2e] border-t-transparent rounded-full mx-auto" />
           </div>
         ) : products.length > 0 ? (
           <div>
@@ -427,7 +436,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
                         disabled={isAdding}
                         className={cn(
                           "shrink-0 min-w-[70px]",
-                          isAdding && "bg-violet-500 hover:bg-violet-600"
+                          isAdding && "bg-[#1a1a2e] hover:bg-[#2a2a40]"
                         )}
                       >
                         {isAdding ? (
@@ -470,10 +479,10 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
               showNotification("Email form added")
               goToLinks()
             }}
-            className="flex items-center gap-4 p-4 border rounded-xl hover:border-violet-300 hover:bg-violet-50/50 transition-all text-left"
+            className="flex items-center gap-4 p-4 border rounded-xl hover:border-[#c9cbd1] hover:bg-[#f7f7f8] transition-all text-left"
           >
-            <div className="w-12 h-12 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
-              <Mail className="h-6 w-6 text-rose-600" />
+            <div className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", QUICK_TILE)}>
+              <Mail className="h-5 w-5" strokeWidth={1.75} />
             </div>
             <div className="flex-1">
               <p className="font-medium">Email Capture Form</p>
@@ -491,10 +500,10 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
               showNotification("Product added")
               goToLinks()
             }}
-            className="flex items-center gap-4 p-4 border rounded-xl hover:border-violet-300 hover:bg-violet-50/50 transition-all text-left"
+            className="flex items-center gap-4 p-4 border rounded-xl hover:border-[#c9cbd1] hover:bg-[#f7f7f8] transition-all text-left"
           >
-            <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-              <Package className="h-6 w-6 text-amber-600" />
+            <div className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", QUICK_TILE)}>
+              <Package className="h-5 w-5" strokeWidth={1.75} />
             </div>
             <div className="flex-1">
               <p className="font-medium">Digital Product</p>
@@ -512,10 +521,10 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
               showNotification("PDF added")
               goToLinks()
             }}
-            className="flex items-center gap-4 p-4 border rounded-xl hover:border-violet-300 hover:bg-violet-50/50 transition-all text-left"
+            className="flex items-center gap-4 p-4 border rounded-xl hover:border-[#c9cbd1] hover:bg-[#f7f7f8] transition-all text-left"
           >
-            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
-              <FileText className="h-6 w-6 text-blue-600" />
+            <div className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", QUICK_TILE)}>
+              <FileText className="h-5 w-5" strokeWidth={1.75} />
             </div>
             <div className="flex-1">
               <p className="font-medium">PDF</p>
@@ -620,11 +629,11 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
                       disabled={isComingSoon}
                       className={cn(
                         "w-full flex items-center gap-3 p-3 border rounded-xl transition-all text-left",
-                        isComingSoon ? "opacity-60 cursor-not-allowed bg-gray-50" : "hover:border-violet-300 hover:bg-violet-50/50"
+                        isComingSoon ? "opacity-60 cursor-not-allowed bg-gray-50" : "hover:border-[#c9cbd1] hover:bg-[#f7f7f8]"
                       )}
                     >
                       <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", option.color, isComingSoon && "opacity-60")}>
-                        <Icon className="h-5 w-5 text-white" />
+                        <Icon className="h-5 w-5" strokeWidth={1.75} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm">{option.title}</p>
@@ -659,11 +668,11 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
                           "flex items-center gap-4 p-4 border rounded-xl transition-all text-left group",
                           isComingSoon
                             ? "opacity-60 cursor-not-allowed bg-gray-50"
-                            : "hover:border-violet-300 hover:bg-violet-50/50"
+                            : "hover:border-[#c9cbd1] hover:bg-[#f7f7f8]"
                         )}
                       >
                         <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", option.color, isComingSoon && "opacity-60")}>
-                          <Icon className="h-6 w-6 text-white" />
+                          <Icon className="h-5 w-5" strokeWidth={1.75} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -679,7 +688,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
                           </div>
                           <p className="text-sm text-muted-foreground mt-0.5">{option.description}</p>
                         </div>
-                        <ChevronRight className={cn("h-5 w-5 text-gray-400 transition-colors", !isComingSoon && "group-hover:text-violet-500")} />
+                        <ChevronRight className={cn("h-5 w-5 text-gray-400 transition-colors", !isComingSoon && "group-hover:text-[#4b5563]")} />
                       </button>
                     )
                   })}

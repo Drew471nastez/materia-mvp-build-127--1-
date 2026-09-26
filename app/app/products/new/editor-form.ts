@@ -114,6 +114,8 @@ export interface LoadedProduct {
   product: EditorProductRow
   assets: EditorAssetRow[]
   variants: EditorVariantRow[]
+  /** The variants could not be read: none are shown, and a save keeps the saved ones rather than deleting them. */
+  variantsUnread?: boolean
 }
 
 export interface EditorCreator {
@@ -306,9 +308,19 @@ export interface SnapshotFields {
   pwywSuggestedPrice: string
 }
 
+/**
+ * A variant as far as "unsaved" goes: what it says, not whether its card is
+ * open or which id it has. Opening a variant used to count as a change, and
+ * so did a new variant taking its saved id, so a product with a new variant
+ * read "Unsaved changes" the moment it was saved.
+ */
+function variantContent({ id: _id, isExpanded: _open, ...rest }: ProductVariant) {
+  return rest
+}
+
 export function snapshotOf(v: SnapshotFields): string {
   return JSON.stringify([
-    v.title, v.description, v.price, v.compareAtPrice, v.mediaItems, v.digitalFiles, v.variants,
+    v.title, v.description, v.price, v.compareAtPrice, v.mediaItems, v.digitalFiles, v.variants.map(variantContent),
     v.whatsIncluded, v.faqs, v.selectedCategory, v.limitSalesEnabled, v.salesLimit, v.callToAction,
     v.showSalesBadge, v.refundPolicyEnabled, v.refundPolicyType, v.payWhatYouWant, v.pwywMinPrice, v.pwywSuggestedPrice,
   ])

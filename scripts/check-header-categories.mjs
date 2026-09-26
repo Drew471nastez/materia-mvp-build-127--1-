@@ -165,6 +165,15 @@ console.log("\n  phone 390")
   expect(s && s.rowH >= 47 && s.rowH <= 50 && s.lucide <= 1, "48px plain rows", s && { rowH: s.rowH, lucide: s.lucide })
   expect(s && s.signIn && s.library, "sign in and My Library are still in it", s && { signIn: s.signIn, library: s.library })
   expect(s && s.libraryUnderButtons, "My Library sits under Sign in and Discover, above the categories", s?.libraryUnderButtons)
+  /* "A bit more space between the drag pill and the buttons", and their labels at 550, not 500. */
+  const top = await p.evaluate(() => {
+    const pill = document.querySelector("[data-app-sheet] [data-sheet-handle] > div").getBoundingClientRect()
+    const signIn = document.querySelector("[data-app-sheet] [data-menu-sign-in]")
+    const discover = document.querySelector("[data-app-sheet] [data-menu-discover]")
+    return { gap: Math.round(signIn.getBoundingClientRect().top - pill.bottom), signIn: getComputedStyle(signIn).fontWeight, discover: getComputedStyle(discover).fontWeight }
+  })
+  expect(top.gap >= 14 && top.gap <= 20, "16px or so between the drag pill and Sign in", top.gap)
+  expect(top.signIn === "550" && top.discover === "550", "Sign in and Discover are labelled at 550", top)
   await p.evaluate(() => {
     window.__slide = []
     const sub = document.querySelector("[data-app-sheet] [data-browse-level=sub]")
@@ -180,16 +189,27 @@ console.log("\n  phone 390")
   await sleep(800)
   const slide = await p.evaluate(() => window.__slide)
   const xs = slide.map((f) => f.x)
-  expect(xs.every((x, i) => i === 0 || x <= xs[i - 1] + 0.5) && xs.at(-1) < 1 && Math.max(...xs) <= 30 && xs.filter((x) => x > 1 && x < 30).length >= 6, "Marketing's level settles in from a little to the right over several frames", xs.filter((_, i) => i % 3 === 0).map(Math.round))
+  const width = await p.evaluate(() => Math.round(document.querySelector("[data-app-sheet] [data-sheet-panel]").getBoundingClientRect().width))
+  /*
+    Changed on purpose, and late: this asked for the old settle, a level
+    that came in from 30px to the right as it faded up. The push that
+    replaced it (d213e388, "more standard, smooth and clean") comes in from
+    the sheet's right edge over the list, and this probe was not moved with
+    it, so it failed on main. It asks for the push now, as
+    scripts/check-explore-browse.mjs does for the More sheet.
+  */
+  expect(xs.every((x, i) => i === 0 || x <= xs[i - 1] + 0.5) && xs.at(-1) < 1 && Math.max(...xs) >= width - 2 && xs.filter((x) => x > 1 && x < width - 2).length >= 6,
+    "Marketing's level is pushed in from the sheet's right edge over several frames", { width, xs: xs.filter((_, i) => i % 3 === 0).map(Math.round) })
   expect(new Set(slide.map((f) => f.top)).size === 1, "and the sheet's top does not move", [...new Set(slide.map((f) => f.top))])
   await p.screenshot({ path: join(shots, "header-390-marketing.png") })
   await p.tap("[data-app-sheet] [data-browse-back]")
   await sleep(500)
   const backAt = await p.evaluate(() => {
     const sub = document.querySelector("[data-app-sheet] [data-browse-level=sub]")
-    return { x: new DOMMatrixReadOnly(getComputedStyle(sub).transform).m41, o: Number(getComputedStyle(sub).opacity) }
+    return { x: Math.round(new DOMMatrixReadOnly(getComputedStyle(sub).transform).m41), visibility: getComputedStyle(sub).visibility }
   })
-  expect(backAt.x >= 20 && backAt.o === 0, "back fades it away", backAt)
+  /* The same change: back slides the level out past the right edge, where it is no longer drawn, rather than fading it. */
+  expect(backAt.x >= width - 1 && backAt.visibility === "hidden", "back slides it out past the right edge, and it is no longer drawn", { ...backAt, width })
   /*
     THE PAGE BEHIND DOES NOT TAKE THE FINGER. The first few pixels of a touch
     used to be left to the browser, which chained them to the page when the
@@ -224,13 +244,14 @@ console.log("\n  phone 390")
     const frame = () => new Promise((r) => requestAnimationFrame(() => r()))
     fire("touchstart", y0)
     const seen = []
-    for (const d of [10, 50, 120]) {
+    /* Past half the sheet: a pull held before the lift closes only there (the sheet's release rule, b0f03cad). It stopped at 120px, which now springs back. */
+    for (const d of [10, 50, 120, 260, 420]) {
       fire("touchmove", y0 + d)
       await frame(); await frame()
       seen.push([d, Math.round(new DOMMatrixReadOnly(getComputedStyle(panel).transform).m42)])
       await new Promise((r) => setTimeout(r, 60))
     }
-    fire("touchend", y0 + 120)
+    fire("touchend", y0 + 420)
     await new Promise((r) => setTimeout(r, 600))
     return { seen, gone: !document.querySelector("[data-app-sheet]") }
   })

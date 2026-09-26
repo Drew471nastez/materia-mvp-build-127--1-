@@ -7,6 +7,7 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { OnePageEditor } from "@/components/onepage/onepage-editor"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
+import { THEME_TEMPLATES } from "@/components/onepage/tabs/design-tab"
 import { defaultTheme, defaultSettings, type OnePage } from "@/lib/onepage/types"
 
 const px = (n: number) =>
@@ -64,8 +65,14 @@ if (location.search.includes("live")) {
     button_color: "#f4efe9",
     button_text_color: "#1a1a2e",
   }
+  /* A probe can hand a whole theme of its own, or name a Design tab template (?live&template=riso): scripts/check-onepage-design.mjs. */
+  const named = new URLSearchParams(location.search).get("template")
+  const template = named ? THEME_TEMPLATES.find((t) => t.id === named) : null
+  const live_theme = template
+    ? { ...defaultTheme, ...template.theme_config, template_id: template.id }
+    : (globalThis as any).PROBE_LIVE_THEME ? { ...defaultTheme, ...(globalThis as any).PROBE_LIVE_THEME } : theme
   const header = { id: "h", type: "header", enabled: true, sort_order: -1, data: { show_avatar: true, show_name: true, show_bio: true } }
-  const live = { ...onepage, theme, blocks: [header, ...onepage.draft_blocks.filter((b) => !b.schedule)], seller_id: "seller_probe" }
+  const live = { ...onepage, theme: live_theme, blocks: [header, ...onepage.draft_blocks.filter((b) => !b.schedule)], seller_id: "seller_probe" }
   createRoot(document.getElementById("app")!).render(<PublicOnePage onepage={live as any} />)
 } else {
   createRoot(document.getElementById("app")!).render(<OnePageEditor initialOnePage={onepage} />)

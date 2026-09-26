@@ -454,7 +454,54 @@ type Props = {
    * above that stop, and a sheet left at its tallest would cover it.
    */
   restKey?: number
+  /**
+   * How long an open or a close the page asks for takes. The house number
+   * for every sheet, shorter for a panel that is summoned and put away often
+   * (Ask Storelib, 320ms). A drag's own release is timed by the finger.
+   */
+  moveMs?: number
+  /**
+   * What a keyboard for a field in this sheet does to it.
+   *
+   *   "sheet"     the sheet makes room: it grows by the keyboard and pads
+   *               its content above it. Right for a form, where the field
+   *               being typed into can be anywhere in a scroller.
+   *   "composer"  the sheet does not move or resize at all. It publishes
+   *               how far the keyboard reaches into it as `--sheet-keys`
+   *               and how far iOS panned the page as `--sheet-pan`, and the
+   *               content moves ONE row, the composer, by a transform. For a
+   *               conversation, where the field is always the last row and a
+   *               thread laid out again under a moving keyboard is the jump
+   *               and the white gap that were reported.
+   */
+  keyboard?: "sheet" | "composer"
+  /**
+   * The sheet fades as it moves when the page opens or closes it: in quickly
+   * as it rises, out as it falls. Opacity on the sheet's own layer, so still
+   * compositor work. Never while a finger holds it: a dragged sheet is solid.
+   */
+  fadeOnMove?: boolean
 }
+
+/**
+ * ===========================================================================
+ *  A TAP THAT STARTED ON THE SHEET ENDS ON THE SHEET
+ * ===========================================================================
+ * A browser does not send the click of a tap to the element the finger
+ * pressed. It sends it to whatever is under the finger when the click is
+ * made, a moment after the finger lifts. If the sheet moved in that moment
+ * (a tap that caught it mid-slide, and so let it carry on; a release that
+ * snapped it), the click lands on the canvas where the sheet used to be and
+ * selects a section nobody tapped. That is the "click through" reported on
+ * the Sections / Pages / Theme sheet.
+ *
+ * So for a short while after a touch that began on the sheet, the mouse
+ * events a browser makes up for it are only allowed to land on the sheet.
+ * One that lands anywhere else, near where the finger was, is dropped. A
+ * real mouse is untouched: it has no touch before it.
+ */
+const GHOST_CLICK_MS = 700
+const GHOST_CLICK_PX = 32
 
 export function MobileEditorSheet({
   open,
@@ -467,7 +514,11 @@ export function MobileEditorSheet({
   layer = "base",
   fit = false,
   restKey,
+  moveMs = SNAP_DURATION_MS,
+  keyboard: keyboardMode = "sheet",
+  fadeOnMove = false,
 }: Props) {
+  const composerKeys = keyboardMode === "composer"
   const sheetRef = React.useRef<HTMLDivElement>(null)
   /** The grab bar. A touch that starts here is a drag and needs no arbitration. */
   const handleRef = React.useRef<HTMLDivElement>(null)
@@ -905,7 +956,21 @@ export function MobileEditorSheet({
    * sheet-gestures.ts explains why the offsets are left alone.
    */
   const ceiling = keyboardCeiling({ viewport, tallestHeight: natural, safeTop, visibleTop, barBottom: barEdge })
-  const height = sheetHeightWithKeyboard(detentHeight, keyboardInset, ceiling)
+  /* A composer sheet never changes size for a keyboard: see `keyboard` in Props. */
+  const height = composerKeys ? detentHeight : sheetHeightWithKeyboard(detentHeight, keyboardInset, ceiling)
+  /**
+   * WHAT THE COMPOSER RIDES ON, for a "composer" sheet. The keyboard covers
+   * `keyboardInset` of the fixed box and iOS may have panned the page by
+   * `visibleTop` to show the field; the content is moved back down by the
+   * pan (`--sheet-pan`), so the composer has to rise by both, less the home
+   * indicator and toolbar strip it already sits above. The sum is the
+   * keyboard's whole height, which is why it stays still while iOS pans:
+   * the pan moves the page, not the keyboard.
+   */
+  const bottomReservePx = peekInset + chromeGap
+  const composerLift =
+    composerKeys && keyboardHere ? Math.max(0, Math.round(keyboardInset + visibleTop - bottomReservePx)) : 0
+  const composerPan = composerKeys && keyboardHere ? Math.max(0, Math.round(visibleTop)) : 0
 
   /**
    * translateY for each stop, tallest first — and SORTED, which is the whole
@@ -1275,6 +1340,21 @@ export function MobileEditorSheet({
   }
 
   /**
+   * The sheet's own fade, for `fadeOnMove`: after setTransition, which it adds
+   * to. In over the first part of the rise so the panel is solid well before
+   * it lands; out over the whole fall, on an ease in, so it is still there
+   * while it leaves.
+   */
+  const fadeSheet = (nowOpen: boolean, ms: number) => {
+    const sheet = sheetRef.current
+    if (!fadeOnMove || !sheet) return
+    const fade = nowOpen ? `opacity ${Math.round(ms * 0.6)}ms ease-out` : `opacity ${ms}ms cubic-bezier(0.4, 0, 1, 1)`
+    const moving = sheet.style.transition
+    sheet.style.transition = moving && moving !== "none" ? `${moving}, ${fade}` : fade
+    sheet.style.opacity = nowOpen ? "1" : "0"
+  }
+
+  /**
    * A sheet with no peek is entirely off screen when closed, and a thing that
    * is off screen should not be painted, nor cast its shadow up onto the
    * bottom edge. Hidden once the close has landed, shown the instant it is
@@ -1479,8 +1559,64 @@ export function MobileEditorSheet({
     const sheet = sheetRef.current
     if (!sheet) return
     sheet.style.visibility = peekHeight === 0 && !openRef.current ? "hidden" : "visible"
+    if (fadeOnMove) sheet.style.opacity = openRef.current ? "1" : "0"
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted])
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   *  THE FIRST OPEN IS A MOVE TOO
+   * ═══════════════════════════════════════════════════════════════════════
+   * A sheet the page mounts at the moment it is opened (Ask Storelib, the
+   * first time its button is pressed) was drawn straight at its stop: the
+   * position it renders at IS the open one, so there was nothing for a
+   * transition to run from, and the conversation appeared in one frame with
+   * the backdrop already dark. Every later open slid, which made the first
+   * one feel broken.
+   *
+   * So its first frame is drawn closed, with the backdrop clear, read back
+   * so the browser has that as its starting point, and the move starts on
+   * the next frame: the one after the content inside has been built, so the
+   * slide does not share its first frame with that work. Transform and
+   * opacity only. A sheet that mounts closed, or has a peek, is already
+   * where it should start.
+   */
+  const entered = React.useRef(false)
+  const enterFrame = React.useRef(0)
+  React.useLayoutEffect(() => {
+    if (!mounted || entered.current || viewport <= 0) return
+    entered.current = true
+    if (peekHeight > 0 || !open || prefersReducedMotion()) return
+    const sheet = sheetRef.current
+    const overlay = overlayRef.current
+    if (!sheet) return
+    sheet.style.transition = "none"
+    sheet.style.transform = `translateY(${closedY}px)`
+    if (fadeOnMove) sheet.style.opacity = "0"
+    if (overlay) {
+      overlay.style.transition = "none"
+      overlay.style.opacity = "0"
+    }
+    drag.current.currentY = closedY
+    /* One read, so the closed position is the style the move starts from. */
+    void sheet.getBoundingClientRect()
+    enterFrame.current = requestAnimationFrame(() => {
+      enterFrame.current = 0
+      if (drag.current.active || !openRef.current) return
+      const target = restYRef.current
+      if (drag.current.currentY === target) return
+      const ms = motionMs(moveMs)
+      setTransition(true, ms)
+      drag.current.currentY = target
+      motionUntil.current = performance.now() + ms
+      settleVisibility(true, ms)
+      applyTransformNow(target)
+      settleOverlay(true)
+      fadeSheet(true, ms)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, viewport])
+  React.useEffect(() => () => cancelAnimationFrame(enterFrame.current), [])
 
   /**
    * Sync whenever `open` changes from outside — a tab, a menu, the overlay.
@@ -1514,13 +1650,14 @@ export function MobileEditorSheet({
     const target = open ? settledY : closedY
     if (drag.current.currentY === target) return
     stopResizeMove()
-    const ms = motionMs(SNAP_DURATION_MS)
+    const ms = motionMs(moveMs)
     setTransition(true, ms)
     drag.current.currentY = target
     motionUntil.current = performance.now() + ms
     settleVisibility(open, ms)
     applyTransformNow(target)
     settleOverlay(open)
+    fadeSheet(open, ms)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, settledY, closedY, settleTick])
 
@@ -1646,6 +1783,8 @@ export function MobileEditorSheet({
     drag.current.rawY = drag.current.currentY
     setTransition(false)
     if (caught) applyTransformNow(drag.current.currentY)
+    /* A sheet under a finger is solid, whatever fade it was in. */
+    if (fadeOnMove && sheet) sheet.style.opacity = "1"
     settleVisibility(true)
     const overlay = overlayRef.current
     if (overlay) overlay.style.pointerEvents = "none"
@@ -1751,6 +1890,7 @@ export function MobileEditorSheet({
     motionUntil.current = performance.now() + ms
     settleVisibility(willBeOpen, ms)
     settleOverlay(willBeOpen)
+    fadeSheet(willBeOpen, ms)
     if (s.active) beginSettle(s.targetY, s.index, s.nowOpen, ms, s.openAtStart)
     else scheduleRoom(target)
   }
@@ -1856,6 +1996,7 @@ export function MobileEditorSheet({
     const nowOpen = index < list.length - 1
     settleVisibility(nowOpen, ms)
     settleOverlay(nowOpen)
+    fadeSheet(nowOpen, ms)
     /* The rest of what a release means is told once the sheet has arrived. */
     beginSettle(targetY, index, nowOpen, ms)
     return tapped
@@ -1885,8 +2026,14 @@ export function MobileEditorSheet({
       lastTouch.current = { at: performance.now(), x: t?.clientX ?? 0, y: t?.clientY ?? 0 }
     }
 
+    /* The tap the ghost-click guard is watching for; see GHOST_CLICK_MS. */
+    let press: { x: number; y: number; travel: number } | null = null
+    let ghost: { until: number; x: number; y: number } | null = null
+
     const onStart = (e: TouchEvent) => {
       noteTouch(e)
+      const first = e.touches[0]
+      press = e.touches.length === 1 && first ? { x: first.clientX, y: first.clientY, travel: 0 } : null
       // A pinch is not a drag. Anything already in flight is abandoned rather
       // than left half-owned by a finger that has stopped reporting, and it
       // was not a tap on the grab bar, however quickly the second finger came.
@@ -1920,6 +2067,8 @@ export function MobileEditorSheet({
     }
 
     const onMove = (e: TouchEvent) => {
+      const moved = e.touches[0]
+      if (press && moved) press.travel = Math.max(press.travel, Math.hypot(moved.clientX - press.x, moved.clientY - press.y))
       if (!drag.current.active || e.touches.length !== 1) return
       const touch = e.touches[0]
       /* Timed by when the finger was there, not when this ran; see eventTime. */
@@ -1934,6 +2083,12 @@ export function MobileEditorSheet({
 
     const onEnd = (e: TouchEvent) => {
       noteTouch(e)
+      /* A tap that began on the sheet: its click may only land on the sheet. */
+      const lifted = e.changedTouches[0]
+      if (press && e.type === "touchend" && press.travel < 10 && lifted) {
+        ghost = { until: performance.now() + GHOST_CLICK_MS, x: lifted.clientX, y: lifted.clientY }
+      }
+      press = null
       if (!drag.current.active) return
       /**
        * A tap on the grab bar has been answered, so the mouse events a
@@ -1974,11 +2129,47 @@ export function MobileEditorSheet({
      */
     window.addEventListener("touchend", onEnd)
     window.addEventListener("touchcancel", onEnd)
+
+    /*
+      THE GUARD ITSELF. Capture on the window, so it is ahead of the canvas's
+      own capture handlers and React's. Only near the finger, only for a
+      moment, and only off the sheet: the click the tap was for, on the
+      sheet, goes through and ends the watch.
+    */
+    const onGhost = (e: MouseEvent) => {
+      const g = ghost
+      if (!g) return
+      if (performance.now() > g.until) {
+        ghost = null
+        return
+      }
+      const target = e.target instanceof Node ? e.target : null
+      if (target && sheet.contains(target)) {
+        if (e.type === "click") ghost = null
+        return
+      }
+      if (Math.hypot(e.clientX - g.x, e.clientY - g.y) > GHOST_CLICK_PX) return
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.type === "click") ghost = null
+    }
+    /* A new finger somewhere else is a new tap, not the old one's click. */
+    const onAnyTouch = (e: TouchEvent) => {
+      if (!(e.target instanceof Node) || !sheet.contains(e.target)) ghost = null
+    }
+    window.addEventListener("mousedown", onGhost, true)
+    window.addEventListener("mouseup", onGhost, true)
+    window.addEventListener("click", onGhost, true)
+    window.addEventListener("touchstart", onAnyTouch, { capture: true, passive: true })
     return () => {
       sheet.removeEventListener("touchstart", onStart)
       sheet.removeEventListener("touchmove", onMove)
       window.removeEventListener("touchend", onEnd)
       window.removeEventListener("touchcancel", onEnd)
+      window.removeEventListener("mousedown", onGhost, true)
+      window.removeEventListener("mouseup", onGhost, true)
+      window.removeEventListener("click", onGhost, true)
+      window.removeEventListener("touchstart", onAnyTouch, true)
     }
     // `mounted` is the dependency that matters: the sheet is not in the DOM
     // until it is true, so an effect that ran once on the server-safe first
@@ -2072,8 +2263,10 @@ export function MobileEditorSheet({
    * a transform: see the resize move above `lastHeight`. The only property
    * this transitions is the one the compositor can run on its own.
    */
-  const motion = dragging ? "none" : `transform ${SNAP_DURATION_MS}ms ${SNAP_EASING}`
-  const fade = dragging ? "none" : `opacity ${FADE_MS}ms ${FADE_EASING}`
+  const motion = dragging
+    ? "none"
+    : `transform ${moveMs}ms ${SNAP_EASING}${fadeOnMove ? `, opacity ${fadeMs(moveMs)}ms ${FADE_EASING}` : ""}`
+  const fade = dragging ? "none" : `opacity ${fadeMs(moveMs)}ms ${FADE_EASING}`
 
   return createPortal(
     <>
@@ -2167,7 +2360,11 @@ export function MobileEditorSheet({
            * well lifted Cancel and Save off the keyboard by a band of empty
            * sheet. See lib/website-builder/sheet-reserve.ts.
            */
-          paddingBottom: sheetBottomReserve(chromeGap, keyboardInset, visibleTop > 0),
+          paddingBottom: composerKeys ? sheetBottomReserve(chromeGap, 0) : sheetBottomReserve(chromeGap, keyboardInset, visibleTop > 0),
+          /* A composer sheet's keyboard, for the content to move by (see `keyboard` in Props). */
+          ...(composerKeys
+            ? ({ "--sheet-keys": `${composerLift}px`, "--sheet-pan": `${composerPan}px` } as React.CSSProperties)
+            : null),
           /**
            * `pan-y`, not `none`. `none` would hand every touch to us and kill
            * native scrolling inside the sheet — smooth, momentum-carrying,

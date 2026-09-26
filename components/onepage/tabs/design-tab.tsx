@@ -29,12 +29,13 @@ import {
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { usePhone } from "@/components/app/date-range-picker"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { familyOf, fontStack, onePageFontSampleHref } from "@/lib/onepage/fonts"
 import { normalizeHex } from "@/lib/onepage/color"
-import { WALLPAPER_PATTERNS, isPatternId, type PatternOpacity } from "@/lib/onepage/wallpaper"
+import { WALLPAPER_PATTERNS, isPatternId, patternStyle, type PatternOpacity } from "@/lib/onepage/wallpaper"
 import { WallpaperPattern } from "@/components/onepage/wallpaper-layers"
 import {
   ChoiceCard,
@@ -143,7 +144,19 @@ const BACKGROUND_IMAGES = [
   { id: "abstract-dark", url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/19fef3f73560866d37752eb95418f4bb.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMTlmZWYzZjczNTYwODY2ZDM3NzUyZWI5NTQxOGY0YmIuanBnIiwiaWF0IjoxNzY4OTA3Njk5LCJleHAiOjM5MzI1NjgxMTY5OX0.ThQFYyEylNyx07kOmK9oBiZ9JqqCNHeFJJ-zZAa_7R8", label: "Abstract Dark" },
 ]
 
-const THEME_TEMPLATES = [
+/*
+  THE THEMES. Each one a different kind of page, not the same page in
+  another colour: paper and ink (Studio, Cream, Riso), a bold block of
+  colour with hard shadows (Blocks), warm and cool gradients (Sunset, Peach,
+  Ocean, Aurora), quiet darks (Olive, Astrid, Night, Midnight, Space), one
+  loud one (Neon) and two photographs. No violet: Blocks was a violet to pink
+  gradient, Aurora violet glass, Night a violet black with lilac buttons and
+  Fusion violet buttons; each is now its own thing under the same name, so a
+  page that chose one keeps the id it saved. What a page has saved is its own
+  copy of the settings and is not touched. Riso and Olive are new. Only
+  settings the editor already has, so each can be changed piece by piece.
+*/
+export const THEME_TEMPLATES = [
   {
     id: "default",
     name: "Default",
@@ -187,216 +200,65 @@ const THEME_TEMPLATES = [
     category: "light",
     theme_config: {
       background_type: "solid" as const,
-      background_color: "#f8fafc",
+      background_color: "#eef0f3",
       background_gradient: "",
       background_image_url: "",
-      text_color: "#0f172a",
-      secondary_text_color: "#64748b",
-      button_color: "#0f172a",
-      button_text_color: "#ffffff",
+      text_color: "#111827",
+      secondary_text_color: "#6b7280",
+      button_color: "#ffffff",
+      button_text_color: "#111827",
       button_style: "filled" as const,
-      button_border_radius: 8,
+      button_border_radius: 14,
       button_border_width: 0,
-      button_border_color: "#0f172a",
+      button_border_color: "#e5e7eb",
       button_shadow: "subtle",
       font_family: "'Inter', sans-serif",
-      title_font: "'Inter', sans-serif",
-      title_color: "#0f172a",
-      social_icon_color: "#64748b",
+      title_font: "'DM Sans', sans-serif",
+      title_color: "#111827",
+      social_icon_color: "#374151",
       spacing: "normal" as const,
       card_width: "standard" as const,
       laser_glow_enabled: true,
       laser_glow_color: "#dbdbdb",
       laser_glow_intensity: "medium",
     },
-    // AIR theme with light background - use dark button text for outline/glass styles
-    light_button_text_color: "#0f172a",
-    // Air theme uses white share/subscribe button styles
+    // White cards on a cool grey: dark text for outline and glass buttons
+    light_button_text_color: "#111827",
     share_style: "white",
     subscribe_style: "white",
   },
   {
-    id: "astrid",
-    name: "Astrid",
-    category: "dark",
+    id: "studio",
+    name: "Studio",
+    category: "light",
     theme_config: {
       background_type: "solid" as const,
-      background_color: "#0a0a0a",
+      background_color: "#f6f3ee",
       background_gradient: "",
       background_image_url: "",
-      text_color: "#ffffff",
-      secondary_text_color: "#a1a1aa",
-      button_color: "#27272a",
-      button_text_color: "#ffffff",
-      button_style: "filled" as const,
-      button_border_radius: 12,
-      button_border_width: 1,
-      button_border_color: "#3f3f46",
-      button_shadow: "none",
-      font_family: "'Inter', sans-serif",
-      title_font: "'Montserrat', sans-serif",
-      title_color: "#ffffff",
-      social_icon_color: "#a1a1aa",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      laser_glow_enabled: true,
-      laser_glow_color: "#303030",
-      laser_glow_intensity: "medium",
-    },
-    // Astrid theme uses glassmorphism for share/subscribe icons
-    share_style: "glassmorphism",
-    subscribe_style: "glassmorphism",
-  },
-  {
-    id: "blocks",
-    name: "Blocks",
-    category: "gradient",
-    theme_config: {
-      background_type: "gradient" as const,
-      background_color: "#7c3aed",
-      background_gradient: "linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #ec4899 100%)",
-      background_image_url: "",
-      text_color: "#ffffff",
-      secondary_text_color: "#e9d5ff",
+      text_color: "#1c1917",
+      secondary_text_color: "#78716c",
       button_color: "#ffffff",
-      button_text_color: "#7c3aed",
+      button_text_color: "#1c1917",
       button_style: "filled" as const,
-      button_border_radius: 12,
-      button_border_width: 0,
-      button_border_color: "#ffffff",
-      button_shadow: "hard",
-      button_shadow_color: "#6a197b",
-      font_family: "'Poppins', sans-serif",
-      title_font: "'Poppins', sans-serif",
-      title_color: "#ffffff",
-      social_icon_color: "#ffffff",
-      social_icon_style: "filled",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      // Blocks theme: laser glow off, grid pattern with low opacity
-      laser_glow_enabled: false,
-      background_pattern: "grid",
-      pattern_opacity: "low",
-      pattern_color: "#c9c9c990",
-    },
-    // Button text colors for different styles
-    solid_button_text_color: "#7c3aed",
-    outline_button_text_color: "#ffffff",
-    glass_button_text_color: "#ffffff",
-    // Blocks theme uses white share/subscribe button styles
-    share_style: "white",
-    subscribe_style: "white",
-  },
-  {
-    id: "ocean",
-    name: "Ocean",
-    category: "gradient",
-    theme_config: {
-      background_type: "gradient" as const,
-      background_color: "#0ea5e9",
-      background_gradient: "linear-gradient(180deg, #0c4a6e 0%, #0369a1 50%, #0ea5e9 100%)",
-      background_image_url: "",
-      text_color: "#ffffff",
-      secondary_text_color: "#bae6fd",
-      button_color: "rgba(255, 255, 255, 0.15)",
-      button_text_color: "#ffffff",
-      button_style: "glass" as const,
-      button_border_radius: 24,
-      button_border_width: 1,
-      button_border_color: "rgba(255, 255, 255, 0.2)",
-      button_shadow: "subtle",
-      font_family: "'Nunito', sans-serif",
-      title_font: "'Nunito', sans-serif",
-      title_color: "#ffffff",
-      social_icon_color: "#bae6fd",
-      social_icon_style: "outline",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      // Ocean theme: waves pattern with low opacity
-      background_pattern: "waves",
-      pattern_opacity: "low",
-      pattern_color: "#428ad790",
-    },
-    // Ocean theme uses white share/subscribe button styles
-    share_style: "white",
-    subscribe_style: "white",
-  },
-  {
-    id: "sunset",
-    name: "Sunset",
-    category: "gradient",
-    theme_config: {
-      background_type: "gradient" as const,
-      background_color: "#f97316",
-      background_gradient: "linear-gradient(135deg, #f97316 0%, #ef4444 50%, #ec4899 100%)",
-      background_image_url: "",
-      text_color: "#ffffff",
-      secondary_text_color: "#fed7aa",
-      button_color: "#ffffff",
-      button_text_color: "#ea580c",
-      button_style: "filled" as const,
-      button_border_radius: 16,
-      button_border_width: 0,
-      button_border_color: "#ffffff",
-      button_shadow: "strong",
-      font_family: "'Poppins', sans-serif",
-      title_font: "'Playfair Display', serif",
-      title_color: "#ffffff",
-      social_icon_color: "#ffffff",
-      social_icon_style: "filled",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      // Sunset theme: organic pattern with low opacity
-      background_pattern: "organic",
-      pattern_opacity: "low",
-      pattern_color: "#ffcccc90",
-    },
-    // Sunset theme uses white share/subscribe button styles
-    share_style: "white",
-    subscribe_style: "white",
-    // Button text colors for different styles
-    solid_button_text_color: "#ea580c",
-    outline_button_text_color: "#ffffff",
-    glass_button_text_color: "#ffffff",
-  },
-  {
-    id: "midnight",
-    name: "Midnight",
-    category: "dark",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#020617",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#f8fafc",
-      secondary_text_color: "#94a3b8",
-      button_color: "rgba(255, 255, 255, 0.1)",
-      button_text_color: "#ffffff",
-      button_style: "glass" as const,
       button_border_radius: 10,
       button_border_width: 1,
-      button_border_color: "#182b49",
-      button_shadow: "subtle",
-      font_family: "'Inter', sans-serif",
-      title_font: "'Oswald', sans-serif",
-      title_color: "#f8fafc",
-      social_icon_color: "#3b82f6",
+      button_border_color: "#1c1917",
+      button_shadow: "hard",
+      font_family: "'DM Sans', sans-serif",
+      title_font: "'Space Grotesk', sans-serif",
+      title_color: "#1c1917",
+      social_icon_color: "#1c1917",
       spacing: "normal" as const,
       card_width: "standard" as const,
-      // Midnight theme: hero layout, laser glow off, zoom button animation
-      header_layout: "hero",
+      header_layout: "classic",
+      background_pattern: "none",
       laser_glow_enabled: false,
-      button_hover_animation: "zoom",
-      // Midnight only allows stars pattern - stars enabled by default with white color
-      allowed_patterns: ["none", "stars"],
-      background_pattern: "stars",
-      pattern_color: "#ffffff",
-      pattern_opacity: "medium",
     },
-    profile_layout: "hero" as const,
-    // Midnight theme uses glassmorphism for share/subscribe buttons
-    share_style: "glassmorphism",
-    subscribe_style: "glassmorphism",
+    profile_layout: "classic" as const,
+    light_button_text_color: "#1c1917",
+    share_style: "white",
+    subscribe_style: "white",
   },
   {
     id: "cream",
@@ -439,6 +301,348 @@ const THEME_TEMPLATES = [
     glass_button_text_color: "#37342a",
   },
   {
+    id: "riso",
+    name: "Riso",
+    category: "light",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#f3efe6",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#2340c7",
+      secondary_text_color: "#4b5fb8",
+      button_color: "#2340c7",
+      button_text_color: "#2340c7",
+      button_style: "outline" as const,
+      button_border_radius: 0,
+      button_border_width: 2,
+      button_border_color: "#2340c7",
+      button_shadow: "none",
+      font_family: "'Space Grotesk', sans-serif",
+      title_font: "'Bebas Neue', sans-serif",
+      title_color: "#2340c7",
+      social_icon_color: "#2340c7",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "dots",
+      pattern_color: "#2340c750",
+      pattern_opacity: "low",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#2340c7",
+    outline_button_text_color: "#2340c7",
+    solid_button_text_color: "#f3efe6",
+    glass_button_text_color: "#2340c7",
+    share_style: "white",
+    subscribe_style: "white",
+  },
+  {
+    id: "blocks",
+    name: "Blocks",
+    category: "light",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#ffd23f",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#111111",
+      secondary_text_color: "#3f3a24",
+      button_color: "#ffffff",
+      button_text_color: "#111111",
+      button_style: "filled" as const,
+      button_border_radius: 0,
+      button_border_width: 2,
+      button_border_color: "#111111",
+      button_shadow: "hard",
+      button_shadow_color: "#111111",
+      font_family: "'Space Grotesk', sans-serif",
+      title_font: "'Archivo Black', sans-serif",
+      title_color: "#111111",
+      social_icon_color: "#111111",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      laser_glow_enabled: false,
+      background_pattern: "grid",
+      pattern_opacity: "low",
+      pattern_color: "#11111140",
+    },
+    solid_button_text_color: "#111111",
+    outline_button_text_color: "#111111",
+    glass_button_text_color: "#111111",
+    light_button_text_color: "#111111",
+    share_style: "black",
+    subscribe_style: "black",
+  },
+  {
+    id: "sunset",
+    name: "Sunset",
+    category: "gradient",
+    theme_config: {
+      background_type: "gradient" as const,
+      background_color: "#e98a64",
+      background_gradient: "linear-gradient(180deg, #f7c59f 0%, #e98a64 55%, #c4553b 100%)",
+      background_image_url: "",
+      text_color: "#ffffff",
+      secondary_text_color: "#fde8dc",
+      button_color: "#fff8f2",
+      button_text_color: "#8a3320",
+      button_style: "filled" as const,
+      button_border_radius: 16,
+      button_border_width: 0,
+      button_border_color: "#ffffff",
+      button_shadow: "subtle",
+      button_shadow_color: "#7a2e1b",
+      font_family: "'DM Sans', sans-serif",
+      title_font: "'Playfair Display', serif",
+      title_color: "#ffffff",
+      social_icon_color: "#ffffff",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      background_pattern: "grain",
+      pattern_opacity: "low",
+      pattern_color: "#ffffff90",
+    },
+    share_style: "white",
+    subscribe_style: "white",
+    solid_button_text_color: "#8a3320",
+    outline_button_text_color: "#ffffff",
+    glass_button_text_color: "#ffffff",
+  },
+  {
+    id: "peach",
+    name: "Peach",
+    category: "gradient",
+    theme_config: {
+      background_type: "gradient" as const,
+      background_color: "#fb923c",
+      background_gradient: "linear-gradient(160deg, #fed7aa 0%, #fdba74 40%, #fb7185 100%)",
+      background_image_url: "",
+      text_color: "#431407",
+      secondary_text_color: "#7c2d12",
+      button_color: "rgba(255, 255, 255, 0.55)",
+      button_text_color: "#431407",
+      button_style: "glass" as const,
+      button_border_radius: 999,
+      button_border_width: 1,
+      button_border_color: "rgba(255, 255, 255, 0.7)",
+      button_shadow: "subtle",
+      font_family: "'Poppins', sans-serif",
+      title_font: "'Playfair Display', serif",
+      title_color: "#431407",
+      social_icon_color: "#431407",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+    },
+    light_button_text_color: "#431407",
+    share_style: "white",
+    subscribe_style: "white",
+  },
+  {
+    id: "ocean",
+    name: "Ocean",
+    category: "gradient",
+    theme_config: {
+      background_type: "gradient" as const,
+      background_color: "#0ea5e9",
+      background_gradient: "linear-gradient(180deg, #0c4a6e 0%, #0369a1 50%, #0ea5e9 100%)",
+      background_image_url: "",
+      text_color: "#ffffff",
+      secondary_text_color: "#bae6fd",
+      button_color: "rgba(255, 255, 255, 0.15)",
+      button_text_color: "#ffffff",
+      button_style: "glass" as const,
+      button_border_radius: 24,
+      button_border_width: 1,
+      button_border_color: "rgba(255, 255, 255, 0.2)",
+      button_shadow: "subtle",
+      font_family: "'Nunito', sans-serif",
+      title_font: "'Nunito', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#bae6fd",
+      social_icon_style: "outline",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      // Ocean theme: waves pattern with low opacity
+      background_pattern: "waves",
+      pattern_opacity: "low",
+      pattern_color: "#428ad790",
+    },
+    // Ocean theme uses white share/subscribe button styles
+    share_style: "white",
+    subscribe_style: "white",
+  },
+  {
+    id: "aurora",
+    name: "Aurora",
+    category: "gradient",
+    theme_config: {
+      background_type: "gradient" as const,
+      background_color: "#0b3a33",
+      background_gradient: "linear-gradient(165deg, #04110f 0%, #0b3a33 50%, #1d7a63 100%)",
+      background_image_url: "",
+      text_color: "#ecfdf5",
+      secondary_text_color: "#a7d7c5",
+      button_color: "rgba(255, 255, 255, 0.12)",
+      button_text_color: "#ecfdf5",
+      button_style: "glass" as const,
+      button_border_radius: 16,
+      button_border_width: 1,
+      button_border_color: "rgba(236, 253, 245, 0.28)",
+      button_shadow: "none",
+      font_family: "'Sora', sans-serif",
+      title_font: "'Sora', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#a7f3d0",
+      background_pattern: "none",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      animated_gradient: false,
+    },
+  },
+  {
+    id: "olive",
+    name: "Olive",
+    category: "dark",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#2e3526",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#efe9d8",
+      secondary_text_color: "#b9b39f",
+      button_color: "#efe9d8",
+      button_text_color: "#2e3526",
+      button_style: "filled" as const,
+      button_border_radius: 999,
+      button_border_width: 0,
+      button_border_color: "#efe9d8",
+      button_shadow: "none",
+      font_family: "'DM Sans', sans-serif",
+      title_font: "'Crimson Text', serif",
+      title_color: "#efe9d8",
+      social_icon_color: "#efe9d8",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "linen",
+      pattern_color: "#efe9d830",
+      pattern_opacity: "low",
+    },
+    profile_layout: "classic" as const,
+    solid_button_text_color: "#2e3526",
+    outline_button_text_color: "#efe9d8",
+    glass_button_text_color: "#efe9d8",
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
+  },
+  {
+    id: "astrid",
+    name: "Astrid",
+    category: "dark",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#0a0a0a",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#ffffff",
+      secondary_text_color: "#a1a1aa",
+      button_color: "#27272a",
+      button_text_color: "#ffffff",
+      button_style: "filled" as const,
+      button_border_radius: 12,
+      button_border_width: 1,
+      button_border_color: "#3f3f46",
+      button_shadow: "none",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Montserrat', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#a1a1aa",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      laser_glow_enabled: true,
+      laser_glow_color: "#303030",
+      laser_glow_intensity: "medium",
+    },
+    // Astrid theme uses glassmorphism for share/subscribe icons
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
+  },
+  {
+    id: "night",
+    name: "Night",
+    category: "dark",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#0d1117",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#f3efe6",
+      secondary_text_color: "#9aa3ad",
+      button_color: "#161b22",
+      button_text_color: "#f3efe6",
+      button_style: "filled" as const,
+      button_border_radius: 12,
+      button_border_width: 1,
+      button_border_color: "#2b333d",
+      button_shadow: "none",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Source Serif Pro', serif",
+      title_color: "#f3efe6",
+      social_icon_color: "#c9c4b8",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      laser_glow_enabled: true,
+      laser_glow_color: "#2b3542",
+      laser_glow_intensity: "medium",
+    },
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
+  },
+  {
+    id: "midnight",
+    name: "Midnight",
+    category: "dark",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#020617",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#f8fafc",
+      secondary_text_color: "#94a3b8",
+      button_color: "rgba(255, 255, 255, 0.1)",
+      button_text_color: "#ffffff",
+      button_style: "glass" as const,
+      button_border_radius: 10,
+      button_border_width: 1,
+      button_border_color: "#182b49",
+      button_shadow: "subtle",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Oswald', sans-serif",
+      title_color: "#f8fafc",
+      social_icon_color: "#3b82f6",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      // Midnight theme: hero layout, laser glow off, zoom button animation
+      header_layout: "hero",
+      laser_glow_enabled: false,
+      button_hover_animation: "zoom",
+      // Midnight only allows stars pattern - stars enabled by default with white color
+      allowed_patterns: ["none", "stars"],
+      background_pattern: "stars",
+      pattern_color: "#ffffff",
+      pattern_opacity: "medium",
+    },
+    profile_layout: "hero" as const,
+    // Midnight theme uses glassmorphism for share/subscribe buttons
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
+  },
+  {
     id: "space",
     name: "Space",
     category: "dark",
@@ -472,35 +676,6 @@ const THEME_TEMPLATES = [
     // Space theme uses black share/subscribe button styles
     share_style: "black",
     subscribe_style: "black",
-  },
-  {
-    id: "aurora",
-    name: "Aurora",
-    category: "gradient",
-    theme_config: {
-      background_type: "gradient" as const,
-      background_color: "#0f0f23",
-      background_gradient: "linear-gradient(135deg, #0f0f23 0%, #1a1a3e 25%, #2d1b4e 50%, #1e3a5f 75%, #0f0f23 100%)",
-      background_image_url: "",
-      text_color: "#ffffff",
-      secondary_text_color: "#94a3b8",
-      button_color: "rgba(139, 92, 246, 0.3)",
-      button_text_color: "#ffffff",
-      button_style: "glass" as const,
-      button_border_radius: 16,
-      button_border_width: 1,
-      button_border_color: "rgba(139, 92, 246, 0.5)",
-      button_shadow: "none",
-      font_family: "'Space Grotesk', sans-serif",
-      title_font: "'Space Grotesk', sans-serif",
-      title_color: "#ffffff",
-      social_icon_color: "#a78bfa",
-      background_pattern: "morph",
-      pattern_color: "#ffffff90",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      animated_gradient: false,
-    },
   },
   {
     id: "neon",
@@ -575,18 +750,18 @@ const THEME_TEMPLATES = [
       background_gradient: "",
       background_image_url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/wallpapers%20blocks/3513ccb7c260ffd3f3662776ca8ac9e0.jpg?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvd2FsbHBhcGVycyBibG9ja3MvMzUxM2NjYjdjMjYwZmZkM2YzNjYyNzc2Y2E4YWM5ZTAuanBnIiwiaWF0IjoxNzY4OTA4Mjg2LCJleHAiOjM5NDg1NjIzODAyODZ9.gt2phg6Tkw-z5_Q-F4kqhDchEmd3eOupUWxohGQLmM0",
       text_color: "#ffffff",
-      secondary_text_color: "#e9d5ff",
-      button_color: "#8b5cf6",
-      button_text_color: "#ffffff",
+      secondary_text_color: "#e5e7eb",
+      button_color: "#ffffff",
+      button_text_color: "#111113",
       button_style: "filled" as const,
       button_border_radius: 12,
       button_border_width: 0,
-      button_border_color: "#8b5cf6",
+      button_border_color: "#ffffff",
       button_shadow: "subtle",
       font_family: "'Inter', sans-serif",
       title_font: "'Space Grotesk', sans-serif",
       title_color: "#ffffff",
-      social_icon_color: "#e9d5ff",
+      social_icon_color: "#ffffff",
       social_icon_style: "filled",
       spacing: "normal" as const,
       card_width: "standard" as const,
@@ -601,107 +776,26 @@ const THEME_TEMPLATES = [
     share_style: "glassmorphism",
     subscribe_style: "glassmorphism",
   },
-  /*
-    THREE NEWER ONES. Studio is warm paper with ink buttons and a hard
-    offset shadow, the look a lot of music and design people go for. Night
-    is a deep violet black with soft lilac buttons. Peach is a warm sunset
-    gradient with white glass buttons. Only settings the editor already
-    has, so each one can be changed piece by piece like the rest.
-  */
-  {
-    id: "studio",
-    name: "Studio",
-    category: "light",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#f6f3ee",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#1c1917",
-      secondary_text_color: "#78716c",
-      button_color: "#ffffff",
-      button_text_color: "#1c1917",
-      button_style: "filled" as const,
-      button_border_radius: 10,
-      button_border_width: 1,
-      button_border_color: "#1c1917",
-      button_shadow: "hard",
-      font_family: "'DM Sans', sans-serif",
-      title_font: "'Space Grotesk', sans-serif",
-      title_color: "#1c1917",
-      social_icon_color: "#1c1917",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      header_layout: "classic",
-      background_pattern: "none",
-      laser_glow_enabled: false,
-    },
-    profile_layout: "classic" as const,
-    light_button_text_color: "#1c1917",
-    share_style: "white",
-    subscribe_style: "white",
-  },
-  {
-    id: "night",
-    name: "Night",
-    category: "dark",
-    theme_config: {
-      background_type: "solid" as const,
-      background_color: "#0c0a16",
-      background_gradient: "",
-      background_image_url: "",
-      text_color: "#f5f3ff",
-      secondary_text_color: "#a5a1c2",
-      button_color: "#1b1730",
-      button_text_color: "#f5f3ff",
-      button_style: "filled" as const,
-      button_border_radius: 14,
-      button_border_width: 1,
-      button_border_color: "#2e2850",
-      button_shadow: "none",
-      font_family: "'Inter', sans-serif",
-      title_font: "'Sora', sans-serif",
-      title_color: "#ffffff",
-      social_icon_color: "#c4b5fd",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-      laser_glow_enabled: true,
-      laser_glow_color: "#4c1d95",
-      laser_glow_intensity: "medium",
-    },
-    share_style: "glassmorphism",
-    subscribe_style: "glassmorphism",
-  },
-  {
-    id: "peach",
-    name: "Peach",
-    category: "gradient",
-    theme_config: {
-      background_type: "gradient" as const,
-      background_color: "#fb923c",
-      background_gradient: "linear-gradient(160deg, #fed7aa 0%, #fdba74 40%, #fb7185 100%)",
-      background_image_url: "",
-      text_color: "#431407",
-      secondary_text_color: "#7c2d12",
-      button_color: "rgba(255, 255, 255, 0.55)",
-      button_text_color: "#431407",
-      button_style: "glass" as const,
-      button_border_radius: 999,
-      button_border_width: 1,
-      button_border_color: "rgba(255, 255, 255, 0.7)",
-      button_shadow: "subtle",
-      font_family: "'Poppins', sans-serif",
-      title_font: "'Playfair Display', serif",
-      title_color: "#431407",
-      social_icon_color: "#431407",
-      spacing: "normal" as const,
-      card_width: "standard" as const,
-    },
-    light_button_text_color: "#431407",
-    share_style: "white",
-    subscribe_style: "white",
-  },
 ]
+
+/** The gradient a page starts from when it has none of its own: warm, and nothing like the old violet default. */
+const DEFAULT_GRADIENT = "linear-gradient(160deg, #f0a8b8 0%, #b2846c 100%)"
+
+/**
+ * A pattern's tile at a little over half its size (the big drawn ones at a
+ * third), for a square the size of a thumb: the page's own tile
+ * (lib/onepage/wallpaper) is sized for a whole page, and at full size a
+ * square shows one corner of the big ones.
+ */
+function previewSize(id: string, color: string, level: string): string | undefined {
+  const s = patternStyle(id, color, level)
+  if (!s) return undefined
+  /* The big drawn tiles (contours, organic, morph, flow) go down further than the small repeats, or a square is one curve. */
+  return String(s.backgroundSize).replace(/(\d+(?:\.\d+)?)px/g, (_, n) => {
+    const px = Number(n)
+    return `${Math.round(px * (px >= 120 ? 0.36 : 0.6) * 10) / 10}px`
+  })
+}
 
 const SECTION_LABEL: Record<DesignSection, string> = {
   theme: "Theme",
@@ -2165,7 +2259,7 @@ function HeaderSection() {
                 label="Glow colour"
                 value={(theme as any).laser_glow_color || "#3b82f6"}
                 onChange={(color) => updateTheme({ laser_glow_color: color } as any)}
-                suggestions={["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ffffff"]}
+                suggestions={["#1a1a2e", "#3b82f6", "#b2846c", "#f59e0b", "#10b981", "#ffffff"]}
               />
               <Segmented
                 label="Glow strength"
@@ -2261,6 +2355,86 @@ function HeaderSection() {
   )
 }
 
+/* The theme names, each drawn in its theme's title face: one request cut to the letters of the names. */
+const THEME_NAME_FONTS_HREF = onePageFontSampleHref(
+  [...new Set(THEME_TEMPLATES.map((t) => familyOf(t.theme_config.title_font || t.theme_config.font_family)).filter((f): f is string => !!f))],
+  THEME_TEMPLATES.map((t) => t.name).join(""),
+)
+
+/**
+ * A THEME, AS A SMALL PAGE. The cards were one grey skeleton in eighteen
+ * colours: a circle, two bars and two buttons, so a serif paper theme and a
+ * hard shadowed block of yellow looked like the same page. Each card now
+ * draws the page the theme makes: its wallpaper and texture, its name in its
+ * own title face and colour, and three buttons the way the live page draws
+ * them (solid, outline or glass, its corners, its border, its shadow, hard
+ * ones included), at the size of a card. A Hero theme has its picture band
+ * across the top. Picked is the thin dark border and a small ink check.
+ */
+function ThemeCard({ template, selected, onPick }: { template: typeof THEME_TEMPLATES[number]; selected: boolean; onPick: () => void }) {
+  const c = template.theme_config as typeof THEME_TEMPLATES[number]["theme_config"] & Record<string, any>
+  const image = c.background_type === "image" && c.background_image_url
+  const bgStyle: React.CSSProperties = image
+    ? { backgroundImage: `url(${c.background_image_url})`, backgroundSize: "cover", backgroundPosition: "center" }
+    : { background: c.background_type === "gradient" && c.background_gradient ? c.background_gradient : c.background_color }
+  const hero = (template as any).profile_layout === "hero" || c.header_layout === "hero"
+  const pattern = c.background_pattern && c.background_pattern !== "none" && !image ? c.background_pattern : null
+  const text = c.text_color || "#111111"
+  const radius = Math.min((c.button_border_radius ?? 8) * 0.5, 9)
+  const border = c.button_border_width || 0
+  const shadowInk = c.button_shadow_color || "#000000"
+  const shadow = c.button_shadow === "hard" ? `2px 2px 0 ${shadowInk}` : c.button_shadow === "strong" ? "0 3px 8px rgba(0,0,0,0.22)" : c.button_shadow === "subtle" ? "0 1px 3px rgba(0,0,0,0.12)" : "none"
+  const button: React.CSSProperties =
+    c.button_style === "outline"
+      ? { background: "transparent", border: `${Math.max(1.5, Math.min(border, 2))}px solid ${c.button_border_color || c.button_color}`, borderRadius: radius, boxShadow: shadow }
+      : c.button_style === "glass"
+        ? { background: "rgba(255,255,255,0.15)", border: `1px solid ${border ? c.button_border_color : "rgba(255,255,255,0.22)"}`, borderRadius: radius, backdropFilter: "blur(6px)", boxShadow: shadow }
+        : { background: c.button_color, border: border ? `${Math.min(border, 2)}px solid ${c.button_border_color}` : undefined, borderRadius: radius, boxShadow: shadow }
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      aria-pressed={selected}
+      aria-label={`${template.name} theme`}
+      data-theme-card={template.id}
+      className={cn(
+        "group/theme relative flex cursor-pointer flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
+        selected ? choiceOn : choiceOff,
+      )}
+    >
+      <span className="relative block aspect-[4/5] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
+        <span className="absolute inset-0" style={bgStyle} />
+        {image && c.image_brightness && c.image_brightness < 100 ? <span className="absolute inset-0 bg-black" style={{ opacity: (100 - c.image_brightness) / 100 }} /> : null}
+        {pattern ? <WallpaperPattern pattern={pattern} color={c.pattern_color || "#ffffff90"} level={c.pattern_opacity || "medium"} /> : null}
+        {hero ? <span className="absolute inset-x-0 top-0 h-[36%]" style={{ background: `linear-gradient(180deg, ${text}38 0%, ${text}14 70%, transparent 100%)` }} /> : null}
+        <span className={cn("absolute inset-0 flex flex-col items-center px-[13%]", hero ? "pt-[30%]" : "pt-[15%]")}>
+          {hero ? null : <span className="block aspect-square w-[22%] rounded-full" style={{ background: `${text}2e`, boxShadow: `inset 0 0 0 1px ${text}1f` }} />}
+          <span
+            className="mt-[7%] block max-w-full truncate text-[14px] font-bold leading-tight"
+            style={{ fontFamily: fontStack(c.title_font || c.font_family), color: c.title_color || text }}
+          >
+            {template.name}
+          </span>
+          <span className="mt-[5%] block h-[3px] w-[40%] rounded-full" style={{ background: c.secondary_text_color || text, opacity: 0.55 }} />
+          <span className="mt-[11%] flex w-full flex-col gap-[7px]">
+            {[0, 1, 2].map((i) => (
+              <span key={i} className="grid h-[17px] w-full place-items-center" style={button}>
+                <span className="block h-[3px] w-[36%] rounded-full" style={{ background: c.button_text_color || text, opacity: 0.8 }} />
+              </span>
+            ))}
+          </span>
+        </span>
+        {selected ? (
+          <span aria-hidden className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-[#1a1a2e] text-white shadow-[0_1px_2px_rgba(0,0,0,0.25)]">
+            <Check className="h-3 w-3" strokeWidth={3} />
+          </span>
+        ) : null}
+      </span>
+      <span className={cn("block truncate px-1.5 pb-1 pt-2 text-[13px] font-medium", selected ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{template.name}</span>
+    </button>
+  )
+}
+
 function ThemeSection() {
   const { onepage, updateTheme, updateSettings, updateBlock } = useOnePage()
   const [filter, setFilter] = useState<"all" | "light" | "dark" | "gradient" | "image">("all")
@@ -2353,49 +2527,11 @@ function ThemeSection() {
           </button>
         ))}
       </div>
+      {THEME_NAME_FONTS_HREF ? <link rel="stylesheet" href={THEME_NAME_FONTS_HREF} /> : null}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {filteredTemplates.map((template) => {
-          const config = template.theme_config
-          if (!config) return null
-          const isSelected = theme.template_id === template.id
-          const bgStyle = config.background_type === "image" && config.background_image_url
-            ? { backgroundImage: `url(${config.background_image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-            : { background: config.background_type === "gradient" && config.background_gradient ? config.background_gradient : config.background_color }
-          const isHeroLayout = (template as any).profile_layout === "hero" || (config as any).header_layout === "hero"
-          const hasPattern = (config as any).background_pattern && (config as any).background_pattern !== "none"
-          return (
-            <button
-              key={template.id}
-              type="button"
-              onClick={() => handleApplyTemplate(template)}
-              aria-pressed={isSelected}
-              data-theme-card={template.id}
-              className={cn(
-                "flex cursor-pointer flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
-                isSelected ? choiceOn : choiceOff,
-              )}
-            >
-              <span className="relative block aspect-[4/5] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
-                <span className="absolute inset-0" style={bgStyle} />
-                {hasPattern ? <WallpaperPattern pattern={(config as any).background_pattern} color={(config as any).pattern_color || "#ffffff90"} level={(config as any).pattern_opacity || "medium"} /> : null}
-                <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 p-3">
-                  {isHeroLayout ? (
-                    <span className="h-8 w-full rounded-lg" style={{ backgroundColor: `${config.text_color}20` }} />
-                  ) : (
-                    <span className="h-7 w-7 rounded-full" style={{ backgroundColor: `${config.text_color}30` }} />
-                  )}
-                  <span className="h-1.5 w-12 rounded" style={{ backgroundColor: `${config.text_color}50` }} />
-                  <span className="h-1 w-8 rounded" style={{ backgroundColor: `${config.text_color}30` }} />
-                  <span className="mt-1.5 h-5 w-full max-w-[80px]" style={{ backgroundColor: config.button_color, border: `${config.button_border_width || 0}px solid ${config.button_border_color || "transparent"}`, borderRadius: `${Math.min(config.button_border_radius ?? 8, 12)}px` }} />
-                  <span className="h-5 w-full max-w-[80px]" style={{ backgroundColor: config.button_color, opacity: 0.85, border: `${config.button_border_width || 0}px solid ${config.button_border_color || "transparent"}`, borderRadius: `${Math.min(config.button_border_radius ?? 8, 12)}px` }} />
-                </span>
-              </span>
-              <span className={cn("block truncate px-1.5 pb-1 pt-2 text-[13px] font-medium", isSelected ? "text-[#1a1a2e]" : "text-[#4b5563]")} style={{ fontFamily: fontStack(config.font_family) }}>
-                {template.name}
-              </span>
-            </button>
-          )
-        })}
+        {filteredTemplates.map((template) => (
+          <ThemeCard key={template.id} template={template} selected={theme.template_id === template.id} onPick={() => handleApplyTemplate(template)} />
+        ))}
       </div>
 
       {/* Layout Change Dialog */}
@@ -2552,12 +2688,12 @@ function WallpaperSection() {
     const colorMatches = gradient.match(/#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}/g)
     return {
       direction: directionMatch ? parseInt(directionMatch[1]) : 135,
-      color1: colorMatches?.[0] || "#667eea",
-      color2: colorMatches?.[1] || "#764ba2"
+      color1: colorMatches?.[0] || "#f0a8b8",
+      color2: colorMatches?.[1] || "#b2846c"
     }
   }
 
-  const gradientInfo = parseGradient(theme.background_gradient || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)")
+  const gradientInfo = parseGradient(theme.background_gradient || DEFAULT_GRADIENT)
 
   const handleBgTypeChange = (type: "solid" | "gradient" | "image" | "video") => {
     // If switching to gradient, image, or video and Hero layout is active, show dialog
@@ -2573,7 +2709,8 @@ function WallpaperSection() {
       return
     }
 
-    updateTheme({ background_type: type })
+    /* A gradient with none set yet starts from the one its tile shows, rather than drawing nothing. */
+    updateTheme(type === "gradient" && !theme.background_gradient ? { background_type: type, background_gradient: DEFAULT_GRADIENT } : { background_type: type })
   }
 
   const handleConfirmLayoutChange = () => {
@@ -2820,12 +2957,12 @@ function WallpaperSection() {
   const patternRaw: string = (theme as any).pattern_color || (bgType === "gradient" ? "#ffffff90" : "#00000090")
   /* The pattern colour carries its own strength as two hex digits on the end (#00000090). The picker has no alpha, so it is kept aside and put back. */
   const patternAlpha = /^#[0-9a-f]{8}$/i.test(patternRaw) ? patternRaw.slice(7) : "90"
-  const wallpaperFill = bgType === "gradient" ? theme.background_gradient || "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" : theme.background_color
+  const wallpaperFill = bgType === "gradient" ? theme.background_gradient || DEFAULT_GRADIENT : theme.background_color
 
   const styleTile = (type: "solid" | "gradient" | "image" | "video") => {
     const art =
       type === "solid" ? <span className="absolute inset-0" style={{ background: bgType === "solid" ? theme.background_color : "#b2846c" }} /> :
-      type === "gradient" ? <span className="absolute inset-0" style={{ background: bgType === "gradient" && theme.background_gradient ? theme.background_gradient : "linear-gradient(160deg, #f0a8b8 0%, #b2846c 100%)" }} /> :
+      type === "gradient" ? <span className="absolute inset-0" style={{ background: bgType === "gradient" && theme.background_gradient ? theme.background_gradient : DEFAULT_GRADIENT }} /> :
       type === "image" ? (theme.background_image_url ? <img src={theme.background_image_url} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <span className="absolute inset-0 grid place-items-center bg-[#f1f2f4] text-[#6b7280]"><ImageIcon className="h-5 w-5" strokeWidth={1.6} /></span>) :
       <span className="absolute inset-0 grid place-items-center bg-[#f1f2f4] text-[#6b7280]"><Video className="h-5 w-5" strokeWidth={1.6} /></span>
     return (
@@ -2835,36 +2972,75 @@ function WallpaperSection() {
     )
   }
 
+  /*
+    PATTERN AND TEXTURE. Each choice is a small square of the page's own
+    wallpaper with the pattern on it, drawn by the same function as the page
+    (WallpaperPattern), at a little over half its size so a square shows as
+    much of it as a phone would. Textures (grain, paper, linen) and patterns
+    are two short rows under their own names, None first. Picked is the thin
+    dark border and an ink check. A page with no pattern colour of its own
+    gets one that shows on its wallpaper: white on a dark one, black on a
+    light one, written with the pick, so what the square showed is what the
+    page draws.
+  */
+  const fillIsDark = (() => {
+    const hex = normalizeHex(bgType === "gradient" ? (wallpaperFill.match(/#[0-9a-f]{6}/i)?.[0] ?? "") : theme.background_color)
+    if (!hex) return bgType === "gradient"
+    const n = parseInt(hex.slice(1), 16)
+    return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 < 0.55
+  })()
+  const autoInk = fillIsDark ? "#ffffff90" : "#00000090"
+  const ink = (theme as any).pattern_color || autoInk
+  const pickPattern = (id: string) =>
+    updateTheme({ background_pattern: id, ...(id !== "none" && !(theme as any).pattern_color ? { pattern_color: autoInk } : {}) } as any)
+  const patternTile = (pattern: (typeof WALLPAPER_PATTERNS)[number]) => {
+    const on = currentPattern === pattern.id || (pattern.id === "none" && !isPatternId(currentPattern))
+    return (
+      <button
+        key={pattern.id}
+        type="button"
+        onClick={() => pickPattern(pattern.id)}
+        aria-pressed={on}
+        data-pattern-choice={pattern.id}
+        className={cn(
+          "group/pattern flex min-h-11 cursor-pointer flex-col items-stretch rounded-2xl border bg-white p-1.5 text-center outline-none transition-[border-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
+          on ? choiceOn : choiceOff,
+        )}
+      >
+        <span className="relative block aspect-square overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" style={{ background: wallpaperFill }}>
+          {pattern.id === "none" ? (
+            <span className="absolute inset-0 grid place-items-center">
+              <span className="block h-px w-[70%] rotate-45 rounded-full" style={{ background: fillIsDark ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.3)" }} />
+            </span>
+          ) : (
+            <WallpaperPattern pattern={pattern.id} color={ink} level={(theme as any).pattern_opacity || "medium"} style={{ backgroundSize: previewSize(pattern.id, ink, (theme as any).pattern_opacity || "medium") }} />
+          )}
+          {on ? (
+            <span aria-hidden className="absolute right-1 top-1 grid h-[18px] w-[18px] place-items-center rounded-full bg-[#1a1a2e] text-white shadow-[0_1px_2px_rgba(0,0,0,0.25)]">
+              <Check className="h-2.5 w-2.5" strokeWidth={3} />
+            </span>
+          ) : null}
+        </span>
+        <span className={cn("block truncate pb-0.5 pt-1.5 text-[12px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{pattern.name}</span>
+      </button>
+    )
+  }
   const patternSection = (
     <PanelSection>
       <SectionTitle title="Pattern and texture" description="Drawn over the colour, on the whole page" />
-      <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
-        {WALLPAPER_PATTERNS.map((pattern) => {
-          const on = currentPattern === pattern.id || (pattern.id === "none" && !isPatternId(currentPattern))
-          return (
-            <ChoiceCard
-              key={pattern.id}
-              selected={on}
-              onClick={() => updateTheme({ background_pattern: pattern.id } as any)}
-              label={pattern.name}
-              className="p-1.5"
-            >
-              <span className="relative block aspect-[4/3] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]" style={{ background: wallpaperFill }}>
-                {pattern.id === "none" ? (
-                  <span className="absolute inset-0 grid place-items-center"><X className="h-4 w-4" style={{ color: theme.text_color || "#6b7280", opacity: 0.55 }} /></span>
-                ) : (
-                  <WallpaperPattern pattern={pattern.id} color={patternRaw} level={(theme as any).pattern_opacity || "medium"} />
-                )}
-              </span>
-            </ChoiceCard>
-          )
-        })}
+      <p className="mb-2 text-[12.5px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">Textures</p>
+      <div className="grid grid-cols-4 gap-2" data-pattern-group="textures">
+        {WALLPAPER_PATTERNS.filter((p) => p.kind !== "pattern").map(patternTile)}
+      </div>
+      <p className="mb-2 mt-5 text-[12.5px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">Patterns</p>
+      <div className="grid grid-cols-4 gap-2" data-pattern-group="patterns">
+        {WALLPAPER_PATTERNS.filter((p) => p.kind === "pattern").map(patternTile)}
       </div>
       {isPatternId(currentPattern) ? (
         <div className="mt-5 space-y-4">
           <ColorRow
             label="Pattern colour"
-            value={normalizeHex(patternRaw)}
+            value={normalizeHex(ink)}
             onChange={(color) => updateTheme({ pattern_color: color + patternAlpha } as any)}
             suggestions={["#000000", "#ffffff", "#1a1a2e", theme.text_color, theme.button_color, "#b2846c"]}
           />
@@ -2892,7 +3068,7 @@ function WallpaperSection() {
       />
       {(theme as any)[field] ? (
         <div className="mt-3">
-          <RangeRow label="Grain strength" value={(theme as any).noise_strength || 15} min={5} max={50} step={5} onChange={(v) => updateTheme({ noise_strength: v } as any)} format={(v) => `${v}%`} ends={["Subtle", "Strong"]} />
+          <RangeRow label="Grain strength" value={(theme as any).noise_strength || 15} min={5} max={50} step={5} onChange={(v) => updateTheme({ noise_strength: v } as any)} unit="%" ends={["Subtle", "Strong"]} />
         </div>
       ) : null}
     </>
@@ -2935,14 +3111,14 @@ function WallpaperSection() {
             <SectionTitle title="Ready made" />
             <div className="grid grid-cols-6 gap-2">
               {[
-                "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+                "linear-gradient(160deg, #f7c59f 0%, #c4553b 100%)",
+                "linear-gradient(135deg, #fbd3c4 0%, #e8687a 100%)",
                 "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
                 "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
                 "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-                "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
+                "linear-gradient(180deg, #e9e6da 0%, #b8b08d 100%)",
                 "linear-gradient(180deg, #0c4a6e 0%, #0ea5e9 100%)",
-                "linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)",
+                "linear-gradient(165deg, #04110f 0%, #1d7a63 100%)",
                 "linear-gradient(135deg, #ff6b6b 0%, #feca57 100%)",
                 "linear-gradient(180deg, #f4efe9 0%, #b2846c 100%)",
                 "linear-gradient(135deg, #00d2d3 0%, #54a0ff 100%)",
@@ -2997,8 +3173,8 @@ function WallpaperSection() {
           {theme.background_image_url ? (
             <PanelSection>
               <div className="space-y-5">
-                <RangeRow label="Brightness" value={(theme as any).image_brightness || 100} min={20} max={150} step={5} onChange={(v) => updateTheme({ image_brightness: v } as any)} format={(v) => `${v}%`} />
-                <RangeRow label="Blur" value={(theme as any).image_blur || 0} min={0} max={20} step={1} onChange={(v) => updateTheme({ image_blur: v } as any)} format={(v) => (v ? `${v}px` : "None")} />
+                <RangeRow label="Brightness" value={(theme as any).image_brightness || 100} min={20} max={150} step={5} onChange={(v) => updateTheme({ image_brightness: v } as any)} unit="%" />
+                <RangeRow label="Blur" value={(theme as any).image_blur || 0} min={0} max={20} step={1} onChange={(v) => updateTheme({ image_blur: v } as any)} unit="px" />
                 <div>{noiseRows("image_noise")}</div>
               </div>
             </PanelSection>
@@ -3231,6 +3407,62 @@ function WallpaperSection() {
  * drawn in its own face from one small request (FONT_SAMPLE_HREF), so the
  * list costs a few kilobytes, not forty fonts.
  */
+/**
+ * ===========================================================================
+ *  A FONT'S NAME, DRAWN IN ITS OWN FACE ONCE THAT FACE IS HERE
+ * ===========================================================================
+ * The list names some forty families, each drawn in itself from one small
+ * stylesheet cut to the letters of the names (FONT_SAMPLE_HREF). Drawing all
+ * of them the moment the list opened asked for every face at once and
+ * re-laid each row as its face arrived: the open stuttered. Now a row asks
+ * for its face only when it scrolls into view, is drawn in the app's own
+ * face, a little faded, until the face has loaded, and then takes it. A face
+ * that has loaded once is remembered for the visit, so a second open is drawn
+ * in the right faces from its first frame.
+ */
+const loadedFaces = new Set<string>()
+function FontSample({ family, text, className }: { family: string; text: string; className?: string }) {
+  const face = familyOf(family)
+  const ref = useRef<HTMLSpanElement>(null)
+  const [ready, setReady] = useState(() => !face || loadedFaces.has(face) || typeof document === "undefined" || !("fonts" in document))
+  useEffect(() => {
+    if (ready || !face) return
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === "undefined") {
+      setReady(true)
+      return
+    }
+    let gone = false
+    const done = () => {
+      loadedFaces.add(face)
+      if (!gone) setReady(true)
+    }
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return
+      io.disconnect()
+      document.fonts.load(`17px "${face}"`, text).then(done, done)
+    }, { rootMargin: "160px 0px" })
+    io.observe(el)
+    return () => {
+      gone = true
+      io.disconnect()
+    }
+  }, [ready, face, text])
+  return (
+    <span ref={ref} data-font-sample={ready ? "ready" : "waiting"} className={cn(className, "transition-opacity duration-200 ease-out", ready ? "opacity-100" : "opacity-50")} style={ready ? { fontFamily: fontStack(family) } : undefined}>
+      {text}
+    </span>
+  )
+}
+
+/**
+ * THE FONT PICKER. On a phone, the app's own sheet (components/ui/bottom-sheet),
+ * built while the page is idle and kept (keepMounted), so the tap that opens
+ * it only moves it; it sits on the keyboard when the search is typed in. On a
+ * computer, a dropdown under the field rather than a dialog over the page:
+ * no scrim, no page behind it to dim, and the list is where the eye already
+ * is. Either way the rows draw their faces as they come into view (above).
+ */
 function FontPicker({
   label,
   description,
@@ -3253,6 +3485,7 @@ function FontPicker({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [family, setFamily] = useState("all")
+  const listRef = useRef<HTMLDivElement>(null)
   const current = fonts.find((f) => f.value === value)
   const name = value ? current?.name || familyOf(value) || value : defaultLabel || "Default"
   const withCategories = fonts.some((f) => f.category)
@@ -3260,6 +3493,19 @@ function FontPicker({
   const choose = (v: string | null) => {
     onPick(v)
     setOpen(false)
+  }
+  const openPicker = () => {
+    setQuery("")
+    setFamily("all")
+    setOpen(true)
+    /* A kept sheet keeps its scroll: start at the chosen one. */
+    requestAnimationFrame(() => {
+      const box = listRef.current
+      if (!box) return
+      const on = box.querySelector<HTMLElement>('[aria-selected="true"]')
+      const at = on ? on.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop : 0
+      box.scrollTop = at > box.clientHeight - 60 ? at - 56 : 0
+    })
   }
   const list = (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -3283,7 +3529,7 @@ function FontPicker({
           </div>
         ) : null}
       </div>
-      <div role="listbox" aria-label={label} className="min-h-0 flex-1 overflow-y-auto border-t border-[#eef0f2] px-2 py-2 pb-[max(8px,env(safe-area-inset-bottom))]">
+      <div ref={listRef} role="listbox" aria-label={label} className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-[#eef0f2] px-2 py-2 pb-[max(8px,env(safe-area-inset-bottom))]">
         {shown.length === 0 ? <p className="px-3 py-6 text-center text-[14px] text-[#6b7280]">No font by that name</p> : null}
         {shown.map((f) => {
           const on = f.value === value
@@ -3295,10 +3541,10 @@ function FontPicker({
               aria-selected={on}
               onClick={() => choose(f.value)}
               data-font-option={f.name}
-              className={cn("flex min-h-[52px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left transition-colors", on ? "bg-[#f1f2f4]" : "hover:bg-[#f7f7f8]")}
+              className={cn("flex min-h-[52px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left transition-colors duration-150", on ? "bg-[#f1f2f4]" : "hover:bg-[#f7f7f8] active:bg-[#f1f2f4]")}
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[17px] text-[#1a1a2e]" style={{ fontFamily: fontStack(f.value || sampleFamily) }}>{f.name}</span>
+                <FontSample family={f.value || sampleFamily} text={f.name} className="block truncate text-[17px] leading-[1.35] text-[#1a1a2e]" />
                 {f.style ? <span className="block truncate text-[12.5px] text-[#6b7280]">{f.style}</span> : null}
               </span>
               {on ? <Check className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={2} aria-hidden /> : null}
@@ -3308,36 +3554,49 @@ function FontPicker({
       </div>
     </div>
   )
+  const trigger = (
+    <button
+      type="button"
+      onClick={openPicker}
+      data-font-picker={label}
+      aria-haspopup="listbox"
+      aria-expanded={open}
+      className="flex min-h-[64px] w-full cursor-pointer items-center gap-4 rounded-2xl border border-[#e3e4e8] bg-white px-4 py-3 text-left transition-colors hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] outline-none"
+    >
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f4f4f6] text-[20px] text-[#1a1a2e]" style={{ fontFamily: fontStack(value || sampleFamily) }} aria-hidden>Aa</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] text-[#6b7280]">{label}</span>
+        <span className="block truncate text-[16px] font-medium text-[#1a1a2e]" style={{ fontFamily: fontStack(value || sampleFamily) }}>{name}</span>
+      </span>
+      <ChevronRight className={cn("h-5 w-5 shrink-0 text-[#1a1a2e] transition-[rotate] duration-200", !phone && open && "rotate-90")} strokeWidth={1.75} aria-hidden />
+    </button>
+  )
+  if (phone) {
+    return (
+      <>
+        {trigger}
+        {description ? <p className="mt-2 text-[13.5px] text-[#6b7280]">{description}</p> : null}
+        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={label} fill height="min(80dvh, 640px)" aboveKeyboard keepMounted>
+          <div className="flex h-full min-h-0 flex-col pt-2" data-font-sheet="">{list}</div>
+        </BottomSheet>
+      </>
+    )
+  }
   return (
     <>
-      <button
-        type="button"
-        onClick={() => { setQuery(""); setFamily("all"); setOpen(true) }}
-        data-font-picker={label}
-        className="flex min-h-[64px] w-full cursor-pointer items-center gap-4 rounded-2xl border border-[#e3e4e8] bg-white px-4 py-3 text-left transition-colors hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] outline-none"
-      >
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f4f4f6] text-[20px] text-[#1a1a2e]" style={{ fontFamily: fontStack(value || sampleFamily) }} aria-hidden>Aa</span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[13px] text-[#6b7280]">{label}</span>
-          <span className="block truncate text-[16px] font-medium text-[#1a1a2e]" style={{ fontFamily: fontStack(value || sampleFamily) }}>{name}</span>
-        </span>
-        <ChevronRight className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={1.75} aria-hidden />
-      </button>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverContent
+          align="start"
+          sideOffset={8}
+          collisionPadding={12}
+          data-font-popover=""
+          className="flex h-[min(460px,70vh)] w-[var(--radix-popover-trigger-width)] min-w-[340px] flex-col overflow-hidden rounded-2xl border border-[#e3e4e8] bg-white p-0 pt-4 text-[#1a1a2e] shadow-[0_16px_48px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]"
+        >
+          {list}
+        </PopoverContent>
+      </Popover>
       {description ? <p className="mt-2 text-[13.5px] text-[#6b7280]">{description}</p> : null}
-      {phone ? (
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={label} fill height="min(80dvh, 640px)">
-          <div className="flex h-full min-h-0 flex-col pt-2">{list}</div>
-        </BottomSheet>
-      ) : (
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="flex max-h-[min(640px,80vh)] w-[calc(100%-32px)] max-w-[420px] flex-col gap-0 overflow-hidden rounded-2xl p-0">
-            <DialogHeader className="px-4 pb-3 pt-4">
-              <DialogTitle className="text-[18px] font-semibold text-[#1a1a2e]">{label}</DialogTitle>
-            </DialogHeader>
-            {list}
-          </DialogContent>
-        </Dialog>
-      )}
     </>
   )
 }
@@ -3476,8 +3735,8 @@ function ButtonsSection() {
 
       <PanelSection>
         <div className="space-y-5">
-          <RangeRow label="Corners" value={radius} min={0} max={24} step={2} onChange={(v) => updateTheme({ button_border_radius: v })} format={(v) => `${v}px`} ends={["Square", "Round"]} />
-          <RangeRow label="Border" value={theme.button_border_width ?? 0} min={0} max={4} step={1} onChange={(v) => updateTheme({ button_border_width: v })} format={(v) => (v ? `${v}px` : "None")} />
+          <RangeRow label="Corners" value={radius} min={0} max={24} step={2} onChange={(v) => updateTheme({ button_border_radius: v })} unit="px" ends={["Square", "Round"]} />
+          <RangeRow label="Border" value={theme.button_border_width ?? 0} min={0} max={4} step={1} onChange={(v) => updateTheme({ button_border_width: v })} unit="px" />
         </div>
       </PanelSection>
 
@@ -3488,7 +3747,7 @@ function ButtonsSection() {
             label="Button"
             value={theme.button_color}
             onChange={(color) => updateTheme(theme.button_style === "outline" ? { button_color: color, button_border_color: color } : { button_color: color })}
-            suggestions={["#1a1a2e", "#000000", "#ffffff", "#8b5cf6", "#b2846c", "#2f6f4f", "#e4572e", "#3b82f6"]}
+            suggestions={["#1a1a2e", "#000000", "#ffffff", "#6b7280", "#b2846c", "#2f6f4f", "#e4572e", "#3b82f6"]}
           />
           <ColorRow
             label="Button text"

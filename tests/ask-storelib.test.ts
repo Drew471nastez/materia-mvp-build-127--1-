@@ -257,12 +257,39 @@ section("Voice")
     /body\.available\) setEngine\("record"\)/.test(voice) && /available: !!creatorId && !!process\.env\.OPENAI_API_KEY/.test(transcribe),
   )
   check("with neither, no microphone is drawn at all", /const micButton = voice\.supported && \(/.test(chat))
+  {
+    const manifest = read("android/app/src/main/AndroidManifest.xml")
+    const activity = read("android/app/src/main/java/com/storelib/app/MainActivity.java")
+    const plist = read("ios/App/App/Info.plist")
+    check(
+      "the Android app declares the microphone, and says so to the page, which draws it only for an install that does",
+      /android\.permission\.RECORD_AUDIO"/.test(manifest) &&
+        /android\.permission\.MODIFY_AUDIO_SETTINGS"/.test(manifest) &&
+        /android\.hardware\.microphone" android:required="false"/.test(manifest) &&
+        /public boolean microphoneDeclared\(\) \{\s*\n\s*return true;/.test(activity) &&
+        /if \(nativeWithoutMicrophone\(\)\) return/.test(voice) &&
+        /return androidBridge\(\)\?\.microphoneDeclared\?\.\(\) !== true/.test(voice),
+    )
+    check(
+      "iOS says what the microphone is for, and Storelib AI is named in it",
+      /<key>NSMicrophoneUsageDescription<\/key>\s*\n\s*<string>[^<]*Storelib AI[^<]*<\/string>/.test(plist),
+    )
+    check(
+      "the microphone is asked for on every press, never remembered, so the platform prompts whenever it is not allowed",
+      /Asked on every press[^\n]*\n\s*const media = await navigator\.mediaDevices\.getUserMedia\(\{ audio: true \}\)/.test(voice),
+    )
+    check(
+      "a refusal in the app offers its Settings page: app-settings: on iOS, App info on Android",
+      /window\.location\.href = "app-settings:"/.test(voice) &&
+        /ACTION_APPLICATION_DETAILS_SETTINGS/.test(activity) &&
+        /canOpenSettings: refused && canOpenMicrophoneSettings\(\)/.test(voice) &&
+        /\{voice\.canOpenSettings && \(/.test(chat) && /voice\.openSettings\(\)/.test(chat),
+    )
+  }
   check(
-    "nor in the Android app, whose manifest does not declare the microphone yet",
-    /if \(nativeWithoutMicrophone\(\)\) return/.test(voice) && /bridge\(\)\?\.getPlatform\?\.\(\) === "android"/.test(voice) &&
-      !/RECORD_AUDIO"/.test(read("android/app/src/main/AndroidManifest.xml")),
+    "a permission refused is said in plain words, for the browser and for each app",
+    /Microphone access is off for Storelib/.test(voice) && /Turn on Microphone for Storelib in Settings/.test(voice) && /Allow Microphone in Storelib's app permissions/.test(voice),
   )
-  check("a permission refused is said in plain words", /Microphone access is off for Storelib/.test(voice))
   check("a microphone left on stops by itself after a minute", /VOICE_LIMIT_SECONDS = 60/.test(voice) && /if \(elapsed >= VOICE_LIMIT_SECONDS\) stop\(\)/.test(voice))
   check("and is let go when the chat goes", /React\.useEffect\(\(\) => \(\) => cancel\(\), \[cancel\]\)/.test(voice))
   check(
@@ -273,6 +300,49 @@ section("Voice")
       !/storage|\.insert\(/.test(transcribe),
   )
   check("the listening ring is transform and opacity, and still under reduced motion", /@keyframes ask-listen \{\s*\n\s*0% \{ transform: scale\(1\); opacity: 0\.45; \}/.test(css) && /\.ask-listen-ring \{ animation: none; opacity: 0; \}/.test(css))
+}
+
+// ---------------------------------------------------------------------------
+section("On a phone")
+// ---------------------------------------------------------------------------
+{
+  const attachments = read("components/website-builder/ask-attachments.tsx")
+  check(
+    "the AI sheet opens and closes in 320ms and is a composer sheet: it does not resize for a keyboard",
+    /<MobileEditorSheet open=\{aiOpen\}[^\n]*moveMs=\{320\} keyboard="composer">/.test(editor) &&
+      /const height = composerKeys \? detentHeight : sheetHeightWithKeyboard/.test(sheet),
+  )
+  check(
+    "a sheet mounted open draws its first frame closed, backdrop clear, and moves on the next frame",
+    /sheet\.style\.transform = `translateY\(\$\{closedY\}px\)`/.test(sheet) &&
+      /overlay\.style\.opacity = "0"/.test(sheet) &&
+      /enterFrame\.current = requestAnimationFrame\(/.test(sheet),
+  )
+  check(
+    "only the composer's row rides the keyboard, on a transform, and the thread gets the same room at its end",
+    /"--sheet-keys": `\$\{composerLift\}px`/.test(sheet) &&
+      /transform: "translate3d\(0, calc\(-1 \* var\(--sheet-keys, 0px\)\), 0\)"/.test(chat) &&
+      /data-ask-keys-room="" className="shrink-0" style=\{\{ height: "var\(--sheet-keys, 0px\)" \}\}/.test(chat) &&
+      !/transition:[^\n]*height/.test(chat.slice(chat.indexOf("data-ask-footer"), chat.indexOf("data-ask-footer") + 1200)),
+  )
+  check(
+    "a tap on the box focuses it without a scroll",
+    /el\.focus\(\{ preventScroll: true \}\)/.test(chat) && /onTouchEnd=\{\s*\n\s*phone/.test(chat),
+  )
+  check("the composer's row has a soft shadow up onto the thread", /data-ask-footer=""\s*\n\s*className="relative z-\[1\][^"]*shadow-\[0_-1px_0/.test(chat))
+  check("the thread reads a size up on a phone, a touch heavier", /const words = phone \? "text-\[15px\] font-\[450\]" : "text-\[13\.5px\]"/.test(chat))
+  check(
+    "a message sent and its answer rise into place; a thread read back does not",
+    /const fresh = exchange\.startedAt !== undefined/.test(chat) && /@keyframes ask-in \{/.test(css) && /\.ask-in, \.ask-fade \{ animation: none; \}/.test(css),
+  )
+  check(
+    "a picture holds its size with a shimmer and fades in once decoded",
+    /export function FadeImage\(/.test(attachments) && /img\.decode\(\)/.test(attachments) && /<FadeImage/.test(chat) && /\.ask-shimmer::before \{/.test(css),
+  )
+  check(
+    "a tap that began on a sheet cannot click the canvas: its made-up mouse events are held to the sheet",
+    /window\.addEventListener\("click", onGhost, true\)/.test(sheet) && /if \(target && sheet\.contains\(target\)\)/.test(sheet),
+  )
 }
 
 // ---------------------------------------------------------------------------

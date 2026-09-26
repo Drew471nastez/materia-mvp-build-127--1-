@@ -7351,7 +7351,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             sheet starts where the bar's buttons are not, and what shows
             around its corners is the bar's own dark strip. */}
         {isMobileView && aiMounted && (
-          <MobileEditorSheet open={aiOpen} onOpenChange={(next) => setAiOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS}>
+          <MobileEditorSheet open={aiOpen} onOpenChange={(next) => setAiOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS} fadeOnMove moveMs={320} keyboard="composer">
             <ThemeChat
               variant="sheet"
               installId={installId}

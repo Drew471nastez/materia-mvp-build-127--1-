@@ -228,6 +228,8 @@ function AnalyticsChartWithTooltipInner({
   formatPrice,
   isLoading = false,
   compareLabel = null,
+  color = CHART_COLORS.views,
+  seriesLabels,
 }: {
   chartDisplayData: AnalyticsChartData[]
   analyticsMode: "store" | "onepage"
@@ -243,6 +245,14 @@ function AnalyticsChartWithTooltipInner({
   isLoading?: boolean
   /** What the dashed line is, "Dec 1–Dec 31, 2025", or null for no comparison. */
   compareLabel?: string | null
+  /**
+   * The line, its fill and its marker in another ink: a OnePage link's own
+   * stats draw this chart in the editor's near black (components/onepage/
+   * link-stats-chart). Analytics leaves it to the accent.
+   */
+  color?: string
+  /** A series under another name in the readout: a form's "clicks" are Submissions. */
+  seriesLabels?: Partial<Record<string, string>>
 }) {
   const visibleKeys = useMemo(
     () => visibleKeysFor(analyticsMode, chartMetricFilter, onePageChartFilter),
@@ -315,9 +325,9 @@ function AnalyticsChartWithTooltipInner({
     const num = (d: AnalyticsChartData, k: Key) => (typeof d[k] === "number" ? (d[k] as number) : null)
     return [
       ...(compareKey ? [{ ys: chartDisplayData.map((d) => { const v = num(d, compareKey); return v === null ? null : yOf(v) }), color: CHART_COLORS.compared, hollow: true }] : []),
-      ...visibleKeys.map((k) => ({ ys: chartDisplayData.map((d) => yOf(num(d, k) ?? 0)), color: CHART_COLORS.views })),
+      ...visibleKeys.map((k) => ({ ys: chartDisplayData.map((d) => yOf(num(d, k) ?? 0)), color })),
     ]
-  }, [chartDisplayData, visibleKeys, compareKey, yOf])
+  }, [chartDisplayData, visibleKeys, compareKey, yOf, color])
 
   /* What the readout says at a point: this period's number, and what it is compared with. */
   const scrubRows = useMemo<ScrubRow[]>(() => {
@@ -326,12 +336,12 @@ function AnalyticsChartWithTooltipInner({
       return typeof v === "number" ? v : null
     }
     return [
-      ...visibleKeys.map((k): ScrubRow => ({ label: LABELS[k] ?? k, value: (i) => format(k, at(i, k) ?? 0), mark: "line", tone: "value", color: CHART_COLORS.views })),
+      ...visibleKeys.map((k): ScrubRow => ({ label: seriesLabels?.[k] ?? LABELS[k] ?? k, value: (i) => format(k, at(i, k) ?? 0), mark: "line", tone: "value", color })),
       ...(compareKey
         ? [{ label: "Compared", value: (i: number) => { const v = at(i, compareKey); return v === null ? null : format(compareKey, v) }, mark: "dashed", tone: "compared", color: CHART_COLORS.compared } as ScrubRow]
         : []),
     ]
-  }, [chartDisplayData, visibleKeys, compareKey, format])
+  }, [chartDisplayData, visibleKeys, compareKey, format, seriesLabels, color])
   const scrubTitle = useCallback((i: number) => chartDisplayData[i]?.date ?? "", [chartDisplayData])
 
   return (
@@ -354,7 +364,7 @@ function AnalyticsChartWithTooltipInner({
         plotTop={PLOT_TOP}
         plotHeight={plotHeight}
         loading={isLoading}
-        color={CHART_COLORS.views}
+        color={color}
         comparedColor={CHART_COLORS.compared}
       />
 

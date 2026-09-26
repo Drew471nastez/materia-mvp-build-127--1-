@@ -131,7 +131,7 @@ export const useSearchParams = () => new URLSearchParams()
     const geo = await p.evaluate(() => {
       const pane = document.querySelector("[data-compose]")
       const bar = document.querySelector("[data-email-editor] .rich-text-toolbar")
-      const strip = bar.firstElementChild
+      const strip = bar.querySelector("[data-toolbar-strip]")
       const r = bar.getBoundingClientRect()
       const buttons = [...bar.querySelectorAll("button")].map((b) => { const x = b.getBoundingClientRect(); return [Math.round(x.width), Math.round(x.height)] })
       return { sideways: pane.scrollWidth - pane.clientWidth, doc: document.documentElement.scrollWidth - innerWidth, left: Math.round(r.left), right: Math.round(r.right), vw: innerWidth, buttons, stripScrolls: strip.scrollWidth > strip.clientWidth, more: strip.dataset.more }

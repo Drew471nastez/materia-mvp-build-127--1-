@@ -26,6 +26,7 @@ import {
   Zap,
   AlertCircle,
   ArrowLeft,
+  Share,
 } from "lucide-react"
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
@@ -35,7 +36,7 @@ import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { isPlainClick } from "@/lib/ui/app-navigation"
 import { setLeaveGuard } from "@/lib/ui/leave-guard"
 import { HtmlClass } from "@/components/platform/html-class"
-import { iconDepth } from "@/components/ui/depth-button"
+import { iconDepth, primaryDepth } from "@/components/ui/depth-button"
 import type { OnePage } from "@/lib/onepage/types"
 import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
 import { creatorPageHostFrom } from "@/lib/custom-domains/client"
@@ -214,7 +215,7 @@ function ProUpgradeDialog({
       <div className="px-5 pb-5 space-y-2.5 md:px-6 md:pb-6">
         <button
           onClick={onUpgrade}
-          className="w-full h-12 px-5 bg-[#8b5cf6] text-white font-semibold rounded-xl hover:bg-[#7c4fe6] active:bg-[#6d42d4] transition-colors flex items-center justify-center gap-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(76,29,149,0.22)]"
+          className={cn(primaryDepth, "w-full h-12 px-5 rounded-xl gap-2")}
         >
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -237,6 +238,116 @@ function ProUpgradeDialog({
         </button>
       </div>
     </EditorQuestion>
+  )
+}
+
+/** What the share sheet shows: the page as a card, its address to copy, and the ways out. */
+function ShareOnePage({
+  open,
+  onClose,
+  onepage,
+  pageUrl,
+  copied,
+  onCopy,
+  onOpen,
+  connectedDomain,
+  userPlan,
+}: {
+  open: boolean
+  onClose: () => void
+  onepage: OnePage
+  pageUrl: string
+  copied: boolean
+  onCopy: () => void
+  onOpen: () => void
+  connectedDomain: string | null
+  userPlan: "free" | "growth" | "pro" | null
+}) {
+  const isPhone = useIsPhone()
+  const theme = onepage.theme
+  /* The card wears the page's own wallpaper; a white one gets a light grey so it reads as a card. */
+  const bg = theme.background_type === "gradient" && theme.background_gradient
+    ? theme.background_gradient
+    : (() => {
+        const c = (theme.background_color || "#1f2937").toLowerCase()
+        return ["#ffffff", "#fff", "white", "#fafafa", "#f9fafb", "#f5f5f5"].includes(c) ? "#f3f4f6" : c
+      })()
+  const hasPro = userPlan === "growth" || userPlan === "pro"
+  const address = pageUrl.replace(/^https?:\/\//, "")
+  const row = "flex h-12 w-full cursor-pointer items-center gap-3 rounded-xl border border-[#e5e7eb] bg-white px-4 text-left text-[14px] font-medium text-[#1a1a2e] transition-colors duration-150 hover:bg-[#f7f7f8] active:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
+
+  const body = (
+    <div className="space-y-3" data-share-onepage="">
+      <div className="rounded-2xl p-5 text-center" style={{ background: bg }}>
+        {onepage.avatar_video_url ? (
+          <video
+            src={onepage.avatar_video_url}
+            poster={onepage.avatar_url || undefined}
+            className="mx-auto mb-2 h-14 w-14 rounded-full object-cover"
+            autoPlay
+            loop
+            muted
+            playsInline
+          />
+        ) : onepage.avatar_url ? (
+          <img
+            src={onepage.avatar_url}
+            alt={onepage.title}
+            className="mx-auto mb-2 h-14 w-14 rounded-full object-cover"
+            onError={(e) => { e.currentTarget.style.display = "none" }}
+          />
+        ) : (
+          <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full" style={{ backgroundColor: `${theme.text_color}20` }}>
+            <span className="text-xl font-semibold" style={{ color: theme.text_color }}>{onepage.title?.charAt(0)?.toUpperCase() || "?"}</span>
+          </div>
+        )}
+        <h3 className="text-[15px] font-semibold" style={{ color: theme.text_color }}>{onepage.title || "Your name"}</h3>
+        <p className="mt-0.5 text-[12.5px]" style={{ color: `${theme.text_color}99` }}>/{onepage.slug}</p>
+      </div>
+
+      <div className="flex items-center gap-2 rounded-xl border border-[#e5e7eb] bg-[#f7f7f8] py-1.5 pl-4 pr-1.5">
+        <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e]">{address}</span>
+        <button type="button" onClick={onCopy} data-share-copy="" className={cn(primaryDepth, "h-9 gap-1.5 rounded-lg px-3.5 text-[13px]")}>
+          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+
+      <button type="button" onClick={onOpen} className={row}>
+        <ExternalLink className="h-4 w-4 shrink-0 text-[#6b7280]" />
+        Open in a new tab
+      </button>
+
+      {!connectedDomain && (
+        <button type="button" onClick={() => { window.location.href = "/app/settings?tab=domains" }} className={cn(row, "justify-between")}>
+          <span className="flex items-center gap-3">
+            <Globe className="h-4 w-4 shrink-0 text-[#6b7280]" />
+            Add a custom domain
+          </span>
+          <span title={hasPro ? "Included in your plan" : "Custom domains are part of Pro"} className="rounded-full bg-[#f1f2f4] px-2 py-0.5 text-[11.5px] font-semibold text-[#4b5563]">
+            {hasPro ? "Included" : "Pro"}
+          </span>
+        </button>
+      )}
+    </div>
+  )
+
+  if (isPhone) {
+    return (
+      <BottomSheet isOpen={open} onClose={onClose} title="Share your OnePage" hideFrom="md">
+        <div className="px-4 pb-3 pt-3">{body}</div>
+      </BottomSheet>
+    )
+  }
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogContent overlayClassName="backdrop-blur-[3px]" className="w-[calc(100%-32px)] max-w-[420px] gap-0 overflow-hidden rounded-2xl p-0">
+        <DialogHeader className="border-b border-[#eef0f2] px-5 py-4">
+          <DialogTitle className="text-center text-[17px] font-semibold text-[#1a1a2e]">Share your OnePage</DialogTitle>
+        </DialogHeader>
+        <div className="max-h-[70vh] overflow-y-auto overflow-x-hidden p-5">{body}</div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -980,17 +1091,17 @@ function EditorLayout() {
             </span>
           )}
 
-          {/* Mobile: URL button in header (only shows in preview mode) */}
-          {showMobilePreview && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="md:hidden h-8 px-2 rounded-lg"
-              onClick={() => setShowLinkModal(true)}
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          )}
+          {/* The phone's way to share, in the bar's own icon square: it opens the share sheet. */}
+          <button
+            type="button"
+            className={cn(iconDepth, "md:hidden h-8 w-8 rounded-[9px] text-[#374151]")}
+            onClick={() => setShowLinkModal(true)}
+            aria-label="Share your OnePage"
+            title="Share your OnePage"
+            data-onepage-share=""
+          >
+            <Share className="h-4 w-4" strokeWidth={2} />
+          </button>
 
           {/* Save Button */}
           <Button
@@ -999,11 +1110,11 @@ function EditorLayout() {
             className={cn(
               "h-8 sm:h-9 px-3 sm:px-4 rounded-lg transition-all duration-200",
               saveState === "saved" && !isDirty
-                ? "bg-purple-400 hover:bg-purple-400 text-white opacity-60 cursor-default pointer-events-none"
+                ? "bg-[#1a1a2e] hover:bg-[#2a2a40] text-white opacity-60 cursor-default pointer-events-none"
                 : saveState === "error" && isDirty
                   ? "bg-red-600 hover:bg-red-700 text-white cursor-pointer"
                   : isDirty
-                  ? "bg-violet-500 hover:bg-violet-600 text-white cursor-pointer"
+                  ? "bg-[#1a1a2e] hover:bg-[#2a2a40] text-white cursor-pointer"
                   : "bg-gray-200 text-gray-500 cursor-not-allowed"
             )}
           >
@@ -1136,179 +1247,23 @@ function EditorLayout() {
         </div>
       )}
 
-      {/* Link Modal - Fully Responsive */}
-      <Dialog open={showLinkModal} onOpenChange={setShowLinkModal}>
-        <DialogContent
-          disableOverlayDefaultAnimations
-          overlayClassName="backdrop-blur-[3px]"
-          className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[92vw] sm:w-[420px] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl border bg-background shadow-lg duration-300">
-          <DialogHeader className="p-4 sm:p-5 border-b bg-background relative">
-            <DialogTitle className="text-base sm:text-lg font-semibold text-center">Share your OnePage</DialogTitle>
-          </DialogHeader>
-
-          <div className="p-4 sm:p-5 space-y-4 max-h-[70vh] overflow-y-auto overflow-x-hidden">
-            {/* Preview card - adapts to theme background */}
-            <div
-              className="rounded-xl p-4 sm:p-5 text-center"
-              style={{
-                background: onepage.theme.background_type === "gradient" && onepage.theme.background_gradient
-                  ? onepage.theme.background_gradient
-                  : (() => {
-                      // If background is white or very light, use light gray instead
-                      const bgColor = onepage.theme.background_color || "#1f2937"
-                      const isWhiteOrLight = bgColor.toLowerCase() === "#ffffff" ||
-                        bgColor.toLowerCase() === "#fff" ||
-                        bgColor.toLowerCase() === "white" ||
-                        bgColor.toLowerCase() === "#fafafa" ||
-                        bgColor.toLowerCase() === "#f9fafb" ||
-                        bgColor.toLowerCase() === "#f5f5f5"
-                      return isWhiteOrLight ? "#f3f4f6" : bgColor
-                    })(),
-              }}
-            >
-              {onepage.avatar_video_url ? (
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 overflow-hidden relative bg-white/20">
-                  {onepage.avatar_url ? (
-                    <img src={onepage.avatar_url} alt={onepage.title} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-                  ) : (
-                    <div className="absolute inset-0 bg-white/20 animate-pulse" />
-                  )}
-                  <video
-                    src={onepage.avatar_video_url}
-                    className="relative z-[1] w-full h-full object-cover opacity-0 transition-all duration-500"
-                    onLoadedData={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-                    onCanPlay={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-                    onPlaying={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                  />
-                </div>
-              ) : onepage.avatar_url ? (
-                <img
-                  src={onepage.avatar_url}
-                  alt={onepage.title}
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 object-cover"
-                  onError={(e) => { e.currentTarget.style.display = 'none' }}
-                />
-              ) : (
-                <div
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 flex items-center justify-center"
-                  style={{ backgroundColor: `${onepage.theme.text_color}20` }}
-                >
-                  <span
-                    className="text-lg sm:text-xl font-semibold"
-                    style={{ color: onepage.theme.text_color }}
-                  >
-                    {onepage.title?.charAt(0)?.toUpperCase() || "?"}
-                  </span>
-                </div>
-              )}
-              <h3
-                className="font-semibold text-sm"
-                style={{ color: onepage.theme.text_color }}
-              >
-                {onepage.title || "Your Name"}
-              </h3>
-              <p
-                className="text-xs mt-1"
-                style={{ color: `${onepage.theme.text_color}80` }}
-              >
-                ✦ /{onepage.slug}
-              </p>
-            </div>
-
-            {/* URL copy section */}
-            <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border">
-              <span className="flex-1 text-xs sm:text-sm truncate">{pageUrl.replace('https://', '').replace('http://', '')}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={copyLink}
-                className="shrink-0 h-9 px-3 rounded-lg text-xs sm:text-sm cursor-pointer"
-              >
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                <span className="ml-1.5">{copied ? "Copied!" : "Copy"}</span>
-              </Button>
-            </div>
-
-            {/* Open in new tab */}
-            <Button
-              variant="outline"
-              className="w-full justify-start h-11 rounded-xl text-sm cursor-pointer"
-              onClick={viewLive}
-            >
-              <ExternalLink className="h-4 w-4 mr-3" />
-              Open in new tab
-            </Button>
-
-            {/* Add a custom domain — only shown when no domain is connected */}
-            {!connectedDomain && (
-              <div className="group/row relative">
-                <Button
-                  variant="outline"
-                  className="w-full justify-between h-11 rounded-xl text-sm cursor-pointer text-[#374151] hover:text-[#1a1a2e]"
-                  onClick={() => { window.location.href = "/app/settings?tab=domains" }}
-                >
-                  <span className="flex items-center gap-3">
-                    <Globe className="h-4 w-4 text-[#6b7280] shrink-0" />
-                    Add a custom domain
-                  </span>
-
-                  {/* Animated circle → purple Pro badge (same as design tab) */}
-                  <div className="group/badge relative flex items-center shrink-0">
-                    {/* Tooltip — anchored right so it never overflows the modal */}
-                    <div className="absolute z-30 bottom-full right-0 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[11px] leading-tight rounded-lg whitespace-nowrap opacity-0 group-hover/badge:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
-                      {userPlan === "growth" || userPlan === "pro"
-                        ? "Included in your plan"
-                        : "Custom domains are part of Pro"}
-                      <div className="absolute top-full right-3 border-4 border-transparent border-t-gray-900" />
-                    </div>
-
-                    {/* Badge shape: circle → purple pill on hover */}
-                    <div
-                      className={cn(
-                        "relative flex items-center justify-center overflow-hidden bg-black text-white cursor-pointer select-none",
-                        "transition-all duration-300 ease-in-out",
-                        "w-5 h-5 rounded-full",
-                        "group-hover/row:w-9 group-hover/row:rounded-full group-hover/row:bg-violet-600",
-                        "group-hover/badge:w-9 group-hover/badge:rounded-full group-hover/badge:bg-violet-600",
-                        userPlan === "growth" || userPlan === "pro" ? "opacity-50" : "opacity-30",
-                        "group-hover/row:opacity-100 group-hover/badge:opacity-100",
-                      )}
-                    >
-                      {/* Lightning bolt — fades when badge opens */}
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        className={cn(
-                          "absolute w-3 h-3 transition-all duration-200",
-                          "group-hover/row:opacity-0 group-hover/row:scale-50",
-                          "group-hover/badge:opacity-0 group-hover/badge:scale-50",
-                        )}
-                      >
-                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                      </svg>
-
-                      {/* "Pro" text — fades in on hover */}
-                      <span
-                        className={cn(
-                          "absolute text-[10px] font-bold whitespace-nowrap",
-                          "opacity-0 transition-opacity duration-150 delay-100",
-                          "group-hover/row:opacity-100 group-hover/badge:opacity-100",
-                        )}
-                      >
-                        Pro
-                      </span>
-                    </div>
-                  </div>
-                </Button>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/*
+        SHARE YOUR ONEPAGE. On a phone it is the app's own sheet
+        (components/ui/bottom-sheet): it rises from the bottom, follows the
+        thumb and is flicked away like every other sheet in /app. It was a
+        centred modal on every width. From 768px it stays a dialog.
+      */}
+      <ShareOnePage
+        open={showLinkModal}
+        onClose={() => setShowLinkModal(false)}
+        onepage={onepage}
+        pageUrl={pageUrl}
+        copied={copied}
+        onCopy={copyLink}
+        onOpen={viewLive}
+        connectedDomain={connectedDomain}
+        userPlan={userPlan}
+      />
 
       {/* Unsaved Changes Dialog */}
       <UnsavedChangesDialog

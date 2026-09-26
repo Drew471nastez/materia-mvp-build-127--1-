@@ -229,7 +229,7 @@ function QuickCheckoutFormContent({
           placeholder="First name"
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/25 focus:border-transparent transition-all"
           required
         />
         <input
@@ -237,7 +237,7 @@ function QuickCheckoutFormContent({
           placeholder="Last name"
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/25 focus:border-transparent transition-all"
           required
         />
       </div>
@@ -246,7 +246,7 @@ function QuickCheckoutFormContent({
         placeholder="Email address"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/25 focus:border-transparent transition-all"
         required
       />
 
@@ -656,7 +656,7 @@ function ShareButton({
     if (accentColor && !isNearWhite(accentColor)) {
       return accentColor
     }
-    return "#8B5CF6"
+    return "#1a1a2e"
   }
 
   const popupHeaderBackground = getPopupHeaderBackground()
@@ -1038,7 +1038,7 @@ function ShareButton({
             onClick={() => openExternalUrl("https://storelib.com")}
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-[#1a1a2e] flex items-center justify-center shrink-0 overflow-hidden">
                 <img
                   src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
                   alt="Storelib"
@@ -2323,9 +2323,9 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               {quickCheckoutStep === 'loading' && (
                 <div className="py-12 flex flex-col items-center justify-center animate-in fade-in duration-200">
                   <div className="relative">
-                    <Loader2 className="w-12 h-12 text-violet-500 animate-spin" />
+                    <Loader2 className="w-12 h-12 text-[#1a1a2e] animate-spin" />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <ShoppingBag className="w-5 h-5 text-violet-600" />
+                      <ShoppingBag className="w-5 h-5 text-[#1a1a2e]" />
                     </div>
                   </div>
                   <p className="mt-4 text-sm text-gray-600 font-medium">Processing your order...</p>
@@ -2353,14 +2353,14 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                           onClick={() => handleQuickCheckoutDownload(asset)}
                           className="w-full flex items-center gap-3 p-3.5 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors group"
                         >
-                          <div className="w-10 h-10 bg-violet-100 rounded-lg flex items-center justify-center group-hover:bg-violet-200 transition-colors">
-                            <Download className="w-5 h-5 text-violet-600" />
+                          <div className="w-10 h-10 bg-[#f1f2f4] rounded-lg flex items-center justify-center group-hover:bg-[#e8e9ec] transition-colors">
+                            <Download className="w-5 h-5 text-[#1a1a2e]" />
                           </div>
                           <div className="flex-1 min-w-0 text-left">
                             <p className="font-medium text-gray-900 text-sm truncate">{asset.file_name}</p>
                             <p className="text-xs text-gray-500">Click to download</p>
                           </div>
-                          <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-violet-500 transition-colors" />
+                          <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-[#4b5563] transition-colors" />
                         </button>
                       ))}
                     </div>

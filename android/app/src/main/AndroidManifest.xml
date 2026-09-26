@@ -151,4 +151,17 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+        Microphone, for speaking a request to Storelib AI in the website
+        builder (components/website-builder/ask-voice.ts). The page asks with
+        getUserMedia; Capacitor's BridgeWebChromeClient turns that into the
+        runtime RECORD_AUDIO request (MODIFY_AUDIO_SETTINGS is what the
+        WebView needs to open the input), which Android shows each time until
+        it is allowed. Not required hardware: a device without one installs,
+        and simply has no microphone button.
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 </manifest>

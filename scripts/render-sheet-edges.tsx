@@ -130,7 +130,7 @@ function Harness() {
         </MobileEditorSheet>
       )}
       {kind === "ai" && (
-        <MobileEditorSheet open={open} onOpenChange={setOpen} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS}>
+        <MobileEditorSheet open={open} onOpenChange={setOpen} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS} fadeOnMove moveMs={320} keyboard="composer">
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex h-11 shrink-0 items-center px-4 text-sm font-semibold">Ask Storelib</div>
             <div className="min-h-0 flex-1 overflow-y-auto px-3" />

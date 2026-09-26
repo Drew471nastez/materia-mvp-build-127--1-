@@ -15,17 +15,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 // Native <select> used instead of Radix Select for reliable dropdown behavior
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import {
   Check,
   Plus,
   X,
@@ -34,7 +23,8 @@ import {
   Trash2,
   ChevronUp,
   ChevronDown,
-  Layers,
+  ArrowUp,
+  ArrowDown,
   CheckCircle,
   AlertCircle,
   MoreHorizontal,
@@ -76,6 +66,7 @@ import { MediaGrid, type PendingMedia } from "./media-grid"
 import { DigitalFiles, useFileUploads } from "./file-uploads"
 import { CategoryPicker } from "./category-picker"
 import { useCategorySuggestion } from "./category-suggestion"
+import { saveVariants } from "./variant-save"
 
 /*
   The cards a failed check scrolls to (handleSaveChanges). There is no row of
@@ -108,9 +99,32 @@ function countTyped(raw: string): string {
   return raw.replace(/\D/g, "").slice(0, 7)
 }
 
+/*
+  ONE QUIET FOCUS FOR EVERY FIELD in the editor, new or saved: a grey border
+  and a 3px ring you can only just see, in place of the blue ring the inputs
+  bring with them and the violet one the selects had. It is on :focus, so a
+  keyboard always shows where it is. Borderless fields inside a row (the
+  what's included lines) keep their row as their outline. Set on the page
+  and on the search listing dialog, which is drawn outside it.
+*/
+const FIELD_FOCUS =
+  "[&_:is(input:not([type=checkbox]):not([type=radio]):not(.border-0),textarea:not(.border-0),select):focus]:border-[#9ca3af] [&_:is(input:not([type=checkbox]):not([type=radio]):not(.border-0),textarea:not(.border-0),select):focus]:outline-none [&_:is(input:not([type=checkbox]):not([type=radio]):not(.border-0),textarea:not(.border-0),select):focus]:ring-[3px] [&_:is(input:not([type=checkbox]):not([type=radio]):not(.border-0),textarea:not(.border-0),select):focus]:ring-[rgba(17,24,39,0.06)]"
+
 /** The quiet chip that opens an optional field, the way Shopify offers Compare-at under a price. */
 const OPTION_CHIP =
   "inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#f1f2f4] px-3 text-[13px] font-medium text-[#4b5563] transition-colors duration-100 hover:bg-[#e8e9ec] hover:text-[#1a1a2e] active:bg-[#e2e3e7] [-webkit-tap-highlight-color:transparent]"
+
+/** A variant's own tools in its header row: grey, 36px (32 from 640px), and dimmed where they cannot move it further. */
+const VARIANT_TOOL =
+  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors duration-100 hover:bg-[#eceef1] hover:text-[#1a1a2e] focus-visible:shadow-[inset_0_0_0_2px_#9ca3af] disabled:pointer-events-none disabled:opacity-35 sm:h-8 sm:w-8 [-webkit-tap-highlight-color:transparent]"
+
+/** The price a closed variant shows beside its name: its minimum and a plus for pay what you want, else its price. */
+function variantPriceLabel(v: ProductVariant): string {
+  const cents = Math.round(Number.parseFloat((v.payWhatYouWant ? v.pwywMinPrice : v.price) || "0") * 100)
+  if (!Number.isFinite(cents)) return ""
+  if (v.payWhatYouWant) return `$${(cents / 100).toFixed(cents % 100 ? 2 : 0)}+`
+  return v.price ? `$${(cents / 100).toFixed(2)}` : ""
+}
 
 // Limits
 const MAX_PHOTOS = 12
@@ -182,30 +196,34 @@ const VariantFileCheckbox = React.memo(function VariantFileCheckbox({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
   }
 
+  /* A real checkbox to the keyboard and to VoiceOver; neutral when ticked, the page's near black box and a grey file. */
   return (
-    <div
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={isAssigned}
       onClick={handleClick}
-      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all select-none ${
+      className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left outline-none transition-colors select-none focus-visible:shadow-[0_0_0_3px_rgba(17,24,39,0.06)] focus-visible:border-[#9ca3af] ${
         isAssigned
-          ? 'border-violet-200 bg-violet-50/50'
-          : 'border-gray-100 hover:border-gray-200 bg-gray-50/50 hover:bg-gray-50'
+          ? 'border-[#d1d5db] bg-white'
+          : 'border-[#eceef1] bg-[#fafafb] hover:border-[#e0e2e6]'
       }`}
     >
-      <div className={`flex items-center justify-center w-5 h-5 rounded-md border-2 transition-all ${
+      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-[1.5px] transition-colors ${
         isAssigned
-          ? 'bg-violet-500 border-violet-500'
-          : 'bg-white border-gray-300'
+          ? 'border-[#1a1a2e] bg-[#1a1a2e]'
+          : 'border-[#c4c7ce] bg-white'
       }`}>
-        {isAssigned && <Check className="h-3 w-3 text-white" />}
-      </div>
-      <FileText className={`h-4 w-4 flex-shrink-0 ${isAssigned ? 'text-violet-500' : 'text-gray-400'}`} />
-      <div className="min-w-0 flex-1">
-        <p className={`text-sm font-medium truncate ${isAssigned ? 'text-gray-900' : 'text-gray-600'}`}>
+        {isAssigned && <Check className="h-3 w-3 text-white" strokeWidth={3} aria-hidden />}
+      </span>
+      <FileText className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
+      <span className="min-w-0 flex-1">
+        <span className={`block truncate text-sm font-medium ${isAssigned ? 'text-[#1a1a2e]' : 'text-[#4b5563]'}`}>
           {fileName}
-        </p>
-        <p className="text-[10px] text-gray-400">{formatFileSize(fileSize)}</p>
-      </div>
-    </div>
+        </span>
+        <span className="block text-[11px] text-[#9ca3af]">{formatFileSize(fileSize)}</span>
+      </span>
+    </button>
   )
 })
 
@@ -258,6 +276,8 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
      a server render after a save hands new props that must not reset it. */
   const [initial] = useState(() => initialForm(loaded))
   const editProductId = loaded?.product.id ?? null
+  /* The variants could not be read when the page was drawn (./load-editor.ts): the form shows none, and a save must not take that as all of them removed. */
+  const variantsUnread = useRef(!!loaded?.variantsUnread)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -441,6 +461,17 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     })
   }
   const MAX_VARIANTS = 7
+  /** One place up or down. The order is the list's: it is saved as each variant's position. */
+  const moveVariant = (id: string, by: -1 | 1) => {
+    setVariants((prev) => {
+      const from = prev.findIndex((v) => v.id === id)
+      const to = from + by
+      if (from < 0 || to < 0 || to >= prev.length) return prev
+      const next = [...prev]
+      ;[next[from], next[to]] = [next[to], next[from]]
+      return next
+    })
+  }
 
   // Pay What You Want state (product-level, used when no variants)
   const [payWhatYouWant, setPayWhatYouWant] = useState(initial.payWhatYouWant)
@@ -873,150 +904,12 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         }
       }
 
-      // Save variants - smart update/delete/insert to preserve IDs and foreign key references
+      /* The variants, in a few round trips rather than four per variant (./variant-save.ts). */
       if (finalProductId) {
-        console.log("Managing variants for product", finalProductId, "- UI has", variants.length, "variants")
-
-        // Step 1: Get existing variants from DB
-        const { data: existingDbVariants } = await supabase
-          .from("product_variants")
-          .select("id")
-          .eq("product_id", finalProductId)
-
-        const existingDbIds = new Set<string>((existingDbVariants || []).map((v: { id: string }) => v.id))
-        const uiVariantIds = new Set(variants.filter(v => v.id).map(v => v.id))
-
-        // Step 2: Find variants to delete (in DB but not in UI)
-        const variantIdsToDelete = [...existingDbIds].filter(id => !uiVariantIds.has(id))
-
-        // Step 3: Delete removed variants (and their files via cascade)
-        if (variantIdsToDelete.length > 0) {
-          console.log("Deleting", variantIdsToDelete.length, "removed variants")
-
-          // Delete variant files first
-          await supabase
-            .from("product_variant_files")
-            .delete()
-            .in("variant_id", variantIdsToDelete)
-
-          // Delete the variants
-          const { error: deleteError } = await supabase
-            .from("product_variants")
-            .delete()
-            .in("id", variantIdsToDelete)
-
-          if (deleteError) {
-            console.error("Error deleting variants:", deleteError)
-            throw new Error(`Failed to delete variants: ${deleteError.message}`)
-          }
-        }
-
-        // Step 4: Update existing variants and insert new ones
-        const savedVariantIds: string[] = []
-
-        for (let i = 0; i < variants.length; i++) {
-          const variant = variants[i]
-
-          const variantData = {
-            product_id: finalProductId,
-            name: variant.name || "Untitled",
-            description: variant.description || null,
-            price_cents: Math.round(Number.parseFloat(variant.price || "0") * 100),
-            compare_at_price_cents: variant.compareAtPrice ? Math.round(Number.parseFloat(variant.compareAtPrice) * 100) : null,
-            max_purchases: variant.maxPurchases ? parseInt(variant.maxPurchases) : null,
-            position: i,
-            pay_what_you_want: variant.payWhatYouWant || false,
-            pwyw_min_price_cents: variant.payWhatYouWant && variant.pwywMinPrice ? Math.round(Number.parseFloat(variant.pwywMinPrice) * 100) : null,
-            pwyw_suggested_price_cents: variant.payWhatYouWant && variant.pwywSuggestedPrice ? Math.round(Number.parseFloat(variant.pwywSuggestedPrice) * 100) : null,
-          }
-
-          let savedVariant: any = null
-          let variantError: any = null
-
-          if (variant.id && existingDbIds.has(variant.id)) {
-            // Update existing variant
-            const result = await supabase
-              .from("product_variants")
-              .update(variantData)
-              .eq("id", variant.id)
-              .select()
-              .single()
-            savedVariant = result.data
-            variantError = result.error
-          } else {
-            // Insert new variant
-            const result = await supabase
-              .from("product_variants")
-              .insert(variantData)
-              .select()
-              .single()
-            savedVariant = result.data
-            variantError = result.error
-          }
-
-          if (variantError) {
-            console.error("Error saving variant:", variantError)
-            const errMsg = variantError.message || ""
-            if (errMsg.includes("schema cache") || errMsg.includes("column") || errMsg.includes("does not exist")) {
-              throw new Error(`Database schema error: Please run scripts/050_complete_product_features.sql in Supabase SQL Editor, then refresh the page. (Error: ${errMsg})`)
-            }
-            if (variantError.code === "42501" || errMsg.includes("row-level security") || errMsg.includes("permission")) {
-              throw new Error(`Permission denied saving variants. Check RLS policies for product_variants table.`)
-            }
-            throw new Error(`Failed to save variant "${variant.name}": ${errMsg}`)
-          }
-
-          if (savedVariant) {
-            savedVariantIds.push(savedVariant.id)
-
-            // Update variant files - delete old and insert new
-            await supabase
-              .from("product_variant_files")
-              .delete()
-              .eq("variant_id", savedVariant.id)
-
-            if (variant.assignedFiles && variant.assignedFiles.length > 0) {
-              const { data: assets } = await supabase
-                .from("digital_assets")
-                .select("id, file_name")
-                .eq("product_id", finalProductId)
-                .in("id", variant.assignedFiles)
-
-              if (assets && assets.length > 0) {
-                const variantFilesData = assets.map((asset: { id: string }) => ({
-                  variant_id: savedVariant.id,
-                  digital_asset_id: asset.id,
-                }))
-
-                const { error: variantFilesError } = await supabase
-                  .from("product_variant_files")
-                  .insert(variantFilesData)
-
-                if (variantFilesError) {
-                  console.error("Error saving variant files:", variantFilesError)
-                }
-
-                // Auto-generate variant ZIP bundle when variant has 6+ assigned files
-                if (assets.length >= 6) {
-                  fetch("/api/v2/upload/bundle", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ productId: finalProductId, variantId: savedVariant.id }),
-                  }).catch(() => { /* Non-critical: bundle can be regenerated on next save */ })
-                }
-              }
-            }
-          }
-        }
-
-        console.log("Saved", savedVariantIds.length, "variants with IDs:", savedVariantIds)
-
-        // Update variants state with saved IDs
-        if (savedVariantIds.length > 0) {
-          setVariants(currentVariants => currentVariants.map((v, i) => ({
-            ...v,
-            id: savedVariantIds[i] || v.id,
-          })))
+        const savedIds = await saveVariants(supabase, finalProductId, variants, { keepUnlisted: variantsUnread.current })
+        /* Each takes its saved id by the id it had, not by its place, in case the list moved while this ran. */
+        if (savedIds.size > 0) {
+          setVariants(current => current.map(v => (savedIds.has(v.id) ? { ...v, id: savedIds.get(v.id)! } : v)))
         }
       }
 
@@ -1717,39 +1610,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
     }
   }
 
-  // Tooltip icon component with purple styling - responsive for mobile
-  const TooltipIcon = ({ content }: { content: React.ReactNode }) => (
-    <>
-      {/* Desktop: Tooltip */}
-      <TooltipProvider>
-        <Tooltip delayDuration={100}>
-          <TooltipTrigger asChild>
-            <span className="hidden sm:flex items-center justify-center w-4 h-4 rounded-full bg-violet-100 text-violet-600 text-[10px] font-medium cursor-help hover:bg-violet-200 transition-colors">
-              i
-            </span>
-          </TooltipTrigger>
-          <TooltipContent side="right" align="start" sideOffset={8} className="max-w-xs p-3 z-50">
-            {content}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      {/* Mobile: Popover with safe edge positioning */}
-      <Popover>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="sm:hidden flex items-center justify-center w-5 h-5 rounded-full bg-violet-100 text-violet-600 text-[10px] font-medium cursor-help active:bg-violet-200 transition-colors"
-          >
-            i
-          </button>
-        </PopoverTrigger>
-        <PopoverContent side="top" align="start" sideOffset={4} collisionPadding={16} className="max-w-[min(280px,calc(100vw-2rem))] p-3 text-sm z-50 animate-popover-in">
-          {content}
-        </PopoverContent>
-      </Popover>
-    </>
-  )
-
   const existingImages = mediaItems.filter(m => m.type === "image").length
   const existingYouTube = mediaItems.filter(m => m.type === "youtube").length
   const plainSearchPreviewDescription = stripHtmlToPlainText(seoDescription || description)
@@ -1824,7 +1684,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       THE PANE THAT SCROLLS. From lg it is a column, so the foot bar can sit at
       the bottom of the pane even when the form is shorter than the window.
     */
-    <div ref={contentRef} data-product-editor="" className="page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa] max-md:[[data-page-layer]_&]:pb-[calc(32px+env(safe-area-inset-bottom))] lg:flex lg:flex-col">
+    <div ref={contentRef} data-product-editor="" className={cn(FIELD_FOCUS, "page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa] max-md:[[data-page-layer]_&]:pb-[calc(32px+env(safe-area-inset-bottom))] lg:flex lg:flex-col")}>
       {/* Success Notification - Modern black toast */}
       {showNotification && (
         <div
@@ -1986,20 +1846,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     <Label htmlFor="title" className="text-sm font-medium text-gray-700">
                       Title
                     </Label>
-                    <TooltipIcon
-                      content={
-                        <>
-                          <p className="font-medium mb-2">Title recommendations:</p>
-                          <ul className="text-sm space-y-1 list-disc pl-4">
-                            <li>Keep it clear and descriptive</li>
-                            <li>Include main benefit or outcome</li>
-                            <li>Use keywords customers search for</li>
-                            <li>Avoid all caps or excessive punctuation</li>
-                            <li>Aim for 5-10 words maximum</li>
-                          </ul>
-                        </>
-                      }
-                    />
                   </div>
                   <Input
                     id="title"
@@ -2020,14 +1866,9 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                   <div className="flex items-center gap-1.5">
                     <h2 className={CARD_TITLE}>Photos and video</h2>
                     <span className="text-red-500">*</span>
-                    <TooltipIcon
-                      content={
-                        <p>Add photos and videos to showcase your product. The first item becomes the thumbnail.</p>
-                      }
-                    />
                   </div>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Add up to {MAX_PHOTOS} photos and {MAX_YOUTUBE_VIDEOS} video{MAX_YOUTUBE_VIDEOS > 1 ? 's' : ''}.{mediaItems.length > 1 ? " Hold and drag to reorder." : ""}
+                    Add up to {MAX_PHOTOS} photos and {MAX_YOUTUBE_VIDEOS} video{MAX_YOUTUBE_VIDEOS > 1 ? 's' : ''}. The first one is the cover.{mediaItems.length > 1 ? " Hold and drag to reorder." : ""}
                   </p>
                 </div>
 
@@ -2173,7 +2014,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                               placeholder="Paste YouTube URL..."
                               value={youtubeInput}
                               onChange={(e) => setYoutubeInput(e.target.value)}
-                              className="flex-1 h-9 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-1 placeholder:text-gray-400"
+                              className="flex-1 h-9 text-sm border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-1 placeholder:text-gray-400"
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') { e.preventDefault(); handleAddYouTube() }
                                 if (e.key === 'Escape') { setShowYoutubeInput(false); setYoutubeInput("") }
@@ -2266,9 +2107,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                 <div>
                   <div className="flex items-center gap-1.5">
                     <h2 className={CARD_TITLE}>What's Included</h2>
-                    <TooltipIcon
-                      content={<p>List what customers will receive with their purchase</p>}
-                    />
                   </div>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
                     Show customers what they'll get (max {MAX_WHATS_INCLUDED} items).
@@ -2281,17 +2119,11 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     return (
                       <div
                         key={index}
-                        className={`flex items-center gap-2.5 p-2.5 sm:p-3 rounded-xl border transition-colors ${
-                          isDefaultItem
-                            ? 'bg-violet-50/50 border-violet-100'
-                            : 'bg-gray-50 border-gray-200'
-                        }`}
+                        data-included-row=""
+                        className="flex items-center gap-2.5 rounded-xl border border-[#eceef1] bg-[#fafafb] p-2.5 sm:p-3"
                       >
-                        <div className={`flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0 ${
-                          isDefaultItem ? 'bg-violet-100' : 'bg-green-100'
-                        }`}>
-                          <Check className={`h-3 w-3 ${isDefaultItem ? 'text-violet-500' : 'text-green-600'}`} />
-                        </div>
+                        {/* One plain mark for every line, default or typed: a thin grey check, as the product page draws it. */}
+                        <Check aria-hidden strokeWidth={2} className="h-4 w-4 shrink-0 text-[#6b7280]" />
                         {isDefaultItem ? (
                           <span className="flex-1 text-sm text-gray-700">{item}</span>
                         ) : (
@@ -2302,7 +2134,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                                 i === index ? e.target.value : it
                               ))
                             }}
-                            className="flex-1 h-8 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
+                            className="flex-1 h-8 text-sm border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
                             placeholder="Enter item..."
                           />
                         )}
@@ -2317,7 +2149,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                           </button>
                         )}
                         {isDefaultItem && (
-                          <span className="text-[10px] text-violet-400 font-medium px-1.5 py-0.5 bg-violet-100 rounded">Default</span>
+                          <span className="rounded-[6px] border border-[#e3e5e8] bg-white px-1.5 py-0.5 text-[11px] font-medium text-[#6b7280]">Default</span>
                         )}
                       </div>
                     )
@@ -2347,12 +2179,9 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                   <div className="flex items-center gap-1.5">
                     <h2 className={CARD_TITLE}>Digital Files</h2>
                     <span className="text-red-500 text-sm">*</span>
-                    <TooltipIcon
-                      content={<p>If multiple files, upload ZIP.</p>}
-                    />
                   </div>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Files customers receive after purchase.
+                    Files customers receive after purchase. Several files? A ZIP keeps them together.
                   </p>
 
                   <DigitalFiles
@@ -2403,52 +2232,68 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                         data-variant-id={variant.id}
                         className="border border-gray-200 rounded-xl overflow-hidden bg-white hover:border-gray-300 transition-colors"
                       >
-                        {/* Variant Header */}
+                        {/* Variant Header: the name and price, then move up, move down, delete and open, all grey. */}
                         <div
-                          className="flex items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-white cursor-pointer hover:from-gray-100 hover:to-gray-50 transition-colors"
+                          className="flex cursor-pointer items-center justify-between gap-2 bg-[#fafafb] py-2 pl-3 pr-1.5 transition-colors hover:bg-[#f4f5f7] sm:pl-4"
                           onClick={() => {
                             setVariants(prev => prev.map(v =>
                               v.id === variant.id ? { ...v, isExpanded: !v.isExpanded } : v
                             ))
                           }}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-violet-100 text-violet-600">
-                              <Layers className="h-4 w-4" />
-                            </div>
-                            <div>
-                              <span className="text-sm font-medium text-gray-900">{variant.name || "Untitled"}</span>
-                              {variant.price && (
-                                <span className="ml-2 text-xs text-gray-500">${parseFloat(variant.price || "0").toFixed(2)}</span>
-                              )}
-                            </div>
+                          <div className="min-w-0 flex-1 truncate">
+                            <span className="text-sm font-medium text-[#1a1a2e]">{variant.name || "Untitled"}</span>
+                            {variantPriceLabel(variant) ? (
+                              <span className="ml-2 text-xs tabular-nums text-[#6b7280]">{variantPriceLabel(variant)}</span>
+                            ) : null}
                           </div>
-                          <div className="flex items-center gap-1">
+                          <div className="flex shrink-0 items-center">
+                            {variants.length > 1 ? (
+                              <>
+                                <button
+                                  type="button"
+                                  aria-label={`Move ${variant.name || "variant"} up`}
+                                  disabled={index === 0}
+                                  onClick={(e) => { e.stopPropagation(); moveVariant(variant.id, -1) }}
+                                  className={VARIANT_TOOL}
+                                >
+                                  <ArrowUp className="h-4 w-4" aria-hidden />
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label={`Move ${variant.name || "variant"} down`}
+                                  disabled={index === variants.length - 1}
+                                  onClick={(e) => { e.stopPropagation(); moveVariant(variant.id, 1) }}
+                                  className={VARIANT_TOOL}
+                                >
+                                  <ArrowDown className="h-4 w-4" aria-hidden />
+                                </button>
+                              </>
+                            ) : null}
                             <button
                               type="button"
+                              aria-label={`Delete ${variant.name || "variant"}`}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 setVariants(prev => prev.filter(v => v.id !== variant.id))
                               }}
-                              className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                              className={cn(VARIANT_TOOL, "hover:text-[#dc2626]")}
                             >
-                              <Trash2 className="h-4 w-4 text-gray-300 hover:text-red-500" />
+                              <Trash2 className="h-4 w-4" aria-hidden />
                             </button>
                             <button
                               type="button"
+                              aria-label={variant.isExpanded ? "Close" : "Edit"}
+                              aria-expanded={variant.isExpanded}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 setVariants(prev => prev.map(v =>
                                   v.id === variant.id ? { ...v, isExpanded: !v.isExpanded } : v
                                 ))
                               }}
-                              className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors"
+                              className={VARIANT_TOOL}
                             >
-                              {variant.isExpanded ? (
-                                <ChevronUp className="h-4 w-4 text-gray-400" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4 text-gray-400" />
-                              )}
+                              <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", variant.isExpanded && "rotate-180")} aria-hidden />
                             </button>
                           </div>
                         </div>
@@ -2556,45 +2401,19 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                               </div>
                             </div>
 
-                            {/* Pay What You Want Toggle for this variant */}
-                            <div className="pt-1">
-                              <div className="flex items-center gap-2">
-                                <label className="flex items-center gap-2.5 cursor-pointer group">
-                                  <div className="relative">
-                                    <input
-                                      type="checkbox"
-                                      checked={variant.payWhatYouWant || false}
-                                      onChange={(e) => {
-                                        const checked = e.target.checked
-                                        const targetId = variant.id
-                                        setVariants(prev => prev.map(v =>
-                                          v.id === targetId ? { ...v, payWhatYouWant: checked } : v
-                                        ))
-                                      }}
-                                      className="sr-only peer"
-                                    />
-                                    <div className={`w-9 h-5 rounded-full transition-colors ${
-                                      variant.payWhatYouWant
-                                        ? 'bg-violet-500'
-                                        : 'bg-gray-200 group-hover:bg-gray-300'
-                                    }`}>
-                                      <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${
-                                        variant.payWhatYouWant ? 'translate-x-4' : 'translate-x-0'
-                                      }`} />
-                                    </div>
-                                  </div>
-                                  <span className="text-xs font-medium text-gray-600">
-                                    Let customers pay what they want
-                                  </span>
-                                </label>
-                                <TooltipIcon
-                                  content={
-                                    <p className="text-sm">
-                                      Enable flexible pricing for this variant. Buyers can pay any amount above your minimum.
-                                    </p>
-                                  }
-                                />
-                              </div>
+                            {/* Pay what you want for this option: the form's own switch row, its hint where the old info circle was. */}
+                            <div className={SWITCH_GROUP}>
+                              <SwitchRow
+                                title="Buyers choose the price"
+                                hint="Any amount from your minimum."
+                                checked={variant.payWhatYouWant || false}
+                                onChange={(checked) => {
+                                  const targetId = variant.id
+                                  setVariants(prev => prev.map(v =>
+                                    v.id === targetId ? { ...v, payWhatYouWant: checked } : v
+                                  ))
+                                }}
+                              />
                             </div>
 
                             {/* Assigned Digital Files */}
@@ -2835,9 +2654,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                   <div>
                     <div className="flex items-center gap-1.5">
                       <h2 className={CARD_TITLE}>FAQ</h2>
-                      <TooltipIcon
-                        content={<p>Add frequently asked questions to help customers</p>}
-                      />
                     </div>
                     <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
                       {faqOpen ? "Answer common questions. Hold and drag to reorder." : faqs.length === 0 ? "Answer the questions buyers ask." : `${faqs.length} ${faqs.length === 1 ? "question" : "questions"} on the product page.`}
@@ -2944,9 +2760,6 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                     <Label htmlFor="cta" className="text-sm font-medium text-gray-700">
                       Call to action
                     </Label>
-                    <TooltipIcon
-                      content={<p>Button text shown on the product page</p>}
-                    />
                   </div>
                   {/* Mobile: button opens bottom sheet */}
                   <Button
@@ -2964,7 +2777,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                       id="cta"
                       value={callToAction || "I want this!"}
                       onChange={(e) => setCallToAction(e.target.value)}
-                      className="w-full h-11 px-3 pr-10 text-base border border-gray-200 rounded-lg bg-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-colors"
+                      className="w-full h-11 px-3 pr-10 text-base border border-gray-200 rounded-lg bg-white appearance-none cursor-pointer outline-none transition-[border-color,box-shadow]"
                     >
                       <option value="I want this!">I want this!</option>
                       <option value="Buy Now">Buy Now</option>
@@ -3032,7 +2845,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
                         <select
                           value={refundPolicyType}
                           onChange={(e) => setRefundPolicyType(e.target.value)}
-                          className="w-full h-11 px-3 pr-10 text-base border border-gray-200 rounded-lg bg-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-colors"
+                          className="w-full h-11 px-3 pr-10 text-base border border-gray-200 rounded-lg bg-white appearance-none cursor-pointer outline-none transition-[border-color,box-shadow]"
                         >
                           <option value="no_refunds">No refunds allowed</option>
                           <option value="7_day">7-day money back guarantee</option>
@@ -3129,7 +2942,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
       {/* The search engine listing's fields: the editor's sheet on a phone, a dialog on a computer. */}
       {isMobileViewport ? (
         <MobileSheet isOpen={seoOpen} onClose={() => setSeoOpen(false)} maxHeight="88dvh">
-          <div className="space-y-4 px-4 pb-5 pt-1">
+          <div className={cn(FIELD_FOCUS, "space-y-4 px-4 pb-5 pt-1")}>
             <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Search engine listing</h2>
                 <div className="space-y-1.5">
               <Label htmlFor="seoTitle" className="text-xs sm:text-sm font-medium text-gray-700">
@@ -3206,7 +3019,7 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
         </MobileSheet>
       ) : (
         <Dialog open={seoOpen} onOpenChange={setSeoOpen}>
-          <DialogContent className="max-w-[520px] gap-4 rounded-2xl p-6">
+          <DialogContent className={cn(FIELD_FOCUS, "max-w-[520px] gap-4 rounded-2xl p-6")}>
             <DialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">Search engine listing</DialogTitle>
                 <div className="space-y-1.5">
               <Label htmlFor="seoTitle" className="text-xs sm:text-sm font-medium text-gray-700">
@@ -3294,12 +3107,12 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
               onClick={() => { setCallToAction(cta); setShowCtaSheet(false) }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all ${
                 (callToAction || "I want this!") === cta
-                  ? "bg-violet-50 text-violet-900 font-medium"
+                  ? "bg-[#f1f2f4] text-[#1a1a2e] font-medium"
                   : "text-gray-700 hover:bg-gray-50"
               }`}
             >
               <span>{cta}</span>
-              {(callToAction || "I want this!") === cta && <Check className="h-4 w-4 text-violet-500" />}
+              {(callToAction || "I want this!") === cta && <Check className="h-4 w-4 text-[#1a1a2e]" strokeWidth={2.5} />}
             </button>
           ))}
         </div>
@@ -3321,12 +3134,12 @@ export function ProductEditor({ creator: loadedCreator, loaded }: { creator: Edi
               onClick={() => { setRefundPolicyType(option.value); setShowRefundPolicySheet(false) }}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all ${
                 refundPolicyType === option.value
-                  ? "bg-violet-50 text-violet-900 font-medium"
+                  ? "bg-[#f1f2f4] text-[#1a1a2e] font-medium"
                   : "text-gray-700 hover:bg-gray-50"
               }`}
             >
               <span>{option.label}</span>
-              {refundPolicyType === option.value && <Check className="h-4 w-4 text-violet-500" />}
+              {refundPolicyType === option.value && <Check className="h-4 w-4 text-[#1a1a2e]" strokeWidth={2.5} />}
             </button>
           ))}
         </div>

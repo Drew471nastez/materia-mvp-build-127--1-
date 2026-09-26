@@ -29,7 +29,9 @@
  *                 44px place to press.
  *   ColorRow      a SettingRow whose control is the colour field
  *                 (./color-picker).
- *   RangeRow      a slider with its value, dark filled track, round thumb.
+ *   RangeRow      the builder's slider (dark filled track, its number in a
+ *                 box beside it), live under the finger, with stops a
+ *                 finger feels.
  *
  * Colours are Storelib's own (#1a1a2e ink, #6b7280 muted, #e3e4e8 hairline),
  * not Linktree's. No transforms: app/globals.css removes transforms inside a
@@ -40,6 +42,8 @@ import { ChevronLeft, ChevronRight, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { ColorField } from "@/components/onepage/color-picker"
+import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
+import { hapticTap } from "@/lib/native-bridge"
 
 const focusRing = "outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
 
@@ -296,6 +300,59 @@ export function ColorRow({
   )
 }
 
+/**
+ * THE STOPS A FINGER FEELS. The builder's sliders were asked to stop tapping
+ * once per step, because a drag crosses dozens of steps and the taps ran into
+ * each other. The OnePage's sliders were asked to answer the finger. So they
+ * tap at stops, not steps: every step when there are sixteen or fewer (a
+ * border of 0 to 4px, corners in 2px), every tenth of the track when there
+ * are more, a firmer one at either end, never closer than 40ms apart, and
+ * only for a finger (lib/native-bridge hapticTap, the Taptic Engine in the
+ * app, `vibrate` where a browser has it). A mouse and the keyboard get none.
+ */
+function useSliderStops(min: number, max: number, step: number) {
+  const touch = React.useRef(false)
+  const last = React.useRef<number | null>(null)
+  const tappedAt = React.useRef(0)
+  const span = Math.max(step, max - min)
+  const steps = Math.round(span / step)
+  const stopOf = React.useCallback(
+    (v: number) => (steps <= 16 ? Math.round((v - min) / step) : Math.floor(((v - min) / span) * 10 + 1e-6)),
+    [min, step, span, steps],
+  )
+  const arm = React.useCallback((e: React.PointerEvent, value: number) => {
+    touch.current = e.pointerType !== "mouse"
+    last.current = stopOf(value)
+    const off = () => {
+      touch.current = false
+      window.removeEventListener("pointerup", off)
+      window.removeEventListener("pointercancel", off)
+    }
+    window.addEventListener("pointerup", off)
+    window.addEventListener("pointercancel", off)
+  }, [stopOf])
+  const at = React.useCallback((v: number) => {
+    if (!touch.current) return
+    const stop = stopOf(v)
+    if (stop === last.current) return
+    last.current = stop
+    const now = performance.now()
+    if (now - tappedAt.current < 40) return
+    tappedAt.current = now
+    hapticTap(v <= min || v >= max ? "light" : "soft")
+  }, [stopOf, min, max])
+  return { arm, at }
+}
+
+/**
+ * A SLIDER, THE BUILDER'S OWN (components/website-builder/editor/
+ * slider-number-control): the thumb drawn from the control's own state so it
+ * stays under the finger, the page told at most once a frame, the release
+ * flushed, the number beside it typed or nudged with the arrows, and the
+ * sheet kept off its finger. It used to be a native range that wrote the
+ * theme on every input event and redrew the preview each time. With the
+ * stops above for a finger.
+ */
 export function RangeRow({
   label,
   value,
@@ -303,8 +360,9 @@ export function RangeRow({
   max,
   step = 1,
   onChange,
-  format = (v) => String(v),
+  unit = "",
   ends,
+  compact = false,
 }: {
   label: string
   value: number
@@ -312,39 +370,23 @@ export function RangeRow({
   max: number
   step?: number
   onChange: (v: number) => void
-  format?: (v: number) => string
+  /** Written after the number in its box: "px", "%". */
+  unit?: string
   /** Words under each end of the track: "Square", "Round". */
   ends?: [string, string]
+  /** The smaller label a block's own settings use. */
+  compact?: boolean
 }) {
-  const pct = ((Math.min(max, Math.max(min, value)) - min) / Math.max(1, max - min)) * 100
+  const stops = useSliderStops(min, max, step)
+  const current = Math.min(max, Math.max(min, Number.isFinite(value) ? value : min))
   return (
-    <div data-range-row="">
-      <div className="mb-2 flex items-baseline justify-between gap-3">
-        <p className="text-[15px] font-medium text-[#1a1a2e]">{label}</p>
-        <span className="text-[13.5px] tabular-nums text-[#6b7280]">{format(value)}</span>
-      </div>
-      {/* The native range does the work (keys, touch, a screen reader); it is drawn over, invisible. */}
-      <div className="relative flex h-11 items-center" data-sheet-no-drag="">
-        <div aria-hidden className="relative h-1 w-full rounded-full bg-[#e8e9ec]">
-          <div className="absolute inset-y-0 left-0 rounded-full bg-[#1a1a2e]" style={{ width: `${pct}%` }} />
-          <div
-            className="absolute top-1/2 -mt-[11px] h-[22px] w-[22px] rounded-full border border-black/5 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_3px_8px_-2px_rgba(0,0,0,0.25)]"
-            style={{ left: `calc(${pct}% - ${(pct / 100) * 22}px)` }}
-          />
-        </div>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          aria-label={label}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-        />
+    <div data-range-row="" onPointerDownCapture={(e) => stops.arm(e, current)}>
+      <p className={cn("font-medium text-[#1a1a2e]", compact ? "mb-1 text-[13px]" : "mb-1.5 text-[15px]")}>{label}</p>
+      <div className="flex min-h-11 items-center">
+        <SliderNumberControl className="w-full" value={current} onChange={onChange} onLiveChange={stops.at} min={min} max={max} step={step} unit={unit} />
       </div>
       {ends ? (
-        <div className="flex justify-between text-[12.5px] text-[#6b7280]">
+        <div className="flex justify-between pr-[68px] text-[12.5px] text-[#6b7280]">
           <span>{ends[0]}</span>
           <span>{ends[1]}</span>
         </div>

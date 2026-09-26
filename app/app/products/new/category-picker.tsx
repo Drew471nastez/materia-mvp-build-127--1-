@@ -337,21 +337,33 @@ function CategoryList({ browser, value, suggested, phone, listId }: { browser: B
   )
 }
 
-/** What is chosen, under the field: the category, its group, the tag when it is the suggestion, and a way to clear it. */
+/**
+ * What is chosen, under the field: the category (and its group, where there
+ * is room) on a light grey chip with a little depth, the tag when it is the
+ * suggestion, and beside it an x drawn the same way, so the two read as a
+ * pair: "a lighter gray with a little depth, like the X button beside it".
+ */
+const CHIP_DEPTH = "bg-[#f6f7f8] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06),inset_0_-1px_0_rgba(17,24,39,0.05),0_1px_1px_rgba(17,24,39,0.04)]"
+
 function Chosen({ value, suggested, onClear }: { value: string; suggested: string | null; onClear: () => void }) {
   const group = groupOfCategory(value)
   return (
     <div data-category-chosen="" className="flex min-h-9 items-center gap-2 pt-2 text-[14px] leading-5">
-      <span className="max-w-[70%] shrink-0 truncate font-medium text-[#1a1a2e] sm:max-w-[60%]">{value}</span>
-      {/* The group, where there is room for it: on a phone the category alone reads whole. */}
-      {group ? <span className="min-w-0 truncate text-[#6b7280] max-sm:hidden">in {group}</span> : null}
-      {value === suggested ? <SuggestedTag /> : null}
+      <span data-category-chip="" className={cn("inline-flex h-8 min-w-0 max-w-[calc(100%-44px)] items-center gap-1.5 rounded-lg px-2.5", CHIP_DEPTH)}>
+        <span className="min-w-0 shrink truncate font-medium text-[#1a1a2e]">{value}</span>
+        {/* The group, where there is room for it: on a phone the category alone reads whole. */}
+        {group ? <span className="min-w-0 shrink-[2] truncate text-[#6b7280] max-sm:hidden">in {group}</span> : null}
+        {value === suggested ? <SuggestedTag /> : null}
+      </span>
       <button
         type="button"
         data-category-clear=""
         aria-label={`Clear category ${value}`}
         onClick={onClear}
-        className="relative ml-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#6b7280] outline-none transition-colors duration-100 after:absolute after:-inset-2 after:content-[''] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
+        className={cn(
+          "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors duration-100 after:absolute after:-inset-1.5 after:content-[''] hover:bg-[#eef0f2] hover:text-[#1a1a2e] active:bg-[#e9eaed] focus-visible:ring-[3px] focus-visible:ring-[rgba(17,24,39,0.1)] [-webkit-tap-highlight-color:transparent]",
+          CHIP_DEPTH,
+        )}
       >
         <X aria-hidden className="h-4 w-4" />
       </button>
@@ -389,9 +401,17 @@ function placeList(anchor: HTMLElement): { side: "bottom" | "top"; h: number } {
 }
 
 const FIELD =
-  "h-11 w-full rounded-[10px] border border-[#d9dbe0] bg-white pl-9 pr-9 text-left text-[16px] text-[#1a1a2e] outline-none transition-colors duration-100 placeholder:text-[#9ca3af] hover:border-[#c4c7ce] focus:border-[#1a1a2e] sm:h-10 sm:rounded-lg sm:text-[14px] [&::-webkit-search-cancel-button]:hidden [-webkit-tap-highlight-color:transparent]"
+  "h-11 w-full rounded-[10px] border border-[#d9dbe0] bg-white pl-9 pr-9 text-left text-[16px] text-[#1a1a2e] outline-none transition-colors duration-100 placeholder:text-[#9ca3af] hover:border-[#c4c7ce] focus:border-[#9ca3af] focus:ring-[3px] focus:ring-[rgba(17,24,39,0.06)] sm:h-10 sm:rounded-lg sm:text-[14px] [&::-webkit-search-cancel-button]:hidden [-webkit-tap-highlight-color:transparent]"
 
-export function CategoryPicker({
+/*
+  MEMO, SO THE EDITOR'S TYPING DOES NOT REACH IT. The picker sits inside a
+  form that renders on every key pressed in the title or the description,
+  and each of those used to draw the field, the sheet and its 37 group rows
+  again for nothing. Its props are the value, the suggestion, the width and
+  two callbacks the editor keeps stable, so it now renders only when one of
+  those changes, or its own list does.
+*/
+export const CategoryPicker = React.memo(function CategoryPicker({
   value,
   onChange,
   onClear,
@@ -429,7 +449,7 @@ export function CategoryPicker({
   if (isPhone) {
     return (
       <div data-category-field="">
-        <button type="button" data-category-trigger="" aria-haspopup="dialog" aria-expanded={open} onClick={() => show(true)} className={cn(FIELD, "relative flex items-center focus:border-[#d9dbe0] focus-visible:border-[#1a1a2e]")}>
+        <button type="button" data-category-trigger="" aria-haspopup="dialog" aria-expanded={open} onClick={() => show(true)} className={cn(FIELD, "relative flex items-center focus:border-[#d9dbe0] focus:ring-0 focus-visible:border-[#9ca3af] focus-visible:ring-[3px] focus-visible:ring-[rgba(17,24,39,0.06)]")}>
           <Search aria-hidden className="absolute left-3 h-4 w-4 text-[#6b7280]" />
           <span className="truncate text-[#9ca3af]">Search categories</span>
         </button>
@@ -491,7 +511,7 @@ export function CategoryPicker({
                 }
                 browser.onKeyDown(e)
               }}
-              className={cn(FIELD, open && "border-[#1a1a2e]")}
+              className={cn(FIELD, open && "border-[#9ca3af] ring-[3px] ring-[rgba(17,24,39,0.06)]")}
             />
             {browser.level.query ? (
               <button
@@ -527,7 +547,7 @@ export function CategoryPicker({
       {value && !open ? <Chosen value={value} suggested={suggested} onClear={() => { onClear(); inputRef.current?.focus({ preventScroll: true }) }} /> : null}
     </div>
   )
-}
+})
 
 /** The sheet's search: the same field, 16px so iOS does not zoom, on the sheet's grey. */
 function SheetSearch({ browser, listId }: { browser: Browser; listId: string }) {

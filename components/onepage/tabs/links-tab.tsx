@@ -47,31 +47,24 @@ import { Textarea } from "@/components/ui/textarea"
 const linkField =
   "h-12 w-full rounded-xl border border-[#e3e4e8] bg-white px-4 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[15px]"
 
-function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
-  return (
-    <input
-      type="checkbox"
-      checked={checked}
-      onChange={(e) => onCheckedChange(e.target.checked)}
-      className="theme-checkbox"
-    />
-  )
+/*
+  EVERY TOGGLE HERE IS THE APP'S ONE SWITCH (components/ui/switch-style,
+  drawn by editor-kit's Switch): slim, near black when on, a quiet grey
+  when off, with a 44px place to press. They were two CSS checkboxes, one of
+  them violet.
+*/
+function Toggle({ checked, onCheckedChange, label }: { checked: boolean; onCheckedChange: (checked: boolean) => void; label?: string }) {
+  return <Switch checked={checked} onChange={onCheckedChange} label={label ?? ""} />
 }
 
-// Block enable toggle - purple when checked (same style as theme-checkbox but purple)
-function BlockToggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
-  return (
-    <input
-      type="checkbox"
-      checked={checked}
-      onChange={(e) => onCheckedChange(e.target.checked)}
-      className="theme-checkbox-purple"
-    />
-  )
+/** A card's own on and off, at the end of its row. */
+function BlockToggle({ checked, onCheckedChange, label }: { checked: boolean; onCheckedChange: (checked: boolean) => void; label?: string }) {
+  return <Switch checked={checked} onChange={onCheckedChange} label={label ?? (checked ? "Shown on your page" : "Hidden from your page")} />
 }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { ColorRow } from "@/components/onepage/editor-kit"
+import { ColorRow, RangeRow, Switch } from "@/components/onepage/editor-kit"
+import { primaryDepth } from "@/components/ui/depth-button"
 import { DeletedIcon, SaveNotification } from "@/components/ui/save-notification"
 import {
   Dialog,
@@ -80,7 +73,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Slider } from "@/components/ui/slider"
 import {
   Plus,
   GripVertical,
@@ -124,13 +116,11 @@ import {
   Calendar,
   Info,
 } from "lucide-react"
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
-} from "recharts"
+import { LinkStatsChart } from "@/components/onepage/link-stats-chart"
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { DateRangePicker } from "@/components/app/date-range-picker"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
-import { boundsOf, longDate, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
+import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { createClient } from "@/lib/supabase/client"
 import { BLOCKED_EXTENSIONS, readFileHeader, scanFile, MAX_DIGITAL_PRODUCT_FILE_SIZE } from "@/lib/storage/security"
 import { BlockBadges, BlockExtras, EXTRA_BLOCK_CATALOG, EXTRA_BLOCK_TYPES, ExtraBlockEditor, extraBlockRow, type ExtraBlockType } from "@/components/onepage/extra-blocks"
@@ -1573,7 +1563,8 @@ export function LinksTab() {
           setIsAddSheetPresented(false)
           setShowAddModal(sheetOpening(addSheetCloseTimerRef, showAddModal, setIsAddSheetPresented))
         }}
-        className="w-full h-11 bg-violet-500 hover:bg-violet-600 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group cursor-pointer select-none active:scale-[0.98]"
+        /* The page's one primary action: the app's near black, with its line of light and its press (depth-button). */
+        className={cn(primaryDepth, "group h-11 w-full gap-2 rounded-xl text-[15px]")}
       >
         <Plus
           className={cn(
@@ -1605,7 +1596,7 @@ export function LinksTab() {
           size="sm"
           className={cn(
             "text-xs h-8 cursor-pointer",
-            showArchiveView && "bg-purple-600 hover:bg-purple-700 text-white"
+            showArchiveView && "bg-[#1a1a2e] hover:bg-[#2a2a40] text-white"
           )}
           onClick={() => setShowArchiveView(!showArchiveView)}
         >
@@ -1778,7 +1769,7 @@ export function LinksTab() {
                 >
                   <span className="absolute inset-x-2 h-px bg-white shadow-[0_1px_4px_rgba(0,0,0,0.08)] rounded-full opacity-0 transition-all duration-200 ease-out group-hover/add-divider:opacity-100 group-focus-within/add-divider:opacity-100 group-hover/add-divider:translate-y-[0.5px] group-focus-within/add-divider:translate-y-[0.5px]" />
                   <span className="absolute inset-x-3 h-px bg-gray-200 rounded-full opacity-0 transition-all duration-200 ease-out group-hover/add-divider:opacity-100 group-focus-within/add-divider:opacity-100 group-hover/add-divider:-translate-y-[0.5px] group-focus-within/add-divider:-translate-y-[0.5px]" />
-                  <span className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-violet-600 shadow-sm transition-all duration-200 ease-out opacity-0 scale-90 group-hover/add-divider:opacity-100 group-hover/add-divider:shadow-lg group-hover/add-divider:scale-105 group-focus-within/add-divider:opacity-100 group-focus-within/add-divider:shadow-lg group-focus-within/add-divider:scale-105">
+                  <span className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-[#1a1a2e] shadow-sm transition-all duration-200 ease-out opacity-0 scale-90 group-hover/add-divider:opacity-100 group-hover/add-divider:shadow-lg group-hover/add-divider:scale-105 group-focus-within/add-divider:opacity-100 group-focus-within/add-divider:shadow-lg group-focus-within/add-divider:scale-105">
                     <Plus className="h-4 w-4 transition-transform duration-200 ease-out group-hover/add-divider:rotate-90 group-focus-within/add-divider:rotate-90" />
                   </span>
                 </button>
@@ -2578,7 +2569,7 @@ export function LinksTab() {
                 Cancel
               </Button>
               <Button
-                className="flex-1 bg-violet-600 hover:bg-violet-700"
+                className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]"
                 onClick={() => {
                   updateProfile({ title: editName, bio: editBio })
                   setShowNameBioModal(false)
@@ -2729,8 +2720,8 @@ export function LinksTab() {
                     onClick={() => setShowIconLibraryInModal(true)}
                     className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border"
                   >
-                    <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-                      <Grid3X3 className="w-5 h-5 text-purple-600" />
+                    <div className="w-10 h-10 rounded-lg bg-[#f4f4f6] flex items-center justify-center">
+                      <Grid3X3 className="w-5 h-5 text-[#1a1a2e]" />
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium">Choose icon</p>
@@ -3329,21 +3320,21 @@ export function LinksTab() {
                   htmlFor="file-upload-input"
                   className={cn(
                     "flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-gray-300 transition-colors",
-                    imageUploading ? "pointer-events-none" : "hover:border-violet-400 cursor-pointer"
+                    imageUploading ? "pointer-events-none" : "hover:border-[#9ca3af] cursor-pointer"
                   )}
                 >
                   <div className={cn(
                     "w-12 h-12 rounded-xl flex items-center justify-center relative",
-                    imageFieldType === 'pdf_file' ? "bg-red-100" : "bg-violet-100"
+                    imageFieldType === 'pdf_file' ? "bg-red-100" : "bg-[#f1f2f4]"
                   )}>
                     {imageUploading ? (
                       <svg className="w-10 h-10" viewBox="0 0 36 36">
-                        <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="2.5" className={cn("opacity-20", imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")} />
-                        <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className={cn(imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")} style={{ strokeDasharray: `${2 * Math.PI * 15}`, strokeDashoffset: `${2 * Math.PI * 15 * (1 - uploadProgress / 100)}`, transform: 'rotate(-90deg)', transformOrigin: '50% 50%', transition: 'stroke-dashoffset 0.3s ease' }} />
-                        <text x="18" y="19.5" textAnchor="middle" className={cn("text-[8px] font-semibold fill-current", imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")}>{uploadProgress}%</text>
+                        <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="2.5" className={cn("opacity-20", imageFieldType === 'pdf_file' ? "text-red-600" : "text-[#1a1a2e]")} />
+                        <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className={cn(imageFieldType === 'pdf_file' ? "text-red-600" : "text-[#1a1a2e]")} style={{ strokeDasharray: `${2 * Math.PI * 15}`, strokeDashoffset: `${2 * Math.PI * 15 * (1 - uploadProgress / 100)}`, transform: 'rotate(-90deg)', transformOrigin: '50% 50%', transition: 'stroke-dashoffset 0.3s ease' }} />
+                        <text x="18" y="19.5" textAnchor="middle" className={cn("text-[8px] font-semibold fill-current", imageFieldType === 'pdf_file' ? "text-red-600" : "text-[#1a1a2e]")}>{uploadProgress}%</text>
                       </svg>
                     ) : (
-                      <Upload className={cn("h-6 w-6", imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")} />
+                      <Upload className={cn("h-6 w-6", imageFieldType === 'pdf_file' ? "text-red-600" : "text-[#1a1a2e]")} />
                     )}
                   </div>
                   <div className="flex-1 text-left">
@@ -3376,8 +3367,8 @@ export function LinksTab() {
                   return (
                     <div className="mt-3 flex items-center gap-3 p-3 rounded-lg bg-gray-50 border">
                       {imageFieldType === 'digital_product_file' ? (
-                        <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
-                          <FileText className="h-5 w-5 text-violet-600" />
+                        <div className="w-10 h-10 rounded-lg bg-[#f1f2f4] flex items-center justify-center shrink-0">
+                          <FileText className="h-5 w-5 text-[#1a1a2e]" />
                         </div>
                       ) : imageFieldType === 'pdf_file' ? (
                         <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
@@ -3477,7 +3468,7 @@ export function LinksTab() {
                       setImageBlockId(null)
                       setImageFieldType(null)
                     }}
-                    className="aspect-video rounded-xl overflow-hidden border-2 border-transparent hover:border-violet-500 transition-all group"
+                    className="aspect-video rounded-xl overflow-hidden border-2 border-transparent hover:border-[#1a1a2e] transition-all group"
                   >
                     <img src={img.url} alt={img.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   </button>
@@ -3545,12 +3536,12 @@ export function LinksTab() {
               className={cn(
                 "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200",
                 isDragOver
-                  ? "border-violet-500 bg-violet-50 scale-[1.02]"
+                  ? "border-[#1a1a2e] bg-[#f4f4f6] scale-[1.02]"
                   : "border-gray-300 hover:border-gray-400"
               )}
             >
-              <Upload className={cn("h-12 w-12 mb-4 transition-colors", isDragOver ? "text-violet-500" : "text-gray-300")} />
-              <p className={cn("font-medium transition-colors", isDragOver ? "text-violet-600" : "text-gray-600")}>
+              <Upload className={cn("h-12 w-12 mb-4 transition-colors", isDragOver ? "text-[#1a1a2e]" : "text-gray-300")} />
+              <p className={cn("font-medium transition-colors", isDragOver ? "text-[#1a1a2e]" : "text-gray-600")}>
                 {isDragOver ? "Drop image here" : "Select file to upload,"}
               </p>
               {!isDragOver && <p className="font-medium text-gray-600">or drag-and-drop file</p>}
@@ -3871,7 +3862,7 @@ export function LinksTab() {
                         setUploading(false)
                       }
                     }}
-                    className="flex-1 bg-violet-600 hover:bg-violet-700"
+                    className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]"
                     disabled={uploading}
                   >
                     {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
@@ -4177,7 +4168,7 @@ export function LinksTab() {
                         setUploadingVideo(false)
                       }
                     }}
-                    className="flex-1 bg-violet-600 hover:bg-violet-700"
+                    className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]"
                     disabled={uploadingVideo}
                   >
                     {uploadingVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save"}
@@ -4631,7 +4622,7 @@ function BlockItem({
               className={cn(
                 "p-1.5 rounded-lg transition-colors",
                 (block.data as any).animation_type && (block.data as any).animation_type !== 'none'
-                  ? "text-violet-600 bg-violet-50 hover:bg-violet-100"
+                  ? "text-[#1a1a2e] bg-[#f4f4f6] hover:bg-[#ececef]"
                   : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
               )}
               title="Animation"
@@ -4661,7 +4652,7 @@ function BlockItem({
                       className={cn(
                         "w-full px-3 py-1.5 text-left text-sm transition-colors",
                         currentAnimation === anim.id
-                          ? "bg-violet-50 text-violet-700 font-medium"
+                          ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
                           : "text-gray-700 hover:bg-gray-50"
                       )}
                     >
@@ -4770,7 +4761,7 @@ function BlockItem({
                         className={cn(
                           "w-full px-3 py-2.5 rounded-xl text-left text-sm transition-colors",
                           currentAnimation === anim.id
-                            ? "bg-violet-50 text-violet-700 font-medium"
+                            ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
                             : "text-gray-700 hover:bg-gray-50"
                         )}
                       >
@@ -4887,122 +4878,22 @@ function BlockItem({
                     <DateRangePicker value={statsPeriod} onChange={setStatsPeriod} today={statsToday} inline />
                   </div>
 
-                  {statsLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                    </div>
-                  ) : statsData ? (
-                    <>
-                      {/* Stats summary cards */}
-                      <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className="p-3 bg-blue-50 rounded-xl">
-                          <div className="text-2xl font-bold text-blue-900">{statsData.total_views || 0}</div>
-                          <div className="text-xs text-blue-600 font-medium">Views</div>
-                        </div>
-                        <div className="p-3 bg-violet-50 rounded-xl">
-                          <div className="text-2xl font-bold text-violet-900">{statsData.total_clicks || 0}</div>
-                          <div className="text-xs text-violet-600 font-medium">{isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"}</div>
-                        </div>
-                      </div>
-
-                      {/* Chart */}
-                      <div className="bg-gray-50 rounded-xl p-4">
-                        <div className="text-xs font-medium text-gray-500 mb-3">Activity</div>
-                        <div className="h-[140px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart
-                              data={statsData.chart_data.map(d => ({
-                                ...d,
-                                date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                              }))}
-                              margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-                            >
-                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                              <XAxis
-                                dataKey="date"
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: "#9ca3af", fontSize: 10 }}
-                                dy={5}
-                              />
-                              <YAxis
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: "#9ca3af", fontSize: 10 }}
-                                dx={-5}
-                              />
-                              <Tooltip
-                                contentStyle={{
-                                  backgroundColor: "white",
-                                  border: "1px solid #e5e7eb",
-                                  borderRadius: "8px",
-                                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                                  fontSize: "11px"
-                                }}
-                                formatter={(value: number, name: string) => {
-                                  const labels: Record<string, string> = {
-                                    views: "Views",
-                                    clicks: isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"
-                                  }
-                                  return [value.toLocaleString(), labels[name] || name]
-                                }}
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="views"
-                                stroke="#60a5fa"
-                                strokeWidth={2}
-                                dot={{ fill: "#60a5fa", strokeWidth: 0, r: 3 }}
-                                activeDot={{ r: 5 }}
-                                name="views"
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="clicks"
-                                stroke="#a78bfa"
-                                strokeWidth={2}
-                                dot={{ fill: "#a78bfa", strokeWidth: 0, r: 3 }}
-                                activeDot={{ r: 5 }}
-                                name="clicks"
-                              />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
-                        <div className="flex justify-between mt-3 pt-2 border-t border-gray-200">
-                          <span className="text-[10px] text-muted-foreground">
-                            {longDate(statsPeriod.start)}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {statsPeriod.end === statsToday ? 'Now' : longDate(statsPeriod.end)}
-                          </span>
-                        </div>
-                        {/* Legend */}
-                        <div className="flex items-center justify-center gap-6 mt-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-blue-400" />
-                            <span className="text-xs text-gray-600">Views</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-violet-400" />
-                            <span className="text-xs text-gray-600">{isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-8 text-sm text-muted-foreground">
-                      <BarChart2 className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                      <p>No data yet</p>
-                      <p className="text-xs mt-1">Stats will appear once visitors interact with this block</p>
-                    </div>
-                  )}
+                  {/* The OnePage chart from Analytics, with this block's figures (components/onepage/link-stats-chart). */}
+                  <LinkStatsChart
+                    stats={statsData}
+                    loading={statsLoading}
+                    clicksLabel={isEmailCapture ? "Submissions" : isPDFDocument ? "Opens" : "Clicks"}
+                    start={statsPeriod.start}
+                    end={statsPeriod.end}
+                    endIsToday={statsPeriod.end === statsToday}
+                  />
                 </div>
               </DialogContent>
             </Dialog>
           </>
         )}
 
-        <BlockToggle checked={block.enabled} onCheckedChange={onToggle} />
+        <BlockToggle checked={block.enabled} onCheckedChange={onToggle} label={`Show ${preview.title}`} />
       </div>
 
       {isSelected && (
@@ -5414,10 +5305,10 @@ function BlockEditor({
         { id: "preview", label: "Preview" },
       ]
       const ctaOptions = ["Get My Guide", "Get it Now", "Buy Now", "Download", "Get Access", "Enroll Now", "Start Learning", "Custom"]
-      const blockBackgroundColorPresets = ['#7c3aed', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#1a1a1a']
+      const blockBackgroundColorPresets = ['#1a1a2e', '#b2846c', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
       const textColorPresets = ['#ffffff', '#000000', '#1a1a1a', '#f5f5f5', '#374151', '#6b7280']
       const buttonColorPresets = ['#ffffff', '#1a1a1a', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
-      const buttonTextColorPresets = ['#1a1a1a', '#ffffff', '#7c3aed', '#3b82f6', '#ef4444', '#10b981']
+      const buttonTextColorPresets = ['#1a1a1a', '#ffffff', '#b2846c', '#3b82f6', '#ef4444', '#10b981']
 
       // Handle style selection (always use filled button style)
       const handleStyleSelect = (styleId: ProductBlockStyle) => {
@@ -5438,7 +5329,7 @@ function BlockEditor({
                   className={cn(
                     "flex-1 py-2.5 px-3 rounded-lg text-sm font-medium transition-all",
                     data.style === id
-                      ? "bg-violet-500 text-white"
+                      ? "bg-[#1a1a2e] text-white"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   )}
                 >
@@ -5501,7 +5392,7 @@ function BlockEditor({
               <button
                 type="button"
                 onClick={() => setShowCtaDropdown(!showCtaDropdown)}
-                className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-transparent"
               >
                 <span className="truncate">{ctaOptions.slice(0, -1).includes(data.cta_text || "") ? data.cta_text : "Custom"}</span>
                 <svg className={cn("w-4 h-4 text-gray-400 shrink-0 transition-transform", showCtaDropdown && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -5521,7 +5412,7 @@ function BlockEditor({
                       className={cn(
                         "w-full px-3 py-2 text-left text-sm transition-colors",
                         data.cta_text === cta
-                          ? "bg-violet-50 text-violet-700 font-medium"
+                          ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
                           : "text-gray-700 hover:bg-gray-50"
                       )}
                     >
@@ -5537,7 +5428,7 @@ function BlockEditor({
                     className={cn(
                       "w-full px-3 py-2 text-left text-sm transition-colors",
                       !ctaOptions.slice(0, -1).includes(data.cta_text || "")
-                        ? "bg-violet-50 text-violet-700 font-medium"
+                        ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
                         : "text-gray-700 hover:bg-gray-50"
                     )}
                   >
@@ -5565,7 +5456,8 @@ function BlockEditor({
                 label="Block background"
                 value={data.block_background_color || null}
                 emptyLabel="Theme"
-                fallback="#7c3aed"
+                /* With none of its own the block takes the theme's button colour, and the picker starts there. */
+                fallback={onepage?.theme.button_color || "#1a1a2e"}
                 onChange={(color) => updateData({ block_background_color: color })}
                 onClear={() => updateData({ block_background_color: null })}
                 suggestions={blockBackgroundColorPresets}
@@ -5673,7 +5565,7 @@ function BlockEditor({
                     className={cn(
                       "p-2.5 rounded-lg border-2 text-center transition-all",
                       currentDisplayMode === mode.id
-                        ? "border-violet-500 bg-violet-50"
+                        ? "border-[#1a1a2e] bg-[#f4f4f6]"
                         : "border-gray-200 hover:border-gray-300 bg-white"
                     )}
                   >
@@ -5796,7 +5688,7 @@ function BlockEditor({
                             <div className="text-xs text-muted-foreground">{mode.desc}</div>
                           </div>
                         </div>
-                        <Toggle
+                        <Toggle label={mode.label}
                           checked={isActive}
                           onCheckedChange={async (checked) => {
                             if (checked) {
@@ -5879,7 +5771,7 @@ function BlockEditor({
                             <div className="text-xs text-muted-foreground">{mode.desc}</div>
                           </div>
                         </div>
-                        <Toggle
+                        <Toggle label={mode.label}
                           checked={isActive}
                           onCheckedChange={async (checked) => {
                             if (checked) {
@@ -5924,7 +5816,7 @@ function BlockEditor({
                       <div className="text-xs text-muted-foreground">Show song type & artist info</div>
                     </div>
                   </div>
-                  <Toggle
+                  <Toggle label="Enable Metadata"
                     checked={data.spotify_show_metadata !== false}
                     onCheckedChange={async (checked) => {
                       updateData({ spotify_show_metadata: checked })
@@ -6066,7 +5958,7 @@ function BlockEditor({
                               onClick={() => {
                                 onOpenStreamingModal(service.platform, index, data, updateData)
                               }}
-                              className="text-xs text-violet-600 hover:text-violet-700 font-medium"
+                              className="text-xs text-[#1a1a2e] hover:text-[#4b5563] font-medium"
                             >
                               {service.found ? "Edit" : "+ Add"}
                             </button>
@@ -6145,7 +6037,7 @@ function BlockEditor({
                             <div className="text-xs text-muted-foreground">{mode.desc}</div>
                           </div>
                         </div>
-                        <Toggle
+                        <Toggle label={mode.label}
                           checked={isActive}
                           onCheckedChange={async (checked) => {
                             if (checked) {
@@ -6195,7 +6087,7 @@ function BlockEditor({
                       <div className="text-xs text-muted-foreground">Show song type & artist info</div>
                     </div>
                   </div>
-                  <Toggle
+                  <Toggle label="Enable Metadata"
                     checked={data.apple_music_show_metadata !== false}
                     onCheckedChange={async (checked) => {
                       updateData({ apple_music_show_metadata: checked })
@@ -6356,7 +6248,7 @@ function BlockEditor({
                         dropdown.classList.toggle('hidden')
                       }
                     }}
-                    className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                    className="w-full h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-transparent"
                   >
                     <span>{buttonTextPresets.find(p => p.id === (data.button_preset || 'subscribe'))?.label || 'Subscribe'}</span>
                     <ChevronDown className="h-4 w-4 text-gray-400" />
@@ -6376,7 +6268,7 @@ function BlockEditor({
                           className={cn(
                             "w-full px-3 py-1.5 text-left text-sm transition-colors flex items-center justify-between",
                             isSelected
-                              ? "bg-violet-50 text-violet-700 font-medium"
+                              ? "bg-[#f4f4f6] text-[#1a1a2e] font-medium"
                               : "text-gray-700 hover:bg-gray-50"
                           )}
                         >
@@ -6440,7 +6332,7 @@ function BlockEditor({
                   ) : (
                     <button
                       onClick={() => onOpenImageLibrary(block.id, 'product_image')}
-                      className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                      className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-[#9ca3af] flex items-center justify-center transition-colors"
                     >
                       <Upload className="w-5 h-5 text-gray-400" />
                     </button>
@@ -6464,7 +6356,7 @@ function BlockEditor({
                     <Label className="text-xs">Enable Digital Product</Label>
                     <p className="text-[10px] text-muted-foreground">Allow subscribers get a free product on signup</p>
                   </div>
-                  <Toggle
+                  <Toggle label="Enable Digital Product"
                     checked={data.enable_digital_product || false}
                     onCheckedChange={(checked) => updateData({ enable_digital_product: checked })}
                   />
@@ -6481,8 +6373,8 @@ function BlockEditor({
                         className="w-full flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 transition-colors"
                       >
                         {data.digital_product_file_url ? (
-                          <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center">
-                            <FileText className="w-5 h-5 text-violet-600" />
+                          <div className="w-10 h-10 rounded-lg bg-[#f1f2f4] flex items-center justify-center">
+                            <FileText className="w-5 h-5 text-[#1a1a2e]" />
                           </div>
                         ) : (
                           <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
@@ -6516,7 +6408,7 @@ function BlockEditor({
                     </div>
 
                     {data.digital_product_file_url && (
-                      <p className="text-[10px] text-muted-foreground bg-violet-50 p-2 rounded-lg">
+                      <p className="text-[10px] text-muted-foreground bg-[#f4f4f6] p-2 rounded-lg">
                         When visitors subscribe, they can download "{data.digital_product_title || 'your file'}" directly on this page.
                       </p>
                     )}
@@ -6528,7 +6420,7 @@ function BlockEditor({
               <div className="pt-3 border-t">
                 <a
                   href="/app/emails"
-                  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors"
+                  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-[#1a1a2e] bg-[#f4f4f6] hover:bg-[#ececef] rounded-lg transition-colors"
                 >
                   <Mail className="w-4 h-4" />
                   See subscribers
@@ -6548,7 +6440,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     (data.layout_type || 'default') === 'default'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -6568,10 +6460,10 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                      (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {(data.layout_type || 'default') === 'default' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Default</span>
@@ -6586,7 +6478,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     data.layout_type === 'pro'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -6594,7 +6486,7 @@ function BlockEditor({
                   <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
                     <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-200 to-violet-300 shrink-0" />
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#e5e7eb] to-[#d1d5db] shrink-0" />
                         <div className="flex-1 space-y-1">
                           <div className="h-2 w-full bg-gray-200 rounded" />
                           <div className="h-1.5 w-1/2 bg-gray-100 rounded" />
@@ -6611,14 +6503,14 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                      data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {data.layout_type === 'pro' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Featured</span>
-                    <Sparkles className="w-3 h-3 text-violet-500" />
+                    <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1 ml-6">Compact with image</p>
                 </button>
@@ -6634,15 +6526,15 @@ function BlockEditor({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-xs">Show Avatar</Label>
-              <Toggle checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
+              <Toggle label="Show Avatar" checked={data.show_avatar} onCheckedChange={(checked) => updateData({ show_avatar: checked })} />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs">Show Name</Label>
-              <Toggle checked={data.show_name} onCheckedChange={(checked) => updateData({ show_name: checked })} />
+              <Toggle label="Show Name" checked={data.show_name} onCheckedChange={(checked) => updateData({ show_name: checked })} />
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-xs">Show Bio</Label>
-              <Toggle checked={data.show_bio} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
+              <Toggle label="Show Bio" checked={data.show_bio} onCheckedChange={(checked) => updateData({ show_bio: checked })} />
             </div>
           </div>
         )
@@ -6670,7 +6562,7 @@ function BlockEditor({
                       className={cn(
                         "flex items-center gap-2 p-2 bg-white rounded-lg border cursor-grab active:cursor-grabbing transition-all",
                         draggedSocialId === platform && "opacity-50",
-                        dragOverSocialId === platform && "border-violet-500"
+                        dragOverSocialId === platform && "border-[#1a1a2e]"
                       )}
                     >
                       <GripVertical className="h-4 w-4 text-gray-300" />
@@ -6711,34 +6603,8 @@ function BlockEditor({
 
             {/* Padding Controls */}
             <div className="space-y-4 pt-4 border-t border-gray-100">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium">Top Padding</Label>
-                  <span className="text-xs text-muted-foreground">{(block.data as SocialRowBlockData).padding_top ?? 0}px</span>
-                </div>
-                <Slider
-                  value={[(block.data as SocialRowBlockData).padding_top ?? 0]}
-                  onValueChange={([value]) => updateData({ padding_top: value })}
-                  min={0}
-                  max={48}
-                  step={4}
-                  className="w-full"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium">Bottom Padding</Label>
-                  <span className="text-xs text-muted-foreground">{(block.data as SocialRowBlockData).padding_bottom ?? 0}px</span>
-                </div>
-                <Slider
-                  value={[(block.data as SocialRowBlockData).padding_bottom ?? 0]}
-                  onValueChange={([value]) => updateData({ padding_bottom: value })}
-                  min={0}
-                  max={48}
-                  step={4}
-                  className="w-full"
-                />
-              </div>
+              <RangeRow compact label="Top padding" value={(block.data as SocialRowBlockData).padding_top ?? 0} min={0} max={48} step={4} unit="px" onChange={(value) => updateData({ padding_top: value })} />
+              <RangeRow compact label="Bottom padding" value={(block.data as SocialRowBlockData).padding_bottom ?? 0} min={0} max={48} step={4} unit="px" onChange={(value) => updateData({ padding_bottom: value })} />
             </div>
           </div>
         )
@@ -6788,7 +6654,7 @@ function BlockEditor({
                     className={cn(
                       "flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all",
                       data.style === id
-                        ? "border-violet-500 bg-violet-50"
+                        ? "border-[#1a1a2e] bg-[#f4f4f6]"
                         : "border-gray-200 hover:border-gray-300 bg-white"
                     )}
                   >
@@ -6800,16 +6666,7 @@ function BlockEditor({
                 ))}
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Height: {data.height}px</Label>
-              <Slider
-                value={[data.height]}
-                onValueChange={([value]) => updateData({ height: value })}
-                min={8}
-                max={64}
-                step={4}
-              />
-            </div>
+            <RangeRow compact label="Height" value={data.height} min={8} max={64} step={4} unit="px" onChange={(value) => updateData({ height: value })} />
           </div>
         )
       }
@@ -6917,7 +6774,7 @@ function BlockEditor({
                       >
                         {imageUploading === img.id ? (
                           <div className="flex flex-col items-center gap-2 text-gray-400">
-                            <div className="w-8 h-8 border-2 border-gray-300 border-t-violet-500 rounded-full animate-spin" />
+                            <div className="w-8 h-8 border-2 border-gray-300 border-t-[#1a1a2e] rounded-full animate-spin" />
                             <span className="text-xs font-medium">Uploading...</span>
                           </div>
                         ) : img.image_url ? (
@@ -6978,7 +6835,7 @@ function BlockEditor({
                   <Label className="text-xs font-medium">Make clickable</Label>
                   <p className="text-[10px] text-muted-foreground">Add links to images</p>
                 </div>
-                <Toggle
+                <Toggle label="Add links to images"
                   checked={data.clickable || false}
                   onCheckedChange={(checked) => updateData({ clickable: checked })}
                 />
@@ -6990,7 +6847,7 @@ function BlockEditor({
                   <Label className="text-xs font-medium">Show captions</Label>
                   <p className="text-[10px] text-muted-foreground">Display image titles</p>
                 </div>
-                <Toggle
+                <Toggle label="Display image titles"
                   checked={data.show_captions || false}
                   onCheckedChange={(checked) => updateData({ show_captions: checked })}
                 />
@@ -7081,7 +6938,7 @@ function BlockEditor({
                       <Label className="text-xs font-medium">Autoplay</Label>
                       <p className="text-[10px] text-muted-foreground">Auto-advance slides</p>
                     </div>
-                    <Toggle
+                    <Toggle label="Auto-advance slides"
                       checked={data.carousel_autoplay || false}
                       onCheckedChange={(checked) => updateData({ carousel_autoplay: checked })}
                     />
@@ -7300,7 +7157,7 @@ function BlockEditor({
                   <Label className="text-xs font-medium">Enable Preview</Label>
                   <p className="text-[10px] text-muted-foreground">Show PDF preview modal when clicked</p>
                 </div>
-                <Toggle
+                <Toggle label="Show PDF preview when clicked"
                   checked={data.enable_preview !== false}
                   onCheckedChange={(checked) => {
                     updateData({ enable_preview: checked, open_directly: checked ? false : data.open_directly })
@@ -7314,7 +7171,7 @@ function BlockEditor({
                   <Label className="text-xs font-medium">Open Directly</Label>
                   <p className="text-[10px] text-muted-foreground">Open PDF file directly in new tab</p>
                 </div>
-                <Toggle
+                <Toggle label="Open PDF directly in a new tab"
                   checked={data.open_directly === true}
                   onCheckedChange={(checked) => {
                     updateData({ open_directly: checked, enable_preview: checked ? false : data.enable_preview })
@@ -7335,7 +7192,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     (data.layout_type || 'default') === 'default'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -7351,10 +7208,10 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                      (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {(data.layout_type || 'default') === 'default' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Default</span>
@@ -7369,7 +7226,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     data.layout_type === 'pro'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -7392,14 +7249,14 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                      data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {data.layout_type === 'pro' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Featured</span>
-                    <Sparkles className="w-3 h-3 text-violet-500" />
+                    <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
                 </button>
@@ -7426,7 +7283,7 @@ function BlockEditor({
                     ) : (
                       <button
                         onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
-                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-[#9ca3af] flex items-center justify-center transition-colors"
                       >
                         <Upload className="w-5 h-5 text-gray-400" />
                       </button>
@@ -7565,7 +7422,7 @@ function BlockEditor({
                   <Label className="text-xs font-medium">Enable Preview</Label>
                   <p className="text-[10px] text-muted-foreground">Show menu preview modal when clicked</p>
                 </div>
-                <Toggle
+                <Toggle label="Show menu preview when clicked"
                   checked={data.enable_preview !== false}
                   onCheckedChange={(checked) => {
                     updateData({ enable_preview: checked, open_directly: checked ? false : data.open_directly })
@@ -7579,7 +7436,7 @@ function BlockEditor({
                   <Label className="text-xs font-medium">Open Directly</Label>
                   <p className="text-[10px] text-muted-foreground">Open menu PDF directly in new tab</p>
                 </div>
-                <Toggle
+                <Toggle label="Open menu PDF directly in a new tab"
                   checked={data.open_directly === true}
                   onCheckedChange={(checked) => {
                     updateData({ open_directly: checked, enable_preview: checked ? false : data.enable_preview })
@@ -7600,7 +7457,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     (data.layout_type || 'default') === 'default'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -7616,10 +7473,10 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                      (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {(data.layout_type || 'default') === 'default' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Default</span>
@@ -7634,7 +7491,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     data.layout_type === 'pro'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -7657,14 +7514,14 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                      data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {data.layout_type === 'pro' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Featured</span>
-                    <Sparkles className="w-3 h-3 text-violet-500" />
+                    <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
                 </button>
@@ -7691,7 +7548,7 @@ function BlockEditor({
                     ) : (
                       <button
                         onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
-                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-[#9ca3af] flex items-center justify-center transition-colors"
                       >
                         <Upload className="w-5 h-5 text-gray-400" />
                       </button>
@@ -7782,7 +7639,7 @@ function BlockEditor({
                     <Label className="text-xs font-medium">Go Directly To Link</Label>
                     <p className="text-[10px] text-muted-foreground">Open Calendly page in new tab</p>
                   </div>
-                  <Toggle
+                  <Toggle label="Open Calendly page in a new tab"
                     checked={data.embed_mode === 'direct_link'}
                     onCheckedChange={(checked) => {
                       updateData({ embed_mode: checked ? 'direct_link' : 'embedded' })
@@ -7796,7 +7653,7 @@ function BlockEditor({
                     <Label className="text-xs font-medium">Embedded Calendar</Label>
                     <p className="text-[10px] text-muted-foreground">Show calendar in popup modal</p>
                   </div>
-                  <Toggle
+                  <Toggle label="Show calendar in a popup"
                     checked={data.embed_mode === 'embedded'}
                     onCheckedChange={(checked) => {
                       updateData({ embed_mode: checked ? 'embedded' : 'direct_link', embed_type: 'modal' })
@@ -7818,7 +7675,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     (data.layout_type || 'default') === 'default'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -7834,10 +7691,10 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      (data.layout_type || 'default') === 'default' ? "border-violet-500" : "border-gray-300"
+                      (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {(data.layout_type || 'default') === 'default' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Default</span>
@@ -7852,7 +7709,7 @@ function BlockEditor({
                   className={cn(
                     "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                     data.layout_type === 'pro'
-                      ? "border-violet-500 bg-violet-50/50"
+                      ? "border-[#1a1a2e] bg-[#f7f7f8]"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   )}
                 >
@@ -7875,14 +7732,14 @@ function BlockEditor({
                   <div className="flex items-center gap-2">
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                      data.layout_type === 'pro' ? "border-violet-500" : "border-gray-300"
+                      data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
                       {data.layout_type === 'pro' && (
-                        <div className="w-2 h-2 rounded-full bg-violet-500" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       )}
                     </div>
                     <span className="font-medium text-sm">Featured</span>
-                    <Sparkles className="w-3 h-3 text-violet-500" />
+                    <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1 ml-6">With image & details</p>
                 </button>
@@ -7909,7 +7766,7 @@ function BlockEditor({
                     ) : (
                       <button
                         onClick={() => onOpenImageLibrary(block.id, 'thumbnail_url')}
-                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-violet-400 flex items-center justify-center transition-colors"
+                        className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 hover:border-[#9ca3af] flex items-center justify-center transition-colors"
                       >
                         <Upload className="w-5 h-5 text-gray-400" />
                       </button>
@@ -7944,7 +7801,7 @@ function BlockEditor({
                 <button
                   type="button"
                   onClick={() => setShowProductDropdown(!showProductDropdown)}
-                  className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-transparent"
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     {selectedProduct?.thumbnail_url && (
@@ -7974,7 +7831,7 @@ function BlockEditor({
                         <p className="text-sm text-muted-foreground mb-3">No products found.</p>
                         <a
                           href="/app/products/new"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#1a1a2e] hover:bg-[#2a2a40] rounded-lg transition-colors"
                         >
                           <Plus className="w-3 h-3" />
                           Add Product
@@ -8005,7 +7862,7 @@ function BlockEditor({
                           className={cn(
                             "w-full px-3 py-2.5 text-left text-sm transition-colors flex items-center gap-2",
                             data.product_id === product.id
-                              ? "bg-violet-50 text-violet-700"
+                              ? "bg-[#f4f4f6] text-[#1a1a2e]"
                               : "text-gray-700 hover:bg-gray-50"
                           )}
                         >
@@ -8017,7 +7874,7 @@ function BlockEditor({
                             />
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className={cn("font-medium truncate", data.product_id === product.id && "text-violet-700")}>
+                            <p className={cn("font-medium truncate", data.product_id === product.id && "text-[#1a1a2e]")}>
                               {product.title}
                             </p>
                             <p className="text-xs text-muted-foreground">
@@ -8025,7 +7882,7 @@ function BlockEditor({
                             </p>
                           </div>
                           {data.product_id === product.id && (
-                            <Check className="w-4 h-4 text-violet-600 shrink-0" />
+                            <Check className="w-4 h-4 text-[#1a1a2e] shrink-0" />
                           )}
                         </button>
                       ))
@@ -8042,7 +7899,7 @@ function BlockEditor({
                   href={`/app/products/${data.product_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-700 font-medium transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs text-[#1a1a2e] hover:text-[#4b5563] font-medium transition-colors"
                 >
                   <Pencil className="w-3 h-3" />
                   Edit Product
@@ -8051,7 +7908,7 @@ function BlockEditor({
                   href="/creator-page?pageType=product"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-700 font-medium transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs text-[#1a1a2e] hover:text-[#4b5563] font-medium transition-colors"
                 >
                   <Pencil className="w-3 h-3" />
                   Edit Product Page
@@ -8063,14 +7920,14 @@ function BlockEditor({
             <div className="space-y-2 pt-2 border-t">
               <div className="flex items-center justify-between">
                 <Label className="text-xs">Show Price</Label>
-                <Toggle
+                <Toggle label="Show Price"
                   checked={data.show_price !== false}
                   onCheckedChange={(checked) => updateData({ show_price: checked })}
                 />
               </div>
               <div className="flex items-center justify-between">
                 <Label className="text-xs">Show Description</Label>
-                <Toggle
+                <Toggle label="Show Description"
                   checked={data.show_description !== false}
                   onCheckedChange={(checked) => updateData({ show_description: checked })}
                 />
@@ -8085,13 +7942,13 @@ function BlockEditor({
                     <Label className="text-xs">Quick Checkout</Label>
                     <p className="text-[10px] text-muted-foreground">Works only for free products</p>
                   </div>
-                  <Toggle
+                  <Toggle label="Quick Checkout"
                     checked={data.quick_checkout || false}
                     onCheckedChange={(checked) => updateData({ quick_checkout: checked })}
                   />
                 </div>
                 {data.quick_checkout && (
-                  <p className="text-[10px] text-muted-foreground bg-violet-50 p-2 rounded-lg">
+                  <p className="text-[10px] text-muted-foreground bg-[#f4f4f6] p-2 rounded-lg">
                     Users will see a quick checkout form instead of being redirected to the checkout page.
                   </p>
                 )}
@@ -8262,10 +8119,7 @@ function BlockEditor({
                   ))}
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Height: {d.height || 24}px</Label>
-                <Slider value={[d.height || 24]} onValueChange={([v]) => updateChildData({ height: v })} min={8} max={64} step={4} />
-              </div>
+              <RangeRow compact label="Height" value={d.height || 24} min={8} max={64} step={4} unit="px" onChange={(v) => updateChildData({ height: v })} />
             </div>
           )
         }
@@ -8369,9 +8223,9 @@ function BlockEditor({
                         onClick={() => setSelectedGroupChildId(selectedGroupChildId === child.id ? null : child.id)}
                         className={cn(
                           "flex items-center gap-2 p-2.5 bg-white rounded-lg border cursor-pointer transition-all",
-                          selectedGroupChildId === child.id ? "border-violet-500 ring-1 ring-violet-500" : "border-gray-200 hover:border-gray-300",
+                          selectedGroupChildId === child.id ? "border-[#1a1a2e] ring-1 ring-[#1a1a2e]" : "border-gray-200 hover:border-gray-300",
                           groupDraggedId === child.id && "opacity-50",
-                          groupDragOverId === child.id && "border-violet-400 border-dashed bg-violet-50",
+                          groupDragOverId === child.id && "border-[#9ca3af] border-dashed bg-[#f4f4f6]",
                           !child.enabled && "opacity-50"
                         )}
                       >
@@ -8488,7 +8342,7 @@ function BlockEditor({
               className={cn(
                 "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                 groupData.layout === "stack"
-                  ? "border-violet-500 bg-violet-50/50"
+                  ? "border-[#1a1a2e] bg-[#f7f7f8]"
                   : "border-gray-200 hover:border-gray-300 bg-white"
               )}
             >
@@ -8503,10 +8357,10 @@ function BlockEditor({
               <div className="flex items-center gap-2">
                 <div className={cn(
                   "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                  groupData.layout === "stack" ? "border-violet-500" : "border-gray-300"
+                  groupData.layout === "stack" ? "border-[#1a1a2e]" : "border-gray-300"
                 )}>
                   {groupData.layout === "stack" && (
-                    <div className="w-2 h-2 rounded-full bg-violet-500" />
+                    <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                   )}
                 </div>
                 <span className="font-medium text-sm">Stack</span>
@@ -8521,7 +8375,7 @@ function BlockEditor({
               className={cn(
                 "relative p-3 rounded-xl border-2 text-left transition-all flex flex-col",
                 groupData.layout === "carousel"
-                  ? "border-violet-500 bg-violet-50/50"
+                  ? "border-[#1a1a2e] bg-[#f7f7f8]"
                   : "border-gray-200 hover:border-gray-300 bg-white"
               )}
             >
@@ -8536,10 +8390,10 @@ function BlockEditor({
               <div className="flex items-center gap-2">
                 <div className={cn(
                   "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                  groupData.layout === "carousel" ? "border-violet-500" : "border-gray-300"
+                  groupData.layout === "carousel" ? "border-[#1a1a2e]" : "border-gray-300"
                 )}>
                   {groupData.layout === "carousel" && (
-                    <div className="w-2 h-2 rounded-full bg-violet-500" />
+                    <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                   )}
                 </div>
                 <span className="font-medium text-sm">Carousel</span>
@@ -8566,7 +8420,7 @@ function BlockEditor({
                       className={cn(
                         "flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-all",
                         (groupData.carousel_view || "1") === view.id
-                          ? "bg-violet-500 text-white"
+                          ? "bg-[#1a1a2e] text-white"
                           : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       )}
                     >

@@ -347,7 +347,7 @@ async function main() {
     check("the emailed PDF is dated from the order row, not the clock", /created_at: order\.created_at \?\?/.test(fulfil) && !/created_at: new Date\(\)\.toISOString\(\)/.test(fulfil))
     check("the basket's hosted page offers the business box, and opens without it if refused", /tax_id_collection: \{ enabled: true \}/.test(read("app/api/checkout/cart/route.ts")) && /delete params\.tax_id_collection/.test(read("app/api/checkout/cart/route.ts")))
     check("the creator's copy carries the buyer's number and company", /invoiceNumber\(first\.id, first\.created_at\)/.test(read("app/api/invoice/route.ts")) && /companyOf\(lines\)/.test(read("app/api/invoice/route.ts")))
-    check("part 35 adds the column the company is kept in", /ADD COLUMN IF NOT EXISTS business_details jsonb/.test(read("supabase/sql/run-now/35_order_business_details.sql")))
+    check("part 35 adds the column the company is kept in", /ADD COLUMN IF NOT EXISTS business_details jsonb/.test(read("supabase/sql/run-now/36_order_business_details.sql")))
   }
 
   globalThis.fetch = realFetch

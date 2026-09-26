@@ -152,7 +152,7 @@ function Phone() {
         style={{ height: 48, background: "#171717", display: "flex", alignItems: "center", padding: "0 12px", boxSizing: "border-box" }}
       />
       <div style={{ height: "calc(100vh - 48px)", background: "#f8f9fa" }} />
-      <MobileEditorSheet open={open} onOpenChange={(next) => setOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS}>
+      <MobileEditorSheet open={open} onOpenChange={(next) => setOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS} fadeOnMove moveMs={320} keyboard="composer">
         <ThemeChat
           variant="sheet"
           installId="00000000-0000-4000-8000-000000000001"

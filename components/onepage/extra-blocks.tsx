@@ -651,10 +651,21 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
             <Label className={label}>Address or place</Label>
             <Input value={d.address || ""} maxLength={200} placeholder="Strada Lipscani 12, Bucharest" onChange={(e) => updateData({ address: e.target.value })} />
           </div>
-          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3 py-2.5">
             <span className="text-[13px] text-[#1a1a2e]">Show an Open in Maps button</span>
-            <input type="checkbox" className="theme-checkbox-purple" checked={d.show_button !== false} onChange={(e) => updateData({ show_button: e.target.checked })} />
-          </label>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={d.show_button !== false}
+              aria-label="Show an Open in Maps button"
+              onClick={() => updateData({ show_button: d.show_button === false })}
+              className="-my-[11px] -mr-[3px] grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+            >
+              <span aria-hidden className={switchTrack(d.show_button !== false)}>
+                <span className={switchKnob(d.show_button !== false)} />
+              </span>
+            </button>
+          </div>
         </div>
       )
     }

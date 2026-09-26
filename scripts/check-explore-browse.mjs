@@ -340,10 +340,19 @@ console.log("\n2. The More picker")
     expect(out.subOneWay && out.rootOneWay && out.veilOneWay && out.endSub === out.width && out.endRoot === 0 && out.endVeil === 0, `${label}: back is the same move in reverse, to rest`, { sub: out.endSub, root: out.endRoot, veil: out.endVeil })
     expect(out.ms >= 230 && out.ms <= 330 && out.maxGap <= 34 && out.longTasks.length === 0 && out.tops.length === 1, `${label}: back is as smooth`, { ms: out.ms, maxGap: out.maxGap, long: out.longTasks, tops: out.tops })
   }
-  /* A transition shows where it starts on its first frame, so two frames is as soon as anything can move. */
+  /*
+    A transition shows where it starts on its first frame, so two frames is
+    as soon as anything can move. Changed on purpose: this also asked that a
+    tap move sooner than the keyboard, because its rows were drawn on the
+    press; drawing on the press is what made an iPhone drop the tap
+    (components/explore/category-browser.tsx, ONE TAP), so both are drawn
+    and moved on the click now and both are held to the two frames.
+    scripts/check-explore-drill.mjs taps it with real touches.
+  */
   const tapIn = report[0].in
-  expect(tapIn.startedAfterPress != null && tapIn.startedAfterPress <= 40 && tapIn.startedAfterPress < report[1].in.startedAfterPress,
-    "a tap moves it within two frames, sooner than the keyboard: its rows were drawn on the press", { tap: tapIn.startedAfterPress, key: report[1].in.startedAfterPress })
+  const keyIn = report[1].in
+  expect(tapIn.startedAfterPress != null && tapIn.startedAfterPress <= 40 && keyIn.startedAfterPress != null && keyIn.startedAfterPress <= 40,
+    "a tap and the keyboard both move it within two frames, drawn and moved on the click", { tap: tapIn.startedAfterPress, key: keyIn.startedAfterPress })
   writeFileSync(join(shots, "push-390.json"), JSON.stringify(report, null, 1))
 
   /* Reduced motion: no move at all. */
@@ -353,7 +362,13 @@ console.log("\n2. The More picker")
   await push(p, "back")
   await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "no-preference" }])
 
-  /* the drag: one to one, then a pull past the threshold closes */
+  /*
+    the drag: one to one, then a pull past the threshold closes. Changed on
+    purpose with the sheet's release rule (b0f03cad, "it closes where it
+    would have gone"): a pull held still before the lift closes once it is
+    past half the sheet, so the pull goes on to 420px of a 658px sheet. It
+    stopped at 140px, which that rule springs back.
+  */
   const drag = await p.evaluate(async () => {
     const panel = document.querySelector("[data-sheet-panel]")
     const handle = panel.querySelector("[data-sheet-handle]")
@@ -365,13 +380,13 @@ console.log("\n2. The More picker")
     const y = () => new DOMMatrixReadOnly(getComputedStyle(panel).transform).m42
     fire("touchstart", y0)
     const seen = []
-    for (const d of [10, 40, 80, 140]) {
+    for (const d of [10, 40, 80, 140, 260, 420]) {
       fire("touchmove", y0 + d)
       await frame(); await frame()
       seen.push([d, Math.round(y())])
       await new Promise((r) => setTimeout(r, 60))
     }
-    fire("touchend", y0 + 140)
+    fire("touchend", y0 + 420)
     await new Promise((r) => setTimeout(r, 600))
     return { seen, gone: !document.querySelector("[data-app-sheet]") }
   })
@@ -630,13 +645,13 @@ for (const [label, vp] of [["phone 390", PHONE], ["desktop 1280", DESK]]) {
     const y = () => new DOMMatrixReadOnly(getComputedStyle(panel).transform).m42
     fire("touchstart", y0)
     const seen = []
-    for (const d of [10, 40, 80, 140]) {
+    for (const d of [10, 40, 80, 140, 260, 420]) {
       fire("touchmove", y0 + d)
       await frame(); await frame()
       seen.push([d, Math.round(y())])
       await new Promise((r) => setTimeout(r, 60))
     }
-    fire("touchend", y0 + 140)
+    fire("touchend", y0 + 420)
     await new Promise((r) => setTimeout(r, 600))
     return { seen, gone: !document.querySelector("[data-app-sheet]") }
   })

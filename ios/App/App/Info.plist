@@ -45,7 +45,7 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Storelib saves photos to your library when you request it.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Storelib may use the microphone when recording video for product previews.</string>
+	<string>Storelib uses the microphone when you speak a request to Storelib AI, and when you record video for product previews.</string>
 
 	<!-- ── Push notifications ────────────────────────────────────────────── -->
 	<key>UIBackgroundModes</key>
