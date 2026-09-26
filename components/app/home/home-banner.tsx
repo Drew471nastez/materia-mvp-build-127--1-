@@ -20,8 +20,8 @@
  * focus is inside it, while a finger is on it, while it is off screen and
  * while the tab is hidden. The segments pick a slide (arrow keys move
  * between them), a sideways swipe on a phone does too. A change is a plain
- * crossfade of the text, opacity alone over 250ms, in the one fixed height:
- * nothing slides, nothing follows the finger, nothing under it moves. "Not
+ * fade of the text in the one fixed height, the old line out before the
+ * new one comes in (see the slide CSS): nothing follows the finger. "Not
  * like a swipe carousel ... make it fade out, normal regular." The clock is a CSS animation on
  * `transform`, run by the compositor, and the slide changes when it ends:
  * no timer runs, and a slide change renders the banner and nothing else.
@@ -78,6 +78,8 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
   const count = list.length
   const [currentId, setCurrentId] = useState(list[0]?.id)
   const [leavingId, setLeavingId] = useState<string | null>(null)
+  /* Which way the text moves in: a swipe or an arrow brings it from the side it was sent, the clock with a small rise. */
+  const [dir, setDir] = useState<"auto" | "next" | "prev" | undefined>(undefined)
   /* A change the reader asked for is read out; one the clock made is not. */
   const [live, setLive] = useState<"off" | "polite">("off")
   const rootRef = useRef<HTMLElement>(null)
@@ -96,9 +98,10 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
       if (!next || next.id === current?.id) return
       setLeavingId(current?.id ?? null)
       setCurrentId(next.id)
+      setDir(asked ? (to < index ? "prev" : "next") : "auto")
       setLive(asked ? "polite" : "off")
     },
-    [count, list, current],
+    [count, list, current, index],
   )
 
   /*
@@ -219,6 +222,7 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
           <div
             ref={trackRef}
             className="home-banner-stack"
+            data-dir={dir}
             aria-live={live}
           >
             {list.map((a, i) => {
@@ -421,16 +425,22 @@ const BANNER_CSS = `
   align-items: flex-start;
 }
 /*
-  A CROSSFADE, AND NOTHING ELSE. The slide going out and the one coming in
-  sit in the same place and trade opacity over the same 250ms, on the whole
-  slide at once: no slide, no stagger, only the compositor at work. The one
-  going out turns hidden (out of the accessibility tree) once it has faded.
+  ONE LINE OUT, THEN THE NEXT ONE IN. Two sentences crossfading over each
+  other read as a flash: for a moment both are half there. So the one going
+  out fades in 150ms, and the one coming in starts after it (160ms) and
+  settles over 380ms with a small move: a 4px rise when the clock turns it,
+  10px from the side it was sent when a finger or an arrow did. Opacity and
+  translate only, so the compositor does all of it.
 */
 .home-banner-slide {
   visibility: hidden;
   opacity: 0;
-  transition: opacity 250ms ease, visibility 0s linear 250ms;
+  transition: opacity 150ms cubic-bezier(0.4, 0, 1, 1), translate 150ms cubic-bezier(0.4, 0, 1, 1), visibility 0s linear 150ms;
 }
+/* Only the one going out moves: the others wait where they will show, so nothing measures them anywhere else. */
+.home-banner-slide[data-slide="leaving"] { translate: var(--home-banner-out, 0 -3px); }
+.home-banner-stack[data-dir="next"] { --home-banner-in: 10px 0; --home-banner-out: -8px 0; }
+.home-banner-stack[data-dir="prev"] { --home-banner-in: -10px 0; --home-banner-out: 8px 0; }
 .home-banner-slide > * {
   /* Never squeezed: a title or a line clipped to fit would be a sentence cut in half. */
   flex-shrink: 0;
@@ -438,7 +448,17 @@ const BANNER_CSS = `
 .home-banner-slide[data-slide="active"] {
   visibility: visible;
   opacity: 1;
-  transition: opacity 250ms ease, visibility 0s;
+  translate: 0 0;
+  transition: visibility 0s;
+}
+/* An animation rather than a transition, so it starts from the side of this change, not the last one's.
+   No data-dir until the first change: the slide showing when Home opens is simply there. */
+.home-banner-stack[data-dir] > .home-banner-slide[data-slide="active"] {
+  animation: home-banner-in 380ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
+}
+@keyframes home-banner-in {
+  from { opacity: 0; translate: var(--home-banner-in, 0 4px); }
+  to { opacity: 1; translate: 0 0; }
 }
 
 .home-banner-eyebrow {
@@ -576,7 +596,6 @@ const BANNER_CSS = `
 }
 @media (prefers-reduced-motion: reduce) {
   .home-banner-tab[data-on] .home-banner-tab-fill { animation-name: home-banner-fill-still; }
-  .home-banner-slide { transition-duration: 160ms, 0s; transition-delay: 0s, 160ms; }
-  .home-banner-slide[data-slide="active"] { transition-delay: 0s, 0s; }
+  .home-banner-stack { --home-banner-in: 0 0; --home-banner-out: 0 0; }
 }
 `

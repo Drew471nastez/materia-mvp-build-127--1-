@@ -19,12 +19,13 @@
  * angles, the speed and the drag live in the effect, not in state).
  *
  * IT ONLY RUNS WHEN IT CAN BE SEEN. Off screen (IntersectionObserver) or
- * on a hidden tab (visibilitychange) no frame is asked for at all. While
- * the page is scrolling the globe rests and picks up again from the same
- * angle a moment after the scroll stops, one frame's step on, so nothing
- * jumps. Letting it turn under a finger scrolling Home doubled how long
- * each touchmove waited (scripts/check-home-scroll.mjs, run both ways):
- * the page's scroll comes first.
+ * on a hidden tab (visibilitychange) no frame is asked for at all. On
+ * screen it never stops, through a scroll too: "never stops, never glitches,
+ * never pauses". It used to rest while the page scrolled, and a globe that
+ * freezes under your thumb reads as a glitch. What keeps that cheap is the
+ * frame budget instead: left alone, it draws at most every IDLE_FRAME_MS,
+ * so a 120Hz phone gets the same 60 frames a slow turn needs, and the
+ * page's scroll runs on the compositor, which no frame here waits on.
  *
  * ONE TURN THAT NEVER STARTS OVER. The angle is advanced by the time that
  * passed, so a frame late or a tab shown again carries on from where it was
@@ -34,13 +35,14 @@
  * while after it unmounts and handed to the next one, so nothing compiles
  * again and the ball does not jump back to where it first started.
  *
- * THE DRAG. Only the ball itself is grabbable: a round grip over it. A
- * finger turns it sideways; an up or down swipe that starts on it scrolls
- * the page (`touch-action: pan-y`). It was `none`, so on a phone, where the
- * ball fills half the banner, a scroll that happened to start on it did not
- * move the page at all: the page seemed to catch and stutter at the banner
- * ("laggy, glitching, then normal again further down"). A mouse still tips
- * it up and down. Grabbing stops it under the finger the way a real
+ * THE DRAG. Only the ball itself is grabbable: a round grip over it, and a
+ * finger on it belongs to the globe (`touch-action: none`): it turns it
+ * sideways and tips it up and down, the way a mouse does. It was `pan-y`
+ * for a while, so a scroll starting on the ball moved the page, but then
+ * the globe could not be played with on a phone at all: "it understands
+ * that I want to scroll ... what I really want is interact with the
+ * globe". The rest of the banner, the text beside it, still scrolls the
+ * page. Grabbing stops it under the finger the way a real
  * globe stops under a hand; let go and it keeps the speed it was thrown at,
  * then eases back to its own slow turn, and its tilt drifts back to rest.
  * Held still before letting go, it was put down, not thrown.
@@ -75,8 +77,8 @@ const MAX_TILT_SPEED = 0.01
 const VELOCITY_MS = 45
 /** Held still this long before letting go: put down, not thrown. */
 const HELD_MS = 80
-/** A page scroll this long ago is over, and the globe turns again. */
-const SCROLL_REST_MS = 140
+/** At most one drawing this often while nobody holds it: a 120Hz screen gets 60 frames of a slow turn, which look the same, for half the work. */
+const IDLE_FRAME_MS = 15
 /** The grip is a little wider than the ball, so its edge is easy to catch. */
 const GRIP = GLOBE_RADIUS * 1.06
 /** How long a globe that left the page is kept for the next mount before its context is let go. */
@@ -187,8 +189,6 @@ export function BannerGlobe({ className }: { className?: string }) {
     let tiltVel = 0
 
     let dragging = false
-    /* A finger only turns it sideways: up and down is the page's scroll. */
-    let byMouse = false
     let pointerId = -1
     let lastX = 0
     let lastY = 0
@@ -205,8 +205,7 @@ export function BannerGlobe({ className }: { className?: string }) {
     let clock = 0
     let nextArc = 0
     let onScreen = false
-    let scrolling = false
-    let scrollTimer = 0
+    let painted = 0
     let lost = false
 
     const landed = (arc: Arc) => {
@@ -238,7 +237,7 @@ export function BannerGlobe({ className }: { className?: string }) {
       for (let i = 0; i < ripples.length; i++) if (ripples[i].active) return true
       return false
     }
-    const canRun = () => onScreen && !lost && document.visibilityState === "visible" && (dragging || !scrolling)
+    const canRun = () => onScreen && !lost && document.visibilityState === "visible" 
 
     /** A sale between two cities facing the viewer, far enough apart to curve, or into `to` when a tap asks for one. */
     const launch = (now: number, to: number = -1) => {
@@ -271,6 +270,11 @@ export function BannerGlobe({ className }: { className?: string }) {
 
     const tick = (now: number) => {
       frame = 0
+      if (!dragging && painted && now - painted < IDLE_FRAME_MS && !renderer?.pending()) {
+        frame = requestAnimationFrame(tick)
+        return
+      }
+      painted = now
       const dt = last ? Math.min(48, now - last) : 16
       last = now
       clock = now
@@ -333,7 +337,6 @@ export function BannerGlobe({ className }: { className?: string }) {
     const onDown = (e: PointerEvent) => {
       if (dragging || (e.pointerType === "mouse" && e.button !== 0)) return
       dragging = true
-      byMouse = e.pointerType === "mouse"
       pointerId = e.pointerId
       lastX = downX = e.clientX
       lastY = downY = e.clientY
@@ -351,7 +354,6 @@ export function BannerGlobe({ className }: { className?: string }) {
       box.setAttribute("data-dragging", "")
       /* No text selection starting under a mouse drag. */
       if (e.pointerType === "mouse") e.preventDefault()
-      scrolling = false
       wake()
     }
     const onMove = (e: PointerEvent) => {
@@ -364,10 +366,10 @@ export function BannerGlobe({ className }: { className?: string }) {
       const r = size * GLOBE_RADIUS
       /* A point on the surface follows the finger across. */
       yaw += dx / r
-      if (byMouse) tilt = Math.max(TILT_MIN, Math.min(TILT_MAX, tilt + dy / r))
+      tilt = Math.max(TILT_MIN, Math.min(TILT_MAX, tilt + dy / r))
       const k = 1 - Math.exp(-dt / VELOCITY_MS)
       estYaw += (dx / r / dt - estYaw) * k
-      if (byMouse) estTilt += (dy / r / dt - estTilt) * k
+      estTilt += (dy / r / dt - estTilt) * k
       lastX = e.clientX
       lastY = e.clientY
       lastT = moveT = e.timeStamp
@@ -421,28 +423,15 @@ export function BannerGlobe({ className }: { className?: string }) {
       nextArc = (clock || performance.now()) + 1600
     }
 
-    /* A sideways drag on the grip is the globe's: the page's pull to refresh never sees it. An up or down swipe is the page's. */
+    /* A finger on the ball is the globe's, every way it moves: the page's pull to refresh and the banner's swipe never see it. */
     const keep = (e: TouchEvent) => {
-      if (dragging) e.stopPropagation()
+      e.stopPropagation()
     }
     grip.addEventListener("touchstart", keep, { passive: true })
     grip.addEventListener("touchmove", keep, { passive: true })
 
     /* ── When it runs ─────────────────────────────────────────────────── */
 
-    const onScroll = (e: Event) => {
-      if (dragging) return
-      /* Only a scroll that moves the globe on the screen: a sideways strip elsewhere on the page is not that. */
-      const t = e.target
-      if (t !== document && !(t instanceof Node && t.contains(box))) return
-      scrolling = true
-      sleep()
-      window.clearTimeout(scrollTimer)
-      scrollTimer = window.setTimeout(() => {
-        scrolling = false
-        wake()
-      }, SCROLL_REST_MS)
-    }
     const onVisibility = () => (document.visibilityState === "visible" ? wake() : sleep())
     const onMotion = () => {
       reduced = reduce.matches
@@ -497,7 +486,6 @@ export function BannerGlobe({ className }: { className?: string }) {
     grip.addEventListener("pointerup", onUp)
     grip.addEventListener("pointercancel", onCancel)
     grip.addEventListener("lostpointercapture", onCancel)
-    document.addEventListener("scroll", onScroll, { capture: true, passive: true })
     document.addEventListener("visibilitychange", onVisibility)
     reduce.addEventListener?.("change", onMotion)
     ro = new ResizeObserver(resize)
@@ -540,11 +528,9 @@ export function BannerGlobe({ className }: { className?: string }) {
       window.clearTimeout(startTimer)
       window.clearTimeout(warmTimer)
       sleep()
-      window.clearTimeout(scrollTimer)
       ro?.disconnect()
       io?.disconnect()
       window.removeEventListener("resize", resize)
-      document.removeEventListener("scroll", onScroll, { capture: true })
       document.removeEventListener("visibilitychange", onVisibility)
       reduce.removeEventListener?.("change", onMotion)
       grip.removeEventListener("pointerdown", onDown)
@@ -587,7 +573,7 @@ export function BannerGlobe({ className }: { className?: string }) {
         data-home-globe-grip=""
         aria-hidden="true"
         className="absolute cursor-grab rounded-full select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
-        style={{ left: inset, top: inset, right: inset, bottom: inset, touchAction: "pan-y" }}
+        style={{ left: inset, top: inset, right: inset, bottom: inset, touchAction: "none" }}
       />
     </div>
   )

@@ -22,7 +22,7 @@ export type Vec3 = [number, number, number]
 /** The globe's radius as a share of its canvas: the rest is room for the glow and for sales arcing over the edge. */
 export const GLOBE_RADIUS = 0.4
 /** One land dot's radius, in radii of the globe. Pins, pulses and trails are sized from it. */
-export const DOT_RADIUS = 0.0125
+export const DOT_RADIUS = 0.0102
 /** The drawing is never made sharper than this, whatever the screen: a soft dotted ball gains nothing from 3x, and costs 2.25 times the pixels. */
 export const MAX_DPR = 2
 

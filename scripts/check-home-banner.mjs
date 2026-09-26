@@ -25,13 +25,13 @@
  *             navigation began (startNavigationLoading); the share one opens
  *             the share sheet instead.
  *   GLOBE     drawn (WebGL here, with the 2D fallback forced once); on a
- *             phone a finger dragged over the ball turns it and the page
+ *             phone a finger dragged over the ball, any way, turns it and the page
  *             does not scroll, while the same drag on the text, or on the
  *             globe's box outside the ball, scrolls the page; a mouse gets a
  *             hand and a closed hand; with reduced motion it does not turn
  *             by itself and the text does not slide.
  *   FADES     a change of slide, by the clock, a segment or a swipe, is a
- *             crossfade (opacity only, 250ms); the text never rides the
+ *             fade, the old line out before the new one in; the text never rides the
  *             finger like a carousel.
  *
  *   node scripts/check-home-banner.mjs
@@ -173,6 +173,8 @@ async function measureSlides(page) {
       /* Focus inside the banner holds the clock, so the slide measured is the one picked, at rest. */
       await page.evaluate((n) => { const tab = document.querySelectorAll("[data-home-banner] [role=tab]")[n]; tab.focus(); tab.click() }, i)
       await sleep(650)
+      /* And the new line has finished coming in: measured mid-way it is still a few pixels to the side. */
+      await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => a.animationName === "home-banner-in").map((a) => a.finished)))
     }
     out.push(await page.evaluate(() => {
       const b = document.querySelector("[data-home-banner]")
@@ -327,13 +329,13 @@ try {
       expect((await active(page)) === s0, "and to the right the one before", [s1, await active(page)])
       expect((await page.evaluate(() => document.querySelector("[data-home-banner] .home-banner-stack").getAttribute("aria-live"))) === "polite", "a change asked for is read out")
       expect(followed.every((m) => (m.translate === "none" || /^0px/.test(m.translate)) && m.opacity === "1"), "the text does not follow the finger: a swipe only picks the slide", followed)
-      /* The change itself is a crossfade: opacity alone, about a quarter of a second. */
+      /* The change: the old line out in 150ms, then the new one in, never both half there at once. */
       const fade = await page.evaluate(() => {
         const cs = getComputedStyle(document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"]'))
-        const title = getComputedStyle(document.querySelector('[data-home-banner] .home-banner-slide[data-slide="active"] .home-banner-title'))
-        return { property: cs.transitionProperty, duration: cs.transitionDuration, titleTranslate: title.translate, titleTransition: title.transitionProperty }
+        const out = getComputedStyle(document.querySelector('[data-home-banner] .home-banner-slide:not([data-slide="active"])'))
+        return { name: cs.animationName, delay: cs.animationDelay, outProperty: out.transitionProperty, outDuration: out.transitionDuration }
       })
-      expect(/^opacity, visibility$/.test(fade.property) && /^0\.25s/.test(fade.duration) && (fade.titleTranslate === "none" || /^0px/.test(fade.titleTranslate)), "a slide changes by a crossfade, opacity only, 250ms", fade)
+      expect(fade.name === "home-banner-in" && fade.delay === "0.16s" && /^opacity, translate, visibility$/.test(fade.outProperty) && /^0\.15s/.test(fade.outDuration), "a slide changes one line after the other: out in 150ms, in after 160ms", fade)
       await cdp.send("Animation.setPlaybackRate", { playbackRate: 10 })
     } else {
       /* A mouse over it holds it. */
@@ -390,7 +392,7 @@ try {
       const banner = document.querySelector("[data-home-banner]").getBoundingClientRect()
       return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, touch: getComputedStyle(g).touchAction, text: getComputedStyle(document.querySelector(".home-banner-text")).touchAction, box: { left: box.left, top: box.top, right: Math.min(box.right, banner.right), bottom: Math.min(box.bottom, banner.bottom) } }
     })
-    expect(grip.touch === "pan-y" && grip.text === "pan-y", "an up or down swipe scrolls the page, even from the ball: touch-action pan-y on both", grip)
+    expect(grip.touch === "none" && grip.text === "pan-y", "a finger on the ball is the globe's (touch-action none), the text beside it scrolls the page (pan-y)", grip)
     if (phone) {
       const scrollTop = () => page.evaluate(() => document.querySelector(".dashboard-scroll-container").scrollTop)
       const drag = async (x, y, dy, dx = 2) => {
@@ -408,10 +410,12 @@ try {
         new MutationObserver(() => { if (document.querySelector("[data-home-globe-box]").hasAttribute("data-dragging")) window.__gripped = true })
           .observe(document.querySelector("[data-home-globe-box]"), { attributes: true })
       })
-      /* Up over the ball: the page scrolls, it does not catch on the globe. */
+      /* Up over the ball: the globe tips under the finger and the page stays where it is. */
+      const hUp = await globeHash(page)
       await drag(grip.x, grip.y, -120)
       const afterGlobe = await scrollTop()
-      expect(afterGlobe - before > 40, "a finger dragged up over the ball scrolls the page", `${before} -> ${afterGlobe}`)
+      expect(Math.abs(afterGlobe - before) <= 1, "a finger dragged up over the ball does not scroll the page", `${before} -> ${afterGlobe}`)
+      expect((await page.evaluate(() => window.__gripped)) && (await globeHash(page)) !== hUp, "it tips and turns the globe instead")
       await toBanner(page)
       await sleep(300)
       const grip2 = await page.evaluate(() => { const r = document.querySelector("[data-home-globe-grip]").getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
