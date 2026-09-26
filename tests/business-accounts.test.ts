@@ -24,14 +24,16 @@
 import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
 import { businessAlias, isBusinessAlias, ownerAddress, BUSINESS_TAG_PATTERN } from "../lib/businesses/email-alias"
-import { canAddBusiness, countWord, LIMIT_NOT_OPEN_YET, LIMIT_REACHED, linkRefusal, MAX_BUSINESSES, maySwitch, UUID_PATTERN } from "../lib/businesses/rules"
+import { canAddBusiness, countWord, LIMIT_NOT_OPEN_YET, LIMIT_REACHED, linkRefusal, MAX_BUSINESSES, maySwitch, ownerOf, UUID_PATTERN } from "../lib/businesses/rules"
 import {
   cleanSwitchName,
+  cleanSwitchPhoto,
   clearSwitchCookie,
   handoverAt,
   LINE_AFTER_MS,
   LINE_MIN_MS,
   lineShowsAt,
+  readSwitchArrival,
   readSwitchCookie,
   spinDelay,
   SWITCH_COOKIE,
@@ -92,15 +94,29 @@ function switchScreen() {
   check("  and cleared the same way", /^storelib_switching=; Path=\/app; Max-Age=0; SameSite=Lax/.test(clearSwitchCookie()))
   check("what the server reads back is the name, cleaned", readSwitchCookie("Lind%20Studio") === "Lind Studio" && readSwitchCookie(encodeURIComponent("<b>x</b>\n")) === "<b>x</b>")
   check("  and a broken or empty cookie is no switch", readSwitchCookie("%E0%A4%A") === null && readSwitchCookie("") === null && readSwitchCookie(undefined) === null)
+  /* The photo rides with the name, so the screen's bar can draw the business on both sides of the reload (components/app/shell-header-still). */
+  const withPhoto = switchCookie("Lind Studio", { photo: "https://x.supabase.co/storage/v1/object/public/avatars/a.png" })
+  const photoValue = /^storelib_switching=([^;]*);/.exec(withPhoto)?.[1]
+  check("the cookie carries the photo after the name, and reads back as both",
+    JSON.stringify(readSwitchArrival(photoValue)) === JSON.stringify({ name: "Lind Studio", photo: "https://x.supabase.co/storage/v1/object/public/avatars/a.png" }) && readSwitchCookie(photoValue) === "Lind Studio")
+  check("  a cookie with a name alone (written before the photo was carried) is that name, with no photo",
+    JSON.stringify(readSwitchArrival("Lind%20Studio")) === JSON.stringify({ name: "Lind Studio", photo: null }))
+  check("  only a picture address the app would draw: https or a path on this site, never another scheme, //host, quotes or spaces",
+    cleanSwitchPhoto("/photos/a.png") === "/photos/a.png" && cleanSwitchPhoto("https://a.b/c.png") === "https://a.b/c.png"
+      && [ "javascript:alert(1)", "//evil.com/a.png", "http://a.b/c.png", "data:image/png;base64,AA", "/a.png\" onerror=\"x", "/a b.png", "x".repeat(1200), 7, null ].every((u) => cleanSwitchPhoto(u) === null))
+  check("  a bad photo leaves the name alone", JSON.stringify(readSwitchArrival(encodeURIComponent("Lind Studio\njavascript:alert(1)"))) === JSON.stringify({ name: "Lind Studio", photo: null }))
+  check("  and a photo with no name is no switch", readSwitchArrival(encodeURIComponent("\n/photos/a.png")) === null && !/%0A/.test(switchCookie("", { photo: "/photos/a.png" })))
   const d = spinDelay(1_700_000_000_250, false)
   check("the spinner's turn comes from the wall clock, a second a turn, three with reduced motion", d === "-250ms" && spinDelay(3_000_000_001_250, true) === "-1250ms")
   check("  and the new document's HTML sets it the same way, before its first paint", /Date\.now\(\)%\(r\?3000:1000\)/.test(SWITCH_SPIN_SCRIPT) && /--switch-spin-delay/.test(SWITCH_SPIN_SCRIPT))
 
   console.log("\nThe switch's screen: the wiring")
   const switcher = read("components/app/business-switcher.tsx")
-  check("a press on the other business puts the screen up and names it for the new /app",
-    /setSwitching\(b\)/.test(switcher) && /switchBusiness\(b\.userId, "\/app", \{ arrival: b\.ready \? b\.name : undefined, onOpening: \(\) => screen\.current\?\.opening\(\) \}\)/.test(switcher)
-      && /<SwitchingScreen name=\{switching\.name\} ready=\{switching\.ready\}/.test(switcher))
+  check("a press on the other business puts the screen up and names it, with its photo, for the new /app",
+    /setSwitching\(b\)/.test(switcher) && /switchBusiness\(b\.userId, "\/app", \{\s*arrival: b\.ready \? \{ name: b\.name, photo: b\.avatarUrl \} : undefined,\s*business: b,\s*onOpening: \(\) => screen\.current\?\.opening\(\),\s*\}\)/.test(switcher)
+      && /<SwitchingScreen name=\{switching\.name\} photo=\{switching\.avatarUrl\} ready=\{switching\.ready\}/.test(switcher))
+  check("  the list fetches the other businesses' photos at the bar's size as it opens, so the bar has the photo on the press",
+    /if \(!expanded\) return\s*const size = sheet \? STILL_AVATAR\.phone : STILL_AVATAR\.desktop\s*for \(const b of businesses\) if \(!b\.current\) preloadAvatar\(b\.avatarUrl, size\)/.test(switcher))
   check("  and the row's own spinner is gone: one loading state, not two", !/busy === b\.userId && <Loader2/.test(switcher))
   /*
     Changed on purpose (owner: "the loading states should be very smooth,
@@ -129,19 +145,28 @@ function switchScreen() {
       && /surface=\{creating \? "plain" : "app"\}/.test(read("components/app/business-switch-screen.tsx")) && /transition-opacity ease-out motion-reduce:transition-none/.test(read("components/app/business-switch-screen.tsx")))
   check("a failed switch takes the screen away and says why in the menu", /screen\.current\.fail\(\)/.test(switcher) && /setError\(e instanceof Error && e\.message \? e\.message : SWITCH_FAILED\)/.test(switcher))
   const client = read("lib/businesses/switch-client.ts")
-  const cookieAt = client.indexOf("document.cookie = switchCookie(steps.arrival")
+  const cookieAt = client.indexOf("document.cookie = switchCookie(steps.arrival.name")
   check("the switch leaves the cookie only once the session is held, and just before the new page is asked for",
     cookieAt > client.indexOf("auth.setSession(session)") && cookieAt < client.indexOf("steps.onOpening?.()") && client.indexOf("steps.onOpening?.()") < client.indexOf("window.location.replace(next)"))
+  check("the public site's header is told who this browser is now, after the account before is cleared (saved listings and follows with it)",
+    client.indexOf("clearAuthSnapshot()") > client.indexOf("auth.setSession(session)") && client.indexOf("writeAuthSnapshot({ signedIn: true, userId: b.userId") > client.indexOf("clearAuthSnapshot()")
+      && client.indexOf("writeAuthSnapshot(") < client.indexOf("window.location.replace(next)"))
   check("every failure is a sentence, and no answer in time is a failure",
     /export const SWITCH_FAILED = "That business could not be opened\. Try again\."/.test(client) && /SWITCH_TIMEOUT_MS = 20_000/.test(client) && /abort\.abort\(\)/.test(client)
       && /catch \{\s*throw new Error\(SWITCH_FAILED\)/.test(client))
   const layout = read("app/app/layout.tsx")
   check("the new /app's HTML draws the screen when the cookie came, before its session gate, on both of the layout's paths",
-    /readSwitchCookie\(\(await cookies\(\)\)\.get\(SWITCH_COOKIE\)\?\.value\)/.test(layout) && (layout.match(/\{arrival\}\s*\n\s*<NativeAuthGate/g) ?? []).length === 2
-      && /__html: SWITCH_SPIN_SCRIPT/.test(layout) && /<BusinessSwitchArrival name=\{switchingTo\} \/>/.test(layout))
+    /readSwitchArrival\(\(await cookies\(\)\)\.get\(SWITCH_COOKIE\)\?\.value\)/.test(layout) && (layout.match(/\{arrival\}\s*\n\s*<NativeAuthGate/g) ?? []).length === 2
+      && /__html: SWITCH_SPIN_SCRIPT/.test(layout) && /<BusinessSwitchArrival name=\{switchingTo\.name\} photo=\{switchingTo\.photo\} \/>/.test(layout))
   const screen = read("components/app/business-switch-screen.tsx")
   check("the screen is the shell's own frame (the cold start's), with the spinner where every slow page has it",
-    /<AppColdStart>/.test(screen) && /grid-rows-\[2fr_auto_3fr\]/.test(screen) && /\{children \?\? <PageSpinner \/>\}/.test(read("app/app/cold-start.tsx")))
+    /<AppColdStart header=\{<ShellHeaderStill name=\{name\} photo=\{photo\} \/>\}>/.test(screen) && /grid-rows-\[2fr_auto_3fr\]/.test(screen) && /\{children \?\? <PageSpinner \/>\}/.test(read("app/app/cold-start.tsx")))
+  /* "There's the black top bar there showing, which I don't understand why": the frame's bar was an empty band. */
+  const still = read("components/app/shell-header-still.tsx")
+  check("  and its black bar is never empty: it draws the business you are going to, its photo and name, where the real header puts them",
+    /\{header\}/.test(read("app/app/cold-start.tsx")) && /data-still="name"/.test(still) && /data-still="avatar"/.test(still) && /avatarSource\(photo, size\)/.test(still)
+      && /max-w-\[120px\] truncate text-\[13px\]/.test(still) && /max-w-\[140px\] truncate text-\[13px\]/.test(still) && /aria-hidden="true"/.test(still)
+      && /max-w-\[120px\] truncate/.test(read("components/app/mobile-account-menu.tsx")) && /max-w-\[140px\] truncate/.test(read("components/app/sidebar.tsx")))
   check("the arrival waits for the page to be ready to draw: the shell, the fonts, the first screen's pictures, its loading parts",
     /\.app-content-scroll/.test(screen) && /\[data-app-cold-start\]/.test(screen) && /fonts\?\.ready/.test(screen) && /img\.decode\(\)/.test(screen) && /\[aria-busy="true"\]/.test(screen) && /ARRIVAL_CAP_MS/.test(screen))
   check("  then hands over in one fade, the page taking the stage's rise under it, and clears the cookie",
@@ -204,9 +229,12 @@ function main() {
 
   console.log("\nThree businesses a login, one number")
   check("the limit is three", MAX_BUSINESSES === 3)
-  check("the first business can make one while there are one or two", canAddBusiness(1, "owner") && canAddBusiness(2, "owner"))
-  check("  and not at three", !canAddBusiness(3, "owner") && !canAddBusiness(4, "owner"))
-  check("a business that is not the first never makes one", !canAddBusiness(1, "member") && !canAddBusiness(2, "member"))
+  check("another can be made while there are one or two", canAddBusiness(1) && canAddBusiness(2))
+  check("  and not at three", !canAddBusiness(3) && !canAddBusiness(4))
+  /* Changed on purpose: "It doesn't matter which business I am on." Any business of the login makes one; the new one is linked to the first. */
+  const first = "00000000-0000-4000-8000-00000000000a"
+  const second = "00000000-0000-4000-8000-00000000000b"
+  check("from any business, a new one is linked to the login's first, never to the business that asked", ownerOf({ ownerId: first, memberIds: [second] }, second) === first && ownerOf({ ownerId: first, memberIds: [second] }, first) === first && ownerOf(null, first) === first)
   check("the words say the number the code holds", LIMIT_REACHED === `You already have ${countWord(MAX_BUSINESSES)} businesses, the most one login can have.` && /three businesses/.test(LIMIT_REACHED))
   check("the database's own refusal reads as the limit", linkRefusal({ code: "23514", message: "One login can have at most 3 businesses" }) === LIMIT_REACHED)
   check("before part 38 runs, the old one per login key reads as a calm not yet, never an error page",
@@ -275,24 +303,26 @@ function main() {
       /"\/signup\/success\?action=become-creator&business=new"/.test(read("lib/businesses/switch-client.ts")) && /redirect\("\/app"\)/.test(read("app/(auth)/onboarding/business/page.tsx")))
   const switcher = read("components/app/business-switcher.tsx")
   /*
-    The owner's plus: a small depth button on the row, left of the chevron,
-    that makes the business with the same handler as the New business line.
-    It is the row button's sibling, never its child, so a press on it cannot
-    open or fold the list (scripts/check-business-switcher.mjs presses it).
+    Changed on purpose. The owner: "the plus should NOT redirect me to a new
+    business directly: it needs to open up the collapsible thing, and then
+    there's the New business + button there", and "it doesn't matter which
+    business I am on". The plus is a picture inside the row's one button, so
+    a press on it opens the list like the chevron; New business in the list
+    is what makes one; both on every business of the login
+    (scripts/check-business-switcher.mjs presses them).
   */
-  const plusButton = /<button\s[^>]*?data-business-add=""[\s\S]*?<\/button>/.exec(switcher)?.[0] ?? ""
-  /* From the row's marker to the end of its button (its onClick holds an arrow, so a [^>] match cannot reach the marker). */
   const rowAt = switcher.indexOf('data-business-row="current"')
-  const rowButton = rowAt < 0 ? "" : switcher.slice(rowAt, switcher.indexOf("</button>", rowAt))
-  check("a plus on the row makes a new business, with the depth of the icon buttons and a name a screen reader reads",
-    /onClick=\{add\}/.test(plusButton) && /aria-label="New business"/.test(plusButton) && /iconDepth/.test(plusButton) &&
-      /import \{ iconDepth \} from "@\/components\/ui\/depth-button"/.test(switcher) && /\{canAdd && \(/.test(switcher))
-  check("and it sits beside the row's button, not inside it, so pressing it never toggles the list",
-    !!rowButton && !rowButton.includes("data-business-add") && switcher.indexOf('data-business-row="current"') < switcher.indexOf("data-business-add"))
-  check("its 44px hit area and its place over the gap the row leaves for it come from one set of numbers",
-    /const PLUS = \{/.test(switcher) && /style=\{\{ right: plus\.right, width: plus\.size, height: plus\.size \}\}/.test(switcher) && /style=\{\{ width: plus\.size, height: plus\.size \}\}/.test(switcher))
+  const rowButton = rowAt < 0 ? "" : switcher.slice(switcher.lastIndexOf("<button", rowAt), switcher.indexOf("</button>", rowAt))
+  check("the plus is inside the row's button, with the icon buttons' depth, hidden from a screen reader (the row is the button)",
+    rowButton.includes("data-business-add") && /aria-hidden="true"\s*data-business-add=""/.test(rowButton) && /iconDepth/.test(rowButton) && /import \{ iconDepth \} from "@\/components\/ui\/depth-button"/.test(switcher))
+  check("  so a press on it opens the list, the same as the chevron, and makes nothing",
+    /onClick=\{\(\) => setExpanded\(\(v\) => !v\)\}/.test(rowButton) && !/onClick=\{add\}/.test(rowButton))
+  check("  and it is on every business: no count or role decides whether it shows",
+    !/\{canAdd && \(\s*\/\*[^]*?\*\/\s*<button[^]*?data-business-add/.test(switcher) && !/role === "owner"/.test(switcher) && !/current\.role/.test(switcher))
+  check("New business, in the list, is what makes one; with three already, the list says so instead and there is nothing to press",
+    /\{canAdd \? \(\s*<button[\s\S]*?onClick=\{add\}[\s\S]*?data-business-new=""/.test(switcher) && /data-business-limit=""[\s\S]*?\{LIMIT_REACHED\}/.test(switcher) && /if \(busy \|\| !canAdd\) return/.test(switcher))
   check("no Businesses label on either menu: the business you are in is one row that opens to the rest",
-    !/>Businesses</.test(switcher) && /aria-expanded=\{hasList \? expanded : undefined\}/.test(switcher) && /inert=\{!expanded\}/.test(switcher))
+    !/>Businesses</.test(switcher) && /aria-expanded=\{expanded\}/.test(switcher) && /inert=\{!expanded\}/.test(switcher))
   check("and it folds back once the menu has gone", /open=\{headerProfileOpen\}/.test(read("components/app/sidebar.tsx")) && /open=\{mobileProfileDropdownOpen\}/.test(read("components/app/mobile-account-menu.tsx")))
   const desktopMenu = /const profileDropdownItems = \[([\s\S]*?)\]/.exec(read("components/app/sidebar.tsx"))?.[1] ?? ""
   const phoneMenu = /const items = useMemo\(\(\) => \[([\s\S]*?)\]/.exec(read("components/app/mobile-account-menu.tsx"))?.[1] ?? ""
@@ -300,7 +330,7 @@ function main() {
   check("Settings on the phone's sheet only: on a desktop the rail beside it has Settings",
     !/"\/app\/settings"/.test(desktopMenu) && /"\/app\/settings"/.test(phoneMenu) && /href="\/app\/settings"/.test(read("components/app/sidebar-desktop-nav.tsx")))
   check("a second business goes straight into onboarding with its way back",
-    /const first = await firstBusinessIfSecond\(\)/.test(read("app/(auth)/signup/success/page.tsx")) && /* Changed on purpose: the way back is one value both of the page's paths hand the onboarding, and it carries the switch's screen into /app. */ /const switchBack = firstBusiness\s*\?\s*\{ name: firstBusiness\.name, onSwitch: \(\) => switchBusiness\(firstBusiness\.userId, "\/app", \{ arrival: firstBusiness\.name \}\) \}/.test(read("app/(auth)/signup/success/page.tsx")) && (read("app/(auth)/signup/success/page.tsx").match(/switchBack=\{switchBack\}/g) ?? []).length === 2 && /data-onboarding-switch-back/.test(read("components/app/creator-onboarding-modal.tsx")))
+    /const first = await firstBusinessIfSecond\(\)/.test(read("app/(auth)/signup/success/page.tsx")) && /* Changed on purpose: the way back is one value both of the page's paths hand the onboarding, and it carries the switch's screen into /app. */ /const switchBack = firstBusiness\s*\?\s*\{ name: firstBusiness\.name, onSwitch: \(\) => switchBusiness\(firstBusiness\.userId, "\/app", \{ arrival: \{ name: firstBusiness\.name, photo: firstBusiness\.avatarUrl \}, business: firstBusiness \}\) \}/.test(read("app/(auth)/signup/success/page.tsx")) && (read("app/(auth)/signup/success/page.tsx").match(/switchBack=\{switchBack\}/g) ?? []).length === 2 && /data-onboarding-switch-back/.test(read("components/app/creator-onboarding-modal.tsx")))
   check("the onboarding is the whole screen in the app", /setNativeFullScreen\(isNativeApp\(\)\)/.test(read("components/app/creator-onboarding-modal.tsx")))
   const del = read("app/api/auth/delete-account/route.ts")
   /* Changed on purpose: a login can have two businesses besides its first, so deleting it deletes each of them. */

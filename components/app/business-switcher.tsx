@@ -79,10 +79,10 @@ import { cn } from "@/lib/utils"
  * "New business" makes the new account right there and goes straight into
  * the creator onboarding, the same "Name your store" everyone starts with.
  * While it works the same screen as a switch comes up, on the plain white the
- * onboarding is drawn on: "Setting up your new business", then "Opening your
- * new business" once the browser holds its session, and /signup/success
- * opens on those same words in the same place (components/app/business-
- * switch-screen NewBusinessScreen). The rows under it stay as they are,
+ * onboarding is drawn on, with its own two lines (lib/businesses/switch-
+ * screen NEW_BUSINESS_STEPS), and /signup/success opens on the second of them
+ * in the same place (components/app/business-switch-screen
+ * NewBusinessScreen). The rows under it stay as they are,
  * pressed and waiting, with no spinner of their own.
  */
 
