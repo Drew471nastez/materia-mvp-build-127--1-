@@ -180,7 +180,7 @@ function main() {
   /* Nothing yet: the card says "Add your first product", ahead of Stripe's usual first place. */
   const fresh = fromFacts(facts(), none, "free", true)
   check("nothing yet: the welcome, then the first product, as on the card", fresh.nextStep === "product" && same(ids(fresh).slice(0, 3), ["welcome", "first-product", "payouts"]), ids(fresh))
-  check("the guide unopened leads nothing: the usual order", ids(fromFacts(facts({ guideOpened: false }), none, "free", true))[0] === "payouts")
+  check("the guide unopened leads nothing: the usual order, the welcome and then payouts", same(ids(fromFacts(facts({ guideOpened: false }), none, "free", true)).slice(0, 2), ["welcome", "payouts"]))
   const siteNext = fromFacts(facts({ products: 1, paymentsReady: true }), none, "free", true)
   check("no website: the website leads, share after it", siteNext.nextStep === "store" && same(ids(siteNext).slice(0, 2), ["website", "share"]), ids(siteNext))
   const newsFirst = fromFacts(facts({ products: 1, paymentsReady: true, websiteLive: true, pro: true, sales: 42 }), salesSummary([...Array.from({ length: 38 }, (_, i) => order(9 + i, 2500)), order(3, 2500), order(2, 2500), order(1, 2500)], NOW), "growth", true)
