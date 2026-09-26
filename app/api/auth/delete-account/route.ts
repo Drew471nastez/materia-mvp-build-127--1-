@@ -158,11 +158,44 @@ If you didn't request this, please ignore this email and secure your account imm
         .eq("id", codeRecord.id)
 
       /*
-        MORE THAN ONE BUSINESS ON ONE LOGIN (lib/businesses). A login that
-        owns other businesses takes every one of them with it: they have no
-        password of their own and could never be reached again. Deleting one
-        of those businesses on its own leaves the rest alone, and the person
-        is signed back into the first.
+        ======================================================================
+         MORE THAN ONE BUSINESS ON ONE LOGIN (lib/businesses)
+        ======================================================================
+        Every business of a login is an account of its own, linked to the
+        login's first in public.business_links. Deleting is therefore the
+        same one thing on every one of them, which is the point: the person
+        goes into the store they want gone, opens Settings, and deletes this
+        account the way anybody deletes an account.
+
+        DELETING ONE OF THE OTHER BUSINESSES (the signed in account is a
+        member of the group, not its first). Only that account and its data
+        go. Its row in business_links goes with it, by the cascade on
+        auth.users the table was made with and, below, by a delete of its own
+        in case a database has lost that cascade, so the account menu's next
+        list (the reload the browser does with the first business's session)
+        no longer has it. The other businesses of the login are untouched.
+
+        DELETING THE FIRST BUSINESS (the owner of the group) TAKES THE OTHERS
+        WITH IT, on purpose. A business account's address is the owner's with
+        a tag and its password is 32 random bytes nobody keeps
+        (lib/businesses/server): the only door into it is a session of the
+        owner's account. Leave them behind and they are stores nobody on
+        earth can sign into, still holding customers, orders and Stripe
+        details, still being written to. Handing one to somebody is not an
+        option either: there is no second person here, only the one login,
+        and its address is the owner's. So they are deleted first, each one
+        completely, and only then the owner itself. The confirmation the
+        person reads says so in the same breath as the products and the sales
+        history, so this is deliberate and not a surprise
+        (components/app/settings-form-new.tsx).
+
+        A member whose auth account cannot be removed stops the whole
+        deletion before the owner is touched: half a group gone is worse than
+        none of it, and a second attempt finishes the job because every step
+        here can be run twice. Its data goes before its account does, in that
+        order, because the creator row is what the rest of a store is keyed by
+        and deleting the account can take that row with it (the cascades on
+        auth.users) and leave the store behind with nothing pointing at it.
       */
       const group = await businessGroup(user.id)
       if (group?.ownerId === user.id) {
@@ -177,6 +210,7 @@ If you didn't request this, please ignore this email and secure your account imm
             console.error("Business auth deletion failed:", memberDeleteError.message)
             return NextResponse.json({ error: "Failed to delete account. Please contact support." }, { status: 500 })
           }
+          await forgetBusinessLinks(adminSupabase, memberId)
         }
       }
 
@@ -200,6 +234,13 @@ If you didn't request this, please ignore this email and secure your account imm
         }
       }
 
+      /*
+        The link rows naming this account, in case this database no longer
+        cascades them off auth.users: a store that is gone must not be left
+        in anybody's account menu.
+      */
+      await forgetBusinessLinks(adminSupabase, user.id)
+
       /* One of the login's businesses is gone; its owner is still here, so they land back in their first business signed in. */
       const firstBusiness = group && group.ownerId !== user.id ? await sessionFor(group.ownerId) : null
       return NextResponse.json({
@@ -214,6 +255,20 @@ If you didn't request this, please ignore this email and secure your account imm
     console.error("Delete account error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
+}
+
+/**
+ * The business_links rows naming an account that has just been deleted,
+ * whichever side of the link it was on. auth.users cascades these away
+ * already (supabase/migrations/20261001_business_accounts.sql), so this is
+ * belt and braces, and harmless when the cascade has already run: without it
+ * a database that had lost the cascade would keep listing a store that no
+ * longer exists in the account menu.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function forgetBusinessLinks(adminSupabase: any, userId: string) {
+  await ignoreError(adminSupabase.from("business_links").delete().eq("member_id", userId))
+  await ignoreError(adminSupabase.from("business_links").delete().eq("owner_id", userId))
 }
 
 // ── Shared user deletion logic ──────────────────────────────────────────────────

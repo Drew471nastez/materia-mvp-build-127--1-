@@ -17,7 +17,9 @@
  *             the server; the run-now parts are one statement per line and
  *             safe to run twice
  *   WIRING    the account menus list the businesses, the onboarding knows its
- *             way back, deleting a login takes its second business with it
+ *             way back, and Settings' own Delete account deletes whichever
+ *             business you are in: one of them on its own leaves the rest and
+ *             puts you back in the first, the first takes the rest with it
  *   SCREEN    a switch puts its screen up at the press, says each real step,
  *             carries it across the reload, and hands over to a ready page
  */
@@ -401,6 +403,25 @@ function main() {
   /* Changed on purpose: a login can have two businesses besides its first, so deleting it deletes each of them. */
   check("deleting a login deletes every business it made first", /if \(group\?\.ownerId === user\.id\) \{\s*for \(const memberId of group\.memberIds\) \{[\s\S]*?deleteAllUserData\(adminSupabase, memberId\)[\s\S]*?deleteUser\(memberId\)/.test(del) && del.indexOf("deleteUser(memberId)") < del.indexOf("deleteUser(user.id)"))
   check("deleting one of those businesses signs its owner back in", /group && group\.ownerId !== user\.id \? await sessionFor\(group\.ownerId\)/.test(del) && /data\.firstBusiness\?\.session/.test(read("components/app/settings-form-new.tsx")))
+  /*
+    Deleting a business is Settings' own delete, nothing new beside it. The
+    owner: "make sure those businesses can be deleted, but in the settings,
+    normally. Don't mention it specially." So: the same card, the same code
+    by email, and the store gone from the account menu on the way back.
+  */
+  check("  and the deleted business takes its link with it, so the menu's next list has not got it",
+    /await forgetBusinessLinks\(adminSupabase, user\.id\)/.test(del) && /delete\(\)\.eq\("member_id", userId\)/.test(del) && /delete\(\)\.eq\("owner_id", userId\)/.test(del)
+      && /on delete cascade/.test(read("supabase/migrations/20261001_business_accounts.sql")))
+  check("  the menu is right again with no reload asked for: the first business's session loads /app, which reads the list on the server",
+    /applyBusinessSession\(data\.firstBusiness\.session, "\/app"\)/.test(read("components/app/settings-form-new.tsx")) && /window\.location\.replace\(next\)/.test(read("lib/businesses/switch-client.ts"))
+      && /listBusinesses\(user\.id\)\.catch\(\(\) => \[\]\)/.test(read("app/app/layout.tsx")))
+  const settingsForm = read("components/app/settings-form-new.tsx")
+  check("  deleting the login's first account is still one plain Delete account, with no section of its own",
+    !/data-settings-card="businesses"/.test(read("components/app/settings/account-panels.tsx")) && /Removes your store, products, customers and sales history for good\./.test(read("components/app/settings/account-panels.tsx"))
+      && /Deleting your account will permanently remove all your data, including products, customers, and sales history\./.test(settingsForm))
+  check("  but it does say what else it removes, because the other stores of the login go with it",
+    /otherStores > 0 &&/.test(settingsForm) && /The other store on this login goes with it\./.test(settingsForm) && /The other \$\{countWord\(otherStores\)\} stores on this login go with it\./.test(settingsForm)
+      && /otherStores: group && group\.ownerId === user\.id \? groupIds\(group, user\.id\)\.length - 1 : 0/.test(read("app/app/settings/_server.ts")))
   check("the seller's mail reaches the owner", /ownerAddress\(sellerEmail\)/.test(read("lib/email.tsx")) && /ownerAddress\(replyTo\)/.test(read("lib/email.tsx")))
   /* Found in the audit: the payout, bank, verification, dispute and tax emails went to the tagged address. */
   check("  the payout, bank, verification, dispute and 1099-K emails too: none is sent to a tagged address as it is",

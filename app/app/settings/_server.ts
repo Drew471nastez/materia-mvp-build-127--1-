@@ -6,6 +6,8 @@ import { readNewsletter } from "@/lib/account/preferences"
 import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import { accountTimeZone } from "@/lib/account/time-zone"
 import { connectedBioPlatforms } from "@/components/app/share/share-data"
+import { businessGroup } from "@/lib/businesses/server"
+import { groupIds } from "@/lib/businesses/rules"
 
 export type SettingsTab = "general" | "security" | "privacy" | "billing" | "payments" | "domains"
 
@@ -28,7 +30,7 @@ export async function loadSettingsData() {
      recovers the session in the browser (lib/auth/page-user.ts). */
   if (!user) return null
 
-  const [{ data: profile }, { data: creator }, { data: onepage }, newsletter] = await Promise.all([
+  const [{ data: profile }, { data: creator }, { data: onepage }, newsletter, group] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
     supabase.from("creators").select("*").eq("user_id", user.id).maybeSingle(),
     /* The share pill: whether the OnePage is live, and the platforms it links to. */
@@ -46,6 +48,14 @@ export async function loadSettingsData() {
         return false
       }
     })(),
+    /*
+      The other businesses of this login, if any (lib/businesses). Settings
+      needs one thing from them and one only: deleting the login's first
+      account takes the rest with it (app/api/auth/delete-account), so the
+      confirmation has to say so. Two small reads at most, and a failure
+      reads as "no others", which is what almost every account is.
+    */
+    businessGroup(user.id).catch(() => null),
   ])
 
   if (!creator) redirect("/onboarding")
@@ -138,5 +148,7 @@ export async function loadSettingsData() {
       ? { installId: (publishedSite as { id: string }).id, name: (publishedSite as { name?: string | null }).name ?? null, handle: websiteHandle }
       : { installId: null, name: null, handle: websiteHandle },
     newsletter,
+    /* Businesses of this login that go when this account goes: none unless this account is the login's first. */
+    otherStores: group && group.ownerId === user.id ? groupIds(group, user.id).length - 1 : 0,
   }
 }
