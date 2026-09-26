@@ -493,13 +493,16 @@ try {
             expect(s.row > 0 && s.page === 0 && !s.pull, `${k}: scrolls the row, not the page, no pull`, s)
             expect(s.cancelled === 0, `${k}: no touchmove cancelled`, `${s.cancelled} of ${s.moves}`)
             /*
-              Nothing renders because the row moved: no tab renders, and no
-              commit comes from the page that owns the row. Home's own timers
-              (the announcement bar turning, the live count) commit on their
-              schedule whatever the thumb does, so a stray one of theirs is
-              reported, not failed.
+              Nothing renders because the row moved: no commit starts from the
+              page that owns the row or from a tab, and there is nothing like
+              one a frame. Home's own timers (the announcement bar turning
+              every few seconds) commit on their schedule whatever the thumb
+              does, and on Home such a commit renders the four tabs too (the
+              same commit shows up inside vertical swipes and scrubs, which
+              never touch the row), so one of theirs landing inside a swipe
+              is reported, not failed.
             */
-            expect(s.tabRenders === 0 && !s.who.some((w) => /^(DashboardClient|AnalyticsClient|MetricTab)$/.test(w)) && s.commits <= 2,
+            expect(!s.who.some((w) => /^(DashboardClient|AnalyticsClient|MetricTab)$/.test(w)) && s.commits <= 2,
               `${k}: nothing renders because the row scrolls (${s.commits} commits in ${s.frames} frames${s.commits ? `, from ${[...new Set(s.who)].join(", ")}` : ""})`,
               s)
             expect(s.long.length === 0, `${k}: no task over 50ms`, s.long)
