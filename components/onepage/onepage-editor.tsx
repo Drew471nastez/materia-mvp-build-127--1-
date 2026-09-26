@@ -1100,7 +1100,7 @@ function EditorLayout() {
 
       {/* Mobile Bottom Tab Bar - Fixed at bottom, only when NOT in preview */}
       {!showMobilePreview && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-20">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-20" data-onepage-tabbar="">
           <div className="flex items-center justify-around gap-1 px-2 sm:px-4 py-2 sm:py-3 pb-[max(8px,env(safe-area-inset-bottom))]">
             {tabs.map((tab) => {
               const Icon = tab.icon

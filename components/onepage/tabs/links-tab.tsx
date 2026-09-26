@@ -2,6 +2,7 @@
 
 import { hapticTap } from "@/lib/native-bridge"
 import { sheetAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
+import { useLinkReorder } from "@/components/onepage/link-reorder"
 
 import { useOnePage } from "@/lib/onepage/context"
 import {
@@ -621,20 +622,6 @@ export function LinksTab() {
   // Track which blocks have had auto-fetch attempted to avoid repeated requests
   const autoFetchedBlocksRef = useRef<Set<string>>(new Set())
   
-  // Drag state
-  const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null)
-  const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null)
-
-  // Touch drag state for mobile
-  const [touchDragId, setTouchDragId] = useState<string | null>(null)
-  const touchOverIdRef = useRef<string | null>(null)
-  const autoScrollTimerRef = useRef<number>(0)
-  const autoScrollVelocityRef = useRef(0)
-  const autoScrollElementRef = useRef<HTMLElement | null>(null)
-  const dragSourceElRef = useRef<HTMLElement | null>(null)
-  const touchStartYRef = useRef(0)
-  const touchCurrentYRef = useRef(0)
-  const [touchDragOffsetY, setTouchDragOffsetY] = useState(0)
   const [showDeleteSocialNotification, setShowDeleteSocialNotification] = useState(false)
   const [showAddBlockNotification, setShowAddBlockNotification] = useState(false)
   const [showUpdateSocialNotification, setShowUpdateSocialNotification] = useState(false)
@@ -683,6 +670,72 @@ export function LinksTab() {
   // Add button animation state
   const [addButtonClicked, setAddButtonClicked] = useState(false)
   const [insertAfterId, setInsertAfterId] = useState<string | null>(null)
+
+  /*
+    REORDERING THE CARDS: components/onepage/link-reorder.ts moves them
+    under the finger without React, and hands the result back here once,
+    at the drop. Called above the early return, so it is always the same
+    hooks in the same order. Each rule reads the page as it is now.
+  */
+  const reorderListRef = useRef<HTMLDivElement>(null)
+  const [reorderMessage, setReorderMessage] = useState("")
+  const blocksInOrder = () => [...(onepage?.draft_blocks ?? [])].sort((a, b) => a.sort_order - b.sort_order)
+  /* Under a Hero header the social icons stay below it, as they always had to. */
+  const clampReorder = (id: string, to: number) => {
+    const list = blocksInOrder()
+    const moving = list.find((b) => b.id === id)
+    if ((onepage?.theme as any)?.header_layout !== "hero" || moving?.type !== "social_row") return to
+    const headerIndex = list.findIndex((b) => b.type === "header")
+    if (headerIndex === -1) return to
+    const from = list.findIndex((b) => b.id === id)
+    return Math.max(to, from < headerIndex ? headerIndex : headerIndex + 1)
+  }
+  const writeReorder = (id: string, to: number) => {
+    const list = blocksInOrder()
+    const from = list.findIndex((b) => b.id === id)
+    if (from < 0 || to === from) return
+    const next = [...list]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    reorderBlocks(next.map((b, i) => ({ ...b, sort_order: i })))
+  }
+  const { onPointerDown: onReorderPointerDown } = useLinkReorder({
+    listRef: reorderListRef,
+    clampTarget: clampReorder,
+    acceptsInto: (dragId, targetId) => {
+      const list = blocksInOrder()
+      const target = list.find((b) => b.id === targetId)
+      const moving = list.find((b) => b.id === dragId)
+      return target?.type === "group" && !!moving && moving.type !== "group" && moving.type !== "header" && moving.type !== "social_row"
+    },
+    onReorder: writeReorder,
+    /* Into a group: it joins the group's own list and leaves this one. */
+    onDropInto: (id, groupId) => {
+      const list = blocksInOrder()
+      const moving = list.find((b) => b.id === id)
+      const group = list.find((b) => b.id === groupId)
+      if (!moving || group?.type !== "group") return
+      const groupData = group.data as GroupBlockData
+      const children = groupData.children || []
+      if (children.some((c) => c.id === id)) return
+      updateBlock(groupId, { data: { ...groupData, children: [...children, { ...moving, sort_order: children.length }] } })
+      removeBlock(id)
+    },
+  })
+  /* The keyboard's way: an arrow on the grip moves the card one place, and a screen reader hears where it went. */
+  const moveWithKeys = (e: React.KeyboardEvent, id: string, name: string) => {
+    const dir = e.key === "ArrowUp" ? -1 : e.key === "ArrowDown" ? 1 : 0
+    if (!dir) return
+    e.preventDefault()
+    const list = blocksInOrder()
+    const from = list.findIndex((b) => b.id === id)
+    const to = clampReorder(id, Math.max(0, Math.min(list.length - 1, from + dir)))
+    if (from < 0 || to === from) return
+    writeReorder(id, to)
+    setReorderMessage(`${name}, position ${to + 1} of ${list.length}`)
+    /* A card React moved can lose focus on the way; the grip gets it back. */
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-reorder-grip="${CSS.escape(id)}"]`)?.focus({ preventScroll: false }))
+  }
 
   if (!onepage) return null
 
@@ -1365,346 +1418,6 @@ export function LinksTab() {
     updateSocialLinks({ [platform]: null } as Partial<OnePageSocialLinks>)
   }
 
-  // Drag handlers
-  const handleDragStart = (e: React.DragEvent, blockId: string) => {
-    setDraggedBlockId(blockId)
-    e.dataTransfer.effectAllowed = "move"
-    e.dataTransfer.setData("text/plain", blockId)
-  }
-
-  const handleDragOver = (e: React.DragEvent, blockId: string) => {
-    e.preventDefault()
-    if (draggedBlockId && draggedBlockId !== blockId) {
-      setDragOverBlockId(blockId)
-    }
-  }
-
-  const handleDragLeave = () => {
-    setDragOverBlockId(null)
-  }
-
-  const handleDrop = (e: React.DragEvent, targetBlockId: string) => {
-    e.preventDefault()
-    if (draggedBlockId && draggedBlockId !== targetBlockId) {
-      const draggedBlock = sortedBlocks.find(b => b.id === draggedBlockId)
-      const targetBlock = sortedBlocks.find(b => b.id === targetBlockId)
-      const draggedIndex = sortedBlocks.findIndex(b => b.id === draggedBlockId)
-      const targetIndex = sortedBlocks.findIndex(b => b.id === targetBlockId)
-
-      // If dropping onto a group block, add the dragged block to the group's children
-      if (targetBlock?.type === "group" && draggedBlock && draggedBlock.type !== "group" && draggedBlock.type !== "header") {
-        const groupData = targetBlock.data as GroupBlockData
-        const existingChildren = groupData.children || []
-
-        // Don't add if already in group
-        if (existingChildren.some(c => c.id === draggedBlockId)) {
-          setDraggedBlockId(null)
-          setDragOverBlockId(null)
-          return
-        }
-
-        // Add to group children and remove from main list
-        const newChildren = [...existingChildren, { ...draggedBlock, sort_order: existingChildren.length }]
-        updateBlock(targetBlockId, { data: { ...groupData, children: newChildren } })
-        removeBlock(draggedBlockId)
-        setDraggedBlockId(null)
-        setDragOverBlockId(null)
-        return
-      }
-
-      // Prevent social_row from being moved above header when Hero layout is active
-      const headerLayout = (onepage.theme as any)?.header_layout || "classic"
-      if (headerLayout === "hero" && draggedBlock?.type === "social_row") {
-        const headerIndex = sortedBlocks.findIndex(b => b.type === "header")
-        if (headerIndex !== -1 && targetIndex <= headerIndex) {
-          // Don't allow dropping above or at the header position
-          setDraggedBlockId(null)
-          setDragOverBlockId(null)
-          return
-        }
-      }
-
-      if (draggedIndex !== -1 && targetIndex !== -1) {
-        const newOrder = [...sortedBlocks]
-        const [removed] = newOrder.splice(draggedIndex, 1)
-        newOrder.splice(targetIndex, 0, removed)
-
-        const updatedBlocks = newOrder.map((block, index) => ({
-          ...block,
-          sort_order: index
-        }))
-
-        reorderBlocks(updatedBlocks)
-      }
-    }
-    setDraggedBlockId(null)
-    setDragOverBlockId(null)
-  }
-
-  const handleDragEnd = () => {
-    setDraggedBlockId(null)
-    setDragOverBlockId(null)
-  }
-
-  // ============================================================
-  // DRAG-AND-DROP AUTO-SCROLL SYSTEM (touch + mouse)
-  // ============================================================
-
-  // Find the scroll container for the editor
-  const findScrollContainer = useCallback((): HTMLElement | null => {
-    // Try the explicit data attribute first
-    const explicit = document.querySelector('[data-scroll-container="links-tab"]') as HTMLElement | null
-    if (explicit) return explicit
-    // Fallback: walk from any block element
-    const anyBlock = document.querySelector('[data-block-id]') as HTMLElement | null
-    let current: HTMLElement | null = anyBlock
-    while (current && current !== document.body) {
-      const style = window.getComputedStyle(current)
-      if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && current.scrollHeight > current.clientHeight) {
-        return current
-      }
-      current = current.parentElement
-    }
-    return null
-  }, [])
-
-  const autoScrollActiveRef = useRef(false)
-
-  // Compute auto-scroll velocity based on pointer position relative to scroll container
-  const computeScrollVelocity = useCallback((clientY: number, scrollEl: HTMLElement): number => {
-    const rect = scrollEl.getBoundingClientRect()
-    const viewportH = window.innerHeight
-
-    // Effective visible bounds of the scroll container
-    const top = Math.max(rect.top, 0)
-    const bottom = Math.min(rect.bottom, viewportH)
-    const visibleHeight = bottom - top
-
-    if (visibleHeight <= 0) return 0
-
-    // Zone size: 20% of visible height, clamped between 60-120px
-    const zone = Math.max(60, Math.min(120, visibleHeight * 0.2))
-
-    // Distance from top/bottom edges
-    const distFromTop = clientY - top
-    const distFromBottom = bottom - clientY
-
-    if (distFromTop < zone && distFromTop >= 0) {
-      // Scroll UP: closer to top = faster
-      const proximity = 1 - (distFromTop / zone)
-      return -Math.max(2, proximity * proximity * 20)
-    } else if (distFromBottom < zone && distFromBottom >= 0) {
-      // Scroll DOWN: closer to bottom = faster
-      const proximity = 1 - (distFromBottom / zone)
-      return Math.max(2, proximity * proximity * 20)
-    }
-
-    return 0
-  }, [])
-
-  // Animation loop: runs every frame while dragging, applies scroll velocity
-  const runAutoScrollLoop = useCallback(() => {
-    if (autoScrollActiveRef.current) return
-    autoScrollActiveRef.current = true
-
-    const tick = () => {
-      if (!autoScrollActiveRef.current) {
-        autoScrollTimerRef.current = 0
-        return
-      }
-
-      const scrollEl = autoScrollElementRef.current
-      const speed = autoScrollVelocityRef.current
-
-      if (scrollEl && speed !== 0) {
-        const prevScrollTop = scrollEl.scrollTop
-        scrollEl.scrollTop += speed
-        // Verify scroll actually happened (not at bounds)
-        if (scrollEl.scrollTop !== prevScrollTop) {
-          // Scroll succeeded - continue
-        }
-      }
-
-      autoScrollTimerRef.current = requestAnimationFrame(tick)
-    }
-
-    autoScrollTimerRef.current = requestAnimationFrame(tick)
-  }, [])
-
-  const stopAutoScroll = useCallback(() => {
-    autoScrollActiveRef.current = false
-    if (autoScrollTimerRef.current) {
-      cancelAnimationFrame(autoScrollTimerRef.current)
-      autoScrollTimerRef.current = 0
-    }
-    autoScrollVelocityRef.current = 0
-  }, [])
-
-  const handleTouchDragStart = useCallback((blockId: string, touchY?: number) => {
-    const block = sortedBlocks.find(b => b.id === blockId)
-    if (!block || block.type === "header") return
-
-    const sourceBlock = document.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement | null
-    dragSourceElRef.current = sourceBlock
-
-    // Find and cache scroll container immediately
-    const scrollEl = findScrollContainer()
-    autoScrollElementRef.current = scrollEl
-
-    touchStartYRef.current = touchY ?? 0
-    touchCurrentYRef.current = touchY ?? 0
-    setTouchDragOffsetY(0)
-
-    hapticTap("light")
-
-    setTouchDragId(blockId)
-    setDraggedBlockId(blockId)
-
-    // Start the auto-scroll loop immediately
-    if (scrollEl) {
-      autoScrollVelocityRef.current = 0
-      runAutoScrollLoop()
-    }
-  }, [sortedBlocks, findScrollContainer, runAutoScrollLoop])
-
-  // Touch move + touch end event handlers
-  useEffect(() => {
-    if (!touchDragId) return
-
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault()
-      const touch = e.touches[0]
-      touchCurrentYRef.current = touch.clientY
-      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
-
-      // Find target block under touch point
-      const elements = document.elementsFromPoint(touch.clientX, touch.clientY)
-      let targetId: string | null = null
-      for (const el of elements) {
-        const blockEl = (el as HTMLElement).closest('[data-block-id]') as HTMLElement | null
-        if (blockEl && blockEl.dataset.blockId !== touchDragId) {
-          targetId = blockEl.dataset.blockId || null
-          break
-        }
-      }
-
-      touchOverIdRef.current = targetId
-      setDragOverBlockId(targetId)
-
-      // Update auto-scroll velocity based on touch position
-      const scrollEl = autoScrollElementRef.current
-      if (scrollEl) {
-        autoScrollVelocityRef.current = computeScrollVelocity(touch.clientY, scrollEl)
-      }
-    }
-
-    const handleTouchEnd = () => {
-      stopAutoScroll()
-      autoScrollElementRef.current = null
-      dragSourceElRef.current = null
-      setTouchDragOffsetY(0)
-
-      const targetId = touchOverIdRef.current
-      if (touchDragId && targetId && touchDragId !== targetId) {
-        const draggedIdx = sortedBlocks.findIndex(b => b.id === touchDragId)
-        const targetIdx = sortedBlocks.findIndex(b => b.id === targetId)
-
-        if (draggedIdx !== -1 && targetIdx !== -1) {
-          // Check hero layout constraints for social_row
-          const draggedBlock = sortedBlocks[draggedIdx]
-          const headerLayout = (onepage.theme as any)?.header_layout || "classic"
-          if (headerLayout === "hero" && draggedBlock?.type === "social_row") {
-            const headerIdx = sortedBlocks.findIndex(b => b.type === "header")
-            if (headerIdx !== -1 && targetIdx <= headerIdx) {
-              setTouchDragId(null)
-              touchOverIdRef.current = null
-              setDraggedBlockId(null)
-              setDragOverBlockId(null)
-              return
-            }
-          }
-
-          const newOrder = [...sortedBlocks]
-          const [removed] = newOrder.splice(draggedIdx, 1)
-          newOrder.splice(targetIdx, 0, removed)
-          reorderBlocks(newOrder.map((b, i) => ({ ...b, sort_order: i })))
-          hapticTap("light")
-        }
-      }
-
-      setTouchDragId(null)
-      touchOverIdRef.current = null
-      setDraggedBlockId(null)
-      setDragOverBlockId(null)
-    }
-
-    document.addEventListener('touchmove', handleTouchMove, { passive: false })
-    document.addEventListener('touchend', handleTouchEnd)
-    document.addEventListener('touchcancel', handleTouchEnd)
-
-    return () => {
-      stopAutoScroll()
-      autoScrollElementRef.current = null
-      dragSourceElRef.current = null
-      setTouchDragOffsetY(0)
-      document.removeEventListener('touchmove', handleTouchMove)
-      document.removeEventListener('touchend', handleTouchEnd)
-      document.removeEventListener('touchcancel', handleTouchEnd)
-    }
-  }, [touchDragId, sortedBlocks, reorderBlocks, onepage, computeScrollVelocity, stopAutoScroll])
-
-  // Desktop mouse/HTML5 drag auto-scroll
-  useEffect(() => {
-    if (!draggedBlockId || touchDragId) return // Only for mouse drag (not touch)
-
-    const scrollEl = findScrollContainer()
-    if (!scrollEl) return
-    autoScrollElementRef.current = scrollEl
-    autoScrollVelocityRef.current = 0
-    runAutoScrollLoop()
-
-    const handleDragOverScroll = (e: DragEvent) => {
-      autoScrollVelocityRef.current = computeScrollVelocity(e.clientY, scrollEl)
-    }
-
-    const handleMouseMove = (e: MouseEvent) => {
-      autoScrollVelocityRef.current = computeScrollVelocity(e.clientY, scrollEl)
-    }
-
-    const handleDragEndOrDrop = () => {
-      stopAutoScroll()
-      autoScrollElementRef.current = null
-    }
-
-    document.addEventListener('dragover', handleDragOverScroll)
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleDragEndOrDrop)
-    document.addEventListener('drop', handleDragEndOrDrop)
-    document.addEventListener('dragend', handleDragEndOrDrop)
-
-    return () => {
-      stopAutoScroll()
-      autoScrollElementRef.current = null
-      document.removeEventListener('dragover', handleDragOverScroll)
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleDragEndOrDrop)
-      document.removeEventListener('drop', handleDragEndOrDrop)
-      document.removeEventListener('dragend', handleDragEndOrDrop)
-    }
-  }, [draggedBlockId, touchDragId, findScrollContainer, computeScrollVelocity, runAutoScrollLoop, stopAutoScroll])
-
-  // Prevent pull-to-refresh and bounce during drag
-  useEffect(() => {
-    if (!touchDragId) return
-    const prevOverscroll = document.body.style.overscrollBehaviorY
-    const prevTouch = document.body.style.touchAction
-    document.body.style.overscrollBehaviorY = "none"
-    document.body.style.touchAction = "none"
-    return () => {
-      document.body.style.overscrollBehaviorY = prevOverscroll
-      document.body.style.touchAction = prevTouch
-    }
-  }, [touchDragId])
 
   const filteredCategories = searchQuery
     ? blockCategories.map((cat) => ({
@@ -1947,22 +1660,30 @@ export function LinksTab() {
         </div>
       )}
 
-      {/* Blocks List - Draggable - Hidden when showing archive */}
+      {/* The cards. Each one is picked up and moved by link-reorder.ts; the list only says which are cards. */}
       {!showArchiveView && (
-      <div className="flex flex-col gap-2">
+      <div ref={reorderListRef} onPointerDown={onReorderPointerDown} className="group/list flex flex-col gap-2" data-reorder-list="">
+        <p id="onepage-reorder-help" className="sr-only">Drag the grip, or hold a card, to move it. With the keyboard, the up and down arrows move it one place.</p>
+        <p className="sr-only" aria-live="polite">{reorderMessage}</p>
         {sortedBlocks.map((block, index) => (
           <React.Fragment key={block.id}>
             <div
               data-block-id={block.id}
-              onDragOver={(e) => handleDragOver(e, block.id)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, block.id)}
-              onDragEnd={handleDragEnd}
-              className={cn(
-                "transition-all duration-200",
-                dragOverBlockId === block.id && block.type !== "header" && block.type !== "group" && "border-t-2 border-violet-500"
-              )}
+              data-reorder-item=""
+              data-reorder-fixed={block.type === "header" ? "" : undefined}
+              className="group/card relative rounded-xl"
             >
+              {/* The depth a lifted card has: a soft shadow on its own layer, faded in by opacity. */}
+              <span aria-hidden data-lift-shadow="" className="pointer-events-none absolute inset-0 rounded-xl opacity-0 shadow-[0_1px_2px_rgba(16,24,40,0.06),0_12px_28px_-8px_rgba(16,24,40,0.22)] transition-opacity duration-200 ease-out" />
+              {block.type === "group" ? (
+                /* A card held over the middle of a group goes into it: said here, in ink, not a violet wash. */
+                <span aria-hidden className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-xl bg-white/70 opacity-0 shadow-[inset_0_0_0_1.5px_#1a1a2e] transition-opacity duration-150 group-data-[drop-into]/card:opacity-100">
+                  <span className="flex items-center gap-1.5 rounded-full bg-[#1a1a2e] px-3 py-1.5 text-[12px] font-medium text-white shadow-[0_2px_8px_rgba(16,24,40,0.2)]">
+                    <Plus className="h-3.5 w-3.5" />
+                    Drop to add to group
+                  </span>
+                </span>
+              ) : null}
               <BlockItem
                 block={block}
                 isSelected={selectedBlockId === block.id}
@@ -2032,12 +1753,7 @@ export function LinksTab() {
                   setStreamingBlockUpdateFn(() => updateFn)
                   setShowStreamingUrlModal(true)
                 }}
-                onDragStart={(e) => handleDragStart(e, block.id)}
-                onTouchDragStart={handleTouchDragStart}
-                isDragging={draggedBlockId === block.id}
-                dragOffsetY={draggedBlockId === block.id ? touchDragOffsetY : 0}
-                isDropTarget={dragOverBlockId === block.id}
-                draggedBlockType={draggedBlockId ? sortedBlocks.find(b => b.id === draggedBlockId)?.type : null}
+                onGripKeyDown={(e, name) => moveWithKeys(e, block.id, name)}
                 onMoveChildToMainList={handleMoveChildToMainList}
                 onOpenAddBlockModal={(groupId) => {
                   setAddToGroupId(groupId)
@@ -2048,7 +1764,7 @@ export function LinksTab() {
             </div>
 
             {index < sortedBlocks.length - 1 && (
-              <div className="relative h-0 -mx-1 group/add-divider">
+              <div className="relative h-0 -mx-1 group/add-divider group-data-[reordering]/list:invisible">
                 <button
                   type="button"
                   onClick={() => {
@@ -3934,8 +3650,6 @@ export function LinksTab() {
                     if (!isDraggingCrop && !isResizingCrop) return
                     e.preventDefault()
                     const touch = e.touches[0]
-      touchCurrentYRef.current = touch.clientY
-      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                     const rect = cropContainerRef.current?.getBoundingClientRect()
                     if (!rect || !touch) return
 
@@ -4035,8 +3749,6 @@ export function LinksTab() {
                       e.preventDefault()
                       e.stopPropagation()
                       const touch = e.touches[0]
-      touchCurrentYRef.current = touch.clientY
-      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                       setIsDraggingCrop(true)
                       const rect = (e.target as HTMLElement).getBoundingClientRect()
                       setDragStartCrop({ x: touch.clientX - rect.left, y: touch.clientY - rect.top })
@@ -4074,8 +3786,6 @@ export function LinksTab() {
                               e.preventDefault()
                               e.stopPropagation()
                               const touch = e.touches[0]
-      touchCurrentYRef.current = touch.clientY
-      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                               setIsResizingCrop(corner)
                               setDragStartCrop({ x: touch.clientX, y: touch.clientY })
                             }}
@@ -4283,8 +3993,6 @@ export function LinksTab() {
                       e.preventDefault()
                       e.stopPropagation()
                       const touch = e.touches[0]
-      touchCurrentYRef.current = touch.clientY
-      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                       setIsDraggingVideoCrop(true)
                       setVideoDragStart({
                         x: touch.clientX,
@@ -4328,8 +4036,6 @@ export function LinksTab() {
                               e.preventDefault()
                               e.stopPropagation()
                               const touch = e.touches[0]
-      touchCurrentYRef.current = touch.clientY
-      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                               setIsResizingVideoCrop(corner)
                               setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
                             }}
@@ -4389,8 +4095,6 @@ export function LinksTab() {
                       onTouchMove={(e) => {
                         e.preventDefault()
                         const touch = e.touches[0]
-      touchCurrentYRef.current = touch.clientY
-      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                         const container = videoContainerRef.current
                         if (!container || !touch) return
                         const rect = container.getBoundingClientRect()
@@ -4505,12 +4209,8 @@ interface BlockItemProps {
   onOpenThumbnailModal?: (blockId: string) => void
   onUrlChangeWithAutoFetch?: (blockId: string, url: string) => void
   onOpenStreamingModal?: (platform: string, index: number, data: LinkButtonBlockData, updateFn: (data: Partial<LinkButtonBlockData>) => void) => void
-  onDragStart?: (e: React.DragEvent) => void
-  onTouchDragStart?: (blockId: string, touchY?: number) => void
-  isDragging?: boolean
-  dragOffsetY?: number
-  isDropTarget?: boolean
-  draggedBlockType?: OnePageBlockType | null
+  /** The grip's keys: the arrows move the card (LinksTab moveWithKeys). */
+  onGripKeyDown?: (e: React.KeyboardEvent, name: string) => void
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
   onOpenAddBlockModal?: (groupId: string) => void
 }
@@ -4532,12 +4232,7 @@ function BlockItem({
   onOpenThumbnailModal,
   onUrlChangeWithAutoFetch,
   onOpenStreamingModal,
-  onDragStart,
-  onTouchDragStart,
-  isDragging,
-  dragOffsetY = 0,
-  isDropTarget,
-  draggedBlockType,
+  onGripKeyDown,
   onMoveChildToMainList,
   onOpenAddBlockModal,
 }: BlockItemProps) {
@@ -4802,52 +4497,37 @@ function BlockItem({
   const hasAnimation = isLinkButton || isProduct || isEmailCapture || isPDFDocument || isFoodMenu || isCalendly
   const hasThumbnail = (preview as any).thumbnail_url || hasLinkIcon((preview as any).iconId)
 
-  // Check if this group block can accept the dragged block
-  const canAcceptDrop = isGroup && isDropTarget && draggedBlockType && 
-    draggedBlockType !== "group" && draggedBlockType !== "header" && draggedBlockType !== "social_row"
-
   return (
     <div
       className={cn(
-        "border rounded-xl bg-white relative",
+        "border rounded-xl bg-white relative transition-[border-color,box-shadow] duration-200",
         isSelected ? "ring-1 ring-gray-400 border-gray-300" : "hover:border-gray-300",
         !block.enabled && "opacity-50",
-        isDragging ? "opacity-[0.97] scale-[1.03] shadow-[0_12px_40px_-8px_rgba(0,0,0,0.25)] z-50 border-violet-300 ring-1 ring-violet-200" : "transition-all duration-200",
-        canAcceptDrop && "ring-2 ring-violet-500 border-violet-400 bg-violet-50/50"
       )}
-      style={isDragging ? { transform: `translateY(${dragOffsetY}px) translateZ(0)`, willChange: 'transform', transition: 'box-shadow 200ms, scale 200ms' } : undefined}
-      data-block-id={block.id}
     >
-      {/* Drop zone indicator for group blocks */}
-      {canAcceptDrop && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 rounded-xl bg-violet-500/10">
-          <div className="flex items-center gap-2 bg-violet-600 text-white px-3 py-1.5 rounded-full text-xs font-medium shadow-lg">
-            <Plus className="h-3.5 w-3.5" />
-            Drop to add to group
-          </div>
-        </div>
-      )}
-      {/* Header section - only this part is draggable */}
+      {/*
+        The card's row is where it is picked up (components/onepage/link-reorder.ts):
+        the grip at once, anywhere else on the row after a short hold on a phone
+        or a 3px move with a mouse. The buttons in the row stay buttons.
+      */}
       <div
         className={cn(
           "flex items-center gap-3 p-3",
-          !isHeaderBlock && "cursor-grab active:cursor-grabbing"
+          !isHeaderBlock && "select-none [-webkit-touch-callout:none]"
         )}
-        draggable={!isHeaderBlock}
-        onDragStart={!isHeaderBlock ? onDragStart : undefined}
+        data-reorder-zone={isHeaderBlock ? undefined : ""}
       >
         {!isHeaderBlock && (
-          <div
-            className={cn("cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing select-none p-2 -m-2 md:p-1 md:-m-1 rounded-lg active:bg-gray-100", isDragging ? "touch-none" : "touch-manipulation")}
-            onTouchStart={(e) => {
-              if (onTouchDragStart) {
-                e.stopPropagation()
-                onTouchDragStart(block.id, e.touches[0]?.clientY)
-              }
-            }}
+          <button
+            type="button"
+            data-reorder-grip={block.id}
+            aria-label={`Move ${preview.title}`}
+            aria-describedby="onepage-reorder-help"
+            onKeyDown={(e) => onGripKeyDown?.(e, preview.title)}
+            className="-my-0.5 -ml-1.5 -mr-1 grid h-11 w-8 shrink-0 cursor-grab touch-none select-none place-items-center rounded-lg text-[#b4b8c0] outline-none transition-colors duration-150 hover:text-[#6b7280] active:cursor-grabbing focus-visible:text-[#1a1a2e] focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.35)] [-webkit-tap-highlight-color:transparent]"
           >
             <GripVertical className="h-5 w-5" />
-          </div>
+          </button>
         )}
 
         {/* Clickable thumbnail for link buttons, product blocks, and calendly */}

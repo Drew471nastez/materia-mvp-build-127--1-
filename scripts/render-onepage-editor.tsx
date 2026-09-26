@@ -16,6 +16,8 @@ const px = (n: number) =>
 try { localStorage.setItem("onepage-onboarding-completed", "true") } catch {}
 
 const PROBE_THEME = (globalThis as any).PROBE_THEME || {}
+/* A probe that needs a longer list (scripts/check-onepage-reorder.mjs) hands its own. */
+const PROBE_BLOCKS = (globalThis as any).PROBE_BLOCKS as OnePage["draft_blocks"] | undefined
 const onepage: OnePage = {
   id: "op_probe",
   owner_id: "probe-user",
@@ -26,7 +28,7 @@ const onepage: OnePage = {
   theme: { ...defaultTheme, ...PROBE_THEME },
   settings: defaultSettings,
   social_links: { instagram: "https://instagram.com/satori" },
-  draft_blocks: [
+  draft_blocks: PROBE_BLOCKS ?? [
     { id: "b1", type: "link_button", enabled: true, sort_order: 0, data: { label: "Shop the prints", url: "https://example.com/shop" } as any },
     { id: "b2", type: "link_button", enabled: true, sort_order: 1, data: { label: "Late night mix", url: "https://example.com/mix" } as any, schedule: { start_at: "2030-01-02T18:00:00.000Z", end_at: null } },
     { id: "b3", type: "heading", enabled: true, sort_order: 2, data: { text: "Work with me", size: "medium", alignment: "center" } as any },
