@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useId, useState } from "react"
+import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { ChevronsUpDown, Loader2, Plus } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
-import { createBusiness, switchBusiness } from "@/lib/businesses/switch-client"
+import { SwitchingScreen, type SwitchingHandle } from "@/components/app/business-switch-screen"
+import { createBusiness, SWITCH_FAILED, switchBusiness } from "@/lib/businesses/switch-client"
 import { cn } from "@/lib/utils"
 
 /**
@@ -37,6 +38,15 @@ import { cn } from "@/lib/utils"
  * switch-client), which reloads the app as that business: its dashboard,
  * products, orders, pages, emails and payouts. A business still being set up
  * says so, and opening it carries on with its onboarding.
+ *
+ * THE SWITCH HAS ITS OWN SCREEN (components/app/business-switch-screen), up
+ * on the frame after the tap, over the menu and the page: the shell's empty
+ * frame, the spinner, and a line that follows the switch's real steps,
+ * "Switching to Loudlib", then "Opening Loudlib's store" once the server has
+ * said yes. The new /app's HTML draws the same screen and hands over to its
+ * page once that page is ready to draw. If the switch fails the screen fades
+ * away over the business you are still in, and the menu, still open under
+ * it, says why in a sentence.
  *
  * "New business" makes the second account right there and goes straight
  * into the creator onboarding, the same "Name your store" everyone starts
@@ -86,6 +96,13 @@ export function BusinessSwitcher({
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
+  /* The business being switched to, while its screen is up. */
+  const [switching, setSwitching] = useState<BusinessRow | null>(null)
+  const screen = useRef<SwitchingHandle | null>(null)
+  const screenGone = useCallback(() => {
+    setSwitching(null)
+    setBusy(null)
+  }, [])
   const listId = useId()
   useEffect(() => {
     if (open) return
@@ -108,11 +125,15 @@ export function BusinessSwitcher({
     if (b.current || busy) return
     setError(null)
     setBusy(b.userId)
+    setSwitching(b)
     try {
-      await switchBusiness(b.userId)
+      /* A business still being set up opens on its onboarding, not an /app for the screen to carry on in. */
+      await switchBusiness(b.userId, "/app", { arrival: b.ready ? b.name : undefined, onOpening: () => screen.current?.opening() })
     } catch (e) {
-      setBusy(null)
-      setError(e instanceof Error ? e.message : "That business could not be opened. Try again.")
+      setError(e instanceof Error && e.message ? e.message : SWITCH_FAILED)
+      /* Busy until the screen has gone, so nothing under it can be pressed twice. */
+      if (screen.current) screen.current.fail()
+      else screenGone()
     }
   }
 
@@ -195,7 +216,6 @@ export function BusinessSwitcher({
               >
                 <AppAvatar src={b.avatarUrl} name={b.name} size={avatarSize} className="shrink-0 ring-1 ring-neutral-200" />
                 {nameAndHandle(b)}
-                {busy === b.userId && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-neutral-400" aria-label="Opening" />}
               </button>
             ))}
             {canAdd && (
@@ -228,6 +248,7 @@ export function BusinessSwitcher({
           {error}
         </p>
       )}
+      {switching && <SwitchingScreen name={switching.name} ready={switching.ready} handleRef={screen} onGone={screenGone} />}
     </div>
   )
 }
