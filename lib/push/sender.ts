@@ -4,6 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import webpush from "web-push"
 import { vapidKeys } from "./web-vapid"
 import { endpointOf, forgetOnAccount, readKept, tokenOf } from "./web-subscriptions"
+import { devicesFor, titleOn, type TokenRow } from "./recipients"
+import { businessGroup, listBusinesses } from "@/lib/businesses/server"
+import { groupIds } from "@/lib/businesses/rules"
 
 export interface PushPayload {
   title: string
@@ -58,15 +61,26 @@ async function sendToBrowser(token: string, payload: PushPayload): Promise<"sent
 export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
   const supabase = createAdminClient()
 
-  const { data: tokens, error } = await supabase
+  /*
+    Every device of the login, not only this account's (./recipients): a
+    phone that has another business of the same login open still gets this
+    business's sale, its title saying which business it is. An account on
+    its own, or a group that cannot be read, is this account alone.
+  */
+  const accounts = await businessGroup(userId).then((g) => groupIds(g, userId)).catch(() => [userId])
+  const { data: rows, error } = await supabase
     .from("push_tokens")
-    .select("id, token, platform")
-    .eq("user_id", userId)
+    .select("id, token, platform, user_id")
+    .in("user_id", accounts)
 
   if (error) {
     console.error("[push] Failed to fetch tokens:", error.message)
     return
   }
+  const tokens = devicesFor((rows ?? []) as TokenRow[], userId)
+  const businessName = tokens.some((t) => t.user_id !== userId)
+    ? await listBusinesses(userId).then((all) => all.find((b) => b.current)?.name ?? null).catch(() => null)
+    : null
 
   /* Browsers kept on the account while push_tokens could not take them
      (lib/push/web-subscriptions), each once. */
@@ -89,16 +103,19 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
   const invalidIds: string[] = []
 
   await Promise.all(
-    tokens.map(async ({ id, token, platform }: { id: string; token: string; platform: string }) => {
+    tokens.map(async (device) => {
+      const { id, token, platform } = device
+      /* On a device that is on another business of the login, the title says which business this is. */
+      const title = titleOn(device, userId, payload.title, businessName)
       if (platform === "web") {
-        const result = await sendToBrowser(token, payload)
+        const result = await sendToBrowser(token, { ...payload, title })
         if (result === "gone") invalidIds.push(id)
         return
       }
       const message: Message = {
         token,
         notification: {
-          title: payload.title,
+          title,
           body: payload.body,
         },
         data: payload.data ?? {},

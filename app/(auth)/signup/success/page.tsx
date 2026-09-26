@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import Image from "next/image"
 import { STORELIB_LOGO } from "@/lib/brand/logo"
-import { switchBusiness } from "@/lib/businesses/switch-client"
+import { switchBusiness, type SwitchedTo } from "@/lib/businesses/switch-client"
 import { NewBusinessScreen } from "@/components/app/business-switch-screen"
 
 /**
@@ -18,17 +18,18 @@ import { NewBusinessScreen } from "@/components/app/business-switch-screen"
  * onboarding shows the way back to the first business. Null for everyone
  * else, and for any failure, so the page behaves exactly as it did.
  */
-async function firstBusinessIfSecond(): Promise<{ userId: string; name: string } | null> {
+async function firstBusinessIfSecond(): Promise<SwitchedTo | null> {
   try {
     const { data } = await createClient().auth.getSession()
     const token = data.session?.access_token
     const res = await fetch("/api/businesses", { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: "no-store" })
     if (!res.ok) return null
-    const body = (await res.json()) as { businesses?: Array<{ userId: string; name: string; role: string; current: boolean }> }
+    const body = (await res.json()) as { businesses?: Array<SwitchedTo & { role: string; current: boolean }> }
     const list = body.businesses ?? []
     if (list.find((b) => b.current)?.role !== "member") return null
     const first = list.find((b) => b.role === "owner")
-    return first ? { userId: first.userId, name: first.name } : null
+    /* Its photo too: the switch screen's bar draws the business it goes back to (components/app/shell-header-still). */
+    return first ? { userId: first.userId, name: first.name, handle: first.handle ?? null, avatarUrl: first.avatarUrl ?? null, ready: first.ready !== false } : null
   } catch {
     return null
   }
@@ -60,7 +61,7 @@ function SuccessContent() {
   const stripeSuccess = searchParams.get("stripe_success")
   const stripeTier = searchParams.get("tier") as "growth" | "pro" | null
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
-  const [firstBusiness, setFirstBusiness] = useState<{ userId: string; name: string } | null>(null)
+  const [firstBusiness, setFirstBusiness] = useState<SwitchedTo | null>(null)
   /* Arrived from New business in the account menu (lib/businesses/switch-client createBusiness). */
   const newBusiness = searchParams.get("business") === "new"
 
@@ -285,7 +286,7 @@ function SuccessContent() {
     choice, which a new business never makes, and no second spinner.
   */
   const switchBack = firstBusiness
-    ? { name: firstBusiness.name, onSwitch: () => switchBusiness(firstBusiness.userId, "/app", { arrival: firstBusiness.name }) }
+    ? { name: firstBusiness.name, onSwitch: () => switchBusiness(firstBusiness.userId, "/app", { arrival: { name: firstBusiness.name, photo: firstBusiness.avatarUrl }, business: firstBusiness }) }
     : null
   const settled = !isCheckingAuth && !isRouting
   if (newBusiness && (!settled || showCreatorOnboarding)) {

@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { ChevronsUpDown, Plus } from "lucide-react"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
 import { SwitchingScreen, type SwitchingHandle } from "@/components/app/business-switch-screen"
+import { STILL_AVATAR } from "@/components/app/shell-header-still"
 import { iconDepth } from "@/components/ui/depth-button"
-import { canAddBusiness } from "@/lib/businesses/rules"
+import { canAddBusiness, LIMIT_REACHED } from "@/lib/businesses/rules"
 import { createBusiness, SWITCH_FAILED, switchBusiness } from "@/lib/businesses/switch-client"
 import { cn } from "@/lib/utils"
 
@@ -13,16 +14,14 @@ import { cn } from "@/lib/utils"
  * ===========================================================================
  *  YOUR BUSINESSES, AT THE TOP OF THE ACCOUNT MENU
  * ===========================================================================
- * ONE ROW UNTIL YOU ASK FOR MORE. The menu used to open on a "Businesses"
- * label, the business you are in with a check, and a "New business" row with
- * a dashed circle: three lines of the menu, every time it opened, for a
- * choice most people make once. Now the business you are in is a single row,
- * its photo, its name and its @handle, with the up and down chevron that
- * says "there is a list behind this" in every workspace switcher people
- * already know. A tap opens the list in place, under that row: the login's
- * other businesses (up to two more, lib/businesses/rules MAX_BUSINESSES),
- * then "New business" as a slim line of text while there is room for one.
- * Another tap, or closing the menu, folds it away again.
+ * ONE ROW UNTIL YOU ASK FOR MORE. The business you are in is a single row,
+ * its photo, its name and its @handle, with a small "+" square and the up and
+ * down chevron that says "there is a list behind this" in every workspace
+ * switcher people already know. A tap anywhere on the row, the "+" included,
+ * opens the list in place, under it: the login's other businesses (up to two
+ * more, lib/businesses/rules MAX_BUSINESSES), then "New business" as a slim
+ * line while there is room for one. Another tap, or closing the menu, folds
+ * it away again.
  *
  * No heading. The row is the business, so a label saying "Businesses" over
  * it was a word explaining a picture that already said it.
@@ -31,6 +30,29 @@ import { cn } from "@/lib/utils"
  * each surface's own size: 44px in the dropdown, 52px in the sheet, and the
  * "New business" line 36px and 44px (a finger still needs the 44).
  *
+ * THE "+" OPENS THE LIST, IT DOES NOT MAKE A BUSINESS. The owner: "the plus
+ * should NOT redirect me to a new business directly: it needs to open up the
+ * collapsible thing, and then there's the New business + button there." So
+ * the square is part of the row, the same press as the name and the chevron,
+ * and what makes a business is the "New business" line the list shows under
+ * the others. A business is an account; it is made by a line that says so,
+ * never by a square with no words.
+ *
+ * ON EVERY BUSINESS. "It doesn't matter which business I am on: when I
+ * switch to Calvin, my other business, there is no plus icon there." The
+ * square, the list and "New business" are on every business of the login,
+ * the first or any other (lib/businesses/rules canAddBusiness). A business
+ * made from the second is linked to the first all the same (lib/businesses/
+ * server createBusinessAccount), so the login stays one group. When the
+ * login already has three, the list's last line says so in plain words
+ * (LIMIT_REACHED) in place of "New business", and nothing is made.
+ *
+ * The square wears iconDepth (components/ui/depth-button): the hairline and
+ * 2px foot the Website page's icon buttons have, 28px in the dropdown and
+ * 30px in the sheet. It is inside the row's one button, so the row keeps a
+ * single press target the height of the row, and pressing the square also
+ * shows the square pressed.
+ *
  * The list opens by `grid-template-rows: 0fr -> 1fr`, the way the rail's
  * groups do (sidebar-desktop-nav's Collapsible): a real auto height with no
  * measuring, and a tap in the middle of it turns it round from wherever it
@@ -38,63 +60,30 @@ import { cn } from "@/lib/utils"
  * cannot be seen.
  *
  * A tap on the other business asks the server to switch (lib/businesses/
- * switch-client), which reloads the app as that business: its dashboard,
- * products, orders, pages, emails and payouts. A business still being set up
- * says so, and opening it carries on with its onboarding.
+ * switch-client), which loads the app again as that business: its
+ * dashboard, products, orders, pages, emails and payouts. A business still
+ * being set up says so, and opening it carries on with its onboarding.
  *
  * THE SWITCH HAS ITS OWN SCREEN (components/app/business-switch-screen), up
- * on the frame after the tap, over the menu and the page: the shell's empty
- * frame, the spinner, and a line that follows the switch's real steps,
- * "Switching to Loudlib", then "Opening Loudlib's store" once the server has
- * said yes. The new /app's HTML draws the same screen and hands over to its
- * page once that page is ready to draw. If the switch fails the screen fades
- * away over the business you are still in, and the menu, still open under
- * it, says why in a sentence.
+ * on the frame after the tap, over the menu and the page: the shell's frame
+ * with the business you are going to in its black bar (its photo and its
+ * name, components/app/shell-header-still), the spinner, and a line that
+ * follows the switch's real steps, "Switching to Loudlib", then "Opening
+ * Loudlib's store" once the server has said yes. The new /app's HTML draws
+ * the same screen and hands over to its page once that page is ready to
+ * draw. So the photo is drawn in the bar from the first frame, the list
+ * fetches and decodes the other businesses' photos at the bar's size as it
+ * opens. If the switch fails the screen fades away over the business you are
+ * still in, and the menu, still open under it, says why in a sentence.
  *
- * "New business" makes the new account right there and goes straight
- * into the creator onboarding, the same "Name your store" everyone starts
- * with. No page in between. While it works the same screen as a switch
- * comes up, on the plain white the onboarding is drawn on: "Setting up your
- * new business", then "Opening your new business" once the browser holds
- * its session, and /signup/success opens on those same words in the same
- * place (components/app/business-switch-screen NewBusinessScreen). The rows
- * under it stay as they are, pressed and waiting, with no spinner of their
- * own and no words that change their width: one loading state, not three.
- *
- * A PLUS ON THE ROW, LEFT OF THE CHEVRON. The owner: "Where the switcher is,
- * to the left of it, add a plus icon button, with a little bit more depth,
- * very clean and smooth, so people understand it's about creating a new
- * profile/business." Folded, the row only said "there is a list behind
- * this"; nothing on it said another business could be made, so the only
- * way to find out was to open the list and read the last line. Now a small
- * white square with a "+" sits on the row itself, wearing iconDepth
- * (components/ui/depth-button): the hairline border and 2px foot the
- * Website page's icon buttons have, so it reads as a button you press and
- * not as part of the name. 28px in the dropdown and 30px in the sheet, each
- * with an invisible 44px hit area around it (a `::before` a little bigger
- * than the square), because a finger in the phone's sheet needs the 44 and
- * an iPad uses the dropdown. It calls the same `add` as the "New business"
- * line, so both share one busy state: while the account is made neither
- * can start a second one, and the screen above says what is happening.
- *
- * IT IS NOT INSIDE THE ROW'S BUTTON. A button inside a button is invalid
- * HTML, and a press on it would also toggle the list. So the row keeps its
- * one button (photo, name, a gap the width of the plus, the chevron), and
- * the plus is its sibling, laid over that gap at the same place the gap
- * sits: the row's side padding, plus the chevron, plus one flex gap from the
- * right. Those three numbers are the ones the row's own classes use, kept in
- * PLUS below so the gap and the square cannot drift apart. A press on the
- * plus never reaches the row, because it is not the row's child. The pair
- * sits in one wrapper whose hover lights the row, so moving the pointer
- * from the name onto the plus does not flicker the row's background off.
- *
- * WHY "NEW BUSINESS" STAYS IN THE LIST. The plus has no words, and a phone
- * has no hover to show a tooltip, so the line under the chevron is where
- * the plus gets its name: open the list once and it says what the square
- * does. It also keeps the chevron honest for someone with one business,
- * where it is the only thing in the list; without it the chevron would
- * vanish for most accounts and the switcher would look different from one
- * account to the next. Both rows only show while a business can be added.
+ * "New business" makes the new account right there and goes straight into
+ * the creator onboarding, the same "Name your store" everyone starts with.
+ * While it works the same screen as a switch comes up, on the plain white the
+ * onboarding is drawn on, with its own two lines (lib/businesses/switch-
+ * screen NEW_BUSINESS_STEPS), and /signup/success opens on the second of them
+ * in the same place (components/app/business-switch-screen
+ * NewBusinessScreen). The rows under it stay as they are,
+ * pressed and waiting, with no spinner of their own.
  */
 
 /** How long the menu around it takes to go (the sheet's slide is the longer), before the list folds out of sight. */
@@ -103,16 +92,8 @@ const FOLD_AFTER_CLOSE_MS = 400
 /** The size of a business's photo in each menu: the account sheet preloads the one it will draw. */
 export const SWITCHER_AVATAR = { sheet: 32, dropdown: 26 } as const
 
-/**
- * The plus's square and where it sits on the row, per menu. `right` is the
- * row's side padding (px-3, 12px) plus the chevron (18px in the sheet, 16px
- * in the dropdown) plus the row's gap (gap-3 12px, gap-2.5 10px): exactly
- * where the gap left for it inside the row ends.
- */
-const PLUS = {
-  sheet: { size: 30, right: 12 + 18 + 12 },
-  dropdown: { size: 28, right: 12 + 16 + 10 },
-} as const
+/** The "+" square on the row, per menu. */
+const PLUS = { sheet: 30, dropdown: 28 } as const
 
 export interface BusinessRow {
   userId: string
@@ -170,14 +151,23 @@ export function BusinessSwitcher({
     }, FOLD_AFTER_CLOSE_MS)
     return () => window.clearTimeout(t)
   }, [open])
-  if (businesses.length === 0) return null
   const sheet = variant === "sheet"
+  /*
+    The other businesses' photos at the size the switch screen's bar draws
+    them (the phone's bar from the sheet, the desktop's from the dropdown),
+    fetched and decoded as the list opens: a press on one then has its photo
+    in the bar on the first frame, and the new document finds it cached.
+  */
+  useEffect(() => {
+    if (!expanded) return
+    const size = sheet ? STILL_AVATAR.phone : STILL_AVATAR.desktop
+    for (const b of businesses) if (!b.current) preloadAvatar(b.avatarUrl, size)
+  }, [expanded, businesses, sheet])
+  if (businesses.length === 0) return null
   const current = businesses.find((b) => b.current) ?? businesses[0]
   const others = businesses.filter((b) => b !== current)
-  /* Another business is made from the first, while the login has room for one (lib/businesses/rules MAX_BUSINESSES). */
-  const canAdd = canAddBusiness(businesses.length, current.role)
-  /* Nothing behind the row (a business that cannot make another, and no other to go to): no chevron, no tap. */
-  const hasList = others.length > 0 || canAdd
+  /* Room for another business on this login, whichever of its businesses this is (lib/businesses/rules MAX_BUSINESSES). */
+  const canAdd = canAddBusiness(businesses.length)
 
   const openBusiness = async (b: BusinessRow) => {
     if (b.current || busy) return
@@ -186,7 +176,11 @@ export function BusinessSwitcher({
     setSwitching(b)
     try {
       /* A business still being set up opens on its onboarding, not an /app for the screen to carry on in. */
-      await switchBusiness(b.userId, "/app", { arrival: b.ready ? b.name : undefined, onOpening: () => screen.current?.opening() })
+      await switchBusiness(b.userId, "/app", {
+        arrival: b.ready ? { name: b.name, photo: b.avatarUrl } : undefined,
+        business: b,
+        onOpening: () => screen.current?.opening(),
+      })
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : SWITCH_FAILED)
       /* Busy until the screen has gone, so nothing under it can be pressed twice. */
@@ -196,7 +190,7 @@ export function BusinessSwitcher({
   }
 
   const add = async () => {
-    if (busy) return
+    if (busy || !canAdd) return
     setError(null)
     setBusy("new")
     setCreating(true)
@@ -224,131 +218,114 @@ export function BusinessSwitcher({
       </span>
     </span>
   )
+  /* The last line of the list, in the photo's column so its words line up with the names above. */
+  const lastLine = cn(
+    "flex w-full items-center font-medium",
+    sheet ? "min-h-[44px] gap-3 rounded-xl px-3 py-1.5 text-[15px]" : "min-h-[36px] gap-2.5 rounded-lg px-3 py-1 text-[13px]",
+  )
 
   return (
     <div data-business-switcher="" data-expanded={expanded ? "" : undefined} className={sheet ? "pb-1" : "pb-0.5"}>
-      {/* The business you are in, and the plus laid over the gap it leaves (see A PLUS ON THE ROW above). */}
-      <div className="group/current relative">
-        {/* With a list behind it, the row is the switch that opens it. */}
-        <button
-          type="button"
-          onClick={hasList ? () => setExpanded((v) => !v) : undefined}
-          disabled={!hasList}
-          aria-current="true"
-          aria-expanded={hasList ? expanded : undefined}
-          aria-controls={hasList ? listId : undefined}
-          data-business-row="current"
-          className={cn(
-            rowClass,
-            hasList ? "cursor-pointer" : "cursor-default",
-            !sheet && hasList && "group-hover/current:bg-neutral-50",
-            expanded && (sheet ? "bg-neutral-100/70" : "bg-neutral-50"),
-          )}
-        >
-          <AppAvatar
-            src={currentAvatar !== undefined ? currentAvatar || null : current.avatarUrl}
-            name={current.name}
-            size={avatarSize}
-            className="shrink-0 ring-1 ring-neutral-200"
-          />
-          {nameAndHandle(current)}
-          {canAdd && <span aria-hidden className="shrink-0" style={{ width: plus.size, height: plus.size }} />}
-          {hasList && (
-            <ChevronsUpDown
-              className={cn("shrink-0 text-neutral-400", sheet ? "h-[18px] w-[18px]" : "h-4 w-4")}
-              strokeWidth={1.75}
-              aria-label={expanded ? "Hide businesses" : "Switch business"}
-            />
-          )}
-        </button>
-        {canAdd && (
-          /*
-            Centred on the row by top 0, bottom 0 and an auto margin rather
-            than a translate: inside a `.group` on a touch screen globals.css
-            takes every transform away, and this must not move on a tap.
-          */
-          <button
-            type="button"
-            onClick={add}
-            disabled={!!busy}
-            aria-label="New business"
-            aria-busy={busy === "new" || undefined}
-            title={sheet ? undefined : "New business"}
-            data-business-add=""
-            className={cn(
-              iconDepth,
-              "absolute inset-y-0 my-auto p-0 text-[#374151]",
-              /*
-                The 44px a finger needs, as an invisible square around the
-                visible one. The `::before` is placed from the inside of
-                the 1px border, so it reaches out one pixel more than half
-                the difference: 26 + 2 x 9 and 28 + 2 x 8, both 44.
-              */
-              "before:absolute before:content-['']",
-              sheet ? "rounded-[9px] before:-inset-2" : "rounded-[8px] before:-inset-[9px]",
-              busy === "new" && "disabled:opacity-100",
-            )}
-            style={{ right: plus.right, width: plus.size, height: plus.size }}
-          >
-            <Plus className={sheet ? "h-4 w-4" : "h-3.5 w-3.5"} strokeWidth={2} aria-hidden />
-          </button>
+      {/* The business you are in: one button, the "+" and the chevron inside it, that opens and folds the list. */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-current="true"
+        aria-expanded={expanded}
+        aria-controls={listId}
+        data-business-row="current"
+        className={cn(
+          rowClass,
+          "group/current cursor-pointer",
+          expanded && (sheet ? "bg-neutral-100/70" : "bg-neutral-50"),
         )}
-      </div>
-
-      {hasList && (
-        <div
-          id={listId}
-          data-business-list={expanded ? "open" : "closed"}
-          inert={!expanded}
-          style={{
-            display: "grid",
-            gridTemplateRows: expanded ? "1fr" : "0fr",
-            opacity: expanded ? 1 : 0,
-            transition: "grid-template-rows 220ms cubic-bezier(0.2, 0, 0, 1), opacity 180ms ease",
-          }}
+      >
+        <AppAvatar
+          src={currentAvatar !== undefined ? currentAvatar || null : current.avatarUrl}
+          name={current.name}
+          size={avatarSize}
+          className="shrink-0 ring-1 ring-neutral-200"
+        />
+        {nameAndHandle(current)}
+        {/*
+          The "+": a picture of a button inside the row's button (a button in
+          a button is not allowed), so a press on it is a press on the row.
+          It shows its own press all the same: `:active` holds for the
+          element under the finger.
+        */}
+        <span
+          aria-hidden="true"
+          data-business-add=""
+          className={cn(iconDepth, "p-0 text-[#374151]", sheet ? "rounded-[9px]" : "rounded-[8px]")}
+          style={{ width: plus, height: plus }}
         >
-          <div style={{ minHeight: 0, overflow: "hidden" }}>
-            {others.map((b) => (
-              <button
-                key={b.userId}
-                type="button"
-                onClick={() => openBusiness(b)}
-                disabled={!!busy}
-                data-business-row="other"
-                className={cn(rowClass, "cursor-pointer")}
-              >
-                <AppAvatar src={b.avatarUrl} name={b.name} size={avatarSize} className="shrink-0 ring-1 ring-neutral-200" />
-                {nameAndHandle(b)}
-              </button>
-            ))}
-            {canAdd && (
-              /* A slim line of text, its plus in the photo's column so the words line up with the names above. */
-              <button
-                type="button"
-                disabled={!!busy}
-                onClick={add}
-                aria-busy={busy === "new" || undefined}
-                data-business-new=""
-                className={cn(
-                  "flex w-full items-center font-medium text-neutral-600 transition-colors [-webkit-tap-highlight-color:transparent]",
-                  sheet ? "min-h-[44px] gap-3 rounded-xl px-3 py-1.5 text-[15px] active:bg-neutral-100" : "min-h-[36px] gap-2.5 rounded-lg px-3 py-1 text-[13px] hover:bg-neutral-50 hover:text-neutral-900",
-                )}
-              >
-                <span className="grid shrink-0 place-items-center text-neutral-400" style={{ width: avatarSize }}>
-                  <Plus className={sheet ? "h-[18px] w-[18px]" : "h-4 w-4"} strokeWidth={1.75} />
-                </span>
-                New business
-              </button>
-            )}
-          </div>
+          <Plus className={sheet ? "h-4 w-4" : "h-3.5 w-3.5"} strokeWidth={2} />
+        </span>
+        <ChevronsUpDown
+          className={cn("shrink-0 text-neutral-400", sheet ? "h-[18px] w-[18px]" : "h-4 w-4")}
+          strokeWidth={1.75}
+          aria-label={expanded ? "Hide businesses" : "Switch business"}
+        />
+      </button>
+
+      <div
+        id={listId}
+        data-business-list={expanded ? "open" : "closed"}
+        inert={!expanded}
+        style={{
+          display: "grid",
+          gridTemplateRows: expanded ? "1fr" : "0fr",
+          opacity: expanded ? 1 : 0,
+          transition: "grid-template-rows 220ms cubic-bezier(0.2, 0, 0, 1), opacity 180ms ease",
+        }}
+      >
+        <div style={{ minHeight: 0, overflow: "hidden" }}>
+          {others.map((b) => (
+            <button
+              key={b.userId}
+              type="button"
+              onClick={() => openBusiness(b)}
+              disabled={!!busy}
+              data-business-row="other"
+              className={cn(rowClass, "cursor-pointer")}
+            >
+              <AppAvatar src={b.avatarUrl} name={b.name} size={avatarSize} className="shrink-0 ring-1 ring-neutral-200" />
+              {nameAndHandle(b)}
+            </button>
+          ))}
+          {canAdd ? (
+            <button
+              type="button"
+              disabled={!!busy}
+              onClick={add}
+              aria-busy={busy === "new" || undefined}
+              data-business-new=""
+              className={cn(
+                lastLine,
+                "text-neutral-600 transition-colors [-webkit-tap-highlight-color:transparent]",
+                sheet ? "active:bg-neutral-100" : "hover:bg-neutral-50 hover:text-neutral-900",
+              )}
+            >
+              <span className="grid shrink-0 place-items-center text-neutral-400" style={{ width: avatarSize }}>
+                <Plus className={sheet ? "h-[18px] w-[18px]" : "h-4 w-4"} strokeWidth={1.75} />
+              </span>
+              New business
+            </button>
+          ) : (
+            /* Three already: the line says so, and there is nothing to press. */
+            <p data-business-limit="" className={cn(lastLine, "font-normal text-neutral-500", sheet ? "text-[13px]" : "text-[12px]")}>
+              <span className="shrink-0" style={{ width: avatarSize }} aria-hidden="true" />
+              <span className="min-w-0 flex-1">{LIMIT_REACHED}</span>
+            </p>
+          )}
         </div>
-      )}
+      </div>
       {error && (
         <p role="alert" className={cn("px-3 pt-1 text-red-600", sheet ? "text-[13px]" : "text-[12px]")}>
           {error}
         </p>
       )}
-      {switching && <SwitchingScreen name={switching.name} ready={switching.ready} handleRef={screen} onGone={screenGone} />}
+      {switching && <SwitchingScreen name={switching.name} photo={switching.avatarUrl} ready={switching.ready} handleRef={screen} onGone={screenGone} />}
       {creating && <SwitchingScreen mode="create" name="" ready={false} handleRef={screen} onGone={screenGone} />}
     </div>
   )

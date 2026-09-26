@@ -7,20 +7,23 @@
  *   MENU     the business you are in is one row with its @handle and an up
  *            and down chevron, and nothing else shows until it is tapped: no
  *            "Businesses" label, no second row. A tap opens the list in
- *            place. Three businesses: the other two, and no New business
- *            (three is the most, lib/businesses/rules MAX_BUSINESSES); two:
- *            the other one, saying it is being set up, and New business under
- *            it; one business: New business alone, a slim line. A second tap
- *            folds it away, and what is folded cannot be reached by Tab. Rows
- *            are 44px in the dropdown and 52px in the phone sheet, New
- *            business 36px and 44px, and nothing overflows
- *   PLUS     with room for another business, a "New business" square sits
- *            on the row just left of the chevron: 28px in the dropdown, 30px
- *            in the sheet, centred on the row, clear of the name and the
- *            chevron, answering a press anywhere in the 44px around it. A
- *            real mouse press on it starts the new business and does not
- *            open or fold the list. With three businesses there is no plus
- *   CREATE   a press puts the plain white screen up at once, "Setting up
+ *            place. Three businesses: the other two, and in place of New
+ *            business a plain line saying three is the most (lib/businesses/
+ *            rules MAX_BUSINESSES, LIMIT_REACHED), nothing to press; two: the
+ *            other one and New business under it; one business: New business
+ *            alone, a slim line. The same signed in to a business that is not
+ *            the first (member-two, member-three). A second tap folds it
+ *            away, and what is folded cannot be reached by Tab. Rows are 44px
+ *            in the dropdown and 52px in the phone sheet, New business 36px
+ *            and 44px, and nothing overflows
+ *   PLUS     on every business, whatever the count: a "+" square on the row
+ *            just left of the chevron, 28px in the dropdown, 30px in the
+ *            sheet, centred on the row, clear of the name and the chevron,
+ *            and part of the row's press. A press on it opens the list and
+ *            makes nothing: "the plus should NOT redirect me to a new
+ *            business directly"
+ *   CREATE   a press on New business in the open list puts the plain white
+ *            screen up at once, "Setting up
  *            your new business" under the spinner, fading in on opacity;
  *            the rows under it keep their size and their words, with no
  *            spinner of their own. The server's yes moves the line to
@@ -96,61 +99,65 @@ try {
   await p.screenshot({ path: join(shots, "business-rows-folded-closeup.png"), clip: { x: 0, y: 0, width: 1440, height: 140 } })
   await p.setViewport({ width: 1440, height: 900 })
   await sleep(150)
-  const COUNT = { one: 1, two: 2, three: 3 }
-  for (const [sel, rowH, addH] of ["dropdown", "sheet"].flatMap((v) => ["three", "two", "one"].map((n) => [`[data-probe=${v}-${n}]`, v === "sheet" ? 52 : 44, v === "sheet" ? 44 : 36]))) {
-    const count = COUNT[/-(one|two|three)\]/.exec(sel)[1]]
+  /* Each fixture: how many businesses the login has, and whose handle the row you are in shows. */
+  const CASES = { one: [1, "@andrewrullz"], two: [2, "@andrewrullz"], three: [3, "@andrewrullz"], "member-three": [3, "@lindstudio"], "member-two": [2, "@lindstudio"] }
+  const LIMIT = "You already have three businesses, the most one login can have."
+  for (const [sel, rowH, addH] of ["dropdown", "sheet"].flatMap((v) => Object.keys(CASES).map((n) => [`[data-probe=${v}-${n}]`, v === "sheet" ? 52 : 44, v === "sheet" ? 44 : 36]))) {
+    const [count, handle] = CASES[/-([a-z-]+)\]$/.exec(sel)[1].replace(/^(dropdown|sheet)-/, "")]
     const room = count < 3
     const folded = await read(sel)
-    expect(folded.rows.length === 1 && folded.rows[0].current && folded.rows[0].text.includes("@andrewrullz") && folded.rows[0].chevron && folded.rows[0].expanded === "false" && !folded.add && !folded.label,
+    expect(folded.rows.length === 1 && folded.rows[0].current && folded.rows[0].text.includes(handle) && folded.rows[0].chevron && folded.rows[0].expanded === "false" && !folded.add && !folded.label,
       `${sel}: one row, the business you are in with its handle and a chevron, and no label`, folded)
     expect(folded.rows[0].h >= rowH && folded.over <= 0, `${sel}: a ${rowH}px row, nothing overflows`, folded.rows[0].h)
     const tabbable = await p.evaluate((s) => [...document.querySelectorAll(`${s} button`)].filter((b) => !b.closest("[inert]")).map((b) => b.getAttribute("aria-label") || b.getAttribute("data-business-row")), sel)
-    expect(room ? tabbable.join() === "current,New business" : tabbable.join() === "current",
-      `${sel}: folded, Tab reaches the row${room ? " and its plus" : ""} only`, tabbable)
-    /* The plus: where it sits, how big it is, and what a press around it lands on. */
+    expect(tabbable.join() === "current", `${sel}: folded, Tab reaches the row only: the plus is part of it`, tabbable)
+    /* The plus: on every business, whatever the count; where it sits, how big it is, and what a press on it is. */
     const plus = await p.evaluate((s) => {
       const el = document.querySelector(`${s} [data-business-add]`)
       if (!el) return null
-      const row = document.querySelector(`${s} [data-business-row=current]`).getBoundingClientRect()
+      const rowEl = document.querySelector(`${s} [data-business-row=current]`)
+      const row = rowEl.getBoundingClientRect()
       const chev = document.querySelector(`${s} [data-business-row=current] svg[aria-label]`).getBoundingClientRect()
       const name = document.querySelector(`${s} [data-business-row=current] .truncate`)
       const range = document.createRange(); range.selectNodeContents(name)
       const text = range.getBoundingClientRect()
       const b = el.getBoundingClientRect()
       const cx = b.left + b.width / 2, cy = b.top + b.height / 2
-      /* 21px out from the centre each way: the corners of a 42px square, inside the 44. */
-      const hits = [[-21, -21], [21, -21], [-21, 21], [21, 21], [0, 0]].map(([dx, dy]) => !!document.elementFromPoint(cx + dx, cy + dy)?.closest("[data-business-add]"))
       const cs = getComputedStyle(el)
-      return { w: Math.round(b.width), h: Math.round(b.height), centred: Math.abs(cy - (row.top + row.height / 2)) <= 0.5, gapToChevron: Math.round(chev.left - b.right), gapToName: Math.round(b.left - text.right), hits, label: el.getAttribute("aria-label"), shadow: cs.boxShadow, border: cs.borderTopWidth }
+      return { w: Math.round(b.width), h: Math.round(b.height), centred: Math.abs(cy - (row.top + row.height / 2)) <= 0.5, gapToChevron: Math.round(chev.left - b.right), gapToName: Math.round(b.left - text.right), inRow: rowEl.contains(el), hit: document.elementFromPoint(cx, cy)?.closest("[data-business-row]") === rowEl, hidden: el.getAttribute("aria-hidden"), shadow: cs.boxShadow, border: cs.borderTopWidth }
     }, sel)
-    if (room) {
-      const size = sel.includes("sheet") ? 30 : 28
-      expect(!!plus && plus.w === size && plus.h === size && plus.centred && plus.label === "New business",
-        `${sel}: a ${size}px plus named New business, centred on the row`, plus)
-      expect(!!plus && plus.gapToChevron >= 8 && plus.gapToName >= 8 && plus.border === "1px" && /inset/.test(plus.shadow),
-        `${sel}: left of the chevron, clear of the name, with a hairline and the icon buttons' depth`, plus && { gapToChevron: plus.gapToChevron, gapToName: plus.gapToName, border: plus.border })
-      expect(!!plus && plus.hits.every(Boolean), `${sel}: a press anywhere in the 44px around it lands on the plus`, plus && plus.hits)
-    } else {
-      expect(plus === null, `${sel}: three businesses already, so no plus`, plus)
-    }
-    await toggle(sel)
+    const size = sel.includes("sheet") ? 30 : 28
+    expect(!!plus && plus.w === size && plus.h === size && plus.centred && plus.inRow && plus.hit && plus.hidden === "true",
+      `${sel}: a ${size}px plus on the row, centred, part of the row's press${room ? "" : ", with three businesses too"}`, plus)
+    expect(!!plus && plus.gapToChevron >= 8 && plus.gapToName >= 8 && plus.border === "1px" && /inset/.test(plus.shadow),
+      `${sel}: left of the chevron, clear of the name, with a hairline and the icon buttons' depth`, plus && { gapToChevron: plus.gapToChevron, gapToName: plus.gapToName, border: plus.border })
+    /* A press on the plus opens the list, and makes nothing. */
+    const createdBefore = await p.evaluate(() => window.__created ?? 0)
+    await p.evaluate((s) => document.querySelector(`${s} [data-business-add]`).click(), sel)
+    await sleep(400)
     const open = await read(sel)
+    const createdAfter = await p.evaluate(() => window.__created ?? 0)
+    const limit = await p.evaluate((s) => { const el = document.querySelector(`${s} [data-business-limit]`); return el && !el.closest("[inert]") ? { text: el.textContent.trim(), button: el.tagName === "BUTTON" || !!el.querySelector("button"), h: Math.round(el.getBoundingClientRect().height) } : null }, sel)
+    expect(open.rows[0].expanded === "true" && createdAfter === createdBefore, `${sel}: the plus opens the list and makes no business`, { expanded: open.rows[0].expanded, created: createdAfter - createdBefore })
+    const others = open.rows.filter((r) => !r.current)
     if (count === 3) {
-      expect(open.rows.length === 3 && open.rows[1].text.includes("Setting up") && open.rows[2].text.includes("@lindstudio") && !open.rows[1].current && !open.rows[2].current && !open.add,
-        `${sel}: open, the other two businesses, and no New business with three already`, open.rows.map((r) => r.text))
+      expect(open.rows.length === 3 && others.length === 2 && !open.add && !!limit && limit.text === LIMIT && !limit.button && limit.h >= addH,
+        `${sel}: open, the other two businesses, and in place of New business a line saying three is the most`, { rows: open.rows.map((r) => r.text), limit })
     } else if (count === 2) {
-      expect(open.rows.length === 2 && open.rows[1].text.includes("Setting up") && !open.rows[1].current && open.add && open.addH >= addH && open.addH < rowH,
-        `${sel}: open, the other business says it is being set up, and New business under it: two is not the most any more`, { rows: open.rows.map((r) => r.text), add: open.add })
+      expect(open.rows.length === 2 && others.length === 1 && open.add && !limit && open.addH >= addH && open.addH < rowH,
+        `${sel}: open, the other business, and New business under it`, { rows: open.rows.map((r) => r.text), add: open.add })
     } else {
-      expect(open.rows.length === 1 && open.add && open.addH >= addH && open.addH < rowH, `${sel}: open, New business under it, a slim ${addH}px line`, { rows: open.rows.length, add: open.add, addH: open.addH })
+      expect(open.rows.length === 1 && open.add && !limit && open.addH >= addH && open.addH < rowH, `${sel}: open, New business under it, a slim ${addH}px line`, { rows: open.rows.length, add: open.add, addH: open.addH })
     }
-    expect(open.rows.every((r) => r.h >= rowH) && open.rows[0].expanded === "true" && open.over <= 0 && !open.label, `${sel}: open, ${rowH}px rows and still no label`, open.rows.map((r) => r.h))
+    expect(open.rows.every((r) => r.h >= rowH) && open.over <= 0 && !open.label, `${sel}: open, ${rowH}px rows and still no label`, open.rows.map((r) => r.h))
   }
   await p.screenshot({ path: join(shots, "business-menus-open-1440.png") })
   await p.setViewport({ width: 390, height: 900, deviceScaleFactor: 2 })
   await sleep(200)
   await p.evaluate(() => document.querySelector("[data-probe=sheet-three]").scrollIntoView())
   await p.screenshot({ path: join(shots, "business-sheet-three-open-390.png") })
+  await p.evaluate(() => document.querySelector("[data-probe=sheet-member-two]").scrollIntoView())
+  await p.screenshot({ path: join(shots, "business-sheet-member-two-open-390.png") })
   await p.evaluate(() => document.querySelector("[data-probe=sheet-one]").scrollIntoView())
   await p.screenshot({ path: join(shots, "business-sheet-open-390.png") })
   await p.setViewport({ width: 1440, height: 900 })
@@ -159,10 +166,9 @@ try {
   expect(shut.rows.length === 1 && shut.rows[0].expanded === "false", "a second tap folds it away again", shut.rows.length)
 
   console.log("\nNew business")
-  /* A real mouse press on the sheet's plus, with its list folded first: it makes the business and leaves the list alone. */
-  await toggle("[data-probe=sheet-one]")
+  /* A real mouse press on the sheet's New business line, with its list open (it was left open above). */
   const plusAt = await p.evaluate(() => {
-    const el = document.querySelector("[data-probe=sheet-one] [data-business-add]")
+    const el = document.querySelector("[data-probe=sheet-one] [data-business-new]")
     el.scrollIntoView({ block: "center" })
     const b = el.getBoundingClientRect()
     window.__plusBefore = { w: b.width, h: b.height, html: el.innerHTML }
@@ -182,7 +188,7 @@ try {
   await p.mouse.click(plusAt.x, plusAt.y)
   await sleep(450)
   const pressed = await p.evaluate(() => {
-    const el = document.querySelector("[data-probe=sheet-one] [data-business-add]")
+    const el = document.querySelector("[data-probe=sheet-one] [data-business-new]")
     const b = el.getBoundingClientRect()
     const scr = document.querySelector("[data-business-switch-screen]")
     return {
@@ -196,8 +202,8 @@ try {
       frames: window.__frames,
     }
   })
-  expect(pressed.created === 1 && pressed.pushed === null && pressed.expanded === "false" && pressed.busy === "true",
-    "the plus starts the new business right there and does not open the list", pressed)
+  expect(pressed.created === 1 && pressed.pushed === null && pressed.expanded === "true" && pressed.busy === "true",
+    "New business, in the open list, starts the new business right there", pressed)
   expect(!!pressed.screen && pressed.screen.surface === "plain" && pressed.screen.step === "creating" && pressed.screen.line === "Setting up your new business" && pressed.screen.bg === "rgb(255, 255, 255)",
     "the plain white screen is up, saying it is setting up your new business", pressed.screen)
   expect(!pressed.rowSpinner && pressed.sameBox, "  the rows under it keep their size and their icon: no spinner of their own", { rowSpinner: pressed.rowSpinner, sameBox: pressed.sameBox })
@@ -224,7 +230,7 @@ try {
   const refused = await p.evaluate(() => ({
     screen: !!document.querySelector("[data-business-switch-screen]"),
     error: document.querySelector("[data-probe=sheet-one] [role=alert]")?.textContent ?? null,
-    plusFree: !document.querySelector("[data-probe=sheet-one] [data-business-add]").disabled,
+    plusFree: !document.querySelector("[data-probe=sheet-one] [data-business-new]").disabled,
   }))
   expect(!refused.screen && refused.error === "You already have three businesses, the most one login can have." && refused.plusFree,
     "a refusal takes the screen away, the menu says why in the server's words, and it can be pressed again", refused)

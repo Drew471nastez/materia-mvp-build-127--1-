@@ -171,7 +171,7 @@ function geometry(page) {
     const box = corners.getBoundingClientRect()
     const left = corners.querySelector('[data-corner="left"]').getBoundingClientRect()
     const right = corners.querySelector('[data-corner="right"]').getBoundingClientRect()
-    const scroller = document.querySelector(".app-content-scroll") || document.querySelector("[data-app-cold-start] > div:nth-child(2)")
+    const scroller = document.querySelector(".app-content-scroll") || document.querySelector("[data-app-cold-start] > [data-cold-page]")
     const top = scroller ? scroller.getBoundingClientRect().top : null
     const hit = (x, y) => { const el = document.elementFromPoint(x, y); return el ? { inBar: bar.contains(el), inCorners: corners.contains(el), inMain: !!el.closest("main, [data-app-cold-start]") } : null }
     return {

@@ -125,28 +125,69 @@ export const ARRIVAL_BUSY_MIN_AREA = 120 * 120
  * every frame is one screen or the other, and they are the same picture.
  *
  * Only /app is sent it, it lasts half a minute at most, and the new page
- * clears it as it hands over. It holds nothing but the name the menu showed.
+ * clears it as it hands over. It holds nothing but the name and the photo
+ * the menu showed: the screen's header draws the business you are going to
+ * with them (components/app/shell-header-still), on both sides of the
+ * reload, so the black bar is never an empty band.
+ *
+ * The photo follows the name after a line break, which a cleaned name can
+ * never hold, so a cookie written before the photo was carried (a name
+ * alone) still reads as that name.
  */
 export const SWITCH_COOKIE = "storelib_switching"
 export const SWITCH_COOKIE_MAX_AGE_S = 30
 
-export function switchCookie(name: string, { secure = false }: { secure?: boolean } = {}): string {
+/**
+ * THE PHOTO, CLEANED. Only a picture address the app itself would draw: an
+ * https address, or a path on this site (never `//host`), of a sensible
+ * length, with no spaces, quotes or control characters. Anything else is no
+ * photo, and the header shows the initials.
+ */
+export function cleanSwitchPhoto(raw: unknown): string | null {
+  if (typeof raw !== "string") return null
+  const url = raw.trim()
+  if (!url || url.length > 1000) return null
+  // eslint-disable-next-line no-control-regex
+  if (/[\s"'<>\\\u0000-\u001f\u007f]/.test(url)) return null
+  if (url.startsWith("https://")) return url
+  if (url.startsWith("/") && !url.startsWith("//")) return url
+  return null
+}
+
+export function switchCookie(name: string, { secure = false, photo = null }: { secure?: boolean; photo?: string | null } = {}): string {
   const clean = cleanSwitchName(name) ?? ""
-  return `${SWITCH_COOKIE}=${encodeURIComponent(clean)}; Path=/app; Max-Age=${SWITCH_COOKIE_MAX_AGE_S}; SameSite=Lax${secure ? "; Secure" : ""}`
+  const picture = clean ? cleanSwitchPhoto(photo) : null
+  const value = picture ? `${clean}\n${picture}` : clean
+  return `${SWITCH_COOKIE}=${encodeURIComponent(value)}; Path=/app; Max-Age=${SWITCH_COOKIE_MAX_AGE_S}; SameSite=Lax${secure ? "; Secure" : ""}`
 }
 
 export function clearSwitchCookie({ secure = false }: { secure?: boolean } = {}): string {
   return `${SWITCH_COOKIE}=; Path=/app; Max-Age=0; SameSite=Lax${secure ? "; Secure" : ""}`
 }
 
-/** The name in the cookie, cleaned, or null for no cookie, an empty one, or one that is not ours. */
-export function readSwitchCookie(value: string | undefined | null): string | null {
+export interface SwitchArrival {
+  name: string
+  photo: string | null
+}
+
+/** The name and photo in the cookie, cleaned, or null for no cookie, an empty one, or one that is not ours. */
+export function readSwitchArrival(value: string | undefined | null): SwitchArrival | null {
   if (!value) return null
+  let raw: string
   try {
-    return cleanSwitchName(decodeURIComponent(value))
+    raw = decodeURIComponent(value)
   } catch {
     return null
   }
+  const at = raw.indexOf("\n")
+  const name = cleanSwitchName(at === -1 ? raw : raw.slice(0, at))
+  if (!name) return null
+  return { name, photo: at === -1 ? null : cleanSwitchPhoto(raw.slice(at + 1)) }
+}
+
+/** The name in the cookie, cleaned, or null for no cookie, an empty one, or one that is not ours. */
+export function readSwitchCookie(value: string | undefined | null): string | null {
+  return readSwitchArrival(value)?.name ?? null
 }
 
 /**

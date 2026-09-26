@@ -39,15 +39,21 @@ import { AppTopCorners } from "@/components/app/app-top-corners"
  * switch-screen) is this same frame with its own words under the spinner,
  * so the two never disagree about where the header ends or the rail is.
  */
-export default function AppColdStart({ children }: { children?: ReactNode } = {}) {
+export default function AppColdStart({ children, header }: { children?: ReactNode; header?: ReactNode } = {}) {
   return (
     <div data-app-cold-start="" className="fixed inset-0 bg-[#111111] md:bg-[#131316]">
-      <div className="absolute bottom-0 left-0 top-[calc(58px+env(safe-area-inset-top,0px))] hidden w-[240px] border-r border-neutral-200/60 bg-white md:block" />
-      <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] bg-[#f8f9fa] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))]">
-        {children ?? <PageSpinner />}
-      </div>
-      <div className="absolute inset-x-0 top-0 h-[calc(68px+env(safe-area-inset-top,0px))] text-[#111111] md:h-[calc(58px+env(safe-area-inset-top,0px))] md:text-[#131316]">
+      {/* The bar, first in the markup: a document the browser paints before
+          it has read to the end draws the bar before anything under it. Empty
+          on a cold start, where nobody is known yet; a switch of business
+          draws the business it is going to in it (components/app/shell-
+          header-still). Above the content area, so its corners hang over it. */}
+      <div className="absolute inset-x-0 top-0 z-[1] h-[calc(68px+env(safe-area-inset-top,0px))] text-[#111111] md:h-[calc(58px+env(safe-area-inset-top,0px))] md:text-[#131316]">
+        {header}
         <AppTopCorners />
+      </div>
+      <div className="absolute bottom-0 left-0 top-[calc(58px+env(safe-area-inset-top,0px))] hidden w-[240px] border-r border-neutral-200/60 bg-white md:block" />
+      <div data-cold-page="" className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] bg-[#f8f9fa] md:left-[240px] md:top-[calc(58px+env(safe-area-inset-top,0px))]">
+        {children ?? <PageSpinner />}
       </div>
     </div>
   )
