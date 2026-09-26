@@ -314,8 +314,9 @@ function main() {
       && /using \(\(select auth\.uid\(\)\) = owner_id or \(select auth\.uid\(\)\) = member_id\)/.test(complete) && /revoke insert, update, delete, truncate, references, trigger on public\.business_links from authenticated/.test(complete)
       && /revoke all on public\.business_links from anon/.test(complete) && /revoke all on public\.business_switches from anon, authenticated/.test(complete))
   check("  the two trigger functions cannot be called through the API", /revoke all on function public\.business_links_no_chain\(\) from public, anon, authenticated/.test(complete) && /revoke all on function public\.business_links_limit\(\) from public, anon, authenticated/.test(complete))
-  check("  and it is in the run-now folder's README and its after check",
-    !!completeName && read("supabase/sql/run-now/README.md").includes(`\`${completeName}\``) && /as p_businesses_complete\s*[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  /* XX_ until the lead numbers it; then its column in 99 comes with the four paste files (tests/sql-run-four.test.ts), so the column is asked for only once it is numbered. */
+  check("  and it is in the run-now folder's README, with a column in its after check once numbered",
+    !!completeName && read("supabase/sql/run-now/README.md").includes(`\`${completeName}\``) && (!/^\d{2}_/.test(completeName) || /as p\d{2}_businesses_complete\s*[,;]/.test(read("supabase/sql/run-now/99_check_after.sql"))))
   const lines = part.split("\n").filter((l) => l.trim())
   check("the part is one whole statement per line", lines.every((l) => l.startsWith("/*") || /;\s*$/.test(l)), lines.find((l) => !l.startsWith("/*") && !/;\s*$/.test(l)))
   check("and safe to run twice", /create table if not exists public\.business_links/.test(part) && /drop policy if exists business_links_read/.test(part) && /drop trigger if exists business_links_no_chain/.test(part) && /create index if not exists/.test(part))
