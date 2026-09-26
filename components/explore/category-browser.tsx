@@ -55,6 +55,12 @@ export type BrowseGroup = { id: string; label: string; items: readonly BrowseIte
  * three on one curve over BROWSE_SLIDE_MS; back plays it in reverse. No
  * shadow, no fade of either list.
  *
+ * "Still not smooth going in and back." At 280ms on a curve that spent most
+ * of its move in the first frames, the level arrived as a snap and then
+ * crept the last pixels. It is 340ms now on a softer curve that starts
+ * quickly but hands over to a long, even settle: the way a phone's own
+ * push feels, rather than a jump.
+ *
  * WHAT MADE IT LAG, AND WHAT DOES NOT ANY MORE. The new level's rows were
  * rendered on the same frame the move began, and each list became a layer
  * of its own only once it started moving, so the first frames waited on
@@ -101,8 +107,8 @@ export type BrowseGroup = { id: string; label: string; items: readonly BrowseIte
  * sheet rises, as it arrives, after a scroll and after back, and counts the
  * controls that appear between the press and the click: none.
  */
-export const BROWSE_SLIDE_MS = 280
-export const BROWSE_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+export const BROWSE_SLIDE_MS = 340
+export const BROWSE_EASE = "cubic-bezier(0.25, 0.9, 0.3, 1)"
 /** How far the list under a new level moves left... */
 export const BROWSE_PARALLAX = "-25%"
 /** ...and how dark the veil over it gets. */
@@ -140,17 +146,18 @@ export function Chevron({ dir = "right", className }: { dir?: "right" | "left" |
 }
 
 /**
- * THE MARK ON THE CHOSEN ROW. "A circled check with a bit of depth." A
- * near-black disc with a white tick, a line of light along its top and a
- * soft shadow under it, the depth the app's buttons have
- * (components/ui/depth-button.ts): no gradient, no glow.
+ * THE MARK ON THE CHOSEN ROW. "Not the black check: grey, with a little
+ * depth." A light grey disc with a hairline ring, a line of light along its
+ * top and a soft shadow under it, holding a near-black tick: it says which
+ * row is on without being the darkest thing in the sheet.
  *
  * It is always there and only shown or not, so a choice moving from one row
- * to another is two small movements on the compositor: the new one grows
- * in from 60% as it fades up, the old one shrinks away a little quicker.
- * Scale and opacity only (Tailwind's `scale-*` is the `scale` property, so
- * that is the one the transition names). Nothing about the row's text
- * changes, so nothing reflows under the finger.
+ * to another is two small movements on the compositor: the new disc grows in
+ * from 60% as it fades up and its tick draws itself, left to right; the old
+ * one shrinks away a little quicker. Scale and opacity only (Tailwind's
+ * `scale-*` is the `scale` property, so that is the one the transition
+ * names), and the tick's stroke. Nothing about the row's text changes, so
+ * nothing reflows under the finger.
  */
 export function CheckDisc({ on, className }: { on: boolean; className?: string }) {
   return (
@@ -158,15 +165,26 @@ export function CheckDisc({ on, className }: { on: boolean; className?: string }
       aria-hidden
       data-check-disc={on ? "on" : "off"}
       className={cn(
-        "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-[#1a1a2e] text-white",
-        "shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.25),0_1px_2px_rgba(15,23,42,0.22),0_3px_8px_-2px_rgba(15,23,42,0.24)]",
+        "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-[#eceef1] text-[#1a1a2e]",
+        "shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_0_0_1px_rgba(15,23,42,0.07),0_1px_2px_rgba(15,23,42,0.10),0_2px_6px_-2px_rgba(15,23,42,0.12)]",
         "transition-[scale,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
         on ? "scale-100 opacity-100 duration-[240ms]" : "scale-[0.6] opacity-0 duration-150",
         className,
       )}
     >
       <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3">
-        <path d="M3.6 8.4 6.5 11.2 12.4 5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M3.6 8.4 6.5 11.2 12.4 5"
+          pathLength={1}
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={cn(
+            "[stroke-dasharray:1] transition-[stroke-dashoffset] motion-reduce:transition-none",
+            on ? "[stroke-dashoffset:0] delay-[60ms] duration-[260ms] ease-[cubic-bezier(0.65,0,0.35,1)]" : "[stroke-dashoffset:1] duration-100",
+          )}
+        />
       </svg>
     </span>
   )
@@ -293,7 +311,8 @@ export function CategoryBrowser({
   }, [open])
 
   const rowBase = phone
-    ? "flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[16px] leading-5 active:bg-[#f1f2f4]"
+    ? /* A little heavier than body text on a phone, never bold: the same weight on and off, so nothing reflows. */
+      "flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[16px] font-medium leading-5 active:bg-[#f1f2f4]"
     : "flex min-h-[36px] w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[14px] leading-5 hover:bg-[#f4f5f6] focus-visible:bg-[#f1f2f4]"
   const rowCommon =
     "cursor-pointer select-none text-[#1a1a2e] outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent]"
