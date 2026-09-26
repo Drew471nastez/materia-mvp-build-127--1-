@@ -83,10 +83,16 @@ export default function Image({ src, alt, width, height, priority, fill, sizes, 
 `)
   writeFileSync(join(dir, "supabase.js"), `
 /* Every read answers nothing: the account's facts are handed to the page (scripts/render-home-banner.tsx). */
+/* window.__readMs holds each read for that long, as a round trip to the database would (default none); window.__reads counts them. */
 function query() {
   const answer = () => ({ data: [], error: null, count: 0 })
+  const wait = () => {
+    window.__reads = (window.__reads || 0) + 1
+    const ms = window.__readMs || 0
+    return ms ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve()
+  }
   const q = new Proxy(function () {}, {
-    get: (_, k) => (k === "then" ? (resolve, reject) => Promise.resolve(answer()).then(resolve, reject) : q),
+    get: (_, k) => (k === "then" ? (resolve, reject) => wait().then(answer).then(resolve, reject) : q),
     apply: () => q,
   })
   return q

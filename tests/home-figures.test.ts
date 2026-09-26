@@ -143,6 +143,12 @@ console.log("\nHome: the page reads it this way")
     !/spansToRead/.test(dash) && !/select\("id, visitor_id, session_id, product_id, created_at"\)/.test(dash) && !/liveOrders/.test(dash) && !/\.from\("orders"\)/.test(dash))
   check("the link taps are every one of the period's, a page at a time, with the end left out",
     /readByKeyset<\{ id: string; created_at: string \}>/.test(dash) && /\.eq\("event_type", "click"\)\.lt\("created_at", iso\(span\.end\)\)/.test(dash) && /\.limit\(KEYSET_PAGE\)/.test(dash) && !/\.lte\("created_at"/.test(dash))
+  /* "It takes too much to load the data; blur it while it loads but keep it intact": the answer is drawn when it lands, the
+     link taps (a thousand a read, one read after another) join it after, and a chart for another period stays, blurred. */
+  check("the period's answer is drawn the moment it lands, not after the link taps are paged through",
+    !/await clicksRead/.test(dash) && /void clicksRead\.then\(\(clicks\) => \{/.test(dash) && /setHomeAnswer\(answerOf\(answer, clicksKept\.current\.get\(question\) \?\? \[\]\)\)/.test(dash))
+  check("while a new period comes the chart already drawn stays, blurred 4px and dimmed; a kept period and a tab never blur",
+    /setChartStale\(!kept\)/.test(dash) && /chartStale \? "opacity-55 blur-\[4px\]"/.test(dash) && /setIsRefreshing\(!kept\)/.test(dash) && !/setOpenKPIModal\([^)]*\);[^}]*setChartStale/.test(dash))
   check("a new order asks again, past what was kept", /setOrdersChanged\(\(n\) => n \+ 1\)/.test(dash) && /\[periodKey, creatorId, ordersChanged\]/.test(dash) && /askPastKept\.current \? NOW_STEP_MS : 0/.test(dash))
   /* "The live pill shows a skeleton block while it loads." It waits as
      itself now: dot, a held "0" and "live", the number fading in. */

@@ -50,8 +50,11 @@ import {
   Segmented,
   SettingRow,
   SwitchRow,
+  CheckMark,
+  ChipFill,
+  ChoiceMark,
+  SwatchMark,
   choiceOff,
-  choiceOn,
   fieldInput,
 } from "@/components/onepage/editor-kit"
 
@@ -2677,10 +2680,11 @@ function ThemeCard({ template, selected, onPick }: { template: typeof THEME_TEMP
       aria-label={`${template.name} theme`}
       data-theme-card={template.id}
       className={cn(
-        "group/theme relative flex cursor-pointer flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
-        selected ? choiceOn : choiceOff,
+        "group/theme relative flex cursor-pointer flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
+        choiceOff,
       )}
     >
+      <ChoiceMark on={selected} />
       <span className="relative block aspect-[4/5] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
         <span className="absolute inset-0" style={bgStyle} />
         {image && c.image_brightness && c.image_brightness < 100 ? <span className="absolute inset-0 bg-black" style={{ opacity: (100 - c.image_brightness) / 100 }} /> : null}
@@ -2703,13 +2707,9 @@ function ThemeCard({ template, selected, onPick }: { template: typeof THEME_TEMP
             ))}
           </span>
         </span>
-        {selected ? (
-          <span aria-hidden className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-[#1a1a2e] text-white shadow-[0_1px_2px_rgba(0,0,0,0.25)]">
-            <Check className="h-3 w-3" strokeWidth={3} />
-          </span>
-        ) : null}
+        <CheckMark on={selected} className="right-1.5 top-1.5" />
       </span>
-      <span className={cn("block truncate px-1.5 pb-1 pt-2 text-[13px] font-medium", selected ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{template.name}</span>
+      <span className={cn("block truncate px-1.5 pb-1 pt-2 text-[13px] font-medium transition-colors duration-[180ms]", selected ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{template.name}</span>
     </button>
   )
 }
@@ -2800,9 +2800,10 @@ function ThemeSection() {
             role="tab"
             aria-selected={filter === f}
             onClick={() => setFilter(f)}
-            className={cn("h-9 shrink-0 cursor-pointer rounded-full border px-3.5 text-[13px] font-medium capitalize transition-colors", filter === f ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e3e4e8] bg-white text-[#4b5563] hover:border-[#c9cbd1]")}
+            className="relative h-9 shrink-0 cursor-pointer rounded-full border border-[#e3e4e8] bg-white px-3.5 text-[13px] font-medium capitalize hover:border-[#c9cbd1] [-webkit-tap-highlight-color:transparent]"
           >
-            {f === "all" ? "All" : f}
+            <ChipFill on={filter === f} />
+            <span className={cn("relative transition-colors duration-[180ms]", filter === f ? "text-white" : "text-[#4b5563]")}>{f === "all" ? "All" : f}</span>
           </button>
         ))}
       </div>
@@ -3282,10 +3283,11 @@ function WallpaperSection() {
         aria-pressed={on}
         data-pattern-choice={pattern.id}
         className={cn(
-          "group/pattern flex min-h-11 cursor-pointer flex-col items-stretch rounded-2xl border bg-white p-1.5 text-center outline-none transition-[border-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
-          on ? choiceOn : choiceOff,
+          "group/pattern relative flex min-h-11 cursor-pointer flex-col items-stretch rounded-2xl border bg-white p-1.5 text-center outline-none transition-[border-color] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
+          choiceOff,
         )}
       >
+        <ChoiceMark on={on} />
         <span className="relative block aspect-square overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]" style={{ background: wallpaperFill }}>
           {pattern.id === "none" ? (
             <span className="absolute inset-0 grid place-items-center">
@@ -3294,13 +3296,9 @@ function WallpaperSection() {
           ) : (
             <WallpaperPattern pattern={pattern.id} color={ink} level={(theme as any).pattern_opacity || "medium"} style={{ backgroundSize: previewSize(pattern.id, ink, (theme as any).pattern_opacity || "medium") }} />
           )}
-          {on ? (
-            <span aria-hidden className="absolute right-1 top-1 grid h-[18px] w-[18px] place-items-center rounded-full bg-[#1a1a2e] text-white shadow-[0_1px_2px_rgba(0,0,0,0.25)]">
-              <Check className="h-2.5 w-2.5" strokeWidth={3} />
-            </span>
-          ) : null}
+          <CheckMark on={on} small className="right-1 top-1" />
         </span>
-        <span className={cn("block truncate pb-0.5 pt-1.5 text-[12px] font-medium", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{pattern.name}</span>
+        <span className={cn("block truncate pb-0.5 pt-1.5 text-[12px] font-medium transition-colors duration-[180ms]", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{pattern.name}</span>
       </button>
     )
   }
@@ -3409,12 +3407,11 @@ function WallpaperSection() {
                   aria-label={`Gradient ${i + 1}`}
                   aria-pressed={theme.background_gradient === grad}
                   onClick={() => updateTheme({ background_gradient: grad })}
-                  className={cn(
-                    "aspect-square min-h-11 cursor-pointer rounded-xl outline-none transition-shadow focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]",
-                    theme.background_gradient === grad ? "shadow-[0_0_0_2px_#fff,0_0_0_3.5px_#1a1a2e]" : "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
-                  )}
+                  className="relative aspect-square min-h-11 cursor-pointer rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
                   style={{ background: grad }}
-                />
+                >
+                  <SwatchMark on={theme.background_gradient === grad} className="rounded-[15.5px]" />
+                </button>
               ))}
             </div>
           </PanelSection>
@@ -3468,12 +3465,12 @@ function WallpaperSection() {
                   aria-label={bg.label}
                   aria-pressed={theme.background_image_url === bg.url}
                   onClick={() => handleImageSelect(bg.url)}
-                  className={cn(
-                    "aspect-square cursor-pointer overflow-hidden rounded-xl outline-none transition-shadow focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]",
-                    theme.background_image_url === bg.url ? "shadow-[0_0_0_2px_#fff,0_0_0_3.5px_#1a1a2e]" : "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
-                  )}
+                  className="relative aspect-square cursor-pointer rounded-xl outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
                 >
-                  <img src={bg.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  <span className="block h-full w-full overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
+                    <img src={bg.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  </span>
+                  <SwatchMark on={theme.background_image_url === bg.url} className="rounded-[15.5px]" />
                 </button>
               ))}
             </div>
@@ -3800,9 +3797,11 @@ function FontPicker({
                 key={c.id}
                 type="button"
                 onClick={() => setFamily(c.id)}
-                className={cn("h-9 shrink-0 cursor-pointer rounded-full border px-3.5 text-[13px] font-medium transition-colors", family === c.id ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e3e4e8] bg-white text-[#4b5563] hover:border-[#c9cbd1]")}
+                aria-pressed={family === c.id}
+                className="relative h-9 shrink-0 cursor-pointer rounded-full border border-[#e3e4e8] bg-white px-3.5 text-[13px] font-medium hover:border-[#c9cbd1] [-webkit-tap-highlight-color:transparent]"
               >
-                {c.label}
+                <ChipFill on={family === c.id} />
+                <span className={cn("relative transition-colors duration-[180ms]", family === c.id ? "text-white" : "text-[#4b5563]")}>{c.label}</span>
               </button>
             ))}
           </div>
@@ -3820,13 +3819,15 @@ function FontPicker({
               aria-selected={on}
               onClick={() => choose(f.value)}
               data-font-option={f.name}
-              className={cn("flex min-h-[52px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left transition-colors duration-150", on ? "bg-[#f1f2f4]" : "hover:bg-[#f7f7f8] active:bg-[#f1f2f4]")}
+              className={cn("relative flex min-h-[52px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left transition-colors duration-150", !on && "hover:bg-[#f7f7f8] active:bg-[#f1f2f4]")}
             >
-              <span className="min-w-0 flex-1">
+              {/* The chosen row's grey and its check fade in; the one it replaces fades out. */}
+              <span aria-hidden className={cn("pointer-events-none absolute inset-0 rounded-[inherit] bg-[#f1f2f4] transition-opacity duration-[180ms] ease-out", on ? "opacity-100" : "opacity-0")} />
+              <span className="relative min-w-0 flex-1">
                 <FontSample family={f.value || sampleFamily} text={f.name} className="block truncate text-[17px] leading-[1.35] text-[#1a1a2e]" />
                 {f.style ? <span className="block truncate text-[12.5px] text-[#6b7280]">{f.style}</span> : null}
               </span>
-              {on ? <Check className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={2} aria-hidden /> : null}
+              <Check className={cn("relative h-5 w-5 shrink-0 text-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", on ? "scale-100 opacity-100" : "scale-50 opacity-0")} strokeWidth={2} aria-hidden />
             </button>
           )
         })}

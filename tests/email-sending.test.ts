@@ -175,7 +175,12 @@ check("marketing email says who it is from, why, where, and how to leave", /join
 check("the logo is the store's, with its name as alt text, linking to the store", /<a href="https:\/\/storelib\.com\/ana"[^>]*><img class="sl-logo" src="https:\/\/cdn\.ana\.shop\/logo\.png" alt="Ana &amp; Co"/.test(frame))
 check("with no logo the store's name is written instead", /class="sl-brand"[^>]*>Ana &amp; Co</.test(buildEmail({ subject: "s", bodyHtml: "", brand: { ...brand, logoUrl: null }, kind: "marketing", unsubscribeUrl: "#" })))
 check("fluid to 600px, with a fixed table only for Outlook", /max-width:600px/.test(frame) && /<!--\[if mso\]><table role="presentation" width="600"/.test(frame))
-check("dark mode is declared and styled, logo on a plate", /name="color-scheme" content="light dark"/.test(frame) && /prefers-color-scheme: dark/.test(frame) && /\.sl-logo\{background-color:#ffffff/.test(frame) && /\[data-ogsc\]/.test(frame))
+check("dark mode is declared and styled", /name="color-scheme" content="light dark"/.test(frame) && /prefers-color-scheme: dark/.test(frame) && /\[data-ogsc\]/.test(frame))
+check("the logo has no frame in any scheme: no border, padding, plate or radius on it, inline or in the style block", (() => {
+  const img = /<img class="sl-logo"[^>]*>/.exec(frame)?.[0] ?? ""
+  const style = /style="([^"]*)"/.exec(img)?.[1] ?? ""
+  return !!img && /border:0/.test(style) && !/padding|background|border-radius|box-shadow|border:\s*[1-9]/.test(style) && !/\.sl-logo\s*\{/.test(frame)
+})())
 check("the preheader is hidden and padded so the body stays out of the inbox line", /class="sl-preheader" style="display:none;[^"]*mso-hide:all;">Look &lt;here&gt;(&#8199;&#65279;&#847; ){60}/.test(frame))
 check("no tracking pixel unless one is given", !/width="1" height="1"/.test(frame) && /width="1" height="1"/.test(buildEmail({ subject: "s", bodyHtml: "", brand, kind: "marketing", unsubscribeUrl: "#", openPixelUrl: "https://storelib.com/api/email/track?t=x" })))
 const receipt = buildEmail({ subject: "s", bodyHtml: "<p>x</p>", brand, kind: "transactional", reason: "You bought from Ana." })

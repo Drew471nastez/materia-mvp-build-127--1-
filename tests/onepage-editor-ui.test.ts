@@ -58,6 +58,24 @@ function main() {
     check("the eyedropper is offered only where the browser has one", /EyeDropper/.test(kit) && /\{dropper \? \(/.test(kit))
     check("a popover on a computer, the shared sheet on a phone", /<Popover open=\{open\}/.test(kit) && /<BottomSheet\n\s*isOpen=\{open\}/.test(kit))
     check("the browser's own colour input is gone", !/type="color"\s/.test(kit) && !/type="color"\s/.test(read("components/onepage/mobile-color-picker.tsx")))
+
+    /**
+     * THE PANEL'S SIZE. On a computer the popover was built to the phone's
+     * measurements — 304px wide, a 172px square, 44px rows, 28px swatches,
+     * a labelled section each for Suggested and Recent — and it covered the
+     * editor it was meant to sit beside. These hold the two sizes apart: the
+     * numbers below are the computer's, and every one of them is checked
+     * against the phone's, which does not shrink.
+     */
+    check("the popover on a computer is 248px wide with 12px of padding, not 304 with 16", /w-\[248px\] rounded-2xl[^"]*bg-white p-3 /.test(kit) && !/w-\[304px\]/.test(kit) && !/p-4 text-\[#1a1a2e\]/.test(kit))
+    check("its saturation square is 124px tall, while the phone sheet's stays 200", /compact \? "h-\[200px\]" : "h-\[124px\]"/.test(kit))
+    check("its hue row is 20px with a 10px rail, while the phone's stays 28px with a 12px rail", /compact \? "h-7" : "h-5"/.test(kit) && /compact \? "h-3" : "h-2\.5"/.test(kit))
+    check("the square's handle and the hue thumb shrink with it, 14 and 16 against the phone's 18 and 22", /const handle = compact \? 18 : 14/.test(kit) && /const thumb = compact \? 22 : 16/.test(kit))
+    check("the code row and the eyedropper beside it are 36px, while the phone keeps 48", /const targets = compact \? "h-12" : "h-9"/.test(kit) && /compact \? "h-12 w-12" : "h-9 w-9"/.test(kit))
+    check("Suggested and Recent share one block under one hairline, each still named", /border-t border-\[#eef0f2\][\s\S]{0,260}<SwatchRow title="Suggested"[\s\S]{0,300}<SwatchRow title="Recent"/.test(kit) && !/<div className="h-px bg-\[#eef0f2\]" aria-hidden \/>/.test(kit))
+    check("the swatches are tighter on a computer and untouched on a phone", /grid grid-cols-8", compact \? "gap-2\.5" : "gap-1"/.test(kit))
+    check("nothing was dropped to make it smaller: square, hue, code, eyedropper, suggested, recent", ["data-color-square", "data-color-hue", "data-color-hex", "data-color-eyedropper", 'title="Suggested"', 'title="Recent"'].every((s) => kit.includes(s)))
+    check("and every control still keeps its focus ring", (kit.match(/focus-visible:shadow-\[0_0_0_2px_#fff/g) ?? []).length >= 3 && /focus-within:shadow-\[0_0_0_3px/.test(kit))
     const design = read("components/onepage/tabs/design-tab.tsx")
     const links = read("components/onepage/tabs/links-tab.tsx")
     check("every colour in the Design tab is the one field", !/MobileColorPicker/.test(design) && (design.match(/<ColorRow/g) ?? []).length >= 12)
@@ -159,6 +177,23 @@ function main() {
     check("and back returns to the place in the list that was left", /scroller\.scrollTop = move\.to === "home" \? listScroll\.current : 0/.test(design))
     check("the page moves on the tap, its controls built a frame later and faded in", /startTransition\(\(\) => setBodyFor\(section\)\)/.test(design) && /function PanelBody\(/.test(design))
     check("a finger from the left edge takes the panel back, on a strip that owns its touch", /data-edge-back=""/.test(design) && /touchAction: "none"/.test(design) && /onPointerMove=\{onEdgeMove\}/.test(design))
+    /*
+      A PICK FADES IN, THE OLD ONE OUT. The border and the check were the
+      card's own classes, swapped in a frame, and on a phone or in the app
+      app/globals.css took the button's own transition away. They are
+      elements of their own (components/onepage/choice-marks.tsx), faded
+      and scaled with opacity and the `scale` property. Measured
+      (scripts/check-onepage-motion.mjs, choice): 11 frames in and 11 out,
+      in the browser and with <html class="capacitor">, the label never
+      changing width.
+    */
+    const marks = read("components/onepage/choice-marks.tsx")
+    check("the picked marks move on opacity and the scale property, named as such", /transition-\[opacity,scale\]/.test(marks) && !/transition-\[opacity,transform\]/.test(marks))
+    check("a card, a segment, a theme and a pattern wear the mark instead of swapping classes",
+      /<ChoiceMark on=\{selected\} \/>/.test(kit) && /<ChoiceMark on=\{on\} \/>/.test(kit) && !/selected \? choiceOn : choiceOff/.test(kit)
+      && /<CheckMark on=\{selected\}/.test(design) && /<CheckMark on=\{on\} small/.test(design) && !/on \? choiceOn : choiceOff/.test(design))
+    check("a chip's fill and a swatch's ring fade too", /<ChipFill on=\{filter === f\} \/>/.test(design) && /<SwatchMark on=\{theme\.background_gradient === grad\}/.test(design) && /<SwatchMark on=\{on\} className="rounded-full" \/>/.test(read("components/onepage/color-picker.tsx")))
+    check("a block's size and alignment are one thumb that slides", /data-segment-thumb=""/.test(read("components/onepage/extra-blocks.tsx")) && /transition-\[translate\]/.test(read("components/onepage/extra-blocks.tsx")))
     check("the dial turns with pointer events and keeps its rotation on a touch screen", /function DirectionDial[\s\S]{0,2400}setPointerCapture[\s\S]{0,2400}data-keep-transform=""/.test(design))
   }
 

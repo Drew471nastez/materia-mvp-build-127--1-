@@ -42,6 +42,19 @@
  * The square and the strip are marked `data-sheet-no-drag`, so a finger on
  * them moves the colour and never the sheet.
  *
+ * TWO SIZES, AND THEY ARE NOT THE SAME SIZE FOR A REASON. The popover on a
+ * computer used to be built to the phone's measurements: 304px wide, a
+ * 172px square, 44px rows, 28px swatches, and a labelled section each for
+ * Suggested and Recent. Next to the editor's own rows that panel was taller
+ * than the panel it was covering, and picking a colour meant looking away
+ * from the page. So `compact` (the phone sheet) keeps every target where a
+ * thumb wants it, and the computer's popover is drawn to a mouse: 248px
+ * wide, a 124px square, a 20px hue row, a 36px code row, 24px swatches, and
+ * the two swatch rows sharing one block under one hairline. Every control
+ * is still there, still reachable by keyboard, still with its focus ring.
+ * Anything sized by a number rather than a class (the square's handle, the
+ * hue thumb) reads that number from `compact` too, so the two stay in step.
+ *
  * POINTER EVENTS, NOT MOUSE AND TOUCH. One handler for a mouse, a finger
  * and a pen, with the pointer captured on press so a drag that leaves the
  * square keeps working (it clamps to the edge) until the finger lifts.
@@ -59,6 +72,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { usePhone } from "@/components/app/date-range-picker"
 import { primaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
+import { SwatchMark } from "@/components/onepage/choice-marks"
 import {
   RECENT_COLORS_KEY,
   hsvFromHex,
@@ -253,10 +267,15 @@ export function ColorPickerPanel({
 
   const recent = useRecentColors()
   const hueColor = hsvToHex({ h: hsv.h, s: 1, v: 1 })
-  const targets = compact ? "h-12" : "h-11"
+  /* The code row and the eyedropper beside it: a thumb's 48px, a mouse's 36px. */
+  const targets = compact ? "h-12" : "h-9"
+  /* The square's handle and the hue thumb are placed by arithmetic, so their
+     size is a number here rather than a class. */
+  const handle = compact ? 18 : 14
+  const thumb = compact ? 22 : 16
 
   return (
-    <div data-color-picker="" className={cn("flex flex-col", compact ? "gap-4" : "gap-3.5")}>
+    <div data-color-picker="" className={cn("flex flex-col", compact ? "gap-4" : "gap-2.5")}>
       <div
         ref={square.ref}
         role="slider"
@@ -273,14 +292,14 @@ export function ColorPickerPanel({
         className={cn(
           "relative w-full cursor-crosshair touch-none select-none overflow-hidden rounded-xl outline-none",
           "focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]",
-          compact ? "h-[200px]" : "h-[172px]",
+          compact ? "h-[200px]" : "h-[124px]",
         )}
         style={{ backgroundColor: hueColor, backgroundImage: "linear-gradient(to top, #000, rgba(0,0,0,0)), linear-gradient(to right, #fff, rgba(255,255,255,0))" }}
       >
         <span
           aria-hidden
-          className="pointer-events-none absolute h-[18px] w-[18px] rounded-full border-[2.5px] border-white shadow-[0_0_0_1px_rgba(0,0,0,0.18),0_1px_4px_rgba(0,0,0,0.3)]"
-          style={{ left: `calc(${hsv.s * 100}% - 9px)`, top: `calc(${(1 - hsv.v) * 100}% - 9px)` }}
+          className={cn("pointer-events-none absolute rounded-full border-white shadow-[0_0_0_1px_rgba(0,0,0,0.18),0_1px_4px_rgba(0,0,0,0.3)]", compact ? "border-[2.5px]" : "border-2")}
+          style={{ height: handle, width: handle, left: `calc(${hsv.s * 100}% - ${handle / 2}px)`, top: `calc(${(1 - hsv.v) * 100}% - ${handle / 2}px)` }}
         />
       </div>
 
@@ -299,25 +318,29 @@ export function ColorPickerPanel({
         onPointerUp={strip.onPointerUp}
         onPointerCancel={strip.onPointerUp}
         onKeyDown={onStripKey}
-        /* The strip is thin, the place to press is not: 28px tall, the colour drawn in its middle. */
-        className="relative flex h-7 w-full cursor-pointer touch-none select-none items-center rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+        /* The strip is thin, the place to press is not: 28px of row for a thumb,
+           20px for a mouse, with the colour drawn in the middle of either. */
+        className={cn(
+          "relative flex w-full cursor-pointer touch-none select-none items-center rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]",
+          compact ? "h-7" : "h-5",
+        )}
       >
         <span
           aria-hidden
-          className="h-3 w-full rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]"
+          className={cn("w-full rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]", compact ? "h-3" : "h-2.5")}
           style={{ background: "linear-gradient(to right,#f00 0%,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00 100%)" }}
         />
         <span
           aria-hidden
-          className="pointer-events-none absolute top-1/2 -mt-[11px] h-[22px] w-[22px] rounded-full border-[3px] border-white shadow-[0_0_0_1px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.22)]"
-          style={{ left: `calc(${(hsv.h / 360) * 100}% - 11px)`, backgroundColor: hueColor }}
+          className={cn("pointer-events-none absolute top-1/2 rounded-full border-white shadow-[0_0_0_1px_rgba(0,0,0,0.14),0_2px_6px_rgba(0,0,0,0.22)]", compact ? "border-[3px]" : "border-2")}
+          style={{ height: thumb, width: thumb, marginTop: -thumb / 2, left: `calc(${(hsv.h / 360) * 100}% - ${thumb / 2}px)`, backgroundColor: hueColor }}
         />
       </div>
 
       <div className="flex items-center gap-2">
-        <label className={cn("flex min-w-0 flex-1 items-center rounded-full border bg-white px-4 transition-[border-color,box-shadow] duration-150 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.08)]", targets, bad ? "border-[#e5484d]" : "border-[#e3e4e8]")}>
+        <label className={cn("flex min-w-0 flex-1 items-center rounded-full border bg-white transition-[border-color,box-shadow] duration-150 focus-within:border-[#1a1a2e] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.08)]", targets, compact ? "px-4" : "px-3", bad ? "border-[#e5484d]" : "border-[#e3e4e8]")}>
           <span className="sr-only">Colour code</span>
-          <span aria-hidden className="mr-2 h-5 w-5 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]" style={{ backgroundColor: shown }} />
+          <span aria-hidden className={cn("mr-2 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]", compact ? "h-5 w-5" : "h-4 w-4")} style={{ backgroundColor: shown }} />
           <input
             value={text}
             data-color-hex=""
@@ -341,7 +364,7 @@ export function ColorPickerPanel({
               }
             }}
             /* 16px on a phone, or iOS zooms the page to type. */
-            className={cn("min-w-0 flex-1 bg-transparent font-medium uppercase tabular-nums tracking-[0.02em] text-[#1a1a2e] outline-none", compact ? "text-[16px]" : "text-[14px]")}
+            className={cn("min-w-0 flex-1 bg-transparent font-medium uppercase tabular-nums tracking-[0.02em] text-[#1a1a2e] outline-none", compact ? "text-[16px]" : "text-[13px]")}
           />
         </label>
         {dropper ? (
@@ -358,16 +381,20 @@ export function ColorPickerPanel({
                 /* Escape pressed: nothing chosen. */
               }
             }}
-            className={cn("grid shrink-0 cursor-pointer place-items-center rounded-full border border-[#e3e4e8] bg-white text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8] active:bg-[#f1f2f4]", compact ? "h-12 w-12" : "h-11 w-11")}
+            className={cn("grid shrink-0 cursor-pointer place-items-center rounded-full border border-[#e3e4e8] bg-white text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8] active:bg-[#f1f2f4]", compact ? "h-12 w-12" : "h-9 w-9")}
           >
-            <Pipette className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            <Pipette className={cn(compact ? "h-[18px] w-[18px]" : "h-4 w-4")} strokeWidth={1.75} />
           </button>
         ) : null}
       </div>
 
-      <div className="h-px bg-[#eef0f2]" aria-hidden />
-      <SwatchRow title="Suggested" colors={suggestions} value={shown} onPick={pick} compact={compact} />
-      {recent.length ? <SwatchRow title="Recent" colors={recent} value={shown} onPick={pick} compact={compact} /> : null}
+      {/* Suggested and Recent are one block under one hairline, not two sections
+          with a rule and a full gap between them. Each keeps its own small
+          caption, because a row of colours with no name is a guess. */}
+      <div className={cn("flex flex-col border-t border-[#eef0f2]", compact ? "gap-3 pt-3" : "gap-1.5 pt-2.5")}>
+        <SwatchRow title="Suggested" colors={suggestions} value={shown} onPick={pick} compact={compact} />
+        {recent.length ? <SwatchRow title="Recent" colors={recent} value={shown} onPick={pick} compact={compact} /> : null}
+      </div>
     </div>
   )
 }
@@ -377,9 +404,9 @@ function SwatchRow({ title, colors, value, onPick, compact }: { title: string; c
   if (!list.length) return null
   return (
     <div data-swatches={title.toLowerCase()}>
-      <p className="mb-2 text-[13px] font-medium text-[#1a1a2e]">{title}</p>
+      <p className={cn("font-medium", compact ? "mb-2 text-[13px] text-[#1a1a2e]" : "mb-1 text-[11px] leading-[14px] text-[#6b7280]")}>{title}</p>
       {/* Eight to a row, each as wide as the row allows (up to 40px), so a phone's row never wraps one swatch onto a line of its own. */}
-      <div className={cn("grid grid-cols-8", compact ? "gap-2.5" : "gap-1.5")}>
+      <div className={cn("grid grid-cols-8", compact ? "gap-2.5" : "gap-1")}>
         {list.map((c) => {
           const on = c === value
           return (
@@ -391,16 +418,15 @@ function SwatchRow({ title, colors, value, onPick, compact }: { title: string; c
               data-swatch={c}
               onClick={() => onPick(c)}
               className={cn(
-                "cursor-pointer rounded-full outline-none transition-[box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]",
+                "relative cursor-pointer rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]",
                 compact ? "aspect-square w-full max-w-10" : "aspect-square w-full",
-                on
-                  ? "shadow-[0_0_0_2px_#fff,0_0_0_3.5px_#1a1a2e]"
-                  : isNearWhite(c)
-                    ? "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.14)]"
-                    : "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
+                isNearWhite(c) ? "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.14)]" : "shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
               )}
               style={{ backgroundColor: c }}
-            />
+            >
+              {/* The ring round the chosen colour fades and grows in; the last one's fades out (editor-kit SwatchMark). */}
+              <SwatchMark on={on} className="rounded-full" />
+            </button>
           )
         })}
       </div>
@@ -517,7 +543,8 @@ export function ColorField({
         align={align}
         sideOffset={8}
         collisionPadding={12}
-        className="w-[304px] rounded-2xl border border-[#e3e4e8] bg-white p-4 text-[#1a1a2e] shadow-[0_16px_48px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]"
+        /* 248px and p-3: the panel sits beside the editor's rows rather than over them. */
+        className="w-[248px] rounded-2xl border border-[#e3e4e8] bg-white p-3 text-[#1a1a2e] shadow-[0_16px_48px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <ColorPickerPanel value={hex ?? swatch} onChange={onChange} suggestions={suggestions} />

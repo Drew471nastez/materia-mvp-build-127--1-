@@ -28,6 +28,8 @@ export function EmailPreview({
   mode,
   onMode,
   when = "now",
+  bare = false,
+  fit = false,
   className,
 }: {
   html: string
@@ -38,6 +40,10 @@ export function EmailPreview({
   onMode: (m: PreviewMode) => void
   /** The time the inbox line shows: "now" while writing, the send's time on its page. */
   when?: string
+  /** Without its own row of Preview and the size switch: a surface that has its own (./preview-layer.tsx). */
+  bare?: boolean
+  /** At phone size, as wide as the box it is in (320 to 430px) rather than 375px: a phone showing it life size. */
+  fit?: boolean
   className?: string
 }) {
   const boxRef = React.useRef<HTMLDivElement>(null)
@@ -82,15 +88,15 @@ export function EmailPreview({
     measure()
   }, [mode, boxWidth, measure])
 
-  const width = FRAME[mode]
+  const width = mode === "mobile" && fit && boxWidth > 0 ? Math.max(320, Math.min(430, boxWidth)) : FRAME[mode]
   const scale = boxWidth > 0 ? Math.min(1, boxWidth / width) : 1
 
   return (
     <div className={cn("min-w-0", className)}>
+      {bare ? null : (
       <div className="flex items-center justify-between gap-3 border-b border-[#eef0f2] px-4 py-2.5">
         <p className="text-[13px] font-medium text-[#1a1a2e]">
-          <span className="hidden lg:inline">Preview</span>
-          <span className="lg:hidden">As it arrives</span>
+          Preview
         </p>
         <Segmented
           label="Preview size"
@@ -102,6 +108,7 @@ export function EmailPreview({
           ]}
         />
       </div>
+      )}
       <div className="border-b border-[#eef0f2] px-4 py-3">
         <div className="flex min-w-0 items-baseline justify-between gap-3">
           <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{senderName}</p>
