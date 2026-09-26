@@ -447,7 +447,7 @@ function ShareButtonPreview({
     if (accentColor && !isNearWhite(accentColor)) {
       return accentColor
     }
-    return "#8B5CF6"
+    return "#1a1a2e"
   }
 
   const popupHeaderBackground = getPopupHeaderBackground()
@@ -777,7 +777,7 @@ function ShareButtonPreview({
                 <div className="flex items-center gap-2">
                   <div
                     className={cn(
-                      "rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 overflow-hidden",
+                      "rounded-full bg-[#1a1a2e] flex items-center justify-center shrink-0 overflow-hidden",
                       scale === "small" ? "w-6 h-6" : "w-7 h-7",
                     )}
                   >

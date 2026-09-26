@@ -71,7 +71,7 @@ import {
 } from "@/lib/onepage/color"
 
 /** Used when a field passes no suggestions of its own: quiet colours that sit well on a page. */
-export const DEFAULT_SUGGESTIONS = ["#ffffff", "#1a1a2e", "#f4efe9", "#b2846c", "#8b5cf6", "#2f6f4f", "#e4572e", "#1f4e79"]
+export const DEFAULT_SUGGESTIONS = ["#ffffff", "#1a1a2e", "#f4efe9", "#b2846c", "#6b7280", "#2f6f4f", "#e4572e", "#1f4e79"]
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n))
 

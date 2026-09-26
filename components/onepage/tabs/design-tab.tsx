@@ -2165,7 +2165,7 @@ function HeaderSection() {
                 label="Glow colour"
                 value={(theme as any).laser_glow_color || "#3b82f6"}
                 onChange={(color) => updateTheme({ laser_glow_color: color } as any)}
-                suggestions={["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#ffffff"]}
+                suggestions={["#1a1a2e", "#3b82f6", "#b2846c", "#f59e0b", "#10b981", "#ffffff"]}
               />
               <Segmented
                 label="Glow strength"
@@ -3488,7 +3488,7 @@ function ButtonsSection() {
             label="Button"
             value={theme.button_color}
             onChange={(color) => updateTheme(theme.button_style === "outline" ? { button_color: color, button_border_color: color } : { button_color: color })}
-            suggestions={["#1a1a2e", "#000000", "#ffffff", "#8b5cf6", "#b2846c", "#2f6f4f", "#e4572e", "#3b82f6"]}
+            suggestions={["#1a1a2e", "#000000", "#ffffff", "#6b7280", "#b2846c", "#2f6f4f", "#e4572e", "#3b82f6"]}
           />
           <ColorRow
             label="Button text"

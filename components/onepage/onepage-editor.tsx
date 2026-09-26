@@ -35,7 +35,7 @@ import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { isPlainClick } from "@/lib/ui/app-navigation"
 import { setLeaveGuard } from "@/lib/ui/leave-guard"
 import { HtmlClass } from "@/components/platform/html-class"
-import { iconDepth } from "@/components/ui/depth-button"
+import { iconDepth, primaryDepth } from "@/components/ui/depth-button"
 import type { OnePage } from "@/lib/onepage/types"
 import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
 import { creatorPageHostFrom } from "@/lib/custom-domains/client"
@@ -214,7 +214,7 @@ function ProUpgradeDialog({
       <div className="px-5 pb-5 space-y-2.5 md:px-6 md:pb-6">
         <button
           onClick={onUpgrade}
-          className="w-full h-12 px-5 bg-[#8b5cf6] text-white font-semibold rounded-xl hover:bg-[#7c4fe6] active:bg-[#6d42d4] transition-colors flex items-center justify-center gap-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(76,29,149,0.22)]"
+          className={cn(primaryDepth, "w-full h-12 px-5 rounded-xl gap-2")}
         >
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -999,11 +999,11 @@ function EditorLayout() {
             className={cn(
               "h-8 sm:h-9 px-3 sm:px-4 rounded-lg transition-all duration-200",
               saveState === "saved" && !isDirty
-                ? "bg-purple-400 hover:bg-purple-400 text-white opacity-60 cursor-default pointer-events-none"
+                ? "bg-[#1a1a2e] hover:bg-[#2a2a40] text-white opacity-60 cursor-default pointer-events-none"
                 : saveState === "error" && isDirty
                   ? "bg-red-600 hover:bg-red-700 text-white cursor-pointer"
                   : isDirty
-                  ? "bg-violet-500 hover:bg-violet-600 text-white cursor-pointer"
+                  ? "bg-[#1a1a2e] hover:bg-[#2a2a40] text-white cursor-pointer"
                   : "bg-gray-200 text-gray-500 cursor-not-allowed"
             )}
           >
@@ -1272,8 +1272,8 @@ function EditorLayout() {
                         "relative flex items-center justify-center overflow-hidden bg-black text-white cursor-pointer select-none",
                         "transition-all duration-300 ease-in-out",
                         "w-5 h-5 rounded-full",
-                        "group-hover/row:w-9 group-hover/row:rounded-full group-hover/row:bg-violet-600",
-                        "group-hover/badge:w-9 group-hover/badge:rounded-full group-hover/badge:bg-violet-600",
+                        "group-hover/row:w-9 group-hover/row:rounded-full group-hover/row:bg-[#1a1a2e]",
+                        "group-hover/badge:w-9 group-hover/badge:rounded-full group-hover/badge:bg-[#1a1a2e]",
                         userPlan === "growth" || userPlan === "pro" ? "opacity-50" : "opacity-30",
                         "group-hover/row:opacity-100 group-hover/badge:opacity-100",
                       )}

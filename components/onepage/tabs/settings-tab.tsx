@@ -22,19 +22,13 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { secondaryDepth } from "@/components/ui/depth-button"
+import { Switch } from "@/components/onepage/editor-kit"
 import { getLinksUrl, getLinksUrlDisplay } from "@/lib/url-helpers"
 import { PRO_CHECKOUT_PLAN_ID, offeredPlan, planDisplayName, planHighlights, type PlanId } from "@/lib/billing/plans"
 
-// Toggle component using theme-checkbox (same as Links tab)
-function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
-  return (
-    <input
-      type="checkbox"
-      checked={checked}
-      onChange={(e) => onCheckedChange(e.target.checked)}
-      className="theme-checkbox"
-    />
-  )
+/* The app's one switch (components/ui/switch-style through editor-kit), as the Links and Design tabs draw it. */
+function Toggle({ checked, onCheckedChange, label }: { checked: boolean; onCheckedChange: (checked: boolean) => void; label?: string }) {
+  return <Switch checked={checked} onChange={onCheckedChange} label={label ?? ""} />
 }
 
 // Settings sections with Linktree-style icons
@@ -517,7 +511,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
       <Button
         onClick={handleSaveBasicInfo}
         disabled={isSaving}
-        className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white"
+        className="w-full h-10 bg-[#1a1a2e] hover:bg-[#2a2a40] rounded-lg text-sm text-white"
       >
         {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
         {getSaveButtonText()}
@@ -665,7 +659,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
       <Button
         onClick={handleSaveSeo}
         disabled={isSaving}
-        className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white"
+        className="w-full h-10 bg-[#1a1a2e] hover:bg-[#2a2a40] rounded-lg text-sm text-white"
       >
         {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
         {getSaveButtonText()}
@@ -711,7 +705,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
             <p className="font-medium text-sm text-gray-900">Let visitors subscribe</p>
             <p className="text-xs text-gray-500 mt-0.5">Add a button so visitors can subscribe to your page</p>
           </div>
-          <Toggle
+          <Toggle label="Let visitors subscribe"
             checked={subscribeEnabled}
             onCheckedChange={(checked) => updateSubscribeSettings(checked, undefined)}
           />
@@ -730,7 +724,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
                     className={cn(
                       "w-full flex items-center gap-4 p-3 rounded-xl border transition-all text-left",
                       subscribeStyle === option.id
-                        ? "border-violet-500 bg-violet-50"
+                        ? "border-[#1a1a2e] bg-[#f4f4f6]"
                         : "border-gray-200 hover:border-gray-300"
                     )}
                   >
@@ -754,9 +748,9 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
                     </div>
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center",
-                      subscribeStyle === option.id ? "border-violet-500" : "border-gray-300"
+                      subscribeStyle === option.id ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
-                      {subscribeStyle === option.id && <div className="w-2 h-2 rounded-full bg-violet-500" />}
+                      {subscribeStyle === option.id && <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />}
                     </div>
                   </button>
                 ))}
@@ -776,7 +770,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
         <Button
           onClick={handleSaveSubscribe}
           disabled={isSaving}
-          className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white"
+          className="w-full h-10 bg-[#1a1a2e] hover:bg-[#2a2a40] rounded-lg text-sm text-white"
         >
           {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           {getSaveButtonText()}
@@ -823,7 +817,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
             <p className="font-medium text-sm text-gray-900">Enable Share button</p>
             <p className="text-xs text-gray-500 mt-0.5">Show a share button so visitors can share your page</p>
           </div>
-          <Toggle
+          <Toggle label="Enable Share button"
             checked={shareEnabled}
             onCheckedChange={(checked) => updateShareSettings(checked, undefined)}
           />
@@ -842,7 +836,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
                     className={cn(
                       "w-full flex items-center gap-4 p-3 rounded-xl border transition-all text-left",
                       shareStyle === option.id
-                        ? "border-violet-500 bg-violet-50"
+                        ? "border-[#1a1a2e] bg-[#f4f4f6]"
                         : "border-gray-200 hover:border-gray-300"
                     )}
                   >
@@ -866,9 +860,9 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
                     </div>
                     <div className={cn(
                       "w-4 h-4 rounded-full border-2 flex items-center justify-center",
-                      shareStyle === option.id ? "border-violet-500" : "border-gray-300"
+                      shareStyle === option.id ? "border-[#1a1a2e]" : "border-gray-300"
                     )}>
-                      {shareStyle === option.id && <div className="w-2 h-2 rounded-full bg-violet-500" />}
+                      {shareStyle === option.id && <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />}
                     </div>
                   </button>
                 ))}
@@ -888,7 +882,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
         <Button
           onClick={handleSaveShare}
           disabled={isSaving}
-          className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white"
+          className="w-full h-10 bg-[#1a1a2e] hover:bg-[#2a2a40] rounded-lg text-sm text-white"
         >
           {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           {getSaveButtonText()}
@@ -913,7 +907,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
             <p className="font-medium text-sm text-gray-900">Enable Verified Badge</p>
             <p className="text-xs text-gray-500 mt-0.5">Display a blue checkmark next to your page name</p>
           </div>
-          <Toggle
+          <Toggle label="Enable Verified Badge"
             checked={verifiedEnabled}
             onCheckedChange={(checked) => updateVerifiedSettings(checked, undefined)}
           />
@@ -994,7 +988,7 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
         <Button
           onClick={handleSaveVerified}
           disabled={isSaving}
-          className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white"
+          className="w-full h-10 bg-[#1a1a2e] hover:bg-[#2a2a40] rounded-lg text-sm text-white"
         >
           {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           {getSaveButtonText()}
@@ -1046,13 +1040,13 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
           <ul className="space-y-2 mb-4">
             {proOffer.features.slice(0, 4).map((feature) => (
               <li key={feature} className="flex items-center gap-2 text-sm text-gray-600">
-                <Check className="h-3.5 w-3.5 text-violet-500" />
+                <Check className="h-3.5 w-3.5 text-[#1a1a2e]" />
                 {feature}
               </li>
             ))}
           </ul>
           <Button
-            className="w-full h-10 bg-violet-500 hover:bg-violet-600 rounded-lg text-sm text-white cursor-pointer"
+            className="w-full h-10 bg-[#1a1a2e] hover:bg-[#2a2a40] rounded-lg text-sm text-white cursor-pointer"
             onClick={() => router.push("/app/settings/billing/upgrade")}
           >
             Upgrade to {proOffer.name}
