@@ -525,7 +525,7 @@ check(
 
     const barAt = dash.indexOf('bg-[#8b5cf6] text-white')
     const indicatorAt = dash.indexOf("<PullToRefreshIndicator")
-    const slideAt = dash.indexOf("translateY(${contentTranslateY}px)")
+    const slideAt = dash.indexOf("ref={contentRef}")
 
     const missing: string[] = []
     if (barAt < 0 || indicatorAt < 0 || slideAt < 0) missing.push("dashboard: bar, indicator or slide wrapper not found")
@@ -538,19 +538,23 @@ check(
     if (!/absolute[^"]*pointer-events-none/.test(indicator))
       missing.push("indicator: not absolute + pointer-events-none")
     /**
-     * NO phase may place the ring above its anchor — including the exit.
+     * NO PHASE MAY PLACE THE RING ABOVE ITS ANCHOR — INCLUDING THE EXIT.
      *
      * The exit used to slide it to -(size + 8) while the opacity was still
      * fading, so at the END of a refresh it visibly rose over the purple bar.
      * Parking off-screen was meant to stop it peeking; opacity 0 already does
      * that, and the cost was an animation crossing the one element it had to
      * stay clear of.
+     *
+     * Both clamps now live in the hook, which paints every frame: the drag
+     * offset and the resting one.
      */
-    // Both offsets the ring can take are clamped at 0, so no phase — drag,
-    // refresh or exit — can place it above its anchor and over the bar.
-    if (!/Math\.max\(\(pullDistance - size\) \/ 2, 0\)/.test(indicator))
-      missing.push("indicator: the drag offset is not clamped to its anchor")
-    if (/offScreen/.test(indicator))
+    const hook = code("hooks/use-pull-to-refresh.ts")
+    if (!/Math\.max\(\(offset - RING_SIZE\) \/ 2, 0\)/.test(hook))
+      missing.push("hook: the drag offset is not clamped to its anchor")
+    if (!/const restingY = Math\.max\(\(refreshHold - RING_SIZE\) \/ 2, 0\)/.test(hook))
+      missing.push("hook: the resting offset is not clamped to its anchor")
+    if (/offScreen/.test(hook) || /offScreen/.test(indicator))
       missing.push("indicator: the off-screen exit is back")
     /**
      * THE EXIT MUST CHANGE NOTHING BUT OPACITY AND SCALE.
@@ -562,24 +566,157 @@ check(
      * nothing, and it slid up toward the bar. Clamping the offset did not fix
      * any of that, because none of it was a position bug.
      *
-     * The refreshing appearance is held for the length of the fade instead:
-     * `spinning` covers the exit, the dash length follows `spinning` rather than
-     * the phase, and the resting offset IS the refreshing offset, so the exit
-     * involves no movement at all.
+     * The exit paints the ring at `restingY` — the same place the refresh left
+     * it — keeps the spinner's arc, and keeps the rotation the pull ended on.
+     * Only the opacity and the scale move.
      */
-    if (!/const spinning = phase === "refreshing" \|\| exiting/.test(indicator))
-      missing.push("indicator: the spinner look is not held through the fade")
-    if (!/const progressDash = spinning/.test(indicator))
-      missing.push("indicator: the arc collapses when the refresh ends")
-    if (!/\.\.\.\(spinning \? \{ animation: "ptr-spin/.test(indicator))
-      missing.push("indicator: rotation snaps back to zero when the refresh ends")
-    if (!/const restingY = Math\.max\(\(refreshHold - size\) \/ 2, 0\)/.test(indicator))
-      missing.push("indicator: the exit does not rest where the refresh left it")
+    const exit = /paintRing\(\{\s*y: restingY,\s*opacity: 1 - u,/.test(hook)
+    if (!exit) missing.push("hook: the exit no longer holds the ring where the refresh left it")
+    if (!/dash: endDash,/.test(hook))
+      missing.push("hook: the arc collapses when the refresh ends")
+    if (!/turn: heldTurnRef\.current \?\? PULL_TURN_DEG/.test(hook))
+      missing.push("hook: the rotation is not held through the fade")
     // The ring must centre in the SAME gap the page holds open.
     if (!/refreshHold/.test(indicator) || !/refreshHold=\{REFRESH_HOLD\}/.test(dash))
       missing.push("dashboard/indicator: refresh gap not shared, positions can drift")
+    if (!/const REFRESH_HOLD = PULL_TO_REFRESH\.refreshHold/.test(dash))
+      missing.push("dashboard: the hold distance is a second literal again")
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
+  })(),
+)
+
+check(
+  "a pull to refresh does not render the dashboard",
+  (() => {
+    /**
+     * ========================================================================
+     *  THE REASON IT COULD NOT HOLD A FRAME RATE
+     * ========================================================================
+     * The hook held the pull distance and the phase in React state and wrote
+     * both on EVERY touchmove. DashboardClient is 1400 lines of charts, cards
+     * and lists, so every frame of a drag re-rendered all of it and then
+     * recomputed a translateY and a transition string from the result.
+     *
+     * Measured with scripts/check-pull-refresh.mjs, at 390px with the CPU
+     * throttled 4x, over a 150px pull delivered in 48 moves across 640ms:
+     *
+     *                      before        after
+     *   dashboard renders      16            0
+     *   React elements       9168            0
+     *   frames drawn           32           39
+     *   longest frame gap    50ms       16.8ms
+     *   gaps over 16.7ms   10 of 31      3 of 38
+     *   forced layouts          1            0
+     *
+     * So: no state at all during the gesture. The hook writes the two elements
+     * itself, one write per frame, coalesced through rAF.
+     */
+    const hook = code("hooks/use-pull-to-refresh.ts")
+    const dash = code("components/app/dashboard-client.tsx")
+    const indicator = code("components/app/pull-to-refresh-indicator.tsx")
+    const bad: string[] = []
+
+    if (/useState/.test(hook)) bad.push("hook: React state is back in the gesture")
+    if (/setPullDistance/.test(hook)) bad.push("hook: a distance setter is back in the gesture")
+    if (!/return \{ contentRef, indicatorRef, phaseRef \}/.test(hook))
+      bad.push("hook: it returns something other than refs, so the caller subscribes again")
+    // The phase is a ref and a callback, so a caller can know without subscribing.
+    if (!/phaseRef/.test(hook)) bad.push("hook: no way left to read the phase")
+    // One write per frame, not one per move.
+    if (!/if \(!queued\) queued = requestAnimationFrame\(draw\)/.test(hook))
+      bad.push("hook: touchmove paints directly again instead of coalescing to a frame")
+    if (!/style\.transform = `translate3d\(0, \$\{y\}px, 0\)`/.test(hook))
+      bad.push("hook: the content wrapper is not moved on the compositor")
+    // The indicator must be markup only: no prop it recomputes per frame.
+    if (/pullDistance/.test(indicator)) bad.push("indicator: it takes a per-frame prop again")
+    if (/useState|useEffect/.test(indicator)) bad.push("indicator: it has state again")
+    // And the dashboard must not compute a transform for it.
+    if (/contentTranslateY|contentTransition/.test(dash))
+      bad.push("dashboard: the pull is being rendered again")
+    // The arc is the one per-frame attribute, and it goes to the node.
+    if (!/arc\.setAttribute\("stroke-dasharray"/.test(hook))
+      bad.push("hook: the arc is not written to the DOM directly")
+
+    if (bad.length) console.log("        " + bad.join("\n        "))
+    return bad.length === 0
+  })(),
+)
+
+check(
+  "the pull has iOS resistance, an iOS settle, and a tick when it arms",
+  (() => {
+    /**
+     * RESISTANCE. It was `Math.min(dy * 0.45, maxPull)`: a straight line to a
+     * dead stop. UIScrollView's rubber band instead, which starts near 1:1 and
+     * gets progressively heavier without ever reaching its limit, so the page
+     * never goes rigid under a finger that is still moving.
+     *
+     * Measured (scripts/check-pull-refresh.mjs, offsets read off the element):
+     *
+     *   finger    before     after
+     *     20px      9px    15.2px
+     *     40px     18px    26.3px
+     *     60px     27px    34.8px
+     *     80px     36px    41.5px
+     *    120px     54px    51.4px
+     *    200px     90px    63.5px   (the old one is pinned at its limit here)
+     *
+     * The threshold moved with the curve: 48px of offset, reached at 105px of
+     * finger, where the old 60px took 133px.
+     *
+     * SETTLE. One cubic ease became a spring stepped in rAF: 15 frames, 233ms,
+     * 0.44px of overshoot, measured.
+     *
+     * HAPTICS. A light tick crossing into range, a softer one falling back out,
+     * once per crossing rather than once per frame. Same hapticTap the chart
+     * scrub and the phone nav call.
+     */
+    const hook = code("hooks/use-pull-to-refresh.ts")
+    const bad: string[] = []
+
+    if (/Math\.min\(dy \* 0\.45/.test(hook)) bad.push("the linear resistance is back")
+    if (!/\(1 - 1 \/ \(\(travel \* tension\) \/ limit \+ 1\)\) \* limit/.test(hook))
+      bad.push("the rubber band curve is gone")
+    if (!/rubberBand\(pendingDy, maxPull, tension\)/.test(hook))
+      bad.push("the drag does not use the rubber band")
+
+    // A spring, stepped in frames, on transform only.
+    if (!/SPRING_STIFFNESS|SPRING_DAMPING/.test(hook)) bad.push("the settle is not a spring any more")
+    if (!/v \+= \(-SPRING_STIFFNESS \* \(x - to\) - SPRING_DAMPING \* v\) \* h/.test(hook))
+      bad.push("the spring is not integrated per frame")
+    // Reduced motion gets there without any of it.
+    if (!/prefers-reduced-motion: reduce/.test(hook)) bad.push("prefers-reduced-motion is not respected")
+    if (!/if \(reducedMotion\(\)\) \{/.test(hook)) bad.push("the settle runs its spring even with reduced motion")
+
+    // One tick per crossing: the haptic sits behind the change of `armed`.
+    if (!/import \{ hapticTap \} from "@\/lib\/native-bridge"/.test(read("hooks/use-pull-to-refresh.ts")))
+      bad.push("no haptics, or not through the one function that owns the platform difference")
+    if (!/if \(past !== armed\) \{[\s\S]{0,400}hapticTap\(past \? "light" : "soft"\)/.test(hook))
+      bad.push("the haptic is not once per crossing")
+    if ((hook.match(/hapticTap\(/g) ?? []).length !== 1)
+      bad.push("something else fires a haptic: nothing on release, nothing when the refresh ends")
+
+    // A refresh that returns instantly still looks deliberate.
+    if (!/minSpin: \d+/.test(hook)) bad.push("no minimum spinner time")
+    if (!/const rest = minSpin - \(performance\.now\(\) - started\)/.test(hook))
+      bad.push("the minimum spinner time is not held")
+
+    // The compositor layer is only held while something moves.
+    if (/willChange: "transform"/.test(code("components/app/dashboard-client.tsx")))
+      bad.push("dashboard: will-change is permanent again")
+    if (/willChange/.test(code("components/app/pull-to-refresh-indicator.tsx")))
+      bad.push("indicator: will-change is permanent again")
+    if (!/setLifted\(false\)/.test(hook)) bad.push("will-change is never taken off")
+
+    // Still true, and still the point: the listener only blocks at the top,
+    // and a touch inside a sheet is not ours.
+    if (!/new IntersectionObserver/.test(hook)) bad.push("the touchmove listener is bound everywhere again")
+    if (!/\[data-dashboard-sheet\]/.test(hook)) bad.push("touches inside a sheet are intercepted again")
+    if (!/e\.preventDefault\(\)/.test(hook)) bad.push("nothing stops the native rubber band any more")
+
+    if (bad.length) console.log("        " + bad.join("\n        "))
+    return bad.length === 0
   })(),
 )
 
