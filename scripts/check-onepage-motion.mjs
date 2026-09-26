@@ -324,9 +324,11 @@ if (wants("push")) {
 }
 
 /* ── CHOICES ── */
-if (wants("choice")) for (const [label, vp, phone] of [["phone-390", PHONE, true], ["desktop-1440", DESKTOP, false]]) {
+/* The app too: in the iOS and Android shells <html> has `capacitor`, and app/globals.css gives every button there a transition of its own. */
+if (wants("choice")) for (const [label, vp, phone, app] of [["phone-390", PHONE, true, false], ["phone-390-app", PHONE, true, true], ["desktop-1440", DESKTOP, false, false]]) {
   console.log(`\n${label}: a pick in Buttons`)
   const s = await open(vp, "design")
+  if (app) await s.p.evaluate(() => document.documentElement.classList.add("capacitor"))
   await s.p.click('[data-nav-row="buttons"]')
   await sleep(900)
   const options = await s.p.$$eval("[data-choice], [data-segment]", (xs) => xs.filter((x) => x.getClientRects().length).map((x) => ({ key: x.getAttribute("data-choice") ?? x.getAttribute("data-segment"), kind: x.hasAttribute("data-choice") ? "choice" : "segment", on: x.getAttribute("aria-pressed") === "true" || x.getAttribute("aria-checked") === "true" })))

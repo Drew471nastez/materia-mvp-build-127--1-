@@ -159,6 +159,23 @@ function main() {
     check("and back returns to the place in the list that was left", /scroller\.scrollTop = move\.to === "home" \? listScroll\.current : 0/.test(design))
     check("the page moves on the tap, its controls built a frame later and faded in", /startTransition\(\(\) => setBodyFor\(section\)\)/.test(design) && /function PanelBody\(/.test(design))
     check("a finger from the left edge takes the panel back, on a strip that owns its touch", /data-edge-back=""/.test(design) && /touchAction: "none"/.test(design) && /onPointerMove=\{onEdgeMove\}/.test(design))
+    /*
+      A PICK FADES IN, THE OLD ONE OUT. The border and the check were the
+      card's own classes, swapped in a frame, and on a phone or in the app
+      app/globals.css took the button's own transition away. They are
+      elements of their own (components/onepage/choice-marks.tsx), faded
+      and scaled with opacity and the `scale` property. Measured
+      (scripts/check-onepage-motion.mjs, choice): 11 frames in and 11 out,
+      in the browser and with <html class="capacitor">, the label never
+      changing width.
+    */
+    const marks = read("components/onepage/choice-marks.tsx")
+    check("the picked marks move on opacity and the scale property, named as such", /transition-\[opacity,scale\]/.test(marks) && !/transition-\[opacity,transform\]/.test(marks))
+    check("a card, a segment, a theme and a pattern wear the mark instead of swapping classes",
+      /<ChoiceMark on=\{selected\} \/>/.test(kit) && /<ChoiceMark on=\{on\} \/>/.test(kit) && !/selected \? choiceOn : choiceOff/.test(kit)
+      && /<CheckMark on=\{selected\}/.test(design) && /<CheckMark on=\{on\} small/.test(design) && !/on \? choiceOn : choiceOff/.test(design))
+    check("a chip's fill and a swatch's ring fade too", /<ChipFill on=\{filter === f\} \/>/.test(design) && /<SwatchMark on=\{theme\.background_gradient === grad\}/.test(design) && /<SwatchMark on=\{on\} className="rounded-full" \/>/.test(read("components/onepage/color-picker.tsx")))
+    check("a block's size and alignment are one thumb that slides", /data-segment-thumb=""/.test(read("components/onepage/extra-blocks.tsx")) && /transition-\[translate\]/.test(read("components/onepage/extra-blocks.tsx")))
     check("the dial turns with pointer events and keeps its rotation on a touch screen", /function DirectionDial[\s\S]{0,2400}setPointerCapture[\s\S]{0,2400}data-keep-transform=""/.test(design))
   }
 

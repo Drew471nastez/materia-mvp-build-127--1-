@@ -35,7 +35,9 @@
  *
  * Colours are Storelib's own (#1a1a2e ink, #6b7280 muted, #e3e4e8 hairline),
  * not Linktree's. No transforms: app/globals.css removes transforms inside a
- * `.group` on touch screens, and none of these need one.
+ * `.group` on touch screens. The picked marks below scale with the separate
+ * `scale` property, which that rule leaves alone (inside a `.group` on a
+ * touch screen they simply appear, without the fade).
  */
 import * as React from "react"
 import { ChevronLeft, ChevronRight, type LucideIcon } from "lucide-react"
@@ -44,6 +46,7 @@ import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { ColorField } from "@/components/onepage/color-picker"
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { hapticTap } from "@/lib/native-bridge"
+import { ChoiceMark } from "@/components/onepage/choice-marks"
 
 const focusRing = "outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
 
@@ -128,6 +131,9 @@ export function NavRow({
 export const choiceOn = "border-[#1a1a2e] shadow-[0_0_0_0.5px_#1a1a2e]"
 export const choiceOff = "border-[#e3e4e8] hover:border-[#c9cbd1]"
 
+/* The picked marks (a card's dark border, a swatch's ring, a check, a chip's fill), faded and scaled in and out. */
+export { ChoiceMark, SwatchMark, CheckMark, ChipFill } from "@/components/onepage/choice-marks"
+
 export function ChoiceCard({
   selected,
   onClick,
@@ -158,16 +164,17 @@ export function ChoiceCard({
       title={title}
       data-choice={label}
       className={cn(
-        "relative flex min-h-11 cursor-pointer flex-col items-stretch rounded-2xl border bg-white p-2 text-center transition-[border-color,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent]",
+        "relative flex min-h-11 cursor-pointer flex-col items-stretch rounded-2xl border bg-white p-2 text-center transition-[border-color] duration-150 [-webkit-tap-highlight-color:transparent]",
         focusRing,
-        selected ? choiceOn : choiceOff,
+        choiceOff,
         disabled && "cursor-not-allowed opacity-45 hover:border-[#e3e4e8]",
         className,
       )}
     >
       {children}
-      <span className={cn("block truncate px-1 text-[13px] font-medium", children ? "pb-1 pt-2" : "py-1.5", selected ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{label}</span>
+      <span className={cn("block truncate px-1 text-[13px] font-medium transition-colors duration-[180ms]", children ? "pb-1 pt-2" : "py-1.5", selected ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{label}</span>
       {badge ? <span className="absolute right-2 top-2">{badge}</span> : null}
+      <ChoiceMark on={selected} />
     </button>
   )
 }
@@ -199,13 +206,14 @@ export function Segmented<T extends string>({
             onClick={() => onChange(o.id)}
             data-segment={o.id}
             className={cn(
-              "flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-xl border bg-white px-2 py-2 text-[13px] font-medium transition-[border-color,box-shadow,color] duration-150 [-webkit-tap-highlight-color:transparent]",
+              "relative flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-xl border bg-white px-2 py-2 text-[13px] font-medium transition-[border-color] duration-150 [-webkit-tap-highlight-color:transparent]",
               focusRing,
-              on ? cn(choiceOn, "text-[#1a1a2e]") : cn(choiceOff, "text-[#4b5563]"),
+              choiceOff,
             )}
           >
-            <span className="truncate">{o.label}</span>
-            {o.hint ? <span className="mt-0.5 truncate text-[11.5px] font-normal text-[#6b7280]">{o.hint}</span> : null}
+            <span className={cn("max-w-full truncate transition-colors duration-[180ms]", on ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{o.label}</span>
+            {o.hint ? <span className="mt-0.5 max-w-full truncate text-[11.5px] font-normal text-[#6b7280]">{o.hint}</span> : null}
+            <ChoiceMark on={on} />
           </button>
         )
       })}
