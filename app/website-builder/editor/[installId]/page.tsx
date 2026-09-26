@@ -90,6 +90,7 @@ import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
 import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAncestors, revealWithin, reviveScroller, scrollWithin } from "@/lib/website-builder/canvas-scroll"
+import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
 import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 
@@ -7563,6 +7564,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               touchingCanvas.current = true
               if (!isMobileView) return
               const el = e.currentTarget
+              /* Not under the site's open menu: the canvas is held still for
+                 it, and this nudge was the one thing still moving it. */
+              if (el.hasAttribute(SITE_DRAWER_OPEN_ATTRIBUTE)) return
               const max = el.scrollHeight - el.clientHeight
               if (max <= 2) return
               if (el.scrollTop <= 0) el.scrollTop = 1

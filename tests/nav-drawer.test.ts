@@ -175,8 +175,8 @@ function main() {
     /body\.position = "fixed"/.test(src) && /body\.top = `-\$\{scrollY\}px`/.test(src),
   )
   check(
-    "and the visitor is put back where they were on close",
-    /window\.scrollTo\(0, scrollY\)/.test(src),
+    "and the visitor is put back where they were on close, instantly whatever the theme's scroll behaviour",
+    /window\.scrollTo\(\{ top: scrollY, left: 0, behavior: "instant"/.test(src),
   )
   check(
     "body overflow hidden is no longer the whole lock",
