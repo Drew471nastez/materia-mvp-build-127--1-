@@ -511,7 +511,8 @@ check(
   // A template with placeholder data is not what a buyer sees.
   /onSelectProduct=\{selectProductById\}/.test(editor) &&
     /handleSelectProductPage\(p\.id, p\.title\)/.test(editor) &&
-    /productRow\(row\.product\)/.test(switcher),
+    /* Drawn as a row of the group it belongs to, on the menu's indent grid. */
+    /productRow\(row\.product, collapsible\)/.test(switcher),
 )
 
 check(
