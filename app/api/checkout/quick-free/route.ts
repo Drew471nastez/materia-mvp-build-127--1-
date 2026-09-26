@@ -6,7 +6,7 @@ import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
-import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
+import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { channelOf, orderSourceFromRequest, originOf, tagOrderSource } from "@/lib/orders/order-source"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { baseFor } from "@/lib/checkout/pricing"
@@ -211,9 +211,11 @@ export async function POST(request: Request) {
        that the seller may send updates (components/onepage/public-onepage),
        which is the basis this door has always used: a new address or a
        customer joins the list. Somebody who unsubscribed is not put back on
-       it by a download, which this used to do (lib/contacts/checkout-contact). */
+       it by a download, which this used to do (lib/contacts/checkout-contact).
+       Joining starts the welcome, as the OnePage's own sign up box does
+       (lib/contacts/checkout-welcome). */
     const normalizedEmail = email.toLowerCase().trim()
-    await recordCheckoutContact(admin, {
+    await recordCheckoutContactAndWelcome(admin, {
       creatorId: product.creator.id,
       email: normalizedEmail,
       name: `${first_name.trim()} ${last_name.trim()}`.trim(),

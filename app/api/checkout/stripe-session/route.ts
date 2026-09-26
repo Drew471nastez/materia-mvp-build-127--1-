@@ -2,7 +2,7 @@ import { NextResponse, after } from "next/server"
 import type Stripe from "stripe"
 import { recordCheckoutStart } from "@/lib/automations/abandoned"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
-import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
+import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { stripe } from "@/lib/stripe"
 import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
 import { createClient } from "@/lib/supabase/server"
@@ -243,7 +243,10 @@ export async function POST(request: Request) {
        the button is not slower for it. The start is what a checkout
        reminder is made from (lib/automations/abandoned), and a ticked box
        is a yes whether or not the payment then goes through
-       (lib/contacts/checkout-contact). */
+       (lib/contacts/checkout-contact). That yes is joining the list, so it
+       starts the creator's welcome here, once; the payment's own record of
+       the same tick then finds them subscribed and starts nothing
+       (lib/contacts/checkout-welcome). */
     const started = intent.id
     const optedIn = body.emailOptIn === true
     const source = contactSourceOfOrder(origin, product.id)
@@ -260,7 +263,7 @@ export async function POST(request: Request) {
         source,
       })
       if (optedIn) {
-        await recordCheckoutContact(admin, { creatorId: creator.id, email, name: `${firstName} ${lastName}`.trim(), basis: "ticked", bought: false, source })
+        await recordCheckoutContactAndWelcome(admin, { creatorId: creator.id, email, name: `${firstName} ${lastName}`.trim(), basis: "ticked", bought: false, source })
       }
     })
     return NextResponse.json({ clientSecret: intent.client_secret, paymentIntentId: intent.id, amountCents: intent.amount })

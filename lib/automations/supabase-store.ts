@@ -411,7 +411,7 @@ export function supabaseStarts(db: Db): StartsStore {
       await db.from("checkout_starts").update({ handled_at: null, outcome: null }).eq("id", id)
     },
     async recordConsent(s) {
-      await recordCheckoutContact(db, {
+      return recordCheckoutContact(db, {
         creatorId: s.creator_id,
         email: s.email,
         name: s.first_name,

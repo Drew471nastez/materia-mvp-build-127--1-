@@ -6,7 +6,7 @@ import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
-import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
+import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { channelOf, orderSourceFromRequest, originOf, tagOrderSource } from "@/lib/orders/order-source"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { priceOrder } from "@/lib/checkout/pricing"
@@ -189,9 +189,10 @@ export async function POST(request: Request) {
     })
 
     /* A contact either way. Only a yes is a yes: subscribed when they ticked
-       the box, a customer when they did not (lib/contacts/checkout-contact). */
+       the box, a customer when they did not (lib/contacts/checkout-contact).
+       Joining the list here starts the welcome, once (lib/contacts/checkout-welcome). */
     await step("contact", () =>
-      recordCheckoutContact(admin, {
+      recordCheckoutContactAndWelcome(admin, {
         creatorId: creator.id,
         email,
         name: `${firstName} ${lastName}`.trim(),

@@ -32,7 +32,7 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
-import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
+import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { recordCouponUse } from "./coupons"
 import { businessFromMetadata } from "./business"
@@ -225,9 +225,10 @@ export async function fulfilPaymentIntent(
 
   await step("customer", () => recordCustomer(admin, { creatorId, email: buyerEmail, first: m.buyer_first_name, last: m.buyer_last_name, total }))
   /* A contact either way: subscribed when they ticked the box, a customer
-     when they did not (lib/contacts/checkout-contact). */
+     when they did not (lib/contacts/checkout-contact). A tick that puts them
+     on the list starts the creator's welcome, once (lib/contacts/checkout-welcome). */
   await step("contact", () =>
-    recordCheckoutContact(admin, {
+    recordCheckoutContactAndWelcome(admin, {
       creatorId,
       email: buyerEmail,
       name: `${m.buyer_first_name || ""} ${m.buyer_last_name || ""}`.trim(),
