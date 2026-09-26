@@ -363,28 +363,8 @@ export function readCouponInput(body: unknown, base?: Partial<CouponValues> | nu
   }
 }
 
-export type CouponState = "active" | "scheduled" | "expired" | "used_up" | "off"
-
-/** Where a code stands right now, in the order a buyer would meet it. */
-export function couponState(
-  c: Pick<CouponRow, "is_active" | "starts_at" | "expires_at" | "usage_limit" | "usage_count">,
-  now: Date = new Date(),
-): CouponState {
-  if (!c.is_active) return "off"
-  const t = now.getTime()
-  if (c.expires_at && Date.parse(c.expires_at) < t) return "expired"
-  if (c.usage_limit !== null && c.usage_limit !== undefined && (c.usage_count ?? 0) >= c.usage_limit) return "used_up"
-  if (c.starts_at && Date.parse(c.starts_at) > t) return "scheduled"
-  return "active"
-}
-
-export const COUPON_STATE_LABEL: Record<CouponState, string> = {
-  active: "Active",
-  scheduled: "Scheduled",
-  expired: "Expired",
-  used_up: "Used up",
-  off: "Off",
-}
+/* Where a code stands, and its word: in ./coupon-state, which the browser can import (this file reaches the admin's server only code). */
+export { COUPON_STATE_LABEL, couponState, type CouponState } from "./coupon-state"
 
 /** A Postgres or PostgREST error saying a column the query named is not there yet. */
 export function isMissingColumn(error: { code?: string; message?: string } | null | undefined, column: string): boolean {

@@ -1,10 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
-import AppColdStart from "@/app/app/cold-start"
 import { ShellHeaderStill } from "@/components/app/shell-header-still"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
+import { AppTopCorners } from "@/components/app/app-top-corners"
 import { playEntrance } from "@/components/app/app-stage"
 import { NAV_ENTER_EASE } from "@/lib/ui/app-navigation"
 import { cn } from "@/lib/utils"
@@ -30,11 +30,33 @@ import {
  * ===========================================================================
  *  THE SCREEN OF A SWITCH, ON BOTH SIDES OF THE RELOAD
  * ===========================================================================
- * The shell's own frame (app/app/cold-start: the header's #111111, the rail
- * from md, the content area's #f8f9fa with its rounded top on a phone), the
- * light gray spinner in the place every slow page and cold start puts it,
- * and one line under it saying which step of the switch is happening
- * (lib/businesses/switch-screen). No card, no second spinner.
+ * ONE SURFACE, NOT A HALF DRAWN SHELL. This used to be the cold start's own
+ * frame (app/app/cold-start): the bar, the shell's empty white rail from md,
+ * and the grey content area beside it with its rounded corner. On a cold
+ * start that frame is the point, because the shell really is about to be
+ * drawn there and nothing else is on the glass. In the middle of a switch it
+ * read as a break: the page you were on had a full sidebar, and the moment
+ * you pressed, that column emptied to white with nothing in it while a grey
+ * panel sat beside it with a curve cut into its corner. The owner saw it as
+ * one screen torn in two ("the sidebar there, it's cut").
+ *
+ * So the switch has its own surface (SwitchSurface): the app's own bar along
+ * the top, exactly the height and colour the shell's header has at this
+ * width, with the header's rounded corners hanging from it, and under it one
+ * white area from edge to edge. No rail, no seam, no second colour: nothing
+ * of the shell is half drawn, because nothing of the shell is drawn at all.
+ * The bar stays because it is the one part of the app that is the same on
+ * both sides of the switch, so the screen coming up and going away changes
+ * nothing up there, and on a phone the status bar keeps the dark it is
+ * drawn against. The white is the white the new business's setup sits on
+ * (`surface="plain"` below), so the two screens of the account menu are the
+ * same picture with and without the app's bar.
+ *
+ * On it, the light gray spinner in the place every slow page and cold start
+ * puts it (40% down, PageSpinner's rows) and one line under it saying which
+ * step of the switch is happening (lib/businesses/switch-screen). Nothing
+ * else: no card, no photo that might decode a frame late on the other side,
+ * no second spinner.
  *
  * THE BAR IS NOT AN EMPTY BAND. "There's the black top bar there showing,
  * which I don't understand why." The frame's bar used to be bare black from
@@ -64,13 +86,14 @@ import {
  *   page's fade, and fading both would multiply them.
  *
  *   A NEW BUSINESS (SwitchingScreen with `mode="create"`, then
- *   NewBusinessScreen on /signup/success). The same spinner and the same
- *   line at the same height, on the plain white the setup is drawn on
- *   rather than in the app's frame: "Setting up your new business" while
- *   the server makes it, "Opening your new business" once the browser holds
- *   its session, and the same words on the setup page's first frame. When
- *   the setup's first step opens, the spinner and the line fade out under
- *   it and the white stays, so no frame shows the page behind.
+ *   NewBusinessScreen on /signup/success). The same white, the same spinner
+ *   and the same line at the same height, without the app's bar, because
+ *   the setup it opens on has no bar of its own to hold still under it:
+ *   "Setting up your new business" while the server makes it, "Opening
+ *   your new business" once the browser holds its session, and the same
+ *   words on the setup page's first frame. When the setup's first step
+ *   opens, the spinner and the line fade out under it and the white stays,
+ *   so no frame shows the page behind.
  *
  * A line changes by fading: the old one out and up 4px, the new one in from
  * 4px below, a little after, so the two never sit on top of each other at
@@ -144,8 +167,48 @@ function Lines({ lineKey, text }: { lineKey: string; text: string }) {
  * is nothing drawn yet for it to restyle; set on the <html> of a page already
  * drawn, it would restyle the whole page in the frame the screen comes up in.
  */
-/** Where the screen is drawn: the app's own frame for a switch, plain white for a new business's setup. */
+/** Where the screen is drawn: white under the app's own bar for a switch, plain white for a new business's setup. */
 export type ScreenSurface = "app" | "plain"
+
+/**
+ * ===========================================================================
+ *  THE SURFACE A SWITCH IS DRAWN ON
+ * ===========================================================================
+ * The app's bar, and one white area under it from edge to edge.
+ *
+ * THE BAR is the shell's own: 68px under the status bar on a phone, 58px
+ * from md, #111111 and #131316, read with env(safe-area-inset-top) so a
+ * browser gets 0, the same way app/app/cold-start.tsx and the two headers
+ * in components/app/sidebar.tsx write it. The corners are not drawn here
+ * at all: they come from the one component that draws them everywhere
+ * (components/app/app-top-corners), in this bar's own colour through
+ * `text-`, at the one radius in app/globals.css, so a switch can never
+ * curve by a different amount than the page it is waiting for.
+ *
+ * Keeping the bar is what makes the screen come and go without anything
+ * moving: the page you were on has this bar, the page you are going to has
+ * it, so the fade in and the fade out only ever change what is under it.
+ *
+ * THE WHITE runs the full width, under the bar's two corners, so there is no
+ * rail, no edge and no second colour anywhere on it. It is one surface with
+ * a spinner on it, which is what a screen that is waiting should look like;
+ * the shell's shape belongs to the page, and the page draws it itself a
+ * moment later.
+ */
+function SwitchSurface({ children, header }: { children?: ReactNode; header?: ReactNode }) {
+  return (
+    <div data-switch-surface="" className="absolute inset-0 bg-white">
+      <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] md:top-[calc(58px+env(safe-area-inset-top,0px))]">
+        {children}
+      </div>
+      <div className="absolute inset-x-0 top-0 h-[calc(68px+env(safe-area-inset-top,0px))] bg-[#111111] text-[#111111] md:h-[calc(58px+env(safe-area-inset-top,0px))] md:bg-[#131316] md:text-[#131316]">
+        <AppTopCorners />
+        {/* The business you are going to, drawn where the real header puts it: the bar is never an empty band. */}
+        {header}
+      </div>
+    </div>
+  )
+}
 
 function Screen({
   step,
@@ -202,7 +265,7 @@ function Screen({
       className="fixed inset-0 z-[500] touch-none select-none"
       style={spin ? ({ "--switch-spin-delay": spin } as React.CSSProperties) : undefined}
     >
-      {surface === "app" ? <AppColdStart header={<ShellHeaderStill name={name} photo={photo} />}>{middle}</AppColdStart> : <div className="absolute inset-0 bg-white">{middle}</div>}
+      {surface === "app" ? <SwitchSurface header={<ShellHeaderStill name={name} photo={photo} />}>{middle}</SwitchSurface> : <div className="absolute inset-0 bg-white">{middle}</div>}
     </div>
   )
 }
