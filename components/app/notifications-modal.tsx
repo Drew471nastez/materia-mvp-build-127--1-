@@ -19,11 +19,13 @@ import {
   setDbUnread,
   setUnreadState,
   setupNotificationIds,
+  setupShown,
+  staysUntilDone,
   subscribeUnread,
   unreadCount,
   writeUnreadOnly,
 } from "@/lib/notifications/unread-state"
-import { inTabOf, panelHref, panelOrder, staysOnOpen, toneOf } from "@/lib/notifications/panel"
+import { labelOf, panelHref, panelOrder, staysOnOpen, toneOf } from "@/lib/notifications/panel"
 import { CATEGORIES, type Category, type DigestItem } from "@/lib/notifications/types"
 
 interface Notification {
@@ -156,7 +158,6 @@ export function NotificationsModal({
   stripeStatus = "not_connected",
   onePagePublished = false
 }: NotificationsModalProps) {
-  const [activeTab, setActiveTab] = useState<"all" | "updates" | "messages" | "opportunities">("all")
   const [isMobile, setIsMobile] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [dbNotifications, setDbNotifications] = useState<DbNotification[]>([])
@@ -184,7 +185,19 @@ export function NotificationsModal({
   useEffect(() => {
     setUnreadOnly(readUnreadOnly())
   }, [])
+  /*
+    TURNING "UNREAD ONLY" ON OR OFF. The list's rows fade in (opacity, 200ms)
+    from the top, rather than changing in a single frame. On a computer the
+    panel is as tall as its content, so a shorter list used to pull its foot
+    up under the pointer that had just pressed the filter; it holds the
+    tallest height it has had since it opened, until it closes. The sheet on
+    a phone has one height already. This is what a switch of tab used to do,
+    and the filter is now the only thing that changes what the list shows.
+  */
   const toggleUnreadOnly = () => {
+    const body = bodyRef.current
+    if (body && !isMobile) body.style.minHeight = `${Math.max(body.offsetHeight, parseFloat(body.style.minHeight) || 0)}px`
+    if (listRef.current) listRef.current.scrollTop = 0
     setUnreadOnly((on) => {
       writeUnreadOnly(!on)
       return !on
@@ -267,14 +280,14 @@ export function NotificationsModal({
   }, [open, isMobile, onOpenChange])
 
   const setupIds = setupNotificationIds({ stripeConnected, stripeStatus, onePagePublished })
-  /* A to-do a server row already says better steps aside ("Set up payments"
-     beside "Stripe paused your payouts"). */
-  const covered = unread.covered ?? []
 
   // Combine generated notifications with database notifications
   const generatedNotifications: Notification[] = []
+  /* A to-do is left out when it was dismissed here, or when a row from the
+     server already says it better ("Set up payments" beside "Stripe paused
+     your payouts"): setupShown in lib/notifications/unread-state.ts. */
   // OnePage setup notification - only show if not published AND not dismissed
-  if (setupIds.includes("onepage-setup") && !unread.dismissed.includes("onepage-setup") && !covered.includes("onepage-setup")) {
+  if (setupIds.includes("onepage-setup") && setupShown("onepage-setup", unread)) {
     generatedNotifications.push({
       id: "onepage-setup",
       type: "opportunity",
@@ -287,8 +300,11 @@ export function NotificationsModal({
       isFromDb: false,
     })
   }
-  // Payment setup notification - only show if not connected AND not dismissed
-  if (setupIds.includes("payment-setup") && !unread.dismissed.includes("payment-setup") && !covered.includes("payment-setup")) {
+  /* Payment setup: shown until Stripe can take a payment. Nothing puts it
+     away, not a tap and not a dismissal from an older build
+     (STAYS_UNTIL_DONE): "if the user needs to connect Stripe to get paid,
+     it must appear in notifications". */
+  if (setupIds.includes("payment-setup") && setupShown("payment-setup", unread)) {
     generatedNotifications.push({
       id: "payment-setup",
       type: "action",
@@ -323,35 +339,28 @@ export function NotificationsModal({
     })),
   ])
 
-  const inTab = notifications.filter((n) => inTabOf(n, activeTab))
-  const filteredNotifications = unreadOnly ? inTab.filter((n) => !n.read) : inTab
+  /*
+    ONE LIST. The panel had four tabs over the list (All, Updates, Messages,
+    Opportunities) and a dark pill that slid between them. "Get rid of those
+    category pills in the notifications modal": every notification is in the
+    one list, most urgent first, and what kind of thing each one is is the
+    word above its title (labelOf in lib/notifications/panel.ts: Payouts,
+    Domains, Reviews, Getting started). "Unread only" is the one filter left.
+  */
+  const filteredNotifications = unreadOnly ? notifications.filter((n) => !n.read) : notifications
   const shownIds = new Set(filteredNotifications.map((n) => n.id))
   const hasUnread = unreadCount(unread, setupIds) > 0 || notifications.some((n) => !n.read)
 
   /*
-    SWITCHING VIEWS. The new view's rows fade in (opacity, 180ms) from the
-    top of the list, rather than replacing the old ones in a single frame.
-    On a computer the panel is as tall as its content, so a view with fewer
-    rows used to pull its foot up under the pointer; it holds the tallest
-    height it has had since it opened, until it closes. The sheet on a phone
-    has one height already.
-  */
-  const switchTab = (id: typeof activeTab) => {
-    if (id === activeTab) return
-    const body = bodyRef.current
-    if (body && !isMobile) body.style.minHeight = `${Math.max(body.offsetHeight, parseFloat(body.style.minHeight) || 0)}px`
-    if (listRef.current) listRef.current.scrollTop = 0
-    setActiveTab(id)
-  }
-  /*
-    EVERY ROW STAYS; A VIEW SHOWS SOME OF THEM. Each switch used to throw the
-    list away and build the next one (a `key` per view), which on a phone's
-    CPU was 60 to 110ms of rendering, styling and layout on the tap, and an
+    EVERY ROW STAYS; THE FILTER SHOWS SOME OF THEM. A change of view (a tab,
+    when there were tabs) used to throw the list away and build the next one,
+    which on a phone's CPU was 60 to 110ms of rendering, styling and layout
+    on the tap, and an
     element put in or taken out under a sheet is also a change the page's
     :has() rules answer by restyling the whole document
     (scripts/check-app-sheets-frames.mjs). Now the rows are all there, the
-    ones not in the view are `hidden`, and the view fades in on the
-    compositor as it did.
+    ones the filter leaves out are `hidden`, and the list fades in on the
+    compositor.
   */
   const viewRef = useRef<HTMLDivElement>(null)
   const emptyRef = useRef<HTMLDivElement>(null)
@@ -364,7 +373,7 @@ export function NotificationsModal({
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
     const el = viewRef.current && !viewRef.current.hidden ? viewRef.current : emptyRef.current
     el?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: "cubic-bezier(0.4, 0, 0.2, 1)" })
-  }, [activeTab, unreadOnly])
+  }, [unreadOnly])
   useEffect(() => {
     if (open) return
     /* After the close has faded, so the panel does not shrink as it goes. */
@@ -373,13 +382,6 @@ export function NotificationsModal({
     }, 240)
     return () => window.clearTimeout(id)
   }, [open])
-
-  const tabs = [
-    { id: "all" as const, labelKey: "notifications.all" },
-    { id: "updates" as const, labelKey: "notifications.updates" },
-    { id: "messages" as const, labelKey: "notifications.messages" },
-    { id: "opportunities" as const, labelKey: "notifications.opportunities" },
-  ]
 
   /**
    * MARK ALL AS READ: at once on screen, then one request that marks every
@@ -462,6 +464,10 @@ export function NotificationsModal({
       } catch (err) {
         console.error("[notifications] Failed to dismiss:", err)
       }
+    } else if (staysUntilDone(notification.id)) {
+      /* "Set up payments": opened and read, and it stays until Stripe is
+         connected, like a critical row. */
+      markSetupNotificationRead(notification.id)
     } else {
       // For generated notifications, remembered in this browser
       dismissSetupNotification(notification.id)
@@ -505,7 +511,7 @@ export function NotificationsModal({
   /**
    * AN ELEMENT, NOT A COMPONENT. This was `const NotificationsContent = () =>`,
    * a new component type on every render, so React threw the whole list away
-   * and built it again each time anything here changed: the tabs, the
+   * and built it again each time anything here changed: the filter, the
    * fetch finishing, a notification dismissed. Mid-animation that is a
    * rebuilt subtree and a list scrolled back to the top.
    */
@@ -516,12 +522,6 @@ export function NotificationsModal({
           {markError}
         </p>
       ) : null}
-      <NotificationTabs
-        tabs={tabs.map((tab) => ({ id: tab.id, label: t(tab.labelKey as any) }))}
-        active={activeTab}
-        onChange={switchTab}
-      />
-
       {/* Notifications list */}
       <div ref={listRef} className="flex flex-1 flex-col overflow-y-auto overscroll-contain min-h-0" data-notifications-list="">
         {isLoading && notifications.length === 0 ? (
@@ -534,7 +534,7 @@ export function NotificationsModal({
             <div
               ref={viewRef}
               hidden={filteredNotifications.length === 0}
-              data-notifications-view={activeTab}
+              data-notifications-view=""
               className="[&>:not([hidden])~:not([hidden])]:border-t [&>:not([hidden])~:not([hidden])]:border-[#f1f2f4]"
             >
               {notifications.map((notification) => (
@@ -616,26 +616,6 @@ export function NotificationsModal({
   )
 }
 
-/** The word before the date on a row: where it came from, not what icon it would have had. */
-function categoryOf(n: Notification): string {
-  if (n.id === "payment-setup") return "Payments"
-  if (n.id === "onepage-setup") return "OnePage"
-  /* A rule names its own area: Payouts, Domains, Emails, Milestone. */
-  if (n.area) return n.area
-  switch (n.type) {
-    case "new_review":
-      return "Reviews"
-    case "message":
-      return "Messages"
-    case "opportunity":
-      return "Opportunities"
-    case "action":
-      return "To do"
-    default:
-      return "Updates"
-  }
-}
-
 /** "Today at 4:03 PM", "Yesterday at 9:12 AM", "Sep 11 at 4:03 PM", with the year only when it is not this one. */
 function whenOf(date: Date): string | null {
   if (!date.getTime()) return null
@@ -654,119 +634,11 @@ function whenOf(date: Date): string | null {
 }
 
 /**
- * THE TABS. A grey pill per view, and the chosen one dark. The dark pill is
- * a second copy of the row, dark with white words, laid exactly over the
- * first and cut to the chosen tab's pill by a clip-path. Moving to another
- * tab moves the cut: the dark pill slides and stretches to its new place,
- * and because the words under it are the white copy's, a word turns white
- * exactly as the pill reaches it. It used to be a pill sliding under words
- * that changed colour on their own clock, so for a moment the new word was
- * white on grey and the old one grey on dark. Measured from the buttons, so
- * a longer word in another language still fits; the first placing does not
- * animate, so the panel never opens with the pill flying in.
- */
-const TAB_MOVE = "clip-path 300ms cubic-bezier(0.32, 0.72, 0, 1)"
-
-function NotificationTabs<T extends string>({
-  tabs,
-  active,
-  onChange,
-}: {
-  tabs: { id: T; label: string }[]
-  active: T
-  onChange: (id: T) => void
-}) {
-  const rowRef = useRef<HTMLDivElement>(null)
-  const pillRef = useRef<HTMLDivElement>(null)
-  const placedRef = useRef(false)
-
-  const place = useCallback((animate: boolean) => {
-    const row = rowRef.current
-    const pill = pillRef.current
-    if (!row || !pill) return
-    const button = row.querySelector<HTMLElement>(`[data-tab="${active}"]`)
-    if (!button || !button.offsetWidth) return
-    const left = button.offsetLeft
-    const right = row.offsetWidth - left - button.offsetWidth
-    pill.style.transition = animate ? TAB_MOVE : "none"
-    pill.style.clipPath = `inset(0px ${right}px 0px ${left}px round 999px)`
-    pill.style.opacity = "1"
-    placedRef.current = true
-  }, [active])
-
-  useLayoutEffect(() => {
-    const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-    place(placedRef.current && !calm)
-  }, [place])
-
-  /* The words can change width after the first paint (the font arriving, a
-     language switch, the panel going from hidden to shown): follow them
-     without animating. One observer for the row's life, reading the latest
-     placing: a new observer per tab reported the row's size at once, and
-     that report placed the pill again without its move, so it jumped. */
-  const placeRef = useRef(place)
-  placeRef.current = place
-  useEffect(() => {
-    const row = rowRef.current
-    if (!row || typeof ResizeObserver === "undefined") return
-    let first = true
-    const ro = new ResizeObserver(() => {
-      if (first) {
-        first = false
-        return
-      }
-      placeRef.current(false)
-    })
-    ro.observe(row)
-    /* The typeface can land between the first placing and the observer's
-       first report, which is skipped: the pill then kept the fallback
-       face's width and cut into "All". Placed again once fonts are in. */
-    let live = true
-    document.fonts?.ready.then(() => live && placeRef.current(false)).catch(() => undefined)
-    return () => {
-      live = false
-      ro.disconnect()
-    }
-  }, [])
-
-  const word = "whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium md:px-2.5"
-  return (
-    <div className="shrink-0 overflow-x-auto border-b border-[#eef0f2] px-4 py-3 scrollbar-hide">
-      <div ref={rowRef} role="tablist" aria-label="Notification views" className="relative isolate flex w-max items-center gap-2 md:gap-1.5">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={tab.id === active}
-            data-tab={tab.id}
-            onClick={() => onChange(tab.id)}
-            className={cn("group relative cursor-pointer outline-none focus-visible:shadow-[0_0_0_2px_#ffffff,0_0_0_4px_#1a1a2e]", word)}
-          >
-            <span aria-hidden="true" className="absolute inset-0 z-0 rounded-full bg-[#f3f4f6] transition-colors duration-150 group-hover:bg-[#e9eaed]" />
-            <span className="relative z-[1] text-[#4b5563] transition-colors duration-150 group-hover:text-[#1a1a2e]">{tab.label}</span>
-          </button>
-        ))}
-        <div
-          ref={pillRef}
-          aria-hidden="true"
-          data-tab-pill=""
-          className="pointer-events-none absolute inset-0 z-[2] flex items-center gap-2 bg-[#1a1a2e] opacity-0 md:gap-1.5"
-        >
-          {tabs.map((tab) => (
-            <span key={tab.id} className={cn(word, "text-white")}>
-              {tab.label}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/**
  * A ROW. No icon: where it came from and when, on one quiet line, then what
- * happened, then the detail. An unread row has a dot at its start and a
+ * happened, then the detail. That first line is the only place a row's kind
+ * is said now the tabs are gone, so every row has one: a rule's own area
+ * (Payouts, Domains), or a word for its type or category, never blank
+ * (labelOf). An unread row has a dot at its start and a
  * light grey ground, and a check on the right marks it read without leaving
  * the list. The whole row is the link when it goes somewhere; the check sits
  * above that link, so pressing it never navigates.
@@ -835,7 +707,7 @@ function NotificationItem({
             />
           ) : null}
           {tone === "critical" ? <span className="sr-only">Needs you now: </span> : null}
-          <span className={cn("truncate", tone === "critical" && "font-medium text-[#b42318]")}>{categoryOf(notification)}</span>
+          <span data-notification-label="" className={cn("truncate", tone === "critical" && "font-medium text-[#b42318]")}>{labelOf(notification)}</span>
           {when ? <span className="shrink-0 px-1.5 text-[#b6bac1]">&bull;</span> : null}
           {when ? <span className="shrink-0">{when}</span> : null}
         </p>

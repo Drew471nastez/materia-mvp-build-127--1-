@@ -20,6 +20,16 @@
  *     localStorage, as dismissing them always was. One steps aside when the
  *     server says a row of its own covers it (`covered`).
  *
+ * "SET UP PAYMENTS" CANNOT BE PUT AWAY. "If the user needs to connect Stripe
+ * to get paid, it must appear in notifications." A tap on it used to dismiss
+ * it for good in that browser, so a creator who opened Payments once and
+ * left without finishing never saw it again. It is in STAYS_UNTIL_DONE now:
+ * a tap marks it read, it stays in the list, and a dismissal an older build
+ * wrote to localStorage is ignored. It goes when Stripe is connected
+ * (setupNotificationIds stops naming it) or when a server row says the same
+ * thing better (`covered`: payouts_not_connected, stripe_restricted,
+ * stripe_requirements_due in lib/notifications/rules).
+ *
  * Every localStorage read and write is in a try/catch: a private window, a
  * blocked site or a full quota gives an empty list, never a crash.
  *
@@ -104,10 +114,26 @@ export function setupNotificationIds(opts: { stripeConnected: boolean; stripeSta
   return ids
 }
 
+/** Browser-made to-dos that stay until they are done: a tap reads them, nothing dismisses them. */
+export const STAYS_UNTIL_DONE: readonly string[] = ["payment-setup"]
+
+export function staysUntilDone(id: string): boolean {
+  return STAYS_UNTIL_DONE.includes(id)
+}
+
+/**
+ * Whether a browser-made to-do the creator has (setupNotificationIds) is in
+ * the list: not dismissed here, unless it is one that stays until done, and
+ * not covered by a server row.
+ */
+export function setupShown(id: string, state: Pick<UnreadState, "dismissed" | "covered">): boolean {
+  if ((state.covered ?? []).includes(id)) return false
+  return staysUntilDone(id) || !state.dismissed.includes(id)
+}
+
 /** The number on the bell. */
 export function unreadCount(state: UnreadState, setupIds: readonly string[]): number {
-  const covered = state.covered ?? []
-  const local = setupIds.filter((id) => !state.dismissed.includes(id) && !state.read.includes(id) && !covered.includes(id)).length
+  const local = setupIds.filter((id) => setupShown(id, state) && !state.read.includes(id)).length
   return local + Math.max(0, state.dbUnread)
 }
 
@@ -203,7 +229,9 @@ export function markSetupNotificationRead(id: string): void {
   if (!state.read.includes(id)) setUnreadState({ ...state, read: [...state.read, id] })
 }
 
+/** Put away for good in this browser; one that stays until done is only read. */
 export function dismissSetupNotification(id: string): void {
+  if (staysUntilDone(id)) return markSetupNotificationRead(id)
   if (!state.dismissed.includes(id)) setUnreadState({ ...state, dismissed: [...state.dismissed, id] })
 }
 

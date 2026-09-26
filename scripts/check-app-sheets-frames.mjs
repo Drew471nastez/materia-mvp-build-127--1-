@@ -314,7 +314,7 @@ async function run(file) {
   /* ── Notifications ── */
   await rec("notifications: open", () => tap(s, "#bell"), 900)
   await rec("notifications: drag", () => drag(s), 1400)
-  for (const label of ["Updates", "Messages", "Opportunities", "All"]) await rec(`notifications: tab ${label}`, () => tapText(s, "[data-app-sheet='open']", label), 450)
+  /* No tabs any more ("get rid of those category pills"): Unread only is the one change of view. */
   await rec("notifications: unread only", () => tap(s, "[data-app-sheet='open'] [data-notifications-filter]"), 450)
   await rec("notifications: all again", () => tap(s, "[data-app-sheet='open'] [data-notifications-filter]"), 450)
   await rec("notifications: close", () => tapScrim(s), 700)

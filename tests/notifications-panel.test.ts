@@ -14,6 +14,10 @@
  *      signed in user.
  *   5. The panel's buttons: pressed state, tooltips, disabled with nothing
  *      unread, the empty state in words.
+ *   6. One list, no tabs: "get rid of those category pills". Every row says
+ *      what kind of thing it is on the line above its title, and never
+ *      leaves that line blank.
+ *   7. "Set up payments" cannot be put away until Stripe is connected.
  *
  * The pixels (32px buttons, 44px on a phone, tooltips on a computer only, no
  * shift when toggled) are measured by scripts/check-notifications-panel.mjs.
@@ -29,12 +33,14 @@ import {
   setDbUnread,
   setUnreadState,
   setupNotificationIds,
+  setupShown,
+  staysUntilDone,
   subscribeUnread,
   unreadCount,
   writeIds,
   writeUnreadOnly,
 } from "@/lib/notifications/unread-state"
-import { inTabOf, panelHref, panelOrder, staysOnOpen, toneOf } from "@/lib/notifications/panel"
+import { labelOf, panelHref, panelOrder, staysOnOpen, toneOf } from "@/lib/notifications/panel"
 
 let passed = 0
 let failed = 0
@@ -72,9 +78,23 @@ check("payments still, while Stripe is connected but not enabled", setupNotifica
 console.log("\nThe number on the bell")
 const both = ["onepage-setup", "payment-setup"]
 check("two to-dos and three unread rows is five", unreadCount({ dbUnread: 3, dismissed: [], read: [] }, both) === 5)
-check("a dismissed to-do is not counted", unreadCount({ dbUnread: 0, dismissed: ["payment-setup"], read: [] }, both) === 1)
+check("a dismissed to-do is not counted", unreadCount({ dbUnread: 0, dismissed: ["onepage-setup"], read: [] }, both) === 1)
 check("nor a read one", unreadCount({ dbUnread: 0, dismissed: [], read: ["onepage-setup"] }, both) === 1)
-check("a count below nothing is nothing", unreadCount({ dbUnread: -2, dismissed: both, read: [] }, both) === 0)
+check("a count below nothing is nothing", unreadCount({ dbUnread: -2, dismissed: ["onepage-setup"], read: ["payment-setup"] }, both) === 0)
+
+console.log("\nSet up payments stays until Stripe is connected")
+check("it is one of the to-dos that stay until done, and OnePage is not", staysUntilDone("payment-setup") && !staysUntilDone("onepage-setup"))
+check("a dismissal an older build wrote is ignored: it is listed and counted", setupShown("payment-setup", { dismissed: ["payment-setup"] }) && unreadCount({ dbUnread: 0, dismissed: ["payment-setup"], read: [] }, both) === 2)
+check("read, it stays listed and is not counted", setupShown("payment-setup", { dismissed: [] }) && unreadCount({ dbUnread: 0, dismissed: ["onepage-setup"], read: ["payment-setup"] }, both) === 0)
+check("a server row that says it better still takes its place", !setupShown("payment-setup", { dismissed: [], covered: ["payment-setup"] }))
+check("connected, it is gone: the creator no longer has it", !setupNotificationIds({ stripeConnected: true, stripeStatus: "connected", onePagePublished: true }).includes("payment-setup"))
+{
+  const store = readCode("lib/notifications/unread-state.ts")
+  check("dismissing it only marks it read", /if \(staysUntilDone\(id\)\) return markSetupNotificationRead\(id\)/.test(store))
+  const modal = readCode("components/app/notifications-modal.tsx")
+  check("a tap on it in the panel marks it read and keeps it, like a critical row", /\} else if \(staysUntilDone\(notification\.id\)\) \{[\s\S]{0,200}markSetupNotificationRead\(notification\.id\)/.test(modal))
+  check("the panel lists the to-dos through the same rule the bell counts by", (modal.match(/setupShown\("(payment|onepage)-setup", unread\)/g) ?? []).length === 2)
+}
 
 console.log("\nMark all as read, and its way back")
 {
@@ -151,19 +171,23 @@ console.log("\nWhat the rules engine writes: first, filed, marked, and covering 
   ]
   const order = panelOrder(items).map((n) => n.id).join()
   check("critical first by priority, then the problem, the next step, then the rest newest first", order === "stripe,payout,file,onepage-setup,coupon,sale10,review", order)
-  const tab = (id: "updates" | "opportunities" | "messages") => panelOrder(items).filter((n) => inTabOf(n, id)).map((n) => n.id).join()
-  check("Updates: what happened on the account", tab("updates") === "stripe,payout,file,sale10,review", tab("updates"))
-  check("Opportunities: what to do next", tab("opportunities") === "onepage-setup,coupon", tab("opportunities"))
-  check("Messages: messages only", tab("messages") === "" && inTabOf({ type: "message", category: null }, "messages"))
-  check("rows from before categories are filed by their type as before", inTabOf({ type: "update", category: null }, "updates") && inTabOf({ type: "opportunity", category: null }, "opportunities") && inTabOf({ type: "action", category: null }, "opportunities"))
+  /* The tabs are gone: one list, and the word above each title says what it is. */
+  const labelled = panelOrder(items.map((n) => ({ ...n, area: ({ stripe: "Payouts", payout: "Payouts", file: "Products", coupon: "Opportunities", sale10: "Milestone" } as Record<string, string>)[n.id] ?? null })))
+  check("one list: every kind is in it, in the panel's order, none filed away", labelled.map((n) => n.id).join() === "stripe,payout,file,onepage-setup,coupon,sale10,review")
+  check("every row has a label above its title, what it is", labelled.map((n) => labelOf(n)).join() === "Payouts,Payouts,Products,OnePage,Opportunities,Milestone,Reviews", labelled.map((n) => labelOf(n)))
+  check("Messages: a message says so", labelOf({ id: "m", type: "message", category: null }) === "Messages")
+  check("rows from before categories are labelled by their type as before", labelOf({ id: "a", type: "update", category: null }) === "Updates" && labelOf({ id: "b", type: "opportunity", category: null }) === "Opportunities" && labelOf({ id: "c", type: "action", category: null }) === "To do" && labelOf({ id: "d", type: "new_sale", category: null }) === "Sales")
+  check("an engine row without its area falls back to its category, and nothing is ever blank",
+    labelOf({ id: "e", type: "critical", category: "critical", area: "  " }) === "Account" && labelOf({ id: "f", type: "next_step", category: "next_step" }) === "Getting started"
+      && labelOf({ id: "g", type: "something_new", category: null }) === "Updates" && labelOf({ id: "payment-setup", type: "action", category: "next_step" }) === "Payments")
   check("critical is red, a problem amber, the rest untoned", toneOf({ category: "critical" }) === "critical" && toneOf({ category: "problem" }) === "problem" && toneOf({ category: "milestone" }) === null && toneOf({ category: null }) === null)
   check("a tap keeps critical rows, problems and digests (read, until fixed); anything else is put away", staysOnOpen({ category: "critical" }) && staysOnOpen({ category: "problem" }) && staysOnOpen({ category: "opportunity", kind: "opportunity_digest" }) && !staysOnOpen({ category: "milestone" }) && !staysOnOpen({ category: null }))
   check("links stay on this site", panelHref("/app/payouts") === "/app/payouts" && panelHref("/p/x#testimonials") === "/p/x#testimonials" && panelHref("https://evil.example") === undefined && panelHref("//evil.example") === undefined && panelHref(null) === undefined)
   check("a to-do the server covers is not counted on the bell", unreadCount({ dbUnread: 1, dismissed: [], read: [], covered: ["payment-setup"] }, both) === 2 && unreadCount({ dbUnread: 1, dismissed: [], read: [] }, both) === 3)
 
   const panel = readCode("components/app/notifications-modal.tsx")
-  check("the panel orders and files through those rules", /panelOrder\(\[/.test(panel) && /inTab = notifications\.filter\(\(n\) => inTabOf\(n, activeTab\)\)/.test(panel))
-  check("a covered to-do steps aside in the list too", /!covered\.includes\("payment-setup"\)/.test(panel) && /setCovered\(data\.covered\)/.test(panel))
+  check("the panel orders through those rules, and filters by unread only", /panelOrder\(\[/.test(panel) && /const filteredNotifications = unreadOnly \? notifications\.filter\(\(n\) => !n\.read\) : notifications/.test(panel))
+  check("a covered to-do steps aside in the list too", /setupShown\("payment-setup", unread\)/.test(panel) && /if \(\(state\.covered \?\? \[\]\)\.includes\(id\)\) return false/.test(readCode("lib/notifications/unread-state.ts")) && /setCovered\(data\.covered\)/.test(panel))
   check("critical: a 6px dot and the word in red, no red ground", /mr-1\.5 h-1\.5 w-1\.5 shrink-0 rounded-full", tone === "critical" \? "bg-\[#d92d20\]" : "bg-\[#dc6803\]"/.test(panel) && /tone === "critical" && "font-medium text-\[#b42318\]"/.test(panel) && !/bg-red-|bg-\[#fe[ef]|bg-\[#fd/.test(panel.slice(panel.indexOf("function NotificationItem("), panel.indexOf("export function NotificationBadge"))))
   check("a tap on a row that stays marks it read instead of putting it away", /if \(notification\.isFromDb && staysOnOpen\(notification\)\) \{\s*[\s\S]{0,200}void handleMarkRead\(notification\)/.test(panel))
   check("a digest draws its lines as links", /data-notification-digest=""/.test(panel) && /notification\.items\.map/.test(panel))
@@ -191,7 +215,7 @@ console.log("\nThe panel")
   const panel = readCode("components/app/notifications-modal.tsx")
   check("an Unread only toggle that says whether it is on", /label="Unread only"/.test(panel) && /aria-pressed=\{pressed\}/.test(panel) && /pressed=\{unreadOnly\}/.test(panel))
   check('its tooltip says what a press will do: "Show unread only" or "Show all"', /tip=\{unreadOnly \? "Show all" : "Show unread only"\}/.test(panel))
-  check("it filters the list", /unreadOnly \? inTab\.filter\(\(n\) => !n\.read\) : inTab/.test(panel))
+  check("it filters the list", /unreadOnly \? notifications\.filter\(\(n\) => !n\.read\) : notifications/.test(panel))
   check("remembered through the storage helpers", /readUnreadOnly\(\)/.test(panel) && /writeUnreadOnly\(!on\)/.test(panel) && !/localStorage/.test(panel))
   check("Mark all as read, with its tooltip", /label="Mark all as read"/.test(panel) && /tip="Mark all as read"/.test(panel))
   check("disabled with nothing unread, and while it works", /disabled=\{!hasUnread \|\| marking\}/.test(panel))
@@ -207,21 +231,23 @@ console.log("\nThe panel")
       && /\{unreadOnly \? "No unread notifications" : t\("notifications\.empty"\)\}/.test(panel)
       && !/w-14 h-14 rounded-full/.test(panel) && !/w-7 h-7/.test(panel) && !/notifications\.emptyDesc/.test(panel))
   check("both bells read the live count", (readCode("components/app/sidebar.tsx").match(/<LiveNotificationBadge \{\.\.\.badgeProps\} \/>/g) ?? []).length === 2)
-  /* "Remove the X close button. Replace the purple unread dot with a more refined modern circle. Switching between All / Updates / Messages / Opportunities must be smooth." */
+  /* "Remove the X close button. Replace the purple unread dot with a more refined modern circle." */
   check("no close button: outside, Escape or a drag down closes it", !/label="Close"/.test(panel) && !/\bX\b[^"]*from "lucide-react"/.test(panel) && /onClose=\{closeSheet\}/.test(panel) && /if \(e\.key === "Escape"\) onOpenChange\(false\)/.test(panel))
   check("an unread row's mark is a near black bead with a soft ring and a touch of light, shrinking away when read; nothing violet in the panel",
     /bg-\[#111113\] shadow-\[0_0_0_3px_rgba\(17,17,19,0\.07\),inset_0_1px_0\.5px_rgba\(255,255,255,0\.28\)\]/.test(panel) && /unread \? "scale-100 opacity-100" : "scale-50 opacity-0"/.test(panel) && !/8b5cf6/.test(panel))
-  check("the chosen tab is a dark copy of the row cut to its pill, and a switch moves the cut, so each word turns white as the pill reaches it",
-    /pill\.style\.clipPath = `inset\(0px \$\{right\}px 0px \$\{left\}px round 999px\)`/.test(panel) && /const TAB_MOVE = "clip-path 300ms cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(panel)
-      && /data-tab-pill=""[\s\S]{0,200}bg-\[#1a1a2e\]/.test(panel) && !/selected \? "text-white"/.test(panel))
-  check("one resize observer for the row's life, so a switch is never placed again without its move", /placeRef\.current\(false\)/.test(panel) && /ro\.observe\(row\)[\s\S]{0,500}?return \(\) => \{\s*live = false\s*ro\.disconnect\(\)\s*\}\s*\}, \[\]\)/.test(panel) && (panel.match(/new ResizeObserver/g) ?? []).length === 1)
-  /* The pill cut into "All" when the typeface landed between the first placing and the observer's first report. */
-  check("and placed again, unanimated, once the typeface is in", /document\.fonts\?\.ready\.then\(\(\) => live && placeRef\.current\(false\)\)/.test(panel))
-  /* The rows are kept and a view shows some of them (`hidden`), so a switch builds nothing on the tap
-     (scripts/check-app-sheets-frames.mjs); the view still fades in, on the compositor, and never on reduced motion. */
-  check("the new view's rows fade in from the top, and a computer's panel keeps its height until it closes",
-    /hidden=\{!shownIds\.has\(notification\.id\)\}/.test(panel) && !/key=\{activeTab\}/.test(panel)
+  /* "Get rid of those category pills/tabs in the notifications modal. Above each notification there should be the category." */
+  check("no tabs over the list: no tab row, no sliding pill, no view to switch, on a computer or a phone",
+    !/role="tablist"|role="tab"|data-tab-pill|data-tab=|NotificationTabs|activeTab|switchTab|TAB_MOVE/.test(panel) && !/notifications\.(all|updates|messages|opportunities)"/.test(panel))
+  check("nothing left measuring the tabs: no resize observer, no wait on the typeface", !/new ResizeObserver/.test(panel) && !/document\.fonts/.test(panel))
+  check("every row says what it is above its title, before the date",
+    /<span data-notification-label="" className=\{cn\("truncate"[^>]*>\{labelOf\(notification\)\}<\/span>/.test(panel)
+      && panel.indexOf("data-notification-label") < panel.indexOf('unread ? "font-semibold" : "font-medium")}>\n          {notification.title}') && !/function categoryOf\(/.test(panel))
+  /* The rows are kept and the filter shows some of them (`hidden`), so a press builds nothing
+     (scripts/check-app-sheets-frames.mjs); the list still fades in, on the compositor, and never on reduced motion. */
+  check("Unread only fades the list in from the top, and a computer's panel keeps its height until it closes",
+    /hidden=\{!shownIds\.has\(notification\.id\)\}/.test(panel)
       && /el\?\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: 200/.test(panel) && /prefers-reduced-motion: reduce\)"\)\.matches\) return/.test(panel)
+      && /\}, \[unreadOnly\]\)/.test(panel)
       && /if \(listRef\.current\) listRef\.current\.scrollTop = 0/.test(panel)
       && /body\.style\.minHeight = `\$\{Math\.max\(body\.offsetHeight, parseFloat\(body\.style\.minHeight\) \|\| 0\)\}px`/.test(panel))
   check("no glass or gradient on the panel", !/backdrop-blur|bg-gradient/.test(panel))

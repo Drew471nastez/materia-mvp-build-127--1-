@@ -47,6 +47,12 @@ const MAX_PAGES = 10
 /** Queries a batch runs side by side. */
 const PARALLEL = 6
 
+const CREATOR_COLUMNS = "id, user_id, created_at, stripe_account_id, charges_enabled, payouts_enabled, details_submitted, bio, avatar_url"
+/** Whether checkout would take a card, and the plan's payment state. */
+const CREATOR_STATE_COLUMNS = "stripe_onboarding_status, subscription_plan_id, subscription_status"
+const PRODUCT_COLUMNS = "id, creator_id, title, status, type, created_at"
+const PRODUCT_PRICE_COLUMNS = "price_cents, pay_what_you_want"
+
 const iso = (ms: number) => new Date(ms).toISOString()
 const day = (ms: number) => iso(ms).slice(0, 10)
 
@@ -134,9 +140,13 @@ export function supabaseSnapshots(db: Db, options: { probeHttps?: (host: string)
       }
 
       /* ─── The creator, always: whose rows these are ─────────────── */
-      const creators = await readAll(() =>
-        db.from("creators").select("id, user_id, created_at, stripe_account_id, charges_enabled, payouts_enabled, details_submitted, bio, avatar_url").in("id", ids).order("id"),
-      )
+      /* The onboarding and plan columns are read beside the rest, and if a
+         database does not have one of them the creator is read without
+         them: those facts are then unknown (payouts_not_connected falls back
+         to the two switches, pro_payment_failed cannot tell), rather than
+         every rule losing its creator. */
+      const creatorsOf = (columns: string) => readAll(() => db.from("creators").select(columns).in("id", ids).order("id"))
+      const creators = (await creatorsOf(`${CREATOR_COLUMNS}, ${CREATOR_STATE_COLUMNS}`)) ?? (await creatorsOf(CREATOR_COLUMNS))
       if (!creators) return snaps
       const userIds = creators.map((c) => c.user_id).filter(Boolean)
       /* The profile whole: a database without profiles.timezone yet still answers. */
@@ -159,6 +169,8 @@ export function supabaseSnapshots(db: Db, options: { probeHttps?: (host: string)
           chargesEnabled: typeof c.charges_enabled === "boolean" ? c.charges_enabled : null,
           payoutsEnabled: typeof c.payouts_enabled === "boolean" ? c.payouts_enabled : null,
           detailsSubmitted: typeof c.details_submitted === "boolean" ? c.details_submitted : null,
+          ...("stripe_onboarding_status" in c ? { onboardingStatus: c.stripe_onboarding_status ?? null } : {}),
+          ...("subscription_status" in c ? { subscriptionPlan: c.subscription_plan_id ?? null, subscriptionStatus: c.subscription_status ?? null } : {}),
           hasAvatar: !!(p?.avatar_url || c.avatar_url || page?.avatar_url),
           hasBio: !!(c.bio || page?.bio),
           timeZone: validTimeZone(p?.timezone),
@@ -168,17 +180,27 @@ export function supabaseSnapshots(db: Db, options: { probeHttps?: (host: string)
 
       /* ─── Products and their files ──────────────────────────────── */
       if (want("products") || want("files") || want("traffic") || want("reviews")) {
-        const read = await readByCreator(
-          () => db.from("products").select("id, creator_id, title, status, type, created_at").in("creator_id", ids).order("creator_id").order("created_at", { ascending: true }).order("id"),
-          ids,
-        )
+        /* With the price, which says whether a product needs Stripe at all;
+           without it, on a database that lacks a price column, every
+           product counts as paid. */
+        const productsOf = (columns: string) =>
+          readByCreator(() => db.from("products").select(columns).in("creator_id", ids).order("creator_id").order("created_at", { ascending: true }).order("id"), ids)
+        const read = (await productsOf(`${PRODUCT_COLUMNS}, ${PRODUCT_PRICE_COLUMNS}`)) ?? (await productsOf(PRODUCT_COLUMNS))
         const products = read?.rows ?? null
         if (read && products) {
           each((s, id) => {
             if (read.known.has(id)) s.products = []
           })
           for (const p of products) {
-            snaps.get(p.creator_id)?.products?.push({ id: p.id, title: p.title ?? "", status: p.status ?? null, type: p.type ?? null, createdAt: p.created_at ?? null } satisfies ProductFacts)
+            snaps.get(p.creator_id)?.products?.push({
+              id: p.id,
+              title: p.title ?? "",
+              status: p.status ?? null,
+              type: p.type ?? null,
+              createdAt: p.created_at ?? null,
+              priceCents: typeof p.price_cents === "number" ? p.price_cents : p.price_cents == null ? null : Number(p.price_cents),
+              payWhatYouWant: typeof p.pay_what_you_want === "boolean" ? p.pay_what_you_want : null,
+            } satisfies ProductFacts)
           }
           if (want("files")) {
             const digital = products.filter((p) => p.status === "published" && p.type === "digital").map((p) => p.id as string)
@@ -465,6 +487,23 @@ export function supabaseSnapshots(db: Db, options: { probeHttps?: (host: string)
             seen.add(key)
             const product = r.products as Row | null
             snaps.get(product?.creator_id)?.undelivered?.push({ orderId: r.id, createdAt: r.created_at, productTitle: product?.title ?? null })
+          }
+        }
+      }
+
+      /* ─── The website in the builder ────────────────────────────── */
+      if (want("website")) {
+        const rows = await readAll(() =>
+          db.from("store_theme_installs").select("creator_id, status, created_at").in("creator_id", ids).order("creator_id").order("id"),
+        )
+        if (rows) {
+          each((s) => (s.website = { live: false, unpublished: false, draftSince: null }))
+          for (const r of rows) {
+            const w = snaps.get(r.creator_id)?.website
+            if (!w) continue
+            if (r.status === "published") w.live = true
+            else if (r.status === "unpublished") w.unpublished = true
+            else if (r.created_at && (!w.draftSince || r.created_at < w.draftSince)) w.draftSince = r.created_at
           }
         }
       }
