@@ -349,7 +349,9 @@ section("The page")
         /border border-\[#d9dbe0\] bg-white font-medium/.test(depthSrc) && /shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\),0_1px_0_rgba\(0,0,0,0\.05\)\]/.test(depthSrc) &&
         !/grayDepth/.test(src) && !/export const grayDepth/.test(depthSrc))
     check("  every depth button draws its keyboard outline: Tailwind 4's outline-none sets the style outline-2 reads to none",
-      (depthSrc.match(/"focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2/g) ?? []).length === 4 &&
+      /* One per exported depth (secondary, icon, primary, the violet accent, critical), not a fixed count. */
+      (depthSrc.match(/"focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2/g) ?? []).length === (depthSrc.match(/export const \w+Depth = cn\(/g) ?? []).length &&
+      (depthSrc.match(/export const \w+Depth = cn\(/g) ?? []).length >= 4 &&
         !/focus-visible:outline-2 focus-visible:outline-offset-2/.test(depthSrc))
     check("  View says View with an eye on a phone and View website from 640px, named View website at every width",
       /function ViewLabel\(\) \{[\s\S]{0,200}<Eye aria-hidden className="h-4 w-4 text-\[#4b5563\] sm:hidden"[\s\S]{0,120}<span className="sm:hidden">View<\/span>\s*<span className="hidden sm:inline">View website<\/span>/.test(src) &&
