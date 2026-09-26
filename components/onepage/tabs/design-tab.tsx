@@ -29,6 +29,7 @@ import {
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { usePhone } from "@/components/app/date-range-picker"
 import { secondaryDepth } from "@/components/ui/depth-button"
@@ -3231,6 +3232,62 @@ function WallpaperSection() {
  * drawn in its own face from one small request (FONT_SAMPLE_HREF), so the
  * list costs a few kilobytes, not forty fonts.
  */
+/**
+ * ===========================================================================
+ *  A FONT'S NAME, DRAWN IN ITS OWN FACE ONCE THAT FACE IS HERE
+ * ===========================================================================
+ * The list names some forty families, each drawn in itself from one small
+ * stylesheet cut to the letters of the names (FONT_SAMPLE_HREF). Drawing all
+ * of them the moment the list opened asked for every face at once and
+ * re-laid each row as its face arrived: the open stuttered. Now a row asks
+ * for its face only when it scrolls into view, is drawn in the app's own
+ * face, a little faded, until the face has loaded, and then takes it. A face
+ * that has loaded once is remembered for the visit, so a second open is drawn
+ * in the right faces from its first frame.
+ */
+const loadedFaces = new Set<string>()
+function FontSample({ family, text, className }: { family: string; text: string; className?: string }) {
+  const face = familyOf(family)
+  const ref = useRef<HTMLSpanElement>(null)
+  const [ready, setReady] = useState(() => !face || loadedFaces.has(face) || typeof document === "undefined" || !("fonts" in document))
+  useEffect(() => {
+    if (ready || !face) return
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === "undefined") {
+      setReady(true)
+      return
+    }
+    let gone = false
+    const done = () => {
+      loadedFaces.add(face)
+      if (!gone) setReady(true)
+    }
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return
+      io.disconnect()
+      document.fonts.load(`17px "${face}"`, text).then(done, done)
+    }, { rootMargin: "160px 0px" })
+    io.observe(el)
+    return () => {
+      gone = true
+      io.disconnect()
+    }
+  }, [ready, face, text])
+  return (
+    <span ref={ref} data-font-sample={ready ? "ready" : "waiting"} className={cn(className, "transition-opacity duration-200 ease-out", ready ? "opacity-100" : "opacity-50")} style={ready ? { fontFamily: fontStack(family) } : undefined}>
+      {text}
+    </span>
+  )
+}
+
+/**
+ * THE FONT PICKER. On a phone, the app's own sheet (components/ui/bottom-sheet),
+ * built while the page is idle and kept (keepMounted), so the tap that opens
+ * it only moves it; it sits on the keyboard when the search is typed in. On a
+ * computer, a dropdown under the field rather than a dialog over the page:
+ * no scrim, no page behind it to dim, and the list is where the eye already
+ * is. Either way the rows draw their faces as they come into view (above).
+ */
 function FontPicker({
   label,
   description,
@@ -3253,6 +3310,7 @@ function FontPicker({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [family, setFamily] = useState("all")
+  const listRef = useRef<HTMLDivElement>(null)
   const current = fonts.find((f) => f.value === value)
   const name = value ? current?.name || familyOf(value) || value : defaultLabel || "Default"
   const withCategories = fonts.some((f) => f.category)
@@ -3260,6 +3318,19 @@ function FontPicker({
   const choose = (v: string | null) => {
     onPick(v)
     setOpen(false)
+  }
+  const openPicker = () => {
+    setQuery("")
+    setFamily("all")
+    setOpen(true)
+    /* A kept sheet keeps its scroll: start at the chosen one. */
+    requestAnimationFrame(() => {
+      const box = listRef.current
+      if (!box) return
+      const on = box.querySelector<HTMLElement>('[aria-selected="true"]')
+      const at = on ? on.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop : 0
+      box.scrollTop = at > box.clientHeight - 60 ? at - 56 : 0
+    })
   }
   const list = (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -3283,7 +3354,7 @@ function FontPicker({
           </div>
         ) : null}
       </div>
-      <div role="listbox" aria-label={label} className="min-h-0 flex-1 overflow-y-auto border-t border-[#eef0f2] px-2 py-2 pb-[max(8px,env(safe-area-inset-bottom))]">
+      <div ref={listRef} role="listbox" aria-label={label} className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-[#eef0f2] px-2 py-2 pb-[max(8px,env(safe-area-inset-bottom))]">
         {shown.length === 0 ? <p className="px-3 py-6 text-center text-[14px] text-[#6b7280]">No font by that name</p> : null}
         {shown.map((f) => {
           const on = f.value === value
@@ -3295,10 +3366,10 @@ function FontPicker({
               aria-selected={on}
               onClick={() => choose(f.value)}
               data-font-option={f.name}
-              className={cn("flex min-h-[52px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left transition-colors", on ? "bg-[#f1f2f4]" : "hover:bg-[#f7f7f8]")}
+              className={cn("flex min-h-[52px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-left transition-colors duration-150", on ? "bg-[#f1f2f4]" : "hover:bg-[#f7f7f8] active:bg-[#f1f2f4]")}
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[17px] text-[#1a1a2e]" style={{ fontFamily: fontStack(f.value || sampleFamily) }}>{f.name}</span>
+                <FontSample family={f.value || sampleFamily} text={f.name} className="block truncate text-[17px] leading-[1.35] text-[#1a1a2e]" />
                 {f.style ? <span className="block truncate text-[12.5px] text-[#6b7280]">{f.style}</span> : null}
               </span>
               {on ? <Check className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={2} aria-hidden /> : null}
@@ -3308,36 +3379,49 @@ function FontPicker({
       </div>
     </div>
   )
+  const trigger = (
+    <button
+      type="button"
+      onClick={openPicker}
+      data-font-picker={label}
+      aria-haspopup="listbox"
+      aria-expanded={open}
+      className="flex min-h-[64px] w-full cursor-pointer items-center gap-4 rounded-2xl border border-[#e3e4e8] bg-white px-4 py-3 text-left transition-colors hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] outline-none"
+    >
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f4f4f6] text-[20px] text-[#1a1a2e]" style={{ fontFamily: fontStack(value || sampleFamily) }} aria-hidden>Aa</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] text-[#6b7280]">{label}</span>
+        <span className="block truncate text-[16px] font-medium text-[#1a1a2e]" style={{ fontFamily: fontStack(value || sampleFamily) }}>{name}</span>
+      </span>
+      <ChevronRight className={cn("h-5 w-5 shrink-0 text-[#1a1a2e] transition-[rotate] duration-200", !phone && open && "rotate-90")} strokeWidth={1.75} aria-hidden />
+    </button>
+  )
+  if (phone) {
+    return (
+      <>
+        {trigger}
+        {description ? <p className="mt-2 text-[13.5px] text-[#6b7280]">{description}</p> : null}
+        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={label} fill height="min(80dvh, 640px)" aboveKeyboard keepMounted>
+          <div className="flex h-full min-h-0 flex-col pt-2" data-font-sheet="">{list}</div>
+        </BottomSheet>
+      </>
+    )
+  }
   return (
     <>
-      <button
-        type="button"
-        onClick={() => { setQuery(""); setFamily("all"); setOpen(true) }}
-        data-font-picker={label}
-        className="flex min-h-[64px] w-full cursor-pointer items-center gap-4 rounded-2xl border border-[#e3e4e8] bg-white px-4 py-3 text-left transition-colors hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] outline-none"
-      >
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f4f4f6] text-[20px] text-[#1a1a2e]" style={{ fontFamily: fontStack(value || sampleFamily) }} aria-hidden>Aa</span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[13px] text-[#6b7280]">{label}</span>
-          <span className="block truncate text-[16px] font-medium text-[#1a1a2e]" style={{ fontFamily: fontStack(value || sampleFamily) }}>{name}</span>
-        </span>
-        <ChevronRight className="h-5 w-5 shrink-0 text-[#1a1a2e]" strokeWidth={1.75} aria-hidden />
-      </button>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverContent
+          align="start"
+          sideOffset={8}
+          collisionPadding={12}
+          data-font-popover=""
+          className="flex h-[min(460px,70vh)] w-[var(--radix-popover-trigger-width)] min-w-[340px] flex-col overflow-hidden rounded-2xl border border-[#e3e4e8] bg-white p-0 pt-4 text-[#1a1a2e] shadow-[0_16px_48px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]"
+        >
+          {list}
+        </PopoverContent>
+      </Popover>
       {description ? <p className="mt-2 text-[13.5px] text-[#6b7280]">{description}</p> : null}
-      {phone ? (
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={label} fill height="min(80dvh, 640px)">
-          <div className="flex h-full min-h-0 flex-col pt-2">{list}</div>
-        </BottomSheet>
-      ) : (
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="flex max-h-[min(640px,80vh)] w-[calc(100%-32px)] max-w-[420px] flex-col gap-0 overflow-hidden rounded-2xl p-0">
-            <DialogHeader className="px-4 pb-3 pt-4">
-              <DialogTitle className="text-[18px] font-semibold text-[#1a1a2e]">{label}</DialogTitle>
-            </DialogHeader>
-            {list}
-          </DialogContent>
-        </Dialog>
-      )}
     </>
   )
 }

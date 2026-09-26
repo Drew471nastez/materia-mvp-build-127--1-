@@ -145,6 +145,50 @@ for (const [label, vp] of [["desktop-1440", DESKTOP], ["phone-390", PHONE]]) {
   await p.close()
 }
 
+/* ── FONTS: the app's sheet on a phone, a dropdown on a computer, faces drawn as rows come into view ── */
+for (const [label, vp] of [["desktop-1440", DESKTOP], ["phone-390", PHONE]]) {
+  console.log(`\n${label}: fonts`)
+  const phone = vp.width < 640
+  const { p, errors } = await open(vp)
+  await p.click('[data-nav-row="text"]')
+  await sleep(600)
+  /* Every frame's length while the list opens: a stutter is a long one. */
+  await p.evaluate(() => { window.__gaps = []; let last = performance.now(); const f = (t) => { window.__gaps.push(t - last); last = t; if (window.__gaps.length < 45) requestAnimationFrame(f) }; requestAnimationFrame(f) })
+  await p.click('[data-font-picker="Page font"]')
+  await sleep(900)
+  const gaps = await p.evaluate(() => window.__gaps.slice(1))
+  const seen = await p.evaluate(() => {
+    const list = document.querySelector("[data-font-sheet], [data-font-popover]")
+    const sheet = list?.closest("[data-sheet-panel]")
+    const t = sheet ? getComputedStyle(sheet).transform : null
+    const trigger = document.querySelector('[data-font-picker="Page font"]').getBoundingClientRect()
+    const box = list?.getBoundingClientRect()
+    const samples = [...(list?.querySelectorAll("[data-font-sample]") ?? [])]
+    return {
+      kind: list?.hasAttribute("data-font-sheet") ? "sheet" : list?.hasAttribute("data-font-popover") ? "popover" : null,
+      settledAt: t === null ? null : t === "none" ? 0 : new DOMMatrixReadOnly(t).m42,
+      under: box ? Math.round(box.top - trigger.bottom) : null,
+      rows: list?.querySelectorAll("[data-font-option]").length ?? 0,
+      ready: samples.filter((s) => s.getAttribute("data-font-sample") === "ready").length,
+      waiting: samples.filter((s) => s.getAttribute("data-font-sample") === "waiting").length,
+    }
+  })
+  if (phone) expect(seen.kind === "sheet" && Math.abs(seen.settledAt) < 1, "on a phone the list is the app's sheet, risen all the way", seen)
+  else expect(seen.kind === "popover" && seen.under >= 4 && seen.under <= 12, "on a computer it drops down under the field", seen)
+  expect(seen.rows >= 20, "every font is offered", seen.rows)
+  expect(seen.waiting > 0, "rows out of view have not asked for their face yet", { ready: seen.ready, waiting: seen.waiting })
+  console.log(`        longest frame while it opened: ${Math.round(Math.max(...gaps))}ms`)
+  await p.screenshot({ path: join(shots, `${label}-fonts.png`) })
+  await p.click('[data-font-option="Playfair Display"]')
+  await sleep(700)
+  const picked = await p.$eval('[data-font-picker="Page font"]', (b) => b.textContent)
+  expect(/Playfair Display/.test(picked), "a pick is the page's font, and the list goes away", picked)
+  const left = await p.evaluate(() => { const l = document.querySelector("[data-font-popover]"); return !!l && l.getBoundingClientRect().height > 0 })
+  expect(!left, "nothing of the list is left on screen")
+  expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
+  await p.close()
+}
+
 /* ── SHARE YOUR ONEPAGE: the app's sheet on a phone, a dialog from 768px ── */
 for (const [label, vp] of [["desktop-1440", DESKTOP], ["phone-390", PHONE]]) {
   console.log(`\n${label}: share`)
