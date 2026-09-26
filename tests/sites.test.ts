@@ -1260,7 +1260,8 @@ const runSource = read("lib/sites/agent/run.ts")
 check(
   "the quota is checked before the first token is spent",
   (() => {
-    const quota = runSource.indexOf("monthlyQuotaError(creatorId, plan)")
+    /* With the run's provider since own AI: a run on the creator's own account has no allowance to check (tests/own-ai.test.ts). */
+    const quota = runSource.indexOf("await monthlyQuotaError(creatorId, plan, provider.id)")
     const loop = runSource.indexOf("agentLoop({")
     return quota !== -1 && loop !== -1 && quota < loop
   })(),

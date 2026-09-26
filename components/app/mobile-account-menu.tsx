@@ -40,7 +40,7 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
   onLanguage,
   onSignOut,
 }: {
-  /** Both businesses when there are two, else this one alone: the switcher at the top of the sheet. */
+  /** Every business of the login (up to lib/businesses/rules MAX_BUSINESSES), else this one alone: the switcher at the top of the sheet. */
   businesses?: BusinessRow[]
   avatarSrc: string | undefined
   userDisplayName: string

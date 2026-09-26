@@ -2,7 +2,7 @@
 
 Everything the app is waiting on from the last three weeks, in four files for
 the Supabase SQL editor. They hold every part in `supabase/sql/run-now/`
-(01 to 36, then the storage policies and the check), text unchanged, so there
+(01 to 38, then the storage policies and the check), text unchanged, so there
 is one list and nothing to pick out by hand.
 
 ## How to run them
@@ -10,7 +10,8 @@ is one list and nothing to pick out by hand.
 1. Open `1_of_4_core.sql`, select all, copy.
 2. In the SQL editor open a new query tab, paste, press Run. If the editor asks
    whether to run a query with destructive operations, say yes: the only drops
-   are of old policies and constraints that the same file puts back.
+   are of old policies and constraints that the same file puts back, and the
+   one per login key on business links that part 38 replaces with a trigger.
 3. Wait for the one row that says `Storelib file 1 of 4 ran. Next file.`
 4. Do the same with `2_of_4_…`, `3_of_4_…`, then `4_of_4_…`.
 

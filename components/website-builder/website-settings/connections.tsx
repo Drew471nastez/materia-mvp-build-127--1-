@@ -4,6 +4,7 @@ import { useState } from "react"
 import { AgentConnectionRow, useAgentConnections } from "@/components/website-builder/agent-connections-panel"
 import { GitHubSyncPanel } from "@/components/website-builder/github-sync-panel"
 import { InlineButton } from "./connection-row"
+import { OwnAiSettings } from "./own-ai"
 import { Card, Lead, PageTitle, Row, buttonClass } from "./parts"
 import type { SettingsContext } from "./types"
 
@@ -44,11 +45,15 @@ export function ConnectionsSettings({ ctx }: { ctx: SettingsContext }) {
   return (
     <>
       <PageTitle>Connections</PageTitle>
-      <Lead>Let Claude Code, Codex or a GitHub repository change this website. What they write is a draft until you publish.</Lead>
+      <Lead>Use your own Claude or ChatGPT in Storelib AI, or let Claude Code, Codex or a GitHub repository change this website. What they write is a draft until you publish.</Lead>
 
+      {/* First: the one that needs nothing installed, and is what the chat's Connect AI button is usually after. */}
+      <OwnAiSettings installId={ctx.installId} />
+
+      <h2 className="mt-8 text-[15px] font-semibold text-white md:mt-9 md:text-[14.5px]">Or code in your own tools</h2>
       <section
         aria-label="Connections"
-        className="mt-6 divide-y divide-white/[0.07] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] md:mt-7"
+        className="mt-3 divide-y divide-white/[0.07] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]"
       >
         <AgentConnectionRow tool="claude" agents={agents} open={open === "claude"} onOpen={onOpen} onGitHub={() => setOpen("github")} />
         <AgentConnectionRow tool="codex" agents={agents} open={open === "codex"} onOpen={onOpen} onGitHub={() => setOpen("github")} />

@@ -139,6 +139,7 @@ const SUITES = [
   "tests/footer-complete.test.ts",
   "tests/section-responsive.test.ts",
   "tests/anthropic-provider.test.ts",
+  "tests/own-ai.test.ts",
   "tests/theme-code-editor.test.ts",
   "tests/section-settings.test.ts",
   "tests/section-render.test.ts",

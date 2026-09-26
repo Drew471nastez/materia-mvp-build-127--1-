@@ -1,0 +1,7 @@
+/* Business accounts: one login, up to three businesses. Part 26 allowed one business per login besides the first (a unique key on owner_id); this lets a login make two, and no more, and the database keeps the count itself so two presses at once cannot pass it. Adds an index for the owner's businesses and a trigger that counts them, then drops the old unique key. Changes no rows. Run after 26. Until it runs, a third business is refused and the account menu says it cannot be added just yet. Reasons: supabase/migrations/20261006_business_limit_three.sql. */
+create index if not exists business_links_owner_created on public.business_links (owner_id, created_at);
+create or replace function public.business_links_limit() returns trigger language plpgsql security definer set search_path = public as $$ begin perform pg_advisory_xact_lock(hashtextextended('business_links ' || new.owner_id::text, 0)); if 1 + (select count(*) from public.business_links where owner_id = new.owner_id and member_id <> new.member_id) >= 3 then raise exception 'One login can have at most 3 businesses' using errcode = 'check_violation', constraint = 'business_links_limit'; end if; return new; end; $$;
+drop trigger if exists business_links_limit on public.business_links;
+create trigger business_links_limit before insert or update of owner_id, member_id on public.business_links for each row execute function public.business_links_limit();
+alter table public.business_links drop constraint if exists business_links_one_per_owner;
+notify pgrst, 'reload schema';

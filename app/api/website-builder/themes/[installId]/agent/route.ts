@@ -38,9 +38,9 @@ import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/lo
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
 import { describeAnthropicError } from "@/lib/sites/agent/anthropic-provider"
 import {
-  isConfigured,
+  canAnswer,
   NoProviderConfiguredError,
-  resolveProvider,
+  resolveForCreator,
   substitutionNotice,
 } from "@/lib/sites/agent/provider"
 import { classifyRequest } from "@/lib/website-builder/agent/ambition"
@@ -81,6 +81,8 @@ const MAX_PROMPT = 2_000
 type RecordedEvent =
   | { type: "recorded"; messageId: string }
   | { type: "unsaved"; what: "chat" | "pictures"; reason: "not_set_up" | "failed"; kept?: number; of?: number }
+  /** Whose account this run is on: null for Storelib AI, else the creator's own connection. */
+  | { type: "account"; own: "anthropic" | "openai" | "openrouter" | null }
 
 const BlockSchema = z.object({
   id: z.string().min(1).max(128),
@@ -172,7 +174,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    *
    * 503, not 500: nothing is broken, the deployment is not configured.
    */
-  if (!isConfigured("anthropic") && !isConfigured("openai")) {
+  /* Or the creator's own: somebody who has connected their own Claude, OpenAI or OpenRouter is answered on it. */
+  if (!(await canAnswer((creator as { id: string }).id))) {
     return NextResponse.json(
       { error: "Storelib AI is not set up on this deployment yet: no model key is set." },
       { status: 503 },
@@ -289,7 +292,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * decides the turn budget. A model that could promote itself to the
          * dearer tier eventually would, and the bill is theirs.
          */
-        const resolved = resolveProvider({ requested: body.provider, tier: body.tier })
+        /* On the creator's own AI when they have connected one: see resolveForCreator. */
+        const resolved = await resolveForCreator((creator as { id: string }).id, { requested: body.provider, tier: body.tier })
+        /* Whose account answers, so the chat can say "On your Claude key" and not count it as Storelib AI. */
+        send({ type: "account", own: resolved.own })
         const notice = substitutionNotice(resolved)
         if (notice) send({ type: "thinking", text: notice })
         /**

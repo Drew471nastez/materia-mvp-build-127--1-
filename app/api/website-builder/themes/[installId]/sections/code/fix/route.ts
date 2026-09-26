@@ -15,7 +15,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-import { resolveProvider } from "@/lib/sites/agent/provider"
+import { resolveForCreator } from "@/lib/sites/agent/provider"
 import { fixSection } from "@/lib/website-builder/agent/fix-section"
 import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   delete sources[path]
   const takenTypes = [...new Set([...Object.keys(SECTION_SCHEMAS), ...Object.keys(schemasFromSources(sources))])]
 
-  const resolved = resolveProvider({ tier: "strong" })
+  const resolved = await resolveForCreator((creator as { id: string }).id, { tier: "strong" })
   const fixed = await fixSection({
     provider: resolved.provider,
     model: resolved.model,

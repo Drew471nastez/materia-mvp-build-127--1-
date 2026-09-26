@@ -18,7 +18,7 @@ import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { z } from "zod"
 import { reviewImages } from "@/lib/sites/agent/attachments"
 import { createClient } from "@/lib/supabase/server"
-import { resolveProvider } from "@/lib/sites/agent/provider"
+import { resolveForCreator } from "@/lib/sites/agent/provider"
 import { writeSection, type WriteStage } from "@/lib/website-builder/agent/write-section"
 import { editorContent, recordVersion, saveDraft, sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { schemasFromSources } from "@/lib/website-builder/storelib-schemas"
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
     ...Object.values(mine).map((s) => s.name),
   ].filter(Boolean)
 
-  const resolved = resolveProvider({ requested: parsed.data.provider, tier: parsed.data.tier ?? "strong" })
+  const resolved = await resolveForCreator((creator as { id: string }).id, { requested: parsed.data.provider, tier: parsed.data.tier ?? "strong" })
 
   /**
    * The whole job, start to answer. `onStage` is how the panel is told what

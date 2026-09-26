@@ -130,6 +130,7 @@ import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSou
 import { formatPrice } from "@/lib/website-builder/shop-products"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
+import { OWN_AI_RETURN_KEY } from "@/components/website-builder/use-own-ai"
 
 /** Ask Storelib on a phone: half, and the whole screen below the status bar. A constant so the sheet's memo holds. */
 const AI_SHEET_DETENTS = [0.5, 1]
@@ -2413,11 +2414,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const wanted = settingsSectionFrom(url.searchParams.get("settings"))
     if (!wanted) return
     setGithubReturned(url.searchParams.get("github"))
+    /* Back from connecting OpenRouter (/api/ai-keys/openrouter/callback): Connections reads it once (own-ai.tsx). */
+    const ownAi = url.searchParams.get("ownai")
+    if (ownAi) {
+      try {
+        sessionStorage.setItem(OWN_AI_RETURN_KEY, ownAi)
+      } catch {
+        /* no storage: it opens on Connections all the same */
+      }
+    }
     setSettingsSection(wanted)
     setPreviewMode("settings")
     setProjectSettingsOpen(true)
     url.searchParams.delete("settings")
     url.searchParams.delete("github")
+    url.searchParams.delete("ownai")
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

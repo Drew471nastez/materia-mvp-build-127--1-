@@ -22,10 +22,12 @@ import "server-only"
  * switch they can see on screen.
  */
 
-import { anthropicProvider, MissingAnthropicKeyError } from "./anthropic-provider"
+import { describeOwnKeyError } from "@/lib/ai-keys/errors"
+import { noteUse, readKeys, type KeySource } from "@/lib/ai-keys/store"
+import { anthropicClientFor, anthropicProvider, createAnthropicProvider, MissingAnthropicKeyError } from "./anthropic-provider"
 import { DEFAULT_MODEL, STRONG_MODEL } from "./models"
-import { openAIProvider } from "./openai-provider"
-import type { AgentProvider } from "./types"
+import { createOpenAIProvider, openAIClientFor, openAIProvider } from "./openai-provider"
+import type { AgentProvider, ProviderRequest, ProviderTurn } from "./types"
 
 export type ProviderId = "anthropic" | "openai"
 
@@ -90,6 +92,12 @@ export interface Resolved {
   model: string
   /** Set when the creator's choice was not available and this is the other one. */
   substitutedFor: ProviderId | null
+  /**
+   * Whose account pays: null for Storelib's, otherwise the creator's own
+   * connection that answers (see resolveForCreator). A run on their own
+   * account does not count against the plan's AI edits.
+   */
+  own: KeySource | null
 }
 
 /**
@@ -121,7 +129,111 @@ export function resolveProvider(input: {
     provider: chosen === "anthropic" ? anthropicProvider : openAIProvider,
     model: MODELS[chosen][tier],
     substitutedFor: chosen === wanted ? null : wanted,
+    own: null,
   }
+}
+
+/**
+ * ===========================================================================
+ *  THE CREATOR'S OWN AI, WHEN THEY HAVE CONNECTED ONE
+ * ===========================================================================
+ * "Let people connect their own Claude or ChatGPT so it does not use
+ * Storelib AI credits." The same choice the creator made in the chat
+ * (Claude or ChatGPT, everyday or hard), answered on their account when it
+ * can be:
+ *
+ *   1. their own key for that vendor (a Claude key for Claude, an OpenAI key
+ *      for ChatGPT), straight to the vendor;
+ *   2. otherwise their OpenRouter account, which answers for both, on the
+ *      same models by OpenRouter's names;
+ *   3. otherwise Storelib's, exactly as before.
+ *
+ * Their key is never swapped for Storelib's when it fails: a run on it that
+ * is refused says so (lib/ai-keys/errors), because quietly answering on
+ * Storelib's account would spend the credits they connected a key to save.
+ */
+export async function resolveForCreator(
+  creatorId: string | null | undefined,
+  input: { requested?: unknown; tier?: unknown },
+): Promise<Resolved> {
+  if (!creatorId) return resolveProvider(input)
+  const wanted: ProviderId = isProviderId(input.requested) ? input.requested : DEFAULT_PROVIDER
+  const tier: ModelTier = isModelTier(input.tier) ? input.tier : "fast"
+  const keys = await readKeys(creatorId).catch(() => ({}) as Awaited<ReturnType<typeof readKeys>>)
+  const model = MODELS[wanted][tier]
+
+  const direct = wanted === "anthropic" ? keys.anthropic : keys.openai
+  if (direct) {
+    return {
+      id: wanted,
+      provider:
+        wanted === "anthropic"
+          ? ownAccount(createAnthropicProvider(once(() => anthropicClientFor(direct, "anthropic"))), wanted, creatorId)
+          : ownAccount(createOpenAIProvider(once(() => openAIClientFor(direct, "openai"))), wanted, creatorId),
+      model,
+      substitutedFor: null,
+      own: wanted,
+    }
+  }
+  const router = keys.openrouter
+  if (router) {
+    return {
+      id: wanted,
+      provider:
+        wanted === "anthropic"
+          ? ownAccount(createAnthropicProvider(once(() => anthropicClientFor(router, "openrouter")), { modelPrefix: "anthropic/" }), "openrouter", creatorId)
+          : ownAccount(createOpenAIProvider(once(() => openAIClientFor(router, "openrouter")), { modelPrefix: "openai/" }), "openrouter", creatorId),
+      model,
+      substitutedFor: null,
+      own: "openrouter",
+    }
+  }
+  return resolveProvider(input)
+}
+
+/** The start of a run's provider when it ran on the creator's own account. */
+export const OWN_PREFIX = "own:"
+
+/** Whether a creator could be answered at all: Storelib's keys, or one of their own. */
+export async function canAnswer(creatorId: string | null | undefined): Promise<boolean> {
+  if (isConfigured("anthropic") || isConfigured("openai")) return true
+  if (!creatorId) return false
+  const keys = await readKeys(creatorId).catch(() => ({}))
+  return Object.keys(keys).length > 0
+}
+
+/**
+ * A provider on the creator's own account, which says in their terms when
+ * that account refuses (every agent loop shows a thrown error's message as
+ * it is) and notes on the connection when it was last used and whether it
+ * worked, so Connections can show "used 2 minutes ago" or the refusal.
+ */
+export function ownAccount(provider: AgentProvider, source: KeySource, creatorId: string): AgentProvider {
+  let noted = false
+  return {
+    /* Recorded on the run as "own:anthropic" and so on: how the monthly AI edits count leaves it out (run.ts). */
+    id: `${OWN_PREFIX}${source}`,
+    async complete(request: ProviderRequest): Promise<ProviderTurn> {
+      try {
+        const turn = await provider.complete(request)
+        if (!noted) {
+          noted = true
+          void noteUse(creatorId, source, null)
+        }
+        return turn
+      } catch (thrown) {
+        const said = describeOwnKeyError(thrown, source)
+        if (!said) throw thrown
+        void noteUse(creatorId, source, said)
+        throw Object.assign(new Error(said), { name: "OwnKeyError", status: (thrown as { status?: number }).status })
+      }
+    },
+  }
+}
+
+function once<T>(make: () => T): () => T {
+  let made: T | undefined
+  return () => (made ??= make())
 }
 
 /** What to tell somebody whose choice could not be honoured. */

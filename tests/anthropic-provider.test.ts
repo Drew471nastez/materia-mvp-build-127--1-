@@ -279,7 +279,8 @@ section("Which model answers")
   )
   check(
     "the theme editor resolves the creator's choice instead of hard-coding a vendor",
-    /resolveProvider\(\{ requested: body\.provider, tier: body\.tier \}\)/.test(route) &&
+    /* On the creator's own AI when they have one (tests/own-ai.test.ts), their switch honoured either way. */
+    /resolveForCreator\(\(creator as \{ id: string \}\)\.id, \{ requested: body\.provider, tier: body\.tier \}\)/.test(route) &&
       !/provider: openAIProvider/.test(route),
   )
   /**
@@ -287,8 +288,8 @@ section("Which model answers")
    * deployment that has moved to Claude — the exact migration this enables.
    */
   check(
-    "and either key is enough for the endpoint to be considered configured",
-    /!isConfigured\("anthropic"\) && !isConfigured\("openai"\)/.test(route),
+    "and either key, or one of the creator's own, is enough for the endpoint to be considered configured",
+    /!\(await canAnswer\(/.test(route) && /isConfigured\("anthropic"\) \|\| isConfigured\("openai"\)/.test(readFileSync(join(root, "lib/sites/agent/provider.ts"), "utf8")),
   )
   check("Claude's failures are reported in words", /describeAnthropicError\(thrown\)/.test(route))
 }
@@ -299,7 +300,7 @@ section("Which model answers")
 
   check(
     "the coding agent goes to Claude too",
-    /resolveProvider\(\{ requested: undefined \}\)\.provider/.test(sites),
+    /resolveForCreator\(creatorId, \{ requested: undefined \}\)/.test(sites) && /provider: resolved\.provider/.test(sites),
   )
 
   /**

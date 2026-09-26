@@ -6,29 +6,40 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { profileAvatar } from "@/lib/account/avatar"
 import { businessAlias } from "./email-alias"
-import { UUID_PATTERN, maySwitch, type BusinessLink } from "./rules"
+import {
+  LIMIT_REACHED,
+  MAX_BUSINESSES,
+  UUID_PATTERN,
+  canAddBusiness,
+  groupIds,
+  linkRefusal,
+  maySwitch,
+  type BusinessGroup,
+} from "./rules"
 
-export { maySwitch, type BusinessLink }
+export { canAddBusiness, maySwitch, MAX_BUSINESSES, type BusinessGroup }
 
 /**
  * ===========================================================================
- *  TWO BUSINESSES, ONE LOGIN: THE SERVER HALF
+ *  UP TO THREE BUSINESSES, ONE LOGIN: THE SERVER HALF
  * ===========================================================================
- * A second business is a second account, linked to the first in
- * public.business_links (supabase/migrations/20261001_business_accounts.sql).
- * Everything a business owns is keyed by its account, so the two are kept
- * apart by the same row level security that keeps strangers apart, and none
- * of the app's queries had to learn which business is "active".
+ * Every business after the first is an account of its own, linked to the
+ * first (the owner) in public.business_links (supabase/migrations/
+ * 20261001_business_accounts.sql). Everything a business owns is keyed by
+ * its account, so they are kept apart by the same row level security that
+ * keeps strangers apart, and none of the app's queries had to learn which
+ * business is "active". How many a login can have is MAX_BUSINESSES
+ * (./rules), and the database holds the same number (run-now part 38).
  *
  * Switching is signing the browser into the other account. The server checks
- * the link first, then makes a session for the other account the way
+ * the group first, then makes a session for the other account the way
  * Supabase's own sign in link would (generateLink, then verifyOtp on its
  * token hash) without sending anything. The browser puts that session where
  * it keeps its own (cookies on the web, the device store in the app) and
  * reloads.
  *
- * The second account's password is 32 random bytes that are never kept or
- * shown, so the only way into it is from the first account's session.
+ * A business account's password is 32 random bytes that are never kept or
+ * shown, so the only way into it is from a session of the same login.
  */
 
 
@@ -66,28 +77,50 @@ export async function requestUser(request: Request): Promise<{ id: string; email
   return data.user ? { id: data.user.id, email: data.user.email ?? null } : null
 }
 
-/** The link this account is part of, as owner or as the second business, or null. */
-export async function businessLink(userId: string): Promise<BusinessLink | null> {
+type LinkRow = { owner_id: string; member_id: string }
+
+/**
+ * The group this account is part of, as its owner or as one of its
+ * businesses, or null for an account on its own. Two reads at most: the
+ * rows naming this account, and, for a business, its owner's rows.
+ */
+export async function businessGroup(userId: string): Promise<BusinessGroup | null> {
   /* The id goes into a filter string below: only ever a UUID, so nothing can reshape the filter. */
   if (!UUID_PATTERN.test(userId)) return null
-  const { data, error } = await createAdminClient()
+  const admin = createAdminClient()
+  const { data, error } = await admin
     .from("business_links")
     .select("owner_id, member_id")
     .or(`owner_id.eq.${userId},member_id.eq.${userId}`)
-    .maybeSingle()
-  /* The table not being there yet (SQL part 26 not run) reads as "no link", so every account works exactly as before. */
-  if (error || !data) return null
-  return { ownerId: data.owner_id as string, memberId: data.member_id as string }
+    .order("created_at", { ascending: true })
+    .order("member_id", { ascending: true })
+  /* The table not being there yet (SQL part 26 not run) reads as "no group", so every account works exactly as before. */
+  if (error || !data || data.length === 0) return null
+  const rows = data as LinkRow[]
+  const asMember = rows.find((r) => r.member_id === userId)
+  if (!asMember) return { ownerId: userId, memberIds: rows.map((r) => r.member_id) }
+
+  const ownerId = asMember.owner_id
+  const { data: siblings, error: siblingsError } = await admin
+    .from("business_links")
+    .select("owner_id, member_id")
+    .eq("owner_id", ownerId)
+    .order("created_at", { ascending: true })
+    .order("member_id", { ascending: true })
+  /* The owner's rows could not be read: this business and its owner, which is always true. */
+  if (siblingsError || !siblings) return { ownerId, memberIds: [userId] }
+  const memberIds = (siblings as LinkRow[]).map((r) => r.member_id)
+  return { ownerId, memberIds: memberIds.includes(userId) ? memberIds : [...memberIds, userId] }
 }
 
 /**
- * Both businesses for the account menu, the first account's first. An account
- * with no second business gets its own row alone, so the menu can show it with
- * "New business" under it.
+ * Every business of the login for the account menu, the first account's
+ * first, then the others in the order they were made. An account on its own
+ * gets its own row alone, so the menu can show it with "New business" under it.
  */
 export async function listBusinesses(userId: string): Promise<BusinessSummary[]> {
-  const link = await businessLink(userId)
-  const ids = link ? [link.ownerId, link.memberId] : [userId]
+  const group = await businessGroup(userId)
+  const ids = groupIds(group, userId)
   const admin = createAdminClient()
   const [{ data: profiles }, { data: creators }] = await Promise.all([
     admin.from("profiles").select("id, username, display_name, avatar_url").in("id", ids),
@@ -109,7 +142,7 @@ export async function listBusinesses(userId: string): Promise<BusinessSummary[]>
       avatarUrl: profileAvatar(p?.avatar_url),
       ready: c?.onboarding_completed === true,
       current: id === userId,
-      role: link && id === link.memberId ? "member" : "owner",
+      role: group && id !== group.ownerId ? "member" : "owner",
     }
   })
 }
@@ -117,18 +150,25 @@ export async function listBusinesses(userId: string): Promise<BusinessSummary[]>
 export type CreateBusinessResult = { memberId: string } | { error: string; status: number }
 
 /**
- * The second business: an account with the owner's address and a tag
+ * Another business: an account with the owner's address and a tag
  * (./email-alias), confirmed, with a password nobody holds, linked to the
- * owner. If the link cannot be written the account is removed again, so a
- * failure never leaves an orphan behind.
+ * owner. Only from the first business, and only while the login has fewer
+ * than MAX_BUSINESSES. If the link cannot be written the account is removed
+ * again, so a failure never leaves an orphan behind.
+ *
+ * The database has the last word on the count (a trigger, run-now part 38),
+ * so two presses at once cannot both get past it. Until part 38 runs the
+ * database still holds the old one per login rule: the link is refused
+ * with 23505 on business_links_one_per_owner, and the person reads
+ * LIMIT_NOT_OPEN_YET in the menu instead of an error page.
  */
-export async function createSecondBusiness(owner: { id: string; email: string | null }): Promise<CreateBusinessResult> {
+export async function createBusinessAccount(owner: { id: string; email: string | null }): Promise<CreateBusinessResult> {
   const admin = createAdminClient()
-  const link = await businessLink(owner.id)
-  if (link?.memberId === owner.id) {
+  const group = await businessGroup(owner.id)
+  if (group && group.ownerId !== owner.id) {
     return { error: "Switch to your first business to add another.", status: 409 }
   }
-  if (link) return { error: "You already have two businesses, the most one login can have.", status: 409 }
+  if (!canAddBusiness(groupIds(group, owner.id).length, "owner")) return { error: LIMIT_REACHED, status: 409 }
 
   /* The table must exist: without it the new account could never be reached again. */
   const probe = await admin.from("business_links").select("member_id", { head: true, count: "exact" }).limit(1)
@@ -150,11 +190,9 @@ export async function createSecondBusiness(owner: { id: string; email: string | 
 
   const { error: linkError } = await admin.from("business_links").insert({ owner_id: owner.id, member_id: memberId })
   if (linkError) {
-    console.error("[businesses] link failed, removing the new account:", linkError.message)
+    console.error("[businesses] link failed, removing the new account:", linkError.code, linkError.message)
     await admin.auth.admin.deleteUser(memberId)
-    return linkError.code === "23505"
-      ? { error: "You already have two businesses, the most one login can have.", status: 409 }
-      : { error: "The business could not be created. Try again in a moment.", status: 500 }
+    return { error: linkRefusal(linkError), status: linkError.code === "23505" || linkError.code === "23514" ? 409 : 500 }
   }
 
   /* The owner proved this address is theirs; the new business does not ask again. */

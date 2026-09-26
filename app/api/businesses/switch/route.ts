@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server"
 import { rateLimit } from "@/lib/api/rate-limit"
-import { businessLink, maySwitch, recordSwitch, requestUser, sessionFor } from "@/lib/businesses/server"
+import { businessGroup, maySwitch, recordSwitch, requestUser, sessionFor } from "@/lib/businesses/server"
 
 /**
  * Switch the browser to the signed in person's other business.
  *
- * The caller has to be signed in, and the business they ask for has to be the
- * other end of the one link their own account is part of (maySwitch): a
- * second business can go back to its owner, an owner can go to their second
- * business, and nobody can reach any other account from here, whatever id
- * they send. Only then is a session made for it (lib/businesses/server
+ * The caller has to be signed in, and the business they ask for has to be in
+ * the same group as their own account (maySwitch): the first business and
+ * the ones it made can reach each other, and nobody can reach any other
+ * account from here, whatever id they send. Only then is a session made for it (lib/businesses/server
  * sessionFor), answered never cached, and the switch written to the log.
  *
  * Twenty a minute is far past anybody switching by hand and far short of
@@ -44,8 +43,8 @@ export async function POST(request: Request) {
   })
   if (limited) return limited
 
-  const link = await businessLink(user.id)
-  if (!maySwitch(link, user.id, to)) {
+  const group = await businessGroup(user.id)
+  if (!maySwitch(group, user.id, to)) {
     return NextResponse.json({ error: "That business is not yours to open." }, { status: 403, headers: NO_STORE })
   }
 
