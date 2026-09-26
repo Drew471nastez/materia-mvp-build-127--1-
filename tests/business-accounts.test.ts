@@ -364,6 +364,9 @@ function main() {
   check("deleting a login deletes every business it made first", /if \(group\?\.ownerId === user\.id\) \{\s*for \(const memberId of group\.memberIds\) \{[\s\S]*?deleteAllUserData\(adminSupabase, memberId\)[\s\S]*?deleteUser\(memberId\)/.test(del) && del.indexOf("deleteUser(memberId)") < del.indexOf("deleteUser(user.id)"))
   check("deleting one of those businesses signs its owner back in", /group && group\.ownerId !== user\.id \? await sessionFor\(group\.ownerId\)/.test(del) && /data\.firstBusiness\?\.session/.test(read("components/app/settings-form-new.tsx")))
   check("the seller's mail reaches the owner", /ownerAddress\(sellerEmail\)/.test(read("lib/email.tsx")) && /ownerAddress\(replyTo\)/.test(read("lib/email.tsx")))
+  /* Found in the audit: the payout, bank, verification, dispute and tax emails went to the tagged address. */
+  check("  the payout, bank, verification, dispute and 1099-K emails too: none is sent to a tagged address as it is",
+    (read("lib/email.tsx").match(/to: ownerAddress\(params\.to\) \|\| params\.to,/g) ?? []).length >= 10 && !/^\s*to: params\.to,$/m.test(read("lib/email.tsx")))
   for (const f of ["lib/checkout/invoice.ts", "lib/stripe/refund-sync.ts", "lib/automations/supabase-store.ts", "app/api/stripe/connect/start/route.ts"]) {
     check(`  and ${f} writes to the owner`, /ownerAddress\(/.test(read(f)))
   }

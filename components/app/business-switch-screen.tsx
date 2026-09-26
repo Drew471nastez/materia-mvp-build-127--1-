@@ -30,12 +30,23 @@ import {
  * ===========================================================================
  *  THE SCREEN OF A SWITCH, ON BOTH SIDES OF THE RELOAD
  * ===========================================================================
- * The shell's own empty frame (app/app/cold-start: the header's #111111, the
- * rail from md, the content area's #f8f9fa with its rounded top on a phone),
- * the light gray spinner in the place every slow page and cold start puts it,
+ * The shell's own frame (app/app/cold-start: the header's #111111, the rail
+ * from md, the content area's #f8f9fa with its rounded top on a phone), the
+ * light gray spinner in the place every slow page and cold start puts it,
  * and one line under it saying which step of the switch is happening
- * (lib/businesses/switch-screen). Nothing else: no card, no photo that might
- * decode a frame late on the other side, no second spinner.
+ * (lib/businesses/switch-screen). No card, no second spinner.
+ *
+ * THE BAR IS NOT AN EMPTY BAND. "There's the black top bar there showing,
+ * which I don't understand why." The frame's bar used to be bare black from
+ * the press to the new page. It draws the business you are going to now,
+ * its photo and its name where the real header puts them, with the icons on
+ * the right (components/app/shell-header-still), from the cookie's name and
+ * photo on the new document too. The photo was fetched and decoded when the
+ * menu's list opened, so it is there on the first frame on both sides.
+ *
+ * WHY THE SWITCH IS STILL A NEW DOCUMENT: see lib/businesses/switch-client.
+ * In short, the app keeps per account things outside React that only a new
+ * document is sure to empty.
  *
  *   ON THE PAGE YOU WERE ON (SwitchingScreen, from the account menu). Up on
  *   the frame after the press, over everything, the menu too, on a 140ms
