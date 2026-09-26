@@ -21,7 +21,7 @@
  *   SCREEN    a switch puts its screen up at the press, says each real step,
  *             carries it across the reload, and hands over to a ready page
  */
-import { readFileSync, existsSync } from "node:fs"
+import { readFileSync, existsSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { businessAlias, isBusinessAlias, ownerAddress, BUSINESS_TAG_PATTERN } from "../lib/businesses/email-alias"
 import { canAddBusiness, countWord, LIMIT_NOT_OPEN_YET, LIMIT_REACHED, linkRefusal, MAX_BUSINESSES, maySwitch, ownerOf, UUID_PATTERN } from "../lib/businesses/rules"
@@ -289,6 +289,33 @@ function main() {
     lines38.every((l) => l.startsWith("/*") || /;\s*$/.test(l)) && /create or replace function public\.business_links_limit/.test(part38) && /drop trigger if exists business_links_limit/.test(part38) && /drop constraint if exists/.test(part38))
   check("part 38 in the run-now folder, listed in its README and its after check",
     read("supabase/sql/run-now/README.md").includes("`38_business_limit_three.sql`") && /as p38_business_limit_three\s*[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  /*
+    THE COMPLETE PART. "Give me a full SQL to run for everything there, full
+    complete." One part that gets any database to the whole of it, from
+    nothing, from part 26, or from 26 and 38; run twice on copies of each on
+    a scratch Postgres with no errors (see the report of that change).
+  */
+  /* XX_ until the lead gives it its number: found by its name. */
+  const completeName = readdirSync(join(root, "supabase/sql/run-now")).find((f) => /^[0-9X]+_businesses_complete\.sql$/.test(f)) ?? ""
+  const complete = completeName ? read(`supabase/sql/run-now/${completeName}`) : ""
+  const completeMigration = read("supabase/migrations/20261007_businesses_complete.sql")
+  const statements = (sql: string) => sql.split("\n").filter((l) => l.trim() && !l.startsWith("/*"))
+  check("the complete part: one whole statement per line, /* */ comments only, no blank lines",
+    complete.split("\n").filter((l) => l.length).every((l) => l.startsWith("/*") ? /\*\/\s*$/.test(l) : /;\s*$/.test(l)) && !/^--/m.test(complete) && !/\n\n/.test(complete))
+  check("  its migration holds the very same statements", JSON.stringify(statements(complete)) === JSON.stringify(statements(completeMigration)) && !/^--/m.test(completeMigration))
+  const completeLimit = /if 1 \+ \(select count\(\*\) from public\.business_links where owner_id = new\.owner_id and member_id <> new\.member_id\) >= (\d+) then/.exec(complete)
+  check("  its trigger counts to the number the app holds", !!completeLimit && Number(completeLimit[1]) === MAX_BUSINESSES, completeLimit?.[1])
+  check("  every table made only if missing, every policy and trigger dropped before it is made, the old key dropped only if there",
+    (complete.match(/create table if not exists/g) ?? []).length === 3 && /drop policy if exists business_links_read/.test(complete) && /drop trigger if exists business_links_no_chain/.test(complete) && /drop trigger if exists business_links_limit/.test(complete)
+      && /drop constraint if exists business_links_one_per_owner/.test(complete) && complete.indexOf("drop constraint if exists business_links_one_per_owner") > complete.indexOf("create trigger business_links_limit")
+      && !/create index (?!if not exists)/.test(complete) && !/create (unique )?table (?!if not exists)/.test(complete))
+  check("  no chains, never its own, row level security, read by the two accounts only, no writes or truncate from a browser",
+    /A business account cannot own another business/.test(complete) && /check \(owner_id <> member_id\) not valid/.test(complete) && /alter table public\.business_links enable row level security/.test(complete)
+      && /using \(\(select auth\.uid\(\)\) = owner_id or \(select auth\.uid\(\)\) = member_id\)/.test(complete) && /revoke insert, update, delete, truncate, references, trigger on public\.business_links from authenticated/.test(complete)
+      && /revoke all on public\.business_links from anon/.test(complete) && /revoke all on public\.business_switches from anon, authenticated/.test(complete))
+  check("  the two trigger functions cannot be called through the API", /revoke all on function public\.business_links_no_chain\(\) from public, anon, authenticated/.test(complete) && /revoke all on function public\.business_links_limit\(\) from public, anon, authenticated/.test(complete))
+  check("  and it is in the run-now folder's README and its after check",
+    !!completeName && read("supabase/sql/run-now/README.md").includes(`\`${completeName}\``) && /as p_businesses_complete\s*[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
   const lines = part.split("\n").filter((l) => l.trim())
   check("the part is one whole statement per line", lines.every((l) => l.startsWith("/*") || /;\s*$/.test(l)), lines.find((l) => !l.startsWith("/*") && !/;\s*$/.test(l)))
   check("and safe to run twice", /create table if not exists public\.business_links/.test(part) && /drop policy if exists business_links_read/.test(part) && /drop trigger if exists business_links_no_chain/.test(part) && /create index if not exists/.test(part))
