@@ -14,8 +14,12 @@
  *              the field; the chosen tip is white in a grey track, not black
  *   PHONE      the order is open as the page arrives and folds; nothing
  *              scrolls sideways; fields are 16px so iOS does not zoom
- *   PAY        48px, an 8px corner; "Powered by stripe | Terms Privacy"
- *   BACK       a press dims the page and spins at once, and never pushes
+ *   BAR        a white bar on a layered shadow: Back as a 36px raised circle
+ *              in a 44px target, the creator linking to their page, and
+ *              Continue shopping
+ *   PAY        48px, an 8px corner; "Powered by stripe · Terms · Privacy"
+ *   BACK       a press is answered at once (the spinner and the dim wait
+ *              250ms, so a quick back shows neither), and never pushes
  *
  *   PROBE_CSS=source node scripts/check-checkout-page.mjs
  *   Needs the network (Stripe) and, in the sandbox, SPKI for the proxy CA.
@@ -133,7 +137,18 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       return { h: Math.round(r.height), radius: getComputedStyle(b).borderRadius, text: b.textContent, footer: document.querySelector("[data-powered-by]")?.textContent }
     })
     expect(pay.h === 48 && pay.radius === "8px", "PAY: 48px with an 8px corner", pay)
-    expect(pay.footer === "Powered byTermsPrivacy" || /Powered by\s*Terms\s*Privacy/.test(pay.footer || ""), "Powered by stripe | Terms Privacy under it", pay.footer)
+    expect(/Powered by\s*·?\s*Terms\s*·?\s*Privacy/.test(pay.footer || ""), "Powered by stripe · Terms · Privacy under it", pay.footer)
+
+    const bar = await p.evaluate(() => {
+      const back = document.querySelector("[data-back]").getBoundingClientRect()
+      return {
+        back: [Math.round(back.width), Math.round(back.height)],
+        face: Math.round(document.querySelector("[data-back-face]").getBoundingClientRect().width),
+        creator: document.querySelector("[data-creator-link]")?.getAttribute("href"),
+        shop: document.querySelector("[data-continue]")?.textContent,
+      }
+    })
+    expect(bar.back[0] >= 44 && bar.back[1] >= 44 && bar.face === 36 && bar.creator === "/lucadragoste" && bar.shop === "Continue shopping", "BAR: a raised Back with a 44px target, the creator, Continue shopping", bar)
 
     const name = await p.evaluate(() => ({ size: getComputedStyle(document.querySelector("#checkout-name")).fontSize, h: Math.round(document.querySelector("#checkout-name").getBoundingClientRect().height) }))
     expect(name.h === 44 && name.size === (label.startsWith("phone") ? "16px" : "15px"), "fields are 44px, 16px text on a phone and 15px on a computer", name)
@@ -157,7 +172,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await p.evaluate(() => { window.__router = []; document.querySelector("[data-back]").click() })
     await sleep(60)
     const back = await p.evaluate(() => ({ leaving: document.querySelector("[data-page=checkout]").hasAttribute("data-leaving"), opacity: getComputedStyle(document.querySelector("[data-page=checkout]")).opacity, router: window.__router }))
-    expect(back.leaving && !back.router.some(([k]) => k === "push" || k === "link"), "BACK: answered at once, and never a push", back)
+    expect(back.leaving && back.opacity === "1" && !back.router.some(([k]) => k === "push" || k === "link"), "BACK: answered at once without a flash, and never a push", back)
     expect(errors.length === 0, "no errors on the page", errors)
     await p.close()
   }

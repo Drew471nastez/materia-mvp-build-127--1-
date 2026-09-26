@@ -986,15 +986,8 @@ export default function CheckoutPageClient({
         <main className="checkout-enter px-5 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-7 sm:px-8 lg:px-16 lg:pb-16 lg:pt-12 [animation-delay:60ms]">
           <div className="mx-auto w-full max-w-[440px] lg:ml-0 lg:mr-auto">
             {payment}
-            {isFree ? (
-              <nav aria-label="Policies" className="mt-6 flex items-center justify-center gap-4 text-[12.5px] text-[#6b7280]">
-                <Link href="/terms" target="_blank" className="hover:text-[#1a1a2e]">Terms</Link>
-                <Link href="/privacy" target="_blank" className="hover:text-[#1a1a2e]">Privacy</Link>
-                <Link href="/refund-policy" target="_blank" className="hover:text-[#1a1a2e]">Refunds</Link>
-              </nav>
-            ) : (
-              <PoweredByStripe />
-            )}
+            {/* Under the button, paid or free. */}
+            <PoweredByStripe />
           </div>
         </main>
       </div>
