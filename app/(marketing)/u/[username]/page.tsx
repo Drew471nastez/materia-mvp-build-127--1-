@@ -1608,6 +1608,18 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         return <StorefrontTabs tabs={tabs} />
       })()}
 
+      {/*
+        THE REVIEWS, AS ON EVERY OTHER PAGE. The header above claims a rating
+        ("4.5 · 2 reviews") on this branch too, and the claim had nowhere to
+        be read: the configured page puts the reviews here, between the tabs
+        and About, and this one skipped them. Same condition, same panel.
+      */}
+      {creatorReviewCount > 0 && (
+        <SafeRegion name="reviews">
+          <ReviewsPanel reviews={reviewsForPanel} average={creatorRating} total={creatorReviewCount} creatorUsername={username} />
+        </SafeRegion>
+      )}
+
       {/* The About block every page ends with: who the seller is, how long
           they have been here, what they have sold, and which cards they
           take. All four are true of somebody who has never opened the

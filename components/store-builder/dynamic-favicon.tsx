@@ -48,7 +48,10 @@ export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
     const createRoundedFavicon = (imageUrl: string): Promise<string> => {
       return new Promise((resolve, reject) => {
         const img = new Image()
-        img.crossOrigin = "anonymous"
+        /* Only a picture from elsewhere needs asking for with CORS to be drawn
+           and read back; the platform's own logo asked that way was fetched a
+           second time beside the footer's copy of it. */
+        if (new URL(imageUrl, window.location.href).origin !== window.location.origin) img.crossOrigin = "anonymous"
         img.onload = () => {
           const canvas = document.createElement("canvas")
           const size = ICON_SIZE
