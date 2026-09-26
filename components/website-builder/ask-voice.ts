@@ -8,17 +8,38 @@
  * sends: the words are there to be read and changed first, the same as typed
  * ones.
  *
- * Two ways to hear, chosen once per page:
+ * Two ways to hear:
  *
  *   "speech"   the browser's own recogniser (SpeechRecognition, or the
  *              webkit one in Chrome and Safari). Words appear while they are
  *              spoken. Nothing reaches our server.
  *   "record"   a short clip from MediaRecorder, turned into text by
  *              app/api/website-builder/transcribe, which uses the OpenAI key
- *              the website agent already has. Used where there is no
- *              recogniser (Firefox) and in the iOS and Android apps, where
- *              the WebView's recogniser is missing or cannot be trusted:
- *              on iOS it asks for a permission the app does not declare.
+ *              the website agent already has.
+ *
+ * ---------------------------------------------------------------------------
+ *  A PHONE RECORDS; A COMPUTER LISTENS
+ * ---------------------------------------------------------------------------
+ * "Voice input stopped, try again or type" on a phone, every time. That is
+ * this file's LAST message, the one it falls back on when a recogniser fails
+ * for a reason it has no words for, and on a phone it was the usual outcome:
+ * every browser on iOS is WebKit, and WebKit's `webkitSpeechRecognition`
+ * exists there, answers `start()`, and then ends at once — sometimes with no
+ * error at all, sometimes with one nothing can act on. The microphone looked
+ * broken because the engine behind it was.
+ *
+ * So the engine is chosen by what the screen is, not only by what exists:
+ *
+ *   a touch screen        records, and the clip is transcribed. The same
+ *                         path the apps have used all along, which works
+ *                         wherever a microphone does.
+ *   a computer            listens with the browser's recogniser: instant,
+ *                         free, and nothing leaves the page.
+ *
+ * And whichever is chosen, a recogniser that fails BEFORE A WORD IS HEARD
+ * hands over to the recorder and carries straight on, rather than stopping
+ * with a message. A refusal is not handed over: the microphone is off, and
+ * recording would only ask the same question again and get the same answer.
  *
  * When neither is possible the hook reports `supported: false` and the
  * composer draws no microphone at all, rather than one that cannot work.
@@ -166,6 +187,22 @@ function canRecord(): boolean {
   )
 }
 
+/**
+ * A finger's screen rather than a mouse's, asked of the pointer itself. Not
+ * read from the user agent: that is a string anybody can write, it names
+ * browsers rather than screens, and it would have to be kept up to date
+ * forever. `(pointer: coarse)` is the browser's own answer about the thing
+ * doing the pointing, and every phone and tablet says yes to it.
+ */
+function touchScreen(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    return window.matchMedia("(pointer: coarse)").matches
+  } catch {
+    return false
+  }
+}
+
 /** The failures that are a refusal: somebody, or a setting, said no to the microphone. */
 export function isPermissionError(code: string): boolean {
   return code === "not-allowed" || code === "service-not-allowed" || code === "NotAllowedError" || code === "SecurityError" || code === "PermissionDeniedError"
@@ -194,8 +231,15 @@ export function voiceErrorMessage(code: string, where: "ios" | "android" | "web"
       return "Nothing was heard. Try again a little closer to the microphone."
     case "network":
       return "Voice input needs a connection. Check it and try again."
+    case "language-not-supported":
+    case "bad-grammar":
+      return "Voice input cannot hear this language here. Type it instead."
+    case "NotSupportedError":
+      return "This browser cannot record. Type it, or try another browser."
+    case "AbortError":
+      return "The microphone stopped before anything was recorded. Try again."
     default:
-      return "Voice input stopped. Try again, or type it."
+      return "Voice input stopped before it heard anything. Try again, or type it."
   }
 }
 
@@ -218,6 +262,8 @@ export function useVoiceInput({
   onText: (text: string, final: boolean) => void
 }) {
   const [engine, setEngine] = React.useState<Engine | null>(null)
+  /** A clip can be recorded here and turned into text: the phone's engine, and the recogniser's safety net. */
+  const [recordReady, setRecordReady] = React.useState(false)
   const [state, setState] = React.useState<VoiceState>("idle")
   const [seconds, setSeconds] = React.useState(0)
   const [error, setError] = React.useState<string | null>(null)
@@ -234,21 +280,33 @@ export function useVoiceInput({
   const timer = React.useRef<number | null>(null)
   const startedAt = React.useRef(0)
 
-  /* Which engine, once, after mount: none of this exists on the server. */
+  /*
+    WHICH ENGINE, once, after mount: none of this exists on the server.
+
+    A computer takes its recogniser straight away, so its microphone is there
+    the moment the composer is. Everywhere else the answer waits on one
+    question to the route: a phone prefers recording even where a recogniser
+    exists (A PHONE RECORDS, above), and a phone with nothing to record to
+    falls back to the recogniser rather than losing its microphone.
+  */
   React.useEffect(() => {
     let live = true
     if (nativeWithoutMicrophone()) return
-    if (!inNativeShell() && recogniser()) {
-      setEngine("speech")
-      return
-    }
+    const hasRecogniser = !inNativeShell() && !!recogniser()
+    if (hasRecogniser && !touchScreen()) setEngine("speech")
     if (!canRecord()) return
     void fetch("/api/website-builder/transcribe", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : { available: false }))
       .then((body: { available?: boolean }) => {
-        if (live && body.available) setEngine("record")
+        if (!live) return
+        if (body.available) {
+          setRecordReady(true)
+          setEngine((chosen) => chosen ?? "record")
+        } else if (hasRecogniser) setEngine((chosen) => chosen ?? "speech")
       })
-      .catch(() => {})
+      .catch(() => {
+        if (live && hasRecogniser) setEngine((chosen) => chosen ?? "speech")
+      })
     return () => {
       live = false
     }
@@ -299,58 +357,13 @@ export function useVoiceInput({
     }, 250)
   }, [stop, stopClock])
 
-  const start = React.useCallback(async () => {
-    if (!engine || state !== "idle") return
-    setError(null)
-    setRefused(false)
-    cancelled.current = false
+  /**
+   * THE RECORDER: a clip, then the route's text. The phone's engine, and
+   * where a failed recogniser hands over to (`fallBackToRecording`), so this
+   * is its own function rather than a branch of `start`.
+   */
+  const startRecording = React.useCallback(async () => {
     setState("starting")
-
-    if (engine === "speech") {
-      const Ctor = recogniser()
-      if (!Ctor) {
-        setState("idle")
-        return
-      }
-      const rec = new Ctor()
-      rec.lang = document.documentElement.lang || navigator.language || "en-US"
-      rec.continuous = true
-      rec.interimResults = true
-      let settled = ""
-      rec.onstart = () => {
-        setState("listening")
-        startClock()
-      }
-      rec.onresult = (event) => {
-        let interim = ""
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i]
-          if (result.isFinal) settled += result[0].transcript
-          else interim += result[0].transcript
-        }
-        if (!cancelled.current) onTextRef.current((settled + interim).replace(/\s+/g, " ").trim(), !interim)
-      }
-      rec.onerror = (event) => {
-        if (event.error === "aborted") return
-        setRefused(isPermissionError(event.error))
-        setError(voiceErrorMessage(event.error, platform()))
-      }
-      rec.onend = () => {
-        stopClock()
-        recognition.current = null
-        setState("idle")
-      }
-      recognition.current = rec
-      try {
-        rec.start()
-      } catch {
-        recognition.current = null
-        setState("idle")
-        setError(voiceErrorMessage(""))
-      }
-      return
-    }
-
     try {
       /* Asked on every press: the platform prompts whenever it is not already allowed. */
       const media = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -400,7 +413,108 @@ export function useVoiceInput({
       setRefused(isPermissionError(code))
       setError(voiceErrorMessage(code, platform()))
     }
-  }, [engine, state, releaseMic, startClock, stopClock])
+  }, [releaseMic, startClock])
+
+  /**
+   * THE RECOGNISER FAILED BEFORE A WORD: THE RECORDER TAKES OVER, AND THE
+   * PRESS CARRIES ON. Not a message and a stop — the person asked to speak,
+   * and there is a second way to hear them. The engine stays the recorder
+   * for the rest of the page, so the next press goes straight there.
+   *
+   * `getUserMedia` is asked for outside the press that started this, which
+   * browsers allow: it prompts if it must, and a refusal is reported like
+   * any other. Once only per press, and never after a refusal, which
+   * recording would only run into again.
+   */
+  const fellBack = React.useRef(false)
+  const fallBackToRecording = React.useCallback(() => {
+    if (!recordReady || fellBack.current || cancelled.current) return false
+    fellBack.current = true
+    /* The recogniser is done with; nothing should stop it instead of the recorder. */
+    recognition.current = null
+    setEngine("record")
+    void startRecording()
+    return true
+  }, [recordReady, startRecording])
+
+  const start = React.useCallback(async () => {
+    if (!engine || state !== "idle") return
+    setError(null)
+    setRefused(false)
+    cancelled.current = false
+    fellBack.current = false
+
+    if (engine === "record") {
+      await startRecording()
+      return
+    }
+
+    setState("starting")
+    const Ctor = recogniser()
+    if (!Ctor) {
+      setState("idle")
+      if (!fallBackToRecording()) setError(voiceErrorMessage("NotSupportedError"))
+      return
+    }
+    const rec = new Ctor()
+    rec.lang = document.documentElement.lang || navigator.language || "en-US"
+    rec.continuous = true
+    rec.interimResults = true
+    let settled = ""
+    /** A word arrived, so this session worked: nothing hands over after that. */
+    let heard = false
+    /** It said why it stopped, so `onend` leaves the message alone. */
+    let failed = false
+    rec.onstart = () => {
+      setState("listening")
+      startClock()
+    }
+    rec.onresult = (event) => {
+      let interim = ""
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i]
+        if (result.isFinal) settled += result[0].transcript
+        else interim += result[0].transcript
+      }
+      const words = (settled + interim).replace(/\s+/g, " ").trim()
+      if (words) heard = true
+      if (!cancelled.current) onTextRef.current(words, !interim)
+    }
+    rec.onerror = (event) => {
+      if (event.error === "aborted") return
+      failed = true
+      const refusal = isPermissionError(event.error)
+      /* Nothing heard, and not the microphone being off: record it instead. */
+      if (!refusal && !heard && fallBackToRecording()) return
+      setRefused(refusal)
+      setError(voiceErrorMessage(event.error, platform()))
+    }
+    rec.onend = () => {
+      stopClock()
+      recognition.current = null
+      /* The recorder has the microphone now; its own state stands. */
+      if (fellBack.current) return
+      /*
+        ENDED WITHOUT A WORD AND WITHOUT SAYING WHY. WebKit does this on a
+        phone: `start()` is answered, nothing is heard, and it is over. The
+        recorder takes the press.
+      */
+      if (!heard && !failed && fallBackToRecording()) return
+      setState("idle")
+      if (!heard && !failed) setError(voiceErrorMessage(""))
+    }
+    recognition.current = rec
+    try {
+      rec.start()
+    } catch (thrown) {
+      recognition.current = null
+      const code = thrown instanceof DOMException || thrown instanceof Error ? thrown.name : ""
+      /* Refused to start at all (WebKit throws when a session has not fully ended). */
+      if (fallBackToRecording()) return
+      setState("idle")
+      setError(voiceErrorMessage(code, platform()))
+    }
+  }, [engine, state, fallBackToRecording, startRecording, startClock, stopClock])
 
   /* Nothing keeps the microphone once the composer is gone. */
   React.useEffect(() => () => cancel(), [cancel])

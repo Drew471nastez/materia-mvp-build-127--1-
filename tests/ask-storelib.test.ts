@@ -245,16 +245,39 @@ section("Voice")
     /if \(target !== null\) setDraft\(target\)/.test(chat),
   )
   check(
-    "the browser's recogniser first, with the words appearing while they are said",
-    /rec\.interimResults = true/.test(voice) && /w\.SpeechRecognition \?\? w\.webkitSpeechRecognition/.test(voice),
+    "on a computer, the browser's own recogniser, with the words appearing while they are said",
+    /rec\.interimResults = true/.test(voice) && /w\.SpeechRecognition \?\? w\.webkitSpeechRecognition/.test(voice)
+      && /if \(hasRecogniser && !touchScreen\(\)\) setEngine\("speech"\)/.test(voice),
   )
+  /*
+    Changed on purpose: "voice input stopped, try again or type — I get the
+    error when on phone". Every browser on iOS is WebKit, whose recogniser
+    answers start() and then ends without a word, so a phone was left with
+    that message every time. A touch screen records instead, which is what
+    the apps have always done. Asked of the pointer, never of the user agent.
+  */
   check(
-    "not in the iOS and Android apps, whose web views have no recogniser to trust; they record instead",
-    /if \(!inNativeShell\(\) && recogniser\(\)\)/.test(voice) && /bridge\(\)\?\.isNativePlatform\?\.\(\) === true/.test(voice) && !/userAgent/.test(voice),
+    "on a touch screen, and in the iOS and Android apps, a clip is recorded and turned into text instead",
+    /window\.matchMedia\("\(pointer: coarse\)"\)\.matches/.test(voice) && /bridge\(\)\?\.isNativePlatform\?\.\(\) === true/.test(voice) && !/userAgent/.test(voice),
   )
   check(
     "recording is offered only where the server says it can turn it into text",
-    /body\.available\) setEngine\("record"\)/.test(voice) && /available: !!creatorId && !!process\.env\.OPENAI_API_KEY/.test(transcribe),
+    /setEngine\(\(chosen\) => chosen \?\? "record"\)/.test(voice) && /available: !!creatorId && !!process\.env\.OPENAI_API_KEY/.test(transcribe),
+  )
+  check(
+    "  and a phone with nothing to record to keeps its recogniser rather than losing its microphone",
+    /else if \(hasRecogniser\) setEngine\(\(chosen\) => chosen \?\? "speech"\)/.test(voice),
+  )
+  check(
+    "a recogniser that fails before a word is heard hands the press to the recorder, which carries on",
+    /const fallBackToRecording = React\.useCallback/.test(voice)
+      && /if \(!heard && !failed && fallBackToRecording\(\)\) return/.test(voice)
+      && /if \(!refusal && !heard && fallBackToRecording\(\)\) return/.test(voice)
+      && /if \(fallBackToRecording\(\)\) return\n\s*setState\("idle"\)/.test(voice),
+  )
+  check(
+    "  but a microphone that is off is not handed over: recording would ask the same question again",
+    /const refusal = isPermissionError\(event\.error\)/.test(voice) && /if \(!recordReady \|\| fellBack\.current \|\| cancelled\.current\) return false/.test(voice),
   )
   check("with neither, no microphone is drawn at all", /const micButton = voice\.supported && \(/.test(chat))
   {
