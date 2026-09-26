@@ -22,6 +22,13 @@ import { useRouter } from "next/navigation"
 import { PricingSection } from "@/components/marketing/pricing-section"
 import { isNativeApp } from "@/lib/native-bridge"
 
+/**
+ * How long a step takes to leave, in ms. It is the CSS duration and the
+ * timer that swaps the step, one number, so the two cannot drift: a swap
+ * late by a frame is seen as a pop rather than a change.
+ */
+const STEP_SWAP_MS = 180
+
 // Storelib logo SVG component - inlined for instant loading
 const StorelibLogo = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="Storelib">
@@ -365,6 +372,12 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const [currentStep, setCurrentStep] = useState(1)
   const [isAnimating, setIsAnimating] = useState(false)
   const [slideDirection, setSlideDirection] = useState<"left" | "right">("right")
+  /** The panel the steps are drawn in, so the next one starts at its top. */
+  const stepScrollRef = useRef<HTMLDivElement | null>(null)
+  const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (stepTimerRef.current) clearTimeout(stepTimerRef.current)
+  }, [])
 
   // Step 1: Profile
   const [displayName, setDisplayName] = useState("")
@@ -746,31 +759,42 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     }
   }
 
+  /**
+   * MOVING BETWEEN STEPS. The step on screen leaves, the next one arrives,
+   * and `STEP_SWAP_MS` is that half of it: the same number is the CSS
+   * duration and this timer, so the swap happens as the old step finishes
+   * going rather than a frame or two after, which is what was read as a pop.
+   *
+   * A second press while a step is already leaving is ignored. Before, two
+   * presses in the same 200ms started two timers and skipped a step.
+   *
+   * The next step starts at its top. Step 2's categories are taller than
+   * step 1 on a phone, so going back landed part way down a short step.
+   */
+  const goToStep = (next: number, direction: "left" | "right") => {
+    if (isAnimating) return
+    setSlideDirection(direction)
+    setIsAnimating(true)
+    if (stepTimerRef.current) clearTimeout(stepTimerRef.current)
+    stepTimerRef.current = setTimeout(() => {
+      setCurrentStep(next)
+      stepScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
+      setIsAnimating(false)
+    }, STEP_SWAP_MS)
+  }
+
   // Handle next step
   const handleNext = () => {
     if (!canProceed()) return
-
-    setSlideDirection("right")
-    setIsAnimating(true)
-    setTimeout(() => {
-      // Steps 1-3 advance normally; step 3 → step 4 (plan selection)
-      if (currentStep < 4) {
-        setCurrentStep(currentStep + 1)
-      }
-      setIsAnimating(false)
-    }, 200)
+    // Steps 1-3 advance normally; step 3 → step 4 (plan selection)
+    if (currentStep >= 4) return
+    goToStep(currentStep + 1, "right")
   }
 
   // Handle back step
   const handleBack = () => {
     if (currentStep <= 1) return
-
-    setSlideDirection("left")
-    setIsAnimating(true)
-    setTimeout(() => {
-      setCurrentStep(currentStep - 1)
-      setIsAnimating(false)
-    }, 200)
+    goToStep(currentStep - 1, "left")
   }
 
   // Handle skip
@@ -1137,8 +1161,16 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               ? // The app: the whole screen at every width (see nativeFullScreen above)
                 "fixed inset-0 top-0 left-0 w-screen h-[100dvh] max-w-none translate-x-0 translate-y-0 rounded-none"
               : cn(
-                  // Desktop: centered modal with exact specs
-                  "sm:w-[930px] sm:max-w-[930px] sm:h-[540px] sm:rounded-[44px]",
+                  /*
+                    Desktop: the 930 by 540 card, and never wider than the
+                    window it is in. The card was 930px from 640px up, so on
+                    a 768px tablet held upright it hung 81px off each side:
+                    Back and Next were off the screen, and there was nothing
+                    to scroll sideways to reach them. It keeps its size where
+                    there is room and takes the window's, less a margin,
+                    where there is not.
+                  */
+                  "sm:w-[930px] sm:max-w-[calc(100vw-40px)] sm:h-[540px] sm:max-h-[calc(100dvh-40px)] sm:rounded-[44px]",
                   // Mobile: true fullscreen experience
                   "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none",
                   // Shadow
@@ -1157,39 +1189,92 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               ? "max-h-[100dvh] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
               : "sm:max-h-[540px] max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]",
           )}>
-            {/* Progress bar, with the way back to the first business on its left when this is a second one */}
-            <div className="relative flex justify-center pt-4 sm:pt-8 shrink-0">
-              {switchBack && (
-                <div className="absolute left-3 top-2 sm:left-6 sm:top-5">
+            {/*
+              ═══════════════════════════════════════════════════════════════
+               THE TOP ROW: THE WAY BACK, THE PROGRESS, AND NOTHING TOUCHING
+              ═══════════════════════════════════════════════════════════════
+              The way back to the first business was placed absolutely at the
+              left while the bar was centred in the whole width, so the two
+              knew nothing about each other. On a 390px phone the bar begins
+              at 115px and the button could reach 212px: a name of any length
+              ran under the bar. They were not even on the same line, the
+              button's middle at 26px and the bar's at 19px.
+
+              One row of three columns now (1fr auto 1fr). The bar is the
+              middle column, centred between the edges whatever is beside it;
+              the button has the column to its left and cannot leave it, so
+              however long the name is it truncates instead of reaching the
+              bar; the third column is the first one's width, which is what
+              keeps the bar in the middle of the row rather than in the
+              middle of what is left. A phone shows the arrow alone, its
+              44px press, with the name as its label: at 320px there is no
+              room for a name beside a 160px bar, and a name cut to five
+              letters says less than the arrow does. From 640px the name is
+              beside it. scripts/check-onboarding.mjs measures the gap, the
+              middles and the press at six widths.
+
+              What went wrong is kept out of the row: an error under an
+              absolutely placed button used to be drawn over the heading.
+            */}
+            <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 pt-3 sm:gap-4 sm:px-6 sm:pt-7">
+              <div className="flex min-w-0 items-center justify-start">
+                {switchBack && (
                   <button
                     type="button"
                     onClick={goBackToFirstBusiness}
                     disabled={switchingBack}
                     data-onboarding-switch-back=""
-                    className="inline-flex h-9 max-w-[200px] items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:opacity-60"
+                    aria-label={`Back to ${switchBack.name}`}
+                    className="inline-flex h-11 min-w-0 max-w-full items-center justify-center gap-1.5 rounded-lg text-[13px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:opacity-60 max-sm:w-11 sm:h-10 sm:justify-start sm:px-2"
                   >
-                    {switchingBack ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <ArrowLeft className="h-4 w-4 shrink-0" />}
-                    <span className="truncate">{switchBack.name}</span>
+                    {switchingBack ? <Loader2 className="h-[18px] w-[18px] shrink-0 animate-spin" /> : <ArrowLeft className="h-[18px] w-[18px] shrink-0" />}
+                    <span className="hidden truncate sm:inline">{switchBack.name}</span>
                   </button>
-                  {switchBackError && <p role="alert" className="mt-1 max-w-[220px] px-2 text-[12px] text-red-600">{switchBackError}</p>}
-                </div>
-              )}
-              <div className="w-[160px] sm:w-[200px] h-[6px] sm:h-[8px] bg-gray-200 rounded-full overflow-hidden">
+                )}
+              </div>
+              <div data-onboarding-progress="" className="h-[6px] w-[160px] overflow-hidden rounded-full bg-gray-200 sm:h-[8px] sm:w-[200px]">
+                {/* Width alone, so the bar's growth is its own and nothing else is animated with it. */}
                 <div
-                  className="h-full bg-purple-600 transition-all duration-500 ease-out rounded-full"
+                  className="h-full rounded-full bg-purple-600 transition-[width] duration-500 ease-out motion-reduce:transition-none"
                   style={{ width: `${progressWidth}%` }}
                 />
               </div>
+              <div aria-hidden="true" />
             </div>
+            {switchBackError && (
+              <p role="alert" className="shrink-0 px-3 pt-1.5 text-center text-[12px] text-red-600 sm:px-6">{switchBackError}</p>
+            )}
 
-            <div className={cn(
-              "flex-1 min-h-0 overflow-y-auto transition-all duration-200 px-4 sm:px-12 pt-3 sm:pt-6",
-              (currentStep === 1 || currentStep === 3) && "max-sm:pb-4",
-              currentStep === 2 && "max-sm:pb-2",
-              currentStep === 4 && "pb-4 sm:pb-6",
-              isAnimating && slideDirection === "right" && "opacity-0 translate-x-4",
-              isAnimating && slideDirection === "left" && "opacity-0 -translate-x-4"
-            )}>
+            {/*
+              ONE STEP LEAVES, THE NEXT ARRIVES, AND THE BOX AROUND THEM
+              HOLDS STILL. This was `transition-all` on the scroller itself:
+              every step carries its own bottom padding, so changing step
+              animated the padding, the height and the scroll box as well as
+              the fade, none of which the compositor can do on its own, and
+              the panel it all happens in is the one being scrolled. Now the
+              scroller is fixed and only what is inside it moves, on opacity
+              and transform, which are the two a phone animates without
+              drawing a frame again (`translate`, which is what translate-x-3 sets
+              in Tailwind 4, not `transform`). A person who has asked for less motion
+              gets the swap with no movement at all.
+            */}
+            <div
+              ref={stepScrollRef}
+              className={cn(
+                "flex-1 min-h-0 overflow-y-auto px-4 sm:px-12 pt-3 sm:pt-6",
+                (currentStep === 1 || currentStep === 3) && "max-sm:pb-4",
+                currentStep === 2 && "max-sm:pb-2",
+                currentStep === 4 && "pb-4 sm:pb-6",
+              )}
+            >
+            <div
+              data-onboarding-step={currentStep}
+              style={{ transitionDuration: `${STEP_SWAP_MS}ms` }}
+              className={cn(
+                "transition-[opacity,translate] ease-out motion-reduce:transition-none motion-reduce:translate-x-0",
+                isAnimating && (slideDirection === "right" ? "translate-x-3 opacity-0" : "-translate-x-3 opacity-0"),
+              )}
+            >
               {/* Step 1: Let's get started */}
               {currentStep === 1 && (
                 <div className="flex flex-col items-center">
@@ -1507,20 +1592,34 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 </div>
               )}
             </div>
+            </div>
 
+            {/*
+              THE ROW OF BUTTONS FITS THE NARROWEST PHONE SOLD. On the
+              category step it is four of them, Back, Other, Skip and Next,
+              and at 320px (an iPhone SE, and any phone with the text size
+              turned up) they came to 368px: Next hung off the right edge.
+              Under 384px, which is the width the roomy row stops fitting at,
+              each one gives up some of its side padding and Next some of its
+              floor: 291px, with 8px between any two, at 320. The words and
+              the heights do not change, so the press stays 44px and nothing
+              reads as a different button.
+            */}
             {/* Footer with buttons — steps 1-3 */}
             {currentStep >= 1 && currentStep <= 3 && (
               <div className={cn(
-                "px-4 sm:px-12 pt-2 flex items-center justify-between shrink-0",
+                /* The same bottom padding on every step: the category step's
+                   was 12px deeper, which made the panel above it 12px
+                   shorter, so a step change resized the box it happened in. */
+                "px-4 sm:px-12 pt-2 flex items-center justify-between shrink-0 max-[384px]:px-3",
                 "pb-5 sm:pb-4",
-                currentStep === 2 && "sm:pb-7"
               )}>
                 {/* Back button and Other - left side */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 max-[384px]:gap-2">
                   {currentStep > 1 && (
                     <button
                       onClick={handleBack}
-                      className="px-5 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+                      className="px-5 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors max-[384px]:px-4"
                     >
                       Back
                     </button>
@@ -1532,7 +1631,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                         setSelectedCategory(null)
                         handleNext()
                       }}
-                      className="px-4 sm:px-5 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                      className="px-4 sm:px-5 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors max-[384px]:px-3"
                     >
                       Other
                     </button>
@@ -1540,11 +1639,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 </div>
 
                 {/* Skip and Next buttons - right side */}
-                <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex items-center gap-3 sm:gap-4 max-[384px]:gap-2">
                   {canSkip() && (
                     <button
                       onClick={handleSkip}
-                      className="px-4 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                      className="px-4 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors max-[384px]:px-2.5"
                     >
                       Skip
                     </button>
@@ -1554,7 +1653,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     onClick={handleNext}
                     disabled={!canProceed()}
                     className={cn(
-                      "px-7 sm:px-8 py-3 sm:py-3 rounded-xl font-semibold text-sm sm:text-sm transition-all min-w-[110px] sm:min-w-[140px]",
+                      "px-7 sm:px-8 py-3 sm:py-3 rounded-xl font-semibold text-sm sm:text-sm transition-colors min-w-[110px] sm:min-w-[140px] max-[384px]:min-w-[88px] max-[384px]:px-4",
                       canProceed()
                         ? "bg-purple-600 text-white hover:bg-purple-700 shadow-md hover:shadow-lg"
                         : "bg-gray-200 text-gray-400 cursor-not-allowed"
