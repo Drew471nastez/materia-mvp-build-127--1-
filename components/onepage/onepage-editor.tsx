@@ -1001,7 +1001,7 @@ function EditorLayout() {
         show={saveFailure.sequence > 0}
         message={saveFailure.message}
         duration={5000}
-        icon={<AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" strokeWidth={2.5} />}
+        icon={<AlertCircle className="w-4 h-4 text-white flex-shrink-0" strokeWidth={2.5} />}
       />
       {/* Header - ALWAYS visible with solid background */}
       <header className="box-content flex items-center border-b bg-white h-[56px] sm:h-[60px] pt-[env(safe-area-inset-top)] md:pt-0 shrink-0 relative z-30 overflow-hidden">
