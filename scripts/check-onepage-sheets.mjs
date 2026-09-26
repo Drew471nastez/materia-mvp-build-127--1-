@@ -129,9 +129,11 @@ async function open(vp, hash, path = "/app/onepage", ready = "[data-scroll-conta
  * One sheet in the editor (or on the published page) at 390px: opened on
  * its own page, every claim in scripts/sheet-feel-kit.mjs, and no errors.
  */
-async function sheet(hash, name, label, opener, list, where = []) {
+async function sheet(hash, name, label, opener, list, where = [], prepare = null) {
   console.log(`\n${name}`)
   const s = await open(PHONE, hash, ...where)
+  /* A step reached from another sheet: that one is opened first, and the probe reads the one it leads to. */
+  if (prepare) { await s.p.evaluate(prepare); await sleep(800) }
   await readSheet(s, { name, label, opener, list, expect })
   expect(s.errors.length === 0, "no errors on the page", s.errors.slice(0, 3))
   await s.p.close()
@@ -145,6 +147,30 @@ await sheet("links", "A link's thumbnail", "Edit Thumbnail", `(() => { const b =
 await sheet("links", "A block's animation", "Animation", clickTitle("Animation"))
 await sheet("links", "A block's stats", "Link Stats", clickTitle("View Stats"))
 await sheet("products", "Add product", "Add Product", clickText("Add Product"))
+
+/*
+  THE LAST CENTRED DIALOGS, NOW THE SHARED SHEET ON A PHONE: the name and
+  bio, the profile picture's steps on Links, and the Design tab's profile
+  image. Held to the same list. (The crops, the image library and the
+  layout questions open from an upload or a block this probe does not
+  make; they are the same SheetDialog.)
+*/
+const clickSel = (sel) => `(() => { const b = [...document.querySelectorAll(${JSON.stringify(sel)})].find((e) => e.getClientRects().length); if (b) b.click(); return !!b })()`
+await sheet("links", "The name and bio", "Edit Profile", `(() => { const b = [...document.querySelectorAll("button")].find((e) => e.querySelector("h2") && e.getClientRects().length); if (b) b.click(); return !!b })()`)
+await sheet("links", "The profile picture", "Profile Image", clickSel("[data-scroll-container] .relative.group.cursor-pointer"))
+await sheet("links", "The profile picture's upload, a step from it", "Upload media", `(() => {
+  const b = [...document.querySelectorAll("[data-app-sheet] button")].find((e) => /Select image or GIF/.test(e.textContent))
+  if (b) b.click()
+  return !!b
+})()`, null, [], clickSel("[data-scroll-container] .relative.group.cursor-pointer"))
+await sheet("design", "Design, the profile image", "Profile Image", `(async () => {
+  document.querySelector('[data-nav-row="header"]').click()
+  await new Promise((r) => setTimeout(r, 900))
+  const b = document.querySelector("[data-avatar-edit]")
+  if (b) b.click()
+  return !!b
+})()`)
+await sheet("links", "Share", "Share your OnePage", clickSel("[data-onepage-share]"))
 
 /* The phone preview's PDF: Preview, then the PDF on the page. */
 await sheet("links", "The phone preview's PDF", PDF_TITLE, `(async () => {

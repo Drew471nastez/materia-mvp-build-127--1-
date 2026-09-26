@@ -29,7 +29,8 @@ import {
   X,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { DialogHeader } from "@/components/ui/dialog"
+import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { usePhone } from "@/components/app/date-range-picker"
@@ -1189,6 +1190,8 @@ function PanelBody({ fade, children }: { fade: boolean; children: React.ReactNod
 
 function HeaderSection() {
   const { onepage, updateProfile, updateTheme } = useOnePage()
+  /* Its questions and pickers are the shared sheet on a phone (components/ui/sheet-dialog). */
+  const sheetPhone = usePhone()
   const [showEditModal, setShowEditModal] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showCropModal, setShowCropModal] = useState(false)
@@ -2074,10 +2077,15 @@ function HeaderSection() {
         </SettingRow>
       </PanelSection>
 
-      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <SheetDialog
+        open={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        phone={sheetPhone}
+        label="Profile Image"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-5 border-b">
-            <DialogTitle className="text-lg font-semibold text-center">Profile Image</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold text-center">Profile Image</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
             <button onClick={() => { setShowEditModal(false); setShowUploadModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
@@ -2096,15 +2104,19 @@ function HeaderSection() {
               </button>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
       {/* Video Selection Modal */}
-      <Dialog open={showVideoModal} onOpenChange={setShowVideoModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <SheetDialog
+        open={showVideoModal}
+        onClose={() => setShowVideoModal(false)}
+        phone={sheetPhone}
+        label="Profile Video"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowVideoModal(false); setShowEditModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Profile Video</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Profile Video</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
             <button onClick={() => videoFileInputRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
@@ -2117,29 +2129,28 @@ function HeaderSection() {
             </button>
             <input ref={videoFileInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoFileSelect} className="hidden" />
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
       {/* Video Crop Modal - Simple 1:1 crop like image crop */}
-      <Dialog open={showVideoCropModal} onOpenChange={(open) => {
-        setShowVideoCropModal(open)
-        if (!open) {
+      <SheetDialog
+        open={showVideoCropModal}
+        onClose={() => {
+          setShowVideoCropModal(false)
           if (tempVideoUrl && tempVideoFile) URL.revokeObjectURL(tempVideoUrl)
           setTempVideoUrl(null)
           setTempVideoFile(null)
           setIsVideoDragging(false)
           setIsVideoResizing(null)
           setVideoDimensions({ width: 0, height: 0 })
-        }
-      }}>
-        <DialogContent
-          className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-        >
+        }}
+        phone={sheetPhone}
+        label="Crop Video"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+        dialog={{ onPointerDownOutside: (e) => e.preventDefault(), onInteractOutside: (e) => e.preventDefault() }}
+      >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Video</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Video</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-4">
             {tempVideoUrl && (
@@ -2177,6 +2188,8 @@ function HeaderSection() {
 
                   {/* Crop box - 1:1 square ratio */}
                   <div
+                    /* In the phone's sheet, the crop keeps its finger: the sheet does not drag from here. */
+                    data-sheet-no-drag=""
                     className="absolute cursor-move"
                     style={{
                       left: `${videoCropBox.x}%`,
@@ -2234,14 +2247,18 @@ function HeaderSection() {
               </>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
-      <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <SheetDialog
+        open={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        phone={sheetPhone}
+        label="Upload media"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowUploadModal(false); setShowEditModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload media</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload media</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5">
             <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
@@ -2252,14 +2269,18 @@ function HeaderSection() {
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
-      <Dialog open={showCropModal} onOpenChange={(open) => { setShowCropModal(open); if (!open && tempImageUrl) { URL.revokeObjectURL(tempImageUrl); setTempImageUrl(null); setTempImageFile(null) } }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <SheetDialog
+        open={showCropModal}
+        onClose={() => { setShowCropModal(false); if (tempImageUrl) { URL.revokeObjectURL(tempImageUrl); setTempImageUrl(null); setTempImageFile(null) } }}
+        phone={sheetPhone}
+        label="Crop Image"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowCropModal(false); setShowUploadModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Image</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Image</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-4">
             {tempImageUrl && (
@@ -2298,6 +2319,8 @@ function HeaderSection() {
                   
                   {/* Crop box */}
                   <div 
+                    /* In the phone's sheet, the crop keeps its finger: the sheet does not drag from here. */
+                    data-sheet-no-drag=""
                     className="absolute cursor-move"
                     style={{
                       left: `${150 - imageSize.width/2 + cropBox.x}px`,
@@ -2342,15 +2365,19 @@ function HeaderSection() {
               </>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
       {/* Logo Upload Modal */}
-      <Dialog open={showLogoUploadModal} onOpenChange={setShowLogoUploadModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <SheetDialog
+        open={showLogoUploadModal}
+        onClose={() => setShowLogoUploadModal(false)}
+        phone={sheetPhone}
+        label="Upload Logo"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => setShowLogoUploadModal(false)} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload Logo</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload Logo</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5">
             <div onClick={() => logoFileInputRef.current?.click()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
@@ -2361,24 +2388,28 @@ function HeaderSection() {
             </div>
             <input ref={logoFileInputRef} type="file" accept="image/*" onChange={handleLogoFileSelect} className="hidden" />
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
       {/* Logo Crop Modal */}
-      <Dialog open={showLogoCropModal} onOpenChange={(open) => {
-        setShowLogoCropModal(open)
-        if (!open && tempLogoUrl) {
-          URL.revokeObjectURL(tempLogoUrl)
-          setTempLogoUrl(null)
-          setTempLogoFile(null)
-          setIsLogoDragging(false)
-          setIsLogoResizing(null)
-        }
-      }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <SheetDialog
+        open={showLogoCropModal}
+        onClose={() => {
+          setShowLogoCropModal(false)
+          if (tempLogoUrl) {
+            URL.revokeObjectURL(tempLogoUrl)
+            setTempLogoUrl(null)
+            setTempLogoFile(null)
+            setIsLogoDragging(false)
+            setIsLogoResizing(null)
+          }
+        }}
+        phone={sheetPhone}
+        label="Crop Logo"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowLogoCropModal(false); setShowLogoUploadModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Logo</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Logo</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-4">
             {tempLogoUrl && (
@@ -2398,6 +2429,8 @@ function HeaderSection() {
 
                   {/* Crop box - percentage based like video cropper */}
                   <div
+                    /* In the phone's sheet, the crop keeps its finger: the sheet does not drag from here. */
+                    data-sheet-no-drag=""
                     className="absolute border-2 border-white border-dashed cursor-move"
                     style={{
                       left: `${logoCropBox.x}%`,
@@ -2480,8 +2513,7 @@ function HeaderSection() {
               </>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
       <PanelSection>
         <SectionTitle title="Profile image layout" />
@@ -2716,6 +2748,8 @@ function ThemeCard({ template, selected, onPick }: { template: typeof THEME_TEMP
 
 function ThemeSection() {
   const { onepage, updateTheme, updateSettings, updateBlock } = useOnePage()
+  /* Its questions and pickers are the shared sheet on a phone (components/ui/sheet-dialog). */
+  const sheetPhone = usePhone()
   const [filter, setFilter] = useState<"all" | "light" | "dark" | "gradient" | "image">("all")
   const [showLayoutChangeDialog, setShowLayoutChangeDialog] = useState(false)
   const [pendingTemplate, setPendingTemplate] = useState<typeof THEME_TEMPLATES[0] | null>(null)
@@ -2815,10 +2849,15 @@ function ThemeSection() {
       </div>
 
       {/* Layout Change Dialog */}
-      <Dialog open={showLayoutChangeDialog} onOpenChange={setShowLayoutChangeDialog}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <SheetDialog
+        open={showLayoutChangeDialog}
+        onClose={() => setShowLayoutChangeDialog(false)}
+        phone={sheetPhone}
+        label="Update profile image style?"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-5 pb-0">
-            <DialogTitle className="text-lg font-semibold text-center">Update profile image style?</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold text-center">Update profile image style?</SheetDialogTitle>
           </DialogHeader>
           
           <div className="p-5 space-y-4">
@@ -2859,8 +2898,7 @@ function ThemeSection() {
               </button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
     </div>
   )
 }
@@ -2938,6 +2976,8 @@ function DirectionDial({ value, onChange }: { value: number; onChange: (v: numbe
 function WallpaperSection() {
   const { onepage, updateTheme } = useOnePage()
   const [uploading, setUploading] = useState(false)
+  /* Its questions and pickers are the shared sheet on a phone (components/ui/sheet-dialog). */
+  const sheetPhone = usePhone()
   const [showLayoutChangeDialog, setShowLayoutChangeDialog] = useState(false)
   const [pendingBgType, setPendingBgType] = useState<"gradient" | "image" | "video" | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -3511,11 +3551,16 @@ function WallpaperSection() {
       )}
 
       {/* Video Picker Modal */}
-      <Dialog open={showWallpaperVideoModal} onOpenChange={setShowWallpaperVideoModal}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <SheetDialog
+        open={showWallpaperVideoModal}
+        onClose={() => setShowWallpaperVideoModal(false)}
+        phone={sheetPhone}
+        label="Upload Video"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => setShowWallpaperVideoModal(false)} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload Video</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload Video</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
             <button onClick={() => wallpaperVideoFileInputRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
@@ -3528,28 +3573,27 @@ function WallpaperSection() {
             </button>
             <input ref={wallpaperVideoFileInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleWallpaperVideoFileSelect} className="hidden" />
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
       {/* Video Crop Modal */}
-      <Dialog open={showWallpaperVideoCropModal} onOpenChange={(open) => {
-        setShowWallpaperVideoCropModal(open)
-        if (!open) {
+      <SheetDialog
+        open={showWallpaperVideoCropModal}
+        onClose={() => {
+          setShowWallpaperVideoCropModal(false)
           if (tempWallpaperVideoUrl) URL.revokeObjectURL(tempWallpaperVideoUrl)
           setTempWallpaperVideoUrl(null)
           setTempWallpaperVideoFile(null)
           setIsWallpaperVideoDragging(false)
           setIsWallpaperVideoResizing(null)
-        }
-      }}>
-        <DialogContent
-          className="w-[calc(100%-32px)] max-w-md sm:max-w-lg md:max-w-xl p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-        >
+        }}
+        phone={sheetPhone}
+        label="Crop Video"
+        className="w-[calc(100%-32px)] max-w-md sm:max-w-lg md:max-w-xl p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+        dialog={{ onPointerDownOutside: (e) => e.preventDefault(), onInteractOutside: (e) => e.preventDefault() }}
+      >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
             <button onClick={() => { setShowWallpaperVideoCropModal(false); setShowWallpaperVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Video</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Video</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-4">
             {tempWallpaperVideoUrl && (
@@ -3571,6 +3615,8 @@ function WallpaperSection() {
 
                   {/* Crop box - draggable */}
                   <div
+                    /* In the phone's sheet, the crop keeps its finger: the sheet does not drag from here. */
+                    data-sheet-no-drag=""
                     className="absolute border-2 border-white border-dashed cursor-move"
                     style={{
                       left: `${wallpaperVideoCropBox.x}%`,
@@ -3622,14 +3668,18 @@ function WallpaperSection() {
               </>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
 
       {/* Layout Change Dialog */}
-      <Dialog open={showLayoutChangeDialog} onOpenChange={setShowLayoutChangeDialog}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <SheetDialog
+        open={showLayoutChangeDialog}
+        onClose={() => setShowLayoutChangeDialog(false)}
+        phone={sheetPhone}
+        label="Update profile image style?"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+      >
           <DialogHeader className="p-5 pb-0">
-            <DialogTitle className="text-lg font-semibold text-center">Update profile image style?</DialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold text-center">Update profile image style?</SheetDialogTitle>
           </DialogHeader>
           
           <div className="p-5 space-y-4">
@@ -3670,8 +3720,7 @@ function WallpaperSection() {
               </button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetDialog>
     </div>
   )
 }

@@ -9,9 +9,15 @@
  * pushes one at a time, over fetch or, with pictures, over XMLHttpRequest
  * with upload progress), the clipboard and a speech recogniser.
  *
- *   FADE       nothing round the pill: no glow (the old glow put back is
- *              measured to add plenty) and no blurred band, so no element
- *              in the dock carries a mask and there is no edge to see
+ *   SOFTEN     the page blurs into the pill: three rings of backdrop blur
+ *              round the folded pill, strongest at its hairline and gone by
+ *              their outer edge, over photographs, fine stripes, one flat
+ *              dark colour and the blue site it was asked for. Measured
+ *              against the same page with the rings taken out: no light
+ *              added, no step in the falloff, nothing past the reach (the
+ *              old glow, put back, is measured to add plenty)
+ *   COST       the canvas scrolled under the folded pill with the CPU
+ *              slowed four times, with the rings and without
  *   LABELS     at 360, 390 and 430: the mode row is one row, the mode labels
  *              and the placeholders fit on one line in both modes, the
  *              header with Connect AI does not overflow, suggestion chips do
@@ -277,28 +283,42 @@ async function page(browser, vp, query, hash, extraPrelude = "") {
 }
 const lineText = (p) => p.evaluate(() => { const t = [...document.querySelectorAll('[data-ask-activity] [data-line="in"] [data-ask-line-text]')].pop(); return t ? t.firstChild.textContent : null })
 
-/* ── FADE ─────────────────────────────────────────────────────────────── */
+/* ── SOFTEN ───────────────────────────────────────────────────────────── */
 /*
-  "Ask Storelib has a white, faded, light glow around it, which is bad."
-  The glow is gone. Then "the blur around the pill is not fading, it's very
-  cut around": the masked blur band that replaced it is gone too (Safari
-  draws a backdrop blur but not its mask, so it ended in a hard edge).
-  Nothing is drawn round the pill but its own soft ink shadows. Measured
-  over photographs, stripes and text, with and without a picture in the
+  "Around the pill shape there, there needs to be some smooth clean blur
+  applied around it, very smooth."
+
+  Twice before this went wrong: a white glow ("it has a white, faded, light
+  glow around it, which is bad") and then one masked band ("the blur around
+  the pill is not fading, it's very cut around" — WebKit draws a backdrop
+  filter but not the mask that feathers it). What is there now is three
+  rings of backdrop blur reaching 5 to 24px past the pill, no fill on any
+  of them, each one blurring less than the one inside it, each feathered
+  by its own eased mask. Every claim in that sentence is measured here, over
+  photographs and text, fine stripes, one flat dark colour and the saturated
+  blue page the pill was floating over, with and without a picture in the
   pill (the screenshot that was sent):
 
-    NO BAND    no [data-ask-fade], and no element in the dock has a mask
-    NO LIGHT   the page round the pill is no lighter than it was. The old
-               glow, put back, is measured the same way and adds a lot
+    THE RINGS     five [data-ask-soften], every one of them a backdrop
+                  filter with no background colour of its own, and still no
+                  [data-ask-halo] and no [data-ask-fade]
+    NO LIGHT      the page round the pill is no lighter than it is with the
+                  rings taken out. The old glow, put back, is measured the
+                  same way and adds a lot
+    NO EDGE       the change the rings make falls from the pill's hairline
+                  to nothing: no step between one pixel out and the next is
+                  more than a tenth of the whole, the last ring's outer
+                  pixel is within a shade of untouched, and one pixel past
+                  the reach nothing is touched at all
 */
-async function fade(browser, vp, attached = false) {
-  const label = `fade-${vp.width}${attached ? "-attached" : ""}`
+async function soften(browser, vp, { attached = false, canvas = "photo" } = {}) {
+  const label = `soften-${canvas}-${vp.width}${attached ? "-attached" : ""}`
   console.log(`\n${label}`)
-  const p = await page(browser, vp, "agent=auto", "#desktop", PHOTOS)
+  const p = await page(browser, vp, `agent=auto&canvas=${canvas}`, "#desktop", canvas === "photo" ? PHOTOS : "")
   await sleep(300)
   if (attached) {
     /* The owner's screenshot: the folded pill holding a picture, "Add a note, or just send". */
-    const dir = mkdtempSync(join(tmpdir(), "askdock-fade-"))
+    const dir = mkdtempSync(join(tmpdir(), "askdock-soften-"))
     const png = await p.evaluate(async () => { const c = new OffscreenCanvas(900, 600); const x = c.getContext("2d"); x.fillStyle = "#c2410c"; x.fillRect(0, 0, 900, 600); x.fillStyle = "#fff"; x.fillRect(80, 80, 300, 200); const b = new Uint8Array(await (await c.convertToBlob({ type: "image/png" })).arrayBuffer()); let s = ""; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s) })
     writeFileSync(join(dir, "shot.png"), Buffer.from(png, "base64"))
     const input = await p.$("[data-ask-pill] input[type=file]")
@@ -318,19 +338,30 @@ async function fade(browser, vp, attached = false) {
   const css = await p.evaluate(() => ({
     halo: !!document.querySelector("[data-ask-halo]"),
     band: !!document.querySelector("[data-ask-fade]"),
-    masked: [...document.querySelectorAll("[data-ask-dock] *")].filter((e) => { const c = getComputedStyle(e); return (c.maskImage && c.maskImage !== "none") || (c.webkitMaskImage && c.webkitMaskImage !== "none") }).length,
+    rings: [...document.querySelectorAll("[data-ask-soften]")].map((e) => {
+      const c = getComputedStyle(e)
+      return { reach: e.getAttribute("data-ask-soften"), blur: (c.backdropFilter || c.webkitBackdropFilter || "").replace(/\s+/g, " "), masked: !!(c.maskImage || c.webkitMaskImage) && (c.maskImage || c.webkitMaskImage) !== "none", fill: c.backgroundColor, shadow: c.boxShadow }
+    }),
   }))
-  expect(!css.halo && !css.band && css.masked === 0, "round the pill, nothing: no halo, no blurred band, no mask to cut an edge", css)
+  /* How far the softening is allowed to reach: the outermost ring says so itself. */
+  const SOFTEN_REACH = Math.max(...css.rings.map((r) => +r.reach))
+  const fills = css.rings.map((r) => r.fill)
+  expect(
+    !css.halo && !css.band && css.rings.length === 5 && css.rings.every((r) => /blur\(/.test(r.blur) && r.masked) && fills.every((f) => /, 0\)$|transparent/.test(f)) && css.rings.every((r) => r.shadow === "none"),
+    "round the pill, five rings of blur and nothing else: no fill, no shadow, no halo, no old band",
+    css.rings,
+  )
 
   /* Whole-window pictures, cut to the band after (a clipped screenshot redraws only its box, and a blur in it has nothing beyond to blur with). */
-  const R = 22
-  const band = { x: Math.round(pill.x - R), y: Math.round(pill.y - R), w: Math.round(pill.w + R * 2), h: Math.round(pill.h + R * 2) }
   const shot = () => p.screenshot({ encoding: "base64" })
-  const withBand = await shot()
+  const withRings = await shot()
   await p.screenshot({ path: join(shots, `${P}${label}-pill.png`) })
   await p.screenshot({ path: join(shots, `${P}${label}-close.png`), clip: { x: Math.max(0, pill.x - 120), y: Math.max(0, pill.y - 90), width: Math.min(vp.width - Math.max(0, pill.x - 120), pill.w + 240), height: Math.min(vp.height - Math.max(0, pill.y - 90), pill.h + 110) } })
-  /* With no band there is nothing to take away: the page as it is is the page without one. */
-  const without = withBand
+  /* The same page with the rings taken out of it: the page as it would be without them. */
+  await p.evaluate(() => { document.querySelectorAll("[data-ask-soften]").forEach((e) => { e.style.display = "none" }) })
+  await sleep(160)
+  const without = await shot()
+  await p.screenshot({ path: join(shots, `${P}${label}-without.png`), clip: { x: Math.max(0, pill.x - 120), y: Math.max(0, pill.y - 90), width: Math.min(vp.width - Math.max(0, pill.x - 120), pill.w + 240), height: Math.min(vp.height - Math.max(0, pill.y - 90), pill.h + 110) } })
   /* The old glow, a light shadow the pill's shape, put back for a moment. */
   await p.evaluate((g) => {
     const h = document.createElement("div")
@@ -340,40 +371,177 @@ async function fade(browser, vp, attached = false) {
   await sleep(120)
   const oldGlow = await shot()
 
-  const result = await p.evaluate(async (a, b, c, band, pill) => {
+  const result = await p.evaluate(async (a, b, c, pill, REACH) => {
     const load = (src) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.src = "data:image/png;base64," + src })
     const [ia, ib, ic] = await Promise.all([load(a), load(b), load(c)])
     const read = (img) => { const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height; const x = cv.getContext("2d"); x.drawImage(img, 0, 0); return x.getImageData(0, 0, img.width, img.height) }
     const A = read(ia), B = read(ib), C = read(ic)
-    const lum = (d, x, y) => { const i = (y * d.width + x) * 4; return 0.2126 * d.data[i] + 0.7152 * d.data[i + 1] + 0.0722 * d.data[i + 2] }
-    /* The band only: round the pill, not over it. `depth` is how far out from the pill's box a pixel is, 1 to 22. */
-    const depth = (x, y) => {
+    const lum = (d, i) => 0.2126 * d.data[i] + 0.7152 * d.data[i + 1] + 0.0722 * d.data[i + 2]
+    /* `depth` is how far out from the pill's box a pixel is, in whole pixels. */
+    const OUT = REACH + 8
+    const bins = Array.from({ length: OUT + 1 }, () => ({ n: 0, on: 0, off: 0, glow: 0, diff: 0 }))
+    const x0 = Math.max(0, Math.floor(pill.x - OUT)), x1 = Math.min(A.width, Math.ceil(pill.x + pill.w + OUT))
+    const y0 = Math.max(0, Math.floor(pill.y - OUT)), y1 = Math.min(A.height, Math.ceil(pill.y + pill.h + OUT))
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
       const dx = x < pill.x ? pill.x - x : x > pill.x + pill.w ? x - (pill.x + pill.w) : 0
       const dy = y < pill.y ? pill.y - y : y > pill.y + pill.h ? y - (pill.y + pill.h) : 0
-      return Math.max(dx, dy)
+      const d = Math.round(Math.max(dx, dy))
+      if (d < 1 || d > OUT) continue
+      const i = (y * A.width + x) * 4
+      const bin = bins[d]
+      const u = lum(A, i), v = lum(B, i)
+      bin.n++; bin.on += u; bin.off += v; bin.glow += lum(C, i); bin.diff += Math.abs(u - v)
     }
-    let sumWith = 0, sumWithout = 0, sumOld = 0, n = 0
-    const near = [], far = []
-    /* The band as far as the window goes: below the pill it runs past the canvas's bottom edge. */
-    const x0 = Math.max(0, band.x), x1 = Math.min(A.width, band.x + band.w), y0 = Math.max(0, band.y), y1 = Math.min(A.height, band.y + band.h)
-    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-      const d = depth(x, y)
-      if (d < 1 || d > 22) continue
-      const w = lum(A, x, y), o = lum(B, x, y), g = lum(C, x, y)
-      sumWith += w; sumWithout += o; sumOld += g; n++
-      if (d <= 3) near.push(Math.abs(w - o))
-      if (d >= 20) far.push(Math.abs(w - o))
-    }
-    const mean = (xs) => xs.reduce((s, v) => s + v, 0) / Math.max(1, xs.length)
+    const at = bins.map((b, d) => (b.n ? { d, on: b.on / b.n, off: b.off / b.n, glow: b.glow / b.n, diff: b.diff / b.n } : null)).filter(Boolean)
+    const sum = (f) => at.reduce((s, b) => s + f(b), 0)
+    const inner = at.filter((b) => b.d <= REACH)
+    const peak = Math.max(...inner.map((b) => b.diff))
+    let step = 0
+    for (let i = 1; i < inner.length; i++) step = Math.max(step, Math.abs(inner[i].diff - inner[i - 1].diff))
     return {
-      pixels: n,
-      meanWith: +(sumWith / n).toFixed(2), meanWithout: +(sumWithout / n).toFixed(2), meanOldGlow: +(sumOld / n).toFixed(2),
-      changeAtPill: +mean(near).toFixed(2), changeAtOuterEdge: +mean(far).toFixed(2),
+      pixels: sum((b) => b.n),
+      meanWith: +(sum((b) => b.on) / at.length).toFixed(2),
+      meanWithout: +(sum((b) => b.off) / at.length).toFixed(2),
+      meanOldGlow: +(sum((b) => b.glow) / at.length).toFixed(2),
+      peak: +peak.toFixed(2),
+      biggestStep: +step.toFixed(2),
+      atOuterRing: +inner[inner.length - 1].diff.toFixed(2),
+      pastTheReach: +Math.max(...at.filter((b) => b.d > REACH).map((b) => b.diff)).toFixed(2),
+      profile: inner.map((b) => +b.diff.toFixed(1)),
     }
-  }, withBand, without, oldGlow, band, pill)
+  }, withRings, without, oldGlow, pill, SOFTEN_REACH)
   measures[label] = result
-  expect(Math.abs(result.meanWith - result.meanWithout) <= 1.5, "nothing round the pill adds light", result)
-  expect(result.meanOldGlow - result.meanWithout >= 8, "and the same check on the old glow finds the light it added", { withoutGlow: result.meanWithout, oldGlow: result.meanOldGlow })
+  expect(result.meanWith - result.meanWithout <= 0.6, "the rings take no light off the page and put none back: they only blur it", { with: result.meanWith, without: result.meanWithout })
+  expect(result.meanOldGlow - result.meanWithout >= 8, "and the same check on the old glow finds the light it added", { without: result.meanWithout, oldGlow: result.meanOldGlow })
+  /*
+    THE SHAPE OF THE FALLOFF IS READ OFF THE STRIPES. A ring one pixel out
+    from the last covers different page content, so on a photograph the
+    profile follows what happens to be there. The stripes are the same
+    everywhere, which is what they are in the harness for: over them the
+    profile is the ramp itself, and it must fall from the pill to nothing
+    with no step in it. Everywhere else what is measured is what holds
+    whatever is behind: no light, and nothing past the reach.
+  */
+  if (canvas === "stripes") {
+    const half = Math.floor(result.profile.length / 2)
+    const falls = result.profile.slice(half).every((v, i, a) => i === 0 || v <= a[i - 1] + 0.5)
+    expect(result.peak >= 40 && result.biggestStep <= result.peak * 0.18 && falls, "over stripes, where every pixel of the page is the same: the blur is deep at the hairline and falls away in an S, never back, no pixel differing from the one before it by a sixth of the whole", { peak: result.peak, biggestStep: result.biggestStep, falls, profile: result.profile })
+  }
+  expect(result.atOuterRing <= Math.max(1.2, result.peak * 0.02) && result.pastTheReach <= 0.3, "it is gone by the outer edge, within a shade of the page untouched, and one pixel past the reach nothing is touched at all", { atOuterRing: result.atOuterRing, pastTheReach: result.pastTheReach })
+  if (p.__errors.length) expect(false, "no errors on the page", p.__errors)
+  await p.close()
+}
+
+/* ── COST ─────────────────────────────────────────────────────────────── */
+/*
+  A backdrop filter is paid for every time what is behind it is drawn again,
+  and behind the folded pill is a page being scrolled. So: the canvas pulled
+  under the pill for three seconds with the CPU slowed four times, twice over
+  in the same window — with the rings and with them taken out — and what the
+  main thread spent and how long the frames were.
+
+  WHAT THE NUMBERS CAN AND CANNOT SAY. A control is run too — the same rings
+  three times as wide, blurring half as hard again — and it does not show up
+  on this machine at all: headless Chromium rasterises in software off the
+  main thread, the frames are bound by the scroll itself, and the blur never
+  becomes what a frame is waiting for. Run to run the main thread's style
+  and paint wanders by half, and the heavy control regularly comes out
+  cheaper than the rings do in the same pass, which is how you know that
+  number is noise and not cost. So the ms per second are printed, for the
+  record, and nothing is asserted from them.
+
+  What IS held to a number: the frames, which are steady to a tenth of a
+  millisecond here, and the two things that actually bound what a real
+  machine pays — how much of the page is under a filter at all, and that
+  none of it moves.
+*/
+const WATCHED = ["UpdateLayoutTree", "RecalculateStyles", "Layout", "PrePaint", "Paint", "PaintImage", "Layerize", "UpdateLayer", "CompositeLayers", "Commit"]
+async function cost(browser) {
+  console.log("\ncost")
+  const p = await page(browser, { width: 1440, height: 900 }, "agent=auto&canvas=photo", "#desktop", PHOTOS)
+  await sleep(600)
+  /* How much of the page is under a filter, and whether any of it can move. */
+  const shape = await p.evaluate(() => {
+    const pill = document.querySelector("[data-ask-pill]").getBoundingClientRect()
+    const rings = [...document.querySelectorAll("[data-ask-soften]")]
+    const boxes = rings.map((e) => e.getBoundingClientRect())
+    const props = new Set()
+    for (const e of rings) {
+      for (const pr of getComputedStyle(e).transitionProperty.split(",").map((x) => x.trim())) if (pr !== "none") props.add(pr)
+      if (getComputedStyle(e).animationName !== "none") props.add("animation:" + getComputedStyle(e).animationName)
+    }
+    return {
+      rings: rings.length,
+      reach: Math.max(...rings.map((e) => +e.getAttribute("data-ask-soften"))),
+      /* The widest ring is all of it: the others are inside it. */
+      filteredOverPill: +(Math.max(...boxes.map((b) => b.width * b.height)) / (pill.width * pill.height)).toFixed(2),
+      moves: [...props],
+      running: document.getAnimations().filter((a) => rings.includes(a.effect && a.effect.target)).length,
+    }
+  })
+  const cdp = await p.createCDPSession()
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+  await sleep(400)
+  const run = async (mode) => {
+    await p.evaluate((how) => {
+      document.querySelectorAll("[data-ask-soften]").forEach((e) => {
+        e.style.display = how === "off" ? "none" : ""
+        /* The control: the same rings three times as wide, blurring half as hard again. */
+        if (how === "heavy") {
+          const b = "blur(" + +e.getAttribute("data-ask-soften") * 1.5 + "px)"
+          e.style.inset = -3 * +e.getAttribute("data-ask-soften") + "px"
+          e.style.backdropFilter = b
+          e.style.webkitBackdropFilter = b
+        } else {
+          e.style.inset = ""
+          e.style.backdropFilter = ""
+          e.style.webkitBackdropFilter = ""
+        }
+      })
+    }, mode)
+    await p.evaluate(() => { document.getElementById("wb-preview-root").scrollTop = 0 })
+    await sleep(600)
+    await p.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline"] })
+    const frames = await p.evaluate(() => new Promise((done) => {
+      const root = document.getElementById("wb-preview-root")
+      const out = []
+      const t0 = performance.now()
+      let last = t0
+      const tick = (t) => { out.push(t - last); last = t; root.scrollTop = (root.scrollTop + 7) % 1800; if (performance.now() - t0 < 3000) requestAnimationFrame(tick); else done(out.slice(3)) }
+      requestAnimationFrame(tick)
+    }))
+    const trace = JSON.parse(Buffer.from(await p.tracing.stop()).toString("utf8"))
+    const events = trace.traceEvents ?? trace
+    const threads = new Map()
+    for (const e of events) if (e.ph === "M" && e.name === "thread_name") threads.set(`${e.pid}:${e.tid}`, e.args?.name)
+    let main = 0
+    for (const e of events) {
+      if (e.ph !== "X") continue
+      if (threads.get(`${e.pid}:${e.tid}`) === "CrRendererMain" && WATCHED.includes(e.name)) main += (e.dur ?? 0) / 1000
+    }
+    const sorted = [...frames].sort((a, b) => a - b)
+    return { mainMsPerSec: +(main / 3).toFixed(1), frames: frames.length, p95: +sorted[Math.floor(sorted.length * 0.95)].toFixed(1), worst: +sorted[sorted.length - 1].toFixed(1) }
+  }
+  /*
+    Twice each, alternating, and the quieter of the two runs kept. Three
+    seconds of scrolling on a slowed CPU is worth about 200ms of style and
+    paint a second and that number wanders by a tenth run to run, so one
+    pass of each would be comparing two samples of the noise.
+  */
+  const quieter = (a, b) => (a.mainMsPerSec <= b.mainMsPerSec ? a : b)
+  const off1 = await run("off"), on1 = await run("on"), heavy1 = await run("heavy")
+  const off2 = await run("off"), on2 = await run("on"), heavy2 = await run("heavy")
+  const without = quieter(off1, off2), with_ = quieter(on1, on2), heavy = quieter(heavy1, heavy2)
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+  measures.cost = { shape, without, with: with_, heavy }
+  console.log(`  without  ${JSON.stringify(without)}`)
+  console.log(`  with     ${JSON.stringify(with_)}`)
+  console.log(`  heavy    ${JSON.stringify(heavy)}`)
+  console.log("  (mainMsPerSec is printed, never asserted: see the note above this function)")
+  expect(shape.rings === 5 && shape.reach <= 26 && shape.filteredOverPill <= 2.2, "the blurred area is the pill and a little more: five rings, none reaching past 26px, and twice the pill under a filter at the very most", shape)
+  expect(shape.moves.join() === "opacity" && shape.running === 0, "and none of it moves: the rings transition opacity and nothing else, and nothing is running while the pill sits there", { moves: shape.moves, running: shape.running })
+  expect(with_.p95 - without.p95 <= 4 && with_.p95 <= 26, "the canvas scrolling under the pill on a CPU slowed four times: the rings add no frame anyone would see", { p95With: with_.p95, p95Without: without.p95, worst: with_.worst })
+  expect(with_.worst - without.worst <= 4 && heavy.p95 - without.p95 <= 4, "nor does the heavy control, which is what says this machine cannot price a backdrop filter and the numbers above are noise", { worstWith: with_.worst, worstWithout: without.worst, p95Heavy: heavy.p95 })
   if (p.__errors.length) expect(false, "no errors on the page", p.__errors)
   await p.close()
 }
@@ -1127,10 +1295,13 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
   try {
     const only = process.env.ONLY ? process.env.ONLY.split(",") : null
     const want = (name) => !only || only.includes(name)
-    if (want("fade")) {
-      for (const vp of [{ width: 1920, height: 1080 }, { width: 1440, height: 900 }, { width: 1280, height: 800 }]) await fade(browser, vp)
-      await fade(browser, { width: 1440, height: 900 }, true)
+    if (want("soften")) {
+      for (const vp of [{ width: 1920, height: 1080 }, { width: 1440, height: 900 }, { width: 1280, height: 800 }]) await soften(browser, vp)
+      await soften(browser, { width: 1440, height: 900 }, { attached: true })
+      /* The pages the softening has to survive: fine detail, one flat dark colour, and the blue site it was asked for. */
+      for (const canvas of ["stripes", "dark", "blue"]) await soften(browser, { width: 1440, height: 900 }, { canvas })
     }
+    if (want("cost")) await cost(browser)
     if (want("labels")) for (const w of [360, 390, 430]) await labels(browser, w)
     if (want("states")) await states(browser)
     if (want("questions")) {

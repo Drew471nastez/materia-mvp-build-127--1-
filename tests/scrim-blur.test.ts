@@ -164,8 +164,10 @@ function main() {
     Quick access and the account sheet have, faded on the compositor. None
     of them keeps a scrim of its own.
   */
+  /* Links went from 5 to 13 and the Design tab from 0 to 11 when their last centred dialogs (the name and bio, the avatar and video steps, the crops, the image library, the layout questions) became the shared sheet on a phone too. */
   for (const [file, count] of [
-    ["components/onepage/tabs/links-tab.tsx", 5],
+    ["components/onepage/tabs/links-tab.tsx", 13],
+    ["components/onepage/tabs/design-tab.tsx", 11],
     ["components/onepage/tabs/products-tab.tsx", 1],
   ] as const) {
     const src = read(file)

@@ -231,7 +231,8 @@ for (const [label, vp] of [
       const hex = await d.p.$eval("[data-color-hex]", (e) => e.value)
       const field = await d.p.$eval('[data-color-field][aria-label^="Background colour"]', (e) => e.getAttribute("aria-label"))
       expect(/^#[0-9A-F]{6}$/.test(hex) && hex !== "#FFFFFF" && field.includes(hex), "a drag in the square changes the page's colour", { hex, field })
-      const sheetMoved = phone ? await d.p.evaluate(() => { const s = document.querySelector("[data-sheet-panel]"); return s ? getComputedStyle(s).transform : "none" }) : null
+      /* The open sheet: kept sheets (Add block, Share, the fonts) wait below the screen, without data-app-sheet, and are not this one. */
+      const sheetMoved = phone ? await d.p.evaluate(() => { const s = document.querySelector('[data-app-sheet="open"] [data-sheet-panel]'); return s ? getComputedStyle(s).transform : "none" }) : null
       if (phone) expect(sheetMoved === "none" || /matrix\(1, 0, 0, 1, 0, 0\)/.test(sheetMoved), "and the sheet did not move with the finger", sheetMoved)
       await d.p.screenshot({ path: join(shots, `${label}-color-picker-dragged.png`) })
       await d.p.keyboard.press("Escape")

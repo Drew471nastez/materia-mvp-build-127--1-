@@ -365,7 +365,8 @@ function ShareOnePage({
 
   if (isPhone) {
     return (
-      <BottomSheet isOpen={open} onClose={onClose} title="Share your OnePage" hideFrom="md">
+      /* Built while the page is idle and kept, as the notifications sheet is: the tap only slides it up. */
+      <BottomSheet isOpen={open} onClose={onClose} title="Share your OnePage" hideFrom="md" keepMounted>
         <div className="px-4 pb-3 pt-3">{body}</div>
       </BottomSheet>
     )
