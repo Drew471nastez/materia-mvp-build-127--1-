@@ -14,6 +14,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { METHOD_SETS, methodsFrom } from "@/lib/checkout/payment-methods"
+import { ADMIN_CODE, adminCoupon, checkCoupon, isAdminCode } from "@/lib/checkout/coupons"
 
 let passed = 0
 let failed = 0
@@ -53,7 +54,7 @@ function main() {
   check("the order is open on a phone as the page arrives", /useState\(true\)/.test(client) && /Hide details/.test(client))
   check("the line says Qty 1, and nothing sits on its picture", /Qty 1/.test(summary) && !/aria-label="Quantity 1"/.test(summary))
   check("the code starts as a grey Add promotion code button", /Add promotion code/.test(summary) && /data-promo="add"/.test(summary))
-  check("the chosen tip is white in a grey track, never black", /bg-white text-\[#1a1a2e\] shadow-/.test(summary) && !/bg-\[#1a1a2e\] text-white/.test(summary))
+  check("the chosen tip is white in a grey track, never black: one thumb that slides", /data-tip-thumb=""/.test(summary) && /rounded-\[7px\] bg-white shadow-/.test(summary) && /transition-\[translate\]/.test(summary) && !/bg-\[#1a1a2e\] text-white/.test(summary))
   check("Pay is 48px with an 8px corner, and Stripe signs the page", /h-12 w-full[^"]*rounded-\[8px\]/.test(ui) && /<PoweredByStripe \/>/.test(client))
 
   console.log("\nLeaving the checkout")
@@ -64,6 +65,26 @@ function main() {
   const bar = read("components/store-builder/sticky-add-to-cart.tsx")
   check("a Buy button is never left spent when the product page comes back", [buy, smart, bar].every((f) => /usePressPending\(\)/.test(f)) && !/setLoading\(true\)/.test(buy + smart))
   check("and never waits for the analytics call before going", !/await trackFunnelStep/.test(buy + smart))
+
+  console.log("\nThe admin's own code")
+  {
+    const coupons = read("lib/checkout/coupons.ts")
+    check("STORELIB100 is the code, in any case", ADMIN_CODE === "STORELIB100" && isAdminCode("storelib100") && isAdminCode(" STORELIB100 ") && !isAdminCode("STORELIB10"))
+    const c = checkCoupon(adminCoupon("creator-1"), { productId: "p1", priceCents: 999900 })
+    check("it takes the whole price off any product", c.ok === true && c.discountCents === 999900)
+    check("it is honoured only for a signed-in admin console session", /if \(isAdminCode\(code\) && \(await adminSignedIn\(\)\)\)/.test(coupons) && /isAdminAuthenticated/.test(coupons))
+    check("and has no row, so no hold is taken and no use counted", adminCoupon("x").id === "" && adminCoupon("x").usage_limit === null)
+  }
+  console.log("\nThe skeleton and the way in")
+  {
+    const page = read("app/checkout/page.tsx")
+    check("the page's reads run together, not one after another", /await Promise\.all\(\[/.test(page) && (page.match(/await Promise\.all/g) ?? []).length >= 2)
+    const sk = read("app/checkout/checkout-skeleton.tsx")
+    check("the skeleton draws the bar and both halves at once, and only its blocks wait", /data-checkout-skeleton/.test(sk) && /skeleton-deferred relative mx-auto grid/.test(sk) && /fallback=\{<CheckoutSkeleton \/>\}/.test(page))
+    const client = read("app/checkout/checkout-client.tsx")
+    check("leaving the checkout cross-fades where the browser can", /startViewTransition/.test(client) && /data-checkout-motion/.test(client))
+    check("Back is a quiet rounded square, not a raised circle", /data-back-face=""\s*className="relative grid h-9 w-9 place-items-center rounded-\[10px\]/.test(client))
+  }
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

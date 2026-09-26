@@ -2,44 +2,45 @@
 
 /**
  * ===========================================================================
- *  THE EMAIL EDITOR
+ *  THE EMAIL, WRITTEN AS IT WILL READ
  * ===========================================================================
- * An email is a column of blocks, drawn as it will read in an inbox: text,
- * a button, an image, a product, a divider, a space.
+ * An email is a column of blocks: text, a button, an image, a product, a
+ * divider, a space. They are drawn here the way the inbox draws them, in the
+ * email's own type and spacing (./email-canvas.ts) and in a column as wide as
+ * the email's, so the page being written is the email and not a form about
+ * it. A button is the email's button, in the brand's colour, with its words
+ * typed on it.
  *
- * TEXT IS THE SHARED RICH TEXT FIELD (components/app/rich-text-editor.tsx),
- * the one the product description and the automated emails are written in:
- * paragraphs, two heading levels, bold, italic, underline, strike, lists, a
- * quote, links, a divider, undo and redo, a cleaned paste, and the reader's
- * name from the Name menu. Writing is a document, not a list of one-line
- * boxes: Enter, Backspace, lists and the caret are the browser's own, so
- * they behave on an iPhone the way they do everywhere else.
+ * ONE WRITING SURFACE. Text blocks have no box and no toolbar of their own
+ * (./text-block.tsx). One formatting bar serves them all (./format-bar.tsx):
+ * docked on the keyboard on a phone while there is a caret, stuck to the top
+ * of the email from 768px. It is also where a block is added at the caret,
+ * and where a text block is moved, copied or deleted.
  *
- * Each text block's toolbar holds still under the page's bar while its text
- * scrolls, on a phone too, every control a 44px target in a row that scrolls
- * sideways inside itself. Anything that is not text is a block of its own
- * between them, with its settings under it in the flow of the page, never
- * on top of the email.
+ * Anything that is not text is a block of its own between the texts. A tap
+ * picks it: a thin outline, its menu at its corner (move, copy, delete; a
+ * sheet on a phone) and its settings under it in the flow of the page, never
+ * on top of the email. On a wide screen it can also be dragged by the handle
+ * in the margin.
  *
- * The blocks become email HTML in lib/email-campaigns/blocks.ts; what this
- * draws is only for writing, and the preview beside it is the real thing.
+ * The blocks become email HTML in lib/email-campaigns/blocks.ts; the preview
+ * (./email-preview.tsx) is that HTML, the real thing.
  */
 import * as React from "react"
 import { ArrowDown, ArrowUp, Copy, GripVertical, MoreHorizontal, Plus, Trash2 } from "lucide-react"
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core"
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { RichTextEditor, type RichTextApi, type RichTextTool } from "@/components/app/rich-text-editor"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import { buttonColors, themeOf, type EmailTheme } from "@/lib/email-campaigns/brand"
-import { blockHasContent, newBlock, safeImageSrc, type Block, type BlockIssue, type BlockType, type ImageBlock } from "@/lib/email-campaigns/blocks"
+import { blockHasContent, newBlock, safeImageSrc, type Block, type BlockIssue, type BlockType, type ButtonBlock, type ImageBlock } from "@/lib/email-campaigns/blocks"
 import { ButtonPanel, ImagePanel, ProductPanel, SpacerPanel } from "./panels"
 import { buttonSecondary } from "./ui"
+import { EMAIL_FONT, EMAIL_TYPE } from "./email-canvas"
+import { EmailText } from "./text-block"
+import { FormatBar, usePhoneLayout, type BlockAction, type InsertPoint } from "./format-bar"
 import type { Doc } from "./use-doc"
-
-/** What the text toolbar offers in an email. Pictures are their own block, with a size, a link and a description. */
-export const EMAIL_TEXT_TOOLS: RichTextTool[] = ["h2", "h3", "bold", "italic", "underline", "strike", "bulletList", "numberedList", "quote", "link", "rule", "clear", "undo", "redo"]
 
 interface InsertItem {
   type: BlockType
@@ -72,11 +73,12 @@ export interface BlockEditorProps {
   onUploadImage: (file: File) => Promise<string>
 }
 
-const toolClass =
-  "inline-flex h-11 min-w-11 shrink-0 cursor-pointer select-none items-center justify-center gap-1 rounded-lg px-2 text-[13px] font-medium text-[#4b5563] transition-colors duration-100 hover:bg-[#eef0f2] hover:text-[#1a1a2e] active:bg-[#e6e8eb] sm:h-8 sm:min-w-8 [-webkit-tap-highlight-color:transparent]"
+const cornerButton =
+  "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-[10px] border border-[#e3e4e8] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(17,24,39,0.06)] transition-colors duration-100 hover:text-[#1a1a2e] active:bg-[#f4f5f7] md:h-8 md:w-8 md:rounded-lg [-webkit-tap-highlight-color:transparent]"
 
 export function BlockEditor({ doc, creatorId, username, issues, showIssues, theme = themeOf({ accent: "" }), onUploadImage }: BlockEditorProps) {
   const { blocks, set } = doc
+  const phone = usePhoneLayout()
   const [selected, setSelected] = React.useState<string | null>(null)
   const [pickerFor, setPickerFor] = React.useState<string | null>(null)
   const [uploading, setUploading] = React.useState<Record<string, string>>({})
@@ -89,6 +91,7 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
 
   const byId = (id: string | null) => blocksRef.current.find((b) => b.id === id) ?? null
   const indexOf = (id: string) => blocksRef.current.findIndex((b) => b.id === id)
+  const blockEl = (id: string) => rootRef.current?.querySelector<HTMLElement>(`[data-block-id="${id}"]`) ?? null
 
   /* ─── Changing the blocks ─── */
 
@@ -100,16 +103,17 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
   /** Put the caret in a text block, after the render that made it. */
   const focusText = (id: string, at: "start" | "end" = "end") => {
     requestAnimationFrame(() => {
-      const el = rootRef.current?.querySelector<HTMLElement>(`[data-block-id="${id}"] .rich-text-content`)
+      const el = blockEl(id)?.querySelector<HTMLElement>("[data-email-text]")
       if (!el) return
       el.focus({ preventScroll: true })
       const sel = window.getSelection()
-      if (!sel) return
-      const r = document.createRange()
-      r.selectNodeContents(el.lastElementChild ?? el)
-      r.collapse(at === "start")
-      sel.removeAllRanges()
-      sel.addRange(r)
+      if (sel) {
+        const r = document.createRange()
+        r.selectNodeContents(at === "start" ? (el.firstElementChild ?? el) : (el.lastElementChild ?? el))
+        r.collapse(at === "start")
+        sel.removeAllRanges()
+        sel.addRange(r)
+      }
       el.closest("[data-block-id]")?.scrollIntoView({ block: "nearest", behavior: "smooth" })
     })
   }
@@ -135,7 +139,7 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
     const j = i + dir
     if (i < 0 || j < 0 || j >= blocksRef.current.length) return
     set(arrayMove(blocksRef.current, i, j))
-    requestAnimationFrame(() => rootRef.current?.querySelector<HTMLElement>(`[data-block-id="${id}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }))
+    requestAnimationFrame(() => blockEl(id)?.scrollIntoView({ block: "nearest", behavior: "smooth" }))
   }
 
   const duplicate = (id: string) => {
@@ -145,6 +149,20 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
     const i = indexOf(id)
     set((prev) => [...prev.slice(0, i + 1), copy, ...prev.slice(i + 1)])
     setSelected(copy.id)
+  }
+
+  /** What a new block does once it is on the page: the caret, a scroll, the picker it needs. */
+  const arrive = (made: Block) => {
+    setSelected(made.id)
+    if (made.type === "rich") return focusText(made.id, "start")
+    requestAnimationFrame(() => {
+      const el = blockEl(made.id)
+      el?.scrollIntoView({ block: "nearest", behavior: "smooth" })
+      if (made.type === "button") el?.querySelector<HTMLInputElement>("[data-button-label]")?.focus({ preventScroll: true })
+      else (document.activeElement as HTMLElement | null)?.blur?.()
+    })
+    if (made.type === "image") startUpload(made.id)
+    if (made.type === "product") setPickerFor(made.id)
   }
 
   /**
@@ -162,12 +180,21 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
     const after = all.slice(at + 1)
     const tail = type !== "rich" && after.length === 0 ? [newBlock("rich")] : []
     set([...before, made, ...tail, ...after])
-    setSelected(made.id)
-    if (type === "rich") focusText(made.id, "start")
-    else
-      requestAnimationFrame(() => rootRef.current?.querySelector<HTMLElement>(`[data-block-id="${made.id}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }))
-    if (type === "image") startUpload(made.id)
-    if (type === "product") setPickerFor(made.id)
+    arrive(made)
+  }
+
+  /** A block asked for from the formatting bar: at the caret, the text split around it. */
+  const insertAt = (type: BlockType, at: InsertPoint | null) => {
+    const all = blocksRef.current
+    const i = at ? indexOf(at.blockId) : -1
+    const host = i >= 0 ? all[i] : null
+    if (!at || !host || host.type !== "rich") return add(type)
+    const made = newBlock(type)
+    const head: Block[] = at.head ? [{ ...host, html: at.head } as Block] : []
+    const after = all.slice(i + 1)
+    const tail: Block[] = at.tail ? [newBlock("rich", { html: at.tail })] : type !== "rich" && after.length === 0 ? [newBlock("rich")] : []
+    set([...all.slice(0, i), ...head, made, ...tail, ...after])
+    arrive(made)
   }
 
   /* ─── Images ─── */
@@ -202,14 +229,14 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
   /* ─── Undo for the blocks themselves ─── */
 
   /**
-   * Inside a text block, Cmd+Z is that text's own undo, the browser's. Out of
-   * one, it undoes the last thing done to the blocks: a delete, a move, a
-   * setting.
+   * Inside a text block or a field, Cmd+Z is that text's own undo, the
+   * browser's. Out of one, it undoes the last thing done to the blocks: a
+   * delete, a move, a setting.
    */
   const onKeyDownCapture = (e: React.KeyboardEvent) => {
     const mod = e.metaKey || e.ctrlKey
     if (!mod || e.altKey) return
-    const inText = (e.target as HTMLElement | null)?.closest?.(".rich-text-content, input, textarea")
+    const inText = (e.target as HTMLElement | null)?.closest?.("[data-email-text], input, textarea")
     if (inText) return
     const key = e.key.toLowerCase()
     if (key === "z") {
@@ -231,25 +258,42 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
 
   const issueFor = (id: string) => (showIssues ? issues.find((i) => i.id === id && i.level === "error") : undefined)
 
-  const actionsFor = (b: Block, i: number): ActionMenuItem[] => [
-    ...(i > 0 ? [{ label: "Move up", icon: <ArrowUp className="h-4 w-4" />, onClick: () => move(b.id, -1) }] : []),
-    ...(i < blocks.length - 1 ? [{ label: "Move down", icon: <ArrowDown className="h-4 w-4" />, onClick: () => move(b.id, 1) }] : []),
-    { label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => duplicate(b.id) },
-    { label: "Delete", icon: <Trash2 className="h-4 w-4" />, variant: "destructive", separatorBefore: true, onClick: () => remove(b.id) },
-  ]
+  const actionsFor = (id: string): ActionMenuItem[] => {
+    const i = indexOf(id)
+    const n = blocksRef.current.length
+    return [
+      ...(i > 0 ? [{ label: "Move up", icon: <ArrowUp className="h-4 w-4" />, onClick: () => move(id, -1) }] : []),
+      ...(i < n - 1 ? [{ label: "Move down", icon: <ArrowDown className="h-4 w-4" />, onClick: () => move(id, 1) }] : []),
+      { label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => duplicate(id) },
+      { label: "Delete", icon: <Trash2 className="h-4 w-4" />, variant: "destructive", separatorBefore: true, onClick: () => remove(id) },
+    ]
+  }
+  /* The same, for a text block, in the formatting bar's own row. Nothing to do to the only block. */
+  const textActions = (id: string): BlockAction[] =>
+    blocksRef.current.length > 1 ? actionsFor(id).map((a) => ({ label: a.label, run: () => a.onClick?.(), danger: a.variant === "destructive" })) : []
 
-  const blockMenu = (b: Block, i: number, className?: string) => (
-    <ResponsiveActionMenu
-      title={b.type === "rich" ? "Text" : INSERT_ITEMS.find((x) => x.type === b.type)?.label ?? "Block"}
-      align="end"
-      items={actionsFor(b, i)}
-      trigger={
-        <button type="button" aria-label="Block actions" onMouseDown={(e) => e.preventDefault()} className={cn(toolClass, "px-0", className)}>
-          <MoreHorizontal className="h-[18px] w-[18px] sm:h-4 sm:w-4" />
-        </button>
-      }
-    />
-  )
+  /** Backspace in an empty text: it goes, and the caret goes to the end of the text before it. */
+  const removeEmpty = (id: string) => {
+    const all = blocksRef.current
+    const i = indexOf(id)
+    if (all.length <= 1 || i < 0) return
+    const prev = all[i - 1]
+    remove(id)
+    if (prev?.type === "rich") focusText(prev.id, "end")
+    else if (prev) setSelected(prev.id)
+  }
+
+  /* A tap on the email's empty space under the blocks carries on the writing. */
+  const onCanvasPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return
+    const last = blocksRef.current[blocksRef.current.length - 1]
+    if (last?.type === "rich" && e.clientY > (blockEl(last.id)?.getBoundingClientRect().bottom ?? Infinity)) {
+      e.preventDefault()
+      focusText(last.id, "end")
+    }
+  }
+
+  const only = blocks.length === 1
 
   return (
     <div
@@ -276,7 +320,14 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
         }}
       />
 
-      <div className="space-y-3 p-3 sm:p-4 xl:pl-10">
+      <FormatBar editorRef={rootRef} phone={phone} inserts={INSERT_ITEMS} onInsert={insertAt} blockActions={textActions} fields={FIELDS} />
+
+      <div
+        data-email-canvas=""
+        onPointerDown={onCanvasPointerDown}
+        className="mx-auto min-h-[220px] w-full max-w-[600px] px-5 pb-4 pt-6 text-[#1f2937] sm:px-10 sm:pt-9"
+        style={{ fontFamily: EMAIL_FONT, ["--email-link" as string]: theme.link }}
+      >
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
             {blocks.map((b, index) => (
@@ -286,7 +337,20 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
                 selected={selected === b.id}
                 issue={issueFor(b.id)?.message}
                 onSelect={() => setSelected(b.id)}
-                menu={b.type === "rich" ? null : blockMenu(b, index, "h-9 min-w-9 sm:h-8 sm:min-w-8")}
+                menu={
+                  b.type === "rich" ? null : (
+                    <ResponsiveActionMenu
+                      title={INSERT_ITEMS.find((x) => x.type === b.type)?.label ?? "Block"}
+                      align="end"
+                      items={actionsFor(b.id)}
+                      trigger={
+                        <button type="button" aria-label="Block actions" className={cornerButton} onMouseDown={(e) => e.preventDefault()}>
+                          <MoreHorizontal className="h-[18px] w-[18px] md:h-4 md:w-4" />
+                        </button>
+                      }
+                    />
+                  )
+                }
                 panel={
                   selected === b.id ? (
                     b.type === "button" ? (
@@ -302,34 +366,28 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
                 }
               >
                 {b.type === "rich" ? (
-                  <RichTextEditor
-                    value={b.html}
-                    onChange={(html) => patch(b.id, { html } as Partial<Block>, true)}
+                  <EmailText
+                    id={b.id}
+                    html={b.html}
                     label={index === 0 ? "Email text" : `Email text, block ${index + 1}`}
-                    placeholder={index === 0 ? "Write your email" : "Write here"}
-                    tools={EMAIL_TEXT_TOOLS}
-                    grow
-                    stickyToolbar="var(--compose-bar, 0px)"
-                    minHeight={index === 0 && blocks.length === 1 ? 200 : 96}
-                    className="rounded-xl"
-                    extraTools={(api) => <FieldMenu api={api} />}
-                    toolbarEnd={blocks.length > 1 ? blockMenu(b, index) : undefined}
+                    placeholder={index === 0 && only ? "Write your email" : "Write here"}
+                    quietPlaceholder={!(index === 0 && only)}
+                    onChange={(html) => patch(b.id, { html } as Partial<Block>, true)}
+                    onRemoveEmpty={only ? undefined : () => removeEmpty(b.id)}
+                    className={EMAIL_TYPE}
                   />
                 ) : b.type === "button" ? (
-                  <ButtonView block={b} theme={theme} />
+                  <ButtonView block={b} theme={theme} onLabel={(label) => patch(b.id, { label } as Partial<Block>, true)} />
                 ) : b.type === "image" ? (
                   <ImageView block={b} uploading={uploading[b.id]} onDropFile={(f) => void upload(b.id, f)} onUpload={() => startUpload(b.id)} />
                 ) : b.type === "product" ? (
                   <ProductView block={b} theme={theme} />
                 ) : b.type === "divider" ? (
-                  <div className="py-3">
+                  <div className="pb-6 pt-2">
                     <div className="h-px bg-[#e5e7eb]" />
                   </div>
                 ) : b.type === "spacer" ? (
-                  <div
-                    className="flex items-center justify-center rounded-md border border-dashed border-[#e3e4e8] text-[12px] font-medium text-[#9ca3af]"
-                    style={{ height: b.size }}
-                  >
+                  <div className="flex items-center justify-center rounded-md border border-dashed border-[#e3e4e8] text-[12px] font-medium text-[#9ca3af]" style={{ height: b.size, fontFamily: "Inter, system-ui, sans-serif" }}>
                     Space
                   </div>
                 ) : null}
@@ -337,50 +395,23 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
             ))}
           </SortableContext>
         </DndContext>
+      </div>
 
-        <div className="flex items-center justify-center pt-1">
-          <ResponsiveActionMenu
-            title="Add a block"
-            align="center"
-            menuWidth="w-52"
-            items={INSERT_ITEMS.map((item) => ({ label: item.label, onClick: () => add(item.type) }))}
-            trigger={
-              <button type="button" className={cn(buttonSecondary, "h-11 px-4 text-[14px] sm:h-9 sm:text-[13px]")} data-add-block="">
-                <Plus className="h-4 w-4" />
-                Add a block
-              </button>
-            }
-          />
-        </div>
+      <div className="flex items-center justify-center border-t border-[#eef0f2] px-4 py-3">
+        <ResponsiveActionMenu
+          title="Add a block"
+          align="center"
+          menuWidth="w-52"
+          items={INSERT_ITEMS.map((item) => ({ label: item.label, onClick: () => add(item.type) }))}
+          trigger={
+            <button type="button" className={cn(buttonSecondary, "h-11 px-4 text-[15px] md:h-9 md:text-[13px]")} data-add-block="">
+              <Plus className="h-4 w-4" />
+              Add a block
+            </button>
+          }
+        />
       </div>
     </div>
-  )
-}
-
-/** The reader's name or address, filled in for each person when it is sent. */
-function FieldMenu({ api }: { api: RichTextApi }) {
-  return (
-    <ResponsiveActionMenu
-      title="Fill in for each reader"
-      align="start"
-      menuWidth="w-48"
-      items={FIELDS.map((f) => ({ label: f.label, onClick: () => api.insertHtml(`{{${f.field}}}`) }))}
-      trigger={
-        <button
-          type="button"
-          className={toolClass}
-          title="Their name or email, filled in for each reader"
-          aria-label="Insert the reader's name or email"
-          onMouseDown={(e) => {
-            e.preventDefault()
-            api.keepSelection()
-          }}
-          onTouchStart={() => api.keepSelection()}
-        >
-          Name
-        </button>
-      }
-    />
   )
 }
 
@@ -410,20 +441,21 @@ function Shell({
       ref={setNodeRef}
       data-block-id={block.id}
       data-block-type={block.type}
+      data-selected={selected ? "" : undefined}
       tabIndex={text ? undefined : 0}
       onMouseDown={() => {
         if (!selected) onSelect()
       }}
-      className={cn("group/block relative rounded-xl outline-none", isDragging && "z-10 opacity-80")}
+      className={cn("group/block relative outline-none", isDragging && "z-10 opacity-80")}
       style={{ transform: CSS.Translate.toString(transform), transition }}
     >
-      {/* The handle, in the card's margin, on a wide screen. Anywhere else the block's menu moves it. */}
+      {/* The handle, in the email's margin, on a wide screen. Anywhere else the block's menu moves it. */}
       <button
         type="button"
         ref={setActivatorNodeRef}
         {...attributes}
         {...listeners}
-        className="absolute -left-8 top-2 hidden h-7 w-6 cursor-grab items-center justify-center rounded text-[#9ca3af] opacity-0 transition-opacity duration-100 hover:bg-[#f1f2f4] hover:text-[#4b5563] active:cursor-grabbing group-hover/block:opacity-100 group-focus-within/block:opacity-100 xl:flex"
+        className="absolute -left-8 top-0 hidden h-7 w-6 cursor-grab items-center justify-center rounded text-[#9ca3af] opacity-0 transition-opacity duration-100 hover:bg-[#f1f2f4] hover:text-[#4b5563] active:cursor-grabbing group-hover/block:opacity-100 group-focus-within/block:opacity-100 lg:flex"
         aria-label="Drag to move"
       >
         <GripVertical className="h-3.5 w-3.5" />
@@ -431,29 +463,55 @@ function Shell({
       {text ? (
         children
       ) : (
-        <div
-          className={cn(
-            "relative cursor-pointer rounded-xl border px-3 py-2 transition-[border-color,box-shadow] duration-100",
-            selected ? "border-[#1a1a2e]/25 shadow-[0_0_0_3px_rgba(26,26,46,0.06)]" : "border-transparent hover:border-[#e3e4e8]",
-            issue && "border-[#d72c0d] shadow-none",
-          )}
-        >
+        <div className="relative cursor-pointer">
+          {/* The outline is drawn around the block, outside it, so picking a block moves nothing. */}
+          <span
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute -inset-x-2 -bottom-1 -top-1 rounded-xl transition-[box-shadow] duration-100",
+              issue
+                ? "shadow-[0_0_0_2px_#d72c0d]"
+                : selected
+                  ? "shadow-[0_0_0_2px_rgba(26,26,46,0.22)]"
+                  : "[@media(hover:hover)_and_(pointer:fine)]:group-hover/block:shadow-[0_0_0_1px_#e3e4e8]",
+            )}
+          />
           {children}
-          <div className={cn("absolute right-1.5 top-1.5 transition-opacity duration-100", selected ? "opacity-100" : "opacity-0 group-hover/block:opacity-100 max-sm:opacity-100")}>{menu}</div>
+          <div className={cn("absolute -right-3 -top-3 z-[2] transition-opacity duration-100 md:-right-4", selected ? "opacity-100" : "pointer-events-none opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover/block:pointer-events-auto [@media(hover:hover)_and_(pointer:fine)]:group-hover/block:opacity-100")}>
+            {menu}
+          </div>
         </div>
       )}
-      {issue ? <p className="mt-1 px-1 text-[12px] text-[#b42318]">{issue}</p> : null}
-      {panel}
+      {issue ? <p className="-mt-2 mb-3 text-[12px] text-[#b42318]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>{issue}</p> : null}
+      {panel ? <div className="mb-5 [font-family:Inter,system-ui,sans-serif] [&_*]:[font-family:inherit]">{panel}</div> : null}
     </div>
   )
 }
 
-function ButtonView({ block, theme }: { block: Block & { type: "button" }; theme: EmailTheme }) {
+/**
+ * The email's button (lib/email-campaigns/rich.ts buttonHtml): 12px by 24px,
+ * 16px semibold words, 8px corners, the brand's fill and the words that read
+ * on it. Its words are typed on it, the field as wide as what is written.
+ */
+function ButtonView({ block, theme, onLabel }: { block: ButtonBlock; theme: EmailTheme; onLabel: (label: string) => void }) {
   const c = buttonColors(block.color, theme)
   return (
-    <div className="py-2 pr-10" style={{ textAlign: block.align }}>
-      <span className="inline-block max-w-full break-words rounded-lg px-6 py-3 text-[16px] font-semibold leading-5" style={{ backgroundColor: c.fill, color: c.text }}>
-        {block.label.trim() || "Button text"}
+    <div className="mb-5" style={{ textAlign: block.align }}>
+      <span className="inline-grid max-w-full rounded-lg px-6 py-3 align-top text-[16px] font-semibold leading-5" style={{ backgroundColor: c.fill, color: c.text }}>
+        <span aria-hidden className="invisible col-start-1 row-start-1 overflow-hidden whitespace-pre">
+          {block.label || "Button text"}
+        </span>
+        <input
+          data-button-label=""
+          value={block.label}
+          maxLength={60}
+          placeholder="Button text"
+          aria-label="Button text"
+          size={1}
+          onChange={(e) => onLabel(e.target.value)}
+          className="col-start-1 row-start-1 w-full min-w-[3ch] cursor-text bg-transparent p-0 text-center text-[16px] font-semibold leading-5 outline-none placeholder:text-current placeholder:opacity-60"
+          style={{ color: c.text }}
+        />
       </span>
     </div>
   )
@@ -476,47 +534,42 @@ function ImageView({ block, uploading, onDropFile, onUpload }: { block: ImageBlo
           const f = e.dataTransfer.files?.[0]
           if (f) onDropFile(f)
         }}
-        className={cn("flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-6 text-center", over ? "border-[#1a1a2e]/40 bg-[#f4f5f7]" : "border-[#d5d7dd] bg-[#fafbfb]")}
+        className={cn("mb-4 flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-6 text-center", over ? "border-[#1a1a2e]/40 bg-[#f4f5f7]" : "border-[#d5d7dd] bg-[#fafbfb]")}
+        style={{ fontFamily: "Inter, system-ui, sans-serif" }}
       >
         <button type="button" className={buttonSecondary} onClick={onUpload}>
           Upload an image
         </button>
-        <p className="text-[12px] text-[#6b7280]">or drop one here</p>
+        <p className="mb-0 text-[12px] leading-4 text-[#6b7280]">or drop one here</p>
       </div>
     )
   }
   return (
-    <div className="py-1" style={{ textAlign: block.align }}>
+    <div className="mb-4" style={{ textAlign: block.align }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={block.alt}
-        draggable={false}
-        className={cn("inline-block h-auto max-w-full rounded-lg align-top", uploading && "opacity-50")}
-        style={{ width: `${block.width}%` }}
-      />
-      {uploading ? <p className="mt-1 text-[12px] text-[#6b7280]">Uploading</p> : null}
+      <img src={src} alt={block.alt} draggable={false} className={cn("inline-block h-auto max-w-full rounded-lg align-top", uploading && "opacity-50")} style={{ width: `${block.width}%` }} />
     </div>
   )
 }
 
+/** The email's product card: a 96px picture, the name, the price and a small button. */
 function ProductView({ block, theme }: { block: Block & { type: "product" }; theme: EmailTheme }) {
   if (!block.productId) {
     return (
-      <div className="flex min-h-[96px] items-center justify-center rounded-xl border border-dashed border-[#d5d7dd] bg-[#fafbfb] px-4 text-[13px] text-[#6b7280]">
+      <div className="mb-5 flex min-h-[96px] items-center justify-center rounded-xl border border-dashed border-[#d5d7dd] bg-[#fafbfb] px-4 text-[13px] leading-5 text-[#6b7280]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
         Choose a product in the settings below
       </div>
     )
   }
   const c = buttonColors(block.color, theme)
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-[#e5e7eb] p-4 pr-10">
+    <div className="mb-5 flex items-center gap-4 rounded-xl border border-[#e5e7eb] p-4">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {block.imageUrl ? <img src={block.imageUrl} alt="" className="h-20 w-20 shrink-0 rounded-lg object-cover sm:h-24 sm:w-24" /> : null}
+      {block.imageUrl ? <img src={block.imageUrl} alt="" className="h-24 w-24 shrink-0 rounded-lg object-cover" /> : null}
       <div className="min-w-0">
-        <p className="truncate text-[17px] font-semibold leading-6 text-[#111827]">{block.title}</p>
-        {block.price ? <p className="mb-3 text-[15px] text-[#4b5563]">{block.price}</p> : null}
-        <span className="inline-block rounded-lg px-4 py-2 text-[14px] font-semibold" style={{ backgroundColor: c.fill, color: c.text }}>
+        <p className="mb-1 truncate text-[17px] font-semibold leading-6 text-[#111827]">{block.title}</p>
+        {block.price ? <p className="mb-3 text-[15px] leading-[22px] text-[#4b5563]">{block.price}</p> : null}
+        <span className="inline-block rounded-lg px-4 py-[9px] text-[14px] font-semibold leading-[18px]" style={{ backgroundColor: c.fill, color: c.text }}>
           {block.cta || "View product"}
         </span>
       </div>

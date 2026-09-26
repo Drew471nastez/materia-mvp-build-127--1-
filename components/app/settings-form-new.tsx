@@ -356,9 +356,20 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const [connectHelpUrl, setConnectHelpUrl] = useState<string | null>(null)
   const [usernameError, setUsernameError] = useState<string | null>(null)
 
-  // Subscription plan (for feature gating)
-  const [userPlan, setUserPlan] = useState<string | null>(null)
-  const [planLoading, setPlanLoading] = useState(true)
+  /*
+    THE PLAN, KNOWN FROM THE FIRST FRAME. The Domains tab is blurred on the
+    free plan, and the plan used to be known only once the browser had asked
+    /api/billing/subscription: the domains were drawn sharp, then blurred
+    over 700ms a moment later. The creator row the server already read
+    carries the plan (the same subscription_plan_id Home reads), so the page
+    starts with it; the request still runs and corrects it if it has just
+    changed (an upgrade a moment ago).
+  */
+  const serverPlan = typeof (creator as { subscription_plan_id?: unknown } | null)?.subscription_plan_id === "string"
+    ? ((creator as { subscription_plan_id?: string }).subscription_plan_id || "free")
+    : null
+  const [userPlan, setUserPlan] = useState<string | null>(serverPlan)
+  const [planLoading, setPlanLoading] = useState(serverPlan === null)
 
   // Domain state
   const [domains, setDomains] = useState<any[]>([])

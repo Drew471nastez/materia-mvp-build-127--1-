@@ -759,7 +759,7 @@ export function DomainsPanel({
       ) : null}
 
       {/* Adding one: the field, Add, and one line. Nothing else until there is a domain. */}
-      <div className={cn(CARD, "transition-[filter,opacity] duration-700 ease-in-out", blurred && BLURRED)} data-domains-connect="" aria-disabled={blurred || undefined}>
+      <div className={cn(CARD, "transition-[filter,opacity] duration-300 ease-out", blurred && BLURRED)} data-domains-connect="" aria-disabled={blurred || undefined}>
         <h3 className="mb-3 text-[15px] font-semibold text-[#1a1a2e]">Connect your own domain</h3>
         {/* Not a <form>: the Settings page is one form already, and a form inside a form is not HTML. */}
         <div className="flex gap-2" data-domains-add="">
@@ -836,7 +836,7 @@ export function DomainsPanel({
 
       {/* Your domains: only once there is one. */}
       <Reveal open={ordered.length > 0} animate={touched} data-domains-reveal="list">
-        <div className={cn(CARD, "transition-[filter,opacity] duration-700 ease-in-out", blurred && BLURRED)} data-domains-list="" aria-disabled={blurred || undefined}>
+        <div className={cn(CARD, "transition-[filter,opacity] duration-300 ease-out", blurred && BLURRED)} data-domains-list="" aria-disabled={blurred || undefined}>
           <h3 className="mb-1 text-[15px] font-semibold text-[#1a1a2e]">Your domains</h3>
 
           {ordered.map((d) => {

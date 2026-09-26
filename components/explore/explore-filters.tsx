@@ -80,7 +80,7 @@ function FilterChoices({
 }) {
   const label = phone ? "px-4 pb-1 pt-3 text-[13px] font-medium text-[#6b7280]" : "px-2.5 pb-1 pt-2 text-[12px] font-medium text-[#6b7280]"
   const row = phone
-    ? "flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[16px] leading-5 active:bg-[#f1f2f4]"
+    ? "flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[16px] font-medium leading-5 active:bg-[#f1f2f4]"
     : "flex min-h-[36px] w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[14px] leading-5 hover:bg-[#f4f5f6] focus-visible:bg-[#f1f2f4]"
   return (
     <div className={phone ? "pb-3" : "p-1.5"} data-filter-choices="">
@@ -162,20 +162,33 @@ export function ExploreFilters({
   const choices = (phone: boolean) => (
     <FilterChoices phone={phone} sortOptions={sortOptions} sortBy={sortBy} setSortBy={setSortBy} priceFilter={priceFilter} setPriceFilter={setPriceFilter} />
   )
-  const clear = (phone: boolean) =>
-    activeCount > 0 ? (
+  /*
+    CLEAR ALL COMES AND GOES, IT DOES NOT BLINK. It used to be added when a
+    choice was made and removed when there was none, so it popped in beside
+    the title. It is always in place now and fades and settles in (or out)
+    by opacity and scale, and while there is nothing to clear it is inert.
+  */
+  const clear = (phone: boolean) => {
+    const on = activeCount > 0
+    return (
       <button
         type="button"
         data-filter-clear=""
+        data-on={on ? "" : undefined}
         onClick={onClear}
+        inert={!on}
+        aria-hidden={!on || undefined}
+        tabIndex={on ? 0 : -1}
         className={cn(
-          "cursor-pointer rounded-md font-medium text-[#6b7280] outline-none transition-colors hover:text-[#1a1a2e] focus-visible:text-[#1a1a2e] [-webkit-tap-highlight-color:transparent]",
+          "cursor-pointer rounded-md font-medium text-[#6b7280] outline-none transition-[opacity,scale,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#1a1a2e] focus-visible:text-[#1a1a2e] motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]",
           phone ? "-mr-2 px-2 py-2 text-[15px]" : "-mr-1 px-1.5 py-1 text-[13px]",
+          on ? "scale-100 opacity-100" : "pointer-events-none scale-95 opacity-0",
         )}
       >
         Clear all
       </button>
-    ) : null
+    )
+  }
 
   if (desktop) {
     return (

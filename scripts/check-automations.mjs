@@ -162,10 +162,16 @@ try {
         barTop: Math.round(bar.getBoundingClientRect().top),
         titleTop: Math.round(t.getBoundingClientRect().top),
         topIsPage: !!top?.closest("[data-page-layer]"),
+        pillShown: (() => {
+          const pill = document.querySelector("[data-probe-pill]")
+          const at = document.elementFromPoint(innerWidth / 2, innerHeight - 40)
+          return !!pill && getComputedStyle(pill).visibility !== "hidden" && getComputedStyle(pill).display !== "none" && !!at?.closest("[data-probe-pill]")
+        })(),
       }
     }, title)
     if (isPhone) {
       expect(!f.shellShown && f.topIsPage && f.barTop === 0, "a page of its own over the whole screen: no black bar, its own bar at the top", f)
+      expect(!f.pillShown, "full screen: the nav pill is not over it either", f.pillShown)
       await p.evaluate(() => { document.querySelector(".orders-pane").scrollTop = 600 })
       await sleep(250)
       const stuck = await p.evaluate(() => { const bar = document.querySelector("[data-flow-bar]"); return { top: Math.round(bar.getBoundingClientRect().top), shadow: getComputedStyle(bar).boxShadow !== "none" } })

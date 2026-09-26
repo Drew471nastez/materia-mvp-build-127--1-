@@ -179,6 +179,41 @@ for (const [label, vp] of [
       await d.p.click('[data-color-field][aria-label^="Background colour"]')
       await sleep(700)
       await d.p.screenshot({ path: join(shots, `${label}-color-picker.png`) })
+      /**
+       * HOW BIG IT IS. The popover on a computer used to be the phone's panel
+       * at a slightly smaller scale: 304px wide, about 455px tall, a 172px
+       * square, 44px rows. Beside the editor's own rows it read as the thing
+       * being looked at rather than a tool held up to the page. It is drawn
+       * to a mouse now. The phone sheet is NOT shrunk with it, so the two are
+       * measured apart, and either way nothing is allowed outside the panel.
+       */
+      const box = await d.p.evaluate(() => {
+        const inner = document.querySelector("[data-color-picker]")
+        const pr = inner.parentElement.getBoundingClientRect()
+        const one = (sel) => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) } }
+        const controls = [...inner.querySelectorAll("[data-color-square], [data-color-hue], label, button")]
+        return {
+          panel: { w: Math.round(pr.width), h: Math.round(pr.height) },
+          square: one("[data-color-square]"),
+          hue: one("[data-color-hue]"),
+          codeRow: (() => { const e = document.querySelector("[data-color-hex]"); if (!e) return null; const r = e.closest("label").getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) } })(),
+          dropper: one("[data-color-eyedropper]"),
+          swatch: one("[data-swatch]"),
+          named: [...inner.querySelectorAll("[data-swatches]")].map((e) => e.getAttribute("data-swatches")),
+          /* A control that pokes out of the panel is clipped or overlapping something. */
+          outside: controls.filter((e) => { const r = e.getBoundingClientRect(); return r.left < pr.left - 1 || r.right > pr.right + 1 || r.top < pr.top - 1 || r.bottom > pr.bottom + 1 }).map((e) => (e.getAttribute("aria-label") || e.textContent || e.tagName).trim().slice(0, 24)),
+        }
+      })
+      if (phone) {
+        expect(box.square.h >= 190 && box.codeRow.h >= 44 && (!box.dropper || box.dropper.h >= 44) && box.swatch.w >= 28, "the phone sheet is still thumb sized: a 200px square, 48px code row, 32px swatches", box)
+      } else {
+        expect(box.panel.w === 248 && box.panel.h <= 360, "the popover on a computer is 248px wide and under 360 tall (it was 304 by about 455)", box.panel)
+        expect(box.square.h === 124 && box.hue.h === 20, "its square is 124px and its hue row 20px (they were 172 and 28)", { square: box.square, hue: box.hue })
+        expect(box.codeRow.h === 36 && (!box.dropper || (box.dropper.h === 36 && box.dropper.w === 36)), "its code row and eyedropper are 36px (they were 44)", { code: box.codeRow, dropper: box.dropper })
+        expect(box.swatch.w >= 22 && box.swatch.w <= 26, "its swatches are about 24px across (they were about 29)", box.swatch)
+      }
+      expect(box.named.join() === "suggested" || box.named.join() === "suggested,recent", "Suggested and Recent are both still named", box.named)
+      expect(box.outside.length === 0, "every control sits inside the panel, nothing clipped or hanging out", box.outside)
       const sq = await d.p.$eval("[data-color-square]", (e) => { const r = e.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height } })
       if (phone) {
         const cdp = await d.p.target().createCDPSession()
@@ -199,6 +234,20 @@ for (const [label, vp] of [
       const sheetMoved = phone ? await d.p.evaluate(() => { const s = document.querySelector("[data-sheet-panel]"); return s ? getComputedStyle(s).transform : "none" }) : null
       if (phone) expect(sheetMoved === "none" || /matrix\(1, 0, 0, 1, 0, 0\)/.test(sheetMoved), "and the sheet did not move with the finger", sheetMoved)
       await d.p.screenshot({ path: join(shots, `${label}-color-picker-dragged.png`) })
+      await d.p.keyboard.press("Escape")
+      await sleep(600)
+      /* Reopened, the colour just used is under Recent: the tallest the panel
+         ever gets, and the one to measure against the editor behind it. */
+      await d.p.click('[data-color-field][aria-label^="Background colour"]')
+      await sleep(600)
+      await d.p.screenshot({ path: join(shots, `${label}-color-picker-recent.png`) })
+      const withRecent = await d.p.evaluate(() => {
+        const inner = document.querySelector("[data-color-picker]")
+        const r = inner.parentElement.getBoundingClientRect()
+        return { w: Math.round(r.width), h: Math.round(r.height), rows: [...inner.querySelectorAll("[data-swatches]")].map((e) => e.getAttribute("data-swatches")) }
+      })
+      expect(withRecent.rows.join() === "suggested,recent", "reopening it shows the colour just used under Recent", withRecent.rows)
+      if (!phone) expect(withRecent.h <= 360, "and with both rows the popover is still under 360 tall", withRecent)
       await d.p.keyboard.press("Escape")
       await sleep(600)
     }

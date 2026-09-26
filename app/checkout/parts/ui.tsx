@@ -18,7 +18,6 @@
  */
 
 import * as React from "react"
-import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export const INK = "#1a1a2e"
@@ -116,29 +115,32 @@ export function CheckRow({
           onChange={(e) => onChange(e.target.checked)}
           aria-invalid={invalid || undefined}
           className={cn(
-            "absolute inset-0 m-0 h-[18px] w-[18px] cursor-pointer appearance-none rounded-[5px] border bg-white shadow-[0_1px_1px_rgba(0,0,0,0.04)]",
+            "absolute inset-0 m-0 h-[18px] w-[18px] cursor-pointer appearance-none rounded-[5px] border bg-white shadow-[0_1px_1px_rgba(0,0,0,0.04)] transition-[border-color] duration-200 ease-out",
             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]",
             checked ? "border-[#1a1a2e]" : invalid ? "border-[#dc2626]" : "border-[#c9ccd2] group-hover/check:border-[#9ca3af]",
           )}
         />
+        {/* The fill grows from the middle; the tick then draws itself, left to right, like a pen stroke. Out, both simply fade. */}
         <span
           aria-hidden
           data-check-fill=""
           className={cn(
             "pointer-events-none absolute inset-0 rounded-[5px] bg-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(17,17,19,0.22)] transition-[opacity,scale] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-            checked ? "scale-100 opacity-100 duration-200" : "scale-[0.55] opacity-0 duration-150",
+            checked ? "scale-100 opacity-100 duration-[220ms]" : "scale-[0.7] opacity-0 duration-[180ms]",
           )}
         />
-        <Check
-          aria-hidden
-          strokeWidth={3}
-          className={cn(
-            "pointer-events-none relative h-3 w-3 text-white transition-[opacity,scale] motion-reduce:transition-none",
-            checked
-              ? "scale-100 opacity-100 delay-[50ms] duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-              : "scale-[0.4] opacity-0 duration-100 ease-out",
-          )}
-        />
+        <svg aria-hidden viewBox="0 0 24 24" className="pointer-events-none relative h-3 w-3 text-white" fill="none" stroke="currentColor" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round">
+          <path
+            d="M20 6 9 17l-5-5"
+            pathLength={1}
+            className={cn(
+              "[stroke-dasharray:1] transition-[stroke-dashoffset,opacity] motion-reduce:transition-none",
+              checked
+                ? "opacity-100 [stroke-dashoffset:0] delay-[60ms] duration-[260ms] ease-[cubic-bezier(0.65,0,0.35,1)]"
+                : "opacity-0 [stroke-dashoffset:1] duration-[140ms] ease-out",
+            )}
+          />
+        </svg>
       </span>
       <span className="min-w-0">{children}</span>
     </label>

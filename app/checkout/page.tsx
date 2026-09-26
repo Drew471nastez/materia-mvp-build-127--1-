@@ -3,6 +3,7 @@ import { MAX_PWYW_CENTS } from "@/lib/checkout/pricing"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import CheckoutPageClient from "./checkout-client"
+import { CheckoutSkeleton } from "./checkout-skeleton"
 import { getProductUrl } from "@/lib/url-helpers"
 import { checkoutReturns } from "@/lib/checkout/site-hosts"
 
@@ -30,29 +31,52 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     notFound()
   }
 
-  const { data: creator } = await supabase.from("creators").select("*").eq("id", product.creator_id).single()
+  /*
+    EVERYTHING ELSE AT ONCE. The creator, the option asked for, who is
+    signed in and every option of the product only need the product, so
+    they are asked for together: this page's wait used to be seven reads
+    one after another, and the skeleton stood on screen for all of them.
+  */
+  const [creatorRead, variantRead, userRead, variantsRead] = await Promise.all([
+    supabase.from("creators").select("*").eq("id", product.creator_id).single(),
+    variantId
+      ? supabase
+          .from("product_variants")
+          .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents")
+          .eq("id", variantId)
+          .eq("product_id", productId)
+          .single()
+      : Promise.resolve({ data: null }),
+    supabase.auth.getUser(),
+    supabase
+      .from("product_variants")
+      .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents")
+      .eq("product_id", productId)
+      .order("price_cents", { ascending: true }),
+  ])
+  const creator = creatorRead.data
+  const user = userRead.data.user
+  const allVariants = variantsRead.data
 
-  let creatorProfile = null
-  if (creator) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("display_name, avatar_url, username")
-      .eq("id", creator.user_id)
-      .single()
-
-    creatorProfile = profile
-  }
+  const [profileRead, ownedRead, returns] = await Promise.all([
+    creator
+      ? supabase.from("profiles").select("display_name, avatar_url, username").eq("id", creator.user_id).single()
+      : Promise.resolve({ data: null }),
+    user
+      ? supabase.from("entitlements").select("id, variant_id").eq("buyer_id", user.id).eq("product_id", productId)
+      : Promise.resolve({ data: null }),
+    /* Back to the creator's own website after paying, and for Back, when the
+       link asked and the address is one of THIS creator's sites. Checked here,
+       on the server; anything else is dropped and checkout ends on the receipt
+       as it always did (lib/checkout/return-url.ts). */
+    checkoutReturns({ creatorId: product.creator_id, success: returnTo, cancel, site }),
+  ])
+  const creatorProfile = profileRead.data as { display_name: string | null; avatar_url: string | null; username: string | null } | null
 
   const creatorUsername = creatorProfile?.username || creator?.slug || ""
 
-  /* Back to the creator's own website after paying, and for Back, when the
-     link asked and the address is one of THIS creator's sites. Checked here,
-     on the server; anything else is dropped and checkout ends on the receipt
-     as it always did (lib/checkout/return-url.ts). */
-  const returns = await checkoutReturns({ creatorId: product.creator_id, success: returnTo, cancel, site })
-
-  // Fetch variant if specified (with PWYW fields)
-  let selectedVariant: {
+  // The variant asked for, when there was one (with PWYW fields)
+  type SelectedVariant = {
     id: string
     name: string
     description: string | null
@@ -60,62 +84,22 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     pay_what_you_want?: boolean | null
     pwyw_min_price_cents?: number | null
     pwyw_suggested_price_cents?: number | null
-  } | null = null
-  if (variantId) {
-    const { data: variant } = await supabase
-      .from("product_variants")
-      .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents")
-      .eq("id", variantId)
-      .eq("product_id", productId)
-      .single()
-
-    if (variant) {
-      selectedVariant = variant
-    }
   }
+  let selectedVariant: SelectedVariant | null = (variantRead.data as SelectedVariant | null) ?? null
 
   // Check if user is logged in and already owns this specific product/variant
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (user) {
-    // If a variant is specified, check if user owns that specific variant
-    // If no variant, check if user owns the product at all (for non-variant products)
-    let entitlementQuery = supabase
-      .from("entitlements")
-      .select("id, variant_id")
-      .eq("buyer_id", user.id)
-      .eq("product_id", productId)
-
-    const { data: existingEntitlements } = await entitlementQuery
-
-    if (existingEntitlements && existingEntitlements.length > 0) {
-      if (variantId) {
-        // Check if user specifically owns THIS variant
-        const ownsThisVariant = existingEntitlements.some(e => e.variant_id === variantId)
-        if (ownsThisVariant) {
-          redirect(getProductUrl(creatorUsername, product.slug))
-        }
-        // User owns other variants but not this one - allow purchase
-      } else {
-        // No variant specified - check if user owns any entitlement for this product
-        // For non-variant products, any entitlement means they own it
-        const ownsProductWithoutVariant = existingEntitlements.some(e => !e.variant_id)
-        if (ownsProductWithoutVariant) {
-          redirect(getProductUrl(creatorUsername, product.slug))
-        }
-        // User owns specific variants but not the base product - allow purchase
-      }
+  const existingEntitlements = ownedRead.data as { id: string; variant_id: string | null }[] | null
+  if (user && existingEntitlements && existingEntitlements.length > 0) {
+    if (variantId) {
+      // Check if user specifically owns THIS variant
+      if (existingEntitlements.some((e) => e.variant_id === variantId)) redirect(getProductUrl(creatorUsername, product.slug))
+      // User owns other variants but not this one - allow purchase
+    } else {
+      // No variant specified: for non-variant products, any entitlement without a variant means they own it
+      if (existingEntitlements.some((e) => !e.variant_id)) redirect(getProductUrl(creatorUsername, product.slug))
+      // User owns specific variants but not the base product - allow purchase
     }
   }
-
-  // Fetch all variants for this product (for variant selector)
-  const { data: allVariants } = await supabase
-    .from("product_variants")
-    .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents")
-    .eq("product_id", productId)
-    .order("price_cents", { ascending: true })
 
   /* A product with options is bought as one of them (the server refuses it
      otherwise): arriving without one, the first is chosen, and the buyer can
@@ -202,31 +186,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
 export default async function CheckoutPage(props: CheckoutPageProps) {
   return (
     <Suspense
-      fallback={
-        /* The page's own shape, shown only when loading is slow (skeleton-deferred): the order on grey, the form on white. */
-        <div className="skeleton-deferred relative min-h-screen bg-white lg:bg-[#f6f7f8]" aria-busy>
-          <div className="pointer-events-none fixed inset-y-0 right-0 hidden w-1/2 bg-white shadow-[-12px_0_32px_-16px_rgba(17,24,39,0.16)] lg:block" />
-          <div className="relative mx-auto grid max-w-[1120px] lg:grid-cols-2">
-            <div className="bg-[#f6f7f8] px-5 pb-6 pt-4 sm:px-8 lg:bg-transparent lg:px-16 lg:pt-14">
-              <div className="mx-auto max-w-[440px] space-y-4 lg:ml-auto lg:mr-0">
-                <div className="h-7 w-40 rounded-md bg-[#e9ebee]" />
-                <div className="h-4 w-28 rounded-md bg-[#e9ebee]" />
-                <div className="h-9 w-44 rounded-md bg-[#e9ebee]" />
-                <div className="h-12 rounded-[8px] bg-[#e9ebee]" />
-              </div>
-            </div>
-            <div className="px-5 pt-7 sm:px-8 lg:px-16 lg:pt-14">
-              <div className="mx-auto max-w-[440px] space-y-3 lg:ml-0">
-                <div className="h-11 rounded-[8px] bg-[#f1f2f4]" />
-                <div className="mt-6 h-5 w-40 rounded-md bg-[#f1f2f4]" />
-                <div className="h-11 rounded-[8px] bg-[#f1f2f4]" />
-                <div className="mt-6 h-5 w-36 rounded-md bg-[#f1f2f4]" />
-                <div className="h-48 rounded-[8px] bg-[#f1f2f4]" />
-              </div>
-            </div>
-          </div>
-        </div>
-      }
+      fallback={<CheckoutSkeleton />}
     >
       <CheckoutContent {...props} />
     </Suspense>

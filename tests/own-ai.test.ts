@@ -168,6 +168,17 @@ async function main() {
   check("back only to the editor or the builder, never a free address", returnPath("../../evil") === "/app/website-builder" && returnPath("abc-123") === "/website-builder/editor/abc-123" && returnPath(null) === "/app/website-builder")
   check("the editor hands the result to Connections and takes it off the address", /url\.searchParams\.delete\("ownai"\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))
 
+  section("One way in, for somebody who has never heard of any of this")
+  const panel = read("components/website-builder/website-settings/own-ai.tsx")
+  check("nothing connected: one button, not three rows to choose between",
+    /connected\.length === 0 && !keys/.test(panel) && /data-own-ai-start=""/.test(panel) && /Connect my AI/.test(panel))
+  check("it says what will happen, in plain words, including the credit",
+    /sign in with OpenRouter/.test(panel) && /few dollars of credit/.test(panel) && /about a minute/.test(panel))
+  check("a key is for people who already have one, behind a line of text",
+    /Already have a Claude or OpenAI key\?/.test(panel) && /setKeys\(true\)/.test(panel) &&
+    /SOURCES\.filter\(\(s\) => s\.id === "openrouter"\)/.test(panel))
+  check("and the rows come back once something is connected", /connected\.length > 0 \|\| keys/.test(panel))
+
   section("Where the creator finds it")
   check("Connections opens on Your own AI", /<OwnAiSettings installId=\{ctx\.installId\} \/>/.test(read("components/website-builder/website-settings/connections.tsx")))
   const picker = read("components/website-builder/ask-model-picker.tsx")

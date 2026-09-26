@@ -280,7 +280,8 @@ section("Which model answers")
   check(
     "the theme editor resolves the creator's choice instead of hard-coding a vendor",
     /* On the creator's own AI when they have one (tests/own-ai.test.ts), their switch honoured either way. */
-    /resolveForCreator\(\(creator as \{ id: string \}\)\.id, \{ requested: body\.provider, tier: body\.tier \}\)/.test(route) &&
+    /* `wantsTier` is body.tier, lifted to "strong" when the ask is plainly a build (tests/theme-agent.test.ts). */
+    /resolveForCreator\(\(creator as \{ id: string \}\)\.id, \{ requested: body\.provider, tier: wantsTier \}\)/.test(route) &&
       !/provider: openAIProvider/.test(route),
   )
   /**
