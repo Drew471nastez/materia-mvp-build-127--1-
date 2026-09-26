@@ -22,6 +22,8 @@ import {
   SCREEN_IN_MS,
   SCREEN_OUT_MS,
   spinDelay,
+  SWITCH_HTML_CLASS,
+  SWITCH_SCREEN_ID,
   switchLine,
   type SwitchStep,
 } from "@/lib/businesses/switch-screen"
@@ -189,22 +191,37 @@ export type ScreenSurface = "app" | "plain"
  * moving: the page you were on has this bar, the page you are going to has
  * it, so the fade in and the fade out only ever change what is under it.
  *
- * THE WHITE runs the full width, under the bar's two corners, so there is no
- * rail, no edge and no second colour anywhere on it. It is one surface with
- * a spinner on it, which is what a screen that is waiting should look like;
- * the shell's shape belongs to the page, and the page draws it itself a
- * moment later.
+ * THE WHITE runs the full width from the bar's bottom edge down, under the
+ * bar's two corners, so there is no rail, no edge and no second colour
+ * anywhere on it. It is one surface with a spinner on it, which is what a
+ * screen that is waiting should look like; the shell's shape belongs to the
+ * page, and the page draws it itself a moment later.
+ *
+ * THE ORDER THE TWO ARE WRITTEN IN IS THE ORDER THEY ARRIVE. A browser draws
+ * a document it has only half read, so a screen written white-first showed a
+ * frame of the spinner and the line on white with no bar at all. The bar is
+ * written first now and the white begins under it.
  */
 function SwitchSurface({ children, header }: { children?: ReactNode; header?: ReactNode }) {
   return (
-    <div data-switch-surface="" className="absolute inset-0 bg-white">
-      <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] md:top-[calc(58px+env(safe-area-inset-top,0px))]">
-        {children}
-      </div>
-      <div className="absolute inset-x-0 top-0 h-[calc(68px+env(safe-area-inset-top,0px))] bg-[#111111] text-[#111111] md:h-[calc(58px+env(safe-area-inset-top,0px))] md:bg-[#131316] md:text-[#131316]">
+    <div data-switch-surface="" className="absolute inset-0">
+      {/* The bar before the white, and the white only under it. A browser
+          draws a document it has read half of, so the order the two fields
+          are written in is the order they arrive on the glass. This used to
+          be one white box from edge to edge with the bar written after it,
+          and a frame caught between the two (measured at 1440, the document
+          in two parts) was the spinner and the line on white with NO BAR AT
+          ALL: white where the bar is on every other frame of the switch. The
+          bar is first now and the white starts under it, so no frame can
+          have one without the other. z-10 because the corners hang below the
+          bar over the white, and the white is written after them. */}
+      <div className="absolute inset-x-0 top-0 z-10 h-[calc(68px+env(safe-area-inset-top,0px))] bg-[#111111] text-[#111111] md:h-[calc(58px+env(safe-area-inset-top,0px))] md:bg-[#131316] md:text-[#131316]">
         <AppTopCorners />
         {/* The business you are going to, drawn where the real header puts it: the bar is never an empty band. */}
         {header}
+      </div>
+      <div className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] bg-white md:top-[calc(58px+env(safe-area-inset-top,0px))]">
+        {children}
       </div>
     </div>
   )
@@ -266,6 +283,17 @@ function Screen({
       style={spin ? ({ "--switch-spin-delay": spin } as React.CSSProperties) : undefined}
     >
       {surface === "app" ? <SwitchSurface header={<ShellHeaderStill name={name} photo={photo} />}>{middle}</SwitchSurface> : <div className="absolute inset-0 bg-white">{middle}</div>}
+      {/* THE SCREEN IS ALL THERE. The new document's <head> asks the browser
+          not to draw until this element is parsed (lib/businesses/switch-
+          screen, rel=expect), so the page before — the same screen — stays on
+          the glass until then. It is the LAST thing in the screen and not the
+          screen itself, because a browser lets go of that rule the moment the
+          element it names is in the document: on the screen's own box that is
+          its opening tag, with the bar, the spinner and the line still to
+          come, and a frame drawn there was measured as the two fields with
+          nothing on them. Here there is nothing left to parse. It draws
+          nothing and takes no room. */}
+      <span aria-hidden="true" id={SWITCH_SCREEN_ID} />
     </div>
   )
 }
@@ -454,6 +482,9 @@ export function BusinessSwitchArrival({ name, photo = null }: { name: string; ph
       if (cancelled) return
       cancelled = true
       document.cookie = clearSwitchCookie({ secure })
+      /* The canvas goes back to the app's own (app/globals.css
+         html.switch-arriving, html.app-layout): the switch is over. */
+      document.documentElement.classList.remove(SWITCH_HTML_CLASS)
       setGone(true)
     }
     whenAppReady(el).then(async () => {

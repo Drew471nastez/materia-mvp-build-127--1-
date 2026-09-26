@@ -208,3 +208,63 @@ export function spinDelay(nowEpochMs: number, reducedMotion: boolean): string {
 
 export const SWITCH_SPIN_SCRIPT =
   `try{var r=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;document.documentElement.style.setProperty("--switch-spin-delay",-(Date.now()%(r?3000:1000))+"ms")}catch(e){}`
+
+/* ── The new document's first frame ─────────────────────────────────────── */
+
+/**
+ * ===========================================================================
+ *  THE WHITE FRAME BETWEEN THE TWO DOCUMENTS, AND THE TWO THINGS THAT CLOSE IT
+ * ===========================================================================
+ * "Make sure there is no flash happening in that transition to the business
+ * page. No flash or reload or anything like that."
+ *
+ * The screen is drawn on both sides of the reload and it is the same
+ * picture, so the swap was supposed to show nothing. It still could, and
+ * scripts/check-business-switch.mjs catches it when the new document does
+ * not land in one piece (SPLIT_MS): the browser keeps the page before on
+ * the glass only until it has a document it can lay out. The head and the
+ * open <body> are enough for that. So the moment the stylesheet has applied
+ * and the body has begun — and BEFORE the screen's own markup has been
+ * parsed — the browser paints what the document says is there, which is
+ * nothing at all: the canvas. Measured at 1440 and at 390, on a machine
+ * slowed four times, that is ONE WHITE FRAME HELD FOR AS LONG AS THE REST OF
+ * THE DOCUMENT TAKES: the mean light of the glass steps by 16 to 20 of 255
+ * and a tenth of the picture changes between two frames. A megabyte of /app
+ * over a real connection is exactly that shape.
+ *
+ * Two things close it, both from the <head>, both before the body is parsed,
+ * and each enough on its own:
+ *
+ *   DO NOT PAINT YET. `<link rel=expect blocking=render>` naming the
+ *   screen's own element tells the browser not to draw this document until
+ *   that element has been parsed. Until then the page before stays on the
+ *   glass — and the page before is the same screen — so the swap shows
+ *   nothing at all. Browsers that do not know `rel=expect` ignore the link;
+ *   it can never block for longer than the parse, because the rule ends
+ *   when the parser does.
+ *
+ *   AND IF IT PAINTS ANYWAY, PAINT THE SCREEN. The canvas itself is given
+ *   the screen's own two fields (app/globals.css html.switch-arriving): the
+ *   bar's colour down to the bar's height, white under it. A browser with no
+ *   `rel=expect` (Safari, the app's web view) then paints the screen's
+ *   surface rather than a white page, and what is missing for those frames
+ *   is the bar's name and photo and the spinner, not the whole picture.
+ *
+ * Both hang off the switch's own cookie, which is only sent to /app and is
+ * cleared as the screen hands over, so nothing of this is on any other page
+ * or after the switch is over.
+ */
+export const SWITCH_HTML_CLASS = "switch-arriving"
+/**
+ * What `rel=expect` names: a mark at the END of the screen, not the screen
+ * itself (components/app/business-switch-screen). A browser stops blocking
+ * the moment the element it was told to wait for is in the document, and on
+ * the screen's own box that is its opening tag — bar, spinner and line still
+ * to come. The mark is the last thing in it, so nothing of the screen is left
+ * to parse when the browser starts drawing.
+ */
+export const SWITCH_SCREEN_ID = "business-switch-screen-ready"
+
+export const SWITCH_FIRST_PAINT_SCRIPT =
+  `try{if(/(^|;\\s*)${SWITCH_COOKIE}=[^;\\s]/.test(document.cookie)){document.documentElement.classList.add(${JSON.stringify(SWITCH_HTML_CLASS)});` +
+  `try{var l=document.createElement("link");l.rel="expect";l.setAttribute("blocking","render");l.href="#${SWITCH_SCREEN_ID}";document.head.appendChild(l)}catch(e){}}}catch(e){}`

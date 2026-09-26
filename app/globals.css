@@ -103,6 +103,72 @@ html.capacitor.app-layout {
   background-color: #111111;
 }
 
+/*
+  ===========================================================================
+   THE CANVAS OF A DOCUMENT ARRIVING FROM A SWITCH IS THE SWITCH'S SCREEN
+  ===========================================================================
+  A browser paints the new document as soon as it has one it can lay out —
+  the head and the open <body> are enough — and that can be before the
+  screen's markup has been parsed. What it paints there is the canvas, and
+  the canvas of an /app document is white (<body class="bg-background">), so
+  the switch showed ONE WHITE FRAME held for as long as the rest of the
+  document took. See lib/businesses/switch-screen.ts; measured at 16 to 20
+  of 255 by scripts/check-business-switch.mjs.
+
+  So while that cookie is there the canvas IS the screen's surface
+  (components/app/business-switch-screen SwitchSurface): the bar's colour
+  down to the bar's own height — 68px under the status bar on a phone, 58px
+  from md, read with env(safe-area-inset-top) so a browser gets 0, the same
+  way the surface and app/app/cold-start.tsx write it — and white under it.
+  A frame painted before the screen is parsed is then the screen's own two
+  fields instead of a white page.
+
+  `background-attachment: fixed` because this background is propagated to
+  the canvas and would otherwise be laid out in the root element's own box,
+  which on /app is the height of nothing: everything in it is fixed. Fixed
+  makes the viewport the picture's frame, which is what these pixel heights
+  are measured from.
+
+  Outside every @layer, so it beats html.app-layout's #111111 and the body's
+  own bg-background: layered styles lose to unlayered ones. The class goes on
+  <html> from the <head>, before the body is parsed (app/layout.tsx,
+  SWITCH_FIRST_PAINT_SCRIPT), and comes off when the screen hands over, so no
+  page but an arriving /app ever has it.
+*/
+html.switch-arriving {
+  /* And a box at least the height of the glass, for a browser that reads
+     `background-attachment: fixed` on the root as `scroll` (WebKit has): the
+     picture is then laid out in the root's own box, and on /app that box is
+     the height of nothing. */
+  min-height: 100svh;
+  background-color: #ffffff;
+  background-image: linear-gradient(
+    #111111 0,
+    #111111 calc(68px + env(safe-area-inset-top, 0px)),
+    #ffffff calc(68px + env(safe-area-inset-top, 0px))
+  );
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-size: 100% 100%;
+}
+
+@media (min-width: 768px) {
+  html.switch-arriving {
+    background-image: linear-gradient(
+      #131316 0,
+      #131316 calc(58px + env(safe-area-inset-top, 0px)),
+      #ffffff calc(58px + env(safe-area-inset-top, 0px))
+    );
+  }
+}
+
+/* The body's own white would cover the bar's colour on the frames where the
+   canvas is all there is. The screen's surface is opaque, so nothing under
+   it changes. */
+html.switch-arriving body {
+  background-color: transparent;
+}
+
 /* Capacitor: disable iOS rubber-band overscroll on all pages.
    Without this, bouncing at the top/bottom reveals the body background
    (white) behind dark headers/footers — producing a jarring flash.

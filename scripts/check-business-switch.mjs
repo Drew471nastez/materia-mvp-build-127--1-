@@ -48,11 +48,34 @@
  *   A FAILED SWITCH   (390, 1280) the screen goes, the menu says why, and
  *                     the page is still the old business
  *   REDUCED MOTION    (390) the same, with no movement on the lines
+ *   IN TWO PARTS      (390, 1440) the new document's head lands 300ms before
+ *                     the rest of it, which is how a megabyte of /app
+ *                     arrives: the browser has a document it can lay out
+ *                     before it has the screen's markup, and what it draws
+ *                     in between is the flash this probe was extended for
+ *
+ *   NO FLASH          no frame's light jumps away from the frames either
+ *                     side of it and back again, across the whole recording
+ *                     and across the swap of documents above all: a fade is
+ *                     a run of steps one way, a flash is a step out and back
  *
  *   node scripts/check-business-switch.mjs
  *   WIDTHS=360,390,430,1280,1440   the widths (these by default)
  *   SHOTS=<dir>                    pictures of the frames that matter
  *   CPU=4                          the phone's slowdown (a computer runs at 1)
+ *   CPU_DESKTOP=4                  slow the computer widths down too
+ *   COLD=1                         the new document with nothing in the cache
+ *   FLASH=1                        every frame's light, and its picture with SHOTS
+ *   SPLIT_MS=300                   the new document's head lands this long before the rest of it
+ *   EXPECT=off                     as a browser that does not know rel=expect sees it
+ *
+ * EXPECT=off with the document in two parts is the one place this probe is
+ * meant to fail, and what it fails on is the residual: with nothing left to
+ * hold the glass but the canvas, a frame or two of the swap is the screen's
+ * two fields without the bar's name and photo, the spinner and the line on
+ * them. The light of the glass holds (a step of half a point of 255 against
+ * sixteen before), so there is no flash; "never nothing" and "never an empty
+ * band" count what is drawn, not how bright it is, and they say so.
  */
 import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
@@ -69,6 +92,15 @@ if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 const WIDTHS = (process.env.WIDTHS || "360,390,430,1280,1440").split(",").map(Number)
 const SHOTS = process.env.SHOTS || null
 const CPU = Number(process.env.CPU || 4)
+const CPU_DESKTOP = Number(process.env.CPU_DESKTOP || 1)
+const COLD = process.env.COLD === "1"
+/* The gap between the head of the new document and the rest of it: a big
+   document does not land in one piece, and what the browser does in that gap
+   is what this probe was extended to measure. SPLIT_MS puts every run in two
+   parts; without it the two-part run below is the only one. */
+const SPLIT_MS = Number(process.env.SPLIT_MS || 0)
+const SPLIT_SCENARIO_MS = 300
+let split = SPLIT_MS
 const SWITCH_MS = 350
 const DOC_MS = 700
 const JS_MS = 250
@@ -134,12 +166,32 @@ rmSync(dir, { recursive: true, force: true })
 
 const css = `${await appCss(root)}\n${interFaces(root).replace(/url\(file:\/\//g, "url(/__font?p=")}`
 /* The stylesheet as a file, as the app sends it (render blocking, cached after the first page), not inlined: a megabyte of <style> parsed inside the document is parser time the real page never spends. */
-const HEAD = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="stylesheet" href="/app.css">`
+/* What app/layout.tsx runs in the head of every document before its body is
+   parsed (lib/businesses/switch-screen SWITCH_FIRST_PAINT_SCRIPT). EXPECT=off
+   makes its `rel=expect` link inert, which is what a browser that does not
+   know that relation does with it: what is left to hold the glass then is the
+   canvas the same script paints. */
+const headScript = process.env.EXPECT === "off" ? ssr.head.replace('l.rel="expect"', 'l.rel="x-no-expect"') : ssr.head
+const HEAD = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="stylesheet" href="/app.css"><script>${headScript}</script>`
 /* The root layout's <html> and <body> (app/layout.tsx). */
 const BODY = `class="font-sans antialiased bg-background text-foreground"`
 const oldHtml = `<!doctype html><html lang="en" class="light" style="color-scheme:light"><head>${HEAD}</head><body ${BODY}><div id="app"></div><script src="/client.js"></script></body></html>`
-const newHtml = (arriving) => `<!doctype html><html lang="en" class="light" style="color-scheme:light"><head>${HEAD}<script>window.__arriving=${JSON.stringify(arriving)}</script></head>` +
-  `<body ${BODY}><div id="app">${arriving ? ssr.arriving : ssr.plain}</div><script src="/client.js?doc=app" defer></script></body></html>`
+/**
+ * THE NEW DOCUMENT, IN TWO PARTS, AS A BIG ONE ARRIVES. The real /app HTML
+ * is the shell, the page and the whole RSC payload beside it: a megabyte,
+ * which does not land in the browser in one piece. The browser has the head
+ * and the start of the body, with the stylesheet already applied, for some
+ * time before it has the screen's markup — and a browser that has a body it
+ * can lay out will paint it rather than hold the page before on the glass
+ * for ever. What it paints there is whatever the document says the page is
+ * before anything is in it: the canvas.
+ *
+ * SPLIT_MS is that gap (0, one write, by default). The head and the open
+ * <body> go first, then the rest.
+ */
+const newHead = (arriving) => `<!doctype html><html lang="en" class="light" style="color-scheme:light"><head>${HEAD}<script>window.__arriving=${JSON.stringify(arriving)}</script></head><body ${BODY}>`
+const newRest = (arriving) => `<div id="app">${arriving ? ssr.arriving : ssr.plain}</div><script src="/client.js?doc=app" defer></script></body></html>`
+const newHtml = (arriving) => newHead(arriving) + newRest(arriving)
 
 /* ── The browser, the pictures, the server ──────────────────────────────── */
 
@@ -192,7 +244,13 @@ const server = createServer((req, res) => {
       arriving = value ? { name: at === -1 ? value : value.slice(0, at), photo: at === -1 ? null : value.slice(at + 1) } : null
     } catch { arriving = null }
     seen.cookie = arriving
-    return setTimeout(() => send(200, "text/html", newHtml(arriving)), DOC_MS)
+    if (!split) return setTimeout(() => send(200, "text/html", newHtml(arriving)), DOC_MS)
+    const gap = split
+    return setTimeout(() => {
+      res.writeHead(200, { "content-type": "text/html", "cache-control": "no-store" })
+      res.write(newHead(arriving))
+      setTimeout(() => res.end(newRest(arriving)), gap)
+    }, DOC_MS)
   }
   if (u.pathname === "/") return send(200, "text/html", oldHtml)
   send(404, "text/plain", "")
@@ -354,7 +412,28 @@ await reader.evaluate(() => {
       const i = px(x, y)
       if (Math.max(Math.abs(data[i] - o.BAR[0]), Math.abs(data[i + 1] - o.BAR[1]), Math.abs(data[i + 2] - o.BAR[2])) > 40) barInk++
     }
-    return { white: white / all, ink, w: ink ? x1 - x0 : 0, h: ink ? y1 - y0 : 0, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, barInk }
+    /* THE LIGHT OF THE FRAME, AND WHERE IT IS. A flash is a frame whose light
+       jumps away from the frames either side of it and back again, so every
+       frame is read for its mean luminance and for a coarse grid of it
+       (GRID x GRID cells): the mean says how bright the glass was, the grid
+       says how much of it changed from the frame before. Rec. 709 luma, on
+       samples every 3px. */
+    const GRID = 24
+    const cells = new Float64Array(GRID * GRID)
+    const counts = new Int32Array(GRID * GRID)
+    let lum = 0, lumN = 0
+    for (let y = 0; y < o.H; y += 3) for (let x = 0; x < o.W; x += 3) {
+      const i = px(x, y)
+      const L = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]
+      lum += L
+      lumN++
+      const c = Math.min(GRID - 1, (y / o.H * GRID) | 0) * GRID + Math.min(GRID - 1, (x / o.W * GRID) | 0)
+      cells[c] += L
+      counts[c]++
+    }
+    const grid = []
+    for (let k = 0; k < cells.length; k++) grid.push(counts[k] ? cells[k] / counts[k] : 0)
+    return { white: white / all, ink, w: ink ? x1 - x0 : 0, h: ink ? y1 - y0 : 0, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, barInk, lum: lum / lumN, grid }
   }
 })
 const kindOf = (f) => {
@@ -380,7 +459,8 @@ const topLine = (r) => {
 }
 const ALLOWED = new Set(["opacity", "transform", "translate"])
 
-async function run(W, { scenario = "switch", reduced = false } = {}) {
+async function run(W, { scenario = "switch", reduced = false, inParts = false } = {}) {
+  split = inParts ? SPLIT_SCENARIO_MS : SPLIT_MS
   const phone = W < 768
   const H = phone ? 844 : 900
   const o = { W, H, HEADER: phone ? 68 : 58, RAIL: phone ? 0 : 240, BAR: phone ? [17, 17, 17] : [19, 19, 22] }
@@ -409,7 +489,14 @@ async function run(W, { scenario = "switch", reduced = false } = {}) {
   await (await visible('[data-business-row="current"]')).click()
   await wait(400)
   const cdp = await page.createCDPSession()
-  if (phone && CPU > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU })
+  /* The phone's slowdown by default; CPU_DESKTOP makes a computer slow too, because a flash is easiest to see on a slow machine. */
+  const rate = phone ? CPU : CPU_DESKTOP
+  if (rate > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate })
+  /* COLD=1: the new document is asked for with nothing in the cache, so its stylesheet, font and photos are all fetched again. The page you were on stays warm, as it is. */
+  if (COLD) {
+    await cdp.send("Network.enable").catch(() => {})
+    await cdp.send("Network.setCacheDisabled", { cacheDisabled: true }).catch(() => {})
+  }
   const shots = []
   cdp.on("Page.screencastFrame", (f) => {
     shots.push({ at: f.metadata.timestamp ? f.metadata.timestamp * 1000 : Date.now(), data: f.data })
@@ -437,11 +524,11 @@ async function run(W, { scenario = "switch", reduced = false } = {}) {
     await wait(600)
   }
   await cdp.send("Page.stopScreencast").catch(() => {})
-  if (CPU > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 }).catch(() => {})
+  if (rate > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 }).catch(() => {})
   const where = await page.evaluate(() => location.pathname)
   await ctx.close()
 
-  const label = `${W}${scenario === "fail" ? " failed" : ""}${reduced ? " reduced motion" : ""}`
+  const label = `${W}${scenario === "fail" ? " failed" : ""}${reduced ? " reduced motion" : ""}${split ? " in two parts" : ""}`
   console.log(`\n${label}`)
   if (press == null) { expect(false, "the press was recorded"); return }
   const after = recs.filter((r) => r.t >= press)
@@ -472,6 +559,72 @@ async function run(W, { scenario = "switch", reduced = false } = {}) {
   console.log(`        ${frames.length} frames on the glass: ${kinds.map((k) => `${k.kind} from ${k.at}ms`).join(", ")}`)
   expect(bad.length === 0, "no frame is white, empty, or a bare spinner", bad.length ? `${bad.length}: ${bad.slice(0, 4).map((f) => `${f.kind} at ${ms(f.at - press)}`).join(", ")}` : `${frames.length} frames read`)
   bad.slice(0, 2).forEach((f, i) => save(`bad-${i}`, f))
+
+  /**
+   * NO FLASH, FRAME BY FRAME. "Make sure there is no flash happening in that
+   * transition to the business page."
+   *
+   * A flash is not a white frame (the check above already forbids those) and
+   * not a frame that is merely different: it is a frame, or a run of two or
+   * three, whose light jumps away from the frames either side of it AND BACK
+   * AGAIN. A fade is a run of frames each a little closer to the next thing;
+   * a flash is a step out and a step back. So every pair of frames on the
+   * glass is read for how much of the picture changed (cells of the frame's
+   * luminance grid that moved by more than GRID_STEP) and how far the mean
+   * light moved, and every short run is read for a there-and-back jump
+   * against its neighbours (JUMP, in luma out of 255).
+   *
+   * Reported for the whole recording and, separately, for the swap of
+   * documents: the frames within SWAP_WINDOW_MS of the new document's first
+   * reading, which is where a flash between two documents has to be.
+   */
+  const JUMP = 4
+  const GRID_STEP = 8
+  const SWAP_WINDOW_MS = 400
+  for (let i = 1; i < frames.length; i++) {
+    const a = frames[i - 1].grid, b = frames[i].grid
+    let moved = 0
+    for (let k = 0; k < a.length; k++) if (Math.abs(a[k] - b[k]) > GRID_STEP) moved++
+    frames[i].changed = moved / a.length
+    frames[i].dLum = frames[i].lum - frames[i - 1].lum
+  }
+  /* A run of frames (up to FLASH_MAX_FRAMES, about two thirds of a second)
+     that steps away from both neighbours in the same direction and comes
+     back. Longer than that and it is not a blink but a state the screen was
+     in, which the other checks have their own words for. */
+  const FLASH_MAX_FRAMES = 40
+  const flashes = []
+  for (let i = 1; i < frames.length - 1; i++) {
+    for (let len = 1; len <= FLASH_MAX_FRAMES && i + len < frames.length; len++) {
+      const before = frames[i - 1].lum, after = frames[i + len].lum
+      const run = frames.slice(i, i + len)
+      const mid = run.reduce((s, f) => s + f.lum, 0) / len
+      const up = mid - before, back = mid - after
+      if (Math.abs(up) <= JUMP || Math.abs(back) <= JUMP) continue
+      if (Math.sign(up) !== Math.sign(back)) continue
+      /* The neighbours have to agree with each other, or this is a fade, not a flash. */
+      if (Math.abs(before - after) > Math.min(Math.abs(up), Math.abs(back)) / 2) continue
+      flashes.push({ at: run[0].at, len, held: frames[i + len].at - run[0].at, out: Math.round(Math.min(Math.abs(up), Math.abs(back)) * 10) / 10, dir: up > 0 ? "lighter" : "darker" })
+      i += len
+      break
+    }
+  }
+  const swapAt = B.find((r) => r.parsed)?.t ?? null
+  const inSwap = (f) => swapAt != null && Math.abs(f.at - swapAt) <= SWAP_WINDOW_MS
+  const pairs = frames.slice(1)
+  const swapPairs = pairs.filter(inSwap)
+  const worstOf = (list, key) => list.reduce((m, f) => Math.max(m, Math.abs(f[key])), 0)
+  console.log(`        light on the glass: ${frames.length} frames, the biggest step between two of them ${Math.round(worstOf(pairs, "dLum") * 10) / 10} of 255` +
+    (swapPairs.length ? `; across the swap (${swapPairs.length} frames in ${SWAP_WINDOW_MS * 2}ms) ${Math.round(worstOf(swapPairs, "dLum") * 10) / 10}, the most of the picture to change at once ${Math.round(worstOf(swapPairs, "changed") * 100)}%` : ""))
+  if (process.env.FLASH) {
+    for (const f of frames) console.log(`        ${String(Math.round(f.at - press)).padStart(5)}ms ${f.kind.padEnd(7)} lum ${f.lum.toFixed(1).padStart(6)} d ${(f.dLum ?? 0).toFixed(1).padStart(6)} changed ${Math.round((f.changed ?? 0) * 100).toString().padStart(3)}% bar ${String(f.barInk).padStart(5)}${inSwap(f) ? "  <- swap" : ""}`)
+    if (SHOTS) frames.filter(inSwap).forEach((f, i) => writeFileSync(join(SHOTS, `swap-${label.replace(/ /g, "-")}-${String(i).padStart(2, "0")}-${Math.round(f.at - press)}ms.png`), Buffer.from(f.data, "base64")))
+  }
+  /* Not for a failed switch: there the screen comes up and goes away again
+     inside half a second, which is a there-and-back by design. */
+  if (scenario !== "fail") expect(flashes.length === 0, "no frame's light jumps away from its neighbours and back: no flash",
+    flashes.length ? `${flashes.length}: ${flashes.slice(0, 5).map((f) => `${f.dir} by ${f.out} of 255 for ${f.len} frame${f.len === 1 ? "" : "s"} (${ms(f.held)}) at ${ms(f.at - press)}`).join(", ")}` : `${pairs.length} pairs read, none jumps by more than ${JUMP} of 255 and back`)
+  flashes.slice(0, 3).forEach((f, i) => save(`flash-${i}-${Math.round(f.at - press)}ms`, frames.find((g) => g.at === f.at)))
 
   /* CHEAP */
   const props = new Set(after.flatMap((r) => r.anims))
@@ -589,6 +742,11 @@ if (WIDTHS.includes(390)) {
   await run(390, { reduced: true })
 }
 if (WIDTHS.includes(1280)) await run(1280, { scenario: "fail" })
+/* THE NEW DOCUMENT IN TWO PARTS, which is how a megabyte of /app arrives.
+   The browser has a document it can lay out before it has the screen, and
+   what it draws in between used to be one white frame held for the whole
+   gap. See lib/businesses/switch-screen.ts. */
+for (const W of [390, 1440]) if (WIDTHS.includes(W)) await run(W, { inParts: true })
 
 await browser.close()
 server.close()

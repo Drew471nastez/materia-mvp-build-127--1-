@@ -48,6 +48,7 @@ import { KeyboardGuard } from "@/components/platform/keyboard-guard"
 import { RotationGuard } from "@/components/platform/rotation-guard"
 import { AppHistoryTracker } from "@/components/platform/app-history-tracker"
 import { NativePushInit } from "@/components/native-push-init"
+import { SWITCH_FIRST_PAINT_SCRIPT } from "@/lib/businesses/switch-screen"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
 const inter = Inter({
@@ -166,10 +167,19 @@ export default function RootLayout({
                colour. The server reads this from a cookie, but WKWebView drops
                JS-set cookies across app restarts — which is exactly why the app
                used to open on the grid and then jump to reels a second later.
-               Re-writing the cookie here repairs it for every later request. */}
+               Re-writing the cookie here repairs it for every later request.
+            4. Arriving from a switch of business: the screen the switch is
+               showing is drawn by /app's own HTML, and a browser will paint
+               this document before it has parsed that far — a white frame in
+               the middle of the switch, measured. So before <body> is read
+               at all, the canvas is made the screen's own surface and the
+               browser is asked not to draw until the screen is there. It
+               costs one regular expression over document.cookie on every
+               other page, because the switch's cookie is only ever sent to
+               /app. See lib/businesses/switch-screen.ts. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var _ua=navigator.userAgent||'';if((window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())||/StorelibApp|Capacitor/.test(_ua)){var h=document.documentElement;h.classList.add('capacitor');try{var _p=location.pathname;if(_p==='/'||/^\\/(pricing|features|faq|blog)(\\/|$)/.test(_p)){location.replace('/native-start')}}catch(e){}var _ow=window.open;window.open=function(u,t,f){if(u&&/stripe\\.com/.test(String(u)))return null;return _ow.apply(window,arguments)};}}catch(e){}try{var r=document.documentElement,vv=window.visualViewport;r.style.setProperty('--vv-h',Math.round(vv?vv.height:window.innerHeight)+'px');r.style.setProperty('--vv-top',Math.round(vv?vv.offsetTop:0)+'px');r.style.setProperty('--kb-inset',Math.max(0,Math.round(window.innerHeight-(vv?vv.offsetTop:0)-(vv?vv.height:window.innerHeight)))+'px')}catch(e){}try{var d=document.documentElement,v=localStorage.getItem('storelib_feed_view');if(v!=='reels'&&v!=='grid')v='grid';d.setAttribute('data-feed-view',v);d.style.setProperty('--feed-entry-bg',v==='reels'?'#000':'#fff');if(/(^|;\\s*)storelib_consent=2\\.p1/.test(document.cookie)&&document.cookie.indexOf('storelib_feed_view='+v)<0){document.cookie='storelib_feed_view='+v+'; path=/; max-age=31536000; samesite=lax'}}catch(e){}`,
+            __html: `try{var _ua=navigator.userAgent||'';if((window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())||/StorelibApp|Capacitor/.test(_ua)){var h=document.documentElement;h.classList.add('capacitor');try{var _p=location.pathname;if(_p==='/'||/^\\/(pricing|features|faq|blog)(\\/|$)/.test(_p)){location.replace('/native-start')}}catch(e){}var _ow=window.open;window.open=function(u,t,f){if(u&&/stripe\\.com/.test(String(u)))return null;return _ow.apply(window,arguments)};}}catch(e){}try{var r=document.documentElement,vv=window.visualViewport;r.style.setProperty('--vv-h',Math.round(vv?vv.height:window.innerHeight)+'px');r.style.setProperty('--vv-top',Math.round(vv?vv.offsetTop:0)+'px');r.style.setProperty('--kb-inset',Math.max(0,Math.round(window.innerHeight-(vv?vv.offsetTop:0)-(vv?vv.height:window.innerHeight)))+'px')}catch(e){}try{var d=document.documentElement,v=localStorage.getItem('storelib_feed_view');if(v!=='reels'&&v!=='grid')v='grid';d.setAttribute('data-feed-view',v);d.style.setProperty('--feed-entry-bg',v==='reels'?'#000':'#fff');if(/(^|;\\s*)storelib_consent=2\\.p1/.test(document.cookie)&&document.cookie.indexOf('storelib_feed_view='+v)<0){document.cookie='storelib_feed_view='+v+'; path=/; max-age=31536000; samesite=lax'}}catch(e){}${SWITCH_FIRST_PAINT_SCRIPT}`,
           }}
         />
         {/* ═══════════════════════════════════════════════════════════════════

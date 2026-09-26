@@ -171,11 +171,25 @@ function switchScreen() {
     app's bar, and one white area under it from edge to edge, the white the
     new business's setup already sat on.
   */
+  /*
+    AND THE ORDER THE TWO FIELDS ARE WRITTEN IN. The surface used to be one
+    white box from edge to edge with the bar written inside it afterwards. A
+    browser draws a document it has only half read, and a frame caught
+    between the two was the spinner and the line on white WITH NO BAR AT ALL
+    (measured at 1440 by scripts/check-business-switch.mjs with the new
+    document arriving in two parts, as a megabyte of /app does). So the bar
+    is written first, over z-10 because its corners hang below it, and the
+    white begins at the bar's bottom edge instead of behind it.
+  */
+  const barWritten = screen.indexOf('className="absolute inset-x-0 top-0 z-10 h-[calc(68px+env(safe-area-inset-top,0px))] bg-[#111111]')
+  const whiteWritten = screen.indexOf('className="absolute inset-x-0 bottom-0 top-[calc(68px+env(safe-area-inset-top,0px))] bg-white')
   check("the screen is one white surface under the app's own bar: no empty rail beside it, nothing cut out of it",
     !/AppColdStart/.test(screen) && /function SwitchSurface/.test(screen)
       && /<SwitchSurface header=\{<ShellHeaderStill name=\{name\} photo=\{photo\} \/>\}>\{middle\}<\/SwitchSurface>/.test(screen)
-      && /data-switch-surface="" className="absolute inset-0 bg-white"/.test(screen)
+      && /data-switch-surface="" className="absolute inset-0">/.test(screen)
       && !/w-\[240px\]|#f8f9fa/.test(screen))
+  check("  the bar written before the white, and the white beginning under it, so no frame can have one without the other",
+    barWritten !== -1 && whiteWritten > barWritten)
   check("  its bar is the shell's own height and colour at each width, with the one set of corners hung from it",
     /h-\[calc\(68px\+env\(safe-area-inset-top,0px\)\)\] bg-\[#111111\] text-\[#111111\] md:h-\[calc\(58px\+env\(safe-area-inset-top,0px\)\)\] md:bg-\[#131316\] md:text-\[#131316\]/.test(screen)
       && /<AppTopCorners \/>/.test(screen) && !/rounded-t-/.test(screen))
@@ -199,6 +213,34 @@ function switchScreen() {
   check("everything on the screen moves on opacity and translate only", keyframes.length >= 4 && [...props].every((p) => p === "opacity" || p === "translate"), [...props])
   check("reduced motion: no movement on the lines, no fade in or out of the screen", /const rise = still \? 0 : LINE_RISE_PX/.test(screen) && (screen.match(/reducedMotion\(\) \|\| typeof el\.animate !== "function"/g) ?? []).length >= 3)
   check("its spinner turns on across the reload", /\[data-business-switch-screen\] \.activity-spinner \{\s*animation-delay: var\(--switch-spin-delay, 0ms\);/.test(read("app/globals.css")))
+  /*
+    THE FIRST FRAME OF THE NEW DOCUMENT. A browser draws a document as soon
+    as it has one it can lay out — the head and the open <body> are enough —
+    which can be before the screen's markup has been parsed. What it drew
+    there was the canvas, and the canvas of an /app document is white: one
+    white frame held for as long as the rest of the document took, 16 to 20
+    of 255 of the light on the glass, measured by scripts/check-business-
+    switch.mjs with the document in two parts. Two things close it, both from
+    the <head>, before the body is read at all, and each enough on its own.
+  */
+  const switchLib = read("lib/businesses/switch-screen.ts")
+  const globals = read("app/globals.css")
+  check("the new document is asked not to draw until the screen is all there, and its canvas is the screen until it does",
+    /rel="expect"/.test(switchLib) && /blocking","render"/.test(switchLib)
+      && switchLib.includes('l.href="#${SWITCH_SCREEN_ID}"')
+      && switchLib.includes("classList.add(${JSON.stringify(SWITCH_HTML_CLASS)})")
+      && /SWITCH_HTML_CLASS = "switch-arriving"/.test(switchLib)
+      && /\$\{SWITCH_FIRST_PAINT_SCRIPT\}/.test(read("app/layout.tsx")))
+  check("  the mark it waits for is the LAST thing in the screen, not the screen's own box",
+    /<span aria-hidden="true" id=\{SWITCH_SCREEN_ID\} \/>\s*<\/div>/.test(screen)
+      && /SWITCH_SCREEN_ID = "business-switch-screen-ready"/.test(switchLib))
+  check("  and that canvas is the screen's own two fields, at the bar's height at each width, outside every layer",
+    /html\.switch-arriving \{/.test(globals) && /#111111 calc\(68px \+ env\(safe-area-inset-top, 0px\)\)/.test(globals)
+      && /#131316 calc\(58px \+ env\(safe-area-inset-top, 0px\)\)/.test(globals)
+      && /html\.switch-arriving body \{\s*background-color: transparent;/.test(globals)
+      && /background-attachment: fixed;/.test(globals))
+  check("  and it comes off again when the screen hands over",
+    /document\.documentElement\.classList\.remove\(SWITCH_HTML_CLASS\)/.test(screen))
   const onboarding = read("components/app/creator-onboarding-modal.tsx")
   const redirect = /\{isRedirecting && \(([\s\S]*?)\n      \)\}/.exec(onboarding)?.[1] ?? ""
   check("the setup's last screen, on the way to the dashboard, is the same calm spinner and one line: no purple ring, no dots",

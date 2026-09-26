@@ -7,7 +7,9 @@
 import React from "react"
 import { renderToString } from "react-dom/server"
 import { NewTree } from "./render-business-switch-tree"
+import { SWITCH_FIRST_PAINT_SCRIPT } from "@/lib/businesses/switch-screen"
 
 const name = process.argv[2] || "Lind Studio"
 const photo = process.argv[3] || null
-process.stdout.write(JSON.stringify({ arriving: renderToString(<NewTree arriving={{ name, photo }} />), plain: renderToString(<NewTree arriving={null} />) }))
+/* `head` is what app/layout.tsx runs in the <head> of every document before its body is parsed: the probe puts it in the head of both of its own. */
+process.stdout.write(JSON.stringify({ arriving: renderToString(<NewTree arriving={{ name, photo }} />), plain: renderToString(<NewTree arriving={null} />), head: SWITCH_FIRST_PAINT_SCRIPT }))
