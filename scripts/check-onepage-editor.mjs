@@ -61,6 +61,14 @@ const html = page()
 rmSync(dir, { recursive: true, force: true })
 /* Served over http, so the editor's relative fetches reach the stub API below rather than file:///api. */
 const server = createServer((req, res) => {
+  /*
+    THE PREVIEW'S OWN FRAME (/onepage-preview, components/onepage/live-
+    preview): the editor frames the live page there. This server answered
+    it with "{}", so the phone stayed blank and the editor's loader waited
+    its full cap over the panel, under the clicks this probe makes. The
+    bundle draws the frame's document at that address (render-onepage-editor).
+  */
+  if (req.url.startsWith("/onepage-preview")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(html) }
   if (req.url === "/" || req.url.startsWith("/app")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(html) }
   res.writeHead(200, { "content-type": "application/json" })
   if (req.url.startsWith("/api/billing/subscription")) return res.end(JSON.stringify({ currentPlan: { id: "pro" } }))

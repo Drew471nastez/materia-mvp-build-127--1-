@@ -87,13 +87,23 @@ const purpleOn = (p, id) => p.$eval(`[data-reorder-item][data-block-id="${id}"]`
   }
   return found
 })
-const previewLabels = (p) => p.evaluate((labels) => {
-  /* The phone beside the editor: the one panel from 768px up that holds the links. */
-  const phone = [...document.querySelectorAll(".hidden.md\\:block")].find((e) => labels.some((l) => e.innerText.includes(l)))
-  if (!phone) return []
-  const text = phone.innerText
-  return labels.map((l) => [l, text.indexOf(l)]).filter(([, i]) => i >= 0).sort((a, b) => a[1] - b[1]).map(([l]) => l)
-}, LABELS)
+/*
+  THE PHONE BESIDE THE EDITOR IS A FRAME NOW: the live page's own component
+  at /onepage-preview (components/onepage/live-preview), so the order is read
+  in that frame's document, once it has drawn and the new order has had a
+  frame to arrive in. It was read off the editor's own document when the
+  preview was drawn there.
+*/
+const previewLabels = async (p) => {
+  const handle = await p.waitForSelector(".hidden.md\\:block [data-onepage-preview-frame][data-drawn]", { timeout: 8000 }).catch(() => null)
+  const frame = handle && (await handle.contentFrame())
+  if (!frame) return []
+  await sleep(250)
+  return frame.evaluate((labels) => {
+    const text = document.body.innerText
+    return labels.map((l) => [l, text.indexOf(l)]).filter(([, i]) => i >= 0).sort((a, b) => a[1] - b[1]).map(([l]) => l)
+  }, LABELS)
+}
 
 /* ── A MOUSE, AT 1440 ── */
 {

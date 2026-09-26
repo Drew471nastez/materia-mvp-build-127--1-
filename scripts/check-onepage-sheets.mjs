@@ -24,7 +24,7 @@
  *   HANDS OFF   (Add block) a pull down on its list, at the list's top,
  *               moves the sheet rather than nothing
  *
- * The phone preview's PDF (components/onepage/phone-preview.tsx) and the
+ * The phone preview's PDF (the live page's own, in the preview's frame) and the
  * published page's Spotify player (components/onepage/public-onepage.tsx)
  * are read the same way at 390, and at 1440 it and Add block are still the
  * centred dialogs they were.
@@ -96,6 +96,14 @@ rmSync(dir, { recursive: true, force: true })
 const server = createServer((req, res) => {
   if (req.url.startsWith("/pdf")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(pdf) }
   if (req.url.startsWith("/live")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(live) }
+  /*
+    THE PREVIEW'S OWN FRAME (/onepage-preview, components/onepage/live-
+    preview): the editor frames the live page there. This server answered
+    it with "{}", so the phone stayed blank and the editor's loader waited
+    its full cap over the panel, under the clicks this probe makes. The
+    bundle draws the frame's document at that address (render-onepage-editor).
+  */
+  if (req.url.startsWith("/onepage-preview")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(html) }
   if (req.url === "/" || req.url.startsWith("/app")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(html) }
   res.writeHead(200, { "content-type": "application/json" })
   if (req.url.startsWith("/api/billing/subscription")) return res.end(JSON.stringify({ currentPlan: { id: "pro" } }))
@@ -172,19 +180,44 @@ await sheet("design", "Design, the profile image", "Profile Image", `(async () =
 })()`)
 await sheet("links", "Share", "Share your OnePage", clickSel("[data-onepage-share]"))
 
-/* The phone preview's PDF: Preview, then the PDF on the page. */
-await sheet("links", "The phone preview's PDF", PDF_TITLE, `(async () => {
-  const find = () => [...document.querySelectorAll("button")].find((e) => e.textContent.includes(${JSON.stringify(PDF_TITLE)}) && e.getClientRects().length)
-  if (!find()) {
-    const preview = [...document.querySelectorAll("button")].find((e) => e.textContent.trim() === "Preview" && e.getClientRects().length)
-    if (!preview) return false
-    preview.click()
-    await new Promise((r) => setTimeout(r, 500))
+/*
+  The phone preview's PDF: Preview, then the PDF on the page.
+
+  THE PREVIEW IS A FRAME NOW, the live page's own component at
+  /onepage-preview (components/onepage/live-preview), so its PDF sheet is
+  the live page's sheet, in that frame's document. The same claims are read
+  there: the probe's page is the frame's document, and every touch is moved
+  by where the frame sits on the screen. It was read off the editor's own
+  document when the preview was drawn there.
+*/
+{
+  const name = "The phone preview's PDF"
+  console.log(`\n${name}`)
+  const s = await open(PHONE, "links", "/pdf/app/onepage")
+  const opened = await s.p.evaluate(() => {
+    const b = [...document.querySelectorAll("button")].find((e) => e.textContent.trim() === "Preview" && e.getClientRects().length)
+    if (b) b.click()
+    return !!b
+  })
+  const handle = opened ? await s.p.waitForSelector("[data-onepage-mobile-preview] [data-onepage-preview-frame][data-drawn]", { timeout: 8000 }).catch(() => null) : null
+  const frame = handle && (await handle.contentFrame())
+  expect(!!frame, "Preview shows the live page in its frame", { opened, frame: !!frame })
+  if (frame) {
+    await sleep(400)
+    const box = await handle.boundingBox()
+    const at = (pt) => ({ ...pt, x: pt.x + box.x, y: pt.y + box.y })
+    const inFrame = {
+      evaluate: (...a) => frame.evaluate(...a),
+      screenshot: (...a) => s.p.screenshot(...a),
+      touchscreen: { tap: (x, y) => s.p.touchscreen.tap(x + box.x, y + box.y) },
+    }
+    const cdp = { send: (method, params) => s.cdp.send(method, params?.touchPoints ? { ...params, touchPoints: params.touchPoints.map(at) } : params) }
+    const clickPdf = `(() => { const b = [...document.querySelectorAll("button")].find((e) => e.textContent.includes(${JSON.stringify(PDF_TITLE)}) && e.getClientRects().length); if (b) b.click(); return !!b })()`
+    await readSheet({ ...s, p: inFrame, cdp }, { name, label: PDF_TITLE, opener: clickPdf, list: null, expect })
   }
-  const b = find()
-  if (b) b.click()
-  return !!b
-})()`, null, ["/pdf/app/onepage"])
+  expect(s.errors.length === 0, "no errors on the page", s.errors.slice(0, 3))
+  await s.p.close()
+}
 
 /* The published page's Spotify player: a sheet on a phone, the dialog it was on a computer. */
 const LIVE = ["/live?live", ".onepage-live"]

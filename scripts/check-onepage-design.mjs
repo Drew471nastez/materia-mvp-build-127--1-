@@ -238,10 +238,10 @@ for (const [label, vp] of [["desktop-1440", DESKTOP], ["phone-390", PHONE]]) {
   })
   expect(picked.pressed === "true" && picked.check, "a pick is marked with the dark border and a check", picked)
   if (vp.width >= 768) {
-    const preview = await p.evaluate(() => {
-      const phone = [...document.querySelectorAll(".hidden.md\\:block")].find((e) => e.querySelector("[data-wallpaper-pattern]"))
-      return phone ? phone.querySelector("[data-wallpaper-pattern]").getAttribute("data-wallpaper-pattern") : null
-    })
+    /* The phone beside the editor is a frame of the live page now (components/onepage/live-preview): its pattern is read in the frame's document. */
+    const handle = await p.$(".hidden.md\\:block [data-onepage-preview-frame][data-drawn]")
+    const frame = handle && (await handle.contentFrame())
+    const preview = frame ? await frame.evaluate(() => document.querySelector("[data-wallpaper-pattern]")?.getAttribute("data-wallpaper-pattern") ?? null) : null
     expect(preview === "dots", "and the preview beside it takes the theme, texture and all", preview)
   }
   expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
