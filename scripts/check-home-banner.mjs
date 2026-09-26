@@ -371,33 +371,42 @@ try {
       const banner = document.querySelector("[data-home-banner]").getBoundingClientRect()
       return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, touch: getComputedStyle(g).touchAction, text: getComputedStyle(document.querySelector(".home-banner-text")).touchAction, box: { left: box.left, top: box.top, right: Math.min(box.right, banner.right), bottom: Math.min(box.bottom, banner.bottom) } }
     })
-    expect(grip.touch === "none" && grip.text === "pan-y", "the ball alone keeps its touches: touch-action none on it, pan-y on the text", grip)
+    expect(grip.touch === "pan-y" && grip.text === "pan-y", "an up or down swipe scrolls the page, even from the ball: touch-action pan-y on both", grip)
     if (phone) {
       const scrollTop = () => page.evaluate(() => document.querySelector(".dashboard-scroll-container").scrollTop)
-      const drag = async (x, y, dy) => {
+      const drag = async (x, y, dy, dx = 2) => {
         await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y, radiusX: 8, radiusY: 8, force: 1 }] })
         for (let i = 1; i <= 16; i++) {
-          await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x + i * 2, y: y + (dy * i) / 16, radiusX: 8, radiusY: 8, force: 1 }] })
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: x + i * dx, y: y + (dy * i) / 16, radiusX: 8, radiusY: 8, force: 1 }] })
           await sleep(16)
         }
         await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
         await sleep(600)
       }
       const before = await scrollTop()
-      const h0 = await globeHash(page)
       await page.evaluate(() => {
         window.__gripped = false
         new MutationObserver(() => { if (document.querySelector("[data-home-globe-box]").hasAttribute("data-dragging")) window.__gripped = true })
           .observe(document.querySelector("[data-home-globe-box]"), { attributes: true })
       })
+      /* Up over the ball: the page scrolls, it does not catch on the globe. */
       await drag(grip.x, grip.y, -120)
       const afterGlobe = await scrollTop()
-      expect(Math.abs(afterGlobe - before) <= 1, "a finger dragged up over the ball does not scroll the page", `${before} -> ${afterGlobe}`)
-      expect(await page.evaluate(() => window.__gripped), "the ball took the drag")
+      expect(afterGlobe - before > 40, "a finger dragged up over the ball scrolls the page", `${before} -> ${afterGlobe}`)
+      await toBanner(page)
+      await sleep(300)
+      const grip2 = await page.evaluate(() => { const r = document.querySelector("[data-home-globe-grip]").getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+      const h0 = await globeHash(page)
+      const beforeSide = await scrollTop()
+      /* Sideways over the ball: the globe turns, the page stays. */
+      await drag(grip2.x - 40, grip2.y, 0, 6)
+      expect(await page.evaluate(() => window.__gripped), "a sideways drag on the ball takes it")
       expect((await globeHash(page)) !== h0, "and turns the globe")
-      await drag(40, grip.y, -120)
+      expect(Math.abs((await scrollTop()) - beforeSide) <= 1, "without scrolling the page", `${beforeSide} -> ${await scrollTop()}`)
+      const afterGlobe2 = await scrollTop()
+      await drag(40, grip2.y, -120)
       const afterText = await scrollTop()
-      expect(afterText - afterGlobe > 40, "the same drag on the text scrolls the page", `${afterGlobe} -> ${afterText}`)
+      expect(afterText - afterGlobe2 > 40, "the same drag on the text scrolls the page", `${afterGlobe2} -> ${afterText}`)
       await toBanner(page)
       await sleep(300)
       const corner = await page.evaluate(() => {

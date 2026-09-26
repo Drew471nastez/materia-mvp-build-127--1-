@@ -239,8 +239,8 @@ try {
       rect: { x: r.left, y: r.top, w: r.width, h: r.height },
     }
   })()`
-  const depthOk = (s) => /rgba\(255, 255, 255, 0\.3\) 0px 1px 0px 0px inset/.test(s) && /rgba\(76, 29, 149, 0\.16\) 0px 0px 0px 1px inset/.test(s)
-    && /rgba\(76, 29, 149, 0\.3\) 0px -1px 0px 0px inset/.test(s) && /rgba\(76, 29, 149, 0\.28\) 0px 1px 2px 0px/.test(s) && /rgba\(76, 29, 149, 0\.2\) 0px 2px 6px -1px/.test(s)
+  const depthOk = (s) => /rgba\(255, 255, 255, 0\.38\) 0px 1px 0px 0px inset/.test(s) && /rgba\(76, 29, 149, 0\.18\) 0px 0px 0px 1px inset/.test(s)
+    && /rgba\(76, 29, 149, 0\.34\) 0px -1\.5px 0px 0px inset/.test(s) && /rgba\(76, 29, 149, 0\.3\) 0px 1px 2px 0px/.test(s) && /rgba\(76, 29, 149, 0\.34\) 0px 4px 10px -3px/.test(s)
   console.log("\nThe Upgrade to Pro card at 1280")
   await open("/app", "rail", 1280, 720, 2)
   const card = await page.evaluate(CARD("#rail [data-upgrade-card]"))
@@ -250,7 +250,7 @@ try {
     card && { image: card.image.slice(0, 90), border: card.border, radius: card.radius, shadow: card.shadow })
   check("  the title 13px semibold, the line 11px", !!card && card.title?.size === "13px" && Number(card.title?.weight) >= 600 && card.line?.size === "11px", card && { title: card.title, line: card.line })
   check("  and the line is the one from before: Unlock more benefits, whole", !!card && card.line?.text === "Unlock more benefits" && !/Lower fees/.test(card.text), card?.line?.text)
-  check("the bolt: white on #8b5cf6, 28px, a 14px glyph, no gradient", !!card && card.boltBg === "rgb(139, 92, 246)" && card.boltImage === "none" && card.bolt === 28 && card.glyphW === 14 && card.glyph === "#ffffff" && card.glyphFilter === "none", card && { bg: card.boltBg, bolt: card.bolt, glyph: card.glyphW })
+  check("the bolt: white on #8b5cf6, 28px, a 14px glyph, a gentle top to bottom gradient", !!card && card.boltBg === "rgb(139, 92, 246)" && /^linear-gradient\(rgb\(157, 116, 250\)/.test(card.boltImage) && card.bolt === 28 && card.glyphW === 14 && card.glyph === "#ffffff", card && { bg: card.boltBg, image: card.boltImage, bolt: card.bolt, glyph: card.glyphW })
   check("  with depth: light on top, a hairline ring, a darker foot, a soft shadow", !!card && depthOk(card.boltShadow), card?.boltShadow)
   check("the same words and the same place: the plans page", !!card && card.href === "/app/settings/billing/upgrade" && /Upgrade to Pro/.test(card.text), card?.text)
   if (card) await page.screenshot({ path: join(shots, "appfix-upgrade-1280.png"), clip: { x: 0, y: Math.max(0, card.rect.y - 16), width: 240, height: card.rect.h + 72 } })
@@ -279,9 +279,10 @@ try {
       const hover = await mp.evaluate(CARD("#rail [data-upgrade-card]"))
       const canHover = await mp.evaluate(() => matchMedia("(hover: hover) and (pointer: fine)").matches)
       console.log("  hovered", JSON.stringify({ canHover, bolt: hover.boltBg, image: hover.image.slice(0, 120), border: hover.border }))
-      check("under the pointer the bolt goes a touch deeper (#7c4fe6), and the card's tints and hairline deepen",
-        canHover && hover.boltBg === "rgb(124, 79, 230)" && hover.boltShadow !== rest.boltShadow && hover.image !== rest.image && hover.border !== rest.border,
-        { canHover, bolt: hover.boltBg })
+      const boltFilter = await mp.evaluate(() => getComputedStyle(document.querySelector("#rail [data-upgrade-bolt]")).filter)
+      check("under the pointer the bolt goes a touch deeper (brightness 0.94, a deeper shadow), and the card's tints and hairline deepen",
+        canHover && /brightness\(0\.94\)/.test(boltFilter) && hover.boltShadow !== rest.boltShadow && hover.image !== rest.image && hover.border !== rest.border,
+        { canHover, filter: boltFilter })
       await mp.screenshot({ path: join(shots, "appfix-upgrade-1280-hover.png"), clip: { x: 0, y: Math.max(0, rest.rect.y - 16), width: 240, height: rest.rect.h + 72 } })
     } finally {
       await mouseBrowser.close()

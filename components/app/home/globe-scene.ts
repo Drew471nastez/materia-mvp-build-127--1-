@@ -43,28 +43,32 @@ const rgb = (hex: string): Rgb => {
 export const css = (c: Rgb, a = 1) => `rgba(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)},${a})`
 
 /**
- * THE PALETTE. An ink globe with a violet cast, lit from the upper left,
- * on the banner's light grey: the one dark thing in the banner, so the eye
- * lands on it, and the same ink as the guide card's thumbnail beside it.
+ * THE PALETTE. A light grey globe on the banner's light grey, lit from the
+ * upper left: land in a quiet darker grey, the sea a shade lighter than the
+ * banner, a white rim where the light catches it. It was an ink ball with a
+ * violet cast, the one dark thing in the banner, and it drew the eye away
+ * from what the banner says: "the globe has too much visual weight; make it
+ * light grey, incorporated, without drawing too much attention, but still
+ * detailed and real." The sales in flight keep a hint of Storelib's violet.
  */
 export const PALETTE = {
   /** The body, in shadow and in the light. */
-  deep: rgb("#0c0a14"),
-  lit: rgb("#34305a"),
+  deep: rgb("#d3d7df"),
+  lit: rgb("#f7f8fa"),
   /** The rim the light catches at the edge. */
-  rim: rgb("#b7a6ff"),
+  rim: rgb("#ffffff"),
   /** The thin atmosphere outside the edge. */
-  halo: rgb("#8b5cf6"),
-  haloAlpha: 0.24,
+  halo: rgb("#aab0bd"),
+  haloAlpha: 0.14,
   /** Land, on the lit side and on the far side of the light. */
-  landLit: rgb("#f6f3ff"),
-  landDark: rgb("#8a80c4"),
+  landLit: rgb("#7c8290"),
+  landDark: rgb("#a9aeba"),
   /** Cities, their pulse, a sale in flight and where it lands. */
-  pin: rgb("#e4dcff"),
-  pulse: rgb("#a78bfa"),
-  arc: rgb("#c9bbff"),
-  head: rgb("#ffffff"),
-  ripple: rgb("#ede9fe"),
+  pin: rgb("#6b7180"),
+  pulse: rgb("#9a8fd0"),
+  arc: rgb("#9b90cf"),
+  head: rgb("#7c6fd0"),
+  ripple: rgb("#8f84c9"),
 } as const
 
 const mix = (a: Rgb, b: Rgb, t: number): Rgb => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]
@@ -114,26 +118,26 @@ export function paintBall(b: CanvasRenderingContext2D, device: number, dpr: numb
   b.clip()
   const trace = b.createRadialGradient(c, c, R * 0.8, c, c, R)
   trace.addColorStop(0, css(PALETTE.rim, 0))
-  trace.addColorStop(1, css(PALETTE.rim, 0.12))
+  trace.addColorStop(1, css(PALETTE.deep, 0.35))
   b.fillStyle = trace
   b.fillRect(0, 0, device, device)
   /* Centred away from the light, so only the lit edge is far enough out to catch it. */
   const crescent = b.createRadialGradient(c - lx * R * 0.24, c - ly * R * 0.24, R * 0.92, c - lx * R * 0.24, c - ly * R * 0.24, R * 1.24)
   crescent.addColorStop(0, css(PALETTE.rim, 0))
-  crescent.addColorStop(1, css(PALETTE.rim, 0.34))
+  crescent.addColorStop(1, css(PALETTE.rim, 0.7))
   b.fillStyle = crescent
   b.fillRect(0, 0, device, device)
   const sx = c + lx * R * 0.44
   const sy = c + ly * R * 0.44
   const shine = b.createRadialGradient(sx, sy, 0, sx, sy, R * 0.34)
-  shine.addColorStop(0, "rgba(236,233,255,0.11)")
-  shine.addColorStop(1, "rgba(236,233,255,0)")
+  shine.addColorStop(0, "rgba(255,255,255,0.55)")
+  shine.addColorStop(1, "rgba(255,255,255,0)")
   b.fillStyle = shine
   b.fillRect(0, 0, device, device)
   b.restore()
 
   const edge = Math.max(1, dpr * 0.75)
-  b.strokeStyle = css(PALETTE.rim, 0.2)
+  b.strokeStyle = "rgba(120,127,142,0.22)"
   b.lineWidth = edge
   b.beginPath()
   b.arc(c, c, R - edge / 2, 0, TAU)

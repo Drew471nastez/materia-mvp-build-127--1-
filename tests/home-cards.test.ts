@@ -135,7 +135,8 @@ function main() {
   check("and not while the page under it scrolls", /addEventListener\("scroll", onScroll, \{ capture: true, passive: true \}\)/.test(globe) && /scrolling = true\s*\n\s*sleep\(\)/.test(globe))
   check("it never renders React to turn", !/useState/.test(globe))
   /* "When I touch over the globe it should not scroll, it should just let me interact with the globe." */
-  check("a finger on the ball turns it and never scrolls: touch-action none on the round grip only", /data-home-globe-grip=""[\s\S]{0,400}touchAction: "none"/.test(globe) && /rounded-full/.test(globe))
+  /* Changed on purpose: a scroll that started on the ball caught the page on a phone ("laggy at the banner"). */
+  check("a finger turns the ball sideways and an up or down swipe on it scrolls the page: touch-action pan-y on the round grip", /data-home-globe-grip=""[\s\S]{0,400}touchAction: "pan-y"/.test(globe) && /rounded-full/.test(globe) && /if \(byMouse\) tilt = /.test(globe))
   check("the canvas takes no touches, so the rest of its box scrolls", /pointer-events:none/.test(globe))
   check("and the banner's text still scrolls the page", /\.home-banner-text \{[^}]*touch-action: pan-y;/.test(banner))
   check("grab, and grabbing while dragged", /cursor-grab/.test(globe) && /"grabbing"/.test(globe))
@@ -158,11 +159,12 @@ function main() {
     /rounded-\[16px\] border border-violet-100\/70 bg-white/.test(cardClass(phone)) && !/shadow/.test(cardClass(phone)), cardClass(phone))
   check("both are a named group, so the bolt answers the card's hover without .group", /^group\/upgrade /.test(cardClass(desktop)) && /^group\/upgrade /.test(cardClass(phone)))
   const bolt = read("components/app/upgrade-bolt.tsx").replace(/\/\*[\s\S]*?\*\//g, "")
-  check("the bolt is white on solid #8b5cf6", /bg-\[#8b5cf6\]/.test(bolt) && /UPGRADE_FILL = "#8b5cf6"/.test(bolt) && /fill=\{UPGRADE_INK\}/.test(bolt) && /UPGRADE_INK = "#ffffff"/.test(bolt))
-  check("  with depth: light on top, a hairline ring, a darker foot, a soft shadow",
-    /shadow-\[inset_0_1px_0_rgba\(255,255,255,0\.3\),inset_0_0_0_1px_rgba\(76,29,149,0\.16\),inset_0_-1px_0_rgba\(76,29,149,0\.3\),0_1px_2px_rgba\(76,29,149,0\.28\),0_2px_6px_-1px_rgba\(76,29,149,0\.2\)\]/.test(bolt))
-  check("  a touch deeper under the card's hover", /group-hover\/upgrade:bg-\[#7c4fe6\]/.test(bolt) && /group-hover\/upgrade:shadow-\[/.test(bolt))
-  check("  and no gradient or glow", !/gradient|drop-shadow|0 4px 10px/.test(bolt))
+  /* Changed on purpose: "more depth, and a gradient, a little bit, not so much." */
+  check("the bolt is white on the app's violet, #8b5cf6 at its middle", /bg-\[#8b5cf6\]/.test(bolt) && /UPGRADE_FILL = "#8b5cf6"/.test(bolt) && /fill=\{UPGRADE_INK\}/.test(bolt) && /UPGRADE_INK = "#ffffff"/.test(bolt))
+  check("  a gentle gradient, lighter on top and deeper at the foot, no glow", /bg-\[linear-gradient\(180deg,#9d74fa_0%,#8b5cf6_52%,#7a48ea_100%\)\]/.test(bolt) && !/radial-gradient|0 0 \d+px rgba\(139/.test(bolt))
+  check("  with depth: light on top, a hairline ring, a darker foot, a two-step shadow",
+    /shadow-\[inset_0_1px_0_rgba\(255,255,255,0\.38\),inset_0_0_0_1px_rgba\(76,29,149,0\.18\),inset_0_-1\.5px_0_rgba\(76,29,149,0\.34\),0_1px_2px_rgba\(76,29,149,0\.3\),0_4px_10px_-3px_rgba\(76,29,149,0\.34\)\]/.test(bolt))
+  check("  a touch deeper under the card's hover", /group-hover\/upgrade:brightness-\[0\.94\]/.test(bolt) && /group-hover\/upgrade:shadow-\[/.test(bolt))
   check("the words are the ones from before: Unlock more benefits, in every language as they were",
     /"nav\.unlockBenefits": "Unlock more benefits"/.test(read("lib/i18n/translations.ts")) && /"nav\.unlockBenefits": "Unlock more benefits"/.test(read("lib/i18n/dict/dashboard.ts"))
       && !/Lower fees, your own domain/.test(read("lib/i18n/translations.ts") + read("lib/i18n/dict/dashboard.ts")))

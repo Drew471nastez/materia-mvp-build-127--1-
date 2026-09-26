@@ -351,61 +351,38 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
 const BANNER_CSS = `
 .home-banner {
   container-type: inline-size;
-  border: 1px solid rgba(208, 213, 223, 0.85);
-  background: #eceef2;
+  border: 1px solid #e3e5ea;
+  background: #eff1f4;
   box-shadow:
     0 1px 2px rgba(16, 24, 40, 0.04),
-    0 18px 36px -24px rgba(16, 24, 40, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 .home-banner-bg {
   position: absolute;
   inset: 0;
   z-index: -1;
   pointer-events: none;
+  /* Clean light grey, a touch lighter at the top left where the light comes from. No violet, no
+     pattern: "something more clean, smooth, not eye candy, more towards light grey". Painted once. */
   background:
-    radial-gradient(34% 62% at 97% 50%, rgba(124, 92, 230, 0.16), rgba(124, 92, 230, 0) 72%),
-    radial-gradient(26% 58% at 64% 112%, rgba(99, 115, 160, 0.16), rgba(99, 115, 160, 0) 70%),
-    radial-gradient(22% 46% at 46% -8%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 70%),
-    radial-gradient(18% 40% at 30% 70%, rgba(203, 208, 222, 0.55), rgba(203, 208, 222, 0) 72%),
-    radial-gradient(30% 70% at 4% 104%, rgba(176, 184, 204, 0.42), rgba(176, 184, 204, 0) 70%),
-    radial-gradient(20% 44% at 14% 6%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 72%),
-    radial-gradient(14% 30% at 76% 16%, rgba(214, 206, 248, 0.5), rgba(214, 206, 248, 0) 72%),
-    linear-gradient(180deg, #f3f4f7 0%, #e9ebf0 100%);
-}
-/* The pattern, out of focus: large soft dots in a grid, too blurred to read as dots, strongest across the
-   middle and gone at the edges. Then the glass: a sheen across the upper left. */
-.home-banner-bg::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(112deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.16) 34%, rgba(255, 255, 255, 0) 52%),
-    radial-gradient(circle at 50% 50%, rgba(46, 50, 84, 0.05) 0%, rgba(46, 50, 84, 0.025) 30%, rgba(46, 50, 84, 0) 64%) 0 0 / 56px 56px,
-    radial-gradient(circle at 50% 50%, rgba(46, 50, 84, 0.04) 0%, rgba(46, 50, 84, 0.02) 30%, rgba(46, 50, 84, 0) 64%) 28px 28px / 56px 56px;
-  -webkit-mask-image: radial-gradient(64% 110% at 60% 72%, #000 0%, rgba(0, 0, 0, 0.5) 42%, transparent 76%);
-  mask-image: radial-gradient(64% 110% at 60% 72%, #000 0%, rgba(0, 0, 0, 0.5) 42%, transparent 76%);
-}
-.home-banner-bg::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.35;
-  mix-blend-mode: soft-light;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0 0.16 0.7 0 0 0 -0.2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    radial-gradient(60% 120% at 12% 0%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #f4f5f7 0%, #eceef1 100%);
 }
 
 /*
   ONE HEIGHT, TALL ENOUGH FOR THE LONGEST SLIDE AT EVERY WIDTH, AND NO
-  TALLER. "Not too much subheading text; it makes the banner too tall and
-  fat." Every line is 48 characters at most now (lib/home/announcements), so:
-  phone type to 619px (16/21 title, 13/18 body, two lines each):
-  18 + 16 + 4 + 42 + 5 + 36 + 14 + 34 + 28 + 10 = 207, so 208. From 620
-  (20/26 title, 14/20 body, two lines each): 22 + 16 + 6 + 52 + 6 + 40 + 12
-  + 36 + 28 + 12 = 230. From 860, where the column is wide enough for every
-  title and every line on one: 22 + 16 + 6 + 26 + 6 + 20 + 12 + 36 + 28 + 12
-  = 184, so 188, with the globe sized to sit inside it.
-  scripts/check-home-banner.mjs holds every slide of every state to it.
+  TALLER, WITH THE BUTTON AND THE SEGMENTS TOGETHER AT THE FOOT. "The banner
+  shouldn't look fat, and not so much space between the lines and the
+  button." The button row sits at the bottom of the text (margin-top: auto)
+  and the segments 8px under it, so whatever room a short slide leaves is
+  above the button, never between it and the segments. Every line is 48
+  characters at most (lib/home/announcements). Phone type to 619px (15/20
+  title, 13/17 body, two lines each): 18 + 16 + 4 + 40 + 4 + 34 + 12 + 34 +
+  8 + 16 + 10 = 196. From 620 (19/24, 14/19, two lines each): 20 + 16 + 5 +
+  48 + 5 + 38 + 12 + 34 + 8 + 16 + 12 = 214. From 860, one line each: 20 +
+  16 + 5 + 24 + 5 + 19 + 12 + 34 + 8 + 16 + 12 = 171, so 172, the globe
+  sized to sit inside it. scripts/check-home-banner.mjs holds every slide of
+  every state to it.
 */
 .home-banner-inner {
   --g: 168px;
@@ -414,7 +391,7 @@ const BANNER_CSS = `
   --gap: 8px;
   --pad-l: 18px;
   position: relative;
-  height: 208px;
+  height: 196px;
 }
 @container (min-width: 380px) {
   .home-banner-inner { --g: 180px; --gx: 64px; --pad-l: 20px; }
@@ -423,10 +400,10 @@ const BANNER_CSS = `
   .home-banner-inner { --g: 204px; --gx: 96px; --gy: 6px; --gap: 14px; --pad-l: 26px; }
 }
 @container (min-width: 620px) {
-  .home-banner-inner { --g: 252px; --gx: 136px; --gy: 8px; --gap: 22px; --pad-l: 32px; height: 230px; }
+  .home-banner-inner { --g: 236px; --gx: 132px; --gy: 4px; --gap: 22px; --pad-l: 32px; height: 214px; }
 }
 @container (min-width: 860px) {
-  .home-banner-inner { --g: 222px; --gx: 150px; --gy: 0px; --gap: 32px; --pad-l: 36px; height: 188px; }
+  .home-banner-inner { --g: 204px; --gx: 140px; --gy: 0px; --gap: 32px; --pad-l: 36px; height: 172px; }
 }
 
 .home-banner-globe {
@@ -445,7 +422,7 @@ const BANNER_CSS = `
   top: 22%;
   bottom: -4%;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(28, 22, 56, 0.3), rgba(28, 22, 56, 0.12) 58%, rgba(28, 22, 56, 0) 100%);
+  background: radial-gradient(closest-side, rgba(40, 46, 62, 0.14), rgba(40, 46, 62, 0.05) 58%, rgba(40, 46, 62, 0) 100%);
   pointer-events: none;
 }
 
@@ -458,7 +435,7 @@ const BANNER_CSS = `
   touch-action: pan-y;
 }
 @container (min-width: 620px) {
-  .home-banner-text { padding-top: 22px; padding-bottom: 12px; }
+  .home-banner-text { padding-top: 20px; padding-bottom: 12px; }
 }
 .home-banner-stack {
   position: relative;
@@ -531,8 +508,8 @@ const BANNER_CSS = `
 }
 .home-banner-title {
   margin-top: 4px;
-  font-size: 16px;
-  line-height: 21px;
+  font-size: 15px;
+  line-height: 20px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: #1a1a2e;
@@ -543,9 +520,9 @@ const BANNER_CSS = `
   overflow: hidden;
 }
 .home-banner-line {
-  margin-top: 5px;
+  margin-top: 4px;
   font-size: 13px;
-  line-height: 18px;
+  line-height: 17px;
   color: #5f6673;
   text-wrap: pretty;
   display: -webkit-box;
@@ -554,13 +531,10 @@ const BANNER_CSS = `
   overflow: hidden;
 }
 @container (min-width: 620px) {
-  .home-banner-title { margin-top: 6px; font-size: 20px; line-height: 26px; letter-spacing: -0.015em; }
-  .home-banner-line { margin-top: 6px; font-size: 14px; line-height: 20px; -webkit-line-clamp: 2; }
+  .home-banner-title { margin-top: 5px; font-size: 19px; line-height: 24px; letter-spacing: -0.015em; }
+  .home-banner-line { margin-top: 5px; font-size: 14px; line-height: 19px; -webkit-line-clamp: 2; }
 }
-.home-banner-cta-row { margin-top: 14px; }
-@container (min-width: 620px) {
-  .home-banner-cta-row { margin-top: 12px; }
-}
+.home-banner-cta-row { margin-top: auto; padding-top: 12px; }
 @container (min-width: 860px) {
   .home-banner-title,
   .home-banner-line { -webkit-line-clamp: 1; }
@@ -585,14 +559,14 @@ const BANNER_CSS = `
 .home-banner-cta:active { background: #0b0b0d; }
 .home-banner-cta:focus-visible { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #8b5cf6; }
 @container (min-width: 620px) {
-  .home-banner-cta { height: 36px; padding: 0 16px; }
+  .home-banner-cta { padding: 0 16px; }
 }
 
 .home-banner-tabs {
   display: flex;
   gap: 2px;
-  height: 22px;
-  margin-top: 6px;
+  height: 16px;
+  margin-top: 8px;
   margin-left: -4px;
   flex: 0 0 auto;
 }
@@ -600,13 +574,16 @@ const BANNER_CSS = `
   display: flex;
   align-items: center;
   width: 30px;
-  height: 22px;
+  height: 16px;
   padding: 0 4px;
   border-radius: 6px;
   outline: none;
   -webkit-tap-highlight-color: transparent;
 }
 .home-banner-tab:focus-visible { box-shadow: 0 0 0 2px #8b5cf6; }
+/* The segment is 16px tall to keep the banner low; its target reaches 10px further up and down. */
+.home-banner-tab { position: relative; }
+.home-banner-tab::after { content: ""; position: absolute; inset: -10px -1px; }
 .home-banner-tab-track {
   position: relative;
   display: block;

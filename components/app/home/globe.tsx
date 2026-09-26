@@ -26,10 +26,13 @@
  * (scripts/check-home-scroll.mjs measured the old globe's frames starving
  * the page's scroll).
  *
- * THE DRAG. Only the ball itself is grabbable: a round grip over it, with
- * `touch-action: none`, so a finger that lands on the globe turns it, in any
- * direction, and never scrolls the page, while a finger anywhere else on the
- * banner scrolls as usual. Grabbing stops it under the finger the way a real
+ * THE DRAG. Only the ball itself is grabbable: a round grip over it. A
+ * finger turns it sideways; an up or down swipe that starts on it scrolls
+ * the page (`touch-action: pan-y`). It was `none`, so on a phone, where the
+ * ball fills half the banner, a scroll that happened to start on it did not
+ * move the page at all: the page seemed to catch and stutter at the banner
+ * ("laggy, glitching, then normal again further down"). A mouse still tips
+ * it up and down. Grabbing stops it under the finger the way a real
  * globe stops under a hand; let go and it keeps the speed it was thrown at,
  * then eases back to its own slow turn, and its tilt drifts back to rest.
  * Held still before letting go, it was put down, not thrown.
@@ -134,6 +137,8 @@ export function BannerGlobe({ className }: { className?: string }) {
     let tiltVel = 0
 
     let dragging = false
+    /* A finger only turns it sideways: up and down is the page's scroll. */
+    let byMouse = false
     let pointerId = -1
     let lastX = 0
     let lastY = 0
@@ -277,6 +282,7 @@ export function BannerGlobe({ className }: { className?: string }) {
     const onDown = (e: PointerEvent) => {
       if (dragging || (e.pointerType === "mouse" && e.button !== 0)) return
       dragging = true
+      byMouse = e.pointerType === "mouse"
       pointerId = e.pointerId
       lastX = downX = e.clientX
       lastY = downY = e.clientY
@@ -306,10 +312,10 @@ export function BannerGlobe({ className }: { className?: string }) {
       const r = Math.max(1, size * GLOBE_RADIUS)
       /* A point on the surface follows the finger across. */
       yaw += dx / r
-      tilt = Math.max(TILT_MIN, Math.min(TILT_MAX, tilt + dy / r))
+      if (byMouse) tilt = Math.max(TILT_MIN, Math.min(TILT_MAX, tilt + dy / r))
       const k = 1 - Math.exp(-dt / VELOCITY_MS)
       estYaw += (dx / r / dt - estYaw) * k
-      estTilt += (dy / r / dt - estTilt) * k
+      if (byMouse) estTilt += (dy / r / dt - estTilt) * k
       lastX = e.clientX
       lastY = e.clientY
       lastT = moveT = e.timeStamp
@@ -363,8 +369,10 @@ export function BannerGlobe({ className }: { className?: string }) {
       nextArc = (clock || performance.now()) + 1600
     }
 
-    /* Touches on the grip are the globe's: the page's pull to refresh (and anything else on the way up) never sees them. */
-    const keep = (e: TouchEvent) => e.stopPropagation()
+    /* A sideways drag on the grip is the globe's: the page's pull to refresh never sees it. An up or down swipe is the page's. */
+    const keep = (e: TouchEvent) => {
+      if (dragging) e.stopPropagation()
+    }
 
     /* ── When it runs ─────────────────────────────────────────────────── */
 
@@ -450,11 +458,35 @@ export function BannerGlobe({ className }: { className?: string }) {
     })
     io.observe(box)
     resize()
+    warm()
+    }
+
+    /*
+      THE FIRST FRAME IS DRAWN AHEAD. The first draw after the programs are
+      built is the dear one (the driver finishes its work on first use): on a
+      phone it landed as the globe scrolled into view, a 45ms frame in the
+      middle of the swipe. So it is drawn once as soon as the programs are
+      ready, while the page is idle, whether or not the globe is on screen.
+    */
+    let warmTimer = 0
+    const idle = (fn: () => void) => {
+      const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+      if (w.requestIdleCallback) w.requestIdleCallback(fn, { timeout: 600 })
+      else warmTimer = window.setTimeout(fn, 120)
+    }
+    /* A draw is also what asks whether the programs are ready (globe-gl settle), so it draws until they are. */
+    const warm = () => {
+      idle(() => {
+        if (!renderer || lost || frame) return
+        paint()
+        if (renderer.pending()) warmTimer = window.setTimeout(warm, 80)
+      })
     }
 
     return () => {
       cancelAnimationFrame(firstFrame)
       window.clearTimeout(startTimer)
+      window.clearTimeout(warmTimer)
       sleep()
       window.clearTimeout(scrollTimer)
       ro?.disconnect()
@@ -487,7 +519,7 @@ export function BannerGlobe({ className }: { className?: string }) {
         data-home-globe-grip=""
         aria-hidden="true"
         className="absolute cursor-grab rounded-full select-none [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]"
-        style={{ left: inset, top: inset, right: inset, bottom: inset, touchAction: "none" }}
+        style={{ left: inset, top: inset, right: inset, bottom: inset, touchAction: "pan-y" }}
       />
     </div>
   )
