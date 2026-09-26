@@ -2978,16 +2978,96 @@ html.capacitor .app-content-scroll {
  * takes no space in the flow, and without this the last row of every list
  * would sit permanently underneath it.
  *
- * 104px is the bar (58) plus the gap below it (6) plus a comfortable margin
- * above it, and the safe-area inset on top of that for the home indicator.
- * It REPLACES the capacitor rule above at this width rather than adding to
- * it, which is why the inset is written out again here.
+ * The room is --app-nav-room: the pill's height, the gap under it, and 40px
+ * above it, so it follows the pill on every phone. It REPLACES the capacitor
+ * rule above at this width rather than adding to it; the gap under the pill
+ * already holds the home indicator's inset.
  *
  * Above 768px the pill is not rendered and this does not apply.
+ *
+ * ── THE PILL'S SIZE, ONCE, FOR EVERY PHONE SINCE 2015 ──────────────────────
+ *
+ * Everything that knows how big the pill is reads it from here: the pill
+ * itself (components/app/sidebar-mobile-nav.tsx, which has no copy of any of
+ * these numbers), the room pages leave under their content, the menu page's,
+ * and the Android exit toast (components/app/native-back-handler.tsx).
+ *
+ * The -n values are the pill in DESIGN pixels. "Reduce the overall size by
+ * 4%": each is the one before it times 0.96 (63, 58, 4, 8 and 22 were the
+ * bar, a tab, the padding, the gap and the icons).
+ *
+ * --app-nav-px is how big a design pixel is on this phone. The widest the
+ * group ever is, with the menu open (the settings circle, the gap, the bar,
+ * the gap, the menu button), has to fit with 8px on each side, and 3px more
+ * is kept back for the rounding below, so it is the screen less 19px over
+ * that width: one real pixel from 390px up, 97% at 375, 93% at 360, 82% at
+ * 320. Before this the group was a fixed 382px open, and the settings circle
+ * ran 31px off a 320px iPhone SE, 11px off a 360px Android and 3.5px off a
+ * 375px iPhone 8 (scripts/check-app-mobile-nav-widths.mjs). The floor, 44px
+ * over a tab's width, keeps every tab at least 44px wide on anything
+ * narrower. Each length is that times its design number, so it all shrinks
+ * together and keeps its shape: the circles stay circles, and the bar and
+ * the round buttons stay one height.
+ *
+ * The icons stop shrinking at 19px, so a 320px phone still reads them.
+ *
+ * WHOLE PIXELS, where the engine can round (the @supports block after this
+ * one). An icon is two drawings cross-faded, an outline and a solid, and at
+ * a fractional size or place the two land on different device pixels: the
+ * icon moved by a pixel as its tab turned on (scripts/check-app-mobile-nav.mjs,
+ * "in the same place, to the half pixel", failed on two icons at 60.48).
+ * Rounded, the bar is 60 by 232 on a 390px phone rather than 60.48 by
+ * 230.4: 4.8% lower and 3.3% narrower than 63 by 240, 8.1% less area where
+ * 4% each way is 7.8%. An engine without round() draws the exact numbers.
+ *
+ * --app-nav-lift: MAX, NOT PLUS. It was `4px + env(...)`, which on a phone
+ * is 4px ON TOP of a 34px home indicator inset: 38px of air under the pill,
+ * and the reference sits nearer the bottom than that. The 4px is a floor
+ * against the edge of the glass (the probe refuses 2px: a thumb pressing the
+ * outer buttons catches the side of the display); the inset is a floor
+ * against the home indicator. The larger of the two satisfies whichever one
+ * applies: 34px on a phone with a home indicator, and 4px on an iPhone 8 or
+ * SE, or in a browser, with none.
  * ────────────────────────────────────────────────────────────────────────── */
+:root {
+  --app-nav-bar-n: 60.48;
+  --app-nav-slot-n: 55.68;
+  --app-nav-pad-n: 3.84;
+  --app-nav-gap-n: 7.68;
+  --app-nav-glyph-n: 21.12;
+  --app-nav-tabs: 4;
+  --app-nav-px: clamp(
+    calc(44px / var(--app-nav-slot-n)),
+    calc((100vw - 19px) / (var(--app-nav-bar-n) * 2 + var(--app-nav-gap-n) * 2 + var(--app-nav-slot-n) * var(--app-nav-tabs) + var(--app-nav-pad-n) * 2)),
+    1px
+  );
+  --app-nav-bar: calc(var(--app-nav-px) * var(--app-nav-bar-n));
+  --app-nav-slot: calc(var(--app-nav-px) * var(--app-nav-slot-n));
+  --app-nav-pad: calc(var(--app-nav-px) * var(--app-nav-pad-n));
+  --app-nav-gap: calc(var(--app-nav-px) * var(--app-nav-gap-n));
+  --app-nav-dot: calc(var(--app-nav-bar) - var(--app-nav-pad) * 2);
+  --app-nav-width: calc(var(--app-nav-slot) * var(--app-nav-tabs) + var(--app-nav-pad) * 2);
+  --app-nav-glyph: max(19px, calc(var(--app-nav-px) * var(--app-nav-glyph-n)));
+  --app-nav-lift: max(4px, env(safe-area-inset-bottom, 0px));
+  --app-nav-top: calc(var(--app-nav-bar) + var(--app-nav-lift));
+  --app-nav-room: calc(var(--app-nav-top) + 40px);
+}
+/* The bar, a tab, the gap and the icons on whole pixels, the padding on half
+   ones: the group is a whole number of pixels wide, so it is centred on a
+   whole or half pixel, and every icon sits on a half pixel, which is a whole
+   device pixel at 2x, as it was at 63. */
+@supports (width: round(1.5px, 1px)) {
+  :root {
+    --app-nav-bar: round(calc(var(--app-nav-px) * var(--app-nav-bar-n)), 1px);
+    --app-nav-slot: round(calc(var(--app-nav-px) * var(--app-nav-slot-n)), 1px);
+    --app-nav-pad: round(calc(var(--app-nav-px) * var(--app-nav-pad-n)), 0.5px);
+    --app-nav-gap: round(calc(var(--app-nav-px) * var(--app-nav-gap-n)), 1px);
+    --app-nav-glyph: round(max(19px, calc(var(--app-nav-px) * var(--app-nav-glyph-n))), 1px);
+  }
+}
 @media (max-width: 767px) {
   html.app-layout .app-content-scroll {
-    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--app-nav-room);
   }
 
   /* ── MOST PAGES SCROLL IN A CONTAINER OF THEIR OWN ─────────────────────
@@ -3020,7 +3100,7 @@ html.capacitor .app-content-scroll {
   /* Orders scrolls in two panes, the list and the order over it, so the
      room for the bar goes on each of them rather than on the stage. */
   html.app-layout .app-content-scroll > .orders-stage > .orders-pane {
-    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--app-nav-room);
   }
 
   /* ── One bottom strip, one owner ─────────────────────────────────────────
@@ -3063,10 +3143,10 @@ html.capacitor .app-content-scroll {
      empty strip under the pill described above. Two rules, not a list: an
      engine without :has() would drop the whole list, the second rule too. */
   [data-page-layer="pill"] [data-page-layer-scroll]:not(:has(> .page-scroll)) {
-    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--app-nav-room);
   }
   [data-page-layer="pill"] [data-page-layer-scroll] > .page-scroll {
-    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--app-nav-room);
   }
 
   /* ── A sheet goes OVER the pill, and the pill stays ─────────────────────

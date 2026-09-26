@@ -131,7 +131,8 @@ function showExitToast() {
   el.textContent = "Tap back again to exit"
   Object.assign(el.style, {
     position: "fixed",
-    bottom: "calc(env(safe-area-inset-bottom, 0px) + 80px)",
+    /* 16px over the nav pill's top, which app/globals.css keeps for every phone width. */
+    bottom: "calc(var(--app-nav-top) + 16px)",
     left: "50%",
     transform: "translateX(-50%)",
     background: "rgba(0,0,0,0.82)",
