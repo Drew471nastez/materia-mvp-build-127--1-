@@ -20,7 +20,7 @@ const ALIGN: { value: Align; label: string }[] = [
   { value: "right", label: "Right" },
 ]
 
-const panel = "mt-2 grid gap-4 rounded-xl border border-[#e3e4e8] bg-[#f9fafb] p-4 sm:grid-cols-2"
+const panel = "mt-2 grid gap-4 rounded-xl bg-[#f4f5f7] p-4 sm:grid-cols-2"
 
 function linkError(v: string): string | null {
   if (!v.trim()) return null

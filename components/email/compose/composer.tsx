@@ -669,7 +669,15 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
       {loading ? (
         <ComposeSkeleton />
       ) : (
-        <div className={cn("mx-auto w-full flex-1 pb-6 pt-4 md:pb-10", LIST_WIDTH, GUTTER)}>
+        <div
+          className={cn(
+            "mx-auto w-full flex-1 pb-6 pt-4 md:pb-10",
+            /* While the keyboard is up there is room under the email to scroll the line being typed above the formatting bar on it. */
+            typing && "max-md:pb-[calc(var(--kb-inset,0px)+80px)]",
+            LIST_WIDTH,
+            GUTTER,
+          )}
+        >
           {save === "conflict" || save === "error" ? (
             <div role="alert" className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#f3c1b9] bg-[#fdf1ef] px-4 py-3">
               <p className="text-[13px] text-[#8a1c0f]">{saveError}</p>

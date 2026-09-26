@@ -181,7 +181,9 @@ function Shell({ layer, children }: { layer: boolean; children: React.ReactNode 
   return (
     <div id="shell" style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column" }}>
       <div data-shell-chrome="" data-probe-topbar="" className="h-[68px] shrink-0 bg-[#111113] md:h-[58px]" />
-      <div className="app-content-scroll relative min-h-0 flex-1">{layer ? <PageLayer pill inset="bar" phoneOnly>{children}</PageLayer> : children}</div>
+      <div className="app-content-scroll relative min-h-0 flex-1">{layer ? <PageLayer inset="bar" phoneOnly>{children}</PageLayer> : children}</div>
+      {/* The phone's nav pill, marked as the shell marks it: a full screen layer does not show it. */}
+      <nav data-app-nav-pill="" data-probe-pill="" className="fixed bottom-4 left-1/2 z-[55] h-14 w-[240px] -translate-x-1/2 rounded-full bg-white md:hidden" />
     </div>
   )
 }

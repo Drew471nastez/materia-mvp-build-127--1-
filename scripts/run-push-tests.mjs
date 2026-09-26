@@ -187,6 +187,7 @@ const SUITES = [
   "tests/automation-engine.test.ts",
   "tests/email-sending.test.ts",
   "tests/email-starters.test.ts",
+  "tests/email-composer.test.ts",
   "tests/automation-templates.test.ts",
   "tests/checkout-contacts.test.ts",
   "tests/checkout-welcome.test.ts",
