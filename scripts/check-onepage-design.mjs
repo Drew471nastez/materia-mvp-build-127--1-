@@ -145,6 +145,39 @@ for (const [label, vp] of [["desktop-1440", DESKTOP], ["phone-390", PHONE]]) {
   await p.close()
 }
 
+/* ── SHARE YOUR ONEPAGE: the app's sheet on a phone, a dialog from 768px ── */
+for (const [label, vp] of [["desktop-1440", DESKTOP], ["phone-390", PHONE]]) {
+  console.log(`\n${label}: share`)
+  const phone = vp.width < 640
+  const { p, errors } = await open(vp, "links")
+  if (phone) await p.click("[data-onepage-share]")
+  else await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Share your OnePage" && b.getClientRects().length)?.click())
+  await sleep(700)
+  const seen = await p.evaluate(() => {
+    const body = document.querySelector("[data-share-onepage]")
+    const sheet = body?.closest("[data-sheet-panel]")
+    const dialog = body?.closest("[role=dialog]")
+    const t = sheet ? getComputedStyle(sheet).transform : null
+    return {
+      shown: !!body && body.getBoundingClientRect().height > 100,
+      inSheet: !!sheet,
+      settledAt: t === null ? null : t === "none" ? 0 : new DOMMatrixReadOnly(t).m42,
+      inDialog: !!dialog && !sheet,
+      copy: !!body?.querySelector("[data-share-copy]"),
+    }
+  })
+  if (phone) expect(seen.shown && seen.inSheet && Math.abs(seen.settledAt) < 1, "on a phone it is the app's bottom sheet, risen all the way", seen)
+  else expect(seen.shown && seen.inDialog && !seen.inSheet, "from 768px it is a dialog", seen)
+  expect(seen.copy, "with the address to copy")
+  await p.screenshot({ path: join(shots, `${label}-share.png`) })
+  await p.keyboard.press("Escape")
+  await sleep(700)
+  const gone = await p.evaluate(() => { const b = document.querySelector("[data-share-onepage]"); return !b || b.getBoundingClientRect().height === 0 || !b.closest("[data-app-sheet=open], [role=dialog][data-state=open]") })
+  expect(gone, "Escape puts it away")
+  expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
+  await p.close()
+}
+
 await browser.close()
 server.close()
 console.log(`\nshots in ${shots}`)
