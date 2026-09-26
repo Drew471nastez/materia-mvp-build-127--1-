@@ -7,8 +7,16 @@
  * Drawn in the Emails list's language (app/app/emails/emails-home.tsx) and
  * the Orders page's parts: the pane's bar with back, title, status and the
  * actions; under it the envelope (who it goes to, who it is from, subject,
- * preview text), the editor, and the email as it will arrive beside them on
- * a wide screen or one tap away on a narrow one.
+ * preview text), the email itself, written as it will read
+ * (./block-editor.tsx), and the email as it will arrive: beside the writing
+ * from 1024px, and below that on a screen of its own that Preview raises
+ * from the bottom edge and Done takes down again (./preview-layer.tsx).
+ *
+ * ON A PHONE the page is a full screen layer (app/app/emails/new/layout.tsx):
+ * no /app header and no nav pill. Its bar holds Back, the title and the
+ * menu; Preview and Send are at the foot, where a thumb is, and step out of
+ * the way while something is being typed, when the formatting bar takes the
+ * place on the keyboard (./format-bar.tsx).
  *
  * NOTHING HERE WRITES TO THE DATABASE DIRECTLY. Every save goes through
  * /api/email/campaigns, which cleans the body and refuses a save when
@@ -38,7 +46,11 @@ import { EmailPreview, type PreviewMode } from "./email-preview"
 import { AudiencePicker, audienceLabel, type Audience, type AudienceOption, type SegmentOption } from "./audience-picker"
 import { useDoc } from "./use-doc"
 import { campaignKey, takeFresh } from "@/components/email/emails-cache"
-import { ComposeDialog, Segmented, StatusBadge, buttonAccent, buttonPrimary, buttonSecondary, card, errorClass, helpClass, iconButton } from "./ui"
+import { ComposeDialog, StatusBadge, buttonAccent, buttonPrimary, buttonSecondary, card, errorClass, helpClass, iconButton } from "./ui"
+import { PreviewLayer } from "./preview-layer"
+import { StarterList } from "./starter-list"
+import { starterDraft, type StarterId } from "@/lib/email-campaigns/starters"
+import { useMedia } from "./format-bar"
 import { SendStatus } from "./send-status"
 
 export interface ComposerProps {
@@ -113,7 +125,12 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   const [saveError, setSaveError] = React.useState<string | null>(null)
   const [fieldError, setFieldError] = React.useState<Partial<Record<Problem["field"], string>>>({})
   const [showIssues, setShowIssues] = React.useState(false)
-  const [tab, setTab] = React.useState<"write" | "preview">("write")
+  /* Below 1024px the preview is a screen of its own, raised over the writing (./preview-layer.tsx). */
+  const [previewOpen, setPreviewOpen] = React.useState(false)
+  /* A field or the text has the keyboard: the foot's Preview and Send step aside for it. */
+  const [typing, setTyping] = React.useState(false)
+  /* From 1024px the preview is beside the writing. Below, it is not drawn at all until it is asked for: no frame rebuilt on every word typed. */
+  const wide = useMedia("(min-width: 1024px)")
   /* A phone at life size reads at the width of the preview column; a computer is shown scaled. */
   const [previewMode, setPreviewMode] = React.useState<PreviewMode>("mobile")
   const [dialog, setDialog] = React.useState<null | "send" | "schedule" | "test" | "leave">(null)
@@ -390,7 +407,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
     const blockError = issues.find((i) => i.level === "error")
     const target = f.subject ? "#compose-subject" : f.previewText ? "#compose-preview" : blockError ? `[data-block-id="${blockError.id}"]` : f.body ? "[data-email-editor]" : null
     if (target) {
-      setTab("write")
+      setPreviewOpen(false)
       window.setTimeout(() => {
         const el = document.querySelector<HTMLElement>(target)
         el?.scrollIntoView({ block: "center", behavior: "smooth" })
@@ -527,6 +544,37 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
     return () => ro.disconnect()
   }, [loading])
 
+  /* ─── Typing, for the foot ─── */
+
+  React.useEffect(() => {
+    const pane = paneRef.current
+    if (!pane) return
+    const read = () => {
+      const a = document.activeElement as HTMLElement | null
+      /* The formatting bar is drawn in the body on a phone, so its link field counts as the page's. */
+      const on = !!a && (pane.contains(a) || !!a.closest("[data-format-bar]")) && (a.isContentEditable || a.tagName === "TEXTAREA" || (a.tagName === "INPUT" && !/^(checkbox|radio|button|submit|range|color|file)$/i.test((a as HTMLInputElement).type)))
+      setTyping((t) => (t === on ? t : on))
+    }
+    const later = () => requestAnimationFrame(read)
+    document.addEventListener("focusin", read)
+    document.addEventListener("focusout", later)
+    return () => {
+      document.removeEventListener("focusin", read)
+      document.removeEventListener("focusout", later)
+    }
+  }, [loading])
+
+  /* ─── Starting from a layout ─── */
+
+  const canStart = editable && !campaignId && !loading && !hasRealContent(clean)
+  const startFrom = (id: StarterId) => {
+    const d = starterDraft(id, { name: look.name, storeUrl: brand?.storeUrl ?? null })
+    doc.set(d.blocks)
+    if (d.subject && !subject.trim()) setSubject(d.subject)
+    if (d.previewText && !previewText.trim()) setPreviewText(d.previewText)
+    requestAnimationFrame(() => paneRef.current?.querySelector("[data-email-editor]")?.scrollIntoView({ block: "start", behavior: "smooth" }))
+  }
+
   /* ─── Drawing ─── */
 
   const title = subject.trim() || (loaded ? "Untitled email" : "New email")
@@ -572,7 +620,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   }
 
   return (
-    <div ref={paneRef} data-compose="" className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
+    <div ref={paneRef} data-compose="" className="orders-pane page-scroll flex h-full flex-col overflow-y-auto overflow-x-hidden bg-[#f8f9fa] app-page-enter [scroll-padding-bottom:72px]">
       <PaneBar width={LIST_WIDTH} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 pb-2.5 pt-2">
         <div className="-ml-1.5 flex h-9 w-9 items-center justify-center">
           <button type="button" onClick={back} aria-label="Back to emails" className={cn(iconButton, "h-9 w-9")}>
@@ -598,6 +646,9 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
                   Schedule
                 </button>
               )}
+              <button type="button" className={cn(buttonSecondary, "hidden md:inline-flex lg:hidden")} onClick={() => setPreviewOpen(true)} data-open-preview="bar">
+                Preview
+              </button>
               <ResponsiveActionMenu
                 title="Email"
                 align="end"
@@ -608,7 +659,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
                   </button>
                 }
               />
-              <button type="button" className={buttonAccent} onClick={() => void beginSend("send")} data-send-button="">
+              <button type="button" className={cn(buttonAccent, "hidden md:inline-flex")} onClick={() => void beginSend("send")} data-send-button="">
                 {status === "scheduled" ? "Send now" : "Send"}
               </button>
             </>
@@ -622,22 +673,15 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
       {loading ? (
         <ComposeSkeleton />
       ) : (
-        <div className={cn("mx-auto pb-28 pt-4 md:pb-10", LIST_WIDTH, GUTTER)}>
-          {editable ? (
-            <div className="mb-3 lg:hidden">
-              <Segmented
-                label="View"
-                className="w-full [&>button]:flex-1"
-                value={tab}
-                onChange={setTab}
-                options={[
-                  { value: "write", label: "Write" },
-                  { value: "preview", label: "Preview" },
-                ]}
-              />
-            </div>
-          ) : null}
-
+        <div
+          className={cn(
+            "mx-auto w-full flex-1 pb-6 pt-4 md:pb-10",
+            /* While the keyboard is up there is room under the email to scroll the line being typed above the formatting bar on it. */
+            typing && "max-md:pb-[calc(var(--kb-inset,0px)+80px)]",
+            LIST_WIDTH,
+            GUTTER,
+          )}
+        >
           {save === "conflict" || save === "error" ? (
             <div role="alert" className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#f3c1b9] bg-[#fdf1ef] px-4 py-3">
               <p className="text-[13px] text-[#8a1c0f]">{saveError}</p>
@@ -678,7 +722,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
           ) : null}
 
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-            <div className={cn("min-w-0 space-y-4", editable && tab === "preview" && "hidden lg:block")}>
+            <div className="min-w-0 space-y-4">
               {editable ? (
                 <>
                   <section aria-label="Envelope" className={cn(card, "divide-y divide-[#eef0f2]")}>
@@ -734,17 +778,18 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
                     {canSetOpens ? (
                       <Row label="Opens" htmlFor="compose-opens">
                         <label className="flex h-11 min-w-0 cursor-pointer items-center justify-between gap-3 sm:h-9">
-                          <span className="truncate text-[14px] text-[#4b5563]">{trackOpens ? "Counted, with an invisible picture" : "Not counted"}</span>
+                          <span className="truncate text-[14px] text-[#4b5563]">{trackOpens ? "Counted" : "Not counted"}</span>
                           <Switch id="compose-opens" checked={trackOpens} onCheckedChange={setTrackOpens} aria-label="Count opens" />
                         </label>
                       </Row>
                     ) : null}
                   </section>
 
-                  <section aria-label="Email" className={cn(card, fieldError.body && "shadow-[0_0_0_2px_#d72c0d]")}>
+                  <section aria-label="Email" className={cn(card, "overflow-clip", fieldError.body && "shadow-[0_0_0_2px_#d72c0d]")}>
                     <BlockEditor doc={doc} creatorId={me.creatorId} username={me.username} issues={issues} showIssues={showIssues} theme={theme} onUploadImage={uploadImage} />
                   </section>
                   {fieldError.body ? <p className={errorClass}>{fieldError.body}</p> : null}
+                  {canStart ? <StarterList onPick={startFrom} /> : null}
                   {plan ? (
                     <p className={cn(helpClass, "px-1")}>
                       {plan.used.toLocaleString("en-US")} of {plan.limit.toLocaleString("en-US")} emails used this month
@@ -759,16 +804,52 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
 
             <aside
               aria-label="Preview"
-              className={cn("min-w-0 lg:sticky", editable && tab === "write" && "hidden lg:block")}
+              className={cn("min-w-0 lg:sticky", editable && "hidden lg:block")}
               style={{ top: "calc(var(--compose-bar, 60px) + 16px)" }}
             >
               <div className={cn(card, "overflow-hidden lg:max-h-[var(--compose-room)] lg:overflow-y-auto")}>
+                {editable && !wide ? null : (
                 <EmailPreview html={previewHtml} senderName={me.name || "You"} subject={personalizeSubject(subject, { name: me.name })} previewText={previewText} mode={previewMode} onMode={setPreviewMode} />
+                )}
               </div>
             </aside>
           </div>
         </div>
       )}
+
+      {editable && !loading ? (
+        <div
+          data-compose-foot=""
+          data-hidden={typing ? "true" : "false"}
+          inert={typing}
+          className={cn(
+            "sticky bottom-0 z-10 shrink-0 transition-[translate,opacity] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:hidden",
+            typing ? "pointer-events-none translate-y-full opacity-0" : "translate-y-0 opacity-100",
+          )}
+        >
+          <div className="flex gap-2 border-t border-[#e5e7eb] bg-white px-4 pb-[calc(10px+env(safe-area-inset-bottom,0px))] pt-2.5 shadow-[0_-6px_20px_-14px_rgba(17,24,39,0.2)]">
+            <button type="button" className={cn(buttonSecondary, "h-11 flex-1 text-[15px]")} onClick={() => setPreviewOpen(true)} data-open-preview="foot">
+              Preview
+            </button>
+            <button type="button" className={cn(buttonAccent, "h-11 flex-1 text-[15px]")} onClick={() => void beginSend("send")} data-send-button="foot">
+              {status === "scheduled" ? "Send now" : "Send"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {editable ? (
+        <PreviewLayer
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          html={previewHtml}
+          senderName={me.name || "You"}
+          subject={personalizeSubject(subject, { name: me.name })}
+          previewText={previewText}
+          mode={previewMode}
+          onMode={setPreviewMode}
+        />
+      ) : null}
 
       <ComposeDialog
         open={dialog === "send"}

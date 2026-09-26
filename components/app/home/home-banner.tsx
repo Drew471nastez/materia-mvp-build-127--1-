@@ -15,18 +15,26 @@
  * step the card names next leading. Only this store's things: connect payouts, a first sale, what Pro
  * would really have saved.
  *
- * THE SLIDESHOW. Six seconds a slide, the time drawn in the slide's own
- * segment under the text; it waits while a mouse is over the banner, while
- * focus is inside it, while a finger is on it, while it is off screen and
- * while the tab is hidden. The segments pick a slide (arrow keys move
- * between them), a sideways swipe on a phone does too. A change is a plain
- * fade of the text in the one fixed height, the old line out before the
- * new one comes in (see the slide CSS): nothing follows the finger. "Not
- * like a swipe carousel ... make it fade out, normal regular." The clock is a CSS animation on
- * `transform`, run by the compositor, and the slide changes when it ends:
- * no timer runs, and a slide change renders the banner and nothing else.
- * Screen readers hear a change they asked for and none they did not
- * (aria-live off while it plays by itself).
+ * THE SLIDESHOW IS A CAROUSEL. "When I swipe to change the banner ... and
+ * the banner autoplay switch to the next announcement, it's very bugged,
+ * glitchy, not smooth at all." A change used to fade the old text out and
+ * then the new one in, with an empty banner between them. Now every change,
+ * by the clock, a segment, an arrow key or a finger, is one move: the slide
+ * showing slides out and the next slides in beside it, both on screen the
+ * whole way, on `transform` only (MOVE_MS, MOVE_EASE), run by the
+ * compositor. A finger drags the text one to one and the neighbour with it;
+ * let go past three tenths or with a flick and the two carry on at the
+ * speed of the throw, otherwise they settle back. The marker over the
+ * segments slides with them.
+ *
+ * The clock is the marker's fill, SLIDE_MS a slide; it waits while a mouse
+ * is over the banner, while focus is inside it, while a finger is on it,
+ * while it is off screen and while the tab is hidden, and starts again
+ * from empty after every change. With reduced motion there is no clock,
+ * and a change is the new slide simply there. A move renders the banner
+ * once, when it lands, and never the globe. Screen readers hear a change
+ * they asked for and none they did not (aria-live off while it plays by
+ * itself).
  *
  * THE GLOBE (components/app/home/globe) has its own column: the text's
  * right padding and the globe's place are one set of numbers, per banner
@@ -40,11 +48,11 @@
  * Buttons go where the sidebar's rows go and the same way
  * (components/app/app-link).
  */
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent } from "react"
 import { AppLink } from "@/components/app/app-link"
 import { announcementsFor, fromFacts, type Announcement, type SalesSummary } from "@/lib/home/announcements"
 import type { ProgressFacts } from "@/lib/home/progress"
-import { BannerGlobe } from "./globe"
+import { BannerGlobe as GlobeView } from "./globe"
 
 /** How long a slide stays, in ms. */
 export const SLIDE_MS = 9000
@@ -76,46 +84,105 @@ const FOCUS = 2
 const TOUCH = 4
 const HIDDEN = 8
 
+/** How long a change takes when nothing throws it: the clock's, a segment's, an arrow key's. */
+export const MOVE_MS = 480
+/** The curve of every move: quick off the mark, a long soft landing, no overshoot. */
+export const MOVE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
+/**
+ * Between two slides as they pass: just wider than the edge the text fades
+ * over on the right (the stack's --edge, 20px) and than the room to the
+ * banner's edge on the left (its padding), so the one coming in starts just
+ * out of sight and the one going out ends just out of it.
+ */
+const SLIDE_GAP = 24
+/** A segment and the space after it (the CSS below: 30px wide, 2px apart). */
+const TAB_PITCH = 32
+/** The id every move's animations carry, so a probe can wait for them. */
+const MOVE_ID = "home-banner-move"
+
+/** A plain translate, the only thing a slide's style ever holds. */
+const tx = (x: number) => `translate3d(${x.toFixed(2)}px, 0, 0)`
+/** Where an element is drawn right now, mid animation included. */
+function drawnX(el: HTMLElement): number {
+  const t = getComputedStyle(el).transform
+  return !t || t === "none" ? 0 : new DOMMatrixReadOnly(t).m41
+}
+function drawnScaleX(el: HTMLElement): number {
+  const t = getComputedStyle(el).transform
+  return !t || t === "none" ? 1 : new DOMMatrixReadOnly(t).a
+}
+const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
+
+/**
+ * Where the carousel is, outside React. `index` is the slide the eye reads
+ * as current (during a drag, the one under the finger), which React's own
+ * `currentId` catches up with when a move lands. `shown` holds the slides
+ * placed by hand and where: nothing else is on screen but the one React
+ * calls active.
+ */
+interface Motion {
+  index: number
+  shown: Map<number, number>
+  /** The slides either side at rest, drawn out of sight so a move finds them painted. */
+  primed: Set<number>
+  anims: Animation[]
+  /** The slide a running move is taking the stage to, or -1. */
+  to: number
+  /** A slide caught mid move beside the current one: which, and on which side (-1 left, 1 right). */
+  pair: { index: number; side: number } | null
+  /** The distance from one slide to the next, read when a move or a drag starts. */
+  pitch: number
+  clock: Animation | null
+  /** Set when a move lands: React's commit, not this frame, clears the hand placed styles. */
+  resting: boolean
+}
+
 function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?: () => void; onGuide?: () => void }) {
   const count = list.length
   const [currentId, setCurrentId] = useState(list[0]?.id)
-  const [leavingId, setLeavingId] = useState<string | null>(null)
-  /* Which way the text moves in: a swipe or an arrow brings it from the side it was sent, the clock with a small rise. */
-  const [dir, setDir] = useState<"auto" | "next" | "prev" | undefined>(undefined)
   /* A change the reader asked for is read out; one the clock made is not. */
   const [live, setLive] = useState<"off" | "polite">("off")
   const rootRef = useRef<HTMLElement>(null)
-  const trackRef = useRef<HTMLDivElement>(null)
+  const stackRef = useRef<HTMLDivElement>(null)
   const tabsRef = useRef<HTMLDivElement | null>(null)
+  const thumbRef = useRef<HTMLSpanElement>(null)
+  const fillRef = useRef<HTMLSpanElement>(null)
 
   /* The slide showing stays the one showing when the list changes under it (a count arriving, a sale coming in). */
   const found = list.findIndex((a) => a.id === currentId)
   const index = found >= 0 ? found : 0
   const current = list[index]
 
-  const go = useCallback(
-    (to: number, asked: boolean) => {
-      if (count < 2) return
-      const next = list[((to % count) + count) % count]
-      if (!next || next.id === current?.id) return
-      setLeavingId(current?.id ?? null)
-      setCurrentId(next.id)
-      setDir(asked ? (to < index ? "prev" : "next") : "auto")
-      setLive(asked ? "polite" : "off")
-    },
-    [count, list, current, index],
-  )
+  const m = useRef<Motion>({ index, shown: new Map(), primed: new Set(), anims: [], to: -1, pair: null, pitch: 0, clock: null, resting: false })
+  /* What the handlers below read: the latest render's, without re-making them. */
+  const latest = useRef({ list, count, index })
+  latest.current = { list, count, index }
 
+  const slideEl = (i: number) => (stackRef.current?.children[i] as HTMLElement | undefined) ?? null
+  const measurePitch = () => {
+    const el = slideEl(m.current.index) ?? slideEl(0)
+    const left = stackRef.current ? parseFloat(getComputedStyle(stackRef.current).paddingLeft) || 0 : 0
+    return (el?.getBoundingClientRect().width || 240) + Math.max(SLIDE_GAP, left + 2)
+  }
+
+  /* ── The clock ───────────────────────────────────────────────────────── */
   /*
     WHY THE CLOCK IS HELD LIVES OUTSIDE REACT. A hover, a focus, a finger
     down or the banner leaving the screen only pauses the segment's
     animation; as state, each of them re-rendered the banner inside the
     touch that started a scroll (measured: the longest tasks of a swipe
-    that began on the banner). Now they set one attribute on the tabs.
+    that began on the banner). Now they set one attribute on the tabs and
+    pause one animation.
   */
   const holdRef = useRef(0)
   const applyHold = useCallback(() => {
-    tabsRef.current?.toggleAttribute("data-held", holdRef.current !== 0)
+    const held = holdRef.current !== 0
+    tabsRef.current?.toggleAttribute("data-held", held)
+    const clock = m.current.clock
+    if (clock && clock.playState !== "finished") {
+      if (held) clock.pause()
+      else clock.play()
+    }
   }, [])
   const setBit = useCallback((bit: number, on: boolean) => {
     holdRef.current = on ? holdRef.current | bit : holdRef.current & ~bit
@@ -124,8 +191,290 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
   /* The tabs, when they appear, start in whatever state the banner is in. */
   const tabsAt = useCallback((el: HTMLDivElement | null) => {
     tabsRef.current = el
-    applyHold()
+    if (el) applyHold()
   }, [applyHold])
+
+  const stopClock = () => {
+    m.current.clock?.cancel()
+    m.current.clock = null
+  }
+  /*
+    THE CLOCK IS THE SHOWING SLIDE'S SEGMENT FILLING, an animation on
+    `transform` the compositor runs; when it ends, the next slide comes in.
+    No timer runs. With reduced motion there is no clock at all: nothing
+    moves by itself, the segment only marks the slide.
+  */
+  const startClock = () => {
+    stopClock()
+    const fill = fillRef.current
+    if (!fill || latest.current.count < 2 || reducedMotion()) return
+    fill.style.transform = ""
+    fill.style.transformOrigin = ""
+    const clock = fill.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: SLIDE_MS, easing: "linear", fill: "forwards" })
+    m.current.clock = clock
+    if (holdRef.current !== 0) clock.pause()
+    clock.onfinish = () => {
+      if (m.current.clock !== clock) return
+      moveTo((m.current.index + 1) % latest.current.count, 1, false, MOVE_MS)
+    }
+  }
+
+  /* ── Placing slides by hand ──────────────────────────────────────────── */
+  const show = (i: number, x: number) => {
+    const el = slideEl(i)
+    if (!el) return
+    el.style.transform = tx(x)
+    el.style.visibility = "visible"
+    m.current.shown.set(i, x)
+  }
+  const hide = (i: number) => {
+    const el = slideEl(i)
+    if (el) {
+      el.style.transform = ""
+      el.style.visibility = ""
+    }
+    m.current.shown.delete(i)
+  }
+  /*
+    THE NEIGHBOURS WAIT, PAINTED. At rest the next slide (and the one
+    before) stand just out of sight, drawn and on layers of their own, so a
+    move or a drag starts by moving them, not by painting them first
+    (every slide is on its own layer, see the CSS):
+    measured, the first frame of a move that had to paint its slide first
+    was the one that stuttered. They are inert, like every slide not
+    showing, and the window they stand beyond hides them.
+  */
+  const prime = () => {
+    const mm = m.current
+    const { count: n } = latest.current
+    const want = new Map<number, number>()
+    if (n >= 2 && !reducedMotion()) {
+      mm.pitch = measurePitch()
+      want.set((mm.index + 1) % n, mm.pitch)
+      if (n > 2) want.set((mm.index - 1 + n) % n, -mm.pitch)
+    }
+    for (let i = 0; i < n; i++) {
+      const el = slideEl(i)
+      if (!el || mm.shown.has(i)) continue
+      const x = want.get(i)
+      if (x !== undefined) {
+        el.style.transform = tx(x)
+        el.style.visibility = "visible"
+      } else if (mm.primed.has(i)) {
+        el.style.transform = ""
+        el.style.visibility = ""
+      }
+    }
+    mm.primed = new Set(want.keys())
+  }
+  const cancelAnims = () => {
+    const mm = m.current
+    const anims = mm.anims
+    mm.anims = []
+    for (const a of anims) a.cancel()
+  }
+  /** The segment's marker between slide `a` and slide `b`, `p` of the way. */
+  const thumbAt = (a: number, b: number, p: number) => {
+    const thumb = thumbRef.current
+    if (!thumb) return
+    const x = a * TAB_PITCH + (b - a) * TAB_PITCH * p
+    const stretch = 1 + Math.min(1, Math.abs(b - a)) * 1.6 * p * (1 - p)
+    thumb.style.transform = `translateX(${x.toFixed(2)}px) scaleX(${stretch.toFixed(3)})`
+  }
+
+  /**
+   * A MOVE IN FLIGHT, CAUGHT. A finger landing, or a segment pressed, while
+   * slides are passing: each is held where it is drawn this frame, and the
+   * one coming in becomes the current one. Nothing jumps.
+   */
+  const catchMove = () => {
+    const mm = m.current
+    if (mm.to < 0) return
+    for (const i of [...mm.shown.keys()]) {
+      const el = slideEl(i)
+      if (el) mm.shown.set(i, drawnX(el))
+    }
+    const thumb = thumbRef.current
+    const thumbT = thumb ? getComputedStyle(thumb).transform : ""
+    const fill = fillRef.current
+    const fillScale = fill ? drawnScaleX(fill) : 0
+    cancelAnims()
+    for (const [i, x] of mm.shown) show(i, x)
+    if (thumb && thumbT && thumbT !== "none") thumb.style.transform = thumbT
+    if (fill) fill.style.transform = `scaleX(${fillScale})`
+    const from = mm.index
+    mm.index = mm.to
+    mm.to = -1
+    const x = mm.shown.get(mm.index) ?? 0
+    mm.pair = mm.shown.has(from) ? { index: from, side: x > 0 ? -1 : 1 } : null
+  }
+
+  /** The current slide at `o` from its place, and its neighbour on the side it uncovers. */
+  const placeDrag = (o: number) => {
+    const mm = m.current
+    const { count: n } = latest.current
+    const W = mm.pitch
+    const side = o < 0 ? 1 : -1
+    const next = mm.pair && mm.pair.side === side ? mm.pair.index : (mm.index + side + n) % n
+    for (const i of [...mm.shown.keys()]) if (i !== mm.index && i !== next) hide(i)
+    show(mm.index, o)
+    if (o !== 0 && next !== mm.index) show(next, o + side * W)
+    else if (next !== mm.index) hide(next)
+    thumbAt(mm.index, next, Math.min(1, Math.abs(o) / W))
+  }
+
+  /**
+   * THE MOVE: the current slide out and the next one in, both on screen the
+   * whole way, on `transform` only, run by the compositor. `dir` 1 brings
+   * the new one from the right, -1 from the left. A finger's throw sets the
+   * time, so the slides leave at the speed the finger let go.
+   */
+  const moveTo = (target: number, dir: 1 | -1, asked: boolean, duration: number) => {
+    const mm = m.current
+    const { list: l, count: n } = latest.current
+    if (n < 2 || !l[target]) return
+    if (mm.to >= 0) catchMove()
+    if (target === mm.index && mm.shown.size === 0) return
+    /* The time already drawn in the segment, read before the clock stops. */
+    const fillFrom = fillRef.current ? drawnScaleX(fillRef.current) : 0
+    stopClock()
+    setLive(asked ? "polite" : "off")
+    if (reducedMotion()) {
+      /* Reduced motion: the new slide is simply there. */
+      cancelAnims()
+      for (const i of [...mm.shown.keys()]) hide(i)
+      land(target)
+      return
+    }
+    if (!mm.pitch || mm.shown.size === 0) mm.pitch = measurePitch()
+    const W = mm.pitch
+    const o = mm.shown.get(mm.index) ?? 0
+    const delta = target === mm.index ? -o : -dir * W - o
+    const opts: KeyframeAnimationOptions = { duration, easing: MOVE_EASE, id: MOVE_ID }
+    cancelAnims()
+    const anims: Animation[] = []
+    const run = (i: number, from: number, to: number) => {
+      const el = slideEl(i)
+      if (!el) return null
+      show(i, to)
+      const a = el.animate([{ transform: tx(from) }, { transform: tx(to) }], opts)
+      anims.push(a)
+      return a
+    }
+    /* Whatever else is on screen (a slide caught beside the current one) goes the same way. */
+    for (const [i, x] of [...mm.shown]) if (i !== mm.index && i !== target) {
+      /* Unless it stands where the new one comes in from: that place is the new one's. */
+      if (target !== mm.index && ((dir > 0 && x > o) || (dir < 0 && x < o))) hide(i)
+      else run(i, x, x + delta)
+    }
+    if (target !== mm.index) run(mm.index, o, o + delta)
+    const lead = run(target, mm.shown.get(target) ?? o + dir * W, 0)
+    /* The segment's marker slides across, stretching a little on the way. */
+    const thumb = thumbRef.current
+    if (thumb) {
+      const fromT = getComputedStyle(thumb).transform
+      const fromX = fromT && fromT !== "none" ? new DOMMatrixReadOnly(fromT).m41 : mm.index * TAB_PITCH
+      const toX = target * TAB_PITCH
+      const far = Math.min(1, Math.abs(toX - fromX) / TAB_PITCH)
+      thumb.style.transform = `translateX(${toX}px) scaleX(1)`
+      anims.push(thumb.animate([
+        { transform: fromT && fromT !== "none" ? fromT : `translateX(${fromX}px) scaleX(1)` },
+        { transform: `translateX(${((fromX + toX) / 2).toFixed(2)}px) scaleX(${(1 + 0.4 * far).toFixed(3)})`, offset: 0.45 },
+        { transform: `translateX(${toX}px) scaleX(1)` },
+      ], opts))
+    }
+    /* And the time drawn in it drains the way the slides go, to start again empty. */
+    const fill = fillRef.current
+    if (fill && target !== mm.index) {
+      fill.style.transformOrigin = dir > 0 ? "right center" : "left center"
+      fill.style.transform = "scaleX(0)"
+      anims.push(fill.animate([{ transform: `scaleX(${fillFrom})` }, { transform: "scaleX(0)" }], opts))
+    }
+    mm.anims = anims
+    mm.to = target
+    mm.pair = null
+    if (!lead) return land(target)
+    lead.finished.then(
+      () => {
+        if (mm.to !== target || mm.anims !== anims) return
+        mm.to = -1
+        land(target)
+      },
+      () => { /* cancelled: whoever cancelled it carries on from where it was drawn */ },
+    )
+  }
+
+  /**
+   * A MOVE LANDS: the new slide is the current one. React is told (the
+   * tabs, aria, inert), and the styles placed by hand come off in the same
+   * commit (the layout effect below), so no frame is drawn between the two.
+   */
+  const land = (target: number) => {
+    const mm = m.current
+    mm.index = target
+    mm.pair = null
+    const id = latest.current.list[target]?.id
+    if (id === latest.current.list[latest.current.index]?.id) rest()
+    else {
+      mm.resting = true
+      setCurrentId(id)
+    }
+  }
+  /** Every hand placed style off: React's active slide stands alone at its place, and the clock starts. */
+  const rest = () => {
+    const mm = m.current
+    mm.resting = false
+    cancelAnims()
+    for (const i of [...mm.shown.keys()]) hide(i)
+    /* React's active slide stands on its own now: its own style is the stylesheet's. */
+    const cur = slideEl(mm.index)
+    if (cur) {
+      cur.style.transform = ""
+      cur.style.visibility = ""
+    }
+    mm.primed.delete(mm.index)
+    const thumb = thumbRef.current
+    if (thumb) thumb.style.transform = `translateX(${mm.index * TAB_PITCH}px)`
+    const fill = fillRef.current
+    if (fill) {
+      fill.style.transform = ""
+      fill.style.transformOrigin = ""
+    }
+    prime()
+    startClock()
+  }
+
+  useLayoutEffect(() => {
+    const mm = m.current
+    mm.index = index
+    if (mm.resting) rest()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index])
+
+  /* A new list (a count arriving, a sale coming in): whatever was moving settles where React has it. */
+  useEffect(() => {
+    const mm = m.current
+    mm.to = -1
+    mm.index = latest.current.index
+    rest()
+    return stopClock
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list])
+
+  /* A new width (a phone turned, the sidebar opened): the neighbours move to stay just out of sight. */
+  useEffect(() => {
+    const el = stackRef.current
+    if (!el || typeof ResizeObserver !== "function") return
+    let w = el.clientWidth
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth === w) return
+      w = el.clientWidth
+      if (m.current.to < 0 && !g.current) prime()
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /* Off screen or on a hidden tab, the clock waits. */
   useEffect(() => {
@@ -150,49 +499,116 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
 
   /* ── Swipe, on a touch screen ───────────────────────────────────────── */
   /*
-    A SWIPE PICKS THE NEXT SLIDE, AND THE CHANGE IS THE SAME FADE AS EVERY
-    OTHER. The text used to ride the finger and leave the way it was thrown,
-    like a carousel; now nothing moves under the finger. A sideways swipe
-    past a quarter of the text's width, or a flick, crossfades to the next
-    slide (left) or the one before (right) once the finger lifts. The width
-    is read once, when the finger lands, never per move.
+    THE TEXT FOLLOWS THE FINGER. "Swipe ... slide in the banner": once a
+    touch is plainly sideways, the slide under it moves with it, one to
+    one, and the next one (or the one before) comes in beside it, on
+    transform, a frame at a time, with no React render until it lands. Let
+    go past three tenths of the way, or with a flick, and the two carry on
+    at the speed of the throw; otherwise they settle back. A finger landing
+    on slides that are still moving catches them where they are.
   */
-  const swipe = useRef<{ id: number; x: number; y: number; dx: number; on: boolean; t: number; v: number; w: number } | null>(null)
+  const g = useRef<{ id: number; x: number; y: number; base: number; on: boolean; samples: { t: number; x: number }[]; o: number; frame: number } | null>(null)
+  const swallowClick = useRef(false)
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "mouse") return
     setBit(TOUCH, true)
-    swipe.current = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, on: false, t: e.timeStamp, v: 0, w: trackRef.current?.clientWidth || 240 }
+    if (count < 2) return
+    const mm = m.current
+    let base = 0
+    if (mm.to >= 0 && !reducedMotion()) {
+      catchMove()
+      stopClock()
+      base = mm.shown.get(mm.index) ?? 0
+    }
+    mm.pitch = measurePitch()
+    g.current = { id: e.pointerId, x: e.clientX, y: e.clientY, base, on: base !== 0, samples: [{ t: e.timeStamp, x: e.clientX }], o: base, frame: 0 }
+    if (base !== 0) e.currentTarget.setPointerCapture?.(e.pointerId)
   }
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    const s = swipe.current
-    if (!s || s.id !== e.pointerId || count < 2) return
+    const s = g.current
+    if (!s || s.id !== e.pointerId) return
     const dx = e.clientX - s.x
     const dy = e.clientY - s.y
-    if (!s.on && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) s.on = true
-    if (!s.on) return
-    const dt = Math.max(1, e.timeStamp - s.t)
-    s.v = s.v * 0.5 + ((dx - s.dx) / dt) * 0.5
-    s.t = e.timeStamp
-    s.dx = dx
+    if (!s.on) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
+        g.current = null
+        return
+      }
+      if (!(Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2)) return
+      s.on = true
+      /* From here, not from where it landed: the slide starts moving under the finger, not 8px ahead of it. */
+      s.x = e.clientX
+      e.currentTarget.setPointerCapture?.(e.pointerId)
+    }
+    s.samples.push({ t: e.timeStamp, x: e.clientX })
+    if (s.samples.length > 6) s.samples.shift()
+    if (reducedMotion()) return
+    s.o = s.base + (e.clientX - s.x)
+    if (!s.frame) {
+      s.frame = requestAnimationFrame(() => {
+        s.frame = 0
+        if (g.current === s) placeDrag(s.o)
+      })
+    }
   }
   const onPointerEnd = (e: ReactPointerEvent<HTMLDivElement>) => {
-    const s = swipe.current
-    if (!s || s.id !== e.pointerId) return
-    swipe.current = null
+    const s = g.current
+    if (!s || s.id !== e.pointerId) {
+      if (e.pointerType !== "mouse") window.setTimeout(() => setBit(TOUCH, false), 250)
+      return
+    }
+    g.current = null
+    if (s.frame) cancelAnimationFrame(s.frame)
     window.setTimeout(() => setBit(TOUCH, false), 250)
-    const flick = Math.abs(s.v) > 0.35 && Math.sign(s.v) === Math.sign(s.dx)
-    const far = Math.abs(s.dx) > s.w / 4
-    if (e.type !== "pointerup" || !s.on || !(far || flick) || count < 2) return
-    go(index + (s.dx < 0 ? 1 : -1), true)
+    if (!s.on || count < 2) return
+    swallowClick.current = true
+    window.setTimeout(() => { swallowClick.current = false }, 0)
+    const mm = m.current
+    const W = mm.pitch || measurePitch()
+    /* The finger's speed over its last few points, px per ms. */
+    const a = s.samples[0]
+    const b = s.samples[s.samples.length - 1]
+    const v = b && a && b.t > a.t ? (b.x - a.x) / (b.t - a.t) : 0
+    if (reducedMotion()) {
+      const dx = e.clientX - s.x
+      if (e.type === "pointerup" && (Math.abs(dx) > W * 0.25 || Math.abs(v) > 0.35)) moveTo((mm.index + (dx < 0 ? 1 : -1) + count) % count, dx < 0 ? 1 : -1, true, 0)
+      return
+    }
+    const o = s.base + (e.clientX - s.x)
+    placeDrag(o)
+    const flick = Math.abs(v) > 0.35 && (o === 0 || Math.sign(v) === Math.sign(o))
+    const far = Math.abs(o) > W * (e.type === "pointerup" ? 0.3 : 0.5)
+    const dir: 1 | -1 = (o !== 0 ? o : v) < 0 ? 1 : -1
+    const go = o !== 0 && (far || (flick && e.type === "pointerup"))
+    const left = go ? W - Math.abs(o) : Math.abs(o)
+    /* The curve starts at about 4.5 times its average speed: matched to the finger, clamped to feel like one family. */
+    const byDistance = MOVE_MS * Math.max(0.45, left / W)
+    const byThrow = Math.abs(v) > 0.05 ? (4.5 * left) / Math.abs(v) : Infinity
+    const duration = Math.round(Math.max(240, Math.min(520, byDistance, byThrow)))
+    if (go) {
+      const next = mm.pair && mm.pair.side === dir ? mm.pair.index : (mm.index + dir + count) % count
+      moveTo(next, dir, true, duration)
+    } else {
+      /* Back where it was, the neighbour back out of sight. */
+      moveTo(mm.index, dir, false, Math.max(240, Math.min(420, byDistance)))
+    }
   }
 
   /* ── The segments, as tabs ──────────────────────────────────────────── */
+  const pick = (to: number, dir?: 1 | -1) => {
+    const from = m.current.to >= 0 ? m.current.to : m.current.index
+    if (to === from) return
+    moveTo(to, dir ?? (to > from ? 1 : -1), true, MOVE_MS)
+  }
   const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const keys: Record<string, number> = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: count - 1 }
+    /* From the slide on its way in, if one is: a key pressed mid move goes on from there. */
+    const at = m.current.to >= 0 ? m.current.to : m.current.index
+    const keys: Record<string, [number, 1 | -1 | undefined]> = { ArrowRight: [at + 1, 1], ArrowLeft: [at - 1, -1], Home: [0, undefined], End: [count - 1, undefined] }
     if (!(e.key in keys)) return
     e.preventDefault()
-    const to = ((keys[e.key] % count) + count) % count
-    go(to, true)
+    const [raw, dir] = keys[e.key]
+    const to = ((raw % count) + count) % count
+    pick(to, dir)
     const tab = tabsRef.current?.querySelectorAll<HTMLButtonElement>("[role=tab]")[to]
     tab?.focus()
   }
@@ -220,15 +636,17 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
           onPointerMove={onPointerMove}
           onPointerUp={onPointerEnd}
           onPointerCancel={onPointerEnd}
+          onClickCapture={(e) => {
+            /* A swipe that ended on a button is a swipe, not a press. */
+            if (!swallowClick.current) return
+            swallowClick.current = false
+            e.preventDefault()
+            e.stopPropagation()
+          }}
         >
-          <div
-            ref={trackRef}
-            className="home-banner-stack"
-            data-dir={dir}
-            aria-live={live}
-          >
+          <div ref={stackRef} className="home-banner-stack" aria-live={live}>
             {list.map((a, i) => {
-              const state = a.id === current?.id ? "active" : a.id === leavingId ? "leaving" : "idle"
+              const on = a.id === current?.id
               return (
                 <div
                   key={a.id}
@@ -241,17 +659,19 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
                      and either attribute changing anywhere makes a :has() on <html> in globals.css
                      (the nav pill's dialog rule, the cookie banner's) restyle the whole page:
                      measured at 363 elements a slide change. */
-                  inert={state !== "active"}
-                  data-slide={state}
+                  inert={!on}
+                  data-slide={on ? "active" : "idle"}
                   data-announcement={a.id}
                   className="home-banner-slide"
                 >
-                  <p className={`home-banner-eyebrow${a.tone === "critical" ? " is-critical" : ""}`}>{a.eyebrow}</p>
-                  {/* "5 hours ago" is worked out on the server and again in the browser a moment later; across an
-                      hour's boundary the two differ by a word, which the next render settles. Not a reason to
-                      throw the server's page away. */}
-                  <h2 className="home-banner-title" suppressHydrationWarning>{a.title}</h2>
-                  <p className="home-banner-line" suppressHydrationWarning>{a.line}</p>
+                  <div className="home-banner-copy">
+                    <p className={`home-banner-eyebrow${a.tone === "critical" ? " is-critical" : ""}`}>{a.eyebrow}</p>
+                    {/* "5 hours ago" is worked out on the server and again in the browser a moment later; across an
+                        hour's boundary the two differ by a word, which the next render settles. Not a reason to
+                        throw the server's page away. */}
+                    <h2 className="home-banner-title" suppressHydrationWarning>{a.title}</h2>
+                    <p className="home-banner-line" suppressHydrationWarning>{a.line}</p>
+                  </div>
                   <div className="home-banner-cta-row">
                     {(a.action === "share" && onShare) || (a.action === "guide" && onGuide) ? (
                       <button type="button" className="home-banner-cta" onClick={a.action === "share" ? onShare : onGuide}>
@@ -283,25 +703,20 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
                     tabIndex={on ? 0 : -1}
                     className="home-banner-tab"
                     data-on={on ? "" : undefined}
-                    onClick={() => go(i, true)}
+                    onClick={() => pick(i)}
                   >
-                    <span className="home-banner-tab-track">
-                      {/*
-                        EVERY SEGMENT KEEPS ITS FILL, and the showing one runs it (data-on).
-                        Mounting a new fill for each slide was a DOM insertion, and any
-                        insertion on /app makes the :has() rules on <html> in globals.css
-                        restyle the whole page: measured at 363 elements, every six seconds.
-                        An attribute change costs a handful.
-                      */}
-                      <span
-                        className="home-banner-tab-fill"
-                        style={{ animationDuration: `${SLIDE_MS}ms` }}
-                        onAnimationEnd={on ? () => go(index + 1, false) : undefined}
-                      />
-                    </span>
+                    <span className="home-banner-tab-track" />
                   </button>
                 )
               })}
+              {/*
+                ONE MARKER FOR ALL THE SEGMENTS, moved rather than swapped: it slides
+                from one segment to the next with the slides, stretching a little on the
+                way, and follows a finger's drag. The clock is the fill inside it.
+              */}
+              <span ref={thumbRef} aria-hidden="true" className="home-banner-thumb" style={{ transform: `translateX(${index * TAB_PITCH}px)` }}>
+                <span ref={fillRef} className="home-banner-tab-fill" />
+              </span>
             </div>
           )}
         </div>
@@ -311,6 +726,9 @@ function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?
     </section>
   )
 }
+
+/* The globe has its own life: a slide landing re-renders the banner, never the globe. */
+const BannerGlobe = memo(GlobeView)
 
 /* ─── The look ─────────────────────────────────────────────────────────── */
 
@@ -347,17 +765,16 @@ const BANNER_CSS = `
 
 /*
   ONE HEIGHT, TALL ENOUGH FOR THE LONGEST SLIDE AT EVERY WIDTH, AND NO
-  TALLER, WITH THE BUTTON AND THE SEGMENTS TOGETHER AT THE FOOT. "The banner
-  shouldn't look fat, and not so much space between the lines and the
-  button." The button row sits at the bottom of the text (margin-top: auto)
-  and the segments 8px under it, so whatever room a short slide leaves is
-  above the button, never between it and the segments. Every line is 48
-  characters at most (lib/home/announcements). Phone type to 619px (15/20
-  title, 13/17 body, two lines each): 18 + 16 + 4 + 40 + 4 + 34 + 12 + 34 +
-  8 + 16 + 10 = 196. From 620 (19/24, 14/19, two lines each): 20 + 16 + 5 +
-  48 + 5 + 38 + 12 + 34 + 8 + 16 + 12 = 214. From 860, one line each: 20 +
-  16 + 5 + 24 + 5 + 19 + 12 + 34 + 8 + 16 + 12 = 171, so 172, the globe
-  sized to sit inside it. scripts/check-home-banner.mjs holds every slide of
+  TALLER. "The banner shouldn't look fat, and not so much space between the
+  lines and the button." The copy, the button and the segments are one
+  block in the middle of it (the slides' grid below); the numbers are the
+  worst case, every line of every slide full. Every line is 48 characters
+  at most (lib/home/announcements). Phone type to 619px (15/20 title, 13/17
+  body, two lines each): 18 + 16 + 4 + 40 + 4 + 34 + 10 + 34 + 8 + 16 + 10
+  = 194, so 196. From 620 (19/24, 14/19, two lines each): 20 + 16 + 5 + 48
+  + 5 + 38 + 12 + 34 + 8 + 16 + 12 = 214. From 860, one line each: 20 + 16
+  + 5 + 24 + 5 + 19 + 12 + 34 + 8 + 16 + 12 = 171, so 172, the globe sized
+  to sit inside it. scripts/check-home-banner.mjs holds every slide of
   every state to it.
 */
 .home-banner-inner {
@@ -407,60 +824,62 @@ const BANNER_CSS = `
   inset: 0;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   padding: 18px calc(var(--gx) + var(--g) * 0.452 + var(--gap)) 10px var(--pad-l);
   touch-action: pan-y;
 }
 @container (min-width: 620px) {
   .home-banner-text { padding-top: 20px; padding-bottom: 12px; }
 }
+
+/*
+  THE SLIDES SHARE ONE GRID CELL, so the cell is as tall as the tallest
+  copy of them all, at this width, with no measuring: every slide's text
+  starts at the same top, and every button (margin-top: auto) sits at the
+  same height, 10px under the tallest copy (12px from 620). "The vertical
+  between buttons is too huge": the room a short slide used to leave went
+  between its text and its button; now the whole block, text, button and
+  segments, stands in the middle of the banner and whatever room is left
+  goes above and below it.
+
+  THE WINDOW THEY PASS THROUGH reaches the banner's left edge, and on the
+  right fades out over --edge before the globe, so a slide on its way in
+  or out is cut by the banner's own edge on one side and fades beside the
+  globe on the other. Nothing on the slides changes opacity: a button half
+  way across is as black as at rest.
+*/
 .home-banner-stack {
+  --edge: 20px;
   position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  max-width: 560px;
+  display: grid;
+  flex: 0 0 auto;
+  max-width: calc(560px + var(--pad-l) + var(--edge));
+  margin: -6px calc(-1 * var(--edge)) -6px calc(-1 * var(--pad-l));
+  padding: 6px var(--edge) 6px var(--pad-l);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - var(--edge)), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - var(--edge)), transparent);
 }
 .home-banner-slide {
-  position: absolute;
-  inset: 0;
+  grid-area: 1 / 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  /* Only the showing one is drawn; a move shows the one coming in by hand (its style), and takes it off when it lands. */
+  visibility: hidden;
+  /* Each on a layer of its own, for good: a move that ends by taking a layer away paints its slide again. */
+  will-change: transform;
+}
+.home-banner-slide[data-slide="active"] { visibility: visible; }
+.home-banner-copy {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
 }
-/*
-  ONE LINE OUT, THEN THE NEXT ONE IN. Two sentences crossfading over each
-  other read as a flash: for a moment both are half there. So the one going
-  out fades in 150ms, and the one coming in starts after it (160ms) and
-  settles over 380ms with a small move: a 4px rise when the clock turns it,
-  10px from the side it was sent when a finger or an arrow did. Opacity and
-  translate only, so the compositor does all of it.
-*/
-.home-banner-slide {
-  visibility: hidden;
-  opacity: 0;
-  transition: opacity 150ms cubic-bezier(0.4, 0, 1, 1), translate 150ms cubic-bezier(0.4, 0, 1, 1), visibility 0s linear 150ms;
-}
-/* Only the one going out moves: the others wait where they will show, so nothing measures them anywhere else. */
-.home-banner-slide[data-slide="leaving"] { translate: var(--home-banner-out, 0 -3px); }
-.home-banner-stack[data-dir="next"] { --home-banner-in: 10px 0; --home-banner-out: -8px 0; }
-.home-banner-stack[data-dir="prev"] { --home-banner-in: -10px 0; --home-banner-out: 8px 0; }
-.home-banner-slide > * {
+.home-banner-copy > * {
   /* Never squeezed: a title or a line clipped to fit would be a sentence cut in half. */
   flex-shrink: 0;
-}
-.home-banner-slide[data-slide="active"] {
-  visibility: visible;
-  opacity: 1;
-  translate: 0 0;
-  transition: visibility 0s;
-}
-/* An animation rather than a transition, so it starts from the side of this change, not the last one's.
-   No data-dir until the first change: the slide showing when Home opens is simply there. */
-.home-banner-stack[data-dir] > .home-banner-slide[data-slide="active"] {
-  animation: home-banner-in 380ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
-}
-@keyframes home-banner-in {
-  from { opacity: 0; translate: var(--home-banner-in, 0 4px); }
-  to { opacity: 1; translate: 0 0; }
 }
 
 .home-banner-eyebrow {
@@ -509,7 +928,10 @@ const BANNER_CSS = `
   .home-banner-title { margin-top: 5px; font-size: 19px; line-height: 24px; letter-spacing: -0.015em; }
   .home-banner-line { margin-top: 5px; font-size: 14px; line-height: 19px; -webkit-line-clamp: 2; }
 }
-.home-banner-cta-row { margin-top: auto; padding-top: 12px; }
+.home-banner-cta-row { margin-top: auto; padding-top: 10px; }
+@container (min-width: 620px) {
+  .home-banner-cta-row { padding-top: 12px; }
+}
 @container (min-width: 860px) {
   .home-banner-title,
   .home-banner-line { -webkit-line-clamp: 1; }
@@ -538,6 +960,7 @@ const BANNER_CSS = `
 }
 
 .home-banner-tabs {
+  position: relative;
   display: flex;
   gap: 2px;
   height: 16px;
@@ -560,16 +983,32 @@ const BANNER_CSS = `
 .home-banner-tab { position: relative; }
 .home-banner-tab::after { content: ""; position: absolute; inset: -10px -1px; }
 .home-banner-tab-track {
-  position: relative;
   display: block;
   width: 100%;
   height: 3px;
-  overflow: hidden;
   border-radius: 9999px;
   background: rgba(26, 26, 46, 0.13);
   transition: background-color 200ms ease;
 }
 .home-banner-tab:hover .home-banner-tab-track { background: rgba(26, 26, 46, 0.24); }
+/*
+  THE MARKER over the showing slide's segment (TAB_PITCH apart, 4px in),
+  moved by transform only: by the slides' move, or a finger's drag. The
+  clock is the fill inside it, run as an animation from the script, and it
+  drains the way the slides go when they change.
+*/
+.home-banner-thumb {
+  position: absolute;
+  left: 4px;
+  top: calc(50% - 1.5px);
+  width: 22px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(26, 26, 46, 0.26);
+  transform-origin: 11px 50%;
+  pointer-events: none;
+}
 .home-banner-tab-fill {
   position: absolute;
   inset: 0;
@@ -578,26 +1017,9 @@ const BANNER_CSS = `
   transform-origin: left center;
   transform: scaleX(0);
 }
-/* The showing slide's segment fills over SLIDE_MS; the clock is this animation, and the slide changes when it ends. */
-.home-banner-tab[data-on] .home-banner-tab-fill {
-  animation-name: home-banner-fill;
-  animation-timing-function: linear;
-  animation-fill-mode: both;
-}
-.home-banner-tabs[data-held] .home-banner-tab-fill { animation-play-state: paused; }
-@keyframes home-banner-fill {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
 
-/* Reduced motion keeps the clock and loses the movement: a shorter fade, and the segment under the text
-   only marks which slide is showing. */
-@keyframes home-banner-fill-still {
-  from { transform: scaleX(1); }
-  to { transform: scaleX(1); }
-}
+/* Reduced motion: nothing moves by itself (no clock), a change is the new slide simply there, and the marker is full. */
 @media (prefers-reduced-motion: reduce) {
-  .home-banner-tab[data-on] .home-banner-tab-fill { animation-name: home-banner-fill-still; }
-  .home-banner-stack { --home-banner-in: 0 0; --home-banner-out: 0 0; }
+  .home-banner-tab-fill { transform: scaleX(1); }
 }
 `

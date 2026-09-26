@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation"
 import { refreshMatching } from "@/components/email/emails-cache"
 import { canReturnTo } from "@/lib/navigation/in-app-history"
 import { listBehindShows } from "@/app/app/emails/list-return"
+import { leaveLayer } from "@/app/app/emails/layer-nav"
 import { EmailComposer } from "./composer"
 
 export function ComposePage({ campaignId }: { campaignId: string | null }) {
@@ -28,8 +29,11 @@ export function ComposePage({ campaignId }: { campaignId: string | null }) {
       campaignId={campaignId}
       onExit={(tab) => {
         refreshMatching("emails:")
-        if (tab && listBehindShows(tab, canReturnTo("/app/emails"))) router.back()
-        else router.push(tab ? `/app/emails?tab=${tab}` : "/app/emails")
+        /* On a phone the composer is a layer, and goes off the list the way it came (app/app/emails/layer-nav.ts). */
+        leaveLayer(() => {
+          if (tab && listBehindShows(tab, canReturnTo("/app/emails"))) router.back()
+          else router.push(tab ? `/app/emails?tab=${tab}` : "/app/emails")
+        })
       }}
     />
   )

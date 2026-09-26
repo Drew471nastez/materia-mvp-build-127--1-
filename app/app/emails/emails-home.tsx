@@ -43,6 +43,7 @@ import { ShimmerBlock, ShimmerRows, ShimmerSwap } from "@/components/ui/shimmer"
 import { ScrollEdge } from "@/components/app/scroll-edge"
 import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
+import { layerLinkClick, openLayer } from "./layer-nav"
 
 export type EmailsTab = "subscribers" | "flows" | "published" | "scheduled" | "drafts"
 
@@ -207,18 +208,19 @@ const pressable = "group cursor-pointer transition-colors duration-75 hover:bg-[
 
 export function EmailsHome(props: EmailsHomeProps) {
   const { tab } = props
+  const router = useRouter()
   return (
     <>
       <PaneBar width={LIST_WIDTH} className="pb-1 pt-2">
         <div className="flex min-h-[48px] items-center justify-between gap-2">
           <h1 className="shrink-0 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Emails</h1>
           <div className="flex min-w-0 items-center gap-2">
-            <Link href="/app/emails/flow/new" prefetch className={cn(buttonSecondary, "px-2.5 sm:px-3")} data-new-automation="">
+            <Link href="/app/emails/flow/new" prefetch onClick={layerLinkClick(router, "/app/emails/flow/new")} className={cn(buttonSecondary, "px-2.5 sm:px-3")} data-new-automation="">
               <Plus className="hidden h-4 w-4 shrink-0 sm:block" />
               <span className="sm:hidden">Automation</span>
               <span className="hidden sm:inline">New automation</span>
             </Link>
-            <Link href="/app/emails/new" prefetch className={cn(buttonAccent, "px-2.5 sm:px-3")} data-new-email="">
+            <Link href="/app/emails/new" prefetch onClick={layerLinkClick(router, "/app/emails/new")} className={cn(buttonAccent, "px-2.5 sm:px-3")} data-new-email="">
               <Plus className="h-4 w-4 shrink-0" />
               New email
             </Link>
@@ -730,7 +732,7 @@ function FlowsTable(props: EmailsHomeProps) {
             title="No automations yet"
             body="Start from a welcome series, a thank you after a purchase, or your own. Each one is off until you turn it on."
             action={
-              <Link href="/app/emails/flow/new" prefetch className={buttonAccent}>
+              <Link href="/app/emails/flow/new" prefetch onClick={layerLinkClick(router, "/app/emails/flow/new")} className={buttonAccent}>
                 <Plus className="h-4 w-4" />
                 Create an automation
               </Link>
@@ -757,7 +759,7 @@ function FlowsTable(props: EmailsHomeProps) {
                   const on = f.status === "active"
                   const t = f.totals
                   return (
-                    <tr key={f.id} className={pressable} data-flow-row={f.id} onClick={() => router.push(href(f))} {...press(f.id, () => router.prefetch(href(f)))}>
+                    <tr key={f.id} className={pressable} data-flow-row={f.id} onClick={() => openLayer(router, href(f))} {...press(f.id, () => router.prefetch(href(f)))}>
                       <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}>
                         <span className="flex max-w-[180px] items-center gap-2 sm:max-w-[260px]">
                           <Link href={href(f)} prefetch={false} className="truncate outline-none focus-visible:underline" onClick={(e) => e.stopPropagation()}>
@@ -780,7 +782,7 @@ function FlowsTable(props: EmailsHomeProps) {
                           align="end"
                           trigger={<RowMenuButton label={`Actions for ${f.name}`} />}
                           items={[
-                            { label: "Edit", onClick: () => router.push(href(f)) },
+                            { label: "Edit", onClick: () => openLayer(router, href(f)) },
                             { label: on ? "Turn off" : "Turn on", onClick: () => props.onToggleFlow(f) },
                             { label: "Delete", variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteFlow(f.id) },
                           ]}
@@ -814,7 +816,7 @@ function CampaignsTable(props: EmailsHomeProps) {
       : tab === "scheduled"
         ? { title: "Nothing scheduled", body: "Write an email and choose when it goes out, and it waits here until then." }
         : { title: "No drafts", body: "An email you start and do not send yet is kept here." }
-  const open = (c: CampaignRow) => (drafts ? router.push(`/app/emails/edit/${c.id}`) : props.onOpenCampaign(c))
+  const open = (c: CampaignRow) => (drafts ? openLayer(router, `/app/emails/edit/${c.id}`) : props.onOpenCampaign(c))
 
   return (
     <>
@@ -823,7 +825,7 @@ function CampaignsTable(props: EmailsHomeProps) {
           <Empty
             {...empty}
             action={
-              <Link href="/app/emails/new" prefetch className={buttonSecondary}>
+              <Link href="/app/emails/new" prefetch onClick={layerLinkClick(router, "/app/emails/new")} className={buttonSecondary}>
                 <Plus className="h-4 w-4" />
                 New email
               </Link>
@@ -855,7 +857,7 @@ function CampaignsTable(props: EmailsHomeProps) {
                       ]
                     : [
                         { label: sent ? "View results" : "Open", onClick: () => open(c) },
-                        ...(tab === "scheduled" ? [{ label: "Edit", onClick: () => router.push(`/app/emails/edit/${c.id}`) }] : []),
+                        ...(tab === "scheduled" ? [{ label: "Edit", onClick: () => openLayer(router, `/app/emails/edit/${c.id}`) }] : []),
                         { label: "Duplicate", onClick: () => props.onDuplicateCampaign(c) },
                         ...(c.status === "queued" || c.status === "sending" ? [] : [{ label: "Delete", variant: "destructive" as const, separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) }]),
                       ]

@@ -24,6 +24,7 @@ import {
   Type,
   Blocks,
   Globe,
+  Sparkles,
 } from "lucide-react"
 import dynamic from "next/dynamic"
 
@@ -58,7 +59,7 @@ import { ShareStorelib } from "@/components/app/share/share-storelib"
 import { HomeCards, bumpGettingStarted } from "@/components/app/home/home-cards"
 import { QuickActions } from "@/components/app/home/quick-actions"
 import { AppLink } from "@/components/app/app-link"
-import { STRIP_ACTION, STRIP_TEXT, STRIP_TINT, STRIP_TITLE } from "@/components/app/announcement-bar-mobile"
+import { STRIP_ACTION, STRIP_SPARKLE, STRIP_TEXT, STRIP_TINT, STRIP_TITLE } from "@/components/app/announcement-bar-mobile"
 import { useHomeProgress } from "@/components/app/home/use-home-progress"
 import { HomeBanner } from "@/components/app/home/home-banner"
 import { NO_SALES, type SalesSummary } from "@/lib/home/announcements"
@@ -561,6 +562,7 @@ const AnnouncementBar = memo(function AnnouncementBar({
                   <span className={`hidden md:inline ml-2 ${STRIP_TEXT}`}>{t("dashboard.proSubtitle")}</span>
                 </span>
                 <AppLink href="/app/settings/billing/upgrade" className={STRIP_ACTION}>
+                  <Sparkles className={STRIP_SPARKLE} aria-hidden="true" />
                   {t("dashboard.upgrade")}
                 </AppLink>
               </div>
@@ -593,12 +595,12 @@ const AnnouncementBar = memo(function AnnouncementBar({
         {/* How long until the next slide. Each slide runs it again from the
             start; see "A NEW SLIDE PUTS NOTHING INTO THE PAGE". Its track is
             the strip's hairline. */}
-        <div className="h-[2px] bg-[#ede9fe] overflow-hidden">
+        <div className="h-[2px] bg-white/10 overflow-hidden">
           {slides.length > 1 && (
             <div
               key={lineKey}
               ref={lineRef}
-              className="announce-progress h-full bg-[#8b5cf6]/40"
+              className="announce-progress h-full bg-white/35"
               style={{ animationDuration: `${DURATION}ms`, animationPlayState: paused ? "paused" : "running" }}
               onAnimationEnd={next}
             />
@@ -711,6 +713,8 @@ export function DashboardClient({
   }, [chartExpanded])
 
   const [isChartLoading, setIsChartLoading] = useState(false)
+  /* The chart shows another period's numbers while this one's are on their way: it stays, blurred and dimmed. */
+  const [chartStale, setChartStale] = useState(false)
   // Sample data toggle — session-only (resets on page refresh, no localStorage)
   const [showSampleData, setShowSampleData] = useState(false)
   /**
@@ -909,9 +913,6 @@ export function DashboardClient({
   const clicksKept = useRef(new Map<string, number[]>())
   const fetchPeriodEvents = async () => {
     const request = ++chartRequestRef.current
-    // First load: isRefreshing is already true (seeded in useState), and the
-    // soft blur on the figures is the only sign of the read.
-    setIsRefreshing(true)
     setIsChartLoading(true)
     const { window: span, previous, key } = homeQuestion(period, dashTimeZone, reportNow(Date.now() + (askPastKept.current ? NOW_STEP_MS : 0)))
     askPastKept.current = false
@@ -925,6 +926,11 @@ export function DashboardClient({
     })
     const kept = keptAnswer(question, viewerId)
     if (kept) setHomeAnswer(answerOf(kept.answer, clicksKept.current.get(question) ?? []))
+    /* A period answered before is drawn from what was kept, sharp, and asked again quietly behind it.
+       Otherwise the figures go soft, and a chart already drawn for another period stays, blurred,
+       until this one's numbers land (First load: isRefreshing is already true, seeded in useState). */
+    setIsRefreshing(!kept)
+    setChartStale(!kept)
     try {
       const supabase = createClient()
       const iso = (ms: number) => new Date(ms).toISOString()
@@ -947,17 +953,28 @@ export function DashboardClient({
         const asked = askReport(key, (quick) => resolve(quick))
         asked.promise.then(resolve, reject).finally(asked.release)
       })
-      const clicks = await clicksRead
       if (request !== chartRequestRef.current) return
-      clicksKept.current.set(question, clicks)
-      setHomeAnswer(answerOf(answer, clicks))
-      // Delay removing loading blur so chart lines redraw while still
-      // blurred, then the CSS transition fades in the finished chart cleanly
-      setTimeout(() => setIsChartLoading(false), 350)
+      /*
+        THE ANSWER IS DRAWN THE MOMENT IT LANDS. It used to wait for the link
+        taps as well, which the browser reads a thousand at a time, one round
+        trip after another: on a busy store the period's figures sat
+        finished in memory while the taps were paged through, and a tab or a
+        new period looked slow to load. The taps are drawn nowhere but the
+        views' second value, so they join the answer when they arrive.
+      */
+      setHomeAnswer(answerOf(answer, clicksKept.current.get(question) ?? []))
+      setChartStale(false)
+      setIsChartLoading(false)
+      void clicksRead.then((clicks) => {
+        clicksKept.current.set(question, clicks)
+        if (request !== chartRequestRef.current || clicks.length === 0) return
+        setHomeAnswer((prev) => (prev && prev.window === span ? { ...prev, clicks } : prev))
+      })
     } catch (error) {
       console.error("Error fetching the period's figures:", error)
       if (request === chartRequestRef.current) {
         setIsChartLoading(false)
+        setChartStale(false)
         /* Nothing to draw, rather than a skeleton that waits for ever. */
         setHomeAnswer((prev) => prev ?? answerOf({}, []))
       }
@@ -983,6 +1000,7 @@ export function DashboardClient({
     // when it comes; until then the figures stay soft.
     const safetyTimer = window.setTimeout(() => {
       setIsChartLoading(false)
+      setChartStale(false)
       isFirstLoadRef.current = false
     }, 15000)
     fetchPeriodEvents().finally(() => window.clearTimeout(safetyTimer))
@@ -1322,10 +1340,19 @@ export function DashboardClient({
 
                     The sample-data dimming stays, because that is not a
                     loading state — it says these numbers are not yours.
+
+                    A NEW PERIOD ON ITS WAY is the other real wait ("blur it
+                    while it loads but keep it intact"): the chart already
+                    drawn stays where it is, whole, and softens (4px, dimmed)
+                    over 300ms while the new numbers come; when they land the
+                    blur lifts over 700ms as the line moves to them. A period
+                    answered before comes from what was kept and never
+                    blurs; a tab never does.
                   */}
                   <div
-                    aria-busy={chartWaiting || undefined}
-                    className={`transition-[opacity,filter] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${chartWaiting ? "opacity-60 blur-[1.5px]" : showSampleData && !hasRealData ? "opacity-50 blur-0" : "opacity-100 blur-0"}`}
+                    aria-busy={chartWaiting || chartStale || undefined}
+                    data-chart-stale={chartStale && !chartWaiting ? "" : undefined}
+                    className={`transition-[opacity,filter] ease-[cubic-bezier(0.32,0.72,0,1)] ${chartStale && !chartWaiting ? "duration-300" : "duration-[700ms]"} ${chartWaiting ? "opacity-60 blur-[1.5px]" : chartStale ? "opacity-55 blur-[4px]" : showSampleData && !hasRealData ? "opacity-50 blur-0" : "opacity-100 blur-0"}`}
                   >
                   <DashboardTrendChart
                     displayChartData={chartWaiting ? WAITING_CHART : displayChartData}

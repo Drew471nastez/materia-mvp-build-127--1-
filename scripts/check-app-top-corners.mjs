@@ -33,7 +33,7 @@
  *   PRESSES             the corners take none, and the bar's box ends at the
  *                       bar: a press just under it reaches the page
  *   HIDDEN WITH THE BAR a page layer that hides the header hides them too
- *   THE STRIP           the Try Pro strip is a flat tint, no gradient on it or
+ *   THE STRIP           the Try Pro strip is the flat violet band, no gradient on it or
  *                       in it, 38px on a phone and 40px from md, and its top
  *                       corners are the bar's curve
  *
@@ -287,7 +287,7 @@ function judge(label, g, px, { atRest, strip, dpr, phone }) {
   }
   if (strip) {
     /* From md the left corner is over the rail, and the strip starts beside it. */
-    const tint = [245, 243, 255]
+    const tint = [139, 92, 246]
     expect((!phone || near(px.insideLeft, tint, 4)) && near(px.insideRight, tint, 4), `${label}: inside the curve is ${[px.insideLeft, px.insideRight]}, not the Try Pro strip's tint: the strip is not under the rounded top`)
   }
   return worst
@@ -349,8 +349,9 @@ for (const [width, viewport] of VIEWPORTS) {
       }))
       expect(strips.length === 1, `${width} ${name}: ${strips.length} strips on the page`)
       for (const s of strips) {
-        expect(s.bg === "rgb(245, 243, 255)", `${width} ${name}: the strip is ${s.bg}, not the calm tint`)
-        expect(s.gradients === 0 && s.svgIcons === 0, `${width} ${name}: the strip has ${s.gradients} gradients and ${s.svgIcons} icons in it`)
+        /* The violet band the owner asked back for, with the one sparkle on Upgrade, and no gradient. */
+        expect(s.bg === "rgb(139, 92, 246)", `${width} ${name}: the strip is ${s.bg}, not the violet band`)
+        expect(s.gradients === 0 && s.svgIcons === 1, `${width} ${name}: the strip has ${s.gradients} gradients and ${s.svgIcons} icons in it, not none and the sparkle`)
         expect(name === "home" ? s.height === (phone ? 40 : 42) : s.height === (phone ? 38 : 40), `${width} ${name}: the strip is ${s.height}px tall`)
       }
       row.states[name].strip = strips[0]
