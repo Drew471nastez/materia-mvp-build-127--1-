@@ -11,7 +11,7 @@
  * And the help around the records: the provider picker's spellings and
  * links, what a check reads per record, the fixes, the four lines on how a
  * domain behaves, and the plan that includes it.
- * Measured on screen by scripts/check-domains.mjs.
+ * Measured on screen by scripts/check-domains-flow.mjs.
  */
 import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
@@ -29,6 +29,9 @@ import { creatorPageHostFrom, creatorPageHostFromRows } from "@/lib/custom-domai
 import { REGISTRARS, fixesFor, hostFor, readRecord, recordFqdn, registrarById, type RecordCheck } from "@/lib/custom-domains/dns-help"
 import { siteGate, siteLimits } from "@/lib/sites/plan"
 import { getLinksShareUrl, getProductShareUrl, getStoreShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
+import { DomainsPanel, type DomainItem } from "@/components/app/settings/domains-panel"
 import { stripComments } from "./_source"
 
 let passed = 0
@@ -182,25 +185,63 @@ console.log("\nSettings › Domains")
 {
   const panel = code("components/app/settings/domains-panel.tsx")
   /*
-    "Keep the UI and design I created ... update what you connect a domain
-    to." The owner's tab is back (the one before 87e06ebc): the violet Pro
-    bar and Connect, the blur on a free plan, the registrar marks, one Your
-    Domains table with a card per domain on a phone, the DNS steps in grey
-    boxes, How Custom Domains Work. What the tab does now is kept in it.
+    "The DNS setup instructions and how custom domain works should not
+    appear if I didn't start adding my domain. The Connect to should appear
+    after I add my domain." The tab grows with the domain: the field alone,
+    then a row per domain with what it connects to and its records, then
+    the records folded away once it is connected.
   */
-  check("asks what the domain is for", /role="radiogroup"/.test(panel) && /body: JSON\.stringify\(\{ domain: clean, purpose \}\)/.test(panel))
-  check("shows the records, Check again, Make primary and a remove that asks first, in the row",
-    /data-dns-record=\{r\.type\}/.test(panel) && /Check again/.test(panel) && /action: "make_primary"/.test(panel) && /Remove \{d\.domain\}\?/.test(panel) && /role="alertdialog"/.test(panel))
-  check("the owner's actions: buttons in the row, Verify or Check again, Make primary, Remove", /"Verify"/.test(panel) && /"Make primary"/.test(panel) && /data-domain-remove=""/.test(panel) && !/<ResponsiveActionMenu/.test(panel))
-  check("the owner's table: Domain Name, Status, Date Added, Actions, and a card per domain below the width it fits",
-    ["Domain Name", "Status", "Date Added", "Actions"].every((h) => panel.includes(`>${h}</p>`)) && /lg:grid-cols-\[1fr_130px_150px_180px\]/.test(panel) && /bg-\[#f9fafb\] p-4 lg:hidden/.test(panel))
-  /* Building both and hiding one doubled every row, and opening the tab took a frame longer at 1440. */
-  check("each row is built once: the table row at lg, the card below it, never both",
-    /const TABLE_QUERY = "\(min-width: 1024px\)"/.test(panel) && /useSyncExternalStore\(onTableChange, \(\) => tableMedia\(\)\.matches, \(\) => false\)/.test(panel) && /\{table \? \(\s*<>[\s{}]*<div className="hidden items-center gap-4/.test(panel) && /\) : \([\s{}]*<div className="mb-3 rounded-xl border border-\[#e5e7eb\] bg-\[#f9fafb\] p-4 lg:hidden">/.test(panel))
-  check("the owner's free plan: the violet Pro bar and the two cards blurred", /bg-gradient-to-r from-\[#7c3aed\] to-\[#6d28d9\]/.test(panel) && /const BLURRED = "blur-\[1\.5px\] opacity-80 pointer-events-none select-none"/.test(panel) && (panel.match(/blurred && BLURRED/g) ?? []).length === 2)
+  const addCard = panel.slice(panel.indexOf('data-domains-connect=""'), panel.indexOf("data-domains-reveal"))
+  check("the add card is the field, Add and one line: no records, no chooser, no explainer",
+    addCard.length > 0 && /id="domains-new"/.test(addCard) && /"Add"/.test(addCard) && !/radiogroup|data-dns|recordsOf|connectsOf|How Custom Domains Work|Help/.test(addCard))
+  check("the list, with Help, only exists once there is a domain", /<Reveal open=\{ordered\.length > 0\} animate=\{touched\} data-domains-reveal="list">/.test(panel))
+  check("no How Custom Domains Work card, no suggested names", !/How Custom Domains Work|data-domains-how|data-domains-suggested|Suggested domains/.test(panel))
+  check("a domain is added to the website, and what it connects to is asked on its row",
+    /body: JSON\.stringify\(\{ domain: clean, purpose: "website" \}\)/.test(panel) && /role="radiogroup"[^>]*data-domain-connects=\{d\.domain\}/.test(panel) && /action: "set_purpose", purpose: next/.test(panel))
+  const domainsRoute = code("app/api/domains/route.ts")
+  check("the route moves a domain between website and creator page, keeping one primary on each side, and only the creator's own",
+    /body\.action === "set_purpose" && isDomainPurpose\(body\.purpose\)/.test(domainsRoute) && /\.update\(\{ purpose: to, is_primary: !there\.some\(\(r\) => r\.is_primary === true\) \}\)\s*\.eq\("id", row\.id\)\s*\.eq\("creator_id", creatorId\)/.test(domainsRoute) && /await ensurePrimary\(admin, creatorId, from\)/.test(domainsRoute) && /if \(from === "creator_page" \|\| to === "creator_page"\) await syncOnepageDomain/.test(domainsRoute))
+  check("the records show while the DNS is not done, and fold behind DNS records after",
+    /const recordsShown = !dnsDone \|\| !!openRecords\[d\.id\]/.test(panel) && /<Reveal open=\{recordsShown\}/.test(panel) && /data-dns-disclosure=""/.test(panel))
+  check("status in three words: Connected, Pending, Needs attention", /label: "Connected"/.test(panel) && /label: "Needs attention"/.test(panel) && /label: "Pending"/.test(panel))
+  check("Check or Check again, Make primary, and a remove that asks first, in the row",
+    /checked \? "Check again" : "Check"/.test(panel) && /action: "make_primary"/.test(panel) && /Remove \{d\.domain\}\?/.test(panel) && /role="alertdialog"/.test(panel) && /data-domain-remove=""/.test(panel) && !/<ResponsiveActionMenu/.test(panel))
+  check("sections come and go by a grid row, 200ms, still under reduced motion",
+    /const REVEAL_MS = 200/.test(panel) && /gridTemplateRows: visible \? "1fr" : "0fr"/.test(panel) && /transition-\[grid-template-rows,opacity\] duration-200 ease-out motion-reduce:transition-none/.test(panel))
+  check("44px controls on a phone: Add, the row's buttons, Copy", /flex h-11 min-w-\[72px\]/.test(panel) && /const ROW_BUTTON =\s*"h-11 sm:h-8/.test(panel) && /inline-flex h-11 w-11 shrink-0[^"]*sm:h-8 sm:w-8/.test(panel))
+  check("a long value wraps inside its cell", /"min-w-0 flex-1 font-mono text-\[13px\][^"]*\[overflow-wrap:anywhere\]"/.test(panel))
+  check("the owner's free plan: the violet Pro bar and the cards blurred", /bg-gradient-to-r from-\[#7c3aed\] to-\[#6d28d9\]/.test(panel) && /const BLURRED = "blur-\[1\.5px\] opacity-80 pointer-events-none select-none"/.test(panel) && (panel.match(/blurred && BLURRED/g) ?? []).length === 2)
   check("and the Settings page uses it", /<DomainsPanel/.test(code("components/app/settings-form-new.tsx")))
   check("the creator page's Share card reads the creator page's domain, not a field no domain has",
     /creatorPageHostFrom\(data\)/.test(code("components/app/creator-page-share.tsx")) && !/d\.is_active/.test(code("components/app/creator-page-share.tsx")))
+  const copy = read("components/app/settings/domains-panel.tsx")
+  check("no em dashes and none of the banned words in it", !/\u2014/.test(copy) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(copy.replace(/transition-transform|transform/g, (m) => (m === "transition-transform" ? "" : m))))
+}
+
+console.log("\nSettings › Domains, drawn: nothing to set up before a domain is added")
+{
+  const base = { websiteAddress: "maralind.storelib.com", creatorPageAddress: "storelib.com/maralind", locked: false, planLoading: false, loading: false, onData: () => {} }
+  const draw = (domains: DomainItem[]) =>
+    renderToStaticMarkup(createElement(DomainsPanel, { ...base, data: { domains, schema: "current", purposes: ["website", "creator_page"] } }))
+  const words = (html: string) => html.replace(/<svg[\s\S]*?<\/svg>/g, " ").replace(/<[^>]+>/g, " ").replace(/&[a-z#0-9]+;/g, " ").split(/\s+/).filter(Boolean).length
+  const empty = draw([])
+  check("empty: the field and Add", /id="domains-new"/.test(empty) && />Add</.test(empty))
+  check("empty: no DNS records", !/data-dns-|Type<|>A<|CNAME/.test(empty), empty.match(/data-dns-[a-z-]+/g)?.join() ?? "")
+  check("empty: no explainer and no Help", !/How Custom Domains Work|How custom|data-domains-help|>Help</.test(empty))
+  check("empty: no connect-to choice", !/radiogroup|Connects to|Creator page/.test(empty))
+  check("empty: no list card", !/data-domains-list/.test(empty))
+  check("empty: under 25 words", words(empty) < 25, String(words(empty)))
+
+  const pending: DomainItem = { id: "d1", domain: "maralind.com", status: "pending", purpose: "website", is_primary: true, created_at: "2026-09-20T10:00:00Z", records: recordsFor("maralind.com") }
+  const added = draw([pending])
+  check("added: its row, Pending", /data-domain-row="maralind\.com"/.test(added) && /data-domain-standing="Pending"/.test(added))
+  check("added: Connects to, for that domain", /data-domain-connects="maralind\.com"/.test(added) && /role="radiogroup"/.test(added) && /aria-checked="true"[^>]*>Website</.test(added))
+  check("added: its records, one per row, each value with Copy", (added.match(/data-dns-record=/g) ?? []).length === 2 && (added.match(/data-dns-copy=""/g) ?? []).length === 4 && /data-dns-table="maralind\.com"/.test(added))
+  check("added: Check, and Help closed", /data-domain-check=""/.test(added) && /data-domains-help-toggle=""/.test(added) && /aria-expanded="false"[^>]*data-domains-help-toggle/.test(added) && !/id="domains-help"/.test(added))
+
+  const connected = draw([{ ...pending, status: "active", ssl_status: "active", host: "www.maralind.com" }])
+  check("connected: Connected, and what it connects to", /data-domain-standing="Connected"/.test(connected) && /data-domain-connects="maralind\.com"/.test(connected))
+  check("connected: the records folded behind DNS records", /data-dns-disclosure=""/.test(connected) && !/data-dns-table/.test(connected) && !/data-domain-check=""/.test(connected))
 }
 
 console.log("\nWhere the records go: the provider picker")
@@ -270,7 +311,7 @@ console.log("\nThe DNS set up, on both screens")
   const panel = code("components/app/settings/domains-panel.tsx")
   check("Settings draws the records Vercel recommended, each with its check", /const records = d\.records && d\.records\.length > 0 \? d\.records : recordsFor\(d\.domain\)/.test(panel) && /result\?\.checks\?\.find\(\(c\) => c\.type === r\.type && c\.name === r\.name\)/.test(panel))
   check("named for the provider it was bought at, on the same key the builder remembers it by", /hostFor\(registrar, r\)/.test(panel) && /const REGISTRAR_KEY = "storelib:domain-registrar"/.test(panel) && /REGISTRAR_KEY = "storelib:domain-registrar"/.test(code("components/domains/dns-setup.tsx")))
-  check("every domain not yet connected has its steps under Your Domains, and what to fix after a check that did not pass", /const waiting = ordered\.filter\(\(d\) => d\.status !== "active"\)/.test(panel) && /result\.tone === "bad" && result\.fixes\.length > 0/.test(panel))
+  check("each domain not yet connected has its records on its own row, and what to fix after a check that did not pass", /\{recordsOf\(d, !dnsDone\)\}/.test(panel) && /result\.tone === "bad" && \(result\.message \|\| result\.fixes\.length > 0\)/.test(panel))
   const site = code("components/website-builder/website-settings/domains.tsx")
   check("Website Settings › Domains uses the same set up, dark", /<DnsSetup[\s\S]{0,800}tone="dark"/.test(site) && !/function DnsRecord\(/.test(site))
 }
@@ -280,7 +321,7 @@ console.log("\nGet a domain, and how domains work")
   const panel = code("components/app/settings/domains-panel.tsx")
   check("Get a domain, with GoDaddy, Namecheap and Hostinger", /Get a domain/.test(panel) && /godaddy\.com\/en\/domains/.test(panel) && /namecheap\.com\/domains/.test(panel) && /hostinger\.com\/domain-name-search/.test(panel))
   check("the owner's marks for them, 20px in #374151", (panel.match(/width="20" height="20"[^>]*fill="#374151"/g) ?? []).length === 3)
-  check("and How Custom Domains Work, from and to, for each address", /How Custom Domains Work/.test(panel) && /title: "Your Website"/.test(panel) && /title: "Your Creator Page"/.test(panel) && /title: "Your OnePage"/.test(panel) && /title: "Product Pages"/.test(panel))
+  check("and how domains behave, as five short lines under a closed Help", /id="domains-help"/.test(panel) && /Your storelib\.com addresses keep working\./.test(panel) && /OnePage at \/links/.test(panel))
   const how = code("components/domains/how-it-works.tsx")
   const rows = how.match(/^\s*\["[^"]+", /gm) ?? []
   check("four lines, no more", rows.length === 4, String(rows.length))
