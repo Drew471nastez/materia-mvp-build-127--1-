@@ -137,6 +137,8 @@ function setMotionVars(html: HTMLElement) {
   html.style.setProperty("--layer-motion-ms", `${LAYER_MOTION_MS}ms`)
   html.style.setProperty("--layer-leave-ms", `${LAYER_LEAVE_MS}ms`)
   html.style.setProperty("--layer-motion-ease", LAYER_MOTION_EASE)
+  /* Whether the moving layer keeps the nav pill over it (the CSS orders the two pictures by it). */
+  html.toggleAttribute("data-layer-pill", !!document.querySelector('[data-page-layer="pill"]'))
 }
 
 /*

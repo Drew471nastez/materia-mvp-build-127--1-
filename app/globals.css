@@ -3777,7 +3777,12 @@ html[data-layer-motion] [data-app-nav-pill] {
 }
 html[data-layer-motion]::view-transition-group(app-nav-pill) {
   animation: none;
-  z-index: 2;
+}
+/* A layer drawn without the pill (the plans page) moves over it: the pill
+   comes into view as it drops away, rather than over it. A layer with the
+   pill keeps it on top, where the order of the pictures already puts it. */
+html[data-layer-motion]:not([data-layer-pill])::view-transition-group(page-layer) {
+  z-index: 1;
 }
 html[data-layer-motion]::view-transition-old(app-nav-pill) {
   animation: none;
