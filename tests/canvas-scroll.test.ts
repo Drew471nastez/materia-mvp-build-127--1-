@@ -603,19 +603,19 @@ section("Leaving a page always ends, one way or the other")
   {
     console.log("\nThe dashboard's announcement slides never overlap")
     const dash = readFileSync(join(process.cwd(), "components/app/dashboard-client.tsx"), "utf8")
-    const effect = dash.slice(dash.indexOf("const [announceLeaving"), dash.indexOf("const announcementType"))
     const bar = dash.slice(dash.indexOf("const AnnouncementBar = memo("), dash.indexOf("export function DashboardClient("))
-    check("each cycle is the line ending and one timer, and the timer is cleared",
-      (effect.match(/setTimeout\(/g) ?? []).length === 1 && /clearTimeout\(swap\)/.test(effect)
-        && /onAnimationEnd=\{\(\) => setAnnounceLeaving\(true\)\}/.test(bar))
-    check("the next slide is picked only after the last has faded out", /\}, FADE_MS\)/.test(effect) && /if \(!announceLeaving\) return/.test(effect))
+    const css = readFileSync(join(process.cwd(), "app/globals.css"), "utf8")
+    /* Changed on purpose: the slide is named, and each slide has its own place in one grid cell. */
+    check("the slide showing is named, and a list that changes under it keeps it", /useState<AnnouncementSlide>\(slides\[0\]\)/.test(bar) && /slides\.includes\(currentId\) \? currentId : slides\[0\]/.test(bar))
+    check("the line ending picks the next, with no timer", /onAnimationEnd=\{next\}/.test(bar) && !/setTimeout\(/.test(bar))
+    check("every slide sits in one grid cell, marked data-on when it shows", /announce-stack[^"]*grid/.test(bar) && (bar.match(/className="announce-slide /g) ?? []).length === 3 && /\.announce-stack > \.announce-slide \{\s*grid-area: 1 \/ 1;/.test(css))
+    check("the one arriving waits until the one leaving is gone", /\.announce-slide \{[^}]*opacity 160ms[^}]*visibility 0s linear 160ms/.test(css) && /\.announce-slide\[data-on\] \{[^}]*opacity 300ms cubic-bezier\(0\.22, 1, 0\.36, 1\) 170ms/.test(css))
     check("the bar holds its own state, so a slide change does not render the dashboard",
-      bar.length > 0 && /<AnnouncementBar slides=\{slides\}/.test(dash) && !/useState\(0\)[^\n]*\n[^\n]*announceLeaving/.test(dash.slice(dash.indexOf("export function DashboardClient("))))
+      bar.length > 0 && /<AnnouncementBar slides=\{slides\}/.test(dash) && !/announceCycle/.test(dash.slice(dash.indexOf("export function DashboardClient("))))
     check("and it stops when nobody can see it",
       /new IntersectionObserver/.test(bar) && /document\.visibilityState === "hidden"/.test(bar) && /animationPlayState: paused \? "paused" : "running"/.test(bar))
-    check("one slide is shown at a time, picked by the counter", /const announcementType = slides\[announceCycle % slides\.length\]/.test(dash) && /hidden=\{announcementType !== "upgrade"\}/.test(bar))
     check("and its line restarts with it, in place", /run\.currentTime = 0/.test(bar) && /\}, \[announceCycle\]\)/.test(bar) && /announce-progress/.test(dash))
-    check("the bar holds one line, so two slides can never stack", /whitespace-nowrap/.test(dash.slice(dash.indexOf("announcementType ==="), dash.indexOf("announcementType ===") + 4000)) || /h-7 md:h-8[^"]*whitespace-nowrap|whitespace-nowrap[^"]*h-7 md:h-8/.test(dash))
+    check("the bar holds one line, so two slides can never stack", /announce-stack[^"]*whitespace-nowrap/.test(bar))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

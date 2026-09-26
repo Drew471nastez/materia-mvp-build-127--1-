@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { X } from "lucide-react"
 import { sectionLibrary, createSectionFromLibrary } from "@/lib/store-builder/defaults"
 import type { SectionLibraryItem, SectionSettings, Section } from "@/lib/store-builder/types"
@@ -68,77 +68,81 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
       : sectionLibrary.filter((item) => CATEGORY_FILTER[activeCategory]?.includes(item.type))
 
   // ── Mobile: bottom sheet ──────────────────────────────────────────────────
+  /*
+    THE SHARED SHEET (components/ui/bottom-sheet.tsx), so Add Section rises,
+    follows the thumb, flicks closed and slides out like every sheet in /app.
+    It was Radix's side sheet with a drag of its own that only listened on
+    the top rows. The title row drags it like the grabber; the list scrolls,
+    and a pull down from its top closes the sheet.
+  */
   if (isMobileLayout) {
     return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent
-          side="bottom"
-          hideCloseButton
-          enableDragToClose
-          onDragClose={() => onOpenChange(false)}
-          className="p-0 rounded-t-[28px] overflow-hidden flex flex-col gap-0"
-          style={{ height: "80dvh" }}
-        >
-          {/* Drag handle */}
-          <div className="flex justify-center pt-3 pb-0 shrink-0" data-drag-handle="true">
-            <div className="w-10 h-1.5 rounded-full bg-foreground/10" />
-          </div>
-
-          {/* Mobile header */}
-          <div className="flex items-center justify-between px-5 pt-3 pb-3 shrink-0" data-drag-handle="true">
+      <BottomSheet
+        isOpen={open}
+        onClose={() => onOpenChange(false)}
+        label="Add Section"
+        hideFrom={null}
+        fill
+        height="80dvh"
+        maxHeight="80dvh"
+        header={
+          <div className="flex items-center justify-between px-5 pt-3 pb-3">
             <div>
               <h2 className="text-base font-semibold text-foreground">Add Section</h2>
             </div>
             <button
-              onClick={() => onOpenChange(false)}
+              type="button"
+              /* The sheet closes itself, then the editor hears (A BUTTON INSIDE CAN CLOSE IT). */
+              data-sheet-close=""
+              aria-label="Close"
               className="h-8 w-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/80 active:scale-95 transition-all"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
-
-          {/* Horizontal category pills */}
-          <div className="shrink-0 px-4 pb-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <div className="flex gap-2 w-max">
-              {SECTION_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.key}
-                  onClick={() => setActiveCategory(cat.key)}
-                  className={cn(
-                    "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200",
-                    activeCategory === cat.key
-                      ? "bg-foreground text-background shadow-sm"
-                      : "bg-muted text-muted-foreground hover:bg-muted/70 active:scale-95"
-                  )}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
+        }
+      >
+        {/* Horizontal category pills */}
+        <div className="shrink-0 px-4 pb-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div className="flex gap-2 w-max">
+            {SECTION_CATEGORIES.map((cat) => (
+              <button
+                key={cat.key}
+                onClick={() => setActiveCategory(cat.key)}
+                className={cn(
+                  "px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200",
+                  activeCategory === cat.key
+                    ? "bg-foreground text-background shadow-sm"
+                    : "bg-muted text-muted-foreground hover:bg-muted/70 active:scale-95"
+                )}
+              >
+                {cat.label}
+              </button>
+            ))}
           </div>
+        </div>
 
-          <div className="w-full h-px bg-border/60 shrink-0" />
+        <div className="w-full h-px bg-border/60 shrink-0" />
 
-          {/* Section list — single column */}
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 pb-8">
-            <div className="flex flex-col gap-3">
-              {filteredSections.map((item) => (
-                <MobileSectionCard
-                  key={item.type}
-                  item={item}
-                  onAdd={handleAddSection}
-                  products={products}
-                />
-              ))}
-            </div>
-            {filteredSections.length === 0 && (
-              <div className="py-16 text-center text-muted-foreground">
-                <p className="text-sm">No sections in this category</p>
-              </div>
-            )}
+        {/* Section list — single column */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-3 pb-8">
+          <div className="flex flex-col gap-3">
+            {filteredSections.map((item) => (
+              <MobileSectionCard
+                key={item.type}
+                item={item}
+                onAdd={handleAddSection}
+                products={products}
+              />
+            ))}
           </div>
-        </SheetContent>
-      </Sheet>
+          {filteredSections.length === 0 && (
+            <div className="py-16 text-center text-muted-foreground">
+              <p className="text-sm">No sections in this category</p>
+            </div>
+          )}
+        </div>
+      </BottomSheet>
     )
   }
 

@@ -46,8 +46,7 @@ import { STORELIB_LOGO } from "@/lib/brand/logo"
 const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
 
 // Progress circle component for setup widget
-function SetupProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
-  const strokeWidth = 3
+function SetupProgressCircle({ progress, size = 32, strokeWidth = 3 }: { progress: number; size?: number; strokeWidth?: number }) {
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
   const offset = circumference - (progress / 100) * circumference
@@ -882,9 +881,33 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         />
       </aside>
 
-      {/* Floating Setup Progress Circle - hidden on mobile for settings and emails pages */}
+      {/*
+        THE SETUP PILL, BOTTOM RIGHT, DESKTOP ONLY (a phone has the Store
+        setup card in its menu, setupSlot above). Hidden over Settings,
+        Emails, Payouts and Analytics, where it sat on the page's own
+        controls.
+
+        SMALLER AND QUIETER. The owner: "The sticky setup thing in the bottom
+        right of the screen, make it a little bit smaller, more subtle, not
+        that fat." It was 57px tall: a 37px ring with the percentage in 9px
+        bold inside it, padding all round, shadow-lg under it, and a 5% jump
+        in size under the pointer, so the one thing floating over every page
+        was also the loudest. Now it is a 32px pill: a 20px ring on its own,
+        then "Setup" and the percentage as one line of 12.5px text, the
+        number in the ring's violet so the two still read together. A
+        hairline border and a small soft shadow lift it off the page the way
+        the app's cards are lifted, not more. Under the pointer it only goes
+        a step greyer, like the depth buttons (components/ui/depth-button);
+        no scale, so nothing on screen moves on its own. The percentage left
+        the ring because at this size a number inside it would be 7px, which
+        nobody reads.
+
+        Same place, same press: to the dashboard's setup section, scrolling
+        there if the dashboard is already open.
+      */}
       {showSetupWidget && !mobileMenuOpen && (
         <button
+          type="button"
           onClick={() => {
             // Navigate to dashboard and smooth scroll to setup section
             if (pathname === "/app") {
@@ -902,25 +925,20 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             }
           }}
           data-shell-chrome=""
+          data-setup-pill=""
+          aria-label={`Store setup, ${setupProgressPercent}% done`}
           className={cn(
             // bottom-[calc(...)] keeps the button above the home-indicator on iPad.
-          // In a browser env(safe-area-inset-bottom) = 0, so this equals bottom-6.
-          "fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,_0px))] right-4 md:right-6 z-40 hidden md:flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-2 md:pl-2.5 md:pr-4 md:py-2.5 shadow-lg border border-neutral-200/70 transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95",
+            // In a browser env(safe-area-inset-bottom) = 0, so this equals bottom-6.
+            "fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,_0px))] right-4 md:right-6 z-40 hidden md:flex h-8 items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white pl-1.5 pr-3 text-[12.5px] leading-none",
+            "shadow-[0_1px_2px_rgba(15,23,42,0.05),0_2px_8px_rgba(15,23,42,0.06)] transition-colors duration-150 hover:bg-[#f7f7f8] active:bg-[#f1f2f4]",
+            "outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#8b5cf6] [-webkit-tap-highlight-color:transparent]",
             (pathname.startsWith("/app/settings") || pathname.startsWith("/app/emails") || pathname.startsWith("/app/payouts") || pathname.startsWith("/app/analytics")) && "!hidden"
           )}
         >
-          <div className="relative shrink-0 w-8 h-8 md:w-[37px] md:h-[37px]">
-            <div className="md:hidden">
-              <SetupProgressCircle progress={setupProgressPercent} size={32} />
-            </div>
-            <div className="hidden md:block">
-              <SetupProgressCircle progress={setupProgressPercent} size={37} />
-            </div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[8px] md:text-[9px] font-bold text-violet-600">{setupProgressPercent}%</span>
-            </div>
-          </div>
-          <span className="text-[11px] md:text-[12px] font-semibold text-neutral-700 whitespace-nowrap">Setup</span>
+          <SetupProgressCircle progress={setupProgressPercent} size={20} strokeWidth={2.5} />
+          <span className="font-medium text-[#374151] whitespace-nowrap">Setup</span>
+          <span className="font-medium tabular-nums text-violet-600">{setupProgressPercent}%</span>
         </button>
       )}
 

@@ -116,7 +116,7 @@ function EditorQuestion({
   if (isPhone) {
     return (
       <BottomSheet isOpen={open} onClose={onClose} label={label} hideFrom="md">
-        <div className="pb-[max(env(safe-area-inset-bottom),12px)]">{children}</div>
+        {children}
       </BottomSheet>
     )
   }

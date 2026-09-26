@@ -229,6 +229,19 @@ type Profile = {
   is_creator?: boolean | null
 }
 
+/** True below 768px, the width from which the header stops drawing its phone buttons. */
+function useBelowMd(): boolean {
+  const [below, setBelow] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)")
+    const on = () => setBelow(mq.matches)
+    on()
+    mq.addEventListener("change", on)
+    return () => mq.removeEventListener("change", on)
+  }, [])
+  return below
+}
+
 /**
  * ===========================================================================
  *  THE PHONE MENU AND THE ACCOUNT SHEET ARE THE APP'S ONE SHEET
@@ -254,6 +267,7 @@ function MobileBottomSheet({
   contentKey,
   fill = false,
   height,
+  keepMounted = false,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -264,6 +278,8 @@ function MobileBottomSheet({
   fill?: boolean
   /** A fixed height, so a list that changes level does not move the top edge. */
   height?: string
+  /** Built while the page is idle and kept, as the app's account sheet is: the tap only slides it up. */
+  keepMounted?: boolean
 }) {
   return (
     <BottomSheet
@@ -277,6 +293,7 @@ function MobileBottomSheet({
       maxHeight={height ?? "min(74dvh, 720px)"}
       className="rounded-t-[24px]"
       scrollKey={contentKey ?? "default"}
+      keepMounted={keepMounted}
     >
       {children}
     </BottomSheet>
@@ -481,6 +498,8 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
+  /* Below 768px, where the header opens sheets rather than dropdowns. */
+  const belowMd = useBelowMd()
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
@@ -1989,10 +2008,18 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
         )}
       </MobileBottomSheet>
 
-      {/* Mobile Profile Bottom Sheet with swipe-to-close */}
+      {/*
+        The account sheet, the one a signed in visitor opens from their photo.
+        It is a menu with nothing typed into it and nothing that changes
+        between opens, so it is built while the page is idle and kept, as the
+        app's own account sheet is (components/app/mobile-account-menu.tsx):
+        the tap that opens it only slides it up. On a phone only, where the
+        header draws the button that opens it.
+      */}
       <MobileBottomSheet
         isOpen={mobileProfileOpen}
         onClose={() => setMobileProfileOpen(false)}
+        keepMounted={!!user && belowMd}
       >
         <div className="px-4 pb-6">
           {/* User Info */}

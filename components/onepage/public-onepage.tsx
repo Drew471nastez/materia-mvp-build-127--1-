@@ -33,6 +33,7 @@ import { ExtraBlock, SensitiveLinkQuestion } from "@/components/onepage/extra-bl
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
 import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 
@@ -1246,6 +1247,23 @@ interface PublicOnePageProps {
   }
 }
 
+/**
+ * True below 640px, where the music and checkout panels are the shared sheet.
+ * Its own few lines rather than the app's (components/ui/choice-list), which
+ * would bring the app's pickers into a visitor's page.
+ */
+function usePhoneWidth(): boolean {
+  const [phone, setPhone] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)")
+    const on = () => setPhone(mq.matches)
+    on()
+    mq.addEventListener("change", on)
+    return () => mq.removeEventListener("change", on)
+  }, [])
+  return phone
+}
+
 export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const {
     title,
@@ -1281,6 +1299,9 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  /* Below 640px the music and checkout panels are the shared sheet (see THE SPOTIFY, APPLE MUSIC below). */
+  const isPhone = usePhoneWidth()
 
   // Spotify modal state - lifted to root level to prevent clipping in groups
   const [spotifyModalOpen, setSpotifyModalOpen] = useState(false)
@@ -1807,6 +1828,277 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     </div>
   )
 
+  /*
+    THE SPOTIFY, APPLE MUSIC AND FREE CHECKOUT SHEETS. On a phone each was a
+    panel that animated up with a class, could not be dragged, and vanished
+    on the frame it was closed. Under 640px they are the shared sheet now
+    (components/ui/bottom-sheet.tsx): the same rise, the same drag and flick,
+    the same slide out as the sheets in the app. From 640px they are the
+    centred dialogs they were. What is inside is written once, below, and
+    drawn in either; a close button in it hands the close to the sheet on a
+    phone (`data-sheet-close`), so the slide starts before the page renders.
+    Each takes its data as an argument of the same name, already known to be
+    there.
+  */
+  type SpotifyData = NonNullable<typeof spotifyModalData>
+  const spotifyBody = (spotifyModalData: SpotifyData) => (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between p-3 border-b">
+        <div className="flex items-center gap-2">
+          <svg className="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+          </svg>
+          <span className="text-sm font-medium text-gray-600 truncate max-w-[220px]">
+            {spotifyModalData.title}
+          </span>
+        </div>
+        <button
+          data-sheet-close=""
+          onClick={isPhone ? undefined : () => setSpotifyModalOpen(false)}
+          className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+        >
+          <X className="w-4 h-4 text-gray-500" />
+        </button>
+      </div>
+
+      {/* Spotify Embed - responsive height */}
+      <div className="p-3">
+        <div className="w-full overflow-hidden rounded-xl bg-black/5" style={{ aspectRatio: '1 / 0.85', maxHeight: '352px' }}>
+          <iframe
+            src={spotifyModalData.embedUrl}
+            width="100%"
+            height="100%"
+            frameBorder="0"
+            scrolling="no"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+            className="block w-full h-full"
+          />
+        </div>
+      </div>
+
+      {/* Streaming Services - text only, no icons */}
+      {spotifyModalData.spotifyMode === 'show_streaming' && spotifyModalData.streamingServices && spotifyModalData.streamingServices.filter(s => s.found && s.url).length > 0 && (
+        <div className="px-3 pb-3">
+          <p className="text-xs font-medium text-gray-700 mb-2">Listen on</p>
+          <div className="space-y-1.5">
+            {spotifyModalData.streamingServices.filter(s => s.found && s.url).map((service) => {
+              const names: Record<string, string> = {
+                apple_music: 'Apple Music',
+                youtube_music: 'YouTube Music',
+                spotify: 'Spotify',
+                youtube: 'YouTube',
+                itunes: 'iTunes',
+                soundcloud: 'SoundCloud',
+                tidal: 'TIDAL',
+                deezer: 'Deezer',
+                amazon_music: 'Amazon Music'
+              }
+              return (
+                <a
+                  key={service.platform}
+                  href={service.url || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+                >
+                  <span className="text-sm font-medium text-gray-900">{names[service.platform] || service.platform}</span>
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Open in Spotify button */}
+      <div className="p-3 pt-0">
+        <a
+          href={spotifyModalData.spotifyUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block w-full py-2.5 px-4 rounded-full bg-black text-white text-center text-sm font-medium hover:bg-gray-800 transition-colors"
+        >
+          Open in Spotify
+        </a>
+      </div>
+    </>
+  )
+
+  type AppleMusicData = NonNullable<typeof appleMusicModalData>
+  const appleMusicBody = (appleMusicModalData: AppleMusicData) => (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between p-3 border-b">
+        <div className="flex items-center gap-2">
+          <svg className="w-5 h-5" viewBox="0 0 512 512">
+            <defs>
+              <linearGradient id="am-public-modal-grad" x1="0.5" y1="0.99" x2="0.5" y2="0.02">
+                <stop offset="0" stopColor="#FA233B"/>
+                <stop offset="1" stopColor="#FB5C74"/>
+              </linearGradient>
+            </defs>
+            <path fill="url(#am-public-modal-grad)" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
+          </svg>
+          <span className="text-sm font-medium text-gray-600 truncate max-w-[220px]">
+            {appleMusicModalData.title}
+          </span>
+        </div>
+        <button
+          data-sheet-close=""
+          onClick={isPhone ? undefined : () => setAppleMusicModalOpen(false)}
+          className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+        >
+          <X className="w-4 h-4 text-gray-500" />
+        </button>
+      </div>
+
+      {/* Apple Music Embed - responsive */}
+      <div className="p-3">
+        <div className="w-full overflow-hidden rounded-xl bg-black/5" style={{ aspectRatio: '1 / 0.88', maxHeight: '360px' }}>
+          <iframe
+            src={appleMusicModalData.embedUrl}
+            width="100%"
+            height="100%"
+            frameBorder="0"
+            scrolling="no"
+            allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
+            sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+            loading="lazy"
+            className="block w-full h-full"
+            style={{ overflow: 'hidden', background: 'transparent' }}
+          />
+        </div>
+      </div>
+
+      {/* Open in Apple Music button */}
+      <div className="p-3 pt-0">
+        <a
+          href={appleMusicModalData.appleMusicUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block w-full py-2.5 px-4 rounded-full bg-gradient-to-r from-[#FA233B] to-[#FB5C74] text-white text-center text-sm font-medium hover:opacity-90 transition-opacity"
+        >
+          Open in Apple Music
+        </a>
+      </div>
+    </>
+  )
+
+  type QuickCheckoutData = NonNullable<typeof quickCheckoutModalData>
+  const quickCheckoutBody = (quickCheckoutModalData: QuickCheckoutData) => (
+    <>
+      {/* Close button */}
+      <button
+        data-sheet-close=""
+        onClick={isPhone ? undefined : () => setQuickCheckoutModalOpen(false)}
+        className="absolute top-3 right-3 z-10 p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+      >
+        <X className="w-4 h-4 text-gray-600" />
+      </button>
+
+      {/* Product Header */}
+      <div className="p-5 pb-4 border-b bg-gradient-to-b from-gray-50 to-white shrink-0">
+        <div className="flex items-center gap-3">
+          {quickCheckoutModalData.productThumbnail && (
+            <img
+              src={quickCheckoutModalData.productThumbnail}
+              alt={quickCheckoutModalData.productTitle}
+              className="w-14 h-14 rounded-xl object-cover shadow-sm"
+            />
+          )}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-gray-900 truncate text-lg">
+              {quickCheckoutModalData.productTitle}
+            </h3>
+            <p className="text-sm text-green-600 font-medium">Free</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-5 overflow-y-auto flex-1">
+        {quickCheckoutStep === 'form' && (
+          <QuickCheckoutFormContent
+            ctaText={quickCheckoutModalData.ctaText}
+            sellerName={sellerName}
+            error={quickCheckoutError}
+            onSubmit={handleQuickCheckoutSubmit}
+          />
+        )}
+
+        {quickCheckoutStep === 'loading' && (
+          <div className="py-12 flex flex-col items-center justify-center animate-in fade-in duration-200">
+            <div className="relative">
+              <Loader2 className="w-12 h-12 text-[#1a1a2e] animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <ShoppingBag className="w-5 h-5 text-[#1a1a2e]" />
+              </div>
+            </div>
+            <p className="mt-4 text-sm text-gray-600 font-medium">Processing your order...</p>
+            <p className="mt-1 text-xs text-gray-400">This will only take a moment</p>
+          </div>
+        )}
+
+        {quickCheckoutStep === 'success' && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            {/* Success Header */}
+            <div className="text-center mb-5">
+              <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Check className="w-7 h-7 text-green-600" />
+              </div>
+              <h4 className="font-semibold text-gray-900 text-lg">You're all set!</h4>
+              <p className="text-sm text-gray-500 mt-1">Your download is ready</p>
+            </div>
+
+            {/* Downloads */}
+            {quickCheckoutAssets.length > 0 && (
+              <div className="space-y-2 mb-4">
+                {quickCheckoutAssets.map((asset) => (
+                  <button
+                    key={asset.id}
+                    onClick={() => handleQuickCheckoutDownload(asset)}
+                    className="w-full flex items-center gap-3 p-3.5 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors group"
+                  >
+                    <div className="w-10 h-10 bg-[#f1f2f4] rounded-lg flex items-center justify-center group-hover:bg-[#e8e9ec] transition-colors">
+                      <Download className="w-5 h-5 text-[#1a1a2e]" />
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="font-medium text-gray-900 text-sm truncate">{asset.file_name}</p>
+                      <p className="text-xs text-gray-500">Click to download</p>
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-[#4b5563] transition-colors" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {quickCheckoutAssets.length === 0 && (
+              <div className="text-center py-4 mb-4 bg-gray-50 rounded-xl">
+                <p className="text-sm text-gray-500">Check your email for download instructions</p>
+              </div>
+            )}
+
+            <p className="text-xs text-gray-400 text-center">
+              A confirmation email has been sent to {quickCheckoutFormData.email}
+            </p>
+
+            <button
+              data-sheet-close=""
+              onClick={isPhone ? undefined : () => setQuickCheckoutModalOpen(false)}
+              className="w-full mt-4 py-3 sm:py-2.5 px-4 rounded-xl border border-gray-200 text-gray-600 font-medium text-sm hover:bg-gray-50 transition-colors mb-4 sm:mb-0"
+            >
+              Close
+            </button>
+          </div>
+        )}
+      </div>
+    </>
+  )
+
   return (
     <ModalVisibilityContext.Provider value={modalVisibilityContextValue}>
     <SpotifyModalContext.Provider value={spotifyModalContextValue}>
@@ -2103,7 +2395,17 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       </div>
       
       {/* Spotify Modal - clean, compact, responsive design */}
-      {spotifyModalOpen && spotifyModalData && (
+      {isPhone ? (
+        <BottomSheet
+          isOpen={spotifyModalOpen && !!spotifyModalData}
+          onClose={() => setSpotifyModalOpen(false)}
+          label={spotifyModalData?.title ?? "Spotify"}
+          hideFrom="sm"
+          maxHeight="90svh"
+        >
+          {spotifyModalData && spotifyBody(spotifyModalData)}
+        </BottomSheet>
+      ) : spotifyModalOpen && spotifyModalData && (
         <div
           className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300 ease-out"
           style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
@@ -2114,93 +2416,23 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                </svg>
-                <span className="text-sm font-medium text-gray-600 truncate max-w-[220px]">
-                  {spotifyModalData.title}
-                </span>
-              </div>
-              <button
-                onClick={() => setSpotifyModalOpen(false)}
-                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
-              >
-                <X className="w-4 h-4 text-gray-500" />
-              </button>
-            </div>
-
-            {/* Spotify Embed - responsive height */}
-            <div className="p-3">
-              <div className="w-full overflow-hidden rounded-xl bg-black/5" style={{ aspectRatio: '1 / 0.85', maxHeight: '352px' }}>
-                <iframe
-                  src={spotifyModalData.embedUrl}
-                  width="100%"
-                  height="100%"
-                  frameBorder="0"
-                  scrolling="no"
-                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                  loading="lazy"
-                  className="block w-full h-full"
-                />
-              </div>
-            </div>
-
-            {/* Streaming Services - text only, no icons */}
-            {spotifyModalData.spotifyMode === 'show_streaming' && spotifyModalData.streamingServices && spotifyModalData.streamingServices.filter(s => s.found && s.url).length > 0 && (
-              <div className="px-3 pb-3">
-                <p className="text-xs font-medium text-gray-700 mb-2">Listen on</p>
-                <div className="space-y-1.5">
-                  {spotifyModalData.streamingServices.filter(s => s.found && s.url).map((service) => {
-                    const names: Record<string, string> = {
-                      apple_music: 'Apple Music',
-                      youtube_music: 'YouTube Music',
-                      spotify: 'Spotify',
-                      youtube: 'YouTube',
-                      itunes: 'iTunes',
-                      soundcloud: 'SoundCloud',
-                      tidal: 'TIDAL',
-                      deezer: 'Deezer',
-                      amazon_music: 'Amazon Music'
-                    }
-                    return (
-                      <a
-                        key={service.platform}
-                        href={service.url || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-between p-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
-                      >
-                        <span className="text-sm font-medium text-gray-900">{names[service.platform] || service.platform}</span>
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                        </svg>
-                      </a>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Open in Spotify button */}
-            <div className="p-3 pt-0">
-              <a
-                href={spotifyModalData.spotifyUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full py-2.5 px-4 rounded-full bg-black text-white text-center text-sm font-medium hover:bg-gray-800 transition-colors"
-              >
-                Open in Spotify
-              </a>
-            </div>
+            {spotifyBody(spotifyModalData)}
           </div>
         </div>
       )}
 
       {/* Apple Music Modal - clean, compact, responsive design */}
-      {appleMusicModalOpen && appleMusicModalData && (
+      {isPhone ? (
+        <BottomSheet
+          isOpen={appleMusicModalOpen && !!appleMusicModalData}
+          onClose={() => setAppleMusicModalOpen(false)}
+          label={appleMusicModalData?.title ?? "Apple Music"}
+          hideFrom="sm"
+          maxHeight="90svh"
+        >
+          {appleMusicModalData && appleMusicBody(appleMusicModalData)}
+        </BottomSheet>
+      ) : appleMusicModalOpen && appleMusicModalData && (
         <div
           className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300 ease-out"
           style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
@@ -2211,65 +2443,25 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5" viewBox="0 0 512 512">
-                  <defs>
-                    <linearGradient id="am-public-modal-grad" x1="0.5" y1="0.99" x2="0.5" y2="0.02">
-                      <stop offset="0" stopColor="#FA233B"/>
-                      <stop offset="1" stopColor="#FB5C74"/>
-                    </linearGradient>
-                  </defs>
-                  <path fill="url(#am-public-modal-grad)" d="M199 359V199q0-9 10-11l138-28q11-2 12 10v122q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69V88s0-20-17-15l-170 35s-13 2-13 18v203q0 15-45 20c-57 9-48 105 30 79 30-11 35-40 35-69"/>
-                </svg>
-                <span className="text-sm font-medium text-gray-600 truncate max-w-[220px]">
-                  {appleMusicModalData.title}
-                </span>
-              </div>
-              <button
-                onClick={() => setAppleMusicModalOpen(false)}
-                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
-              >
-                <X className="w-4 h-4 text-gray-500" />
-              </button>
-            </div>
-
-            {/* Apple Music Embed - responsive */}
-            <div className="p-3">
-              <div className="w-full overflow-hidden rounded-xl bg-black/5" style={{ aspectRatio: '1 / 0.88', maxHeight: '360px' }}>
-                <iframe
-                  src={appleMusicModalData.embedUrl}
-                  width="100%"
-                  height="100%"
-                  frameBorder="0"
-                  scrolling="no"
-                  allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
-                  sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-                  loading="lazy"
-                  className="block w-full h-full"
-                  style={{ overflow: 'hidden', background: 'transparent' }}
-                />
-              </div>
-            </div>
-
-            {/* Open in Apple Music button */}
-            <div className="p-3 pt-0">
-              <a
-                href={appleMusicModalData.appleMusicUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full py-2.5 px-4 rounded-full bg-gradient-to-r from-[#FA233B] to-[#FB5C74] text-white text-center text-sm font-medium hover:opacity-90 transition-opacity"
-              >
-                Open in Apple Music
-              </a>
-            </div>
+            {appleMusicBody(appleMusicModalData)}
           </div>
         </div>
       )}
 
       {/* Quick Checkout Modal */}
-      {quickCheckoutModalOpen && quickCheckoutModalData && (
+      {isPhone ? (
+        <BottomSheet
+          isOpen={quickCheckoutModalOpen && !!quickCheckoutModalData}
+          onClose={() => setQuickCheckoutModalOpen(false)}
+          label={quickCheckoutModalData?.productTitle ?? "Get it free"}
+          hideFrom="sm"
+          fill
+          aboveKeyboard
+          maxHeight="90svh"
+        >
+          {quickCheckoutModalData && <div className="relative flex min-h-0 flex-1 flex-col">{quickCheckoutBody(quickCheckoutModalData)}</div>}
+        </BottomSheet>
+      ) : quickCheckoutModalOpen && quickCheckoutModalData && (
         <div
           className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={() => setQuickCheckoutModalOpen(false)}
@@ -2282,109 +2474,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             className="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[90vh] sm:max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close button */}
-            <button
-              onClick={() => setQuickCheckoutModalOpen(false)}
-              className="absolute top-3 right-3 z-10 p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-            >
-              <X className="w-4 h-4 text-gray-600" />
-            </button>
-
-            {/* Product Header */}
-            <div className="p-5 pb-4 border-b bg-gradient-to-b from-gray-50 to-white shrink-0">
-              <div className="flex items-center gap-3">
-                {quickCheckoutModalData.productThumbnail && (
-                  <img
-                    src={quickCheckoutModalData.productThumbnail}
-                    alt={quickCheckoutModalData.productTitle}
-                    className="w-14 h-14 rounded-xl object-cover shadow-sm"
-                  />
-                )}
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 truncate text-lg">
-                    {quickCheckoutModalData.productTitle}
-                  </h3>
-                  <p className="text-sm text-green-600 font-medium">Free</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-5 overflow-y-auto flex-1">
-              {quickCheckoutStep === 'form' && (
-                <QuickCheckoutFormContent
-                  ctaText={quickCheckoutModalData.ctaText}
-                  sellerName={sellerName}
-                  error={quickCheckoutError}
-                  onSubmit={handleQuickCheckoutSubmit}
-                />
-              )}
-
-              {quickCheckoutStep === 'loading' && (
-                <div className="py-12 flex flex-col items-center justify-center animate-in fade-in duration-200">
-                  <div className="relative">
-                    <Loader2 className="w-12 h-12 text-[#1a1a2e] animate-spin" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <ShoppingBag className="w-5 h-5 text-[#1a1a2e]" />
-                    </div>
-                  </div>
-                  <p className="mt-4 text-sm text-gray-600 font-medium">Processing your order...</p>
-                  <p className="mt-1 text-xs text-gray-400">This will only take a moment</p>
-                </div>
-              )}
-
-              {quickCheckoutStep === 'success' && (
-                <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  {/* Success Header */}
-                  <div className="text-center mb-5">
-                    <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <Check className="w-7 h-7 text-green-600" />
-                    </div>
-                    <h4 className="font-semibold text-gray-900 text-lg">You're all set!</h4>
-                    <p className="text-sm text-gray-500 mt-1">Your download is ready</p>
-                  </div>
-
-                  {/* Downloads */}
-                  {quickCheckoutAssets.length > 0 && (
-                    <div className="space-y-2 mb-4">
-                      {quickCheckoutAssets.map((asset) => (
-                        <button
-                          key={asset.id}
-                          onClick={() => handleQuickCheckoutDownload(asset)}
-                          className="w-full flex items-center gap-3 p-3.5 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors group"
-                        >
-                          <div className="w-10 h-10 bg-[#f1f2f4] rounded-lg flex items-center justify-center group-hover:bg-[#e8e9ec] transition-colors">
-                            <Download className="w-5 h-5 text-[#1a1a2e]" />
-                          </div>
-                          <div className="flex-1 min-w-0 text-left">
-                            <p className="font-medium text-gray-900 text-sm truncate">{asset.file_name}</p>
-                            <p className="text-xs text-gray-500">Click to download</p>
-                          </div>
-                          <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-[#4b5563] transition-colors" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {quickCheckoutAssets.length === 0 && (
-                    <div className="text-center py-4 mb-4 bg-gray-50 rounded-xl">
-                      <p className="text-sm text-gray-500">Check your email for download instructions</p>
-                    </div>
-                  )}
-
-                  <p className="text-xs text-gray-400 text-center">
-                    A confirmation email has been sent to {quickCheckoutFormData.email}
-                  </p>
-
-                  <button
-                    onClick={() => setQuickCheckoutModalOpen(false)}
-                    className="w-full mt-4 py-3 sm:py-2.5 px-4 rounded-xl border border-gray-200 text-gray-600 font-medium text-sm hover:bg-gray-50 transition-colors mb-4 sm:mb-0"
-                  >
-                    Close
-                  </button>
-                </div>
-              )}
-            </div>
+            {quickCheckoutBody(quickCheckoutModalData)}
           </div>
         </div>
       )}

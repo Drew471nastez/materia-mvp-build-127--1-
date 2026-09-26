@@ -68,8 +68,13 @@ const SETUP: Fixture = { hasProduct: true, hasPayouts: true, websitePublished: t
 
 function main() {
   console.log("\nwhere the store is")
-  check("signed up and nothing else: payouts first, then the first product",
-    same(ids(state()), ["payouts", "first-product"]), ids(state()))
+  /* "make sure for a new account or profile the announcements in the banner are really good and actually make sense." */
+  check("signed up and nothing else: the welcome, then payouts and the first product, then what the builder does",
+    same(ids(state()), ["welcome", "payouts", "first-product", "builder-intro"]), ids(state()))
+  check("the welcome says the three steps and opens the guide that walks them",
+    find(state(), "welcome")?.action === "guide" && /A product, Stripe, then your link\./.test(find(state(), "welcome")!.line))
+  check("and it goes once anything is done: a product, or payouts",
+    !ids(state({ hasProduct: true })).includes("welcome") && !ids(state({ hasPayouts: true })).includes("welcome") && !ids(state({ hasProduct: true })).includes("builder-intro"))
   check("a product and no payouts: payouts, then the website",
     same(ids(state({ hasProduct: true })), ["payouts", "website"]))
   check("payouts is critical and says checkout is closed once there is a product",
@@ -174,8 +179,8 @@ function main() {
   check("no payments: the card's next step leads", noPay.nextStep === "payments" && ids(noPay)[0] === "payouts", ids(noPay))
   /* Nothing yet: the card says "Add your first product", ahead of Stripe's usual first place. */
   const fresh = fromFacts(facts(), none, "free", true)
-  check("nothing yet: the first product leads, as on the card", fresh.nextStep === "product" && same(ids(fresh).slice(0, 2), ["first-product", "payouts"]), ids(fresh))
-  check("the guide unopened leads nothing: the usual order", ids(fromFacts(facts({ guideOpened: false }), none, "free", true))[0] === "payouts")
+  check("nothing yet: the welcome, then the first product, as on the card", fresh.nextStep === "product" && same(ids(fresh).slice(0, 3), ["welcome", "first-product", "payouts"]), ids(fresh))
+  check("the guide unopened leads nothing: the usual order, the welcome and then payouts", same(ids(fromFacts(facts({ guideOpened: false }), none, "free", true)).slice(0, 2), ["welcome", "payouts"]))
   const siteNext = fromFacts(facts({ products: 1, paymentsReady: true }), none, "free", true)
   check("no website: the website leads, share after it", siteNext.nextStep === "store" && same(ids(siteNext).slice(0, 2), ["website", "share"]), ids(siteNext))
   const newsFirst = fromFacts(facts({ products: 1, paymentsReady: true, websiteLive: true, pro: true, sales: 42 }), salesSummary([...Array.from({ length: 38 }, (_, i) => order(9 + i, 2500)), order(3, 2500), order(2, 2500), order(1, 2500)], NOW), "growth", true)

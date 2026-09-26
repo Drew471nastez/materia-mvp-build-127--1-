@@ -36,14 +36,13 @@
 
 import * as React from "react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
-import { ArrowRight, Check, Copy, Eye, Link2, MonitorSmartphone, Share } from "lucide-react"
+import { ArrowRight, Check, Copy, ExternalLink, Eye, Globe, Link2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
-import { StorelibMark } from "@/components/storelib-mark"
 import { openExternal } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
-import { StorelibVioletS } from "./storelib-share-marks"
+import { StorelibGlyph } from "./storelib-share-marks"
 import { type ConnectedPlatform, type ShareAddress, type ShareSurface } from "./share-data"
 
 /* The sheet's own curve (components/ui/bottom-sheet SHEET_EASE), so the panel opens the way the sheet moves. */
@@ -85,18 +84,41 @@ function FadeText({ text, className }: { text: string; className?: string }) {
 }
 
 /**
- * A light grey pill with almost no depth: the Storelib S in flat violet, the
- * address in a very dark grey, and the share glyph. On a phone, where the
- * address has no room, it is an eye and "View", and opens the same sheet.
+ * The handle the desktop pill shows: "@andrewrullz" from
+ * storelib.com/andrewrullz, the creator page's last path segment. An address
+ * with no path (a domain of its own) is shown as it is, without an @.
+ */
+export function pillHandle(addresses: ShareAddress[]): string {
+  const a = addresses.find((x) => x.surface === "creator") ?? addresses[0]
+  if (!a) return ""
+  const parts = a.display.split("/").filter(Boolean)
+  return parts.length > 1 ? `@${parts[parts.length - 1]}` : a.display
+}
+
+/**
+ * THE PILL, TWO WAYS.
+ *
+ * On a computer, the one it was before: "@username" and the open glyph on a
+ * white pill with a hairline border and a thin violet light running round
+ * its edge. "How it was before ... add just a little bit depth to it, an
+ * extremely little bit": a line of light along its top and a one pixel
+ * shadow under it, nothing more.
+ *
+ * On a phone, where there is no room for a name, an eye and "View" on a
+ * light grey pill with a little more depth than before: lit along its top,
+ * a touch deeper at its foot and a soft shadow under it, so it reads as
+ * something to press.
  */
 export const SharePill = React.memo(function SharePill({
   display,
+  handle,
   onOpen,
   size = "md",
   expanded,
   className,
 }: {
   display: string
+  handle?: string
   onOpen: () => void
   size?: "md" | "sm"
   expanded?: boolean
@@ -114,19 +136,30 @@ export const SharePill = React.memo(function SharePill({
       title={display}
       data-share-pill={md ? "address" : "view"}
       className={cn(
-        "inline-flex h-9 min-w-0 max-w-full cursor-pointer select-none items-center rounded-full bg-[#f4f4f6] text-[#1f1f23] outline-none ring-1 ring-black/[0.04]",
-        "transition-[background-color] duration-150 hover:bg-[#ececef] active:bg-[#e6e6ea] data-open:bg-[#e9e9ec]",
+        "relative inline-flex min-w-0 max-w-full cursor-pointer select-none items-center rounded-full outline-none",
         "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]",
         "[-webkit-tap-highlight-color:transparent]",
-        md ? "gap-2 pl-3 pr-2.5 text-[13.5px]" : "gap-1.5 px-3.5 text-[13.5px]",
+        md
+          ? cn(
+              "h-8 gap-1.5 overflow-hidden border border-[#e5e7eb] bg-white px-3 text-[12.5px] font-medium text-[#4b5563]",
+              "shadow-[inset_0_1px_0_rgba(255,255,255,1),0_1px_1px_rgba(16,24,40,0.04)]",
+              "transition-[color,border-color,background-color] duration-150 hover:border-[#d1d5db] hover:text-[#111827] data-open:border-[#d1d5db] data-open:text-[#111827]",
+            )
+          : cn(
+              "h-9 gap-1.5 bg-[#f4f4f6] bg-[linear-gradient(180deg,#f8f8fa_0%,#f0f0f3_100%)] px-3.5 text-[13.5px] font-medium text-[#1f1f23] ring-1 ring-black/[0.06]",
+              "shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_-1px_0_rgba(0,0,0,0.05),0_1px_2px_rgba(16,24,40,0.07),0_2px_6px_-2px_rgba(16,24,40,0.08)]",
+              "transition-[background-color,box-shadow] duration-150 active:bg-[#e8e8ec] active:bg-none active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] data-open:bg-[#ececef] data-open:bg-none",
+            ),
         className,
       )}
     >
       {md ? (
         <>
-          <StorelibVioletS flat size={16} className="shrink-0" />
-          <FadeText text={display} className="font-medium tracking-[-0.005em]" />
-          <Share className="h-4 w-4 shrink-0 text-[#3a3a40]" strokeWidth={1.8} aria-hidden />
+          {/* The light running round its edge, as it was: a quarter turn of violet in a slow spin, under a white inner pill. */}
+          <span aria-hidden className="pointer-events-none absolute -inset-px rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(139,92,246,0.30)_320deg,transparent_360deg)] opacity-45 animate-[spin_12s_linear_infinite] motion-reduce:animate-none" />
+          <span aria-hidden className="pointer-events-none absolute inset-px rounded-full bg-white/95" />
+          <FadeText text={handle || display} className="relative tracking-[-0.005em]" />
+          <ExternalLink className="relative h-3.5 w-3.5 shrink-0 text-[#9ca3af]" strokeWidth={2} aria-hidden />
         </>
       ) : (
         <>
@@ -183,24 +216,42 @@ function useCopy() {
 /* ─── Quick access ────────────────────────────────────────────────────── */
 
 /**
- * The mark each address starts with: the Storelib logo for the creator page,
- * the OnePage's violet link, the website's dark screen. The same three the
- * Quick access panel had, drawn inline so there is no request and no layout
- * shift when it opens.
+ * The mark each address starts with, three circles with the same light and
+ * shade (lit along the top, a hairline ring inside the edge, a darker foot
+ * and a soft shadow in their own colour): the white Storelib S on the logo's
+ * violet for the creator page, the link on a brighter violet gradient for
+ * the OnePage, and a plain globe on near black for the website. "The
+ * website's looks too complex" (it was a screen and a phone), "the creator
+ * page should be a circle with the Storelib logo", "the OnePage ... more
+ * depth and more gradient". Drawn inline: no request, no layout shift.
  */
+const MARK: Record<ShareSurface, { fill: string; shade: string }> = {
+  creator: { fill: "linear-gradient(180deg,#9a6bfb 0%,#8b56fa 55%,#7a45ea 100%)", shade: "76,29,149" },
+  onepage: { fill: "linear-gradient(160deg,#b89bff 0%,#8b5cf6 48%,#6d3ae6 100%)", shade: "76,29,149" },
+  website: { fill: "linear-gradient(180deg,#34344a 0%,#1a1a2e 60%,#121222 100%)", shade: "15,15,30" },
+}
+
 function SurfaceMark({ surface, size }: { surface: ShareSurface; size: number }) {
-  if (surface === "creator") return <StorelibMark className="block shrink-0" />
-  const glyph = Math.round(size * 0.5)
+  const { fill, shade } = MARK[surface] ?? MARK.website
+  const glyph = Math.round(size * 0.46)
   return (
     <span
       aria-hidden
-      className={cn("grid shrink-0 place-items-center rounded-full", surface === "onepage" ? "bg-[#8b5cf6]" : "bg-[#1a1a2e]")}
-      style={{ width: size, height: size }}
+      data-mark={surface}
+      className="grid shrink-0 place-items-center rounded-full"
+      style={{
+        width: size,
+        height: size,
+        backgroundImage: fill,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.34), inset 0 0 0 1px rgba(${shade},0.18), inset 0 -1.5px 0 rgba(${shade},0.3), 0 1px 2px rgba(${shade},0.26), 0 3px 8px -3px rgba(${shade},0.32)`,
+      }}
     >
-      {surface === "onepage" ? (
-        <Link2 className="text-white" style={{ width: glyph, height: glyph }} strokeWidth={2.25} />
+      {surface === "creator" ? (
+        <StorelibGlyph size={Math.round(size * 0.5)} className="text-white" style={{ filter: `drop-shadow(0 0.5px 0.5px rgba(${shade},0.4))` }} />
+      ) : surface === "onepage" ? (
+        <Link2 className="text-white" style={{ width: glyph, height: glyph, filter: `drop-shadow(0 0.5px 0.5px rgba(${shade},0.4))` }} strokeWidth={2.4} />
       ) : (
-        <MonitorSmartphone className="text-white" style={{ width: glyph, height: glyph }} strokeWidth={2} />
+        <Globe className="text-white" style={{ width: glyph, height: glyph }} strokeWidth={2} />
       )}
     </span>
   )
@@ -370,6 +421,7 @@ export const ShareStorelib = React.memo(function ShareStorelib({
   }, [phone])
 
   if (!addresses[0]) return null
+  const handle = pillHandle(addresses)
 
   const rows = (asPhone: boolean) => (
     <div className={asPhone ? "space-y-2 px-4 pb-5 pt-3" : "p-1.5 pt-0"}>
@@ -387,7 +439,7 @@ export const ShareStorelib = React.memo(function ShareStorelib({
       <PopoverPrimitive.Root open={panelOpen} onOpenChange={(next) => !next && close()}>
         <PopoverPrimitive.Anchor asChild>
           <span ref={anchorRef} className={cn("inline-flex min-w-0 max-w-full", className)}>
-            <SharePill size={size} display={addresses[0].display} expanded={open} onOpen={toggle} />
+            <SharePill size={size} display={addresses[0].display} handle={handle} expanded={open} onOpen={toggle} />
           </span>
         </PopoverPrimitive.Anchor>
         <PopoverPrimitive.Portal>

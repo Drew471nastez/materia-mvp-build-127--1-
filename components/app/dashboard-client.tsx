@@ -480,7 +480,6 @@ function PercentChangeIndicator({ current, previous }: { current: number; previo
  */
 type AnnouncementSlide = "upgrade" | "steps" | "payouts"
 const DURATION = 15000
-const FADE_MS = 320
 
 const AnnouncementBar = memo(function AnnouncementBar({
   slides,
@@ -492,8 +491,19 @@ const AnnouncementBar = memo(function AnnouncementBar({
   totalSteps: number
 }) {
   const { t } = useLanguage()
+  /*
+    THE SLIDE SHOWING IS NAMED, NOT COUNTED. It was an index into `slides`
+    with a fade out, a swap and a fade in on the whole row: when the list
+    changed under it (a step done, payouts connected) the index pointed at
+    another slide with no fade at all, and on a phone the old words could
+    still be on screen as the new ones came in. Now every slide has its own
+    place in one grid cell, and the one leaving is gone (160ms) before the
+    one arriving starts (see .announce-slide in globals.css): two slides'
+    words are never on screen together.
+  */
+  const [currentId, setCurrentId] = useState<AnnouncementSlide>(slides[0])
+  const current = slides.includes(currentId) ? currentId : slides[0]
   const [announceCycle, setAnnounceCycle] = useState(0)
-  const [announceLeaving, setAnnounceLeaving] = useState(false)
   const [paused, setPaused] = useState(false)
   const barRef = useRef<HTMLDivElement>(null)
 
@@ -514,18 +524,11 @@ const AnnouncementBar = memo(function AnnouncementBar({
     }
   }, [])
 
-  /* The next slide is picked only after the last has faded out. */
-  useEffect(() => {
-    if (!announceLeaving) return
-    const swap = setTimeout(() => {
-      setAnnounceCycle((c) => c + 1)
-      setAnnounceLeaving(false)
-    }, FADE_MS)
-    return () => clearTimeout(swap)
-  }, [announceLeaving])
-
-  const announcementType = slides[announceCycle % slides.length]
-  const announcementVisible = !announceLeaving
+  const next = () => {
+    const i = slides.indexOf(current)
+    setCurrentId(slides[(i + 1) % slides.length])
+    setAnnounceCycle((c) => c + 1)
+  }
 
   /* Each new slide runs the same line's animation again from its start, and
      it ends again, which is what picks the slide after. Without the Web
@@ -550,12 +553,9 @@ const AnnouncementBar = memo(function AnnouncementBar({
             (components/app/announcement-bar-mobile). The black bar's rounded
             corners are drawn over its top corners (components/app/app-top-corners). */}
         <div className="py-[5px] px-4 md:py-1">
-          <div
-            className="max-w-[1200px] mx-auto flex h-7 md:h-8 items-center justify-center gap-2 md:gap-3 text-center whitespace-nowrap transition-opacity duration-300"
-            style={{ opacity: announcementVisible ? 1 : 0 }}
-          >
+          <div className="announce-stack max-w-[1200px] mx-auto grid h-7 md:h-8 text-center whitespace-nowrap">
             {slides.includes("upgrade") && (
-              <span hidden={announcementType !== "upgrade"} className="contents">
+              <div data-announce="upgrade" data-on={current === "upgrade" ? "" : undefined} inert={current !== "upgrade"} className="announce-slide flex items-center justify-center gap-2 md:gap-3">
                 <span className="text-[12px] md:text-[14px]">
                   <span className={STRIP_TITLE}>{t("dashboard.tryProFree")}</span>
                   <span className={`hidden md:inline ml-2 ${STRIP_TEXT}`}>{t("dashboard.proSubtitle")}</span>
@@ -563,10 +563,10 @@ const AnnouncementBar = memo(function AnnouncementBar({
                 <AppLink href="/app/settings/billing/upgrade" className={STRIP_ACTION}>
                   {t("dashboard.upgrade")}
                 </AppLink>
-              </span>
+              </div>
             )}
             {slides.includes("steps") && (
-              <span hidden={announcementType !== "steps"} className="contents">
+              <div data-announce="steps" data-on={current === "steps" ? "" : undefined} inert={current !== "steps"} className="announce-slide flex items-center justify-center gap-2 md:gap-3">
                 <span className="text-[12px] md:text-[14px]">
                   <span className={STRIP_TITLE}>{t("dashboard.completeSetup")}</span>
                   <span className={`md:hidden ml-1.5 ${STRIP_TEXT}`}>{completedSteps}/{totalSteps}</span>
@@ -575,10 +575,10 @@ const AnnouncementBar = memo(function AnnouncementBar({
                 <button onClick={bumpGettingStarted} className={STRIP_ACTION}>
                   {t("common.continue")}
                 </button>
-              </span>
+              </div>
             )}
             {slides.includes("payouts") && (
-              <span hidden={announcementType !== "payouts"} className="contents">
+              <div data-announce="payouts" data-on={current === "payouts" ? "" : undefined} inert={current !== "payouts"} className="announce-slide flex items-center justify-center gap-2 md:gap-3">
                 <span className="text-[12px] md:text-[14px]">
                   <span className={STRIP_TITLE}>{t("dashboard.getPaid")}</span>
                   <span className={`hidden md:inline ml-2 ${STRIP_TEXT}`}>{t("dashboard.connectPayoutsDesc")}</span>
@@ -586,7 +586,7 @@ const AnnouncementBar = memo(function AnnouncementBar({
                 <AppLink href="/app/settings?tab=payments" className={STRIP_ACTION}>
                   {t("common.connect")}
                 </AppLink>
-              </span>
+              </div>
             )}
           </div>
         </div>
@@ -600,7 +600,7 @@ const AnnouncementBar = memo(function AnnouncementBar({
               ref={lineRef}
               className="announce-progress h-full bg-[#8b5cf6]/40"
               style={{ animationDuration: `${DURATION}ms`, animationPlayState: paused ? "paused" : "running" }}
-              onAnimationEnd={() => setAnnounceLeaving(true)}
+              onAnimationEnd={next}
             />
           )}
         </div>
@@ -1372,7 +1372,7 @@ export function DashboardClient({
 
         {/* Dashboard Banner: what matters now for this store, beside the globe (components/app/home/home-banner) */}
         <div className="mb-8">
-          <HomeBanner facts={facts} planId={subscriptionPlanId} sales={bannerSales ?? NO_SALES} onShare={canShare ? openShare : undefined} />
+          <HomeBanner facts={facts} planId={subscriptionPlanId} sales={bannerSales ?? NO_SALES} onShare={canShare ? openShare : undefined} onGuide={openGuide} />
         </div>
 
         {/* Getting started, the guide and Your Plan (components/app/home/home-cards).
