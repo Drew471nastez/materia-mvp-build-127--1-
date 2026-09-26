@@ -24,6 +24,7 @@ import {
   Type,
   Blocks,
   Globe,
+  Sparkles,
 } from "lucide-react"
 import dynamic from "next/dynamic"
 
@@ -58,7 +59,7 @@ import { ShareStorelib } from "@/components/app/share/share-storelib"
 import { HomeCards, bumpGettingStarted } from "@/components/app/home/home-cards"
 import { QuickActions } from "@/components/app/home/quick-actions"
 import { AppLink } from "@/components/app/app-link"
-import { STRIP_ACTION, STRIP_TEXT, STRIP_TINT, STRIP_TITLE } from "@/components/app/announcement-bar-mobile"
+import { STRIP_ACTION, STRIP_SPARKLE, STRIP_TEXT, STRIP_TINT, STRIP_TITLE } from "@/components/app/announcement-bar-mobile"
 import { useHomeProgress } from "@/components/app/home/use-home-progress"
 import { HomeBanner } from "@/components/app/home/home-banner"
 import { NO_SALES, type SalesSummary } from "@/lib/home/announcements"
@@ -561,6 +562,7 @@ const AnnouncementBar = memo(function AnnouncementBar({
                   <span className={`hidden md:inline ml-2 ${STRIP_TEXT}`}>{t("dashboard.proSubtitle")}</span>
                 </span>
                 <AppLink href="/app/settings/billing/upgrade" className={STRIP_ACTION}>
+                  <Sparkles className={STRIP_SPARKLE} aria-hidden="true" />
                   {t("dashboard.upgrade")}
                 </AppLink>
               </div>
@@ -593,12 +595,12 @@ const AnnouncementBar = memo(function AnnouncementBar({
         {/* How long until the next slide. Each slide runs it again from the
             start; see "A NEW SLIDE PUTS NOTHING INTO THE PAGE". Its track is
             the strip's hairline. */}
-        <div className="h-[2px] bg-[#ede9fe] overflow-hidden">
+        <div className="h-[2px] bg-white/10 overflow-hidden">
           {slides.length > 1 && (
             <div
               key={lineKey}
               ref={lineRef}
-              className="announce-progress h-full bg-[#8b5cf6]/40"
+              className="announce-progress h-full bg-white/35"
               style={{ animationDuration: `${DURATION}ms`, animationPlayState: paused ? "paused" : "running" }}
               onAnimationEnd={next}
             />

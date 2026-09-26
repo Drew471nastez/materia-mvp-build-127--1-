@@ -62,6 +62,24 @@ console.log("\nThe editor's questions")
 check("on a phone they are the shared sheet", /<BottomSheet isOpen=\{open\} onClose=\{onClose\} label=\{label\} hideFrom="md">/.test(editor))
 check("with no drag kept in React state any more", !/setDragY\(/.test(editor))
 
+/*
+  ONE TAB TO THE NEXT. Each tab was mounted on the tap and thrown away on
+  the next, in one scroll box they shared: a single-frame swap, the tab
+  built on the tap, and Links back at its top after Design. Measured by
+  scripts/check-onepage-motion.mjs (tabs): the pill slides over 8 to 12
+  frames, no frame shows no tab, Links comes back at 260px.
+*/
+console.log("\nSwitching tabs")
+check("each tab has its own scroll box, the one on screen is the editor's scroll container",
+  /data-tab-panel=\{t\}/.test(editor) && /data-scroll-container=\{t === panels\.tab \? "links-tab" : undefined\}/.test(editor))
+check("Links, Design and Products are kept, out of sight in React's Activity", /<Activity mode=\{shown \? "visible" : "hidden"\}>/.test(editor) && /const KEPT_TABS: TabType\[\] = \["links", "design", "products"\]/.test(editor))
+check("and built ahead while the page is idle", /requestIdleCallback\(build/.test(editor))
+check("Settings is still built each time it opens", /t === "settings" \? \(\s*<SettingsTab ref=\{settingsTabRef\} \/>/.test(editor))
+check("each tab comes back to where it was scrolled", /scrollMemory\.current\[from\] = outgoing\.scrollTop/.test(editor) && /incoming\.scrollTop = scrollMemory\.current\[to\] \?\? 0/.test(editor))
+check("the switch is transform and opacity on the compositor", /incoming\.animate\(\s*\[\{ transform: `translate3d/.test(editor) && /incoming\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/.test(editor) && /outgoing\.animate\(/.test(editor))
+check("the pill slides by transform, started from the press", /data-tab-pill=""/.test(editor) && /pillMoves\.current\.forEach\(\(slide\) => slide\(tab\)\)/.test(editor) && /scaleX\(\$\{from\.w \/ w\}\)/.test(editor))
+check("the panels follow a frame after the bars", /requestAnimationFrame\(\(\) => \{\s*timer = window\.setTimeout\(\(\) => startTransition\(\(\) => setPanelTab\(activeTab\)\), 0\)/.test(editor))
+
 console.log("\nThree more designs")
 for (const [id, category] of [["studio", "light"], ["night", "dark"], ["peach", "gradient"]]) {
   check(`${id}, under ${category}`, new RegExp(`id: "${id}",\\s*name: "[A-Z][a-z]+",\\s*category: "${category}",`).test(design))
