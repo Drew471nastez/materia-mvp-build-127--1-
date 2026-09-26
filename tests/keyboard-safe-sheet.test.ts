@@ -470,20 +470,35 @@ function main() {
     )
   }
 
-  console.log("\nAnd the sheets that were reported use the helper")
+  console.log("\nAnd the sheets that were reported sit on the keyboard")
 
+  /*
+    The one-page editor's sheets (Add block, the social link typed into, the
+    thumbnail, a block's animation and stats, Add product) spread the helper
+    into a hand built sheet each. They are the shared sheet on a phone now,
+    through components/ui/sheet-dialog.tsx, which asks the shared sheet to
+    sit on the keyboard (`aboveKeyboard`, which reads the same --kb-inset and
+    --vv-h) and to be at most three quarters of what is visible, the
+    fraction they used.
+  */
+  const sheetDialog = read("components/ui/sheet-dialog.tsx")
+  check(
+    "sheet-dialog.tsx: the phone sheet is the shared one, on the keyboard, at three quarters of what is visible",
+    /<BottomSheet[\s\S]{0,400}aboveKeyboard[\s\S]{0,200}maxHeight=\{SHEET_DIALOG_MAX_HEIGHT\}/.test(sheetDialog) &&
+      /SHEET_DIALOG_MAX_HEIGHT = "calc\(var\(--vv-h, 100dvh\) \* 0\.75\)"/.test(sheetDialog),
+  )
   for (const [file, count] of [
     ["components/onepage/tabs/links-tab.tsx", 5],
     ["components/onepage/tabs/products-tab.tsx", 1],
   ] as const) {
     const src = read(file)
-    const used = (src.match(/\.\.\.sheetAboveKeyboard\(/g) ?? []).length
+    const used = (src.match(/<SheetDialog\b/g) ?? []).length
     check(
       `${file.split("/").slice(-1)[0]}: all ${count} sheets`,
       used === count,
       `${used} of ${count}`,
     )
-    check(`${file.split("/").slice(-1)[0]}: imports it`, src.includes('from "@/lib/ui/keyboard-safe-sheet"'))
+    check(`${file.split("/").slice(-1)[0]}: no hand built sheet left`, !src.includes("sheetAboveKeyboard(") && !/SheetDragY/.test(src))
   }
 
   /* The OnePage editor's two questions (Save changes?, Upgrade to Pro?) have
