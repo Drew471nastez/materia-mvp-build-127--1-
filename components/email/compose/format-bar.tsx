@@ -519,7 +519,7 @@ export function FormatBar({ editorRef, phone, inserts, onInsert, blockActions, f
   let row: React.ReactNode
   if (mode === "link" && link) {
     row = (
-      <div className="flex min-w-0 flex-1 items-center gap-1.5 px-1">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 pl-1 pr-2">
         {back("Cancel the link")}
         <input
           autoFocus

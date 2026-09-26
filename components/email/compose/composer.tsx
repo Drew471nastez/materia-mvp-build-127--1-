@@ -551,7 +551,8 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
     if (!pane) return
     const read = () => {
       const a = document.activeElement as HTMLElement | null
-      const on = !!a && pane.contains(a) && (a.isContentEditable || a.tagName === "TEXTAREA" || (a.tagName === "INPUT" && !/^(checkbox|radio|button|submit|range|color|file)$/i.test((a as HTMLInputElement).type)))
+      /* The formatting bar is drawn in the body on a phone, so its link field counts as the page's. */
+      const on = !!a && (pane.contains(a) || !!a.closest("[data-format-bar]")) && (a.isContentEditable || a.tagName === "TEXTAREA" || (a.tagName === "INPUT" && !/^(checkbox|radio|button|submit|range|color|file)$/i.test((a as HTMLInputElement).type)))
       setTyping((t) => (t === on ? t : on))
     }
     const later = () => requestAnimationFrame(read)
