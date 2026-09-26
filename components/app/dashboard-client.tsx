@@ -1388,7 +1388,7 @@ export function DashboardClient({
 
         {/* Dashboard Banner: what matters now for this store, beside the globe (components/app/home/home-banner) */}
         <div className="mb-8">
-          <HomeBanner facts={facts} planId={subscriptionPlanId} sales={bannerSales ?? NO_SALES} onShare={canShare ? openShare : undefined} />
+          <HomeBanner facts={facts} planId={subscriptionPlanId} sales={bannerSales ?? NO_SALES} onShare={canShare ? openShare : undefined} onGuide={openGuide} />
         </div>
 
         {/* Getting started, the guide and Your Plan (components/app/home/home-cards).

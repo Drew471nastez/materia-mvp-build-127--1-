@@ -57,13 +57,15 @@ export interface HomeBannerProps {
   sales: SalesSummary
   /** Opens Home's share sheet, when there is an address to hand out. */
   onShare?: () => void
+  /** Opens Getting started's guide (the welcome slide's button). */
+  onGuide?: () => void
 }
 
-export const HomeBanner = memo(function HomeBanner({ facts, planId, sales, onShare }: HomeBannerProps) {
+export const HomeBanner = memo(function HomeBanner({ facts, planId, sales, onShare, onGuide }: HomeBannerProps) {
   /* One clock for the page view: the same on the server and in the browser to the second, so the words agree. */
   const [now] = useState(() => Date.now())
   const list = useMemo(() => announcementsFor(fromFacts(facts, sales, planId, !!onShare), now), [facts, sales, planId, onShare, now])
-  return <BannerView list={list} onShare={onShare} />
+  return <BannerView list={list} onShare={onShare} onGuide={onGuide} />
 })
 
 /* ─── The view ─────────────────────────────────────────────────────────── */
@@ -74,7 +76,7 @@ const FOCUS = 2
 const TOUCH = 4
 const HIDDEN = 8
 
-function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => void }) {
+function BannerView({ list, onShare, onGuide }: { list: Announcement[]; onShare?: () => void; onGuide?: () => void }) {
   const count = list.length
   const [currentId, setCurrentId] = useState(list[0]?.id)
   const [leavingId, setLeavingId] = useState<string | null>(null)
@@ -247,8 +249,8 @@ function BannerView({ list, onShare }: { list: Announcement[]; onShare?: () => v
                   <h2 className="home-banner-title" suppressHydrationWarning>{a.title}</h2>
                   <p className="home-banner-line" suppressHydrationWarning>{a.line}</p>
                   <div className="home-banner-cta-row">
-                    {a.action === "share" && onShare ? (
-                      <button type="button" className="home-banner-cta" onClick={onShare}>
+                    {(a.action === "share" && onShare) || (a.action === "guide" && onGuide) ? (
+                      <button type="button" className="home-banner-cta" onClick={a.action === "share" ? onShare : onGuide}>
                         {a.cta}
                       </button>
                     ) : (

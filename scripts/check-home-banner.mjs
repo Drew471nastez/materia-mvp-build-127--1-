@@ -51,7 +51,7 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 const EXPECT = {
-  new: ["payouts", "first-product"],
+  new: ["welcome", "payouts", "first-product", "builder-intro"],
   product: ["payouts", "website"],
   payouts: ["website", "share"],
   firstsale: ["first-sale", "domain-pro", "automations", "newsletter"],
@@ -63,6 +63,7 @@ const EXPECT = {
 const HREF = {
   payouts: "/app/payouts",
   "first-product": "/app/products/new",
+  "builder-intro": "/app/website-builder",
   "upgrade-saving": "/app/settings/billing/upgrade",
   website: "/app/website-builder",
   automations: "/app/emails/flow/new",
