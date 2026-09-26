@@ -17,6 +17,7 @@
  */
 
 import { checkCouponLines, findCoupon, normaliseCode, validateCoupon, type CouponRow } from "./coupons"
+import { adminCodeCheck } from "./admin-code"
 import type { PackedItem } from "./cart-items"
 import { MAX_LINES, MAX_QUANTITY } from "@/lib/website-builder/cart"
 
@@ -174,12 +175,9 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
   let couponLabel: string | null = null
   let discountCents = 0
   if (typeof req.couponCode === "string" && req.couponCode.trim()) {
-    const checked = await validateCoupon(db, {
-      creatorId: (product as PricedProduct).creator_id,
-      productId,
-      code: req.couponCode,
-      priceCents: baseCents,
-    })
+    const ask = { creatorId: (product as PricedProduct).creator_id, productId, code: req.couponCode, priceCents: baseCents }
+    /* The platform admin's own code first (./admin-code), then the creator's codes. */
+    const checked = (await adminCodeCheck(ask)) ?? (await validateCoupon(db, ask))
     if (checked.ok === false) return { ok: false, status: 400, error: checked.error }
     coupon = checked.coupon
     couponLabel = checked.label

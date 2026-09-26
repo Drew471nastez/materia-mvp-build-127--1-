@@ -185,7 +185,7 @@ export async function findCoupon(db: Db, creatorId: string, code: string): Promi
  * 100% off any product, for Storelib's admin to buy anything to check it.
  * The code alone does nothing: it is honoured only for a request that
  * carries a signed-in admin console session (the /admin cookie, checked on
- * the server by lib/admin-blog-auth), so seeing it written down, here or
+ * the server by ./admin-code, which priceOrder asks first), so seeing it written down, here or
  * anywhere, gives nobody else a free product. For everyone else it is an
  * unknown code, answered like any other.
  *
@@ -215,24 +215,12 @@ export function adminCoupon(creatorId: string): CouponRow {
   }
 }
 
-async function adminSignedIn(): Promise<boolean> {
-  try {
-    const { isAdminAuthenticated } = await import("@/lib/admin-blog-auth")
-    return await isAdminAuthenticated()
-  } catch {
-    return false
-  }
-}
-
 export async function validateCoupon(
   db: Db,
   opts: { creatorId: string; productId: string; code: unknown; priceCents: number },
 ): Promise<CouponCheck> {
   const code = normaliseCode(opts.code)
   if (!code) return { ok: false, error: "That code is not valid." }
-  if (isAdminCode(code) && (await adminSignedIn())) {
-    return checkCoupon(adminCoupon(opts.creatorId), { productId: opts.productId, priceCents: opts.priceCents })
-  }
   return checkCoupon(await findCoupon(db, opts.creatorId, code), { productId: opts.productId, priceCents: opts.priceCents })
 }
 
