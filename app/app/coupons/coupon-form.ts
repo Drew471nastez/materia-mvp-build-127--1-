@@ -12,7 +12,7 @@
  * readCouponInput), and that check is the one that counts. This one only
  * answers sooner, next to the field it is about.
  */
-import { CODE_PATTERN } from "@/lib/checkout/coupons"
+import { CODE_PATTERN } from "@/lib/checkout/coupon-state"
 
 export interface CouponRecord {
   id: string

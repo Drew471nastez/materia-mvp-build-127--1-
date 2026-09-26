@@ -37,6 +37,7 @@
 import * as React from "react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { ArrowRight, Check, Copy, ExternalLink, Eye, Globe, Link2 } from "lucide-react"
+import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { useRouter } from "next/navigation"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { useIsPhone } from "@/components/storefront/use-is-phone"
@@ -405,6 +406,8 @@ export const ShareStorelib = React.memo(function ShareStorelib({
   }, [])
   const setup = React.useCallback(() => {
     setOpen(false)
+    /* The shell is told, as a rail press tells it: the row lights, and a slow editor gets the spinner. */
+    startNavigationLoading("/app/onepage")
     router.push("/app/onepage")
   }, [router])
 

@@ -2,7 +2,7 @@
 
 import { useOnePage, OnePageProvider } from "@/lib/onepage/context"
 import { bottomAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
-import { PhonePreview, MobilePreviewContent } from "./phone-preview"
+import { PhonePreview, MobilePreviewContent } from "./live-preview"
 import { DesignTab } from "./tabs/design-tab"
 import { LinksTab } from "./tabs/links-tab"
 import { ProductsTab } from "./tabs/products-tab"
@@ -103,6 +103,9 @@ function reducedMotion() {
 
 /** Leaving was answered but the editor is still here this long after: it holds Back again. */
 const LEAVE_REVIVE_MS = 12_000
+
+/** The loader on the way in waits for the preview this long at most. */
+const ARRIVE_CAP_MS = 2500
 
 /*
   THE EDITOR'S TWO QUESTIONS, ON THE APP'S OWN SHEET ON A PHONE.
@@ -362,7 +365,8 @@ function ShareOnePage({
 
   if (isPhone) {
     return (
-      <BottomSheet isOpen={open} onClose={onClose} title="Share your OnePage" hideFrom="md">
+      /* Built while the page is idle and kept, as the notifications sheet is: the tap only slides it up. */
+      <BottomSheet isOpen={open} onClose={onClose} title="Share your OnePage" hideFrom="md" keepMounted>
         <div className="px-4 pb-3 pt-3">{body}</div>
       </BottomSheet>
     )
@@ -533,12 +537,38 @@ function EditorLayout() {
     }
   }, [router])
 
-  /* The way in: the light loader over the editor for a beat, then it fades off what arrived. */
+  /*
+    THE WAY IN, AS THE CREATOR PAGE COMES IN. Its editor puts the bar up at
+    once and the light loader over the canvas, holds the loader until the
+    page in its frame has loaded, and fades it off a page that is already
+    whole (components/app/creator-page-workspace.tsx). This does the same:
+    the bar at once, the loader over what is under it until it is drawn,
+    then 320ms off it.
+
+    Drawn means the preview's frame has painted the page with its fonts
+    (components/onepage/live-preview) where the preview is on screen, from
+    768px, and the editor's own fonts where it is not. It used to be one
+    animation frame: the loader went before the preview had even started
+    loading, and the phone beside the editor filled in afterwards, a second
+    arrival after the first. Never longer than ARRIVE_CAP_MS: a preview that
+    is slow to load arrives on its own fade instead of holding the editor.
+  */
   const [arrived, setArrived] = useState(false)
+  const [previewDrawn, setPreviewDrawn] = useState(false)
   useEffect(() => {
-    const id = requestAnimationFrame(() => setArrived(true))
-    return () => cancelAnimationFrame(id)
-  }, [])
+    if (arrived) return
+    let cancelled = false
+    const wide = window.matchMedia("(min-width: 768px)").matches
+    const cap = window.setTimeout(() => { if (!cancelled) setArrived(true) }, ARRIVE_CAP_MS)
+    if (!wide || previewDrawn) {
+      const fonts = document.fonts?.ready ?? Promise.resolve()
+      fonts.then(() => requestAnimationFrame(() => { if (!cancelled) setArrived(true) }))
+    }
+    return () => {
+      cancelled = true
+      window.clearTimeout(cap)
+    }
+  }, [arrived, previewDrawn])
   const loaderVisible = useLinger(!arrived, 320)
 
   // --- Hash-based tab navigation ---
@@ -743,6 +773,11 @@ function EditorLayout() {
     const at = scrollMemory.current[shownTabRef.current]
     if (box && at) box.scrollTop = at
   }, [showMobilePreview])
+  /* The phone's Preview, once opened, is kept: the next look is the page as it was left, with nothing to load. */
+  const [mobilePreviewKept, setMobilePreviewKept] = useState(false)
+  useEffect(() => {
+    if (showMobilePreview) setMobilePreviewKept(true)
+  }, [showMobilePreview])
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
@@ -804,6 +839,20 @@ function EditorLayout() {
   // Check onboarding status directly from database on mount
   useEffect(() => {
     if (!onepage?.id || onboardingChecked || completedThisSessionRef.current) return
+    /*
+      THE PAGE ALREADY SAYS. The server read the whole row a moment ago
+      (app/app/onepage/page.tsx), onboarding_completed with it. Asking the
+      database again from the browser was a second round trip on every open,
+      and when that one failed (a flaky connection, a slow phone) and this
+      browser had no note of its own, the first visit's full screen wizard
+      came up over an editor somebody had set up long ago. Asked only when
+      the row did not say.
+    */
+    if ((onepage as { onboarding_completed?: boolean | null }).onboarding_completed === true) {
+      setShowOnboarding(false)
+      setOnboardingChecked(true)
+      return
+    }
     
     const checkOnboardingStatus = async () => {
       const supabase = createClient()
@@ -1142,7 +1191,7 @@ function EditorLayout() {
   const designPanel = useMemo(() => <DesignTab userPlan={userPlan} />, [userPlan])
   const linksPanel = useMemo(() => <LinksTab />, [])
   const productsPanel = useMemo(() => <ProductsTab onGoToLinks={() => handleTabChange("links")} />, [handleTabChange])
-  const phonePreview = useMemo(() => <PhonePreview />, [])
+  const phonePreview = useMemo(() => <PhonePreview onDrawn={() => setPreviewDrawn(true)} />, [])
 
   if (!onepage) {
     return (
@@ -1435,8 +1484,8 @@ function EditorLayout() {
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+      {/* Main Content Area: under the bar, and what the way in's loader covers. */}
+      <div className="relative flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
         {/*
           Editor Panel - Hidden when mobile preview is active. Each tab in
           its own scroll box, stacked (see ONE TAB TO THE NEXT above); the
@@ -1509,10 +1558,23 @@ function EditorLayout() {
           </div>
         </div>
 
-        {/* Mobile Preview - NO phone mockup, just real page content like Linktree */}
-        {showMobilePreview && (
-          <div className="md:hidden flex-1 flex flex-col overflow-hidden">
+        {/* Mobile Preview - NO phone mockup, just real page content like Linktree.
+            Kept once opened (hidden, not unmounted), so its frame is not loaded again. */}
+        {(showMobilePreview || mobilePreviewKept) && (
+          <div className={cn("md:hidden flex-1 flex-col overflow-hidden", showMobilePreview ? "flex" : "hidden")}>
             <MobilePreviewContent />
+          </div>
+        )}
+
+        {/* The way in: the same light loader the creator page shows over its canvas, under the bar, faded off the editor once it is drawn. */}
+        {loaderVisible && (
+          <div
+            className="wb-canvas-loader absolute inset-0 z-10 flex items-center justify-center bg-white"
+            data-leaving={arrived}
+            data-onepage-loader=""
+            aria-hidden={arrived}
+          >
+            <BuilderLoader tone="light" lines={["Loading your page"]} />
           </div>
         )}
       </div>
@@ -1597,18 +1659,6 @@ function EditorLayout() {
         onDiscard={handleDiscardProChanges}
         onKeepEditing={handleKeepEditing}
       />
-
-      {/* The way in: the same light loader the creator page shows, faded off the editor once it is drawn. */}
-      {loaderVisible && (
-        <div
-          className="wb-canvas-loader absolute inset-0 z-40 flex items-center justify-center bg-white"
-          data-leaving={arrived}
-          data-onepage-loader=""
-          aria-hidden={arrived}
-        >
-          <BuilderLoader tone="light" lines={["Loading your page"]} />
-        </div>
-      )}
 
       {/* The way out, the same dark glass as the creator page and the website builder. */}
       {leaving && (

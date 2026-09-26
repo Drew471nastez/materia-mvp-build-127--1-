@@ -163,6 +163,18 @@ export function AppAvatar({
   )
 }
 
+/**
+ * The very file <AppAvatar> asks for at `size`, for a picture drawn outside
+ * it (the switch screen's header, components/app/shell-header-still) that
+ * must come from the same cache entry. Null for no photo.
+ */
+export function avatarSource(src: string | null | undefined, size: number): { src: string; srcSet?: string; sizes?: string } | null {
+  const url = src && !src.includes("placeholder.svg") ? toOriginalImageUrl(src) || null : null
+  if (!url) return null
+  if (!isOptimizableImage(url)) return { src: url }
+  return { src: optimizedImageUrl(url, size), srcSet: optimizedSrcSet(url, [...new Set([sizeStep(size), sizeStep(size * 2)])]) || undefined, sizes: `${size}px` }
+}
+
 /** The optimizer's width at or above `px`, which is the one it will serve. */
 const STEPS = [32, 48, 64, 96, 128, 256, 384]
 function sizeStep(px: number) {

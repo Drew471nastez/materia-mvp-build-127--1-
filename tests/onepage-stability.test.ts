@@ -71,7 +71,18 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 function main() {
   const live = read("components/onepage/public-onepage.tsx")
-  const preview = read("components/onepage/phone-preview.tsx")
+  /*
+    THE EDITOR PREVIEW IS THE PUBLISHED PAGE NOW. It frames the live page's
+    own component (components/onepage/live-preview.tsx, preview-document.tsx)
+    instead of keeping a second drawing of it in phone-preview.tsx, which
+    had drifted from the live page in every block (scripts/check-onepage-
+    parity.mjs). So every rule below that is held of "the editor preview" is
+    held of the code it now runs, the live page's, once this says it does.
+  */
+  const frame = read("components/onepage/preview-document.tsx")
+  const framed = /<PublicOnePage onepage=\{page as never\} \/>/.test(frame) && /export \{ PhonePreview, MobilePreviewContent \} from "\.\/live-preview"/.test(read("components/onepage/phone-preview.tsx"))
+  check("the editor preview draws the published page's own component, in a frame", framed)
+  const preview = framed ? live : read("components/onepage/phone-preview.tsx")
   const both = [["the published page", live], ["the editor preview", preview]] as const
 
   console.log("\nThe page is not rebuilt every time it is scrolled")
@@ -227,7 +238,8 @@ function main() {
     !/const ro = new ResizeObserver\(update\)/.test(live) && !/const restOffset = useCallback\(/.test(live),
     "the scroller needs no measurement: offsetLeft is the browser's own answer",
   )
-  check("the editor preview kept its own smaller gap", /const gap = view > 1 \? 6 : 4/.test(preview))
+  /* CHANGED ON PURPOSE: the preview had a smaller gap of its own, which was one of its differences from the live page. It has none now: it is the live page. */
+  check("the editor preview has no gap of its own any more: it draws the live page's", framed && !/const gap = view > 1 \? 6 : 4/.test(read("components/onepage/phone-preview.tsx")))
 
   console.log("\nSlides within reach of one swipe are fetched before the swipe")
 

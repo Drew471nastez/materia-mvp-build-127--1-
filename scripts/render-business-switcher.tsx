@@ -22,17 +22,20 @@ const THREE: BusinessRow[] = [
 ]
 const TWO: BusinessRow[] = THREE.slice(0, 2)
 const ONE: BusinessRow[] = [THREE[0]]
-const FIXTURES = { one: ONE, two: TWO, three: THREE } as const
+/* Signed in to a business that is not the first: "when I switch to Calvin, my other business, there is no plus icon there." */
+const asMember = (rows: BusinessRow[]): BusinessRow[] => rows.map((b) => ({ ...b, current: b.userId === "00000000-0000-4000-8000-00000000000c" }))
+const FIXTURES = { one: ONE, two: TWO, three: THREE, "member-three": asMember(THREE), "member-two": asMember([THREE[0], THREE[2]]) } as const
+const NAMES = ["three", "two", "one", "member-three", "member-two"] as const
 
 function Menus() {
   return (
     <div style={{ display: "flex", gap: 24, padding: 24, background: "#f3f4f6", minHeight: "100vh", alignItems: "flex-start", flexWrap: "wrap" }}>
-      {(["three", "two", "one"] as const).map((n) => (
+      {NAMES.map((n) => (
         <div key={`d-${n}`} data-probe={`dropdown-${n}`} className="w-[248px] rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
           <BusinessSwitcher businesses={FIXTURES[n]} variant="dropdown" onNavigate={() => {}} />
         </div>
       ))}
-      {(["three", "two", "one"] as const).map((n) => (
+      {NAMES.map((n) => (
         <div key={`s-${n}`} data-probe={`sheet-${n}`} className="w-[390px] rounded-t-2xl bg-white px-3 pb-3 pt-3">
           <BusinessSwitcher businesses={FIXTURES[n]} variant="sheet" onNavigate={() => {}} />
         </div>

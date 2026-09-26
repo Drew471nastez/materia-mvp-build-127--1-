@@ -72,7 +72,10 @@ function main() {
     check("STORELIB100 is the code, in any case", ADMIN_CODE === "STORELIB100" && isAdminCode("storelib100") && isAdminCode(" STORELIB100 ") && !isAdminCode("STORELIB10"))
     const c = checkCoupon(adminCoupon("creator-1"), { productId: "p1", priceCents: 999900 })
     check("it takes the whole price off any product", c.ok === true && c.discountCents === 999900)
-    check("it is honoured only for a signed-in admin console session", /if \(isAdminCode\(code\) && \(await adminSignedIn\(\)\)\)/.test(coupons) && /isAdminAuthenticated/.test(coupons))
+    const adminFile = read("lib/checkout/admin-code.ts")
+    check("it is honoured only for a signed-in admin console session, checked on the server", /import "server-only"/.test(adminFile) && /if \(!\(await adminSignedIn\(\)\)\) return null/.test(adminFile) && /isAdminAuthenticated/.test(adminFile)
+      && /const checked = \(await adminCodeCheck\(ask\)\) \?\? \(await validateCoupon\(db, ask\)\)/.test(read("lib/checkout/pricing.ts")))
+    check("and the coupons file, which a client component imports, never reaches for the admin cookie", !/admin-blog-auth|next\/headers/.test(coupons))
     check("and has no row, so no hold is taken and no use counted", adminCoupon("x").id === "" && adminCoupon("x").usage_limit === null)
   }
   console.log("\nThe skeleton and the way in")

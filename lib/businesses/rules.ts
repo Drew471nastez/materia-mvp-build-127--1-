@@ -39,9 +39,20 @@ export function maySwitch(group: BusinessGroup | null, from: string, to: string)
   return ids.includes(from) && ids.includes(to)
 }
 
-/** Whether another business can be made: from the first business only, and only while the login has fewer than MAX_BUSINESSES. */
-export function canAddBusiness(count: number, role: "owner" | "member"): boolean {
-  return role === "owner" && count < MAX_BUSINESSES
+/**
+ * Whether another business can be made: while the login has fewer than
+ * MAX_BUSINESSES, from any of its businesses. "It doesn't matter which
+ * business I am on." Made from a business that is not the first, the new one
+ * is still linked to the first (the owner), so there are never chains:
+ * `ownerOf` says which account that is.
+ */
+export function canAddBusiness(count: number): boolean {
+  return count < MAX_BUSINESSES
+}
+
+/** The account a new business is linked to: the login's first, whichever business asked. */
+export function ownerOf(group: BusinessGroup | null, self: string): string {
+  return group ? group.ownerId : self
 }
 
 const COUNT_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]

@@ -366,7 +366,8 @@ export function DateTimeField({
     return (
       <>
         {trigger}
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={label}>
+        {/* The hour and minute are typed: the sheet sits on the keyboard, not under it. */}
+        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={label} aboveKeyboard>
           <div className="px-5 pb-4 pt-2">{panel(true)}</div>
         </BottomSheet>
       </>

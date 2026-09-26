@@ -18,6 +18,12 @@
  */
 
 import { apportionFee } from "./cart-items"
+import { CODE_PATTERN } from "./coupon-state"
+
+/* What the Coupons page also draws in the browser lives in ./coupon-state, which
+   has no server import; this file reaches the admin cookie (adminSignedIn), so a
+   client component importing it broke the production build. */
+export { CODE_PATTERN, COUPON_STATE_LABEL, couponState, type CouponState } from "./coupon-state"
 
 type Db = { from: (table: string) => any; rpc?: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -185,7 +191,7 @@ export async function findCoupon(db: Db, creatorId: string, code: string): Promi
  * 100% off any product, for Storelib's admin to buy anything to check it.
  * The code alone does nothing: it is honoured only for a request that
  * carries a signed-in admin console session (the /admin cookie, checked on
- * the server by lib/admin-blog-auth), so seeing it written down, here or
+ * the server by ./admin-code, which priceOrder asks first), so seeing it written down, here or
  * anywhere, gives nobody else a free product. For everyone else it is an
  * unknown code, answered like any other.
  *
@@ -215,24 +221,12 @@ export function adminCoupon(creatorId: string): CouponRow {
   }
 }
 
-async function adminSignedIn(): Promise<boolean> {
-  try {
-    const { isAdminAuthenticated } = await import("@/lib/admin-blog-auth")
-    return await isAdminAuthenticated()
-  } catch {
-    return false
-  }
-}
-
 export async function validateCoupon(
   db: Db,
   opts: { creatorId: string; productId: string; code: unknown; priceCents: number },
 ): Promise<CouponCheck> {
   const code = normaliseCode(opts.code)
   if (!code) return { ok: false, error: "That code is not valid." }
-  if (isAdminCode(code) && (await adminSignedIn())) {
-    return checkCoupon(adminCoupon(opts.creatorId), { productId: opts.productId, priceCents: opts.priceCents })
-  }
   return checkCoupon(await findCoupon(db, opts.creatorId, code), { productId: opts.productId, priceCents: opts.priceCents })
 }
 
@@ -269,8 +263,6 @@ export async function recordCouponUse(db: Db, couponId: string | null | undefine
  * these are the ones that count.
  */
 
-/** A code as a buyer types it: letters, digits, - and _, 3 to 32 of them. */
-export const CODE_PATTERN = /^[A-Z0-9_-]{3,32}$/
 
 export interface CouponValues {
   code: string
@@ -361,29 +353,6 @@ export function readCouponInput(body: unknown, base?: Partial<CouponValues> | nu
       is_active: b.is_active !== false,
     },
   }
-}
-
-export type CouponState = "active" | "scheduled" | "expired" | "used_up" | "off"
-
-/** Where a code stands right now, in the order a buyer would meet it. */
-export function couponState(
-  c: Pick<CouponRow, "is_active" | "starts_at" | "expires_at" | "usage_limit" | "usage_count">,
-  now: Date = new Date(),
-): CouponState {
-  if (!c.is_active) return "off"
-  const t = now.getTime()
-  if (c.expires_at && Date.parse(c.expires_at) < t) return "expired"
-  if (c.usage_limit !== null && c.usage_limit !== undefined && (c.usage_count ?? 0) >= c.usage_limit) return "used_up"
-  if (c.starts_at && Date.parse(c.starts_at) > t) return "scheduled"
-  return "active"
-}
-
-export const COUPON_STATE_LABEL: Record<CouponState, string> = {
-  active: "Active",
-  scheduled: "Scheduled",
-  expired: "Expired",
-  used_up: "Used up",
-  off: "Off",
 }
 
 /** A Postgres or PostgREST error saying a column the query named is not there yet. */

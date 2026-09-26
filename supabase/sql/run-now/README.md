@@ -60,11 +60,12 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `36_order_business_details.sql` | The company a buyer bought for, on the order: its legal name, tax number and address, which the buyer's invoice and the creator's copy read. One column and a check on its shape; no rows change. Needs nothing else. Until it runs, orders are made as before and the invoice reads the company from the payment. | 4 | 906 |
 | `37_own_ai_keys.sql` | A creator's own AI (their Claude key, OpenAI key or OpenRouter account) for Storelib AI to answer on, outside the plan's AI edits. One table of sealed keys, readable by the server only. Needs nothing else. Until it runs, Connections says it is not switched on yet and Storelib AI answers as before. | 5 | 1,125 |
 | `38_business_limit_three.sql` | Up to three businesses on one login: the first and two it makes. A trigger counts them (two presses at once cannot pass it), an index reads them by owner, and the old one per login key from `26` goes. Changes no rows. Run after `26`. Until it runs, a third business is refused and the account menu says it cannot be added just yet. | 7 | 1,546 |
+| `39_businesses_complete.sql` | Businesses, complete: everything three businesses on one login relies on, in one part, whether `26` and `38` ran or not. The link (read by the two accounts it links, written by the server only), no chains, three a login counted by a trigger under a lock, the index by owner, the server only switch log, and the rate limit table the switch and create routes count in. Also takes the grants a browser never used (truncate on the link, anon's reads, calling the trigger functions). Changes no rows. Needs nothing else; `26` and `38` can be skipped once it has run. Until it runs, the app works as it does now: with `26` alone a third business is refused and the menu says it cannot be added just yet. | 44 | 6,241 |
 | `90_storage_policies_needs_owner.sql` | LAST, ON ITS OWN. Replaces the storage.objects policies. Needs the owner of storage.objects; see README if it says "must be owner". | 2 | 3,896 |
 | `91_storage_policies_to_remove.sql` | Read only. For the dashboard route: the storage policies to delete. | 2 | 1,242 |
 | `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 11,868 |
 
-Parts `01` to `38` all run as the editor's normal role. `90` is the one
+Parts `01` to `39` all run as the editor's normal role. `90` is the one
 that may not; see below.
 
 Two of the three `pre-flight` rows in `00` matter to `16` and to Route 1 below:

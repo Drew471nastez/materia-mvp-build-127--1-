@@ -8,7 +8,7 @@ import React from "react"
 import { createRoot, hydrateRoot } from "react-dom/client"
 import { NewTree, OldTree } from "./render-business-switch-tree"
 
-const w = window as unknown as { __arriving?: string | null; __hydrateAt?: number }
+const w = window as unknown as { __arriving?: { name: string; photo: string | null } | null; __hydrateAt?: number }
 const el = document.getElementById("app")!
 if (location.pathname === "/app") {
   w.__hydrateAt = performance.now()

@@ -112,15 +112,15 @@ function NewHome() {
   return <Home who="Lind Studio" page="new" figures={figures} picture="/photos/new-product.png" />
 }
 
-/** `arriving`: the name the switch's cookie carried, as app/app/layout.tsx reads it; null for a load with no switch behind it. */
-export function NewTree({ arriving }: { arriving: string | null }) {
+/** `arriving`: the name and photo the switch's cookie carried, as app/app/layout.tsx reads them (readSwitchArrival); null for a load with no switch behind it. */
+export function NewTree({ arriving }: { arriving: { name: string; photo: string | null } | null }) {
   const me = { ...NEW, current: true }
   return (
     <Root>
       {arriving ? (
         <>
           <script dangerouslySetInnerHTML={{ __html: SWITCH_SPIN_SCRIPT }} />
-          <BusinessSwitchArrival name={arriving} />
+          <BusinessSwitchArrival name={arriving.name} photo={arriving.photo} />
         </>
       ) : null}
       <AppLayoutWrapper>
