@@ -9,6 +9,7 @@ import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
 import { getMarketExchangeRate } from "@/lib/exchange-rate";
 import { Shimmer, ShimmerBlock, ShimmerChart, ShimmerRows } from "@/components/ui/shimmer";
 import { pageUser } from "@/lib/auth/page-user"
+import { PaneBar } from "@/app/app/orders/order-parts"
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -38,16 +39,13 @@ export default async function PayoutsPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto page-scroll bg-[#fafafa] app-page-enter">
-      {/* Announcement Bar — fixed above black header on mobile */}
+    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
+      {/* Announcement bar, above the page's own bar on a phone */}
       <AnnouncementBarMobile>
         <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
           <span className="text-[12px] md:text-[14px] text-white/90">
             <span className="font-semibold text-white">Try Pro</span>
-            <span className="hidden md:inline">
-              {" "}
-              — our most popular plan for content creators and businesses.
-            </span>
+            <span className="hidden md:inline">, our most popular plan for content creators and businesses.</span>
           </span>
           <Link
             href="/upgrade"
@@ -60,17 +58,31 @@ export default async function PayoutsPage() {
         </div>
       </AnnouncementBarMobile>
 
-      <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
-        <div>
-          <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">
+      {/*
+        THE BAR, THE ORDERS AND PRODUCTS BAR. The title and one line under it
+        on the left, and on the right an empty box the client fills with the
+        page's actions (Export and Cash out, `data-payouts-actions`) once
+        Stripe has answered. It sticks to the top of the pane and takes a
+        hairline and a soft shadow once something scrolls under it
+        (PaneBar, app/app/orders/order-parts). The widths are written out
+        here rather than imported: this is a server file, and a string
+        imported from a client module arrives as a reference, not a string.
+      */}
+      <PaneBar width="max-w-[1200px]" className="flex min-h-[66px] items-center justify-between gap-3 pb-2 pt-[14px]">
+        <div className="min-w-0">
+          <h1 className="truncate text-[24px] font-bold leading-8 text-[#1a1a2e] sm:text-[28px] sm:leading-9">
             Payouts
           </h1>
-          <p className="text-[14px] text-[#6b7280] mt-1">
-            Manage your earnings and withdraw funds to your bank
+          {/* A phone's bar has room for the title and the two buttons only. */}
+          <p className="hidden truncate text-[13px] leading-5 text-[#6b7280] sm:block">
+            Your balance, sales and cash outs
           </p>
         </div>
+        <div data-payouts-actions="" className="flex shrink-0 items-center gap-1.5 md:gap-2" />
+      </PaneBar>
 
-        {/* The heading and the frame arrive at once; Stripe's answers
+      <div className="mx-auto max-w-[1200px] px-4 pb-8 sm:px-6 lg:px-8">
+        {/* The bar and the heading arrive at once; Stripe's answers
             stream in behind them (PayoutsBody). */}
         <Suspense fallback={<PayoutsWaiting />}>
           {/* Called, not written as an element: this project's JSX types do not take
@@ -96,48 +108,58 @@ export default async function PayoutsPage() {
 
 /**
  * What Stripe's part of the page will be, drawn in light gray while it
- * streams (components/ui/shimmer): the revenue card with its figure and
- * plot, the cash out panel beside it from lg, and the list under them. The
- * same boxes, radii and gaps as PayoutsClient, so the answer lands where
- * the shapes were. It was an empty 420px box with the spinner in it.
+ * streams (components/ui/shimmer), and only if it takes longer than 200ms:
+ * a quick answer never shows it. The same cards, radii and gaps as
+ * PayoutsClient, so the answer lands where the shapes were: the balance
+ * card with its three figures (the first across a phone's row), the revenue
+ * card with its figure, the period and the plot, and the list card with its
+ * toolbar and rows.
  */
 function PayoutsWaiting() {
   return (
-    <Shimmer className="space-y-6" label="Loading payouts">
-      <div className="flex flex-col gap-5 lg:flex-row">
-        <div className="min-w-0 flex-1 rounded-2xl border border-[#e5e7eb]/60 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div className="space-y-2.5">
-              <ShimmerBlock className="h-3 w-16 rounded-full" />
-              <ShimmerBlock className="h-7 w-32 rounded-lg" />
+    <Shimmer className="space-y-4 pt-2" label="Loading payouts">
+      <div className={WAIT_CARD}>
+        <div className="flex h-10 items-center justify-between pl-4 pr-3.5 pt-1">
+          <ShimmerBlock className="h-3 w-16 rounded-full" />
+          <ShimmerBlock className="h-7 w-16 rounded-lg" />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3">
+          {["col-span-2 sm:col-span-1", "", ""].map((span, i) => (
+            <div key={i} className={`space-y-2 px-4 pb-3.5 pt-2 ${span}`}>
+              <ShimmerBlock className="h-2.5 w-20 rounded-full" />
+              <ShimmerBlock className="h-6 w-28 rounded-lg" />
+              <ShimmerBlock className="h-2 w-24 rounded-full" />
             </div>
-            <ShimmerBlock className="h-9 w-32 rounded-lg" />
+          ))}
+        </div>
+        <div className="h-10 border-t border-[#eef0f2] bg-[#fafafb]" />
+      </div>
+      <div className={WAIT_CARD}>
+        <div className="flex items-start justify-between gap-3 px-4 pt-3.5">
+          <div className="space-y-2.5">
+            <ShimmerBlock className="h-3 w-16 rounded-full" />
+            <ShimmerBlock className="h-6 w-32 rounded-lg" />
           </div>
+          <ShimmerBlock className="h-8 w-32 rounded-lg" />
+        </div>
+        <div className="px-2 pb-1 pt-4 sm:px-3">
           <ShimmerChart height={192} bare />
         </div>
-        <div className="shrink-0 rounded-2xl border border-[#e5e7eb] bg-[#f8fafc] p-5 sm:p-6 lg:w-[24rem] xl:w-[26.5rem]">
-          <div className="rounded-xl border border-[#e5e7eb] bg-white p-5">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <ShimmerBlock className="h-2.5 w-24 rounded-full" />
-                <ShimmerBlock className="h-8 w-24 rounded-lg" />
-              </div>
-              <div className="flex flex-col items-end space-y-3">
-                <ShimmerBlock className="h-2.5 w-20 rounded-full" />
-                <ShimmerBlock className="h-7 w-20 rounded-lg" />
-              </div>
-            </div>
-          </div>
-          <ShimmerBlock className="mt-5 h-11 w-full rounded-xl" />
-          <ShimmerBlock className="mt-4 h-3 w-48 rounded-full" />
-        </div>
+        <div className="h-10 border-t border-[#f0f1f3]" />
       </div>
-      <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <div className={WAIT_CARD}>
+        <div className="flex h-14 items-center border-b border-[#eef0f2] px-3 md:h-12">
+          <ShimmerBlock className="h-8 w-[168px] rounded-[9px]" />
+        </div>
         <ShimmerRows rows={3} rowHeight={56} cols={["30%", "18%", "12%"]} bare />
       </div>
     </Shimmer>
   );
 }
+
+/** The client's card (app/app/orders/order-parts `card`), written out: this is a server file. */
+const WAIT_CARD = "overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]";
+
 async function PayoutsBody({ creator }: { creator: any }) {
   const adminSupabase = createAdminClient();
 

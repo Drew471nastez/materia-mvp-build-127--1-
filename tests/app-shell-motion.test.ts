@@ -280,18 +280,25 @@ section("No page draws a picture of itself while it loads, inside or out")
       && !/ShimmerBlock|shimmer-enter|shimmer-wait|from "@\/components\/ui\/shimmer"/.test(tab)
       && (code("app/app/analytics/analytics-client.tsx").match(/loading=\{figuresLoading\}/g) ?? []).length === 8)
   const payouts = code("app/app/payouts/payouts-client.tsx")
-  check("Payouts' chart, figures, bank lines, holds, timeline and payout list draw their shapes, not the spinner",
+  /* The redone page (round 5): the balance and revenue figures wait soft, the
+     way MetricTab's do, rather than as grey bars; the two balance panels are
+     one Details panel, so its holds are drawn once, and its bank line too. */
+  check("Payouts' chart, bank lines, holds, timeline and payout list draw their shapes, and its figures wait blurred, not the spinner",
     !/WaitingArea/.test(payouts) && !/animate-pulse/.test(payouts) && !/\[1, 2, 3\]\.map/.test(payouts)
-      && /<ShimmerChart height=\{192\} \/>/.test(payouts) && (payouts.match(/<ShimmerRows /g) ?? []).length === 4
-      && (payouts.match(/<Shimmer className=/g) ?? []).length === 6)
+      && /<ShimmerChart height=\{192\} \/>/.test(payouts) && (payouts.match(/<ShimmerRows /g) ?? []).length === 3
+      && (payouts.match(/<Shimmer className=/g) ?? []).length === 2
+      && (payouts.match(/loading \? "blur-\[2px\]" : "blur-0"/g) ?? []).length === 2)
   check("no grey bar pulses in Settings either", !/animate-pulse/.test(code("components/app/settings-form-new.tsx")))
   const payoutsPage = code("app/app/payouts/page.tsx")
   check("Payouts' heading lands on the press; Stripe streams in behind it, in a waiting room rather than an outline",
     /<Suspense fallback=\{<PayoutsWaiting \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator \}\)\}\s*<\/Suspense>/.test(payoutsPage)
-      && /function PayoutsWaiting\(\) \{\s*return \(\s*<Shimmer className="space-y-6" label="Loading payouts">/.test(payoutsPage)
+      && /function PayoutsWaiting\(\) \{\s*return \(\s*<Shimmer className="space-y-4 pt-2" label="Loading payouts">/.test(payoutsPage)
       && /async function PayoutsBody\(/.test(payoutsPage)
       && !/stripe\./.test(payoutsPage.slice(payoutsPage.indexOf("export default async function PayoutsPage"), payoutsPage.indexOf("async function PayoutsBody")))
       && /stripe\.balance\.retrieve/.test(payoutsPage.slice(payoutsPage.indexOf("async function PayoutsBody"))))
+  check("and its bar is sent with the heading, with a box the client fills with Export and Cash out once Stripe answers",
+    /<PaneBar width="max-w-\[1200px\]"/.test(payoutsPage) && /<div data-payouts-actions="" /.test(payoutsPage)
+      && /usePageSlot\("\[data-payouts-actions\]"\)/.test(payouts) && /createPortal\(actions, slot\)/.test(payouts))
   const emails = code("app/app/emails/emails-home.tsx")
   check("Emails' tables wait as their own header and rows, crossfading into the rows, and its figures as shapes, not dashes",
     /function Loading\(\) \{\s*return <ShimmerRows rows=\{5\} header/.test(emails) && !/WaitingArea/.test(emails)
