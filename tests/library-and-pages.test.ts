@@ -120,7 +120,7 @@ async function main() {
     check("and nothing scrolls inside the list", !/PAGES_BEFORE_SCROLL/.test(switcherCode) && !/max-h-\[132px\]/.test(switcherCode) && (switcherCode.match(/overflow-y-auto/g) ?? []).length === 1)
     check("the one scroller is marked for the phone's sheet", /data-page-list-scroll=""\s*\n\s*data-sheet-scroll=""/.test(switcher))
     check("a group's heading is 12px, muted, and not in capitals", /<h3 className=\{cn\("text-\[12px\] font-medium", skin\.heading\)\}>/.test(switcher) && !/uppercase/.test(switcherCode))
-    check("rows are 40px on a computer and 48px on a phone", /touch \? "h-12 pl-3 pr-14 text-\[15px\]" : "h-10 pl-3 pr-10 text-\[14px\]"/.test(switcher))
+    check("rows are 40px on a computer and 48px on a phone", /touch \? "h-12 pr-14 text-\[15px\]" : "h-10 pr-10 text-\[14px\]"/.test(switcher))
     check("a search at the top once the list is long", /const searchable = count >= PAGE_SEARCH_FROM/.test(switcher) && /placeholder="Search pages"/.test(switcher))
     check("the page being edited is ticked and says so", /aria-current=\{active \? "page" : undefined\}/.test(switcher) && /<Check className="h-4 w-4" strokeWidth=\{2\.25\} \/>/.test(switcher))
     check("Create page is kept: at the foot of the menu, and beside Pages in the sidebar", (switcherCode.match(/Create page/g) ?? []).length === 2 && /g\.key === "pages" && onCreate/.test(switcher))
@@ -147,6 +147,38 @@ async function main() {
     check("the Pages tab is the same list", /<PageList/.test(browser) && /tone="light"/.test(browser) && /touch=\{isMobileView\}/.test(browser))
     check("with every page the pill has, from one place", /pages=\{sitePages\}/.test(browser) && /<PageSwitcher\s*\n\s*pages=\{sitePages\}/.test(editor))
     check("and the old boxes are gone", !/>Custom Pages<|>Product Pages<|pageBrowserSearch/.test(code(editor)))
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  console.log("\nPAGES: one indent grid, and every row on it")
+  // ═════════════════════════════════════════════════════════════════════════
+  {
+    /**
+     * "This kind of UI misaligned should never happen." A child's name used
+     * to start 28px into the menu and its group's 34px, so a page sat to the
+     * LEFT of the group it belongs to, and the `pl-4` on the children's list
+     * pushed their highlights 16px in while the group's ran the full width.
+     * The numbers below are the whole grid; scripts/check-builder-menu-align
+     * .mjs measures the rendered menu against them at 390 and 1280.
+     */
+    const grid = switcher.slice(switcher.indexOf("export const PAGE_MENU_GRID"), switcher.indexOf("type RowItem"))
+    check("the grid is written down: 12 of padding, a 22px chevron column, one 12px step",
+      /rowPadX: 12/.test(grid) && /chevronCol: 22/.test(grid) && /childStep: 12/.test(grid))
+    check("so a group's label starts at 34 and a child's at 46", /groupLabelX: 34/.test(grid) && /childLabelX: 46/.test(grid))
+    check("and the rows carry those two numbers", /indented \? "pl-\[46px\]" : "pl-3"/.test(switcher))
+    check("a group's row is px-3 with a 3.5 chevron and a gap-2: 12 + 14 + 8 = 34",
+      /"flex h-8 w-full items-center gap-2 rounded-lg px-3 text-left text-\[13px\]/.test(switcher) && /<ChevronDown\s*\n\s*className=\{cn\("h-3\.5 w-3\.5 shrink-0/.test(switcher))
+    check("the children's list has no padding of its own, so their highlights keep their group's edges",
+      /<ul role="list" className="pb-1">\{rows\}<\/ul>/.test(switcher) && !/pl-4/.test(switcherCode))
+    check("every row in the menu is a child of its group, so every one of them is indented",
+      /pageRow\(row\.page, collapsible\)/.test(switcher) && /productRow\(row\.product, collapsible\)/.test(switcher) && /moreRow\(row\.count, collapsible\)/.test(switcher))
+    check("the tick, a page's bin and a group's count end on one right edge", /const slot = cn\("right-1 justify-end pr-2", touch \? "w-11" : "w-8"\)/.test(switcher))
+    check("Create page shares the rows' edges and starts on the group labels' x", /border-t border-white\/10 p-1\.5/.test(switcher) && /flex h-10 w-full items-center gap-1\.5 rounded-lg px-3/.test(switcher))
+    check("the dark search puts what is typed on that same x and its clear button on the counts' column",
+      /border-b border-white\/10 pl-3\.5 pr-4/.test(switcher))
+    check("the sidebar's heading starts where the names in its box do", /justify-between px-\[13px\]/.test(switcher))
+    check("and the light list's side padding is one number, shared by its search and its rows",
+      /const sidePad = boxed \? \(touch \? "px-4" : "px-3"\) : "px-2"/.test(switcher) && (switcherCode.match(/sidePad/g) ?? []).length === 3)
   }
 
   // ═════════════════════════════════════════════════════════════════════════

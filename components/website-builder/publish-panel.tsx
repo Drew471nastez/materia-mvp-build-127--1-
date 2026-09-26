@@ -230,7 +230,8 @@ function SecurityLine({
                   <p className="mt-0.5 text-[14px] leading-snug text-white/85">{issue.message}</p>
                 </li>
               ))}
-              {check.truncated && <li className="px-1 text-[13px] text-white/50">And more after these.</li>}
+              {/* 15px: the card's border and its 14px of padding, so this line starts where the lines above it do. */}
+              {check.truncated && <li className="px-[15px] text-[13px] text-white/50">And more after these.</li>}
             </ul>
           )}
         </>

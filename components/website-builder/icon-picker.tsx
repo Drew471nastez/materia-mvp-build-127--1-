@@ -96,7 +96,8 @@ export function IconPicker({
           if (names.length === 0) return null
           return (
             <div key={group.label} className="mb-3 last:mb-0">
-              <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {/* px-2, the same as the row above it, so every word in the panel starts at one x. */}
+              <p className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {group.label}
               </p>
               <div className="grid grid-cols-6 gap-1">
@@ -124,7 +125,7 @@ export function IconPicker({
         })}
 
         {matches.length === 0 && (
-          <p className="px-1 py-6 text-center text-[13px] text-muted-foreground">Nothing matches “{query}”.</p>
+          <p className="px-2 py-6 text-center text-[13px] text-muted-foreground">Nothing matches “{query}”.</p>
         )}
       </div>
     </FieldPopover>

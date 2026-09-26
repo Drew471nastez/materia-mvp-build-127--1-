@@ -158,15 +158,16 @@ export function MenusEditor({ value, onChange }: { value: unknown; onChange: (me
                   />
                 </label>
                 <MenuLinksEditor links={menu.links ?? []} onLinks={(links) => put(handle, { ...menu, links })} />
+                {/* The last action's padding is pulled back (-mr-1.5), so its words end on the same edge as the fields above it. */}
                 <div className="flex items-center justify-end gap-2 pt-1">
                   {confirming === handle ? (
                     <>
                       <span className="text-[12px] text-muted-foreground">Sections showing it will show none.</span>
                       <button type="button" className={TEXT_BUTTON} onClick={() => setConfirming(null)}>Keep</button>
-                      <button type="button" className={cn(TEXT_BUTTON, "text-[#b91c1c] hover:bg-red-50 hover:text-[#991b1b]")} onClick={() => remove(handle)}>Delete</button>
+                      <button type="button" className={cn(TEXT_BUTTON, "-mr-1.5 text-[#b91c1c] hover:bg-red-50 hover:text-[#991b1b]")} onClick={() => remove(handle)}>Delete</button>
                     </>
                   ) : (
-                    <button type="button" className={cn(TEXT_BUTTON, "hover:bg-red-50 hover:text-[#b91c1c]")} onClick={() => setConfirming(handle)}>
+                    <button type="button" className={cn(TEXT_BUTTON, "-mr-1.5 hover:bg-red-50 hover:text-[#b91c1c]")} onClick={() => setConfirming(handle)}>
                       Delete menu
                     </button>
                   )}
