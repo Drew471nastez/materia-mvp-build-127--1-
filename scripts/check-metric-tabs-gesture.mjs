@@ -24,7 +24,9 @@
  *   cancelled touchmoves whose default was prevented, of those sent
  *   pull      whether the pull to refresh ring appeared
  *   readout   whether the chart's readout appeared
- *   commits   React commits during the swipe and its fling, and frames drawn
+ *   commits   React commits during the swipe and its fling, frames drawn,
+ *             how many times a metric tab rendered, and which component
+ *             each commit started from
  *   long      tasks over 50ms
  *
  * Swipes start on the row at 0, 20 and 35 degrees off horizontal either way
@@ -160,19 +162,26 @@ const INSTRUMENT = () => {
     inject() { return 1 },
     onCommitFiberRoot(_id, root) {
       window.__commits++
-      /* What rendered, by name, for the report: the fibers that did work in this commit. */
+      /*
+        What rendered: the top most component that did work in this commit
+        (where it came from; a timer on the page is not the swipe), and
+        whether any metric tab rendered at all.
+      */
       if (!window.__rec) return
-      const names = []
+      let first = null
       const walk = (f, depth) => {
-        for (let n = f; n && names.length < 6; n = n.sibling) {
+        for (let n = f; n; n = n.sibling) {
           const t = n.type
-          /* The component whose own state changed is where the commit came from. */
-          if ((n.flags & 1) && typeof t === "function" && n.alternate && n.memoizedState !== n.alternate.memoizedState) names.push(t.displayName || t.name || "anonymous")
-          if (n.child && depth < 400) walk(n.child, depth + 1)
+          if ((n.flags & 1) && typeof t === "function" && n.alternate) {
+            const name = t.displayName || t.name || "anonymous"
+            if (!first) first = name
+            if (name === "MetricTab") window.__tabRenders++
+          }
+          if (n.child && depth < 2000) walk(n.child, depth + 1)
         }
       }
       try { walk(root.current.child, 0) } catch { /* the shape of a fiber is React's business */ }
-      ;(window.__who = window.__who || []).push(names.join(">") || "?")
+      ;(window.__who = window.__who || []).push(first || "?")
     },
     onCommitFiberUnmount() {}, onPostCommitFiberRoot() {}, onScheduleFiberRoot() {}, checkDCE() {},
   }
@@ -314,12 +323,12 @@ async function measurePage(browser, name, url, scrollerSel, width) {
   }
   const swipe = async (x0, y0, deg, dist = 150, opts = {}) => {
     const before = await read()
-    await page.evaluate(() => { window.__moves = []; window.__commits = 0; window.__who = []; window.__long = []; window.__frames = 0; window.__peak = { pull: 0, readout: 0 }; window.__rec = true })
+    await page.evaluate(() => { window.__moves = []; window.__commits = 0; window.__who = []; window.__tabRenders = 0; window.__long = []; window.__frames = 0; window.__peak = { pull: 0, readout: 0 }; window.__rec = true })
     await drag(x0, y0, deg, dist, opts)
     /* The fling too: a swipe is not over until what it set moving has stopped. */
     await sleep(200)
     await settle()
-    const got = await page.evaluate(() => { window.__rec = false; return { moves: window.__moves, commits: window.__commits, who: window.__who, long: window.__long, frames: window.__frames, peak: window.__peak } })
+    const got = await page.evaluate(() => { window.__rec = false; return { moves: window.__moves, commits: window.__commits, who: window.__who, tabRenders: window.__tabRenders, long: window.__long, frames: window.__frames, peak: window.__peak } })
     const after = await read()
     const readoutEnd = await page.evaluate(() => Number(getComputedStyle(document.querySelector("[data-chart-tooltip]")).opacity) || 0)
     return {
@@ -333,6 +342,7 @@ async function measurePage(browser, name, url, scrollerSel, width) {
       readout: got.peak.readout > 0.05,
       commits: got.commits,
       who: got.who,
+      tabRenders: got.tabRenders,
       frames: got.frames,
       long: got.long,
       selectedBefore: before.selected,
@@ -341,6 +351,11 @@ async function measurePage(browser, name, url, scrollerSel, width) {
   }
 
   const out = { name, width, geo, listeners, swipes: {} }
+  /* SHOTS=<dir>: the row and the chart under it, to look at. */
+  if (process.env.SHOTS) {
+    mkdirSync(process.env.SHOTS, { recursive: true })
+    await page.screenshot({ path: join(process.env.SHOTS, `metric-tabs-${name}-${width}.png`), clip: { x: 0, y: Math.max(0, geo.stripTop - 20), width, height: 420 } })
+  }
   /* What a thumb really does: flick along the row, then straight away scroll the page from it. */
   await reset(0, 0)
   out.swipes["row 0° then at once 90°"] = { kind: "sideways", ...(await swipe(Math.round(width * 0.62), geo.stripY, 0)) }
@@ -423,7 +438,7 @@ async function measurePage(browser, name, url, scrollerSel, width) {
 function summarise(r) {
   const lines = []
   for (const [k, s] of Object.entries(r.swipes)) {
-    lines.push(`    ${k.padEnd(30)} row ${String(s.row).padStart(4)}  page ${String(s.page).padStart(4)}  cancelled ${String(s.cancelled).padStart(2)}/${String(s.moves).padEnd(2)}  ${s.pull ? "PULL " : "     "}${s.readout ? "READOUT " : "        "} commits ${s.commits} in ${s.frames} frames  long ${s.long.length ? s.long.join(",") : "0"}${s.commits ? `  (${[...new Set(s.who)].join("; ")})` : ""}`)
+    lines.push(`    ${k.padEnd(30)} row ${String(s.row).padStart(4)}  page ${String(s.page).padStart(4)}  cancelled ${String(s.cancelled).padStart(2)}/${String(s.moves).padEnd(2)}  ${s.pull ? "PULL " : "     "}${s.readout ? "READOUT " : "        "} commits ${s.commits} in ${s.frames} frames, tabs rendered ${s.tabRenders}  long ${s.long.length ? s.long.join(",") : "0"}${s.commits ? `  (from ${[...new Set(s.who)].join(", ")})` : ""}`)
   }
   return lines.join("\n")
 }
@@ -477,7 +492,16 @@ try {
           if (s.kind === "sideways") {
             expect(s.row > 0 && s.page === 0 && !s.pull, `${k}: scrolls the row, not the page, no pull`, s)
             expect(s.cancelled === 0, `${k}: no touchmove cancelled`, `${s.cancelled} of ${s.moves}`)
-            expect(s.commits === 0, `${k}: no React commit while the row scrolls`, `${s.commits} in ${s.frames} frames`)
+            /*
+              Nothing renders because the row moved: no tab renders, and no
+              commit comes from the page that owns the row. Home's own timers
+              (the announcement bar turning, the live count) commit on their
+              schedule whatever the thumb does, so a stray one of theirs is
+              reported, not failed.
+            */
+            expect(s.tabRenders === 0 && !s.who.some((w) => /^(DashboardClient|AnalyticsClient|MetricTab)$/.test(w)) && s.commits <= 2,
+              `${k}: nothing renders because the row scrolls (${s.commits} commits in ${s.frames} frames${s.commits ? `, from ${[...new Set(s.who)].join(", ")}` : ""})`,
+              s)
             expect(s.long.length === 0, `${k}: no task over 50ms`, s.long)
           } else if (s.kind === "vertical") {
             expect(s.row === 0, `${k}: the row does not move`, s)
