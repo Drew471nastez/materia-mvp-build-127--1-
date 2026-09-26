@@ -49,7 +49,7 @@
  * the list carries `data-moving` and is drawn.
  */
 
-import { LAYER_LEAVE_MS, LAYER_MOTION_EASE, LAYER_MOTION_MS } from "@/components/app/page-layer"
+import { LAYER_LEAVE_MS, LAYER_MOTION_EASE, LAYER_MOTION_MS, startWhenFramesFlow } from "@/components/app/page-layer"
 
 /** The width below which an order rises rather than fades: the shared sheets' phone width. */
 export const ORDER_PHONE_QUERY = "(max-width: 639px)"
@@ -144,6 +144,8 @@ export function moveOrder(kind: Kind, detail: HTMLElement, list: HTMLElement, do
         fill: kind === "pop" ? "forwards" : "none",
       }),
     )
+    /* Held where it starts until the screen keeps up with it: the order is drawn for the first time in this same frame (page-layer startWhenFramesFlow). */
+    startWhenFramesFlow(anims)
   } else {
     /* The list is not drawn under a settled order, so nothing shows through. */
     delete list.dataset.moving

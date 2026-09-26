@@ -318,7 +318,7 @@ async function main() {
         && !/\.animate\(\[\{ (left|top|width|height|margin)/.test(motion) && !/ORDER_PARALLAX/.test(motion))
     check("  the page layer's times and curve on a phone (one number in one place), a short fade wider, decided by the sheets' phone width",
       /export const ORDER_PUSH_MS = LAYER_MOTION_MS/.test(motion) && /export const ORDER_POP_MS = LAYER_LEAVE_MS/.test(motion) && /export const ORDER_EASE = LAYER_MOTION_EASE/.test(motion)
-        && /import \{ LAYER_LEAVE_MS, LAYER_MOTION_EASE, LAYER_MOTION_MS \} from "@\/components\/app\/page-layer"/.test(motion)
+        && /import \{ LAYER_LEAVE_MS, LAYER_MOTION_EASE, LAYER_MOTION_MS, startWhenFramesFlow \} from "@\/components\/app\/page-layer"/.test(motion)
         && /export const ORDER_FADE_IN_MS = 150/.test(motion) && /export const ORDER_PHONE_QUERY = "\(max-width: 639px\)"/.test(motion))
     check("  the row answers the press on its own frame, before the order is drawn",
       /const onOpen = useStable\(\(id: string\) => \{[\s\S]{0,300}if \(listRef\.current\) markRow\(listRef\.current, id, "held"\)[\s\S]{0,80}writeAddress\(\(p\) => p\.set\("order", id\), "push"\)/.test(client))
@@ -344,7 +344,8 @@ async function main() {
       /fill: kind === "pop" \? "forwards" : "none"/.test(motion))
     check("  and reduced motion moves nothing", /if \(reducedMotion\(\) \|\| typeof detail\.animate !== "function"\) \{\s*settle\(detail, list\)\s*done\?\.\(\)/.test(motion))
     check("the list stays drawn under a moving order, and is hidden under a settled one",
-      /\.orders-stage\[data-order-open\] > \.orders-list:not\(\[data-moving\]\) \{\s*visibility: hidden;/.test(css)
+      /* Changed on purpose: opacity, not visibility, which is inherited and restyled the whole list in the first and last frames of a move. */
+      /\.orders-stage\[data-order-open\] > \.orders-list:not\(\[data-moving\]\) \{\s*opacity: 0;/.test(css) && !/\.orders-list:not\(\[data-moving\]\) \{\s*visibility: hidden;/.test(css)
         && /list\.dataset\.moving = ""/.test(motion) && /delete list\.dataset\.moving/.test(motion)
         && /data-order-open=\{listCovered \? "" : undefined\}/.test(client) && !/style=\{\{ visibility: listCovered/.test(client))
     check("an order going back is kept, inert, until it is off, worked out while rendering",
@@ -361,7 +362,8 @@ async function main() {
         && /HOVER_PREFETCH_MS/.test(code("app/app/orders/orders-list.tsx"))
         && /useState<OrderActivity\[\]>\(\(\) => activityOf\(cachedJson\(activityUrl\(order\.id\)\)\) \?\? \[\]\)/.test(code("app/app/orders/order-detail.tsx"))
         && /readJson\(activityUrl\(order\.id\), revision > 0\)/.test(code("app/app/orders/order-detail.tsx")))
-    check("the next order starts at its top before it is drawn, a leaving one where it was", /React\.useLayoutEffect\(\(\) => \{\s*if \(shownId\) detailRef\.current\?\.scrollTo\(\{ top: 0 \}\)\s*\}, \[shownId\]\)/.test(client))
+    check("the next order starts at its top before it is drawn, a leaving one where it was", /* Changed on purpose: a pane drawn for the first time is at its top already, and scrolling it made the browser lay out the whole page in the commit that starts the rise. */
+      /const fresh = pane !== scrolledPane\.current\s*scrolledPane\.current = pane\s*if \(shownId && pane && !fresh\) pane\.scrollTo\(\{ top: 0 \}\)\s*\}, \[shownId\]\)/.test(client))
     check("a step draws the next order's cards fresh, the bar staying put", /<div key=\{order\.id\} className=\{cn\("orders-body /.test(detail) && detail.indexOf("<OrderBarFrame") < detail.indexOf("key={order.id}"))
     check("opened straight onto an order, the page does not fade in as a whole", /!openedOnOrder && "app-page-enter"/.test(client))
 

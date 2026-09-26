@@ -323,8 +323,16 @@ export function OrdersClient(props: OrdersClientProps) {
   /* Each order starts at its top, before it is drawn: after the paint, the
      next order showed for a frame at the last one's scroll position. An
      order on its way out keeps where it was. */
+  /* A pane drawn for the first time is at its top already, and asking it to
+     scroll there made the browser style and lay out the whole page inside
+     the commit that starts the order's rise (a 250ms task on a slow phone):
+     only a pane that was already up, stepping to the next order, is moved. */
+  const scrolledPane = React.useRef<HTMLDivElement | null>(null)
   React.useLayoutEffect(() => {
-    if (shownId) detailRef.current?.scrollTo({ top: 0 })
+    const pane = detailRef.current
+    const fresh = pane !== scrolledPane.current
+    scrolledPane.current = pane
+    if (shownId && pane && !fresh) pane.scrollTo({ top: 0 })
   }, [shownId])
 
   /*

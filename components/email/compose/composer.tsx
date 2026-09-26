@@ -52,6 +52,7 @@ import { StarterList } from "./starter-list"
 import { starterDraft, type StarterId } from "@/lib/email-campaigns/starters"
 import { useMedia } from "./format-bar"
 import { SendStatus } from "./send-status"
+import { afterLayerMove } from "@/components/app/page-layer"
 
 export interface ComposerProps {
   campaignId: string | null
@@ -141,8 +142,16 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
 
   /* ─── Who is writing ─── */
 
+  /*
+    What these two reads bring (who is sending, the audience and the brand)
+    draws most of the composer again. On a phone the composer rises as a
+    layer and the answers come back half way up, so they are put in once it
+    has arrived (components/app/page-layer.tsx afterLayerMove), not in the
+    frames of the move.
+  */
   React.useEffect(() => {
     let live = true
+    const cancels: Array<() => void> = []
     ;(async () => {
       const supabase = createClient()
       const { data: auth } = await supabase.auth.getUser()
@@ -153,28 +162,33 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
         supabase.from("creators").select("id, support_email").eq("user_id", user.id).maybeSingle(),
       ])
       if (!live) return
-      setMe({
+      cancels.push(afterLayerMove(() => setMe({
         creatorId: creator?.id ?? null,
         name: (profile?.display_name || profile?.username || "").trim() || "You",
         username: profile?.username ?? null,
         avatarUrl: profile?.avatar_url ?? null,
         email: user.email ?? profile?.email ?? null,
         replyTo: (creator?.support_email || profile?.email || user.email || "").trim().toLowerCase() || null,
-      })
+      })))
     })()
     fetch("/api/email/audience", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!live || !d) return
-        setOptions(d.options ?? [])
-        setSegments(d.segments ?? [])
-        setPlan(d.plan ?? null)
-        setBrand(d.brand ?? null)
-        setCanSetOpens(d.upgraded === true)
+        cancels.push(
+          afterLayerMove(() => {
+            setOptions(d.options ?? [])
+            setSegments(d.segments ?? [])
+            setPlan(d.plan ?? null)
+            setBrand(d.brand ?? null)
+            setCanSetOpens(d.upgraded === true)
+          }),
+        )
       })
       .catch(() => {})
     return () => {
       live = false
+      for (const cancel of cancels) cancel()
     }
   }, [])
 

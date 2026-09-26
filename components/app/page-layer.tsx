@@ -153,7 +153,7 @@ function setMotionVars(html: HTMLElement) {
 function keepPageUnder(move: ViewTransitionLike) {
   move.ready.then(
     () => {
-      for (const a of document.documentElement.getAnimations({ subtree: true })) {
+      for (const a of document.getAnimations()) {
         const effect = a.effect as KeyframeEffect | null
         if (effect?.pseudoElement !== "::view-transition-group(root)") continue
         if (effect.getKeyframes().some((k) => k.opacity !== undefined)) a.cancel()
@@ -164,17 +164,107 @@ function keepPageUnder(move: ViewTransitionLike) {
 }
 
 /*
+  ===========================================================================
+   THE MOVE STARTS WHEN ITS FRAMES DO
+  ===========================================================================
+  A move's clock starts the moment its pictures are ready, but its first
+  frame reaches the screen only once the page it brings has been drawn for
+  the first time (the editor, the composer, a list of fifty rows). On a
+  slow phone that was 200ms: the clock ran on while nothing could be shown,
+  so the first frame anyone saw was the layer already most of the way up,
+  "so direct", and every frame before it counted as dropped. So the move is
+  held at its first position until frames arrive a frame apart again, then
+  let go: all of it is seen, from the edge, one frame after another. At most
+  FRAMES_FLOW_CAP_MS is spent waiting, whatever happens.
+*/
+const FRAMES_FLOW_CAP_MS = 400
+/** Two frames this close together: the screen is keeping up again. */
+const FRAME_FLOWS_MS = 24
+
+export function startWhenFramesFlow(animations: Animation[]) {
+  if (typeof window === "undefined" || animations.length === 0) return
+  for (const a of animations) a.pause()
+  const began = performance.now()
+  let last = -1
+  const tick = (t: number) => {
+    if ((last >= 0 && t - last < FRAME_FLOWS_MS) || performance.now() - began > FRAMES_FLOW_CAP_MS) {
+      for (const a of animations) if (a.playState === "paused") a.play()
+      return
+    }
+    last = t
+    requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
+}
+
+/** The layer's own move in a view transition that is ready: held until its frames flow (above). */
+function layerMoveWhenDrawn(move: ViewTransitionLike) {
+  move.ready.then(
+    () => startWhenFramesFlow(document.getAnimations().filter((a) => /page-layer/.test((a.effect as KeyframeEffect | null)?.pseudoElement ?? ""))),
+    () => {},
+  )
+}
+
+/*
   What React leaves behind. Its opacity 0 on the root's group and its 0 by 0
   on ::view-transition are Web Animations that hold their last frame, on
   pseudo elements that exist only during a transition, and they are still
   there when the next one begins: the next view transition, ours, would
   start with its whole overlay 0 by 0. So they go when a transition ends,
-  and before ours begins.
+  and before ours begins. Read from the document's list: once the pseudo
+  elements are gone, <html>'s own list no longer shows them.
 */
 function clearLeftovers() {
-  for (const a of document.documentElement.getAnimations({ subtree: true })) {
+  for (const a of document.getAnimations()) {
     const pseudo = (a.effect as KeyframeEffect | null)?.pseudoElement ?? ""
     if (pseudo.startsWith("::view-transition")) a.cancel()
+  }
+}
+
+/*
+  ===========================================================================
+   WORK THAT WAITS FOR THE MOVE
+  ===========================================================================
+  The move itself is the compositor's, but a frame of it still needs the
+  main thread to put the page's own changes on the screen, and a page that
+  draws itself again half way up (an answer from the server landing, a list
+  laid out) takes those frames: a slow phone dropped two or three of them in
+  every move. So a page hands such work to afterLayerMove, which runs it at
+  once when nothing moves and otherwise the moment the move has finished
+  (at the latest AFTER_MOVE_CAP_MS later, whatever happens).
+*/
+const AFTER_MOVE_CAP_MS = 1500
+const afterMove: Array<() => void> = []
+
+/** Is a layer rising or dropping right now? */
+export function layerMoving(): boolean {
+  if (typeof document === "undefined") return false
+  const m = document.documentElement.dataset.layerMotion
+  return m === "enter" || m === "leave"
+}
+
+function runAfterMove() {
+  for (const fn of afterMove.splice(0)) fn()
+}
+
+/** Runs `fn` now, or once the layer that is moving has arrived. Returns a cancel. */
+export function afterLayerMove(fn: () => void): () => void {
+  if (!layerMoving()) {
+    fn()
+    return () => {}
+  }
+  let live = true
+  const run = () => {
+    if (!live) return
+    live = false
+    window.clearTimeout(cap)
+    fn()
+  }
+  const cap = window.setTimeout(run, AFTER_MOVE_CAP_MS)
+  afterMove.push(run)
+  return () => {
+    live = false
+    window.clearTimeout(cap)
   }
 }
 
@@ -192,9 +282,11 @@ function markReactMotion(kind: "enter" | "leave") {
   html.dataset.layerMotion = next
   setMotionVars(html)
   if (next === "enter") keepPageUnder(move)
+  if (next === "enter" || next === "leave") layerMoveWhenDrawn(move)
   const clear = () => {
     clearLeftovers()
     if (html.dataset.layerMotion === next) delete html.dataset.layerMotion
+    runAfterMove()
   }
   move.finished.then(clear, clear)
 }
@@ -234,6 +326,7 @@ function dropLayer(navigate: () => void) {
     manual = false
     for (const change of changes) change()
     if (html.dataset.layerMotion === "leave") delete html.dataset.layerMotion
+    runAfterMove()
   }
   let move: ViewTransitionLike
   try {
@@ -276,6 +369,7 @@ function dropLayer(navigate: () => void) {
   }
   /* A skipped move rejects `ready`; that is an outcome, not an error. */
   move.ready.catch(() => {})
+  layerMoveWhenDrawn(move)
   move.finished.then(done, done)
 }
 

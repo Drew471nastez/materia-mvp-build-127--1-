@@ -496,6 +496,18 @@ check("on a phone the layer rises from the bottom edge and drops back to it, on 
 check("  a press on the way in or out answers on its own frame, and a spinner takes its place past LAYER_PRESS_WAIT_MS",
   /export const LAYER_PRESS_WAIT_MS = 100/.test(layer) && /export function holdPress\(/.test(layer) && /if \(press !== false\) holdPress\(press \?\? recentPress\(\)\)/.test(layer)
     && /\[data-layer-press=""\] > :not\(\[data-layer-press-spinner\]\) \{\s*opacity: 0\.4;/.test(css) && /@keyframes press-spinner-in/.test(css))
+/* "200 fps smooth": nothing of the pages' own lands in the frames of a move (scripts/check-layer-motion.mjs measures 0 dropped frames at 4x CPU). */
+check("  a move is held at its first position until frames arrive a frame apart again, at most 400ms, then played whole",
+  /export function startWhenFramesFlow\(animations: Animation\[\]\)/.test(layer) && /const FRAMES_FLOW_CAP_MS = 400/.test(layer) && /const FRAME_FLOWS_MS = 24/.test(layer)
+    && /for \(const a of animations\) a\.pause\(\)/.test(layer) && /if \(next === "enter" \|\| next === "leave"\) layerMoveWhenDrawn\(move\)/.test(layer)
+    && /move\.ready\.catch\(\(\) => \{\}\)\s*layerMoveWhenDrawn\(move\)/.test(layer) && /startWhenFramesFlow\(anims\)/.test(code("app/app/orders/order-motion.ts")))
+check("  a page's own redraw waits for the move (afterLayerMove), let go when the move ends or after 1.5s",
+  /export function afterLayerMove\(fn: \(\) => void\): \(\) => void/.test(layer) && /const AFTER_MOVE_CAP_MS = 1500/.test(layer) && (layer.match(/runAfterMove\(\)/g) ?? []).length >= 2
+    && /afterLayerMove\(\(\) => \{\s*setOptions\(d\.options \?\? \[\]\)/.test(code("components/email/compose/composer.tsx")))
+check("  the list's off screen rows are laid out in the frame the picture is taken, not the first frame of the drop",
+  /html\[data-layer-motion\] \.\\\[content-visibility\\:auto\\\] \{\s*content-visibility: visible;/.test(css))
+check("  React's leftover pseudo animations are read from the document's list, which still has them once the pseudo elements are gone",
+  /function clearLeftovers\(\) \{\s*for \(const a of document\.getAnimations\(\)\)/.test(layer))
 check("the pill keeps its place while a layer moves under it", /html\[data-layer-motion\] \[data-app-nav-pill\] \{\s*view-transition-name: app-nav-pill;/.test(css))
 check("the stage plays no landing of its own under a layer's move (the mark read on the commit, and again on the frame the landing would start)",
   /const layered = !!document\.documentElement\.dataset\.layerMotion\s*requestAnimationFrame\(\(\) => \{\s*const s = scrollers\(\)\s*if \(!s \|\| layered \|\| document\.documentElement\.dataset\.layerMotion( \|\| isLandingHeld\(\))?\) return\s*playEntrance\(s\.outer/.test(code("components/app/app-stage.tsx")))

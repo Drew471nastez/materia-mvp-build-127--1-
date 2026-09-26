@@ -3779,6 +3779,15 @@ html[data-layer-motion="leave"]::view-transition-old(page-layer) {
 html[data-layer-motion] [data-app-nav-pill] {
   view-transition-name: app-nav-pill;
 }
+/* A list row skipped while it is off screen (content-visibility: auto, the
+   Products list's) is laid out on the frame after the list is drawn, not
+   on the one that draws it: coming back from a layer, that frame is the
+   first frame of the drop, and fifty rows laid out inside it were a long
+   task in the move. While a layer moves they are drawn with the page, in
+   the frame the transition takes its picture, before anything moves. */
+html[data-layer-motion] .\[content-visibility\:auto\] {
+  content-visibility: visible;
+}
 html[data-layer-motion]::view-transition-group(app-nav-pill) {
   animation: none;
 }
@@ -5657,9 +5666,15 @@ html.pop-in-flight #platform-header-root {
 
 /* Under a settled order the list is not drawn at all (nothing to paint, no
    scroll to follow), and it keeps its scroll position while hidden. While an
-   order moves over it, in or out, it carries data-moving and is drawn. */
+   order moves over it, in or out, it carries data-moving and is drawn.
+   Opacity, not visibility: visibility is inherited, so turning it on or off
+   restyled every one of the list's fifteen hundred boxes, a 200ms task on a
+   slow phone in the first frame of Back and the last frame of an order
+   rising. Opacity 0 on the list alone restyles one box, is not painted, and
+   keeps the list's scroll. It is inert and hidden from a screen reader
+   already (orders-client). */
 .orders-stage[data-order-open] > .orders-list:not([data-moving]) {
-  visibility: hidden;
+  opacity: 0;
 }
 
 /* The row an order was opened from: tinted while the order covers it, and
