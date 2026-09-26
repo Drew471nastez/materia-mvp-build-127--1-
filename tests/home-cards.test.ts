@@ -154,15 +154,20 @@ function main() {
   check("reduced motion stops it turning on its own", /prefers-reduced-motion: reduce/.test(globe))
   check("drawn with WebGL, the 2D canvas where WebGL would be software", /createGlRenderer\(canvas, ball\)/.test(globe) && /create2dRenderer\(canvas, ball\)/.test(globe) && /failIfMajorPerformanceCaveat: true/.test(read("components/app/home/globe-gl.ts")))
   check("never sharper than 2x", /MAX_DPR = 2\b/.test(read("components/app/home/globe-scene.ts")) && /Math\.min\(window\.devicePixelRatio \|\| 1, MAX_DPR\)/.test(globe))
-  /* "Not like a swipe carousel ... make it fade out, normal regular." */
-  check("the banner's old line fades out (150ms) before the next comes in (after 160ms), never both half there",
-    /\.home-banner-slide \{\s*visibility: hidden;\s*opacity: 0;\s*transition: opacity 150ms[^;]*visibility 0s linear 150ms;/.test(banner) && /\[data-slide="leaving"\] \{ translate: var\(--home-banner-out, 0 -3px\); \}/.test(banner) &&
-    /\.home-banner-stack\[data-dir\] > \.home-banner-slide\[data-slide="active"\] \{\s*animation: home-banner-in 380ms [^;]* 160ms both;/.test(banner) &&
-    !/opacity 250ms ease/.test(banner))
-  check("a swipe brings the next line from the side it was sent; the clock brings it with a small rise",
-    /\[data-dir="next"\] \{ --home-banner-in: 10px 0;/.test(banner) && /\[data-dir="prev"\] \{ --home-banner-in: -10px 0;/.test(banner) &&
-    /setDir\(asked \? \(to < index \? "prev" : "next"\) : "auto"\)/.test(banner))
-  check("and a swipe picks the slide without the text following the finger", !/setTrack|t\.style\.translate/.test(banner) && /go\(index \+ \(s\.dx < 0 \? 1 : -1\), true\)/.test(banner))
+  /* Changed on purpose: "Not like a swipe carousel ... make it fade out" became, on the owner's phone
+     recording, "when I swipe to change the banner ... and the banner autoplay switch to the next
+     announcement, it's very bugged, glitchy, not smooth at all": the fade left a blank banner between
+     two slides. Every change is now one slide move, the old out and the new in together. */
+  check("a change is one move on transform: the old slide out and the next in together, never a fade",
+    /export const MOVE_MS = 480/.test(banner) && /export const MOVE_EASE = "cubic-bezier\(0\.22, 1, 0\.36, 1\)"/.test(banner) &&
+    /el\.animate\(\[\{ transform: tx\(from\) \}, \{ transform: tx\(to\) \}\], opts\)/.test(banner) &&
+    !/@keyframes home-banner-in/.test(banner) && !/transition: opacity 150ms/.test(banner) && !/opacity: 0;/.test(banner.slice(banner.indexOf(".home-banner-slide {"))))
+  check("a swipe drags the text one to one on a frame, with no React render per move, and carries on at the throw's speed or settles back",
+    /s\.frame = requestAnimationFrame\(\(\) => \{/.test(banner) && /placeDrag\(s\.o\)/.test(banner) && !/setState|useState[^\n]*offset/.test(banner.slice(banner.indexOf("const onPointerMove"), banner.indexOf("const onPointerEnd"))) &&
+    /\(4\.5 \* left\) \/ Math\.abs\(v\)/.test(banner) && /moveTo\(mm\.index, dir, false/.test(banner))
+  check("the slides share one grid cell, so every button sits at one height under the tallest copy",
+    /\.home-banner-stack \{[^}]*display: grid;/.test(banner) && /\.home-banner-slide \{\s*grid-area: 1 \/ 1;/.test(banner) && /\.home-banner-cta-row \{ margin-top: auto; padding-top: 10px; \}/.test(banner))
+  check("with reduced motion there is no clock, and a change is simply there", /if \(!fill \|\| latest\.current\.count < 2 \|\| reducedMotion\(\)\) return/.test(banner) && /if \(reducedMotion\(\)\) \{\s*\/\* Reduced motion: the new slide is simply there\. \*\//.test(banner))
   check("it is in the banner, and the banner is on Home", /<BannerGlobe/.test(banner) && /<HomeBanner /.test(dash))
   check("the text stops where the globe's atmosphere begins: one set of numbers places both", /padding: 18px calc\(var\(--gx\) \+ var\(--g\) \* 0\.452 \+ var\(--gap\)\)/.test(banner) && /right: calc\(var\(--gx\) - var\(--g\) \/ 2\);/.test(banner))
 

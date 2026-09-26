@@ -1,5 +1,6 @@
 import type React from "react"
 import Link from "next/link"
+import { Sparkles } from "lucide-react"
 
 /**
  * ===========================================================================
@@ -11,12 +12,11 @@ import Link from "next/link"
  * the page's rounded top instead of running square and edge to edge under
  * the bar.
  *
- * CALMER THAN IT WAS. It was a solid #8b5cf6 band in white type with a black
- * gradient pill and a sparkle in it: the loudest thing on every page it was
- * on, directly under the black bar. Now it is a pale violet tint, the page's
- * own dark type, and one solid violet button with no icon: still the Try Pro
- * note, and still the one place violet sits at the top of the page, without
- * shouting over the page it belongs to. No gradient.
+ * THE VIOLET BAND, AS IT WAS. For a day it was a pale violet tint with dark
+ * type; the owner wants the band back: solid #8b5cf6, white type, and the
+ * near black Upgrade pill with a hairline of white round it and the
+ * sparkle. The pill is solid now rather than a black gradient (CLAUDE.md:
+ * no gradients), which reads the same at this size.
  *
  * The same height as before, 38px on a phone and 40px wider, and the same
  * links: nothing under it moves. Home's rotating strip (AnnouncementBar in
@@ -26,15 +26,17 @@ import Link from "next/link"
  * No "use client": it has no state, so a server page (Payouts) renders it as
  * it is and a client page (Analytics, Emails) the same.
  */
-export const STRIP_TINT = "bg-[#f5f3ff] text-[#1a1a2e]"
-export const STRIP_TITLE = "font-semibold text-[#1a1a2e]"
-export const STRIP_TEXT = "text-[#6b7280]"
+export const STRIP_TINT = "bg-[#8b5cf6] text-white"
+export const STRIP_TITLE = "font-semibold text-white"
+export const STRIP_TEXT = "text-white/85"
 export const STRIP_ACTION =
-  "inline-flex shrink-0 items-center rounded-full bg-[#8b5cf6] px-2.5 py-0.5 text-[11px] font-medium text-white transition-colors hover:bg-[#7c3aed] active:bg-[#7c3aed] md:px-3 md:py-1 md:text-[13px]"
+  "inline-flex shrink-0 items-center gap-1 rounded-full bg-[#111111] px-2.5 py-0.5 text-[11px] font-medium text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.3)] transition-[box-shadow,background-color] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.5)] active:bg-black md:gap-1.5 md:px-3 md:py-1 md:text-[13px]"
+/** The pill's sparkle, beside Upgrade. */
+export const STRIP_SPARKLE = "h-3 w-3 shrink-0 md:h-3.5 md:w-3.5"
 
 export function AnnouncementBarMobile({ children }: { children: React.ReactNode }) {
   return (
-    <div data-page-strip="" className={`w-full select-none shadow-[inset_0_-1px_0_#ede9fe] ${STRIP_TINT}`} style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}>
+    <div data-page-strip="" className={`w-full select-none ${STRIP_TINT}`} style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}>
       {/* 38px on a phone, 40px wider: the same height as Home's (components/app/dashboard-client). */}
       <div className="h-[38px] md:h-[40px] flex items-center justify-center px-4">
         {children}
@@ -53,6 +55,7 @@ export function TryProStrip() {
           <span className={`hidden md:inline ${STRIP_TEXT}`}>, our most popular plan for content creators and businesses.</span>
         </span>
         <Link href="/upgrade" className={STRIP_ACTION}>
+          <Sparkles className={STRIP_SPARKLE} aria-hidden="true" />
           Upgrade
         </Link>
       </div>
