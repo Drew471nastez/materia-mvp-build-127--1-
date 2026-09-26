@@ -3,7 +3,8 @@
 import type React from "react"
 
 import { useOnePage } from "@/lib/onepage/context"
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useLayoutEffect, useState, useRef, useCallback, startTransition } from "react"
+import { flushSync } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { SocialIcon } from "@/components/onepage/brand-icons"
@@ -822,6 +823,40 @@ const SECTION_LABEL: Record<DesignSection, string> = {
  * The open panel is kept for this visit in sessionStorage, so switching to
  * Links and back returns to it; a new visit opens on the list.
  */
+/**
+ * ===========================================================================
+ *  A PANEL IS PUSHED IN, AND POPPED BACK OUT
+ * ===========================================================================
+ * Opening a row and going back swapped one for the other in a single frame,
+ * and back always landed at the top of the list. Now it is a navigation
+ * stack, as on an iPhone: the panel slides in from the right over the list
+ * while the list moves a little to the left and dims under it; back plays
+ * it the other way, to the place in the list that was left. On a phone a
+ * finger from the left edge of a panel pulls it back the same way, and
+ * lets it go back or springs it home.
+ *
+ * Both pages are drawn only while they move. At rest the list is kept (its
+ * state, not its pixels: `display: none`), and a panel is made fresh each
+ * time it opens, at its top. Transform and opacity only, on the compositor.
+ */
+type DesignPage = DesignSection | "home"
+/** iOS's push: 360ms on its own curve, the page under it moving about a quarter as far. */
+const PUSH_MS = 360
+const PUSH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+const UNDER_SHIFT = 0.28
+/** How dark the list goes under a panel: a shade, not a scrim. */
+const UNDER_DIM = 0.07
+/** A finger that starts this close to a panel's left edge is taking it back. */
+const EDGE_PX = 28
+
+/**
+ * `top` places the page leaving (or, pulled by a finger, the list under the
+ * panel) where it was on screen. `panelMin` and `listMin` are how tall each
+ * must be to reach the bottom of the screen while they move, so a short
+ * page never leaves the other showing, undimmed, below it.
+ */
+type Move = { from: DesignPage; to: DesignPage; top: number; panelMin: number; listMin: number; peek?: boolean }
+
 export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" | null }) {
   const { onepage } = useOnePage()
   const [section, setSectionState] = useState<DesignSection | null>(() => {
@@ -833,18 +868,193 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
     }
   })
   const rootRef = useRef<HTMLDivElement>(null)
-  const setSection = useCallback((next: DesignSection | null) => {
-    setSectionState(next)
+  const listRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const dimRef = useRef<HTMLDivElement>(null)
+  const sectionRef = useRef(section)
+  /* Where the list was scrolled to when a panel covered it. */
+  const listScroll = useRef(0)
+  /* The pages moving now: `top` places the one leaving where it was on screen. */
+  const [move, setMove] = useState<Move | null>(null)
+  const scrollerOf = () => rootRef.current?.closest<HTMLElement>("[data-scroll-container]") ?? null
+
+  const remember = (next: DesignSection | null) => {
     try {
       if (next) window.sessionStorage.setItem("onepage-design-section", next)
       else window.sessionStorage.removeItem("onepage-design-section")
     } catch {
       /* A private window: the panel is simply not remembered. */
     }
-    /* The panel starts at its top, not wherever the list was scrolled to. */
+  }
+
+  const setSection = useCallback((next: DesignSection | null) => {
+    const current = sectionRef.current
+    if (current === next) return
     const scroller = rootRef.current?.closest<HTMLElement>("[data-scroll-container]")
-    scroller?.scrollTo({ top: 0 })
+    const y = scroller?.scrollTop ?? 0
+    if (!current) listScroll.current = y
+    /* The page arriving starts at its top (a panel) or where it was left (the list). */
+    const arriveAt = next ? 0 : listScroll.current
+    sectionRef.current = next
+    const screen = scroller?.clientHeight ?? 0
+    setMove({ from: current ?? "home", to: next ?? "home", top: arriveAt - y, panelMin: screen + (next ? 0 : y), listMin: screen + listScroll.current })
+    setSectionState(next)
+    remember(next)
   }, [])
+
+  /*
+    THE TAP MOVES THE PAGE AT ONCE. A panel's controls cost a frame or
+    several to build and style (Theme's eighteen cards: 40ms on a computer,
+    200ms on a phone slowed four times), and the slide used to wait for
+    them. Now the page arrives with its title and its way back, the slide
+    starts in the next frame, and what is in it is built a frame later, in
+    a render React can put aside for another tap, and fades in over the
+    page as it comes.
+  */
+  const [bodyFor, setBodyFor] = useState<DesignSection | null>(section)
+  useEffect(() => {
+    if (!section || bodyFor === section) return
+    let timer = 0
+    const frame = requestAnimationFrame(() => {
+      timer = window.setTimeout(() => startTransition(() => setBodyFor(section)), 0)
+    })
+    return () => {
+      cancelAnimationFrame(frame)
+      window.clearTimeout(timer)
+    }
+  }, [section, bodyFor])
+
+  /* The move itself, drawn before the browser paints the first frame of it. */
+  const animating = useRef<Animation[]>([])
+  useLayoutEffect(() => {
+    if (!move || move.peek) return
+    const scroller = scrollerOf()
+    if (scroller) scroller.scrollTop = move.to === "home" ? listScroll.current : 0
+    const list = listRef.current
+    const panel = panelRef.current
+    const dim = dimRef.current
+    const done = () => {
+      animating.current = []
+      setMove((m) => (m === move ? null : m))
+    }
+    if (!list || !panel || typeof panel.animate !== "function" || reducedMotion()) {
+      done()
+      return
+    }
+    const pushing = move.to !== "home"
+    /* A move still running (back pressed mid-push) is taken from where it is. */
+    const w = panel.offsetWidth || 1
+    const running = animating.current.length > 0
+    const panelFrom = running ? new DOMMatrixReadOnly(getComputedStyle(panel).transform).m41 / w : pushing ? 1 : 0
+    animating.current.forEach((a) => a.cancel())
+    const panelTo = pushing ? 0 : 1
+    const at = (p: number) => `translate3d(${(p * 100).toFixed(3)}%, 0, 0)`
+    const under = (p: number) => `translate3d(${(-(1 - p) * UNDER_SHIFT * 100).toFixed(3)}%, 0, 0)`
+    const timing = { duration: PUSH_MS * Math.max(0.35, Math.abs(panelTo - panelFrom)), easing: PUSH_EASE }
+    const anims = [
+      panel.animate([{ transform: at(panelFrom) }, { transform: at(panelTo) }], timing),
+      list.animate([{ transform: under(panelFrom) }, { transform: under(panelTo) }], timing),
+    ]
+    if (dim) anims.push(dim.animate([{ opacity: (1 - panelFrom) * UNDER_DIM }, { opacity: (1 - panelTo) * UNDER_DIM }], timing))
+    animating.current = anims
+    anims[0].onfinish = done
+    const timer = window.setTimeout(done, timing.duration + 250)
+    return () => window.clearTimeout(timer)
+  }, [move])
+
+  /* ── A finger from the left edge takes the panel back (a phone) ─────── */
+  /*
+    The edge is a strip of its own, 20px wide down the panel's left side on
+    a phone, that takes its finger (`touch-action: none`), so the panel's
+    scrolling is left to the browser everywhere else and no touch listener
+    anywhere holds a scroll up waiting for script. Pointer events, captured.
+  */
+  const peekRef = useRef<{ id: number; x0: number; y0: number; w: number; dragging: boolean; samples: { t: number; x: number }[] } | null>(null)
+  const restoreList = useRef(false)
+  const drawPeek = (p: number) => {
+    /* p: how far the panel has gone, 0 (covering) to 1 (gone). */
+    const panel = panelRef.current
+    const list = listRef.current
+    const dim = dimRef.current
+    if (panel) panel.style.transform = `translate3d(${(p * 100).toFixed(3)}%, 0, 0)`
+    if (list) list.style.transform = `translate3d(${(-(1 - p) * UNDER_SHIFT * 100).toFixed(3)}%, 0, 0)`
+    if (dim) dim.style.opacity = String((1 - p) * UNDER_DIM)
+  }
+  const clearPeek = () => {
+    for (const el of [panelRef.current, listRef.current]) if (el) el.style.transform = ""
+    if (dimRef.current) dimRef.current.style.opacity = ""
+  }
+  const onEdgeDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse" || animating.current.length || !sectionRef.current) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    peekRef.current = { id: e.pointerId, x0: e.clientX, y0: e.clientY, w: panelRef.current?.offsetWidth || window.innerWidth, dragging: false, samples: [{ t: e.timeStamp, x: e.clientX }] }
+  }
+  const onEdgeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const g = peekRef.current
+    if (!g || e.pointerId !== g.id) return
+    const dx = e.clientX - g.x0
+    if (!g.dragging) {
+      const dy = e.clientY - g.y0
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
+      /* Up, down or to the left is not a way back. */
+      if (dx <= 0 || Math.abs(dy) > Math.abs(dx)) { peekRef.current = null; return }
+      g.dragging = true
+      g.x0 = e.clientX
+      /* The list is drawn under the panel, where it was left, before the finger moves it. */
+      const scroller = scrollerOf()
+      const y = scroller?.scrollTop ?? 0
+      const screen = scroller?.clientHeight ?? 0
+      flushSync(() => setMove({ from: sectionRef.current ?? "home", to: sectionRef.current ?? "home", top: y - listScroll.current, panelMin: screen + y, listMin: screen + listScroll.current, peek: true }))
+    }
+    g.samples.push({ t: e.timeStamp, x: e.clientX })
+    if (g.samples.length > 8) g.samples.shift()
+    drawPeek(Math.max(0, Math.min(1, (e.clientX - g.x0) / g.w)))
+  }
+  const onEdgeUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const g = peekRef.current
+    peekRef.current = null
+    if (!g || e.pointerId !== g.id || !g.dragging) return
+    const last = g.samples[g.samples.length - 1]
+    const first = g.samples.find((s) => last.t - s.t <= 80) ?? g.samples[0]
+    const v = last.t > first.t ? (last.x - first.x) / (last.t - first.t) : 0
+    const p = Math.max(0, Math.min(1, (last.x - g.x0) / g.w))
+    /* Past 40% of the way, or let go moving right: back. */
+    const back = e.type !== "pointercancel" && (p > 0.4 || v > 0.45)
+    const to = back ? 1 : 0
+    const timing = { duration: Math.max(140, PUSH_MS * Math.abs(to - p)), easing: PUSH_EASE }
+    const panel = panelRef.current
+    const list = listRef.current
+    const dim = dimRef.current
+    const anims: Animation[] = []
+    if (panel) anims.push(panel.animate([{ transform: `translate3d(${p * 100}%, 0, 0)` }, { transform: `translate3d(${to * 100}%, 0, 0)` }], timing))
+    if (list) anims.push(list.animate([{ transform: `translate3d(${-(1 - p) * UNDER_SHIFT * 100}%, 0, 0)` }, { transform: `translate3d(${-(1 - to) * UNDER_SHIFT * 100}%, 0, 0)` }], timing))
+    if (dim) anims.push(dim.animate([{ opacity: (1 - p) * UNDER_DIM }, { opacity: (1 - to) * UNDER_DIM }], timing))
+    drawPeek(to)
+    animating.current = anims
+    const settle = () => {
+      if (animating.current !== anims) return
+      animating.current = []
+      if (back) {
+        /* The list becomes the page, at its place; the finger's styles go once React has drawn that. */
+        restoreList.current = true
+        sectionRef.current = null
+        setSectionState(null)
+        remember(null)
+      }
+      setMove(null)
+      if (!back) clearPeek()
+    }
+    if (anims[0]) anims[0].onfinish = settle
+    else settle()
+  }
+  /* After a pull back has become the list: its place, and nothing left of the finger. */
+  useLayoutEffect(() => {
+    if (!restoreList.current || section) return
+    restoreList.current = false
+    clearPeek()
+    const scroller = scrollerOf()
+    if (scroller) scroller.scrollTop = listScroll.current
+  }, [section])
 
   if (!onepage) return null
   const { theme, settings } = onepage
@@ -860,49 +1070,118 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
     `Fill, ${(normalizeHex(theme.background_color) || theme.background_color || "").toUpperCase()}${patternName ? `, ${patternName}` : ""}`
   const swatch = (bg: string) => <span aria-hidden className="h-7 w-7 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,0.1)]" style={{ background: bg }} />
 
-  if (section) {
-    return (
-      <div ref={rootRef} key={section} data-design-panel={section}>
-        <PanelHeader title={SECTION_LABEL[section]} onBack={() => setSection(null)} backLabel="Back to Design" />
-        {section === "header" && <HeaderSection />}
-        {section === "theme" && <ThemeSection />}
-        {section === "wallpaper" && <WallpaperSection />}
-        {section === "text" && <TextSection />}
-        {section === "buttons" && <ButtonsSection />}
-        {section === "socials" && <SocialsSection />}
-        {section === "footer" && <FooterSection userPlan={userPlan} />}
-      </div>
-    )
-  }
+  /* Which panel is drawn: the one open, or the one on its way out. */
+  const shownSection: DesignSection | null = section ?? (move && move.from !== "home" ? move.from : null)
+  const listCurrent = !section
+  const listMoving = !!move && (move.from === "home" || move.to === "home" || !!move.peek)
+  const panelMoving = !!move
+  /* The page leaving sits where it was on screen; the page arriving is in the flow. */
+  const leavingStyle = (top: number): React.CSSProperties => ({ position: "absolute", left: 0, right: 0, top, zIndex: 0 })
+  const pageClass = "-mx-4 px-4 md:-mx-6 md:px-6 bg-white"
 
   return (
-    <div ref={rootRef} data-design-panel="home">
-      {FONT_SAMPLE_HREF ? <link rel="stylesheet" href={FONT_SAMPLE_HREF} /> : null}
-      <PanelHeader title="Design" />
-      <nav aria-label="Design" className="flex flex-col">
-        <NavRow dataKey="theme" icon={Layers} title="Theme" subtitle={templateName || "Your own"} onClick={() => setSection("theme")} />
-        <NavRow dataKey="header" icon={CircleUserRound} title="Header" subtitle={`${(t.header_layout || "classic") === "hero" ? "Hero" : "Classic"} layout, ${t.title_style === "logo" ? "logo title" : "text title"}`} onClick={() => setSection("header")} />
-        <NavRow
-          dataKey="wallpaper"
-          icon={PaintBucket}
-          title="Wallpaper"
-          subtitle={wallpaperSummary}
-          trailing={theme.background_type === "solid" || theme.background_type === "gradient" ? swatch(theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color) : null}
-          onClick={() => setSection("wallpaper")}
-        />
-        <NavRow
-          dataKey="text"
-          icon={Type}
-          title="Text"
-          subtitle={<span style={{ fontFamily: fontStack(theme.font_family) }}>{titleFont && titleFont !== bodyFont ? `${bodyFont}, titles in ${titleFont}` : bodyFont}</span>}
-          onClick={() => setSection("text")}
-        />
-        <NavRow dataKey="buttons" icon={RectangleHorizontal} title="Buttons" subtitle={`${theme.button_style === "filled" ? "Solid" : theme.button_style === "outline" ? "Outline" : "Glass"}, ${theme.button_border_radius ?? 8}px corners`} trailing={swatch(theme.button_color)} onClick={() => setSection("buttons")} />
-        <NavRow dataKey="socials" icon={AtSign} title="Social icons" subtitle={SOCIAL_STYLES.find((x) => x.id === (t.social_icon_style || "filled"))?.label || "Solid"} onClick={() => setSection("socials")} />
-        <NavRow dataKey="footer" icon={PanelBottom} title="Footer" subtitle={settings.show_branding === false ? "Storelib badge hidden" : "Storelib badge shown"} onClick={() => setSection("footer")} />
-      </nav>
+    <div ref={rootRef} className="relative isolate" data-design-stack="">
+      <div
+        ref={listRef}
+        data-design-panel="home"
+        aria-hidden={listCurrent ? undefined : true}
+        inert={!listCurrent}
+        className={pageClass}
+        style={
+          listCurrent
+            ? { position: "relative", zIndex: 0, minHeight: move ? move.listMin : undefined }
+            : listMoving
+              ? { ...leavingStyle(move!.top), minHeight: move!.listMin }
+              : { display: "none" }
+        }
+      >
+        {FONT_SAMPLE_HREF ? <link rel="stylesheet" href={FONT_SAMPLE_HREF} /> : null}
+        <PanelHeader title="Design" />
+        <nav aria-label="Design" className="flex flex-col">
+          <NavRow dataKey="theme" icon={Layers} title="Theme" subtitle={templateName || "Your own"} onClick={() => setSection("theme")} />
+          <NavRow dataKey="header" icon={CircleUserRound} title="Header" subtitle={`${(t.header_layout || "classic") === "hero" ? "Hero" : "Classic"} layout, ${t.title_style === "logo" ? "logo title" : "text title"}`} onClick={() => setSection("header")} />
+          <NavRow
+            dataKey="wallpaper"
+            icon={PaintBucket}
+            title="Wallpaper"
+            subtitle={wallpaperSummary}
+            trailing={theme.background_type === "solid" || theme.background_type === "gradient" ? swatch(theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color) : null}
+            onClick={() => setSection("wallpaper")}
+          />
+          <NavRow
+            dataKey="text"
+            icon={Type}
+            title="Text"
+            subtitle={<span style={{ fontFamily: fontStack(theme.font_family) }}>{titleFont && titleFont !== bodyFont ? `${bodyFont}, titles in ${titleFont}` : bodyFont}</span>}
+            onClick={() => setSection("text")}
+          />
+          <NavRow dataKey="buttons" icon={RectangleHorizontal} title="Buttons" subtitle={`${theme.button_style === "filled" ? "Solid" : theme.button_style === "outline" ? "Outline" : "Glass"}, ${theme.button_border_radius ?? 8}px corners`} trailing={swatch(theme.button_color)} onClick={() => setSection("buttons")} />
+          <NavRow dataKey="socials" icon={AtSign} title="Social icons" subtitle={SOCIAL_STYLES.find((x) => x.id === (t.social_icon_style || "filled"))?.label || "Solid"} onClick={() => setSection("socials")} />
+          <NavRow dataKey="footer" icon={PanelBottom} title="Footer" subtitle={settings.show_branding === false ? "Storelib badge hidden" : "Storelib badge shown"} onClick={() => setSection("footer")} />
+        </nav>
+        {/* The shade the list takes under a panel: on a phone, where the list is the whole screen; on a computer it would be a grey card in a white pane. */}
+        <div ref={dimRef} aria-hidden className="pointer-events-none absolute inset-0 bg-[#1a1a2e] md:hidden" style={{ opacity: 0 }} />
+      </div>
+      {shownSection ? (
+        <div
+          ref={panelRef}
+          key={shownSection}
+          data-design-panel={shownSection}
+          inert={section !== shownSection}
+          className={pageClass}
+          style={{
+            ...(section === shownSection ? { position: "relative" } : leavingStyle(move ? move.top : 0)),
+            zIndex: 1,
+            /* An edge to the page while it moves over the list: a hairline and a soft shade. */
+            boxShadow: panelMoving ? "-1px 0 0 rgba(26,26,46,0.05), -16px 0 32px -12px rgba(26,26,46,0.14)" : undefined,
+            /* Moving, it covers the list under it to the bottom of the screen, however short it is. */
+            minHeight: panelMoving ? move?.panelMin : undefined,
+          }}
+        >
+          {section === shownSection ? (
+            <div
+              aria-hidden
+              data-edge-back=""
+              className="absolute -left-0 bottom-0 top-0 z-[2] w-5 md:hidden"
+              style={{ touchAction: "none" }}
+              onPointerDown={onEdgeDown}
+              onPointerMove={onEdgeMove}
+              onPointerUp={onEdgeUp}
+              onPointerCancel={onEdgeUp}
+            />
+          ) : null}
+          <PanelHeader title={SECTION_LABEL[shownSection]} onBack={() => setSection(null)} backLabel="Back to Design" />
+          {bodyFor === shownSection ? (
+            <PanelBody fade={!!move}>
+              {shownSection === "header" && <HeaderSection />}
+              {shownSection === "theme" && <ThemeSection />}
+              {shownSection === "wallpaper" && <WallpaperSection />}
+              {shownSection === "text" && <TextSection />}
+              {shownSection === "buttons" && <ButtonsSection />}
+              {shownSection === "socials" && <SocialsSection />}
+              {shownSection === "footer" && <FooterSection userPlan={userPlan} />}
+            </PanelBody>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
+}
+
+function reducedMotion() {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+}
+
+/** A panel's controls: faded in when they arrive on a page that is still sliding. */
+function PanelBody({ fade, children }: { fade: boolean; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const fadeOnMount = useRef(fade)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || !fadeOnMount.current || typeof el.animate !== "function" || reducedMotion()) return
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: "cubic-bezier(0, 0, 0.2, 1)" })
+  }, [])
+  return <div ref={ref}>{children}</div>
 }
 
 function HeaderSection() {

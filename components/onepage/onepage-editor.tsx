@@ -1459,7 +1459,7 @@ function EditorLayout() {
                 data-scroll-container={t === panels.tab ? "links-tab" : undefined}
                 aria-hidden={shown ? undefined : true}
                 inert={t !== panels.tab}
-                className="absolute inset-0 overflow-y-auto overscroll-contain bg-white"
+                className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-contain bg-white"
                 style={{
                   scrollbarWidth: "thin",
                   zIndex: t === panels.tab ? 1 : 0,
