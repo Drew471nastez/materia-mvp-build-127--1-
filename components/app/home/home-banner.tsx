@@ -46,7 +46,7 @@ import type { ProgressFacts } from "@/lib/home/progress"
 import { BannerGlobe } from "./globe"
 
 /** How long a slide stays, in ms. */
-export const SLIDE_MS = 6000
+export const SLIDE_MS = 9000
 
 export interface HomeBannerProps {
   /** What the account has done, as Getting started reads it (lib/home/progress). Read only. */
@@ -352,7 +352,7 @@ const BANNER_CSS = `
 .home-banner {
   container-type: inline-size;
   border: 1px solid #e3e5ea;
-  background: #eff1f4;
+  background: #f3f4f6;
   box-shadow:
     0 1px 2px rgba(16, 24, 40, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
@@ -365,8 +365,8 @@ const BANNER_CSS = `
   /* Clean light grey, a touch lighter at the top left where the light comes from. No violet, no
      pattern: "something more clean, smooth, not eye candy, more towards light grey". Painted once. */
   background:
-    radial-gradient(60% 120% at 12% 0%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 70%),
-    linear-gradient(180deg, #f4f5f7 0%, #eceef1 100%);
+    radial-gradient(60% 120% at 12% 0%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #f6f7f9 0%, #f1f2f5 100%);
 }
 
 /*

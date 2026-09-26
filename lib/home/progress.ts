@@ -272,7 +272,7 @@ export function setupSteps(f: ProgressFacts): ProgressItem[] {
     guide: { id: "guide", label: "How to get started", done: f.guideOpened, action: "guide" },
     product: { id: "product", label: "Add your first product", done: f.products > 0, href: f.products > 0 ? "/app/products" : "/app/products/new" },
     payments: { id: "payments", label: "Set up payments", done: f.paymentsReady, href: "/app/payouts" },
-    store: { id: "store", label: "Build your online store", done: f.websiteLive, href: "/app/website-builder" },
+    store: { id: "store", label: "Publish your website", done: f.websiteLive, href: "/app/website-builder" },
     sale: f.sales > 0
       ? { id: "sale", label: "Make your first sale", done: true, href: "/app/orders" }
       : { id: "sale", label: "Make your first sale", done: false, action: "share" },

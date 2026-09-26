@@ -496,7 +496,8 @@ export function PlanCard({ planId }: { planId: string }) {
         <p className="mt-2 text-[12.5px] text-[#9ca3af]">Included in your plan</p>
 
         <div className="relative mt-3.5 min-h-[96px] flex-1 overflow-hidden">
-          <ul className="space-y-[9px]">
+          {/* 2px in from the left and 1px down: the checks' 1px ring sits outside their circle, and the list clips. */}
+          <ul className="space-y-[9px] pl-[2px] pt-px">
             {lines.map((line) => (
               <li key={line} className="flex items-start gap-2.5 text-[13.5px] leading-[20px] text-[#1f2230]">
                 {/* A light grey circle with a lit top edge, the check in the page's grey: one size for every line. */}

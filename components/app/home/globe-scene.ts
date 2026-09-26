@@ -53,18 +53,18 @@ export const css = (c: Rgb, a = 1) => `rgba(${Math.round(c[0] * 255)},${Math.rou
  */
 export const PALETTE = {
   /** The body, in shadow and in the light. */
-  deep: rgb("#d3d7df"),
-  lit: rgb("#f7f8fa"),
+  deep: rgb("#e1e4e9"),
+  lit: rgb("#fbfbfc"),
   /** The rim the light catches at the edge. */
   rim: rgb("#ffffff"),
   /** The thin atmosphere outside the edge. */
   halo: rgb("#aab0bd"),
-  haloAlpha: 0.14,
+  haloAlpha: 0.1,
   /** Land, on the lit side and on the far side of the light. */
-  landLit: rgb("#7c8290"),
-  landDark: rgb("#a9aeba"),
+  landLit: rgb("#969ca8"),
+  landDark: rgb("#c2c6ce"),
   /** Cities, their pulse, a sale in flight and where it lands. */
-  pin: rgb("#6b7180"),
+  pin: rgb("#8a90a0"),
   pulse: rgb("#9a8fd0"),
   arc: rgb("#9b90cf"),
   head: rgb("#7c6fd0"),
@@ -118,26 +118,26 @@ export function paintBall(b: CanvasRenderingContext2D, device: number, dpr: numb
   b.clip()
   const trace = b.createRadialGradient(c, c, R * 0.8, c, c, R)
   trace.addColorStop(0, css(PALETTE.rim, 0))
-  trace.addColorStop(1, css(PALETTE.deep, 0.35))
+  trace.addColorStop(1, css(PALETTE.deep, 0.25))
   b.fillStyle = trace
   b.fillRect(0, 0, device, device)
   /* Centred away from the light, so only the lit edge is far enough out to catch it. */
   const crescent = b.createRadialGradient(c - lx * R * 0.24, c - ly * R * 0.24, R * 0.92, c - lx * R * 0.24, c - ly * R * 0.24, R * 1.24)
   crescent.addColorStop(0, css(PALETTE.rim, 0))
-  crescent.addColorStop(1, css(PALETTE.rim, 0.7))
+  crescent.addColorStop(1, css(PALETTE.rim, 0.5))
   b.fillStyle = crescent
   b.fillRect(0, 0, device, device)
   const sx = c + lx * R * 0.44
   const sy = c + ly * R * 0.44
   const shine = b.createRadialGradient(sx, sy, 0, sx, sy, R * 0.34)
-  shine.addColorStop(0, "rgba(255,255,255,0.55)")
+  shine.addColorStop(0, "rgba(255,255,255,0.35)")
   shine.addColorStop(1, "rgba(255,255,255,0)")
   b.fillStyle = shine
   b.fillRect(0, 0, device, device)
   b.restore()
 
   const edge = Math.max(1, dpr * 0.75)
-  b.strokeStyle = "rgba(120,127,142,0.22)"
+  b.strokeStyle = "rgba(120,127,142,0.14)"
   b.lineWidth = edge
   b.beginPath()
   b.arc(c, c, R - edge / 2, 0, TAU)

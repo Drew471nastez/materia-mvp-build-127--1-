@@ -14,17 +14,14 @@
  *            pill's, its left edge only ever moves out, and its transform
  *            origin is the corner from the first frame (it used to slide from
  *            the middle, which drifted the panel 6px left and back)
- *   PANEL    no centred modal, no dimmed page, no wider than 396px, nothing
- *            inside it scrolls; the three addresses, the address with Copy,
- *            one line under it, Open and QR code (and Share where the device
- *            has it); no QR card, no platforms, no row of share targets
- *   SWITCH   Creator page, OnePage, Website: the panel's height holds to the
- *            pixel on every frame of the switch, the thumb slides, the
- *            address changes
+ *   PANEL    Quick access, as it was: no centred modal, no dimmed page, no
+ *            wider than 320px, nothing inside it scrolls; one row an address
+ *            (Creator page with the Storelib logo, OnePage, Website), each
+ *            with a small Copy pill; no tabs, no QR code, no black button
+ *   COPY     the pill turns into Copied and the panel keeps its height
  *   SHEET    a phone gets the bottom sheet, no close button, no taller than
  *            three quarters of the screen
- *   VIEWS    the QR view draws a code with Download and Copy link; Back
- *            returns; Escape closes
+ *   CLOSE    Escape closes
  *   PAGE     nothing on the page scrolls sideways at any width
  *
  *   PROBE_CSS=source node scripts/check-share-sheet.mjs
@@ -186,7 +183,7 @@ try {
       const leftward = lefts.every((x, i) => i === 0 || x <= lefts[i - 1] + 0.01)
       expect(frames.length > 5 && rights.every((r) => Math.abs(r - pill.right) <= 0.5), "every frame of the open, the panel's right edge is on the pill's", { pill: pill.right, rights: [...new Set(rights)] })
       expect(leftward, "its left edge only ever moves out: no drift to the left and back", lefts)
-      expect(origins.length === 1 && /^396px 0px$|^100% 0%$/.test(origins[0]), "it grows from the pill's corner from the first frame", origins)
+      expect(origins.length === 1 && /^320px 0px$|^100% 0%$/.test(origins[0]), "it grows from the pill's corner from the first frame", origins)
     }
     await sleep(500)
     const surface = await p.evaluate(() => {
@@ -205,7 +202,9 @@ try {
         box: [Math.round(b.left), Math.round(b.top), Math.round(b.width), Math.round(b.height)],
         right: +b.right.toFixed(2),
         tabs: [...el.querySelectorAll("[role=tab]")].map((t) => t.textContent.trim()),
-        rows: [...el.querySelectorAll("[data-share-row]")].filter((r) => r.getClientRects().length).map((r) => ({ what: r.getAttribute("data-share-row"), address: r.querySelector("[data-share-address]").textContent.trim(), copy: !!r.querySelector("[data-share-copy]"), open: !!r.querySelector("[data-share-open]") })),
+        rows: [...el.querySelectorAll("[data-share-row]")].filter((r) => r.getClientRects().length).map((r) => ({ what: r.getAttribute("data-share-row"), address: r.querySelector("[data-share-address]").textContent.trim(), copy: !!r.querySelector("[data-share-copy]") })),
+        logo: !!el.querySelector("[data-share-row=creator] svg[aria-label=Storelib]"),
+        quick: [...document.querySelectorAll("h2")].some((h) => h.textContent.trim() === "Quick access" && h.getClientRects().length > 0),
         ink: [...el.querySelectorAll("button")].filter((b) => b.getClientRects().length && getComputedStyle(b).backgroundColor === "rgb(26, 26, 46)").length,
         address: el.querySelector("[data-share-address]")?.textContent.trim(),
         actions: [...el.querySelectorAll("[data-share-actions] button")].map((b) => b.textContent.trim()),
@@ -219,26 +218,17 @@ try {
     if (!surface) continue
     expect(surface.kind === (phone ? "sheet" : "panel"), phone ? "a phone gets the bottom sheet" : "a computer gets the panel", surface.kind)
     expect(surface.tabs.length === 0, "no tabs to switch between", surface.tabs)
+    expect(/Quick access/.test(surface.text) || surface.quick, "it is Quick access", surface.text.slice(0, 40))
     expect(surface.rows.map((r) => r.what).join("|") === "creator|onepage|website" && surface.rows[0].address === "storelib.com/andrewrullz", "every address at once, a row each, the creator page first", surface.rows)
-    expect(surface.rows.every((r) => r.copy && r.open), "each with its own Copy and Open", surface.rows)
-    expect(surface.ink === 0, "no black Copy link button", { ink: surface.ink, buttons: surface.buttons })
-    expect(surface.actions[0] === "QR code" && surface.actions.length <= 2, "QR code under them (and Share where the device has one), with their icons", surface.actions)
+    expect(surface.rows.every((r) => r.copy), "each with its own Copy pill", surface.rows)
+    expect(surface.logo, "the creator page carries the Storelib logo", surface.logo)
+    expect(surface.ink === 0 && !/QR code/.test(surface.text), "no black button and no QR code", { ink: surface.ink })
     const gone = ["My platforms", "Instagram", "TikTok", "WhatsApp", "Facebook", "Telegram", "Reddit", "My Storelib", "Add it to your Instagram bio"].filter((w) => surface.text.includes(w))
     expect(gone.length === 0, "no platforms, no QR card, no row of share targets", gone)
     if (phone) {
       expect(!surface.close, "no close button on the sheet", surface.close)
-      /* The QR view is built with the sheet and its code drawn once the sheet has arrived: the QR code button only shows it. */
-      await p.waitForFunction(() => !!document.querySelector("[data-share-sheet] [data-share-qr]")?.getAttribute("src"), { timeout: 3000 }).catch(() => {})
-      const ahead = await p.evaluate(() => {
-        const el = document.querySelector("[data-share-sheet]")
-        return {
-          panes: [...el.querySelectorAll("[data-share-pane]")].map((n) => (getComputedStyle(n).visibility === "hidden" ? "hidden" : "on")),
-          drawn: !!el.querySelector("[data-share-qr]")?.getAttribute("src"),
-        }
-      })
-      expect(ahead.panes.join("|") === "on|hidden" && ahead.drawn, "the QR code is built and drawn with the sheet, out of sight until asked for", ahead)
     } else {
-      expect(surface.box[2] <= 396, "a panel no wider than 396px", surface.box)
+      expect(surface.box[2] <= 320, "a panel no wider than 320px", surface.box)
       expect(surface.box[1] >= pill.bottom && surface.box[1] - pill.bottom <= 14 && Math.abs(surface.right - pill.right) <= 0.5, "dropped from the pill, its right edge on the pill's", { box: surface.box, pill: [pill.right, pill.bottom] })
       expect(!surface.scrolls, "nothing inside it scrolls", surface.scrolls)
       expect(!surface.dimmed, "the page is not dimmed behind it", surface.dimmed)
@@ -271,36 +261,6 @@ try {
       expect(copied === "Copied" && Math.abs((await heightOf()) - before) <= 0.5, "Copy turns into Copied, and the panel holds its height", { copied })
       await p.screenshot({ path: join(shots, `${label}-copied.png`) })
 
-      /* The QR view. */
-      const qr = await p.evaluateHandle(() => [...document.querySelectorAll("[data-share-sheet] [data-share-actions] button")].find((b) => b.textContent.trim() === "QR code"))
-      if (phone) await qr.asElement().tap()
-      else await qr.asElement().click()
-      await sleep(900)
-      const qrView = await p.evaluate(() => {
-        const el = document.querySelector("[data-share-sheet]")
-        /* The code is an <img> of the library's SVG that is always there, hidden until it is drawn. */
-        const code = el.querySelector("[data-share-qr]")
-        /* The view on show; on a phone the share view is kept beside it, out of sight (by its style, not a class). */
-        const shown = [...el.querySelectorAll("[data-share-pane]")].find((n) => n.style.visibility !== "hidden") ?? el
-        return {
-          view: el.getAttribute("data-view"),
-          drawn: !!code && !code.hidden && code.complete && code.naturalWidth > 0 && /^data:image\/svg\+xml/.test(code.src),
-          size: code ? Math.round(code.getBoundingClientRect().width) : 0,
-          buttons: [...shown.querySelectorAll("button")].map((b) => b.textContent.trim()).filter(Boolean),
-          panes: [...el.querySelectorAll("[data-share-pane]")].map((n) => (getComputedStyle(n).visibility === "hidden" ? "hidden" : "on")),
-        }
-      })
-      expect(qrView.view === "qr" && qrView.drawn && qrView.size >= 180, "the QR view draws a large code", qrView)
-      expect(/^(Download\|)?Copy link$/.test(qrView.buttons.join("|")), "with Download and Copy link", qrView.buttons)
-      if (phone) expect(qrView.panes.join("|") === "hidden|on", "the share view is kept out of sight behind it, not taken down", qrView.panes)
-      else expect(qrView.panes.join("|") === "on", "on a computer only the view on show is in the panel", qrView.panes)
-      await p.screenshot({ path: join(shots, `${label}-qr.png`) })
-      /* Every header keeps its Back button and hides it on the share view: the one on show. */
-      const back = (await p.evaluateHandle(() => [...document.querySelectorAll("button[aria-label=Back]")].find((b) => !b.hidden && b.getClientRects().length > 0))).asElement()
-      if (phone) await back.tap()
-      else await back.click()
-      await sleep(500)
-      expect((await p.$eval("[data-share-sheet]", (el) => el.getAttribute("data-view"))) === "share", "Back returns to the share view")
     }
 
     /* Close, frame by frame: it leaves the way it came. */

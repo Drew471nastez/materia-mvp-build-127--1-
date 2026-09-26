@@ -6280,8 +6280,8 @@ html.capacitor .home-card li > :is(a, button):active {
 @media (prefers-reduced-motion: reduce) {
   .home-card[data-bump],
   .home-card[data-bump] [data-pay-tile] { animation: none; }
-  [data-pay-tile],
   .home-card,
+  [data-pay-tile],
   .home-card::before,
   .home-guide-thumb,
   .home-guide-light,
