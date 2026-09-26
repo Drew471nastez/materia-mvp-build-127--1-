@@ -32,6 +32,7 @@ function section(t: string) { console.log(`\n${t}`) }
 
 const root = process.cwd()
 const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
+const blockList = readFileSync(join(root, "components/website-builder/editor/section-block-list.tsx"), "utf8")
 
 const SRC = [
   "<template>",
@@ -164,7 +165,11 @@ function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     check("clicking a block on the canvas selects that block", /closest\?\.\("\[data-block-id\]"\)/.test(editor) && /onSelectSection\(section\.id, id\)/.test(editor))
-    check("the sidebar row opens and takes the ring", /data-block-row=\{block\.id\}/.test(editor) && /selectedBlockId === block\.id/.test(editor))
+    check("the sidebar row opens and takes the ring",
+      /<SectionBlockList\s+blocks=\{section\.blocks \?\? \[\]\}\s+selectedId=\{selectedBlockId\}/.test(editor) &&
+        /data-block-row=\{block\.id\}/.test(blockList) &&
+        /const selected = selectedId === block\.id/.test(blockList) &&
+        /setOpen\(\(prev\) => \(prev\.has\(selectedId\) \? prev : new Set\(prev\)\.add\(selectedId\)\)\)/.test(blockList))
     /**
      * By its own container, not by `scrollIntoView`, which walks EVERY
      * scrollable ancestor — so on a phone, where the sidebar is a sheet over
@@ -181,6 +186,23 @@ function main() {
       })
       return missing.length === 0
     })())
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A block is moved by its grip, not by arrows")
+  // ═══════════════════════════════════════════════════════════════════════
+  /**
+   * The rows had an up arrow, a down arrow and a red bin. Now a grip drags
+   * the row, with a mouse or a finger, through the hook the link list uses,
+   * and the bin is grey. scripts/check-block-list.mjs drags it in a browser.
+   */
+  {
+    check("no Move up or Move down on a block row", !/aria-label="Move (up|down)"/.test(blockList) && !/aria-label="Move (up|down)" disabled=\{at/.test(editor))
+    check("the grip is the shared drag hook's", /useReorder<HTMLDivElement>\(/.test(blockList) && /\{\.\.\.gripProps\(i\)\}/.test(blockList) && /data-reorder-row=""/.test(blockList))
+    check("a drag commits once, through reorderBlocks", /onReorder=\{next => reorderBlocks\(section\.id, next\)\}/.test(editor) && /onReorder\(next\)/.test(blockList))
+    check("picking a row up closes the open ones first", /onStart: \(\) => setOpen\(/.test(blockList))
+    check("the bin is grey, never red", !/red-/.test(blockList) && /aria-label=\{`Delete \$\{name\}`\}[^>]*className=\{ROW_ACTION\}/.test(blockList))
+    check("rows are 40px, 48px on a phone", /h-10 max-sm:h-12/.test(blockList))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
