@@ -445,7 +445,8 @@ check("each picture is its own size, decoded off the main thread, on grey", /wid
 check("the list comes back as it was left: its view, order, search and page, kept for the tab", /let leftAt: \{ view: View; sort: Sort; search: string; page: number \} \| null = null/.test(list) && /leftAt = \{ view, sort, search: searchQuery, page \}/.test(list))
 /* "The remembered list state should only be restored on a return from the editor (or browser back to the list), not when the Products page is opened fresh." */
 check("but only on a return: a fresh visit from the sidebar or the pill starts at All, Newest, no search, page one",
-  /const \[resumed\] = useState\(\(\) => \(isReturning\(\) \? leftAt : null\)\)/.test(list)
+  /* Whether it is a return is read once, on the first render: the same answer resumes the list and holds the stage's landing (tests/return-navigation). */
+  /const \[returning\] = useState\(isReturning\)/.test(list) && /const \[resumed\] = useState\(\(\) => \(returning \? leftAt : null\)\)/.test(list)
     && /useState<Sort>\(resumed\?\.sort \?\? "newest"\)/.test(list) && /useState\(resumed\?\.page \?\? 1\)/.test(list) && /useState\(resumed\?\.search \?\? ""\)/.test(list)
     && !/leftAt\?\./.test(list) && /listShown\(\)/.test(list))
 check("the row you came back from is tinted as the list comes back, after the layer's move", /const id = takeEdited\(\)/.test(list) && /delay: LAYER_MOTION_MS/.test(list))
