@@ -1,7 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { headers } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { creatorForRequest, currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import { AppSidebar } from "@/components/app/sidebar"
@@ -16,6 +16,8 @@ import { accountTimeZone, timeZoneScript } from "@/lib/account/time-zone"
 import { TimeZoneSync } from "@/components/app/time-zone-sync"
 import { factsFromRows, homeProgress, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
 import { listBusinesses } from "@/lib/businesses/server"
+import { readSwitchCookie, SWITCH_COOKIE, SWITCH_SPIN_SCRIPT } from "@/lib/businesses/switch-screen"
+import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -43,6 +45,23 @@ export default async function AppLayout({
 }) {
   const supabase = await createClient()
   const isNative = await isCapacitorWebView()
+
+  /*
+    ARRIVING FROM A SWITCH OF BUSINESS. The account menu's switch left the
+    business's name in a short lived cookie (lib/businesses/switch-screen),
+    so this HTML opens on the same screen the page before ended on, before
+    any script, and that screen hands over to the page once it is ready to
+    draw (components/app/business-switch-screen). Outside the session gate,
+    so the app's own gate waits under it too. The script sets the screen's
+    spinner to the turn the page before had it at.
+  */
+  const switchingTo = readSwitchCookie((await cookies()).get(SWITCH_COOKIE)?.value)
+  const arrival = switchingTo ? (
+    <>
+      <script dangerouslySetInnerHTML={{ __html: SWITCH_SPIN_SCRIPT }} />
+      <BusinessSwitchArrival name={switchingTo} />
+    </>
+  ) : null
 
   /**
    * A BLIP IS NOT A SIGN-OUT. See lib/auth/current-user.ts: `getUser()`
@@ -76,9 +95,12 @@ export default async function AppLayout({
       // The shell frame and the spinner (./cold-start) instead of a blank screen while
       // NativeAuthGate restores the Supabase session from Capacitor Preferences.
       return (
-        <NativeAuthGate requireAuth loadingFallback={<AppColdStart />}>
-          {children}
-        </NativeAuthGate>
+        <>
+          {arrival}
+          <NativeAuthGate requireAuth loadingFallback={<AppColdStart />}>
+            {children}
+          </NativeAuthGate>
+        </>
       )
     }
     redirect("/login")
@@ -175,6 +197,8 @@ export default async function AppLayout({
   const totalSteps = setup.total
 
   return (
+    <>
+    {arrival}
     <NativeAuthGate loadingFallback={<AppColdStart />}>
     <OfflineGuard>
     <NativeBackHandler />
@@ -212,5 +236,6 @@ export default async function AppLayout({
     </AppLayoutWrapper>
     </OfflineGuard>
     </NativeAuthGate>
+    </>
   )
 }

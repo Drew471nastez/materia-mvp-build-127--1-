@@ -2751,6 +2751,14 @@ html.keyboard-open [data-page="library"] main {
     animation-duration: 3000ms;
   }
 }
+/* The screen of a switch between businesses (components/app/business-switch-
+   screen): its spinner's turn is set from the wall clock, on the page you
+   were on and in the new page's HTML alike, so it turns on across the
+   reload instead of starting again at twelve (lib/businesses/switch-screen
+   spinDelay). */
+[data-business-switch-screen] .activity-spinner {
+  animation-delay: var(--switch-spin-delay, 0ms);
+}
 
 /* ── A part of a page still on its way (components/ui/shimmer.tsx) ──────────
  *

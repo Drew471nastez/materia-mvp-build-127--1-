@@ -1,6 +1,7 @@
 "use client"
 
 import { createClient } from "@/lib/supabase/client"
+import { switchCookie } from "@/lib/businesses/switch-screen"
 
 /**
  * ===========================================================================
@@ -15,12 +16,30 @@ import { createClient } from "@/lib/supabase/client"
  *
  * The app sends its token as well as its cookie, because the web view's
  * cookie can trail the device store by a request.
+ *
+ * The account menu shows a screen while this works (components/app/business-
+ * switch-screen). `arrival` names the business for the new /app to carry
+ * that screen on with (lib/businesses/switch-screen SWITCH_COOKIE), and
+ * `onOpening` is called once the session is held, just before the new page
+ * is asked for. Neither is needed: without them a switch is what it was.
  */
 
 export interface BusinessSession {
   access_token: string
   refresh_token: string
 }
+
+export interface SwitchSteps {
+  /** The business's name, when the new /app should open on the switch's screen. */
+  arrival?: string
+  /** The session is this browser's now, and the new page is about to be asked for. */
+  onOpening?: () => void
+}
+
+/** Whatever went wrong on the way, what the person reads when the server said nothing better. */
+export const SWITCH_FAILED = "That business could not be opened. Try again."
+/** A switch with no answer after this long has failed: the screen never waits forever. */
+export const SWITCH_TIMEOUT_MS = 20_000
 
 async function authHeaders(): Promise<Record<string, string>> {
   try {
@@ -35,33 +54,64 @@ async function authHeaders(): Promise<Record<string, string>> {
 /* Onboarding progress is kept on the device; one business's half finished steps must not open in the other. */
 const PER_ACCOUNT_KEYS = ["storelib_onboarding_state", "onepage_onboarding_progress"]
 
-export async function applyBusinessSession(session: BusinessSession, next: string): Promise<void> {
-  const { error } = await createClient().auth.setSession(session)
-  if (error) throw new Error("That business could not be opened. Try again.")
+export async function applyBusinessSession(session: BusinessSession, next: string, steps: SwitchSteps = {}): Promise<void> {
+  let failed = false
+  try {
+    failed = !!(await createClient().auth.setSession(session)).error
+  } catch {
+    failed = true
+  }
+  if (failed) throw new Error(SWITCH_FAILED)
   try {
     for (const key of PER_ACCOUNT_KEYS) localStorage.removeItem(key)
   } catch {
     /* private mode: nothing kept anyway */
   }
+  if (steps.arrival) {
+    try {
+      document.cookie = switchCookie(steps.arrival, { secure: location.protocol === "https:" })
+    } catch {
+      /* cookies refused: the new page arrives without the screen, as it used to */
+    }
+  }
+  steps.onOpening?.()
   window.location.replace(next)
 }
 
-async function post(url: string, body: unknown): Promise<{ ok: boolean; status: number; data: Record<string, unknown> }> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...(await authHeaders()) },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  })
-  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
-  return { ok: res.ok, status: res.status, data }
+async function post(url: string, body: unknown, timeoutMs?: number): Promise<{ ok: boolean; status: number; data: Record<string, unknown> }> {
+  const abort = timeoutMs ? new AbortController() : null
+  const timer = abort ? window.setTimeout(() => abort.abort(), timeoutMs) : undefined
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: abort?.signal,
+    })
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    return { ok: res.ok, status: res.status, data }
+  } finally {
+    window.clearTimeout(timer)
+  }
 }
 
-/** Open the other business. Resolves only if it fails; on success the page reloads. */
-export async function switchBusiness(to: string, next = "/app"): Promise<void> {
-  const { ok, data } = await post("/api/businesses/switch", { to })
-  if (!ok || !data.session) throw new Error(typeof data.error === "string" ? data.error : "That business could not be opened. Try again.")
-  await applyBusinessSession(data.session as BusinessSession, next)
+/**
+ * Open the other business. Resolves only if it fails; on success the page
+ * reloads. Every failure is a plain sentence: the server's own when it gave
+ * one (not yours to open, too many switches), otherwise SWITCH_FAILED, never
+ * a browser's "Failed to fetch". No answer in SWITCH_TIMEOUT_MS is a failure.
+ */
+export async function switchBusiness(to: string, next = "/app", steps: SwitchSteps = {}): Promise<void> {
+  let answer: Awaited<ReturnType<typeof post>>
+  try {
+    answer = await post("/api/businesses/switch", { to }, SWITCH_TIMEOUT_MS)
+  } catch {
+    throw new Error(SWITCH_FAILED)
+  }
+  const { ok, data } = answer
+  if (!ok || !data.session) throw new Error(typeof data.error === "string" && data.error ? data.error : SWITCH_FAILED)
+  await applyBusinessSession(data.session as BusinessSession, next, steps)
 }
 
 /** Make the second business and open its onboarding. */
