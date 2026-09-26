@@ -28,7 +28,8 @@ import {
   ArrowLeft,
   Share,
 } from "lucide-react"
-import { useState, useEffect, useCallback, useRef } from "react"
+import * as ReactModule from "react"
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, startTransition } from "react"
 import { useRouter } from "next/navigation"
 import { BuilderLoader, useLinger } from "@/components/website-builder/builder-loader"
 import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
@@ -52,6 +53,11 @@ import { createClient } from "@/lib/supabase/client"
 import { SaveNotification } from "@/components/ui/save-notification"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 
+/* React 19.2's <Activity>. The installed types are 19.0's, which do not name it yet; the runtime has it. */
+const Activity = (ReactModule as unknown as {
+  Activity: React.ComponentType<{ mode: "visible" | "hidden"; children?: React.ReactNode }>
+}).Activity
+
 // Settings Filter Icon SVG Component
 const SettingsFilterIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 512 512" className={className} fill="currentColor">
@@ -72,6 +78,28 @@ export function OnePageEditor({ initialOnePage }: OnePageEditorProps) {
 }
 
 type TabType = "design" | "links" | "products" | "settings"
+/** The order the tabs sit in, which says which side a new one comes in from. */
+const TAB_ORDER: TabType[] = ["links", "design", "products", "settings"]
+/** Built once and kept (see ONE TAB TO THE NEXT below); Settings is built each time. */
+const KEPT_TABS: TabType[] = ["links", "design", "products"]
+/**
+ * The new tab settles over 220ms on iOS's curve, from a few pixels to the
+ * side, but is fully there after 90ms: its own white covers the old tab as
+ * it arrives, so the two show through each other for a few frames at most,
+ * never half and half. The old one fades out under it in 70ms.
+ */
+const TAB_IN_MS = 220
+const TAB_FADE_IN_MS = 90
+const TAB_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+const TAB_OUT_MS = 70
+const TAB_OUT_EASE = "cubic-bezier(0, 0, 0.2, 1)"
+const TAB_SHIFT_PX = 12
+/** The pill under the chosen tab slides to the next one on the same curve. */
+const PILL_MS = 260
+
+function reducedMotion() {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+}
 
 /** Leaving was answered but the editor is still here this long after: it holds Back again. */
 const LEAVE_REVIVE_MS = 12_000
@@ -351,6 +379,90 @@ function ShareOnePage({
   )
 }
 
+/**
+ * THE PILL UNDER THE CHOSEN TAB SLIDES. The chosen tab's dark (on a phone)
+ * or white (on a computer) background was its own, so a switch was two
+ * backgrounds swapping in one frame. It is one pill now, drawn under the
+ * words and over the grey of the tabs, moved by `transform` from under the
+ * last tab to under the next one (scaled from the last one's width on the
+ * way, as the Settings page's outline does), on the compositor. With no
+ * tab of the row chosen (Settings, on a computer) it fades away where it is.
+ */
+function useTabPill(activeId: string, remount?: unknown) {
+  const rowRef = useRef<HTMLDivElement>(null)
+  const pillRef = useRef<HTMLSpanElement>(null)
+  const placed = useRef<{ id: string; x: number; y: number; w: number; h: number; on: boolean; el: HTMLElement } | null>(null)
+  const place = useCallback((id: string, slide: boolean) => {
+    const row = rowRef.current
+    const pill = pillRef.current
+    if (!row || !pill) return
+    const tab = row.querySelector<HTMLElement>(`[data-tab="${id}"]`)
+    /* A row drawn again (the phone's, after the preview) starts from nothing. */
+    const prev = placed.current?.el === pill ? placed.current : null
+    if (!tab || !tab.offsetWidth) {
+      if (prev?.on) {
+        placed.current = { ...prev, id, on: false }
+        pill.style.opacity = "0"
+        if (slide && !reducedMotion()) pill.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: "ease-out" })
+      }
+      return
+    }
+    const x = tab.offsetLeft
+    const y = tab.offsetTop
+    const w = tab.offsetWidth
+    const h = tab.offsetHeight
+    if (prev && prev.on && prev.x === x && prev.y === y && prev.w === w && prev.h === h) return
+    /* From wherever it is drawn now, a slide in flight included. */
+    let from: { x: number; w: number } | null = null
+    if (slide && prev?.on && !reducedMotion()) {
+      const at = pill.getBoundingClientRect()
+      const box = row.getBoundingClientRect()
+      if (at.width > 0) from = { x: at.left - box.left - row.clientLeft, w: at.width }
+    }
+    pill.getAnimations().forEach((a) => a.cancel())
+    pill.style.width = `${w}px`
+    pill.style.height = `${h}px`
+    pill.style.transform = `translate3d(${x}px, ${y}px, 0)`
+    pill.style.opacity = "1"
+    placed.current = { id, x, y, w, h, on: true, el: pill }
+    if (from && (Math.abs(from.x - x) > 0.5 || Math.abs(from.w - w) > 0.5)) {
+      pill.animate(
+        [{ transform: `translate3d(${from.x}px, ${y}px, 0) scaleX(${from.w / w})` }, { transform: `translate3d(${x}px, ${y}px, 0)` }],
+        { duration: PILL_MS, easing: TAB_EASE },
+      )
+    } else if (slide && prev && !prev.on && !reducedMotion()) {
+      pill.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160, easing: "ease-out" })
+    }
+  }, [])
+  useLayoutEffect(() => {
+    const row = rowRef.current
+    if (!row) return
+    place(activeId, true)
+    /* A row that changes size (a font arriving, a rotation) moves the pill with it, without a slide. */
+    const resized = new ResizeObserver(() => place(placed.current?.id ?? activeId, false))
+    resized.observe(row)
+    return () => resized.disconnect()
+  }, [activeId, remount, place])
+  /* Called from the press itself, before React has rendered anything: the slide starts in the next frame. */
+  const slideTo = useCallback((id: string) => place(id, true), [place])
+  return { rowRef, pillRef, slideTo }
+}
+
+/**
+ * A tab's icon and name, twice: in the colour it has when chosen and in the
+ * colour it has when not, one over the other. A switch fades one into the
+ * other, rather than changing the colour of the words in a single frame.
+ */
+function TabFace({ on, onClass, offClass, children }: { on: boolean; onClass: string; offClass: string; children: React.ReactNode }) {
+  const face = "col-start-1 row-start-1 flex min-w-0 items-center justify-center transition-opacity duration-200 ease-out"
+  return (
+    <span className="relative z-[2] grid min-w-0">
+      <span className={cn(face, offClass)} style={{ opacity: on ? 0 : 1 }}>{children}</span>
+      <span aria-hidden className={cn(face, onClass)} style={{ opacity: on ? 1 : 0 }}>{children}</span>
+    </span>
+  )
+}
+
 function EditorLayout() {
   const {
     onepage,
@@ -442,6 +554,68 @@ function EditorLayout() {
     return (HASH_TO_TAB[hash] as TabType) || "links"
   }
   const [activeTab, setActiveTab] = useState<TabType>(getInitialTab)
+  /*
+    ONE TAB TO THE NEXT WITHOUT A BLANK FRAME, AND BACK TO WHERE IT WAS.
+
+    Each tab was mounted when it was chosen and thrown away when another
+    was, in one scroll box they shared: the new tab was built on the tap
+    (50 to 180ms on a phone, measured with the CPU slowed four times), drawn
+    in a single frame over the old one, and opened wherever the last tab
+    had been scrolled to, clamped to its own height; coming back to Links
+    after Design put it at the top.
+
+    Now Links, Design and Products are each built once, in the page's idle
+    time after it arrives, and kept: each in its own scroll box, so each has
+    its own place, and a hidden one sits in React's <Activity mode="hidden">,
+    so an edit made on one tab does not re-render the other two while they
+    are out of sight (they catch up at the lowest priority). A switch shows
+    the new one over the old: the new fades and slides in by a few pixels
+    from the side of the tab that was pressed, the old fades out under it,
+    both on the compositor, and the old is hidden once it has gone. Settings
+    is still built each time it is opened, because what was typed there is
+    handed to the page on the way out and a kept copy would keep it too.
+  */
+  /*
+    The bars answer the tap at once; the panels follow once that has been
+    drawn, in a render React can put aside for the next tap: the pill is
+    already moving (on the compositor) while the tab it opens is being
+    drawn, as the shared sheet starts its slide before the page hears of it.
+  */
+  const [panelTab, setPanelTab] = useState(activeTab)
+  useEffect(() => {
+    if (panelTab === activeTab) return
+    let timer = 0
+    const frame = requestAnimationFrame(() => {
+      timer = window.setTimeout(() => startTransition(() => setPanelTab(activeTab)), 0)
+    })
+    return () => {
+      cancelAnimationFrame(frame)
+      window.clearTimeout(timer)
+    }
+  }, [activeTab, panelTab])
+  const [panels, setPanels] = useState<{ tab: TabType; leaving: TabType | null; built: TabType[] }>(() => {
+    const first = getInitialTab()
+    return { tab: first, leaving: null, built: first === "settings" ? [] : [first] }
+  })
+  /* The tab the panels show changed: the one it replaces stays drawn, leaving, in this same render. */
+  if (panels.tab !== panelTab) {
+    setPanels({
+      tab: panelTab,
+      leaving: panels.tab,
+      built: panelTab === "settings" || panels.built.includes(panelTab) ? panels.built : [...panels.built, panelTab],
+    })
+  }
+  const panelRefs = useRef<Partial<Record<TabType, HTMLDivElement | null>>>({})
+  const scrollMemory = useRef<Partial<Record<TabType, number>>>({})
+  const shownTabRef = useRef(panels.tab)
+  const activeTabRef = useRef(activeTab)
+  /* The two pills' own slides, started from the press (see useTabPill). */
+  const pillMoves = useRef<((id: string) => void)[]>([])
+  const showTab = useCallback((tab: TabType) => {
+    if (activeTabRef.current === tab) return
+    activeTabRef.current = tab
+    setActiveTab(tab)
+  }, [])
 
   const handleTabChange = useCallback((tab: TabType) => {
     /*
@@ -456,7 +630,8 @@ function EditorLayout() {
     if (tab !== "settings") {
       settingsTabRef.current?.saveAllSettings().catch(() => {})
     }
-    setActiveTab(tab)
+    pillMoves.current.forEach((slide) => slide(tab))
+    showTab(tab)
     /*
       THE TAB IS IN THE ADDRESS, NOT IN THE HISTORY. Each tab used to push an
       entry of its own, `pushState(null, "", "#settings")`: Back walked back
@@ -480,14 +655,94 @@ function EditorLayout() {
     const onPopState = () => {
       const hash = window.location.hash.replace("#", "")
       const tab = (HASH_TO_TAB[hash] as TabType) || "links"
-      setActiveTab(tab)
+      showTab(tab)
     }
     window.addEventListener("popstate", onPopState)
     return () => window.removeEventListener("popstate", onPopState)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  /*
+    The switch itself, after React has drawn both tabs and before the
+    browser paints them: the new tab back at its own place, then the two
+    moves. The old tab is let go, and hidden, when its fade has finished.
+  */
+  useLayoutEffect(() => {
+    const to = panels.tab
+    const from = shownTabRef.current === to ? null : shownTabRef.current
+    shownTabRef.current = to
+    const incoming = panelRefs.current[to]
+    if (!incoming || !from) return
+    const outgoing = panelRefs.current[from]
+    /* Where the tab being left was scrolled to: hidden, its box has nothing in it to keep a place. */
+    if (outgoing) scrollMemory.current[from] = outgoing.scrollTop
+    incoming.scrollTop = scrollMemory.current[to] ?? 0
+    const letGo = () => setPanels((p) => (p.leaving === from ? { ...p, leaving: null } : p))
+    /* A tab still fading from the switch before this one goes at once. */
+    for (const t of TAB_ORDER) if (t !== to && t !== from) panelRefs.current[t]?.getAnimations().forEach((a) => a.cancel())
+    incoming.getAnimations().forEach((a) => a.cancel())
+    outgoing?.getAnimations().forEach((a) => a.cancel())
+    if (!outgoing || typeof incoming.animate !== "function" || reducedMotion()) {
+      letGo()
+      return
+    }
+    const dir = TAB_ORDER.indexOf(to) > TAB_ORDER.indexOf(from) ? 1 : -1
+    incoming.animate(
+      [{ transform: `translate3d(${dir * TAB_SHIFT_PX}px, 0, 0)` }, { transform: "translate3d(0, 0, 0)" }],
+      { duration: TAB_IN_MS, easing: TAB_EASE },
+    )
+    incoming.animate([{ opacity: 0 }, { opacity: 1 }], { duration: TAB_FADE_IN_MS, easing: TAB_OUT_EASE })
+    const out = outgoing.animate(
+      [{ opacity: 1, transform: "translate3d(0, 0, 0)" }, { opacity: 0, transform: `translate3d(${-dir * TAB_SHIFT_PX * 0.5}px, 0, 0)` }],
+      { duration: TAB_OUT_MS, easing: TAB_OUT_EASE, fill: "forwards" },
+    )
+    out.onfinish = letGo
+    /* However the fade ends, or if a background tab draws no frames, the old tab goes. */
+    const timer = window.setTimeout(letGo, TAB_IN_MS + 200)
+    return () => window.clearTimeout(timer)
+  }, [panels.tab])
+
+  /* A tab that has finished leaving is at rest: nothing of its fade is left on it. */
+  useLayoutEffect(() => {
+    for (const t of TAB_ORDER) {
+      if (t === panels.tab || t === panels.leaving) continue
+      panelRefs.current[t]?.getAnimations().forEach((a) => a.cancel())
+    }
+  }, [panels.leaving, panels.tab])
+
   const [copied, setCopied] = useState(false)
   const [showMobilePreview, setShowMobilePreview] = useState(false)
+
+  /*
+    BUILT WHILE NOTHING ELSE IS HAPPENING. Once the editor has arrived and
+    the page is idle, the tabs not yet opened are built, hidden, at a
+    priority any tap overtakes, so even the first switch to each is only the
+    fade. Opened before then, a tab is built on the tap, as before.
+  */
+  useEffect(() => {
+    if (!arrived) return
+    const build = () => startTransition(() => setPanels((p) => (KEPT_TABS.every((t) => p.built.includes(t)) ? p : { ...p, built: [...p.built, ...KEPT_TABS.filter((t) => !p.built.includes(t))] })))
+    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(build, { timeout: 4000 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(build, 1500)
+    return () => window.clearTimeout(t)
+  }, [arrived])
+
+  /* The preview on a phone takes the editor's place: the tab it covered comes back where it was. */
+  const togglePreview = () => {
+    const box = panelRefs.current[shownTabRef.current]
+    if (box && !showMobilePreview) scrollMemory.current[shownTabRef.current] = box.scrollTop
+    setShowMobilePreview(!showMobilePreview)
+  }
+  useLayoutEffect(() => {
+    if (showMobilePreview) return
+    const box = panelRefs.current[shownTabRef.current]
+    const at = scrollMemory.current[shownTabRef.current]
+    if (box && at) box.scrollTop = at
+  }, [showMobilePreview])
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
@@ -875,6 +1130,20 @@ function EditorLayout() {
     console.log("[OnePageEditor] Onboarding completion handled - auto-save already done by modal")
   }, [onepage?.id])
 
+  const desktopPill = useTabPill(activeTab)
+  const phonePill = useTabPill(activeTab, showMobilePreview)
+  pillMoves.current = [desktopPill.slideTo, phonePill.slideTo]
+  /*
+    The same elements from one render of the editor to the next, so a tap on
+    a tab (which re-renders the editor to move the pill) does not re-render
+    the tab on screen or the preview. Each still renders when the page it
+    reads changes.
+  */
+  const designPanel = useMemo(() => <DesignTab userPlan={userPlan} />, [userPlan])
+  const linksPanel = useMemo(() => <LinksTab />, [])
+  const productsPanel = useMemo(() => <ProductsTab onGoToLinks={() => handleTabChange("links")} />, [handleTabChange])
+  const phonePreview = useMemo(() => <PhonePreview />, [])
+
   if (!onepage) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -1044,23 +1313,32 @@ function EditorLayout() {
             </div>
 
             {/* Tab Navigation - Desktop - Pill shaped tabs */}
-            <div className="hidden md:flex items-center gap-1 bg-gray-100 rounded-full p-1">
+            <div ref={desktopPill.rowRef} className="relative isolate hidden md:flex items-center gap-1 bg-gray-100 rounded-full p-1" data-tab-row="desktop">
+              <span
+                ref={desktopPill.pillRef}
+                aria-hidden
+                data-tab-pill=""
+                className="pointer-events-none absolute left-0 top-0 z-[1] origin-left rounded-full bg-white shadow-sm"
+                style={{ opacity: 0 }}
+              />
               {tabs.map((tab) => {
                 const Icon = tab.icon
+                const on = activeTab === tab.id
                 return (
                   <button
                     key={tab.id}
                     data-tab={tab.id}
+                    aria-pressed={on}
                     onClick={() => handleTabChange(tab.id)}
                     className={cn(
-                      "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap cursor-pointer",
-                      activeTab === tab.id
-                        ? "bg-white text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground hover:bg-white/50"
+                      "flex items-center px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
+                      !on && "hover:bg-white/50"
                     )}
                   >
-                    <Icon className="h-4 w-4" />
-                    {tab.label}
+                    <TabFace on={on} onClass="text-foreground" offClass="text-muted-foreground">
+                      <Icon className="mr-2 h-4 w-4" />
+                      {tab.label}
+                    </TabFace>
                   </button>
                 )
               })}
@@ -1071,7 +1349,7 @@ function EditorLayout() {
               onClick={() => handleTabChange("settings")}
               title="Settings"
               className={cn(
-                "hidden md:flex w-10 h-10 rounded-xl items-center justify-center border transition-all duration-200 cursor-pointer",
+                "hidden md:flex w-10 h-10 rounded-xl items-center justify-center border transition-[background-color,border-color,color,box-shadow] duration-200 cursor-pointer",
                 activeTab === "settings"
                   ? "bg-gray-900 border-gray-900 text-white"
                   : "bg-white border-gray-200 text-gray-600 hover:bg-gray-900 hover:border-gray-900 hover:text-white shadow-sm hover:shadow-md"
@@ -1140,7 +1418,7 @@ function EditorLayout() {
               "md:hidden h-8 px-3 rounded-lg",
               !showMobilePreview && "bg-gray-900 hover:bg-gray-800 text-white"
             )}
-            onClick={() => setShowMobilePreview(!showMobilePreview)}
+            onClick={togglePreview}
           >
             {showMobilePreview ? (
               <>
@@ -1159,26 +1437,56 @@ function EditorLayout() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
-        {/* Editor Panel - Hidden when mobile preview is active */}
+        {/*
+          Editor Panel - Hidden when mobile preview is active. Each tab in
+          its own scroll box, stacked (see ONE TAB TO THE NEXT above); the
+          one on screen is the editor's `data-scroll-container`.
+        */}
         <div
           className={cn(
-            "flex-1 bg-white overflow-y-auto",
+            "relative flex-1 min-h-0 overflow-hidden bg-white isolate",
             showMobilePreview ? "hidden" : "block"
           )}
-          data-scroll-container="links-tab"
-          style={{ scrollbarWidth: 'thin' }}
+          data-onepage-panels=""
         >
-  <div
-  className={cn(
-    "p-4 md:p-6 pb-24 md:pb-6 w-full mx-auto",
-    activeTab === "settings" ? "max-w-2xl" : "max-w-xl"
-  )}
->
-            {activeTab === "design" && <DesignTab userPlan={userPlan} />}
-            {activeTab === "links" && <LinksTab />}
-            {activeTab === "products" && <ProductsTab onGoToLinks={() => handleTabChange("links")} />}
-            {activeTab === "settings" && <SettingsTab ref={settingsTabRef} />}
-          </div>
+          {TAB_ORDER.filter((t) => t === panels.tab || t === panels.leaving || panels.built.includes(t)).map((t) => {
+            const shown = t === panels.tab || t === panels.leaving
+            return (
+              <div
+                key={t}
+                ref={(el) => { panelRefs.current[t] = el }}
+                data-tab-panel={t}
+                data-scroll-container={t === panels.tab ? "links-tab" : undefined}
+                aria-hidden={shown ? undefined : true}
+                inert={t !== panels.tab}
+                className="absolute inset-0 overflow-y-auto overscroll-contain bg-white"
+                style={{
+                  scrollbarWidth: "thin",
+                  zIndex: t === panels.tab ? 1 : 0,
+                  /* Hidden, a kept tab is neither drawn nor laid out, and keeps its place in React. */
+                  visibility: shown ? undefined : "hidden",
+                  contentVisibility: shown ? undefined : "hidden",
+                }}
+              >
+                <div
+                  className={cn(
+                    "p-4 md:p-6 pb-24 md:pb-6 w-full mx-auto",
+                    t === "settings" ? "max-w-2xl" : "max-w-xl"
+                  )}
+                >
+                  {t === "settings" ? (
+                    <SettingsTab ref={settingsTabRef} />
+                  ) : (
+                    <Activity mode={shown ? "visible" : "hidden"}>
+                      {t === "design" && designPanel}
+                      {t === "links" && linksPanel}
+                      {t === "products" && productsPanel}
+                    </Activity>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         {/* Preview Panel - Desktop with phone mockup */}
@@ -1197,7 +1505,7 @@ function EditorLayout() {
               padding: '20px 53px',
             }}
           >
-            <PhonePreview />
+            {phonePreview}
           </div>
         </div>
 
@@ -1212,36 +1520,43 @@ function EditorLayout() {
       {/* Mobile Bottom Tab Bar - Fixed at bottom, only when NOT in preview */}
       {!showMobilePreview && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg z-20" data-onepage-tabbar="">
-          <div className="flex items-center justify-around gap-1 px-2 sm:px-4 py-2 sm:py-3 pb-[max(8px,env(safe-area-inset-bottom))]">
+          <div ref={phonePill.rowRef} className="relative isolate flex items-center justify-around gap-1 px-2 sm:px-4 py-2 sm:py-3 pb-[max(8px,env(safe-area-inset-bottom))]" data-tab-row="phone">
+            <span
+              ref={phonePill.pillRef}
+              aria-hidden
+              data-tab-pill=""
+              className="pointer-events-none absolute left-0 top-0 z-[1] origin-left rounded-[7px] sm:rounded-xl bg-gray-900"
+              style={{ opacity: 0 }}
+            />
             {tabs.map((tab) => {
               const Icon = tab.icon
+              const on = activeTab === tab.id
               return (
                 <button
                   key={tab.id}
+                  data-tab={tab.id}
+                  aria-pressed={on}
                   onClick={() => handleTabChange(tab.id)}
-                  className={cn(
-                    "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2.5 sm:py-2.5 rounded-[7px] sm:rounded-xl text-xs sm:text-sm font-medium transition-all flex-1 justify-center min-w-0",
-                    activeTab === tab.id
-                      ? "bg-gray-900 text-white"
-                      : "bg-gray-100 text-gray-600"
-                  )}
+                  className="flex items-center px-2.5 sm:px-4 py-2.5 sm:py-2.5 rounded-[7px] sm:rounded-xl text-xs sm:text-sm font-medium flex-1 justify-center min-w-0 bg-gray-100 [-webkit-tap-highlight-color:transparent]"
                 >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{tab.label}</span>
+                  <TabFace on={on} onClass="text-white" offClass="text-gray-600">
+                    <Icon className="mr-1.5 sm:mr-2 h-4 w-4 shrink-0" />
+                    <span className="truncate">{tab.label}</span>
+                  </TabFace>
                 </button>
               )
             })}
             {/* Settings Button - Mobile - same height as other tab buttons */}
             <button
+              data-tab="settings"
+              aria-pressed={activeTab === "settings"}
+              aria-label="Settings"
               onClick={() => handleTabChange("settings")}
-              className={cn(
-                "flex items-center justify-center min-w-[40px] w-10 py-2.5 sm:w-11 sm:py-2.5 rounded-[7px] sm:rounded-xl transition-all shrink-0",
-                activeTab === "settings"
-                  ? "bg-gray-900 text-white"
-                  : "bg-gray-100 text-gray-600"
-              )}
+              className="flex items-center justify-center min-w-[40px] w-10 py-2.5 sm:w-11 sm:py-2.5 rounded-[7px] sm:rounded-xl shrink-0 bg-gray-100 [-webkit-tap-highlight-color:transparent]"
             >
-              <SettingsFilterIcon className="h-4 w-4" />
+              <TabFace on={activeTab === "settings"} onClass="text-white" offClass="text-gray-600">
+                <SettingsFilterIcon className="h-4 w-4" />
+              </TabFace>
             </button>
           </div>
         </div>
