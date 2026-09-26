@@ -7,6 +7,7 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { OnePageEditor } from "@/components/onepage/onepage-editor"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
+import { OnePagePreviewDocument } from "@/components/onepage/preview-document"
 import { THEME_TEMPLATES } from "@/components/onepage/tabs/design-tab"
 import { defaultTheme, defaultSettings, type OnePage } from "@/lib/onepage/types"
 
@@ -46,7 +47,10 @@ const onepage: OnePage = {
   serif body font and no title colour or title font of its own (so both
   must fall back to the text colour and the body font, as the preview does).
 */
-if (location.search.includes("live")) {
+if (location.pathname.startsWith("/onepage-preview")) {
+  /* The preview's own frame (components/onepage/live-preview): the live page, drawn from what the editor posts. */
+  createRoot(document.getElementById("app")!).render(<OnePagePreviewDocument />)
+} else if (location.search.includes("live")) {
   const theme = {
     ...defaultTheme,
     background_type: "gradient",

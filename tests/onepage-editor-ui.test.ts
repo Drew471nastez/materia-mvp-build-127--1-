@@ -110,7 +110,9 @@ function main() {
     check("today is marked and the chosen day is dark", /aria-current=\{isToday \? "date" : undefined\}/.test(field) && /bg-\[#1a1a2e\] font-semibold text-white/.test(field))
     check("the time is typed, hour and minute, with AM and PM", /data-time-hour=""/.test(field) && /data-time-minute=""/.test(field) && /data-time-ampm=\{x\}/.test(field))
     check("a popover on a computer, the shared sheet on a phone", /<Popover open=\{open\}/.test(field) && /<BottomSheet isOpen=\{open\}/.test(field))
-    check("the live page still leaves out a block before its start", /\.filter\(\(b\) => isScheduledNow\(b\)\)/.test(read("app/(marketing)/l/[slug]/page.tsx")))
+    /* Moved on purpose: the route builds the page through lib/onepage/public-shape.ts, which leaves it out. */
+    check("the live page still leaves out a block before its start",
+      /publicOnePage\(onepage, \{\s*source: "published"/.test(read("app/(marketing)/l/[slug]/page.tsx")) && /blocks\.filter\(\(b\) => isScheduledNow\(b, now\)\)/.test(read("lib/onepage/public-shape.ts")))
   }
 
   section("Wallpaper")
@@ -131,8 +133,16 @@ function main() {
     check("strengths: light, medium, strong, and bold drawn twice", patternStyle("dots", "#000", "low")!.opacity === 0.4 && patternStyle("dots", "#000", "medium")!.opacity === 0.7 && patternStyle("dots", "#000", "hard")!.opacity === 1 && patternStyle("dots", "#000", "very_hard")!.backgroundImage.split('url("').length === 3)
     check("grain strength 5 to 50 is opacity 0.1 to 1, as it was", noiseOpacity(5) === 0.1 && noiseOpacity(50) === 1 && noiseOpacity(undefined) === 0.3)
 
-    const preview = read("components/onepage/phone-preview.tsx")
     const live = read("components/onepage/public-onepage.tsx")
+    /*
+      Changed on purpose: the preview frames the live page's own component
+      (components/onepage/preview-document.tsx) instead of drawing its own
+      copy (phone-preview.tsx), so it is held to what the live page draws
+      once the frame is seen to draw it.
+    */
+    const framed = /<PublicOnePage onepage=\{page as never\} \/>/.test(read("components/onepage/preview-document.tsx"))
+    const preview = framed ? live : read("components/onepage/phone-preview.tsx")
+    check("the preview is the live page's own component, framed", framed)
     for (const [name, src] of [["the preview", preview], ["the live page", live]] as const) {
       check(`${name} draws the pattern and the grain from the shared layers`, /<WallpaperPattern theme=\{/.test(src) && /<WallpaperNoise strength=\{/.test(src))
       check(`${name} has no SVG filter or pattern ids left to collide`, !/<filter id=/.test(src) && !/<pattern id=/.test(src) && !/feTurbulence/.test(src))
@@ -147,8 +157,9 @@ function main() {
     check("a serif gets a serif, a script a cursive", /serif$/.test(fontStack("Playfair Display")) && /cursive$/.test(fontStack("Pacifico")) && /monospace$/.test(fontStack("JetBrains Mono")))
     check("a value that already has one is left alone", fontStack("'Lora', serif") === "'Lora', serif")
     check("every family the editor offers gets one", Object.keys(ONEPAGE_FONTS).every((f) => /(serif|sans-serif|cursive|monospace)$/.test(fontStack(f))))
-    const preview = read("components/onepage/phone-preview.tsx")
     const live = read("components/onepage/public-onepage.tsx")
+    /* The preview is the live page, framed (see the patterns above): the same fontStack calls, the same code. */
+    const preview = /<PublicOnePage onepage=\{page as never\} \/>/.test(read("components/onepage/preview-document.tsx")) ? live : read("components/onepage/phone-preview.tsx")
     check("the preview and the live page both use it, body and title", (preview.match(/fontStack\(/g) ?? []).length === 4 && (live.match(/fontStack\(/g) ?? []).length === 4)
     check("no bare `|| \"Inter\"` fallback is left", !/font_family \|\| "Inter"/.test(preview) && !/font_family \|\| "Inter"/.test(live))
     const safe = live.slice(live.indexOf("const safeTheme = {"), live.indexOf("...theme, // Spread theme"))

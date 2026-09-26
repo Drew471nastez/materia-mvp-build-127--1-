@@ -361,8 +361,18 @@ function VideoView({ data, look }: { data: VideoBlockData; look: ExtraBlockLook 
   )
 }
 
+/**
+ * INSIDE THE EDITOR'S PREVIEW. The preview is the live page's own component
+ * in a frame (components/onepage/preview-document.tsx), which draws these
+ * blocks with the live page's look; the frame says it is the editor's with
+ * this, so the map still waits for the typing to stop there.
+ */
+export const ExtraBlockPreviewContext = React.createContext(false)
+
 /** Draws one of the blocks in this file, in the editor's preview or on the live page. */
-export function ExtraBlock({ block, look }: { block: OnePageBlock; look: ExtraBlockLook }) {
+export function ExtraBlock({ block, look: given }: { block: OnePageBlock; look: ExtraBlockLook }) {
+  const inPreview = React.useContext(ExtraBlockPreviewContext)
+  const look = inPreview && !given.preview ? { ...given, preview: true } : given
   switch (block.type) {
     case "heading":
       return <HeadingView data={block.data as HeadingBlockData} look={look} />

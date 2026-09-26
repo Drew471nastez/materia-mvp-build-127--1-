@@ -11,7 +11,7 @@ import { isBanned } from "@/lib/seo/bans"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
 import { activeDomainOf } from "@/lib/website-builder/site-seo-data"
-import { isScheduledNow } from "@/lib/onepage/extra-blocks"
+import { publicOnePage } from "@/lib/onepage/public-shape"
 import crypto from "crypto"
 
 // Hash IP address for privacy (same as track API)
@@ -410,10 +410,6 @@ export default async function PublicOnePageRoute({ params }: Props) {
     // Ignore
   }
 
-  const publishedProfile = onepage.published_profile as any
-  const publishedTheme = onepage.published_theme as any
-  const publishedBlocks = onepage.published_blocks as any[]
-
   // IMPORTANT: Resolve the correct creator_id for subscribe functionality
   // Priority: seller_id > creator_id > lookup from owner_id
   let resolvedCreatorId = onepage.seller_id || onepage.creator_id || null
@@ -448,41 +444,22 @@ export default async function PublicOnePageRoute({ params }: Props) {
     profileDisplayName = ownerProfile?.display_name || null
   }
 
-  const transformedOnepage = {
-    id: onepage.id,
-    title: publishedProfile?.title || onepage.title || profileDisplayName || "",
-    bio: publishedProfile?.bio || onepage.bio || "",
-    slug: onepage.slug,
-    avatar_url: publishedProfile?.avatar_url || onepage.avatar_url || null,
-    avatar_video_url: publishedProfile?.avatar_video_url || onepage.avatar_video_url || null,
-    avatar_video_crop: publishedProfile?.avatar_video_crop || (onepage.settings as any)?.avatar_video_crop || null,
-    theme: publishedTheme ||
-      onepage.theme || {
-        background_type: "solid",
-        background_color: "#ffffff",
-        background_gradient: "",
-        background_image_url: "",
-        text_color: "#000000",
-        secondary_text_color: "#666666",
-        button_color: "#000000",
-        button_text_color: "#ffffff",
-        button_style: "filled",
-        button_border_radius: 8,
-        button_border_width: 0,
-        button_border_color: "#000000",
-        font_family: "Inter",
-        spacing: "normal",
-        card_width: "standard",
-      },
-    /* A block outside its schedule is left out here, so it is not in the page at all until it starts. */
-    blocks: ((publishedBlocks || onepage.draft_blocks || []) as any[]).filter((b) => isScheduledNow(b)),
-    social_links: onepage.published_social_links || onepage.social_links || {},
+  /*
+    THE SHAPE THE PAGE IS DRAWN FROM, BUILT WHERE THE EDITOR'S PREVIEW
+    BUILDS IT (lib/onepage/public-shape): the published copy, falling back
+    to the row, with a block outside its schedule left out. The preview
+    frames this same component with the draft in the same shape, so what a
+    creator sees there is what this renders.
+  */
+  const transformedOnepage = publicOnePage(onepage, {
+    source: "published",
+    displayName: profileDisplayName,
     /* The creator page's own domain names the OnePage too (<domain>/links):
        read here as well as kept in settings.custom_domain, so a share link is
        right the moment a domain connects. */
-    settings: { ...(onepage.settings || { show_branding: true, analytics_enabled: true, subscribe_enabled: true }), custom_domain: await primaryHostFor(resolvedCreatorId, "creator_page") },
-    seller_id: resolvedCreatorId,
-  }
+    customDomain: await primaryHostFor(resolvedCreatorId, "creator_page"),
+    sellerId: resolvedCreatorId,
+  })
 
   /*
     WHO THIS PAGE IS ABOUT, for a search engine, and only on a page it may

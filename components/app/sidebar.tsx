@@ -248,7 +248,16 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     /* A page in the shell like the others, so the router brings it: a whole
        document load was the spinner, a blank frame, then the page. */
     { href: "/app/website-builder", label: t("nav.websiteBuilder"), icon: NAV_ICONS.websiteBuilder },
-    { href: "/app/onepage", label: t("nav.onepage"), icon: NAV_ICONS.onepage, forceNavigation: true },
+    /*
+      THE ONEPAGE ROW IS AN ORDINARY /app PAGE TOO. It still loaded the
+      editor as a whole new document (forceNavigation, window.location),
+      a leftover of when the editor was outside the /app tree: the old
+      page, then the cold start's black frame and spinner, then the editor,
+      three arrivals for one press, and a press that did nothing the
+      router could see or undo (scripts/check-onepage-open.mjs films it).
+      Home's OnePage card already went by the router; the row does now.
+    */
+    { href: "/app/onepage", label: t("nav.onepage"), icon: NAV_ICONS.onepage },
     /*
       Storelib AI is NOT LISTED HERE ANY MORE.
 

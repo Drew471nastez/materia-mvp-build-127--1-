@@ -19,6 +19,22 @@ import { SmartLink } from "@/components/smart-link"
 import { cn } from "@/lib/utils"
 import { getProductInternalPath } from "@/lib/url-helpers"
 
+
+/**
+ * THE MONTH, THE SAME ON THE SERVER AND IN EVERY BROWSER. It was
+ * `toLocaleDateString(undefined, ...)`, the reader's own language and time
+ * zone, in a component the server renders first in its own (en-US, UTC):
+ * a visitor in Romania was sent "Sep 2026" and drew "sept. 2026", and one
+ * east of UTC drew next month for a review written late on the last day.
+ * React calls that a hydration error and throws the server's HTML away.
+ * The page is in English, so the date is written the one way.
+ */
+function reviewMonth(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" })
+}
+
 export interface StorefrontReview {
   id: string
   rating: number
@@ -120,7 +136,7 @@ export function ReviewsPanel({
 
               {review.created_at && (
                 <time className="shrink-0 text-xs text-muted-foreground" dateTime={review.created_at}>
-                  {new Date(review.created_at).toLocaleDateString(undefined, { month: "short", year: "numeric" })}
+                  {reviewMonth(review.created_at)}
                 </time>
               )}
             </div>

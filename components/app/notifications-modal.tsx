@@ -151,6 +151,17 @@ function HeaderButton({
   )
 }
 
+
+/* Set once this document starts to go (fetchNotifications does not report what that cuts off). */
+let leavingDocument = false
+if (typeof window !== "undefined") {
+  const going = () => { leavingDocument = true }
+  const back = (e: PageTransitionEvent) => { if (e.persisted) leavingDocument = false }
+  window.addEventListener("pagehide", going)
+  window.addEventListener("beforeunload", going)
+  window.addEventListener("pageshow", back)
+}
+
 export function NotificationsModal({
   open,
   onOpenChange,
@@ -224,7 +235,10 @@ export function NotificationsModal({
         if (data && "covered" in data) setCovered(data.covered)
       }
     } catch (err) {
-      console.error("[notifications] Failed to fetch:", err)
+      /* A read cut off because this page is being left (a link to another
+         document, a reload) is not a failure: nothing is shown for it, and
+         it is not logged as one. */
+      if (!leavingDocument && (err as { name?: string } | null)?.name !== "AbortError") console.error("[notifications] Failed to fetch:", err)
     } finally {
       loadedOnceRef.current = true
       setIsLoading(false)

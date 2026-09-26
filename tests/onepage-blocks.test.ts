@@ -77,14 +77,23 @@ function main() {
   section("The editor's preview and the live page draw them the same way")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const preview = read("components/onepage/phone-preview.tsx")
+    /*
+      THE PREVIEW IS THE LIVE PAGE NOW, IN A FRAME (components/onepage/
+      preview-document.tsx), not a second drawing that called the same
+      block component (phone-preview.tsx, which drifted everywhere else).
+      Changed on purpose: what is held of "the preview" is held of the code
+      it runs, the live page's, once the frame is seen to run it.
+    */
+    const frame = read("components/onepage/preview-document.tsx")
     const live = read("components/onepage/public-onepage.tsx")
+    const framed = /<PublicOnePage onepage=\{page as never\} \/>/.test(frame) && /export \{ PhonePreview, MobilePreviewContent \} from "\.\/live-preview"/.test(read("components/onepage/phone-preview.tsx"))
+    const preview = framed ? live : read("components/onepage/phone-preview.tsx")
     const cases = /case "heading":\s*case "faq":\s*case "countdown":\s*case "map":\s*case "video":\s*return <ExtraBlock block=\{block\}/
-    check("the preview calls the one component", cases.test(preview))
+    check("the preview calls the one component (the live page's own, framed)", framed && cases.test(preview))
     check("and so does the live page", cases.test(live))
-    check("the preview and the live page leave out blocks by one rule",
-      (preview.match(/\.filter\(\(b\) => isBlockShown\(b\)\)/g) ?? []).length === 2 &&
-      /const isBlockVisible = \(block: any\): boolean => isBlockShown\(block\)/.test(live))
+    check("the preview and the live page leave out blocks by one rule (the live page's, and the page is built by one function for both)",
+      framed && /const isBlockVisible = \(block: any\): boolean => isBlockShown\(block\)/.test(live) &&
+      /publicOnePageFromDraft\(onepage as never\)/.test(read("components/onepage/live-preview.tsx")))
     const on = (block: any) => isBlockShown({ enabled: true, ...block }, NOW)
     check("a link with no address, or only https://, is not on the page", !on({ type: "link_button", data: { url: "https://" } }) && !on({ type: "link_button", data: { url: "" } }) && on({ type: "link_button", data: { url: "https://storelib.com" } }))
     check("nor is a block that is off, off schedule, a one letter text or an image with no picture",
@@ -92,14 +101,17 @@ function main() {
       !on({ type: "divider", data: {}, schedule: { start_at: iso(NOW + DAY) } }) &&
       !on({ type: "text", data: { content: "a" } }) && on({ type: "text", data: { content: "Hi there" } }) &&
       !on({ type: "image", data: { images: [] } }))
+    /* Moved on purpose to lib/onepage/public-shape.ts, which the route calls with the published copy. */
     const page = read("app/(marketing)/l/[slug]/page.tsx")
-    check("a block that has not started is not sent to the browser at all", /\.filter\(\(b\) => isScheduledNow\(b\)\)/.test(page))
+    check("a block that has not started is not sent to the browser at all",
+      /publicOnePage\(onepage, \{\s*source: "published"/.test(page) && /blocks\.filter\(\(b\) => isScheduledNow\(b, now\)\)/.test(read("lib/onepage/public-shape.ts")))
 
     const module = read("components/onepage/extra-blocks.tsx")
     check("the blocks take the page's own button look", /export function themeButtonStyle\(theme: OnePageTheme\)/.test(module) && (module.match(/themeButtonStyle\(look\.theme\)/g) ?? []).length >= 3)
     check("a countdown reads the clock only in the browser, so the first drawing matches the server's", /const \[now, setNow\] = React\.useState<number \| null>\(null\)/.test(module))
     check("a video's player loads on the first press, not with the page", /\{playing \? \(\s*<iframe/.test(module) && /youtube-nocookie\.com\/embed\//.test(module))
-    check("the editor's map waits for the typing to stop", /useSettled\(typed, 700, !!look\.preview\)/.test(module))
+    check("the editor's map waits for the typing to stop", /useSettled\(typed, 700, !!look\.preview\)/.test(module)
+      && /<ExtraBlockPreviewContext\.Provider value=\{true\}>/.test(read("components/onepage/preview-document.tsx")))
     check("the FAQ opens by its own height", /grid-rows-\[1fr\]/.test(module) && /grid-rows-\[0fr\]/.test(module))
   }
 
@@ -153,9 +165,11 @@ function main() {
     const missing = [...offered].filter((f) => !Object.prototype.hasOwnProperty.call(ONEPAGE_FONTS, f))
     check("every family the Design tab and its templates name can be loaded", offered.size >= 30 && missing.length === 0, `missing: ${missing.join(", ")} (of ${offered.size})`)
     check("the font list draws its samples", /\{FONT_SAMPLE_HREF \? <link rel="stylesheet" href=\{FONT_SAMPLE_HREF\} \/> : null\}/.test(design))
-    const preview = read("components/onepage/phone-preview.tsx")
     const live = read("components/onepage/public-onepage.tsx")
-    check("the preview loads the theme's fonts, in both of its layouts", (preview.match(/<OnePageFonts theme=\{theme\} \/>/g) ?? []).length === 2)
+    /* Changed on purpose: both of the preview's layouts frame the live page (components/onepage/live-preview.tsx), which loads them. */
+    const previewFrames = read("components/onepage/live-preview.tsx")
+    check("the preview loads the theme's fonts, in both of its layouts",
+      (previewFrames.match(/<LivePreviewFrame page=\{page\}/g) ?? []).length === 2 && /<PublicOnePage onepage=\{page as never\} \/>/.test(read("components/onepage/preview-document.tsx")))
     check("and the live page loads the same links", /<OnePageFonts theme=\{safeTheme\} \/>/.test(live))
   }
 

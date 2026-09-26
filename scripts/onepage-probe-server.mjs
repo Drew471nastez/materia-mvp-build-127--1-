@@ -8,6 +8,7 @@
  * count commits (window.__commits) while a finger is down.
  *
  *   const { base, server } = await serveEditorProbe({ root, blocks, theme, fail })
+ *   serveEditorProbe({ entry: "scripts/render-onepage-parity.tsx" })   another harness, the same stubs
  *   page.goto(`${base}/app/onepage#links`)   the editor
  *   page.goto(`${base}/app/onepage?live`)    the published page, with `liveTheme`
  */
@@ -17,7 +18,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { appCss, interFaces } from "./probe-css.mjs"
 
-export async function serveEditorProbe({ root = process.cwd(), blocks = null, theme = {}, liveTheme = null, fail = (m) => { throw new Error(m) } } = {}) {
+export async function serveEditorProbe({ root = process.cwd(), entry = "scripts/render-onepage-editor.tsx", blocks = null, theme = {}, liveTheme = null, fail = (m) => { throw new Error(m) } } = {}) {
   const dir = join(root, `.onepage-probe-${process.pid}`)
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, "navigation.js"), `export const usePathname = () => "/app/onepage"
@@ -39,7 +40,7 @@ const q = new Proxy(function () {}, { get: (_, k) => k === "then" ? (r) => r(res
 export function createClient() { return { auth: { getUser: async () => ({ data: { user: { id: "probe-user" } } }), getSession: async () => ({ data: { session: null } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) }, from: () => q, storage: { from: () => q }, channel: () => ({ on() { return this }, subscribe() { return this } }), removeChannel() {} } }
 `)
   try {
-    execFileSync("pnpm", ["exec", "esbuild", join(root, "scripts/render-onepage-editor.tsx"),
+    execFileSync("pnpm", ["exec", "esbuild", join(root, entry),
       "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error", `--outfile=${join(dir, "probe.js")}`,
       '--define:process.env.NODE_ENV="production"', '--define:process.env.NEXT_PUBLIC_APP_URL="https://storelib.com"',
       '--define:process.env.NEXT_PUBLIC_SUPABASE_URL="https://placeholder.supabase.co"', '--define:process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY="placeholder"',
@@ -61,7 +62,8 @@ export function createClient() { return { auth: { getUser: async () => ({ data: 
     `<style>${interFaces(root)}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>` +
     `</head><body><div id="app"></div><script>${devtoolsHook}${globals}</script><script>${bundle}</script></body></html>`
   const server = createServer((req, res) => {
-    if (req.url === "/" || req.url.startsWith("/app")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(html) }
+    /* /onepage-preview is the editor preview's own frame (components/onepage/live-preview). */
+    if (req.url === "/" || req.url.startsWith("/app") || req.url.startsWith("/onepage-preview")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(html) }
     res.writeHead(200, { "content-type": "application/json" })
     if (req.url.startsWith("/api/billing/subscription")) return res.end(JSON.stringify({ currentPlan: { id: "pro" } }))
     if (req.url.startsWith("/api/onepage/stats")) {
