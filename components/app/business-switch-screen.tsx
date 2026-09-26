@@ -61,11 +61,6 @@ function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 }
 
-/** The spinner's turn, set from the wall clock so it carries on across the reload (lib/businesses/switch-screen spinDelay). */
-function setSpinPhase() {
-  document.documentElement.style.setProperty("--switch-spin-delay", spinDelay(Date.now(), reducedMotion()))
-}
-
 /* ── The line ───────────────────────────────────────────────────────────── */
 
 type Line = { key: string; text: string; id: number }
@@ -120,7 +115,14 @@ function Lines({ lineKey, text }: { lineKey: string; text: string }) {
 
 /* ── The screen ─────────────────────────────────────────────────────────── */
 
-function Screen({ step, name, ready, screenRef }: { step: SwitchStep; name: string; ready: boolean; screenRef: React.Ref<HTMLDivElement> }) {
+/**
+ * `spin`: the spinner's turn (lib/businesses/switch-screen spinDelay), set on
+ * the screen itself on the page you were on. The new document's HTML sets it
+ * on <html> before its first paint instead (SWITCH_SPIN_SCRIPT), when there
+ * is nothing drawn yet for it to restyle; set on the <html> of a page already
+ * drawn, it would restyle the whole page in the frame the screen comes up in.
+ */
+function Screen({ step, name, ready, spin, screenRef }: { step: SwitchStep; name: string; ready: boolean; spin?: string; screenRef: React.Ref<HTMLDivElement> }) {
   const text = switchLine(step, name, { ready })
   return (
     <div
@@ -130,6 +132,7 @@ function Screen({ step, name, ready, screenRef }: { step: SwitchStep; name: stri
       role="status"
       aria-live="polite"
       className="fixed inset-0 z-[500] touch-none select-none"
+      style={spin ? ({ "--switch-spin-delay": spin } as React.CSSProperties) : undefined}
     >
       <AppColdStart>
         {/* The spinner exactly where PageSpinner puts it (40% down), the line under it without moving it. */}
@@ -209,14 +212,18 @@ export function SwitchingScreen({
 }) {
   const { step, go, shown } = useSteps("asking")
   const ref = useRef<HTMLDivElement>(null)
+  /* Its spinner's turn, from the wall clock, as the new document's will be. */
+  const [spin] = useState(() => spinDelay(Date.now(), reducedMotion()))
 
-  /* Up before it is painted: the turn of its spinner, then the fade in. */
+  /* Up before it is painted, and already a frame into its fade on the first
+     frame that shows it: a fade that starts at 0 spends the frame after the
+     press drawing nothing. */
   useLayoutEffect(() => {
     shown(performance.now())
-    setSpinPhase()
     const el = ref.current
     if (!el || reducedMotion() || typeof el.animate !== "function") return
-    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: SCREEN_IN_MS, easing: "ease-out" })
+    const a = el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: SCREEN_IN_MS, easing: "ease-out" })
+    a.currentTime = 1000 / 60
   }, [shown])
 
   useEffect(() => {
@@ -237,7 +244,7 @@ export function SwitchingScreen({
   }, [go, handleRef, onGone])
 
   /* Only ever drawn after a press, so there is a document to put it in. */
-  return createPortal(<Screen step={step} name={name} ready={ready} screenRef={ref} />, document.body)
+  return createPortal(<Screen step={step} name={name} ready={ready} spin={spin} screenRef={ref} />, document.body)
 }
 
 /* ── On the new /app ────────────────────────────────────────────────────── */
@@ -322,7 +329,6 @@ export function BusinessSwitchArrival({ name }: { name: string }) {
       if (cancelled) return
       cancelled = true
       document.cookie = clearSwitchCookie({ secure })
-      document.documentElement.style.removeProperty("--switch-spin-delay")
       setGone(true)
     }
     whenAppReady(el).then(async () => {
