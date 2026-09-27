@@ -5,32 +5,36 @@ import "server-only"
  *  THE CHECKS EVERY UPLOAD ROUTE MAKES
  * ===========================================================================
  * One place for what used to be written differently, or not at all, in each
- * route:
+ * route. What a file may BE is decided by lib/security/uploads (inspect.ts);
+ * this is the rest:
  *
  *   uploadRateLimit        how often one person may start an upload. Counted
  *                          in Postgres (lib/api/rate-limit.ts), per user, with
  *                          a per minute window against scripts and the plan's
- *                          hourly one against slow floods. It used to count
- *                          digital_assets rows by `uploaded_by = creator id`,
- *                          a column that holds the USER id, so it counted zero
- *                          and never refused anything.
+ *                          hourly one against slow floods. A refusal is
+ *                          written to the security log.
  *   tooManyPendingUploads  how many uploads one person may have open at once.
  *   productFileLimit       how many files one product may hold.
  *   storedObjectSize       the size storage recorded, not the size declared.
- *   readStoredHead         the first bytes of a stored object, by Range, so a
- *                          file that went straight to storage is still checked
- *                          by its magic bytes before anything is marked done.
+ *   readStoredHead         the first bytes of a stored object, by Range.
  *   cleanStoredPublicImage the same picture rules as a server upload
  *                          (lib/storage/public-image.ts), applied to one that
- *                          went up by signed URL, and the malware scan when it
- *                          is on (screenPublicBytes).
+ *                          went up by signed URL.
+ *   screenInBackground     a malware engine's look at a public file, after
+ *                          the answer has gone back. Does nothing, and calls
+ *                          nothing, unless SECURITY_MALWARE_PROVIDER names one.
  */
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { NextResponse } from "next/server"
 
 import { rateLimit, type RateWindow } from "@/lib/api/rate-limit"
-import { scanBytes } from "@/lib/security/file-scanner"
-import { recordScan, type ScanSource } from "@/lib/security/scan-log"
+import { logSecurityEvent } from "@/lib/security/uploads/audit"
+import { isSafeStoragePath } from "@/lib/security/uploads/filename"
+import { userMessage, type UploadContext } from "@/lib/security/uploads/policy"
+import { runAfterResponse } from "@/lib/security/uploads/pipeline"
+import { activeProviders } from "@/lib/security/uploads/providers"
+import { storedReader } from "@/lib/security/uploads/stored"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { getPlanLimits } from "./plans"
 import { preparePublicImage, PUBLIC_IMAGE_MAX_BYTES } from "./public-image"
 
@@ -45,13 +49,22 @@ export function uploadWindows(planId: string | null | undefined): RateWindow[] {
   ]
 }
 
-/** Null when this person may start another upload, or the 429 to send. */
-export function uploadRateLimit(userId: string, planId?: string | null): Promise<NextResponse | null> {
-  return rateLimit({
+/** Null when this person may start another upload, or the 429 to send. A refusal is logged. */
+export async function uploadRateLimit(userId: string, planId?: string | null): Promise<NextResponse | null> {
+  const limited = await rateLimit({
     bucket: "upload",
     subjects: [`user:${userId}`],
     windows: uploadWindows(planId),
     message: "That is a lot of uploads in a short time. Wait a minute and try again.",
+  })
+  if (limited) logRateLimit({ bucket: "upload", userId })
+  return limited
+}
+
+/** A rate limit refusal in the security log, without holding up the 429. */
+export function logRateLimit(where: { bucket: string; userId?: string | null; ip?: string | null }): void {
+  runAfterResponse(async () => {
+    await logSecurityEvent(createAdminClient(), { event: "rate_limit", outcome: "limited", code: where.bucket, userId: where.userId ?? null, ip: where.ip ?? null })
   })
 }
 
@@ -88,13 +101,11 @@ export async function productFileLimit(
 
 /**
  * Whether a storage path sits under one of these ids: the first segment is
- * the owner, nothing climbs out, nothing is absolute.
+ * the owner, nothing climbs out, nothing is absolute
+ * (lib/security/uploads/filename.ts isSafeStoragePath).
  */
 export function ownsStoragePath(path: unknown, ownerIds: (string | null | undefined)[]): path is string {
-  if (typeof path !== "string" || path.length === 0 || path.length > 512) return false
-  if (path.startsWith("/") || path.includes("\\") || path.split("/").some((p) => p === ".." || p === "." || p === "")) return false
-  const first = path.split("/")[0]
-  return ownerIds.some((id) => typeof id === "string" && id.length > 0 && id === first)
+  return isSafeStoragePath(path, ownerIds)
 }
 
 function split(path: string): { folder: string; name: string } {
@@ -113,76 +124,58 @@ export async function storedObjectSize(admin: SupabaseClient, bucket: string, pa
   return Number.isFinite(size) ? size : 0
 }
 
-/**
- * The first `bytes` of a stored object. A Range request through a signed URL
- * that lives one minute; if storage answers with the whole object anyway, the
- * stream is cancelled after the first chunk that covers the range.
- */
-export async function readStoredHead(
-  admin: SupabaseClient,
-  bucket: string,
-  path: string,
-  bytes = 8192,
-): Promise<Uint8Array | null> {
-  const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, 60)
-  if (error || !data?.signedUrl) return null
-  try {
-    const res = await fetch(data.signedUrl, { headers: { Range: `bytes=0-${bytes - 1}` } })
-    if (!res.ok || !res.body) return null
-    const reader = res.body.getReader()
-    const chunks: Uint8Array[] = []
-    let total = 0
-    while (total < bytes) {
-      const { done, value } = await reader.read()
-      if (done || !value) break
-      chunks.push(value)
-      total += value.length
-    }
-    reader.cancel().catch(() => {})
-    const out = new Uint8Array(Math.min(total, bytes))
-    let o = 0
-    for (const c of chunks) {
-      const take = Math.min(c.length, out.length - o)
-      out.set(c.subarray(0, take), o)
-      o += take
-      if (o >= out.length) break
-    }
-    return out
-  } catch {
-    return null
-  }
+/** The first `bytes` of a stored object, by one Range request through a one minute signed URL. */
+export async function readStoredHead(admin: SupabaseClient, bucket: string, path: string, bytes = 8192): Promise<Uint8Array | null> {
+  return storedReader(admin, bucket, path).read(0, bytes - 1)
 }
 
 /**
  * ===========================================================================
- *  THE MALWARE SCAN FOR A PUBLIC FILE THAT PASSES THROUGH A ROUTE
+ *  A MALWARE ENGINE'S LOOK AT A PUBLIC FILE, AFTER THE ANSWER
  * ===========================================================================
- * Pictures and small files that a route holds in memory anyway: scanned
- * before they are stored (or, for one already stored, before the route says
- * it is done). Infected is refused. No verdict (scanner off, down or slow)
- * lets the file through: it has already passed the picture checks or the
- * header check, it is public the moment it is stored so there is no pending
- * state to hold it in, and a profile photo that cannot be saved because a
- * scanner is restarting is a broken app, not a safer one. Every outcome is
- * in the scan log.
- *
- * Twelve seconds at most: a picture is scanned in well under one.
+ * Pictures and small files a route holds in memory, or a file just stored.
+ * The built-in checks have already decided the upload. When an engine is
+ * switched on (SECURITY_MALWARE_PROVIDER), it reads the file once the
+ * response has gone, and a file it finds infected is removed (its URL stops
+ * working) and logged. With none switched on (production) this returns at
+ * once and does nothing.
  */
-export async function screenPublicBytes(
+export function screenInBackground(
   admin: SupabaseClient,
-  bytes: Uint8Array,
-  where: { source: ScanSource; bucket: string; path: string; logClean?: boolean },
-): Promise<{ blocked: boolean; threat?: string }> {
-  const result = await scanBytes(bytes, { ref: `${where.bucket}/${where.path}`, deadlineMs: 12_000, retries: 1 })
-  const blocked = result.status === "infected"
-  if (result.status !== "clean" || where.logClean !== false) {
-    await recordScan(admin, { source: where.source, bucket: where.bucket, path: where.path, result, action: blocked ? "refused" : "kept" })
-  }
-  return blocked ? { blocked, threat: result.threat } : { blocked }
+  where: { bytes?: Uint8Array; bucket: string; path: string; context: UploadContext; userId?: string | null; fileName?: string },
+): void {
+  const providers = activeProviders()
+  if (providers.length === 0) return
+  runAfterResponse(async () => {
+    for (const provider of providers) {
+      const result = await provider.scan({
+        fileName: where.fileName ?? where.path,
+        context: where.context,
+        size: where.bytes?.byteLength ?? null,
+        ...(where.bytes ? { bytes: where.bytes } : { stored: { admin, bucket: where.bucket, path: where.path } }),
+        ref: `${where.bucket}/${where.path}`,
+        deadlineMs: 45_000,
+      })
+      const infected = result.status === "infected"
+      if (infected) await admin.storage.from(where.bucket).remove([where.path]).catch(() => undefined)
+      if (infected || result.status === "no_verdict") {
+        await logSecurityEvent(admin, {
+          event: "provider_scan",
+          outcome: infected ? "removed" : "noted",
+          context: where.context,
+          code: infected ? "provider_infected" : "no_verdict",
+          provider: provider.name,
+          bucket: where.bucket,
+          path: where.path,
+          userId: where.userId ?? null,
+          sha256: result.sha256 ?? null,
+          detail: { threat: result.threat, reason: result.reason, durationMs: result.durationMs },
+        })
+      }
+      if (infected) return
+    }
+  })
 }
-
-/** What a creator is told when a file they uploaded was flagged. */
-export const FLAGGED_UPLOAD = "That file was flagged by the virus scan and was not saved."
 
 /**
  * A picture that went to a public bucket by signed URL, made to follow the
@@ -199,28 +192,24 @@ export async function cleanStoredPublicImage(
   if (size === null) return { ok: false, error: "The upload did not arrive. Try again.", status: 400 }
   if (size > PUBLIC_IMAGE_MAX_BYTES) {
     await admin.storage.from(bucket).remove([path]).catch(() => undefined)
-    return { ok: false, error: "That picture is over 25 MB. Choose a smaller one.", status: 413 }
+    return { ok: false, error: userMessage("too_large", "public_image"), status: 413 }
   }
   const { data: blob, error } = await admin.storage.from(bucket).download(path)
-  if (error || !blob) return { ok: false, error: "The upload could not be checked. Try again.", status: 500 }
+  if (error || !blob) return { ok: false, error: "The upload didn't finish. Try again.", status: 500 }
   const checked = preparePublicImage(new Uint8Array(await blob.arrayBuffer()))
   if (!checked.ok) {
     await admin.storage.from(bucket).remove([path]).catch(() => undefined)
     return checked
   }
-  /* The bytes that will be served, stripped or not. */
-  const screened = await screenPublicBytes(admin, checked.bytes, { source: "public_image", bucket, path })
-  if (screened.blocked) {
-    await admin.storage.from(bucket).remove([path]).catch(() => undefined)
-    return { ok: false, error: FLAGGED_UPLOAD, status: 400 }
-  }
+  /* The bytes that will be served, stripped or not, when an engine is on. */
+  screenInBackground(admin, { bytes: checked.bytes, bucket, path, context: "public_image" })
   if (checked.stripped) {
     const { error: upErr } = await admin.storage.from(bucket).upload(path, checked.bytes, {
       contentType: checked.mime,
       cacheControl: "31536000",
       upsert: true,
     })
-    if (upErr) return { ok: false, error: "The upload could not be checked. Try again.", status: 500 }
+    if (upErr) return { ok: false, error: "The upload didn't finish. Try again.", status: 500 }
   }
   return { ok: true, stripped: checked.stripped }
 }

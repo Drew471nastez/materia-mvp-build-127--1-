@@ -1,4 +1,5 @@
 import "server-only"
+import { inspectHead } from "@/lib/security/uploads/inspect"
 
 /**
  * ===========================================================================
@@ -136,6 +137,8 @@ export async function keepImages(
          */
         const path = `${input.installId}/${crypto.randomUUID()}.${extension}`
         const bytes = decode(image.data)
+        /* A picture by its bytes, by the central check (lib/security/uploads), or it is not kept. */
+        if (!inspectHead({ fileName: `image.${extension}`, declaredMime: image.mediaType, size: bytes.byteLength || 1, head: bytes.subarray(0, 8192), context: "public_image", maxBytes: Number.MAX_SAFE_INTEGER }).ok) return null
         const { error } = await admin.storage.from(BUCKET).upload(path, bytes, {
           contentType: image.mediaType,
           upsert: false,

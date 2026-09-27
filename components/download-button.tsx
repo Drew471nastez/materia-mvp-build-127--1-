@@ -67,7 +67,7 @@ export async function downloadEntitledFile(
     if (!response.ok || !data.success || typeof data.downloadUrl !== "string") {
       return {
         success: false,
-        error: data.error || data.message || "The file could not be fetched. Try again.",
+        error: data.error || "This file isn't available right now. Try again in a minute.",
         reason: typeof data.reason === "string" ? data.reason : undefined,
       }
     }
@@ -94,10 +94,8 @@ export async function downloadEntitledFile(
     if (err instanceof DOMException && err.name === "AbortError") {
       return { success: false, error: "That took too long. Check your connection and try again." }
     }
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Download failed",
-    }
+    /* A dropped connection's own message ("Failed to fetch") means nothing to a buyer. */
+    return { success: false, error: "This file isn't available right now. Try again in a minute." }
   }
 }
 

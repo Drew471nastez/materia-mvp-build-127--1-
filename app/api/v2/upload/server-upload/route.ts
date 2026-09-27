@@ -8,16 +8,14 @@ import {
   generateStoragePath,
   checkUploadAllowed,
   getPlanLimits,
-  readBufferHeader,
-  scanFile,
   updateCreatorStorageUsed,
 } from "@/lib/storage"
-import { hasExternalScanner } from "@/lib/storage/antivirus"
-import { scanAsset } from "@/lib/storage/scan-gate"
 import { preparePublicImage } from "@/lib/storage/public-image"
-import { FLAGGED_UPLOAD, UPLOAD_HEADERS, productFileLimit, screenPublicBytes, uploadRateLimit } from "@/lib/storage/upload-guard"
-import { isScannerConfigured, scanBytes, type FileScanResult } from "@/lib/security/file-scanner"
-import { recordScan } from "@/lib/security/scan-log"
+import { UPLOAD_HEADERS, productFileLimit, screenInBackground, uploadRateLimit } from "@/lib/storage/upload-guard"
+import { inspectUpload } from "@/lib/security/uploads/inspect"
+import { logUploadVerdict } from "@/lib/security/uploads/audit"
+import { afterProductUpload, builtinResult, runAfterResponse } from "@/lib/security/uploads/pipeline"
+import { sha256Of } from "@/lib/security/uploads/stored"
 
 export const runtime = "nodejs"
 export const maxDuration = 300
@@ -46,12 +44,10 @@ const SERVER_UPLOAD_MAX_BYTES = 25 * 1024 * 1024
  * its location metadata removed, stored under a type and extension read from
  * the bytes.
  *
- * With Storelib's malware scanner on (lib/security/file-scanner.ts) the bytes
- * this route already holds are scanned BEFORE anything is stored: an
- * infected file is refused and never lands in a bucket. A product file with
- * no verdict (scanner down or slow) is stored as "pending_scan" and waits
- * for its verdict like any other (lib/storage/scan-gate.ts); a picture with
- * no verdict is stored, as every public picture is (screenPublicBytes).
+ * The bytes this route already holds go through the central check
+ * (lib/security/uploads) before anything is stored, ZIP contents included,
+ * and are hashed while they are in memory. A malware engine, when one is
+ * switched on, looks after the answer has gone back.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -116,10 +112,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: picture.error }, { status: picture.status, headers: UPLOAD_HEADERS })
       }
       const filePath = generateStoragePath(creator.id, `image.${picture.ext}`, "product-images")
-      const screened = await screenPublicBytes(admin, picture.bytes, { source: "public_image", bucket: PUBLIC_BUCKET, path: filePath })
-      if (screened.blocked) {
-        return NextResponse.json({ error: FLAGGED_UPLOAD }, { status: 400, headers: UPLOAD_HEADERS })
-      }
       const { error } = await admin.storage.from(PUBLIC_BUCKET).upload(filePath, picture.bytes, {
         contentType: picture.mime,
         cacheControl: "31536000",
@@ -129,6 +121,7 @@ export async function POST(request: NextRequest) {
         console.error("[server-upload] picture upload failed:", error.message)
         return NextResponse.json({ error: "The upload failed. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
       }
+      screenInBackground(admin, { bytes: picture.bytes, bucket: PUBLIC_BUCKET, path: filePath, context: "public_image", userId: user.id })
       const { data: urlData } = admin.storage.from(PUBLIC_BUCKET).getPublicUrl(filePath)
       return NextResponse.json(
         { success: true, url: urlData.publicUrl, path: filePath, bucket: PUBLIC_BUCKET, assetId: null, limits },
@@ -148,19 +141,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: validation.reason }, { status: 400, headers: UPLOAD_HEADERS })
     }
 
-    // Magic bytes, before anything is stored
-    const deepScan = scanFile(fileName, contentType, readBufferHeader(buffer))
-    if (!deepScan.safe) {
-      return NextResponse.json({ error: deepScan.reason }, { status: 400, headers: UPLOAD_HEADERS })
+    /* The central check on the bytes in hand, before anything is stored. */
+    const bytes = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)
+    const verdict = await inspectUpload({
+      fileName,
+      declaredMime: contentType,
+      size: bytes.byteLength,
+      head: bytes.subarray(0, 8192),
+      tail: { bytes: bytes.subarray(Math.max(0, bytes.byteLength - 70_000)), start: Math.max(0, bytes.byteLength - 70_000) },
+      readRange: async (a, b) => bytes.subarray(a, b + 1),
+      context: "product_file",
+    })
+    if (!verdict.ok) {
+      runAfterResponse(() => logUploadVerdict(admin, verdict, { context: "product_file", userId: user.id, creatorId: creator.id, bucket: STORAGE_BUCKET, bytes: bytes.byteLength }))
+      return NextResponse.json({ error: verdict.userMessage }, { status: verdict.code === "blocked_extension" ? 415 : 400, headers: UPLOAD_HEADERS })
     }
-
-    /* The whole file, while it is still only in this function's memory. */
-    const service = isScannerConfigured()
-    const verdict: FileScanResult | null = service ? await scanBytes(buffer, { ref: `server-upload:${productId}`, deadlineMs: 30_000 }) : null
-    if (verdict?.status === "infected") {
-      await recordScan(admin, { source: "product_file", result: verdict, bucket: STORAGE_BUCKET, action: "refused" })
-      return NextResponse.json({ error: FLAGGED_UPLOAD, threat: verdict.threat }, { status: 400, headers: UPLOAD_HEADERS })
-    }
+    const sha256 = sha256Of(bytes)
 
     const { data: product } = await admin
       .from("products")
@@ -248,52 +244,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    /* The header passed above. With no external engine that is the scan;
-       with one, the engine looks at it now. Storelib's scanner already has:
-       clean is final, anything else waits as "pending_scan" for a retry. */
-    const external = hasExternalScanner()
-    const scannedClean = verdict?.status === "clean"
+    /* Checked above, hashed above: final now. An engine, if one is on, looks after the answer. */
     const { data: completed } = await admin
       .from("digital_assets")
       .update({
         upload_status: "completed",
         file_size: file.size,
-        scan_status: scannedClean ? "clean" : external ? "pending_scan" : "clean",
-        scan_result: scannedClean
-          ? {
-              engine: "clamav",
-              scanDurationMs: verdict.durationMs,
-              scannedAt: new Date().toISOString(),
-              sha256: verdict.sha256,
-              signatures: verdict.engine?.signatures ?? null,
-              engineVersion: verdict.engine?.version ?? null,
-            }
-          : external
-            ? null
-            : { engine: "heuristic", scannedAt: new Date().toISOString() },
+        checksum: sha256,
+        scan_status: "clean",
+        scan_result: builtinResult(verdict, { sha256 }),
         updated_at: new Date().toISOString(),
       })
       .eq("id", assetId)
-      .select("id, file_path, file_name, mime_type, file_size, storage_bucket, scan_status")
+      .select("id, file_path, file_name, mime_type, file_size, storage_bucket, scan_status, uploaded_by")
       .single()
 
-    if (verdict) {
-      await recordScan(admin, {
-        source: "product_file",
-        result: verdict,
-        bucket: STORAGE_BUCKET,
-        path: filePath,
-        assetId,
-        action: scannedClean ? "kept" : "pending",
-      })
-    } else if (external && completed) {
-      const status = await scanAsset(admin, completed).catch(() => "pending_scan")
-      if (status === "infected") {
-        return NextResponse.json({ error: "That file was flagged by the virus scan and was removed." }, { status: 400, headers: UPLOAD_HEADERS })
-      }
-    }
-
-    await updateCreatorStorageUsed(admin, creator.id)
+    runAfterResponse(async () => {
+      await updateCreatorStorageUsed(admin, creator.id)
+      await logUploadVerdict(admin, verdict, { context: "product_file", userId: user.id, creatorId: creator.id, assetId, bucket: STORAGE_BUCKET, path: filePath, bytes: file.size, sha256 })
+      if (completed) await afterProductUpload(admin, completed, { userId: user.id, knownSha256: sha256, deadlineMs: 60_000 })
+    })
 
     return NextResponse.json(
       { success: true, url: "", path: filePath, bucket: STORAGE_BUCKET, assetId, limits },

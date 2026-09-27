@@ -2,8 +2,10 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { safeExtension, uploadFolderOf, videoBucketOf } from "@/lib/storage/upload-location"
-import { isPublicVideo } from "@/lib/storage/file-signature"
-import { UPLOAD_HEADERS, uploadRateLimit } from "@/lib/storage/upload-guard"
+import { UPLOAD_HEADERS, screenInBackground, uploadRateLimit } from "@/lib/storage/upload-guard"
+import { inspectHead, precheckUpload } from "@/lib/security/uploads/inspect"
+import { logUploadVerdict } from "@/lib/security/uploads/audit"
+import { runAfterResponse } from "@/lib/security/uploads/pipeline"
 
 // The bucket is always product-videos (lib/storage/upload-location.ts), never the caller's.
 
@@ -71,10 +73,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing filename or contentType" }, { status: 400 })
     }
 
-    // One of the video types the bucket takes
+    // One of the video types the bucket takes, and the central check on the name and size
     if (!ALLOWED_VIDEO_TYPES.includes(contentType.toLowerCase())) {
-      return NextResponse.json({ error: "Only video files are allowed" }, { status: 400 })
+      return NextResponse.json({ error: "This file type isn't supported. Use MP4, MOV or WebM." }, { status: 415 })
     }
+    const pre = precheckUpload({ fileName: filename, size: Number(body.fileSize) || 1, declaredMime: contentType, context: "video" })
+    if (!pre.ok) return NextResponse.json({ error: pre.userMessage }, { status: pre.code === "too_large" ? 413 : 415 })
 
     const targetBucket = bucket
 
@@ -146,15 +150,20 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    // The declared type, and then the bytes: a page labelled video/mp4 is not a video
-    if (!file.type.startsWith("video/")) {
-      return NextResponse.json({ error: "Only video files are allowed" }, { status: 400 })
-    }
+    // The central check: the declared type, and then the bytes. A page labelled video/mp4 is not a video
     const arrayBuffer = await file.arrayBuffer()
-    const kind = isPublicVideo(new Uint8Array(arrayBuffer, 0, Math.min(arrayBuffer.byteLength, 4096)))
-    if (!kind) {
-      return NextResponse.json({ error: "That file is not a video. Use MP4, MOV or WebM." }, { status: 415 })
+    const verdict = inspectHead({
+      fileName: file.name,
+      declaredMime: file.type,
+      size: arrayBuffer.byteLength,
+      head: new Uint8Array(arrayBuffer, 0, Math.min(arrayBuffer.byteLength, 8192)),
+      context: "video",
+    })
+    if (!verdict.ok) {
+      runAfterResponse(() => logUploadVerdict(adminSupabase, verdict, { context: "video", userId: user.id, bucket, bytes: arrayBuffer.byteLength }))
+      return NextResponse.json({ error: verdict.userMessage }, { status: verdict.code === "too_large" ? 413 : 415 })
     }
+    const kind = { mime: verdict.detectedType }
 
     // Generate unique path
     const timestamp = Date.now()
@@ -180,6 +189,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "The upload failed. Try again." }, { status: 500 })
     }
 
+    screenInBackground(adminSupabase, { bytes: new Uint8Array(arrayBuffer), bucket, path: filePath, context: "video", userId: user.id })
     // Get public URL
     const { data: urlData } = adminSupabase.storage.from(bucket).getPublicUrl(filePath)
 

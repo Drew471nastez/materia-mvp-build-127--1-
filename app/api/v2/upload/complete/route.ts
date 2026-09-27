@@ -6,19 +6,25 @@ import {
   UPLOAD_HEADERS,
   cleanStoredPublicImage,
   ownsStoragePath,
-  readStoredHead,
+  screenInBackground,
   storedObjectSize,
 } from "@/lib/storage/upload-guard"
-import { MAX_DIGITAL_PRODUCT_FILE_SIZE, scanFile } from "@/lib/storage/security"
-import { sniff } from "@/lib/storage/file-signature"
-import { scanAsset } from "@/lib/storage/scan-gate"
-import { isScannerConfigured, scanStoredObject } from "@/lib/security/file-scanner"
-import { recordScan } from "@/lib/security/scan-log"
+import { MAX_UPLOAD_BYTES, userMessage } from "@/lib/security/uploads/policy"
+import { inspectStoredObject } from "@/lib/security/uploads/stored"
+import { afterProductUpload, builtinResult, runAfterResponse } from "@/lib/security/uploads/pipeline"
+import { logUploadVerdict } from "@/lib/security/uploads/audit"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** The HTTP status a refusal goes back with: the page shows the words either way. */
+function statusFor(code: string): number {
+  if (code === "too_large") return 413
+  if (code === "blocked_extension" || code === "not_an_image" || code === "not_a_video" || code === "markup_not_allowed") return 415
+  return 400
+}
 
 /**
  * POST /api/v2/upload/complete
@@ -32,21 +38,21 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
  *     signed upload URL cannot limit what is sent through it, so a page could
  *     declare 1 KB, send 10 GB and stay under quota. Now the real size is
  *     checked against the quota here and a file over it is removed;
- *   - the first bytes are read back from storage and scanned, so a renamed
- *     executable is refused even though it never passed through a function;
+ *   - the file is checked by the central check (lib/security/uploads), from
+ *     its first bytes and, for a ZIP, its table of contents, each a small
+ *     Range read: never the whole file. A refused file is removed and the
+ *     creator reads one calm sentence; what was found goes to the security
+ *     log;
  *   - a picture for the public bucket is checked as a picture and loses its
  *     location metadata, at the same URL.
  *
- * With Storelib's malware scanner on (lib/security/file-scanner.ts), a
- * product file is NOT scanned here: the answer goes back as soon as the file
- * is in place, with scanStatus "pending_scan", and the editor asks
- * /api/v2/upload/scan for the verdict while the creator carries on (Scanning,
- * then Clean or Blocked on the file's row). Until then no buyer can download
- * it (lib/storage/scan-gate.ts). A link page file, which is public the moment
- * it lands, is scanned here before this answers, and removed if infected.
+ * An accepted product file is final at once: scan_status "clean", engine
+ * "builtin". Its SHA-256, and a malware engine's look when one is switched
+ * on, happen after this has answered (lib/security/uploads/pipeline.ts), so
+ * the creator never waits for either.
  *
  * Request body:
- *   { assetId?, path, bucket, fileSize?, checksum? }
+ *   { assetId?, path, bucket, fileSize? }
  *
  * Response:
  *   { success, asset } or, for a picture, { success, publicUrl, path, bucket }
@@ -66,22 +72,26 @@ export async function POST(request: NextRequest) {
       assetId?: unknown
       path?: unknown
       bucket?: unknown
-      checksum?: unknown
     } | null
     const assetId = typeof body?.assetId === "string" && UUID.test(body.assetId) ? body.assetId : null
     const path = typeof body?.path === "string" ? body.path : ""
-    const checksum = typeof body?.checksum === "string" && /^[a-f0-9]{64}$/i.test(body.checksum) ? body.checksum : null
 
     if (!assetId && !path) {
       return NextResponse.json({ error: "Missing required fields: path, bucket" }, { status: 400, headers: UPLOAD_HEADERS })
     }
 
-    // Get creator
-    const { data: creator } = await admin
-      .from("creators")
-      .select("id")
-      .eq("user_id", user.id)
-      .single()
+    /* The creator and, for a product file, its pending row: read together. */
+    const [{ data: creator }, pendingRead] = await Promise.all([
+      admin.from("creators").select("id").eq("user_id", user.id).single(),
+      assetId
+        ? admin
+            .from("digital_assets")
+            .select("id, file_name, file_path, file_size, mime_type, storage_bucket, upload_status, scan_status, scan_result, uploaded_by")
+            .eq("id", assetId)
+            .eq("uploaded_by", user.id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ])
 
     if (!creator) {
       return NextResponse.json({ error: "Creator account required" }, { status: 403, headers: UPLOAD_HEADERS })
@@ -89,12 +99,7 @@ export async function POST(request: NextRequest) {
 
     // A digital file: everything from the row.
     if (assetId) {
-      const { data: pending } = await admin
-        .from("digital_assets")
-        .select("id, file_name, file_path, file_size, mime_type, storage_bucket, upload_status, scan_status, scan_result")
-        .eq("id", assetId)
-        .eq("uploaded_by", user.id)
-        .maybeSingle()
+      const pending = pendingRead.data
 
       if (!pending || !pending.file_path) {
         return NextResponse.json({ error: "Upload not found" }, { status: 404, headers: UPLOAD_HEADERS })
@@ -113,8 +118,8 @@ export async function POST(request: NextRequest) {
       }
 
       /* The 10 GB per file ceiling, on what arrived rather than what was declared. */
-      if (realSize > MAX_DIGITAL_PRODUCT_FILE_SIZE) {
-        return discard("That file is over 10 GB, the most one file can be.", 413)
+      if (realSize > MAX_UPLOAD_BYTES.product_file) {
+        return discard(userMessage("too_large", "product_file"), 413)
       }
 
       /* Only the bytes beyond what was declared count as new here: the
@@ -127,69 +132,61 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const head = await readStoredHead(admin, bucket, pending.file_path)
-      if (head) {
-        const verdict = scanFile(pending.file_name || pending.file_path, pending.mime_type || "application/octet-stream", head)
-        if (!verdict.safe) return discard(verdict.reason || "That file cannot be uploaded.", 400)
+      /* The central check, on what storage holds. */
+      const verdict = await inspectStoredObject(
+        admin,
+        { bucket, path: pending.file_path },
+        { fileName: pending.file_name || pending.file_path, declaredMime: pending.mime_type, size: realSize, context: "product_file" },
+      )
+      if (!verdict.ok) {
+        runAfterResponse(() =>
+          logUploadVerdict(admin, verdict, { context: "product_file", userId: user.id, creatorId: creator.id, assetId: pending.id, bucket, path: pending.file_path, bytes: realSize }),
+        )
+        await admin.from("digital_assets").update({ scan_status: "blocked", scan_result: builtinResult(verdict) }).eq("id", pending.id)
+        return discard(verdict.userMessage, statusFor(verdict.code))
       }
 
-      /* The server upload route scans the bytes it holds before storing them;
-         its ClamAV verdict stands rather than being asked for again. */
-      const verdictKept =
-        pending.upload_status === "completed" &&
-        pending.scan_status === "clean" &&
-        (pending.scan_result as { engine?: unknown } | null)?.engine === "clamav"
-      const updateData: Record<string, unknown> = {
-        upload_status: "completed",
-        scan_status: verdictKept ? "clean" : "pending_scan",
-        file_size: realSize,
-        updated_at: new Date().toISOString(),
-      }
-      if (checksum) updateData.checksum = checksum
-
+      /* A file the server upload route already stored and checked keeps its verdict. */
+      const before = (pending.scan_result ?? null) as Record<string, unknown> | null
+      const kept = pending.upload_status === "completed" && pending.scan_status === "clean" && before?.engine === "builtin"
       const { data: asset, error: updateError } = await admin
         .from("digital_assets")
-        .update(updateData)
+        .update({
+          upload_status: "completed",
+          scan_status: "clean",
+          scan_result: kept ? before : builtinResult(verdict),
+          file_size: realSize,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", pending.id)
         .eq("uploaded_by", user.id)
-        .select("id, file_name, file_path, file_size, mime_type, file_category, checksum, scan_status, storage_bucket")
+        .select("id, file_name, file_path, file_size, mime_type, file_category, scan_status, storage_bucket, uploaded_by")
         .single()
 
       if (updateError || !asset) {
         console.error("[v2/upload/complete] Asset update error:", updateError)
-        return NextResponse.json({ error: "Failed to complete upload" }, { status: 500, headers: UPLOAD_HEADERS })
+        return NextResponse.json({ error: "The upload didn't finish. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
       }
 
-      /* Scanned now rather than whenever somebody remembers to: by header
-         always, and by the configured engine when there is one. Storelib's
-         own scanner reads the whole file, which can take a while for a big
-         one, so that verdict is asked for by the editor after this answers
-         (the header above has already refused a renamed program). */
-      const scanStatus = verdictKept
-        ? "clean"
-        : isScannerConfigured()
-          ? "pending_scan"
-          : await scanAsset(admin, asset).catch(() => "pending_scan")
-
-      await updateCreatorStorageUsed(admin, creator.id)
-
-      try {
-        await admin.from("upload_events").insert({
-          creator_id: user.id,
-          file_name: asset.file_name,
-          file_size: asset.file_size || 0,
-          mime_type: asset.mime_type,
-          file_category: asset.file_category,
-          storage_bucket: bucket,
-          storage_path: asset.file_path,
-          security_scan_result: scanStatus === "infected" ? "blocked" : "passed",
-          security_threat_type: null,
-        })
-      } catch { /* non-fatal */ }
-
-      if (scanStatus === "infected") {
-        return NextResponse.json({ error: "That file was flagged by the virus scan and was removed." }, { status: 400, headers: UPLOAD_HEADERS })
-      }
+      /* Everything that can wait, after the answer: storage used, the log, the hash, an engine. */
+      runAfterResponse(async () => {
+        await updateCreatorStorageUsed(admin, creator.id)
+        await logUploadVerdict(admin, verdict, { context: "product_file", userId: user.id, creatorId: creator.id, assetId: asset.id, bucket, path: asset.file_path, bytes: realSize })
+        try {
+          await admin.from("upload_events").insert({
+            creator_id: user.id,
+            file_name: asset.file_name,
+            file_size: asset.file_size || 0,
+            mime_type: asset.mime_type,
+            file_category: asset.file_category,
+            storage_bucket: bucket,
+            storage_path: asset.file_path,
+            security_scan_result: "passed",
+            security_threat_type: null,
+          })
+        } catch { /* non-fatal */ }
+        if (!kept) await afterProductUpload(admin, asset, { userId: user.id, deadlineMs: 45_000 })
+      })
 
       return NextResponse.json(
         {
@@ -201,8 +198,7 @@ export async function POST(request: NextRequest) {
             fileSize: asset.file_size,
             mimeType: asset.mime_type,
             category: asset.file_category,
-            checksum: asset.checksum,
-            scanStatus,
+            scanStatus: "clean",
           },
         },
         { headers: UPLOAD_HEADERS },
@@ -219,24 +215,16 @@ export async function POST(request: NextRequest) {
     if (path.startsWith(`${creator.id}/digital-products/`)) {
       /* A link page's file (a lead magnet): any kind of file, but never a
          program or a page, since it is served from a public URL. */
-      const head = await readStoredHead(admin, PUBLIC_BUCKET, path)
-      const kind = head ? sniff(head) : null
-      const verdict = head ? scanFile(path, "application/octet-stream", head) : { safe: true as const }
-      if (!head || !verdict.safe || kind?.family === "markup" || kind?.family === "executable") {
-        await admin.storage.from(PUBLIC_BUCKET).remove([path]).catch(() => undefined)
-        return NextResponse.json({ error: "That file cannot be shared from a link page." }, { status: 400, headers: UPLOAD_HEADERS })
-      }
-      /* Public from the moment it lands, so scanned before this answers. With
-         no verdict in time (scanner down or slow) it stays: its header passed
-         above, and there is no pending state for a public link to wait in. */
       const size = await storedObjectSize(admin, PUBLIC_BUCKET, path)
-      const scanned = await scanStoredObject(admin, PUBLIC_BUCKET, path, { size, ref: `link-page:${path}`, deadlineMs: 45_000 })
-      const infected = scanned.status === "infected"
-      if (infected) await admin.storage.from(PUBLIC_BUCKET).remove([path]).catch(() => undefined)
-      await recordScan(admin, { source: "link_page_file", result: scanned, bucket: PUBLIC_BUCKET, path, action: infected ? "removed" : "kept" })
-      if (infected) {
-        return NextResponse.json({ error: "That file was flagged by the virus scan and was removed." }, { status: 400, headers: UPLOAD_HEADERS })
+      if (size === null) return NextResponse.json({ error: "The upload did not arrive. Try again." }, { status: 400, headers: UPLOAD_HEADERS })
+      const verdict = await inspectStoredObject(admin, { bucket: PUBLIC_BUCKET, path }, { fileName: path, size, context: "link_page_file" })
+      if (!verdict.ok) {
+        await admin.storage.from(PUBLIC_BUCKET).remove([path]).catch(() => undefined)
+        runAfterResponse(() => logUploadVerdict(admin, verdict, { context: "link_page_file", userId: user.id, creatorId: creator.id, bucket: PUBLIC_BUCKET, path, bytes: size }))
+        return NextResponse.json({ error: verdict.userMessage }, { status: statusFor(verdict.code), headers: UPLOAD_HEADERS })
       }
+      runAfterResponse(() => logUploadVerdict(admin, verdict, { context: "link_page_file", userId: user.id, creatorId: creator.id, bucket: PUBLIC_BUCKET, path, bytes: size }))
+      screenInBackground(admin, { bucket: PUBLIC_BUCKET, path, context: "link_page_file", userId: user.id })
     } else {
       const cleaned = await cleanStoredPublicImage(admin, PUBLIC_BUCKET, path)
       if (!cleaned.ok) {
@@ -257,6 +245,6 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     console.error("[v2/upload/complete] Error:", error)
-    return NextResponse.json({ error: "Could not finish the upload. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
+    return NextResponse.json({ error: "The upload didn't finish. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
   }
 }
