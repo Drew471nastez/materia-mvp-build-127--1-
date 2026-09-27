@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import { onePageUrl, onePageUrlDisplay } from "@/lib/onepage/address"
 
 interface Creator {
   id: string
@@ -688,8 +689,8 @@ export default function SeoAdminClient() {
                             )}
                             <a href={`https://${creator.username}.storelib.com`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-purple-500 hover:underline">{creator.username}.storelib.com ↗</a>
                             {creator.onepage_slug && (
-                              <a href={`https://storelib.com/${creator.onepage_slug}/links`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:underline">
-                                /l/{creator.onepage_slug} ↗
+                              <a href={onePageUrl(creator.onepage_slug)} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:underline">
+                                {onePageUrlDisplay(creator.onepage_slug)} ↗
                               </a>
                             )}
                             <span className="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">ProfilePage</span>

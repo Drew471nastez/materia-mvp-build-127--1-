@@ -97,7 +97,7 @@ console.log("\nThe records to add")
 console.log("\nShare links and canonicals name the creator page's domain")
 check("the creator page", getStoreShareUrl("mara", "www.maralind.com") === "https://www.maralind.com/" && getStoreShareUrl("mara") === "https://storelib.com/mara")
 check("its products, without the handle", getProductShareUrl("mara", "prints", "links.maralind.com") === "https://links.maralind.com/prints" && getProductShareUrl("mara", "prints") === "https://storelib.com/mara/prints")
-check("and the OnePage at /links", getLinksShareUrl("mara", "links.maralind.com") === "https://links.maralind.com/links" && getLinksShareUrl("mara", null) === "https://storelib.com/mara/links")
+check("and the OnePage at /links, or storelib.me/<handle> without a domain", getLinksShareUrl("mara", "links.maralind.com") === "https://links.maralind.com/links" && getLinksShareUrl("mara", null) === "https://storelib.me/mara")
 check("a bare apex is given its www, a subdomain never is", getLinksShareUrl("mara", "maralind.com") === "https://www.maralind.com/links" && getLinksUrlWithCustomDomain("mara", "links.maralind.com") === "https://links.maralind.com/links")
 
 console.log("\nWhich host the editors show")

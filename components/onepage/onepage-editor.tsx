@@ -1191,7 +1191,7 @@ function EditorLayout() {
     )
   }
 
-  // Always the external, shareable address: storelib.com/{handle}/links
+  // Always the external, shareable address: storelib.me/{handle}, or <domain>/links on a creator page domain
   const pageUrl = connectedDomain ? getLinksUrlWithCustomDomain(onepage.slug, connectedDomain) : getLinksShareUrl(onepage.slug)
 
   const copyLink = async () => {

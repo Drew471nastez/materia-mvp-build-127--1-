@@ -85,7 +85,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         rows: [
           ["Creator page", "storelib.com/yourname"],
           ["A product", "storelib.com/yourname/product-name"],
-          ["OnePage (link in bio)", "storelib.com/yourname/links"],
+          ["OnePage (link in bio)", "storelib.me/yourname"],
           ["Website", "yourname.storelib.com"],
         ],
       },
@@ -354,7 +354,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: "table", head: ["", "Address", "What it is"], rows: [
         ["Creator page", "storelib.com/yourname", "Your profile: picture, bio, links and products. Every account has one."],
         ["Website", "yourname.storelib.com", "A site you build from a theme, with as many pages and sections as you like."],
-        ["OnePage", "storelib.com/yourname/links", "A single link in bio page for your social profiles."],
+        ["OnePage", "storelib.me/yourname", "A single link in bio page for your social profiles."],
       ] },
       { type: "p", text: "Each is edited from its own item in the dashboard menu: Creator Page, Website and OnePage. Your products appear on all three." },
       { type: "p", text: "You do not need all three. Most people start with the creator page and add a website later." },
@@ -423,7 +423,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         "Open OnePage in the dashboard.",
         "Add blocks: links, products, a newsletter sign up and more.",
         "Choose its look.",
-        "Copy its address, storelib.com/yourname/links, into your social profiles.",
+        "Copy its address, storelib.me/yourname, into your social profiles.",
       ] },
       { type: "p", text: "People who sign up on your OnePage are added to your subscribers, marked with OnePage as the source." },
     ],

@@ -62,7 +62,7 @@ export function isOrderSource(value: unknown): value is OrderSource {
  *
  *   website   a website the creator built, on a Storelib subdomain or their domain
  *   profile   the creator's page, storelib.com/{handle}
- *   onepage   their OnePage, storelib.com/{handle}/links
+ *   onepage   their OnePage, storelib.me/{handle} (storelib.com/{handle}/links before)
  *   product   a product page on Storelib
  *   explore   the marketplace
  *   link      a checkout link opened on its own, with no Storelib page before it
