@@ -702,15 +702,7 @@ export function DigitalFiles({
         )}
       >
         {entries.map((entry) => (
-          <FileRow
-            key={entry.key}
-            entry={entry}
-            scan={entry.kind === "file" ? uploads.scanOf(entry.file) : null}
-            onCancel={uploads.cancel}
-            onRetry={uploads.retry}
-            onRename={onRename}
-            onDelete={onDelete}
-          />
+          <FileRow key={entry.key} entry={entry} scan={entry.kind === "file" ? uploads.scanOf(entry.file) : null} onCancel={uploads.cancel} onRetry={uploads.retry} onRename={onRename} onDelete={onDelete} />
         ))}
         <li>
           {full ? (
