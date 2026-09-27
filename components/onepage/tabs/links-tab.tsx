@@ -4,6 +4,7 @@ import { hapticTap } from "@/lib/native-bridge"
 import { useLinkReorder } from "@/components/onepage/link-reorder"
 
 import { useOnePage } from "@/lib/onepage/context"
+import { announceAvatar } from "@/lib/account/avatar-store"
 import {
   createDefaultBlock,
   type OnePageBlock,
@@ -3183,9 +3184,13 @@ export function LinksTab() {
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
       >
           <DialogHeader className="p-5 border-b">
-            <SheetDialogTitle className="text-lg font-semibold text-center">Profile Image</SheetDialogTitle>
+            <SheetDialogTitle className="text-lg font-semibold text-center">Profile photo</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
+            {/* One photo, and this is the same one: no creator has to work out which editor owns which face. */}
+            <p className="text-[13px] leading-snug text-[#6b7280]">
+              This is your Storelib profile photo. Changing it here changes it on your creator page, your products and your receipts too.
+            </p>
             <button onClick={() => { setShowAvatarEditModal(false); setShowAvatarUploadModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><ImageIcon className="h-6 w-6 text-gray-600" /></div>
               <div className="flex-1 text-left"><p className="font-medium">Select image or GIF</p></div>
@@ -3197,7 +3202,16 @@ export function LinksTab() {
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
             {(onepage.avatar_url || onepage.avatar_video_url) && (
-              <button onClick={() => { 
+              <button onClick={async () => {
+                /* The one photo, removed everywhere, the same way Settings removes it. */
+                if (onepage.avatar_url) {
+                  await fetch("/api/account/avatar", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: null }),
+                  }).catch(() => null)
+                  announceAvatar(null)
+                }
                 updateProfile({ avatar_url: null, avatar_video_url: null })
                 setShowAvatarEditModal(false)
               }} className="w-full flex items-center justify-center gap-2 p-3 rounded-xl text-red-600 hover:bg-red-50 transition-colors">
@@ -3554,11 +3568,28 @@ export function LinksTab() {
                         const { data: { user } } = await supabase.auth.getUser()
                         if (!user) throw new Error('Not authenticated')
 
+                        /*
+                          ONE PROFILE PHOTO. This used to upload into
+                          onepage-assets and write onepages.avatar_url alone,
+                          which is how one creator ended up with three faces:
+                          this one, the one in Settings and the one on the
+                          creator page. It goes into the account's own avatars
+                          folder now and is saved through the same route
+                          Settings uses, so every surface takes it
+                          (lib/account/avatar-save, lib/account/profile-follow).
+                        */
                         const fileName = `${user.id}/avatar-${Date.now()}.png`
-                        const { error } = await supabase.storage.from("onepage-assets").upload(fileName, blob, { upsert: true })
+                        const { error } = await supabase.storage.from("avatars").upload(fileName, blob, { upsert: true, contentType: "image/png" })
                         if (error) throw error
 
-                        const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
+                        const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(fileName)
+                        const saved = await fetch("/api/account/avatar", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ url: publicUrl }),
+                        })
+                        if (!saved.ok) throw new Error("profile photo not saved")
+                        announceAvatar(publicUrl)
                         updateProfile({ avatar_url: publicUrl, avatar_video_url: null })
                         setShowAvatarCropModal(false)
                         URL.revokeObjectURL(tempImageUrl)

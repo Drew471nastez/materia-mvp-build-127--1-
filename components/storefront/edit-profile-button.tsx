@@ -28,6 +28,7 @@ import { DEFAULT_COVER_CROP, coverEditorSrc, cropFromSettings, isDefaultCrop, ty
 import { useCoverAspect } from "@/components/storefront/use-cover-aspect"
 import { useSavedValues } from "@/lib/store-builder/use-saved-values"
 import { ImageUpload } from "@/components/app/image-upload"
+import { announceAvatar } from "@/lib/account/avatar-store"
 import { Pencil, Wand2 } from "lucide-react"
 import { SocialLinksEditor } from "@/components/social/social-links-editor"
 import { SchemePicker } from "@/components/storefront/scheme-picker"
@@ -262,6 +263,9 @@ export function EditProfileButton({
         setError(typeof data.error === "string" ? data.error : "Could not save. Try again.")
         return
       }
+      /* One photo: the shell's avatar, in this tab and the others, is this
+         one now rather than on the next load (lib/account/avatar-store). */
+      if ((avatarUrl ?? null) !== (avatar ?? null)) announceAvatar(avatar ?? null)
       /**
        * A SAVE THAT DID NOT REACH THE STOREFRONT SAYS SO.
        *
@@ -436,7 +440,7 @@ export function EditProfileButton({
             </div>
 
             <div className="space-y-2">
-              <Label>Profile picture</Label>
+              <Label>Profile photo</Label>
               <div className="w-28">
                 <MemoImageUpload
                   bucket="avatars"
@@ -448,6 +452,10 @@ export function EditProfileButton({
                   replaceLabel="Change"
                 />
               </div>
+              {/* One photo, everywhere: the banner above it is this page's own picture and stays that way. */}
+              <p className="text-xs text-muted-foreground">
+                Shown on your creator page, your OnePage, your products and your receipts.
+              </p>
             </div>
 
             <div className="space-y-2">

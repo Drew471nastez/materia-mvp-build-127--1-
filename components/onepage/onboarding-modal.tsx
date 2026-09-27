@@ -6,6 +6,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { useOnePage } from "@/lib/onepage/context"
 import { createClient } from "@/lib/supabase/client"
+import { announceAvatar } from "@/lib/account/avatar-store"
 import {
   Check,
   X,
@@ -635,6 +636,16 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
       const { data: { publicUrl } } = supabase.storage
         .from("avatars")
         .getPublicUrl(fileName)
+
+      /* One profile photo: the picture chosen here IS the account's photo,
+         saved where it lives, so onboarding cannot leave a second face
+         behind (app/api/account/avatar, lib/account/profile-follow). */
+      await fetch("/api/account/avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: publicUrl }),
+      }).catch(() => null)
+      announceAvatar(publicUrl)
 
       setAvatarUrl(publicUrl)
       setShowCropModal(false)

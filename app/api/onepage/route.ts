@@ -4,6 +4,7 @@ import type { OnePage } from "@/lib/onepage/types"
 import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkPageSlug, checkProfileText, checkSettingsPatch } from "@/lib/onepage/settings-rules"
+import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
 
 /* A plain sentence the editor shows as it is (lib/onepage/editor-state describeSaveFailure). */
 const refuse = (error: string) => NextResponse.json({ error }, { status: 400 })
@@ -167,7 +168,26 @@ export async function PUT(request: Request) {
     
     if (profileText.value.title !== undefined) updates.title = profileText.value.title
     if (profileText.value.bio !== undefined) updates.bio = profileText.value.bio
-    if (avatar_url !== undefined) updates.avatar_url = avatar_url
+    /*
+      THE PHOTO IS THE PROFILE'S, AND THIS ROUTE NEVER SETS IT. A photo saved
+      from the OnePage editor used to land in this row and nowhere else, so
+      the creator page kept one face, Settings a second and the OnePage a
+      third (lib/account/identity). The editor's photo control saves the
+      profile now, through app/api/account/avatar, exactly as Settings does;
+      every copy follows from there (lib/account/profile-follow).
+
+      A save that carries a photo is still answered, because every save sends
+      the whole page: the row's copy is set to whatever the PROFILE holds at
+      this moment, never to what the browser sent. An editor open in another
+      tab since before the photo changed therefore cannot save the old one
+      back over it, which is the shape the creator page bug had.
+    */
+    let photoNow: string | null | undefined
+    if (avatar_url !== undefined) {
+      const { data: profile } = await supabase.from("profiles").select("avatar_url").eq("id", user.id).maybeSingle()
+      photoNow = typeof profile?.avatar_url === "string" && profile.avatar_url.trim() !== "" ? profile.avatar_url.trim() : null
+      updates.avatar_url = photoNow
+    }
     if (avatar_video_url !== undefined) updates.avatar_video_url = avatar_video_url
     if (theme !== undefined) updates.theme = theme
     if (social_links !== undefined) updates.social_links = social_links
@@ -239,6 +259,12 @@ export async function PUT(request: Request) {
       if ((error as { code?: string }).code === "23505") return refuse(TAKEN)
       console.error("Error updating onepage:", (error as { code?: string }).code ?? "unknown")
       return NextResponse.json({ error: "Failed to update" }, { status: 500 })
+    }
+
+    /* The copy taken at the last publish takes the same photo, so the live
+       page changes with the profile rather than at the next publish. */
+    if (photoNow !== undefined) {
+      await followProfileIdentity(supabase as unknown as FollowClient, user.id, { photo: { after: photoNow } })
     }
 
     return NextResponse.json({ onepage: updated })

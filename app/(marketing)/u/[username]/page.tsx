@@ -201,14 +201,20 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
        the person replaced or removed their photo. "" means initials. */
     const avatarFromHeader = keptPhoto(headerSettings?.avatarUrl) ?? undefined
 
-    // Source-of-truth order for social image:
-    // 1) Explicit Social Image in SEO settings
-    // 2) Store Builder header/profile avatar
-    // 3) Profile avatar
+    /*
+      The picture the share card uses:
+        1) the Social image chosen in SEO settings, which is a picture of the
+           shop and not of the person, so it is its own thing and wins
+        2) the profile photo, the one face the whole platform shows
+           (lib/account/identity)
+        3) the header's copy of it, for a page whose profile has none
+      The header used to come second, so a copy left in it by an editor was
+      the face on every shared link long after the person had changed theirs.
+    */
     socialPreviewImage =
       (globalSettings?.socialImageUrl && globalSettings.socialImageUrl !== "" ? globalSettings.socialImageUrl : undefined) ||
-      avatarFromHeader ||
       profile.avatar_url ||
+      avatarFromHeader ||
       undefined
   } else {
     socialPreviewImage = profile.avatar_url || undefined

@@ -32,7 +32,7 @@ import {
   creatorName,
   creatorPhoto,
   followsProfile,
-  followsProfilePhoto,
+  mirrorsProfilePhoto,
   keptPhoto,
   providerPhoto,
   typedSeoTitle,
@@ -133,9 +133,10 @@ async function main() {
   console.log("\nThe picture a sign in provider sent belongs to the profile alone")
   check("a Google picture is recognised", providerPhoto(GOOGLE))
   check("an uploaded photo is not", !providerPhoto(NEW_PHOTO))
-  check("a Google picture in a copy follows even a removal", followsProfilePhoto(GOOGLE, OLD_PHOTO, null) === null)
-  check("the old photo follows the new one", followsProfilePhoto(OLD_PHOTO, OLD_PHOTO, NEW_PHOTO) === NEW_PHOTO)
-  check("a picture chosen in the OnePage editor is left alone", followsProfilePhoto("https://cdn.example.com/logo.png", OLD_PHOTO, NEW_PHOTO) === undefined)
+  check("a Google picture in a copy follows even a removal", mirrorsProfilePhoto(GOOGLE, null) === null)
+  check("the old photo follows the new one", mirrorsProfilePhoto(OLD_PHOTO, NEW_PHOTO) === NEW_PHOTO)
+  check("a picture written by another editor follows too: there is one photo", mirrorsProfilePhoto("https://cdn.example.com/logo.png", NEW_PHOTO) === NEW_PHOTO)
+  check("a copy already on it is not written again", mirrorsProfilePhoto(NEW_PHOTO, NEW_PHOTO) === undefined)
   check("a Google picture is never drawn from a copy", keptPhoto(GOOGLE) === null)
 
   console.log("\nA Meta title that is only the page's name again says nothing")

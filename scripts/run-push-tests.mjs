@@ -274,6 +274,7 @@ const SUITES = [
   "tests/avatar-one-source.test.ts",
   "tests/creator-identity.test.ts",
   "tests/onepage-avatar-kept.test.ts",
+  "tests/profile-photo.test.ts",
   "tests/coupon-editor.test.ts",
   "tests/coupon-checkout.test.ts",
   "tests/cart-coupons.test.ts",

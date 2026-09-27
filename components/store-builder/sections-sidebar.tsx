@@ -2306,6 +2306,8 @@ function ShopHeaderSettingsForm({
             )}
 
             <p className="text-xs text-muted-foreground">{settings.avatarUrl ? "Click avatar to edit" : "Shows initials if empty"}</p>
+            {/* One photo: this is the account's, not a picture this page keeps to itself (lib/account/identity). */}
+            <p className="text-xs text-muted-foreground">This is your profile photo. It is shown on your creator page, your OnePage, your products and your receipts.</p>
           </div>
         </div>
 

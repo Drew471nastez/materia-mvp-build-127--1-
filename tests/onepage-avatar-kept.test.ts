@@ -8,16 +8,22 @@
  *
  * What this pins, against the real modules:
  *
- *   drawn       a photo uploaded to the OnePage is drawn on the live page and
- *               in the editor's preview, whatever the profile holds
- *   the draft   a new upload shows in the preview before it is published,
- *               and the live page keeps the published one until then
+ *   drawn       THE PROFILE PHOTO is drawn on the live page and in the
+ *               editor's preview. It was the page's own copy first, and that
+ *               is how one creator came to have three faces at once: this
+ *               one, the one in Settings and the one on his creator page.
+ *               The page's copy is read only for a page drawn without the
+ *               profile to hand
+ *   the draft   a photo saved in the OnePage editor is the profile photo, so
+ *               it shows in the preview AND on the live page at once, rather
+ *               than waiting for a publish
  *   one face    the tab title, the favicon, the apple touch icon and the
  *               share card are read from the shape the page is drawn from,
  *               and nothing stands in for a page with no picture
- *   a choice    changing the profile photo never rewrites a OnePage photo
- *               the creator set; only an exact copy of the old profile
- *               photo, or a sign in provider's picture, follows it
+ *   one photo   changing the profile photo rewrites EVERY copy of it, the
+ *               OnePage's and its published copy included, whatever they
+ *               hold. The name keeps the old rule: a page title somebody
+ *               typed is still left alone
  *   kept        no photo change deletes a file from storage
  *   the frame   with no picture the header keeps its place under the top
  *               bar, and the page paints its own colour under the footer
@@ -26,7 +32,7 @@
  */
 import { existsSync } from "node:fs"
 import { readCode } from "./_source"
-import { creatorPhoto, followsProfilePhoto, keptPhoto, providerPhoto } from "../lib/account/identity"
+import { creatorPhoto, keptPhoto, mirrorsProfilePhoto, providerPhoto } from "../lib/account/identity"
 import { followProfileIdentity, type FollowClient } from "../lib/account/profile-follow"
 import { publicOnePage, publicOnePageFromDraft } from "../lib/onepage/public-shape"
 import { canvasRule, heroHeaderShown, pageCanvasColour, safeCssColour } from "../lib/onepage/page-frame"
@@ -73,12 +79,14 @@ const row = (over: Record<string, unknown> = {}) => ({
 
 async function main() {
   /* ── Drawn ─────────────────────────────────────────────────────────────── */
-  console.log("\nA photo uploaded to the OnePage is drawn, live and in the preview")
+  console.log("\nThe photo the page draws is the profile's, live and in the preview")
   {
     const live = publicOnePage(row(), { source: "published", displayName: "Luca Dragoste", liveAvatarUrl: PROFILE_NEW })
-    check("the live page draws the page's own upload, not the profile photo", live.avatar_url === PAGE_UPLOAD, live.avatar_url)
+    check("the live page draws the profile photo, whatever the row's old copy holds", live.avatar_url === PROFILE_NEW, live.avatar_url)
     const preview = publicOnePageFromDraft(row(), { liveAvatarUrl: PROFILE_NEW })
-    check("and so does the preview", preview.avatar_url === PAGE_UPLOAD, preview.avatar_url)
+    check("and so does the preview", preview.avatar_url === PROFILE_NEW, preview.avatar_url)
+    const noProfile = publicOnePage(row(), { source: "published", liveAvatarUrl: null })
+    check("a page drawn without the profile to hand still shows a face", noProfile.avatar_url === PAGE_UPLOAD, noProfile.avatar_url)
     check("an address in Storelib's own storage is never taken for a sign in picture", !providerPhoto(PAGE_UPLOAD) && !providerPhoto(PROFILE_NEW))
     check("a Google Photos picture somebody chose is kept", keptPhoto(GOOGLE_PHOTOS) === GOOGLE_PHOTOS)
     check("the picture Google sent at sign in is still passed over", keptPhoto(GOOGLE_SIGN_IN) === null)
@@ -92,10 +100,10 @@ async function main() {
   console.log("\nA new upload shows in the preview before it is published")
   {
     const page = row({ avatar_url: NEW_UPLOAD })
-    const preview = publicOnePageFromDraft(page, { liveAvatarUrl: PROFILE_NEW })
-    check("the preview draws the draft", preview.avatar_url === NEW_UPLOAD, preview.avatar_url)
-    const live = publicOnePage(page, { source: "published", liveAvatarUrl: PROFILE_NEW })
-    check("the live page keeps what was published until the next save", live.avatar_url === PAGE_UPLOAD, live.avatar_url)
+    const preview = publicOnePageFromDraft(page, { liveAvatarUrl: NEW_UPLOAD })
+    check("the preview draws the photo just saved", preview.avatar_url === NEW_UPLOAD, preview.avatar_url)
+    const live = publicOnePage(page, { source: "published", liveAvatarUrl: NEW_UPLOAD })
+    check("and so does the live page, without waiting for a publish", live.avatar_url === NEW_UPLOAD, live.avatar_url)
 
     const empty = publicOnePageFromDraft(row({ avatar_url: null, published_profile: null }), { liveAvatarUrl: PROFILE_NEW })
     const emptyLive = publicOnePage(row({ avatar_url: null, published_profile: null }), { source: "published", liveAvatarUrl: PROFILE_NEW })
@@ -129,8 +137,8 @@ async function main() {
     check("the name drawn on the page is the profile's new one", drawn.title === "Luca Dragoste")
   }
 
-  /* ── A choice ──────────────────────────────────────────────────────────── */
-  console.log("\nA new profile photo does not rewrite a OnePage photo the creator set")
+  /* ── One photo ─────────────────────────────────────────────────────────── */
+  console.log("\nA new profile photo rewrites every copy of the photo, wherever it was set")
   {
     type Row = Record<string, unknown>
     const world = (pageAvatar: string | null, publishedAvatar: string | null) => ({
@@ -162,26 +170,26 @@ async function main() {
 
     const chosen = world(PAGE_UPLOAD, PAGE_UPLOAD)
     await followProfileIdentity(client(chosen), "user-1", { photo: { before: PROFILE_OLD, after: PROFILE_NEW } })
-    check("an upload in the OnePage editor stays", chosen.onepages[0].avatar_url === PAGE_UPLOAD, chosen.onepages[0].avatar_url)
-    check("and so does its published copy", (chosen.onepages[0].published_profile as Row).avatar_url === PAGE_UPLOAD)
+    check("a photo written by the OnePage editor takes the profile's", chosen.onepages[0].avatar_url === PROFILE_NEW, chosen.onepages[0].avatar_url)
+    check("and so does its published copy", (chosen.onepages[0].published_profile as Row).avatar_url === PROFILE_NEW)
 
     const removed = world(PAGE_UPLOAD, PAGE_UPLOAD)
     await followProfileIdentity(client(removed), "user-1", { photo: { before: PROFILE_OLD, after: null } })
-    check("removing the profile photo does not clear it either", removed.onepages[0].avatar_url === PAGE_UPLOAD)
+    check("removing the profile photo clears it", removed.onepages[0].avatar_url === null)
 
     const fromNothing = world(PAGE_UPLOAD, PAGE_UPLOAD)
     await followProfileIdentity(client(fromNothing), "user-1", { photo: { before: null, after: PROFILE_NEW } })
-    check("a first profile photo does not replace it", fromNothing.onepages[0].avatar_url === PAGE_UPLOAD)
+    check("a first profile photo replaces it", fromNothing.onepages[0].avatar_url === PROFILE_NEW)
 
     const copy = world(PROFILE_OLD, PROFILE_OLD)
     await followProfileIdentity(client(copy), "user-1", { photo: { before: PROFILE_OLD, after: PROFILE_NEW } })
     check("an exact copy of the old profile photo follows it", copy.onepages[0].avatar_url === PROFILE_NEW && (copy.onepages[0].published_profile as Row).avatar_url === PROFILE_NEW)
 
-    check("an address that only differs in case is another file and stays", followsProfilePhoto(PROFILE_OLD.toUpperCase(), PROFILE_OLD, PROFILE_NEW) === undefined)
-    check("an empty copy stays empty", followsProfilePhoto(null, PROFILE_OLD, PROFILE_NEW) === undefined)
-    check("with no old photo nothing follows", followsProfilePhoto(PAGE_UPLOAD, null, PROFILE_NEW) === undefined)
-    check("a Google Photos picture somebody chose does not follow", followsProfilePhoto(GOOGLE_PHOTOS, PROFILE_OLD, null) === undefined)
-    check("the picture Google sent at sign in does", followsProfilePhoto(GOOGLE_SIGN_IN, PROFILE_OLD, null) === null)
+    check("an address that only differs in case is another file and takes the profile's", mirrorsProfilePhoto(PROFILE_OLD.toUpperCase(), PROFILE_NEW) === PROFILE_NEW)
+    check("an empty copy is filled in", mirrorsProfilePhoto(null, PROFILE_NEW) === PROFILE_NEW)
+    check("a photo uploaded in the OnePage editor follows too: there is one photo", mirrorsProfilePhoto(PAGE_UPLOAD, PROFILE_NEW) === PROFILE_NEW)
+    check("a Google Photos picture in a copy follows a removal", mirrorsProfilePhoto(GOOGLE_PHOTOS, null) === null)
+    check("the picture Google sent at sign in does", mirrorsProfilePhoto(GOOGLE_SIGN_IN, null) === null)
     check("and the resolver passes over it", creatorPhoto({ published: GOOGLE_SIGN_IN, own: null, live: PROFILE_NEW }) === PROFILE_NEW)
   }
 
