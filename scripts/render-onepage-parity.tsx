@@ -8,6 +8,16 @@
  * The page holds one of every block the editor can add, in the shapes the
  * editor saves them in, so a block drawn differently in the two places shows
  * up as a difference in the probe.
+ *
+ * AND ITS PRODUCTS COME FROM A CATALOGUE, ON BOTH SIDES. The live route
+ * reads every product block's row before it draws (withLiveProducts in
+ * app/(marketing)/l/[slug]/page.tsx), and so does the preview's frame
+ * (components/onepage/preview-document.tsx). Both read PROBE_PRODUCTS
+ * below through the stubbed database (scripts/onepage-probe-server.mjs).
+ * Without it the frame was told no product existed and left all three out,
+ * while this page's live side skipped the read and drew them: 26 blocks
+ * against 29, and neither was the live route. One product here is
+ * archived, so both sides are also seen to leave the same block out.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -15,10 +25,12 @@ import { OnePageProvider } from "@/lib/onepage/context"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { THEME_TEMPLATES } from "@/components/onepage/tabs/design-tab"
 import { defaultTheme, defaultSettings, type OnePage } from "@/lib/onepage/types"
-import { publicOnePageFromDraft } from "@/lib/onepage/public-shape"
 import * as Preview from "@/components/onepage/phone-preview"
 import { OnePagePreviewDocument } from "@/components/onepage/preview-document"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
+import { publicOnePage } from "@/lib/onepage/public-shape"
+import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
+import { createClient } from "@/lib/supabase/client"
 
 const px = (n: number, w = 400, h = 400) =>
   `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="hsl(${n * 47},55%,62%)"/><circle cx="${w / 2}" cy="${h / 2}" r="${Math.min(w, h) / 4}" fill="hsl(${n * 47 + 120},45%,40%)"/></svg>`)}`
@@ -44,6 +56,8 @@ const ALL = [
   b("product", { product_id: "p1", show_price: true, show_description: true, cta_text: "Buy now", style: "button", product_title: "A3 print", product_thumbnail: px(5, 300, 300), product_description: "Giclee on cotton rag", product_price_cents: 2400, product_slug: "a3-print" }, "product_button"),
   b("product", { product_id: "p2", show_price: true, show_description: true, cta_text: "Get it", style: "callout", product_title: "Poster pack", product_thumbnail: px(6, 300, 300), product_description: "Six posters", product_price_cents: 4800, product_slug: "poster-pack" }, "product_callout"),
   b("product", { product_id: "p3", show_price: true, show_description: true, cta_text: "Download", style: "preview", product_title: "Brush set", product_thumbnail: px(7, 300, 300), product_description: "Forty brushes", product_price_cents: 0, product_slug: "brush-set", layout_type: "pro" }, "product_preview"),
+  /* Archived since it was added: on neither side. */
+  b("product", { product_id: "p4", show_price: true, cta_text: "Buy now", style: "button", product_title: "Old zine", product_thumbnail: px(23, 300, 300), product_price_cents: 900, product_slug: "old-zine" }, "product_archived"),
   b("social_row", { platforms: [{ platform: "instagram", url: "https://instagram.com/satori" }, { platform: "tiktok", url: "https://tiktok.com/@satori" }, { platform: "youtube", url: "https://youtube.com/@satori" }], style: "icons" }, "social_icons"),
   b("social_row", { platforms: [{ platform: "instagram", url: "https://instagram.com/satori" }, { platform: "spotify", url: "https://open.spotify.com/artist/1" }], style: "buttons" }, "social_buttons"),
   b("image", { image_url: px(8, 800, 600), images: [{ id: "i1", image_url: px(8, 800, 600) }], display_style: "single", aspect_ratio: "landscape" }, "image_single"),
@@ -72,6 +86,15 @@ const ALL = [
   b("video", { url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", title: "Studio film" }, "video"),
 ]
 
+/* The seller's products as the catalogue has them now: the three on the page live and unchanged, the fourth archived. */
+const CATALOGUE = [
+  { id: "p1", title: "A3 print", slug: "a3-print", price_cents: 2400, thumbnail_url: px(5, 300, 300), status: "published", archived: false },
+  { id: "p2", title: "Poster pack", slug: "poster-pack", price_cents: 4800, thumbnail_url: px(6, 300, 300), status: "published", archived: false },
+  { id: "p3", title: "Brush set", slug: "brush-set", price_cents: 0, thumbnail_url: px(7, 300, 300), status: "published", archived: false },
+  { id: "p4", title: "Old zine", slug: "old-zine", price_cents: 900, thumbnail_url: px(23, 300, 300), status: "archived", archived: true },
+]
+;(window as any).PROBE_PRODUCTS = CATALOGUE
+
 const blocks = only ? ALL.filter((x) => x.id === "header" || only.split(",").includes(x.id)) : ALL
 
 export const PARITY_PAGE: OnePage = {
@@ -96,8 +119,8 @@ export const PARITY_PAGE: OnePage = {
 /* The editor opens on its tabs, not the first visit's wizard. */
 try { localStorage.setItem("onepage-onboarding-completed", "true") } catch {}
 
-/* The blocks as both sides lay them out, by id, so the probe can name what differs. */
-;(window as any).__PARITY_ORDER = blocks.filter((x) => isBlockShown(x)).sort((x, y) => x.sort_order - y.sort_order).map((x) => x.id)
+/* The blocks as both sides lay them out, by id, so the probe can name what differs: set by the live side once its products are read. */
+const orderOf = (list: any[]) => list.filter((x) => isBlockShown(x)).sort((x, y) => x.sort_order - y.sort_order).map((x) => x.id)
 
 const root = createRoot(document.getElementById("app")!)
 if (location.pathname.startsWith("/onepage-preview")) {
@@ -116,5 +139,15 @@ if (location.pathname.startsWith("/onepage-preview")) {
     </OnePageProvider>,
   )
 } else {
-  root.render(<PublicOnePage onepage={publicOnePageFromDraft(PARITY_PAGE as any) as any} />)
+  /*
+    THE LIVE ROUTE'S TWO STEPS (app/(marketing)/l/[slug]/page.tsx): the
+    published shape, then its products read from the catalogue, by the
+    seller the shape names. The page has not been published, so the shape
+    falls back to its draft, which is what the preview draws.
+  */
+  const shape = publicOnePage(PARITY_PAGE as any, { source: "published" })
+  withLiveProducts(createClient() as unknown as ProductsDb, shape.seller_id ?? "", shape.blocks).then((live) => {
+    ;(window as any).__PARITY_ORDER = orderOf(live)
+    root.render(<PublicOnePage onepage={{ ...shape, blocks: live } as any} />)
+  })
 }
