@@ -96,6 +96,8 @@ export interface LayoutInput {
   /** An order summary, drawn after the paragraphs (a sale). */
   order?: OrderSummary | null
   action?: Link | null
+  /** Five linked stars above the button: each opens the review form with that many chosen. */
+  rate?: { label: string; links: Link[] } | null
   /** A quiet text link under the button: "Reply to the customer". */
   secondary?: Link | null
   /** A boxed note under the button: the security "If this was not you". */
@@ -305,6 +307,17 @@ export function renderHtml(input: LayoutInput): string {
   const facts = input.facts && input.facts.length > 0 ? factsTable(input.facts) : ""
   const order = input.order ? orderBlock(input.order) : ""
   const action = input.action ? button(input.action) : ""
+  /* Big enough to press on a phone (44px cells), amber like the stars on the page, plain text characters so they draw with images off. */
+  const rate =
+    input.rate && input.rate.links.length === 5
+      ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 6px;"><tr>${input.rate.links
+          .map(
+            (l) =>
+              `<td align="center" style="padding:0 2px;"><a href="${escapeAttr(l.url)}" target="_blank" title="${escapeAttr(l.label)}" aria-label="${escapeAttr(l.label)}" style="display:block;width:44px;height:44px;font-family:${FONT};font-size:34px;line-height:44px;color:#f5a524;text-decoration:none;">&#9733;</a></td>`,
+          )
+          .join("")}</tr></table>
+<p class="sn-muted" style="margin:0 0 20px;font-family:${FONT};font-size:13px;line-height:19px;color:#6b7280;">${escapeHtml(input.rate.label)}</p>`
+      : ""
   const secondary = input.secondary
     ? `<p style="margin:14px 0 0;font-family:${FONT};font-size:14px;line-height:21px;"><a class="sn-link" href="${escapeAttr(input.secondary.url)}" style="color:#4c1d95;text-decoration:underline;font-weight:600;">${escapeHtml(input.secondary.label)}</a></p>`
     : ""
@@ -356,7 +369,7 @@ ${accent}
 <tr><td class="sn-pad sn-body" style="padding:36px 40px 36px;font-family:${FONT};font-size:16px;line-height:25px;color:#1f2937;word-break:break-word;">
 ${label}<h1 class="sn-h1" style="margin:0 0 18px;font-family:${FONT};font-size:22px;line-height:30px;font-weight:700;color:#111827;letter-spacing:-0.3px;">${escapeHtml(input.heading)}</h1>
 ${greeting}${input.paragraphs.map(P).join("\n")}
-${facts}${order}${notice}${action}${secondary}${fallback}${note}
+${facts}${order}${notice}${rate}${action}${secondary}${fallback}${note}
 </td></tr>
 </table>
 </td></tr>

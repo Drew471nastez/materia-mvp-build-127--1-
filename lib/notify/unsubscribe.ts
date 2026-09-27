@@ -102,3 +102,66 @@ export function unsubscribeUrl(userId: string, category: PreferenceCategory): st
     return preferencesUrl()
   }
 }
+
+/* ── A buyer's review request emails ───────────────────────────────────── */
+
+/**
+ * A customer has no Storelib account to hold a preference, so the review
+ * request email (REVIEW_REQUEST, REVIEW_REMINDER) carries a link that names
+ * the ORDER it was about, signed the same way with a label of its own. The
+ * route reads the order's address and adds it to email_suppressions with the
+ * scope "review_requests": that address gets no more review requests, from
+ * any seller, and every other email to it is left as it was. No address is
+ * in the link.
+ */
+const REVIEW_LABEL = "storelib.notify-review-unsubscribe.v1"
+const ORDER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function reviewKey(raw: string): Buffer | null {
+  if (raw.length < 16) return null
+  return createHmac("sha256", raw).update(REVIEW_LABEL).digest()
+}
+
+/** Signs with a given secret. Exported for the tests. */
+export function signReviewWith(rawSecret: string, orderId: string, issuedAt = Math.floor(Date.now() / 1000)): string {
+  const key = reviewKey(rawSecret)
+  if (!key) throw new Error("No unsubscribe key is configured")
+  if (!ORDER_ID.test(orderId)) throw new Error("Not an order id")
+  const payload = `order.${orderId.toLowerCase()}.${issuedAt}`
+  return `${Buffer.from(payload, "utf8").toString("base64url")}.${mac(key, payload).toString("base64url")}`
+}
+
+export function verifyReviewWith(rawSecret: string, token: unknown): { orderId: string } | null {
+  const key = reviewKey(rawSecret)
+  if (!key || typeof token !== "string" || token.length > 400) return null
+  const parts = token.split(".")
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return null
+  let payload: string
+  let sig: Buffer
+  try {
+    payload = Buffer.from(parts[0], "base64url").toString("utf8")
+    sig = Buffer.from(parts[1], "base64url")
+  } catch {
+    return null
+  }
+  const expected = mac(key, payload)
+  if (sig.length !== expected.length || !timingSafeEqual(sig, expected)) return null
+  const [kind, orderId, issued, extra] = payload.split(".")
+  if (kind !== "order" || extra !== undefined || !ORDER_ID.test(orderId ?? "")) return null
+  const issuedAt = Number(issued)
+  if (!Number.isInteger(issuedAt) || issuedAt <= 0 || issuedAt > Date.now() / 1000 + 86_400) return null
+  return { orderId }
+}
+
+export function verifyReviewUnsubscribe(token: unknown): { orderId: string } | null {
+  return verifyReviewWith(secret(), token)
+}
+
+/** The footer link of a review request email; without a key, null, and the email carries no link rather than a broken one. */
+export function reviewUnsubscribeUrl(orderId: string): string | null {
+  try {
+    return `${baseUrl()}/api/notify/unsubscribe?token=${encodeURIComponent(signReviewWith(secret(), orderId))}`
+  } catch {
+    return null
+  }
+}

@@ -62,6 +62,7 @@ export function renderEmail(type: NotificationType, data: Record<string, unknown
     facts: factsOf(m),
     order: m.order ?? null,
     action: link(m.action),
+    rate: m.rate ? { label: m.rate.label, links: m.rate.paths.map((path, i) => link({ label: `${i + 1} ${i === 0 ? "star" : "stars"}`, path })).filter((l): l is { label: string; url: string } => l !== null) } : null,
     secondary: replyUrl && m.reply ? { label: m.reply.label, url: replyUrl } : null,
     notice: m.notice ? { title: m.notice.title, text: m.notice.text, link: noticeLink } : null,
     note: m.note ?? null,

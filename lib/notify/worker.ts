@@ -24,7 +24,7 @@ import { notifyLog } from "./log"
 import { emailProvider, mailgunDomain } from "./providers/mailgun"
 import { supabaseNotifyStore } from "./store"
 import { renderEmail, renderInApp } from "./templates"
-import { unsubscribeUrl } from "./unsubscribe"
+import { reviewUnsubscribeUrl, unsubscribeUrl } from "./unsubscribe"
 import { baseUrl, preferencesUrl } from "./urls"
 
 export type { WorkSummary }
@@ -38,7 +38,16 @@ export async function runNotificationWork(budgetMs: number): Promise<WorkSummary
       store,
       providerName: provider.name,
       worker: `n_${randomUUID()}`,
-      email: emailChannel({ provider, render: renderEmail, baseUrl, unsubscribeUrl, preferencesUrl, messageDomain: mailgunDomain() }),
+      email: emailChannel({
+        provider,
+        render: renderEmail,
+        baseUrl,
+        unsubscribeUrl,
+        /* A review request names its order; the link turns review requests off for that order's address. */
+        customerUnsubscribeUrl: (job) => (job.entity_type === "order" && job.entity_id ? reviewUnsubscribeUrl(job.entity_id) : null),
+        preferencesUrl,
+        messageDomain: mailgunDomain(),
+      }),
       inApp: inAppChannel(store, { render: renderInApp, baseUrl }),
     },
     budgetMs,

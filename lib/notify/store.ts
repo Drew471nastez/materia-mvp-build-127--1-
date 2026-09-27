@@ -22,6 +22,7 @@
  * nothing, and nothing throws into the caller. Database error text is never
  * logged or returned; codes only.
  */
+import type { ReviewRequestFacts } from "@/lib/reviews/request-rules"
 import type {
   Channel,
   DomainEvent,
@@ -131,7 +132,8 @@ export interface PreferenceRow {
 }
 
 export type PreferenceSource = "settings" | "unsubscribe_link" | "mailgun" | "admin"
-export type SuppressionScope = "all" | "optional"
+/** "review_requests": the address turned review request emails off, and nothing else (run-now part 52). */
+export type SuppressionScope = "all" | "optional" | "review_requests"
 
 export interface NewJob extends PlannedJob {
   eventId: string | null
@@ -276,6 +278,14 @@ export interface NotifyStore {
   payoutStatus(payoutId: string): Promise<string | null | undefined>
   disputeClosed(disputeId: string): Promise<boolean | null>
   domainStatus(domainId: string): Promise<{ status: string | null; sslStatus: string | null } | null | undefined>
+  /** What a review request needs to decide and to say (lib/reviews/request-rules). Null when it could not be read. */
+  reviewRequestFacts(orderId: string): Promise<ReviewRequestFactsRow | null>
+}
+
+/** The facts the review request rule reads, and the names the email uses. */
+export type ReviewRequestFactsRow = ReviewRequestFacts & {
+  creatorName: string | null
+  productSlug: string | null
 }
 
 /** Either kind of handle the public functions accept. */
@@ -771,6 +781,82 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
         return null
       }
       return (data ?? []).length > 0
+    },
+
+    async reviewRequestFacts(orderId) {
+      const none: ReviewRequestFactsRow = { order: null, product: null, sellerUserId: null, reviewed: false, suppressed: [], creatorName: null, productSlug: null }
+      if (!/^[0-9a-f-]{36}$/i.test(orderId)) return none
+      const { data: order, error } = await db.from("orders").select("*").eq("id", orderId).maybeSingle()
+      if (error) {
+        fail("read an order", error)
+        return null
+      }
+      if (!order) return none
+      const o = order as Record<string, any>
+      const [{ data: product, error: productError }, reviewed, suppressed] = await Promise.all([
+        db.from("products").select("id, title, slug, status, creator_id").eq("id", o.product_id).maybeSingle(),
+        (async () => {
+          /* On this order, by the buyer's account, or on another order of theirs for the same product by the same address. */
+          const byOrder = await db.from("reviews").select("id").eq("order_id", o.id).limit(1)
+          if (byOrder.error) return null
+          if ((byOrder.data ?? []).length) return true
+          if (o.buyer_id) {
+            const byBuyer = await db.from("reviews").select("id").eq("buyer_id", o.buyer_id).eq("product_id", o.product_id).limit(1)
+            if (byBuyer.error) return null
+            if ((byBuyer.data ?? []).length) return true
+          }
+          if (o.buyer_email) {
+            const same = await db.from("orders").select("id").eq("buyer_email", lower(String(o.buyer_email))).eq("product_id", o.product_id)
+            const ids = ((same.data ?? []) as { id: string }[]).map((r) => r.id).filter((id) => id !== o.id)
+            if (ids.length) {
+              const byEmail = await db.from("reviews").select("id").in("order_id", ids).limit(1)
+              if (byEmail.error) return null
+              if ((byEmail.data ?? []).length) return true
+            }
+          }
+          return false
+        })(),
+        (async () => {
+          if (!o.buyer_email) return [] as SuppressionScope[]
+          const { data } = await db.from("email_suppressions").select("scope").eq("email", lower(String(o.buyer_email))).is("lifted_at", null)
+          return ((data ?? []) as { scope: SuppressionScope }[]).map((r) => r.scope)
+        })(),
+      ])
+      if (productError || reviewed === null) {
+        fail("read a review request", productError ?? { code: "reviews" })
+        return null
+      }
+      const p = product as { id: string; title: string | null; slug: string | null; status: string | null; creator_id: string | null } | null
+      let sellerUserId: string | null = null
+      let creatorName: string | null = null
+      if (p?.creator_id) {
+        const { data: creator } = await db.from("creators").select("user_id, display_name, slug").eq("id", p.creator_id).maybeSingle()
+        sellerUserId = (creator as { user_id?: string | null } | null)?.user_id ?? null
+        const { data: profile } = sellerUserId ? await db.from("profiles").select("display_name, username").eq("id", sellerUserId).maybeSingle() : { data: null }
+        const c = creator as { display_name?: string | null; slug?: string | null } | null
+        creatorName = (profile as { display_name?: string | null } | null)?.display_name || c?.display_name || (profile as { username?: string | null } | null)?.username || c?.slug || null
+      }
+      return {
+        order: {
+          id: o.id,
+          status: o.status ?? null,
+          amount_cents: o.amount_cents ?? null,
+          refund_amount_cents: o.refund_amount_cents ?? null,
+          source: o.source ?? null,
+          source_detail: o.source_detail ?? null,
+          created_at: o.created_at ?? null,
+          buyer_id: o.buyer_id ?? null,
+          buyer_email: o.buyer_email ?? null,
+          receipt_token: o.receipt_token ?? null,
+          product_id: o.product_id ?? null,
+        },
+        product: p ? { id: p.id, title: p.title, status: p.status, creator_id: p.creator_id } : null,
+        sellerUserId,
+        reviewed,
+        suppressed,
+        creatorName,
+        productSlug: p?.slug ?? null,
+      }
     },
 
     async domainStatus(domainId) {
