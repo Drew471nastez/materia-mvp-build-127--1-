@@ -88,8 +88,8 @@ console.log("\nThe layout draws one picture")
 console.log("\nSized for the inbox")
 {
   const sized = emailImageSrc(SUPA, 28) ?? ""
-  check("a stored photo is asked of the site's resizer, absolute, at twice its width", sized === `${APP_ORIGIN}/_next/image?url=${encodeURIComponent(SUPA)}&w=64&q=75`, sized)
-  check("a thumbnail drawn at 64 is asked at 128", /&w=128&q=75$/.test(emailImageSrc(SUPA, 64) ?? ""))
+  check("a stored photo is made by the inbox route, absolute, at three times its width (28 to 96)", sized === `${APP_ORIGIN}/api/email/img?u=${encodeURIComponent(SUPA)}&w=96`, sized)
+  check("a thumbnail drawn at 64 is made at 192, a picture drawn at 260 at 640", /&w=192$/.test(emailImageSrc(SUPA, 64) ?? "") && /&w=640$/.test(emailImageSrc(SUPA, 260) ?? ""))
   const billed = SUPA.replace("/object/public/", "/render/image/public/") + "?width=900"
   check("a stored address in the billed resizer's form is read as the original", (emailImageSrc(billed, 28) ?? "").includes(encodeURIComponent(SUPA)) && !(emailImageSrc(billed, 28) ?? "").includes("render"))
   check("a host the resizer does not fetch is drawn as stored", emailImageSrc(PHOTO, 28) === PHOTO)
@@ -143,12 +143,12 @@ console.log("\nThe receipt")
 
   const thumb = imgs.find((i) => i.includes("rc-thumb")) ?? ""
   check("a product's thumbnail is drawn with width, height and its name as alt", /width="64"/.test(thumb) && /height="64"/.test(thumb) && /alt="Autumn preset pack"/.test(thumb), thumb)
-  check("sized for the inbox, absolute https", thumb.includes(`src="${APP_ORIGIN}/_next/image?url=${encodeURIComponent("https://abc.supabase.co/storage/v1/object/public/products/p1/cover.jpg")}&amp;w=128&amp;q=75"`), thumb)
+  check("sized for the inbox, absolute https", thumb.includes(`src="${APP_ORIGIN}/api/email/img?u=${encodeURIComponent("https://abc.supabase.co/storage/v1/object/public/products/p1/cover.jpg")}&amp;w=192"`), thumb)
   check("with a hairline border, a soft shadow and a small radius", /border:1px solid #e6e8ec/.test(thumb) && /box-shadow:0 1px 2px/.test(thumb) && /border-radius:10px/.test(thumb))
   check("a product with no thumbnail gets a tile with its first letter, not a broken picture", /class="rc-tile"[^>]*>N<\/td>/.test(html) && imgs.filter((i) => i.includes("rc-thumb")).length === 1)
   check("each product's name is there, escaped", html.includes(">Autumn preset pack<") && html.includes("Night &lt;sky&gt; guide") && !html.includes("<sky>"))
   const avatar = imgs.find((i) => i.includes("rc-avatar")) ?? ""
-  check("the creator's photo, 40 by 40, with alt, sized", /width="40"/.test(avatar) && /height="40"/.test(avatar) && /alt="Luca Dragoste"/.test(avatar) && /&amp;w=96&amp;q=75"/.test(avatar), avatar)
+  check("the creator's photo, 40 by 40, with alt, sized", /width="40"/.test(avatar) && /height="40"/.test(avatar) && /alt="Luca Dragoste"/.test(avatar) && /api\/email\/img\?u=[^"]*&amp;w=128"/.test(avatar), avatar)
   check("and it is the only picture of the creator: no logo beside it", !html.includes(LOGO) && imgs.length === 2)
   check("the Download button is a filled cell with the link, and Outlook gets a roundrect",
     /<td class="rc-btn"[^>]*bgcolor="#1a1a2e"/.test(html) && /<a class="rc-btn-a" href="https:\/\/storelib\.com\/receipt\/tok_123"[^>]*>Download your files<\/a>/.test(html) && /<v:roundrect[^>]*href="https:\/\/storelib\.com\/receipt\/tok_123"/.test(html))

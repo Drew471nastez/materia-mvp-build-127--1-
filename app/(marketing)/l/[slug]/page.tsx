@@ -127,6 +127,8 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
     held for the request (onePageOwner).
   */
   const owner = await onePageOwner(onepage.seller_id ?? null, onepage.creator_id ?? null, onepage.owner_id ?? null)
+  /* Said in the server log, never on the page: a page that exists and answers 404 is otherwise indistinguishable from one that does not. */
+  if (owner.banned) console.warn(`OnePage ${onepage.id} at "${slug}" withheld: its owner is banned (found by ${address.via})`)
   if (owner.banned) notFound()
 
   // Track view with IP/device deduplication (one view per IP per day)

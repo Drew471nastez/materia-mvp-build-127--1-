@@ -109,17 +109,17 @@ export function SellerFooter({ isMobile, surface }: SellerFooterProps = {}) {
         className={cn("inline-flex shrink-0 items-center", layout === "row" ? "gap-1.5" : "gap-1 sm:gap-1.5")}
         aria-label="Explore Storelib"
       >
-        {/* 15px on a phone is under the 18px where 7px corners would make a
-            circle, so there the corner follows the logo's proportion instead
-            (lib/brand/logo.ts storelibLogoRadius), and it is 7px from 18px up. */}
+        {/* The owner: 7px corners on an 18px mark read as a circle here. The
+            footer's mark keeps the logo's own proportion at every size, the
+            7px of the 32px email mark: 3.3px at 15px, 4px at 18px. */}
         {layout === "responsive" ? (
           <StorelibLogo
             size={18}
             fluid
-            className="h-[15px] w-[15px] [--storelib-logo-radius:3.3px] sm:h-[18px] sm:w-[18px] sm:[--storelib-logo-radius:7px]"
+            className="h-[15px] w-[15px] [--storelib-logo-radius:3.3px] sm:h-[18px] sm:w-[18px] sm:[--storelib-logo-radius:4px]"
           />
         ) : (
-          <StorelibLogo size={layout === "stack" ? 15 : 18} />
+          <StorelibLogo size={layout === "stack" ? 15 : 18} className={layout === "stack" ? undefined : "[--storelib-logo-radius:4px]"} />
         )}
         <span
           className={cn(
