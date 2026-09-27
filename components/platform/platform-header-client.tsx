@@ -229,6 +229,16 @@ type Profile = {
 }
 
 /** True below 768px, the width from which the header stops drawing its phone buttons. */
+/* The header's Categories menu: the panel, and its two states (see where it is drawn). */
+const HEADER_MENU_PANEL =
+  "absolute top-full left-0 mt-2 z-50 flex h-[min(480px,calc(100dvh-120px))] w-[320px] flex-col overflow-hidden rounded-xl bg-white text-[#1a1a2e] " +
+  "shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_2px_4px_-1px_rgba(15,23,42,0.06),0_12px_32px_-8px_rgba(15,23,42,0.18)] " +
+  "origin-top-left transition-[opacity,scale,translate] motion-reduce:transition-none"
+const HEADER_MENU_OPEN =
+  "opacity-100 scale-100 translate-y-0 duration-[160ms] ease-[cubic-bezier(0.22,1,0.36,1)] starting:opacity-0 starting:scale-[0.98] starting:-translate-y-1"
+const HEADER_MENU_LEAVING =
+  "pointer-events-none opacity-0 scale-[0.98] -translate-y-1 duration-[140ms] ease-[cubic-bezier(0.4,0,1,1)]"
+
 function useBelowMd(): boolean {
   const [below, setBelow] = useState(false)
   useEffect(() => {
@@ -495,6 +505,35 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false)
+  /*
+    THE MENU STAYS ON SCREEN WHILE IT LEAVES. It was drawn only while open,
+    so a click away took it off in the same frame: a white panel gone from
+    one frame to the next, which is the snap the owner saw. `present` keeps it
+    in the tree through its exit transition and lets go when that ends (at
+    once under reduced motion, where there is none, and after 600ms whatever
+    happens, so it can never be left behind).
+    Set during render when it opens, so the opening frame already has it.
+  */
+  const [categoriesPresent, setCategoriesPresent] = useState(false)
+  if (categoriesDropdownOpen && !categoriesPresent) setCategoriesPresent(true)
+  useEffect(() => {
+    if (categoriesDropdownOpen || !categoriesPresent) return
+    /* No transition runs under reduced motion, so nothing would end: let go now. */
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    const t = window.setTimeout(() => setCategoriesPresent(false), still ? 0 : 600)
+    return () => window.clearTimeout(t)
+  }, [categoriesDropdownOpen, categoriesPresent])
+  /* Escape closes it wherever focus is, not only from inside the panel. */
+  useEffect(() => {
+    if (!categoriesDropdownOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      setCategoriesDropdownOpen(false)
+      document.querySelector<HTMLElement>("[data-categories-dropdown] > button")?.focus({ preventScroll: true })
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [categoriesDropdownOpen])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   /* Below 768px, where the header opens sheets rather than dropdowns. */
@@ -1318,7 +1357,7 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                     onClick={() => setCategoriesDropdownOpen(!categoriesDropdownOpen)}
                     aria-expanded={categoriesDropdownOpen}
                     aria-haspopup="true"
-                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150 cursor-pointer ${
+                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-colors duration-150 cursor-pointer ${
                       categoriesDropdownOpen
                         ? "bg-white/15 text-white"
                         : "text-white/80 hover:bg-white/10 hover:text-white"
@@ -1341,15 +1380,30 @@ export function PlatformHeaderClient({ initialWishlistCount = 0 }: { initialWish
                 with a "Back to Categories" link over a violet icon and a Hot
                 badge. See components/explore/category-browser.
               */}
-              {categoriesDropdownOpen && (
+              {/*
+                IN AND OUT BY TRANSITION, NOT BY KEYFRAMES. It opens from its
+                `starting:` values (@starting-style) and closes by the same
+                transition run backwards: a fade with a 4px lift and a hair of
+                scale toward the button, 160ms in and 140ms out. A transition
+                reverses from wherever it is, so a click that reopens it while
+                it is leaving turns it round instead of restarting it.
+                Opacity, `scale` and `translate` only (Tailwind's scale-* and
+                translate-y-* are those properties, not `transform`), on a
+                panel that is `absolute`, so nothing behind it moves. Leaving,
+                it takes no pointer and no focus, so a row under the cursor
+                cannot light up on its way out.
+              */}
+              {categoriesPresent && (
                 <div
                   data-header-categories=""
+                  data-state={categoriesDropdownOpen ? "open" : "closed"}
                   role="dialog"
                   aria-label="Categories"
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") setCategoriesDropdownOpen(false)
+                  inert={categoriesDropdownOpen ? undefined : true}
+                  onTransitionEnd={(e) => {
+                    if (e.target === e.currentTarget && e.propertyName === "opacity" && !categoriesDropdownOpen) setCategoriesPresent(false)
                   }}
-                  className="absolute top-full left-0 mt-2 z-50 flex h-[min(480px,calc(100dvh-120px))] w-[320px] flex-col overflow-hidden rounded-xl bg-white text-[#1a1a2e] shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_2px_4px_-1px_rgba(15,23,42,0.06),0_12px_32px_-8px_rgba(15,23,42,0.18)] animate-in fade-in-0 zoom-in-[0.97] origin-top-left duration-150 ease-out"
+                  className={cn(HEADER_MENU_PANEL, categoriesDropdownOpen ? HEADER_MENU_OPEN : HEADER_MENU_LEAVING)}
                 >
                   <CategoryBrowser
                     groups={HEADER_GROUPS}

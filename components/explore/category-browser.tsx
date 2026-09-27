@@ -313,7 +313,10 @@ export function CategoryBrowser({
   const rowBase = phone
     ? /* A little heavier than body text on a phone, never bold: the same weight on and off, so nothing reflows. */
       "flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[16px] font-medium leading-5 active:bg-[#f1f2f4]"
-    : "flex min-h-[36px] w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[14px] leading-5 hover:bg-[#f4f5f6] focus-visible:bg-[#f1f2f4]"
+    : /* 450 on a computer: "just by 50, a little bit more" than the 400 they inherited. Inter is
+         loaded as a variable font (app/layout.tsx names no weights), so 450 is a real weight, not
+         a rounding to 400 or 500. Hover and focus change only the background, never the weight. */
+      "flex min-h-[36px] w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[14px] font-[450] leading-5 hover:bg-[#f4f5f6] focus-visible:bg-[#f1f2f4]"
   const rowCommon =
     "cursor-pointer select-none text-[#1a1a2e] outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent]"
   const labelCls = phone
