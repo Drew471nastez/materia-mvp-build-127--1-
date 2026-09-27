@@ -53,7 +53,8 @@ export function ShareCardArt({
         position: "relative",
         overflow: "hidden",
         backgroundColor: card.background.color,
-        backgroundImage: card.background.gradient ?? undefined,
+        /* Only when there is one: next/og reads every key it is given, an undefined one included. */
+        ...(card.background.gradient ? { backgroundImage: card.background.gradient } : {}),
         fontFamily,
       }}
     >

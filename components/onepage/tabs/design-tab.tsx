@@ -1204,7 +1204,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
     column's edges.
   */
   const pageClass = "bg-white"
-  const readingClass = "mx-auto w-full max-w-xl p-4 pb-24 md:p-6 md:pb-6"
+  const readingClass = "mx-auto w-full max-w-xl p-4 op-tabbar-clearance md:p-6 md:pb-6"
 
   return (
     <div ref={rootRef} className="relative isolate" style={{ overflowX: "clip" }} data-design-stack="" data-native-back={section ? "" : undefined}>
