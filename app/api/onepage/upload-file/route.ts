@@ -6,7 +6,7 @@ import { readBufferHeader, scanFile } from "@/lib/storage/security"
 import { storageExtension } from "@/lib/storage/validation"
 import { safeStoredContentType } from "@/lib/storage/file-signature"
 import { preparePublicImage } from "@/lib/storage/public-image"
-import { UPLOAD_HEADERS, uploadRateLimit } from "@/lib/storage/upload-guard"
+import { FLAGGED_UPLOAD, UPLOAD_HEADERS, screenPublicBytes, uploadRateLimit } from "@/lib/storage/upload-guard"
 
 // Runtime must be nodejs for file handling
 export const runtime = "nodejs"
@@ -101,6 +101,16 @@ export async function POST(request: NextRequest) {
 
     const subfolder = isDigital ? "digital-products" : "product-images"
     const fileName = `${creator.id}/${subfolder}/${Date.now()}-${crypto.randomUUID().replace(/-/g, "")}.${ext}`
+
+    /* Public the moment it is stored, so scanned before (lib/storage/upload-guard.ts). */
+    const screened = await screenPublicBytes(adminSupabase, body, {
+      source: isDigital ? "link_page_file" : "public_image",
+      bucket: BUCKET_NAME,
+      path: fileName,
+    })
+    if (screened.blocked) {
+      return NextResponse.json({ error: FLAGGED_UPLOAD }, { status: 400, headers: UPLOAD_HEADERS })
+    }
 
     const { data: uploadData, error: uploadError } = await adminSupabase.storage
       .from(BUCKET_NAME)

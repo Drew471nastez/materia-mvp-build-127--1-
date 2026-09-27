@@ -20,6 +20,14 @@ export interface UploadedFile {
   file_path: string
   file_size: number
   mime_type?: string
+  /**
+   * The malware scan's state when the editor opened, for a file saved
+   * before (lib/storage/scan-gate.ts). A file uploaded in this session
+   * carries none; its scan is followed in ./file-uploads.
+   */
+  scan_status?: string | null
+  /** The threat ClamAV named, for a blocked file. */
+  scan_threat?: string | null
 }
 
 export interface MediaItem {
@@ -94,6 +102,8 @@ export interface EditorAssetRow {
   file_path: string
   file_size: number
   mime_type?: string | null
+  scan_status?: string | null
+  scan_result?: { threatName?: unknown } | null
 }
 
 export interface EditorVariantRow {
@@ -274,6 +284,8 @@ export function initialForm(loaded: LoadedProduct | null): EditorForm {
       file_path: a.file_path,
       file_size: a.file_size,
       mime_type: a.mime_type ?? undefined,
+      ...(a.scan_status ? { scan_status: a.scan_status } : {}),
+      ...(typeof a.scan_result?.threatName === "string" ? { scan_threat: a.scan_result.threatName } : {}),
     })),
     variants: variantsOf(variants),
     whatsIncluded: Array.isArray(product.whats_included) ? (product.whats_included as string[]) : DEFAULT_WHATS_INCLUDED,
