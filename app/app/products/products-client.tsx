@@ -2,6 +2,7 @@
 
 import { announceChange } from "@/lib/seo/announce-client"
 import { forgetProduct } from "@/lib/products/forget-client"
+import { deleteProduct, isStale, rememberDeleted, rememberStatus, takeNotice, withChanges } from "@/lib/products/delete-client"
 import { forwardRef, memo, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
 import { ArrowUpDown, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Search, X } from "lucide-react"
@@ -408,7 +409,8 @@ function compare(sort: Sort) {
 
 export function ProductsClient({ products: initialProducts, creatorUsername }: ProductsClientProps) {
   const { t } = useLanguage()
-  const [products, setProducts] = useState<Product[]>(initialProducts)
+  /* Drawn from the copy the router kept, with what this tab has deleted or archived since applied (lib/products/delete-client). */
+  const [products, setProducts] = useState<Product[]>(() => withChanges(initialProducts))
   /*
     BACK TO THE LIST IS THE LIST, AS IT WAS. From 768px the editor is a page
     in the shell, not a layer (components/app/page-layer), so the way back
@@ -437,6 +439,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  /* What went wrong, said in the question itself: a toast would sit under its scrim. */
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [notification, setNotification] = useState<{ message: string; visible: boolean; type: "success" | "error" }>({ message: "", visible: false, type: "success" })
   /* One field on every width, in the card's toolbar. */
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -543,7 +547,10 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       /* Archived is off every page, and restored is back on one. Both are a
          change to what a visitor may see, so both purge what is cached. */
       await forgetProduct(product.id, product.slug)
+      rememberStatus(product.id, row)
       setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, ...row } : p)))
+      /* The router's kept pages (this list, the editor fetched ahead) still hold the old row. */
+      router.refresh()
       showNotification(restoring ? (row.status === "published" ? "Product restored" : "Product restored as a draft") : "Product archived")
     } catch (error) {
       console.error("Error archiving product:", error)
@@ -588,12 +595,14 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   }
 
   const handleDeleteClick = (product: Product) => {
+    setDeleteError(null)
     setProductToDelete(product)
     setDeleteModalOpen(true)
   }
   const closeDelete = () => {
     setDeleteModalOpen(false)
     setProductToDelete(null)
+    setDeleteError(null)
   }
 
   /*
@@ -634,35 +643,40 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     }
   }
 
+  /*
+    DELETE, ON THE SERVER (app/api/products/delete). It deletes by the
+    session's own creator and answers with what the database did: deleted;
+    archived, because the product has sales this database would lose with it
+    (the one line why is shown); or not done, said in the question, which
+    stays open. The caches and the OnePage are dealt with there too.
+  */
   const handleDeleteConfirm = async () => {
     if (!productToDelete) return
+    const product = productToDelete
 
     setIsDeleting(true)
+    setDeleteError(null)
     try {
-      const supabase = createClient()
-
-      /* With the row back, so a delete row level security refused is not reported as done. */
-      const { data: gone, error } = await supabase
-        .from("products")
-        .delete()
-        .eq("id", productToDelete.id)
-        .select("id")
-
-      if (error) throw error
-      if (!gone?.length) throw new Error("Nothing was deleted")
-
-      /* A live product's address now answers nothing; the search engines are
-         told by the slug it had, since the row is gone. Never waited for. */
-      if (productToDelete.status === "published" && productToDelete.slug) announceChange({ removedProduct: productToDelete.slug })
-      /* The row is gone; now so is every cached copy of it, and the block
-         on their OnePage that named it (app/api/products/forget). */
-      await forgetProduct(productToDelete.id, productToDelete.slug)
-      setProducts(prev => prev.filter(p => p.id !== productToDelete.id))
-      showNotification("Product deleted")
+      const result = await deleteProduct(product.id)
+      if (result.outcome === "deleted") {
+        /* A live product's address now answers nothing; the search engines are
+           told by the slug it had, since the row is gone. Never waited for. */
+        if (product.status === "published" && product.slug) announceChange({ removedProduct: product.slug })
+        rememberDeleted(product.id)
+        setProducts(prev => prev.filter(p => p.id !== product.id))
+        showNotification("Product deleted")
+      } else {
+        announceChange({ product: product.id })
+        rememberStatus(product.id, result)
+        setProducts(prev => prev.map(p => (p.id === product.id ? { ...p, status: result.status, archived: result.archived } : p)))
+        showNotification(result.message)
+      }
       closeDelete()
+      /* The router's kept pages (this list, the editor fetched ahead) still hold the product. */
+      router.refresh()
     } catch (error) {
       console.error("Error deleting product:", error)
-      showNotification("Could not delete the product", "error")
+      setDeleteError(error instanceof Error && error.message ? error.message : "Could not delete the product")
     } finally {
       setIsDeleting(false)
     }
@@ -712,6 +726,19 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     product per visit.
   */
   const router = useRouter()
+  /*
+    A COPY FROM BEFORE A CHANGE. The list was drawn from a page the router
+    kept from before this tab deleted or archived something (from here or
+    from the editor): the rows are already right (withChanges), and the kept
+    pages are dropped so nothing else opens the old product. And the line
+    the editor left for the list, when it deleted on its way here.
+  */
+  useEffect(() => {
+    if (isStale(initialProducts)) router.refresh()
+    const notice = takeNotice()
+    if (notice) showNotification(notice)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the copy the list first drew
+  }, [])
   const warmed = useRef(new Set<string>())
   const warm = (id: string) => {
     if (warmed.current.has(id)) return
@@ -1213,6 +1240,11 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                 Delete {productToDelete.title}?
               </h3>
               <p className="mt-1.5 text-[13px] leading-5 text-[#6b7280]">It comes off your page and cannot be brought back. Archive it instead to keep it.</p>
+              {deleteError ? (
+                <p role="alert" className="mt-2 text-[13px] font-medium leading-5 text-[#c4290c]">
+                  {deleteError}
+                </p>
+              ) : null}
             </div>
             <div className="flex justify-end gap-2 border-t border-[#eef0f2] px-5 py-3 max-md:gap-3">
               <button
