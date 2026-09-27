@@ -91,3 +91,19 @@ open(THREE+'3_of_3_storage_policies_and_check.sql','w').write(f4)
 for f in sorted(os.listdir(THREE)):
     if f.endswith('.sql'): print('three:', f, os.path.getsize(THREE+f))
 
+
+# THE RANGE IN EACH README FOLLOWS THE PARTS. Every folder's README named the
+# range by hand ("01 to 38", "01 to 45", "01 to 50") and none was rewritten
+# when a part was added, so all four disagreed with each other and with
+# run-now/. The numbers come from the parts themselves now.
+import re as _re
+_numbered=sorted(p for p in parts if p.isdigit() and '01'<=p<'90')
+_span=f"{_numbered[0]} to {_numbered[-1]}"
+for _folder in ('run-four','all-last-three-days','all-last-14-days','all-in-three'):
+    _path=ROOT+'supabase/sql/'+_folder+'/README.md'
+    if not os.path.exists(_path): continue
+    _text=open(_path).read()
+    _fixed=_re.sub(r"\(0[0-9] to [0-9]{2}([,)])", lambda m: f"({_span}{m.group(1)}", _text)
+    if _fixed!=_text:
+        open(_path,'w').write(_fixed)
+        print('readme:', _folder, _span)
