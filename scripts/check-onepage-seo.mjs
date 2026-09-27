@@ -340,6 +340,13 @@ for (const [label, vp] of [
     expect(meta.twitter?.card === "summary_large_image" && meta.alternates?.canonical === meta.openGraph?.url, "a large card, one canonical address", { card: meta.twitter?.card, canonical: meta.alternates?.canonical })
     expect(saved.settings.seo_title === "Riso prints | Kyoto" && saved.settings.social_description === "New prints every Friday" && !saved.settings.social_title, "only the fields somebody typed were saved as their own", { seo_title: saved.settings.seo_title, social_title: saved.settings.social_title ?? null })
   }
+  /* Every section, for the eye. */
+  for (const [name, file] of [["Basic info", "basic"], ["Subscribe", "subscribe"], ["Share", "share"], ["Verified badge", "verified"], ["Billing", "billing"]]) {
+    await section(p, name)
+    if (name === "Verified badge") await p.evaluate(() => document.querySelector("[data-settings-verified] [role=switch]")?.click())
+    await sleep(250)
+    await p.screenshot({ path: join(shots, `settings-${label}-${file}.png`), fullPage: false })
+  }
   expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
   await p.close()
 }

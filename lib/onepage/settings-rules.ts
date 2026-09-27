@@ -13,7 +13,7 @@
  * "glass"); one that cannot is refused with a sentence the editor shows as
  * it is. Keys this file does not know are kept, so a setting another part of
  * the editor adds is not lost, within a size limit. Pure, for
- * tests/onepage-seo.test.ts.
+ * tests/onepage-search-share.test.ts.
  */
 import { SEO_DESCRIPTION_MAX, SEO_TITLE_MAX, cleanOverride, safeImageUrl } from "@/lib/onepage/seo"
 import { isValidUsername } from "@/lib/reserved-words"
