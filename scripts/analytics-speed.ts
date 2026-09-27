@@ -80,7 +80,7 @@ try {
     "supabase/sql/run-now/25_analytics_speed.sql",
     "supabase/sql/run-now/32_orders_keep_sales.sql",
     "tests/fixtures/analytics-sql/report_schema.sql",
-    "supabase/sql/run-now/60_analytics_one_pipeline.sql",
+    "supabase/sql/run-now/61_analytics_one_pipeline.sql",
   ]) psqlFile(join(process.cwd(), f))
 
   const t = Date.now()

@@ -11,7 +11,7 @@
  *
  *   Visitors, page views, sessions, traffic sources, pages, products and
  *   the funnel's first three steps are counted by the database
- *   (analytics_report, supabase/sql/run-now part 60) and arrive as a
+ *   (analytics_report, supabase/sql/run-now part 61) and arrive as a
  *   ReportWire. Until that function exists, wireFromRows counts the very
  *   same things from the rows here, by the same rules, and the tests hold
  *   the two to the same answers.
@@ -67,7 +67,7 @@ export interface ViewRow {
   visitor_id?: string | null
   product_id?: string | null
   created_at: string
-  /** Absent entirely on a database from before part 60; null when a row could not be placed. */
+  /** Absent entirely on a database from before part 61; null when a row could not be placed. */
   property_type?: string | null
   property_id?: string | null
   path?: string | null
@@ -512,8 +512,8 @@ export function reportArgs(window: Span, previous: Span | null | undefined, time
 /* ─── The same counting, from rows ─────────────────────────────────────── */
 
 /**
- * WHERE A ROW IS, before part 60 gave it a property: the host it was
- * recorded on, as part 60's backfill places it. Storelib's own hosts are the
+ * WHERE A ROW IS, before part 61 gave it a property: the host it was
+ * recorded on, as part 61's backfill places it. Storelib's own hosts are the
  * creator page, any other host a website (the live one).
  */
 function placeOf(row: { property_type?: string | null; property_id?: string | null; page_url?: string | null }, mainDomain: string): { type: string | null; id: string | null } {
@@ -732,7 +732,7 @@ export interface LegacyDeps {
 }
 
 /**
- * THE ONEPAGE, COUNTED ONCE. Since part 60 a OnePage visit is written to
+ * THE ONEPAGE, COUNTED ONCE. Since part 61 a OnePage visit is written to
  * analytics_events (property onepage) and, as before, to onepage_views.
  * Before the first of those events, onepage_views is the only record. So a
  * OnePage visit is read from onepage_views only before `since`, and from the

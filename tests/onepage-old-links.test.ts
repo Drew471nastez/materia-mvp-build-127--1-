@@ -347,7 +347,7 @@ function history() {
   check("it keeps the old address in lower case, and only a real change (not a change of case)", /lower\(OLD\.slug\) IS DISTINCT FROM lower\(NEW\.slug\)/.test(part) && /VALUES \(OLD\.id, lower\(btrim\(OLD\.slug\)\)/.test(part))
   check("it never stops a save", /EXCEPTION WHEN OTHERS THEN RAISE WARNING 'onepages_keep_old_slug skipped/.test(part))
   check("server only: row level security on, no policy, nothing for anon or a signed in user", /ENABLE ROW LEVEL SECURITY/.test(part) && !/CREATE POLICY/.test(part) && /REVOKE ALL ON public\.onepage_slug_history FROM anon, authenticated/.test(part) && /REVOKE ALL ON FUNCTION public\.onepages_keep_old_slug\(\) FROM PUBLIC, anon, authenticated/.test(part))
-  check("the check after names it", /as p58_onepage_old_addresses\b/.test(code("supabase/sql/run-now/99_check_after.sql")))
+  check("the check after names it", /as p58_onepage_old_addresses[,;]/.test(code("supabase/sql/run-now/99_check_after.sql")))
   check("the README lists it", /\| `58_onepage_old_addresses\.sql` \|/.test(code("supabase/sql/run-now/README.md")))
   check("and the bundles carry it", /-- part 58_onepage_old_addresses\.sql/.test(code("supabase/sql/run-four/3_of_4_latest.sql")) && /-- part 58_onepage_old_addresses\.sql/.test(code("supabase/sql/all-in-three/2_of_3_latest.sql")))
   const lookup = code("lib/onepage/address-lookup.ts")

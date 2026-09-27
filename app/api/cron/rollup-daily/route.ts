@@ -19,7 +19,7 @@ import { ROLLUP } from "@/lib/analytics/events"
  *                                          the breakdowns per creator,
  *                                          property and UTC day, and the day
  *                                          noted in analytics_rollup_days
- *                                          (supabase/sql/run-now part 60;
+ *                                          (supabase/sql/run-now part 61;
  *                                          docs/analytics/events.md)
  *
  * `?date=YYYY-MM-DD` runs one day, `?date=today` today so far, and
@@ -47,7 +47,7 @@ import { ROLLUP } from "@/lib/analytics/events"
  * ===========================================================================
  * The reports read a finished day from the property rollup when it has been
  * rolled up, and count it from the raw events when it has not
- * (analytics_report, supabase/sql/run-now part 60). The figures are the
+ * (analytics_report, supabase/sql/run-now part 61). The figures are the
  * same either way; the rollup only makes a long period quick. So a plain
  * run also rolls up the most recent days of the last 400 that were
  * never rolled up (as many as BACKFILL_BUDGET_MS allows), so the first night
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
   return POST(request)
 }
 
-/* As long as the other crons may run: the first night after part 60 fills a year of days. */
+/* As long as the other crons may run: the first night after part 61 fills a year of days. */
 export const maxDuration = 300
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/

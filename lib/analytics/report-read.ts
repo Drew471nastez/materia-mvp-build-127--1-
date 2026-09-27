@@ -283,7 +283,7 @@ export async function readLegacyOnePage(admin: Admin, q: CountQuestion): Promise
     .eq("event_type", "view")
     .order("created_at", { ascending: true })
     .limit(1)
-  /* Before part 60 there is no property_type, and no OnePage event: the old tables are the whole record. */
+  /* Before part 61 there is no property_type, and no OnePage event: the old tables are the whole record. */
   const sinceIso = !first.error && Array.isArray(first.data) && first.data[0] ? (first.data[0] as { created_at: string }).created_at : null
   const since = sinceIso ? Date.parse(sinceIso) : null
   const spans = spansToRead(q.window, q.previous)

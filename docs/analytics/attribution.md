@@ -14,7 +14,7 @@ Code:
 | `lib/attribution/browser.ts` | The browser: first-party storage per scope, consent, carrying to checkout. |
 | `components/attribution/capture-touch.tsx` | `<CaptureTouch>`: notes a visit as it arrives. |
 | `lib/attribution/server.ts` | The server: checks what a page sent, resolves the property, carries it through Stripe, writes it once. |
-| `supabase/sql/run-now/59_attribution.sql` | The columns, checks and indexes. |
+| `supabase/sql/run-now/60_attribution.sql` | The columns, checks and indexes. |
 | `tests/attribution.test.ts` | What this document promises, run against the real fulfilment code. |
 | `scripts/check-attribution.mjs` | A real browser: Instagram, a website, Buy, the checkout request. |
 
@@ -24,7 +24,7 @@ Code:
 
 | Column | Type | Meaning |
 | --- | --- | --- |
-| `property_type` | `text`, one of `creator_page`, `onepage`, `website` | The property the purchase came through. Null only for an order made before part 59 and for an admin test sale. |
+| `property_type` | `text`, one of `creator_page`, `onepage`, `website` | The property the purchase came through. Null only for an order made before part 60 and for an admin test sale. |
 | `property_id` | `uuid` | `creator_page`: the creator's id (`creators.id`). `website`: the website's install id (`store_theme_installs.id`, the published install the site renderer draws). `onepage`: `onepages.id`. Null when it could not be read in time; the type is still set. |
 | `first_touch` | `jsonb` object or null | The first touch, see below. Null when nothing is known (a buyer who landed straight on checkout). |
 | `last_touch` | `jsonb` object or null | The last touch. Null exactly when `first_touch` is null. Equal to `first_touch` when there was one touch. |
@@ -78,10 +78,10 @@ group by 1;
 ```
 
 `last_touch ->> 'source'` null means "not recorded" (an order from before
-part 59, or no touch). Revenue by property groups by `property_type,
+part 60, or no touch). Revenue by property groups by `property_type,
 property_id`. Refunds and disputes are read from the same order rows.
 
-Indexes (part 59): `orders (creator_id, property_type, property_id,
+Indexes (part 60): `orders (creator_id, property_type, property_id,
 created_at) where property_type is not null`, `orders (creator_id,
 (first_touch ->> 'source'), created_at) where first_touch is not null`, the
 same for `last_touch`, `subscribers (creator_id, property_type, property_id)`,
@@ -279,7 +279,7 @@ Every write is an update after the row exists, onto rows whose
 * the webhook and `confirm-payment` racing: only the caller whose insert made
   the order writes, and a second write would find no row;
 * a webhook retry writes nothing;
-* a database without part 59 refuses only this update, quietly, and the
+* a database without part 60 refuses only this update, quietly, and the
   order is made exactly as before.
 
 Every order-making path:

@@ -15,10 +15,10 @@
  * property, so All is always the sum of the parts and nothing is counted
  * twice or dropped:
  *
- *   1. Its own property_type (supabase/sql/run-now part 59, written when it
+ *   1. Its own property_type (supabase/sql/run-now part 60, written when it
  *      was made). A website order without an install id belongs to the live
  *      website, the one the checkout would have named (defaultWebsite).
- *   2. An order from before part 59: `source` website (or a basket, which is
+ *   2. An order from before part 60: `source` website (or a basket, which is
  *      only ever filled on a website: lib/orders/order-view) is the live
  *      website; `source_detail.surface` onepage is the OnePage; anything
  *      else is the creator page, which is what the checkout calls a sale
@@ -140,7 +140,7 @@ const TYPES: readonly string[] = ["creator_page", "onepage", "website"]
 /**
  * The property of one payment (lib/orders/order-view groupOrders), from its
  * lines (a basket's lines carry the same attribution) and, for an order from
- * before part 59, the Source the Orders page shows for it (`source`, worked
+ * before part 60, the Source the Orders page shows for it (`source`, worked
  * out by order-view from the same lines) and the surface it recorded. By the
  * rules at the top of this file.
  */

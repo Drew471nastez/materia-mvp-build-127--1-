@@ -149,7 +149,7 @@ async function main() {
     check("  and in Berlin on its own change, 25 October", JSON.stringify(berlin) === JSON.stringify(["2026-10-24", "2026-10-25", "2026-10-26"].map((d) => midnightOf(d, "Europe/Berlin"))), berlin.map((s) => new Date(s).toISOString()))
   }
 
-  console.log("\nThe first night after part 60 rolls up the whole year")
+  console.log("\nThe first night after part 61 rolls up the whole year")
   {
     /*
       Until a day is rolled up, a long period counts it from the raw events:

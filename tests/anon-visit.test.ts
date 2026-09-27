@@ -93,7 +93,7 @@ async function main() {
     console.log("\nThe reports count that visitor once per visit")
     const window = { start: MORNING - 3_600_000, end: MORNING + 3 * 3_600_000 }
     const r = buildReports({
-      /* Every page view the tracker writes now says which place it was on (part 60); a visit is counted per place. */
+      /* Every page view the tracker writes now says which place it was on (part 61); a visit is counted per place. */
       views: rows.map((x, i) => ({ id: `e${i}`, visitor_id: x.visitor_id, session_id: x.session_id, created_at: x.created_at, property_type: "creator_page", property_id: null })),
       steps: [],
       orders: [],

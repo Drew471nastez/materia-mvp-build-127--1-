@@ -33,10 +33,6 @@
     {
       "path": "/api/cron/notify",
       "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/scan-files",
-      "schedule": "*/10 * * * *"
     }
   ],
   "rewrites": [

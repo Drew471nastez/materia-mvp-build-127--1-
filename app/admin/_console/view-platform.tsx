@@ -389,7 +389,11 @@ export function SystemView({ data }: Common & { data: SystemPayload }) {
                   {data.env.filter((e) => e.group === g).map((e) => (
                     <li key={e.name} className="flex min-w-0 items-center justify-between gap-3">
                       <code className="min-w-0 truncate font-mono text-[12px] text-[#c9c9d1]">{e.name}</code>
-                      <Status value={e.set ? "ok" : "failed"} label={e.set ? "Set" : "Not set"} />
+                      {e.optional ? (
+                        <Status value={e.set ? "ok" : null} label={e.set ? "Set" : "Off"} />
+                      ) : (
+                        <Status value={e.set ? "ok" : "failed"} label={e.set ? "Set" : "Not set"} />
+                      )}
                     </li>
                   ))}
                 </ul>

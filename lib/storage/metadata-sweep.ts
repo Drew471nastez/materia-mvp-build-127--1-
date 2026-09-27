@@ -23,26 +23,26 @@ import "server-only"
  * download per recent picture; the windows overlap so a missed hour is
  * caught by the next.
  *
- * The same pass is the malware scan for those uploads, since it already
- * holds each picture's bytes: with Storelib's scanner on
- * (lib/security/file-scanner.ts) every picture it reads is scanned, and one
- * that is infected is deleted from storage (its URL stops working) and
- * logged. A picture already scanned is scanned again on the next overlapping
- * run; ClamAV answers a picture in milliseconds, so that is cheaper than
- * keeping a list. Only a flagged picture or a failed scan is written to the
- * scan log from here, not the hundreds of clean ones an hour.
+ * The same pass is the file check for those uploads, since it already holds
+ * each picture's bytes: the central check (lib/security/uploads/inspect.ts)
+ * runs on every one, and a file that is really a program, a script, a web
+ * page or the EICAR test file behind a picture's name is deleted from
+ * storage (its URL stops working) and logged. A file that is only not a
+ * picture is left alone. When a malware engine is switched on
+ * (SECURITY_MALWARE_PROVIDER) it reads each one too.
  */
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 import { stripImageMetadata } from "@/lib/images/metadata"
-import { isScannerConfigured } from "@/lib/security/file-scanner"
+import { logSecurityEvent } from "@/lib/security/uploads/audit"
+import { inspectHead } from "@/lib/security/uploads/inspect"
+import { activeProviders } from "@/lib/security/uploads/providers"
 import { isPublicImage } from "./file-signature"
-import { screenPublicBytes } from "./upload-guard"
 
 export interface SweepSummary {
   checked: number
   stripped: number
-  /** Pictures the malware scan flagged and removed. */
+  /** Files that were not pictures but programs, scripts or pages, removed. */
   removed: number
   errors: string[]
 }
@@ -52,7 +52,7 @@ export async function sweepImageMetadata(
   options: { sinceMinutes?: number; limit?: number } = {},
 ): Promise<SweepSummary> {
   const summary: SweepSummary = { checked: 0, stripped: 0, removed: 0, errors: [] }
-  const scanning = isScannerConfigured()
+  const providers = activeProviders()
   const { data, error } = await admin.rpc("storage_recent_public_images", {
     p_since_minutes: Math.max(1, Math.min(options.sinceMinutes ?? 150, 60 * 24 * 30)),
     p_limit: Math.max(1, Math.min(options.limit ?? 200, 1000)),
@@ -68,14 +68,20 @@ export async function sweepImageMetadata(
       if (downloadError || !blob) continue
       summary.checked++
       const bytes = new Uint8Array(await blob.arrayBuffer())
-      if (scanning) {
-        const screened = await screenPublicBytes(admin, bytes, { source: "image_sweep", bucket: o.bucket_id, path: o.name, logClean: false })
-        if (screened.blocked) {
-          const { error: removeError } = await admin.storage.from(o.bucket_id).remove([o.name])
-          if (removeError) summary.errors.push(`${o.bucket_id}/${o.name}: flagged but not removed: ${removeError.message}`)
-          else summary.removed++
-          continue
-        }
+      /* Dangerous, not merely unusual: a program, a script or page, the EICAR file. */
+      const verdict = inspectHead({ fileName: o.name, declaredMime: o.mimetype, size: bytes.length, head: bytes.subarray(0, 8192), context: "product_file", maxBytes: Number.MAX_SAFE_INTEGER })
+      const dangerous = !verdict.ok && ["executable_signature", "malware_test_signature", "script_in_document", "disguised_file"].includes(verdict.code)
+      let flagged: { code: string; provider: string } | null = dangerous ? { code: verdict.code, provider: "builtin" } : null
+      for (const provider of flagged ? [] : providers) {
+        const result = await provider.scan({ fileName: o.name, context: "public_image", size: bytes.length, bytes, ref: `${o.bucket_id}/${o.name}`, deadlineMs: 12_000 })
+        if (result.status === "infected") flagged = { code: "provider_infected", provider: provider.name }
+      }
+      if (flagged) {
+        const { error: removeError } = await admin.storage.from(o.bucket_id).remove([o.name])
+        if (removeError) summary.errors.push(`${o.bucket_id}/${o.name}: flagged but not removed: ${removeError.message}`)
+        else summary.removed++
+        await logSecurityEvent(admin, { event: "upload", outcome: removeError ? "refused" : "removed", context: "public_image", code: flagged.code, provider: flagged.provider, bucket: o.bucket_id, path: o.name, bytes: bytes.length, detectedType: verdict.detectedType, detail: { found: verdict.detail, via: "image_sweep" } })
+        continue
       }
       const kind = isPublicImage(bytes)
       if (!kind?.mime) continue

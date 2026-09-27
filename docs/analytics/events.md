@@ -6,7 +6,7 @@ nothing else. Code: `lib/analytics/events.ts` (types and constants, safe to
 import anywhere), `lib/analytics/property.ts` (resolving a property, server
 only), `lib/analytics/collect.ts` (the pipeline, server only),
 `lib/analytics/page-tracker.ts` and `components/analytics/track-view.tsx` (the
-browser). SQL: `supabase/sql/run-now/60_analytics_one_pipeline.sql`.
+browser). SQL: `supabase/sql/run-now/61_analytics_one_pipeline.sql`.
 
 Revenue and order counts never come from here. `orders` is the source of
 truth for money and sales; attribution of an order to a visit is on the order
@@ -45,7 +45,7 @@ table; `lib/analytics/events.ts` `EVENT` maps a meaning to its stored name.
 | Stored name | `EVENT.` | When it is written |
 | --- | --- | --- |
 | `view` | `pageView` | One real page navigation: a full page load, or a client side route change (Next `<Link>`, `router.push`, back and forward), of a creator page, a product page, a OnePage or any page of a website. With `product_id` set it is also a product view. |
-| `link_click` | `linkClick` | A OnePage link block was clicked (`link_id` is the block), or a link out of the page on the creator page or a website (`link_url` is the destination). New in part 60. |
+| `link_click` | `linkClick` | A OnePage link block was clicked (`link_id` is the block), or a link out of the page on the creator page or a website (`link_url` is the destination). New in part 61. |
 | `buy_click` | `buyClick` | Buy was pressed on a product (`components/checkout/*buy-button.tsx`, the website product section). |
 | `checkout_start` | `checkoutStart` | The checkout page opened for a product (`app/checkout/checkout-client.tsx`). |
 | `checkout_complete` | `checkoutComplete` | Allowed; no page sends it today. |
@@ -69,8 +69,8 @@ The database check `analytics_events_event_type_check` allows exactly
 
 ## 3. Columns
 
-`analytics_events`, as part 60 leaves it. Every column is nullable unless
-said otherwise. Part 60 adds the last five and makes sure the rest exist; it
+`analytics_events`, as part 61 leaves it. Every column is nullable unless
+said otherwise. Part 61 adds the last five and makes sure the rest exist; it
 drops nothing.
 
 | Column | Type | Meaning |
@@ -211,7 +211,7 @@ Nothing is written for:
 
 ## 7. Legacy rows and new rows together
 
-On the day part 60 runs:
+On the day part 61 runs:
 
 - Old `view` rows are placed by the backfill: `property_type` from the host of
   `page_url` (storelib.com, `www.`, localhost, `127.0.0.1` and `*.vercel.app`
@@ -238,7 +238,7 @@ On the day part 60 runs:
 - OnePage link clicks: written to `onepage_clicks` exactly as before (one per
   address and device, block and UTC day) and to `analytics_events` as
   `link_click` (one per visit and block).
-- Before part 60 has run, a view is written as it was (no new columns), and a
+- Before part 61 has run, a view is written as it was (no new columns), and a
   OnePage view or a link click is not written at all (`not_ready`), since with
   no property it would read as a creator page view.
 - `components/app/dashboard-client.tsx` reads link taps as `event_type =
@@ -293,7 +293,7 @@ counted from the raw events by `analytics_property_counts`, the function the
 rollup itself is made with, so the two cannot disagree. `analytics_report`
 does this split in the database (lib/analytics/report-read.ts, lib/analytics/reports.ts); `splitDays()` in
 `lib/analytics/events.ts` states the same rule. A day rolled up before
-`browsers` and `session_slots` existed is forgotten by part 60 and counted
+`browsers` and `session_slots` existed is forgotten by part 61 and counted
 from the events until the cron rolls it up again.
 
 Unique visitors are never read from the rollup: people cannot be added up
@@ -309,7 +309,7 @@ writes them.
 
 ## 9. Indexes
 
-On `analytics_events` (part 60 adds the first four):
+On `analytics_events` (part 61 adds the first four):
 
 | Index | Columns | For |
 | --- | --- | --- |

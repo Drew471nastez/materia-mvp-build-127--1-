@@ -21,7 +21,7 @@
  *                   video and for the few other kinds a public bucket takes.
  */
 
-export type FileFamily = "image" | "video" | "audio" | "pdf" | "archive" | "font" | "executable" | "markup" | "unknown"
+export type FileFamily = "image" | "video" | "audio" | "pdf" | "archive" | "font" | "document" | "executable" | "markup" | "unknown"
 
 export interface Sniffed {
   /** The media type the bytes say, or null when the format is not one we recognise. */
@@ -94,6 +94,8 @@ export function sniff(input: Uint8Array | ArrayBuffer | null | undefined): Sniff
   if (at(b, 0, [0x1a, 0x45, 0xdf, 0xa3])) return { mime: "video/webm", family: "video", ext: "webm" }
   if (ascii(b, 0, "RIFF") && ascii(b, 8, "AVI ")) return { mime: "video/x-msvideo", family: "video", ext: "avi" }
   if (ascii(b, 0, "RIFF") && ascii(b, 8, "WAVE")) return { mime: "audio/wav", family: "audio", ext: "wav" }
+  if (ascii(b, 0, "FORM") && (ascii(b, 8, "AIFF") || ascii(b, 8, "AIFC"))) return { mime: "audio/aiff", family: "audio", ext: "aif" }
+  if (ascii(b, 0, "MThd")) return { mime: "audio/midi", family: "audio", ext: "mid" }
   if (ascii(b, 0, "OggS")) return { mime: "audio/ogg", family: "audio", ext: "ogg" }
   if (ascii(b, 0, "fLaC")) return { mime: "audio/flac", family: "audio", ext: "flac" }
   if (ascii(b, 0, "ID3") || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0)) return { mime: "audio/mpeg", family: "audio", ext: "mp3" }
@@ -107,6 +109,15 @@ export function sniff(input: Uint8Array | ArrayBuffer | null | undefined): Sniff
   if (ascii(b, 0, "Rar!")) return { mime: "application/vnd.rar", family: "archive", ext: "rar" }
   if (at(b, 0, [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c])) return { mime: "application/x-7z-compressed", family: "archive", ext: "7z" }
   if (at(b, 0, [0x1f, 0x8b])) return { mime: "application/gzip", family: "archive", ext: "gz" }
+  if (ascii(b, 0, "BZh")) return { mime: "application/x-bzip2", family: "archive", ext: "bz2" }
+  if (at(b, 0, [0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00])) return { mime: "application/x-xz", family: "archive", ext: "xz" }
+  if (ascii(b, 257, "ustar")) return { mime: "application/x-tar", family: "archive", ext: "tar" }
+  if (ascii(b, 0, "8BPS")) return { mime: "image/vnd.adobe.photoshop", family: "document", ext: "psd" }
+  if (at(b, 0, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])) return { mime: "application/x-ole-storage", family: "document", ext: null }
+  if (ascii(b, 0, "{\\rtf")) return { mime: "application/rtf", family: "document", ext: "rtf" }
+  if (ascii(b, 0, "SQLite format 3")) return { mime: "application/vnd.sqlite3", family: "document", ext: null }
+  if (ascii(b, 0, "BLENDER")) return { mime: "application/x-blender", family: "document", ext: "blend" }
+  if (ascii(b, 0, "Kaydara FBX Binary")) return { mime: "application/octet-stream", family: "document", ext: "fbx" }
   if (ascii(b, 0, "wOF2")) return { mime: "font/woff2", family: "font", ext: "woff2" }
   if (ascii(b, 0, "wOFF")) return { mime: "font/woff", family: "font", ext: "woff" }
   if (at(b, 0, [0x00, 0x01, 0x00, 0x00]) || ascii(b, 0, "OTTO")) return { mime: "font/ttf", family: "font", ext: "ttf" }

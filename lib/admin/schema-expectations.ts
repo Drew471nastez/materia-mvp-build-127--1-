@@ -67,18 +67,17 @@ export const CRON_JOBS = [
   { path: "/api/cron/release-holds", schedule: "0 6 * * *", what: "Moves held sale money to available" },
   { path: "/api/cron/rollup-daily", schedule: "0 1 * * *", what: "Adds up yesterday's analytics" },
   { path: "/api/cron/purge-chat-attachments", schedule: "20 3 * * *", what: "Deletes chat pictures after 30 days" },
-  { path: "/api/cron/storage-cleanup", schedule: "40 3 * * *", what: "Removes files nothing refers to and scans waiting uploads" },
+  { path: "/api/cron/storage-cleanup", schedule: "40 3 * * *", what: "Removes files nothing refers to, checks older product files and trims the security log" },
   { path: "/api/cron/strip-image-metadata", schedule: "10 * * * *", what: "Removes location data from new public photos" },
   { path: "/api/cron/notifications", schedule: "25 * * * *", what: "Works out every creator's notifications and pushes the urgent ones" },
   { path: "/api/cron/notify", schedule: "*/5 * * * *", what: "Sends due notification emails and bell notices, and retries the ones that failed" },
-  { path: "/api/cron/scan-files", schedule: "*/10 * * * *", what: "Scans product files still waiting for the malware scanner, ten a run" },
 ] as const
 
 /**
  * Environment variables, reported as set or not set. Never their values:
  * the answer leaves the server as a boolean and nothing else.
  */
-export const ENV_CHECKS: { name: string; group: string }[] = [
+export const ENV_CHECKS: { name: string; group: string; optional?: boolean }[] = [
   { name: "NEXT_PUBLIC_SUPABASE_URL", group: "Database" },
   { name: "NEXT_PUBLIC_SUPABASE_ANON_KEY", group: "Database" },
   { name: "SUPABASE_SERVICE_ROLE_KEY", group: "Database" },
@@ -89,8 +88,6 @@ export const ENV_CHECKS: { name: string; group: string }[] = [
   { name: "PRICE_PRO_MONTHLY", group: "Payments" },
   { name: "PRICE_GROWTH_MONTHLY", group: "Payments" },
   { name: "MAILGUN_API_KEY", group: "Email" },
-  { name: "CLAMAV_SERVICE_URL", group: "Malware scanner" },
-  { name: "CLAMAV_SERVICE_SECRET", group: "Malware scanner" },
   { name: "MAILGUN_DOMAIN", group: "Email" },
   { name: "MAILGUN_WEBHOOK_SIGNING_KEY", group: "Email" },
   { name: "EMAIL_FROM", group: "Email" },
@@ -114,5 +111,9 @@ export const ENV_CHECKS: { name: string; group: string }[] = [
   { name: "GITHUB_APP_ID", group: "GitHub sync" },
   { name: "GITHUB_APP_PRIVATE_KEY", group: "GitHub sync" },
   { name: "GITHUB_WEBHOOK_SECRET", group: "GitHub sync" },
-  { name: "VIRUSTOTAL_API_KEY", group: "File scanning" },
+  /* Optional: Storelib's built-in file checks need nothing. "Not set" here is
+     the normal state and reads as Off, not as a problem (lib/security/uploads). */
+  { name: "SECURITY_MALWARE_PROVIDER", group: "Malware engine (optional)", optional: true },
+  { name: "CLAMAV_SERVICE_URL", group: "Malware engine (optional)", optional: true },
+  { name: "CLAMAV_SERVICE_SECRET", group: "Malware engine (optional)", optional: true },
 ]

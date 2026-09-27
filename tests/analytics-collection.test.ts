@@ -70,7 +70,7 @@ function world(opts: { beforePart53?: boolean } = {}): FakeSupabase {
   db.table("analytics_events", {
     defaults: (d) => ({ id: crypto.randomUUID(), created_at: d.now() }),
     checks: [
-      /* part 60's checks; before it, part 04's event types and no new columns at all */
+      /* part 61's checks; before it, part 04's event types and no new columns at all */
       (r) => ((opts.beforePart53 ? ALLOWED_EVENT_TYPES.filter((t) => t !== "link_click") : ALLOWED_EVENT_TYPES) as readonly string[]).includes(r.event_type) ? null : "analytics_events_event_type_check",
       (r) => (r.property_type == null || ["creator_page", "onepage", "website"].includes(r.property_type) ? null : "analytics_events_property_type_check"),
       (r) => (r.path == null || (r.path.length <= 300 && r.path.startsWith("/")) ? null : "analytics_events_path_check"),
@@ -78,7 +78,7 @@ function world(opts: { beforePart53?: boolean } = {}): FakeSupabase {
     ],
   })
   if (opts.beforePart53) {
-    /* A database that has not run part 60: writing or filtering a column it lacks is PGRST204 / 42703. */
+    /* A database that has not run part 61: writing or filtering a column it lacks is PGRST204 / 42703. */
     const from = db.from.bind(db)
     db.from = (name: string) => {
       const q = from(name) as unknown as Record<string, (...a: unknown[]) => unknown>
@@ -437,7 +437,7 @@ async function main() {
       /\.from\("onepage_views"\)\s*\.select\("id"\)\s*\.eq\("onepage_id", onepage\.id\)\s*\.eq\("ip_hash", ipHash\)\s*\.gte\("created_at", todayStr\)/.test(onePageRoute))
     check("  and the page carries the analytics tracker, with its links left to the blocks", /<TrackView creatorId=\{resolvedCreatorId\} links=\{false\} \/>/.test(onePageRoute))
     check("  the OnePage stats route still reads only its own tables", !/analytics_events/.test(read("app/api/onepage/stats/route.ts")))
-    const sql = read("supabase/sql/run-now/60_analytics_one_pipeline.sql")
+    const sql = read("supabase/sql/run-now/61_analytics_one_pipeline.sql")
     /* Changed on purpose: the reports are one set now (analytics_report). A OnePage view is counted once, as the
        OnePage property, from the events; its old table is read only for the time before the OnePage's first event.
        The older tally still leaves OnePage views out, as before, for anything that calls it. */
@@ -480,7 +480,7 @@ async function main() {
     check("no purchase and no money is written by collection: orders are the source of truth", purchases.length === 0 && !/amount|revenue|cents/i.test(JSON.stringify(db.rows("analytics_events"))))
   }
 
-  console.log("\nA database that has not run part 60")
+  console.log("\nA database that has not run part 61")
   {
     clearPropertyCache()
     const db = world({ beforePart53: true })
@@ -506,7 +506,7 @@ async function main() {
       split.rollup.join() === "2026-09-22,2026-09-23" && split.raw.join() === "2026-09-24,2026-09-25,2026-09-26", split)
     const cron = read("app/api/cron/rollup-daily/route.ts")
     check("the daily cron refreshes the property rollup too", /admin\.rpc\(ROLLUP\.refresh, \{ p_day: date \}\)/.test(cron) && /analytics_refresh_property_day/.test(read("lib/analytics/events.ts")))
-    const sql = read("supabase/sql/run-now/60_analytics_one_pipeline.sql")
+    const sql = read("supabase/sql/run-now/61_analytics_one_pipeline.sql")
     check("the refresh deletes the day and counts it again, so a second run changes nothing",
       /DELETE FROM public\.analytics_property_daily WHERE day = p_day AND \(p_creator_id IS NULL OR creator_id = p_creator_id\)/.test(sql) && /pg_advisory_xact_lock/.test(sql))
     check("  tests/analytics-rollup-sql.test.ts runs it against Postgres, and against the raw rows",

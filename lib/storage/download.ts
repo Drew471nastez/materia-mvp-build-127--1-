@@ -5,6 +5,7 @@
  */
 
 import { type SupabaseClient } from "@supabase/supabase-js"
+import { isContainedPath, sanitizeDisplayName } from "@/lib/security/uploads/filename"
 import { STORAGE_BUCKET, PUBLIC_BUCKET, DIGITAL_BUCKETS, getPlanLimits } from "./plans"
 
 /** Default signed URL expiry: 5 minutes (short-lived for security). */
@@ -56,11 +57,13 @@ export async function generateSignedDownloadUrl(
     }
   }
 
-  /* No path that climbs out of where it says it is. */
-  if (normalizedPath.split("/").some((p) => p === "..")) return null
+  /* No path that climbs out of where it says it is (lib/security/uploads/filename.ts). */
+  if (!isContainedPath(normalizedPath)) return null
 
   const expiry = Math.max(30, Math.min(expirySeconds, 3600))
-  const name = typeof downloadName === "string" ? downloadName.replace(/[\r\n"\\/]/g, "_").trim().slice(0, 180) : ""
+  /* The name the buyer's browser saves it as: no folders, no quotes or line
+     breaks, no direction marks (lib/security/uploads/filename.ts). */
+  const name = typeof downloadName === "string" && downloadName.trim() ? sanitizeDisplayName(downloadName) : ""
   const options = { download: name || true }
 
   // Build bucket order: preferred first (if provided and allowed), then standard fallbacks
@@ -81,7 +84,7 @@ export async function generateSignedDownloadUrl(
   }
 
   // Try the original path as-is (might include subfolder structure)
-  if (filePath !== normalizedPath && !filePath.includes("://") && !filePath.split("/").some((p) => p === "..")) {
+  if (filePath !== normalizedPath && !filePath.includes("://") && isContainedPath(filePath)) {
     for (const bucket of bucketsToTry) {
       const { data, error } = await admin.storage
         .from(bucket)

@@ -2,7 +2,7 @@
  * ===========================================================================
  *  THE REPORTS AGAINST A REAL POSTGRES
  * ===========================================================================
- * analytics_report (supabase/sql/run-now part 60) answers /app/analytics,
+ * analytics_report (supabase/sql/run-now part 61) answers /app/analytics,
  * Home and the Website and OnePage summaries. Here it runs on a throwaway
  * database made from the repository's own SQL and seeded with two months of
  * visits, OnePage history, orders and sign-ups for two creators
@@ -46,7 +46,7 @@ function check(label: string, ok: boolean, detail?: unknown) {
 const root = process.cwd()
 const read = (p: string) => readFileSync(join(root, p), "utf8")
 const FIX = "tests/fixtures/analytics-sql"
-const PART = "supabase/sql/run-now/60_analytics_one_pipeline.sql"
+const PART = "supabase/sql/run-now/61_analytics_one_pipeline.sql"
 
 const A = "a1000000-0000-0000-0000-000000000001"
 const OP = "a1000000-7777-0000-0000-000000000001"
@@ -68,7 +68,7 @@ console.log("\nThe function, as text")
 {
   const part = read(PART)
   const report = part.split("\n").find((l) => l.startsWith("CREATE OR REPLACE FUNCTION public.analytics_report(")) ?? ""
-  check("analytics_report is in part 60, on one line", report.length > 1000)
+  check("analytics_report is in part 61, on one line", report.length > 1000)
   check("  it takes the chart's bucket starts from the caller, so it never works out a calendar of its own", /p_cur_starts bigint\[\], p_prev_starts bigint\[\]/.test(report) && !/AT TIME ZONE p_time_zone/.test(report))
   check("  and is not SECURITY DEFINER: only the server's role may run it", !/SECURITY DEFINER/.test(report) && /^REVOKE ALL ON FUNCTION public\.analytics_report\([^)]*\) FROM PUBLIC, anon, authenticated;$/m.test(part))
 }
@@ -127,7 +127,7 @@ function where(s: PropertySelector, e = "e"): string {
 /**
  * THE SECOND ANSWER: one period counted straight from analytics_events, with
  * the zone's own calendar (AT TIME ZONE) for the buckets and a window
- * function for where each visit began, none of it shared with part 60.
+ * function for where each visit began, none of it shared with part 61.
  */
 function independent(s: PropertySelector, timeZone: string, w: { start: number; end: number }, lists: boolean): string {
   const ws = new Date(w.start).toISOString()
@@ -221,7 +221,7 @@ if (!reachable) {
   psql("postgres", ["-c", `drop database if exists ${db}`, "-c", `create database ${db}`])
   try {
     console.log("\nA database with two creators' two months")
-    for (const f of [`${FIX}/schema.sql`, "supabase/sql/run-now/04_event_and_email_types.sql", "supabase/sql/run-now/25_analytics_speed.sql", "supabase/sql/run-now/32_orders_keep_sales.sql", `${FIX}/report_schema.sql`, "supabase/sql/run-now/59_attribution.sql", PART, `${FIX}/report_seed.sql`]) {
+    for (const f of [`${FIX}/schema.sql`, "supabase/sql/run-now/04_event_and_email_types.sql", "supabase/sql/run-now/25_analytics_speed.sql", "supabase/sql/run-now/32_orders_keep_sales.sql", `${FIX}/report_schema.sql`, "supabase/sql/run-now/60_attribution.sql", PART, `${FIX}/report_seed.sql`]) {
       const out = runFile(db, f)
       if (/ERROR/.test(out)) throw new Error(`${f}: ${out}`)
     }
@@ -403,8 +403,8 @@ if (!reachable) {
 
     console.log("\nThe check after")
     const check99 = psql(db, ["-x", "-f", join(root, "supabase/sql/run-now/99_check_after.sql")])
-    check("the whole of 99_check_after.sql runs", /p60_analytics_one_pipeline/.test(check99))
-    check("  and both p60 columns read true", /p60_analytics_one_pipeline\s*\|\s*t/.test(check99) && /p60_analytics_reports\s*\|\s*t/.test(check99), check99.split("\n").filter((l) => /p60/.test(l)))
+    check("the whole of 99_check_after.sql runs", /p61_analytics_one_pipeline/.test(check99))
+    check("  and both p60 columns read true", /p61_analytics_one_pipeline\s*\|\s*t/.test(check99) && /p61_analytics_reports\s*\|\s*t/.test(check99), check99.split("\n").filter((l) => /p60/.test(l)))
   } catch (e) {
     check("the Postgres run finished", false, (e as Error).message)
   } finally {

@@ -2,7 +2,7 @@
 -- Creator A has a creator page, a OnePage and two websites (W1 live, W2 live before and now offline) and a draft
 -- website that was never published. Creator B is a stranger whose rows must never show up under A.
 -- Visits cross UTC, Los Angeles and Kolkata midnights; people come back across properties; old rows from before
--- part 60 have no path, and some website ones no install; the OnePage's history before its first event row is only
+-- part 61 have no path, and some website ones no install; the OnePage's history before its first event row is only
 -- in onepage_views (with robots in it), after that it is written to both tables and onepage_views must be ignored.
 -- Orders: attributed and not, every status, baskets, refunds in part and in full, disputes, free orders, tips.
 -- Deterministic: setseed, and every random() in a fixed column order.
@@ -139,7 +139,7 @@ INSERT INTO public.orders (id, product_id, amount_cents, tip_cents, status, stri
   -- A basket of two lines, one payment, attributed on both lines.
   ('0a000000-0000-0000-0000-000000000012', 'a1000000-1111-0000-0000-000000000001', 2000, 0, 'completed', 'cs_basket', NULL, 'website', NULL, 'website', 'a1000000-5555-0000-0000-000000000002', '2026-08-15 23:50+00', 'RO', '2026-08-15 23:50:00+00'),
   ('0a000000-0000-0000-0000-000000000013', 'a1000000-1111-0000-0000-000000000002', 1000, 0, 'completed', 'cs_basket', NULL, 'website', NULL, 'website', 'a1000000-5555-0000-0000-000000000002', '2026-08-15 23:50+00', 'RO', '2026-08-15 23:50:01+00'),
-  -- Before part 59: no property. The source says website (the live website), the surface says OnePage, or
+  -- Before part 60: no property. The source says website (the live website), the surface says OnePage, or
   -- nothing is known (the creator page); a basket with no source at all is a website's (lib/orders/order-view).
   ('0a000000-0000-0000-0000-000000000014', 'a1000000-1111-0000-0000-000000000001', 2500, 0, 'completed', 'old_1', NULL, 'website', NULL, NULL, NULL, NULL, 'RO', '2026-07-10 10:00:00+00'),
   ('0a000000-0000-0000-0000-000000000015', 'a1000000-1111-0000-0000-000000000002', 1900, 0, 'completed', 'old_2', NULL, 'storelib', '{"surface":"onepage"}', NULL, NULL, NULL, 'US', '2026-07-11 10:00:00+00'),

@@ -59,7 +59,7 @@ export type AnalyticsEventType = (typeof EVENT)[keyof typeof EVENT]
  */
 export const LEGACY_EVENT_TYPES = ["store_view", "product_view", "session_start", "add_to_cart"] as const
 
-/** Every value the database's check allows (supabase/sql/run-now part 60). */
+/** Every value the database's check allows (supabase/sql/run-now part 61). */
 export const ALLOWED_EVENT_TYPES = [...Object.values(EVENT), ...LEGACY_EVENT_TYPES] as const
 
 /** A visit ends after this long without a page; the same number as lib/analytics-utils sl_asid and lib/analytics/anon-visit. */
@@ -78,7 +78,7 @@ export const LINK_URL_MAX = 500
  * page, and at most 300 characters. Given a full address or a path.
  *
  * Plain string steps rather than `new URL`, because the SQL backfill and the
- * rollups do the same steps (part 60) and the two must agree to the letter.
+ * rollups do the same steps (part 61) and the two must agree to the letter.
  */
 export function normalizePath(raw: string | null | undefined): string | null {
   if (typeof raw !== "string") return null
@@ -149,7 +149,7 @@ export interface AnalyticsEventRow {
 
 /* ─── The daily rollup ─────────────────────────────────────────────────── */
 
-/** The rollup table and the functions that keep it (part 60). */
+/** The rollup table and the functions that keep it (part 61). */
 export const ROLLUP = {
   table: "analytics_property_daily",
   daysTable: "analytics_rollup_days",

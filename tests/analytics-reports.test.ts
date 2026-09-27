@@ -158,7 +158,7 @@ console.log("\nAn order is under exactly one place")
   const one = (lines: Partial<OrderRow>[], source: string | null = null) => orderProperty({ lines: lines as never, source })
   check("attributed: its own property", one([{ property_type: "website", property_id: W2 }]).type === "website" && one([{ property_type: "website", property_id: W2 }]).id === W2)
   check("  the creator page's id is not needed to tell it apart", one([{ property_type: "creator_page", property_id: "creator-id" }]).id === null)
-  check("before part 59: a website's source is the website", one([{ source: "website" }], "website").type === "website")
+  check("before part 60: a website's source is the website", one([{ source: "website" }], "website").type === "website")
   check("  the OnePage's surface is the OnePage", one([{ source: "storelib", source_detail: { surface: "onepage" } }], "storelib").type === "onepage")
   check("  anything else is the creator page", one([{ source: "storelib", source_detail: { surface: "product" } }], "storelib").type === "creator_page" && one([{}], null).type === "creator_page")
   const orders: OrderRow[] = [
@@ -720,7 +720,7 @@ console.log("\nAnalytics: disputes, products and countries, from the accuracy au
 
 console.log("\nAnalytics: counted by the database, and from the rows while it cannot")
 {
-  const sql = read("supabase/sql/run-now/60_analytics_one_pipeline.sql")
+  const sql = read("supabase/sql/run-now/61_analytics_one_pipeline.sql")
   const lines = sql.trim().split("\n")
   check("the part is one whole statement per line", lines.slice(1).every((l) => /;\s*$/.test(l)), lines.findIndex((l, i) => i > 0 && !/;\s*$/.test(l)))
   check("the report functions are the server's alone: a creator id in, so nobody else may run them",
@@ -734,7 +734,7 @@ console.log("\nAnalytics: counted by the database, and from the rows while it ca
     && /FROM public\.analytics_property_daily d WHERE d\.creator_id = \$1 /.test(report54) && /analytics_property_counts\(r\.f, r\.t, \$1, /.test(report54), eventReads)
   check("  planned for each question, not once for all of them", /EXECUTE format\(/.test(report54) && !/SECURITY DEFINER/.test(report54))
   check("the run-now part is listed with its size, and the check after has a column for it",
-    /`60_analytics_one_pipeline\.sql` \|[^\n]*\| 41 \|/.test(read("supabase/sql/run-now/README.md")) && /as p60_analytics_reports;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    /`61_analytics_one_pipeline\.sql` \|[^\n]*\| 41 \|/.test(read("supabase/sql/run-now/README.md")) && /as p61_analytics_reports;/.test(read("supabase/sql/run-now/99_check_after.sql")))
 
   const reads = read("lib/analytics/report-read.ts")
   check("the route counts in the database, and from the rows while the function is missing",

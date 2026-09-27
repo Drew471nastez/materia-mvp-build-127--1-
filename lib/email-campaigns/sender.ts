@@ -30,6 +30,7 @@
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { toOriginalImageUrl } from "@/lib/storage/image-url"
 import { emailImageUrl } from "./brand"
+import { inboxImageUrl } from "./inbox-image"
 import { APP_ORIGIN } from "@/lib/email-variables"
 
 export interface SenderPicture {
@@ -69,6 +70,11 @@ const EMAIL_QUALITY = 75
  * Next image endpoint is the one the storefront already uses for the same
  * pictures (lib/images/optimized-url), so the email asks it for twice the
  * drawn width, as an absolute address an inbox can fetch.
+ *
+ * UPLOADS GO THROUGH /api/email/img NOW (./inbox-image): one PNG or JPEG for
+ * every client, a PNG whenever the picture has any transparency, JPEG quality
+ * 86, 3x for small marks. What follows is the site's image endpoint, which
+ * still sizes a picture on Storelib's own address.
  *
  * WHAT FORMAT EACH INBOX GETS. The endpoint picks by the Accept header. A
  * client that does not say it takes WebP or AVIF (Outlook on Windows asks
@@ -125,6 +131,9 @@ function ownPath(url: string): string {
 }
 
 function sized(safe: string, drawnWidth: number): string {
+  /* A stored upload: made for inboxes by /api/email/img (./inbox-image), transparency kept, never a WebP. */
+  const inbox = inboxImageUrl(APP_ORIGIN, toOriginalImageUrl(safe), drawnWidth)
+  if (inbox) return inbox
   const original = ownPath(toOriginalImageUrl(safe))
   const resized = optimizedImageUrl(original, drawnWidth, EMAIL_QUALITY)
   if (resized.startsWith("/_next/image")) return `${APP_ORIGIN}${resized}`

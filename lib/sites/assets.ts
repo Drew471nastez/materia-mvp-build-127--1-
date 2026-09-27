@@ -1,4 +1,5 @@
 import "server-only"
+import { inspectHead } from "@/lib/security/uploads/inspect"
 
 /**
  * The media a creator uploads to their site.
@@ -183,6 +184,17 @@ export async function uploadAsset(input: {
   if (!matchesDeclared(head, input.mime)) {
     return { ok: false, error: `That file is not the ${ALLOWED[input.mime].toUpperCase()} it says it is.` }
   }
+  /* The central check (lib/security/uploads): nothing that runs, nothing a
+     browser renders as a page, whatever the declared type says. */
+  const verdict = inspectHead({
+    fileName: `asset.${ALLOWED[input.mime]}`,
+    declaredMime: input.mime,
+    size: bytes,
+    head,
+    context: input.mime.startsWith("image/") ? "public_image" : "link_page_file",
+    maxBytes: Number.MAX_SAFE_INTEGER,
+  })
+  if (!verdict.ok) return { ok: false, error: verdict.userMessage }
   let body: ArrayBuffer | Uint8Array = input.body
   if (input.mime.startsWith("image/")) {
     const size = readImageSize(new Uint8Array(input.body))

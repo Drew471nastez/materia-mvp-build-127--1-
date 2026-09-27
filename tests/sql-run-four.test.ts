@@ -59,14 +59,14 @@ console.log("\nNothing slow runs while the orders table is held")
   A file is one transaction and keeps every lock it takes until it ends. The
   file with parts 20 to 89 alters orders early (parts 32, 36, 59), so a slow
   statement after that holds every checkout, webhook and receipt read for as
-  long as it takes. Part 60's placing of old page views rewrites every old
+  long as it takes. Part 61's placing of old page views rewrites every old
   view: 76 s at a million rows, measured with an order read waiting 75 s.
   It runs first in the last file instead, which holds no order table, and
   the same goes for the three files in all-in-three/.
 */
-const backfill = read(`${RN}/60_analytics_one_pipeline.sql`).split("\n").filter((l) => l.includes("old page views placed on a property"))
+const backfill = read(`${RN}/61_analytics_one_pipeline.sql`).split("\n").filter((l) => l.includes("old page views placed on a property"))
 const three = ["1_of_3_core_library_checkout.sql", "2_of_3_latest.sql", "3_of_3_storage_policies_and_check.sql"].map((f) => read(`supabase/sql/all-in-three/${f}`))
-check("part 60 places old page views in one statement", backfill.length === 1 && /^DO \$\$/.test(backfill[0]))
+check("part 61 places old page views in one statement", backfill.length === 1 && /^DO \$\$/.test(backfill[0]))
 check("  which is in no file that alters orders", [...four, ...three].filter((f) => f.includes(backfill[0])).every((f) => !/ALTER TABLE public\.orders\b/.test(f)), "")
 check("  and runs first in the last file, before the storage policies and the check", [four[3], three[2]].every((f) => {
   const body = f.split("\n").filter((l) => l.trim() && !l.startsWith("--") && !/^set local /.test(l))

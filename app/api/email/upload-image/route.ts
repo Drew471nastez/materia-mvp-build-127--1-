@@ -2,7 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { preparePublicImage } from "@/lib/storage/public-image"
-import { FLAGGED_UPLOAD, UPLOAD_HEADERS, screenPublicBytes, uploadRateLimit } from "@/lib/storage/upload-guard"
+import { UPLOAD_HEADERS, screenInBackground, uploadRateLimit } from "@/lib/storage/upload-guard"
+import { userMessage } from "@/lib/security/uploads/policy"
 
 const BUCKET_NAME = "email-images"
 
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (file.size > MAX_EMAIL_IMAGE_BYTES) {
-      return NextResponse.json({ error: "File size must be less than 5MB" }, { status: 400, headers: UPLOAD_HEADERS })
+      return NextResponse.json({ error: userMessage("too_large", "public_image", MAX_EMAIL_IMAGE_BYTES) }, { status: 413, headers: UPLOAD_HEADERS })
     }
 
     /* A picture by its bytes, never an SVG, without its location metadata:
@@ -50,10 +51,6 @@ export async function POST(request: NextRequest) {
     }
 
     const fileName = `${creator.id}/${Date.now()}-${crypto.randomUUID().replace(/-/g, "")}.${picture.ext}`
-    const screened = await screenPublicBytes(adminSupabase, picture.bytes, { source: "public_image", bucket: BUCKET_NAME, path: fileName })
-    if (screened.blocked) {
-      return NextResponse.json({ error: FLAGGED_UPLOAD }, { status: 400, headers: UPLOAD_HEADERS })
-    }
     const upload = () =>
       adminSupabase.storage.from(BUCKET_NAME).upload(fileName, picture.bytes, {
         contentType: picture.mime,
@@ -76,13 +73,14 @@ export async function POST(request: NextRequest) {
 
     if (uploadError || !uploadData) {
       console.error("Upload error:", uploadError)
-      return NextResponse.json({ error: "Failed to upload image" }, { status: 500, headers: UPLOAD_HEADERS })
+      return NextResponse.json({ error: "The upload didn't finish. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
     }
 
+    screenInBackground(adminSupabase, { bytes: picture.bytes, bucket: BUCKET_NAME, path: fileName, context: "public_image", userId: user.id })
     const { data: urlData } = adminSupabase.storage.from(BUCKET_NAME).getPublicUrl(fileName)
 
     if (!urlData?.publicUrl) {
-      return NextResponse.json({ error: "Failed to get public URL" }, { status: 500, headers: UPLOAD_HEADERS })
+      return NextResponse.json({ error: "The upload didn't finish. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
     }
 
     return NextResponse.json(
@@ -95,6 +93,6 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     console.error("Upload image error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500, headers: UPLOAD_HEADERS })
+    return NextResponse.json({ error: "The upload didn't finish. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
   }
 }

@@ -90,7 +90,7 @@ export async function readWebsitePerformance(input: {
     try {
       read = await readViews("id, session_id, visitor_id, created_at, page_url, property_type")
     } catch (e) {
-      /* A database before part 60 has no property_type, and no OnePage views to leave out. */
+      /* A database before part 61 has no property_type, and no OnePage views to leave out. */
       if (!/column|PGRST204/i.test((e as Error).message)) throw e
       read = await readViews("id, session_id, visitor_id, created_at, page_url")
     }

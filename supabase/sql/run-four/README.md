@@ -2,7 +2,7 @@
 
 Everything the app is waiting on from the last three weeks, in four files for
 the Supabase SQL editor. They hold every part in `supabase/sql/run-now/`
-(01 to 60, then the storage policies and the check), text unchanged, so there
+(01 to 61, then the storage policies and the check), text unchanged, so there
 is one list and nothing to pick out by hand.
 
 ## How to run them
@@ -32,10 +32,6 @@ from `run-now/`, changes nothing.
 - `32`: writes each order's creator into its new `creator_id` column, from the
   order's product. From then on deleting a product keeps its orders (with no
   product) instead of deleting them.
-- `60`: old page views in `analytics_events` get the place they were seen on
-  (creator page or website), from the address each was recorded on. This step
-  runs first in file 4, on its own: about a minute per million page views,
-  and orders, checkout and new page views carry on while it runs.
 
 Nothing else touches existing rows. Nothing deletes data.
 

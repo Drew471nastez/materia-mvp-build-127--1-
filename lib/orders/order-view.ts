@@ -48,7 +48,7 @@ export interface OrderRow {
   source?: string | null
   /** Where the checkout began (lib/orders/order-source), as the row holds it. */
   source_detail?: unknown
-  /** Which of the creator's places sold it (supabase/sql/run-now part 59); absent on an older database. */
+  /** Which of the creator's places sold it (supabase/sql/run-now part 60); absent on an older database. */
   property_type?: string | null
   property_id?: string | null
   product?: {

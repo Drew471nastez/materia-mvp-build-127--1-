@@ -7,10 +7,14 @@
  * Two previews on top, what a chat app draws when the link is shared and
  * what Google lists, and under them the fields that change them. Every field
  * starts out following the page (lib/onepage/seo resolveOnePageSeo): its box
- * is empty and shows what the page gives it, grey, and the previews change
- * as the name, bio, photo or theme change anywhere in the editor. Typing in a
- * box makes that field the creator's own; "Use page name" (or bio, or the
- * search title) empties it and it follows again.
+ * is empty and shows what the page gives it, grey, with a line under it
+ * saying where that comes from ("From your bio", "From your page: 3
+ * products, 2 socials"), and the previews change as the name, bio, photo,
+ * theme, links or products change anywhere in the editor. With no bio the
+ * description is made from the page's blocks (lib/onepage/seo-description),
+ * with each product read as the catalogue has it now, as the public page
+ * reads it. Typing in a box makes that field the creator's own; "Use page
+ * name" (or bio, or the search title) empties it and it follows again.
  *
  * The picture a shared link shows is one of three (lib/onepage/seo
  * pickShareImage): the profile photo, which every page starts with; the
@@ -36,6 +40,8 @@ import {
   type ResolvedField,
   type ShareImageMode,
 } from "@/lib/onepage/seo"
+import { descriptionSourceNote } from "@/lib/onepage/seo-description"
+import { answersForBlocks, productIdsInBlocks, resolveProductBlocks, type ProductAnswers, type ProductsDb } from "@/lib/onepage/live-products"
 import { ShareCardArt } from "@/components/onepage/share-card"
 import { useOwnerProfile } from "@/components/onepage/live-preview"
 import { createClient } from "@/lib/supabase/client"
@@ -69,6 +75,44 @@ async function asJpeg(file: File): Promise<Blob | null> {
   } catch {
     return null
   }
+}
+
+/**
+ * What the catalogue says about the products the draft names, as the preview
+ * frame asks it (components/onepage/preview-document): only for a product it
+ * has not asked about yet, so typing does not read the database on every key.
+ * An archived or unpublished product then drops out of the description here
+ * as it does on the public page. A read that fails answers nothing.
+ */
+function useProductAnswers(sellerId: string | null, blocks: unknown): ProductAnswers {
+  const [answers, setAnswers] = useState<ProductAnswers>(() => new Map())
+  const asked = useRef(new Set<string>())
+  /* Kept across edits: an answer asked for before the next key press still lands. */
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+  useEffect(() => {
+    if (!sellerId || !blocks) return
+    const fresh = productIdsInBlocks(blocks).filter((id) => !asked.current.has(id))
+    if (fresh.length === 0) return
+    for (const id of fresh) asked.current.add(id)
+    let db: ProductsDb
+    try {
+      db = createClient() as unknown as ProductsDb
+    } catch {
+      return
+    }
+    answersForBlocks(db, sellerId, blocks)
+      .then((got) => {
+        if (mounted.current && got.size > 0) setAnswers((prev) => new Map([...prev, ...got]))
+      })
+      .catch(() => undefined)
+  }, [sellerId, blocks])
+  return answers
 }
 
 /** The 1200 by 630 card, drawn at its own size and scaled to the width it is given. */
@@ -108,10 +152,12 @@ function Field({
   max: number
   multiline?: boolean
   resetLabel: string
+  /** Where the words come from while the field follows the page, said under it. */
   followsLabel?: string
   onChange: (value: string | null) => void
   id: string
 }) {
+  const noteId = `${id}-source`
   const own = !field.auto
   const count = textLength(stored)
   const common = {
@@ -121,6 +167,7 @@ function Field({
     placeholder: field.auto ? field.value : "",
     "data-seo-field": id,
     "data-follows": field.auto ? "" : undefined,
+    "aria-describedby": field.auto ? noteId : undefined,
     onChange: (e: { target: { value: string } }) => onChange(e.target.value === "" ? null : e.target.value),
     /* The editor's own text box (editor-kit fieldInput): 16px on a phone, so iOS does not zoom in on it. */
     className: fieldInput,
@@ -145,11 +192,14 @@ function Field({
               {resetLabel}
             </button>
           </span>
-        ) : (
-          <span className="shrink-0 whitespace-nowrap text-[12px] text-[#9ca3af]">{followsLabel}</span>
-        )}
+        ) : null}
       </div>
       {multiline ? <textarea {...common} rows={3} className={cn(common.className, "h-auto resize-none py-3 leading-snug")} /> : <input {...common} type="text" />}
+      {field.auto ? (
+        <p id={noteId} className="text-[12.5px] leading-snug text-[#6b7280]" data-seo-source={id}>
+          {followsLabel}
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -168,6 +218,9 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
     () => (onepage ? publicOnePageFromDraft(onepage as never, { displayName: owner.displayName, liveAvatarUrl: owner.avatarUrl }) : null),
     [onepage, owner.displayName, owner.avatarUrl],
   )
+  const answers = useProductAnswers(drawn?.seller_id ?? null, drawn?.blocks)
+  /* The draft's blocks with each product as its row has it now, as the public page reads them. */
+  const blocks = useMemo(() => (drawn ? resolveProductBlocks(drawn.blocks, answers) : []), [drawn, answers])
   const settings = (onepage?.settings ?? {}) as Record<string, any>
   const seo = useMemo(
     () =>
@@ -175,6 +228,8 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
         ? resolveOnePageSeo({
             name: drawn.title,
             bio: drawn.bio,
+            blocks,
+            socialLinks: drawn.social_links,
             handle: onepage.slug,
             avatarUrl: drawn.avatar_url,
             theme: drawn.theme,
@@ -184,7 +239,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
           })
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [drawn, onepage?.slug, onepage?.settings, onepage?.share_image_mode, focalDraft, pageUrl],
+    [drawn, blocks, onepage?.slug, onepage?.settings, onepage?.share_image_mode, focalDraft, pageUrl],
   )
   if (!onepage || !seo) return null
 
@@ -494,6 +549,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
           stored={stored("seo_title")}
           max={SEO_TITLE_MAX}
           resetLabel="Use page name"
+          followsLabel={seo.derived.title === "name-and-handle" ?"From your page name and address" : "From your page name"}
           onChange={write("seo_title")}
         />
         <Field
@@ -503,7 +559,8 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
           stored={stored("seo_description")}
           max={SEO_DESCRIPTION_MAX}
           multiline
-          resetLabel={drawn?.bio?.trim() ? "Use bio" : "Use automatic"}
+          resetLabel={seo.derived.description.kind === "bio" ? "Use bio" : "Use page summary"}
+          followsLabel={descriptionSourceNote(seo.derived.description)}
           onChange={write("seo_description")}
         />
         {socialOpen ? (
@@ -511,7 +568,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
             <Field
               id="social-title"
               label="Shared title"
-              followsLabel={seo.title.auto ? "Follows your page" : "Same as search"}
+              followsLabel={seo.title.auto ? "From your page name" : "Same as search title"}
               field={seo.socialTitle}
               stored={stored("social_title")}
               max={SEO_TITLE_MAX}
@@ -521,7 +578,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
             <Field
               id="social-description"
               label="Shared description"
-              followsLabel="Same as search"
+              followsLabel="Same as search description"
               field={seo.socialDescription}
               stored={stored("social_description")}
               max={SEO_DESCRIPTION_MAX}

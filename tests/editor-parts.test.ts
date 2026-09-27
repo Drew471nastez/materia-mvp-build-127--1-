@@ -64,13 +64,13 @@ check("how much of how much, and the time left from a smoothed rate", /formatSen
 check("a finished upload is the same row: its key follows the file into the saved list, placed by the order it was dropped in",
   /rows\.current\.set\(done\.file_path, \{ key, seq \}\)/.test(uploads) && /\(rows\.current\.get\(f\.file_path\)\?\.seq \?\? -1\) > seq/.test(uploads) && /<FileRow key=\{entry\.key\}/.test(uploads) && /\.sort\(\(a, b\) => a\.seq - b\.seq\)/.test(uploads))
 check("done is a check that comes and goes on opacity and transform, for SETTLE_MS", /el\.animate\(\s*\[\s*\{ opacity: 0, transform: "scale\(0\.6\)" \}/.test(uploads) && /later\(\(\) => drop\(key\), SETTLE_MS\)/.test(uploads) && /data-upload-check=""/.test(uploads))
-check("a failure stays in its row, with Retry that starts it again in its place", /data-upload-retry=""/.test(uploads) && /run\(u\.key, u\.seq, u\.file, u\.productId\)/.test(uploads) && /status: "error", error: plainError\(err\)/.test(uploads))
+check("a failure stays in its row, with Retry that starts it again in its place", /data-upload-retry=""/.test(uploads) && /run\(u\.key, u\.seq, u\.file, u\.productId\)/.test(uploads) && /status: "error", error: said\.text/.test(uploads))
 check("an upload can be cancelled from its row", /aria-label=\{`Cancel upload of \$\{name\}`\}/.test(uploads) && /uploaders\.current\.get\(key\)\?\.abort\(\)/.test(uploads))
 check("more can be added while some are uploading, counted against the limit", /digitalFiles\.length \+ inFlight\.length \+ fileArray\.length > MAX_DIGITAL_FILES/.test(editor) && /fileUploads\.start\(fileArray, currentProductId \|\| undefined\)/.test(editor) && !/disabled=\{uploadingFiles\}/.test(editor))
 check("a finished file's rename and delete are one menu, a sheet on a phone", /<ResponsiveActionMenu[\s\S]{0,300}label: "Rename"[\s\S]{0,200}label: "Delete", variant: "destructive"/.test(uploads))
 check("every press in a row is 44px on a phone", /inline-flex h-11 w-11 shrink-0/.test(uploads) && /min-h-\[64px\]/.test(uploads))
 check("drag and drop onto the list, and a drop zone when there are no files", /onDrop: \(e: React\.DragEvent\)/.test(uploads) && /Drop to upload/.test(uploads) && /Choose files/.test(uploads))
-check("the virus scan still runs after each upload", /fetch\("\/api\/v2\/upload\/scan"/.test(uploads))
+check("the file check is the server's, when the upload completes: the editor asks no scan route afterwards", !/fetch\("\/api\/v2\/upload\/scan"/.test(uploads))
 check("reduced motion drops every movement", /motion-reduce:transition-none/.test(uploads) && /if \(reducedMotion\(\)\)/.test(uploads))
 
 console.log("\nPricing (app/app/products/new/editor-controls.tsx)")

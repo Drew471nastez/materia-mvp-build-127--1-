@@ -1,7 +1,25 @@
-# Storelib file scanner
+# Storelib file scanner (optional)
 
-A small, authenticated HTTP API in front of ClamAV. Storelib (Next.js on
-Vercel) sends every uploaded file here before a buyer can download it.
+A small, authenticated HTTP API in front of ClamAV, kept here as an
+**optional** malware engine for Storelib. It is **not needed** and **not
+used** in production today.
+
+Storelib checks every upload itself, with nothing to deploy
+(`lib/security/uploads`): the file's real signature against its name and
+declared type, programs and launchers refused (disguised ones too), scripts
+and web pages behind a document's name, the EICAR test file, a ZIP's table of
+contents (zip bombs, `../` paths, programs inside), cleaned names, size limits
+per kind of upload. This scanner adds a full antivirus read on top, in the
+background, when it is switched on with **one explicit flag**:
+
+```
+SECURITY_MALWARE_PROVIDER=clamav
+CLAMAV_SERVICE_URL=https://scanner.yourdomain.com
+CLAMAV_SERVICE_SECRET=<the scanner's secret>
+```
+
+Without `SECURITY_MALWARE_PROVIDER=clamav`, Storelib makes no call to it and
+nothing waits for it, whatever the two `CLAMAV_*` variables hold.
 
 ```
 Storelib on Vercel  ──HTTPS, Bearer secret──▶  scanner API (Node)  ──INSTREAM, private network──▶  clamd
@@ -185,12 +203,13 @@ signatures baked into the image and freshclam updates them in memory; that is
 fine as long as instances are replaced now and then. A VPS or Railway is less
 work.
 
-## Connect Storelib
+## Connect Storelib (switch the engine on)
 
-Storelib reads two variables. Scanning is on only when both are set:
+Storelib reads three variables. The engine is on only when all three are set:
 
 | Variable | Value |
 | --- | --- |
+| `SECURITY_MALWARE_PROVIDER` | `clamav`. The explicit switch. Unset (the normal state) means Storelib's built-in checks only |
 | `CLAMAV_SERVICE_URL` | The scanner's https address, for example `https://scanner.yourdomain.com` (no path, no trailing slash needed) |
 | `CLAMAV_SERVICE_SECRET` | The same value as the scanner's `CLAMAV_SERVICE_SECRET` |
 | `CLAMAV_SERVICE_MAX_BYTES` | Optional. Keep equal to the scanner's `MAX_FILE_BYTES` if you change it (default 1 GiB) |
@@ -202,31 +221,34 @@ In order:
    first signature update runs).
 2. Copy that https address.
 3. Vercel, the Storelib project, Settings, Environment Variables: add
-   `CLAMAV_SERVICE_URL` with the address, for **Production**. The secret is
-   already there. To scan on preview deployments too, add both variables to
-   **Preview** as well.
+   `CLAMAV_SERVICE_URL` with the address and `SECURITY_MALWARE_PROVIDER` with
+   `clamav`, for **Production**. The secret is already there. Add all three
+   to **Preview** too to use it on preview deployments.
 4. Redeploy Storelib (Deployments, the latest one, Redeploy), so the new
-   variable is read.
-5. Open `storelib.com/admin/scanner` and press **Scan EICAR**. It should say
-   Infected: Eicar-Test-Signature, and show the ClamAV version and signature
-   date. Upload a normal file there too: Clean.
+   variables are read.
+5. Open `storelib.com/admin/security`. Under Checks, Malware engine should
+   read ClamAV. In Try the check, run the EICAR sample: the built-in checks
+   refuse it, and the ClamAV line under the verdict should say infected.
 
-Until step 3, Storelib runs exactly as it did before the scanner existed:
-every file still gets the header check (a renamed program is refused), the
-first upload logs once that scanning is off, and nothing is shown to
-creators.
+To switch it off again, remove `SECURITY_MALWARE_PROVIDER` (or set it to
+`none`) and redeploy. Nothing else changes.
 
 ## What Storelib does with each answer
 
-| | Paid product files | Pictures and other public files |
-| --- | --- | --- |
-| Clean | Downloadable | Saved |
-| Infected | Deleted from storage, the file row is quarantined, the creator sees **Blocked** with the threat's name, no buyer ever gets it | Not saved (or deleted, for one the hourly sweep finds) |
-| No verdict (scanner down, busy, slow, wrong secret) | Stays **pending**: buyers are told it is still being checked; the editor, a ten minute cron and a buyer's download of a small file retry | Saved: it has already passed the picture or header checks, and there is no pending state for a public URL |
-| Over 1 GB | Header checked only, recorded as `skipped`, downloadable | n/a |
+The built-in checks decide the upload while the creator waits (well under a
+second). The engine reads the whole file afterwards, in the background
+(`lib/security/uploads/pipeline.ts`), so nobody ever waits for it:
 
-Every scan is logged in `public.file_scans` (Storelib SQL part
-`supabase/sql/run-now/55_file_scans.sql`), shown on `/admin/scanner`.
+| | Product files | Pictures and other public files |
+| --- | --- | --- |
+| Clean | Recorded on the file | Nothing changes |
+| Infected | Deleted from storage, the file is marked blocked, no buyer ever gets it; the creator's editor shows the file was not accepted, in one plain sentence (never the threat's name) | Deleted from storage (its URL stops working) |
+| No verdict (scanner down, busy, slow, wrong secret) | Nothing changes: the file already passed the built-in checks. Logged | Nothing changes. Logged |
+| Over the scanner's limit | Skipped, logged | Skipped |
+
+Every verdict is logged in `public.file_security_events` (Storelib SQL part
+`supabase/sql/run-now/59_file_security_events.sql`) and shown on
+`/admin/security`.
 
 ## Settings
 

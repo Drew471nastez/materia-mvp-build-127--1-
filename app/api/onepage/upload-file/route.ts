@@ -1,12 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { validateFile } from "@/lib/storage"
-import { readBufferHeader, scanFile } from "@/lib/storage/security"
 import { storageExtension } from "@/lib/storage/validation"
 import { safeStoredContentType } from "@/lib/storage/file-signature"
 import { preparePublicImage } from "@/lib/storage/public-image"
-import { FLAGGED_UPLOAD, UPLOAD_HEADERS, screenPublicBytes, uploadRateLimit } from "@/lib/storage/upload-guard"
+import { UPLOAD_HEADERS, screenInBackground, uploadRateLimit } from "@/lib/storage/upload-guard"
+import { inspectUpload } from "@/lib/security/uploads/inspect"
+import { logUploadVerdict } from "@/lib/security/uploads/audit"
+import { runAfterResponse } from "@/lib/security/uploads/pipeline"
 
 // Runtime must be nodejs for file handling
 export const runtime = "nodejs"
@@ -23,9 +24,9 @@ const MAX_BYTES = 25 * 1024 * 1024
  * form: file, type ("image" or "digital")
  *
  * A picture must be one by its bytes, and loses its location metadata
- * (lib/storage/public-image.ts). A file is checked against the blocklist and
- * by its magic bytes, and stored with a Content-Type a browser will download
- * rather than render. The name is always this route's.
+ * (lib/storage/public-image.ts). A file goes through the central check
+ * (lib/security/uploads), and is stored with a Content-Type a browser will
+ * download rather than render. The name is always this route's.
  *
  * It used to reset the bucket's configuration on every request, three
  * storage API calls before the upload, and stored whatever type the browser
@@ -78,13 +79,19 @@ export async function POST(request: NextRequest) {
     let ext: string
 
     if (isDigital) {
-      const validation = validateFile(file.name, file.type || "application/octet-stream", file.size)
-      if (!validation.valid) {
-        return NextResponse.json({ error: validation.reason }, { status: 400, headers: UPLOAD_HEADERS })
-      }
-      const scan = scanFile(file.name, file.type || "application/octet-stream", readBufferHeader(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength)))
-      if (!scan.safe) {
-        return NextResponse.json({ error: scan.reason }, { status: 400, headers: UPLOAD_HEADERS })
+      /* The central check, ZIP contents included, on the bytes in hand. */
+      const verdict = await inspectUpload({
+        fileName: file.name,
+        declaredMime: file.type,
+        size: bytes.byteLength,
+        head: bytes.subarray(0, 8192),
+        tail: { bytes: bytes.subarray(Math.max(0, bytes.byteLength - 70_000)), start: Math.max(0, bytes.byteLength - 70_000) },
+        readRange: async (a, b) => bytes.subarray(a, b + 1),
+        context: "link_page_file",
+      })
+      runAfterResponse(() => logUploadVerdict(adminSupabase, verdict, { context: "link_page_file", userId: user.id, creatorId: creator.id, bucket: BUCKET_NAME, bytes: bytes.byteLength }))
+      if (!verdict.ok) {
+        return NextResponse.json({ error: verdict.userMessage }, { status: 400, headers: UPLOAD_HEADERS })
       }
       body = bytes
       contentType = safeStoredContentType(file.type, bytes)
@@ -102,16 +109,6 @@ export async function POST(request: NextRequest) {
     const subfolder = isDigital ? "digital-products" : "product-images"
     const fileName = `${creator.id}/${subfolder}/${Date.now()}-${crypto.randomUUID().replace(/-/g, "")}.${ext}`
 
-    /* Public the moment it is stored, so scanned before (lib/storage/upload-guard.ts). */
-    const screened = await screenPublicBytes(adminSupabase, body, {
-      source: isDigital ? "link_page_file" : "public_image",
-      bucket: BUCKET_NAME,
-      path: fileName,
-    })
-    if (screened.blocked) {
-      return NextResponse.json({ error: FLAGGED_UPLOAD }, { status: 400, headers: UPLOAD_HEADERS })
-    }
-
     const { data: uploadData, error: uploadError } = await adminSupabase.storage
       .from(BUCKET_NAME)
       .upload(fileName, body, {
@@ -125,10 +122,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "The upload failed. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
     }
 
+    screenInBackground(adminSupabase, { bytes: body, bucket: BUCKET_NAME, path: fileName, context: isDigital ? "link_page_file" : "public_image", userId: user.id })
     const { data: urlData } = adminSupabase.storage.from(BUCKET_NAME).getPublicUrl(fileName)
 
     if (!urlData?.publicUrl) {
-      return NextResponse.json({ error: "Failed to get public URL" }, { status: 500, headers: UPLOAD_HEADERS })
+      return NextResponse.json({ error: "The upload didn't finish. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
     }
 
     return NextResponse.json(

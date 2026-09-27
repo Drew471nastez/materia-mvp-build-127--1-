@@ -54,7 +54,6 @@ export {
 export {
   type ScanStatus,
   type ScanResult,
-  scanFileForViruses,
   updateAssetScanStatus,
   isAssetSafeToDownload,
   getPendingScanAssets,
