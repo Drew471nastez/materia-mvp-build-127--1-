@@ -50,19 +50,16 @@ import { getAppNavigation } from "@/lib/ui/app-navigation"
  * it; the layer puts that picture back (keepPageUnder), since the page under
  * a rising layer is the whole point.
  *
- * GOING BACK: A VIEW TRANSITION OF ITS OWN, AROUND THE NAVIGATION. Most ways
- * back are router.back(), a popstate, and React renders a popstate at once,
- * with no view transition, so it cannot be React's. moveLayer("leave")
- * starts one itself: the picture of the layer is taken as it is on the
- * screen, the navigation runs inside the transition, and the transition
- * waits for this file's own signal that the commit happened (the layer
- * unmounting, in a layout effect, before that frame is painted), at most
- * LAYER_WAIT_MS. The page a layer goes back to is almost always the one it
- * was opened from, which the router still holds, so the commit is a frame or
- * two away; past the wait the move is skipped and the page lands on its own.
- * While it runs, React is told the layer has no exit of its own (`manual`),
- * so the two never both move it. A link out of a layer to another address
- * is a push, and React drops the layer itself, the same way.
+ * GOING BACK: PLAYED BY THE LAYER, AT THE COMMIT, IN EVERY ENGINE. Most ways
+ * back are router.back(), a popstate, which React renders with no view
+ * transition, and the page it goes to may have to be fetched first. So
+ * moveLayer("leave") starts the navigation and leaves the layer live until
+ * the commit that takes it away; in that commit it is copied into a still
+ * over the page that came, and the still drops (THE WAY BACK, PLAYED AT THE
+ * COMMIT, below). While a way back is on its way, React is told the layer
+ * has no exit of its own (`manual`), so the two never both move it. A link
+ * out of a layer to another address is a push, and React drops the layer
+ * itself in a view transition, where there are any.
  *
  * <html> carries data-layer-motion ("enter" or "leave") while a layer moves,
  * which is what the ::view-transition rules select on and what tells the
@@ -70,10 +67,10 @@ import { getAppNavigation } from "@/lib/ui/app-navigation"
  * curve are set here and handed to the CSS as custom properties on <html>,
  * one number in one place.
  *
- * WHERE THERE ARE NO VIEW TRANSITIONS the layer moves itself, the same
- * distance over the same times on the same curve, over or under a still copy
- * of the window that stands in for the photograph a transition would have
- * taken (BY HAND, below). WebKit had none before Safari 18, and on those
+ * WHERE THERE ARE NO VIEW TRANSITIONS the layer rises by itself, the same
+ * distance over the same time on the same curve, over a still copy of the
+ * window that stands in for the photograph a transition would have taken
+ * (BY HAND, below). Going back is played that way everywhere. WebKit had none before Safari 18, and on those
  * iPhones the editor used to appear and vanish in one frame.
  *
  * NO MOVE under reduced motion, from 768px, on the browser's own back (a
@@ -83,11 +80,9 @@ import { getAppNavigation } from "@/lib/ui/app-navigation"
  */
 export const LAYER_MOTION_MS = 360
 /** Going back down is a little quicker than coming up, as a sheet is. */
-export const LAYER_LEAVE_MS = 300
+export const LAYER_LEAVE_MS = 280
 /** The iOS sheet curve, the one the segmented control and the sheets use. */
 export const LAYER_MOTION_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-/** The longest the way back holds its picture for the page under it to commit. */
-export const LAYER_WAIT_MS = 450
 /** Where the editor is a layer at all: the pill's breakpoint, the same 768px as `phoneOnly`. */
 export const LAYER_PHONE = "(max-width: 767px)"
 /** The view transition name the layer carries while it moves, and that the CSS animates. */
@@ -319,8 +314,8 @@ export function afterLayerMove(fn: () => void): () => void {
   page the router replaced is gone from the document. So a STILL is made
   instead: a copy of what is on the screen, laid over the window, inert and
   taking no presses, which is under a rising layer (the list you pressed on)
-  and over a dropping one (the editor, while the list commits live
-  underneath). A copy is not a photograph, so three things are put back into
+  and over a dropping one (the editor, copied as the way back starts and
+  shown in the commit that puts the list under it, dropAtCommit). A copy is not a photograph, so three things are put back into
   it, because cloneNode does not carry them: what is typed in the fields (a
   clone carries the value attribute, not the value), where every scroller is
   standing, and no element ids, which must not exist twice in one document.
@@ -340,8 +335,8 @@ export function afterLayerMove(fn: () => void): () => void {
   hidden, so it adds no height and traps nothing; the page underneath keeps
   the scroll the router gives it.
 
-  Transform alone on one element each way, promoted for the move
-  (app/globals.css, [data-layer-still]). Nothing under reduced motion or
+  Transform alone on one element each way (and, going down, a little
+  opacity), promoted for the move (app/globals.css, [data-layer-still]). Nothing under reduced motion or
   from 768px: layerMotionOn decides that for both paths alike.
 */
 
@@ -447,10 +442,8 @@ function copyFor(el: HTMLElement): HTMLElement {
   return copy
 }
 
-/** The layer as it stands, to drop over the page the router is about to bring. */
-function layerStill(): HTMLElement | null {
-  const layer = document.querySelector<HTMLElement>("[data-page-layer]")
-  if (!layer) return null
+/** The layer as it stands, to drop over the page the router has just brought. */
+function layerStill(layer: HTMLElement): HTMLElement {
   const box = stillBox(true)
   const copy = copyFor(layer)
   copy.style.position = "absolute"
@@ -491,10 +484,12 @@ function pageStill(): HTMLElement | null {
   return box
 }
 
-/** A move of our own, on one element, held until the screen keeps up. */
+/** A move of our own, on one element, held until the screen keeps up. Going down it fades a little (LAYER_LEAVE_FADE). */
 function moveByHand(el: HTMLElement, up: boolean, ms: number) {
   const a = el.animate(
-    up ? [{ transform: "translateY(100%)" }, { transform: "translateY(0)" }] : [{ transform: "translateY(0)" }, { transform: "translateY(100%)" }],
+    up
+      ? [{ transform: "translateY(100%)" }, { transform: "translateY(0)" }]
+      : [{ transform: "translateY(0)", opacity: 1 }, { transform: "translateY(100%)", opacity: LAYER_LEAVE_FADE }],
     { duration: ms, easing: LAYER_MOTION_EASE, fill: up ? "backwards" : "forwards" },
   )
   startWhenFramesFlow([a], 2)
@@ -503,7 +498,7 @@ function moveByHand(el: HTMLElement, up: boolean, ms: number) {
 
 /* The rise a press asked for, waiting for the layer it opens to mount. */
 let rising: { still: HTMLElement | null; cap: number } | null = null
-/* A drop of our own is running: a second press must not start another. */
+/* A drop of our own is running (dropAtCommit): a second press must not start another. */
 let dropping = false
 
 function endRise(want: { still: HTMLElement | null; cap: number }) {
@@ -577,49 +572,6 @@ function riseByHand(layer: HTMLElement | null) {
 }
 
 /**
- * The way back, by hand: a still of the editor is laid over the screen, the
- * navigation runs under it live, and the still drops to the bottom edge.
- */
-function dropByHand(navigate: () => void) {
-  const html = document.documentElement
-  /* The keyboard comes down before the move, not through it. */
-  const focused = document.activeElement
-  if (focused instanceof HTMLElement && focused !== document.body) focused.blur()
-  let over = false
-  let still: HTMLElement | null = null
-  dropping = true
-  const done = () => {
-    if (over) return
-    over = true
-    dropping = false
-    window.clearTimeout(cap)
-    still?.remove()
-    if (html.dataset.layerHand !== undefined && html.dataset.layerMotion === "leave") {
-      delete html.dataset.layerMotion
-      delete html.dataset.layerHand
-    }
-    runAfterMove()
-  }
-  const cap = window.setTimeout(done, LAYER_LEAVE_MS + STILL_CAP_MS)
-  afterNextPaint(() => {
-    if (over) return navigate()
-    /* The mark after the pressed frame, for the same reason as the rise's (raiseByHand). */
-    html.dataset.layerMotion = "leave"
-    html.dataset.layerHand = ""
-    setMotionVars(html)
-    still = layerStill()
-    if (!still) {
-      done()
-      navigate()
-      return
-    }
-    const move = moveByHand(still, false, LAYER_LEAVE_MS)
-    move.finished.then(done, done)
-    navigate()
-  })
-}
-
-/**
  * Called from the layer's layout effect, inside React's transition: marks what
  * this commit does. True when React is moving the layer for it, so the layer
  * knows not to move itself as well (riseByHand).
@@ -647,92 +599,140 @@ function markReactMotion(kind: "enter" | "leave"): boolean {
   return true
 }
 
-/* The way back of our own: resolved by the layer unmounting. */
-let leaving: (() => void) | null = null
-let leaves = 0
+/*
+  ===========================================================================
+   THE WAY BACK, PLAYED AT THE COMMIT
+  ===========================================================================
+  "When I'm in the edit product page or add new product page and I click
+  Cancel to close that page, it's not closing smoothly, going down, on
+  mobile version; it's abrupt, direct."
+
+  The way back used to be two moves. With view transitions it took its
+  picture at the press and waited up to 450ms for the page under it, and
+  when a popstate brought no page at once (the list had to be fetched again:
+  after a save, whose refresh drops every page the router kept, or on a slow
+  line) it let the picture go on the next task, so the editor stayed and
+  then the list simply replaced it. Without them (WebKit before Safari 18)
+  a still of the editor dropped at once, whatever the router was doing: over
+  the live editor, which then stood there again until the list came and
+  took it away in one frame. Both are the "direct" above, and both were
+  only smooth when the list was already in the router.
+
+  So there is one way back now, the same in every engine, and it does not
+  guess how long the router takes. The press is answered (the button dims,
+  and turns into a spinner if the list is slow); React is told the layer has
+  no exit of its own (`manual`); the navigation starts. The editor stays
+  live on the screen, taking no second press, for as long as the list takes,
+  with a still copy of it built and laid out, hidden, over it. Then, in the
+  commit that takes the layer away and puts the list in its place (the
+  layer's layout effect cleanup, before that frame is painted), the still is
+  uncovered where the layer was, over the list, and drops to the bottom
+  edge over LAYER_LEAVE_MS on the iOS curve, fading a little as it goes. So the first frame after the commit is the
+  editor where it was, with the list already under it, and the list is
+  under every frame after that: no frame without a page, no frame of the
+  editor gone before it has moved.
+
+  Nothing under reduced motion or from 768px (layerMotionOn), on the
+  browser's own back (a gesture on iOS draws its own), or when the press
+  never becomes a navigation (the wait ends after LAYER_PRESS_KEPT_MS).
+*/
+/** How far the dropping layer fades: a little, so it reads as going away, never as a crossfade. */
+export const LAYER_LEAVE_FADE = 0.85
+
+/* A way back that has started and whose commit has not come yet. */
+let dropWant: { cap: number; still: HTMLElement | null } | null = null
+
+/** React draws the layer's own exit again, after a way back of ours. */
+function endManual() {
+  manual = false
+  for (const change of changes) change()
+}
 
 function dropLayer(navigate: () => void) {
   const doc = document as WithViewTransitions
-  const html = document.documentElement
-  /* Not while one is running already (ours, or React's), and only with a layer on the screen to drop. */
-  if (leaving || manual || doc.__reactViewTransition || !layerMotionOn() || !document.querySelector("[data-page-layer]")) {
+  /* Not while one is on its way or running already (ours, or React's), and only with a layer on the screen to drop. */
+  if (dropWant || dropping || manual || doc.__reactViewTransition || !layerMotionOn() || !document.querySelector("[data-page-layer]")) {
     navigate()
     return
   }
-  /* No view transitions in this engine: the drop is played by hand instead, over the page the navigation brings. */
-  if (typeof doc.startViewTransition !== "function") {
-    if (dropping) navigate()
-    else dropByHand(navigate)
-    return
-  }
-  clearLeftovers()
-  const id = ++leaves
+  /* The keyboard comes down before the move, not through it. */
+  const focused = document.activeElement
+  if (focused instanceof HTMLElement && focused !== document.body) focused.blur()
   /* React is told first, and draws it before anything else: this layer has no exit of its own now. */
   manual = true
   flushSync(() => {
     for (const change of changes) change()
   })
-  let landed!: () => void
-  const commit = new Promise<void>((resolve) => {
-    landed = resolve
+  const want: { cap: number; still: HTMLElement | null } = { cap: 0, still: null }
+  dropWant = want
+  /* A press that never became a navigation: the layer is React's again. */
+  want.cap = window.setTimeout(() => {
+    if (dropWant !== want) return
+    dropWant = null
+    want.still?.remove()
+    endManual()
+  }, LAYER_PRESS_KEPT_MS)
+  /*
+    The press's own frame is painted first. Then, on the next one, the still
+    is built and laid out, hidden, while the live layer stays in front, and
+    the navigation starts: a copy, a style pass and a layout of a whole
+    editor, which inside the commit that brings the list would have been
+    that much longer before the first frame of the drop. The commit only
+    uncovers it (dropAtCommit).
+  */
+  afterNextPaint(() => {
+    if (dropWant === want) {
+      const layer = document.querySelector<HTMLElement>("[data-page-layer]")
+      want.still = layer ? layerStill(layer) : null
+      if (want.still) want.still.style.visibility = "hidden"
+    }
+    navigate()
   })
-  leaving = () => {
-    leaving = null
-    landed()
+}
+
+/**
+ * Called from the layer's layout effect cleanup, in the commit that takes it
+ * away: the drop a press asked for, from the still of the layer, shown over
+ * the page that commit brings before that frame is painted. False when no
+ * drop was asked for.
+ */
+function dropAtCommit(): boolean {
+  const want = dropWant
+  if (!want) return false
+  dropWant = null
+  window.clearTimeout(want.cap)
+  const html = document.documentElement
+  const still = want.still
+  if (!still || !still.isConnected || !layerMotionOn()) {
+    still?.remove()
+    endManual()
+    return true
   }
+  dropping = true
+  /* The page under it holds still, fully drawn: the stage reads this in the same commit and plays no landing of its own. */
   html.dataset.layerMotion = "leave"
+  html.dataset.layerHand = ""
   setMotionVars(html)
+  /* The layer has gone in this commit; its copy takes its place before the frame is painted. */
+  still.style.visibility = ""
+  let over = false
   const done = () => {
-    if (leaves !== id) return
-    leaving = null
-    manual = false
-    for (const change of changes) change()
-    if (html.dataset.layerMotion === "leave") delete html.dataset.layerMotion
+    if (over) return
+    over = true
+    dropping = false
+    window.clearTimeout(cap)
+    still.remove()
+    if (html.dataset.layerHand !== undefined && html.dataset.layerMotion === "leave") {
+      delete html.dataset.layerMotion
+      delete html.dataset.layerHand
+    }
+    endManual()
     runAfterMove()
   }
-  let move: ViewTransitionLike
-  try {
-    move = doc.startViewTransition(() => {
-      return new Promise<void>((resolve) => {
-        let settled = false
-        const giveBack = () => {
-          /* Not here yet: give the screen back, live, with the press's spinner turning, and let the page land on its own. */
-          if (settled) return
-          settled = true
-          window.clearTimeout(late)
-          window.removeEventListener("popstate", onPop)
-          leaving = null
-          move.skipTransition()
-          resolve()
-        }
-        const late = window.setTimeout(giveBack, LAYER_WAIT_MS)
-        /*
-          A way back that is a popstate is drawn by React at once, in the
-          same task, when the router has the page; when it has to fetch it,
-          nothing is drawn. So by the task after the popstate the answer is
-          known, and a page still on its way does not hold the picture.
-        */
-        const onPop = () => window.setTimeout(giveBack, 0)
-        window.addEventListener("popstate", onPop, { once: true })
-        void commit.then(() => {
-          if (settled) return
-          settled = true
-          window.clearTimeout(late)
-          window.removeEventListener("popstate", onPop)
-          resolve()
-        })
-        navigate()
-      })
-    })
-  } catch {
-    done()
-    navigate()
-    return
-  }
-  /* A skipped move rejects `ready`; that is an outcome, not an error. */
-  move.ready.catch(() => {})
-  layerMoveWhenDrawn(move)
+  const cap = window.setTimeout(done, LAYER_LEAVE_MS + STILL_CAP_MS)
+  const move = moveByHand(still, false, LAYER_LEAVE_MS)
   move.finished.then(done, done)
+  return true
 }
 
 /**
@@ -905,8 +905,9 @@ if (typeof window !== "undefined") listen()
  * "enter": `navigate` runs at once, in the same task, and React raises the
  * layer at the commit (see above), or, where there are no view transitions,
  * the layer raises itself over a still of the page (raiseByHand). "leave":
- * the layer drops inside a view transition of its own, with `navigate` run in
- * it, or by hand over the page the navigation brings. `press` is the control
+ * `navigate` runs on the frame after the press, the layer stays live until
+ * the commit that takes it away, and a still of it drops from there over the
+ * page that commit brought (dropAtCommit), in every engine. `press` is the control
  * to answer: by default the one under the last pointer press; `false` when
  * the caller draws its own answer (the products list's row, the product
  * editor's Cancel).
@@ -1036,10 +1037,9 @@ export function PageLayer({
     }
     return () => {
       html.classList.remove(name)
-      /* ...or it has gone, and the page under it is in the same commit: the way back of our own can take its picture. */
+      /* ...or it has gone, and the page under it is in the same commit: a way back of our own drops a still of it now, before this frame is painted. */
       releasePresses()
-      leaving?.()
-      markReactMotion("leave")
+      if (!dropAtCommit()) markReactMotion("leave")
     }
   }, [phoneOnly])
 

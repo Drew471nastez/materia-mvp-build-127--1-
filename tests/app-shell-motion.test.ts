@@ -419,9 +419,11 @@ section("Pages drawn over the whole shell")
   check("where there are no view transitions the layer moves itself, both ways, on transform and on the same numbers",
     /const canViewTransition = \(\) =>\s*typeof \(document as WithViewTransitions\)\.startViewTransition === "function" && !!ReactViewTransition/.test(layer)
       && /else if \(layerMotionOn\(\) && !canViewTransition\(\)\) raiseByHand\(navigate\)/.test(layer)
-      && /if \(typeof doc\.startViewTransition !== "function"\) \{\s*if \(dropping\) navigate\(\)\s*else dropByHand\(navigate\)/.test(layer)
+      /* Changed on purpose: the way back is played by the layer in every engine now (dropAtCommit), not only where there are no view transitions, and it fades a little as it goes down (LAYER_LEAVE_FADE). */
+      && /if \(!dropAtCommit\(\)\) markReactMotion\("leave"\)/.test(layer)
       && /if \(!markReactMotion\("enter"\)\) riseByHand\(box\.current\)/.test(layer)
-      && /up \? \[\{ transform: "translateY\(100%\)" \}, \{ transform: "translateY\(0\)" \}\] : \[\{ transform: "translateY\(0\)" \}, \{ transform: "translateY\(100%\)" \}\]/.test(layer)
+      && /\[\{ transform: "translateY\(100%\)" \}, \{ transform: "translateY\(0\)" \}\]\s*: \[\{ transform: "translateY\(0\)", opacity: 1 \}, \{ transform: "translateY\(100%\)", opacity: LAYER_LEAVE_FADE \}\]/.test(layer)
+      && /export const LAYER_LEAVE_FADE = 0\.85/.test(layer)
       && /duration: ms, easing: LAYER_MOTION_EASE/.test(layer)
       && /startWhenFramesFlow\(\[a\], 2\)/.test(layer))
   check("a move played by hand keeps a still of the window under the rise and over the drop, inert, out of the press's own task, and gone when it ends",
