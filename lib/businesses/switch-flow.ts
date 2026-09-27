@@ -152,7 +152,14 @@ export function tokenUser(token: string | null | undefined): string | null {
 }
 
 /** A promise with a limit: its value, or `timedOut` once `ms` has gone by. A rejection counts as an answer. */
-export function within<T>(deps: Pick<SwitchDeps, "setTimer" | "clearTimer">, p: Promise<T>, ms: number): Promise<{ timedOut: false; value?: T; error?: unknown } | { timedOut: true }> {
+export interface Within<T> {
+  /** No answer in time: `value` and `error` are both unset. */
+  timedOut: boolean
+  value?: T
+  error?: unknown
+}
+
+export function within<T>(deps: Pick<SwitchDeps, "setTimer" | "clearTimer">, p: Promise<T>, ms: number): Promise<Within<T>> {
   return new Promise((resolve) => {
     let done = false
     const t = deps.setTimer(() => {
