@@ -253,6 +253,7 @@ const SUITES = [
   "tests/settings-account-fixes.test.ts",
   "tests/settings-country.test.ts",
   "tests/avatar-one-source.test.ts",
+  "tests/creator-identity.test.ts",
   "tests/coupon-editor.test.ts",
   "tests/coupon-checkout.test.ts",
   "tests/cart-coupons.test.ts",

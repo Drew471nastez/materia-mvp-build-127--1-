@@ -3,6 +3,8 @@ import { revalidateTag } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { readCurrentUser } from "@/lib/auth/current-user"
 import { saveProfilePhoto, type PhotoClient } from "@/lib/account/avatar-save"
+import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
+import { sweepReplacedAvatar } from "@/lib/account/avatar-files"
 import { creatorTag } from "@/lib/commerce/product-page-cache"
 
 export const runtime = "nodejs"
@@ -58,6 +60,23 @@ export async function POST(request: NextRequest) {
 
   const saved = await saveProfilePhoto(supabase as unknown as PhotoClient, user, url)
   if (!saved.ok) return NextResponse.json({ error: saved.error }, { status: saved.status, headers: NO_STORE })
+
+  /*
+    EVERY COPY OF THE OLD PHOTO FOLLOWS IT. The OnePage keeps one in its row
+    and another in the copy taken at publish, and that second one is what the
+    tab's icon is built from — so removing the photo here used to leave the
+    old face on the OnePage's tab until the page was republished
+    (lib/account/profile-follow). A copy somebody chose in the OnePage editor
+    is left alone.
+  */
+  const followed = await followProfileIdentity(supabase as unknown as FollowClient, user.id, {
+    photo: { before: saved.previous, after: url },
+  })
+
+  /* And the file itself, once no row names it (lib/account/avatar-files). */
+  if (saved.previous && saved.previous !== url) {
+    await sweepReplacedAvatar(user.id, saved.previous, saved.creatorId ?? followed.creatorId)
+  }
 
   /* The public creator page reads the profile and its header through a
      cache shared between visitors (lib/commerce/product-page-cache): it

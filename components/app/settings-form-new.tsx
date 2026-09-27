@@ -986,6 +986,31 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         }
       }
 
+      /**
+       * =====================================================================
+       *  A NEW NAME REACHES THE TAB TITLE AND THE SHARE CARD, NOT JUST HERE
+       * =====================================================================
+       * The OnePage keeps the name in four places of its own — its title,
+       * the copy taken when it was published, the SEO card's Meta title, and
+       * the creator row — and none of them moved when this form wrote the
+       * profile. That is why a renamed creator's own page still said the name
+       * they opened the account with in the phone's bottom bar.
+       *
+       * The server moves the copies that still hold the OLD name and leaves
+       * a page title somebody typed alone (/api/account/profile-changed), and
+       * clears the caches the public pages read the profile through. Not
+       * fatal: the name is already saved, and the database trigger in
+       * supabase/sql/run-now/43 does the same work for every writer.
+       */
+      const previousName = profile.display_name || ""
+      if (previousName && previousName !== displayName) {
+        await fetch("/api/account/profile-changed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ previousName }),
+        }).catch(() => null)
+      }
+
       /* The time zone is the account's (lib/account/time-zone): saved on the
          server, then written where this browser's pages read it. */
       if (selectedTimezone !== initialTimezone.current) {

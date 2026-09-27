@@ -18,6 +18,7 @@
  * page at all until it starts.
  */
 import { isScheduledNow } from "@/lib/onepage/extra-blocks"
+import { creatorName, creatorPhoto } from "@/lib/account/identity"
 
 /** The row as it is stored, as far as the page reads it. */
 export type OnePageRowLike = {
@@ -78,6 +79,7 @@ export function publicOnePage(
   {
     source,
     displayName = null,
+    liveAvatarUrl = null,
     customDomain,
     sellerId,
     now = Date.now(),
@@ -85,6 +87,8 @@ export function publicOnePage(
     source: "published" | "draft"
     /** The owner's profile name, for a page with no title of its own. */
     displayName?: string | null
+    /** The owner's profile photo, for a page with no picture of its own. */
+    liveAvatarUrl?: string | null
     /** The creator page's own domain, when one is connected (lib/custom-domains/store). */
     customDomain?: string | null
     /** Who is selling on this page; the row's own reference when not given. */
@@ -100,10 +104,18 @@ export function publicOnePage(
   const social = (published ? row.published_social_links || row.social_links : row.social_links) || {}
   return {
     id: row.id,
-    title: profile?.title || row.title || displayName || "",
+    /*
+      THE NAME AND THE FACE COME FROM ONE PLACE (lib/account/identity), so
+      the page body and the tab title cannot disagree: the page's published
+      copy, then its draft, then the live profile. The tab used to stop
+      before that last step and say "Creator", and a sign in provider's
+      picture left in a copy is passed over rather than drawn, so removing
+      the photo in Settings removes it here too.
+    */
+    title: creatorName({ published: profile?.title, own: row.title, live: displayName }),
     bio: profile?.bio || row.bio || "",
     slug: row.slug ?? "",
-    avatar_url: profile?.avatar_url || row.avatar_url || null,
+    avatar_url: creatorPhoto({ published: profile?.avatar_url, own: row.avatar_url, live: liveAvatarUrl }),
     avatar_video_url: profile?.avatar_video_url || row.avatar_video_url || null,
     avatar_video_crop: profile?.avatar_video_crop || (settings as any)?.avatar_video_crop || null,
     theme,
