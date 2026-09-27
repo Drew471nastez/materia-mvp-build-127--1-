@@ -5,6 +5,15 @@ import { createClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
 import { previewTokenFrom } from "@/lib/website-builder/preview-token"
 import { isApexHost } from "@/lib/custom-domains/hostname"
+import { quietAuthRefusals } from "@/lib/auth/quiet-refusals"
+
+/*
+  A refused refresh ("Invalid Refresh Token: Already Used") is a person who
+  is no longer signed in, which readCurrentUser below already treats as one.
+  supabase-js also writes it with console.error from inside createServerClient,
+  twice, and that is what the error table counted. One plain line instead.
+*/
+quietAuthRefusals()
 
 // Main domain - customize this based on environment
 const MAIN_DOMAIN = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
