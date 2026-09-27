@@ -54,6 +54,30 @@
  *                     before it has the screen's markup, and what it draws
  *                     in between is the flash this probe was extended for
  *
+ *   THE SURFACE       (phones) the screen's field under the bar is the page's
+ *                     own #f8f9fa on every frame it is up, and on the new
+ *                     page's after it: the switch and the landing are one
+ *                     surface; the corners are there on every frame
+ *
+ *   NEVER STUCK       every one ends somewhere useful, and the switch cookie
+ *                     is gone at the end of each:
+ *     LOCK            (390) the Supabase client's getSession and setSession
+ *                     never answer (its lock held by a renewal on a phone
+ *                     just back from the background): the switch still goes
+ *     SERVER SILENT   (390) the switch's request never answers: after its
+ *                     limit the screen goes, the menu says why with Try
+ *                     again, and Try again then switches
+ *     PAGE SILENT     (390) the new /app never answers: asked for again, then
+ *                     the screen says it did not open, with Try again, and
+ *                     Try again opens it
+ *     NO SCRIPT       (390) the new /app's script never loads: the HTML's
+ *                     own limit takes the screen away and clears the cookie
+ *     GATE            (390) the app's session gate holds the cold start past
+ *                     the screen's shell limit: the screen waits for the
+ *                     gate, never hands over to the cold start's empty bar
+ *     SAFE AREA       (390) a notch (47px top, 34px bottom, emulated): the
+ *                     still bar where the real header is, at the new height
+ *
  *   NO FLASH          no frame's light jumps away from the frames either
  *                     side of it and back again, across the whole recording
  *                     and across the swap of documents above all: a fade is
@@ -68,6 +92,7 @@
  *   FLASH=1                        every frame's light, and its picture with SHOTS
  *   SPLIT_MS=300                   the new document's head lands this long before the rest of it
  *   EXPECT=off                     as a browser that does not know rel=expect sees it
+ *   STUCK=0                        leave out the NEVER STUCK runs (a minute and a half)
  *
  * EXPECT=off with the document in two parts is the one place this probe is
  * meant to fail, and what it fails on is the residual: with nothing left to
@@ -110,6 +135,14 @@ const NEW_NAME = "Lind Studio"
 const NEW_PHOTO = "/photos/studio.png"
 const OLD_NAME = "Mara Lind"
 const NEW_ID = "00000000-0000-4000-8000-00000000000b"
+const OLD_ID = "00000000-0000-4000-8000-00000000000a"
+/* The session's cookie, named from the project's address as supabase-js names it (lib/supabase/session-jar storedSessionKey). */
+const SUPABASE_URL = "https://probeproj.supabase.co"
+const SESSION_COOKIE = "sb-probeproj-auth-token"
+const b64u = (o) => Buffer.from(JSON.stringify(o)).toString("base64url")
+const jwt = (sub) => `${b64u({ alg: "HS256" })}.${b64u({ sub, exp: 9999999999 })}.probe`
+/* The new page's session gate, in the GATE run: past the screen's own limit for the shell (ARRIVAL_CAP_MS, 8s). */
+const GATE_MS = 9500
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 
 /* ── Bundles ────────────────────────────────────────────────────────────── */
@@ -131,11 +164,16 @@ writeFileSync(join(dir, "link.jsx"), `import React from "react"
 export default function Link({ href, children, prefetch, replace, scroll, ...rest }) { return React.createElement("a", { href: typeof href === "string" ? href : "#", ...rest }, children) }
 export const useLinkStatus = () => ({ pending: false })
 `)
+/* The browser's Supabase client. \`window.__probeHang\` makes its session calls never answer, as a client whose lock is held by a renewal that never ends does. */
 writeFileSync(join(dir, "supabase.js"), `const q = new Proxy(function () {}, { get: (_, k) => k === "then" ? (r) => r({ data: null, error: null }) : q, apply: () => q })
+const hang = () => typeof window !== "undefined" && window.__probeHang
+const never = () => new Promise(() => {})
 const auth = {
   getUser: async () => ({ data: { user: { id: "u", user_metadata: {} } } }),
-  getSession: async () => ({ data: { session: { access_token: "probe" } } }),
-  setSession: async () => { await new Promise((r) => setTimeout(r, 30)); return { data: {}, error: null } },
+  getSession: () => hang() ? never() : Promise.resolve({ data: { session: { access_token: ${JSON.stringify(jwt(OLD_ID))} } } }),
+  setSession: () => hang() ? never() : new Promise((r) => setTimeout(() => r({ data: {}, error: null }), 30)),
+  stopAutoRefresh: async () => {},
+  startAutoRefresh: async () => {},
   onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
   signOut: async () => ({}),
 }
@@ -149,7 +187,7 @@ const ALIASES = [
 ]
 const bundle = (entry, out, extra) => {
   try {
-    execFileSync("npx", ["--no-install", "esbuild", entry, "--bundle", "--jsx=automatic", "--log-level=error", `--outfile=${out}`, '--define:process.env.NODE_ENV="production"', ...ALIASES, ...extra], { stdio: ["ignore", "ignore", "inherit"] })
+    execFileSync("npx", ["--no-install", "esbuild", entry, "--bundle", "--jsx=automatic", "--log-level=error", `--outfile=${out}`, '--define:process.env.NODE_ENV="production"', `--define:process.env.NEXT_PUBLIC_SUPABASE_URL=${JSON.stringify(SUPABASE_URL)}`, ...ALIASES, ...extra], { stdio: ["ignore", "ignore", "inherit"] })
   } catch {
     rmSync(dir, { recursive: true, force: true })
     fail(`${entry} did not bundle. The error above is esbuild's.`)
@@ -161,7 +199,7 @@ const clientJs = bundle(join(root, "scripts/render-business-switch.tsx"), join(d
   '--banner:js=var process=globalThis.process||{env:{NODE_ENV:"production"},browser:true,versions:{},platform:"browser",cwd:function(){return "/"},nextTick:function(f){setTimeout(f,0)}};globalThis.process=process;',
 ])
 bundle(join(root, "scripts/render-business-switch-ssr.tsx"), join(dir, "ssr.cjs"), ["--format=cjs", "--platform=node"])
-const ssr = JSON.parse(execFileSync("node", [join(dir, "ssr.cjs"), NEW_NAME, NEW_PHOTO], { encoding: "utf8", maxBuffer: 64 << 20 }))
+const ssr = JSON.parse(execFileSync("node", [join(dir, "ssr.cjs"), NEW_NAME, NEW_PHOTO, String(GATE_MS)], { encoding: "utf8", maxBuffer: 64 << 20 }))
 rmSync(dir, { recursive: true, force: true })
 
 const css = `${await appCss(root)}\n${interFaces(root).replace(/url\(file:\/\//g, "url(/__font?p=")}`
@@ -189,8 +227,8 @@ const oldHtml = `<!doctype html><html lang="en" class="light" style="color-schem
  * SPLIT_MS is that gap (0, one write, by default). The head and the open
  * <body> go first, then the rest.
  */
-const newHead = (arriving) => `<!doctype html><html lang="en" class="light" style="color-scheme:light"><head>${HEAD}<script>window.__arriving=${JSON.stringify(arriving)}</script></head><body ${BODY}>`
-const newRest = (arriving) => `<div id="app">${arriving ? ssr.arriving : ssr.plain}</div><script src="/client.js?doc=app" defer></script></body></html>`
+const newHead = (arriving) => `<!doctype html><html lang="en" class="light" style="color-scheme:light"><head>${HEAD}<script>window.__arriving=${JSON.stringify(arriving)};window.__gateMs=${mode === "gate" && arriving ? GATE_MS : 0}</script></head><body ${BODY}>`
+const newRest = (arriving) => `<div id="app">${arriving ? (mode === "gate" ? ssr.gated : ssr.arriving) : ssr.plain}</div><script src="/client.js?doc=app" defer></script></body></html>`
 const newHtml = (arriving) => newHead(arriving) + newRest(arriving)
 
 /* ── The browser, the pictures, the server ──────────────────────────────── */
@@ -205,7 +243,27 @@ async function pngOf(color) {
 const photos = { "mara.png": await pngOf("#b5452a"), "studio.png": await pngOf("#0b6e4f"), "old-product.png": await pngOf("#6d4c27"), "new-product.png": await pngOf("#27496d") }
 
 let mode = "ok"
-const seen = { switchBody: null, cookie: null }
+const seen = { switchBody: null, cookie: null, sessionUser: null, appAsks: 0, switchAsks: 0 }
+/* Requests the probe is holding open on purpose (SERVER SILENT, PAGE SILENT), dropped by release() when the run is over. */
+let held = []
+const release = () => { const h = held; held = []; for (const f of h) f() }
+/* How many of the next requests for each to hold open. */
+const silent = { switch: 0, app: 0 }
+/* The session a switch answer puts in the jar, as app/api/businesses/switch does (lib/supabase/session-jar). */
+function sessionCookies(arrival) {
+  const session = { access_token: jwt(NEW_ID), token_type: "bearer", expires_in: 3600, expires_at: 2000000000, refresh_token: "r", user: { id: NEW_ID } }
+  const out = [`${SESSION_COOKIE}=base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}; Path=/; Max-Age=34560000; SameSite=Lax`]
+  if (arrival && typeof arrival.name === "string") out.push(`storelib_switching=${encodeURIComponent(arrival.photo ? `${arrival.name}\n${arrival.photo}` : arrival.name)}; Path=/app; Max-Age=30; SameSite=Lax`)
+  return { session, out }
+}
+function jarUser(cookieHeader) {
+  const raw = new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]*)`).exec(cookieHeader || "")?.[1]
+  if (!raw) return null
+  try {
+    const json = JSON.parse(Buffer.from(decodeURIComponent(raw).replace(/^base64-/, ""), "base64url").toString())
+    return JSON.parse(Buffer.from(json.access_token.split(".")[1], "base64url").toString()).sub
+  } catch { return null }
+}
 const server = createServer((req, res) => {
   const u = new URL(req.url, "http://probe")
   const send = (status, type, body, headers = {}) => { res.writeHead(status, { "content-type": type, "cache-control": "no-store", ...headers }); res.end(body) }
@@ -215,6 +273,8 @@ const server = createServer((req, res) => {
     return send(200, "font/woff2", readFileSync(file), { "cache-control": "max-age=3600" })
   }
   if (u.pathname === "/app.css") return send(200, "text/css", css, { "cache-control": "max-age=3600" })
+  /* NO SCRIPT: the new /app's script never loads. */
+  if (u.pathname === "/client.js" && u.searchParams.get("doc") && mode === "noscript") return send(404, "text/plain", "")
   if (u.pathname === "/client.js") return setTimeout(() => send(200, "text/javascript", clientJs), u.searchParams.get("doc") ? JS_MS : 0)
   const src = u.pathname === "/_next/image" ? new URL(u.searchParams.get("url") || "/", "http://probe").pathname : u.pathname
   const photo = src.match(/^\/photos\/([\w-]+\.png)$/)
@@ -225,10 +285,14 @@ const server = createServer((req, res) => {
     req.on("data", (c) => chunks.push(c))
     req.on("end", () => {
       try { seen.switchBody = JSON.parse(Buffer.concat(chunks).toString()) } catch { seen.switchBody = null }
-      setTimeout(() => {
+      seen.switchAsks++
+      const answer = () => {
         if (mode === "fail") return send(403, "application/json", JSON.stringify({ error: "That business is not yours to open." }))
-        send(200, "application/json", JSON.stringify({ session: { access_token: "a", refresh_token: "r" } }))
-      }, SWITCH_MS)
+        const { session, out } = sessionCookies(seen.switchBody?.arrival)
+        send(200, "application/json", JSON.stringify({ session }), { "set-cookie": out })
+      }
+      if (silent.switch > 0) { silent.switch--; held.push(() => res.destroy()); return }
+      setTimeout(answer, SWITCH_MS)
     })
     return
   }
@@ -244,6 +308,9 @@ const server = createServer((req, res) => {
       arriving = value ? { name: at === -1 ? value : value.slice(0, at), photo: at === -1 ? null : value.slice(at + 1) } : null
     } catch { arriving = null }
     seen.cookie = arriving
+    seen.sessionUser = jarUser(req.headers.cookie)
+    seen.appAsks++
+    if (silent.app > 0) { silent.app--; held.push(() => res.destroy()); return }
     if (!split) return setTimeout(() => send(200, "text/html", newHtml(arriving)), DOC_MS)
     const gap = split
     return setTimeout(() => {
@@ -433,7 +500,9 @@ await reader.evaluate(() => {
     }
     const grid = []
     for (let k = 0; k < cells.length; k++) grid.push(counts[k] ? cells[k] / counts[k] : 0)
-    return { white: white / all, ink, w: ink ? x1 - x0 : 0, h: ink ? y1 - y0 : 0, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, barInk, lum: lum / lumN, grid }
+    /* THE FIELD UNDER THE BAR, where nothing of a page is drawn (its right margin, 40px down), and THE CORNER: the first pixel under the bar at the left edge, the bar's colour when the rounded corner is there. */
+    const rgb = (x, y) => { const i = px(x, y); return [data[i], data[i + 1], data[i + 2]] }
+    return { white: white / all, ink, w: ink ? x1 - x0 : 0, h: ink ? y1 - y0 : 0, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, barInk, lum: lum / lumN, grid, field: rgb(o.W - 6, o.HEADER + 40), corner: rgb(1, o.HEADER + 1) }
   }
 })
 const kindOf = (f) => {
@@ -459,17 +528,33 @@ const topLine = (r) => {
 }
 const ALLOWED = new Set(["opacity", "transform", "translate"])
 
-async function run(W, { scenario = "switch", reduced = false, inParts = false } = {}) {
+const hex = (c) => `#${c.map((v) => v.toString(16).padStart(2, "0")).join("")}`
+const near = (a, b, d = 3) => a.every((v, i) => Math.abs(v - b[i]) <= d)
+const PAGE_FIELD = [248, 249, 250]
+
+/* A notch: the insets an iPhone's portrait glass has, emulated (Emulation.setSafeAreaInsetsOverride), read by env(safe-area-inset-*). */
+const NOTCH = { top: 47, bottom: 34, left: 0, right: 0 }
+
+async function run(W, { scenario = "switch", reduced = false, inParts = false, lock = false, gate = false, insets = false } = {}) {
   split = inParts ? SPLIT_SCENARIO_MS : SPLIT_MS
   const phone = W < 768
   const H = phone ? 844 : 900
-  const o = { W, H, HEADER: phone ? 68 : 58, RAIL: phone ? 0 : 240, BAR: phone ? [17, 17, 17] : [19, 19, 22] }
-  mode = scenario === "fail" ? "fail" : "ok"
+  const TOP = insets ? NOTCH.top : 0
+  const o = { W, H, HEADER: (phone ? 68 : 58) + TOP, RAIL: phone ? 0 : 240, BAR: phone ? [17, 17, 17] : [19, 19, 22] }
+  mode = scenario === "fail" ? "fail" : gate ? "gate" : "ok"
   seen.switchBody = null
   seen.cookie = null
+  seen.sessionUser = null
   const ctx = await browser.createBrowserContext()
   const page = await ctx.newPage()
   await page.setViewport(phone ? { width: W, height: H, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { width: W, height: H, deviceScaleFactor: 1 })
+  if (insets) {
+    /* The override belongs to the document it was set on, and a phone's notch does not: it is set again the moment each new document commits, before its first frame. */
+    const notch = await page.createCDPSession()
+    await notch.send("Page.enable")
+    notch.on("Page.frameNavigated", () => { notch.send("Emulation.setSafeAreaInsetsOverride", { insets: NOTCH }).catch(() => {}) })
+    await notch.send("Emulation.setSafeAreaInsetsOverride", { insets: NOTCH })
+  }
   if (reduced) await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
   const recs = []
   let press = null
@@ -506,6 +591,8 @@ async function run(W, { scenario = "switch", reduced = false, inParts = false } 
   await wait(150)
   const other = await visible('[data-business-row="other"]')
   if (!other.asElement()) { await ctx.close(); problems.push(`at ${W}: no other business to press`); return }
+  /* LOCK: from here the client's session calls never answer. */
+  if (lock) await page.evaluate(() => { window.__probeHang = true })
   await other.click()
 
   if (scenario === "fail") {
@@ -516,7 +603,7 @@ async function run(W, { scenario = "switch", reduced = false, inParts = false } 
     }
     await wait(400)
   } else {
-    for (let i = 0; i < 150; i++) {
+    for (let i = 0; i < (gate ? 260 : lock ? 300 : 150); i++) {
       await wait(100)
       const done = await page.evaluate(() => location.pathname === "/app" && !!document.querySelector('[data-probe-page="new"]') && !document.querySelector("[data-business-switch-screen]")).catch(() => false)
       if (done) break
@@ -528,7 +615,7 @@ async function run(W, { scenario = "switch", reduced = false, inParts = false } 
   const where = await page.evaluate(() => location.pathname)
   await ctx.close()
 
-  const label = `${W}${scenario === "fail" ? " failed" : ""}${reduced ? " reduced motion" : ""}${split ? " in two parts" : ""}`
+  const label = `${W}${scenario === "fail" ? " failed" : ""}${reduced ? " reduced motion" : ""}${split ? " in two parts" : ""}${lock ? " lock" : ""}${gate ? " gate" : ""}${insets ? " notch" : ""}`
   console.log(`\n${label}`)
   if (press == null) { expect(false, "the press was recorded"); return }
   const after = recs.filter((r) => r.t >= press)
@@ -626,6 +713,31 @@ async function run(W, { scenario = "switch", reduced = false, inParts = false } 
     flashes.length ? `${flashes.length}: ${flashes.slice(0, 5).map((f) => `${f.dir} by ${f.out} of 255 for ${f.len} frame${f.len === 1 ? "" : "s"} (${ms(f.held)}) at ${ms(f.at - press)}`).join(", ")}` : `${pairs.length} pairs read, none jumps by more than ${JUMP} of 255 and back`)
   flashes.slice(0, 3).forEach((f, i) => save(`flash-${i}-${Math.round(f.at - press)}ms`, frames.find((g) => g.at === f.at)))
 
+  /*
+    THE FILM, IN SEGMENTS. Every frame on the glass from the press, run
+    together while it shows the same thing: what kind of frame, the colour of
+    the field under the bar, whether the bar's corner is drawn, whether the
+    bar has its photo and name in it. A change of any of these is a line.
+  */
+  const segs = []
+  for (const f of frames) {
+    const key = `${f.kind} field ${hex(f.field)} corner ${near(f.corner, o.BAR, 8) ? "on" : "off"} bar ${f.barInk >= 40 ? "drawn" : "EMPTY"}`
+    if (!segs.length || segs[segs.length - 1].key !== key) segs.push({ key, from: Math.round(f.at - press), n: 1 })
+    else segs[segs.length - 1].n++
+  }
+  console.log(`        the film, ${frames.length} frames:\n${segs.map((g) => `          ${String(g.from).padStart(5)}ms  x${String(g.n).padStart(3)}  ${g.key}`).join("\n")}`)
+
+  /* THE SURFACE (phones): from the frame the screen is whole to the last frame, the field under the bar is the page's own #f8f9fa, and the corner is drawn. */
+  const whole = A.find((r) => r.screen != null && r.screen >= 0.999)
+  const fromWhole = whole ? frames.filter((f) => f.at >= whole.t + 20) : []
+  if (phone && scenario !== "fail" && !reduced) {
+    const off = fromWhole.filter((f) => !near(f.field, PAGE_FIELD))
+    expect(fromWhole.length > 0 && off.length === 0, "the field under the bar is the page's own #f8f9fa on every frame from the screen being whole to the end: the switch and the landing are one surface",
+      off.length ? `${off.length} frames, e.g. ${hex(off[0].field)} at ${ms(off[0].at - press)}` : `${fromWhole.length} frames`)
+    const square = fromWhole.filter((f) => !near(f.corner, o.BAR, 8))
+    expect(square.length === 0, "  and the bar's corners are drawn on every one of them", square.length ? `${square.length} frames without, e.g. ${hex(square[0].corner)} at ${ms(square[0].at - press)}` : `${fromWhole.length} frames`)
+  }
+
   /* CHEAP */
   const props = new Set(after.flatMap((r) => r.anims))
   const off = [...props].filter((p) => !ALLOWED.has(p))
@@ -716,6 +828,12 @@ async function run(W, { scenario = "switch", reduced = false, inParts = false } 
   save("5-handover", frames.find((f) => fade.length && f.at >= fade[Math.floor(fade.length / 2)].t))
   save("6-arrived", frames[frames.length - 1])
 
+  /* THE SESSION: the new /app was asked for with the new business in the jar (app/api/businesses/switch sets it with its answer). */
+  expect(seen.sessionUser === NEW_ID, "the new /app was asked for as the new business: its session in the cookie jar", String(seen.sessionUser))
+  if (gate) {
+    expect(B.some((r) => r.cold > 0), "  the app's session gate held the cold start under the screen", `${B.filter((r) => r.cold > 0).length} frames`)
+  }
+
   /* STILL, CLEARED */
   const lastB = B[B.length - 1]
   expect(!!lastB && lastB.shift === 0, "no layout shift in the new document", lastB ? String(Math.round(lastB.shift * 10000) / 10000) : "-")
@@ -730,10 +848,101 @@ async function run(W, { scenario = "switch", reduced = false, inParts = false } 
   const longA = Math.max(0, ...(A[A.length - 1]?.long ?? []).filter(([t]) => t >= press).map(([, d]) => d))
   const longB = Math.max(0, ...(lastB?.long ?? []).map(([, d]) => d))
   /* The fade is the one moment a long task would show: the spinner turns on the compositor, a fade driven by a busy page would not. */
-  const inFade = handover ? (lastB?.long ?? []).filter(([t, d]) => t + d > handover.t && t < handover.t + 260).map(([, d]) => d) : []
-  expect(inFade.every((d) => d < 100), "no long task while the screen hands over", inFade.length ? `${inFade.join(", ")}ms` : "none")
+  const inFadeAt = handover ? (lastB?.long ?? []).filter(([t, d]) => t + d > handover.t && t < handover.t + 260) : []
+  const inFade = inFadeAt.map(([, d]) => d)
+  expect(inFade.every((d) => d < 100), "no long task while the screen hands over", inFade.length ? inFadeAt.map(([t, d]) => `${d}ms from ${Math.round(t - handover.t)}ms`).join(", ") : "none")
   console.log(`        times from the press: screen up ${timing.up}, new document ${timing.newDocument}, hand over ${timing.handover}, screen gone ${timing.done}; longest task ${longA}ms from the press to the reload, ${longB}ms in the new document (under the screen)`)
   summary.push({ W: label, glass: frames.length, bad: bad.length, lines: seq.length, lineFadeFrames: changeFrames.length, handoverFrames: fade.length, shift: lastB?.shift ?? null, ...timing, longA, longB })
+}
+
+/**
+ * NEVER STUCK. A switch whose request, page or script never comes, on a
+ * phone at 390 slowed four times. Each is read by what is on the page, not
+ * filmed: where it ends, how long it took, and whether the cookie is gone.
+ */
+async function stuck(kind) {
+  const W = 390
+  mode = kind === "noscript" ? "noscript" : "ok"
+  silent.switch = kind === "server" ? 1 : 0
+  silent.app = kind === "page" ? 2 : 0
+  held = []
+  seen.switchAsks = 0
+  seen.appAsks = 0
+  const ctx = await browser.createBrowserContext()
+  const page = await ctx.newPage()
+  await page.setViewport({ width: W, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true })
+  const errors = []
+  page.on("pageerror", (e) => errors.push(String(e.message || e)))
+  await page.goto(`${base}/`)
+  await page.waitForSelector('[data-probe-page="old"]')
+  await wait(400)
+  const visible = (sel) => page.evaluateHandle((q) => Array.from(document.querySelectorAll(q)).find((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden" }) || null, sel)
+  await (await visible("#account-trigger")).click()
+  await wait(600)
+  await (await visible('[data-business-row="current"]')).click()
+  await wait(400)
+  const cdp = await page.createCDPSession()
+  if (CPU > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU })
+  const shot = async (name) => { if (SHOTS) await page.screenshot({ path: join(SHOTS, `stuck-${kind}-${name}.png`) }).catch(() => {}) }
+  const state = () => page.evaluate(() => ({
+    at: location.pathname,
+    screen: (() => { const s = document.querySelector("[data-business-switch-screen]"); return s && getComputedStyle(s).display !== "none" ? s.dataset.step || "up" : null })(),
+    line: (Array.from(document.querySelectorAll("[data-switch-line]")).pop() || {}).textContent || null,
+    retryOnScreen: !!document.querySelector("[data-switch-retry]"),
+    alert: (document.querySelector('[data-business-switcher] [role="alert"]') || {}).textContent || null,
+    retryInMenu: !!document.querySelector("[data-business-retry]"),
+    arrived: !!document.querySelector('[data-probe-page="new"]') && !document.querySelector("[data-business-switch-screen]"),
+    cookie: document.cookie.includes("storelib_switching="),
+    canvas: document.documentElement.classList.contains("switch-arriving"),
+  })).catch(() => null)
+  const until = async (test, limit) => {
+    const t0 = Date.now()
+    for (;;) {
+      const s = await state()
+      if (s && test(s)) return { s, t: Date.now() - t0 }
+      if (Date.now() - t0 > limit) return { s, t: null }
+      await wait(200)
+    }
+  }
+  console.log(`\n390 never stuck: ${kind}`)
+  await (await visible('[data-business-row="other"]')).click()
+  const pressed = Date.now()
+  if (kind === "server") {
+    const r = await until((x) => !x.screen && !!x.alert, 32_000)
+    await shot("1-ended")
+    expect(r.t != null, "the request that never answers ends: the screen goes, the menu says why", r.t != null ? `${ms(Date.now() - pressed)} after the press` : `still up: ${JSON.stringify(r.s)}`)
+    expect(!!r.s && r.s.at === "/" && /could not be opened/.test(r.s.alert || "") && r.s.retryInMenu, "  back where you were, one line, with Try again", JSON.stringify(r.s && { at: r.s.at, alert: r.s.alert, retry: r.s.retryInMenu }))
+    expect(!!r.s && !r.s.cookie, "  no switch cookie left")
+    release()
+    await (await visible("[data-business-retry]")).click().catch(() => {})
+    const again = await until((x) => x.arrived, 20_000)
+    await shot("2-after-try-again")
+    expect(again.t != null, "  and Try again switches", again.t != null ? `arrived ${ms(again.t)} after it` : JSON.stringify(again.s))
+  } else if (kind === "page") {
+    const r = await until((x) => x.retryOnScreen, 34_000)
+    await shot("1-did-not-open")
+    expect(r.t != null, "the page that never comes ends: the screen says so, with Try again", r.t != null ? `${ms(Date.now() - pressed)} after the press, the line "${r.s.line}"` : `still: ${JSON.stringify(r.s)}`)
+    expect(seen.appAsks >= 2, "  it asked for the page again on the way", `${seen.appAsks} requests`)
+    expect(!!r.s && /did not open/.test(r.s.line || ""), "  in one line", r.s?.line ?? "-")
+    /* Try again while the two held requests are still open: its own request supersedes them, as a real one does. */
+    await (await visible("[data-switch-retry]")).click().catch(() => {})
+    const again = await until((x) => x.arrived, 20_000)
+    await shot("2-after-try-again")
+    expect(again.t != null && !again.s.cookie, "  and Try again opens it, and the cookie is gone after", again.t != null ? `arrived ${ms(again.t)} after it` : JSON.stringify(again.s))
+  } else if (kind === "noscript") {
+    const onApp = await until((x) => x.at === "/app", 15_000)
+    const r = await until((x) => x.at === "/app" && !x.screen, 30_000)
+    await shot("1-ended")
+    expect(onApp.t != null && r.t != null, "a new /app whose script never loads: the HTML's own limit takes the screen away", r.t != null ? `${ms(Date.now() - pressed)} after the press` : `still up: ${JSON.stringify(r.s)}`)
+    expect(!!r.s && !r.s.cookie && !r.s.canvas, "  and clears the cookie and gives the canvas back", JSON.stringify(r.s && { cookie: r.s.cookie, canvas: r.s.canvas }))
+  }
+  if (errors.length) expect(false, "no script errors", errors.slice(0, 3).join(" | "))
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 }).catch(() => {})
+  release()
+  await ctx.close()
+  silent.switch = 0
+  silent.app = 0
+  mode = "ok"
 }
 
 for (const W of WIDTHS) await run(W)
@@ -747,6 +956,15 @@ if (WIDTHS.includes(1280)) await run(1280, { scenario: "fail" })
    what it draws in between used to be one white frame held for the whole
    gap. See lib/businesses/switch-screen.ts. */
 for (const W of [390, 1440]) if (WIDTHS.includes(W)) await run(W, { inParts: true })
+if (WIDTHS.includes(390)) {
+  /* SAFE AREA: the still bar at the real header's place under a notch. */
+  await run(390, { insets: true })
+  if (process.env.STUCK !== "0") {
+    await run(390, { lock: true })
+    await run(390, { gate: true })
+    for (const kind of ["server", "page", "noscript"]) await stuck(kind)
+  }
+}
 
 await browser.close()
 server.close()

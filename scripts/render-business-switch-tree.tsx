@@ -23,7 +23,8 @@ import { AppSidebar } from "@/components/app/sidebar"
 import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
 import { LocaleProvider } from "@/components/locale-provider"
 import { SWRProvider } from "@/lib/swr-config"
-import { SWITCH_SPIN_SCRIPT } from "@/lib/businesses/switch-screen"
+import * as switchScreen from "@/lib/businesses/switch-screen"
+import AppColdStart from "@/app/app/cold-start"
 import type { BusinessRow } from "@/components/app/business-switcher"
 
 export const OLD: BusinessRow = { userId: "00000000-0000-4000-8000-00000000000a", name: "Mara Lind", handle: "maralind", avatarUrl: "/photos/mara.png", ready: true, current: true, role: "owner" }
@@ -41,8 +42,10 @@ function Figure({ label, value }: { label: string; value: string | null }) {
   )
 }
 
+/* The page's own box, as components/app/dashboard-client.tsx draws Home's: its scroller, its #f8f9fa, and the 380ms fade every page lands on. */
 function Home({ who, page, figures, picture }: { who: string; page: "old" | "new"; figures: string[] | null; picture: string }) {
   return (
+    <div className="relative h-full overflow-y-auto bg-[#f8f9fa] app-page-enter">
     <div data-probe-page={page} className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8">
       <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Good morning, {who}</h1>
       <p className="mt-1 text-[14px] text-[#6b7280]">Here is how the store did this week.</p>
@@ -60,6 +63,7 @@ function Home({ who, page, figures, picture }: { who: string; page: "old" | "new
           <p className="text-[14px] text-[#6b7280]">Published on your store</p>
         </div>
       </div>
+    </div>
     </div>
   )
 }
@@ -112,22 +116,43 @@ function NewHome() {
   return <Home who="Lind Studio" page="new" figures={figures} picture="/photos/new-product.png" />
 }
 
-/** `arriving`: the name and photo the switch's cookie carried, as app/app/layout.tsx reads them (readSwitchArrival); null for a load with no switch behind it. */
-export function NewTree({ arriving }: { arriving: { name: string; photo: string | null } | null }) {
+/**
+ * THE APP'S SESSION GATE, as components/native-auth-gate draws it in the
+ * native app while it finds the session on the device: the cold start's
+ * frame (app/app/cold-start) for `ms` after the script runs, then the shell.
+ * The same on the server and on the first client render, so it hydrates.
+ */
+function Gate({ ms, children }: { ms: number; children: React.ReactNode }) {
+  const [open, setOpen] = useState(!ms)
+  useEffect(() => {
+    if (!ms) return
+    const t = window.setTimeout(() => setOpen(true), ms)
+    return () => window.clearTimeout(t)
+  }, [ms])
+  return open ? <>{children}</> : <AppColdStart />
+}
+
+/* The script the /app layout runs before the screen: the arrival's own (with its limit) where there is one, the spinner's turn alone on a tree from before it. */
+const ARRIVAL_SCRIPT = (switchScreen as Record<string, unknown>).SWITCH_ARRIVAL_SCRIPT as string | undefined ?? switchScreen.SWITCH_SPIN_SCRIPT
+
+/** `arriving`: the name and photo the switch's cookie carried, as app/app/layout.tsx reads them (readSwitchArrival); null for a load with no switch behind it. `gateMs`: the session gate's time, 0 for none. */
+export function NewTree({ arriving, gateMs = 0 }: { arriving: { name: string; photo: string | null } | null; gateMs?: number }) {
   const me = { ...NEW, current: true }
   return (
     <Root>
       {arriving ? (
         <>
-          <script dangerouslySetInnerHTML={{ __html: SWITCH_SPIN_SCRIPT }} />
+          <script dangerouslySetInnerHTML={{ __html: ARRIVAL_SCRIPT }} />
           <BusinessSwitchArrival name={arriving.name} photo={arriving.photo} />
         </>
       ) : null}
-      <AppLayoutWrapper>
-        <Shell me={me} businesses={[me, { ...OLD, current: false }]}>
-          <NewHome />
-        </Shell>
-      </AppLayoutWrapper>
+      <Gate ms={gateMs}>
+        <AppLayoutWrapper>
+          <Shell me={me} businesses={[me, { ...OLD, current: false }]}>
+            <NewHome />
+          </Shell>
+        </AppLayoutWrapper>
+      </Gate>
     </Root>
   )
 }
