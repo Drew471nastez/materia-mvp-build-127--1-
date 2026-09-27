@@ -330,6 +330,11 @@ async function main() {
     check("with the scanner back, a small waiting file is scanned on the spot and served", smallNow.ok)
     const flagged = await gate.gateDownload(fakeAdmin(base).admin, asset("c1/digital-products/bad.pdf", 10, "quarantined"), { isCreator: false })
     check("a quarantined file is never served", !flagged.ok && (flagged as any).status === 403)
+    const legacy = await gate.gateDownload(fakeAdmin(base).admin, asset("c1/digital-products/clean.pdf", 60 * 1024 * 1024, null as unknown as string), { isCreator: false })
+    check("a large file from before the scanner (no scan status) keeps selling while it waits for the sweep", legacy.ok, legacy)
+    S.objects.set("c1/digital-products/legacy-bad.pdf", new TextEncoder().encode(EICAR))
+    const legacyBad = await gate.gateDownload(fakeAdmin(base).admin, asset("c1/digital-products/legacy-bad.pdf", 60 * 1024 * 1024, null as unknown as string), { isCreator: false })
+    check("but one the header check refuses is never served", !legacyBad.ok && (legacyBad as any).status === 403, legacyBad)
 
     delete process.env.CLAMAV_SERVICE_URL
     const e = fakeAdmin(base)

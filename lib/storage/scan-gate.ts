@@ -252,6 +252,26 @@ export async function gateDownload(
       if (now === "clean" || now === "skipped") return { ok: true }
       if (now === "infected") return flagged
     }
+    /*
+      A FILE FROM BEFORE THE SCANNER KEEPS SELLING WHILE IT WAITS ITS TURN.
+      A row with no scan status at all was uploaded before any scan was
+      recorded, and buyers have been downloading it. Switching the scanner
+      on must not turn every such file over 50 MB into "still being
+      checked" until the ten minute sweep (ten files a run) reaches it. So
+      it gets the header check it always had and is served unless that
+      check refuses it; the sweep scans it fully later and a verdict of
+      infected removes it then. A file uploaded since (pending_scan or
+      scanning) still waits for its verdict.
+    */
+    if (status === "" || status === "null") {
+      const header = await headerVerdict(admin, asset)
+      if (header?.status === "infected") {
+        await updateAssetScanStatus(admin, asset.id, header)
+        await handleInfectedFile(admin, asset.id, header)
+        return flagged
+      }
+      return { ok: true }
+    }
     return waiting
   }
 
