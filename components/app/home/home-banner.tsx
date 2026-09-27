@@ -437,10 +437,17 @@ const BANNER_CSS = `
 
   So nothing moves, ever, whatever asked for the change: the clock, a
   segment, an arrow key or a finger all do the same plain thing. The line
-  going out fades over 150ms, and the one coming in starts after it has gone
-  (160ms) and takes 260ms. One after the other, not over each other, because
-  two sentences at half opacity in the same place read as a flash — which is
-  the complaint this whole part of the file exists to answer.
+  going out fades over 160ms and the one coming in starts at 110ms, while the
+  old line is still painted but down at about 7% — so there is never a frame
+  with NOTHING on it, and never a frame with two readable sentences either.
+
+  That gap is what was left of the glitch. Measured at 390 with the processor
+  slowed four times: the old timings (out 150ms, in after 160ms) left one
+  frame, 33ms, with both lines at zero. One blank frame in the middle of a
+  change is exactly what "it still looks glitchy" was. The curve on the way
+  out does the rest of the work: ease-out, so the old line loses most of its
+  opacity in the first third and spends the rest of its time near zero,
+  which is what makes an overlap safe to have.
 
   Opacity alone, so the compositor does all of it and a change costs one
   layer's alpha rather than a layout.
@@ -448,7 +455,7 @@ const BANNER_CSS = `
 .home-banner-slide {
   visibility: hidden;
   opacity: 0;
-  transition: opacity 150ms cubic-bezier(0.4, 0, 1, 1), visibility 0s linear 150ms;
+  transition: opacity 160ms cubic-bezier(0, 0, 0.2, 1), visibility 0s linear 160ms;
 }
 .home-banner-slide > * {
   /* Never squeezed: a title or a line clipped to fit would be a sentence cut in half. */
@@ -462,7 +469,7 @@ const BANNER_CSS = `
 /* An animation rather than a transition, so every change starts from nothing however fast they come.
    Not until the first change: the slide showing when Home opens is simply there, not faded in. */
 .home-banner-stack[data-changed] > .home-banner-slide[data-slide="active"] {
-  animation: home-banner-in 260ms ease 160ms both;
+  animation: home-banner-in 280ms cubic-bezier(0, 0, 0.2, 1) 110ms both;
 }
 @keyframes home-banner-in {
   from { opacity: 0; }
