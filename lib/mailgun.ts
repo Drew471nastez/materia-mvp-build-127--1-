@@ -48,6 +48,24 @@ export function withDisplayName(from: string, name = "Storelib"): string {
   return value
 }
 
+/**
+ * A DISPLAY NAME A MAIL SERVER READS AS A NAME. A seller's store name or a
+ * buyer's first name goes into From as typed, and a name with a comma, a
+ * colon or an @ in it ("Ana, Studio", "Jo: orders") is not a name to a mail
+ * server: RFC 5322 reads the comma as a second address and the colon as a
+ * group, and the message is refused or shown from someone else. Such a name
+ * is put in quotes; quotes and line breaks inside it are taken out first.
+ * A name without those characters, or already quoted, is left as it is.
+ */
+export function quotedFrom(from: string): string {
+  const m = (from || "").match(/^\s*([\s\S]*?)\s*<([^<>\s]+@[^<>\s]+)>\s*$/)
+  if (!m) return from
+  if (/^".*"$/.test(m[1])) return from
+  const name = m[1].replace(/[\r\n"\\]+/g, " ").replace(/\s+/g, " ").trim()
+  if (!name) return `Storelib <${m[2]}>`
+  return /[()<>[\]:;@,.]/.test(name) ? `"${name}" <${m[2]}>` : `${name} <${m[2]}>`
+}
+
 // Email defaults
 export const EMAIL_FROM = withDisplayName(process.env.EMAIL_FROM || "Storelib <noreply@storelib.com>")
 export const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO || "support@storelib.com"
@@ -197,7 +215,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     }
   }
 
-  const fromAddress = withDisplayName(options.from || EMAIL_FROM)
+  const fromAddress = quotedFrom(withDisplayName(options.from || EMAIL_FROM))
   const replyTo = options.replyTo || EMAIL_REPLY_TO
 
   // Build form data for Mailgun API
@@ -367,7 +385,7 @@ export async function sendMailgunOnce(
   if (!isValidEmail(options.to)) return { success: false, status: 400, error: "Invalid email address" }
 
   const form = new FormData()
-  form.append("from", withDisplayName(options.from || EMAIL_FROM))
+  form.append("from", quotedFrom(withDisplayName(options.from || EMAIL_FROM)))
   form.append("to", options.to)
   form.append("subject", options.subject)
   const html = sendableHtml(options.html, options.subject)

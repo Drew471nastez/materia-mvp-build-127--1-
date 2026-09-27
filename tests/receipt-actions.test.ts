@@ -26,8 +26,12 @@
  *                 delivery status, needs the account the order is on, and
  *                 counts towards the five a day.
  *   CONTACT       a message from the receipt reaches the seller's own inbox
- *                 with Reply-To the order's address (never one in the
- *                 request), is limited, and says so in words.
+ *                 (their support address, else their login's address as it
+ *                 is now, the owner's for a second business), with Reply-To
+ *                 the order's address (never one in the request), is
+ *                 limited, is a seller_message row in email_logs, and says
+ *                 so in words; a seller with no address is told, never sent
+ *                 to Storelib's support inbox instead.
  *   DOWNLOAD      a paid receipt gets a signed link for its own file; a
  *                 refunded one gets the reason, and no link is signed.
  *   REVIEW        only a buyer who still has the product, once, with a
@@ -522,13 +526,55 @@ async function main() {
     const b = await json(r)
     check("a guest holding the token can write: 200", r.status === 200 && b.success === true, JSON.stringify(b))
     const m = S.sent[0]
-    check("one message, to the seller's own inbox", S.sent.length === 1 && m.kind === "contact" && m.to === "seller@example.com", JSON.stringify(S.sent))
+    /* Changed on purpose: the route resolves the inbox itself now (lib/seller-inbox), the support address the seller set first. */
+    check("one message, to the support address the seller set", S.sent.length === 1 && m.kind === "contact" && m.to === "help@seller.example", JSON.stringify(S.sent))
+    const logged = db.tables.email_logs.filter((l: any) => l.email_type === "seller_message")
+    check("recorded in email_logs as seller_message, sent, with no message text", logged.length === 1 && logged[0].status === "sent" && logged[0].order_id === ORDER && logged[0].recipient_email === "help@seller.example" && !JSON.stringify(logged).includes("zip"), JSON.stringify(logged))
     check("Reply-To is the order's address, not one in the request", m?.message?.buyerEmail === "ghita@example.com", JSON.stringify(m?.message))
     check("with the order number, the buyer's name, every line and a link to the order",
       m?.message?.orderNumber === "11111111" && m?.message?.buyerName === "Ghita" && m?.message?.items?.length === 2 && /\/app\/orders\/11111111-1111-4111-8111-111111111111$/.test(m?.message?.orderLink), JSON.stringify(m?.message))
     check("the message tidied", m?.message?.message === "Hi, the zip will not open on my Mac.")
     check("recorded without the message", db.tables.security_events.length === 1 && db.tables.security_events[0].event_type === "seller_contacted" && !JSON.stringify(db.tables.security_events).includes("zip"))
     check("and the limiter counted it", db.tables.rate_limit_hits.some((h: any) => h.bucket === "receipt-contact"))
+  }
+  {
+    /* No support address: the login's address as it is now, read from auth, not the profile's older copy. */
+    const db = world()
+    db.tables.creators[0].support_email = null
+    db.tables.profiles.find((p: any) => p.id === SELLER_USER).email = "andrew.old@example.com"
+    db.auth = { admin: { getUserById: async (id: string) => ({ data: { user: id === SELLER_USER ? { email: "Andrew.Now@Example.com" } : null } }) } }
+    reset(db, null)
+    const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Where is the file?" })
+    check("no support address: the login's current address", r.status === 200 && S.sent[0]?.to === "andrew.now@example.com", JSON.stringify(S.sent))
+  }
+  {
+    /* A second business: its account's address is the owner's with a tag, from before the owner changed it. The owner's login today wins. */
+    const OWNER = "99999999-9999-4999-8999-999999999999"
+    const db = world({ extra: { business_links: [{ member_id: SELLER_USER, owner_id: OWNER }] } })
+    db.tables.creators[0].support_email = null
+    db.tables.profiles.find((p: any) => p.id === SELLER_USER).email = "andrew+slb-1a2b3c4d@old.example"
+    db.auth = { admin: { getUserById: async (id: string) => ({ data: { user: id === OWNER ? { email: "andrew@new.example" } : id === SELLER_USER ? { email: "andrew+slb-1a2b3c4d@old.example" } : null } }) } }
+    reset(db, null)
+    const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Where is the file?" })
+    check("a second business: the owner's login address as it is now, no tag", r.status === 200 && S.sent[0]?.to === "andrew@new.example", JSON.stringify(S.sent))
+  }
+  {
+    /* Auth cannot be read: the profile's address, untagged. */
+    const db = world()
+    db.tables.creators[0].support_email = null
+    db.tables.profiles.find((p: any) => p.id === SELLER_USER).email = "andrew+slb-1a2b3c4d@example.com"
+    reset(db, null)
+    const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Where is the file?" })
+    check("auth unreadable: the profile's address with the business tag taken off", r.status === 200 && S.sent[0]?.to === "andrew@example.com", JSON.stringify(S.sent))
+  }
+  {
+    /* Nobody to write to: said in words, nothing sent, and never Storelib's support inbox in the seller's place. */
+    const db = world()
+    db.tables.creators[0].support_email = null
+    reset(db, null)
+    const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Where is the file?" })
+    const b = await json(r)
+    check("a seller with no address: refused in words, nothing sent", r.status === 409 && b.success === false && /no email address/.test(b.error) && S.sent.length === 0, JSON.stringify(b))
   }
   {
     const db = world()
@@ -565,6 +611,15 @@ async function main() {
     const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Hello there" })
     const b = await json(r)
     check("the sender fails: 502 with words the page shows", r.status === 502 && /did not go out/.test(b.error), JSON.stringify(b))
+    const logged = db.tables.email_logs.filter((l: any) => l.email_type === "seller_message")
+    check("and email_logs says it failed", logged.length === 1 && logged[0].status === "failed" && /provider said no/.test(logged[0].error_message), JSON.stringify(logged))
+  }
+  {
+    /* Before the SQL part: email_logs refuses the new type. The message still goes and the buyer is told it went. */
+    const db = world({ failInsert: { email_logs: { code: "23514", message: 'new row for relation "email_logs" violates check constraint "email_logs_email_type_check"' } } })
+    reset(db, null)
+    const r = await write({ orderId: ORDER, receiptToken: TOKEN, message: "Hello there" })
+    check("before the email_logs SQL: sent and 200 all the same", r.status === 200 && S.sent.length === 1)
   }
 
   /* ── Download ───────────────────────────────────────────────────────── */

@@ -150,6 +150,7 @@ const SUITES = [
   "tests/purchase-verify.test.ts",
   "tests/receipt-download.test.ts",
   "tests/receipt-actions.test.ts",
+  "tests/contact-seller.test.ts",
   "tests/onepage-search-share.test.ts",
   "tests/onepage-host.test.ts",
   "tests/policy-pages.test.ts",
