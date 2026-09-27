@@ -72,8 +72,6 @@ import {
 import { fieldsFor } from "@/lib/automations/merge-fields"
 import type { Identity } from "@/lib/automations/engine"
 import { previewFlowEmail } from "@/lib/automations/preview"
-import { SAMPLE_READER } from "@/lib/email-variables"
-import { EmailPreview, type PreviewMode } from "@/components/email/compose/email-preview"
 import { joinedSentence } from "@/lib/contacts/contact-source"
 import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "../../../orders/order-parts"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
@@ -83,8 +81,6 @@ import { refreshMatching, write } from "@/components/email/emails-cache"
 import { PreviewLayer } from "@/components/email/compose/preview-layer"
 import type { PreviewMode } from "@/components/email/compose/email-preview"
 import { FlowTopBar, StepMark, backButton } from "../flow-parts"
-
-const SAMPLE_NAME = SAMPLE_READER.name.split(" ")[0]
 
 export interface StepStats {
   sent: number
@@ -1115,13 +1111,6 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
   const { step } = props
   const { toast } = useToast()
   const [testing, setTesting] = React.useState(false)
-  const [previewing, setPreviewing] = React.useState(false)
-  const [previewMode, setPreviewMode] = React.useState<PreviewMode>("mobile")
-  /* Filled and framed exactly as a send is, with a sample buyer (lib/automations/preview). Drawn only when open. */
-  const preview = React.useMemo(
-    () => (previewing && props.look ? previewFlowEmail(step, props.trigger, props.look, props.sampleProduct) : null),
-    [previewing, props.look, props.trigger, props.sampleProduct, step],
-  )
   const set = (config: Partial<typeof step.config>) => props.onChange({ ...step, config: { ...step.config, ...config } })
   const fields = fieldsFor(props.trigger)
   const test = async () => {
@@ -1135,24 +1124,33 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
     }
   }
   /*
-    PREVIEW, drawn by the server exactly as a send draws it (app/api/
-    automations/flows/[id]/preview): the creator's name, logo and colour,
-    the fields filled with an example reader, the footer. Shown in the
-    composer's own preview (components/email/compose/preview-layer), a
-    screen of its own on every size, with Phone and Desktop.
+    PREVIEW: the email as a buyer gets it, filled and framed exactly as a
+    send is, with a sample reader (lib/automations/preview, from the
+    creator as the send path reads them, which the page brings). Shown in
+    the composer's own preview (components/email/compose/preview-layer), a
+    screen of its own on every size with Phone and Desktop, over the sheet
+    the step is edited in on a phone. Drawn in the browser and only while
+    open; if the page could not bring the creator's look, the server draws
+    it instead (app/api/automations/flows/[id]/preview).
   */
-  const [preview, setPreview] = React.useState<{ html: string; subject: string; previewText: string; fromName: string } | null>(null)
   const [previewOpen, setPreviewOpen] = React.useState(false)
+  const [fetched, setFetched] = React.useState<{ html: string; subject: string; previewText: string; fromName: string } | null>(null)
   const [previewing, setPreviewing] = React.useState(false)
   const [previewMode, setPreviewMode] = React.useState<PreviewMode>("mobile")
+  const local = React.useMemo(
+    () => (previewOpen && props.look ? { ...previewFlowEmail(step, props.trigger, props.look, props.sampleProduct), fromName: props.look.fromName } : null),
+    [previewOpen, props.look, props.trigger, props.sampleProduct, step],
+  )
+  const preview = local ?? fetched
   const openPreview = async () => {
+    if (props.look) return setPreviewOpen(true)
     if (previewing) return
     setPreviewing(true)
     try {
-      const res = await fetch(`/api/automations/flows/${props.flowId}/preview`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step }) })
+      const res = await fetch(`/api/automations/flows/${props.flowId}/preview`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ step, product: props.sampleProduct }) })
       const out = await res.json().catch(() => ({}))
       if (!res.ok || typeof out.html !== "string") throw new Error(out.error)
-      setPreview({ html: out.html, subject: String(out.subject ?? ""), previewText: String(out.previewText ?? ""), fromName: String(out.fromName ?? "") })
+      setFetched({ html: out.html, subject: String(out.subject ?? ""), previewText: String(out.previewText ?? ""), fromName: String(out.fromName ?? "") })
       setPreviewOpen(true)
     } catch (error) {
       toast({ title: "No preview", description: (error as Error)?.message || "Check your connection and try again.", variant: "destructive" })
@@ -1212,19 +1210,6 @@ function EmailFields(props: { flowId: string; trigger: TriggerType; step: Extrac
           Fields: {fields.filter((f) => !f.link).map((f) => `{{${f.key}}}`).join(", ")}. &ldquo;Hi {"{{first_name}}"},&rdquo; reads &ldquo;Hi there,&rdquo; when a name is not known, and {"{{creator_name}}"} is the name on your profile when the email is sent. Every email ends with your name and an unsubscribe link.
         </p>
       </div>
-      {props.look ? (
-        <div>
-          <button type="button" className={PANEL_BUTTON} aria-expanded={previewing} onClick={() => setPreviewing((v) => !v)}>
-            {previewing ? "Hide preview" : "Preview"}
-          </button>
-          {preview ? (
-            <div className="mt-3">
-              <p className={cn(hint, "mb-2")}>As {SAMPLE_NAME} would get it, with your name, photo and store as they are now.</p>
-              <EmailPreview html={preview.html} senderName={props.look.fromName} subject={preview.subject} previewText={preview.previewText} mode={previewMode} onMode={setPreviewMode} fit />
-            </div>
-          ) : null}
-        </div>
-      ) : null}
       <div className="flex items-center justify-between gap-3 rounded-xl bg-[#f7f7f8] px-3 py-2.5">
         <p className="min-w-0 text-[12px] text-[#4b5563]">
           {props.accountEmail ? <>Send this one to <span className="font-medium text-[#1a1a2e] [overflow-wrap:anywhere]">{props.accountEmail}</span>, as it is now.</> : "Your account has no email address for a test."}

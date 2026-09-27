@@ -4,9 +4,9 @@
  *
  *   duplicate   a flow can be copied, from its page and from the list; the
  *               copy is always off, and unsaved edits are saved first
- *   preview     an automated email is drawn by the server exactly as a send
- *               draws it, and shown in the composer's own preview, above
- *               the phone's sheet the step is edited in
+ *   preview     one Preview per email, filled and framed as a send is (the
+ *               server draws the same when the page has no look), shown in
+ *               the composer's own preview, above the phone's sheet
  *   the list    it hears about every save, switch, copy and delete made on a
  *               flow's page, so Back never shows what was there before
  *   turning off from the list asks first when people are partway through,
@@ -55,10 +55,12 @@ check("and in the list's menu", /\{ label: "Duplicate", onClick: \(\) => props\.
 check("an unnamed flow is Untitled automation everywhere", /export const UNTITLED = "Untitled automation"/.test(io) && /cleanName\(body\.name\) \?\? UNTITLED/.test(save) && /template\?\.name \?\? UNTITLED/.test(create) && !/"Untitled flow"/.test(save))
 
 console.log("\nPreview")
-check("preview and test are drawn by one function, the one a real send uses", /prepareEmail\(input\.step/.test(drawn) && /mailer\.compose\(/.test(drawn) && /drawFlowEmail\(/.test(preview) && /drawFlowEmail\(/.test(test))
+check("the test is drawn by the mailer a real send uses", /prepareEmail\(input\.step/.test(drawn) && /mailer\.compose\(/.test(drawn) && /drawFlowEmail\(/.test(test))
+check("the server's preview is the builder's own preview function, so the two cannot differ", /previewFlowEmail\(step, trigger, identity, product\)/.test(preview) && /previewFlowEmail\(step, props\.trigger, props\.look, props\.sampleProduct\)/.test(builder))
+check("one Preview in the step's panel, not two", (builder.match(/>\s*\{previewing \? "Opening" : "Preview"\}/g) ?? []).length === 1 && !/Hide preview/.test(builder))
 check("the preview reads only the creator's own flow and cleans the step as a save does", /\.eq\("creator_id", me\.creatorId\)/.test(preview) && /cleanSteps\(\[body\.step\]\)/.test(preview))
 check("the preview sends nothing", !/\.send\(/.test(preview))
-check("the builder opens it in the composer's preview layer", /<PreviewLayer/.test(builder) && /\/preview`/.test(builder) && /data-flow-preview/.test(builder))
+check("the builder opens it in the composer's preview layer, asking the server only without the creator's look", /<PreviewLayer/.test(builder) && /if \(props\.look\) return setPreviewOpen\(true\)/.test(builder) && /\/preview`/.test(builder) && /data-flow-preview/.test(builder))
 check("which sits above the shared sheet (z 200)", /fixed inset-0 z-\[210\]/.test(layer))
 
 console.log("\nThe Emails list hears about changes")

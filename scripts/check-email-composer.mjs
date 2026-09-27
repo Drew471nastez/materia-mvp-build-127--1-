@@ -89,6 +89,8 @@ export const useSearchParams = () => new URLSearchParams()
       "--jsx=automatic",
       '--define:process.env.NODE_ENV="production"',
       "--define:process.env.NEXT_PUBLIC_MAIN_DOMAIN=undefined",
+      /* The preview now fills fields through lib/email-variables, which reads the app's address from process.env: a browser has no process. */
+      '--banner:js=var process=globalThis.process||{env:{NODE_ENV:"production"},browser:true};globalThis.process=process;',
       "--alias:@=.",
       "--alias:@/lib/supabase/client=./.email-composer-probe/supabase-client.js",
       "--alias:next/navigation=./.email-composer-probe/navigation.js",
@@ -122,7 +124,7 @@ export const useSearchParams = () => new URLSearchParams()
     const errors = []
     p.on("pageerror", (e) => errors.push(String(e)))
     await p.goto(`${ORIGIN}/app/emails/new`)
-    await p.waitForSelector("[data-email-editor] [data-email-text]")
+    await p.waitForSelector("[data-email-editor] [data-email-text]", { timeout: 15000 }).catch((e) => { console.log("page errors:", errors.slice(0, 3)); throw e })
     await sleep(400)
 
     /* ── The frame ── */
