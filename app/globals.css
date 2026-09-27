@@ -148,26 +148,31 @@ html.switch-arriving {
      from app-top-corners below, the same --app-top-corner): a frame of the
      canvas alone is then the screen's surface with its corners, not a flat
      band over a square edge that rounds a frame later. Each corner is a
-     quarter circle of the page's colour cut out of a square of the bar's. */
-  --switch-bar: #111111;
-  --switch-bar-h: calc(68px + env(safe-area-inset-top, 0px));
-  --switch-field: #f8f9fa;
-  background-color: var(--switch-field);
+     quarter circle of the page's colour cut out of a square of the bar's.
+
+     No custom properties of its own, on purpose: a custom property set on
+     <html> is inherited by every element, so taking the class off at the
+     hand over would restyle the whole page in the middle of the screen's
+     fade (measured: a 175ms task at a phone's speed). Plain values only. */
+  background-color: #f8f9fa;
   background-image:
-    radial-gradient(circle at 100% 100%, transparent calc(var(--app-top-corner) - 0.5px), var(--switch-bar) var(--app-top-corner)),
-    radial-gradient(circle at 0 100%, transparent calc(var(--app-top-corner) - 0.5px), var(--switch-bar) var(--app-top-corner)),
-    linear-gradient(var(--switch-bar) 0, var(--switch-bar) var(--switch-bar-h), var(--switch-field) var(--switch-bar-h));
+    radial-gradient(circle at 100% 100%, transparent calc(var(--app-top-corner) - 0.5px), #111111 var(--app-top-corner)),
+    radial-gradient(circle at 0 100%, transparent calc(var(--app-top-corner) - 0.5px), #111111 var(--app-top-corner)),
+    linear-gradient(#111111 0, #111111 calc(68px + env(safe-area-inset-top, 0px)), #f8f9fa calc(68px + env(safe-area-inset-top, 0px)));
   background-size: var(--app-top-corner) var(--app-top-corner), var(--app-top-corner) var(--app-top-corner), 100% 100%;
-  background-position: 0 var(--switch-bar-h), 100% var(--switch-bar-h), 0 0;
+  background-position: 0 calc(68px + env(safe-area-inset-top, 0px)), 100% calc(68px + env(safe-area-inset-top, 0px)), 0 0;
   background-repeat: no-repeat;
   background-attachment: fixed;
 }
 
 @media (min-width: 768px) {
   html.switch-arriving {
-    --switch-bar: #131316;
-    --switch-bar-h: calc(58px + env(safe-area-inset-top, 0px));
-    --switch-field: #ffffff;
+    background-color: #ffffff;
+    background-image:
+      radial-gradient(circle at 100% 100%, transparent calc(var(--app-top-corner) - 0.5px), #131316 var(--app-top-corner)),
+      radial-gradient(circle at 0 100%, transparent calc(var(--app-top-corner) - 0.5px), #131316 var(--app-top-corner)),
+      linear-gradient(#131316 0, #131316 calc(58px + env(safe-area-inset-top, 0px)), #ffffff calc(58px + env(safe-area-inset-top, 0px)));
+    background-position: 0 calc(58px + env(safe-area-inset-top, 0px)), 100% calc(58px + env(safe-area-inset-top, 0px)), 0 0;
   }
 }
 

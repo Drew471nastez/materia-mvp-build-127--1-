@@ -93,6 +93,7 @@
  *   SPLIT_MS=300                   the new document's head lands this long before the rest of it
  *   EXPECT=off                     as a browser that does not know rel=expect sees it
  *   STUCK=0                        leave out the NEVER STUCK runs (a minute and a half)
+ *   ONLY=stuck | ONLY=film         only those, or everything but those
  *
  * EXPECT=off with the document in two parts is the one place this probe is
  * meant to fail, and what it fails on is the residual: with nothing left to
@@ -294,6 +295,13 @@ const server = createServer((req, res) => {
       if (silent.switch > 0) { silent.switch--; held.push(() => res.destroy()); return }
       setTimeout(answer, SWITCH_MS)
     })
+    return
+  }
+  /* NEVER STUCK: what a page mid-way to its next page shows, reported by itself. */
+  if (u.pathname === "/__state" && req.method === "POST") {
+    const chunks = []
+    req.on("data", (c) => chunks.push(c))
+    req.on("end", () => { try { seen.report = JSON.parse(Buffer.concat(chunks).toString()) } catch {} ; send(204, "text/plain", "") })
     return
   }
   if (u.pathname === "/api/figures") return setTimeout(() => send(200, "application/json", JSON.stringify({ figures: ["860", "$1,240", "18", "2.1%"] })), FIGURES_MS)
@@ -883,8 +891,16 @@ async function stuck(kind) {
   await wait(400)
   const cdp = await page.createCDPSession()
   if (CPU > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU })
-  const shot = async (name) => { if (SHOTS) await page.screenshot({ path: join(SHOTS, `stuck-${kind}-${name}.png`) }).catch(() => {}) }
-  const state = () => page.evaluate(() => ({
+  /*
+    READING A PAGE WHOSE NEXT PAGE NEVER COMES. The protocol sends an
+    evaluation to the document that is on its way, and PAGE SILENT's never
+    arrives, so a plain evaluate waits for ever. The page reports itself
+    instead: every 200ms it sends what it shows to the probe's server
+    (STATE_REPORT), and it presses Try again itself once that has been on
+    the glass for a second, when asked to. The protocol is still asked
+    first, with a limit, and answers for any page that is not mid-way.
+  */
+  const STATE = `(() => ({
     at: location.pathname,
     screen: (() => { const s = document.querySelector("[data-business-switch-screen]"); return s && getComputedStyle(s).display !== "none" ? s.dataset.step || "up" : null })(),
     line: (Array.from(document.querySelectorAll("[data-switch-line]")).pop() || {}).textContent || null,
@@ -894,7 +910,28 @@ async function stuck(kind) {
     arrived: !!document.querySelector('[data-probe-page="new"]') && !document.querySelector("[data-business-switch-screen]"),
     cookie: document.cookie.includes("storelib_switching="),
     canvas: document.documentElement.classList.contains("switch-arriving"),
-  })).catch(() => null)
+  }))()`
+  const soon = (p, ms) => Promise.race([p, wait(ms).then(() => undefined)])
+  const js = async (expression) => (await soon(cdp.send("Runtime.evaluate", { expression, returnByValue: true }).catch(() => null), 1500))?.result?.value
+  const shot = async (name) => {
+    if (!SHOTS) return
+    const r = await soon(cdp.send("Page.captureScreenshot", { format: "png" }).catch(() => null), 3000)
+    if (r) writeFileSync(join(SHOTS, `stuck-${kind}-${name}.png`), Buffer.from(r.data, "base64"))
+  }
+  seen.report = null
+  await page.evaluate(`setInterval(() => {
+    try {
+      const s = ${STATE}
+      navigator.sendBeacon("/__state", JSON.stringify(s))
+      if (window.__probeAutoRetry && s.retryOnScreen) {
+        window.__probeRetrySeen = window.__probeRetrySeen || Date.now()
+        if (Date.now() - window.__probeRetrySeen > 1000 && !window.__probeRetried) { window.__probeRetried = true; document.querySelector("[data-switch-retry]").click() }
+      }
+    } catch {}
+  }, 200)`)
+  if (kind === "page") await page.evaluate(() => { window.__probeAutoRetry = true })
+  const state = async () => (await js(STATE)) ?? seen.report
+  const press = (sel) => js(`(() => { const b = document.querySelector(${JSON.stringify(sel)}); if (b) b.click(); return !!b })()`)
   const until = async (test, limit) => {
     const t0 = Date.now()
     for (;;) {
@@ -914,7 +951,7 @@ async function stuck(kind) {
     expect(!!r.s && r.s.at === "/" && /could not be opened/.test(r.s.alert || "") && r.s.retryInMenu, "  back where you were, one line, with Try again", JSON.stringify(r.s && { at: r.s.at, alert: r.s.alert, retry: r.s.retryInMenu }))
     expect(!!r.s && !r.s.cookie, "  no switch cookie left")
     release()
-    await (await visible("[data-business-retry]")).click().catch(() => {})
+    await press("[data-business-retry]")
     const again = await until((x) => x.arrived, 20_000)
     await shot("2-after-try-again")
     expect(again.t != null, "  and Try again switches", again.t != null ? `arrived ${ms(again.t)} after it` : JSON.stringify(again.s))
@@ -924,8 +961,7 @@ async function stuck(kind) {
     expect(r.t != null, "the page that never comes ends: the screen says so, with Try again", r.t != null ? `${ms(Date.now() - pressed)} after the press, the line "${r.s.line}"` : `still: ${JSON.stringify(r.s)}`)
     expect(seen.appAsks >= 2, "  it asked for the page again on the way", `${seen.appAsks} requests`)
     expect(!!r.s && /did not open/.test(r.s.line || ""), "  in one line", r.s?.line ?? "-")
-    /* Try again while the two held requests are still open: its own request supersedes them, as a real one does. */
-    await (await visible("[data-switch-retry]")).click().catch(() => {})
+    /* Try again (pressed by the page itself, a second after it shows) while the two held requests are still open: its own request supersedes them, as a real one does. */
     const again = await until((x) => x.arrived, 20_000)
     await shot("2-after-try-again")
     expect(again.t != null && !again.s.cookie, "  and Try again opens it, and the cookie is gone after", again.t != null ? `arrived ${ms(again.t)} after it` : JSON.stringify(again.s))
@@ -945,25 +981,27 @@ async function stuck(kind) {
   mode = "ok"
 }
 
-for (const W of WIDTHS) await run(W)
-if (WIDTHS.includes(390)) {
-  await run(390, { scenario: "fail" })
-  await run(390, { reduced: true })
-}
-if (WIDTHS.includes(1280)) await run(1280, { scenario: "fail" })
-/* THE NEW DOCUMENT IN TWO PARTS, which is how a megabyte of /app arrives.
-   The browser has a document it can lay out before it has the screen, and
-   what it draws in between used to be one white frame held for the whole
-   gap. See lib/businesses/switch-screen.ts. */
-for (const W of [390, 1440]) if (WIDTHS.includes(W)) await run(W, { inParts: true })
-if (WIDTHS.includes(390)) {
-  /* SAFE AREA: the still bar at the real header's place under a notch. */
-  await run(390, { insets: true })
-  if (process.env.STUCK !== "0") {
-    await run(390, { lock: true })
-    await run(390, { gate: true })
-    for (const kind of ["server", "page", "noscript"]) await stuck(kind)
+/* ONLY=stuck: the NEVER STUCK runs alone; ONLY=film: everything else. */
+const ONLY = process.env.ONLY || ""
+if (ONLY !== "stuck") {
+  for (const W of WIDTHS) await run(W)
+  if (WIDTHS.includes(390)) {
+    await run(390, { scenario: "fail" })
+    await run(390, { reduced: true })
   }
+  if (WIDTHS.includes(1280)) await run(1280, { scenario: "fail" })
+  /* THE NEW DOCUMENT IN TWO PARTS, which is how a megabyte of /app arrives.
+     The browser has a document it can lay out before it has the screen, and
+     what it draws in between used to be one white frame held for the whole
+     gap. See lib/businesses/switch-screen.ts. */
+  for (const W of [390, 1440]) if (WIDTHS.includes(W)) await run(W, { inParts: true })
+  /* SAFE AREA: the still bar at the real header's place under a notch. */
+  if (WIDTHS.includes(390)) await run(390, { insets: true })
+}
+if (ONLY !== "film" && process.env.STUCK !== "0" && WIDTHS.includes(390)) {
+  await run(390, { lock: true })
+  await run(390, { gate: true })
+  for (const kind of ["server", "page", "noscript"]) await stuck(kind)
 }
 
 await browser.close()

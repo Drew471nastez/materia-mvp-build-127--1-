@@ -262,9 +262,11 @@ function switchScreen() {
     /<span aria-hidden="true" id=\{SWITCH_SCREEN_ID\} \/>\s*<\/div>/.test(screen)
       && /SWITCH_SCREEN_ID = "business-switch-screen-ready"/.test(switchLib))
   check("  and that canvas is the screen's own two fields, at the bar's height at each width, outside every layer",
-    /html\.switch-arriving \{/.test(globals) && /--switch-bar: #111111;\s*--switch-bar-h: calc\(68px \+ env\(safe-area-inset-top, 0px\)\);\s*--switch-field: #f8f9fa;/.test(globals)
-      && /--switch-bar: #131316;\s*--switch-bar-h: calc\(58px \+ env\(safe-area-inset-top, 0px\)\);\s*--switch-field: #ffffff;/.test(globals)
-      && /radial-gradient\(circle at 100% 100%, transparent calc\(var\(--app-top-corner\) - 0\.5px\), var\(--switch-bar\) var\(--app-top-corner\)\)/.test(globals)
+    /html\.switch-arriving \{/.test(globals) && /linear-gradient\(#111111 0, #111111 calc\(68px \+ env\(safe-area-inset-top, 0px\)\), #f8f9fa calc\(68px \+ env\(safe-area-inset-top, 0px\)\)\)/.test(globals)
+      && /linear-gradient\(#131316 0, #131316 calc\(58px \+ env\(safe-area-inset-top, 0px\)\), #ffffff calc\(58px \+ env\(safe-area-inset-top, 0px\)\)\)/.test(globals)
+      && /radial-gradient\(circle at 100% 100%, transparent calc\(var\(--app-top-corner\) - 0\.5px\), #111111 var\(--app-top-corner\)\)/.test(globals)
+      /* No custom property of its own on <html>: taking the class off would restyle every element in the middle of the hand over. */
+      && !/html\.switch-arriving \{[^}]*\n\s*--[a-z-]+:/.test(globals)
       && /html\.switch-arriving body \{\s*background-color: transparent;/.test(globals)
       && /background-attachment: fixed;/.test(globals))
   check("  and it comes off again when the screen hands over",

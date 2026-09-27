@@ -47,14 +47,14 @@ import {
  * So the switch has its own surface (SwitchSurface): the app's own bar along
  * the top, exactly the height and colour the shell's header has at this
  * width, with the header's rounded corners hanging from it, and under it one
- * white area from edge to edge. No rail, no seam, no second colour: nothing
+ * field from edge to edge (the page's #f8f9fa on a phone, white from md,
+ * SwitchSurface below). No rail, no seam, no second colour: nothing
  * of the shell is half drawn, because nothing of the shell is drawn at all.
  * The bar stays because it is the one part of the app that is the same on
  * both sides of the switch, so the screen coming up and going away changes
  * nothing up there, and on a phone the status bar keeps the dark it is
- * drawn against. The white is the white the new business's setup sits on
- * (`surface="plain"` below), so the two screens of the account menu are the
- * same picture with and without the app's bar.
+ * drawn against. A new business's setup is drawn on plain white
+ * (`surface="plain"` below), without the bar, as that page is.
  *
  * On it, the light gray spinner in the place every slow page and cold start
  * puts it (40% down, PageSpinner's rows) and one line under it saying which
@@ -177,14 +177,15 @@ function fadeIn(el: HTMLElement | null) {
  * is nothing drawn yet for it to restyle; set on the <html> of a page already
  * drawn, it would restyle the whole page in the frame the screen comes up in.
  */
-/** Where the screen is drawn: white under the app's own bar for a switch, plain white for a new business's setup. */
+/** Where the screen is drawn: the page's own field under the app's bar for a switch, plain white for a new business's setup. */
 export type ScreenSurface = "app" | "plain"
 
 /**
  * ===========================================================================
  *  THE SURFACE A SWITCH IS DRAWN ON
  * ===========================================================================
- * The app's bar, and one white area under it from edge to edge.
+ * The app's bar, and one field under it from edge to edge: the page's own
+ * #f8f9fa on a phone, white from md.
  *
  * THE BAR is the shell's own: 68px under the status bar on a phone, 58px
  * from md, #111111 and #131316, read with env(safe-area-inset-top) so a
@@ -199,11 +200,23 @@ export type ScreenSurface = "app" | "plain"
  * moving: the page you were on has this bar, the page you are going to has
  * it, so the fade in and the fade out only ever change what is under it.
  *
- * THE WHITE runs the full width from the bar's bottom edge down, under the
+ * THE FIELD runs the full width from the bar's bottom edge down, under the
  * bar's two corners, so there is no rail, no edge and no second colour
  * anywhere on it. It is one surface with a spinner on it, which is what a
  * screen that is waiting should look like; the shell's shape belongs to the
  * page, and the page draws it itself a moment later.
+ *
+ * ON A PHONE IT IS THE PAGE'S OWN #f8f9fa. "At some point in that timeline
+ * of switching, a glitch, a refresh flash thing." Filmed at 390 (scripts/
+ * check-business-switch.mjs), the phone's field was white while every page
+ * it sits between is #f8f9fa at that width: the page you were on, the new
+ * /app's shell and its cold start. So the screen came up as a lighter sheet
+ * and went away into a darker one, the whole glass changing tone twice.
+ * Now it is the page's colour, the same pixels as the shell it hands over
+ * to, and the only thing that changes at the hand over is the page's own
+ * content arriving. From md it stays white edge to edge: there the owner
+ * asked for no rail and no grey panel beside it ("the sidebar there, it's
+ * cut"), and the switch was not what glitched.
  *
  * THE ORDER THE TWO ARE WRITTEN IN IS THE ORDER THEY ARRIVE. A browser draws
  * a document it has only half read, so a screen written white-first showed a
