@@ -113,7 +113,11 @@ export async function ownerDownload(
   if (!asset.file_path) return { status: 404, body: { error: "This file has not finished uploading." } }
 
   const passed = await gate(admin, asset, { isCreator: true })
-  if (!passed.ok) return { status: passed.status as 403 | 409, body: { error: passed.error } }
+  if (!passed.ok) {
+    /* The gate's words are for a buyer ("the seller has been told"); this is the seller. */
+    const error = passed.status === 403 ? "The virus scan flagged this file, so it cannot be downloaded." : passed.error
+    return { status: passed.status as 403 | 409, body: { error } }
+  }
 
   const fileName = downloadFileName(input.name, asset.file_name)
   const signed = await sign(admin, asset.file_path, OWNER_LINK_SECONDS, asset.storage_bucket || undefined, fileName)

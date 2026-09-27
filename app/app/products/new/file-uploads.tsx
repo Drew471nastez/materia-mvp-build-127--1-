@@ -50,8 +50,7 @@ import { DirectUploader, type UploadError, type UploadStatus } from "@/lib/stora
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { RowMenuButton } from "../../orders/order-parts"
 import { cn } from "@/lib/utils"
-import { saveOwnFile, type OwnFileOutcome } from "@/lib/platform/own-file"
-import { savedMessage } from "@/lib/platform/save-file"
+import { ownFileNotice, saveOwnFile, type OwnFileOutcome } from "@/lib/platform/own-file"
 import type { UploadedFile } from "./editor-form"
 import { secondaryDepth } from "./editor-buttons"
 
@@ -682,9 +681,9 @@ export function DigitalFiles({
   /* In a browser the browser shows the download; the apps hand it to the system browser, so they say where it went. */
   const onSaved = useCallback(
     (outcome: OwnFileOutcome, name: string) => {
-      if (outcome === "ios-download" || outcome === "android-download") {
-        const message = savedMessage(outcome, name)
-        setAnnounce(message)
+      const message = ownFileNotice(outcome)
+      if (message) {
+        setAnnounce(`${name}: ${message}`)
         onNotice?.(message)
       } else if (outcome === "downloaded") setAnnounce(`${name} downloaded`)
     },

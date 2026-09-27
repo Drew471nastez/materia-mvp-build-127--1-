@@ -70,7 +70,7 @@ check("more can be added while some are uploading, counted against the limit", /
 check("a finished file's download, rename and delete are one menu, a sheet on a phone", /<ResponsiveActionMenu[\s\S]{0,300}label: "Download", onClick: \(\) => void download\(\) \},\s*\{ label: "Rename"[\s\S]{0,200}label: "Delete", variant: "destructive"/.test(uploads))
 check("Download is the first row of every file's menu, uploading and failed ones too", (uploads.match(/items=\{\[\s*\{ label: "Download", onClick: \(\) => void download\(\) \}/g) ?? []).length === 3)
 check("while it is asked for, the row's own line says so, and a refusal replaces it in red", /meta = <span data-file-download="preparing">Preparing download<\/span>/.test(uploads) && /data-file-download="error" role="alert" className="text-\[#b42318\]"/.test(uploads))
-check("the editor's toast says where an app sent it", /onNotice=\{showToast\}/.test(editor) && /savedMessage\(outcome, name\)/.test(uploads))
+check("the editor's toast says where an app sent it", /onNotice=\{showToast\}/.test(editor) && /const message = ownFileNotice\(outcome\)/.test(uploads))
 check("every press in a row is 44px on a phone", /inline-flex h-11 w-11 shrink-0/.test(uploads) && /min-h-\[64px\]/.test(uploads))
 check("drag and drop onto the list, and a drop zone when there are no files", /onDrop: \(e: React\.DragEvent\)/.test(uploads) && /Drop to upload/.test(uploads) && /Choose files/.test(uploads))
 check("the virus scan still runs after each upload", /fetch\("\/api\/v2\/upload\/scan"/.test(uploads))

@@ -89,6 +89,17 @@ export async function saveOwnFile(
   }
 }
 
+/**
+ * The notice after the apps hand a file on, short enough for the editor's
+ * one line toast on a phone: what to do next, not the file's name again.
+ * Null where the browser's own download is the notice.
+ */
+export function ownFileNotice(outcome: OwnFileOutcome): string | null {
+  if (outcome === "ios-download") return "Tap Download to save it to Files"
+  if (outcome === "android-download") return "Saving to Downloads on this phone"
+  return null
+}
+
 /* ─── The real page ───────────────────────────────────────────────────── */
 
 async function fetchLink(assetId: string, name: string): Promise<{ url: string; fileName: string }> {

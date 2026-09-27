@@ -22,7 +22,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { downloadFileName, ownerDownload, OWNER_LINK_SECONDS, NOT_FOUND } from "../lib/storage/owner-download"
-import { ownFilePlan, saveOwnFile, type OwnFileDeps } from "../lib/platform/own-file"
+import { ownFileNotice, ownFilePlan, saveOwnFile, type OwnFileDeps } from "../lib/platform/own-file"
 
 let passed = 0
 let failed = 0
@@ -122,7 +122,7 @@ async function main() {
   {
     signed.length = 0
     const out = await ownerDownload({ admin }, { userId: ME, assetId: FLAGGED })
-    check("a file the virus scan flagged is 403 even for its owner, unsigned", out.status === 403 && signed.length === 0, out)
+    check("a file the virus scan flagged is 403 even for its owner, unsigned, in words for the owner", out.status === 403 && signed.length === 0 && (out.body as { error: string }).error === "The virus scan flagged this file, so it cannot be downloaded.", out)
   }
 
   console.log("\nWhat the owner gets\n")
@@ -229,6 +229,7 @@ async function main() {
       error = (e as Error).message
     }
     check("a refusal reaches the row in the server's words", /Wait a minute/.test(error), error)
+    check("the apps' notices fit the toast on a phone and say what to do", ownFileNotice("ios-download") === "Tap Download to save it to Files" && ownFileNotice("android-download") === "Saving to Downloads on this phone" && ownFileNotice("downloaded") === null && [ownFileNotice("ios-download"), ownFileNotice("android-download")].every((m) => (m ?? "").length <= 34))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
