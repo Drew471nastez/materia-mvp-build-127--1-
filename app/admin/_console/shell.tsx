@@ -44,6 +44,7 @@ export const NAV: { group: string | null; items: NavItem[] }[] = [
     items: [
       { href: "/admin/blog/dashboard", label: "Blog" },
       { href: "/admin/blog/seo", label: "Search and moderation" },
+      { href: "/admin/reviews", label: "Reported reviews" },
       { href: "/admin/blog/dashboard/sales-trigger", label: "Test sale" },
     ],
   },

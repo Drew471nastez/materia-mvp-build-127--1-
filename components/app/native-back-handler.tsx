@@ -28,6 +28,7 @@ const ROOT_ROUTES = [
   "/app/analytics",
   "/app/orders",
   "/app/coupons",
+  "/app/reviews",
   "/app/onepage",
   "/app/emails",
   "/app/payouts",
