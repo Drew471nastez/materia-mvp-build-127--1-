@@ -5,7 +5,8 @@
  * "Should they not change dynamically based on the changes users make on the
  * OnePage?" They should. The search title, the description, the title and
  * description a shared link shows, and its picture all start from the page
- * itself: the name, the bio, the photo and the theme. They follow every edit
+ * itself: the name, the handle, the bio, what the page shows (its products,
+ * socials and links), the photo and the theme. They follow every edit
  * until the creator types over one of them, and only that one stops
  * following. Clearing it (or pressing the reset beside it) makes it follow
  * again. Linktree, Beacons, Stan and Shopify all behave this way.

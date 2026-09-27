@@ -134,11 +134,13 @@ await new Promise((r) => server.listen(0, "127.0.0.1", r))
 const base = `http://127.0.0.1:${server.address().port}`
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
 
-async function open(vp, hash = "links") {
+async function open(vp, hash = "links", blocks = null) {
   const p = await browser.newPage()
   await p.setViewport(vp)
   const errors = []
   p.on("pageerror", (e) => errors.push(String(e)))
+  /* A page of its own for the fixture (scripts/render-onepage-editor.tsx reads PROBE_BLOCKS as it loads). */
+  if (blocks) await p.evaluateOnNewDocument((b) => { window.PROBE_BLOCKS = b }, blocks)
   await p.goto(`${base}/app/onepage#${hash}`)
   await p.waitForSelector("[data-scroll-container]")
   await sleep(1000)
@@ -379,6 +381,44 @@ for (const [label, vp] of [
     await sleep(250)
     await p.screenshot({ path: join(shots, `settings-${label}-${file}.png`), fullPage: false })
   }
+  expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
+  await p.close()
+}
+
+/*
+  ─────────── A page with products and socials and its bio hidden ───────────
+  The description is made from what the page shows: three products by name,
+  the platform its social row draws and the YouTube its link goes to. The
+  row holds what the social links hold (lib/onepage/editor-state
+  syncedSocialPlatforms): the fixture links Instagram only, so the TikTok
+  and the email typed into the row are not drawn and not named. A
+  product switched off is not named. The line under the field counts them.
+*/
+const SHOP_PAGE = [
+  { id: "h", type: "header", enabled: true, sort_order: 0, data: { show_avatar: true, show_name: true, show_bio: false } },
+  { id: "p1", type: "product", enabled: true, sort_order: 1, data: { product_id: "p1", product_title: "Riso Pack", show_price: true, show_description: false, cta_text: "Buy", style: "callout", product_price_cents: 1800 } },
+  { id: "p2", type: "product", enabled: true, sort_order: 2, data: { product_id: "p2", product_title: "Zine No. 4", show_price: true, show_description: false, cta_text: "Buy", style: "callout", product_price_cents: 900 } },
+  { id: "p3", type: "product", enabled: true, sort_order: 3, data: { product_id: "p3", product_title: "Tote", show_price: true, show_description: false, cta_text: "Buy", style: "callout", product_price_cents: 2400 } },
+  { id: "p4", type: "product", enabled: false, sort_order: 4, data: { product_id: "p4", product_title: "Switched Off Poster", show_price: true, show_description: false, cta_text: "Buy", style: "callout", product_price_cents: 500 } },
+  { id: "s1", type: "social_row", enabled: true, sort_order: 5, data: { style: "icons", platforms: [{ platform: "instagram", url: "@satori" }, { platform: "tiktok", url: "@satori" }, { platform: "email", url: "hello@satori.example" }] } },
+  { id: "l1", type: "link_button", enabled: true, sort_order: 6, data: { label: "Studio videos", url: "https://youtube.com/@satori" } },
+]
+for (const [label, vp] of [
+  ["phone-390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
+  ["desktop-1440", { width: 1440, height: 900 }],
+]) {
+  const phone = vp.width < 768
+  console.log(`\n── a page described from its products and socials, ${label} ──`)
+  const { p, errors } = await open(vp, "links", SHOP_PAGE)
+  await openSettings(p, phone)
+  await section(p, "SEO")
+  const s = await read(p)
+  expect(s.searchDescription === "Shop Riso Pack, Zine No. 4 and Tote from Satori Studio. Also on Instagram and YouTube." && s.shareDescription === s.searchDescription, "the description names the products and the platforms on the page", s.searchDescription)
+  expect(!/Switched Off|hello@|Email/.test(s.searchDescription || ""), "not a product switched off, not the email icon", s.searchDescription)
+  expect(s.descriptionSource === "From your page: 3 products, 2 socials", "the line under it counts what it was made from", s.descriptionSource)
+  await p.evaluate(() => document.querySelector('[data-seo-source="seo-description"]')?.scrollIntoView({ block: "center" }))
+  await sleep(200)
+  await p.screenshot({ path: join(shots, `seo-${label}-shop-page.png`), fullPage: false })
   expect(errors.length === 0, "no errors on the page", errors.slice(0, 3))
   await p.close()
 }
