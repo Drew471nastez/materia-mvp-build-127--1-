@@ -337,6 +337,9 @@ async function main() {
     check("the real one passes", ok.first?.source === "social_tiktok", ok.first)
     const own = await attributionForCheckout(db, { creatorId: CREATOR, source: "website", origin, sent: { touches: b64(JSON.stringify({ f: { r: "instagram.com", lh: "lucashop.com", p: "w", t: t0 } })) } })
     check("a touch on the creator's own verified domain passes", own.first?.landing_host === "lucashop.com" && own.first?.source === "social_instagram", own.first)
+    /* Every OnePage is at storelib.me/<name> now: a touch that landed there is Storelib's own, like storelib.com. */
+    const onMe = await attributionForCheckout(db, { creatorId: CREATOR, source: "storelib", origin: { surface: "onepage" }, sent: { touches: b64(JSON.stringify({ f: { r: "instagram.com", lh: "storelib.me", lp: "/luca", p: "o", t: t0 } })) } })
+    check("a touch that landed on the OnePage at storelib.me passes", onMe.first?.landing_host === "storelib.me" && onMe.first?.source === "social_instagram" && onMe.property_type === "onepage", onMe)
 
     /* A payment whose attribution metadata is nonsense still makes its order, at its price. */
     const db2 = seed()
@@ -626,6 +629,18 @@ async function main() {
     go("https://storelib.com/mara", "https://www.tiktok.com/")
     browser.noteVisit(browser.scopeFor(OTHER_CREATOR)!, "creator_page")
     check("storelib.com keeps touches per creator", browser.touchesFor(`c:${OTHER_CREATOR}`)?.first?.source === "social_tiktok" && browser.touchesFor(`c:${CREATOR}`) === null)
+
+    /* storelib.me is every creator's OnePage host: per creator there too, and carried to checkout on storelib.com. */
+    browser.resetTouchMemory()
+    const ONEPAGE_CREATOR = "c0ffee00-0000-4000-8000-000000000004"
+    go("https://storelib.me/nora", "https://www.youtube.com/")
+    check("storelib.me keeps touches per creator, not per host", browser.scopeFor(ONEPAGE_CREATOR) === `c:${ONEPAGE_CREATOR}` && browser.scopeFor(null) === null, browser.scopeFor(ONEPAGE_CREATOR))
+    browser.noteVisit(browser.scopeFor(ONEPAGE_CREATOR)!, "onepage")
+    browser.setPageScope(browser.scopeFor(ONEPAGE_CREATOR))
+    check("  so one creator's OnePage visit is not another creator's source", browser.touchesFor(`c:${ONEPAGE_CREATOR}`)?.first?.source === "social_youtube" && browser.touchesFor(`c:${CREATOR}`) === null && browser.touchesFor("h:storelib.me") === null)
+    const fromMe = new URL(browser.carryTouches(`https://storelib.com/checkout?productId=${PRODUCT}`)).searchParams.get(CARRY_PARAM)
+    check("  and a buy link from storelib.me carries them to checkout on storelib.com", !!fromMe && decodeTouches(fromMe, NOW)?.first?.landing_host === "storelib.me" && decodeTouches(fromMe, NOW)?.first?.source === "social_youtube", fromMe)
+    browser.clearPageScope(browser.scopeFor(ONEPAGE_CREATOR))
 
     /* A client navigation keeps the first page's referrer: it is not an arrival. */
     browser.resetTouchMemory()

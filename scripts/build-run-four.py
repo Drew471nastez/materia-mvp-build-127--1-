@@ -7,7 +7,7 @@ OUT=ROOT+'supabase/sql/run-four/'
 GROUPS=[
  ('1_of_4_core.sql','1 of 4','Rate limits, newsletter, agent connections and GitHub, refunds recorded once, event and email types, order source, site speed, website addresses, coupons and the admin console, email automations.',['01','02','03','04','05','06','07','08','09','10']),
  ('2_of_4_library_checkout_uploads.sql','2 of 4','Agent MCP, library limit and privacy, checkout contacts, product bundles, upload safety, storage buckets, private digital files, storage cleanup, variant policies.',['11','12','13','14','15','16','17','18','19']),
- ('3_of_4_latest.sql','3 of 4','Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites, product variant columns, company details on orders, a creator\'s own AI keys, up to three businesses on one login, the notification engine and its admin counts, receipt email records made server only, a deleted product leaving the OnePage that named it, one home for a creator\'s name and photo, the website builder agent\'s document and questions, an archived product never also published, one review per buyer per product, reviews complete (guest reviews, seller replies, reports, ratings from published reviews), one profile photo everywhere, one OnePage address in any case, the malware scan log, email records for a buyer\'s message to the seller, the picture a shared OnePage link shows, and a OnePage\'s old addresses followed.',None),
+ ('3_of_4_latest.sql','3 of 4','Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites, product variant columns, company details on orders, a creator\'s own AI keys, up to three businesses on one login, the notification engine and its admin counts, receipt email records made server only, a deleted product leaving the OnePage that named it, one home for a creator\'s name and photo, the website builder agent\'s document and questions, an archived product never also published, one review per buyer per product, reviews complete (guest reviews, seller replies, reports, ratings from published reviews), one profile photo everywhere, one OnePage address in any case, the malware scan log, email records for a buyer\'s message to the seller, the picture a shared OnePage link shows, a OnePage\'s old addresses followed, where a sale or a sign-up came from, and Analytics counted the same way on every page.',None),
 ]
 parts={f[:2]:f for f in os.listdir(RN) if re.match(r'\d\d_.*\.sql$',f)}
 # File 3 takes every part from 20 up to 89, so a new part lands there without editing this list.
@@ -18,9 +18,26 @@ HOW="""-- HOW: select all of this file, copy, paste into a NEW query tab in the 
 -- second run changes nothing. If Run shows an error, stop and send it; the
 -- editor runs the paste as one transaction, so nothing in this file changed.
 -- Built from supabase/sql/run-now/ (one statement per line, text unchanged)."""
+# LAST, ON ITS OWN: part 60's placing of old page views on their property.
+# It rewrites every old page view (about a minute per million rows), and a
+# file is one transaction that keeps every lock it takes until it ends: in
+# the file with the other parts it held the orders table, and with it every
+# checkout, webhook and receipt page, for that whole minute (measured: an
+# order could not be read for 75 s at a million rows). So it runs first in
+# the last file instead, where it takes no lock that stops anything else: the
+# order tables were released when the file before it ended, and the update
+# itself lets new page views be written while it runs. Its text is
+# unchanged; only where it runs moves.
+LAST_ALONE={'60':'old page views placed on a property'}
+def last_alone(p):
+    if p not in LAST_ALONE: return None
+    lines=[l for l in open(RN+parts[p]).read().rstrip('\n').split('\n')[1:] if LAST_ALONE[p] in l]
+    assert len(lines)==1, (p, len(lines))
+    return lines[0]
 def body(p):
     lines=open(RN+parts[p]).read().rstrip('\n').split('\n')
-    head=lines[0]; rest=[l for l in lines[1:] if l.strip() and l.strip()!="notify pgrst, 'reload schema';"]
+    alone=last_alone(p)
+    head=lines[0]; rest=[l for l in lines[1:] if l.strip() and l.strip()!="notify pgrst, 'reload schema';" and l!=alone]
     return head, rest
 used=set()
 for name,label,what,ps in GROUPS:
@@ -47,9 +64,12 @@ chk=open(RN+'99_check_after.sql').read().rstrip('\n').split('\n')
 chk_stmt=[l for l in chk if l.strip() and not l.startswith('/*') and not l.startswith('--')]
 assert len(chk_stmt)==1
 out=["-- STORELIB DATABASE, FILE 4 of 4",
-     "-- The storage.objects policies (seven consolidated ones), then one row of true or false, one column per part.",
-     HOW, "", "set local statement_timeout = 0;", "",
-     "-- part 90_storage_policies_needs_owner.sql, with a first step that skips it (a notice, not an error) when this role does not own storage.objects",
+     "-- Old page views placed on the property they were seen on (the last step of part 60), the storage.objects policies (seven consolidated ones), then one row of true or false, one column per part.",
+     HOW, "", "set local statement_timeout = 0;", ""]
+for p in sorted(LAST_ALONE):
+    out+=[f"-- part {parts[p]}, its last step, here on its own so that no order waits for it (see README.md): old page views placed on the property they were seen on. About a minute per million page views; a second run changes nothing.",
+          last_alone(p), ""]
+out+=["-- part 90_storage_policies_needs_owner.sql, with a first step that skips it (a notice, not an error) when this role does not own storage.objects",
      p90[0], do, "",
      "-- part 99_check_after.sql: every column should read true. p90_storage_policies reads false if the step above was skipped; see README.",
      chk_stmt[0]]

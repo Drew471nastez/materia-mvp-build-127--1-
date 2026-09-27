@@ -2,6 +2,7 @@ import "server-only"
 
 import { classifySiteHost, siteOwnerOfHost } from "@/lib/site-accounts/hosts"
 import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
+import { isOnePageHost } from "@/lib/onepage/address"
 import { normalizePath, type PropertyType } from "./events"
 
 /**
@@ -23,6 +24,9 @@ import { normalizePath, type PropertyType } from "./events"
  *                                         subdomain, in development)
  *     anything else (/app, /checkout, /onepage-preview, the front page)
  *                                         not a property: dropped
+ *
+ *   storelib.me/<name>                    the creator's OnePage (the host
+ *                                         serves nothing else)
  *
  *   <name>.storelib.com, or a domain the creator connected
  *     /links                              the creator's OnePage
@@ -199,6 +203,17 @@ export async function resolveProperty(db: Db, input: ResolveInput, now = Date.no
   const onePage = async (p: string): Promise<PropertyResolution> => {
     const id = await remember(`onepage|${input.creatorId}`, now, () => onePageOf(db, input.creatorId, input.creatorUserId))
     return id ? { ok: true, property: { type: "onepage", id, path: p } } : { ok: false, reason: "no_onepage" }
+  }
+
+  /*
+    storelib.me/<name>: the OnePage's own host, which serves OnePages and
+    nothing else (lib/onepage/host-route). Its one page per name is the
+    creator's OnePage; anything else there is a redirect or a 404.
+  */
+  if (isOnePageHost(pageHost)) {
+    const segs = path.split("/").filter(Boolean)
+    if (segs.length !== 1 || isReservedRootSegment(segs[0])) return { ok: false, reason: "not_a_property_page" }
+    return onePage(path)
   }
 
   if (isPlatformHost(pageHost, input.mainDomain)) {

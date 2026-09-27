@@ -67,12 +67,16 @@ from `run-now/`, changes nothing.
   product) instead of deleting them.
 - `44`: the copies of a creator's name and photo that still hold the old value
   are set to what the profile says now.
+- `60`: old page views in `analytics_events` get the place they were seen on
+  (creator page or website), from the address each was recorded on. This step
+  runs first in file 4, on its own: about a minute per million page views,
+  and orders, checkout and new page views carry on while it runs.
 
 Nothing else touches existing rows. Nothing deletes data.
 
 ## Before file 3, on a busy store
 
-File 3 builds the indexes Analytics reads (part 25). Building an index takes a
+File 3 builds the indexes Analytics reads (parts 25 and 60). Building an index takes a
 lock, so new visit tracking waits while it builds. Count the rows first:
 
 ```sql
@@ -82,8 +86,9 @@ select count(*) from public.analytics_events;
 Under about 100k rows it is quick, so run file 3 as it is. Past that, create
 those indexes first, one statement at a time, each in its own query tab:
 `CREATE INDEX CONCURRENTLY` cannot run inside a transaction, which is why they
-are not written that way in the file. The six are listed in
-`supabase/sql/run-now/25_analytics_speed.sql`; add `CONCURRENTLY` after
+are not written that way in the file. They are the six in
+`supabase/sql/run-now/25_analytics_speed.sql` and the four in
+`supabase/sql/run-now/60_analytics_one_pipeline.sql`; add `CONCURRENTLY` after
 `CREATE INDEX`. File 3 then finds them already there and moves on.
 
 ## If a column in the last row reads false

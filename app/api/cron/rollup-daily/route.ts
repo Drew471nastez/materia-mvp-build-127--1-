@@ -50,19 +50,30 @@ import { ROLLUP } from "@/lib/analytics/events"
  * (analytics_report, supabase/sql/run-now part 60). The figures are the
  * same either way; the rollup only makes a long period quick. So a plain
  * run also rolls up the most recent days of the last 400 that were
- * never rolled up (up to BACKFILL_PER_RUN, as many as BACKFILL_BUDGET_MS allows), and a year
- * fills in over the nights that follow without anybody running `?from=`.
+ * never rolled up (as many as BACKFILL_BUDGET_MS allows), so the first night
+ * after the part runs fills the year, without anybody running `?from=`.
  */
 export async function GET(request: Request) {
   return POST(request)
 }
 
+/* As long as the other crons may run: the first night after part 60 fills a year of days. */
+export const maxDuration = 300
+
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 const MAX_DAYS = 92
-/* Days never rolled up, filled on each plain run: the newest first, and never past the budget. */
-const BACKFILL_PER_RUN = 60
+/*
+  Days never rolled up, filled on each plain run: the newest first, and never
+  past the budget. Every missing day of the window, not sixty: a day takes
+  about 50 ms at a million page views (measured), and until a day is rolled
+  up a long period counts it from the raw events, which for a year of a busy
+  store is a report of many seconds (19 s measured, against 0.7 s rolled up).
+  Each day is its own call and its own transaction, so a run stopped by the
+  budget keeps every day it finished.
+*/
 const BACKFILL_WINDOW_DAYS = 400
-const BACKFILL_BUDGET_MS = 20_000
+const BACKFILL_PER_RUN = BACKFILL_WINDOW_DAYS
+const BACKFILL_BUDGET_MS = 240_000
 
 /** The most recent days of the window that analytics_rollup_days does not name, newest first. */
 async function missingDays(admin: ReturnType<typeof createAdminClient>, before: string): Promise<string[]> {

@@ -28,11 +28,20 @@ changed. Stop there and send the error.
 
 ## Before file 2, on a busy store
 
-File 2 builds the indexes Analytics reads (part 25). Run
+File 2 builds the indexes Analytics reads (parts 25 and 60). Run
 `select count(*) from public.analytics_events;` first. Under about 100k rows,
 run it as it is. Above that, create the six indexes in
-`run-now/25_analytics_speed.sql` one at a time with `CREATE INDEX CONCURRENTLY`
-first; file 2 then finds them and moves on.
+`run-now/25_analytics_speed.sql` and the four in
+`run-now/60_analytics_one_pipeline.sql` one at a time with
+`CREATE INDEX CONCURRENTLY` first; file 2 then finds them and moves on.
+
+## File 3 on a busy store
+
+File 3 starts by placing every old page view on the page it was seen on (the
+last step of part 60). It takes about a minute per million page views, and
+nothing waits for it: orders, checkout and new page views carry on while it
+runs. That is why it is in file 3 and not in file 2, which holds the orders
+table until it ends. A second run finds nothing left to place.
 
 ## What is new since the four files were first handed over
 
@@ -45,3 +54,7 @@ first; file 2 then finds them and moves on.
   quietly.
 - `50` sign up protection (`profiles.spam_state`), which the admin console
   reads.
+- `59` where a sale or a sign-up came from: first and last touch and the
+  page, on orders, subscribers and started checkouts. No amount changes.
+- `60` Analytics as one pipeline: every page view with its page and place,
+  the daily rollup, and the reports' functions.

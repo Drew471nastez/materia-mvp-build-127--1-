@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 4 of 4
--- The storage.objects policies (seven consolidated ones), then one row of true or false, one column per part.
+-- Old page views placed on the property they were seen on (the last step of part 60), the storage.objects policies (seven consolidated ones), then one row of true or false, one column per part.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the four files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -8,6 +8,9 @@
 -- Built from supabase/sql/run-now/ (one statement per line, text unchanged).
 
 set local statement_timeout = 0;
+
+-- part 60_analytics_one_pipeline.sql, its last step, here on its own so that no order waits for it (see README.md): old page views placed on the property they were seen on. About a minute per million page views; a second run changes nothing.
+DO $$ DECLARE has_purpose boolean; creator_hosts text := $h$ ('storelib.com', 'www.storelib.com', 'localhost', '127.0.0.1') $h$; v_rows bigint; BEGIN has_purpose := EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'custom_domains' AND column_name = 'purpose'); EXECUTE format($q$ WITH sole AS (SELECT creator_id, (array_agg(id))[1] AS install_id FROM public.store_theme_installs GROUP BY creator_id HAVING count(*) = 1), placed AS ( SELECT e.id, e.creator_id, %1$s AS host FROM public.analytics_events e WHERE e.property_type IS NULL AND e.event_type = 'view' AND e.page_url ~* '^https?://[^/?#]+' ), typed AS ( SELECT p.id, p.creator_id, CASE WHEN p.host IN %2$s OR p.host LIKE '%%.vercel.app' THEN 'creator_page' WHEN %3$s THEN 'creator_page' ELSE 'website' END AS property_type FROM placed p WHERE p.host IS NOT NULL ) UPDATE public.analytics_events e SET property_type = t.property_type, property_id = CASE WHEN t.property_type = 'website' THEN (SELECT s.install_id FROM sole s WHERE s.creator_id = t.creator_id) END FROM typed t WHERE e.id = t.id AND e.property_type IS NULL $q$, 'lower(substring(e.page_url from ''^[a-zA-Z][a-zA-Z0-9+.-]*://([^/?#:]+)''))', creator_hosts, CASE WHEN has_purpose THEN $c$EXISTS (SELECT 1 FROM public.custom_domains d WHERE d.creator_id = p.creator_id AND d.domain = regexp_replace(p.host, '^www\.', '') AND d.purpose = 'creator_page')$c$ ELSE 'false' END); GET DIAGNOSTICS v_rows = ROW_COUNT; RAISE NOTICE 'analytics_events: % old page views placed on a property', v_rows; END $$;
 
 -- part 90_storage_policies_needs_owner.sql, with a first step that skips it (a notice, not an error) when this role does not own storage.objects
 /* LAST, ON ITS OWN. Replaces the storage.objects policies. Needs the owner of storage.objects; see README if it says "must be owner". */

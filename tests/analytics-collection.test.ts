@@ -406,6 +406,17 @@ async function main() {
     check("  at /l/<slug> and at /links on a connected domain too", view2.row?.property_id === ANA_ONEPAGE && onDomain.row?.property_id === ANA_ONEPAGE)
     const again = await ask(db, { body: { creatorId: ANA, href: "https://storelib.com/ana/links", sessionId: "s1", visitorId: "v1" }, cookies: consent })
     check("  and a refresh of it is not another", again.reason === "duplicate")
+    /* storelib.me/<name> is where every OnePage lives now (lib/onepage/address). Its tracker posts to storelib.me itself. */
+    const onMe = await ask(db, { body: { creatorId: ANA, href: "https://storelib.me/ana?utm_source=ig", sessionId: "s4", visitorId: "v4" }, cookies: consent })
+    check("a view at storelib.me/<name> is the OnePage's, by its id", onMe.recorded && onMe.row?.property_type === "onepage" && onMe.row?.property_id === ANA_ONEPAGE && onMe.row?.path === "/ana", onMe)
+    const meElsewhere = await ask(db, { body: { creatorId: ANA, href: "https://storelib.me/ana/links", sessionId: "s5", visitorId: "v5" }, cookies: consent })
+    const meReserved = await ask(db, { body: { creatorId: ANA, href: "https://storelib.me/app", sessionId: "s6", visitorId: "v6" }, cookies: consent })
+    check("  anything else on storelib.me (a redirect or a 404 there) is not a page", !meElsewhere.recorded && !meReserved.recorded && meElsewhere.detail === "not_a_property_page", [meElsewhere, meReserved])
+    const meClick = await ask(db, { kind: "link_click", body: { creatorId: ANA, href: "https://storelib.me/ana", linkUrl: "https://open.spotify.com/x", linkId: "block_9", sessionId: "s4", visitorId: "v4" }, cookies: consent })
+    check("  and a link clicked there is the OnePage's link click", meClick.recorded && meClick.row?.property_type === "onepage" && meClick.row?.link_id === "block_9", meClick)
+    const hostRoute = read("lib/onepage/host-route.ts")
+    check("  storelib.me answers the tracker's two calls instead of a 404", hostRoute.includes('{ path: /^\\/api\\/track-view\\/?$/, methods: ["POST"] }') && hostRoute.includes('{ path: /^\\/api\\/track-event\\/?$/, methods: ["POST"] }'))
+    for (const r of db.rows("analytics_events").filter((x) => x.event_type === EVENT.linkClick)) db.rows("analytics_events").splice(db.rows("analytics_events").indexOf(r), 1)
 
     const click = { creatorId: ANA, href: "https://storelib.com/ana/links", linkUrl: "https://www.youtube.com/watch?v=abc&token=secret#t=10", linkId: "block_1", sessionId: "s1", visitorId: "v1" }
     const c1 = await ask(db, { kind: "link_click", body: click, cookies: consent })

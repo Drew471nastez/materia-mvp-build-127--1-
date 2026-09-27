@@ -120,7 +120,12 @@ order's product. `32` also changes what deleting a product does: its orders
 stay, with no product, where before the database deleted them with it.
 `47` makes the same pass as `08` (a product published and flagged archived
 becomes status `archived`), and from then on a trigger keeps the two in
-step.
+step. `60` writes the property (creator page or website) onto old page views
+in `analytics_events`, from the address each was recorded on, and changes
+nothing else in them; on a large table that takes about a minute per million
+page views, during which this part holds `analytics_events`. The bundles in
+`run-four/` and `all-in-three/` run that one step first in their last file, so
+it holds nothing new page views or orders need.
 
 ## Reading `00_check_first.sql`
 

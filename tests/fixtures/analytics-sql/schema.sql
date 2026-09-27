@@ -40,6 +40,8 @@ ALTER TABLE public.analytics_events ADD CONSTRAINT analytics_events_event_type_c
 ALTER TABLE public.analytics_events ADD COLUMN utm_term TEXT, ADD COLUMN utm_content TEXT, ADD COLUMN screen_width INTEGER, ADD COLUMN screen_height INTEGER, ADD COLUMN language TEXT, ADD COLUMN source_category TEXT;
 CREATE TABLE public.email_logs (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email_type text);
 -- What supabase/sql/run-now/99_check_after.sql casts to regclass, so the whole check can run here.
+-- Its p53 column calls part 44's storelib_follow_photo by name, so the function has to exist for the check to run at all.
+CREATE OR REPLACE FUNCTION public.storelib_follow_photo(text, text, text) RETURNS text LANGUAGE sql IMMUTABLE AS $$ SELECT $3 $$;
 CREATE TABLE public.email_flows (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), trigger_type text, status text);
 CREATE TABLE public.payouts (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
 CREATE SCHEMA IF NOT EXISTS storage;

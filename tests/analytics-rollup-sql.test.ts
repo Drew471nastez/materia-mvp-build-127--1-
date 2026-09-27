@@ -15,7 +15,7 @@
  *   a day's rollup equals the raw rows it was made from, counted another
  *   way, and running it again changes nothing (fixtures/rollup_check.sql);
  *   OnePage page views are left out of the Storelib counts and nothing else;
- *   the whole of 99_check_after.sql runs, and its p54 column reads true.
+ *   the whole of 99_check_after.sql runs, and its p60 column reads true.
  *
  * It needs a Postgres it may create a database in: ANALYTICS_PG_HOST (a
  * host or a socket directory) and ANALYTICS_PG_USER, a superuser. Without
@@ -117,7 +117,7 @@ if (!reachable) {
     console.log("\nThe check after")
     const check99 = psql(db, ["-x", "-f", join(root, "supabase/sql/run-now/99_check_after.sql")]).out
     check("the whole of 99_check_after.sql runs", /p51_email_flows_trigger_rules/.test(check99))
-    check("  and p54 reads true", /p60_analytics_one_pipeline\s*\|\s*t/.test(check99), check99.split("\n").find((l) => /p54/.test(l)))
+    check("  and p60 reads true", /p60_analytics_one_pipeline\s*\|\s*t/.test(check99), check99.split("\n").find((l) => /p60/.test(l)))
   } catch (e) {
     check("the Postgres run finished", false, (e as Error).message)
   } finally {

@@ -33,6 +33,7 @@
 import { hasConsent, onConsentChange } from "@/lib/consent/client"
 import { landingSearch } from "@/lib/navigation/in-app-history"
 import { getMainDomain } from "@/lib/url-helpers"
+import { isOnePageHost } from "@/lib/onepage/address"
 import {
   CARRY_PARAM,
   cleanTouch,
@@ -66,11 +67,20 @@ function platformHost(host: string): boolean {
   return h === main || h === "localhost" || h === "127.0.0.1" || h.endsWith(".vercel.app")
 }
 
-/** Where this page's touches are kept, or null when it cannot be told (Storelib's own host with no creator). */
+/**
+ * A host every creator shares: storelib.com and storelib.me (the OnePages).
+ * Touches there are kept per creator, never per host, so one creator's
+ * OnePage visit is never another creator's source.
+ */
+function sharedHost(host: string): boolean {
+  return platformHost(host) || isOnePageHost(host)
+}
+
+/** Where this page's touches are kept, or null when it cannot be told (a shared host with no creator). */
 export function scopeFor(creatorId?: string | null): string | null {
   if (typeof window === "undefined") return null
   const host = window.location.hostname.toLowerCase().replace(/^www\./, "")
-  if (!platformHost(host)) return `h:${host}`
+  if (!sharedHost(host)) return `h:${host}`
   return creatorId ? `c:${creatorId}` : null
 }
 

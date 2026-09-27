@@ -15,7 +15,7 @@ import "server-only"
  * that belongs to somebody else is refused before anything is read.
  *
  * COUNTED WHERE THE ROWS ARE. analytics_report (supabase/sql/run-now part
- * 54) counts visitors, visits and the lists in Postgres and answers with a
+ * 60) counts visitors, visits and the lists in Postgres and answers with a
  * few hundred numbers. Until that part has run, the rows are read here a
  * page at a time and counted by the same rules (reports.ts wireFromRows).
  */
@@ -350,17 +350,42 @@ export async function onePageLinkLabels(admin: Admin, onePageId: string | null):
 const ORDER_COLUMNS =
   "id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents, source, source_detail, property_type, property_id, buyer_country_code, buyer_country"
 
+/**
+ * A day either side of each stretch. A basket's lines are written one at a
+ * time (lib/checkout/fulfil-cart-item), moments apart, and the Orders page
+ * groups every line of a payment and places it by its first line. Read only
+ * inside the period, a basket across its edge was half an order: its first
+ * line alone at the end of the period, or its later lines counted as an
+ * order of their own at the start of the next. With the margin the payment
+ * is whole, and the reports keep only payments whose first line is inside.
+ */
+export function orderSpans(spans: Span[]): Span[] {
+  const wide = spans.map((s) => ({ start: s.start - DAY, end: s.end + DAY })).sort((a, b) => a.start - b.start)
+  const out: Span[] = []
+  for (const s of wide) {
+    const last = out[out.length - 1]
+    if (last && s.start <= last.end) last.end = Math.max(last.end, s.end)
+    else out.push({ ...s })
+  }
+  return out
+}
+
+/** A row as the Orders page reads it (lib/orders/load-rows toOrderRow): no status is an unfinished payment, no amount is nothing. */
+function asOrdersPageRow(row: OrderRow): OrderRow {
+  return { ...row, status: row.status || "pending", amount_cents: row.amount_cents || 0 }
+}
+
 /* The creator's orders by the order's own creator, never by a list of product ids (lib/analytics/creator-orders). */
 export function readOrders(admin: Admin, spans: Span[], creatorId: string, product: string | null): Promise<{ rows: OrderRow[]; truncated: boolean }> {
   return byCreator((scope) =>
     withColumns(ORDER_COLUMNS, async (columns) => {
-      const read = await readSpans<OrderRow>(spans, (start, end, after) =>
+      const read = await readSpans<OrderRow>(orderSpans(spans), (start, end, after) =>
         startingAt(scopedOrders(admin, columns, scope, creatorId, product).lt("created_at", end), start, after)
           .order("created_at", { ascending: true })
           .order("id", { ascending: true })
           .limit(PAGE) as unknown as Read<OrderRow>,
       )
-      return { rows: ownRows(read.rows), truncated: read.truncated }
+      return { rows: ownRows(read.rows).map(asOrdersPageRow), truncated: read.truncated }
     }),
   )
 }

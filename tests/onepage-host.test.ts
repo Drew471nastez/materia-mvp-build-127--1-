@@ -175,6 +175,9 @@ function routing() {
   console.log("\nstorelib.me/api: only what a OnePage calls")
   const allowed: Array<[string, string]> = [
     ["POST", "/api/onepage/track"],
+    /* The page's view and its steps in Analytics: the OnePage's TrackView posts to its own origin. */
+    ["POST", "/api/track-view"],
+    ["POST", "/api/track-event"],
     ["POST", "/api/onepage/leads"],
     ["POST", "/api/subscribe"],
     ["POST", "/api/checkout/quick-free"],
@@ -193,6 +196,8 @@ function routing() {
     ["POST", "/api/stripe/webhook"],
     ["GET", "/api/download/../../admin"],
     ["GET", "/api"],
+    ["GET", "/api/track-view"],
+    ["POST", "/api/analytics/reports"],
   ]
   for (const [method, p] of refused) {
     const r = route("storelib.me", p.split("?")[0], { method })

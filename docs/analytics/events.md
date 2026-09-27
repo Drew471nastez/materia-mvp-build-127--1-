@@ -128,6 +128,10 @@ place is dropped.
    | `/w/<name>/...` | `website`, when `<name>` is this creator's (development) |
    | anything else, including every reserved first segment (`/app`, `/checkout`, `/onepage-preview`) and `/` | not a property: dropped |
 
+   On storelib.me, where every OnePage lives (`lib/onepage/address.ts`),
+   `/<name>` is `onepage`, the creator's OnePage; anything else there is a
+   redirect or a 404 and is dropped. The host answers the tracker's two calls,
+   `/api/track-view` and `/api/track-event` (`lib/onepage/host-route.ts`).
 4. On any other host, the host must be the creator's own:
    - `<name>.storelib.com` or a connected domain that serves their published
      website (`lib/site-accounts/hosts.ts` `siteOwnerOfHost`, the check website
@@ -198,7 +202,7 @@ Nothing is written for:
 | What | How it is known |
 | --- | --- |
 | The builder canvas and previews | Preview routes draw no tracker; a page inside a frame sends nothing (`skipReason: framed`: the website builder canvas, the creator page workspace and the OnePage editor frame the real pages); preview addresses are refused on both sides. |
-| The owner | `lib/analytics/own-visit.ts`: a signed in Storelib session whose user is the creator. Covers storelib.com and `*.storelib.com` (the sign in cookie is on `.storelib.com`); a connected custom domain never carries it, so the owner on their own custom domain is counted. |
+| The owner | `lib/analytics/own-visit.ts`: a signed in Storelib session whose user is the creator. Covers storelib.com and `*.storelib.com` (the sign in cookie is on `.storelib.com`); a connected custom domain never carries it, so the owner on their own custom domain is counted, and so is the owner on their OnePage at storelib.me (as its own `onepage_views` count always has). |
 | Robots | `lib/analytics/user-agent.ts` `isBotAgent` (crawlers, link previews, uptime checks, HTTP libraries, `HeadlessChrome`, `puppeteer`, `playwright`, `lighthouse`, and an empty user agent); and `navigator.webdriver` in the browser. |
 | Prefetches and prerenders | The tracker runs in the page after it is shown, so a Next prefetch (which renders nothing) never sends; a prerendered page waits for `prerenderingchange`, a background tab for `visibilitychange`. The server also refuses `Next-Router-Prefetch`, `Purpose: prefetch` and `Sec-Purpose: prefetch`/`prerender`. |
 | Another site's requests | `Sec-Fetch-Site` other than `same-origin`, or an `Origin` on another host. |

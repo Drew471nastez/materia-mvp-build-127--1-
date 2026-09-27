@@ -407,7 +407,7 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
   let error = await insert(row)
   if (error && missingColumn(error)) {
     /*
-      Part 52 has not run. A OnePage view or a link click has no column to be
+      Part 60 has not run. A OnePage view or a link click has no column to be
       told apart by, and written without one it would be counted as a
       creator page view: so it waits for the part. Anything else is written
       as it was before the part, then with the core columns only.

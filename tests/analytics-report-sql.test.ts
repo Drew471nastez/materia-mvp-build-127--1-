@@ -20,7 +20,7 @@
  *   buildReports are the independent sum to the cent;
  *   another creator's website id returns nothing;
  *   every read the function makes can be served by an index;
- *   99_check_after.sql runs, and its p54 columns read true.
+ *   99_check_after.sql runs, and its p60 columns read true.
  *
  * It needs a Postgres it may create a database in: ANALYTICS_PG_HOST (a host
  * or a socket directory) and ANALYTICS_PG_USER, a superuser. Without one it
@@ -350,10 +350,61 @@ if (!reachable) {
     const seq = plans.split("\n").filter((l) => /Seq Scan on analytics_(events|property_daily)/.test(l))
     check("with sequential scans made a last resort, no read of the events or the rollup needs one", seq.length === 0 && /Index (Only )?Scan|Bitmap Index Scan/.test(plans), seq.slice(0, 3))
 
+    console.log("\nA day of 25 hours, and a zone 5:45 ahead of UTC")
+    {
+      /*
+        Visits at 23:30 on the clock of Los Angeles and of Kathmandu, and on
+        either side of the night Los Angeles turns its clocks back
+        (2026-11-01, 1:30 happens twice). Each visit is one person and one
+        visit, so every day's count is how many of them that zone's calendar
+        puts on that day, worked out here with Intl and nothing else of ours.
+      */
+      const at = [
+        "2026-10-31T23:30:00-07:00",
+        "2026-11-01T01:30:00-07:00",
+        "2026-11-01T01:30:00-08:00",
+        "2026-11-01T23:30:00-08:00",
+        "2026-11-02T00:10:00-08:00",
+        "2026-11-01T23:30:00+05:45",
+        "2026-11-02T00:05:00+05:45",
+        "2026-11-01T18:10:00Z",
+        "2026-11-02T18:14:00Z",
+        "2026-11-02T18:16:00Z",
+      ].map((t) => new Date(t).toISOString())
+      psql(db, ["-c", `insert into analytics_events (creator_id, event_type, session_id, visitor_id, property_type, path, source_category, created_at) select '${A}', 'view', 'dst_s' || i, 'dst_v' || i, 'creator_page', '/ana', 'direct', t::timestamptz from unnest(array['${at.join("','")}']) with ordinality u(t, i)`])
+      const dstRows = json<ViewRow[]>(db, `select coalesce(json_agg(e order by e.created_at, e.id), '[]')::text from (select id::text, event_type, session_id, visitor_id, product_id::text, property_type, property_id::text, path, source_category, referrer_domain, utm_campaign, device_type, browser, country_code, page_url, created_at from analytics_events where creator_id = '${A}' and created_at >= '2026-10-29' and created_at < '2026-11-06') e`)
+      const localDay = (iso: string, tz: string) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso))
+      const days = ["2026-10-31", "2026-11-01", "2026-11-02", "2026-11-03"]
+      const call = (tz: string) => {
+        const window = { start: midnightOf(days[0], tz), end: midnightOf("2026-11-04", tz) }
+        const a = reportArgs(window, null, tz)
+        const arr = (xs: number[]) => `'{${xs.join(",")}}'::bigint[]`
+        return { window, fn: json<ReportWire>(db, `select public.analytics_report('${A}', 'creator_page', NULL, '${W1}', NULL, ${a.p_cur_start}, ${a.p_cur_end}, ${a.p_prev_start}, ${a.p_prev_end}, ${arr(a.p_cur_starts)}, ${arr(a.p_prev_starts)}, 'all', '2026-11-20T00:00:00Z')::text`), starts: a.p_cur_starts }
+      }
+      const first: Record<string, ReportWire> = {}
+      for (const tz of ["America/Los_Angeles", "Asia/Kathmandu", "UTC"]) {
+        const { window, fn, starts } = call(tz)
+        first[tz] = fn
+        const want = days.map((d) => at.filter((t) => localDay(t, tz) === d).length)
+        check(`${tz}: four days, the chart's buckets start at each local midnight`, starts.length === 4 && starts.every((s, i) => s === midnightOf(days[i], tz)), starts.map((s) => new Date(s).toISOString()))
+        check(`  page views, visitors and visits land on the zone's own day: ${want.join(", ")}`,
+          canon(fn.cur.view_buckets) === canon(want) && canon(fn.cur.visitor_buckets) === canon(want) && canon(fn.cur.session_buckets) === canon(want),
+          { views: fn.cur.view_buckets, visitors: fn.cur.visitor_buckets, visits: fn.cur.session_buckets, want })
+        const node = wireFromRows({ views: dstRows, steps: [], window, previous: null, timeZone: tz, selector: { type: "creator_page" }, defaultWebsite: W1, product: null, mainDomain: "storelib.com" })
+        check("  and Node counts the same", canon(node.cur.view_buckets) === canon(want) && canon(node.cur.session_buckets) === canon(want), { node: [node.cur.view_buckets, node.cur.session_buckets] })
+      }
+      check("  2026-11-01 in Los Angeles is 25 hours long and holds both 1:30s", midnightOf("2026-11-02", "America/Los_Angeles") - midnightOf("2026-11-01", "America/Los_Angeles") === 25 * 3_600_000)
+      psql(db, ["-tA", "-c", "select sum(public.analytics_refresh_property_day(d::date)) from generate_series(date '2026-10-29', date '2026-11-05', interval '1 day') d"])
+      for (const tz of ["America/Los_Angeles", "Asia/Kathmandu", "UTC"]) {
+        const { fn } = call(tz)
+        check(`${tz}: the same days from the rollup (${fn.cur.rolled_days} days rolled up)`, withoutBookkeeping(fn) === withoutBookkeeping(first[tz]) && (fn.cur.rolled_days ?? 0) >= 2, { rolled: fn.cur.rolled_days, got: fn.cur.session_buckets, before: first[tz].cur.session_buckets })
+      }
+    }
+
     console.log("\nThe check after")
     const check99 = psql(db, ["-x", "-f", join(root, "supabase/sql/run-now/99_check_after.sql")])
     check("the whole of 99_check_after.sql runs", /p60_analytics_one_pipeline/.test(check99))
-    check("  and both p54 columns read true", /p60_analytics_one_pipeline\s*\|\s*t/.test(check99) && /p60_analytics_reports\s*\|\s*t/.test(check99), check99.split("\n").filter((l) => /p54/.test(l)))
+    check("  and both p60 columns read true", /p60_analytics_one_pipeline\s*\|\s*t/.test(check99) && /p60_analytics_reports\s*\|\s*t/.test(check99), check99.split("\n").filter((l) => /p60/.test(l)))
   } catch (e) {
     check("the Postgres run finished", false, (e as Error).message)
   } finally {

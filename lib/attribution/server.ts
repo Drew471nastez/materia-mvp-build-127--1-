@@ -9,7 +9,8 @@ import "server-only"
  * UNTRUSTED UNTIL CHECKED. The touches arrive from a page, which a stranger
  * controls. lib/attribution/touch decodeTouches keeps only known fields
  * within their limits and works the source out again; here each touch must
- * also have landed on storelib.com or on one of THIS creator's own addresses
+ * also have landed on storelib.com, on storelib.me (the OnePages) or on one
+ * of THIS creator's own addresses
  * (lib/checkout/site-hosts), or it is dropped. Nothing here is ever read for
  * a price, a product, a creator or a payment: the product decided the
  * creator before any of this runs.
@@ -34,6 +35,7 @@ import "server-only"
  */
 
 import { getMainDomain } from "@/lib/url-helpers"
+import { isOnePageHost } from "@/lib/onepage/address"
 import { siteHostsFor } from "@/lib/checkout/site-hosts"
 import type { OrderOrigin, OrderSource } from "@/lib/orders/order-source"
 import type { ContactSource } from "@/lib/contacts/contact-source"
@@ -86,10 +88,11 @@ function withTimeout<T>(work: PromiseLike<T>, fallback: T, ms = LOOKUP_MS): Prom
   })
 }
 
+/** Storelib's own hosts, every creator's: storelib.com and storelib.me, where every OnePage is. */
 function platformHost(host: string): boolean {
   const h = host.toLowerCase().replace(/^www\./, "")
   const main = getMainDomain().toLowerCase().replace(/^www\./, "").split(":")[0]
-  return h === main || h === "localhost" || h === "127.0.0.1" || h.endsWith(".vercel.app")
+  return h === main || h === "localhost" || h === "127.0.0.1" || h.endsWith(".vercel.app") || isOnePageHost(h)
 }
 
 /* ─── Which property ────────────────────────────────────────────────── */
